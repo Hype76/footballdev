@@ -480,6 +480,13 @@ export async function createCoachPoll(user, poll) {
     p_options: options, p_closes_at: normalize(poll.closesAt) || null, p_allow_multiple: poll.allowMultiple === true, p_max_choices: poll.allowMultiple ? Number(poll.maxChoices || 0) || null : null,
     p_allow_own_child_votes: poll.allowOwnChildVotes !== false, p_allow_vote_changes: poll.allowVoteChanges !== false, p_hide_votes: poll.anonymous === true, p_allow_comments: poll.allowComments === true, p_request_id: requestId('coach-poll'),
   })
+  if (poll.audience !== 'staff' && poll.notifyResultsOnClose === true) {
+    const configured = await rpc('configure_poll_result_delivery', {
+      p_notify_results: true,
+      p_poll_id: data.id,
+    })
+    return normalizeCoachPoll(configured)
+  }
   return normalizeCoachPoll(data)
 }
 

@@ -313,6 +313,25 @@ async function createSentCommunicationLog(row, { deliveryChannel = 'email' } = {
 async function sendScheduledParentPush(row, communicationLog) {
   const availabilityRequestId = String(row?.payload?.matchDayAvailability?.requestId ?? '').trim()
   const trainingRequestPlayerId = String(row?.payload?.trainingInvitation?.requestPlayerId ?? '').trim()
+  const resourceNotificationId = String(row?.payload?.resourceNotification?.notificationId ?? '').trim()
+
+  if (resourceNotificationId && row?.payload?.resourceNotification?.parentLinkId) {
+    try {
+      const pushResult = await sendParentMobilePushById({
+        id: resourceNotificationId,
+        profile: {
+          clubId: row.club_id,
+          role: 'system',
+          roleRank: 100,
+        },
+        type: 'resource_shared',
+      })
+      return Number(pushResult?.sent || 0) > 0
+    } catch (error) {
+      console.error('Scheduled resource mobile push failed', error)
+    }
+    return false
+  }
 
   if (availabilityRequestId && row?.payload?.matchDayAvailability?.parentLinkId) {
     try {

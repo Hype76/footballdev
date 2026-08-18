@@ -221,9 +221,9 @@ function normalizeReport({
     deliveryState: delivery.deliveryState,
     deliveryLabel: delivery.deliveryLabel,
     deliveredAt: delivery.deliveredAt,
-    pdfState: pdfAttached ? 'attached' : 'not_requested',
-    pdfLabel: pdfAttached ? 'PDF attached' : 'No PDF requested',
-    canDownloadPdf: pdfAttached,
+    pdfState: pdfAttached ? 'attached' : 'generated_on_demand',
+    pdfLabel: pdfAttached ? 'PDF attached' : 'PDF available',
+    canDownloadPdf: true,
   }
 }
 

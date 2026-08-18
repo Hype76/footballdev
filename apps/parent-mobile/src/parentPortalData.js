@@ -294,6 +294,33 @@ export async function getParentResources(user) {
   return (data || []).map(normalizeParentResource)
 }
 
+export async function getParentNotificationInbox(user) {
+  const link = requireSelectedLink(user)
+  const config = getMobileRuntimeConfig('parent')
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error('Sign in again before opening notifications.')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, `/.netlify/functions/parent-mobile-notifications?parentLinkId=${encodeURIComponent(link.id)}`), {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!ok || result.success === false) throw new Error(result.message || 'Notifications could not be loaded.')
+  return Array.isArray(result.notifications) ? result.notifications : []
+}
+
+export async function markParentNotificationRead(user, notificationId = '') {
+  const link = requireSelectedLink(user)
+  const config = getMobileRuntimeConfig('parent')
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error('Sign in again before opening notifications.')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '/.netlify/functions/parent-mobile-notifications'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notificationId, parentLinkId: link.id }),
+  })
+  if (!ok || result.success === false) throw new Error(result.message || 'Notification state could not be saved.')
+  return result
+}
+
 function getParentApiPaths(config) {
   if (config.supabaseEnvironment === 'production') {
     return {

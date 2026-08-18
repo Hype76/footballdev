@@ -26,7 +26,7 @@ const PUSH_NATIVE_STEP_TIMEOUT_MS = 12000
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList: true,
   }),

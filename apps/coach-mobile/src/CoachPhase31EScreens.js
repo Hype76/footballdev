@@ -470,6 +470,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   const [creating, setCreating] = useState(false)
   const [description, setDescription] = useState('')
   const [maxChoices, setMaxChoices] = useState('')
+  const [notifyResultsOnClose, setNotifyResultsOnClose] = useState(false)
   const [options, setOptions] = useState(['', ''])
   const [title, setTitle] = useState('')
   const [votingOptionId, setVotingOptionId] = useState('')
@@ -489,6 +490,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
         audience,
         description,
         maxChoices: allowMultiple ? Number(maxChoices || 0) || null : null,
+        notifyResultsOnClose: audience === 'parents' && notifyResultsOnClose,
         options: pollOptions,
         title: title.trim(),
       })
@@ -496,6 +498,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       setDescription('')
       setOptions(['', ''])
       setMaxChoices('')
+      setNotifyResultsOnClose(false)
       setCreateFormOpen(false)
       await load()
       setNotice(audience === 'parents'
@@ -504,7 +507,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
     } catch (error) { setNotice(getCoachFriendlyError(error)) }
     finally { setCreating(false) }
   }
-  const close = () => Alert.alert('Close this Poll?', 'Responses remain in the canonical history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Close', onPress: async () => { try { await setCoachPollStatus(user, selected, 'closed'); setNotice('Poll closed.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) } } }])
+  const close = () => Alert.alert('Close this Poll?', 'Responses remain in the canonical history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Close', onPress: async () => { try { await setCoachPollStatus(user, selected, 'closed'); setNotice(selected?.notifyResultsOnClose ? 'Poll closed. Results are queued using each Parent communication preference.' : 'Poll closed.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) } } }])
   const reopen = async () => { try { await setCoachPollStatus(user, selected, 'open'); setNotice('Poll reopened.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) } }
   const vote = async (poll, optionId) => {
     setVotingOptionId(`${poll.id}:${optionId}`)
@@ -537,6 +540,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
         {allowMultiple ? <><Text style={styles.label}>Maximum choices, optional</Text><TextInput accessibilityLabel="Maximum Poll choices" keyboardType="number-pad" onChangeText={setMaxChoices} placeholder="Leave blank for unlimited" placeholderTextColor={placeholderColor} style={styles.input} value={maxChoices} /><Text style={styles.body}>{maxChoices ? `Parents can choose up to ${maxChoices} answers.` : 'Parents can choose any number of answers and tap again to remove one.'}</Text></> : null}
         <View style={styles.row}><Text style={styles.label}>Allow answer changes</Text><Switch accessibilityLabel="Allow Poll answer changes" onValueChange={setAllowVoteChanges} value={allowVoteChanges} /></View>
         <View style={styles.row}><Text style={styles.label}>Hide voter names</Text><Switch accessibilityLabel="Hide Poll voter names" onValueChange={setAnonymous} value={anonymous} /></View>
+        {audience === 'parents' ? <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.label}>Send final results</Text><Text style={styles.body}>Send the ranked result when this Poll closes, reaches its deadline, or everyone has replied.</Text></View><Switch accessibilityLabel="Send final Poll results" onValueChange={setNotifyResultsOnClose} value={notifyResultsOnClose} /></View> : null}
         <Button disabled={stale || creating || Number(user.roleRank || 0) < 50 || !title.trim() || options.filter((option) => option.trim()).length < 2} label={creating ? 'Creating Poll...' : 'Create Poll'} onPress={() => void create()} styles={styles} />
       </View> : null}
       {data.length ? data.map((poll) => {
@@ -552,6 +556,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
             </Pressable>
             {expanded ? <>
               <Text style={styles.body}>{poll.audience === 'staff' ? 'Coaches' : 'Parents'} | {poll.anonymous ? 'Anonymous' : 'Named responses'} | {poll.allowMultiple ? poll.maxChoices ? `Up to ${poll.maxChoices}` : 'Unlimited choices' : 'One choice'}</Text>
+              {poll.notifyResultsOnClose ? <Text style={styles.body}>{poll.resultsNotifiedAt ? 'Final results sent' : 'Final results will be sent automatically'}</Text> : null}
               {rankedOptions.map((option) => {
                 const chosen = currentOptionIds.includes(option.id)
                 const atLimit = poll.allowMultiple && Number(poll.maxChoices || 0) > 0 && currentOptionIds.length >= Number(poll.maxChoices) && !chosen
@@ -606,7 +611,7 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
     setUncertainAttempt(null)
     try {
       const result = await createCoachMatchAvailabilityRequests(user, selectedMatch, playerIds)
-      setNotice(`Match availability requests created. Queued ${result.queuedCount}; duplicates ${result.duplicateCount}; missing contacts ${result.missingContactCount}.`)
+      setNotice(`${result.requestCount || playerIds.length} Player request${Number(result.requestCount || playerIds.length) === 1 ? '' : 's'} created. Email queued ${result.queuedCount}; existing requests ${result.duplicateCount}; Players without an eligible contact ${result.missingContactCount}. App delivery follows each Parent's communication choice.`)
       setPlayerIds([])
       await load()
     } catch (error) {
@@ -638,7 +643,7 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
     } catch (error) { setNotice(`${getCoachFriendlyError(error, 'The request could not be completed.')} Check the current invitations before retrying.`) }
     finally { setCreating(false) }
   }
-  const confirmCreate = () => Alert.alert('Create Match availability requests?', 'This uses the canonical Match workflow and may queue Parent email for the selected Players. Existing request identity is reused where the server supports it.', [
+  const confirmCreate = () => Alert.alert('Send Match availability requests?', `This creates ${playerIds.length} Player request${playerIds.length === 1 ? '' : 's'}. Email and app delivery follow each Parent's saved communication choice. Existing request identity is reused.`, [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Create requests', onPress: () => void createRequests() },
   ])
@@ -664,13 +669,14 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
                 </Pressable>
               )) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
               {selected ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
-              <Button label={requestPanelOpen ? 'Hide request setup' : 'Create availability requests'} onPress={() => setRequestPanelOpen((current) => !current)} secondary styles={styles} />
+              {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Send to all ${availablePlayers.length} Players without a request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every active Player already has a request for this fixture.</Text>}
               {requestPanelOpen ? <View style={styles.stack}>
-                <Text style={styles.body}>Choose Players who do not already have a request for this fixture.</Text>
+                <Text style={styles.heading}>Create availability requests</Text>
+                <Text style={styles.body}>{playerIds.length} of {availablePlayers.length} Players selected. All eligible Players are selected by default. Remove a Player only when this request should not go to them.</Text>
                 {availablePlayers.length ? <>
                   <Button label={playerIds.length === availablePlayers.length ? 'Clear selection' : 'Select all'} onPress={() => setPlayerIds(playerIds.length === availablePlayers.length ? [] : availablePlayers.map((player) => player.id))} secondary styles={styles} />
                   <View style={styles.row}>{availablePlayers.map((player) => { const selectedPlayer = playerIds.includes(player.id); return <Button key={player.id} label={player.playerName} onPress={() => setPlayerIds((current) => selectedPlayer ? current.filter((id) => id !== player.id) : [...current, player.id])} secondary={!selectedPlayer} styles={styles} /> })}</View>
-                  <Button disabled={stale || creating || Boolean(uncertainAttempt) || playerIds.length === 0 || Number(user.roleRank || 0) < 20} label="Review and create requests" onPress={confirmCreate} styles={styles} />
+                  <Button disabled={stale || creating || Boolean(uncertainAttempt) || playerIds.length === 0 || Number(user.roleRank || 0) < 20} label={`Review and send ${playerIds.length} request${playerIds.length === 1 ? '' : 's'}`} onPress={confirmCreate} styles={styles} />
                 </> : <Text style={styles.body}>Every active Player already has a request.</Text>}
                 {uncertainAttempt ? <Button disabled={creating || stale} label="Reconcile last request" onPress={() => void reconcile()} secondary styles={styles} /> : null}
               </View> : null}

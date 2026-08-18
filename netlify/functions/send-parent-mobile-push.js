@@ -141,6 +141,47 @@ async function getPollPayload({ id, profile }) {
   }
 }
 
+async function getResourcePayload({ id, profile }) {
+  const { data: notification, error } = await supabaseAdmin
+    .from('resource_library_parent_notifications')
+    .select('id, club_id, team_id, resource_id, parent_link_id')
+    .eq('id', id)
+    .eq('club_id', profile.clubId)
+    .maybeSingle()
+
+  if (error || !notification?.parent_link_id || !notification?.resource_id) {
+    throw Object.assign(new Error('Shared resource could not be found.'), { statusCode: 404 })
+  }
+
+  const { data: resource, error: resourceError } = await supabaseAdmin
+    .from('resource_library_items')
+    .select('id, club_id, team_id, title, archived_at')
+    .eq('id', notification.resource_id)
+    .eq('club_id', notification.club_id)
+    .maybeSingle()
+
+  if (resourceError || !resource || resource.archived_at || resource.team_id !== notification.team_id) {
+    throw Object.assign(new Error('Shared resource is no longer available.'), { statusCode: 404 })
+  }
+
+  return {
+    clubId: notification.club_id,
+    data: {
+      app: 'parent',
+      parentLinkId: notification.parent_link_id,
+      resourceId: notification.resource_id,
+      route: 'resources',
+      type: 'resource_shared',
+    },
+    detailedBody: `${normalizeText(resource.title) || 'A resource'} is ready to view.`,
+    minimalBody: 'Your club has shared a new resource.',
+    parentLinkQuery: (query) => query.eq('id', notification.parent_link_id),
+    teamId: notification.team_id || null,
+    title: 'New resource shared',
+    type: 'resource_shared',
+  }
+}
+
 async function getMatchDayAvailabilityPayload({ id, profile }) {
   const { data: request, error } = await supabaseAdmin
     .from('match_day_availability_requests')
@@ -372,6 +413,8 @@ async function revokeMobileDeviceTokens(deviceTokens) {
 export async function sendParentMobilePushById({ id, profile, type }) {
   const payload = type === 'parent_message'
     ? await getMessagePayload({ id, profile })
+    : type === 'resource_shared'
+      ? await getResourcePayload({ id, profile })
     : type === 'matchday_availability'
       ? await getMatchDayAvailabilityPayload({ id, profile })
       : type === 'training_availability'
@@ -421,7 +464,7 @@ export async function handler(event) {
     const type = normalizeText(body.type)
     const id = normalizeText(body.id)
 
-    if (!id || !['matchday_availability', 'parent_message', 'parent_poll', 'training_availability'].includes(type)) {
+    if (!id || !['matchday_availability', 'parent_message', 'parent_poll', 'resource_shared', 'training_availability'].includes(type)) {
       return failureResponse(400, 'A valid parent notification type and id are required.')
     }
 

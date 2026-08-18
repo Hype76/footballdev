@@ -191,6 +191,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
   const [windowKey, setWindowKey] = useState('needs-response')
   const [monthCursor, setMonthCursor] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState('')
+  const [markerTones, setMarkerTones] = useState(['match', 'training', 'response', 'event'])
   useEffect(() => {
     void AsyncStorage.getItem(PARENT_CALENDAR_VIEW_KEY).then((saved) => {
       if (['agenda', 'month'].includes(saved)) setViewMode(saved)
@@ -204,17 +205,21 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
     () => resource.items.filter((event) => !isParentCalendarEventCancelled(event)),
     [resource.items],
   )
+  const filteredEvents = useMemo(
+    () => activeEvents.filter((event) => markerTones.includes(getParentCalendarMarkerTone(event))),
+    [activeEvents, markerTones],
+  )
   const invitationById = useMemo(
     () => new Map(invitations.map((invitation) => [invitation.invitationId, invitation])),
     [invitations],
   )
   const visibleEvents = useMemo(
-    () => getParentCalendarWindow(activeEvents, windowKey),
-    [activeEvents, windowKey],
+    () => getParentCalendarWindow(filteredEvents, windowKey),
+    [filteredEvents, windowKey],
   )
   const groups = useMemo(() => groupParentCalendarEvents(visibleEvents), [visibleEvents])
-  const monthDays = useMemo(() => getParentCalendarMonthGrid(activeEvents, monthCursor), [activeEvents, monthCursor])
-  const selectedDayEvents = useMemo(() => activeEvents.filter((event) => event.calendarDate === selectedDate), [activeEvents, selectedDate])
+  const monthDays = useMemo(() => getParentCalendarMonthGrid(filteredEvents, monthCursor), [filteredEvents, monthCursor])
+  const selectedDayEvents = useMemo(() => filteredEvents.filter((event) => event.calendarDate === selectedDate), [filteredEvents, selectedDate])
   const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(monthCursor)
   const moveMonth = (offset) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1, 12))
   const markerStyle = (event) => ({
@@ -227,6 +232,11 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
   const selectDate = (date) => {
     setSelectedDate(date)
     onDateSelected?.(date)
+  }
+  const toggleMarkerTone = (tone) => {
+    setMarkerTones((current) => current.includes(tone)
+      ? current.filter((item) => item !== tone)
+      : [...current, tone])
   }
   return (
     <View style={styles.stack}>
@@ -255,8 +265,11 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
           <View style={styles.monthRow}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <Text key={day} style={styles.monthWeekday}>{day}</Text>)}</View>
           {Array.from({ length: 6 }, (_unused, rowIndex) => <View key={rowIndex} style={styles.monthRow}>{monthDays.slice(rowIndex * 7, rowIndex * 7 + 7).map((day) => <Pressable accessibilityLabel={`${day.date}, ${day.events.length} events`} accessibilityRole="button" key={day.date} onPress={() => selectDate(day.date)} style={[styles.monthCell, !day.inMonth && styles.monthCellMuted, (day.isToday || day.date === selectedDate) && styles.monthCellActive]}><Text style={styles.monthDay}>{day.day}</Text><View style={styles.actionRow}>{day.events.slice(0, 3).map((event) => <View accessibilityLabel={getParentCalendarMarkerTone(event)} key={event.id} style={[styles.monthDot, markerStyle(event)]} />)}</View></Pressable>)}</View>)}
         </View>
-        <View accessibilityLabel="Calendar marker key" style={styles.monthLegend}>
-          {[['match', 'Match'], ['training', 'Training'], ['response', 'Needs response'], ['event', 'Other']].map(([tone, label]) => <View key={tone} style={styles.monthLegendItem}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></View>)}
+        <View accessibilityLabel="Calendar filters" style={styles.monthLegend}>
+          {[['match', 'Match'], ['training', 'Training'], ['response', 'Needs response'], ['event', 'Other']].map(([tone, label]) => {
+            const selected = markerTones.includes(tone)
+            return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={[styles.monthLegendItem, !selected && { opacity: 0.42 }]}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
+          })}
         </View>
         {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onRespond={onRespond} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
       </View> : null}

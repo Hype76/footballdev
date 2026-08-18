@@ -57,7 +57,6 @@ export async function initializeMobileNotifications() {
     })
   }
 
-  await Notifications.setBadgeCountAsync(0).catch(() => {})
 }
 
 async function migrateLegacyPushState(appRole) {

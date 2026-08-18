@@ -334,6 +334,8 @@ export function normalizeCoachPoll(row = {}, currentUserId = '') {
     options: Object.freeze(options), status: normalize(row.status) === 'closed' ? 'closed' : 'open', closesAt: normalize(row.closes_at ?? row.closesAt),
     allowMultiple: row.allow_multiple === true || row.allowMultiple === true, maxChoices: row.max_choices ?? row.maxChoices ?? null,
     allowVoteChanges: row.allow_vote_changes !== false && row.allowVoteChanges !== false, anonymous,
+    notifyResultsOnClose: row.notify_results_on_close === true || row.notifyResultsOnClose === true,
+    resultsNotifiedAt: normalize(row.results_notified_at ?? row.resultsNotifiedAt),
     votes: Object.freeze(votes.map((vote) => Object.freeze({
       optionId: normalize(vote.option_id ?? vote.optionId), voterName: anonymous ? '' : normalize(vote.voter_name ?? vote.voterName),
       voterEmail: anonymous ? '' : normalize(vote.voter_email ?? vote.voterEmail),

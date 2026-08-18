@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
@@ -61,10 +62,12 @@ import {
   getParentChatRooms,
   getParentDevelopmentHistory,
   getParentInvitations,
+  getParentNotificationInbox,
   getParentPortalMatchDays,
   getParentResources,
   isParentInvitationActionable,
   markParentChatRoomRead,
+  markParentNotificationRead,
   openParentResource,
   recordParentScorerShootoutKick,
   respondToParentInvitation,
@@ -114,7 +117,7 @@ import { getSafeParentMessageUrl, presentParentMessages } from './messagePresent
 import { shareParentMobileDevelopmentPdf } from './parentDevelopment'
 
 const config = getMobileRuntimeConfig('parent')
-const resourceNames = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'polls', 'resources']
+const resourceNames = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'notifications', 'polls', 'resources']
 const resourceFallbacks = {
   calendar: 'Calendar information could not be loaded.',
   chatHistory: 'Saved Parent Chat history could not be loaded.',
@@ -123,6 +126,7 @@ const resourceFallbacks = {
   invitations: 'Invitations could not be loaded.',
   matches: 'Matchday information could not be loaded.',
   messages: 'Club announcements could not be loaded.',
+  notifications: 'Notifications could not be loaded.',
   polls: 'Polls could not be loaded.',
   resources: 'Resources could not be loaded.',
 }
@@ -337,6 +341,7 @@ function ParentHome() {
       invitations: () => getParentInvitations(selectedMobileUser),
       matches: () => getParentPortalMatchDays(selectedMobileUser),
       messages: () => getParentMessages(selectedMobileUser),
+      notifications: () => getParentNotificationInbox(selectedMobileUser),
       polls: () => getParentPolls(selectedMobileUser),
       resources: () => getParentResources(selectedMobileUser),
     }
@@ -1279,6 +1284,57 @@ function ParentHome() {
     }
   }
 
+  async function handleOpenNotification(notification) {
+    const route = normalizeText(notification?.data?.route).toLowerCase()
+    setResources((current) => ({
+      ...current,
+      notifications: {
+        ...current.notifications,
+        items: current.notifications.items.map((item) => item.id === notification.id ? { ...item, isRead: true } : item),
+      },
+    }))
+    void markParentNotificationRead(selectedMobileUser, notification.id).catch(() => {})
+
+    if (route === 'chat') {
+      setActiveTab('chat')
+      const room = parentChatRooms.find((candidate) => candidate.id === notification.data?.roomId)
+      if (room) void handleOpenChatRoom(room)
+      return
+    }
+    if (route === 'polls') {
+      setMoreSection('polls'); setActiveTab('more'); return
+    }
+    if (route === 'resources') {
+      setMoreSection('resources'); setActiveTab('more'); return
+    }
+    if (route === 'development') {
+      setMoreSection('development'); setActiveTab('more'); return
+    }
+    if (route === 'invites') {
+      setMoreSection('invites'); setActiveTab('more'); return
+    }
+    if (route === 'matchday') {
+      setActiveTab('matchday'); return
+    }
+    if (route === 'calendar') {
+      setActiveTab('calendar'); return
+    }
+    setActiveTab('home')
+  }
+
+  useEffect(() => {
+    const unreadChatCount = parentChatRooms.reduce(
+      (total, room) => total + Number(room.unreadCount || 0),
+      0,
+    )
+    const pendingInvitationCount = visibleInvitations.filter((invitation) => invitation.isPending).length
+    const unreadNotificationCount = resources.notifications.items.filter((item) => !item.isRead).length
+    const badgeCount = user
+      ? Math.min(99, unreadNotificationCount + unreadChatCount + homeModel.unreadMessages + homeModel.unansweredPolls + pendingInvitationCount + syncSummary.needsAttention)
+      : 0
+    void Notifications.setBadgeCountAsync(badgeCount).catch(() => {})
+  }, [homeModel.unansweredPolls, homeModel.unreadMessages, parentChatRooms, resources.notifications.items, syncSummary.needsAttention, user, visibleInvitations])
+
   if (isProfileLoading) {
     return <LoadingScreen message="Opening your family account..." />
   }
@@ -1381,6 +1437,7 @@ function ParentHome() {
                 matchInvitations={matchInvitations}
                 matches={{ ...resources.matches, items: visibleMatches }}
                 messages={{ ...resources.messages, items: visibleMessages }}
+                notifications={resources.notifications}
                 onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
                 onOpenMatch={(match) => setSelectedMatchId(match.id)}
                 onOpenMessages={() => {
@@ -1388,6 +1445,7 @@ function ParentHome() {
                   setActiveTab('chat')
                   if (room) void handleOpenChatRoom(room)
                 }}
+                onOpenNotification={handleOpenNotification}
                 onOpenPolls={() => { setMoreSection('polls'); setActiveTab('more') }}
                 onRetry={handleRefresh}
                 selectedMatch={selectedMatch}
@@ -1602,8 +1660,30 @@ function BottomTabs({ activeTab, onChange, tabs, theme }) {
   )
 }
 
-function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches, messages, onOpenInvites, onOpenMatch, onOpenMessages, onOpenPolls, onRetry, selectedMatch }) {
-  const { styles } = useParentTheme()
+function getNotificationTypeLabel(intentType) {
+  return ({
+    matchday_update: 'MATCH',
+    parent_chat: 'CHAT',
+    parent_message: 'NEWS',
+    parent_poll: 'POLL',
+    poll_results: 'RESULT',
+    resource_shared: 'FILE',
+  })[normalizeText(intentType).toLowerCase()] || 'UPDATE'
+}
+
+function getNotificationTypeIcon(intentType) {
+  return ({
+    matchday_update: 'event',
+    parent_chat: 'chat',
+    parent_message: 'campaign',
+    parent_poll: 'poll',
+    poll_results: 'emoji-events',
+    resource_shared: 'folder',
+  })[normalizeText(intentType).toLowerCase()] || 'notifications'
+}
+
+function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onRetry, selectedMatch }) {
+  const { palette, styles } = useParentTheme()
   if (!link?.id) {
     return (
       <EmptyPanel
@@ -1650,6 +1730,37 @@ function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches,
             <EmptyPanel message="There are no upcoming fixtures or shared calendar events right now." title="Nothing scheduled" />
           )}
         </>
+      ) : null}
+
+      {notifications.items.length > 0 ? (
+        <View style={styles.sectionStack}>
+          <SectionHeading copy="Tap an update to open the right place." title="Notifications" />
+          {notifications.items.slice(0, 8).map((notification) => (
+            <Pressable
+              accessibilityHint="Opens this update"
+              accessibilityLabel={`${getNotificationTypeLabel(notification.intentType)}: ${notification.title}`}
+              accessibilityRole="button"
+              key={notification.id}
+              onPress={() => onOpenNotification(notification)}
+              style={({ pressed }) => [styles.card, !notification.isRead && styles.cardProminent, pressed && styles.pressed]}
+            >
+              <View style={styles.notificationRow}>
+                <View style={styles.notificationIcon}>
+                  <MaterialIcons color={palette.accent} name={getNotificationTypeIcon(notification.intentType)} size={23} />
+                </View>
+                <View style={styles.notificationContent}>
+                  <View style={styles.cardTopRow}>
+                    <Badge label={getNotificationTypeLabel(notification.intentType)} tone={notification.isRead ? 'neutral' : 'accent'} />
+                    <Text style={styles.cardDate}>{formatDateTime(notification.sentAt || notification.createdAt)}</Text>
+                  </View>
+                  <Text style={styles.cardTitle}>{notification.title}</Text>
+                  <Text numberOfLines={2} style={styles.bodyText}>{notification.body}</Text>
+                  <Text style={styles.cardLink}>{notification.isRead ? 'Open' : 'New, tap to open'}</Text>
+                </View>
+              </View>
+            </Pressable>
+          ))}
+        </View>
       ) : null}
 
       <View style={styles.summaryGrid}>
@@ -2549,6 +2660,9 @@ function createParentAppStyles(tokens) {
   cardProminent: { backgroundColor: palette.cardRaised, borderColor: palette.accentMuted },
   cardTitle: { color: palette.text, flexShrink: 1, fontSize: 18, fontWeight: '900', lineHeight: 23 },
   cardTopRow: { alignItems: 'center', flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
+  notificationContent: { flex: 1, gap: 8 },
+  notificationIcon: { alignItems: 'center', borderColor: palette.borderStrong, borderRadius: 24, borderWidth: 1, height: 44, justifyContent: 'center', width: 44 },
+  notificationRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
   childButton: { alignItems: 'center', backgroundColor: palette.card, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', marginTop: 12, minHeight: 58, paddingHorizontal: 14, paddingVertical: 9 },
   childButtonAction: { color: palette.accent, fontSize: 13, fontWeight: '900' },
   childButtonCopy: { flex: 1, minWidth: 0 },

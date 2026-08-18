@@ -29,6 +29,7 @@ const EMPTY_FORM = {
   allowVoteChanges: true,
   hideVotes: false,
   allowComments: false,
+  notifyResultsOnClose: false,
   options: ['Yes', 'No'],
 }
 
@@ -408,7 +409,14 @@ export function PollsPage() {
     try {
       await updatePollStatus({ user, pollId: poll.id, status })
       await loadPolls()
-      showToast({ title: 'Request updated', message: status === 'closed' ? 'The request has been closed.' : 'The request has been reopened.' })
+      showToast({
+        title: 'Request updated',
+        message: status === 'closed'
+          ? poll.notifyResultsOnClose
+            ? 'The request has closed and final results are queued using each Parent communication preference.'
+            : 'The request has been closed.'
+          : 'The request has been reopened.',
+      })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Availability request could not be updated.')
@@ -654,15 +662,26 @@ export function PollsPage() {
               Allow choice change
             </label>
             {form.audience === 'parents' ? (
-              <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
-                <input
-                  type="checkbox"
-                  checked={form.allowOwnChildVotes}
-                  onChange={(event) => updateForm({ allowOwnChildVotes: event.target.checked })}
-                  className="h-4 w-4 accent-[#047857]"
-                />
-                Allow vote for own child
-              </label>
+              <>
+                <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
+                  <input
+                    type="checkbox"
+                    checked={form.allowOwnChildVotes}
+                    onChange={(event) => updateForm({ allowOwnChildVotes: event.target.checked })}
+                    className="h-4 w-4 accent-[#047857]"
+                  />
+                  Allow vote for own child
+                </label>
+                <label className="flex min-h-11 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
+                  <input
+                    type="checkbox"
+                    checked={form.notifyResultsOnClose}
+                    onChange={(event) => updateForm({ notifyResultsOnClose: event.target.checked })}
+                    className="mt-1 h-4 w-4 accent-[#047857]"
+                  />
+                  <span>Send final results when the poll closes, reaches its deadline, or everyone has replied.</span>
+                </label>
+              </>
             ) : null}
           </div>
 

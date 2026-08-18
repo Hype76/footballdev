@@ -692,7 +692,7 @@ assertIncludes(mobileHttp, 'The request timed out. Check your connection and try
 assertNotIncludes(mobileHttp, 'test API URL', 'Mobile HTTP helper')
 assertIncludes(mobileNotifications, "const MATCHDAY_CHANNEL_ID = 'matchday'", 'Mobile notifications')
 assertIncludes(mobileNotifications, 'register-mobile-push-device', 'Mobile notifications')
-assertIncludes(mobileNotifications, 'Notifications.setBadgeCountAsync(0)', 'Mobile notifications')
+assertNotIncludes(mobileNotifications, 'Notifications.setBadgeCountAsync(0)', 'Mobile notifications')
 assertIncludes(mobileNotifications, 'Notifications are not ready for this build.', 'Mobile notifications')
 assertIncludes(mobileNotifications, 'Notifications could not be prepared on this device.', 'Mobile notifications')
 assertIncludes(mobileNotifications, 'export function getMobilePushStorageKeys', 'Mobile notification app ownership')

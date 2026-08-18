@@ -108,6 +108,8 @@ export function normalizePoll(row) {
     allowVoteChanges: Boolean(row.allow_vote_changes ?? row.allowVoteChanges ?? true),
     hideVotes: Boolean(row.hide_votes ?? row.hideVotes ?? false),
     allowComments: Boolean(row.allow_comments ?? row.allowComments ?? false),
+    notifyResultsOnClose: Boolean(row.notify_results_on_close ?? row.notifyResultsOnClose ?? false),
+    resultsNotifiedAt: row.results_notified_at ?? row.resultsNotifiedAt ?? '',
     createdBy: row.created_by ?? row.createdBy ?? '',
     createdByName: String(row.created_by_name ?? row.createdByName ?? '').trim(),
     createdAt: row.created_at ?? row.createdAt ?? '',
@@ -232,6 +234,21 @@ export async function createPoll({ user, poll }) {
     throw getPollError(error)
   }
 
+  let createdPoll = data
+  if (audience === 'parents' && poll?.notifyResultsOnClose === true) {
+    const { data: configuredPoll, error: configureError } = await supabase
+      .rpc('configure_poll_result_delivery', {
+        p_notify_results: true,
+        p_poll_id: data.id,
+      })
+
+    if (configureError) {
+      console.error(configureError)
+      throw getPollError(configureError)
+    }
+    createdPoll = configuredPoll
+  }
+
   clearViewCaches()
   invalidateMemoryCacheByPrefix('polls:')
   if (audience === 'parents') {
@@ -240,7 +257,7 @@ export async function createPoll({ user, poll }) {
       type: 'parent_poll',
     })
   }
-  return normalizePoll(data)
+  return normalizePoll(createdPoll)
 }
 
 export async function updatePollStatus({ user, pollId, status }) {

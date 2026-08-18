@@ -397,6 +397,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const styles = useDomainStyles(palette)
   const [players, setPlayers] = useState([])
   const [detail, setDetail] = useState(null)
+  const [developmentOpen, setDevelopmentOpen] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -428,6 +429,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const visible = filterCoachPlayers(players, { query, section, status: 'active' })
   const openPlayer = async (player) => {
     setError('')
+    setDevelopmentOpen(false)
     try { setDetail(await getCoachPlayerDetail(user, player.id)) }
     catch (detailError) { setError(message(detailError, 'Player details could not be loaded.')) }
   }
@@ -467,15 +469,22 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
           <Text style={styles.meta}>{detail.player.section} | {detail.player.positions.join(', ') || 'No position'} | Shirt {detail.player.shirtNumber || 'not set'}</Text>
           {detail.player.parentContacts.map((contact) => <Text key={`${contact.email}:${contact.name}`} selectable style={styles.body}>{contact.type}: {contact.name || 'Unnamed'} | {contact.email || 'No email'}</Text>)}
           <Text style={styles.body}>{detail.player.notes || 'No private notes.'}</Text>
-          <Text style={styles.cardTitle}>Development</Text>
-          {detail.evaluations.length ? detail.evaluations.map((evaluation) => <Text key={evaluation.id} style={styles.body}>{evaluation.date || 'No date'} | {evaluation.session || 'Evaluation'} | Score {evaluation.averageScore ?? 'not scored'} | {evaluation.comments || 'No comments'}</Text>) : <Text style={styles.body}>No Development records.</Text>}
           <Text style={styles.cardTitle}>Custom fields</Text>
           <Text style={styles.body}>{detail.fields.map((field) => field.label).join(', ') || 'No enabled fields.'}</Text>
           <Text style={styles.cardTitle}>Session history</Text>
           {detail.sessions.length ? detail.sessions.map((session) => <Text key={session.id} style={styles.body}>{session.sessionDate} | {session.title} | {session.status}</Text>) : <Text style={styles.body}>No Session history.</Text>}
           {policy.canEdit ? <Button label="Edit Player" onPress={() => setForm(coachPlayerFormFromPlayer(detail.player))} styles={styles} /> : null}
           <View style={styles.filterRow}><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /><Button label="Open Resources" onPress={() => onNavigate('resources')} secondary styles={styles} /></View>
-          <Button label="Close" onPress={() => setDetail(null)} secondary styles={styles} />
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Development</Text>
+            {detail.evaluations.length ? <>
+              <Text style={styles.meta}>{detail.evaluations.length} saved record{detail.evaluations.length === 1 ? '' : 's'}. Latest: {detail.evaluations[0]?.date || 'No date'} | Score {detail.evaluations[0]?.averageScore ?? 'not scored'}.</Text>
+              <Button label={developmentOpen ? 'Hide recent records' : 'Show recent records'} onPress={() => setDevelopmentOpen((current) => !current)} secondary styles={styles} />
+              {developmentOpen ? detail.evaluations.slice(0, 5).map((evaluation) => <Text key={evaluation.id} style={styles.body}>{evaluation.date || 'No date'} | {evaluation.session || 'Evaluation'} | Score {evaluation.averageScore ?? 'not scored'} | {evaluation.comments || 'No comments'}</Text>) : null}
+              {developmentOpen && detail.evaluations.length > 5 ? <Text style={styles.meta}>Showing the 5 most recent records. Open Development for the full history.</Text> : null}
+            </> : <Text style={styles.body}>No Development records.</Text>}
+          </View>
+          <Button label="Close" onPress={() => { setDetail(null); setDevelopmentOpen(false) }} secondary styles={styles} />
           <Text style={styles.meta}>Archive, restore, hard delete, and Team transfer remain in the governed web workflow.</Text>
         </View>
       ) : null}

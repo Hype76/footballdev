@@ -22,6 +22,15 @@ const CHANNEL_ID = 'coach-updates'
 const TOKEN_ATTEMPTS = 2
 const TOKEN_RETRY_MS = 750
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+})
+
 const normalize = (value) => String(value ?? '').trim()
 
 function getNotificationEnvironment(apiBaseUrl) {
@@ -218,5 +227,6 @@ export async function unbindCoachNotifications({ accessToken, apiBaseUrl }) {
     } catch { serverUnbound = false }
   }
   await Notifications.unregisterForNotificationsAsync().catch(() => {})
+  await Notifications.setBadgeCountAsync(0).catch(() => {})
   return { serverUnbound, success: true }
 }

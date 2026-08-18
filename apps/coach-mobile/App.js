@@ -401,6 +401,15 @@ function CoachHome() {
   }, [activeContext, contextOwnedByCurrentUser, loadHome, user?.id])
 
   useEffect(() => {
+    const badgeCount = Math.min(99,
+      Number(homeState.pendingAvailability || 0)
+      + Number(homeState.activePolls || 0)
+      + Number(homeState.unreadChat || 0)
+      + Number(homeState.unreadCommunication || 0))
+    void Notifications.setBadgeCountAsync(badgeCount).catch(() => {})
+  }, [homeState.activePolls, homeState.pendingAvailability, homeState.unreadChat, homeState.unreadCommunication])
+
+  useEffect(() => {
     void initializeCoachNotifications().catch(() => {})
   }, [])
 

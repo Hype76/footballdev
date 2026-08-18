@@ -188,7 +188,7 @@ async function buildParentDevelopmentPdf({
   reportSnapshot,
   supabaseAdmin,
 } = {}) {
-  if (!report.canDownloadPdf || !reportSnapshot) {
+  if (!reportSnapshot) {
     throw new ParentDevelopmentHistoryError(
       'This Development PDF is not available.',
       404,

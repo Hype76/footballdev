@@ -12,7 +12,12 @@ function chunkMessages(messages, size = 100) {
 }
 
 export async function sendExpoPushMessages(messages) {
-  const validMessages = messages.filter((message) => EXPO_PUSH_TOKEN_PATTERN.test(String(message.to || '')))
+  const validMessages = messages
+    .filter((message) => EXPO_PUSH_TOKEN_PATTERN.test(String(message.to || '')))
+    .map((message) => ({
+      ...message,
+      badge: Number.isFinite(Number(message.badge)) ? Math.max(0, Math.floor(Number(message.badge))) : 1,
+    }))
 
   if (validMessages.length === 0) {
     return {
