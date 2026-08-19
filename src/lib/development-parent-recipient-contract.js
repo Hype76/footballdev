@@ -40,13 +40,6 @@ function getLinkCommunicationPreference(link) {
   }
 }
 
-function hasAuthoritativeLinkedRecipientIdentity(link) {
-  return Boolean(
-    normalizeText(link?.auth_user_id ?? link?.authUserId) ||
-    normalizeText(link?.guardian_id ?? link?.guardianId),
-  )
-}
-
 function getUnavailableReason({
   linkId,
   clubMatches,
@@ -99,23 +92,24 @@ export function normalizeDevelopmentParentRecipientCandidate(
   const linkPlayerId = normalizeText(link?.player_id ?? link?.playerId)
   const status = normalizeText(link?.status)
   const communicationPreference = getLinkCommunicationPreference(link)
-  const email = normalizeDevelopmentParentRecipientEmail(
+  const linkedEmail = normalizeDevelopmentParentRecipientEmail(
     link?.resolved_email ?? link?.resolvedEmail ?? link?.email,
   )
   const configuredContact = getConfiguredContact(parentContacts, [
-    email,
+    linkedEmail,
     link?.email,
   ])
+  const email = normalizeDevelopmentParentRecipientEmail(
+    configuredContact?.email ?? configuredContact?.parentEmail,
+  )
   const resolvedName = normalizeText(link?.resolved_name ?? link?.resolvedName)
-  const contactSource = normalizeText(link?.contact_source ?? link?.contactSource) || 'link'
+  const contactSource = configuredContact ? 'player_contact_details' : 'unavailable'
   const contactSourceEligible =
     (link?.contact_source_eligible ?? link?.contactSourceEligible) !== false
   const clubMatches = linkClubId === normalizeText(clubId)
   const teamMatches = !linkTeamId || linkTeamId === normalizeText(teamId)
   const playerMatches = linkPlayerId === normalizeText(playerId)
-  const developmentRecipientConfigured = communicationPreference.explicit
-    ? communicationPreference.allowed
-    : hasAuthoritativeLinkedRecipientIdentity(link) || Boolean(configuredContact)
+  const developmentRecipientConfigured = Boolean(configuredContact)
   const unavailableReason = getUnavailableReason({
     linkId,
     clubMatches,
@@ -131,17 +125,15 @@ export function normalizeDevelopmentParentRecipientCandidate(
   return {
     linkId,
     name:
-      resolvedName ||
       normalizeText(configuredContact?.name ?? configuredContact?.parentName) ||
+      resolvedName ||
       normalizeText(link?.relationship) ||
       'Parent or guardian',
     email,
     contactSource,
-    recipientIdentitySource: hasAuthoritativeLinkedRecipientIdentity(link)
-      ? 'linked_identity'
-      : configuredContact
-        ? 'configured_contact'
-        : 'unavailable',
+    recipientIdentitySource: configuredContact
+      ? 'configured_contact'
+      : 'unavailable',
     communicationsPreferenceExplicit: communicationPreference.explicit,
     type: 'parent',
     primary: (link?.primary_contact ?? link?.primaryContact) === true,

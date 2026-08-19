@@ -7,6 +7,13 @@ function parentChatRoomId(notification = {}) {
   return normalize(notification.data?.roomId)
 }
 
+function notificationIds(notification = {}) {
+  return [...new Set([
+    ...(Array.isArray(notification.notificationIds) ? notification.notificationIds : []),
+    notification.id,
+  ].map(normalize).filter(Boolean))]
+}
+
 export function prepareParentNotificationInbox(notifications = []) {
   const prepared = []
   const chatGroups = new Map()
@@ -16,23 +23,25 @@ export function prepareParentNotificationInbox(notifications = []) {
     const id = normalize(notification.id)
     if (!id) continue
     const roomId = parentChatRoomId(notification)
+    const sourceIds = notificationIds(notification)
 
     if (!roomId) {
-      prepared.push({ ...notification, notificationIds: [id] })
+      prepared.push({ ...notification, notificationIds: sourceIds })
       continue
     }
 
     const existing = chatGroups.get(roomId)
     if (existing) {
-      existing.notificationIds.push(id)
+      existing.notificationIds = [...new Set([...existing.notificationIds, ...sourceIds])]
       existing.groupedCount = existing.notificationIds.length
+      if (!notification.isRead) existing.isRead = false
       continue
     }
 
     const grouped = {
       ...notification,
-      groupedCount: 1,
-      notificationIds: [id],
+      groupedCount: sourceIds.length,
+      notificationIds: sourceIds,
     }
     chatGroups.set(roomId, grouped)
     prepared.push(grouped)

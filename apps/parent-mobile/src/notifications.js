@@ -6,6 +6,7 @@ import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
+import { readMobileAppBadgeEnabled } from '../../mobile-core/src/appBadge'
 import {
   getParentPushSetupFailureCode,
   getParentNotificationStorageKeys,
@@ -27,7 +28,7 @@ const PUSH_NATIVE_STEP_TIMEOUT_MS = 12000
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
-    shouldSetBadge: true,
+    shouldSetBadge: await readMobileAppBadgeEnabled('parent'),
     shouldShowBanner: true,
     shouldShowList: true,
   }),

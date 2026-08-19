@@ -42,6 +42,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-CORRECTIVE-71',
   'FP-INVITES-NOTIFICATIONS-AUDIT-72',
   'FP-TRAINING-RSVP-CHAT-DND-73',
+  'FP-PUBLIC-RELEASE-AUDIT-74',
 ])
 const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
@@ -74,13 +75,14 @@ const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-CORRECTIVE-71',
   'FP-INVITES-NOTIFICATIONS-AUDIT-72',
   'FP-TRAINING-RSVP-CHAT-DND-73',
+  'FP-PUBLIC-RELEASE-AUDIT-74',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
 const easEnvironment = productionBuilds.has(`${profile}:${platform}`) ? 'production' : profile === 'development' ? 'development' : 'preview'
 const masterStoreAndroid = `${profile}:${platform}` === 'store-live:android'
-  && promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
+  && ['FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39', 'FP-PUBLIC-RELEASE-AUDIT-74'].includes(promotionReference)
 const currentInternalIos = `${profile}:${platform}` === 'internal-live:ios'
   && ['FP-MOBILE-FORMATION-NOTIFICATIONS-47', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51', 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53', 'FP-MOBILE-COACH-FORM-SELECTION-CORRECTIVE-54', 'FP-MOBILE-CHAT-NOTIFY-PERF-58', 'FP-MOBILE-CHAT-SESSIONS-POLL-60', 'FP-MOBILE-FEEDBACK-CORRECTIVE-61', 'FP-MOBILE-FIXTURE-CALENDAR-TERMINOLOGY-62', 'FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63', 'FP-MOBILE-NOTIFICATIONS-PROFILE-66', 'FP-MOBILE-INVITES-PDF-SCROLL-67', 'FP-INVITES-NOTIFICATIONS-AUDIT-72', 'FP-TRAINING-RSVP-CHAT-DND-73'].includes(promotionReference)
 const currentCoachStoreAndroid = appRole === 'coach'

@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
@@ -21,6 +22,11 @@ import {
 } from 'react-native'
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
+import {
+  readMobileAppBadgeEnabled,
+  syncMobileAppBadge,
+  writeMobileAppBadgeEnabled,
+} from '../mobile-core/src/appBadge'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
@@ -117,6 +123,7 @@ function CoachHome() {
   const safeAreaInsets = useSafeAreaInsets()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeRoute, setActiveRoute] = useState('home')
+  const [appBadgeEnabled, setAppBadgeEnabled] = useState(true)
   const [chatNotificationTarget, setChatNotificationTarget] = useState(null)
   const [contextReady, setContextReady] = useState(false)
   const [contextOwnerUserId, setContextOwnerUserId] = useState('')
@@ -141,6 +148,7 @@ function CoachHome() {
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
   const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
+  const latestBadgeCountRef = useRef(0)
 
   const contextResolution = useMemo(
     () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
@@ -282,6 +290,22 @@ function CoachHome() {
     finally { setIsRegisteringPush(false) }
   }, [activeContext?.id])
 
+  const toggleAppBadgeEnabled = useCallback(async (enabled) => {
+    setIsRegisteringPush(true)
+    try {
+      const nextEnabled = await writeMobileAppBadgeEnabled('coach', enabled)
+      setAppBadgeEnabled(nextEnabled)
+      if (nextEnabled) {
+        await syncMobileAppBadge({ appRole: 'coach', count: latestBadgeCountRef.current })
+      }
+      setNotice(nextEnabled ? 'App icon badge is enabled on this device.' : 'App icon badge is disabled and cleared.')
+    } catch {
+      setNotice('App icon badge could not be changed.')
+    } finally {
+      setIsRegisteringPush(false)
+    }
+  }, [])
+
   const loadHome = useCallback(async ({ refresh = false } = {}) => {
     if (!selectedMobileUser?.clubId) return
     const requestId = ++requestIdRef.current
@@ -387,6 +411,14 @@ function CoachHome() {
 
   useEffect(() => {
     let mounted = true
+    void readMobileAppBadgeEnabled('coach')
+      .then((enabled) => { if (mounted) setAppBadgeEnabled(enabled) })
+      .catch(() => { if (mounted) setAppBadgeEnabled(true) })
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
     setContextReady(false)
     resetContextDomainState()
     void Promise.all([
@@ -423,7 +455,8 @@ function CoachHome() {
       + Number(homeState.activePolls || 0)
       + Number(homeState.unreadChat || 0)
       + Number(homeState.unreadCommunication || 0))
-    void Notifications.setBadgeCountAsync(badgeCount).catch(() => {})
+    latestBadgeCountRef.current = badgeCount
+    void syncMobileAppBadge({ appRole: 'coach', count: badgeCount }).catch(() => {})
   }, [homeState.activePolls, homeState.pendingAvailability, homeState.unreadChat, homeState.unreadCommunication])
 
   useEffect(() => {
@@ -596,6 +629,7 @@ function CoachHome() {
         >
           <CoachRoute
             activeRoute={activeRoute}
+            appBadgeEnabled={appBadgeEnabled}
             biometricAvailable={biometricAvailable}
             biometricEnabled={biometricEnabled}
             context={activeContext}
@@ -620,6 +654,7 @@ function CoachHome() {
             onSelectMore={navigate}
             onSignOut={signOut}
             onToggleBiometrics={toggleBiometrics}
+            onToggleAppBadge={toggleAppBadgeEnabled}
             onToggleTheme={toggleTheme}
             onUpdateNotificationLevel={updateNotificationLevel}
             reloadHome={loadHome}
@@ -812,6 +847,7 @@ function MoreScreen({ navigation, onSelectMore }) {
 }
 
 function SettingsScreen({
+  appBadgeEnabled,
   biometricAvailable,
   biometricEnabled,
   context,
@@ -823,13 +859,17 @@ function SettingsScreen({
   notificationState,
   onSignOut,
   onToggleBiometrics,
+  onToggleAppBadge,
   onToggleTheme,
   onUpdateNotificationLevel,
   themeMode,
   user,
 }) {
   const { styles } = useCoachTheme()
-  const build = Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || 'development'
+  const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || 'development'
+  const build = Application.nativeBuildVersion || (Platform.OS === 'ios'
+    ? Constants.expoConfig?.ios?.buildNumber || 'development'
+    : Constants.expoConfig?.android?.versionCode || 'development')
   const [cacheState, setCacheState] = useState(null)
   useEffect(() => {
     let mounted = true
@@ -867,6 +907,14 @@ function SettingsScreen({
         {notificationState?.enabled
           ? <SecondaryAction disabled={isRegisteringPush} label="Disable notifications" onPress={disableNotifications} />
           : <PrimaryAction disabled={isRegisteringPush} label="Enable notifications" onPress={enableNotifications} />}
+        <SettingRow copy="Show the authoritative unread count on this device." label="App icon badge">
+          <Switch
+            accessibilityLabel="App icon badge"
+            disabled={isRegisteringPush}
+            onValueChange={onToggleAppBadge}
+            value={appBadgeEnabled}
+          />
+        </SettingRow>
         <Text style={styles.helperText}>Minimal is the conservative default. Lock-screen copy excludes Player names, Parent contacts, Chat bodies, and Development notes.</Text>
       </Section>
       <Section title="Sync and environment">
@@ -880,7 +928,7 @@ function SettingsScreen({
       <Section title="App">
         <InfoRow label="Branding" value={`${context.clubName}${context.teamName ? ` | ${context.teamName}` : ''}`} />
         <InfoRow label="Accent source" value={context.teamAccent ? 'Team accent' : context.clubAccent ? 'Club accent' : 'Football Player fallback'} />
-        <InfoRow label="Version" value={Constants.expoConfig?.version || 'development'} />
+        <InfoRow label="Version" value={appVersion} />
         <InfoRow label="Build" value={String(build)} />
       </Section>
       <SecondaryAction label="Log out" onPress={onSignOut} />

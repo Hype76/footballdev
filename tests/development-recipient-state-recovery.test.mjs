@@ -294,7 +294,7 @@ test('re-adding a portal contact restores Development eligibility on the stable 
   assert.equal(readded[0].linkId, firstLinkId)
 })
 
-test('additional guardian contact uses its explicit Development communication preference', () => {
+test('additional guardian email is rejected unless it matches Player contact details', () => {
   const guardianLinkId = '99999999-9999-4999-8999-999999999999'
   const result = getDevelopmentParentRecipientCandidates({
     links: [
@@ -314,10 +314,7 @@ test('additional guardian contact uses its explicit Development communication pr
     }),
   }).filter((candidate) => candidate.eligible)
 
-  assert.deepEqual(result.map((candidate) => candidate.linkId), [
-    firstLinkId,
-    guardianLinkId,
-  ])
+  assert.deepEqual(result.map((candidate) => candidate.linkId), [firstLinkId])
 })
 
 test('duplicate eligible recipient records preserve link attribution and one delivery target', () => {
@@ -387,7 +384,7 @@ test('failed send does not replace recipients with empty fallback inputs', async
   const componentSource = await source('../src/components/evaluations/EvaluationPlayerDetailsSection.jsx')
 
   assert.match(componentSource, /useLinkedParentRecipients \? \(/)
-  assert.match(componentSource, /No eligible linked parent email is currently available\./)
+  assert.match(componentSource, /No eligible email from this Player record is currently available\./)
 })
 
 test('retry uses the same selected recipients', async () => {

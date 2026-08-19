@@ -72,14 +72,14 @@ test('Parent notification inbox is child-scoped and read state remains service-o
   assert.match(migration, /revoke all on public\.parent_mobile_notification_events from public, anon, authenticated/)
 })
 
-test('pushes set a visible badge and neither app clears it during normal startup', async () => {
+test('pushes follow the saved app-icon badge preference and normal startup does not clear it', async () => {
   const [parentNotifications, coachNotifications, sharedNotifications] = await Promise.all([
     read('../apps/parent-mobile/src/notifications.js'),
     read('../apps/coach-mobile/src/notifications.js'),
     read('../apps/mobile-core/src/notifications.js'),
   ])
-  assert.match(parentNotifications, /shouldSetBadge: true/)
-  assert.match(coachNotifications, /shouldSetBadge: true/)
+  assert.match(parentNotifications, /shouldSetBadge: await readMobileAppBadgeEnabled\('parent'\)/)
+  assert.match(coachNotifications, /shouldSetBadge: await readMobileAppBadgeEnabled\('coach'\)/)
   assert.doesNotMatch(sharedNotifications, /setBadgeCountAsync\(0\)/)
 
   const originalFetch = globalThis.fetch

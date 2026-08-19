@@ -119,7 +119,7 @@ export function EvaluationPlayerDetailsSection({
 
         <div className="min-w-0 md:col-span-2">
           <span className={labelClass}>
-            {useLinkedParentRecipients ? 'Development email recipients' : `${contactLabel} email recipients`}
+            {useLinkedParentRecipients ? 'Player contact recipients' : `${contactLabel} email recipients`}
           </span>
           {visibleParentContacts.length > 0 ? (
             <div className="grid gap-3 md:grid-cols-2">
@@ -150,7 +150,7 @@ export function EvaluationPlayerDetailsSection({
               {parentRecipientsLoading
                 ? 'Checking eligible linked parent recipients.'
                 : parentRecipientLoadError ||
-                  'No eligible linked parent email is currently available.'}
+                  'No eligible email from this Player record is currently available.'}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -182,7 +182,7 @@ export function EvaluationPlayerDetailsSection({
           )}
           <p className={helperClass}>
             {useLinkedParentRecipients
-              ? 'Only selected eligible contacts will receive this Development email.'
+              ? 'Recipients come only from the current contact details saved on this Player record. Update the Player contact details to change an email address.'
               : `Selected ${contactNounPlural} are used only when this record is sent with a ${contactNoun} email template.`}
           </p>
         </div>

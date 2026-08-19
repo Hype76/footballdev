@@ -8,6 +8,13 @@ const migration = await readFile(
   new URL('../supabase/migrations/20260818153000_invite_notification_fanout_integrity.sql', import.meta.url),
   'utf8',
 )
+const publicReleaseMigration = await readFile(
+  new URL('../supabase/migrations/20260819160000_public_release_contact_authority_74.sql', import.meta.url),
+  'utf8',
+)
+const contactAuthorityMigration = publicReleaseMigration.split(
+  'create or replace function public.get_parent_portal_invitation_state',
+)[0]
 
 const ids = {
   club: '10000000-0000-4000-8000-000000000001',
@@ -47,6 +54,8 @@ async function createDatabase() {
       team_id uuid,
       player_name text,
       parent_email text,
+      parent_name text,
+      parent_contacts jsonb not null default '[]'::jsonb,
       contact_type text,
       status text,
       archived_at timestamptz
@@ -139,13 +148,14 @@ async function createDatabase() {
     returns boolean language sql immutable as $$ select true $$;
   `)
   await db.exec(migration)
+  await db.exec(contactAuthorityMigration)
   await db.exec(`
     insert into auth.users(id, email, raw_user_meta_data, email_confirmed_at) values
       ('${ids.parent}', 'parent@example.invalid', '{"display_name":"Parent"}', now()),
       ('${ids.secondParent}', 'second@example.invalid', '{"display_name":"Second Parent"}', now());
-    insert into public.players(id, club_id, team_id, player_name, parent_email, contact_type, status) values
-      ('${ids.player}', '${ids.club}', '${ids.otherTeam}', 'Canonical Player', 'parent@example.invalid', 'parent', 'active'),
-      ('${ids.secondPlayer}', '${ids.club}', '${ids.team}', 'Wrong Team Player', 'second@example.invalid', 'parent', 'active');
+    insert into public.players(id, club_id, team_id, player_name, parent_email, parent_name, parent_contacts, contact_type, status) values
+      ('${ids.player}', '${ids.club}', '${ids.otherTeam}', 'Canonical Player', 'parent@example.invalid', 'Parent', '[{"name":"Parent","email":"parent@example.invalid","type":"parent"}]', 'parent', 'active'),
+      ('${ids.secondPlayer}', '${ids.club}', '${ids.team}', 'Wrong Team Player', 'second@example.invalid', 'Second Parent', '[{"name":"Second Parent","email":"second@example.invalid","type":"parent"}]', 'parent', 'active');
     insert into public.player_team_memberships(club_id, team_id, player_id, status) values
       ('${ids.club}', '${ids.team}', '${ids.player}', 'active'),
       ('${ids.club}', '${ids.otherTeam}', '${ids.secondPlayer}', 'active');
@@ -178,7 +188,7 @@ test('active Parent auth accounts resolve without a Coach profile and only from 
   }
 })
 
-test('unconfirmed, banned, deleted, or mismatched Parent auth accounts cannot receive an invite', async () => {
+test('Player contacts still receive email when Parent app authority is unavailable', async () => {
   const blockedStates = [
     "email_confirmed_at = null",
     "banned_until = now() + interval '1 day'",
@@ -190,11 +200,17 @@ test('unconfirmed, banned, deleted, or mismatched Parent auth accounts cannot re
     try {
       await db.exec(`update auth.users set ${blockedState} where id = '${ids.parent}'`)
       const result = await db.query(`
-        select player_id from public.event_player_eligible_recipients(
+        select player_id, recipient_email, recipient_type, parent_link_id
+        from public.event_player_eligible_recipients(
           '${ids.club}', '${ids.team}', array['${ids.player}'::uuid]
         )
       `)
-      assert.deepEqual(result.rows, [])
+      assert.deepEqual(result.rows, [{
+        player_id: ids.player,
+        recipient_email: 'parent@example.invalid',
+        recipient_type: 'parent_guardian',
+        parent_link_id: null,
+      }])
     } finally {
       await db.close()
     }

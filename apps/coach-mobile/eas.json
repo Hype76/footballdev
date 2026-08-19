@@ -82,9 +82,9 @@
     },
     "store-live": {
       "android": {
-        "track": "alpha",
+        "track": "production",
         "releaseStatus": "completed",
-        "changesNotSentForReview": true,
+        "changesNotSentForReview": false,
         "serviceAccountKeyPath": "../mobile-release-evidence/credentials/football-player-mobile-expo-play-submit-service-account.json"
       },
       "ios": {

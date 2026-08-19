@@ -15,6 +15,7 @@ import {
 } from '../apps/mobile-core/src/runtimeState.js'
 import {
   MOBILE_STARTUP_STATES,
+  isConfirmedIrrecoverableSessionError,
   runMobileStartup,
 } from '../apps/mobile-core/src/startupStateCore.js'
 
@@ -208,6 +209,31 @@ test('expired or invalid refresh session clears locally and reaches signed-out s
   const result = await runMobileStartup(args)
   assert.equal(result.state, MOBILE_STARTUP_STATES.READY_SIGNED_OUT)
   assert.equal(cleared, true)
+})
+
+test('expired access tokens and temporary refresh failures preserve the saved session', async () => {
+  for (const error of [
+    Object.assign(new Error('JWT expired'), { code: 'jwt_expired' }),
+    Object.assign(new Error('Failed to fetch while refreshing the session'), { code: 'refresh_network_error' }),
+    Object.assign(new Error('The request timed out'), { code: 'refresh_timeout' }),
+  ]) {
+    let cleared = false
+    const { args } = startupHarness({
+      clearInvalidSession: async () => { cleared = true },
+      getSession: async () => ({ data: null, error }),
+    })
+    const result = await runMobileStartup(args)
+    assert.equal(result.state, MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+    assert.equal(cleared, false)
+  }
+})
+
+test('only explicit refresh revocation or account deletion is treated as irrecoverable', () => {
+  assert.equal(isConfirmedIrrecoverableSessionError({ code: 'refresh_token_invalid' }), true)
+  assert.equal(isConfirmedIrrecoverableSessionError({ message: 'Refresh token not found' }), true)
+  assert.equal(isConfirmedIrrecoverableSessionError({ code: 'user_deleted' }), true)
+  assert.equal(isConfirmedIrrecoverableSessionError({ code: 'jwt_expired' }), false)
+  assert.equal(isConfirmedIrrecoverableSessionError({ code: 'refresh_network_error' }), false)
 })
 
 test('unknown environment fails closed to visible recoverable configuration error', async () => {

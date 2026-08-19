@@ -5,6 +5,7 @@ import * as Device from 'expo-device'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
+import { readMobileAppBadgeEnabled } from '../../mobile-core/src/appBadge'
 import {
   getCoachNotificationStorageKeys,
   getCoachPushSetupFailureCode,
@@ -25,7 +26,7 @@ const TOKEN_RETRY_MS = 750
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
-    shouldSetBadge: true,
+    shouldSetBadge: await readMobileAppBadgeEnabled('coach'),
     shouldShowBanner: true,
     shouldShowList: true,
   }),

@@ -55,6 +55,7 @@ const authorisedProductionSubmission = (
   || promotionReference === 'FP-MOBILE-CORRECTIVE-71'
   || promotionReference === 'FP-INVITES-NOTIFICATIONS-AUDIT-72'
   || promotionReference === 'FP-TRAINING-RSVP-CHAT-DND-73'
+  || promotionReference === 'FP-PUBLIC-RELEASE-AUDIT-74'
   || (platform === 'ios' && appRole === 'parent' && authorisedParentProductionReferences.has(promotionReference))
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49')
   || (appRole === 'coach' && promotionReference === 'FP-MOBILE-COACH-FORMATION-STEPPER-50')

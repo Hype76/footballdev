@@ -28,6 +28,11 @@ import {
 } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
+import {
+  readMobileAppBadgeEnabled,
+  syncMobileAppBadge,
+  writeMobileAppBadgeEnabled,
+} from '../mobile-core/src/appBadge'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsCore'
@@ -216,6 +221,7 @@ function ParentHome() {
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('home')
   const [activeActionId, setActiveActionId] = useState('')
+  const [appBadgeEnabled, setAppBadgeEnabled] = useState(true)
   const [attentionIndex, setAttentionIndex] = useState(0)
   const [biometricAvailable, setBiometricAvailableState] = useState(false)
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
@@ -262,6 +268,7 @@ function ParentHome() {
   const notificationResponseHistoryRef = useRef(new Set())
   const notificationResponseProcessingRef = useRef('')
   const reloadSelectedChatRoomRef = useRef(() => Promise.resolve())
+  const latestBadgeCountRef = useRef(0)
   const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
   const selectedLink = useMemo(
     () => getSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLinkId),
@@ -281,6 +288,14 @@ function ParentHome() {
   const visibleDevelopment = useMemo(() => resources.development.items.filter((item) => !dismissedItems.development.includes(item.id)), [dismissedItems.development, resources.development.items])
   const visiblePolls = useMemo(() => resources.polls.items.filter((item) => !dismissedItems.polls.includes(item.id)), [dismissedItems.polls, resources.polls.items])
   const visibleResources = useMemo(() => resources.resources.items.filter((item) => !dismissedItems.resources.includes(item.id)), [dismissedItems.resources, resources.resources.items])
+
+  useEffect(() => {
+    let mounted = true
+    void readMobileAppBadgeEnabled('parent')
+      .then((enabled) => { if (mounted) setAppBadgeEnabled(enabled) })
+      .catch(() => { if (mounted) setAppBadgeEnabled(true) })
+    return () => { mounted = false }
+  }, [])
   const homeModel = useMemo(() => getParentHomeModel({
     calendarEvents: resources.calendar.items,
     matches: visibleMatches,
@@ -1166,7 +1181,7 @@ function ParentHome() {
   }
 
   async function handleSendChatMessage(body) {
-    if (isOffline || activeActionId || !selectedRoomId) return
+    if (isOffline || activeActionId || !selectedRoomId || selectedRoomId === 'club-announcements') return
     setActiveActionId('chat-send')
     setNotice(null)
     try {
@@ -1333,6 +1348,30 @@ function ParentHome() {
     }
   }
 
+  async function handleAppBadgeEnabledChange(enabled) {
+    if (activeActionId) return
+    setActiveActionId('app-icon-badge')
+    setNotice(null)
+    try {
+      const nextEnabled = await writeMobileAppBadgeEnabled('parent', enabled)
+      setAppBadgeEnabled(nextEnabled)
+      if (nextEnabled) {
+        await syncMobileAppBadge({ appRole: 'parent', count: latestBadgeCountRef.current })
+      }
+      setNotice({
+        message: nextEnabled ? 'App icon badge is enabled on this device.' : 'App icon badge is disabled and cleared.',
+        tone: 'success',
+      })
+    } catch (error) {
+      setNotice({
+        message: getParentFriendlyError(error, 'App icon badge could not be changed.'),
+        tone: 'warning',
+      })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   function handleDismissParentItem(kind, id, label = 'item') {
     if (!dismissalStorageKey || !['development', 'invitations', 'matches', 'messages', 'polls', 'resources'].includes(kind) || !id) return
     Alert.alert(
@@ -1451,7 +1490,8 @@ function ParentHome() {
       resourcesLoaded,
     })
     if (badgeCount === null) return
-    void Notifications.setBadgeCountAsync(badgeCount).catch(() => {})
+    latestBadgeCountRef.current = badgeCount
+    void syncMobileAppBadge({ appRole: 'parent', count: badgeCount }).catch(() => {})
   }, [homeModel.unansweredPolls, homeModel.unreadMessages, parentChatRooms, resources.chatRooms.loading, resources.invitations.loading, resources.messages.loading, resources.notifications.items, resources.notifications.loading, resources.polls.loading, syncSummary.needsAttention, user, visibleInvitations])
 
   if (isProfileLoading) {
@@ -1636,6 +1676,7 @@ function ParentHome() {
             {activeTab === 'more' && moreSection === 'settings' ? (
               <SettingsScreen
                 activeActionId={activeActionId}
+                appBadgeEnabled={appBadgeEnabled}
                 biometricAvailable={biometricAvailable}
                 biometricEnabled={biometricEnabled}
                 cacheState={offlineCacheState}
@@ -1644,6 +1685,7 @@ function ParentHome() {
                 lastUpdatedAt={lastUpdatedAt}
                 links={parentLinks}
                 onBiometricChange={handleBiometricChange}
+                onAppBadgeEnabledChange={handleAppBadgeEnabledChange}
                 displayTheme={displayTheme}
                 communicationPreference={communicationPreference}
                 notificationState={notificationState}
@@ -2249,6 +2291,7 @@ function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNe
 
 function SettingsScreen({
   activeActionId,
+  appBadgeEnabled,
   biometricAvailable,
   biometricEnabled,
   cacheState,
@@ -2261,6 +2304,7 @@ function SettingsScreen({
   links,
   notificationState,
   onBiometricChange,
+  onAppBadgeEnabledChange,
   onCommunicationChannelChange,
   onDisplayThemeChange,
   onNotificationDetailChange,
@@ -2432,6 +2476,22 @@ function SettingsScreen({
               trackColor={{ false: palette.borderStrong, true: palette.accentMuted }}
               thumbColor={notificationState.enabled ? palette.accent : palette.textMuted}
               value={notificationState.enabled}
+            />
+          )}
+        </View>
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingCopy}>
+            <Text style={styles.cardTitle}>App icon badge</Text>
+            <Text style={styles.bodyText}>Show the authoritative unread count on this device.</Text>
+          </View>
+          {activeActionId === 'app-icon-badge' ? <ActivityIndicator color={palette.accent} /> : (
+            <Switch
+              accessibilityLabel="App icon badge"
+              onValueChange={onAppBadgeEnabledChange}
+              trackColor={{ false: palette.borderStrong, true: palette.accentMuted }}
+              thumbColor={appBadgeEnabled ? palette.accent : palette.textMuted}
+              value={appBadgeEnabled}
             />
           )}
         </View>

@@ -18,10 +18,16 @@ test('Master 39 submissions require the exact completed build and separate iOS g
   assert.match(source, new RegExp(masterReference))
 })
 
-test('Coach final AAB submission targets the existing closed Alpha track while Production access is gated', async () => {
-  const eas = JSON.parse(await readFile(new URL('../apps/coach-mobile/eas.json', import.meta.url), 'utf8'))
-  assert.equal(eas.build['store-live'].distribution, 'store')
-  assert.equal(eas.submit['store-live'].android.track, 'alpha')
-  assert.equal(eas.submit['store-live'].android.releaseStatus, 'completed')
-  assert.equal(eas.submit['store-live'].ios.ascAppId, '6772059305')
+test('public release AAB submissions target the Production track for both apps', async () => {
+  const [coachEas, parentEas] = await Promise.all([
+    readFile(new URL('../apps/coach-mobile/eas.json', import.meta.url), 'utf8').then(JSON.parse),
+    readFile(new URL('../apps/parent-mobile/eas.json', import.meta.url), 'utf8').then(JSON.parse),
+  ])
+  for (const eas of [coachEas, parentEas]) {
+    assert.equal(eas.build['store-live'].distribution, 'store')
+    assert.equal(eas.submit['store-live'].android.track, 'production')
+    assert.equal(eas.submit['store-live'].android.releaseStatus, 'completed')
+    assert.equal(eas.submit['store-live'].android.changesNotSentForReview, false)
+  }
+  assert.equal(coachEas.submit['store-live'].ios.ascAppId, '6772059305')
 })

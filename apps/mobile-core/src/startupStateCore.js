@@ -24,6 +24,19 @@ export function getSafeStartupDiagnosticCode(error, fallback = 'PARENT_STARTUP_F
   return /^[A-Z0-9_]{3,64}$/.test(code) ? code : fallback
 }
 
+export function isConfirmedIrrecoverableSessionError(error) {
+  const code = String(error?.code || '').trim().toLowerCase()
+  const message = String(error?.message || '').trim().toLowerCase()
+  const evidence = `${code} ${message}`
+
+  return [
+    /refresh[_\s-]*token[_\s-]*(?:invalid|not[_\s-]*found|revoked|reused)/,
+    /invalid[_\s-]*refresh[_\s-]*token/,
+    /refresh[_\s-]*token.*(?:already[_\s-]*used|expired)/,
+    /user[_\s-]*(?:not[_\s-]*found|deleted)/,
+  ].some((pattern) => pattern.test(evidence))
+}
+
 export function withStartupTimeout(
   operation,
   timeoutMs = DEFAULT_MOBILE_STARTUP_TIMEOUT_MS,
@@ -84,7 +97,7 @@ export async function runMobileStartup({
     return { diagnosticCode: '', session, state: MOBILE_STARTUP_STATES.READY_SIGNED_IN }
   } catch (error) {
     const diagnosticCode = getSafeStartupDiagnosticCode(error, `${diagnosticPrefix}_STARTUP_FAILED`)
-    if (/REFRESH|SESSION.*INVALID|INVALID.*SESSION|JWT.*EXPIRED/.test(diagnosticCode)) {
+    if (isConfirmedIrrecoverableSessionError(error)) {
       try {
         await withStartupTimeout(() => clearInvalidSession?.(), timeoutMs, startupTimeoutCode)
         await onSession?.(null)

@@ -78,6 +78,7 @@ test('mobile UX wiring preserves sessions, updates automatically, deep-links res
     readFile(new URL('../apps/parent-mobile/src/notifications.js', import.meta.url), 'utf8'),
   ])
   assert.match(parentApp, /communicationPreference/)
+  assert.match(parentApp, /selectedRoomId === 'club-announcements'/)
   assert.match(parentApp, /parent_accept/)
   assert.match(parentApp, /targetInvitationId/)
   assert.match(parentApp, /handleRestoreDismissedItems/)

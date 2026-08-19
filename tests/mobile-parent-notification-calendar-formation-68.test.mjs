@@ -22,6 +22,30 @@ test('Parent Home shows one unread Chat card per exact room', () => {
   assert.equal(notifications[0].groupedCount, 2)
 })
 
+test('Parent Home preserves every server-grouped Chat event id and unread state', () => {
+  const notifications = prepareParentNotificationInbox([
+    {
+      id: 'new-parent',
+      intentType: 'parent_chat',
+      isRead: true,
+      notificationIds: ['new-parent', 'middle-parent'],
+      data: { route: 'chat', roomId: 'parent-1' },
+    },
+    {
+      id: 'old-parent',
+      intentType: 'parent_chat',
+      isRead: false,
+      notificationIds: ['old-parent'],
+      data: { route: 'chat', roomId: 'parent-1' },
+    },
+  ])
+
+  assert.equal(notifications.length, 1)
+  assert.deepEqual(notifications[0].notificationIds, ['new-parent', 'middle-parent', 'old-parent'])
+  assert.equal(notifications[0].groupedCount, 3)
+  assert.equal(notifications[0].isRead, false)
+})
+
 test('Parent badge counts Chat once through the canonical room unread count', () => {
   const notifications = [
     { id: 'chat-1', intentType: 'parent_chat', isRead: false, data: { route: 'chat', roomId: 'room-1' } },
@@ -59,6 +83,13 @@ test('opening a grouped Chat card marks every child-scoped event in that room re
   assert.match(endpoint, /\.eq\('parent_link_id', link\.id\)/)
   assert.match(endpoint, /serverNotificationIds = notificationIds\.filter/)
   assert.match(endpoint, /query = query\.in\('id', serverNotificationIds\)/)
+  assert.match(endpoint, /\.gte\('created_at', link\.created_at\)/)
+  assert.match(endpoint, /filterUnavailableNotifications\(collapsedNotifications, link\)/)
+  assert.match(endpoint, /match_day_availability_requests/)
+  assert.match(endpoint, /training_availability_request_players/)
+  assert.match(endpoint, /resource_library_items/)
+  assert.match(endpoint, /evaluations/)
+  assert.match(endpoint, /unavailableIds/)
   assert.match(offline, /normalizedNotificationIds\.has\(normalize\(notification\.id\)\)/)
 })
 

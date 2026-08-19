@@ -194,13 +194,30 @@ test('Coach startup explicitly resolves staff context before ready signed in', a
   ])
 })
 
-test('expired session clears local Auth and returns to signed out without a blank startup state', async () => {
+test('an access-token expiry preserves local Auth and surfaces a recoverable startup state', async () => {
   let cleared = 0
   const result = await runMobileStartup({
     clearInvalidSession: async () => { cleared += 1 },
     config: { isUsable: true },
     getBiometricEnabled: async () => false,
     getSession: async () => { const error = new Error('jwt expired'); error.code = 'JWT_EXPIRED'; throw error },
+    loadProfile: async () => {},
+    onSession: () => {},
+    onTransition: () => {},
+    prepare: async () => {},
+  })
+  assert.equal(cleared, 0)
+  assert.equal(result.state, MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+  assert.equal(result.diagnosticCode, 'JWT_EXPIRED')
+})
+
+test('a confirmed revoked refresh token clears local Auth and returns to signed out', async () => {
+  let cleared = 0
+  const result = await runMobileStartup({
+    clearInvalidSession: async () => { cleared += 1 },
+    config: { isUsable: true },
+    getBiometricEnabled: async () => false,
+    getSession: async () => { const error = new Error('refresh token revoked'); error.code = 'REFRESH_TOKEN_REVOKED'; throw error },
     loadProfile: async () => {},
     onSession: () => {},
     onTransition: () => {},

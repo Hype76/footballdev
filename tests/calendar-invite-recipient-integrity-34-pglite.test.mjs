@@ -5,6 +5,17 @@ import { test } from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260804120936_fp_v1_calendar_invite_recipient_integrity_34.sql', import.meta.url)
 const migration = await readFile(migrationUrl, 'utf8')
+const fanoutMigration = await readFile(
+  new URL('../supabase/migrations/20260818153000_invite_notification_fanout_integrity.sql', import.meta.url),
+  'utf8',
+)
+const publicReleaseMigration = await readFile(
+  new URL('../supabase/migrations/20260819160000_public_release_contact_authority_74.sql', import.meta.url),
+  'utf8',
+)
+const contactAuthorityMigration = publicReleaseMigration.split(
+  'create or replace function public.get_parent_portal_invitation_state',
+)[0]
 
 const ids = {
   club: '10000000-0000-4000-8000-000000000001',
@@ -50,6 +61,8 @@ async function createDatabase() {
       team_id uuid,
       player_name text,
       parent_email text,
+      parent_name text,
+      parent_contacts jsonb not null default '[]'::jsonb,
       contact_type text,
       status text,
       archived_at timestamptz
@@ -63,6 +76,68 @@ async function createDatabase() {
       email text,
       status text
     );
+    create table public.player_team_memberships (
+      id uuid primary key default gen_random_uuid(),
+      club_id uuid not null,
+      team_id uuid not null,
+      player_id uuid not null,
+      status text not null,
+      ended_at timestamptz
+    );
+    create schema app_private;
+    create table public.parent_mobile_notification_events (
+      id uuid primary key default gen_random_uuid(),
+      installation_id uuid,
+      auth_user_id uuid not null,
+      parent_link_id uuid not null,
+      club_id uuid,
+      team_id uuid,
+      intent_type text not null,
+      title text not null,
+      body text not null,
+      data jsonb not null default '{}'::jsonb,
+      status text not null,
+      sent_at timestamptz,
+      created_at timestamptz not null default now(),
+      read_at timestamptz,
+      constraint parent_mobile_notification_events_intent_check check (intent_type in ('parent_message'))
+    );
+    create table public.parent_communication_preferences (
+      auth_user_id uuid primary key,
+      communication_channel text not null default 'both'
+    );
+    create table public.parent_chat_rooms (
+      id uuid primary key,
+      club_id uuid not null,
+      team_id uuid not null,
+      room_type text not null,
+      player_id uuid,
+      match_day_id uuid,
+      status text not null
+    );
+    create table public.parent_chat_messages (
+      id uuid primary key,
+      room_id uuid not null,
+      sender_id uuid,
+      deleted_at timestamptz
+    );
+    create table public.polls (
+      id uuid primary key,
+      club_id uuid not null,
+      team_id uuid,
+      title text not null,
+      audience text not null,
+      status text not null
+    );
+    create table public.match_day_player_squad_decisions (
+      match_day_id uuid,
+      club_id uuid,
+      team_id uuid,
+      player_id uuid,
+      status text
+    );
+    create function app_private.parent_chat_parent_link_can_receive_notification(uuid, uuid, uuid)
+    returns boolean language sql immutable as $$ select true $$;
     create table public.adult_player_account_links (
       id uuid primary key default gen_random_uuid(),
       club_id uuid,
@@ -85,6 +160,8 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(fanoutMigration)
+  await db.exec(contactAuthorityMigration)
 
   await db.exec(`
     insert into auth.users(id, email, raw_user_meta_data, email_confirmed_at) values
@@ -94,11 +171,16 @@ async function createDatabase() {
     insert into public.users(id, club_id, email, name, display_name, status) values
       ('${ids.parentA}', '${ids.club}', 'parent-a@example.invalid', 'Parent A', 'Parent A', 'active'),
       ('${ids.parentB}', '${ids.club}', 'parent-b@example.invalid', 'Parent B', 'Parent B', 'active');
-    insert into public.players(id, club_id, team_id, player_name, parent_email, contact_type, status) values
-      ('${ids.playerParent}', '${ids.club}', '${ids.team}', 'Linked Child', 'parent-a@example.invalid', 'parent', 'active'),
-      ('${ids.playerAdult}', '${ids.club}', '${ids.team}', 'Adult Player', 'adult-player@example.invalid', 'self', 'active'),
-      ('${ids.playerNoRecipient}', '${ids.club}', '${ids.team}', 'No Recipient', 'invitation-only@example.invalid', 'parent', 'active'),
-      ('${ids.crossTeamPlayer}', '${ids.club}', '${ids.otherTeam}', 'Other Team Player', 'parent-a@example.invalid', 'parent', 'active');
+    insert into public.players(id, club_id, team_id, player_name, parent_email, parent_name, parent_contacts, contact_type, status) values
+      ('${ids.playerParent}', '${ids.club}', '${ids.team}', 'Linked Child', 'parent-a@example.invalid', 'Parent A', '[{"name":"Parent A","email":"parent-a@example.invalid","type":"parent"},{"name":"Parent B","email":"parent-b@example.invalid","type":"parent"}]', 'parent', 'active'),
+      ('${ids.playerAdult}', '${ids.club}', '${ids.team}', 'Adult Player', 'adult-player@example.invalid', 'Adult Player', '[]', 'self', 'active'),
+      ('${ids.playerNoRecipient}', '${ids.club}', '${ids.team}', 'Email Contact', 'invitation-only@example.invalid', 'Invitation Contact', '[{"name":"Invitation Contact","email":"invitation-only@example.invalid","type":"parent"}]', 'parent', 'active'),
+      ('${ids.crossTeamPlayer}', '${ids.club}', '${ids.otherTeam}', 'Other Team Player', 'parent-a@example.invalid', 'Parent A', '[{"name":"Parent A","email":"parent-a@example.invalid","type":"parent"}]', 'parent', 'active');
+    insert into public.player_team_memberships(club_id, team_id, player_id, status) values
+      ('${ids.club}', '${ids.team}', '${ids.playerParent}', 'active'),
+      ('${ids.club}', '${ids.team}', '${ids.playerAdult}', 'active'),
+      ('${ids.club}', '${ids.team}', '${ids.playerNoRecipient}', 'active'),
+      ('${ids.club}', '${ids.otherTeam}', '${ids.crossTeamPlayer}', 'active');
     insert into public.parent_player_links(club_id, team_id, player_id, auth_user_id, email, status) values
       ('${ids.club}', '${ids.team}', '${ids.playerParent}', '${ids.parentA}', 'parent-a@example.invalid', 'active'),
       ('${ids.club}', '${ids.team}', '${ids.playerParent}', '${ids.parentB}', 'parent-b@example.invalid', 'active'),
@@ -170,10 +252,10 @@ test('Parent A, Parent B, and Adult Player resolve independently with canonical 
   await db.close()
 })
 
-test('no-recipient, invitation-only, and cross-Team paths fail closed', async () => {
+test('configured Player contacts receive email while cross-Team paths fail closed', async () => {
   const db = await createDatabase()
   const result = await db.query(`
-    select player_id
+    select player_id, recipient_email, parent_link_id
     from public.event_player_eligible_recipients(
       '${ids.club}',
       '${ids.team}',
@@ -181,7 +263,11 @@ test('no-recipient, invitation-only, and cross-Team paths fail closed', async ()
     )
   `)
 
-  assert.deepEqual(result.rows, [])
+  assert.deepEqual(result.rows, [{
+    player_id: ids.playerNoRecipient,
+    recipient_email: 'invitation-only@example.invalid',
+    parent_link_id: null,
+  }])
   await db.close()
 })
 
