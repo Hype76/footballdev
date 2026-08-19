@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, FlatList, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { AppState, FlatList, Linking, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
 import {
@@ -592,7 +592,7 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
   )
 }
 
-export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onSend, rooms, selectedRoom, themeTokens }) {
+export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onSend, onToggleRoomNotifications, rooms, selectedRoom, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [draft, setDraft] = useState('')
   const composerRef = useRef(null)
@@ -638,7 +638,33 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
     <View style={styles.chatScreen}>
       <View style={styles.chatHeader}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your child'}.</Text>{isOffline ? <Text style={styles.warning}>Saved conversations remain readable. Sending and deleting need a connection.</Text> : null}</View>
       <ResourceState emptyCopy="No Parent Chat rooms are available for this child." error={rooms.error} items={sortedRooms} loading={rooms.loading} styles={styles} />
-      <FlatList contentContainerStyle={styles.chatRoomContent} data={sortedRooms} keyExtractor={(room) => String(room.id)} renderItem={({ item: room }) => <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text>{room.latestMessageAt ? <Text style={styles.meta}>{formatDate(room.latestMessageAt)}</Text> : null}</Pressable>} style={styles.chatList} />
+      <FlatList
+        contentContainerStyle={styles.chatRoomContent}
+        data={sortedRooms}
+        keyExtractor={(room) => String(room.id)}
+        renderItem={({ item: room }) => (
+          <View style={styles.card}>
+            <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)}>
+              <View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View>
+              <Text style={styles.cardTitle}>{room.title}</Text>
+              {getParentChatRoomContext(room) ? <Text style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}
+              <Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text>
+              {room.latestMessageAt ? <Text style={styles.meta}>{formatDate(room.latestMessageAt)}</Text> : null}
+            </Pressable>
+            <View style={styles.row}>
+              <View><Text style={styles.body}>Do not disturb</Text><Text style={styles.meta}>{room.notificationsMuted ? 'Notifications muted for this room' : 'Notifications on for this room'}</Text></View>
+              <Switch
+                accessibilityLabel={`Do not disturb for ${room.title}`}
+                disabled={isOffline || Boolean(activeActionId)}
+                onValueChange={(value) => onToggleRoomNotifications(room, value)}
+                trackColor={{ false: colors.border, true: colors.accent }}
+                value={room.notificationsMuted === true}
+              />
+            </View>
+          </View>
+        )}
+        style={styles.chatList}
+      />
     </View>
   )
 }

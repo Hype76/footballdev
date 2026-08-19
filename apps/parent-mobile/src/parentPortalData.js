@@ -141,6 +141,7 @@ export function normalizeParentChatRoom(row = {}) {
     latestMessageAt: row.latest_message_at ?? row.latestMessageAt ?? '',
     matchDate: row.match_date ?? row.matchDate ?? '',
     matchDayId: row.match_day_id ?? row.matchDayId ?? '',
+    notificationsMuted: Boolean(row.notifications_muted ?? row.notificationsMuted),
     opponent: normalizeText(row.opponent),
     playerName: normalizeText(row.player_name ?? row.playerName),
     status: normalizeText(row.status) || 'active',
@@ -430,12 +431,36 @@ export async function openParentResource(user, resourceId) {
 
 export async function getParentChatRooms(user, childOnly = true) {
   const link = requireSelectedLink(user)
-  const { data, error } = await supabase.rpc('get_parent_portal_chat_rooms', {
+  const roomArgs = {
     child_only_value: Boolean(childOnly),
     parent_link_id_value: link.id,
+  }
+  const [{ data, error }, { data: preferences, error: preferenceError }] = await Promise.all([
+    supabase.rpc('get_parent_portal_chat_rooms', roomArgs),
+    supabase.rpc('get_parent_portal_chat_notification_preferences', roomArgs),
+  ])
+  if (error) throw error
+  if (preferenceError) throw preferenceError
+  const mutedByRoom = new Map((preferences || []).map((preference) => [
+    String(preference.room_id || ''),
+    Boolean(preference.notifications_muted),
+  ]))
+  return (data || []).map((row) => normalizeParentChatRoom({
+    ...row,
+    notifications_muted: mutedByRoom.get(String(row.id || '')) === true,
+  }))
+}
+
+export async function setParentChatRoomNotifications(user, roomId, notificationsMuted, childOnly = true) {
+  const link = requireSelectedLink(user)
+  const { data, error } = await supabase.rpc('set_parent_portal_chat_room_notifications', {
+    child_only_value: Boolean(childOnly),
+    notifications_muted_value: notificationsMuted === true,
+    parent_link_id_value: link.id,
+    target_room_id: roomId,
   })
   if (error) throw error
-  return (data || []).map(normalizeParentChatRoom)
+  return Boolean(data)
 }
 
 export async function getParentChatMessages(user, roomId, childOnly = true) {

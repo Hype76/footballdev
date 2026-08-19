@@ -76,6 +76,7 @@ import {
   recordParentScorerShootoutKick,
   respondToParentInvitation,
   sendParentChatMessage,
+  setParentChatRoomNotifications,
   setParentScorerExtendedState,
   setParentScorerTimer,
   startParentScorerMatch,
@@ -1115,6 +1116,27 @@ function ParentHome() {
     }
   }
 
+  async function handleToggleChatRoomNotifications(room, notificationsMuted) {
+    if (isOffline || activeActionId || !room?.id) return
+    setActiveActionId(`chat-dnd:${room.id}`)
+    try {
+      await setParentChatRoomNotifications(selectedMobileUser, room.id, notificationsMuted)
+      setResources((current) => ({
+        ...current,
+        chatRooms: {
+          ...current.chatRooms,
+          items: current.chatRooms.items.map((item) => item.id === room.id
+            ? { ...item, notificationsMuted: notificationsMuted === true }
+            : item),
+        },
+      }))
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'This Chat notification setting could not be saved.'), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   async function reloadSelectedChatRoom() {
     if (!selectedRoomId) return
     if (selectedRoomId === 'club-announcements') {
@@ -1495,6 +1517,7 @@ function ParentHome() {
               onDismissAnnouncement={(message) => handleDismissParentItem('messages', message.legacyMessageId, 'announcement')}
               onOpenRoom={handleOpenChatRoom}
               onSend={handleSendChatMessage}
+              onToggleRoomNotifications={handleToggleChatRoomNotifications}
               rooms={{ ...resources.chatRooms, items: parentChatRooms }}
               selectedRoom={selectedRoom}
               theme={displayTheme}

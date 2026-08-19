@@ -216,7 +216,7 @@ export async function saveCoachTrainingInvitation(user, form) {
     if (settingError) throw settingError
   }
 
-  if (config.isProduction && notifyParents) {
+  if (config.isProduction && notifyParents && !requestTrainingAvailability) {
     const { data, error } = await supabase.rpc('notify_calendar_event_parents', {
       calendar_event_id_value: event.sourceId,
       event_action_value: 'creation',
