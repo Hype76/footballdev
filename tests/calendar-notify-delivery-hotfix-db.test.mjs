@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migration = await readFile(new URL('../supabase/migrations/20260716110436_calendar_notify_delivery_hotfix.sql', import.meta.url), 'utf8')
+const correctiveMigration = await readFile(new URL('../supabase/migrations/20260819054757_fix_calendar_team_parent_scope_handoff.sql', import.meta.url), 'utf8')
 
 const ACTOR_ID = '10000000-0000-4000-8000-000000000001'
 const CLUB_ID = '20000000-0000-4000-8000-000000000001'
@@ -55,17 +56,50 @@ async function createFixtureDatabase() {
     );
     create function public.sync_calendar_event_parent_scope(uuid, uuid, uuid[])
     returns jsonb
-    language sql
+    language plpgsql
     security definer
     set search_path = ''
-    as $$
-      select jsonb_build_object(
-        'selectedPlayerCount', coalesce(array_length($3, 1), 0),
-        'selectedPlayerIds', to_jsonb($3)
-      )
+    as \$\$
+    declare
+      source_team_id uuid;
+      source_club_id uuid;
+      resolved_player_ids uuid[];
+    begin
+      select coalesce(event.team_id, fixture.team_id), coalesce(event.club_id, fixture.club_id)
+      into source_team_id, source_club_id
+      from (select \$1 as calendar_event_id, \$2 as match_day_id) input
+      left join public.calendar_events event on event.id = input.calendar_event_id
+      left join public.match_days fixture on fixture.id = input.match_day_id;
+
+      if source_club_id is null or not exists (
+        select 1 from public.users actor
+        where actor.id = auth.uid() and actor.club_id = source_club_id
+      ) or not exists (
+        select 1 from public.team_staff staff
+        where staff.team_id = source_team_id and staff.user_id = auth.uid()
+      ) then
+        raise exception 'You do not have permission to share this event with parents for this team.';
+      end if;
+
+      if coalesce(array_length(\$3, 1), 0) > 0 then
+        resolved_player_ids := \$3;
+      else
+        select coalesce(array_agg(player.id order by player.id), '{}'::uuid[])
+        into resolved_player_ids
+        from public.players player
+        where player.team_id = source_team_id
+          and coalesce(player.status, 'active') <> 'archived';
+      end if;
+
+      return jsonb_build_object(
+        'portalRecordCount', coalesce(array_length(resolved_player_ids, 1), 0),
+        'selectedPlayerIds', to_jsonb(resolved_player_ids)
+      );
+    end;
     $$;
   `)
   await db.exec(migration)
+  await db.exec(correctiveMigration)
   await db.exec(`
     insert into public.users values ('${ACTOR_ID}', '${CLUB_ID}', 'coach', 'active', 20);
     insert into public.team_staff values ('${TEAM_ID}', '${ACTOR_ID}');
@@ -103,7 +137,7 @@ test('delivery migration applies and resolves Whole squad scope server-side', as
       ) as result
     `)
 
-    assert.equal(withoutTrials.rows[0].result.selectedPlayerCount, 2)
+    assert.equal(withoutTrials.rows[0].result.selectedPlayerCount, 3)
     assert.equal(withoutTrials.rows[0].result.selectionMode, 'whole_squad')
     assert.equal(withTrials.rows[0].result.selectedPlayerCount, 3)
     assert.equal(withTrials.rows[0].result.includeTrialPlayers, true)

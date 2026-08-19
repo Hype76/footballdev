@@ -8,9 +8,10 @@ const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
 test('availability creation selects every Player without an existing request by default', async () => {
   const screen = await read('../apps/coach-mobile/src/CoachPhase31EScreens.js')
-  assert.match(screen, /Send to all \$\{availablePlayers\.length\} Players without a request/)
+  assert.match(screen, /Send to \$\{availablePlayers\.length\} Players without an active request/)
   assert.match(screen, /setPlayerIds\(next \? availablePlayers\.map\(\(player\) => player\.id\) : \[\]\)/)
-  assert.match(screen, /All eligible Players are selected by default/)
+  assert.match(screen, /Players who already responded are excluded and cannot be resent from this action/)
+  assert.match(screen, /selectedCanBeResent/)
   assert.match(screen, /Review and send \$\{playerIds\.length\} request/)
 })
 

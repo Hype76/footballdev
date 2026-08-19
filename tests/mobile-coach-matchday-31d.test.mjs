@@ -182,9 +182,13 @@ test('Match Day keeps the selected fixture stable while cached data refreshes', 
   assert.match(screen, /match\?\.id !== requestedFixtureId/)
 })
 
-test('Match Day screen exposes operational squad, volunteer, live, timeline, shootout, and report surfaces', async () => {
+test('Match Day screen exposes operational tools while the FA report entry remains hidden', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
-  for (const marker of ['Squad', 'Volunteers', 'Live', 'Timeline', 'Shootout', 'Report', 'Correct score', 'Record event', 'Final Match Report']) assert.match(source, new RegExp(marker))
+  for (const marker of ['Squad', 'Volunteers', 'Live', 'Timeline', 'Shootout', 'Correct score', 'Record event']) assert.match(source, new RegExp(marker))
+  assert.match(source, /const COACH_MOBILE_FA_REPORT_VISIBLE = false/)
+  assert.match(source, /COACH_MOBILE_FA_REPORT_VISIBLE \? \[\{ label: 'Report', value: 'report' \}\] : \[\]/)
+  assert.match(source, /COACH_MOBILE_FA_REPORT_VISIBLE && panel === 'report'/)
+  assert.match(source, /function ReportPanel/)
   assert.match(source, /FA submission helper/)
   assert.match(source, /no canonical FA SMS, deep-link message format, or authorised direct integration/)
   assert.match(source, /Correct goal details/)

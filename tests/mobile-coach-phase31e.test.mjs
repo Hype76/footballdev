@@ -6,6 +6,8 @@ import {
   COACH_PHASE_31E_COMMUNICATION_POLICY,
   COACH_PHASE_31E_DOMAINS,
   assertSyntheticCoachCommunicationTarget,
+  collapseCoachInvitesByPlayer,
+  getCoachPlayersWithoutAvailabilityRequest,
   getCoachResourceErrorMessage,
   getCoachPhase31EOfflinePolicy,
   getCoachPhase31EAccess,
@@ -193,6 +195,29 @@ test('Invite normalization preserves distinct statuses and stale protection', ()
 test('Invite summary does not merge selected, not selected, maybe, or stale meaning', () => {
   const rows = ['pending', 'available', 'unavailable', 'maybe', 'selected', 'not_selected', 'stale', 'cancelled'].map((status) => ({ status }))
   assert.deepEqual(summarizeCoachInvites(rows), { awaiting: 1, available: 1, unavailable: 1, maybe: 1, selected: 1, notSelected: 1, stale: 1, cancelled: 1 })
+})
+
+test('Match availability collapses recipient rows to one authoritative Player response', () => {
+  const rows = [
+    { id: 'pending-parent-1', eventId: 'match-1', playerId: 'player-1', playerName: 'Alex', sentAt: '2026-08-19T08:00:00Z', status: 'pending' },
+    { id: 'pending-parent-2', eventId: 'match-1', playerId: 'player-1', playerName: 'Alex', sentAt: '2026-08-19T08:01:00Z', status: 'awaiting' },
+    { id: 'response-parent-1', eventId: 'match-1', playerId: 'player-1', playerName: 'Alex', respondedAt: '2026-08-19T08:02:00Z', status: 'available' },
+    { id: 'pending-player-2', eventId: 'match-1', playerId: 'player-2', playerName: 'Blair', sentAt: '2026-08-19T08:03:00Z', status: 'pending' },
+  ]
+  const collapsed = collapseCoachInvitesByPlayer(rows)
+  assert.equal(collapsed.length, 2)
+  assert.equal(collapsed.find((invite) => invite.playerId === 'player-1').status, 'available')
+  assert.deepEqual(summarizeCoachInvites(collapsed), { awaiting: 1, available: 1, unavailable: 0, maybe: 0, selected: 0, notSelected: 0, stale: 0, cancelled: 0 })
+})
+
+test('Match availability creation includes only Players without an active request', () => {
+  const players = [{ id: 'player-1' }, { id: 'player-2' }, { id: 'player-3' }]
+  const invites = [
+    { id: 'invite-1', eventId: 'match-1', playerId: 'player-1', status: 'available' },
+    { id: 'invite-2', eventId: 'match-1', playerId: 'player-2', status: 'pending' },
+    { id: 'invite-3', eventId: 'match-2', playerId: 'player-3', status: 'pending' },
+  ]
+  assert.deepEqual(getCoachPlayersWithoutAvailabilityRequest(players, invites, 'match-1').map((player) => player.id), ['player-3'])
 })
 
 test('all Phase 31E domains allow encrypted reads but require online mutation', () => {

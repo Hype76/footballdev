@@ -39,6 +39,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-PARENT-NOTIFICATION-CALENDAR-FORMATION-68',
   'FP-INVITES-NOTIFICATIONS-69',
   'FP-MOBILE-CORRECTIVE-70',
+  'FP-MOBILE-CORRECTIVE-71',
 ])
 const authorisedCoachProductionReferences = new Set([
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
@@ -68,6 +69,7 @@ const authorisedCoachProductionReferences = new Set([
   'FP-PARENT-NOTIFICATION-CALENDAR-FORMATION-68',
   'FP-INVITES-NOTIFICATIONS-69',
   'FP-MOBILE-CORRECTIVE-70',
+  'FP-MOBILE-CORRECTIVE-71',
 ])
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().toLowerCase() === 'true'

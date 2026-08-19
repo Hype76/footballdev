@@ -96,6 +96,19 @@ export function getInvitationResponseOptions(invitation = {}) {
   return []
 }
 
+export function getParentVolunteerRoleLabel(invitation = {}) {
+  const roleType = normalizeText(invitation.roleType ?? invitation.role_type)
+    .toLowerCase()
+    .replace(/^volunteer_/, '')
+    .replaceAll('-', '_')
+  const labels = {
+    linesman: 'Linesman',
+    referee: 'Referee',
+    scorer: 'Scorer',
+  }
+  return labels[roleType] || 'Match volunteer'
+}
+
 export function getParentInvitationDisplayState(invitation = {}) {
   const invitationState = normalizeText(invitation.invitationState).toLowerCase()
   return ['cancelled', 'closed', 'expired'].includes(invitationState)

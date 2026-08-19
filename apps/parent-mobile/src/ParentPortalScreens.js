@@ -18,6 +18,7 @@ import { getParentChatRoomContext, getParentChatRoomTypeLabel, getParentInvitati
 import {
   getInvitationResponseOptions,
   getParentInvitationDisplayState,
+  getParentVolunteerRoleLabel,
   isParentInvitationActionable,
 } from './parentPortalData'
 
@@ -83,6 +84,8 @@ function usePortalStyles(themeTokens) {
       actionTextSelected: { color: colors.accentText },
       body: { color: colors.text, fontSize: 15, lineHeight: 22 },
       card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
+      volunteerCard: { borderColor: colors.warning, borderWidth: 2 },
+      volunteerRole: { color: colors.warning, fontSize: 22, fontWeight: '900' },
       formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
       formationPitch: { aspectRatio: 0.68, backgroundColor: colors.pitch, borderColor: colors.pitchLine, borderRadius: 18, borderWidth: 2, overflow: 'hidden', position: 'relative', width: '100%' },
       formationEmpty: { alignSelf: 'center', backgroundColor: colors.card, borderRadius: 12, color: colors.text, fontSize: 13, fontWeight: '700', marginHorizontal: 18, marginTop: '55%', padding: 12, textAlign: 'center' },
@@ -325,12 +328,16 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarge
         const options = getInvitationResponseOptions(invitation)
         const busy = activeActionId === `invite:${invitation.invitationId}`
         const actionable = isParentInvitationActionable(invitation)
+        const volunteerOffer = invitation.invitationType === 'match_role'
+        const volunteerRole = volunteerOffer ? getParentVolunteerRoleLabel(invitation) : ''
         return (
-          <View key={invitation.invitationId || `${invitation.sourceRecordId}:${invitation.invitationType}`} style={styles.card}>
-            <View style={styles.row}><Text style={styles.pill}>{labelize(getParentInvitationDisplayState(invitation))}</Text><Text style={styles.meta}>{formatDate(invitation.eventStart || invitation.eventDate)}</Text></View>
+          <View key={invitation.invitationId || `${invitation.sourceRecordId}:${invitation.invitationType}`} style={[styles.card, volunteerOffer && styles.volunteerCard]}>
+            <View style={styles.row}><Text style={styles.pill}>{volunteerOffer ? 'Volunteer offer' : labelize(getParentInvitationDisplayState(invitation))}</Text><Text style={styles.meta}>{formatDate(invitation.eventStart || invitation.eventDate)}</Text></View>
+            {volunteerOffer ? <Text style={styles.volunteerRole}>{volunteerRole} offer</Text> : null}
             <Text style={styles.cardTitle}>{invitation.eventTitle}</Text>
-            <Text style={styles.body}>{labelize(invitation.responseState)}</Text>
-            {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text style={styles.meta}>Squad or role status: {labelize(invitation.selectionState)}</Text> : null}
+            {volunteerOffer ? <Text style={styles.body}>This is a Parent or guardian volunteer role. It does not select your child for the squad.</Text> : null}
+            <Text style={styles.body}>{volunteerOffer ? 'Offer status' : 'Response'}: {labelize(invitation.responseState)}</Text>
+            {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text style={styles.meta}>{volunteerOffer ? 'Volunteer role status' : 'Squad status'}: {labelize(invitation.selectionState)}</Text> : null}
             {invitation.eventLocation ? <Text style={styles.meta}>{invitation.eventLocation}</Text> : null}
             {invitation.lockReason ? <Text style={styles.warning}>{invitation.lockReason}</Text> : null}
             {actionable ? (

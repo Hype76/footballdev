@@ -75,6 +75,10 @@ test('offline cache includes all read-only parity resources and leaves high-risk
 test('normalizers preserve response authority and safe display fields', () => {
   assert.match(data, /invitationType === 'match_role'[\s\S]*Accept offer[\s\S]*Decline offer/)
   assert.match(data, /roleType: normalizeText\(row\.role_type/)
+  assert.match(data, /linesman: 'Linesman'[\s\S]*referee: 'Referee'[\s\S]*scorer: 'Scorer'/)
+  assert.match(screens, /Volunteer offer/)
+  assert.match(screens, /This is a Parent or guardian volunteer role\. It does not select your child for the squad\./)
+  assert.match(screens, /Volunteer role status/)
   assert.match(data, /unreadCount: Number\(row\.unread_count/)
   assert.match(data, /canDelete: Boolean\(row\.can_delete/)
   assert.match(data, /title: normalizeText\(row\.title\) \|\| 'Shared resource'/)

@@ -144,13 +144,20 @@ test('Calendar queue payload reconstructs a valid sender and reaches the mocked 
 })
 
 test('delivery migration keeps internal control and immediate due-time rules server-side', async () => {
-  const migration = await readFile(new URL('../supabase/migrations/20260716110436_calendar_notify_delivery_hotfix.sql', import.meta.url), 'utf8')
+  const [migration, correctiveMigration] = await Promise.all([
+    readFile(new URL('../supabase/migrations/20260716110436_calendar_notify_delivery_hotfix.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../supabase/migrations/20260819054757_fix_calendar_team_parent_scope_handoff.sql', import.meta.url), 'utf8'),
+  ])
   assert.match(migration, /sync_calendar_event_parent_scope_v2/)
   assert.match(migration, /Whole squad player scope is resolved by the server/)
   assert.match(migration, /communicationLog,metadata,source/)
   assert.match(migration, /new\.scheduled_at := now\(\)/)
   assert.match(migration, /status in \('pending', 'queued', 'processing', 'sent', 'failed'\)/)
   assert.match(migration, /revoke all on function public\.sync_calendar_event_parent_scope_v2/)
+  assert.match(correctiveMigration, /create or replace function public\.sync_calendar_event_parent_scope_v2/)
+  assert.match(correctiveMigration, /delegated_player_ids := '\{\}'::uuid\[\]/)
+  assert.match(correctiveMigration, /public\.sync_calendar_event_parent_scope\([\s\S]*delegated_player_ids/)
+  assert.match(correctiveMigration, /Whole squad player scope is resolved by the server/)
 })
 
 test('immediate processor is command-scoped and preserves periodic processing', async () => {

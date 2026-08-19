@@ -26,6 +26,8 @@ import {
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
   buildCoachPollClosesAt,
+  collapseCoachInvitesByPlayer,
+  getCoachPlayersWithoutAvailabilityRequest,
   getCoachPhase31EOfflinePolicy,
   getCoachChatRoomDisplay,
   getCoachResourceErrorMessage,
@@ -657,14 +659,14 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
   const [playerIds, setPlayerIds] = useState([])
   const [creating, setCreating] = useState(false)
   const [uncertainAttempt, setUncertainAttempt] = useState(null)
-  const selected = data.match?.find((invite) => invite.id === selectedId)
   const selectedMatch = openMatches.find((match) => match.id === matchId)
-  const selectedMatchInvites = (data.match || [])
-    .filter((invite) => invite.eventId === matchId && !invite.cancelled && !invite.stale)
+  const selectedMatchInvites = [...collapseCoachInvitesByPlayer((data.match || [])
+    .filter((invite) => invite.eventId === matchId && !invite.cancelled && !invite.stale))]
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
+  const selected = selectedMatchInvites.find((invite) => invite.id === selectedId)
   const summary = summarizeCoachInvites(selectedMatchInvites)
-  const invitedPlayerIds = new Set(selectedMatchInvites.map((invite) => invite.playerId))
-  const availablePlayers = (data.players || []).filter((player) => !invitedPlayerIds.has(player.id))
+  const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
+  const selectedCanBeResent = selected && ['awaiting', 'pending'].includes(selected.status)
   const record = async (action) => {
     try {
       const result = await recordCoachInviteIntent(user, selected, action)
@@ -730,7 +732,7 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
     <View style={styles.stack}>
       <Text style={styles.body}>Choose an upcoming fixture to see its availability.</Text>
       {openMatches.length ? openMatches.map((match) => {
-        const matchInvites = (data.match || []).filter((invite) => invite.eventId === match.id && !invite.cancelled && !invite.stale)
+        const matchInvites = collapseCoachInvitesByPlayer((data.match || []).filter((invite) => invite.eventId === match.id && !invite.cancelled && !invite.stale))
         const matchSummary = summarizeCoachInvites(matchInvites)
         const expanded = match.id === matchId
         return (
@@ -747,11 +749,12 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
                   <Text style={styles.body}>{invite.playerName}: {invite.status}</Text>
                 </Pressable>
               )) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
-              {selected ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
-              {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Send to all ${availablePlayers.length} Players without a request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every active Player already has a request for this fixture.</Text>}
+              {selectedCanBeResent ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
+              {selected && !selectedCanBeResent ? <Text style={styles.body}>{selected.playerName} has already responded. This request will not be resent.</Text> : null}
+              {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Send to ${availablePlayers.length} Players without an active request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every active Player already has an availability request for this fixture.</Text>}
               {requestPanelOpen ? <View style={styles.stack}>
                 <Text style={styles.heading}>Create availability requests</Text>
-                <Text style={styles.body}>{playerIds.length} of {availablePlayers.length} Players selected. All eligible Players are selected by default. Remove a Player only when this request should not go to them.</Text>
+                <Text style={styles.body}>{playerIds.length} of {availablePlayers.length} Players without an active request selected. Players who already responded are excluded and cannot be resent from this action.</Text>
                 {availablePlayers.length ? <>
                   <Button label={playerIds.length === availablePlayers.length ? 'Clear selection' : 'Select all'} onPress={() => setPlayerIds(playerIds.length === availablePlayers.length ? [] : availablePlayers.map((player) => player.id))} secondary styles={styles} />
                   <View style={styles.row}>{availablePlayers.map((player) => { const selectedPlayer = playerIds.includes(player.id); return <Button key={player.id} label={player.playerName} onPress={() => setPlayerIds((current) => selectedPlayer ? current.filter((id) => id !== player.id) : [...current, player.id])} secondary={!selectedPlayer} styles={styles} /> })}</View>

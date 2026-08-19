@@ -411,6 +411,49 @@ export function summarizeCoachInvites(rows = []) {
   return Object.freeze(summary)
 }
 
+function getCoachInviteStatusPriority(status) {
+  const normalizedStatus = normalize(status).toLowerCase()
+  if (['available', 'unavailable', 'maybe', 'selected', 'not_selected', 'responded'].includes(normalizedStatus)) return 3
+  if (['awaiting', 'pending'].includes(normalizedStatus)) return 2
+  return 1
+}
+
+function getCoachInviteSortTime(invite = {}) {
+  const parsed = Date.parse(normalize(invite.respondedAt || invite.sentAt))
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+export function collapseCoachInvitesByPlayer(rows = []) {
+  const invitesByPlayer = new Map()
+  for (const invite of Array.isArray(rows) ? rows : []) {
+    const eventId = normalize(invite?.eventId)
+    const playerId = normalize(invite?.playerId)
+    const key = eventId && playerId ? `${eventId}:${playerId}` : normalize(invite?.id)
+    if (!key) continue
+    const current = invitesByPlayer.get(key)
+    if (!current) {
+      invitesByPlayer.set(key, invite)
+      continue
+    }
+    const priorityDifference = getCoachInviteStatusPriority(invite?.status) - getCoachInviteStatusPriority(current?.status)
+    if (priorityDifference > 0 || (priorityDifference === 0 && getCoachInviteSortTime(invite) > getCoachInviteSortTime(current))) {
+      invitesByPlayer.set(key, invite)
+    }
+  }
+  return Object.freeze([...invitesByPlayer.values()])
+}
+
+export function getCoachPlayersWithoutAvailabilityRequest(players = [], invites = [], eventId = '') {
+  const normalizedEventId = normalize(eventId)
+  const requestedPlayerIds = new Set(
+    collapseCoachInvitesByPlayer(invites)
+      .filter((invite) => normalize(invite?.eventId) === normalizedEventId && !invite?.cancelled && !invite?.stale)
+      .map((invite) => normalize(invite?.playerId))
+      .filter(Boolean),
+  )
+  return Object.freeze((Array.isArray(players) ? players : []).filter((player) => !requestedPlayerIds.has(normalize(player?.id))))
+}
+
 export function isCoachMatchAvailabilityRequestCreationApplied(data, matchDayId, playerIds = []) {
   const expectedMatch = normalize(matchDayId)
   const expectedPlayers = new Set((playerIds || []).map(normalize).filter(Boolean))
