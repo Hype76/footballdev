@@ -8,6 +8,7 @@ import {
   formatParentProductTime,
 } from '../../mobile-core/src/parentDateTimeCore'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
+import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import {
   canParentRegisterScorerInterest,
   getParentMatchCalendarUrl,
@@ -503,6 +504,7 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
           <Text accessibilityRole="header" style={styles.header}>{selectedMatch.teamName} v {selectedMatch.opponent}</Text>
           {scoreVisible(selectedMatch) ? <Text style={styles.score}>{selectedMatch.homeScore} - {selectedMatch.awayScore}</Text> : null}
           <Text style={styles.body}>{selectedMatch.venueName || 'Location not shared'}</Text>
+          {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
           <Text style={styles.meta}>Availability: {labelize(selectedMatch.availabilityStatus) || 'No response requested'}</Text>
           <Text style={styles.meta}>Squad: {labelize(selectedMatch.squadDecisionState) || 'Not decided'}</Text>
           {selectedMatch.confirmedTeam?.length ? <Text style={styles.meta}>Confirmed team: {selectedMatch.confirmedTeam.join(', ')}</Text> : null}
@@ -597,6 +599,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
   const messageListRef = useRef(null)
   const sortedRooms = useMemo(() => prepareParentChatRooms(rooms.items), [rooms.items])
   const sortedMessages = useMemo(() => prepareParentChatMessages(messages.items), [messages.items])
+  const visibleMessageError = useConfirmedConnectionMessage(messages.error)
   const displayedSelectedRoom = useMemo(() => selectedRoom ? prepareParentChatRooms([selectedRoom])[0] : null, [selectedRoom])
   useEffect(() => {
     if (!selectedRoom) return undefined
@@ -626,7 +629,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
           style={styles.chatList}
         />
         {messages.loading ? <Text style={styles.helper}>Loading messages...</Text> : null}
-        {messages.error ? <Text style={styles.error}>{messages.error}</Text> : null}
+        {visibleMessageError ? <Text style={styles.error}>{visibleMessageError}</Text> : null}
         {selectedRoom.canPost ? <View style={styles.composer}><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Message" placeholderTextColor={colors.muted} ref={composerRef} style={[styles.field, styles.composerField]} value={draft} /><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send'} onPress={() => { void onSend(draft).then(() => setDraft('')).catch(() => {}) }} styles={styles} /></View> : null}
       </View>
     )

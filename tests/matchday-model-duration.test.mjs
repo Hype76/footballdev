@@ -68,6 +68,11 @@ test('match duration defaults safely and validates new fixture values', () => {
   assert.match(getRequiredMatchDurationValidationError(142), /even match duration/)
 })
 
+test('fixture setup intent preserves the saved duration when no duration override was supplied', () => {
+  assert.equal('matchDurationMinutes' in normalizeFixtureSetupIntent({ opponent: 'Riverside' }), false)
+  assert.equal(normalizeFixtureSetupIntent({ matchDurationMinutes: 80 }).matchDurationMinutes, 80)
+})
+
 test('second-half timer and event minute use the configured match duration', () => {
   const now = Date.parse('2026-07-10T09:00:00Z')
 

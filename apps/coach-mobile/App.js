@@ -180,9 +180,15 @@ function CoachHome() {
 
   const clampContentScroll = useCallback(() => {
     const maximumOffset = Math.max(0, contentHeightRef.current - viewportHeightRef.current)
-    if (scrollOffsetRef.current <= maximumOffset + 2) return
-    scrollOffsetRef.current = maximumOffset
-    requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: maximumOffset }))
+    if (scrollOffsetRef.current > maximumOffset + 2) {
+      scrollOffsetRef.current = maximumOffset
+      requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: maximumOffset }))
+      return
+    }
+    if (scrollOffsetRef.current < -2) {
+      scrollOffsetRef.current = 0
+      requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: 0 }))
+    }
   }, [])
 
   useEffect(() => {
@@ -568,12 +574,14 @@ function CoachHome() {
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           bounces={false}
           contentContainerStyle={styles.content}
-          contentInsetAdjustmentBehavior="automatic"
+          contentInsetAdjustmentBehavior="never"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="always"
           onContentSizeChange={(_width, height) => { contentHeightRef.current = height; clampContentScroll() }}
           onLayout={(event) => { viewportHeightRef.current = event.nativeEvent.layout.height; clampContentScroll() }}
+          onMomentumScrollEnd={clampContentScroll}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { listener: (event) => { scrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y) }, useNativeDriver: false })}
+          onScrollEndDrag={clampContentScroll}
           overScrollMode="never"
           scrollEventThrottle={16}
           refreshControl={(

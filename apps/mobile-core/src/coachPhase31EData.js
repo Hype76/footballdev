@@ -542,7 +542,7 @@ export async function getCoachInvitesAndAvailability(user) {
     const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
     const event = trainingEvents.get(normalize(request?.calendar_event_id))
     const response = Array.isArray(row.training_availability_responses) ? row.training_availability_responses[0] : row.training_availability_responses
-    return normalizeCoachInvite({ ...row, ...response, occurrence_date: request?.occurrence_date, title: event?.title, cancelled_at: event?.cancelled_at }, 'training')
+    return normalizeCoachInvite({ ...row, ...response, calendar_event_id: request?.calendar_event_id, occurrence_date: request?.occurrence_date, title: event?.title, cancelled_at: event?.cancelled_at }, 'training')
   })
   const match = (matchResult.data || []).map((row) => {
     const fixture = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days

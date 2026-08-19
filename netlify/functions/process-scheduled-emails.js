@@ -48,6 +48,12 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? '').trim())
 }
 
+const TRAINING_RSVP_QUEUE_HANDOFF = 'training_response_delivery_owned_by_rsvp_queue'
+
+export function isTrainingRsvpQueueHandoff(reason) {
+  return String(reason ?? '').trim() === TRAINING_RSVP_QUEUE_HANDOFF
+}
+
 function getSafeErrorDetails(error) {
   return {
     code: String(error?.code ?? 'unknown_error').slice(0, 100),
@@ -508,7 +514,11 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
         skipReason,
       )
       if (isCalendarNotificationQueueRow(lockedRow)) {
-        await updateCalendarNotificationEvent(lockedRow.id, 'failed', skipReason)
+        await updateCalendarNotificationEvent(
+          lockedRow.id,
+          isTrainingRsvpQueueHandoff(skipReason) ? 'sent' : 'failed',
+          isTrainingRsvpQueueHandoff(skipReason) ? null : skipReason,
+        )
       }
       await updateEventPlayerNotificationEvent(lockedRow.id, 'failed', skipReason)
       return 'skipped'

@@ -65,7 +65,7 @@ test('Coach mobile keeps creation hidden until requested and expands one fixture
 
   assert.match(screen, /createFormOpen \? <View style=\{styles\.panel\}>/)
   assert.match(screen, /expanded \? 'Hide results' : 'View results'/)
-  assert.match(screen, /Choose an upcoming fixture to see its availability\./)
+  assert.match(screen, /Choose an upcoming Match or Training session to see its availability\./)
   assert.match(screen, /expanded \? 'Hide availability' : 'Open availability'/)
   assert.match(screen, /Create availability requests/)
   assert.doesNotMatch(screen, /\{\(data\.all \|\| \[\]\)\.length \? data\.all\.map/)

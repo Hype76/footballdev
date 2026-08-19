@@ -696,7 +696,7 @@ try {
       await scorer.page.getByText('Authoritative match clock', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
       await scorer.page.getByText('0:00', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
       await verifyWakeLockControl(scorer.page, scorer.mutationRequests)
-      const penaltyGoalToggle = scorer.page.getByText('Penalty goal', { exact: true }).locator('..').getByRole('checkbox')
+      const penaltyGoalToggle = scorer.page.getByText('Penalty', { exact: true }).locator('..').getByRole('checkbox')
       assert.equal(await penaltyGoalToggle.isChecked(), false)
       await penaltyGoalToggle.check()
       assert.equal(await penaltyGoalToggle.isChecked(), true)

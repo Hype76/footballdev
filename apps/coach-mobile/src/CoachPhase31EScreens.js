@@ -41,6 +41,7 @@ import {
 } from '../../mobile-core/src/coachPhase31ECore'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
+import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { CoachDateTimeField } from './CoachDateTimeField'
@@ -116,6 +117,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [stale, setStale] = useState(false)
+  const confirmedStale = useConfirmedConnectionIssue(stale)
+  const visibleError = useConfirmedConnectionMessage(error)
   const offlinePolicy = getCoachPhase31EOfflinePolicy(domain)
 
   const load = useCallback(async ({ silent = false } = {}) => {
@@ -170,11 +173,12 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       {domain !== 'chat' ? <View style={styles.panel}>
         <Text accessibilityRole="header" style={styles.title}>{TITLES[domain]}</Text>
         <Text style={styles.body}>{context.teamName || context.clubName} | {context.roleLabel}</Text>
-        {stale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Offline and read-only</Text> : null}
+        {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Offline and read-only</Text> : null}
         {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
       </View> : notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
       {loading ? <Empty copy={`Loading ${TITLES[domain]}...`} styles={styles} /> : null}
-      {error ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{error}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
+      {!loading && error && !visibleError ? <Empty copy="Checking for the latest information..." styles={styles} /> : null}
+      {visibleError ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
       {!loading && !error && domain === 'development' ? <DevelopmentDomain {...common} /> : null}
       {!loading && !error && domain === 'resources' ? <ResourcesDomain {...common} /> : null}
       {!loading && !error && domain === 'chat' ? <ChatDomain {...common} /> : null}
@@ -650,12 +654,25 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
   const [selectedId, setSelectedId] = useState('')
   const [requestPanelOpen, setRequestPanelOpen] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
+  const trainingGroups = [...(data.training || [])
+    .filter((invite) => !invite.cancelled && !invite.stale)
+    .filter((invite) => !invite.occurrenceDate || invite.occurrenceDate >= today)
+    .reduce((groups, invite) => {
+      const key = `${invite.eventId}:${invite.occurrenceDate || 'date-to-be-confirmed'}`
+      const group = groups.get(key) || { key, eventId: invite.eventId, occurrenceDate: invite.occurrenceDate, title: invite.title, invites: [] }
+      group.invites.push(invite)
+      groups.set(key, group)
+      return groups
+    }, new Map()).values()]
+    .sort((left, right) => String(left.occurrenceDate || '9999').localeCompare(String(right.occurrenceDate || '9999')))
+    .slice(0, 20)
   const openMatches = (data.matches || [])
     .filter((match) => match.teamId === user.activeTeamId && ['scheduled', 'scorer_request'].includes(match.status))
     .filter((match) => !match.matchDate || String(match.matchDate).slice(0, 10) >= today)
     .sort((left, right) => String(left.matchDate || '9999').localeCompare(String(right.matchDate || '9999')))
     .slice(0, 20)
   const [matchId, setMatchId] = useState('')
+  const [trainingKey, setTrainingKey] = useState('')
   const [playerIds, setPlayerIds] = useState([])
   const [creating, setCreating] = useState(false)
   const [uncertainAttempt, setUncertainAttempt] = useState(null)
@@ -663,7 +680,9 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
   const selectedMatchInvites = [...collapseCoachInvitesByPlayer((data.match || [])
     .filter((invite) => invite.eventId === matchId && !invite.cancelled && !invite.stale))]
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
-  const selected = selectedMatchInvites.find((invite) => invite.id === selectedId)
+  const selectedTrainingInvites = [...collapseCoachInvitesByPlayer(trainingGroups.find((group) => group.key === trainingKey)?.invites || [])]
+    .sort((left, right) => left.playerName.localeCompare(right.playerName))
+  const selected = [...selectedMatchInvites, ...selectedTrainingInvites].find((invite) => invite.id === selectedId)
   const summary = summarizeCoachInvites(selectedMatchInvites)
   const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
   const selectedCanBeResent = selected && ['awaiting', 'pending'].includes(selected.status)
@@ -730,14 +749,39 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
   ])
   return (
     <View style={styles.stack}>
-      <Text style={styles.body}>Choose an upcoming fixture to see its availability.</Text>
+      <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text>
+      {trainingGroups.map((group) => {
+        const trainingInvites = collapseCoachInvitesByPlayer(group.invites)
+        const trainingSummary = summarizeCoachInvites(trainingInvites)
+        const expanded = group.key === trainingKey
+        return (
+          <View key={group.key} style={[styles.panel, expanded && styles.panelSelected]}>
+            <Pressable accessibilityRole="button" onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedId(''); setRequestPanelOpen(false); setPlayerIds([]) }}>
+              <Text style={styles.heading}>{group.title || 'Training'}</Text>
+              <Text style={styles.body}>Training | {group.occurrenceDate || 'Date to be confirmed'} | Available {trainingSummary.available} | Awaiting {trainingSummary.awaiting}</Text>
+              <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
+            </Pressable>
+            {expanded ? <>
+              <Text style={styles.label}>Available {trainingSummary.available} | Unavailable {trainingSummary.unavailable} | Maybe {trainingSummary.maybe} | Awaiting {trainingSummary.awaiting}</Text>
+              {selectedTrainingInvites.map((invite) => (
+                <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={invite.id === selectedId ? styles.formChoiceSelected : null}>
+                  <Text style={styles.body}>{invite.playerName}: {invite.status}</Text>
+                </Pressable>
+              ))}
+              {selectedCanBeResent ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
+              {selected && !selectedCanBeResent ? <Text style={styles.body}>{selected.playerName} has already responded. This request will not be resent.</Text> : null}
+              <Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />
+            </> : null}
+          </View>
+        )
+      })}
       {openMatches.length ? openMatches.map((match) => {
         const matchInvites = collapseCoachInvitesByPlayer((data.match || []).filter((invite) => invite.eventId === match.id && !invite.cancelled && !invite.stale))
         const matchSummary = summarizeCoachInvites(matchInvites)
         const expanded = match.id === matchId
         return (
           <View key={match.id} style={[styles.panel, expanded && styles.panelSelected]}>
-            <Pressable accessibilityRole="button" onPress={() => { setMatchId(expanded ? '' : match.id); setSelectedId(''); setRequestPanelOpen(false); setPlayerIds([]) }}>
+            <Pressable accessibilityRole="button" onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedId(''); setRequestPanelOpen(false); setPlayerIds([]) }}>
               <Text style={styles.heading}>{match.opponent || 'Opponent to be confirmed'}</Text>
               <Text style={styles.body}>{match.matchDate || 'Date to be confirmed'} | Available {matchSummary.available} | Awaiting {matchSummary.awaiting}</Text>
               <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
@@ -766,8 +810,7 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
             </> : null}
           </View>
         )
-      }) : <Empty copy="No upcoming Match Day fixture is available." styles={styles} />}
-      <Text style={styles.body}>Training availability is managed from Sessions. Other invitations are managed from Calendar.</Text>
+      }) : trainingGroups.length ? null : <Empty copy="No upcoming Match or Training availability request is available." styles={styles} />}
     </View>
   )
 }

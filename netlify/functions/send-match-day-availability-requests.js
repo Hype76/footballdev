@@ -231,19 +231,17 @@ async function prepareCalendarEditInvitations({
   }
 
   const authoritativePlayerIds = [...new Set((command.player_ids ?? []).map(String).filter(Boolean))]
-  const [{ data: players, error: playersError }, { data: parentLinks, error: linksError }, { data: requests, error: requestsError }, { data: assignments, error: assignmentsError }, queueResult] = await Promise.all([
+  const [{ data: players, error: playersError }, eligibleContacts, { data: requests, error: requestsError }, { data: assignments, error: assignmentsError }, queueResult] = await Promise.all([
     adminSupabase
       .from('players')
       .select('id, club_id, team_id, player_name, section, status, parent_name, parent_email, parent_contacts, contact_type')
       .eq('club_id', profile.club_id)
       .in('id', authoritativePlayerIds),
-    adminSupabase
-      .from('parent_player_links')
-      .select('id, player_id, email, status')
-      .eq('club_id', profile.club_id)
-      .eq('team_id', match.team_id)
-      .in('player_id', authoritativePlayerIds)
-      .eq('status', 'active'),
+    resolveEligibleMatchDayInvitationContacts(adminSupabase, {
+      clubId: profile.club_id,
+      playerIds: authoritativePlayerIds,
+      teamId: match.team_id,
+    }),
     adminSupabase
       .from('match_day_availability_requests')
       .select('*')
@@ -264,19 +262,19 @@ async function prepareCalendarEditInvitations({
   ])
   const { data: queueRows, error: queueError } = queueResult
 
-  if (playersError || linksError || requestsError || assignmentsError || queueError) {
-    throw playersError || linksError || requestsError || assignmentsError || queueError
+  if (playersError || requestsError || assignmentsError || queueError) {
+    throw playersError || requestsError || assignmentsError || queueError
   }
 
   const volunteerTemplates = await getVolunteerRequestTemplates(adminSupabase, match)
   const playerMap = new Map((players ?? []).map((player) => [String(player.id), player]))
   const queueMap = new Map((queueRows ?? []).map((row) => [String(row.id), row]))
   const notificationMap = new Map((notifications ?? []).map((row) => [`${row.player_id}:${normalizeEmail(row.recipient_email)}`, row]))
-  const recipientUnits = [...new Map((parentLinks ?? [])
-    .map((parentLink) => {
-      const player = playerMap.get(String(parentLink.player_id))
-      const recipientEmail = normalizeEmail(parentLink.email)
-      return [`${parentLink.player_id}:${recipientEmail}`, { parentLink, player, recipientEmail }]
+  const recipientUnits = [...new Map((eligibleContacts ?? [])
+    .map((contact) => {
+      const player = playerMap.get(String(contact.playerId))
+      const recipientEmail = normalizeEmail(contact.email)
+      return [`${contact.playerId}:${recipientEmail}`, { contact, player, recipientEmail }]
     })
     .filter(([, unit]) => unit.player && isValidEmail(unit.recipientEmail))).values()]
   const activeScopeKeys = new Set(recipientUnits.map((unit) => `${unit.player.id}:${unit.recipientEmail}`))
@@ -291,12 +289,12 @@ async function prepareCalendarEditInvitations({
   let duplicateCount = Number(commandResult?.duplicateCount ?? 0)
   let failedCount = 0
 
-  for (const { parentLink, player, recipientEmail } of recipientUnits) {
+  for (const { contact, player, recipientEmail } of recipientUnits) {
     const notification = notificationMap.get(`${player.id}:${recipientEmail}`)
     const request = (requests ?? []).find((candidate) =>
       String(candidate.player_id) === String(player.id)
       && normalizeEmail(candidate.recipient_email) === recipientEmail
-      && candidate.recipient_type === 'parent'
+      && candidate.recipient_type === contact.type
       && candidate.channel === 'email')
     let queue = notification?.email_queue_id ? queueMap.get(String(notification.email_queue_id)) : null
 
@@ -304,7 +302,7 @@ async function prepareCalendarEditInvitations({
       queue = (queueRows ?? []).find((candidate) => candidate.payload?.matchDayAvailability?.requestId === request.id) || null
     }
 
-    if (!player || !parentLink || !request) {
+    if (!player || !request) {
       failedCount += 1
       continue
     }
@@ -333,9 +331,9 @@ async function prepareCalendarEditInvitations({
       .from('match_day_availability_requests')
       .update({
         expires_at: expiry,
-        parent_link_id: parentLink.id,
+        parent_link_id: contact.parentLinkId || null,
         recipient_email: recipientEmail,
-        recipient_name: request.recipient_name || 'Parent or guardian',
+        recipient_name: request.recipient_name || contact.name || (contact.type === 'player' ? player.player_name : 'Parent or guardian'),
         updated_at: new Date().toISOString(),
       })
       .eq('id', request.id)
@@ -348,7 +346,11 @@ async function prepareCalendarEditInvitations({
     }
 
     const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
-    const recipient = { email: recipientEmail, name: request.recipient_name, type: 'parent' }
+    const recipient = {
+      email: recipientEmail,
+      name: request.recipient_name || contact.name,
+      type: contact.type,
+    }
     const email = buildMatchDayActionableInvitationEmail({
       appOrigin,
       match: actionableMatch,
@@ -372,7 +374,7 @@ async function prepareCalendarEditInvitations({
         matchDayId,
         requestId: request.id,
         playerId: player.id,
-        parentLinkId: parentLink.id,
+        parentLinkId: contact.parentLinkId || null,
         purpose: 'availability_request_notification',
         rawToken: token,
         tokenHash,

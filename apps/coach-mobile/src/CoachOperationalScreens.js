@@ -36,6 +36,7 @@ import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { CoachDateTimeField } from './CoachDateTimeField'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
+import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 
 const message = getCoachFriendlyError
 
@@ -167,9 +168,12 @@ function DomainHeader({ copy, styles, title }) {
 }
 
 function DomainState({ error, loading, onRetry, stale, styles }) {
+  const confirmedStale = useConfirmedConnectionIssue(stale)
+  const visibleError = useConfirmedConnectionMessage(error)
   if (loading) return <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading...</Text></View>
-  if (error) return <View style={styles.warning}><Text style={styles.danger}>{error}</Text>{onRetry ? <Button label="Try again" onPress={onRetry} secondary styles={styles} /> : null}</View>
-  if (stale) return <View style={styles.warning}><Text style={styles.cardTitle}>You are offline</Text><Text style={styles.body}>Showing saved information. Connect before making changes.</Text></View>
+  if (error && !visibleError) return <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Checking for the latest information...</Text></View>
+  if (visibleError) return <View style={styles.warning}><Text style={styles.danger}>{visibleError}</Text>{onRetry ? <Button label="Try again" onPress={onRetry} secondary styles={styles} /> : null}</View>
+  if (confirmedStale) return <View style={styles.warning}><Text style={styles.cardTitle}>You are offline</Text><Text style={styles.body}>Showing saved information. Connect before making changes.</Text></View>
   return null
 }
 

@@ -47,6 +47,7 @@ import { countUnreadNonChatNotifications, prepareParentNotificationInbox } from 
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
+import { useConfirmedConnectionIssue } from '../mobile-core/src/useConfirmedConnectionIssue'
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import {
   canSubmitParentPoll,
@@ -2193,14 +2194,15 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
 
 function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNextAttention, onOpenAttention, summary }) {
   const { palette, styles } = useParentTheme()
+  const confirmedOffline = useConfirmedConnectionIssue(isOffline)
   let message = ''
   let tone = 'neutral'
-  if (isOffline) {
+  if (confirmedOffline) {
     message = cacheState.source === 'cache'
       ? `Offline. Showing your last saved information.${cacheState.stale ? ' It may be out of date.' : ''}`
       : 'Offline. Connect to load information that has not been saved on this device.'
     tone = 'warning'
-  } else if (isSyncing) {
+  } else if (isOffline || isSyncing) {
     message = 'Syncing your saved actions.'
   } else if (summary.needsAttention > 0) {
     message = `${summary.needsAttention} ${summary.needsAttention === 1 ? 'action needs' : 'actions need'} attention.`

@@ -112,6 +112,95 @@ function createRecurrenceClient({ event, existingRequests, setting }) {
   }
 }
 
+function createRequestLoaderClient({ event, request, setting }) {
+  const selections = []
+
+  return {
+    selections,
+    from(table) {
+      const filters = new Map()
+      let columns = ''
+      const query = {
+        select(value) {
+          columns = value
+          selections.push({ table, columns: value })
+          return query
+        },
+        eq(column, value) {
+          filters.set(column, value)
+          return query
+        },
+        async maybeSingle() {
+          if (table === 'training_availability_requests') {
+            assert.equal(columns, '*')
+            assert.equal(columns.includes('training_availability_settings:'), false)
+            assert.equal(columns.includes('calendar_events:'), false)
+            return {
+              data: filters.get('id') === request.id ? request : null,
+              error: null,
+            }
+          }
+          if (table === 'training_availability_settings') {
+            return {
+              data: filters.get('id') === setting.id ? setting : null,
+              error: null,
+            }
+          }
+          if (table === 'calendar_events') {
+            return {
+              data: filters.get('id') === event.id ? event : null,
+              error: null,
+            }
+          }
+          throw new Error(`Unexpected table: ${table}`)
+        },
+      }
+      return query
+    },
+  }
+}
+
+test('request work uses explicit reads when request columns have no foreign keys', async () => {
+  const { loadRequestWork } = await import(processorUrl.href)
+  const event = {
+    id: '41000000-0000-4000-8000-000000000001',
+    club_id: '51000000-0000-4000-8000-000000000001',
+    team_id: '61000000-0000-4000-8000-000000000001',
+    event_type: 'training',
+    cancelled_at: null,
+  }
+  const setting = {
+    id: '71000000-0000-4000-8000-000000000001',
+    club_id: event.club_id,
+    team_id: event.team_id,
+    calendar_event_id: event.id,
+    enabled: true,
+  }
+  const request = {
+    id: '81000000-0000-4000-8000-000000000001',
+    setting_id: setting.id,
+    calendar_event_id: event.id,
+    club_id: event.club_id,
+    team_id: event.team_id,
+    status: 'pending',
+  }
+  const client = createRequestLoaderClient({ event, request, setting })
+
+  const loaded = await loadRequestWork({
+    supabase: client,
+    work: { request_id: request.id },
+  })
+
+  assert.equal(loaded.id, request.id)
+  assert.equal(loaded.training_availability_settings.id, setting.id)
+  assert.equal(loaded.calendar_events.id, event.id)
+  assert.deepEqual(client.selections.map(({ table }) => table), [
+    'training_availability_requests',
+    'training_availability_settings',
+    'calendar_events',
+  ])
+})
+
 test('runtime budget helper keeps the safety margin before a new claim', async () => {
   const { hasTrainingAvailabilityRuntimeBudget } = await import(processorUrl.href)
 

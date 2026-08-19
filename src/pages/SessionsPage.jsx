@@ -4791,6 +4791,13 @@ function EventPlayerManagementPanel({
   )
   const recipientCount = getEventPlayerCommunicationRecipientCount(review, communicationMode)
   const missingContactNames = getEventPlayerCommunicationMissingIds(review, communicationMode).map(getPlayerName)
+  const communicationPlayerCount = communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyAdded
+    ? review?.addedPlayerIds?.length ?? 0
+    : communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyRemoved
+      ? review?.removedPlayerIds?.length ?? 0
+      : communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll
+        ? review?.selectedPlayerIds?.length ?? 0
+        : 0
   const hasChanges = Boolean((review?.addedPlayerIds?.length ?? 0) + (review?.removedPlayerIds?.length ?? 0))
   const canApply = Boolean(
     review
@@ -4804,15 +4811,15 @@ function EventPlayerManagementPanel({
     const removedCount = review?.removedPlayerIds?.length ?? 0
 
     if (communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyAdded) {
-      return `Add ${addedCount} player${addedCount === 1 ? '' : 's'} and notify ${recipientCount} contact${recipientCount === 1 ? '' : 's'}`
+      return `Add ${addedCount} player${addedCount === 1 ? '' : 's'} and notify ${recipientCount} eligible recipient${recipientCount === 1 ? '' : 's'}`
     }
 
     if (communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyRemoved) {
-      return `Remove ${removedCount} player${removedCount === 1 ? '' : 's'} and notify ${recipientCount} contact${recipientCount === 1 ? '' : 's'}`
+      return `Remove ${removedCount} player${removedCount === 1 ? '' : 's'} and notify ${recipientCount} eligible recipient${recipientCount === 1 ? '' : 's'}`
     }
 
     if (communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll) {
-      return `Resend invitations to ${recipientCount} contact${recipientCount === 1 ? '' : 's'}`
+      return `Resend invitations to ${recipientCount} eligible recipient${recipientCount === 1 ? '' : 's'}`
     }
 
     if (addedCount > 0 && removedCount > 0) {
@@ -4831,7 +4838,7 @@ function EventPlayerManagementPanel({
     `${review?.unchangedPlayerIds?.length ?? 0} unchanged`,
     communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.none
       ? 'No notifications will be queued'
-      : `${recipientCount} eligible contact${recipientCount === 1 ? '' : 's'} will be queued`,
+      : `${communicationPlayerCount} player${communicationPlayerCount === 1 ? '' : 's'} are in scope and ${recipientCount} eligible recipient${recipientCount === 1 ? '' : 's'} will be queued`,
     ...(selectedRemovalIds.size > 0
       ? [`${selectedRemovalIds.size} selected match player${selectedRemovalIds.size === 1 ? '' : 's'} will be changed to Not selected`]
       : []),
@@ -4979,7 +4986,7 @@ function EventPlayerManagementPanel({
                   />
                   <PlayerCommunicationChoice
                     checked={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyAdded}
-                    description={`Queue only newly added eligible contacts. ${review.addedRecipientCount} contact${review.addedRecipientCount === 1 ? '' : 's'} eligible.`}
+                    description={`${review.addedPlayerIds.length} newly added player${review.addedPlayerIds.length === 1 ? '' : 's'}. ${review.addedRecipientCount} eligible authorised recipient${review.addedRecipientCount === 1 ? '' : 's'} can be notified.`}
                     disabled={review.addedPlayerIds.length === 0}
                     label="Notify newly added players only"
                     mode={EVENT_PLAYER_COMMUNICATION_MODES.notifyAdded}
@@ -4987,7 +4994,7 @@ function EventPlayerManagementPanel({
                   />
                   <PlayerCommunicationChoice
                     checked={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.notifyRemoved}
-                    description={`Queue only removed eligible contacts. ${review.removedRecipientCount} contact${review.removedRecipientCount === 1 ? '' : 's'} eligible.`}
+                    description={`${review.removedPlayerIds.length} removed player${review.removedPlayerIds.length === 1 ? '' : 's'}. ${review.removedRecipientCount} eligible authorised recipient${review.removedRecipientCount === 1 ? '' : 's'} can be notified.`}
                     disabled={review.removedPlayerIds.length === 0}
                     label="Notify removed players only"
                     mode={EVENT_PLAYER_COMMUNICATION_MODES.notifyRemoved}
@@ -5000,7 +5007,7 @@ function EventPlayerManagementPanel({
                 <legend className="px-1 text-sm font-black text-[#92400e]">Separate resend action</legend>
                 <PlayerCommunicationChoice
                   checked={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll}
-                  description={`All ${review.currentRecipientCount} eligible current contacts will be contacted. Retries use the same idempotent command.`}
+                  description={`${review.selectedPlayerIds.length} current player${review.selectedPlayerIds.length === 1 ? '' : 's'}. All ${review.currentRecipientCount} eligible authorised recipient${review.currentRecipientCount === 1 ? '' : 's'} will be contacted. Retries use the same idempotent command.`}
                   disabled={review.selectedPlayerIds.length === 0}
                   label="Resend invitations to everyone"
                   mode={EVENT_PLAYER_COMMUNICATION_MODES.resendAll}
@@ -5013,11 +5020,11 @@ function EventPlayerManagementPanel({
                 <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
                   {communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.none
                     ? 'No notifications will be sent.'
-                    : `${recipientCount} eligible contact${recipientCount === 1 ? '' : 's'} will be queued for this explicit action.`}
+                    : `${communicationPlayerCount} player${communicationPlayerCount === 1 ? '' : 's'} are in this action. ${recipientCount} eligible authorised recipient${recipientCount === 1 ? '' : 's'} can be queued.`}
                 </p>
                 {missingContactNames.length > 0 ? (
                   <p className="mt-2 text-xs font-bold leading-5 text-[#92400e]">
-                    No valid contact: {missingContactNames.join(', ')}. Their player changes will still be saved.
+                    No active authorised Parent or adult-player contact: {missingContactNames.join(', ')}. Their player changes will still be saved, but no invitation can be sent for them.
                   </p>
                 ) : null}
               </div>

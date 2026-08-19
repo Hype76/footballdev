@@ -30,6 +30,9 @@ function normalizeBoolean(value) {
 
 export function normalizeFixtureSetupIntent(intent = {}) {
   const kickoffTimeTbc = normalizeBoolean(intent.kickoffTimeTbc)
+  const hasMatchDuration = intent.matchDurationMinutes !== undefined
+    && intent.matchDurationMinutes !== null
+    && normalizeText(intent.matchDurationMinutes) !== ''
 
   return {
     arrivalTime: kickoffTimeTbc ? '' : normalizeText(intent.arrivalTime),
@@ -40,7 +43,9 @@ export function normalizeFixtureSetupIntent(intent = {}) {
     kickoffTime: kickoffTimeTbc ? '' : normalizeText(intent.kickoffTime),
     kickoffTimeTbc,
     matchDate: normalizeText(intent.matchDate),
-    matchDurationMinutes: normalizeMatchDurationMinutes(intent.matchDurationMinutes),
+    ...(hasMatchDuration
+      ? { matchDurationMinutes: normalizeMatchDurationMinutes(intent.matchDurationMinutes) }
+      : {}),
     notes: normalizeText(intent.notes),
     opponent: normalizeText(intent.opponent),
     parentAudience: normalizeText(intent.parentAudience) || 'none',

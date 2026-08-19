@@ -35,6 +35,12 @@ function isTransientChatError(error) {
     || signal.includes('timeout')
 }
 
+const PARENT_CHAT_LOAD_RETRY_DELAYS_MS = [0, 2000, 6000, 14000]
+
+function waitForChatRetry(delayMs) {
+  return delayMs > 0 ? new Promise((resolve) => setTimeout(resolve, delayMs)) : Promise.resolve()
+}
+
 export function normalizeParentInvitation(row = {}) {
   const invitationType = normalizeText(row.invitation_type ?? row.invitationType).toLowerCase()
   return {
@@ -434,13 +440,19 @@ export async function getParentChatRooms(user, childOnly = true) {
 
 export async function getParentChatMessages(user, roomId, childOnly = true) {
   const link = requireSelectedLink(user)
-  const { data, error } = await supabase.rpc('get_parent_portal_chat_messages', {
-    child_only_value: Boolean(childOnly),
-    parent_link_id_value: link.id,
-    target_room_id: roomId,
-  })
-  if (error) throw error
-  return (data || []).map(normalizeParentChatMessage)
+  let lastError
+  for (const delayMs of PARENT_CHAT_LOAD_RETRY_DELAYS_MS) {
+    await waitForChatRetry(delayMs)
+    const { data, error } = await supabase.rpc('get_parent_portal_chat_messages', {
+      child_only_value: Boolean(childOnly),
+      parent_link_id_value: link.id,
+      target_room_id: roomId,
+    })
+    if (!error) return (data || []).map(normalizeParentChatMessage)
+    lastError = error
+    if (!isTransientChatError(error)) break
+  }
+  throw lastError
 }
 
 export async function getParentChatHistory(user, childOnly = true) {

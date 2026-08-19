@@ -362,7 +362,7 @@ export function buildCompletedMatchEventPresentation(event = {}, match = {}, { i
     status: normalizeEventStatus(event),
     team,
     title: eventType === 'goal' && (event?.isPenaltyGoal === true || event?.is_penalty_goal === true)
-      ? 'Penalty goal'
+      ? 'Penalty'
       : EVENT_TYPE_LABELS[eventType] || 'Match event',
   }
 }

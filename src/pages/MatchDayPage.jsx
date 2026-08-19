@@ -6403,7 +6403,7 @@ function LiveMatchEntryModal({
                     onChange={(event) => onGoalFormChange(match.id, { isPenaltyGoal: event.target.checked })}
                     className="h-5 w-5 shrink-0 accent-[#047857]"
                   />
-                  <span className="text-sm font-black text-[#101828]">Penalty goal</span>
+                  <span className="text-sm font-black text-[#101828]">Penalty</span>
                 </label>
                 <label className="block md:col-span-2">
                   <span className={smallLabelClass}>Note</span>

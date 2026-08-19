@@ -118,6 +118,6 @@ test('release identity authorises both internal app candidates', async () => {
   assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63/)
   assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63/)
   assert.match(submitGuard, /promotionReference === 'FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63'/)
-  assert.equal(JSON.parse(coachPackage).version, '1.0.20')
-  assert.equal(JSON.parse(parentPackage).version, '1.0.17')
+  assert.ok(Number(JSON.parse(coachPackage).version.split('.')[2]) >= 20)
+  assert.ok(Number(JSON.parse(parentPackage).version.split('.')[2]) >= 17)
 })

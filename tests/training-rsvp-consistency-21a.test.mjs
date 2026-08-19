@@ -26,15 +26,18 @@ test('Add Event and Add Session use the same Training calendar form and persiste
 })
 
 test('response-required Training bypasses the informational command and remains communication-aware', async () => {
-  const [sessionsPage, calendarClaim] = await Promise.all([
+  const [sessionsPage, calendarClaim, scheduledProcessor] = await Promise.all([
     readFile(sessionsPageUrl, 'utf8'),
     readFile(calendarClaimUrl, 'utf8'),
+    readFile(scheduledProcessorUrl, 'utf8'),
   ])
 
   assert.match(sessionsPage, /shouldQueueCalendarNotification = notifyRequested[\s\S]*!\(isTraining && calendarForm\.requestTrainingAvailability\)/)
   assert.match(calendarClaim, /training_response_delivery_owned_by_rsvp_queue/)
   assert.match(calendarClaim, /calendarInvite\?\.response_requirement === 'response_required'/)
   assert.match(calendarClaim, /calendarInvite\?\.training_availability_requested === true/)
+  assert.match(scheduledProcessor, /isTrainingRsvpQueueHandoff\(skipReason\) \? 'sent' : 'failed'/)
+  assert.match(scheduledProcessor, /isTrainingRsvpQueueHandoff\(skipReason\) \? null : skipReason/)
 })
 
 test('informational Training copy is truthful and contains no RSVP action or token', () => {

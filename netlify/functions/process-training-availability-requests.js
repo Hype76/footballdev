@@ -1273,18 +1273,46 @@ export async function processRecurrenceWork({ now, supabase, work }) {
   }
 }
 
-async function loadRequestWork({ supabase, work }) {
-  const { data, error } = await supabase
+export async function loadRequestWork({ supabase, work }) {
+  const { data: request, error: requestError } = await supabase
     .from('training_availability_requests')
-    .select('*, training_availability_settings:setting_id(*), calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url))')
+    .select('*')
     .eq('id', work.request_id)
     .maybeSingle()
 
-  if (error) {
-    throw error
+  if (requestError) {
+    throw requestError
   }
 
-  return data
+  if (!request) {
+    return null
+  }
+
+  const { data: setting, error: settingError } = await supabase
+    .from('training_availability_settings')
+    .select('*')
+    .eq('id', request.setting_id)
+    .maybeSingle()
+
+  if (settingError) {
+    throw settingError
+  }
+
+  const { data: event, error: eventError } = await supabase
+    .from('calendar_events')
+    .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url)')
+    .eq('id', request.calendar_event_id)
+    .maybeSingle()
+
+  if (eventError) {
+    throw eventError
+  }
+
+  return {
+    ...request,
+    training_availability_settings: setting,
+    calendar_events: event,
+  }
 }
 
 async function processRequestWork({ appOrigin, now, supabase, work }) {
@@ -1305,6 +1333,8 @@ async function processRequestWork({ appOrigin, now, supabase, work }) {
       && event.event_type === 'training'
       && !event.cancelled_at
       && event.team_id
+      && setting.calendar_event_id === request.calendar_event_id
+      && event.id === request.calendar_event_id
       && request.club_id === work.club_id
       && request.team_id === work.team_id
       && setting.club_id === work.club_id

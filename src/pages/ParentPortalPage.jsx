@@ -176,7 +176,7 @@ function getParentMatchEventTitle(event) {
     water_break: 'Hydration break',
   }
   const eventLabel = event.eventType === 'goal' && event.isPenaltyGoal === true
-    ? 'Penalty goal'
+    ? 'Penalty'
     : eventLabels[event.eventType] || 'Match event'
 
   if (event.eventStatus === 'voided') {
@@ -3716,6 +3716,12 @@ function ParentMatchCard({
           <h4 className="mt-3 text-lg font-black text-[#101828]">{getMatchDayDisplayName(match)}</h4>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
           {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{match.venueName}</p> : null}
+          {match.notes ? (
+            <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">Match notes</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-[#4b5f55]">{match.notes}</p>
+            </div>
+          ) : null}
           {match.scorerRequestMessage && !match.isScorer ? (
             <p className={`mt-3 whitespace-pre-wrap ${bodyTextClass}`}>{match.scorerRequestMessage}</p>
           ) : null}
@@ -3941,7 +3947,7 @@ function ParentMatchCard({
                   onChange={(event) => onGoalFormChange(match.id, { isPenaltyGoal: event.target.checked })}
                   className="h-5 w-5 shrink-0 accent-[#047857]"
                 />
-                <span className="text-sm font-black text-[#101828]">Penalty goal</span>
+                <span className="text-sm font-black text-[#101828]">Penalty</span>
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-black text-[#047857]">Scorer player</span>
