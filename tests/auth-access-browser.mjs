@@ -807,26 +807,35 @@ async function prepareDemoPage(context, response = { status: 200, body: { succes
 }
 
 async function signIn(page, email, baseUrl = mainBaseUrl, access = 'club') {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
+  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 60000 })
   if (access === 'parent') {
     await page.getByRole('button', { name: 'Parent' }).click()
   } else {
-    await page.getByRole('button', { name: 'Staff' }).click()
+    await page.getByRole('button', { name: 'Coach' }).click()
   }
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
-  await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+  await page.locator('form').evaluate((form) => form.requestSubmit())
 }
 
 async function parentSignIn(page, email, baseUrl = parentBaseUrl) {
-  await page.goto(`${baseUrl}/sign-in?tab=parent`, { waitUntil: 'commit', timeout: 60000 })
+  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 60000 })
-  await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 60000 })
   await page.getByRole('button', { name: 'Parent' }).click()
+  await page.getByRole('heading', { name: 'Sign in to parent access' }).waitFor({ state: 'visible', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
-  await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+  await page.waitForFunction(
+    ({ expectedEmail, expectedPassword }) => {
+      const emailInput = document.querySelector('input[placeholder="you@club.com"]')
+      const passwordInput = document.querySelector('input[placeholder="Enter password"]')
+      return emailInput?.value === expectedEmail && passwordInput?.value === expectedPassword
+    },
+    { expectedEmail: email, expectedPassword: fixturePassword },
+    { timeout: 15000 },
+  )
+  await page.locator('form').evaluate((form) => form.requestSubmit())
 }
 
 async function assertVisibleText(page, text, timeout = 15000) {
@@ -1387,7 +1396,7 @@ try {
 
     for (const route of [
       { path: '/platform-clubs', heading: 'Club and Team Management' },
-      { path: '/platform-staff', heading: 'Platform Staff' },
+      { path: '/platform-staff', heading: 'Platform Admins' },
       { path: '/platform-data-hygiene', heading: 'Data Hygiene' },
       { path: '/platform-billing-options', heading: 'Billing Options' },
       { path: '/platform-banners', heading: 'Platform Banners' },
@@ -1502,7 +1511,7 @@ try {
       } = await prepareClubDisplayPage(context)
       await signIn(page, 'club.fixture@footballplayer.test')
       await page.waitForURL('**/coach', { timeout: 15000 })
-      await page.goto(`${mainBaseUrl}/user-settings`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+      await page.goto(`${mainBaseUrl}/user-settings?area=display`, { waitUntil: 'domcontentloaded', timeout: 60000 })
       await closeOnboardingDialog(page)
       await page.getByRole('combobox', { name: 'Accent colour', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
       assert.equal(await page.getByRole('option', { name: 'Legacy solid' }).count(), 0)
@@ -1608,7 +1617,7 @@ try {
     const { getDisplayRequests, page } = await prepareClubDisplayPage(context, { failPatch: true })
     await signIn(page, 'club.fixture@footballplayer.test')
     await page.waitForURL('**/coach', { timeout: 15000 })
-    await page.goto(`${mainBaseUrl}/user-settings`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.goto(`${mainBaseUrl}/user-settings?area=display`, { waitUntil: 'domcontentloaded', timeout: 60000 })
     await closeOnboardingDialog(page)
     await page.getByRole('combobox', { name: 'Accent colour', exact: true }).selectOption('red')
     await page.getByLabel('Button style').selectOption('gradient')
@@ -1658,7 +1667,7 @@ try {
         await page.getByTestId('manager-home').waitFor({ state: 'visible', timeout: 15000 })
         await applyTheme(page, { accent: 'green', mode })
 
-        await page.getByRole('heading', { name: 'No session scheduled yet', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+        await page.getByRole('heading', { name: 'No upcoming event scheduled', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
         assert.equal(await page.getByTestId('manager-home-next-session').getByRole('link', { name: 'Add event' }).getAttribute('href'), '/calendar?action=add-event')
 
         const expectedActions = [
@@ -2206,7 +2215,7 @@ try {
     await signIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl, 'club')
     await waitForPathname(page, '/sign-in')
     assert.equal(new URL(page.url()).searchParams.get('tab'), null)
-    await page.getByRole('button', { name: 'Club' }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByRole('button', { name: 'Coach' }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Choose where to continue', { exact: true }).count(), 0)
     await context.close()
@@ -2252,7 +2261,7 @@ try {
     const { page } = await preparePage(context)
     await seedSelectedAccessMode(page, 'parent')
     await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
-    await page.getByRole('button', { name: 'Club' }).click()
+    await page.getByRole('button', { name: 'Coach' }).click()
     await page.getByPlaceholder('you@club.com').fill('coach.fixture@footballplayer.test')
     await page.getByPlaceholder('Enter password').fill('WrongFixturePass123!')
     await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
@@ -2407,7 +2416,7 @@ try {
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
-    assert.equal(await page.getByRole('button', { name: 'Return to staff platform' }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Return to Coach platform' }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Retry' }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Sign in again' }).count(), 0)
     assert.equal(await page.getByText('Fixture Child').count(), 0)
@@ -2431,7 +2440,7 @@ try {
     await desktopContextPanel.getByRole('paragraph').filter({ hasText: 'Second Fixture Child' }).waitFor({ state: 'visible' })
     await desktopPage.getByText('Private family view. You only see information the club has shared for this child.', { exact: true }).waitFor({ state: 'visible' })
     assert.equal(await desktopPage.getByText('Child being viewed', { exact: true }).count(), 0)
-    assert.equal(await desktopPage.getByRole('button', { name: 'Return to staff platform' }).count(), 0)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Return to Coach platform' }).count(), 0)
     const desktopShellAudit = await desktopPage.evaluate(() => {
       const shell = document.querySelector('[data-testid="parent-portal-route-shell"]')
       const sidebar = document.querySelector('[data-testid="parent-portal-context-desktop"]')?.parentElement
@@ -2560,11 +2569,11 @@ try {
       .getByLabel('Parent account actions')
     await mainAccountActions.getByRole('button', { name: /Sign out/ }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await mainAccountActions.getByRole('button', { name: /Sign out/ }).count(), 1)
-    assert.equal(await desktopPage.getByRole('button', { name: 'Return to staff platform' }).count(), 0)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Return to Coach platform' }).count(), 0)
     await desktopPage.goto(`${mainBaseUrl}/parent-portal?section=settings`, { waitUntil: 'domcontentloaded' })
     await assertVisibleText(desktopPage, 'Parent settings')
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().waitFor({ state: 'visible', timeout: 15000 })
-    assert.equal(await desktopPage.getByRole('button', { name: 'Return to staff platform' }).count(), 0)
+    assert.equal(await desktopPage.getByRole('button', { name: 'Return to Coach platform' }).count(), 0)
     await desktopPage.getByRole('button', { name: /Sign out/ }).first().click()
     await waitForPathname(desktopPage, '/sign-in')
     assert.equal(new URL(desktopPage.url()).searchParams.get('tab'), 'parent')
@@ -2594,7 +2603,7 @@ try {
     const { page } = await preparePage(context)
     await signIn(page, 'multi.fixture@footballplayer.test', mainBaseUrl, 'parent')
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Return to staff platform' }).first().click()
+    await page.getByRole('button', { name: 'Return to Coach platform' }).first().click()
     await page.waitForURL('**/coach', { timeout: 15000 })
     await assertSelectedOption(page, 'Access view', 'Team access')
     await assertVisibleText(page, 'Club-wide view')
@@ -2614,7 +2623,7 @@ try {
     await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
     await page.getByLabel('Access view').selectOption({ label: 'Family portal' })
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Return to staff platform' }).first().click()
+    await page.getByRole('button', { name: 'Return to Coach platform' }).first().click()
     await page.waitForURL('**/coach', { timeout: 15000 })
     await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
     await assertVisibleText(page, 'Team tools')
@@ -2629,7 +2638,7 @@ try {
     await assertSelectedOption(page, 'Access view', 'Team access')
     await page.getByLabel('Access view').selectOption({ label: 'Family portal' })
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Return to staff platform' }).first().click()
+    await page.getByRole('button', { name: 'Return to Coach platform' }).first().click()
     await page.waitForURL('**/coach', { timeout: 15000 })
     await assertSelectedOption(page, 'Access view', 'Team access')
     await assertVisibleText(page, 'Club-wide view')
@@ -2648,7 +2657,7 @@ try {
       .getByTestId('parent-portal-context-mobile')
       .locator('xpath=..')
       .getByLabel('Parent account actions')
-    const switchButton = accountActions.getByRole('button', { name: 'Return to staff platform' })
+    const switchButton = accountActions.getByRole('button', { name: 'Return to Coach platform' })
     const signOutButton = accountActions.getByRole('button', { name: /Sign out/ })
     await switchButton.waitFor({ state: 'visible', timeout: 15000 })
     await signOutButton.waitFor({ state: 'visible', timeout: 15000 })
@@ -2666,7 +2675,7 @@ try {
     const { page } = await preparePage(context)
     await parentSignIn(page, 'multi.fixture@footballplayer.test', parentBaseUrl)
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Return to staff platform' }).first().click()
+    await page.getByRole('button', { name: 'Return to Coach platform' }).first().click()
     await page.waitForURL(`${mainBaseUrl}/coach`, { timeout: 15000 })
     await assertVisibleText(page, 'Club-wide view')
     assert.equal(

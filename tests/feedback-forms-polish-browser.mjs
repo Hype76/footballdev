@@ -68,7 +68,7 @@ async function stopServer(server) {
 
 async function signIn(page, email = 'manager.fixture@footballplayer.test', access = 'club') {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
-  await page.getByRole('button', { name: access === 'parent' ? 'Parent' : 'Club' }).click()
+  await page.getByRole('button', { name: access === 'parent' ? 'Parent' : 'Coach' }).click()
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill('FixturePass123!')
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()

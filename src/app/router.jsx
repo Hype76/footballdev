@@ -974,7 +974,7 @@ function PageSuspense({ children }) {
 }
 
 function WorkspaceHome() {
-  const { accessRouteMismatch, isProfileLoading, user } = useAuth()
+  const { accessModeOptions, accessRouteMismatch, isProfileLoading, user } = useAuth()
   const loginIntent = readLoginAccessIntent()
 
   if (!user && isProfileLoading) {
@@ -992,6 +992,18 @@ function WorkspaceHome() {
 
     if (accessRouteMismatch?.teamAccessUnavailable) {
       return <TeamAccessUnavailableState />
+    }
+
+    if (
+      accessRouteMismatch?.parentAccessUnavailable
+      && (accessRouteMismatch.parentAccessReason === 'lookup_failed' || accessModeOptions.length > 0)
+    ) {
+      return (
+        <RecoverableParentAccessState
+          accessModeOptions={accessModeOptions}
+          reason={accessRouteMismatch.parentAccessReason}
+        />
+      )
     }
 
     return <ParentAccessSignInRedirect />
