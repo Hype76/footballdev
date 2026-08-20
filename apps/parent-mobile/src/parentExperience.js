@@ -279,12 +279,26 @@ export function canSubmitParentPoll(poll, draftOptionId) {
     return false
   }
 
-  const currentOptionId = normalizeText(poll.currentOptionId || poll.currentOptionIds?.[0])
+  const optionId = normalizeText(draftOptionId)
+  const currentOptionIds = Array.isArray(poll.currentOptionIds)
+    ? poll.currentOptionIds.map(normalizeText).filter(Boolean)
+    : normalizeText(poll.currentOptionId) ? [normalizeText(poll.currentOptionId)] : []
+
+  if (poll.allowMultiple === true) {
+    if (currentOptionIds.includes(optionId)) {
+      return poll.allowVoteChanges === true
+    }
+
+    const maximumChoices = Number(poll.maxChoices || 0)
+    return maximumChoices <= 0 || currentOptionIds.length < maximumChoices
+  }
+
+  const currentOptionId = currentOptionIds[0] || ''
   if (!currentOptionId) {
     return true
   }
 
-  return poll.allowVoteChanges === true && currentOptionId !== normalizeText(draftOptionId)
+  return poll.allowVoteChanges === true && currentOptionId !== optionId
 }
 
 export function getBuildClassification(buildProfile) {

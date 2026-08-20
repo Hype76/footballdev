@@ -40,6 +40,17 @@ function htmlResponse(statusCode, body) {
   }
 }
 
+function redirectResponse(location) {
+  return {
+    statusCode: 303,
+    headers: {
+      'Cache-Control': 'no-store',
+      Location: location,
+    },
+    body: '',
+  }
+}
+
 function statusLabel(value) {
   const status = normalizeText(value).toLowerCase()
 
@@ -525,7 +536,21 @@ export async function handler(event) {
     const supabase = createPublicSupabaseClient(event)
 
     if (event.httpMethod === 'GET') {
+      const confirmed = normalizeText(params.get('confirmed')) === '1'
       const legacyStatus = normalizeText(params.get('status')).toLowerCase()
+
+      if (confirmed) {
+        const response = await getTokenResponse(supabase, token)
+
+        if (!response?.request_id || normalizeText(response.response_status).toLowerCase() === 'expired') {
+          return inactiveTokenPage()
+        }
+
+        return htmlResponse(200, page({
+          title: 'Availability confirmed',
+          message: `${availabilityConfirmationMessage(response)} You can close this page.`,
+        }))
+      }
 
       if (legacyStatus) {
         if (!VALID_STATUSES.has(legacyStatus)) {
@@ -591,12 +616,7 @@ export async function handler(event) {
       await createAvailabilityEventLogEntry(event, { previousResponse, response })
     }
 
-    return htmlResponse(200, page({
-      title: 'Response saved',
-      message: VALID_STATUSES.has(submittedStatus)
-        ? `${availabilityConfirmationMessage(response)} Thank you for replying.`
-        : 'Your fixture response has been saved. Thank you for replying.',
-    }))
+    return redirectResponse(`/.netlify/functions/match-day-availability-confirm?token=${encodeURIComponent(token)}&confirmed=1`)
   } catch (error) {
     console.error(error)
     return htmlResponse(500, page({

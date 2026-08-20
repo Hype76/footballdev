@@ -243,6 +243,16 @@ test('confirmation function captures structured transport response without free 
   assert.doesNotMatch(source, /transportNote|transport_note|textarea[\s\S]*Transport/)
 })
 
+test('confirmation form uses a post redirect get flow so reopening does not resubmit', async () => {
+  const source = await readFile(confirmFunctionUrl, 'utf8')
+
+  assert.match(source, /function redirectResponse\(location\)/)
+  assert.match(source, /statusCode: 303/)
+  assert.match(source, /'Cache-Control': 'no-store'/)
+  assert.match(source, /normalizeText\(params\.get\('confirmed'\)\) === '1'/)
+  assert.match(source, /match-day-availability-confirm\?token=\$\{encodeURIComponent\(token\)\}&confirmed=1/)
+})
+
 test('domain normalizer exposes staff and parent response fields', async () => {
   const source = await readFile(domainUrl, 'utf8')
   const selectVolunteerStart = source.indexOf('export async function selectMatchDayVolunteer')

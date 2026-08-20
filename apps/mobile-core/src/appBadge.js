@@ -1,10 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import {
+  getCoachAppBadgeCount,
   getMobileAppBadgeCount,
   getMobileAppBadgeStorageKey,
+  getParentAppBadgeCount,
   normalizeMobileAppBadgeEnabled,
 } from './appBadgeCore'
+
+export { getCoachAppBadgeCount, getParentAppBadgeCount }
 
 export async function readMobileAppBadgeEnabled(appRole) {
   const stored = await AsyncStorage.getItem(getMobileAppBadgeStorageKey(appRole))

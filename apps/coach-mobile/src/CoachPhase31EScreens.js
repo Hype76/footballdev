@@ -84,6 +84,12 @@ function phaseStyles(palette) {
     title: { color: palette.textPrimary, fontSize: 26, fontWeight: '900' },
     heading: { color: palette.textPrimary, fontSize: 17, fontWeight: '900' },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
+    availabilityRow: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', minHeight: 36, paddingHorizontal: 8, paddingVertical: 5 },
+    availabilityStatus: { fontSize: 13, fontWeight: '900', textTransform: 'capitalize' },
+    availabilityAvailable: { color: palette.success },
+    availabilityUnavailable: { color: palette.danger },
+    availabilityMaybe: { color: palette.warning },
+    availabilityAwaiting: { color: palette.textMuted },
     label: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
     status: { color: palette.accent, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
     input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 16, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
@@ -96,6 +102,14 @@ function phaseStyles(palette) {
     disabled: { opacity: 0.48 },
     divider: { backgroundColor: palette.border, height: 1 },
   })
+}
+
+function availabilityStatusStyle(status, styles) {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (normalized === 'available') return styles.availabilityAvailable
+  if (normalized === 'unavailable') return styles.availabilityUnavailable
+  if (normalized === 'maybe') return styles.availabilityMaybe
+  return styles.availabilityAwaiting
 }
 
 function Button({ disabled = false, label, onPress, secondary = false, styles }) {
@@ -638,7 +652,9 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
               {rankedOptions.map((option) => {
                 const chosen = currentOptionIds.includes(option.id)
                 const atLimit = poll.allowMultiple && Number(poll.maxChoices || 0) > 0 && currentOptionIds.length >= Number(poll.maxChoices) && !chosen
-                return <View key={option.id} style={styles.row}><Text style={styles.body}>{option.rank}. {option.label}: {option.count}</Text>{poll.audience === 'staff' && poll.status === 'open' ? <Button disabled={stale || Boolean(votingOptionId) || atLimit || (currentOptionIds.length > 0 && poll.allowVoteChanges !== true)} label={votingOptionId === `${poll.id}:${option.id}` ? 'Saving...' : chosen ? 'Remove my answer' : 'Choose'} onPress={() => void vote(poll, option.id)} secondary={!chosen} styles={styles} /> : null}</View>
+                const lockedChoice = chosen && poll.allowVoteChanges !== true
+                const lockedSingleChoice = !poll.allowMultiple && currentOptionIds.length > 0 && poll.allowVoteChanges !== true
+                return <View key={option.id} style={styles.row}><Text style={styles.body}>{option.rank}. {option.label}: {option.count}</Text>{poll.audience === 'staff' && poll.status === 'open' ? <Button disabled={stale || Boolean(votingOptionId) || atLimit || lockedChoice || lockedSingleChoice} label={votingOptionId === `${poll.id}:${option.id}` ? 'Saving...' : chosen ? lockedChoice ? 'Saved' : 'Remove my answer' : 'Choose'} onPress={() => void vote(poll, option.id)} secondary={!chosen} styles={styles} /> : null}</View>
               })}
               {poll.closesAt ? <Text style={styles.body}>Deadline: {new Date(poll.closesAt).toLocaleString()}</Text> : null}
               <View style={styles.row}><Button disabled={stale || poll.status === 'closed' || Number(user.roleRank || 0) < 50} label="Archive Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || poll.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Restore Poll" onPress={() => void reopen()} secondary styles={styles} />{poll.status === 'closed' && totalVotes === 0 ? <Button disabled={stale || Number(user.roleRank || 0) < 50} label="Delete Poll" onPress={remove} secondary styles={styles} /> : null}</View>
@@ -683,7 +699,6 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
   const selectedTrainingInvites = [...collapseCoachInvitesByPlayer(trainingGroups.find((group) => group.key === trainingKey)?.invites || [])]
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
   const selected = [...selectedMatchInvites, ...selectedTrainingInvites].find((invite) => invite.id === selectedId)
-  const summary = summarizeCoachInvites(selectedMatchInvites)
   const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
   const selectedCanBeResent = selected && ['awaiting', 'pending'].includes(selected.status)
   const record = async (action) => {
@@ -764,8 +779,9 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
             {expanded ? <>
               <Text style={styles.label}>Available {trainingSummary.available} | Unavailable {trainingSummary.unavailable} | Maybe {trainingSummary.maybe} | Awaiting {trainingSummary.awaiting}</Text>
               {selectedTrainingInvites.map((invite) => (
-                <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={invite.id === selectedId ? styles.formChoiceSelected : null}>
-                  <Text style={styles.body}>{invite.playerName}: {invite.status}</Text>
+                <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={[styles.availabilityRow, invite.id === selectedId && styles.formChoiceSelected]}>
+                  <Text style={styles.body}>{invite.playerName}</Text>
+                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{invite.status}</Text>
                 </Pressable>
               ))}
               {selectedCanBeResent ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
@@ -787,10 +803,11 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
               <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
             </Pressable>
             {expanded ? <>
-              <Text style={styles.label}>Available {summary.available} | Unavailable {summary.unavailable} | Maybe {summary.maybe} | Awaiting {summary.awaiting}</Text>
+              <Text style={styles.label}>Available {matchSummary.available} | Unavailable {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
               {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => (
-                <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={invite.id === selectedId ? styles.formChoiceSelected : null}>
-                  <Text style={styles.body}>{invite.playerName}: {invite.status}</Text>
+                <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={[styles.availabilityRow, invite.id === selectedId && styles.formChoiceSelected]}>
+                  <Text style={styles.body}>{invite.playerName}</Text>
+                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{invite.status}</Text>
                 </Pressable>
               )) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
               {selectedCanBeResent ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}

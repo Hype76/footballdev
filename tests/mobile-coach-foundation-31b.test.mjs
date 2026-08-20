@@ -97,7 +97,7 @@ test('context markers store identifiers only and reject corrupt state', () => {
 
 test('role-aware navigation exposes no dead Team routes or Platform Admin governance', () => {
   const coachNavigation = getCoachNavigationModel(teamA)
-  assert.deepEqual(coachNavigation.primary.map((route) => route.key), ['home', 'calendar', 'players', 'matchday', 'more'])
+  assert.deepEqual(coachNavigation.primary.map((route) => route.key), ['home', 'notifications', 'calendar', 'players', 'matchday', 'more'])
   assert.equal(coachNavigation.more.some((route) => route.key === 'club'), false)
   assert.equal(coachNavigation.more.some((route) => route.key === 'payment'), false)
   const adminNavigation = getCoachNavigationModel(clubContext)

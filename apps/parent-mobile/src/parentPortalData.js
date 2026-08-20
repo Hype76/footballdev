@@ -645,3 +645,17 @@ export async function updateParentPassword(user, currentPassword, nextPassword) 
   const { error } = await supabase.auth.updateUser({ password: nextPassword })
   if (error) throw error
 }
+
+export async function updateParentDisplayName(displayName) {
+  const nextDisplayName = normalizeText(displayName)
+  if (!nextDisplayName) throw new Error('Enter the name you want shown in the app.')
+
+  const { data, error } = await supabase.auth.updateUser({
+    data: {
+      display_name: nextDisplayName,
+      name: nextDisplayName,
+    },
+  })
+  if (error) throw error
+  return data?.user || null
+}

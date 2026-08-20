@@ -3,8 +3,10 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
+  getCoachAppBadgeCount,
   getMobileAppBadgeCount,
   getMobileAppBadgeStorageKey,
+  getParentAppBadgeCount,
   normalizeMobileAppBadgeEnabled,
 } from '../apps/mobile-core/src/appBadgeCore.js'
 
@@ -28,7 +30,14 @@ test('app icon badge count is cleared when disabled and clamped when enabled', (
   assert.equal(getMobileAppBadgeCount({ count: 'unknown', enabled: true }), 0)
 })
 
-test('Parent and Coach use the saved badge preference for foreground notifications and settings', async () => {
+test('Parent and Coach app badges use only current unread inbox state', () => {
+  assert.equal(getCoachAppBadgeCount({ unreadChat: 3, unreadCommunication: 5 }), 5)
+  assert.equal(getCoachAppBadgeCount({ unreadChat: 3, unreadCommunication: 0 }), 3)
+  assert.equal(getParentAppBadgeCount({ unreadChat: 2, unreadNotifications: 4 }), 6)
+  assert.equal(getParentAppBadgeCount({ unreadChat: 140, unreadNotifications: 4 }), 99)
+})
+
+test('Parent and Coach explicitly reconcile app badges instead of auto-incrementing foreground pushes', async () => {
   const [parentApp, coachApp, parentNotifications, coachNotifications, badgeRuntime] = await Promise.all([
     read('../apps/parent-mobile/App.js'),
     read('../apps/coach-mobile/App.js'),
@@ -41,7 +50,9 @@ test('Parent and Coach use the saved badge preference for foreground notificatio
   assert.match(parentApp, /syncMobileAppBadge\(\{ appRole: 'parent'/)
   assert.match(coachApp, /App icon badge/)
   assert.match(coachApp, /syncMobileAppBadge\(\{ appRole: 'coach'/)
-  assert.match(parentNotifications, /shouldSetBadge: await readMobileAppBadgeEnabled\('parent'\)/)
-  assert.match(coachNotifications, /shouldSetBadge: await readMobileAppBadgeEnabled\('coach'\)/)
+  assert.match(parentNotifications, /shouldSetBadge: false/)
+  assert.match(coachNotifications, /shouldSetBadge: false/)
+  assert.match(parentApp, /getParentAppBadgeCount/)
+  assert.match(coachApp, /getCoachAppBadgeCount/)
   assert.match(badgeRuntime, /setBadgeCountAsync\(0\)/)
 })

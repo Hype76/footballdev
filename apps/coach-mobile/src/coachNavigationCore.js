@@ -1,5 +1,6 @@
 const PRIMARY_ROUTES = Object.freeze([
   Object.freeze({ key: 'home', label: 'Home' }),
+  Object.freeze({ key: 'notifications', label: 'Notifications' }),
   Object.freeze({ key: 'calendar', label: 'Calendar' }),
   Object.freeze({ key: 'players', label: 'Players' }),
   Object.freeze({ key: 'matchday', label: 'Match Day' }),
@@ -43,6 +44,8 @@ const ROUTE_ALIASES = Object.freeze({
   matchday: 'matchday',
   messages: 'messages',
   more: 'more',
+  notifications: 'notifications',
+  alerts: 'notifications',
   players: 'players',
   polls: 'polls',
   resources: 'resources',

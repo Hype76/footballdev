@@ -179,15 +179,24 @@ export async function readParentOfflineView(userScope, linkId) {
         return command ? { ...message, readAt: message.readAt || command.createdAt } : message
       }),
       polls: cache.resources.polls.map((poll) => {
-        const command = activeCommands.filter((entry) => entry.type === 'poll_vote' && entry.entityId === poll.id).at(-1)
-        if (!command) return poll
-        const optionId = normalize(command.payload?.optionId)
+        const commands = activeCommands.filter((entry) => entry.type === 'poll_vote' && entry.entityId === poll.id)
+        if (commands.length === 0) return poll
+        const savedOptionIds = Array.isArray(poll.currentOptionIds)
+          ? poll.currentOptionIds.map(normalize).filter(Boolean)
+          : normalize(poll.currentOptionId) ? [normalize(poll.currentOptionId)] : []
+        const nextOptionIds = commands.reduce((optionIds, command) => {
+          const optionId = normalize(command.payload?.optionId)
+          if (!optionId) return optionIds
+          if (!poll.allowMultiple) return [optionId]
+          if (optionIds.includes(optionId)) {
+            return poll.allowVoteChanges === true ? optionIds.filter((id) => id !== optionId) : optionIds
+          }
+          return [...optionIds, optionId]
+        }, savedOptionIds)
         return {
           ...poll,
-          currentOptionId: poll.allowMultiple ? poll.currentOptionId : optionId,
-          currentOptionIds: poll.allowMultiple
-            ? [...new Set([...(poll.currentOptionIds || []), optionId].filter(Boolean))]
-            : [optionId],
+          currentOptionId: nextOptionIds[0] || null,
+          currentOptionIds: [...new Set(nextOptionIds)],
         }
       }),
     }

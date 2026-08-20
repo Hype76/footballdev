@@ -29,6 +29,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import {
+  getParentAppBadgeCount,
   readMobileAppBadgeEnabled,
   syncMobileAppBadge,
   writeMobileAppBadgeEnabled,
@@ -86,6 +87,7 @@ import {
   setParentScorerTimer,
   startParentScorerMatch,
   updateParentPassword,
+  updateParentDisplayName,
   updateParentScorerScore,
   voidParentScorerGoal,
   voidParentScorerShootoutKick,
@@ -217,7 +219,7 @@ function LoginScreen() {
 }
 
 function ParentHome() {
-  const { authError, isProfileLoading, signOut, user } = useMobileAuth()
+  const { authError, isProfileLoading, refreshUserProfile, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('home')
   const [activeActionId, setActiveActionId] = useState('')
@@ -944,15 +946,20 @@ function ParentHome() {
         ...current,
         polls: {
           ...current.polls,
-          items: current.polls.items.map((item) => item.id === poll.id
-            ? {
-                ...item,
-                currentOptionId: item.allowMultiple ? item.currentOptionId : optionId,
-                currentOptionIds: item.allowMultiple
-                  ? [...new Set([...(item.currentOptionIds || []), optionId])]
-                  : [optionId],
-              }
-            : item),
+          items: current.polls.items.map((item) => {
+            if (item.id !== poll.id) return item
+            const savedOptionIds = Array.isArray(item.currentOptionIds) ? item.currentOptionIds : []
+            const nextOptionIds = item.allowMultiple
+              ? savedOptionIds.includes(optionId)
+                ? item.allowVoteChanges === true ? savedOptionIds.filter((id) => id !== optionId) : savedOptionIds
+                : [...new Set([...savedOptionIds, optionId])]
+              : [optionId]
+            return {
+              ...item,
+              currentOptionId: nextOptionIds[0] || null,
+              currentOptionIds: nextOptionIds,
+            }
+          }),
         },
       }))
       const pendingView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id)
@@ -1266,6 +1273,22 @@ function ParentHome() {
     }
   }
 
+  async function handleDisplayNameChange(displayName) {
+    if (activeActionId) return
+    setActiveActionId('display-name')
+    setNotice(null)
+    try {
+      const authUser = await updateParentDisplayName(displayName)
+      await refreshUserProfile(authUser)
+      setNotice({ message: 'Your display name has been updated.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, error.message || 'Your display name could not be updated.'), tone: 'error' })
+      throw error
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   async function handleBiometricChange(enabled) {
     if (activeActionId) return
     setActiveActionId('biometrics')
@@ -1477,7 +1500,6 @@ function ParentHome() {
       (total, room) => total + Number(room.unreadCount || 0),
       0,
     )
-    const pendingInvitationCount = visibleInvitations.filter((invitation) => invitation.isPending).length
     const unreadNotificationCount = countUnreadNonChatNotifications(resources.notifications.items)
     const resourcesLoaded = resources.notifications.loading === false
       && resources.chatRooms.loading === false
@@ -1486,13 +1508,16 @@ function ParentHome() {
       && resources.invitations.loading === false
     const badgeCount = getParentAppBadgeUpdate({
       authenticated: Boolean(user),
-      count: unreadNotificationCount + unreadChatCount + homeModel.unreadMessages + homeModel.unansweredPolls + pendingInvitationCount + syncSummary.needsAttention,
+      count: getParentAppBadgeCount({
+        unreadChat: unreadChatCount,
+        unreadNotifications: unreadNotificationCount,
+      }),
       resourcesLoaded,
     })
     if (badgeCount === null) return
     latestBadgeCountRef.current = badgeCount
     void syncMobileAppBadge({ appRole: 'parent', count: badgeCount }).catch(() => {})
-  }, [homeModel.unansweredPolls, homeModel.unreadMessages, parentChatRooms, resources.chatRooms.loading, resources.invitations.loading, resources.messages.loading, resources.notifications.items, resources.notifications.loading, resources.polls.loading, syncSummary.needsAttention, user, visibleInvitations])
+  }, [parentChatRooms, resources.chatRooms.loading, resources.invitations.loading, resources.messages.loading, resources.notifications.items, resources.notifications.loading, resources.polls.loading, user])
 
   if (isProfileLoading) {
     return <LoadingScreen message="Opening your family account..." />
@@ -1675,6 +1700,7 @@ function ParentHome() {
             ) : null}
             {activeTab === 'more' && moreSection === 'settings' ? (
               <SettingsScreen
+                key={`settings-${user.id || user.email || 'parent'}-${user.displayName || user.name || ''}`}
                 activeActionId={activeActionId}
                 appBadgeEnabled={appBadgeEnabled}
                 biometricAvailable={biometricAvailable}
@@ -1693,6 +1719,7 @@ function ParentHome() {
                 onNotificationDetailChange={handleNotificationDetailChange}
                 onNotificationEnabledChange={handleNotificationEnabledChange}
                 onDisplayThemeChange={handleDisplayThemeChange}
+                onDisplayNameChange={handleDisplayNameChange}
                 onPasswordChange={handlePasswordChange}
                 onRestoreDismissedItems={handleRestoreDismissedItems}
                 onSendTestNotification={handleTestNotification}
@@ -2176,7 +2203,6 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
           : normalizeText(poll.currentOptionId) ? [normalizeText(poll.currentOptionId)] : []
         const currentOptionId = currentOptionIds[0] || ''
         const busy = activeActionId === `poll:${poll.id}`
-        const canChange = !currentOptionId || poll.allowVoteChanges === true
         const submitEnabled = canSubmitParentPoll(poll, draftOptionId)
         const resultCounts = new Map((poll.votes || []).map((vote) => [normalizeText(vote.optionId), Number(vote.count || 0)]))
         const rankedResults = poll.options
@@ -2214,7 +2240,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                   && Number(poll.maxChoices || 0) > 0
                   && currentOptionIds.length >= Number(poll.maxChoices)
                   && !selected
-                const optionDisabled = !canChange || busy || ownChildOption || atChoiceLimit
+                const optionDisabled = !canSubmitParentPoll(poll, option.id) || busy || ownChildOption || atChoiceLimit
                 return (
                   <Pressable
                     accessibilityHint={ownChildOption ? 'Your own child is not available for this poll' : poll.allowMultiple ? 'Adds or removes this saved response' : 'Selects this response'}
@@ -2236,7 +2262,13 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
             </View> : null}
             {isOpenPoll(poll) && currentOptionId ? (
               <Text style={styles.helperText}>
-                {poll.allowVoteChanges ? 'Your current response is selected. Choose another option to change it.' : 'Your response has been recorded and cannot be changed.'}
+                {poll.allowMultiple
+                  ? poll.allowVoteChanges
+                    ? 'Your saved answers are selected. Tap one again to remove it.'
+                    : 'Your saved answers cannot be removed. You can still add another answer within the choice limit.'
+                  : poll.allowVoteChanges
+                    ? 'Your current response is selected. Choose another option to change it.'
+                    : 'Your response has been recorded and cannot be changed.'}
               </Text>
             ) : null}
             {isOpenPoll(poll) && (poll.allowMultiple ? (
@@ -2307,6 +2339,7 @@ function SettingsScreen({
   onAppBadgeEnabledChange,
   onCommunicationChannelChange,
   onDisplayThemeChange,
+  onDisplayNameChange,
   onNotificationDetailChange,
   onNotificationEnabledChange,
   onPasswordChange,
@@ -2319,6 +2352,7 @@ function SettingsScreen({
 }) {
   const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
+  const [displayName, setDisplayName] = useState(user.displayName || user.name || '')
   const [nextPassword, setNextPassword] = useState('')
   const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.6'
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
@@ -2330,7 +2364,23 @@ function SettingsScreen({
       <ScreenIntro copy="Account, security and app information." title="Settings" />
 
       <InfoPanel title="Signed-in Parent">
-        <InfoRow label="Name" value={user.displayName || user.name || 'Parent'} />
+        <TextInput
+          accessibilityLabel="Display name"
+          autoCapitalize="words"
+          editable={activeActionId !== 'display-name'}
+          onChangeText={setDisplayName}
+          placeholder="Display name"
+          placeholderTextColor={palette.textMuted}
+          style={styles.settingsInput}
+          value={displayName}
+        />
+        <PrimaryAction
+          disabled={!displayName.trim() || displayName.trim() === (user.displayName || user.name || '').trim()}
+          label="Update display name"
+          loading={activeActionId === 'display-name'}
+          onPress={() => { void onDisplayNameChange(displayName).catch(() => {}) }}
+          secondary
+        />
         <InfoRow label="Email" value={user.email || 'Email unavailable'} />
       </InfoPanel>
 

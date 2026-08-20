@@ -23,6 +23,7 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
 import {
+  getCoachAppBadgeCount,
   readMobileAppBadgeEnabled,
   syncMobileAppBadge,
   writeMobileAppBadgeEnabled,
@@ -450,11 +451,10 @@ function CoachHome() {
   }, [activeContext, contextOwnedByCurrentUser, loadHome, user?.id])
 
   useEffect(() => {
-    const badgeCount = Math.min(99,
-      Number(homeState.pendingAvailability || 0)
-      + Number(homeState.activePolls || 0)
-      + Number(homeState.unreadChat || 0)
-      + Number(homeState.unreadCommunication || 0))
+    const badgeCount = getCoachAppBadgeCount({
+      unreadChat: homeState.unreadChat,
+      unreadCommunication: homeState.unreadCommunication,
+    })
     latestBadgeCountRef.current = badgeCount
     void syncMobileAppBadge({ appRole: 'coach', count: badgeCount }).catch(() => {})
   }, [homeState.activePolls, homeState.pendingAvailability, homeState.unreadChat, homeState.unreadCommunication])
@@ -674,6 +674,7 @@ function CoachRoute(props) {
   const { activeRoute, moreRoute } = props
   const { palette } = useCoachTheme()
   if (activeRoute === 'home') return <HomeScreen {...props} />
+  if (activeRoute === 'notifications') return <CoachNotificationsScreen {...props} />
   if (activeRoute === 'calendar') return <CoachCalendarScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'players') return <CoachPlayersScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'formation') return <CoachFormationScreen {...props} key={props.context.id} palette={palette} />
@@ -687,6 +688,34 @@ function CoachRoute(props) {
     return moreRoute ? <FoundationRoute route={moreRoute} {...props} /> : <MoreScreen {...props} />
   }
   return <FoundationRoute route={activeRoute} {...props} />
+}
+
+function CoachNotificationsScreen({ homeState, onNavigate }) {
+  const unreadChat = Number(homeState.unreadChat || 0)
+  const unreadCommunication = Number(homeState.unreadCommunication || 0)
+  const hasNotifications = unreadChat > 0 || unreadCommunication > 0
+
+  return (
+    <ScreenIntro copy="Unread Coach updates. Open an item to go straight to the relevant place." title="Notifications">
+      {!hasNotifications ? <EmptyPanel message="There are no unread Coach notifications." title="You are up to date" /> : null}
+      {unreadChat > 0 ? (
+        <PreviewCard
+          actionLabel="Open Chat"
+          detail={`${unreadChat} unread Chat ${unreadChat === 1 ? 'message' : 'messages'}.`}
+          onAction={() => onNavigate('chat')}
+          title="Chat"
+        />
+      ) : null}
+      {unreadCommunication > 0 ? (
+        <PreviewCard
+          actionLabel="Open Messages"
+          detail={`${unreadCommunication} unread communication ${unreadCommunication === 1 ? 'update' : 'updates'}.`}
+          onAction={() => onNavigate('messages')}
+          title="Coach updates"
+        />
+      ) : null}
+    </ScreenIntro>
+  )
 }
 
 function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {

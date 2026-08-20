@@ -369,6 +369,15 @@ export function AuthProvider({
     setIsLocked(false)
   }, [])
 
+  const refreshUserProfile = useCallback(async (nextAuthUser = null) => {
+    const currentSession = session
+    if (!currentSession?.user) return null
+    return loadProfile({
+      ...currentSession,
+      user: nextAuthUser || currentSession.user,
+    })
+  }, [loadProfile, session])
+
   const value = useMemo(() => ({
     appRole,
     authError,
@@ -379,6 +388,7 @@ export function AuthProvider({
     ].includes(startupState),
     isLocked,
     isProfileLoading,
+    refreshUserProfile,
     resetLocalAppData,
     retryStartup,
     session,
@@ -393,6 +403,7 @@ export function AuthProvider({
     authError,
     isLocked,
     isProfileLoading,
+    refreshUserProfile,
     resetLocalAppData,
     retryStartup,
     session,
