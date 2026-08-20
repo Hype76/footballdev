@@ -8,6 +8,7 @@ import {
   createMobileFormationDraft,
   getMobileFormationPitchPercent,
   getMobileFormationPitchRatio,
+  getMobileFormationPresetSlots,
   getMobileFormationSlotShortLabel,
   moveMobileFormationPlayer,
   moveMobileFormationPlayersToBench,
@@ -53,6 +54,24 @@ test('one-tap lineup build places only formation capacity and keeps the rest on 
   assert.equal(built.placements.length, 11)
   assert.equal(built.bench.length, 5)
   assert.equal(new Set([...built.placements, ...built.bench].map((player) => player.playerId)).size, 16)
+})
+
+test('Custom Formation creates usable empty pitch slots and accepts a full lineup', () => {
+  const customPreset = { gameFormat: '11v11', key: '11v11-custom', displayName: 'Custom', registryVersion: 1, slots: [] }
+  const slots = getMobileFormationPresetSlots(customPreset)
+  assert.equal(slots.length, 11)
+  assert.equal(new Set(slots.map((slot) => slot.id)).size, 11)
+  assert.equal(getMobileFormationSlotShortLabel(slots[0]), 'GK')
+  assert.equal(getMobileFormationSlotShortLabel(slots[1]), 'P2')
+
+  const selected = setMobileFormationSquad(createMobileFormationDraft({ presetKey: customPreset.key }), players)
+  const built = buildMobileFormationLineup(selected, customPreset)
+  assert.equal(built.placements.length, 11)
+  assert.equal(built.bench.length, 5)
+
+  const benched = moveMobileFormationPlayersToBench(built, ['player-4'])
+  const restored = placeMobileFormationPlayerInNextSlot(benched, customPreset, 'player-4')
+  assert.equal(restored.placements.some((player) => player.playerId === 'player-4'), true)
 })
 
 test('mobile preset coordinates convert canonical zero-to-one values into visible pitch percentages', () => {

@@ -5,6 +5,7 @@ import { PGlite } from '@electric-sql/pglite'
 
 const migration = await readFile(new URL('../supabase/migrations/20260716110436_calendar_notify_delivery_hotfix.sql', import.meta.url), 'utf8')
 const correctiveMigration = await readFile(new URL('../supabase/migrations/20260819054757_fix_calendar_team_parent_scope_handoff.sql', import.meta.url), 'utf8')
+const wholeSquadRepairMigration = await readFile(new URL('../supabase/migrations/20260820123000_restore_calendar_whole_squad_scope_76.sql', import.meta.url), 'utf8')
 
 const ACTOR_ID = '10000000-0000-4000-8000-000000000001'
 const CLUB_ID = '20000000-0000-4000-8000-000000000001'
@@ -81,15 +82,7 @@ async function createFixtureDatabase() {
         raise exception 'You do not have permission to share this event with parents for this team.';
       end if;
 
-      if coalesce(array_length(\$3, 1), 0) > 0 then
-        resolved_player_ids := \$3;
-      else
-        select coalesce(array_agg(player.id order by player.id), '{}'::uuid[])
-        into resolved_player_ids
-        from public.players player
-        where player.team_id = source_team_id
-          and coalesce(player.status, 'active') <> 'archived';
-      end if;
+      resolved_player_ids := coalesce(\$3, '{}'::uuid[]);
 
       return jsonb_build_object(
         'portalRecordCount', coalesce(array_length(resolved_player_ids, 1), 0),
@@ -100,6 +93,7 @@ async function createFixtureDatabase() {
   `)
   await db.exec(migration)
   await db.exec(correctiveMigration)
+  await db.exec(wholeSquadRepairMigration)
   await db.exec(`
     insert into public.users values ('${ACTOR_ID}', '${CLUB_ID}', 'coach', 'active', 20);
     insert into public.team_staff values ('${TEAM_ID}', '${ACTOR_ID}');
@@ -137,7 +131,7 @@ test('delivery migration applies and resolves Whole squad scope server-side', as
       ) as result
     `)
 
-    assert.equal(withoutTrials.rows[0].result.selectedPlayerCount, 3)
+    assert.equal(withoutTrials.rows[0].result.selectedPlayerCount, 2)
     assert.equal(withoutTrials.rows[0].result.selectionMode, 'whole_squad')
     assert.equal(withTrials.rows[0].result.selectedPlayerCount, 3)
     assert.equal(withTrials.rows[0].result.includeTrialPlayers, true)

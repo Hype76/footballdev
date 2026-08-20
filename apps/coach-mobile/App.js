@@ -96,7 +96,7 @@ function formatDateTime(value, fallback = 'To be confirmed') {
 }
 
 function LoginScreen() {
-  const { authError, signIn } = useMobileAuth()
+  const { authError, requestPasswordReset, signIn } = useMobileAuth()
   const handleSignIn = useCallback(async (email, password) => {
     try {
       await signIn(email, password)
@@ -113,6 +113,7 @@ function LoginScreen() {
       kicker="Football Player Coach"
       logoSource={require('./assets/football-player-logo.png')}
       meta="Restricted club access."
+      requestPasswordReset={requestPasswordReset}
       signIn={handleSignIn}
       title="Your team. Your match day."
     />

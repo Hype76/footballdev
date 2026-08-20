@@ -6,13 +6,15 @@ const migrationUrl = new URL('../supabase/migrations/20260715171154_calendar_eve
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const calendarDomainUrl = new URL('../src/lib/domain/calendar-events.js', import.meta.url)
 const deliveryMigrationUrl = new URL('../supabase/migrations/20260716110436_calendar_notify_delivery_hotfix.sql', import.meta.url)
+const wholeSquadRepairMigrationUrl = new URL('../supabase/migrations/20260820123000_restore_calendar_whole_squad_scope_76.sql', import.meta.url)
 const notificationStatusUrl = new URL('../src/lib/domain/calendar-notification-status.js', import.meta.url)
 
-const [migration, sessionsPage, calendarDomain, deliveryMigration, notificationStatus] = await Promise.all([
+const [migration, sessionsPage, calendarDomain, deliveryMigration, wholeSquadRepairMigration, notificationStatus] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(sessionsPageUrl, 'utf8'),
   readFile(calendarDomainUrl, 'utf8'),
   readFile(deliveryMigrationUrl, 'utf8'),
+  readFile(wholeSquadRepairMigrationUrl, 'utf8'),
   readFile(notificationStatusUrl, 'utf8'),
 ])
 
@@ -44,7 +46,18 @@ test('team-wide scope and email recipients are resolved by the server', () => {
   assert.match(migration, /from public\.players player[\s\S]*player\.team_id = team_id_value/)
   assert.match(calendarDomain, /sync_calendar_event_parent_scope_v2'[\s\S]*player_ids_value: normalizedSelectionMode === 'whole_squad' \? \[\] : normalizedPlayerIds/)
   assert.match(deliveryMigration, /normalized_selection_mode = 'whole_squad'[\s\S]*Whole squad player scope is resolved by the server/)
+  assert.match(wholeSquadRepairMigration, /normalized_selection_mode = 'whole_squad'[\s\S]*from public\.players player[\s\S]*player\.team_id = source_team_id/)
+  assert.match(wholeSquadRepairMigration, /include_trial_players_value is true[\s\S]*lower\(btrim\(coalesce\(player\.section/)
   assert.match(sessionsPage, /playerIds: sharedInvolvedPlayers \? notificationPlayers\.map\(\(player\) => player\.id\) : \[\]/)
+})
+
+test('whole Team Parent sharing resolves the whole squad on the server', () => {
+  const syncInvitesStart = sessionsPage.indexOf('const syncInvites = async')
+  const syncInvitesEnd = sessionsPage.indexOf('\n      if (saveTrainingAsSession', syncInvitesStart)
+  const flow = sessionsPage.slice(syncInvitesStart, syncInvitesEnd)
+
+  assert.match(flow, /selectionMode:\s*sharedAllTeamParents\s*\|\|\s*\(/)
+  assert.match(flow, /playerIds:\s*sharedInvolvedPlayers\s*\?\s*notificationPlayers\.map\([\s\S]*?\)\s*:\s*\[\]/)
 })
 
 test('the public notification command rejects browser player and recipient injection', () => {
