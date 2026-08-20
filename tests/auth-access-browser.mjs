@@ -101,7 +101,13 @@ function startDevServer() {
     VITE_SUPABASE_URL: 'http://fixture.supabase.test',
     VITE_SUPABASE_ANON_KEY: 'fixture-anon-key',
   }
-  const child = spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `npm.cmd run dev -- --host 0.0.0.0 --port ${port} --strictPort`], {
+  const command = process.platform === 'win32'
+    ? process.env.ComSpec || 'cmd.exe'
+    : 'npm'
+  const args = process.platform === 'win32'
+    ? ['/d', '/s', '/c', `npm.cmd run dev -- --host 0.0.0.0 --port ${port} --strictPort`]
+    : ['run', 'dev', '--', '--host', '0.0.0.0', '--port', String(port), '--strictPort']
+  const child = spawn(command, args, {
     cwd: process.cwd(),
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
