@@ -954,6 +954,27 @@ async function waitForPathname(page, pathname) {
   })
 }
 
+async function gotoAfterAuthRedirects(page, url) {
+  let lastError
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
+      return
+    } catch (error) {
+      lastError = error
+      if (!String(error?.message || error).includes('is interrupted by another navigation')) {
+        throw error
+      }
+
+      await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {})
+      await page.waitForTimeout(250)
+    }
+  }
+
+  throw lastError
+}
+
 async function seedSelectedAccessMode(page, mode) {
   await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
   await page.evaluate((nextMode) => {
@@ -1866,10 +1887,7 @@ try {
 
     await parentSignIn(page, 'parent-multiple.fixture@footballplayer.test', mainBaseUrl)
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.goto(`${mainBaseUrl}/parent-chat?parentLinkId=parent-link-fixture`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000,
-    })
+    await gotoAfterAuthRedirects(page, `${mainBaseUrl}/parent-chat?parentLinkId=parent-link-fixture`)
 
     const childOnlySwitch = page.getByRole('switch', { name: 'Your child only' })
     await childOnlySwitch.waitFor({ state: 'visible', timeout: 15000 })
@@ -2334,7 +2352,7 @@ try {
     const { getAcceptanceCallCount, page } = await prepareParentInvitePage(context)
     await parentSignIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl)
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
-    await page.goto(`${mainBaseUrl}/parent-invite/fixture-parent-invite`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await gotoAfterAuthRedirects(page, `${mainBaseUrl}/parent-invite/fixture-parent-invite`)
     await page.waitForURL('**/parent-portal?*', { timeout: 15000 })
     const finalUrl = new URL(page.url())
 
