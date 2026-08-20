@@ -48,9 +48,14 @@ async function waitForPort(timeoutMs = 30000) {
 }
 
 function startServer() {
+  const isWindows = process.platform === 'win32'
+  const command = isWindows ? (process.env.ComSpec || 'cmd.exe') : 'npm'
+  const args = isWindows
+    ? ['/d', '/s', '/c', `npm.cmd run dev -- --host 127.0.0.1 --port ${port} --strictPort`]
+    : ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(port), '--strictPort']
   const child = spawn(
-    process.env.ComSpec || 'cmd.exe',
-    ['/d', '/s', '/c', `npm.cmd run dev -- --host 127.0.0.1 --port ${port} --strictPort`],
+    command,
+    args,
     {
       cwd: process.cwd(),
       env: {
