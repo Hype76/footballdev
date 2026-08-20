@@ -111,6 +111,7 @@ function startDevServer() {
     cwd: process.cwd(),
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
   })
 
   let output = ''
@@ -137,7 +138,7 @@ async function stopDevServer(server) {
       stdio: 'ignore',
     })
   } else {
-    server.child.kill()
+    process.kill(-server.child.pid, 'SIGTERM')
   }
 
   await Promise.race([
@@ -2755,7 +2756,9 @@ try {
   throw error
 } finally {
   if (browser) {
-    await browser.close()
+    await Promise.race([browser.close(), wait(3000)])
   }
   await stopDevServer(server)
 }
+
+process.exit(process.exitCode || 0)

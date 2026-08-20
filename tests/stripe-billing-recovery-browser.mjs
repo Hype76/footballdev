@@ -66,6 +66,7 @@ function startServer() {
         VITE_SUPABASE_URL: 'http://fixture.supabase.test',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: !isWindows,
     },
   )
   let output = ''
@@ -95,7 +96,7 @@ async function stopServer(server) {
       { stdio: 'ignore' },
     )
   } else {
-    server.child.kill()
+    process.kill(-server.child.pid, 'SIGTERM')
   }
 
   await Promise.race([
@@ -383,7 +384,9 @@ try {
   throw error
 } finally {
   if (browser) {
-    await browser.close()
+    await Promise.race([browser.close(), wait(3000)])
   }
   await stopServer(server)
 }
+
+process.exit(process.exitCode || 0)
