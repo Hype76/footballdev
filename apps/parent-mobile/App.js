@@ -194,7 +194,7 @@ function formatTime(value, isTbc = false) {
 }
 
 function LoginScreen() {
-  const { authError, signIn } = useMobileAuth()
+  const { authError, requestPasswordReset, signIn } = useMobileAuth()
 
   const handleSignIn = useCallback(async (email, password) => {
     try {
@@ -212,6 +212,7 @@ function LoginScreen() {
       kicker="Football Player Parents"
       logoSource={require('./assets/football-player-logo.png')}
       meta="Private family access. Password sign-in only."
+      requestPasswordReset={requestPasswordReset}
       signIn={handleSignIn}
       title="Everything for your child, in one place."
     />

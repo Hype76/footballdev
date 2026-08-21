@@ -206,6 +206,7 @@ export function MobileLoginScreen({
   kicker,
   logoSource,
   meta,
+  requestPasswordReset,
   signIn,
   title,
 }) {
@@ -213,6 +214,8 @@ export function MobileLoginScreen({
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRecovering, setIsRecovering] = useState(false)
+  const [recoveryMessage, setRecoveryMessage] = useState('')
   const canSubmit = Boolean(email.trim() && password)
 
   async function handleLogin() {
@@ -226,6 +229,29 @@ export function MobileLoginScreen({
       await signIn(email.trim(), password)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  async function handlePasswordReset() {
+    if (isRecovering) return
+
+    const normalizedEmail = email.trim()
+
+    if (!normalizedEmail) {
+      setRecoveryMessage('Enter your email address first, then choose Forgot password.')
+      return
+    }
+
+    setIsRecovering(true)
+    setRecoveryMessage('')
+
+    try {
+      await requestPasswordReset(normalizedEmail)
+      setRecoveryMessage('Check your email for a secure password reset link.')
+    } catch (error) {
+      setRecoveryMessage(error?.message || 'Password recovery could not be started. Please try again.')
+    } finally {
+      setIsRecovering(false)
     }
   }
 
@@ -265,6 +291,8 @@ export function MobileLoginScreen({
             />
             {authError ? <Text style={styles.error}>{authError}</Text> : null}
             <PrimaryButton disabled={!canSubmit} loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
+            <PrimaryButton loading={isRecovering} onPress={handlePasswordReset} variant="secondary">Forgot password?</PrimaryButton>
+            {recoveryMessage ? <Text style={styles.meta}>{recoveryMessage}</Text> : null}
           </View>
 
           <Text style={styles.meta}>{meta}</Text>

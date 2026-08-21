@@ -3069,7 +3069,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
                 eventSource,
                 includeTrialPlayers: calendarForm.inviteTrialPlayers,
                 playerIds: sharedInvolvedPlayers ? notificationPlayers.map((player) => player.id) : [],
-                selectionMode: sharedInvolvedPlayers && wholeSquadSelectionState.checked && hasOnlyWholeSquadScopePlayers
+                selectionMode: sharedAllTeamParents || (
+                  sharedInvolvedPlayers
+                  && wholeSquadSelectionState.checked
+                  && hasOnlyWholeSquadScopePlayers
+                )
                   ? 'whole_squad'
                   : 'manual',
               })

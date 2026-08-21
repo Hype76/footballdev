@@ -36,6 +36,10 @@ const staffUser = {
   clubId: 'club-1',
   activeTeamId: 'team-1',
   activeTeamName: 'U12',
+  planKey: 'single_team',
+  planStatus: 'active',
+  role: 'head_manager',
+  roleRank: 70,
 }
 
 function createSupabaseDraftMock({ existingRow = null, insertRow = null, updateRow = null, errorByAction = {} } = {}) {

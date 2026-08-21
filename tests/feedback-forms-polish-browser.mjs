@@ -37,7 +37,12 @@ async function waitForPort(timeoutMs = 30000) {
 }
 
 function startServer() {
-  const child = spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `npm.cmd run dev -- --host 0.0.0.0 --port ${port} --strictPort`], {
+  const isWindows = process.platform === 'win32'
+  const command = isWindows ? (process.env.ComSpec || 'cmd.exe') : 'npm'
+  const args = isWindows
+    ? ['/d', '/s', '/c', `npm.cmd run dev -- --host 0.0.0.0 --port ${port} --strictPort`]
+    : ['run', 'dev', '--', '--host', '0.0.0.0', '--port', String(port), '--strictPort']
+  const child = spawn(command, args, {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -49,6 +54,7 @@ function startServer() {
       VITE_SUPABASE_ANON_KEY: 'fixture-anon-key',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: !isWindows,
   })
   let output = ''
   child.stdout.on('data', (chunk) => { output += chunk.toString() })
@@ -61,14 +67,14 @@ async function stopServer(server) {
   if (process.platform === 'win32') {
     spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `taskkill /PID ${server.child.pid} /T /F`], { stdio: 'ignore' })
   } else {
-    server.child.kill()
+    process.kill(-server.child.pid, 'SIGTERM')
   }
   await Promise.race([once(server.child, 'exit'), wait(3000)])
 }
 
 async function signIn(page, email = 'manager.fixture@footballplayer.test', access = 'club') {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
-  await page.getByRole('button', { name: access === 'parent' ? 'Parent' : 'Club' }).click()
+  await page.getByRole('button', { name: access === 'parent' ? 'Parent' : 'Coach' }).click()
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill('FixturePass123!')
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
@@ -495,6 +501,8 @@ try {
   process.stderr.write(`${error.stack || error.message}\n${server.output()}\n`)
   process.exitCode = 1
 } finally {
-  if (browser) await browser.close()
+  if (browser) await Promise.race([browser.close(), wait(3000)])
   await stopServer(server)
 }
+
+process.exit(process.exitCode || 0)

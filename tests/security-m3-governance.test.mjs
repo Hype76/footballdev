@@ -54,13 +54,13 @@ test('supply policy has bounded development-only exceptions and no production ac
   assert.match(policy.review.reason, /No production advisory or Critical advisory is accepted/)
   assert.deepEqual(
     policy.advisoryExceptions.map((exception) => exception.id).sort(),
-    ['GHSA-4x5r-pxfx-6jf8', 'GHSA-8988-4f7v-96qf', 'GHSA-v2hh-gcrm-f6hx'].sort(),
+    ['GHSA-7p8r-x3mc-p8w7', 'GHSA-jmr9-qjv8-65gv', 'GHSA-v2hh-gcrm-f6hx'].sort(),
   )
   for (const exception of policy.advisoryExceptions) {
     assert.equal(exception.productionReachable, false)
     assert.equal(exception.owner, 'Steve')
-    assert.equal(exception.reviewBy, '2026-08-21')
-    assert.equal(exception.expires, '2026-08-21')
+    assert.equal(exception.reviewBy, '2026-09-20')
+    assert.equal(exception.expires, '2026-09-20')
   }
   assert.ok(!policy.advisoryExceptions.some((exception) => exception.id === 'GHSA-f88m-g3jw-g9cj'))
   assert.deepEqual(policy.approvedRemoteImports, ['https://esm.sh/@supabase/supabase-js@2.110.8'])

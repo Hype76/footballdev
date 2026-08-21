@@ -363,6 +363,47 @@ export function AuthProvider({
     }
   }, [appRole, offlineProfileStore, onBeforeSignOut])
 
+  const requestPasswordReset = useCallback(async (email) => {
+    setAuthError('')
+
+    const normalizedEmail = String(email || '').trim().toLowerCase()
+    const config = getMobileRuntimeConfig(appRole)
+
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      const error = new Error('Enter the email address linked to your account.')
+      setAuthError(error.message)
+      throw error
+    }
+
+    if (!config.apiBaseUrl) {
+      const error = new Error('Password recovery is temporarily unavailable. Please try again.')
+      setAuthError(error.message)
+      throw error
+    }
+
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/.netlify/functions/send-password-reset`, {
+        body: JSON.stringify({ email: normalizedEmail }),
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: config.apiBaseUrl,
+        },
+        method: 'POST',
+      })
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(payload?.message || 'Password recovery could not be started. Please try again.')
+      }
+
+      return payload?.message || 'If that account exists, password recovery instructions will be sent.'
+    } catch (error) {
+      const message = error?.message || 'Password recovery could not be started. Please try again.'
+      setAuthError(message)
+      throw new Error(message)
+    }
+  }, [appRole])
+
   const unlockWithBiometrics = useCallback(async () => {
     setAuthError('')
     await authenticateWithBiometrics()
@@ -389,6 +430,7 @@ export function AuthProvider({
     isLocked,
     isProfileLoading,
     refreshUserProfile,
+    requestPasswordReset,
     resetLocalAppData,
     retryStartup,
     session,
@@ -404,6 +446,7 @@ export function AuthProvider({
     isLocked,
     isProfileLoading,
     refreshUserProfile,
+    requestPasswordReset,
     resetLocalAppData,
     retryStartup,
     session,
