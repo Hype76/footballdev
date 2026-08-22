@@ -7,14 +7,16 @@ const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url
 const calendarDomainUrl = new URL('../src/lib/domain/calendar-events.js', import.meta.url)
 const deliveryMigrationUrl = new URL('../supabase/migrations/20260716110436_calendar_notify_delivery_hotfix.sql', import.meta.url)
 const wholeSquadRepairMigrationUrl = new URL('../supabase/migrations/20260820123000_restore_calendar_whole_squad_scope_76.sql', import.meta.url)
+const contractRepairMigrationUrl = new URL('../supabase/migrations/20260822205242_calendar_parent_scope_rpc_contract_repair.sql', import.meta.url)
 const notificationStatusUrl = new URL('../src/lib/domain/calendar-notification-status.js', import.meta.url)
 
-const [migration, sessionsPage, calendarDomain, deliveryMigration, wholeSquadRepairMigration, notificationStatus] = await Promise.all([
+const [migration, sessionsPage, calendarDomain, deliveryMigration, wholeSquadRepairMigration, contractRepairMigration, notificationStatus] = await Promise.all([
   readFile(migrationUrl, 'utf8'),
   readFile(sessionsPageUrl, 'utf8'),
   readFile(calendarDomainUrl, 'utf8'),
   readFile(deliveryMigrationUrl, 'utf8'),
   readFile(wholeSquadRepairMigrationUrl, 'utf8'),
+  readFile(contractRepairMigrationUrl, 'utf8'),
   readFile(notificationStatusUrl, 'utf8'),
 ])
 
@@ -48,6 +50,8 @@ test('team-wide scope and email recipients are resolved by the server', () => {
   assert.match(deliveryMigration, /normalized_selection_mode = 'whole_squad'[\s\S]*Whole squad player scope is resolved by the server/)
   assert.match(wholeSquadRepairMigration, /normalized_selection_mode = 'whole_squad'[\s\S]*from public\.players player[\s\S]*player\.team_id = source_team_id/)
   assert.match(wholeSquadRepairMigration, /include_trial_players_value is true[\s\S]*lower\(btrim\(coalesce\(player\.section/)
+  assert.match(contractRepairMigration, /source_parent_audience = 'all_team_parents'[\s\S]*normalized_selection_mode <> 'whole_squad'/)
+  assert.match(contractRepairMigration, /normalized_selection_mode = 'whole_squad'[\s\S]*from public\.players player[\s\S]*player\.team_id = source_team_id/)
   assert.match(sessionsPage, /playerIds: sharedInvolvedPlayers \? notificationPlayers\.map\(\(player\) => player\.id\) : \[\]/)
 })
 
@@ -73,6 +77,8 @@ test('staff authority and hidden helper grants remain fail closed', () => {
   assert.match(migration, /security definer[\s\S]*set search_path = ''/)
   assert.match(migration, /revoke all on function public\.notify_calendar_event_parents_authoritative_scope_internal[\s\S]*from public, anon, authenticated/)
   assert.match(migration, /grant execute on function public\.sync_calendar_event_parent_scope[\s\S]*to authenticated, service_role/)
+  assert.match(contractRepairMigration, /revoke all on function public\.sync_calendar_event_parent_scope\(uuid, uuid, uuid\[\]\)[\s\S]*from public, anon, authenticated/)
+  assert.match(contractRepairMigration, /grant execute on function public\.sync_calendar_event_parent_scope\(uuid, uuid, uuid\[\]\)[\s\S]*to service_role/)
 })
 
 test('same-row updates preserve response evidence and avoid duplicate Portal records', () => {

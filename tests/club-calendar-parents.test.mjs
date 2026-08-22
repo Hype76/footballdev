@@ -50,10 +50,10 @@ test('club admin calendar loads club-wide events only and keeps calendar mutatio
   assert.match(policyMigration, /coalesce\(parent_visible, false\) = false[\s\S]*public\.can_use_plan_feature\(calendar_events\.club_id, 'parentPortal'\)/)
 })
 
-test('club admin calendar create flow is club-wide and uses a parent sharing toggle', async () => {
+test('club admin calendar keeps a selected team in team scope and otherwise uses club-wide scope', async () => {
   const source = await readFile(sessionsPageUrl, 'utf8')
 
-  assert.match(source, /const isClubWideCalendar = calendarOnly && isClubAdmin\(user\)/)
+  assert.match(source, /const isClubWideCalendar = calendarOnly && isClubAdmin\(user\) && !user\?\.activeTeamId/)
   assert.match(source, /getCalendarEvents\(\{ user, clubWideOnly: true \}\)/)
   assert.match(source, /clubWideOnly=\{isClubWideCalendar\}/)
   assert.match(source, /Club-wide events shared across the club\./)

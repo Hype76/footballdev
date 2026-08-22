@@ -888,7 +888,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
-  const isClubWideCalendar = calendarOnly && isClubAdmin(user)
+  const isClubWideCalendar = calendarOnly && isClubAdmin(user) && !user?.activeTeamId
   const activeTeamScope = isClubWideCalendar ? 'club-wide' : user?.activeTeamId || user?.activeTeamName || 'assigned'
   const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
   const workspaceStorageKey = user?.clubId ? `session-workspace:${user.clubId}:${user.id}:${activeTeamScope}` : ''
