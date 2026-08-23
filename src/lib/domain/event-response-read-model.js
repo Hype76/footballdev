@@ -466,7 +466,7 @@ export function buildEventResponseReadModel({
           ? requestStatus
           : request
             ? 'awaiting_response'
-            : next.responseState
+            : 'not_invited'
       const responseSource = getAuditSource(auditEvents, playerId)
         || getEventLogResponseSource(matchDay, playerId)
         || (availability?.selectedByParentLinkId ? 'parent' : '')
@@ -477,15 +477,17 @@ export function buildEventResponseReadModel({
         ? request.sentAt || FINAL_RESPONSE_STATES.has(requestStatus)
           ? 'delivered'
           : 'queued'
-        : next.deliveryState
+        : 'not_requested'
 
       participantsByPlayerId.set(playerId, {
         ...next,
+        availabilityRequestCount: playerRequests.length,
+        hasAvailabilityRequest: Boolean(request),
         parentLinkId: next.parentLinkId || request?.parentLinkId || '',
         recipientType: next.recipientType || request?.recipientType || '',
-        invitationCreatedAt: next.invitationCreatedAt || request?.createdAt || '',
-        invitationState: request ? 'created' : next.invitationState,
-        notifyRequested: request ? true : next.notifyRequested,
+        invitationCreatedAt: request?.createdAt || '',
+        invitationState: request ? 'created' : 'not_sent',
+        notifyRequested: Boolean(request),
         deliveryState,
         responseState,
         responseLabel: responseState === 'not_invited'
@@ -607,17 +609,25 @@ export function buildEventResponseReadModel({
   const participants = [...participantsByPlayerId.values()]
     .filter((row) => !effectiveRemovedPlayerIds.has(normalizeText(row.playerId)))
     .map((row) => {
-      const withDelivery = applyDeliveryEvidence(row, deliveryEvents)
+      const withDelivery = source.sourceType === 'match-day' && row.hasAvailabilityRequest !== true
+        ? row
+        : applyDeliveryEvidence(row, deliveryEvents)
       const display = getEventResponseDisplayState(withDelivery)
       const responseState = normalizeStatus(withDelivery.responseState)
       const matchSelectionState = normalizeStatus(withDelivery.matchSelectionState)
-      const invitationAction = normalizeStatus(withDelivery.invitationState) === 'not_sent'
-        ? 'send'
-        : ['failed', 'partial_failure'].includes(normalizeStatus(withDelivery.deliveryState))
-          ? 'retry'
-          : normalizeStatus(withDelivery.invitationState) === 'created'
-            ? 'resend'
-            : ''
+      const invitationAction = source.sourceType === 'match-day'
+        ? withDelivery.hasAvailabilityRequest !== true
+          ? 'send'
+          : ['failed', 'partial_failure'].includes(normalizeStatus(withDelivery.deliveryState))
+            ? 'retry'
+            : 'resend'
+        : normalizeStatus(withDelivery.invitationState) === 'not_sent'
+          ? 'send'
+          : ['failed', 'partial_failure'].includes(normalizeStatus(withDelivery.deliveryState))
+            ? 'retry'
+            : normalizeStatus(withDelivery.invitationState) === 'created'
+              ? 'resend'
+              : ''
       return {
         ...withDelivery,
         responseLabel: withDelivery.responseState === 'not_invited'

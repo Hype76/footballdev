@@ -132,6 +132,7 @@ test('floating actions, notifications, safe areas, and content padding share one
   assert.match(source.layout, /getMobileFloatingBottomClearance/)
   assert.match(source.layout, /MOBILE_ACTION_DOCK_LAYOUT_EVENT/)
   assert.match(source.toast, /bottom-\[var\(--mobile-floating-bottom-clearance\)\]/)
+  assert.match(source.toast, /z-\[200\]/)
   assert.match(source.globalInstall, /bottom-\[var\(--mobile-floating-bottom-clearance\)\]/)
   assert.match(source.offlineSync, /bottom-\[var\(--mobile-floating-bottom-clearance\)\]/)
   assert.match(source.formation, /pb-\[var\(--mobile-action-content-padding\)\]/)

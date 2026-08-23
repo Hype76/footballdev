@@ -85,6 +85,71 @@ test('historical Match Day requests remain visible without calendar invite rows'
   assert.equal(model.participants[0].responseSource, 'parent')
 })
 
+test('Match Day communication state follows canonical availability requests', () => {
+  const calendarInvites = [
+    playerInvite({
+      id: 'match-invite-without-request',
+      matchDayId: MATCH_ID,
+      notifyRequested: true,
+      playerId: 'player-without-request',
+      playerName: 'Player Without Request',
+      responseRequirement: 'response_required',
+    }),
+  ]
+  const event = matchEvent()
+
+  const model = buildEventResponseReadModel({
+    calendarInvites,
+    deliveryEvents: [{
+      id: 'stale-delivery-evidence',
+      playerId: 'player-without-request',
+      status: 'delivered',
+      createdAt: '2026-07-30T08:01:00Z',
+    }],
+    event,
+  })
+  const row = model.participants[0]
+
+  assert.equal(row.hasAvailabilityRequest, false)
+  assert.equal(row.availabilityRequestCount, 0)
+  assert.equal(row.invitationState, 'not_sent')
+  assert.equal(row.deliveryState, 'not_requested')
+  assert.equal(row.responseState, 'not_invited')
+  assert.equal(row.display.primaryLabel, 'Invitation not sent')
+  assert.equal(row.staffActions.invitationAction, 'send')
+})
+
+test('Match Day players with canonical availability requests can be resent', () => {
+  const calendarInvites = [
+    playerInvite({
+      id: 'match-invite-with-request',
+      matchDayId: MATCH_ID,
+      notifyRequested: true,
+      playerId: 'player-with-request',
+      playerName: 'Player With Request',
+      responseRequirement: 'response_required',
+    }),
+  ]
+  const event = matchEvent({
+    availabilityRequests: [{
+      id: 'availability-request',
+      playerId: 'player-with-request',
+      playerName: 'Player With Request',
+      status: 'pending',
+      sentAt: '2026-07-30T08:01:00Z',
+    }],
+  })
+
+  const row = buildEventResponseReadModel({ calendarInvites, event }).participants[0]
+
+  assert.equal(row.hasAvailabilityRequest, true)
+  assert.equal(row.availabilityRequestCount, 1)
+  assert.equal(row.invitationState, 'created')
+  assert.equal(row.deliveryState, 'delivered')
+  assert.equal(row.responseState, 'awaiting_response')
+  assert.equal(row.staffActions.invitationAction, 'resend')
+})
+
 test('current Match Day links merge with request, response, delivery and selection truth', () => {
   const event = matchEvent({
     availabilityRequests: [
