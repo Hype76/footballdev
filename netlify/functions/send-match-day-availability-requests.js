@@ -671,7 +671,7 @@ export async function handler(event) {
       .from('players')
       .select('id, club_id, team_id, player_name, section, status, parent_name, parent_email, parent_contacts, contact_type')
       .eq('club_id', match.club_id)
-      .eq('status', 'active')
+      .neq('status', 'archived')
       .is('archived_at', null)
       .in('id', authorisedPlayerIds)
       : { data: [], error: null }
