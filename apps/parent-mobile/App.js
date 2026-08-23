@@ -47,6 +47,7 @@ import {
 } from '../mobile-core/src/parentDateTimeCore'
 import {
   getParentNotificationStatusLabel,
+  loadCurrentParentNotificationData,
   resolveParentNotificationLinkId,
   resolveParentNotificationOpen,
 } from '../mobile-core/src/parentNotificationsCore'
@@ -787,7 +788,7 @@ function ParentHome() {
 
     let cancelled = false
     notificationResponseProcessingRef.current = responseId
-    void loadParentData()
+    void loadCurrentParentNotificationData(loadParentData)
       .then(async (result) => {
         if (cancelled) return
         let destination = resolveParentNotificationOpen(

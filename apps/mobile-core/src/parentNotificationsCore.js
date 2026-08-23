@@ -201,6 +201,22 @@ export function resolveParentNotificationOpen(data, available = {}) {
   }
 }
 
+export async function loadCurrentParentNotificationData(loadParentData, maxAttempts = 3) {
+  if (typeof loadParentData !== 'function') {
+    throw new TypeError('A Parent data loader is required.')
+  }
+
+  const attemptLimit = Math.max(1, Math.min(5, Number(maxAttempts) || 3))
+  let result = null
+
+  for (let attempt = 0; attempt < attemptLimit; attempt += 1) {
+    result = await loadParentData()
+    if (!result?.stale) return result
+  }
+
+  return result
+}
+
 export function resolveParentNotificationLinkId(data, parentLinks = []) {
   const requestedLinkId = normalize(data?.parentLinkId)
   if (!requestedLinkId) return ''

@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { buildParentMatchDayNotificationCopy } from '../netlify/functions/lib/_match-day-notification-copy.js'
-import { resolveParentNotificationOpen } from '../apps/mobile-core/src/parentNotificationsCore.js'
+import {
+  loadCurrentParentNotificationData,
+  resolveParentNotificationOpen,
+} from '../apps/mobile-core/src/parentNotificationsCore.js'
 import { getTabForNotificationRoute } from '../apps/mobile-core/src/routes.js'
 
 const senderSource = readFileSync(new URL('../netlify/functions/send-match-day-push.js', import.meta.url), 'utf8')
@@ -108,4 +111,33 @@ test('Parent notification tap opens Matchday and promotes the exact authorised M
   assert.match(parentAppSource, /resolveParentNotificationOpen\(notificationData/)
   assert.match(parentAppSource, /setSelectedMatchId\(destination\.tab === 'matchday' \? destination\.targetId : ''\)/)
   assert.match(parentAppSource, /This notification no longer has an available Parent item\./)
+})
+
+test('Parent notification tap retries when an overlapping refresh discards a stale result', async () => {
+  const results = [
+    { failed: 0, stale: true },
+    { failed: 0, items: { invitations: [{ invitationId: 'training_attendance:request-1' }] } },
+  ]
+  const calls = []
+
+  const result = await loadCurrentParentNotificationData(async () => {
+    calls.push('load')
+    return results.shift()
+  })
+
+  assert.equal(calls.length, 2)
+  assert.equal(result.stale, undefined)
+  assert.equal(result.items.invitations[0].invitationId, 'training_attendance:request-1')
+  assert.match(parentAppSource, /loadCurrentParentNotificationData\(loadParentData\)/)
+})
+
+test('Parent notification refresh retry remains bounded when every result is stale', async () => {
+  let calls = 0
+  const result = await loadCurrentParentNotificationData(async () => {
+    calls += 1
+    return { failed: 0, stale: true }
+  }, 2)
+
+  assert.equal(calls, 2)
+  assert.equal(result.stale, true)
 })

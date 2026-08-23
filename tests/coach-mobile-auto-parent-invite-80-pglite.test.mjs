@@ -21,6 +21,10 @@ const migrationUrls = [
     '../supabase/migrations/20260823165906_coach_mobile_parent_invite_update_recovery.sql',
     import.meta.url,
   ),
+  new URL(
+    '../supabase/migrations/20260823191022_web_player_parent_contact_trigger_permission.sql',
+    import.meta.url,
+  ),
 ]
 
 const IDS = {
@@ -347,6 +351,52 @@ test('web, Trial, self, and invalid Parent contacts do not queue automatic invit
     const queue = await db.query('select count(*)::integer as count from public.scheduled_email_queue')
     assert.equal(links.rows[0].count, 0)
     assert.equal(queue.rows[0].count, 0)
+  } finally {
+    await db.close()
+  }
+})
+
+test('authenticated web Player edits keep app_private closed and normalize Parent contacts', async () => {
+  const db = new PGlite()
+
+  try {
+    await db.exec(schemaSql)
+    await applyMigrations(db)
+    await setMobileRequest(db, 'supabase-js-web/2.110.8')
+    const playerId = await insertPlayer(db, {
+      contacts: [{ email: 'first@example.test', name: 'First Parent', type: 'parent' }],
+      email: 'first@example.test',
+      name: 'Web Contact Player',
+    })
+
+    await db.exec(`
+      grant usage on schema public, auth to authenticated;
+      grant select, update on public.players to authenticated;
+      grant execute on function auth.uid() to authenticated;
+      revoke all on schema app_private from authenticated;
+      set role authenticated;
+    `)
+    await db.query(
+      `update public.players
+       set parent_email = ' SECOND @Example.test ',
+           parent_name = 'Second Parent',
+           parent_contacts = '[{"email":" SECOND @Example.test ","name":"Second Parent","type":"parent"}]'::jsonb
+       where id = $1`,
+      [playerId],
+    )
+    await db.exec('reset role;')
+
+    const player = await db.query(
+      'select parent_email, parent_contacts from public.players where id = $1',
+      [playerId],
+    )
+    const privilege = await db.query(
+      "select has_schema_privilege('authenticated', 'app_private', 'usage') as has_usage",
+    )
+
+    assert.equal(player.rows[0].parent_email, 'second@example.test')
+    assert.equal(player.rows[0].parent_contacts[0].email, 'second@example.test')
+    assert.equal(privilege.rows[0].has_usage, false)
   } finally {
     await db.close()
   }
