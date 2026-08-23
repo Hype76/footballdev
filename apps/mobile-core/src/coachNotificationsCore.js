@@ -65,6 +65,10 @@ export function getCoachNotificationStatusLabel(value = {}) {
   return state.detailLevel === 'detailed' ? 'On, Detailed' : 'On, Minimal'
 }
 
+export function isCoachInstallationOwnershipConflict(error) {
+  return normalize(error?.code).toUpperCase() === 'COACH_MOBILE_INSTALLATION_OWNED'
+}
+
 export function getCoachPushSetupFailureCode(error, stage = 'expo') {
   const normalizedStage = FAILURE_STAGES.has(normalizeLower(stage)) ? normalizeLower(stage) : 'expo'
   const status = Number(error?.status || error?.statusCode || 0)

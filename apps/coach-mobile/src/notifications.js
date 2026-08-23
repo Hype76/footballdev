@@ -8,6 +8,7 @@ import { Platform } from 'react-native'
 import {
   getCoachNotificationStorageKeys,
   getCoachPushSetupFailureCode,
+  isCoachInstallationOwnershipConflict,
   normalizeCoachNotificationLevel,
   normalizeCoachNotificationState,
 } from '../../mobile-core/src/coachNotificationsCore'
@@ -79,6 +80,14 @@ async function getInstallationId(apiBaseUrl) {
   return installationId
 }
 
+async function rotateInstallationId(apiBaseUrl) {
+  const installationId = Crypto.randomUUID()
+  await SecureStore.setItemAsync(getStorageKeys(apiBaseUrl).installationId, installationId, {
+    keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+  })
+  return installationId
+}
+
 async function getDetailLevel(apiBaseUrl) {
   return normalizeCoachNotificationLevel(await AsyncStorage.getItem(getStorageKeys(apiBaseUrl).detailLevel))
 }
@@ -109,7 +118,13 @@ async function request({ apiBaseUrl, body, method, path = getInstallationPath(ap
     ...(body ? { body: JSON.stringify(body) } : {}),
   })
   if (!ok || result.success === false) {
-    throw Object.assign(new Error(normalize(result.error || result.message) || 'coach_notification_request_failed'), { status: response.status })
+    throw Object.assign(
+      new Error(normalize(result.message || result.error) || 'coach_notification_request_failed'),
+      {
+        code: normalize(result.code || result.error || `COACH_MOBILE_HTTP_${response.status}`),
+        status: response.status,
+      },
+    )
   }
   return result
 }
@@ -178,23 +193,33 @@ export async function enableCoachNotifications({ apiBaseUrl, contextId, easProje
   if (!granted) return normalizeCoachNotificationState({ canAskAgain: permission.canAskAgain !== false, detailLevel: await getDetailLevel(apiBaseUrl), message: 'Notification permission is off. The Coach app remains fully usable.', permissionGranted: false, permissionStatus: normalize(permission.status).toLowerCase() || 'denied' })
   const token = normalize((await getExpoPushToken(easProjectId)).data)
   if (!token) throw safeError({ message: 'token unavailable' }, 'expo')
-  const [detailLevel, installationId] = await Promise.all([getDetailLevel(apiBaseUrl), getInstallationId(apiBaseUrl)])
+  const detailLevel = await getDetailLevel(apiBaseUrl)
+  let installationId = await getInstallationId(apiBaseUrl)
+  const register = (targetInstallationId) => request({
+    apiBaseUrl,
+    method: 'POST',
+    body: {
+      appVersion: normalize(Constants.expoConfig?.version).slice(0, 40),
+      buildNumber: normalize(Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode).slice(0, 40),
+      contextId,
+      detailLevel,
+      expoPushToken: token,
+      installationId: targetInstallationId,
+      platform: Platform.OS,
+    },
+  })
   let result
   try {
-    result = await request({
-      apiBaseUrl,
-      method: 'POST',
-      body: {
-        appVersion: normalize(Constants.expoConfig?.version).slice(0, 40),
-        buildNumber: normalize(Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode).slice(0, 40),
-        contextId,
-        detailLevel,
-        expoPushToken: token,
-        installationId,
-        platform: Platform.OS,
-      },
-    })
-  } catch (error) { throw safeError(error, 'api') }
+    result = await register(installationId)
+  } catch (error) {
+    if (!isCoachInstallationOwnershipConflict(error)) throw safeError(error, 'api')
+    try {
+      installationId = await rotateInstallationId(apiBaseUrl)
+      result = await register(installationId)
+    } catch (retryError) {
+      throw safeError(retryError, 'api')
+    }
+  }
   return normalizeCoachNotificationState({ ...(result.installation || {}), canAskAgain: permission.canAskAgain !== false, permissionGranted: true, permissionStatus: normalize(permission.status).toLowerCase() || 'granted' })
 }
 

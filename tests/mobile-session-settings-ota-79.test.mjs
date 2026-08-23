@@ -7,6 +7,7 @@ import {
   preserveMobileNotificationState,
   shouldClearMobileDevicePreferences,
 } from '../apps/mobile-core/src/deviceSettingsCore.js'
+import { isCoachInstallationOwnershipConflict } from '../apps/mobile-core/src/coachNotificationsCore.js'
 
 const readSource = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
@@ -59,6 +60,18 @@ test('Coach settings preserve known values and expose explicit retry states', as
   assert.match(controls, /biometricStateStatus/)
   assert.match(controls, /refreshBiometricState/)
   assert.match(controls, /await refreshNotificationState\(\)/)
+})
+
+test('Coach notification recovery rotates only an installation owned by another account', async () => {
+  assert.equal(isCoachInstallationOwnershipConflict({ code: 'COACH_MOBILE_INSTALLATION_OWNED' }), true)
+  assert.equal(isCoachInstallationOwnershipConflict({ code: 'coach_mobile_installation_owned' }), true)
+  assert.equal(isCoachInstallationOwnershipConflict({ code: 'COACH_MOBILE_CONTEXT_DENIED', status: 403 }), false)
+  assert.equal(isCoachInstallationOwnershipConflict({ code: 'COACH_MOBILE_HTTP_403', status: 403 }), false)
+
+  const source = await readSource('../apps/coach-mobile/src/notifications.js')
+  assert.match(source, /result\.code \|\| result\.error \|\| `COACH_MOBILE_HTTP_\$\{response\.status\}`/)
+  assert.match(source, /if \(!isCoachInstallationOwnershipConflict\(error\)\) throw safeError\(error, 'api'\)/)
+  assert.match(source, /installationId = await rotateInstallationId\(apiBaseUrl\)[\s\S]*result = await register\(installationId\)/)
 })
 
 test('startup cleanup preserves existing preferences when only the ownership marker is missing', async () => {
