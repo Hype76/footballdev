@@ -26,13 +26,8 @@ export function getMobileAppBadgeCount({ count = 0, enabled = true } = {}) {
   return Math.max(0, Math.min(99, Math.floor(numericCount)))
 }
 
-export function getCoachAppBadgeCount({ unreadChat = 0, unreadCommunication = 0 } = {}) {
-  const canonicalUnreadCount = Number(unreadCommunication)
-  return getMobileAppBadgeCount({
-    count: Number.isFinite(canonicalUnreadCount) && canonicalUnreadCount > 0
-      ? canonicalUnreadCount
-      : unreadChat,
-  })
+export function getCoachAppBadgeCount({ unreadChat = 0 } = {}) {
+  return getMobileAppBadgeCount({ count: unreadChat })
 }
 
 export function getParentAppBadgeCount({ unreadNotifications = 0, unreadChat = 0 } = {}) {

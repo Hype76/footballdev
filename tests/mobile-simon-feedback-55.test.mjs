@@ -11,7 +11,13 @@ import {
 } from '../apps/parent-mobile/src/parentExperience.js'
 import { withParentPushStepTimeout } from '../apps/mobile-core/src/parentNotificationsCore.js'
 import { getParentInvitationSections } from '../apps/parent-mobile/src/parentPresentationCore.js'
-import { getCoachChatRoomDisplay, normalizeCoachChatRoom } from '../apps/mobile-core/src/coachPhase31ECore.js'
+import {
+  buildCoachChatRoomSections,
+  getCoachChatRoomDisplay,
+  getCoachChatRoomSectionKey,
+  hasCoachChatRoomActivity,
+  normalizeCoachChatRoom,
+} from '../apps/mobile-core/src/coachPhase31ECore.js'
 
 const fixtureNow = new Date('2026-08-14T10:00:00Z')
 
@@ -89,6 +95,28 @@ test('Coach Parent Chat labels include Player or fixture context', () => {
 
   const squad = normalizeCoachChatRoom({ kickoff_time: '10:00:00', match_date: '2026-08-16', opponent: 'St Ives', room_type: 'match_squad', team_name: 'U17 Green' }, 'parent')
   assert.deepEqual(getCoachChatRoomDisplay(squad), { context: '2026-08-16 at 10:00', title: 'U17 Green v St Ives' })
+})
+
+test('Coach Chat categories prioritise unread rooms and collapse inactive Parent and Match Day rooms', () => {
+  const rooms = [
+    normalizeCoachChatRoom({ id: 'team', room_type: 'team', team_name: 'U17 Green' }, 'parent'),
+    normalizeCoachChatRoom({ id: 'staff', latest_message: 'Staff update', room_type: 'team_staff', team_name: 'U17 Green' }, 'staff'),
+    normalizeCoachChatRoom({ id: 'parent-active', latest_message: 'Hello', player_name: 'Clyde', room_type: 'parent_staff', team_name: 'U17 Green', unread_count: 2 }, 'parent'),
+    normalizeCoachChatRoom({ id: 'parent-empty', player_name: 'Jack', room_type: 'parent_staff', team_name: 'U17 Green' }, 'parent'),
+    normalizeCoachChatRoom({ id: 'match-empty', opponent: 'St Ives', room_type: 'match_squad', team_name: 'U17 Green' }, 'parent'),
+  ]
+  assert.equal(getCoachChatRoomSectionKey(rooms[0]), 'team')
+  assert.equal(getCoachChatRoomSectionKey(rooms[1]), 'staff')
+  assert.equal(getCoachChatRoomSectionKey(rooms[2]), 'parents')
+  assert.equal(getCoachChatRoomSectionKey(rooms[4]), 'match_day')
+  assert.equal(hasCoachChatRoomActivity(rooms[2]), true)
+  assert.equal(hasCoachChatRoomActivity(rooms[3]), false)
+
+  const sections = buildCoachChatRoomSections(rooms)
+  assert.deepEqual(sections.map((section) => section.title), ['Team Chat', 'Coaches', 'Parents', 'Match Day'])
+  assert.deepEqual(sections.find((section) => section.key === 'parents').activeRooms.map((room) => room.id), ['parent-active'])
+  assert.deepEqual(sections.find((section) => section.key === 'parents').emptyRooms.map((room) => room.id), ['parent-empty'])
+  assert.deepEqual(sections.find((section) => section.key === 'match_day').emptyRooms.map((room) => room.id), ['match-empty'])
 })
 
 test('Parent notification, focused Chat, resource, poll and scorer regression guards are present', async () => {

@@ -1,5 +1,5 @@
 import { getCoachCalendarResources } from './coachCalendarData'
-import { getCoachChatRooms, getCoachDevelopmentWorkspace, getCoachInvitesAndAvailability, getCoachMessages, getCoachPolls } from './coachPhase31EData'
+import { getCoachChatRooms, getCoachDevelopmentWorkspace, getCoachInvitesAndAvailability, getCoachPolls } from './coachPhase31EData'
 import { buildCoachHomeOperationalSnapshot, mergeCoachHomeOperationalSnapshots } from './coachPhase31GCore'
 import { getCoachHomeSummary, getCoachMatchDays, getCoachSessions } from './data'
 
@@ -34,11 +34,10 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user) {
 }
 
 export async function getCoachPhase31GAttentionSnapshot(user) {
-  const names = ['development', 'chatRooms', 'messages', 'polls', 'invites']
+  const names = ['development', 'chatRooms', 'polls', 'invites']
   const results = await Promise.allSettled([
     getCoachDevelopmentWorkspace(user),
     getCoachChatRooms(user),
-    getCoachMessages(user),
     getCoachPolls(user),
     getCoachInvitesAndAvailability(user),
   ])

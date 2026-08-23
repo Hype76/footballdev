@@ -469,13 +469,10 @@ function CoachHome() {
   }, [activeContext, contextOwnedByCurrentUser, loadHome, user?.id])
 
   useEffect(() => {
-    const badgeCount = getCoachAppBadgeCount({
-      unreadChat: homeState.unreadChat,
-      unreadCommunication: homeState.unreadCommunication,
-    })
+    const badgeCount = getCoachAppBadgeCount({ unreadChat: homeState.unreadChat })
     latestBadgeCountRef.current = badgeCount
     void syncMobileAppBadge({ appRole: 'coach', count: badgeCount }).catch(() => {})
-  }, [homeState.activePolls, homeState.pendingAvailability, homeState.unreadChat, homeState.unreadCommunication])
+  }, [homeState.unreadChat])
 
   useEffect(() => {
     void initializeCoachNotifications().catch(() => {})
@@ -719,11 +716,10 @@ function CoachRoute(props) {
 
 function CoachNotificationsScreen({ homeState, onNavigate }) {
   const unreadChat = Number(homeState.unreadChat || 0)
-  const unreadCommunication = Number(homeState.unreadCommunication || 0)
-  const hasNotifications = unreadChat > 0 || unreadCommunication > 0
+  const hasNotifications = unreadChat > 0
 
   return (
-    <ScreenIntro copy="Unread Coach updates. Open an item to go straight to the relevant place." title="Notifications">
+    <ScreenIntro copy="Unread Chat messages for this Coach context." title="Notifications">
       {!hasNotifications ? <EmptyPanel message="There are no unread Coach notifications." title="You are up to date" /> : null}
       {unreadChat > 0 ? (
         <PreviewCard
@@ -731,14 +727,6 @@ function CoachNotificationsScreen({ homeState, onNavigate }) {
           detail={`${unreadChat} unread Chat ${unreadChat === 1 ? 'message' : 'messages'}.`}
           onAction={() => onNavigate('chat')}
           title="Chat"
-        />
-      ) : null}
-      {unreadCommunication > 0 ? (
-        <PreviewCard
-          actionLabel="Open Messages"
-          detail={`${unreadCommunication} unread communication ${unreadCommunication === 1 ? 'update' : 'updates'}.`}
-          onAction={() => onNavigate('messages')}
-          title="Coach updates"
         />
       ) : null}
     </ScreenIntro>
@@ -807,7 +795,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
           <SecondaryAction label="Polls" onPress={() => onNavigate('polls')} />
           <SecondaryAction label="Development" onPress={() => onNavigate('development')} />
         </View>
-        <Text style={styles.helperText}>Communication history unread: {homeState.unreadCommunication || 0}. Counts come from the completed canonical domain adapters.</Text>
+        <Text style={styles.helperText}>Unread totals come from the current Chat room read state.</Text>
       </Section>
       <Section title="Quick access">
         <View style={styles.quickGrid}>

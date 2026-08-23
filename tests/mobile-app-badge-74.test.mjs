@@ -31,7 +31,7 @@ test('app icon badge count is cleared when disabled and clamped when enabled', (
 })
 
 test('Parent and Coach app badges use only current unread inbox state', () => {
-  assert.equal(getCoachAppBadgeCount({ unreadChat: 3, unreadCommunication: 5 }), 5)
+  assert.equal(getCoachAppBadgeCount({ unreadChat: 3, unreadCommunication: 5 }), 3)
   assert.equal(getCoachAppBadgeCount({ unreadChat: 3, unreadCommunication: 0 }), 3)
   assert.equal(getParentAppBadgeCount({ unreadChat: 2, unreadNotifications: 4 }), 6)
   assert.equal(getParentAppBadgeCount({ unreadChat: 140, unreadNotifications: 4 }), 99)

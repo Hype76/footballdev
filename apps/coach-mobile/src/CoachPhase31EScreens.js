@@ -26,6 +26,7 @@ import {
 } from '../../mobile-core/src/coachPhase31EData'
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
+  buildCoachChatRoomSections,
   buildCoachPollClosesAt,
   collapseCoachInvitesByPlayer,
   getCoachPlayersWithoutAvailabilityRequest,
@@ -68,6 +69,9 @@ function phaseStyles(palette) {
     row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chatRoomCard: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 5, padding: 14 },
     chatRoomContext: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
+    chatRoomSection: { gap: 8, paddingTop: 4 },
+    chatRoomSectionHeader: { alignItems: 'baseline', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
+    chatRoomSectionCount: { color: palette.textMuted, fontSize: 12, fontWeight: '800' },
     chatModal: { backgroundColor: palette.background, flex: 1 },
     chatModalHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 5, padding: 14 },
     chatMessageList: { flex: 1 },
@@ -125,7 +129,7 @@ function Empty({ copy, styles }) {
   return <View style={styles.panel}><Text style={styles.body}>{copy}</Text></View>
 }
 
-export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, palette, user }) {
+export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, palette, reloadHome, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -182,7 +186,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
   }, [domain, load])
 
-  const common = { chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, setNotice, stale, styles, user }
+  const common = { chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
       {domain !== 'chat' ? <View style={styles.panel}>
@@ -388,33 +392,32 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   )
 }
 
-function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, placeholderColor, setNotice, stale, styles, user }) {
-  const rooms = useMemo(() => [...(data.staff || []), ...(data.parent || [])].sort((left, right) => {
-    const priority = (room) => room.kind === 'parent' && room.type === 'team'
-      ? 0
-      : room.kind === 'staff' && room.type === 'team_staff'
-        ? 1
-        : room.kind === 'parent' && room.type === 'parent_staff'
-          ? 2
-          : 3
-    return priority(left) - priority(right)
-      || String(right.latestMessageAt || '').localeCompare(String(left.latestMessageAt || ''))
-      || String(left.title || '').localeCompare(String(right.title || ''))
-  }), [data])
+function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, placeholderColor, reloadHome, setNotice, stale, styles, user }) {
+  const roomSections = useMemo(() => buildCoachChatRoomSections([...(data.staff || []), ...(data.parent || [])]), [data])
+  const rooms = useMemo(() => roomSections.flatMap((section) => [...section.activeRooms, ...section.emptyRooms]), [roomSections])
   const [roomId, setRoomId] = useState('')
   const [messages, setMessages] = useState([])
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
+  const [markingAllRead, setMarkingAllRead] = useState(false)
+  const [expandedEmptySections, setExpandedEmptySections] = useState({})
   const messageListRef = useRef(null)
   const activeRoomId = rooms.some((item) => item.id === roomId) ? roomId : ''
   const room = rooms.find((item) => item.id === activeRoomId)
+  const unreadRooms = rooms.filter((item) => Number(item.unreadCount || 0) > 0)
   const open = useCallback(async (nextRoom) => {
     setMessages([])
     setBody('')
     setRoomId(nextRoom.id)
     setNotice('Loading current room history...')
-    try { const next = await getCoachChatMessages(user, nextRoom); setMessages(next); await markCoachChatRead(user, nextRoom); setNotice('') } catch (error) { setMessages([]); setNotice(getCoachFriendlyError(error)) }
-  }, [setNotice, user])
+    try {
+      const next = await getCoachChatMessages(user, nextRoom)
+      setMessages(next)
+      await markCoachChatRead(user, nextRoom)
+      await Promise.all([load({ silent: true }), reloadHome({ refresh: true })])
+      setNotice('')
+    } catch (error) { setMessages([]); setNotice(getCoachFriendlyError(error)) }
+  }, [load, reloadHome, setNotice, user])
   useEffect(() => {
     const targetId = String(chatNotificationTarget?.id || '').trim()
     if (!targetId || chatNotificationTarget?.contextId !== user.activeCoachContextId) return
@@ -438,6 +441,16 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
     try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice('') } catch (error) { setNotice(getCoachFriendlyError(error)) }
     finally { setSending(false) }
   }
+  const markAllRead = async () => {
+    if (!unreadRooms.length || markingAllRead) return
+    setMarkingAllRead(true)
+    setNotice('Marking all Chat conversations as read...')
+    const results = await Promise.allSettled(unreadRooms.map((item) => markCoachChatRead(user, item)))
+    const failedCount = results.filter((result) => result.status === 'rejected').length
+    await Promise.all([load({ silent: true }), reloadHome({ refresh: true })])
+    setNotice(failedCount ? `${failedCount} Chat conversation${failedCount === 1 ? '' : 's'} could not be marked as read.` : 'All Chat conversations are marked as read.')
+    setMarkingAllRead(false)
+  }
   useEffect(() => {
     if (!room) return undefined
     const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
@@ -449,15 +462,36 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
       <View style={styles.stack}>
         <Text accessibilityRole="header" style={styles.title}>Chat</Text>
         <Text style={styles.body}>{rooms.length} conversation{rooms.length === 1 ? '' : 's'} for this Team.</Text>
-        {rooms.map((item) => {
-          const display = getCoachChatRoomDisplay(item)
+        {unreadRooms.length ? <Button disabled={markingAllRead || stale} label={markingAllRead ? 'Marking all as read...' : `Mark all as read (${unreadRooms.length})`} onPress={() => void markAllRead()} secondary styles={styles} /> : null}
+        {roomSections.map((section) => {
+          const expanded = expandedEmptySections[section.key] === true
+          const visibleRooms = expanded ? [...section.activeRooms, ...section.emptyRooms] : section.activeRooms
           return (
-            <Pressable accessibilityRole="button" key={`${item.kind}:${item.id}`} onPress={() => void open(item)} style={styles.chatRoomCard}>
-              <View style={styles.row}><Text style={styles.status}>{item.kind === 'staff' ? 'Coaches' : 'Parent'}</Text>{item.unreadCount ? <Text style={styles.status}>{item.unreadCount} unread</Text> : null}</View>
-              <Text style={styles.heading}>{display.title}</Text>
-              {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
-              <Text numberOfLines={1} style={styles.body}>{item.latestMessage || 'No messages yet'}</Text>
-            </Pressable>
+            <View key={section.key} style={styles.chatRoomSection}>
+              <View style={styles.chatRoomSectionHeader}>
+                <Text accessibilityRole="header" style={styles.heading}>{section.title}</Text>
+                <Text style={styles.chatRoomSectionCount}>{section.total}</Text>
+              </View>
+              {visibleRooms.map((item) => {
+                const display = getCoachChatRoomDisplay(item)
+                return (
+                  <Pressable accessibilityRole="button" key={`${item.kind}:${item.id}`} onPress={() => void open(item)} style={styles.chatRoomCard}>
+                    <View style={styles.row}><Text style={styles.status}>{section.title}</Text>{item.unreadCount ? <Text style={styles.status}>{item.unreadCount} unread</Text> : null}</View>
+                    <Text style={styles.heading}>{display.title}</Text>
+                    {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
+                    <Text numberOfLines={1} style={styles.body}>{item.latestMessage || 'No messages yet'}</Text>
+                  </Pressable>
+                )
+              })}
+              {section.emptyRooms.length ? (
+                <Button
+                  label={expanded ? `Hide ${section.emptyRooms.length} with no messages` : `Show ${section.emptyRooms.length} with no messages`}
+                  onPress={() => setExpandedEmptySections((current) => ({ ...current, [section.key]: !expanded }))}
+                  secondary
+                  styles={styles}
+                />
+              ) : null}
+            </View>
           )
         })}
       </View>

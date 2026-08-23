@@ -81,7 +81,7 @@ test('Home operational snapshot uses canonical domain results without inventing 
   assert.equal(snapshot.pendingAvailability, 1)
   assert.equal(snapshot.activePolls, 1)
   assert.equal(snapshot.unreadChat, 2)
-  assert.equal(snapshot.unreadCommunication, 1)
+  assert.equal(snapshot.unreadCommunication, 0)
   assert.equal(snapshot.developmentRecords, 2)
   assert.equal(snapshot.nextMatch.id, 'm1')
   assert.equal(snapshot.nextSession.id, 's1')
@@ -112,14 +112,16 @@ test('Home tolerates partial response shapes and exposes the degraded state', ()
   assert.deepEqual(snapshot.errors, ['polls:timeout'])
 })
 
-test('Home data composes every completed authoritative adapter with partial failure containment', () => {
-  for (const symbol of ['getCoachHomeSummary', 'getCoachMatchDays', 'getCoachSessions', 'getCoachCalendarResources', 'getCoachDevelopmentWorkspace', 'getCoachChatRooms', 'getCoachMessages', 'getCoachPolls', 'getCoachInvitesAndAvailability']) {
+test('Home data composes current authoritative adapters with partial failure containment', () => {
+  for (const symbol of ['getCoachHomeSummary', 'getCoachMatchDays', 'getCoachSessions', 'getCoachCalendarResources', 'getCoachDevelopmentWorkspace', 'getCoachChatRooms', 'getCoachPolls', 'getCoachInvitesAndAvailability']) {
     assert.match(homeData, new RegExp(symbol))
   }
+  assert.doesNotMatch(homeData, /getCoachMessages/)
   assert.match(homeData, /Promise\.allSettled/)
   assert.match(homeData, /buildCoachHomeOperationalSnapshot/)
   assert.match(app, /Operational attention/)
-  assert.match(app, /Counts come from the completed canonical domain adapters/)
+  assert.match(app, /Unread totals come from the current Chat room read state/)
+  assert.doesNotMatch(app, /unread communication updates|Open Messages/)
 })
 
 test('Settings exposes identity, role, context, branding, security, notification, cache, environment, build, and logout state', () => {

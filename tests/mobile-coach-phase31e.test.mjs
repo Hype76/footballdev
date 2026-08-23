@@ -325,6 +325,9 @@ test('native screen routes every Phase 31E domain through semantic palette style
 test('native Chat opens from an informative conversation list into one focused room', async () => {
   const screen = await readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8')
   assert.match(screen, /getCoachChatRoomDisplay/)
+  assert.match(screen, /Mark all as read/)
+  assert.match(screen, /buildCoachChatRoomSections/)
+  assert.match(screen, /reloadHome\(\{ refresh: true \}\)/)
   assert.match(screen, /Back to conversations/)
   assert.match(screen, /chatRoomCard/)
   assert.match(screen, /messageBubble/)

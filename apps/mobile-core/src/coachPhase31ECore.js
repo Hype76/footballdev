@@ -279,6 +279,57 @@ export function getCoachChatRoomDisplay(room = {}) {
   return Object.freeze({ context, title })
 }
 
+const COACH_CHAT_ROOM_SECTION_DEFINITIONS = Object.freeze([
+  Object.freeze({ key: 'team', title: 'Team Chat' }),
+  Object.freeze({ key: 'staff', title: 'Coaches' }),
+  Object.freeze({ key: 'parents', title: 'Parents' }),
+  Object.freeze({ key: 'match_day', title: 'Match Day' }),
+  Object.freeze({ key: 'other', title: 'Other conversations' }),
+])
+
+export function getCoachChatRoomSectionKey(room = {}) {
+  const kind = normalize(room.kind)
+  const type = normalize(room.type)
+  if (kind === 'parent' && type === 'team') return 'team'
+  if (kind === 'staff') return 'staff'
+  if (kind === 'parent' && type === 'parent_staff') return 'parents'
+  if (kind === 'parent' && type === 'match_squad') return 'match_day'
+  return 'other'
+}
+
+export function hasCoachChatRoomActivity(room = {}) {
+  return Number(room.unreadCount || 0) > 0
+    || Boolean(normalize(room.latestMessage))
+    || Boolean(normalize(room.latestMessageAt))
+}
+
+function sortCoachChatRooms(rooms = []) {
+  return [...rooms].sort((left, right) => {
+    const leftUnread = Math.max(0, Number(left.unreadCount || 0))
+    const rightUnread = Math.max(0, Number(right.unreadCount || 0))
+    return Number(rightUnread > 0) - Number(leftUnread > 0)
+      || rightUnread - leftUnread
+      || normalize(right.latestMessageAt).localeCompare(normalize(left.latestMessageAt))
+      || getCoachChatRoomDisplay(left).title.localeCompare(getCoachChatRoomDisplay(right).title)
+  })
+}
+
+export function buildCoachChatRoomSections(rooms = []) {
+  const availableRooms = Array.isArray(rooms) ? rooms : []
+  return Object.freeze(COACH_CHAT_ROOM_SECTION_DEFINITIONS.map((definition) => {
+    const sectionRooms = availableRooms.filter((room) => getCoachChatRoomSectionKey(room) === definition.key)
+    const keepEmptyVisible = ['team', 'staff'].includes(definition.key)
+    const activeRooms = sortCoachChatRooms(sectionRooms.filter((room) => keepEmptyVisible || hasCoachChatRoomActivity(room)))
+    const emptyRooms = keepEmptyVisible ? [] : sortCoachChatRooms(sectionRooms.filter((room) => !hasCoachChatRoomActivity(room)))
+    return Object.freeze({
+      ...definition,
+      activeRooms: Object.freeze(activeRooms),
+      emptyRooms: Object.freeze(emptyRooms),
+      total: sectionRooms.length,
+    })
+  }).filter((section) => section.total > 0))
+}
+
 export function normalizeCoachChatMessage(row = {}) {
   const user = relation(row.users)
   return Object.freeze({

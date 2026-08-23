@@ -36,7 +36,7 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
   const pendingAvailability = countPendingCoachAvailability(inviteRows)
   const activePolls = polls.filter((poll) => normalize(poll?.status).toLowerCase() === 'open').length
   const unreadChat = chatRooms.reduce((total, room) => total + Math.max(0, Number(room?.unreadCount || 0)), 0)
-  const unreadCommunication = messages.filter((message) => !normalize(message?.readAt)).length
+  const unreadCommunication = 0
   const nextCalendar = calendar.find((item) => !['cancelled', 'completed'].includes(normalize(item?.status).toLowerCase())) || calendar[0] || null
   const nextMatch = matches.find((item) => !['full_time', 'completed', 'cancelled'].includes(normalize(item?.status).toLowerCase())) || matches[0] || null
   const nextSession = sessions.find((item) => !['completed', 'cancelled'].includes(normalize(item?.status).toLowerCase())) || sessions[0] || null
