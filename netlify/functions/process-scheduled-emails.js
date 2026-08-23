@@ -484,6 +484,9 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       ...await getClubPlanProfile(lockedRow.club_id),
       role: 'system',
       roleRank: 100,
+      teamId: String(lockedRow.team_id ?? '').trim(),
+      activeTeamId: String(lockedRow.team_id ?? '').trim(),
+      playerId: String(lockedRow.payload?.parentPortalInvite?.playerId ?? '').trim(),
     }
     assertTrustedSystemPlanFeature(planProfile, 'parentEmails')
     const trainingInvitationPreparation = await prepareScheduledTrainingInvitationRow(
