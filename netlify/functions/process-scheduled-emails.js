@@ -9,6 +9,11 @@ import { sendParentMobilePushById } from './send-parent-mobile-push.js'
 import { buildPreparedScheduledEmail } from './lib/_scheduled-email-payload.js'
 import { prepareScheduledResourceNotificationRow } from './lib/_resource-notification-email.js'
 import {
+  isParentPortalInviteQueueRow,
+  markScheduledParentPortalInviteSent,
+  prepareScheduledParentPortalInviteRow,
+} from './lib/_parent-portal-invite-email.js'
+import {
   isCalendarNotificationQueueRow,
   isTrialCalendarNotificationQueueRow,
   prepareScheduledCalendarNotificationRow,
@@ -500,15 +505,23 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
         supabaseClient: supabaseAdmin,
       },
     )
+    const parentPortalInvitePreparation = await prepareScheduledParentPortalInviteRow(
+      resourceNotificationPreparation.row,
+      {
+        supabaseClient: supabaseAdmin,
+      },
+    )
 
     if (
       trainingInvitationPreparation.skipped
       || calendarNotificationPreparation.skipped
       || resourceNotificationPreparation.skipped
+      || parentPortalInvitePreparation.skipped
     ) {
       const skipReason = trainingInvitationPreparation.skipReason
         || calendarNotificationPreparation.skipReason
         || resourceNotificationPreparation.skipReason
+        || parentPortalInvitePreparation.skipReason
       await discardSkippedScheduledEmail(
         lockedRow,
         skipReason,
@@ -524,47 +537,54 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       return 'skipped'
     }
 
-    const communicationChannel = await resolveScheduledParentCommunicationChannel(
-      supabaseAdmin,
-      resourceNotificationPreparation.row,
-    )
+    const preparedScheduledRow = parentPortalInvitePreparation.row
+    const isParentPortalInvite = isParentPortalInviteQueueRow(preparedScheduledRow)
+    if (isParentPortalInvite) {
+      assertTrustedSystemPlanFeature(planProfile, 'parentInvitations')
+    }
+    const communicationChannel = isParentPortalInvite
+      ? 'email'
+      : await resolveScheduledParentCommunicationChannel(
+          supabaseAdmin,
+          preparedScheduledRow,
+        )
     const isAvailabilityNotification = Boolean(
-      resourceNotificationPreparation.row?.payload?.matchDayAvailability?.requestId
-      && resourceNotificationPreparation.row?.payload?.matchDayAvailability?.parentLinkId,
+      preparedScheduledRow?.payload?.matchDayAvailability?.requestId
+      && preparedScheduledRow?.payload?.matchDayAvailability?.parentLinkId,
     )
     const isTrainingAvailabilityNotification = Boolean(
-      resourceNotificationPreparation.row?.payload?.trainingInvitation?.requestPlayerId
-      && resourceNotificationPreparation.row?.payload?.trainingInvitation?.parentLinkId
-      && resourceNotificationPreparation.row?.payload?.trainingInvitation?.recipientType === 'parent',
+      preparedScheduledRow?.payload?.trainingInvitation?.requestPlayerId
+      && preparedScheduledRow?.payload?.trainingInvitation?.parentLinkId
+      && preparedScheduledRow?.payload?.trainingInvitation?.recipientType === 'parent',
     )
     const isResponseNotification = isAvailabilityNotification || isTrainingAvailabilityNotification
     let appNotificationSent = Boolean(
-      resourceNotificationPreparation.row?.payload?.parentCommunication?.appNotificationSentAt,
+      preparedScheduledRow?.payload?.parentCommunication?.appNotificationSentAt,
     )
     if (allowsParentAppNotifications(communicationChannel) && isResponseNotification && !appNotificationSent) {
-      appNotificationSent = await sendScheduledParentPush(resourceNotificationPreparation.row, null)
+      appNotificationSent = await sendScheduledParentPush(preparedScheduledRow, null)
       if (appNotificationSent) {
         const appNotificationSentAt = new Date().toISOString()
         const payload = {
-          ...(resourceNotificationPreparation.row.payload || {}),
+          ...(preparedScheduledRow.payload || {}),
           parentCommunication: {
-            ...(resourceNotificationPreparation.row.payload?.parentCommunication || {}),
+            ...(preparedScheduledRow.payload?.parentCommunication || {}),
             appNotificationSentAt,
           },
         }
-        resourceNotificationPreparation.row.payload = payload
+        preparedScheduledRow.payload = payload
         await supabaseAdmin.from('scheduled_email_queue').update({ payload }).eq('id', lockedRow.id).eq('lease_owner', workerInvocationId)
       }
     }
     if (!allowsParentEmail(communicationChannel)) {
       let appOnlyCommunicationLog = null
-      if (!appNotificationSent && resourceNotificationPreparation.row?.payload?.communicationLog) {
+      if (!appNotificationSent && preparedScheduledRow?.payload?.communicationLog) {
         appOnlyCommunicationLog = await createSentCommunicationLog(
-          resourceNotificationPreparation.row,
+          preparedScheduledRow,
           { deliveryChannel: 'app' },
         )
       }
-      if (!appNotificationSent) appNotificationSent = await sendScheduledParentPush(resourceNotificationPreparation.row, appOnlyCommunicationLog)
+      if (!appNotificationSent) appNotificationSent = await sendScheduledParentPush(preparedScheduledRow, appOnlyCommunicationLog)
       if (!appNotificationSent) {
         await markParentAppNotificationRetry(lockedRow)
         return 'failed'
@@ -576,7 +596,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
           supabase: supabaseAdmin,
         })
       }
-      await updateMatchDayAvailabilityDelivery(resourceNotificationPreparation.row)
+      await updateMatchDayAvailabilityDelivery(preparedScheduledRow)
       await markScheduledAppNotificationSent(lockedRow, workerInvocationId)
       if (isCalendarNotificationQueueRow(lockedRow)) {
         await updateCalendarNotificationEvent(lockedRow.id, 'sent')
@@ -586,10 +606,11 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     }
 
     const preparedEmail = buildPreparedScheduledEmail(
-      resourceNotificationPreparation.row,
+      preparedScheduledRow,
       planProfile,
       {
-        fromDisplayName: calendarNotificationPreparation.email?.fromDisplayName
+        fromDisplayName: parentPortalInvitePreparation.email?.fromDisplayName
+          || calendarNotificationPreparation.email?.fromDisplayName
           || resourceNotificationPreparation.email?.fromDisplayName,
       },
     )
@@ -611,7 +632,8 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       retryOwner: 'scheduled_queue',
       retryPending: true,
     })
-    await updateMatchDayAvailabilityDelivery(resourceNotificationPreparation.row)
+    await markScheduledParentPortalInviteSent(supabaseAdmin, preparedScheduledRow)
+    await updateMatchDayAvailabilityDelivery(preparedScheduledRow)
 
     if (isTrainingInvitationQueueRow(lockedRow)) {
       await updateTrainingInvitationDelivery({
@@ -622,7 +644,7 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     }
     await updateEventPlayerNotificationEvent(lockedRow.id, 'sent')
 
-    const preparedRow = resourceNotificationPreparation.row
+    const preparedRow = preparedScheduledRow
     const preparedPayload = preparedRow.payload || {}
     const sentPayload = isTrialCalendarNotificationQueueRow(lockedRow)
       ? {
@@ -640,11 +662,11 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     const communicationLog = await createSentCommunicationLog(
       isTrialCalendarNotificationQueueRow(lockedRow)
         ? lockedRow
-        : resourceNotificationPreparation.row,
+        : preparedScheduledRow,
       { deliveryChannel: communicationChannel },
     )
     if (allowsParentAppNotifications(communicationChannel) && !appNotificationSent) {
-      appNotificationSent = await sendScheduledParentPush(resourceNotificationPreparation.row, communicationLog)
+      appNotificationSent = await sendScheduledParentPush(preparedScheduledRow, communicationLog)
       if (!appNotificationSent) {
         await markParentAppNotificationRetry(lockedRow, {
           payload: sentPayload,
