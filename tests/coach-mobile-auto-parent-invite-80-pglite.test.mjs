@@ -13,6 +13,10 @@ const migrationUrls = [
     '../supabase/migrations/20260823163137_coach_mobile_auto_parent_portal_invite_enable.sql',
     import.meta.url,
   ),
+  new URL(
+    '../supabase/migrations/20260823165119_coach_mobile_parent_invite_email_whitespace.sql',
+    import.meta.url,
+  ),
 ]
 
 const IDS = {
@@ -176,6 +180,41 @@ test('Coach mobile Squad creation queues one Parent Portal invite per parent ema
     assert.equal(queue.rows[0].payload.parentPortalInvite.linkId, links.rows[0].id)
     assert.equal(queue.rows[0].payload.outputKey, `parent-portal-invite:${links.rows[0].id}`)
     assert.equal(JSON.stringify(queue.rows[0].payload).includes(links.rows[0].invite_token), false)
+  } finally {
+    await db.close()
+  }
+})
+
+test('Coach mobile normalizes accidental Parent email whitespace before queuing the invite', async () => {
+  const db = new PGlite()
+
+  try {
+    await db.exec(schemaSql)
+    await applyMigrations(db)
+    await setMobileRequest(db)
+    const playerId = await insertPlayer(db, {
+      contacts: [{ email: ' PARENT @Example.test ', name: 'Parent', type: 'parent' }],
+      email: ' PARENT @Example.test ',
+      name: 'Whitespace Player',
+    })
+
+    const player = await db.query(
+      'select parent_email, parent_contacts from public.players where id = $1',
+      [playerId],
+    )
+    const links = await db.query(
+      'select email from public.parent_player_links where player_id = $1',
+      [playerId],
+    )
+    const queue = await db.query(
+      "select to_email from public.scheduled_email_queue where payload #>> '{parentPortalInvite,playerId}' = $1",
+      [playerId],
+    )
+
+    assert.equal(player.rows[0].parent_email, 'parent@example.test')
+    assert.equal(player.rows[0].parent_contacts[0].email, 'parent@example.test')
+    assert.equal(links.rows[0].email, 'parent@example.test')
+    assert.equal(queue.rows[0].to_email, 'parent@example.test')
   } finally {
     await db.close()
   }
