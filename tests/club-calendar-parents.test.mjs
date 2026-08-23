@@ -32,7 +32,8 @@ test('club admin calendar route uses club-wide entitlement and excludes platform
   assert.match(routeSection, /FeatureUnavailableState capability=\{CAPABILITIES\.clubWideCalendar\}/)
   assert.match(sidebarSource, /isClubAdmin\(displayUser\)[\s\S]*CAPABILITIES\.clubWideCalendar/)
   assert.match(layoutSource, /const canUseClubCalendarQuickAction =[\s\S]*isClubAdmin\(user\)[\s\S]*CAPABILITIES\.clubWideEvents/)
-  assert.match(layoutSource, /Add Event'[\s\S]*canUseEvaluationQuickActions \|\| canUseClubCalendarQuickAction/)
+  assert.doesNotMatch(layoutSource, /label: 'Add Event', href: '\/calendar\?action=add-event'/)
+  assert.match(layoutSource, /label: 'Add Match'[\s\S]*canUseEvaluationQuickActions \|\| canUseClubCalendarQuickAction/)
   assert.match(routeSection, /needsTeamWorkflowContext\(user\)/)
 })
 

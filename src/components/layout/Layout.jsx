@@ -620,7 +620,6 @@ function QuickActionHotbar({ user }) {
     { label: 'Add Player', href: '/add-player', isVisible: canUseEvaluationQuickActions },
     { label: 'Add Session', href: '/sessions/start?action=create-session', isVisible: canUseEvaluationQuickActions },
     { label: 'Add Assessment', href: '/assess-player/new?choosePlayer=1', isVisible: canUseEvaluationQuickActions },
-    { label: 'Add Event', href: '/calendar?action=add-event', isVisible: canUseEvaluationQuickActions || canUseClubCalendarQuickAction },
     { label: 'Add Match', href: '/calendar?action=add-event&type=match', isVisible: canUseEvaluationQuickActions || canUseClubCalendarQuickAction, coachModeVisible: true },
     { label: 'Game Day', href: '/match-day', isVisible: canUseEvaluationQuickActions, coachModeVisible: true },
     { label: 'Create Poll', href: '/polls?action=create-poll', isVisible: canUsePollQuickAction },

@@ -100,6 +100,8 @@ test('role-aware navigation exposes no dead Team routes or Platform Admin govern
   assert.deepEqual(coachNavigation.primary.map((route) => route.key), ['home', 'notifications', 'calendar', 'players', 'matchday', 'more'])
   assert.equal(coachNavigation.more.some((route) => route.key === 'club'), false)
   assert.equal(coachNavigation.more.some((route) => route.key === 'payment'), false)
+  assert.equal(coachNavigation.more.some((route) => route.key === 'messages'), false)
+  assert.equal(coachNavigation.more.some((route) => route.key === 'chat'), true)
   const adminNavigation = getCoachNavigationModel(clubContext)
   assert.equal(adminNavigation.primary.some((route) => route.key === 'matchday'), false)
   assert.equal(adminNavigation.more.some((route) => route.key === 'club'), true)
@@ -110,6 +112,7 @@ test('role-aware navigation exposes no dead Team routes or Platform Admin govern
 test('deep-link and native back models resolve only authorised routes', () => {
   assert.equal(resolveCoachRoute('match-day', teamA), 'matchday')
   assert.equal(resolveCoachRoute('more', teamA), 'more')
+  assert.equal(resolveCoachRoute('messages', teamA), 'chat')
   assert.equal(resolveCoachRoute('club', teamA), '')
   assert.deepEqual(getCoachRouteState('more'), { activeRoute: 'more', moreRoute: '' })
   assert.deepEqual(getCoachRouteState('resources'), { activeRoute: 'more', moreRoute: 'resources' })

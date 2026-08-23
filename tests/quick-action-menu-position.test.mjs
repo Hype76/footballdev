@@ -37,7 +37,6 @@ test('Quick Add actions and close behaviour remain wired', async () => {
     '/add-player',
     '/sessions/start?action=create-session',
     '/assess-player/new?choosePlayer=1',
-    '/calendar?action=add-event',
     '/match-day',
     '/polls?action=create-poll',
   ]) {
@@ -45,6 +44,7 @@ test('Quick Add actions and close behaviour remain wired', async () => {
   }
 
   assert.match(source, /label: 'Game Day', href: '\/match-day'[\s\S]*coachModeVisible: true/)
+  assert.doesNotMatch(source, /label: 'Add Event', href: '\/calendar\?action=add-event'/)
   assert.match(source, /label: 'Add Voice Note', type: 'voice-note'/)
   assert.match(source, /document\.addEventListener\('pointerdown', handlePointerDown\)/)
   assert.match(source, /document\.addEventListener\('keydown', handleKeyDown\)/)

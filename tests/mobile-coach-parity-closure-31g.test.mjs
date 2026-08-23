@@ -134,10 +134,12 @@ test('Settings exposes identity, role, context, branding, security, notification
 test('native navigation reaches every complete mobile destination and contains no active placeholder route', () => {
   const model = getCoachNavigationModel(teamContext)
   const routes = [...model.primary, ...model.more].map((row) => row.key)
-  for (const route of ['home', 'calendar', 'players', 'matchday', 'sessions', 'development', 'resources', 'chat', 'messages', 'polls', 'invites', 'settings']) {
+  for (const route of ['home', 'calendar', 'players', 'matchday', 'sessions', 'development', 'resources', 'chat', 'polls', 'invites', 'settings']) {
     assert.equal(routes.includes(route), true, route)
     assert.equal(resolveCoachRoute(route, teamContext), route)
   }
+  assert.equal(routes.includes('messages'), false)
+  assert.equal(resolveCoachRoute('messages', teamContext), 'chat')
   assert.doesNotMatch(app, /Full feature parity is completed in the next domain phase|ready for its authoritative data adapter/)
   assert.match(app, /No hidden route is available/)
   assert.match(navigation, /getCoachBackTarget/)

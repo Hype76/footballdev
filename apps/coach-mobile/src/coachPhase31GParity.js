@@ -11,7 +11,7 @@ const DESTINATIONS = Object.freeze({
   Home: 'Home',
   Invites: 'More > Invites and availability',
   'Match Day': 'Match Day',
-  Messages: 'More > Messages',
+  Messages: 'More > Chat',
   'Platform Admin': 'Not exposed',
   Players: 'Players',
   Polls: 'More > Polls',
