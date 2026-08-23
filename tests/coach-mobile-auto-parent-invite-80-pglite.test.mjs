@@ -17,6 +17,10 @@ const migrationUrls = [
     '../supabase/migrations/20260823165119_coach_mobile_parent_invite_email_whitespace.sql',
     import.meta.url,
   ),
+  new URL(
+    '../supabase/migrations/20260823165906_coach_mobile_parent_invite_update_recovery.sql',
+    import.meta.url,
+  ),
 ]
 
 const IDS = {
@@ -213,6 +217,100 @@ test('Coach mobile normalizes accidental Parent email whitespace before queuing 
 
     assert.equal(player.rows[0].parent_email, 'parent@example.test')
     assert.equal(player.rows[0].parent_contacts[0].email, 'parent@example.test')
+    assert.equal(links.rows[0].email, 'parent@example.test')
+    assert.equal(queue.rows[0].to_email, 'parent@example.test')
+  } finally {
+    await db.close()
+  }
+})
+
+test('Coach mobile contact edits append a second Parent and queue only the new invitation', async () => {
+  const db = new PGlite()
+
+  try {
+    await db.exec(schemaSql)
+    await applyMigrations(db)
+    await setMobileRequest(db)
+    const playerId = await insertPlayer(db, {
+      contacts: [{ email: 'first@example.test', name: 'First Parent', type: 'parent' }],
+      email: 'first@example.test',
+      name: 'Two Parent Player',
+    })
+
+    await db.query(
+      `update public.players
+       set parent_email = $2,
+           parent_name = 'Second Parent',
+           parent_contacts = $3::jsonb
+       where id = $1`,
+      [
+        playerId,
+        ' SECOND @Example.test ',
+        JSON.stringify([{ email: ' SECOND @Example.test ', name: 'Second Parent', type: 'parent' }]),
+      ],
+    )
+
+    const player = await db.query(
+      'select parent_email, parent_contacts from public.players where id = $1',
+      [playerId],
+    )
+    const links = await db.query(
+      'select email from public.parent_player_links where player_id = $1 order by email',
+      [playerId],
+    )
+    const queue = await db.query(
+      "select to_email from public.scheduled_email_queue where payload #>> '{parentPortalInvite,playerId}' = $1 order by to_email",
+      [playerId],
+    )
+
+    assert.equal(player.rows[0].parent_email, 'second@example.test')
+    assert.deepEqual(
+      player.rows[0].parent_contacts.map((contact) => contact.email),
+      ['second@example.test', 'first@example.test'],
+    )
+    assert.deepEqual(links.rows.map((link) => link.email), [
+      'first@example.test',
+      'second@example.test',
+    ])
+    assert.deepEqual(queue.rows.map((row) => row.to_email), [
+      'first@example.test',
+      'second@example.test',
+    ])
+  } finally {
+    await db.close()
+  }
+})
+
+test('Coach mobile can recover an automatic invite after correcting an invalid Parent email', async () => {
+  const db = new PGlite()
+
+  try {
+    await db.exec(schemaSql)
+    await applyMigrations(db)
+    await setMobileRequest(db)
+    const playerId = await insertPlayer(db, {
+      contacts: [{ email: 'invalid', name: 'Parent', type: 'parent' }],
+      email: 'invalid',
+      name: 'Corrected Contact Player',
+    })
+
+    await db.query(
+      `update public.players
+       set parent_email = 'parent@example.test',
+           parent_contacts = '[{"email":"parent@example.test","name":"Parent","type":"parent"}]'::jsonb
+       where id = $1`,
+      [playerId],
+    )
+
+    const links = await db.query(
+      'select email from public.parent_player_links where player_id = $1',
+      [playerId],
+    )
+    const queue = await db.query(
+      "select to_email from public.scheduled_email_queue where payload #>> '{parentPortalInvite,playerId}' = $1",
+      [playerId],
+    )
+
     assert.equal(links.rows[0].email, 'parent@example.test')
     assert.equal(queue.rows[0].to_email, 'parent@example.test')
   } finally {
