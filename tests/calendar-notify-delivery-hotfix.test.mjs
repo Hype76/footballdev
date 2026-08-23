@@ -61,10 +61,14 @@ test('editing an existing all-squad event derives Whole squad as checked', () =>
   assert.deepEqual(getSelectedInvitePlayers(players, existingInviteIds).map((player) => player.id), existingInviteIds)
 })
 
-test('extra manually selected players keep authoritative save mode manual', async () => {
+test('involved-player sharing stays manual even when every squad player is selected', async () => {
   const sessionsPage = await readFile(new URL('../src/pages/SessionsPage.jsx', import.meta.url), 'utf8')
-  assert.match(sessionsPage, /hasOnlyWholeSquadScopePlayers = notificationPlayers\.every/)
-  assert.match(sessionsPage, /wholeSquadSelectionState\.checked && hasOnlyWholeSquadScopePlayers/)
+  const syncInvitesStart = sessionsPage.indexOf('const syncInvites = async')
+  const syncInvitesEnd = sessionsPage.indexOf('\n      if (saveTrainingAsSession', syncInvitesStart)
+  const flow = sessionsPage.slice(syncInvitesStart, syncInvitesEnd)
+
+  assert.match(flow, /selectionMode:\s*sharedAllTeamParents\s*\?\s*'whole_squad'\s*:\s*'manual'/)
+  assert.doesNotMatch(flow, /selectionMode:[\s\S]*wholeSquadSelectionState\.checked/)
 })
 
 test('Include trial players expands and removes only trial selection', () => {

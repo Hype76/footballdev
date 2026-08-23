@@ -116,7 +116,6 @@ import {
   applyTrialPlayerSelection,
   applyWholeSquadSelection,
   getSelectedInvitePlayers,
-  getWholeSquadScopePlayerIds,
   getWholeSquadSelectionState,
 } from '../lib/domain/calendar-invite-scope.js'
 import { getCalendarNotificationToast } from '../lib/domain/calendar-notification-status.js'
@@ -3064,15 +3063,6 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         if (calendarEventId || matchDayId) {
           const eventId = calendarEventId || matchDayId
           const eventSource = matchDayId ? 'match-day' : 'calendar'
-          const wholeSquadSelectionState = getWholeSquadSelectionState({
-            includeTrialPlayers: calendarForm.inviteTrialPlayers,
-            invitePlayers: calendarInvitePlayers,
-            selectedPlayerIds: calendarForm.invitedPlayerIds,
-          })
-          const wholeSquadScopeIds = new Set(getWholeSquadScopePlayerIds(calendarInvitePlayers, {
-            includeTrialPlayers: calendarForm.inviteTrialPlayers,
-          }))
-          const hasOnlyWholeSquadScopePlayers = notificationPlayers.every((player) => wholeSquadScopeIds.has(String(player.id)))
           const parentScopeResult = safeTeamId
             ? await syncCalendarEventParentScope({
                 user,
@@ -3080,13 +3070,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
                 eventSource,
                 includeTrialPlayers: calendarForm.inviteTrialPlayers,
                 playerIds: sharedInvolvedPlayers ? notificationPlayers.map((player) => player.id) : [],
-                selectionMode: sharedAllTeamParents || (
-                  sharedInvolvedPlayers
-                  && wholeSquadSelectionState.checked
-                  && hasOnlyWholeSquadScopePlayers
-                )
-                  ? 'whole_squad'
-                  : 'manual',
+                selectionMode: sharedAllTeamParents ? 'whole_squad' : 'manual',
               })
             : {
                 portalRecordCount: 0,

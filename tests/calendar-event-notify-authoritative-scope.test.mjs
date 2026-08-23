@@ -55,12 +55,13 @@ test('team-wide scope and email recipients are resolved by the server', () => {
   assert.match(sessionsPage, /playerIds: sharedInvolvedPlayers \? notificationPlayers\.map\(\(player\) => player\.id\) : \[\]/)
 })
 
-test('whole Team Parent sharing resolves the whole squad on the server', () => {
+test('only whole Team Parent sharing resolves the whole squad on the server', () => {
   const syncInvitesStart = sessionsPage.indexOf('const syncInvites = async')
   const syncInvitesEnd = sessionsPage.indexOf('\n      if (saveTrainingAsSession', syncInvitesStart)
   const flow = sessionsPage.slice(syncInvitesStart, syncInvitesEnd)
 
-  assert.match(flow, /selectionMode:\s*sharedAllTeamParents\s*\|\|\s*\(/)
+  assert.match(flow, /selectionMode:\s*sharedAllTeamParents\s*\?\s*'whole_squad'\s*:\s*'manual'/)
+  assert.doesNotMatch(flow, /selectionMode:[\s\S]*wholeSquadSelectionState\.checked/)
   assert.match(flow, /playerIds:\s*sharedInvolvedPlayers\s*\?\s*notificationPlayers\.map\([\s\S]*?\)\s*:\s*\[\]/)
 })
 
