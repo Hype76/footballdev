@@ -9,6 +9,8 @@ test('production OTA updates require explicit confirmation, a clean exact-main w
 
   assert.match(source, /MOBILE_OTA_UPDATE_CONFIRMED/)
   assert.match(source, /MOBILE_OTA_UPDATE_MESSAGE/)
+  assert.match(source, /updateMessageArgument/)
+  assert.match(source, /A-Za-z0-9 \._-/)
   assert.match(source, /git', \['status', '--porcelain'\]/)
   assert.match(source, /git', \['fetch', 'origin', '--prune'\]/)
   assert.match(source, /headCommit !== originMainCommit/)

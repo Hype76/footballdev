@@ -27,6 +27,11 @@ if (!updateMessage) {
   process.exit(1)
 }
 
+if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,119}$/.test(updateMessage)) {
+  console.error('Production mobile update is blocked because MOBILE_OTA_UPDATE_MESSAGE contains unsupported characters or is too long.')
+  process.exit(1)
+}
+
 const gitStatus = execFileSync('git', ['status', '--porcelain'], {
   cwd: repoRoot,
   encoding: 'utf8',
@@ -82,6 +87,7 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 })
 
 console.log(`Publishing the guarded ${app.expectedName} production update from ${headCommit}.`)
+const updateMessageArgument = process.platform === 'win32' ? `"${updateMessage}"` : updateMessage
 execFileSync('npx', [
   'eas-cli',
   'update',
@@ -90,7 +96,7 @@ execFileSync('npx', [
   '--environment',
   'production',
   '--message',
-  updateMessage,
+  updateMessageArgument,
   '--platform',
   'all',
   '--clear-cache',
