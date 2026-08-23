@@ -44,6 +44,7 @@ import {
 import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
 import { getMatchDayDisplayName } from '../lib/matchday-display.js'
 import { buildEventResponsePlayerNavigation } from '../lib/domain/player-profile-navigation.js'
+import { getManageableEventPlayerIds } from '../lib/domain/event-player-selection.js'
 import {
   assertValidMatchDayFixtureType,
   MATCH_DAY_FIXTURE_TYPE_OPTIONS,
@@ -1083,6 +1084,16 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     eventResponseEvidence,
   ])
   const currentCalendarEventInvites = currentEventResponseModel.participants
+  const manageableCurrentCalendarEventInvites = useMemo(() => {
+    const manageablePlayerIds = new Set(getManageableEventPlayerIds({
+      currentParticipants: currentCalendarEventInvites,
+      rosterPlayers: calendarInvitePlayers,
+    }))
+
+    return currentCalendarEventInvites.filter((participant) => (
+      manageablePlayerIds.has(String(participant?.playerId ?? '').trim())
+    ))
+  }, [calendarInvitePlayers, currentCalendarEventInvites])
   const calendarResourceTeamId = useMemo(() => {
     if (!calendarModal || isClubWideCalendar) {
       return ''
@@ -2121,7 +2132,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     setCalendarPlayerActionError('')
     setCalendarForm((current) => ({
       ...current,
-      invitedPlayerIds: currentCalendarEventInvites.map((invite) => invite.playerId).filter(Boolean),
+      invitedPlayerIds: manageableCurrentCalendarEventInvites.map((participant) => participant.playerId),
       notificationRequestToken: createNotificationRequestToken(),
       notifyInvitedFamilies: false,
     }))
@@ -3975,7 +3986,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         <CalendarEventModal
           key={calendarModal?.responseManagerRequestId || `${calendarModal?.event?.sourceType || 'new'}:${calendarModal?.event?.sourceId || 'new'}`}
           attachedResources={currentCalendarEventResources}
-          currentInvites={currentCalendarEventInvites}
+          currentInvites={manageableCurrentCalendarEventInvites}
           event={calendarModal?.event}
           eventResponseManager={currentEventResponseModel.responseManager}
           form={calendarForm}
@@ -4338,7 +4349,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       <CalendarEventModal
         key={calendarModal?.responseManagerRequestId || `${calendarModal?.event?.sourceType || 'new'}:${calendarModal?.event?.sourceId || 'new'}`}
         attachedResources={currentCalendarEventResources}
-        currentInvites={currentCalendarEventInvites}
+        currentInvites={manageableCurrentCalendarEventInvites}
         event={calendarModal?.event}
         eventResponseManager={currentEventResponseModel.responseManager}
         form={calendarForm}
