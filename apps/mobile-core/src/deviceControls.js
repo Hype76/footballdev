@@ -1,23 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from './biometrics'
+import { MOBILE_SETTING_LOAD_STATES } from './deviceSettingsCore'
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from './notifications'
 import { getAccessToken } from './supabase'
 
-async function readDeviceControlState({ appRole = '', manageNotifications = true, parentLinkId = '', teamId = '' } = {}) {
-  const [availability, enabled, notificationState] = await Promise.all([
+async function readBiometricControlState(appRole = '') {
+  const [availability, enabled] = await Promise.all([
     getBiometricAvailability(),
     getBiometricEnabled(appRole),
-    manageNotifications ? getNativeNotificationDeviceState({
-      appRole,
-      parentLinkId,
-      teamId,
-    }) : Promise.resolve(null),
   ])
 
   return {
     biometricAvailable: availability.available,
     biometricEnabled: enabled,
-    notificationState,
   }
 }
 
@@ -34,6 +29,7 @@ export function useMobileDeviceControls({
 }) {
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricStateStatus, setBiometricStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
   const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [notificationState, setNotificationState] = useState(null)
@@ -44,17 +40,29 @@ export function useMobileDeviceControls({
     }
   }, [onStatusMessage])
 
-  const refreshDeviceState = useCallback(async () => {
-    const nextDeviceState = await readDeviceControlState({
+  const refreshBiometricState = useCallback(async () => {
+    setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
+    try {
+      const nextBiometricState = await readBiometricControlState(appRole)
+      setBiometricAvailable(nextBiometricState.biometricAvailable)
+      setBiometricEnabledState(nextBiometricState.biometricEnabled)
+      setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
+      return nextBiometricState
+    } catch (error) {
+      setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
+      throw error
+    }
+  }, [appRole])
+
+  const refreshNotificationState = useCallback(async () => {
+    if (!manageNotifications) return null
+    const nextNotificationState = await getNativeNotificationDeviceState({
       appRole,
-      manageNotifications,
       parentLinkId,
       teamId,
     })
-
-    setBiometricAvailable(nextDeviceState.biometricAvailable)
-    setBiometricEnabledState(nextDeviceState.biometricEnabled)
-    setNotificationState(nextDeviceState.notificationState)
+    setNotificationState(nextNotificationState)
+    return nextNotificationState
   }, [appRole, manageNotifications, parentLinkId, teamId])
 
   useEffect(() => {
@@ -66,33 +74,15 @@ export function useMobileDeviceControls({
   }, [manageNotifications])
 
   useEffect(() => {
-    let isMounted = true
-
-    async function loadDeviceState() {
-      try {
-          const nextDeviceState = await readDeviceControlState({
-            appRole,
-            manageNotifications,
-            parentLinkId,
-            teamId,
-          })
-
-          if (isMounted) {
-          setBiometricAvailable(nextDeviceState.biometricAvailable)
-          setBiometricEnabledState(nextDeviceState.biometricEnabled)
-          setNotificationState(nextDeviceState.notificationState)
-        }
-      } catch (error) {
+    void refreshBiometricState().catch((error) => {
+      console.error(error)
+    })
+    if (manageNotifications) {
+      void refreshNotificationState().catch((error) => {
         console.error(error)
-      }
+      })
     }
-
-    void loadDeviceState()
-
-    return () => {
-      isMounted = false
-    }
-  }, [appRole, manageNotifications, parentLinkId, teamId])
+  }, [manageNotifications, refreshBiometricState, refreshNotificationState])
 
   const enableNotifications = useCallback(async () => {
     if (!manageNotifications) return
@@ -109,7 +99,7 @@ export function useMobileDeviceControls({
         parentLinkId,
         teamId,
       })
-      await refreshDeviceState()
+      await refreshNotificationState()
       setMessage(notificationEnabledMessage)
     } catch (error) {
       console.error(error)
@@ -117,7 +107,7 @@ export function useMobileDeviceControls({
     } finally {
       setIsRegisteringPush(false)
     }
-  }, [apiBaseUrl, appRole, easProjectId, manageNotifications, notificationEnabledMessage, parentLinkId, refreshDeviceState, setMessage, teamId])
+  }, [apiBaseUrl, appRole, easProjectId, manageNotifications, notificationEnabledMessage, parentLinkId, refreshNotificationState, setMessage, teamId])
 
   const disableNotifications = useCallback(async () => {
     if (!manageNotifications) return
@@ -131,7 +121,7 @@ export function useMobileDeviceControls({
         apiBaseUrl,
         appRole,
       })
-      await refreshDeviceState()
+      await refreshNotificationState()
       setMessage(notificationDisabledMessage)
     } catch (error) {
       console.error(error)
@@ -139,7 +129,7 @@ export function useMobileDeviceControls({
     } finally {
       setIsRegisteringPush(false)
     }
-  }, [apiBaseUrl, appRole, manageNotifications, notificationDisabledMessage, refreshDeviceState, setMessage])
+  }, [apiBaseUrl, appRole, manageNotifications, notificationDisabledMessage, refreshNotificationState, setMessage])
 
   const toggleBiometrics = useCallback(async () => {
     setIsUpdatingBiometrics(true)
@@ -148,6 +138,7 @@ export function useMobileDeviceControls({
     try {
       const nextEnabled = await setBiometricEnabled(!biometricEnabled, appRole)
       setBiometricEnabledState(nextEnabled)
+      setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setMessage(nextEnabled ? 'Biometric unlock is enabled.' : 'Biometric unlock is disabled.')
     } catch (error) {
       console.error(error)
@@ -160,11 +151,13 @@ export function useMobileDeviceControls({
   return {
     biometricAvailable,
     biometricEnabled,
+    biometricStateStatus,
     disableNotifications,
     enableNotifications,
     isRegisteringPush,
     isUpdatingBiometrics,
     notificationState,
+    refreshBiometricState,
     toggleBiometrics,
   }
 }

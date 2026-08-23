@@ -36,6 +36,7 @@ import {
 } from '../mobile-core/src/appBadge'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
+import { MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsCore'
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
@@ -228,6 +229,7 @@ function ParentHome() {
   const [attentionIndex, setAttentionIndex] = useState(0)
   const [biometricAvailable, setBiometricAvailableState] = useState(false)
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
+  const [biometricStateStatus, setBiometricStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
   const [childSwitcherOpen, setChildSwitcherOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
@@ -244,6 +246,7 @@ function ParentHome() {
     permissionStatus: 'undetermined',
     registered: false,
   })
+  const [notificationStateStatus, setNotificationStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
   const [notificationResponseHistoryReady, setNotificationResponseHistoryReady] = useState(false)
   const [communicationPreference, setCommunicationPreference] = useState({ communicationChannel: 'both', updatedAt: '' })
   const [chatMessages, setChatMessages] = useState({ error: '', items: [], loading: false })
@@ -268,6 +271,7 @@ function ParentHome() {
   const resumeRefreshRef = useRef(false)
   const scrollViewRef = useRef(null)
   const notificationResponseIdRef = useRef('')
+  const notificationStateRequestRef = useRef(0)
   const notificationResponseHistoryRef = useRef(new Set())
   const notificationResponseProcessingRef = useRef('')
   const reloadSelectedChatRoomRef = useRef(() => Promise.resolve())
@@ -593,19 +597,20 @@ function ParentHome() {
     void Promise.all([
       getBiometricAvailability(),
       getBiometricEnabled(),
-      initializeParentNotifications(),
     ])
       .then(([availability, enabled]) => {
         if (mounted) {
           setBiometricAvailableState(availability.available)
           setBiometricEnabledState(enabled)
+          setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
         }
       })
       .catch(() => {
         if (mounted) {
-          setBiometricAvailableState(false)
+          setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
         }
       })
+    void initializeParentNotifications().catch(() => {})
 
     return () => {
       mounted = false
@@ -616,21 +621,64 @@ function ParentHome() {
     if (!selectedMobileUser?.id) return undefined
 
     let mounted = true
+    const requestId = notificationStateRequestRef.current + 1
+    notificationStateRequestRef.current = requestId
+    setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
     void Promise.allSettled([
       loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl }),
       getParentCommunicationPreference(config.apiBaseUrl),
     ])
       .then(([notificationResult, communicationResult]) => {
         if (!mounted) return
-        if (notificationResult.status === 'fulfilled') setNotificationState(notificationResult.value)
+        if (notificationStateRequestRef.current !== requestId) return
+        if (notificationResult.status === 'fulfilled') {
+          setNotificationState(notificationResult.value)
+          setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
+        } else {
+          setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
+        }
         if (communicationResult.status === 'fulfilled') setCommunicationPreference(communicationResult.value)
       })
       .catch(() => {})
 
     return () => {
       mounted = false
+      if (notificationStateRequestRef.current === requestId) notificationStateRequestRef.current += 1
     }
   }, [selectedMobileUser?.id])
+
+  const retryParentBiometricState = useCallback(async () => {
+    setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
+    try {
+      const [availability, enabled] = await Promise.all([
+        getBiometricAvailability(),
+        getBiometricEnabled(),
+      ])
+      setBiometricAvailableState(availability.available)
+      setBiometricEnabledState(enabled)
+      setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
+    } catch {
+      setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
+    }
+  }, [])
+
+  const reloadParentNotificationState = useCallback(async ({ preserveKnownState = false } = {}) => {
+    const requestId = notificationStateRequestRef.current + 1
+    notificationStateRequestRef.current = requestId
+    if (!preserveKnownState) setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
+    try {
+      const nextState = await loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })
+      if (notificationStateRequestRef.current !== requestId) return null
+      setNotificationState(nextState)
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
+      return nextState
+    } catch {
+      if (notificationStateRequestRef.current === requestId) {
+        setNotificationStateStatus(preserveKnownState ? MOBILE_SETTING_LOAD_STATES.STALE : MOBILE_SETTING_LOAD_STATES.ERROR)
+      }
+      return null
+    }
+  }, [])
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -653,9 +701,7 @@ function ParentHome() {
               resumeInteractionRef.current = null
             })
         })
-        void loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })
-          .then(setNotificationState)
-          .catch(() => {})
+        void reloadParentNotificationState({ preserveKnownState: true })
       }
     })
     return () => {
@@ -664,7 +710,7 @@ function ParentHome() {
       resumeInteractionRef.current = null
       resumeRefreshRef.current = false
     }
-  }, [loadParentData, runParentSync, selectedLink?.id, selectedRoomId])
+  }, [loadParentData, reloadParentNotificationState, runParentSync, selectedLink?.id, selectedRoomId])
 
   useEffect(() => {
     if (!notificationState.enabled || !selectedLink?.id) return undefined
@@ -1297,6 +1343,7 @@ function ParentHome() {
     try {
       const nextValue = await setBiometricEnabled(enabled)
       setBiometricEnabledState(nextValue)
+      setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice({
         message: nextValue ? 'Biometric app lock is enabled on this device.' : 'Biometric app lock is disabled.',
         tone: 'success',
@@ -1328,6 +1375,7 @@ function ParentHome() {
             enabled: false,
           })
       setNotificationState(nextState)
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice({
         message: nextState.enabled
           ? `Notifications are on with ${nextState.detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} content.`
@@ -1337,7 +1385,8 @@ function ParentHome() {
     } catch (error) {
       console.warn('Parent notification setup failed.', normalizeText(error?.code) || 'unknown')
       const message = getParentFriendlyError(error, 'Notification settings could not be changed.')
-      setNotificationState((current) => ({ ...current, enabled: false, message }))
+      setNotificationState((current) => preserveMobileNotificationState(current, message))
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.STALE)
       setNotice({
         message,
         tone: 'warning',
@@ -1358,13 +1407,17 @@ function ParentHome() {
         enabled: notificationState.enabled,
       })
       setNotificationState(nextState)
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice({
         message: `${detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} notification content selected. Full Player names are never included.`,
         tone: 'success',
       })
     } catch (error) {
+      const message = getParentFriendlyError(error, 'Notification detail could not be changed.')
+      setNotificationState((current) => preserveMobileNotificationState(current, message))
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.STALE)
       setNotice({
-        message: getParentFriendlyError(error, 'Notification detail could not be changed.'),
+        message,
         tone: 'warning',
       })
     } finally {
@@ -1706,6 +1759,7 @@ function ParentHome() {
                 appBadgeEnabled={appBadgeEnabled}
                 biometricAvailable={biometricAvailable}
                 biometricEnabled={biometricEnabled}
+                biometricStateStatus={biometricStateStatus}
                 cacheState={offlineCacheState}
                 isOffline={isOffline}
                 isSyncing={isSyncing}
@@ -1716,9 +1770,12 @@ function ParentHome() {
                 displayTheme={displayTheme}
                 communicationPreference={communicationPreference}
                 notificationState={notificationState}
+                notificationStateStatus={notificationStateStatus}
                 onCommunicationChannelChange={handleCommunicationChannelChange}
                 onNotificationDetailChange={handleNotificationDetailChange}
                 onNotificationEnabledChange={handleNotificationEnabledChange}
+                onRetryBiometricState={retryParentBiometricState}
+                onRetryNotificationState={() => reloadParentNotificationState()}
                 onDisplayThemeChange={handleDisplayThemeChange}
                 onDisplayNameChange={handleDisplayNameChange}
                 onPasswordChange={handlePasswordChange}
@@ -2327,6 +2384,7 @@ function SettingsScreen({
   appBadgeEnabled,
   biometricAvailable,
   biometricEnabled,
+  biometricStateStatus,
   cacheState,
   communicationPreference,
   displayTheme,
@@ -2336,6 +2394,7 @@ function SettingsScreen({
   lastUpdatedAt,
   links,
   notificationState,
+  notificationStateStatus,
   onBiometricChange,
   onAppBadgeEnabledChange,
   onCommunicationChannelChange,
@@ -2343,6 +2402,8 @@ function SettingsScreen({
   onDisplayNameChange,
   onNotificationDetailChange,
   onNotificationEnabledChange,
+  onRetryBiometricState,
+  onRetryNotificationState,
   onPasswordChange,
   onRestoreDismissedItems,
   onRetrySync,
@@ -2359,6 +2420,10 @@ function SettingsScreen({
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
     : Constants.expoConfig?.android?.versionCode || '1')
+  const biometricStateReady = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.READY
+  const biometricStateLoading = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
+  const notificationStateKnown = [MOBILE_SETTING_LOAD_STATES.READY, MOBILE_SETTING_LOAD_STATES.STALE].includes(notificationStateStatus)
+  const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
 
   return (
     <View style={styles.screenStack}>
@@ -2466,9 +2531,11 @@ function SettingsScreen({
             <Text style={styles.bodyText}>
               Uses biometrics already enrolled on this device. It protects local app access and does not change your Football Player password.
             </Text>
-            {!biometricAvailable ? <Text style={styles.helperText}>No enrolled biometric security is available on this device.</Text> : null}
+            {biometricStateReady && !biometricAvailable ? <Text style={styles.helperText}>No enrolled biometric security is available on this device.</Text> : null}
+            {biometricStateLoading ? <Text style={styles.helperText}>Checking this device...</Text> : null}
+            {biometricStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>The saved biometric setting could not be read. It has not been changed.</Text> : null}
           </View>
-          {activeActionId === 'biometrics' ? <ActivityIndicator color={palette.accent} /> : (
+          {activeActionId === 'biometrics' || biometricStateLoading ? <ActivityIndicator color={palette.accent} /> : biometricStateReady ? (
             <Switch
               accessibilityLabel="Biometric app lock"
               disabled={!biometricAvailable}
@@ -2477,8 +2544,9 @@ function SettingsScreen({
               thumbColor={biometricEnabled ? palette.accent : palette.textMuted}
               value={biometricEnabled}
             />
-          )}
+          ) : null}
         </View>
+        {biometricStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <PrimaryAction label="Retry biometric check" onPress={onRetryBiometricState} secondary /> : null}
       </View>
 
       <InfoPanel title="Communication choice">
@@ -2505,22 +2573,29 @@ function SettingsScreen({
             )
           })}
         </View>
-        {communicationPreference.communicationChannel !== 'email' && !notificationState.enabled ? <Text style={styles.helperText}>App notifications are selected, but they are not enabled on this device.</Text> : null}
+        {communicationPreference.communicationChannel !== 'email' && notificationStateKnown && !notificationState.enabled ? <Text style={styles.helperText}>App notifications are selected, but they are not enabled on this device.</Text> : null}
       </InfoPanel>
 
       <InfoPanel title="Notifications">
-        <InfoRow label="Status" value={getParentNotificationStatusLabel(notificationState)} />
+        <InfoRow
+          label="Status"
+          value={notificationStateKnown
+            ? getParentNotificationStatusLabel(notificationState)
+            : notificationStateLoading ? 'Checking this device' : 'Unable to verify'}
+        />
+        {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
+        {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>Notification status could not be read. No setting has been changed.</Text> : null}
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
             <Text style={styles.cardTitle}>Parent updates</Text>
             <Text style={styles.bodyText}>Receive Parent messages, polls and Matchday updates. You can turn this off at any time.</Text>
             <Text style={styles.helperText}>Permission is requested only when you turn notifications on. Full Player names, message text, assessments and Coach notes are never included.</Text>
-            {!notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
+            {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
               <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
             ) : null}
-            {notificationState.message ? <Text style={styles.helperText}>{notificationState.message}</Text> : null}
+            {notificationStateKnown && notificationState.message ? <Text style={styles.helperText}>{notificationState.message}</Text> : null}
           </View>
-          {activeActionId === 'notifications' ? <ActivityIndicator color={palette.accent} /> : (
+          {activeActionId === 'notifications' || notificationStateLoading ? <ActivityIndicator color={palette.accent} /> : notificationStateKnown ? (
             <Switch
               accessibilityLabel="Parent notifications"
               onValueChange={onNotificationEnabledChange}
@@ -2528,8 +2603,9 @@ function SettingsScreen({
               thumbColor={notificationState.enabled ? palette.accent : palette.textMuted}
               value={notificationState.enabled}
             />
-          )}
+          ) : null}
         </View>
+        {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <PrimaryAction label="Retry notification check" onPress={onRetryNotificationState} secondary /> : null}
 
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
@@ -2547,11 +2623,11 @@ function SettingsScreen({
           )}
         </View>
 
-        {!notificationState.permissionGranted && (notificationState.permissionStatus === 'denied' || notificationState.canAskAgain === false) ? (
+        {notificationStateKnown && !notificationState.permissionGranted && (notificationState.permissionStatus === 'denied' || notificationState.canAskAgain === false) ? (
           <PrimaryAction label="Open device notification settings" onPress={() => Linking.openSettings()} secondary />
         ) : null}
 
-        <View style={styles.notificationChoices}>
+        {notificationStateKnown ? <View style={styles.notificationChoices}>
           {[
             { copy: 'General alerts with the least detail.', key: 'minimal', label: 'Minimal' },
             { copy: 'A little more context, without Player names.', key: 'detailed', label: 'Detailed' },
@@ -2571,7 +2647,7 @@ function SettingsScreen({
               </Pressable>
             )
           })}
-        </View>
+        </View> : null}
 
         {notificationState.enabled && !config.isProduction ? (
           <View style={styles.notificationTestActions}>

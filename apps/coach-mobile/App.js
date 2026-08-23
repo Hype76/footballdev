@@ -32,6 +32,7 @@ import { applyCoachContext, createCoachContextTransition, resolveCoachStaffConte
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
+import { MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
@@ -137,6 +138,7 @@ function CoachHome() {
   const [moreRoute, setMoreRoute] = useState('')
   const [notice, setNotice] = useState('')
   const [notificationState, setNotificationState] = useState(null)
+  const [notificationStateStatus, setNotificationStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
   const [quickActionRequest, setQuickActionRequest] = useState(null)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
@@ -208,7 +210,9 @@ function CoachHome() {
   const {
     biometricAvailable,
     biometricEnabled,
+    biometricStateStatus,
     isUpdatingBiometrics,
+    refreshBiometricState,
     toggleBiometrics,
   } = useMobileDeviceControls({
     apiBaseUrl: config.apiBaseUrl,
@@ -232,14 +236,17 @@ function CoachHome() {
     setQuickActionRequest(null)
   }, [])
 
-  const refreshNotifications = useCallback(async () => {
+  const refreshNotifications = useCallback(async ({ showLoading = false } = {}) => {
     if (!activeContext?.id) return null
+    if (showLoading) setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
     try {
       const next = await loadCoachNotificationState({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id })
       setNotificationState(next)
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       return next
     } catch (error) {
-      setNotificationState((current) => ({ ...(current || {}), enabled: false, message: getCoachPushSetupFailureMessage(error) }))
+      setNotificationState((current) => preserveMobileNotificationState(current, getCoachPushSetupFailureMessage(error)))
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
       return null
     }
   }, [activeContext?.id])
@@ -257,11 +264,13 @@ function CoachHome() {
     try {
       const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, easProjectId: config.easProjectId })
       setNotificationState(next)
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       if (!silent) setNotice(next.enabled ? 'Coach notifications are enabled for this Coach context.' : next.message)
       return next
     } catch (error) {
       const message = getCoachPushSetupFailureMessage(error)
-      setNotificationState((current) => ({ ...(current || {}), enabled: false, message }))
+      setNotificationState((current) => preserveMobileNotificationState(current, message))
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
       if (!silent) setNotice(message)
       return null
     } finally {
@@ -276,8 +285,12 @@ function CoachHome() {
     try {
       const next = await updateCoachNotificationPreference({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel: 'off' })
       setNotificationState(next)
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice('Coach notifications are off.')
-    } catch (error) { setNotice(getCoachPushSetupFailureMessage(error)) }
+    } catch (error) {
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
+      setNotice(getCoachPushSetupFailureMessage(error))
+    }
     finally { setIsRegisteringPush(false) }
   }, [activeContext?.id])
 
@@ -287,8 +300,12 @@ function CoachHome() {
     try {
       const next = await updateCoachNotificationPreference({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel })
       setNotificationState(next)
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice(`Coach notifications set to ${detailLevel}.`)
-    } catch (error) { setNotice(getCoachPushSetupFailureMessage(error)) }
+    } catch (error) {
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
+      setNotice(getCoachPushSetupFailureMessage(error))
+    }
     finally { setIsRegisteringPush(false) }
   }, [activeContext?.id])
 
@@ -465,6 +482,11 @@ function CoachHome() {
   }, [])
 
   useEffect(() => {
+    setNotificationState(null)
+    setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
+  }, [activeContext?.id])
+
+  useEffect(() => {
     if (!activeContext?.id || !contextOwnedByCurrentUser) return undefined
     void refreshNotifications().then((next) => {
       if (next?.registered && next.requiresContextRefresh && next.permissionGranted && next.detailLevel !== 'off') {
@@ -633,6 +655,7 @@ function CoachHome() {
             appBadgeEnabled={appBadgeEnabled}
             biometricAvailable={biometricAvailable}
             biometricEnabled={biometricEnabled}
+            biometricStateStatus={biometricStateStatus}
             context={activeContext}
             contexts={contextResolution.contexts}
             chatNotificationTarget={chatNotificationTarget}
@@ -646,6 +669,9 @@ function CoachHome() {
             moreRoute={moreRoute}
             navigation={navigation}
             notificationState={notificationState}
+            notificationStateStatus={notificationStateStatus}
+            onRefreshBiometricState={() => refreshBiometricState().catch(() => {})}
+            onRefreshNotificationState={() => refreshNotifications({ showLoading: true })}
             onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
             onMatchDayTargetHandled={handleMatchDayTargetHandled}
             onNavigate={navigate}
@@ -880,6 +906,7 @@ function SettingsScreen({
   appBadgeEnabled,
   biometricAvailable,
   biometricEnabled,
+  biometricStateStatus,
   context,
   disableNotifications,
   enableNotifications,
@@ -887,6 +914,9 @@ function SettingsScreen({
   isUpdatingBiometrics,
   lastUpdatedAt,
   notificationState,
+  notificationStateStatus,
+  onRefreshBiometricState,
+  onRefreshNotificationState,
   onSignOut,
   onToggleBiometrics,
   onToggleAppBadge,
@@ -900,6 +930,10 @@ function SettingsScreen({
   const build = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || 'development'
     : Constants.expoConfig?.android?.versionCode || 'development')
+  const biometricStateReady = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.READY
+  const biometricStateLoading = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
+  const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
+  const hasKnownNotificationState = Boolean(notificationState)
   const [cacheState, setCacheState] = useState(null)
   useEffect(() => {
     let mounted = true
@@ -920,23 +954,43 @@ function SettingsScreen({
         </SettingRow>
       </Section>
       <Section title="Device security">
-        <SettingRow copy={biometricAvailable ? 'Require local device authentication after backgrounding.' : 'Biometric authentication is unavailable on this device.'} label="Biometric lock">
-          <Switch disabled={!biometricAvailable || isUpdatingBiometrics} onValueChange={onToggleBiometrics} value={biometricEnabled} />
+        <SettingRow
+          copy={biometricStateLoading
+            ? 'Checking the saved biometric setting on this device.'
+            : biometricStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR
+              ? 'The saved biometric setting could not be read. It has not been changed.'
+              : biometricAvailable ? 'Require local device authentication after backgrounding.' : 'Biometric authentication is unavailable on this device.'}
+          label="Biometric lock"
+        >
+          {biometricStateLoading || isUpdatingBiometrics ? <ActivityIndicator /> : biometricStateReady ? (
+            <Switch disabled={!biometricAvailable} onValueChange={onToggleBiometrics} value={biometricEnabled} />
+          ) : <SecondaryAction label="Retry" onPress={onRefreshBiometricState} />}
         </SettingRow>
       </Section>
       <Section title="Notifications">
-        <InfoRow label="Status" value={getCoachNotificationStatusLabel(notificationState || {})} />
-        <Text style={styles.bodyText}>{notificationState?.registered ? 'Registered to this Coach installation and Coach context.' : notificationState?.message || 'Not enabled on this device.'}</Text>
-        {notificationState?.registered ? (
+        <InfoRow
+          label="Status"
+          value={hasKnownNotificationState
+            ? getCoachNotificationStatusLabel(notificationState)
+            : notificationStateLoading ? 'Checking this device' : 'Unable to verify'}
+        />
+        <Text style={styles.bodyText}>{hasKnownNotificationState
+          ? notificationState.registered ? 'Registered to this Coach installation and Coach context.' : notificationState.message || 'Not enabled on this device.'
+          : notificationStateLoading ? 'Reading the saved notification state.' : 'Notification status could not be read. No setting has been changed.'}</Text>
+        {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
+        {hasKnownNotificationState && notificationState.registered ? (
           <View style={styles.quickGrid}>
             {['minimal', 'detailed'].map((level) => (
               <SecondaryAction disabled={isRegisteringPush} key={level} label={level === 'minimal' ? 'Minimal privacy' : 'Detailed'} onPress={() => onUpdateNotificationLevel(level)} />
             ))}
           </View>
         ) : null}
-        {notificationState?.enabled
+        {!hasKnownNotificationState ? (
+          notificationStateLoading ? <ActivityIndicator /> : <PrimaryAction disabled={isRegisteringPush} label="Retry notification check" onPress={onRefreshNotificationState} />
+        ) : notificationState.enabled
           ? <SecondaryAction disabled={isRegisteringPush} label="Disable notifications" onPress={disableNotifications} />
           : <PrimaryAction disabled={isRegisteringPush} label="Enable notifications" onPress={enableNotifications} />}
+        {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <SecondaryAction disabled={isRegisteringPush} label="Refresh notification status" onPress={onRefreshNotificationState} /> : null}
         <SettingRow copy="Show the authoritative unread count on this device." label="App icon badge">
           <Switch
             accessibilityLabel="App icon badge"

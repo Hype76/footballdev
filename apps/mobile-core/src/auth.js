@@ -64,14 +64,6 @@ export function AuthProvider({
     const updateAutoRefresh = (state) => {
       if (state === 'active') {
         supabase.auth.startAutoRefresh()
-        void supabase.auth.getSession().then(async ({ data }) => {
-          const currentSession = data?.session
-          const expiresAtMs = Number(currentSession?.expires_at || 0) * 1000
-          if (currentSession?.refresh_token && expiresAtMs > 0 && expiresAtMs <= Date.now() + (5 * 60 * 1000)) {
-            const { error } = await supabase.auth.refreshSession()
-            if (error) console.warn('Session refresh will retry while the saved login remains available.')
-          }
-        }).catch(() => {})
       } else {
         supabase.auth.stopAutoRefresh()
       }
