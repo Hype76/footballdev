@@ -63,6 +63,7 @@ const sharedAppConfigPath = 'apps/mobile-core/appConfig.cjs'
 const mobileAppsRegistryPath = 'apps/scripts/mobile-apps.mjs'
 const mobileConfigCheckPath = 'apps/scripts/mobile-config-check.mjs'
 const mobileBuildGuardPath = 'apps/scripts/mobile-build-guard.mjs'
+const mobileUpdateGuardPath = 'apps/scripts/mobile-update-guard.mjs'
 const mobileBuildPreflightPath = 'apps/scripts/mobile-build-preflight.mjs'
 const mobilePreflightPath = 'apps/scripts/mobile-preflight.mjs'
 const mobileReviewerPreflightPath = 'apps/scripts/mobile-reviewer-preflight.mjs'
@@ -412,6 +413,7 @@ assertFile(sharedAppConfigPath, 'Mobile shared app config')
 assertFile(mobileAppsRegistryPath, 'Mobile app registry')
 assertFile(mobileConfigCheckPath, 'Mobile config check')
 assertFile(mobileBuildGuardPath, 'Mobile build guard')
+assertFile(mobileUpdateGuardPath, 'Mobile update guard')
 assertFile(mobileBuildPreflightPath, 'Mobile build preflight helper')
 assertFile(mobilePreflightPath, 'Mobile release preflight helper')
 assertFile(mobileReviewerPreflightPath, 'Mobile reviewer preflight helper')
@@ -432,6 +434,7 @@ const rootGitignore = existsSync(join(repoRoot, rootGitignorePath)) ? read(rootG
 const mobileAppsRegistry = existsSync(join(repoRoot, mobileAppsRegistryPath)) ? read(mobileAppsRegistryPath) : ''
 const mobileConfigCheck = existsSync(join(repoRoot, mobileConfigCheckPath)) ? read(mobileConfigCheckPath) : ''
 const mobileBuildGuard = existsSync(join(repoRoot, mobileBuildGuardPath)) ? read(mobileBuildGuardPath) : ''
+const mobileUpdateGuard = existsSync(join(repoRoot, mobileUpdateGuardPath)) ? read(mobileUpdateGuardPath) : ''
 const mobileBuildPreflight = existsSync(join(repoRoot, mobileBuildPreflightPath)) ? read(mobileBuildPreflightPath) : ''
 const mobilePreflight = existsSync(join(repoRoot, mobilePreflightPath)) ? read(mobilePreflightPath) : ''
 const mobileReviewerPreflight = existsSync(join(repoRoot, mobileReviewerPreflightPath)) ? read(mobileReviewerPreflightPath) : ''
@@ -685,6 +688,10 @@ assertIncludes(mobileDeviceControls, 'biometricStateStatus', 'Mobile biometric s
 assertIncludes(mobileDeviceControls, 'getNativeNotificationDeviceState({', 'Mobile device controls')
 assertIncludes(mobileDeviceControls, 'parentLinkId,', 'Mobile device notification context')
 assertIncludes(mobileDeviceControls, 'teamId,', 'Mobile device notification context')
+assertIncludes(mobileUpdateGuard, 'MOBILE_OTA_UPDATE_CONFIRMED', 'Mobile production update guard')
+assertIncludes(mobileUpdateGuard, 'EXPO_PUBLIC_BUILD_PROFILE: productionProfile', 'Mobile production update profile')
+assertIncludes(mobileUpdateGuard, "'--channel',", 'Mobile production update channel')
+assertIncludes(mobileUpdateGuard, "'--environment',", 'Mobile production update environment')
 assertIncludes(mobileExportWebCheck, "assertExportFile(app, 'index.html')", 'Mobile web export check')
 assertIncludes(mobileExportWebCheck, "assertExportFile(app, 'metadata.json')", 'Mobile web export check')
 assertIncludes(mobileExportWebCheck, "assertExportDirectoryHasFiles(app, '_expo')", 'Mobile web export check')
@@ -914,6 +921,12 @@ if (existsSync(join(repoRoot, rootPackagePath))) {
   }
   if (rootPackage.scripts?.['mobile:eas:env:parent'] !== 'node apps/scripts/mobile-eas-env-list-guard.mjs parent') {
     failures.push('Root package must include guarded Parents EAS env list script')
+  }
+  if (rootPackage.scripts?.['mobile:update:coach:production'] !== 'node apps/scripts/mobile-update-guard.mjs coach') {
+    failures.push('Root package must include guarded Coach production update script')
+  }
+  if (rootPackage.scripts?.['mobile:update:parent:production'] !== 'node apps/scripts/mobile-update-guard.mjs parent') {
+    failures.push('Root package must include guarded Parents production update script')
   }
 
   apps.forEach((app) => {

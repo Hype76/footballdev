@@ -128,6 +128,7 @@ execFileSync('npx', ['eas-cli', 'env:exec', easEnvironment, resolvedEnvironmentA
   env: {
     ...process.env,
     ...loadMobileLocalEnv(repoRoot, app.path),
+    EXPO_PUBLIC_BUILD_PROFILE: profile,
   },
   stdio: 'inherit',
   shell: process.platform === 'win32',
