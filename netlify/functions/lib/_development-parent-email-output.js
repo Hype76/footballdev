@@ -922,6 +922,23 @@ export async function reauthorizePreparedDevelopmentParentEmail(
     return preparedEmail
   }
 
+  const parentPortalInvite = storedPayload.parentPortalInvite && typeof storedPayload.parentPortalInvite === 'object'
+    ? storedPayload.parentPortalInvite
+    : {}
+  const parentPortalLinkId = normalizeText(parentPortalInvite.linkId)
+
+  if (parentPortalInvite.type === 'coach_mobile_new_player') {
+    if (!parentPortalLinkId || outputKey !== `parent-portal-invite:${parentPortalLinkId}`) {
+      throw outputError(
+        'This Parent Portal invitation is no longer available.',
+        409,
+        'PARENT_PORTAL_INVITE_STORED_CONTEXT_INVALID',
+      )
+    }
+
+    return preparedEmail
+  }
+
   const evaluationId = normalizeText(storedPayload.evaluationId)
   const recipientLinkId = normalizeText(storedPayload.recipientLinkId)
   const actorId = normalizeText(storedPayload.actorId)

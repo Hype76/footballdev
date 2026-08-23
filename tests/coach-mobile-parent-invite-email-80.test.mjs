@@ -7,6 +7,7 @@ import {
   markScheduledParentPortalInviteSent,
   prepareScheduledParentPortalInviteRow,
 } from '../netlify/functions/lib/_parent-portal-invite-email.js'
+import { reauthorizePreparedDevelopmentParentEmail } from '../netlify/functions/lib/_development-parent-email-output.js'
 import { buildPreparedScheduledEmail } from '../netlify/functions/lib/_scheduled-email-payload.js'
 
 const ids = {
@@ -238,6 +239,38 @@ test('provider acceptance is recorded on the exact pending Parent Portal link', 
   )
   assert.ok(fixture.tables.parent_player_links[0].invite_sent_at)
   assert.equal(fixture.tables.parent_player_links[1].invite_sent_at, undefined)
+})
+
+test('scheduled Parent Portal invites bypass only the unrelated Development recipient route', async () => {
+  const fixture = parentInviteFixture()
+  const preparation = await prepareScheduledParentPortalInviteRow(fixture.row, {
+    fetchImpl: async () => reachableImageResponse(),
+    supabaseClient: createSupabaseFixture(fixture.tables),
+  })
+  const preparedEmail = buildPreparedScheduledEmail(
+    preparation.row,
+    {
+      clubId: ids.club,
+      role: 'system',
+      roleRank: 100,
+      teamId: ids.team,
+    },
+    { fromDisplayName: preparation.email.fromDisplayName },
+  )
+
+  const authorizedEmail = await reauthorizePreparedDevelopmentParentEmail(null, preparedEmail)
+
+  assert.equal(authorizedEmail, preparedEmail)
+  await assert.rejects(
+    reauthorizePreparedDevelopmentParentEmail(null, {
+      ...preparedEmail,
+      storedPayload: {
+        ...preparedEmail.storedPayload,
+        outputKey: 'parent-portal-invite:wrong-link',
+      },
+    }),
+    (error) => error.code === 'PARENT_PORTAL_INVITE_STORED_CONTEXT_INVALID',
+  )
 })
 
 test('processor keeps Parent Portal invites email-only and rechecks both plan capabilities', async () => {
