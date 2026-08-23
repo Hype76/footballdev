@@ -1,5 +1,28 @@
+import { collapseCoachInvitesByPlayer } from './coachPhase31ECore.js'
+
 const normalize = (value) => String(value ?? '').trim()
 const asArray = (value) => Array.isArray(value) ? value : []
+
+function getInvitePlayerKey(invite = {}) {
+  const kind = normalize(invite?.kind).toLowerCase()
+  const eventId = normalize(invite?.eventId)
+  const playerId = normalize(invite?.playerId)
+  return kind && eventId && playerId ? `${kind}:${eventId}:${playerId}` : ''
+}
+
+export function countPendingCoachAvailability(rows = []) {
+  const invites = asArray(rows).filter((invite) => ['match', 'training'].includes(normalize(invite?.kind).toLowerCase()))
+  const sentPlayerKeys = new Set(invites
+    .filter((invite) => normalize(invite?.sentAt))
+    .map(getInvitePlayerKey)
+    .filter(Boolean))
+
+  const collapsed = ['match', 'training'].flatMap((kind) => collapseCoachInvitesByPlayer(
+    invites.filter((invite) => normalize(invite?.kind).toLowerCase() === kind),
+  ))
+  return collapsed.filter((invite) => ['awaiting', 'pending'].includes(normalize(invite?.status).toLowerCase())
+    && sentPlayerKeys.has(getInvitePlayerKey(invite))).length
+}
 
 export function buildCoachHomeOperationalSnapshot(input = {}) {
   const matches = asArray(input.matches)
@@ -10,7 +33,7 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
   const messages = asArray(input.messages)
   const inviteRows = asArray(input.invites?.all)
   const developmentRecords = asArray(input.development?.records)
-  const pendingAvailability = inviteRows.filter((item) => ['pending', 'unknown'].includes(normalize(item?.status).toLowerCase())).length
+  const pendingAvailability = countPendingCoachAvailability(inviteRows)
   const activePolls = polls.filter((poll) => normalize(poll?.status).toLowerCase() === 'open').length
   const unreadChat = chatRooms.reduce((total, room) => total + Math.max(0, Number(room?.unreadCount || 0)), 0)
   const unreadCommunication = messages.filter((message) => !normalize(message?.readAt)).length

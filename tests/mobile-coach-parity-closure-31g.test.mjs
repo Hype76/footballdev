@@ -4,6 +4,7 @@ import test from 'node:test'
 import { resolveCoachStaffContext } from '../apps/mobile-core/src/coachContextCore.js'
 import {
   buildCoachHomeOperationalSnapshot,
+  countPendingCoachAvailability,
   COACH_PHASE_31G_BACKEND_INVENTORY,
   COACH_PHASE_31G_CROSS_DOMAIN_TRANSITIONS,
   COACH_PHASE_31G_HOSTILE_JOURNEYS,
@@ -67,7 +68,10 @@ test('Home operational snapshot uses canonical domain results without inventing 
     calendar: [{ id: 'c1', status: 'scheduled', title: 'Training' }],
     chatRooms: [{ id: 'r1', unreadCount: 2 }],
     development: { records: [{ id: 'd1' }, { id: 'd2' }] },
-    invites: { all: [{ id: 'i1', status: 'pending' }, { id: 'i2', status: 'available' }] },
+    invites: { all: [
+      { eventId: 'm1', id: 'i1', kind: 'match', playerId: 'p1', sentAt: '2026-08-23T09:00:00Z', status: 'pending' },
+      { eventId: 'm1', id: 'i2', kind: 'match', playerId: 'p2', sentAt: '2026-08-23T09:00:00Z', status: 'available' },
+    ] },
     matches: [{ id: 'm1', status: 'scheduled' }],
     messages: [{ id: 'x1', readAt: '' }, { id: 'x2', readAt: 'now' }],
     polls: [{ id: 'p1', status: 'open' }, { id: 'p2', status: 'closed' }],
@@ -83,6 +87,20 @@ test('Home operational snapshot uses canonical domain results without inventing 
   assert.equal(snapshot.nextSession.id, 's1')
   assert.equal(snapshot.nextCalendar.id, 'c1')
   assert.equal('tasks' in snapshot, false)
+})
+
+test('Home pending availability counts sent invitations per child instead of recipient email', () => {
+  const rows = [
+    { eventId: 'match-1', id: 'p1-email-1', kind: 'match', playerId: 'player-1', sentAt: '2026-08-23T09:00:00Z', status: 'pending' },
+    { eventId: 'match-1', id: 'p1-email-2', kind: 'match', playerId: 'player-1', sentAt: '2026-08-23T09:01:00Z', status: 'pending' },
+    { eventId: 'match-1', id: 'p2-unsent', kind: 'match', playerId: 'player-2', sentAt: '', status: 'pending' },
+    { eventId: 'match-1', id: 'p3-email-1', kind: 'match', playerId: 'player-3', sentAt: '2026-08-23T09:02:00Z', status: 'pending' },
+    { eventId: 'match-1', id: 'p3-response', kind: 'match', playerId: 'player-3', respondedAt: '2026-08-23T09:03:00Z', sentAt: '', status: 'available' },
+    { eventId: 'training-1', id: 'p4-training', kind: 'training', playerId: 'player-4', sentAt: '2026-08-23T09:04:00Z', status: 'pending' },
+    { eventId: 'calendar-1', id: 'p5-information', kind: 'calendar', playerId: 'player-5', sentAt: '2026-08-23T09:05:00Z', status: 'pending' },
+  ]
+
+  assert.equal(countPendingCoachAvailability(rows), 2)
 })
 
 test('Home tolerates partial response shapes and exposes the degraded state', () => {

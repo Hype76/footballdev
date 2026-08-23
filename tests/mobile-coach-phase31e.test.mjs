@@ -190,6 +190,8 @@ test('Invite normalization preserves distinct statuses and stale protection', ()
   assert.equal(normalizeCoachInvite({ cancelled_at: 'now' }, 'calendar').status, 'cancelled')
   assert.equal(normalizeCoachInvite({ calendar_event_id: 'calendar-1', match_day_id: 'match-1' }, 'match').eventId, 'match-1')
   assert.equal(normalizeCoachInvite({ calendar_event_id: 'calendar-1', match_day_id: 'match-1' }, 'training').eventId, 'calendar-1')
+  assert.equal(normalizeCoachInvite({ email_sent_at: '2026-08-23T09:00:00Z' }, 'training').sentAt, '2026-08-23T09:00:00Z')
+  assert.equal(normalizeCoachInvite({ invited_at: '2026-08-23T09:01:00Z' }, 'calendar').sentAt, '2026-08-23T09:01:00Z')
 })
 
 test('Invite summary does not merge selected, not selected, maybe, or stale meaning', () => {

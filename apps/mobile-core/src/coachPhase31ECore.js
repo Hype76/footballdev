@@ -395,7 +395,7 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
     occurrenceDate: normalize(row.occurrence_date ?? row.occurrenceDate),
     teamId: normalize(row.team_id ?? row.teamId), playerId: normalize(row.player_id ?? row.playerId), playerName: normalize(row.player_name ?? row.playerName) || 'Player',
     title: normalize(row.title ?? row.event_title ?? row.session_title ?? row.opponent) || 'Invitation', status,
-    response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt: normalize(row.sent_at ?? row.sentAt), respondedAt: normalize(row.responded_at ?? row.respondedAt),
+    response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt: normalize(row.sent_at ?? row.email_sent_at ?? row.invited_at ?? row.sentAt), respondedAt: normalize(row.responded_at ?? row.respondedAt),
     stale: deleted || status === 'stale', cancelled,
   })
 }
