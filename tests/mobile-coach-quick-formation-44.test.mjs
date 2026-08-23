@@ -36,7 +36,8 @@ const teamContext = { role: 'manager', roleRank: 70, teamId: 'team-1' }
 
 test('movable Quick Add exposes direct, role-aware Coach actions and persists a safe position', () => {
   const actions = getCoachQuickActions(teamContext)
-  assert.deepEqual(actions.map((action) => action.label), ['Add Player', 'Add Session', 'Add Assessment', 'Add Event', 'Add Match', 'Game Day', 'Create Poll', 'Formation Board'])
+  assert.deepEqual(actions.map((action) => action.label), ['Add Player', 'Add Session', 'Add Assessment', 'Add Match', 'Game Day', 'Create Poll', 'Formation Board'])
+  assert.equal(actions.some((action) => action.id === 'add-event' || action.intent === 'create-event'), false)
   const clamped = clampCoachQuickActionPosition({ x: 999, y: 999 }, { height: 800, width: 390 }, 34)
   assert.ok(clamped.x <= 318)
   assert.ok(clamped.y <= 656)

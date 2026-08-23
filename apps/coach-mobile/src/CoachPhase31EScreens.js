@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, SafeAreaView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import {
   createCoachExternalResource,
   createCoachMatchAvailabilityRequests,
@@ -465,7 +466,7 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
   const display = getCoachChatRoomDisplay(room)
   return (
     <Modal animationType="slide" onRequestClose={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} visible>
-      <SafeAreaView style={styles.chatModal}>
+      <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.chatModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.chatModal}>
           <View style={styles.chatModalHeader}>
             <Button label="Back to conversations" onPress={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} />
