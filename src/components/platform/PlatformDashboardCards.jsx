@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
-export function PlatformPlanMixSection({ planBreakdown, platformTotals }) {
+export function PlatformPlanMixSection({ planBreakdown }) {
+  const countedWorkspaces = Object.values(planBreakdown).reduce((total, count) => total + Number(count ?? 0), 0)
+
   return (
     <SectionCard
       title="Plan mix"
@@ -19,7 +21,7 @@ export function PlatformPlanMixSection({ planBreakdown, platformTotals }) {
                 <div
                   className="h-full rounded-lg bg-[var(--accent)] transition-all duration-700"
                   style={{
-                    width: `${Math.max(8, Math.round((count / Math.max(1, platformTotals.clubs ?? 1)) * 100))}%`,
+                    width: `${Math.max(8, Math.round((count / Math.max(1, countedWorkspaces)) * 100))}%`,
                   }}
                 />
               </div>
@@ -58,12 +60,18 @@ export function PlatformDataHygieneSection({ platformTotals }) {
 }
 
 export function PlatformOperationalSummarySection({
+  analyticsReport,
   openIssueCount = 0,
   platformTotals = {},
 }) {
-  const roleBreakdown = Array.isArray(platformTotals.staffRoleBreakdown)
-    ? platformTotals.staffRoleBreakdown
+  const accountEstate = analyticsReport?.accountEstate ?? {}
+  const roleBreakdown = Array.isArray(analyticsReport?.staffRoleAdoption)
+    ? analyticsReport.staffRoleAdoption.map((role) => ({
+        label: role.role,
+        count: Number(role.totalAccounts ?? 0),
+      }))
     : []
+  const recentAuditEvents = platformTotals.recentAuditEvents ?? platformTotals.recentAdminActions ?? 0
 
   return (
     <SectionCard
@@ -73,9 +81,9 @@ export function PlatformOperationalSummarySection({
     >
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Recent admin actions</p>
-          <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{platformTotals.recentAdminActions ?? 0}</p>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">Recorded in the last 7 days.</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Recent audit events</p>
+          <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{recentAuditEvents}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">All audit rows recorded in the last 7 days.</p>
           <Link className="mt-3 inline-flex min-h-11 items-center font-black text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" to="/platform-data-hygiene#recent-activity">
             View data hygiene
           </Link>
@@ -91,7 +99,7 @@ export function PlatformOperationalSummarySection({
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-muted)]">Coach role mix</p>
           <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">
-            {platformTotals.staffAccounts ?? 0} Coach accounts, excluding {platformTotals.parentAccounts ?? 0} parent accounts.
+            {accountEstate.staffAccounts ?? 0} current customer Coach accounts. {accountEstate.usersWithParentAccess ?? 0} users have Parent access, reported separately.
           </p>
           <ul className="mt-3 space-y-1 text-sm font-bold text-[var(--text-primary)]">
             {roleBreakdown.slice(0, 4).map((role) => (
@@ -101,8 +109,8 @@ export function PlatformOperationalSummarySection({
               </li>
             ))}
           </ul>
-          <Link className="mt-3 inline-flex min-h-11 items-center font-black text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" to="/platform-staff">
-            View Platform Admins
+          <Link className="mt-3 inline-flex min-h-11 items-center font-black text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" to="/platform-analytics?focus=staffAccounts">
+            View Coach account breakdown
           </Link>
         </div>
       </div>

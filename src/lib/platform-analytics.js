@@ -513,7 +513,11 @@ function canonicalDashboardSections(dashboardEvidence = {}, identity = {}) {
       activeParents: product.activeParents === undefined ? numberValue(identity.activity?.activeParents) : numberValue(product.activeParents),
       activeStaff: product.activeStaff === undefined ? numberValue(identity.activity?.activeStaff) : numberValue(product.activeStaff),
       activeClubs: product.activeClubs === undefined ? numberValue(identity.activity?.activeClubs) : numberValue(product.activeClubs),
-      pageDrilldown: topPages.map((page) => ({ id: page.pageFamily, eventCount: page.pageViews })),
+      pageDrilldown: topPages.map((page) => ({
+        id: page.pageFamily,
+        count: page.pageViews,
+        eventCount: page.pageViews,
+      })),
     },
     topPages,
     roleActivity: Array.isArray(dashboardEvidence.roleActivity) ? dashboardEvidence.roleActivity : [],

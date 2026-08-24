@@ -16,7 +16,18 @@ export function formatPlatformDate(value) {
 }
 
 export function getPlanBreakdown(clubs = []) {
-  return clubs.filter((club) => !club.archivedAt).reduce((items, club) => {
+  return clubs.filter((club) => {
+    const name = String(club.name ?? '').trim().toLowerCase()
+    const status = String(club.status ?? '').trim().toLowerCase()
+
+    return (
+      !club.archivedAt
+      && status === 'active'
+      && !name.includes('fp test')
+      && !name.includes('fp-test')
+      && !name.startsWith('demo ')
+    )
+  }).reduce((items, club) => {
     const planName = getPlanName(club.planKey)
     items[planName] = (items[planName] ?? 0) + 1
     return items
@@ -64,7 +75,7 @@ export function getPlatformDashboardStats(analyticsReport, { openIssueCount = 0 
     {
       label: 'Users with Parent access',
       value: estate.usersWithParentAccess ?? 0,
-      caption: 'Accepted authenticated access',
+      caption: 'Active authenticated Parent authority',
       detail: `${estate.staffWithParentAccess ?? 0} also have Coach access`,
       path: '/platform-analytics?focus=parentAccess',
       actionLabel: 'View Parent access breakdown',

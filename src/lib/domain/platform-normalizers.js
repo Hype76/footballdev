@@ -166,6 +166,7 @@ export function normalizePlatformStatsPayload(stats) {
       communications: normalizeNumber(sourceTotals.communications),
       communicationRows: normalizeNumber(sourceTotals.communicationRows),
       auditEvents: normalizeNumber(sourceTotals.auditEvents),
+      recentAuditEvents: normalizeNumber(sourceTotals.recentAuditEvents),
       recentAdminActions: normalizeNumber(sourceTotals.recentAdminActions),
       recentEvaluations: normalizeNumber(sourceTotals.recentEvaluations),
       recentCommunications: normalizeNumber(sourceTotals.recentCommunications),

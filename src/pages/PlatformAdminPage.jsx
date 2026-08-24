@@ -1342,6 +1342,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const feedbackStats = getFeedbackStats(feedbackItems, feedbackReports)
   const openIssueCount = feedbackStats.find((item) => item.label === 'Open items')?.value ?? 0
   const dashboardStats = getPlatformDashboardStats(analyticsReport, { openIssueCount })
+  const isDashboardLoading = isLoading || isAnalyticsLoading || !analyticsReport
   const platformAdmins = stats?.platformAdmins ?? []
   const clubManagementStats = getClubManagementStats(stats)
 
@@ -1384,17 +1385,26 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
             eyebrow="Live platform overview"
             title="Clean operational numbers across clubs, teams, users, and player feedback."
             description="This dashboard shows platform level health without exposing child names or player personal details."
-            status={isLoading ? 'Refreshing live stats' : 'Live stats loaded'}
-            detail={`Last refresh: ${formatPlatformDate(new Date().toISOString())}`}
+            status={isDashboardLoading ? 'Refreshing verified stats' : 'Verified stats loaded'}
+            detail={analyticsReport?.generatedAt
+              ? `Last refresh: ${formatPlatformDate(analyticsReport.generatedAt)}`
+              : 'Waiting for the verified analytics report'}
             actionLabel="Refresh platform stats"
             onAction={refreshStats}
           />
 
-          <PlatformStatGrid items={dashboardStats} />
+          {analyticsReport ? (
+            <PlatformStatGrid items={dashboardStats} />
+          ) : (
+            <p className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-5 text-sm font-bold text-[var(--text-muted)]" role="status">
+              Loading verified dashboard metrics.
+            </p>
+          )}
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-            <PlatformPlanMixSection planBreakdown={planBreakdown} platformTotals={platformTotals} />
+            <PlatformPlanMixSection planBreakdown={planBreakdown} />
             <PlatformOperationalSummarySection
+              analyticsReport={analyticsReport}
               openIssueCount={openIssueCount}
               platformTotals={platformTotals}
             />

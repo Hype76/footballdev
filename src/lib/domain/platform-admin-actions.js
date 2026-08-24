@@ -474,6 +474,7 @@ export async function getPlatformStats(user) {
   }
 
   return getCachedResource('platform-stats', async () => {
+    const recentAuditCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     const [
       clubsResult,
       teamLimitOverridesResult,
@@ -485,6 +486,7 @@ export async function getPlatformStats(user) {
       evaluationsResult,
       communicationLogsResult,
       auditLogsResult,
+      recentAuditEventsResult,
     ] = await Promise.all([
       supabase
         .from('clubs')
@@ -504,6 +506,10 @@ export async function getPlatformStats(user) {
       supabase.from('evaluations').select('id, club_id, section, status, created_at'),
       supabase.from('communication_logs').select('id, club_id, channel, action, created_at'),
       supabase.from('audit_logs').select('id, club_id, action, created_at'),
+      supabase
+        .from('audit_logs')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', recentAuditCutoff),
     ])
 
     const results = [
@@ -517,6 +523,7 @@ export async function getPlatformStats(user) {
       evaluationsResult,
       communicationLogsResult,
       auditLogsResult,
+      recentAuditEventsResult,
     ]
     const firstError = results.find((result) => result.error)?.error
 
@@ -550,7 +557,7 @@ export async function getPlatformStats(user) {
         invalidAdminRows: invalidUserRows + invalidTeamRows,
       })
     }
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const sevenDaysAgo = new Date(recentAuditCutoff).getTime()
     const isRecent = (row) => {
       const timestamp = new Date(row.created_at).getTime()
       return !Number.isNaN(timestamp) && timestamp >= sevenDaysAgo
@@ -608,7 +615,8 @@ export async function getPlatformStats(user) {
         communications: sharedExports.length,
         communicationRows: communicationLogs.length,
         auditEvents: auditLogs.length,
-        recentAdminActions: auditLogs.filter(isRecent).length,
+        recentAuditEvents: Number(recentAuditEventsResult.count ?? 0),
+        recentAdminActions: Number(recentAuditEventsResult.count ?? 0),
         recentEvaluations: evaluations.filter(isRecent).length,
         recentCommunications: sharedExports.filter(isRecent).length,
         staffRoleBreakdown: Object.entries(staffRoleBreakdown)

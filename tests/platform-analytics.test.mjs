@@ -359,6 +359,7 @@ test('canonical dashboard evidence drives estate, authentication, friendly pages
   assert.equal(report.trend[0].meaningfulActions, 4)
   assert.equal(report.staffRoleAdoption[0].activeAccounts, 3)
   assert.equal(report.workspaceActivity.states[0].count, 2)
+  assert.equal(report.productActivity.pageDrilldown[0].count, report.productActivity.pageDrilldown[0].eventCount)
 })
 
 test('invalid dashboard filters fail safely and internal and FP TEST controls stay independent', () => {

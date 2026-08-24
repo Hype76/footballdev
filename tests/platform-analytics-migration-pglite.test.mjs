@@ -35,8 +35,8 @@ const canonicalTrustMigration = await readFile(
   new URL('../supabase/migrations/20260808113130_platform_analytics_canonical_trust_v4.sql', import.meta.url),
   'utf8',
 )
-const parentLinkRollupFixMigration = await readFile(
-  new URL('../supabase/migrations/20260808113748_platform_analytics_parent_link_rollup_fix.sql', import.meta.url),
+const metricAuthorityIntegrityMigration = await readFile(
+  new URL('../supabase/migrations/20260824095919_platform_metric_authority_integrity.sql', import.meta.url),
   'utf8',
 )
 
@@ -45,9 +45,14 @@ const IDS = Object.freeze({
   team: '20000000-0000-4000-8000-000000000001',
   staff: '30000000-0000-4000-8000-000000000001',
   parent: '30000000-0000-4000-8000-000000000002',
+  directStaff: '30000000-0000-4000-8000-000000000003',
+  staleProfileParent: '30000000-0000-4000-8000-000000000004',
+  suspendedParent: '30000000-0000-4000-8000-000000000005',
   teamTwo: '20000000-0000-4000-8000-000000000002',
   player: '40000000-0000-4000-8000-000000000001',
   playerTwo: '40000000-0000-4000-8000-000000000002',
+  playerThree: '40000000-0000-4000-8000-000000000003',
+  playerFour: '40000000-0000-4000-8000-000000000004',
   emptyClub: '10000000-0000-4000-8000-000000000002',
 })
 
@@ -159,7 +164,10 @@ async function createDatabase() {
   await db.exec(identityAdoptionMigration)
   await db.exec(dashboardHeatmapsMigration)
   await db.exec(canonicalTrustMigration)
-  await db.exec(parentLinkRollupFixMigration)
+  // The canonical v4 migration now contains the Parent-link rollup fix. The
+  // historical follow-up migration is already applied in production and does
+  // not need to be replayed against the corrected source in this fresh schema.
+  await db.exec(metricAuthorityIntegrityMigration)
   return db
 }
 
@@ -409,6 +417,7 @@ test('identity adoption reconciles parent links, multi-team staff, dual roles, e
     assert.equal(metrics.parentAdoption.parentOnlyAccounts, 0)
     assert.equal(metrics.parentAdoption.dualRoleParentAccounts, 1)
     assert.equal(metrics.parentAdoption.successfulParentLogins, 0)
+    assert.equal(metrics.parentAdoption.stages.find((stage) => stage.key === 'first_login').label, 'Parent Portal login telemetry captured')
     assert.equal(metrics.parentAdoption.parentsWithFirstMeaningfulAction, 1)
     assert.equal(metrics.staff.authenticatedStaffAccounts, 2)
     assert.equal(metrics.staff.assignmentCount, 3)
@@ -497,14 +506,30 @@ test('canonical v4 report aligns headlines with human breakdowns and keeps ident
     await db.exec(`
       insert into public.clubs (id, name)
       values ('${IDS.emptyClub}', 'Empty Analytics Club');
-      insert into public.players (id, club_id, team_id, status, created_at)
-      values ('${IDS.player}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-01T00:00:00Z');
-      insert into public.parent_player_links (club_id, team_id, player_id, auth_user_id, status, accepted_at)
-      values ('${IDS.club}', '${IDS.team}', '${IDS.player}', '${IDS.parent}', 'active', '2026-03-10T00:00:00Z');
+      insert into public.users (id, club_id, role, status) values
+        ('${IDS.directStaff}', '${IDS.club}', 'coach', 'active'),
+        ('${IDS.suspendedParent}', '${IDS.club}', 'parent_portal', 'suspended');
+      insert into public.players (id, club_id, team_id, status, created_at) values
+        ('${IDS.player}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-01T00:00:00Z'),
+        ('${IDS.playerThree}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-02T00:00:00Z'),
+        ('${IDS.playerFour}', '${IDS.club}', '${IDS.team}', 'active', '2026-03-03T00:00:00Z');
+      insert into public.parent_player_links (club_id, team_id, player_id, auth_user_id, status, accepted_at) values
+        ('${IDS.club}', '${IDS.team}', '${IDS.player}', '${IDS.parent}', 'active', '2026-03-10T00:00:00Z'),
+        ('${IDS.club}', '${IDS.team}', '${IDS.playerThree}', '${IDS.staleProfileParent}', 'active', '2026-03-11T00:00:00Z'),
+        ('${IDS.club}', '${IDS.team}', '${IDS.playerFour}', '${IDS.suspendedParent}', 'active', '2026-03-12T00:00:00Z');
       insert into public.team_staff (team_id, user_id, role_key)
       values ('${IDS.team}', '${IDS.staff}', 'coach');
       insert into public.evaluations (club_id, team_id, status, created_at)
       values ('${IDS.club}', '${IDS.team}', 'Submitted', '2026-03-15T00:00:00Z');
+      insert into public.analytics_events (
+        occurred_at, event_name, user_id, role, club_id, session_id, platform,
+        canonical_route, feature_key, environment, metadata, client_event_id,
+        source_kind, is_meaningful, is_parent_activation, is_club_activation, is_excluded
+      ) values (
+        '2026-03-29T02:05:00Z', 'player.viewed', '${IDS.directStaff}', 'coach', '${IDS.club}',
+        'session:direct-staff', 'web', '/player/:playerId', 'players', 'production', '{}',
+        'event:direct-staff', 'direct', true, false, true, false
+      );
       update public.analytics_events
       set
         actor_auth_user_id = user_id,
@@ -532,12 +557,19 @@ test('canonical v4 report aligns headlines with human breakdowns and keeps ident
     assert.equal(report.accountEstate.customerClubs, 2)
     assert.equal(report.accountEstate.customerWorkspaces, 2)
     assert.equal(report.accountEstate.teams, 2)
-    assert.equal(report.accountEstate.activePlayers, 1)
-    assert.equal(report.accountEstate.staffAccounts, 1)
+    assert.equal(report.accountEstate.activePlayers, 3)
+    assert.equal(report.accountEstate.staffAccounts, 2)
     assert.equal(report.accountEstate.staffAssignments, 1)
-    assert.equal(report.accountEstate.usersWithParentAccess, 1)
-    assert.equal(report.accountEstate.activeParentChildLinks, 1)
+    assert.equal(report.accountEstate.usersWithParentAccess, 2)
+    assert.equal(report.accountEstate.activeParentChildLinks, 2)
     assert.equal(report.accountEstate.developmentRecords, 1)
+    assert.equal(report.accountEstate.parentOnlyAccounts, 2)
+    assert.equal(report.productActivity.activeStaff, 2)
+    assert.equal(report.staffRoleAdoption.find((row) => row.role === 'Coach').totalAccounts, 2)
+    assert.equal(report.staffRoleAdoption.find((row) => row.role === 'Coach').activeAccounts, 2)
+    assert.equal(report.identityAdoption.parentAdoption.authenticatedParentAccounts, 2)
+    assert.equal(report.identityAdoption.parentAdoption.invitationsAccepted, 2)
+    assert.match(report.generatedAt, /(Z|[+-]\d{2}:\d{2})$/)
     assert.equal(sumCounts(report.accountEstate.drilldown.customerClubs), report.accountEstate.customerClubs)
     assert.equal(sumCounts(report.accountEstate.drilldown.teams), report.accountEstate.teams)
     assert.equal(sumCounts(report.accountEstate.drilldown.activePlayers), report.accountEstate.activePlayers)
