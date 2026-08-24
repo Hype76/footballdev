@@ -170,6 +170,7 @@ export function normalizeTrainingAvailabilityDetail(row = {}) {
     emailSentAt: row.email_sent_at ?? row.emailSentAt ?? '',
     lastError: normalizeText(row.last_error ?? row.lastError),
     createdAt: row.created_at ?? row.createdAt ?? '',
+    updatedAt: row.updated_at ?? row.updatedAt ?? row.created_at ?? row.createdAt ?? '',
     responseStatus: responseStatus || 'pending',
     responseLabel: state.label,
     responseTone: state.tone,

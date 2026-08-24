@@ -511,6 +511,40 @@ async function sendTrainingInvitation({
 
   const recipientContexts = []
 
+  let failedLegacyRecipientEmails = new Set()
+  if (action === 'retry') {
+    const { data: commands, error: commandsError } = await adminSupabase
+      .from('event_player_change_commands')
+      .select('id')
+      .eq('calendar_event_id', eventId)
+      .eq('club_id', scopedEvent.club_id)
+      .eq('team_id', scopedEvent.team_id)
+
+    if (commandsError) {
+      throw commandsError
+    }
+
+    const commandIds = (commands || []).map((command) => command.id).filter(Boolean)
+    if (commandIds.length > 0) {
+      const { data: legacyFailures, error: legacyFailuresError } = await adminSupabase
+        .from('event_player_notification_events')
+        .select('recipient_email')
+        .in('command_id', commandIds)
+        .eq('player_id', playerId)
+        .eq('status', 'failed')
+
+      if (legacyFailuresError) {
+        throw legacyFailuresError
+      }
+
+      failedLegacyRecipientEmails = new Set(
+        (legacyFailures || [])
+          .map((failure) => normalizeText(failure.recipient_email).toLowerCase())
+          .filter(Boolean),
+      )
+    }
+  }
+
   for (const contact of contacts) {
     const { data: existing, error: existingError } = await adminSupabase
       .from('training_availability_request_players')
@@ -535,7 +569,11 @@ async function sendTrainingInvitation({
     ? recipientContexts
     : action === 'resend'
       ? recipientContexts.filter(({ existing }) => existing?.id)
-      : recipientContexts.filter(({ existing }) => existing?.id && existing.status === 'failed')
+      : recipientContexts.filter(({ contact, existing }) => (
+          existing?.id
+            ? existing.status === 'failed'
+            : failedLegacyRecipientEmails.has(normalizeText(contact.email).toLowerCase())
+        ))
 
   if (actionRecipients.length === 0) {
     throw Object.assign(

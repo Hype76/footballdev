@@ -79,17 +79,14 @@ async function getEligibleParentLinks(poll) {
   return [...byAuthUser.values()]
 }
 
-async function getPushDevices(poll, authUserId) {
-  let query = supabaseAdmin
+async function getPushDevices(authUserId) {
+  const { data, error } = await supabaseAdmin
     .from('parent_mobile_push_installations')
     .select('installation_id, auth_user_id, expo_push_token, parent_link_id, detail_level')
-    .eq('club_id', poll.club_id)
     .eq('auth_user_id', authUserId)
     .eq('status', 'active')
     .eq('enabled', true)
-
-  if (poll.team_id) query = query.eq('team_id', poll.team_id)
-  const { data, error } = await query
+    .neq('detail_level', 'off')
   if (error) throw error
   return data || []
 }
@@ -174,13 +171,13 @@ async function deliverPollResult({ poll, ranked, votes }) {
           teamId: poll.team_id,
           title: copy.subject,
         })
-        const devices = await getPushDevices(poll, authUserId)
+        const devices = await getPushDevices(authUserId)
         if (devices.length === 0) {
           pushStatus = 'no_device'
         } else {
           const pushResult = await sendExpoPushMessages(devices.map((device) => ({
             body: copy.body,
-            data: { ...payload, parentLinkId: device.parent_link_id || link.id },
+            data: { ...payload, parentLinkId: link.id },
             sound: 'default',
             title: copy.subject,
             to: device.expo_push_token,

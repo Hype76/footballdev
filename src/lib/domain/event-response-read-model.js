@@ -336,13 +336,26 @@ function applyDeliveryEvidence(row, deliveryRows) {
 
   const deliveryState = getDeliveryStateFromRows(playerDeliveryRows, row.deliveryState)
   const latestDelivery = getLatestRow(playerDeliveryRows)
+  const legacyDeliveryUpdatedAt = normalizeText(
+    latestDelivery?.updatedAt || latestDelivery?.requestedAt || latestDelivery?.createdAt,
+  )
+  const canonicalDeliveryUpdatedAt = normalizeText(row.deliveryUpdatedAt)
+
+  if (
+    row.requestPlayerId
+    && canonicalDeliveryUpdatedAt
+    && legacyDeliveryUpdatedAt
+    && canonicalDeliveryUpdatedAt > legacyDeliveryUpdatedAt
+  ) {
+    return row
+  }
 
   return {
     ...row,
     invitationState: 'created',
     deliveryState,
     deliveryError: normalizeText(latestDelivery?.lastError),
-    deliveryUpdatedAt: latestDelivery?.updatedAt || latestDelivery?.requestedAt || latestDelivery?.createdAt || '',
+    deliveryUpdatedAt: legacyDeliveryUpdatedAt,
     responseState: row.responseState === 'not_invited'
       ? row.eventType === 'general'
         ? 'not_requested'
@@ -558,6 +571,7 @@ export function buildEventResponseReadModel({
         notifyRequested: true,
         deliveryState,
         deliveryError: normalizeText(detail.lastError),
+        deliveryUpdatedAt: detail.updatedAt || detail.createdAt || '',
         responseState,
         responseLabel: getResponseLabel(eventType, responseState),
         responseSource,

@@ -177,11 +177,12 @@ test('test schema is least-privilege, RLS protected, indexed, and allowlisted to
   assert.match(migration, /ppl\.auth_user_id = caller_id[\s\S]*ppl\.status = 'active'/i)
 })
 
-test('logout unbinds server association and unregisters the native push token', () => {
+test('explicit notification reset can unbind while logout preserves authorised native push', () => {
   assert.match(client, /unbindParentNotifications/)
   assert.match(client, /method: 'DELETE'/)
   assert.match(client, /Notifications\.unregisterForNotificationsAsync\(\)/)
-  assert.match(app, /onBeforeSignOut=\{unbindParentNotifications\}/)
+  assert.doesNotMatch(app, /onBeforeSignOut=\{unbindParentNotifications\}/)
+  assert.match(app, /preserveNativePushOnSignOut/)
   assert.match(migration, /expo_push_token = null[\s\S]*status = 'unbound'/i)
 })
 

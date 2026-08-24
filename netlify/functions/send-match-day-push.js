@@ -172,7 +172,7 @@ async function getAppNotificationParentLinks(targetParentLinkIds) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, auth_user_id')
+    .select('id, auth_user_id, club_id, team_id')
     .in('id', targetParentLinkIds)
     .eq('status', 'active')
 
@@ -181,26 +181,30 @@ async function getAppNotificationParentLinks(targetParentLinkIds) {
   return filterParentLinksForAppNotifications(supabaseAdmin, data || [])
 }
 
-async function getMobileDevices({ match, targetParentLinkIds }) {
-  if (targetParentLinkIds.length === 0) {
+async function getMobileDevices({ targetParentLinks }) {
+  if (targetParentLinks.length === 0) {
     return []
   }
 
-  let query = supabaseAdmin
+  const linksByAuthUser = new Map()
+  for (const link of targetParentLinks) {
+    const authUserId = normalizeText(link.auth_user_id)
+    if (!authUserId) continue
+    const links = linksByAuthUser.get(authUserId) || []
+    links.push(link)
+    linksByAuthUser.set(authUserId, links)
+  }
+
+  const authUserIds = [...linksByAuthUser.keys()]
+  if (authUserIds.length === 0) return []
+
+  const { data, error } = await supabaseAdmin
     .from('parent_mobile_push_installations')
     .select('installation_id, auth_user_id, expo_push_token, parent_link_id, detail_level')
-    .eq('club_id', match.club_id)
     .eq('status', 'active')
     .eq('enabled', true)
     .neq('detail_level', 'off')
-
-  if (match.team_id) {
-    query = query.eq('team_id', match.team_id)
-  }
-
-  query = query.in('parent_link_id', targetParentLinkIds)
-
-  const { data, error } = await query
+    .in('auth_user_id', authUserIds)
 
   if (error) {
     if (isMissingTableError(error)) {
@@ -211,7 +215,11 @@ async function getMobileDevices({ match, targetParentLinkIds }) {
     throw error
   }
 
-  return data ?? []
+  return (data ?? []).flatMap((device) => {
+    const links = linksByAuthUser.get(normalizeText(device.auth_user_id)) || []
+    const targetLink = links.find((link) => link.id === device.parent_link_id) || links[0]
+    return targetLink ? [{ ...device, parent_link_id: targetLink.id }] : []
+  })
 }
 
 async function markSubscriptionRevoked(subscriptionId) {
@@ -352,8 +360,7 @@ export async function handler(event) {
       targetParentLinkIds: appNotificationParentLinkIds,
     })
     const mobileDevices = await getMobileDevices({
-      match,
-      targetParentLinkIds: appNotificationParentLinkIds,
+      targetParentLinks: appNotificationParentLinks,
     })
     const notificationCopy = buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
     const payload = {

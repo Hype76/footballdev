@@ -7,6 +7,10 @@ const migrationUrl = new URL(
   '../supabase/migrations/20260810112645_chat_mobile_notification_intents_36d.sql',
   import.meta.url,
 )
+const accountFanoutMigrationUrl = new URL(
+  '../supabase/migrations/20260824065755_mobile_notification_account_fanout_85.sql',
+  import.meta.url,
+)
 
 const id = {
   club: '10000000-0000-4000-8000-000000000001',
@@ -40,6 +44,7 @@ const id = {
 async function createDatabase() {
   const db = new PGlite()
   const migration = await readFile(migrationUrl, 'utf8')
+  const accountFanoutMigration = await readFile(accountFanoutMigrationUrl, 'utf8')
 
   await db.exec(`
     create role anon;
@@ -171,6 +176,31 @@ async function createDatabase() {
       constraint coach_mobile_notification_events_intent_check
         check (intent_type in ('coach_update', 'scorer_volunteer'))
     );
+    create table public.polls (
+      id uuid primary key,
+      club_id uuid not null,
+      team_id uuid,
+      audience text not null,
+      status text not null,
+      closes_at timestamptz
+    );
+    create table public.parent_poll_mobile_notification_intents (
+      id bigint generated always as identity primary key,
+      poll_id uuid not null,
+      installation_id uuid not null,
+      auth_user_id uuid not null,
+      parent_link_id uuid not null,
+      club_id uuid not null,
+      team_id uuid,
+      status text not null default 'pending',
+      attempt_count integer not null default 0,
+      available_at timestamptz not null default timezone('utc', now()),
+      locked_at timestamptz,
+      processed_at timestamptz,
+      safe_error_code text,
+      updated_at timestamptz not null default timezone('utc', now()),
+      unique (poll_id, installation_id)
+    );
 
     create function public.parent_chat_staff_can_access_team(
       target_user_id uuid,
@@ -228,6 +258,12 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(accountFanoutMigration)
+  await db.exec(`
+    create trigger enqueue_parent_poll_mobile_notification_intents
+    after insert on public.polls
+    for each row execute function app_private.enqueue_parent_poll_mobile_notification_intents();
+  `)
 
   await db.exec(`
     insert into public.clubs (id) values ('${id.club}'), ('${id.clubB}');
@@ -263,7 +299,7 @@ async function createDatabase() {
       ('${id.staffConversation}', '${id.club}', '${id.coachRemoved}', null);
 
     insert into public.parent_mobile_push_installations values
-      ('${id.parentInstallA}', '${id.parentA}', '${id.parentLinkA}', '${id.club}', '${id.teamA}', 'ExpoPushToken[parent-a]', 'minimal', true, 'active'),
+      ('${id.parentInstallA}', '${id.parentA}', '${id.parentLinkA}', '${id.clubB}', '${id.teamB}', 'ExpoPushToken[parent-a]', 'minimal', true, 'active'),
       ('${id.parentInstallB}', '${id.parentB}', '${id.parentLinkB}', '${id.club}', '${id.teamA}', 'ExpoPushToken[parent-b]', 'detailed', true, 'active'),
       ('${id.parentInstallOff}', '${id.parentB}', '${id.parentLinkB}', '${id.club}', '${id.teamA}', 'ExpoPushToken[parent-off]', 'minimal', false, 'active'),
       ('${id.parentInstallWrong}', '${id.parentWrong}', '${id.parentLinkWrong}', '${id.club}', '${id.teamB}', 'ExpoPushToken[parent-wrong]', 'minimal', true, 'active');
@@ -296,6 +332,7 @@ test('canonical Chat inserts generate only exact authorised app intents', async 
   `, [parentMessageId])
   assert.deepEqual(parentIntents.rows, [
     { recipient_app: 'coach', installation_id: id.coachInstallB, auth_user_id: id.coachB },
+    { recipient_app: 'coach', installation_id: id.coachInstallWrong, auth_user_id: id.coachB },
     { recipient_app: 'parent', installation_id: id.parentInstallA, auth_user_id: id.parentA },
     { recipient_app: 'parent', installation_id: id.parentInstallB, auth_user_id: id.parentB },
   ])
@@ -313,6 +350,7 @@ test('canonical Chat inserts generate only exact authorised app intents', async 
   `, [staffMessage.rows[0].id])
   assert.deepEqual(staffIntents.rows, [
     { installation_id: id.coachInstallB, auth_user_id: id.coachB },
+    { installation_id: id.coachInstallWrong, auth_user_id: id.coachB },
   ])
 
   const parentClaims = await db.query(`
@@ -322,6 +360,7 @@ test('canonical Chat inserts generate only exact authorised app intents', async 
   `)
   assert.deepEqual(parentClaims.rows, [
     { recipient_app: 'coach', installation_id: id.coachInstallB, context_id: `team:${id.teamA}` },
+    { recipient_app: 'coach', installation_id: id.coachInstallWrong, context_id: `team:${id.teamB}` },
     { recipient_app: 'parent', installation_id: id.parentInstallA, context_id: '' },
     { recipient_app: 'parent', installation_id: id.parentInstallB, context_id: '' },
   ])
@@ -331,6 +370,7 @@ test('canonical Chat inserts generate only exact authorised app intents', async 
   `)
   assert.deepEqual(staffClaims.rows, [
     { installation_id: id.coachInstallB, context_id: `team:${id.teamA}` },
+    { installation_id: id.coachInstallWrong, context_id: `team:${id.teamB}` },
   ])
 
   const intentColumns = await db.query(`
@@ -344,6 +384,45 @@ test('canonical Chat inserts generate only exact authorised app intents', async 
       and column_name in ('body', 'message_body', 'preview')
   `)
   assert.deepEqual(intentColumns.rows, [])
+
+  await db.close()
+})
+
+test('Parent Poll fanout follows account authority instead of the selected installation context', async () => {
+  const db = await createDatabase()
+  const pollId = '91000000-0000-4000-8000-000000000001'
+
+  await db.query(`
+    insert into public.polls (id, club_id, team_id, audience, status)
+    values ($1, $2, $3, 'parents', 'open')
+  `, [pollId, id.club, id.teamA])
+
+  const intents = await db.query(`
+    select installation_id::text, auth_user_id::text, parent_link_id::text
+    from public.parent_poll_mobile_notification_intents
+    where poll_id = $1
+    order by installation_id
+  `, [pollId])
+  assert.deepEqual(intents.rows, [
+    { installation_id: id.parentInstallA, auth_user_id: id.parentA, parent_link_id: id.parentLinkA },
+    { installation_id: id.parentInstallB, auth_user_id: id.parentB, parent_link_id: id.parentLinkB },
+  ])
+
+  await db.query(`update public.parent_player_links set status = 'revoked' where id = $1`, [id.parentLinkB])
+  const claims = await db.query(`
+    select installation_id::text, parent_link_id::text
+    from public.claim_parent_poll_mobile_notification_intents(50)
+  `)
+  assert.deepEqual(claims.rows, [
+    { installation_id: id.parentInstallA, parent_link_id: id.parentLinkA },
+  ])
+
+  const skipped = await db.query(`
+    select count(*)::int as count
+    from public.parent_poll_mobile_notification_intents
+    where status = 'skipped'
+  `)
+  assert.equal(skipped.rows[0].count, 1)
 
   await db.close()
 })
@@ -379,7 +458,7 @@ test('claim revalidates removed authority, sender exclusion, Off, and active con
       (select count(*)::int from public.parent_chat_mobile_notification_intents where status = 'skipped') as parent_skipped,
       (select count(*)::int from public.staff_chat_mobile_notification_intents where status = 'skipped') as staff_skipped
   `)
-  assert.deepEqual(skipped.rows[0], { parent_skipped: 2, staff_skipped: 1 })
+  assert.deepEqual(skipped.rows[0], { parent_skipped: 3, staff_skipped: 2 })
 
   const privileges = await db.query(`
     select

@@ -108,6 +108,7 @@ export function StaffChatPage() {
   const [isSending, setIsSending] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const loadRequestIdRef = useRef(0)
+  const messageListRef = useRef(null)
 
   const canOpenStaffChat = canUseStaffChat(user)
   const canOpenClubStaffChat = canUseClubStaffChat(user)
@@ -120,6 +121,15 @@ export function StaffChatPage() {
   const visibleConversations = conversations.filter((conversation) => conversation.type === activeType)
   const activeStaff = staff.filter((person) => person.id !== user?.id)
   const selectedMemberSet = useMemo(() => new Set(selectedMembers), [selectedMembers])
+
+  useEffect(() => {
+    if (!selectedConversationId) return
+    const frame = requestAnimationFrame(() => {
+      const list = messageListRef.current
+      if (list) list.scrollTop = list.scrollHeight
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [messages.length, selectedConversationId])
 
   const loadStaffChat = useCallback(async () => {
     const requestId = loadRequestIdRef.current + 1
@@ -422,8 +432,8 @@ export function StaffChatPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[24rem_minmax(0,1fr)]">
-        <aside className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm">
+      <div className="grid h-[calc(100dvh-12rem)] min-h-0 max-h-[54rem] gap-5 xl:grid-cols-[24rem_minmax(0,1fr)]">
+        <aside className={`${selectedConversation ? 'hidden xl:block' : 'block'} min-h-0 overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-3 shadow-sm`}>
           <div className="grid grid-cols-2 gap-2">
             {availableConversationTabs.map((tab) => (
               <button
@@ -507,13 +517,22 @@ export function StaffChatPage() {
           />
         </aside>
 
-        <main className="min-h-[34rem] rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm">
+        <main className={`${selectedConversation ? 'block' : 'hidden xl:block'} min-h-0 overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm`}>
           {selectedConversation ? (
-            <div className="flex min-h-[34rem] flex-col">
-              <div className="flex flex-col gap-3 border-b border-[var(--border-color)] px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="flex shrink-0 flex-col gap-3 border-b border-[var(--border-color)] px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedConversationId('')}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-2 text-sm font-black text-[var(--text-primary)] xl:hidden"
+                  >
+                    Chats
+                  </button>
+                  <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--accent)]">{getConversationMeta(selectedConversation)}</p>
-                  <h2 className="mt-1 text-xl font-black text-[var(--text-primary)]">{getConversationTitle(selectedConversation, user.id)}</h2>
+                    <h2 className="mt-1 truncate text-xl font-black text-[var(--text-primary)]">{getConversationTitle(selectedConversation, user.id)}</h2>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -524,7 +543,7 @@ export function StaffChatPage() {
                 </button>
               </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4" ref={messageListRef}>
                 {messages.length === 0 ? (
                   <div className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 text-sm font-bold text-[var(--text-muted)]">
                     No messages yet. Start the Coaches conversation when you are ready.
@@ -566,21 +585,22 @@ export function StaffChatPage() {
                 })}
               </div>
 
-              <form onSubmit={sendMessage} className="border-t border-[var(--border-color)] p-4">
+              <form onSubmit={sendMessage} className="shrink-0 border-t border-[var(--border-color)] p-3 sm:p-4">
                 <label className="sr-only" htmlFor="staff-chat-message">Message</label>
-                <textarea
-                  id="staff-chat-message"
-                  value={draftMessage}
-                  onChange={(event) => setDraftMessage(event.target.value)}
-                  placeholder="Write a Coach-only message"
-                  rows={3}
-                  className="min-h-24 w-full resize-y rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] px-3 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
-                />
-                <div className="mt-3 flex justify-end">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    id="staff-chat-message"
+                    value={draftMessage}
+                    onChange={(event) => setDraftMessage(event.target.value.slice(0, 2000))}
+                    maxLength={2000}
+                    placeholder="Write a Coach-only message"
+                    rows={1}
+                    className="min-h-12 max-h-32 flex-1 resize-none rounded-2xl border border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-3 text-sm font-semibold text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+                  />
                   <button
                     type="submit"
                     disabled={isSending || !draftMessage.trim()}
-                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[var(--button-primary)] px-5 py-2 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-[var(--button-primary)] px-5 py-2 text-sm font-black text-[var(--button-primary-text)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSending ? 'Sending...' : 'Send'}
                   </button>

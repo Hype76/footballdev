@@ -35,6 +35,12 @@ function staffChatLabel(conversationType) {
   return 'Direct Coach Chat'
 }
 
+function getCoachTargetContext({ clubId, contextId, teamId }) {
+  if (normalizeText(teamId)) return `team:${normalizeText(teamId)}`
+  if (normalizeText(clubId)) return `club:${normalizeText(clubId)}`
+  return normalizeText(contextId)
+}
+
 export function buildParentChatMobileNotification(intent = {}) {
   const recipientApp = normalizeText(intent.recipient_app)
   const detailLevel = normalizeDetailLevel(intent.detail_level)
@@ -48,7 +54,11 @@ export function buildParentChatMobileNotification(intent = {}) {
     data: {
       app: isParent ? 'parent' : 'coach',
       chatType: normalizeText(intent.room_type),
-      contextId: isParent ? '' : normalizeText(intent.context_id),
+      contextId: isParent ? '' : getCoachTargetContext({
+        clubId: intent.club_id,
+        contextId: intent.context_id,
+        teamId: intent.team_id,
+      }),
       parentLinkId: isParent ? normalizeText(intent.parent_link_id) : '',
       messageId: normalizeText(intent.message_id),
       roomId: normalizeText(intent.room_id),
@@ -74,7 +84,11 @@ export function buildStaffChatMobileNotification(intent = {}) {
       app: 'coach',
       chatType: normalizeText(intent.conversation_type),
       conversationId: normalizeText(intent.conversation_id),
-      contextId: normalizeText(intent.context_id),
+      contextId: getCoachTargetContext({
+        clubId: intent.club_id,
+        contextId: intent.context_id,
+        teamId: intent.team_id,
+      }),
       route: 'chat',
       teamId: normalizeText(intent.team_id),
       type: 'staff_chat',

@@ -7,15 +7,14 @@ import {
   processChatMobileNotifications,
 } from '../netlify/functions/process-chat-mobile-notifications.js'
 
-test('Parent Chat avoids Android double keyboard resizing and keeps the focused room route', async () => {
+test('Parent Chat keeps the Android composer above the keyboard in the focused room route', async () => {
   const [app, config, screens] = await Promise.all([
     readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/mobile-core/appConfig.cjs', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url), 'utf8'),
   ])
-  assert.match(app, /behavior=\{Platform\.OS === 'ios' \? 'padding' : undefined\}/)
-  assert.match(app, /enabled=\{Platform\.OS === 'ios'\}/)
-  assert.doesNotMatch(app, /Platform\.OS === 'ios' \? 'padding' : 'height'/)
+  assert.match(app, /behavior=\{Platform\.OS === 'ios' \? 'padding' : 'height'\}/)
+  assert.match(app, /enabled=\{Platform\.OS === 'ios' \|\| focusedChatRoom\}/)
   assert.match(config, /softwareKeyboardLayoutMode: 'resize'/)
   assert.match(screens, /style=\{styles\.chatList\}/)
   assert.match(screens, /Back to Chat rooms/)

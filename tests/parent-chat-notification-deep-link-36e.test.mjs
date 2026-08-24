@@ -40,7 +40,7 @@ test('Parent Chat notification targets only an authoritative Parent link and exa
 
 test('Parent app switches child context before consuming and verifies current resources before opening', () => {
   assert.match(parentAppSource, /if \(requestedLinkId && requestedLinkId !== selectedLink\?\.id\) \{\s*setSelectedLinkId\(requestedLinkId\)\s*return undefined\s*\}/)
-  assert.match(parentAppSource, /notificationResponseProcessingRef\.current = responseId[\s\S]*void loadParentData\(\)[\s\S]*resolveParentNotificationOpen/)
+  assert.match(parentAppSource, /notificationResponseProcessingRef\.current = responseId[\s\S]*void loadCurrentParentNotificationData\(loadParentData\)[\s\S]*resolveParentNotificationOpen/)
   assert.match(parentAppSource, /requestedTargetId && !destination\.targetId/)
   assert.match(parentAppSource, /if \(destination\.tab === 'chat'\)[\s\S]*setSelectedRoomId\(room\.id\)[\s\S]*else setSelectedRoomId\(''\)/)
 })

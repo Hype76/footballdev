@@ -66,7 +66,6 @@ import {
   enableCoachNotifications,
   initializeCoachNotifications,
   loadCoachNotificationState,
-  unbindCoachNotifications,
   updateCoachNotificationPreference,
 } from './src/notifications'
 
@@ -775,7 +774,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
             />
             <PreviewCard
               actionLabel="Open Sessions"
-              detail={nextSession ? `${formatDateTime(nextSession.sessionDate || nextSession.session_date)} | ${nextSession.title || nextSession.type || 'Training session'}` : 'No upcoming session is available.'}
+              detail={nextSession ? `${formatDateTime(nextSession.startsAt || nextSession.sessionDate || nextSession.session_date)} | ${nextSession.title || nextSession.type || 'Training session'}` : 'No upcoming session is available.'}
               onAction={() => onNavigate('sessions')}
               title="Next session"
             />
@@ -1260,8 +1259,7 @@ function AppContent() {
   return <CoachHome />
 }
 
-async function clearCoachBeforeSignOut({ accessToken, apiBaseUrl }) {
-  await unbindCoachNotifications({ accessToken, apiBaseUrl }).catch(() => {})
+async function clearCoachBeforeSignOut() {
   await clearCoachAllLocalState()
 }
 
@@ -1277,6 +1275,7 @@ export default function App() {
           onBeforeSignOut={clearCoachBeforeSignOut}
           onResetLocalData={clearCoachAllLocalState}
           prepareStartup={prepareCoachMobileStartup}
+          preserveNativePushOnSignOut
         >
           <AppContent />
         </AuthProvider>

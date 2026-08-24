@@ -124,8 +124,10 @@ function buildPayload({ detailLevel, match, type }) {
         : 'A scorer volunteer is ready to review.',
       data: {
         app: 'coach',
+        contextId: match.team_id ? `team:${match.team_id}` : `club:${match.club_id}`,
         matchDayId: match.id,
         route: 'matchday',
+        teamId: match.team_id || '',
         type,
       },
       title: 'Scorer volunteer',
@@ -137,8 +139,10 @@ function buildPayload({ detailLevel, match, type }) {
     body: detailed ? matchName : 'You have a new Coach update.',
     data: {
       app: 'coach',
+      contextId: match.team_id ? `team:${match.team_id}` : `club:${match.club_id}`,
       matchDayId: match.id,
       route: 'matchday',
+      teamId: match.team_id || '',
       type,
     },
     title: 'Coach update',
@@ -147,21 +151,14 @@ function buildPayload({ detailLevel, match, type }) {
 }
 
 async function getCoachDevices(match, client = supabaseAdmin) {
-  let query = client
+  const { data, error } = await client
     .from('coach_mobile_push_installations')
     .select(
       'installation_id, auth_user_id, user_profile_id, club_id, team_id, context_id, expo_push_token, detail_level',
     )
-    .eq('club_id', match.club_id)
     .eq('status', 'active')
     .eq('enabled', true)
     .neq('detail_level', 'off')
-
-  if (match.team_id) {
-    query = query.or(`team_id.is.null,team_id.eq.${match.team_id}`)
-  }
-
-  const { data, error } = await query
 
   if (error) {
     throw error
@@ -188,19 +185,16 @@ async function getCoachDevices(match, client = supabaseAdmin) {
         )
           return null
 
-        if (!device.team_id) {
-          return role === 'admin' && roleRank >= 90 && device.context_id === `club:${match.club_id}` ? device : null
-        }
+        if (!match.team_id) return role === 'admin' && roleRank >= 90 ? device : null
 
         const { data: team, error: teamError } = await client
           .from('teams')
           .select('id, club_id, status, archived_at')
-          .eq('id', device.team_id)
+          .eq('id', match.team_id)
           .eq('club_id', match.club_id)
           .maybeSingle()
         if (teamError) throw teamError
         if (!team?.id || normalizeText(team.status || 'active') !== 'active' || team.archived_at) return null
-        if (device.context_id !== `team:${team.id}`) return null
         if (role === 'admin' && roleRank >= 90) return device
 
         const { data: assignment, error: assignmentError } = await client

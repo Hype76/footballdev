@@ -318,24 +318,30 @@ async function getTargetParentLinks(payload) {
   return filterParentLinksForAppNotifications(supabaseAdmin, data ?? [])
 }
 
-async function getMobileDevices({ clubId, parentLinkIds, teamId }) {
-  if (parentLinkIds.length === 0) {
+async function getMobileDevices({ parentLinks }) {
+  if (parentLinks.length === 0) {
     return []
   }
 
-  let query = supabaseAdmin
-    .from('parent_mobile_push_installations')
-    .select('installation_id, auth_user_id, expo_push_token, parent_link_id, detail_level')
-    .eq('club_id', clubId)
-    .eq('status', 'active')
-    .eq('enabled', true)
-    .in('parent_link_id', parentLinkIds)
-
-  if (teamId) {
-    query = query.eq('team_id', teamId)
+  const linksByAuthUser = new Map()
+  for (const link of parentLinks) {
+    const authUserId = normalizeText(link.auth_user_id)
+    if (!authUserId) continue
+    const links = linksByAuthUser.get(authUserId) || []
+    links.push(link)
+    linksByAuthUser.set(authUserId, links)
   }
 
-  const { data, error } = await query
+  const authUserIds = [...linksByAuthUser.keys()]
+  if (authUserIds.length === 0) return []
+
+  const { data, error } = await supabaseAdmin
+    .from('parent_mobile_push_installations')
+    .select('installation_id, auth_user_id, expo_push_token, parent_link_id, detail_level')
+    .eq('status', 'active')
+    .eq('enabled', true)
+    .neq('detail_level', 'off')
+    .in('auth_user_id', authUserIds)
 
   if (error) {
     if (isMissingTableError(error)) {
@@ -346,7 +352,11 @@ async function getMobileDevices({ clubId, parentLinkIds, teamId }) {
     throw error
   }
 
-  return data ?? []
+  return (data ?? []).flatMap((device) => {
+    const links = linksByAuthUser.get(normalizeText(device.auth_user_id)) || []
+    const targetLink = links.find((link) => link.id === device.parent_link_id) || links[0]
+    return targetLink ? [{ ...device, parent_link_id: targetLink.id }] : []
+  })
 }
 
 async function revokeMobileDeviceTokens(deviceTokens) {
@@ -392,9 +402,7 @@ export async function sendParentMobilePushById({ id, profile, type }) {
       : await getPollPayload({ id, profile })
   const parentLinks = await getTargetParentLinks(payload)
   const devices = await getMobileDevices({
-    clubId: payload.clubId,
-    parentLinkIds: parentLinks.map((link) => link.id).filter(Boolean),
-    teamId: payload.teamId,
+    parentLinks,
   })
   const inboxResult = await writeParentNotificationInbox({
     body: payload.minimalBody,

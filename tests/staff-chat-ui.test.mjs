@@ -36,3 +36,13 @@ test('Staff Chat UI keeps V1 labels and excludes parent or player chat controls'
   assert.doesNotMatch(page, /push notification/i)
   assert.doesNotMatch(page, /attachment/i)
 })
+
+test('Staff Chat keeps room and message scrolling separate from its persistent composer', async () => {
+  const page = await readFile(pageUrl, 'utf8')
+
+  assert.match(page, /h-\[calc\(100dvh-12rem\)\]/)
+  assert.match(page, /min-h-0 overflow-y-auto/)
+  assert.match(page, /min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain/)
+  assert.match(page, /form onSubmit=\{sendMessage\} className="shrink-0/)
+  assert.match(page, /messageListRef\.current[\s\S]*list\.scrollTop = list\.scrollHeight/)
+})

@@ -330,7 +330,7 @@ export function ParentChatWorkspace({
 
   return (
     <section className={`${panelClass} overflow-hidden`} aria-label={variant === 'staff' ? 'Parent Chat workspace' : 'Chat'}>
-      <div className="border-b border-[#d7e5dc] bg-white px-5 py-5 sm:px-6">
+      <div className={`${selectedRoom ? 'hidden lg:block' : 'block'} border-b border-[#d7e5dc] bg-white px-5 py-5 sm:px-6`}>
         <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">
           {variant === 'staff' ? 'Parent communication' : 'Family communication'}
         </p>
@@ -375,8 +375,8 @@ export function ParentChatWorkspace({
         </p>
       ) : null}
 
-      <div className="grid min-h-[34rem] bg-[#f7faf8] lg:grid-cols-[22rem_minmax(0,1fr)]">
-        <aside className={`${selectedRoom ? 'hidden lg:block' : 'block'} border-r-0 border-[#d7e5dc] bg-white p-4 lg:border-r sm:p-5`}>
+      <div className="grid h-[calc(100dvh-8rem)] min-h-0 max-h-[54rem] bg-[#f7faf8] lg:grid-cols-[22rem_minmax(0,1fr)]">
+        <aside className={`${selectedRoom ? 'hidden lg:block' : 'block'} min-h-0 overflow-y-auto border-r-0 border-[#d7e5dc] bg-white p-4 lg:border-r sm:p-5`}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-black text-[#101828]">Your rooms</p>
@@ -426,7 +426,7 @@ export function ParentChatWorkspace({
           )}
         </aside>
 
-        <div className={`${selectedRoom ? 'flex' : 'hidden lg:flex'} min-w-0 flex-col bg-[#f7faf8]`}>
+        <div className={`${selectedRoom ? 'flex' : 'hidden lg:flex'} min-h-0 min-w-0 flex-col bg-[#f7faf8]`}>
           {selectedRoom ? (
             <>
               <RoomHeader
@@ -653,29 +653,27 @@ function MessageComposer({ canPost, draft, isSending, onChange, onSubmit, roomSt
   }
 
   return (
-    <form onSubmit={onSubmit} className="border-t border-[#d7e5dc] bg-white px-4 py-4 sm:px-6">
-      <label htmlFor="parent-chat-message" className="text-xs font-black uppercase tracking-[0.14em] text-[#4b5f55]">
-        Message
-      </label>
-      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
+    <form onSubmit={onSubmit} className="shrink-0 border-t border-[#d7e5dc] bg-white px-3 py-3 sm:px-5">
+      <label htmlFor="parent-chat-message" className="sr-only">Message</label>
+      <div className="flex items-end gap-2">
         <textarea
           id="parent-chat-message"
           value={draft}
           onChange={(event) => onChange(event.target.value.slice(0, 2000))}
-          rows={3}
+          rows={1}
           maxLength={2000}
           placeholder="Write a message"
-          className="min-h-24 flex-1 resize-y rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 text-base font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
+          className="min-h-12 max-h-32 flex-1 resize-none rounded-2xl border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-base font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]"
         />
         <button
           type="submit"
           disabled={isSending || !draft.trim()}
-          className={`${primaryButtonClass} sm:min-w-28`}
+          className={`${primaryButtonClass} shrink-0 sm:min-w-24`}
         >
           {isSending ? 'Sending...' : 'Send'}
         </button>
       </div>
-      <p className="mt-2 text-right text-xs font-semibold text-[#667085]">{draft.length} / 2000</p>
+      <p className="mt-1 text-right text-xs font-semibold text-[#667085]">{draft.length} / 2000</p>
     </form>
   )
 }

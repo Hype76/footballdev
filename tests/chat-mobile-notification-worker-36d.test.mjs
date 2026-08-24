@@ -76,7 +76,7 @@ test('Parent and Coach Chat payloads preserve products, deep links, and privacy 
     detail_level: 'detailed',
     room_type: 'parent_staff',
     room_id: 'room-2',
-    context_id: 'team:team-2',
+    context_id: 'team:team-selected-elsewhere',
     team_id: 'team-2',
     expo_push_token: 'ExponentPushToken[coach]',
   })
@@ -84,7 +84,7 @@ test('Parent and Coach Chat payloads preserve products, deep links, and privacy 
     detail_level: 'detailed',
     conversation_type: 'team_staff',
     conversation_id: 'conversation-1',
-    context_id: 'team:team-1',
+    context_id: 'team:team-selected-elsewhere',
     team_id: 'team-1',
     expo_push_token: 'ExponentPushToken[staff]',
   })

@@ -3,6 +3,27 @@ import { collapseCoachInvitesByPlayer } from './coachPhase31ECore.js'
 const normalize = (value) => String(value ?? '').trim()
 const asArray = (value) => Array.isArray(value) ? value : []
 
+function timestamp(value) {
+  const parsed = new Date(normalize(value)).getTime()
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function localDateTime(date, time = '23:59:59') {
+  const normalizedDate = normalize(date)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) return null
+  return timestamp(`${normalizedDate}T${normalize(time) || '23:59:59'}`)
+}
+
+function selectNext(rows, { dateTime, excludedStatuses = [], now }) {
+  const nowTime = now instanceof Date ? now.getTime() : timestamp(now) ?? Date.now()
+  const excluded = new Set(excludedStatuses)
+  return asArray(rows)
+    .filter((item) => !excluded.has(normalize(item?.status).toLowerCase()))
+    .map((item) => ({ item, time: dateTime(item) }))
+    .filter(({ time }) => time !== null && time >= nowTime)
+    .sort((left, right) => left.time - right.time)[0]?.item || null
+}
+
 function getInvitePlayerKey(invite = {}) {
   const kind = normalize(invite?.kind).toLowerCase()
   const eventId = normalize(invite?.eventId)
@@ -37,9 +58,34 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
   const activePolls = polls.filter((poll) => normalize(poll?.status).toLowerCase() === 'open').length
   const unreadChat = chatRooms.reduce((total, room) => total + Math.max(0, Number(room?.unreadCount || 0)), 0)
   const unreadCommunication = 0
-  const nextCalendar = calendar.find((item) => !['cancelled', 'completed'].includes(normalize(item?.status).toLowerCase())) || calendar[0] || null
-  const nextMatch = matches.find((item) => !['full_time', 'completed', 'cancelled'].includes(normalize(item?.status).toLowerCase())) || matches[0] || null
-  const nextSession = sessions.find((item) => !['completed', 'cancelled'].includes(normalize(item?.status).toLowerCase())) || sessions[0] || null
+  const now = input.now || new Date()
+  const nextCalendar = selectNext(calendar, {
+    dateTime: (item) => timestamp(item?.startsAt || item?.endsAt),
+    excludedStatuses: ['cancelled', 'completed'],
+    now,
+  })
+  const nextMatch = selectNext(matches, {
+    dateTime: (item) => localDateTime(item?.matchDate || item?.match_date, item?.kickoffTime || item?.kickoff_time),
+    excludedStatuses: ['full_time', 'completed', 'cancelled'],
+    now,
+  })
+  const nextAssessmentSession = selectNext(sessions, {
+    dateTime: (item) => localDateTime(item?.sessionDate || item?.session_date, item?.startTime || item?.start_time),
+    excludedStatuses: ['completed', 'cancelled'],
+    now,
+  })
+  const nextTraining = selectNext(calendar.filter((item) => normalize(item?.eventType).toLowerCase() === 'training'), {
+    dateTime: (item) => timestamp(item?.startsAt || item?.endsAt),
+    excludedStatuses: ['cancelled', 'completed'],
+    now,
+  })
+  const nextSession = [nextTraining, nextAssessmentSession]
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftTime = timestamp(left.startsAt) ?? localDateTime(left.sessionDate || left.session_date, left.startTime || left.start_time) ?? Number.MAX_SAFE_INTEGER
+      const rightTime = timestamp(right.startsAt) ?? localDateTime(right.sessionDate || right.session_date, right.startTime || right.start_time) ?? Number.MAX_SAFE_INTEGER
+      return leftTime - rightTime
+    })[0] || null
   return Object.freeze({
     activePolls,
     calendar,

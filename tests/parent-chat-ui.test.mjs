@@ -69,6 +69,16 @@ test('V1 Chat supports text, safe links, unread state, realtime refresh and no e
   assert.doesNotMatch(domain, /send email|notification|invite|sms/i)
 })
 
+test('Chat uses a WhatsApp-style fixed conversation viewport with a persistent composer', async () => {
+  const workspace = await readFile(workspaceUrl, 'utf8')
+
+  assert.match(workspace, /h-\[calc\(100dvh-8rem\)\]/)
+  assert.match(workspace, /min-h-0 overflow-y-auto/)
+  assert.match(workspace, /min-h-0 flex-1 overflow-y-auto overscroll-contain/)
+  assert.match(workspace, /form onSubmit=\{onSubmit\} className="shrink-0/)
+  assert.match(workspace, /rows=\{1\}/)
+})
+
 test('staff receives a separate Parent Chat surface without altering Staff Chat', async () => {
   const [router, navigation, staffPage] = await Promise.all([
     readFile(routerUrl, 'utf8'),

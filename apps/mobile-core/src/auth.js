@@ -50,6 +50,7 @@ export function AuthProvider({
   onBeforeSignOut = null,
   onResetLocalData = null,
   prepareStartup = null,
+  preserveNativePushOnSignOut = false,
 }) {
   const [authError, setAuthError] = useState('')
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0)
@@ -310,7 +311,7 @@ export function AuthProvider({
           accessToken,
           apiBaseUrl: config.apiBaseUrl,
         })
-      } else if (accessToken && config.apiBaseUrl) {
+      } else if (!preserveNativePushOnSignOut && accessToken && config.apiBaseUrl) {
         await revokeNativePushDevice({
           accessToken,
           apiBaseUrl: config.apiBaseUrl,
@@ -353,7 +354,7 @@ export function AuthProvider({
       setAuthError(signOutError.message || 'Sign out failed.')
       throw signOutError
     }
-  }, [appRole, offlineProfileStore, onBeforeSignOut])
+  }, [appRole, offlineProfileStore, onBeforeSignOut, preserveNativePushOnSignOut])
 
   const requestPasswordReset = useCallback(async (email) => {
     setAuthError('')

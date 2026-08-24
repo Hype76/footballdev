@@ -65,17 +65,22 @@ test('known destructive, dense, financial, and platform exclusions remain delibe
 
 test('Home operational snapshot uses canonical domain results without inventing a task model', () => {
   const snapshot = buildCoachHomeOperationalSnapshot({
-    calendar: [{ id: 'c1', status: 'scheduled', title: 'Training' }],
+    now: '2026-08-24T07:55:00Z',
+    calendar: [
+      { id: 'past-histon', eventType: 'match', startsAt: '2026-08-20T23:59:00Z', status: 'scheduled', title: 'U14s EJA v Histon' },
+      { id: 'c1', eventType: 'training', startsAt: '2026-08-24T19:00:00Z', status: 'scheduled', title: 'Monday Training' },
+      { id: 'cancelled-training', eventType: 'training', startsAt: '2026-08-24T18:00:00Z', status: 'cancelled', title: 'Cancelled Training' },
+    ],
     chatRooms: [{ id: 'r1', unreadCount: 2 }],
     development: { records: [{ id: 'd1' }, { id: 'd2' }] },
     invites: { all: [
       { eventId: 'm1', id: 'i1', kind: 'match', playerId: 'p1', sentAt: '2026-08-23T09:00:00Z', status: 'pending' },
       { eventId: 'm1', id: 'i2', kind: 'match', playerId: 'p2', sentAt: '2026-08-23T09:00:00Z', status: 'available' },
     ] },
-    matches: [{ id: 'm1', status: 'scheduled' }],
+    matches: [{ id: 'm1', kickoffTime: '10:00:00', matchDate: '2026-08-30', status: 'scheduled' }],
     messages: [{ id: 'x1', readAt: '' }, { id: 'x2', readAt: 'now' }],
     polls: [{ id: 'p1', status: 'open' }, { id: 'p2', status: 'closed' }],
-    sessions: [{ id: 's1', status: 'scheduled' }],
+    sessions: [{ id: 's1', sessionDate: '2026-08-25', startTime: '18:00:00', status: 'scheduled' }],
     summary: { activePlayers: 12 },
   })
   assert.equal(snapshot.pendingAvailability, 1)
@@ -84,8 +89,9 @@ test('Home operational snapshot uses canonical domain results without inventing 
   assert.equal(snapshot.unreadCommunication, 0)
   assert.equal(snapshot.developmentRecords, 2)
   assert.equal(snapshot.nextMatch.id, 'm1')
-  assert.equal(snapshot.nextSession.id, 's1')
+  assert.equal(snapshot.nextSession.id, 'c1')
   assert.equal(snapshot.nextCalendar.id, 'c1')
+  assert.notEqual(snapshot.nextCalendar.id, 'past-histon')
   assert.equal('tasks' in snapshot, false)
 })
 

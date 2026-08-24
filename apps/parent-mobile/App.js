@@ -123,7 +123,6 @@ import {
   initializeParentNotifications,
   loadParentNotificationState,
   sendParentTestNotification,
-  unbindParentNotifications,
   updateParentNotificationPreference,
 } from './src/notifications'
 import { prepareParentMobileStartup } from './src/startup'
@@ -1609,8 +1608,8 @@ function ParentHome() {
     <SafeAreaView style={[styles.safeArea, displayTheme === 'light' && styles.safeAreaLight]}>
       <StatusBar style={displayTheme === 'light' ? 'dark' : 'light'} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        enabled={Platform.OS === 'ios'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        enabled={Platform.OS === 'ios' || focusedChatRoom}
         style={styles.keyboardShell}
       >
         {!focusedChatRoom ? <AppHeader
@@ -2937,8 +2936,8 @@ export default function App() {
         <AuthProvider
           appRole="parent"
           offlineProfileStore={parentOfflineProfileStore}
-          onBeforeSignOut={unbindParentNotifications}
           prepareStartup={prepareParentMobileStartup}
+          preserveNativePushOnSignOut
         >
           <AppContent />
         </AuthProvider>

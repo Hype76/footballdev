@@ -387,6 +387,51 @@ test('training occurrences keep their own recipient and response state', () => {
   assert.equal(secondOccurrence.participants[0].responseSource, 'adult_player')
 })
 
+test('newer canonical training delivery state supersedes an older legacy failure', () => {
+  const event = {
+    sourceId: CALENDAR_ID,
+    sourceType: 'calendar',
+    data: { eventType: 'training' },
+  }
+  const common = {
+    requestId: 'request-current',
+    requestPlayerId: 'request-player-current',
+    occurrenceDate: '2026-08-24',
+    playerId: 'player-current',
+    playerName: 'Current Player',
+    recipientStatus: 'queued',
+    responseStatus: 'pending',
+  }
+  const deliveryEvents = [{
+    playerId: 'player-current',
+    status: 'failed',
+    lastError: 'Email delivery failed.',
+    requestedAt: '2026-08-23T14:47:48Z',
+  }]
+
+  const current = buildEventResponseReadModel({
+    deliveryEvents,
+    event,
+    occurrenceDate: '2026-08-24',
+    trainingAvailabilitySummary: {
+      details: [{ ...common, updatedAt: '2026-08-24T08:00:00Z' }],
+    },
+  }).participants[0]
+  assert.equal(current.deliveryState, 'queued')
+  assert.equal(current.warningState, '')
+
+  const staleCanonical = buildEventResponseReadModel({
+    deliveryEvents,
+    event,
+    occurrenceDate: '2026-08-24',
+    trainingAvailabilitySummary: {
+      details: [{ ...common, updatedAt: '2026-08-23T08:00:00Z' }],
+    },
+  }).participants[0]
+  assert.equal(staleCanonical.deliveryState, 'failed')
+  assert.equal(staleCanonical.warningState, 'delivery_issue')
+})
+
 test('training states use attending language and remain separate from attendance', () => {
   const event = {
     sourceId: CALENDAR_ID,

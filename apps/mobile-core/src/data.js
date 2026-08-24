@@ -155,6 +155,7 @@ function normalizeSession(row) {
     opponent: normalizeText(row.opponent),
     sessionDate: row.session_date || '',
     sessionType: normalizeText(row.session_type || 'training'),
+    startTime: normalizeText(row.start_time).slice(0, 5),
     status: normalizeText(row.status || 'open'),
     team: normalizeText(row.team),
     teamId: row.team_id || '',
@@ -353,7 +354,7 @@ export async function getCoachSessions(user) {
 
   let query = supabase
     .from('assessment_sessions')
-    .select('id, team_id, team, title, opponent, session_type, session_date, status, completed_at')
+    .select('id, team_id, team, title, opponent, session_type, session_date, start_time, status, completed_at')
     .eq('club_id', user.clubId)
     .order('session_date', { ascending: false })
     .order('created_at', { ascending: false })
