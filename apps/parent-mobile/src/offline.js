@@ -15,6 +15,7 @@ import {
   getParentSyncAttentionItems,
   getParentSyncSummary,
   reconcileParentSyncAttention,
+  sanitizeParentOfflineProfile,
   setParentOfflineProfile,
   setParentOfflineResources,
   setParentOfflineSelection,
@@ -85,44 +86,6 @@ function normalize(value) {
   return String(value ?? '').trim()
 }
 
-function sanitizeParentProfile(profile) {
-  const links = getParentPortalLinks(profile).map((link) => ({
-    clubId: normalize(link.clubId),
-    clubName: normalize(link.clubName),
-    id: normalize(link.id),
-    linkType: normalize(link.linkType),
-    playerId: normalize(link.playerId),
-    playerName: normalize(link.playerName),
-    playerSection: normalize(link.playerSection),
-    teamId: normalize(link.teamId),
-    teamName: normalize(link.teamName),
-  }))
-  const selectedParentLinkId = links.some((link) => link.id === normalize(profile?.selectedParentLinkId))
-    ? normalize(profile.selectedParentLinkId)
-    : links[0]?.id || ''
-  return {
-    accountStatus: normalize(profile?.accountStatus || 'active'),
-    activeTeamId: normalize(profile?.activeTeamId),
-    activeTeamName: normalize(profile?.activeTeamName),
-    clubId: normalize(profile?.clubId),
-    clubName: normalize(profile?.clubName),
-    displayName: normalize(profile?.displayName),
-    email: normalize(profile?.email).toLowerCase(),
-    hasActivePlanAccess: profile?.hasActivePlanAccess === true,
-    hasParentAccess: links.length > 0,
-    id: normalize(profile?.id),
-    name: normalize(profile?.name),
-    parentPortalLinks: links,
-    planStatus: normalize(profile?.planStatus || 'active'),
-    role: 'parent_portal',
-    roleLabel: 'Parent',
-    roleRank: 0,
-    selectedParentLinkId,
-    selectedPlayerId: links.find((link) => link.id === selectedParentLinkId)?.playerId || '',
-    selectedPlayerName: links.find((link) => link.id === selectedParentLinkId)?.playerName || '',
-  }
-}
-
 async function readDocument(userScope) {
   return (await store.read(userScope)).document
 }
@@ -132,7 +95,7 @@ async function writeDocument(userScope, document) {
 }
 
 async function ensureDocument(profile) {
-  const sanitized = sanitizeParentProfile(profile)
+  const sanitized = sanitizeParentOfflineProfile(profile)
   const userScope = sanitized.id
   if (!userScope) throw new Error('offline_profile_scope_mismatch')
   const existing = await readDocument(userScope)

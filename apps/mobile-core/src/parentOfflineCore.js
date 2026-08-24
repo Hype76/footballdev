@@ -1,3 +1,5 @@
+import { getParentPortalLinks } from './parentLinks.js'
+
 export const PARENT_OFFLINE_DOCUMENT_SCHEMA_VERSION = 1
 export const PARENT_OFFLINE_COMMAND_SCHEMA_VERSION = 1
 export const PARENT_OFFLINE_MAX_AUTOMATIC_ATTEMPTS = 5
@@ -11,6 +13,48 @@ function normalize(value) {
 
 function isoNow(now) {
   return new Date(now()).toISOString()
+}
+
+export function sanitizeParentOfflineProfile(profile) {
+  const links = getParentPortalLinks(profile).map((link) => ({
+    clubId: normalize(link.clubId),
+    clubLogoUrl: normalize(link.clubLogoUrl),
+    clubName: normalize(link.clubName),
+    id: normalize(link.id),
+    linkType: normalize(link.linkType),
+    playerId: normalize(link.playerId),
+    playerName: normalize(link.playerName),
+    playerSection: normalize(link.playerSection),
+    teamId: normalize(link.teamId),
+    teamName: normalize(link.teamName),
+    themeAccent: normalize(link.themeAccent),
+    themeButtonStyle: normalize(link.themeButtonStyle),
+    themeMode: normalize(link.themeMode),
+  }))
+  const selectedParentLinkId = links.some((link) => link.id === normalize(profile?.selectedParentLinkId))
+    ? normalize(profile.selectedParentLinkId)
+    : links[0]?.id || ''
+  return {
+    accountStatus: normalize(profile?.accountStatus || 'active'),
+    activeTeamId: normalize(profile?.activeTeamId),
+    activeTeamName: normalize(profile?.activeTeamName),
+    clubId: normalize(profile?.clubId),
+    clubName: normalize(profile?.clubName),
+    displayName: normalize(profile?.displayName),
+    email: normalize(profile?.email).toLowerCase(),
+    hasActivePlanAccess: profile?.hasActivePlanAccess === true,
+    hasParentAccess: links.length > 0,
+    id: normalize(profile?.id),
+    name: normalize(profile?.name),
+    parentPortalLinks: links,
+    planStatus: normalize(profile?.planStatus || 'active'),
+    role: 'parent_portal',
+    roleLabel: 'Parent',
+    roleRank: 0,
+    selectedParentLinkId,
+    selectedPlayerId: links.find((link) => link.id === selectedParentLinkId)?.playerId || '',
+    selectedPlayerName: links.find((link) => link.id === selectedParentLinkId)?.playerName || '',
+  }
 }
 
 export function createParentOfflineDocument({ now = Date.now, profile, selectedLinkId = '', userScope }) {

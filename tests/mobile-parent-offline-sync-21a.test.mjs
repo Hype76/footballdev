@@ -23,6 +23,7 @@ import {
   PARENT_OFFLINE_MAX_AUTOMATIC_ATTEMPTS,
   PARENT_OFFLINE_COMMAND_SCHEMA_VERSION,
   PARENT_OFFLINE_DOCUMENT_SCHEMA_VERSION,
+  sanitizeParentOfflineProfile,
   setParentOfflineProfile,
   setParentOfflineResources,
   setParentOfflineSelection,
@@ -87,8 +88,8 @@ function profile(userScope = 'parent-a') {
     email: 'parent@example.test',
     id: userScope,
     parentPortalLinks: [
-      { id: 'link-a', playerId: 'player-a', playerName: 'Child Alpha', teamId: 'team-a', teamName: 'Team Amber' },
-      { id: 'link-b', playerId: 'player-b', playerName: 'Child Beta', teamId: 'team-b', teamName: 'Team Blue' },
+      { clubId: 'club-a', clubLogoUrl: 'https://cdn.example.test/club-a.png', clubName: 'Club A', id: 'link-a', playerId: 'player-a', playerName: 'Child Alpha', teamId: 'team-a', teamName: 'Team Amber', themeAccent: '#193e7c', themeButtonStyle: 'solid', themeMode: 'dark' },
+      { clubId: 'club-b', clubLogoUrl: 'https://cdn.example.test/club-b.png', clubName: 'Club B', id: 'link-b', playerId: 'player-b', playerName: 'Child Beta', teamId: 'team-b', teamName: 'Team Blue', themeAccent: '#1eadb9', themeButtonStyle: 'solid', themeMode: 'light' },
     ],
     role: 'parent_portal',
     selectedParentLinkId: 'link-a',
@@ -182,6 +183,25 @@ test('selected child survives profile refresh only while the active link still e
   const removed = { ...profile(), parentPortalLinks: [profile().parentPortalLinks[0]] }
   document = setParentOfflineProfile(document, removed)
   assert.equal(document.selectedLinkId, 'link-a')
+})
+
+test('encrypted offline profile preserves selected Club branding and child-specific theme fields', () => {
+  const sanitized = sanitizeParentOfflineProfile(profile())
+  assert.deepEqual(
+    sanitized.parentPortalLinks.map((link) => ({
+      clubId: link.clubId,
+      clubLogoUrl: link.clubLogoUrl,
+      clubName: link.clubName,
+      themeAccent: link.themeAccent,
+      themeButtonStyle: link.themeButtonStyle,
+      themeMode: link.themeMode,
+    })),
+    [
+      { clubId: 'club-a', clubLogoUrl: 'https://cdn.example.test/club-a.png', clubName: 'Club A', themeAccent: '#193e7c', themeButtonStyle: 'solid', themeMode: 'dark' },
+      { clubId: 'club-b', clubLogoUrl: 'https://cdn.example.test/club-b.png', clubName: 'Club B', themeAccent: '#1eadb9', themeButtonStyle: 'solid', themeMode: 'light' },
+    ],
+  )
+  assert.equal(sanitized.parentPortalLinks.find((link) => link.id === sanitized.selectedParentLinkId)?.themeAccent, '#193e7c')
 })
 
 test('removed Parent links purge cached child data and reject unsafe pending commands', () => {
