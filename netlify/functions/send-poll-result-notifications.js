@@ -4,6 +4,7 @@ import { getParentCommunicationChannels, normalizeParentCommunicationChannel } f
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
+import { buildAuthoritativePollResultEmail } from '../../src/lib/poll-result-email.js'
 
 export const config = {
   schedule: '* * * * *',
@@ -11,15 +12,6 @@ export const config = {
 
 function normalizeText(value) {
   return String(value ?? '').trim()
-}
-
-function escapeHtml(value) {
-  return normalizeText(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
 }
 
 function normalizeOptions(value) {
@@ -91,13 +83,49 @@ async function getPushDevices(authUserId) {
   return data || []
 }
 
+async function getPollBrand(poll) {
+  const [{ data: club, error: clubError }, { data: team, error: teamError }] = await Promise.all([
+    supabaseAdmin
+      .from('clubs')
+      .select('id, name, logo_url, theme_accent')
+      .eq('id', poll.club_id)
+      .maybeSingle(),
+    poll.team_id
+      ? supabaseAdmin
+          .from('teams')
+          .select('id, club_id, name')
+          .eq('id', poll.team_id)
+          .eq('club_id', poll.club_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ])
+  if (clubError) throw clubError
+  if (teamError) throw teamError
+  if (!club?.id) throw new Error('Poll club context is unavailable.')
+  return { club, team }
+}
+
 async function deliverPollResult({ poll, ranked, votes }) {
   const parentLinks = await getEligibleParentLinks(poll)
   const channels = await getParentCommunicationChannels(
     supabaseAdmin,
     parentLinks.map((link) => link.auth_user_id),
   )
-  const copy = getResultCopy(poll, ranked)
+  const resultCopy = getResultCopy(poll, ranked)
+  const brand = await getPollBrand(poll)
+  const emailPresentation = await buildAuthoritativePollResultEmail({
+    clubLogoUrl: brand.club.logo_url,
+    clubName: brand.club.name,
+    pollId: poll.id,
+    pollTitle: poll.title,
+    ranked,
+    teamName: brand.team?.name || brand.club.name,
+    themeAccent: brand.club.theme_accent,
+  })
+  const copy = {
+    body: `${brand.team?.name || brand.club.name}: ${resultCopy.body}`,
+    subject: `${brand.club.name}: ${resultCopy.subject}`,
+  }
   let emailSent = 0
   let pushSent = 0
   let failed = 0
@@ -127,11 +155,11 @@ async function deliverPollResult({ poll, ranked, votes }) {
       } else {
         try {
           const response = await sendEmail({
-            from: createFromAddress('Football Player'),
+            from: createFromAddress(emailPresentation.fromDisplayName),
             to: email,
-            subject: copy.subject,
-            text: `${normalizeText(poll.title) || 'Parent Poll'}\n\n${copy.body}`,
-            html: `<h1>${escapeHtml(normalizeText(poll.title) || 'Parent Poll')}</h1><p>${escapeHtml(copy.body)}</p>`,
+            subject: emailPresentation.subject,
+            text: emailPresentation.text,
+            html: emailPresentation.html,
           }, {
             context: {
               clubId: poll.club_id,

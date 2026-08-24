@@ -85,8 +85,17 @@ export function getParentMatchCalendarUrl(match) {
 
 export function getParentMatchDirectionsUrl(match, platform = 'android') {
   const location = [normalizeText(match?.venueName), normalizeText(match?.venueAddress)].filter(Boolean).join(', ')
-  if (!location) return ''
-  const query = encodeURIComponent(location)
+  return getParentLocationDirectionsUrl(location, platform)
+}
+
+export function getParentCalendarDirectionsUrl(event, platform = 'android') {
+  return getParentLocationDirectionsUrl(event?.location, platform)
+}
+
+export function getParentLocationDirectionsUrl(location, platform = 'android') {
+  const normalizedLocation = normalizeText(location)
+  if (!normalizedLocation) return ''
+  const query = encodeURIComponent(normalizedLocation)
   return platform === 'ios'
     ? `https://maps.apple.com/?q=${query}`
     : `https://www.google.com/maps/search/?api=1&query=${query}`

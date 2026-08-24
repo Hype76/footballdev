@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation } from '../../../src/lib/matchday-final-report.js'
 import {
@@ -76,6 +77,21 @@ function createStyles(palette) {
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 9, padding: 15 },
     cardSelected: { borderColor: palette.accent, borderWidth: 2 },
     cardTitle: { color: palette.textPrimary, fontSize: 17, fontWeight: '900' },
+    fixtureHero: { backgroundColor: palette.selected, borderColor: palette.accent, borderRadius: 17, borderWidth: 1, gap: 11, padding: 15 },
+    fixtureHeroLive: { borderWidth: 2 },
+    fixtureTitle: { color: palette.textPrimary, fontSize: 22, fontWeight: '900', lineHeight: 28 },
+    gameMode: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 12, padding: 15 },
+    gameModeEyebrow: { color: palette.accent, fontSize: 11, fontWeight: '900', letterSpacing: 1.3, textTransform: 'uppercase' },
+    gameStat: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, flex: 1, gap: 4, minWidth: 88, padding: 11 },
+    gameStatLabel: { color: palette.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
+    gameStatValue: { color: palette.textPrimary, fontSize: 18, fontVariant: ['tabular-nums'], fontWeight: '900' },
+    gameStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    liveSync: { alignSelf: 'flex-start', backgroundColor: palette.surface, borderColor: palette.accent, borderRadius: 9, borderWidth: 1, color: palette.accent, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 7 },
+    quickAction: { flexBasis: '47%', flexGrow: 1 },
+    quickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    sectionHeader: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
+    timelineItem: { borderTopColor: palette.border, borderTopWidth: 1, gap: 3, paddingTop: 10 },
+    timelineMinute: { color: palette.accent, fontSize: 13, fontWeight: '900' },
     chip: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: 13 },
     chipActive: { backgroundColor: palette.selected, borderColor: palette.accent },
     chipText: { color: palette.textSecondary, fontSize: 12, fontWeight: '900' },
@@ -98,6 +114,10 @@ function createStyles(palette) {
     row: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
     score: { color: palette.textPrimary, fontSize: 38, fontWeight: '900', textAlign: 'center' },
     secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 13, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 13, paddingVertical: 9 },
+    secondaryDanger: { backgroundColor: palette.surfaceRaised, borderColor: palette.danger },
+    secondaryDangerText: { color: palette.danger },
+    secondaryWarning: { backgroundColor: palette.surfaceRaised, borderColor: palette.warning },
+    secondaryWarningText: { color: palette.warning },
     secondaryText: { color: palette.textPrimary, fontSize: 13, fontWeight: '900', textAlign: 'center' },
     stack: { gap: 12 },
     tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
@@ -106,8 +126,8 @@ function createStyles(palette) {
   })
 }
 
-function Button({ danger = false, disabled = false, label, onPress, secondary = false, styles }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={secondary ? styles.secondaryText : styles.actionText}>{label}</Text></Pressable>
+function Button({ danger = false, disabled = false, label, onPress, secondary = false, styles, warning = false }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, danger && (secondary ? styles.secondaryDanger : styles.actionDanger), warning && secondary && styles.secondaryWarning, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={[secondary ? styles.secondaryText : styles.actionText, danger && secondary && styles.secondaryDangerText, warning && secondary && styles.secondaryWarningText]}>{label}</Text></Pressable>
 }
 
 function Chips({ onChange, options, styles, value }) {
@@ -124,6 +144,50 @@ function MatchList({ filter, matches, onOpen, selectedId, setFilter, styles }) {
     <Chips onChange={setFilter} options={[{ label: 'Today and live', value: 'current' }, { label: 'Upcoming', value: 'upcoming' }, { label: 'Previous', value: 'previous' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} />
     {visible.length === 0 ? <Text style={styles.body}>No fixtures match this view.</Text> : null}
     {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{match.matchDate || 'Date TBC'} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime || 'Time TBC'} | {label(match.status, 'scheduled')}</Text><Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text></Pressable> })}
+  </View>
+}
+
+function isLiveMatch(match) {
+  return ['extra_time', 'half_time', 'live', 'penalties', 'second_half'].includes(normalize(match?.status))
+}
+
+function formatFixtureDate(value) {
+  const normalized = normalize(value)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized || 'Date TBC'
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Europe/London',
+    weekday: 'short',
+  }).format(new Date(`${normalized}T12:00:00Z`))
+}
+
+function FixtureHero({ match, now, styles }) {
+  const [currentNow, setCurrentNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (Number.isFinite(now) || !isLiveMatch(match)) return undefined
+    const clockId = setInterval(() => setCurrentNow(Date.now()), 1000)
+    return () => clearInterval(clockId)
+  }, [match, now])
+  const view = getCoachMatchDayPresentation(match, Number.isFinite(now) ? now : currentNow)
+  const live = isLiveMatch(match)
+  return <View style={[styles.fixtureHero, live && styles.fixtureHeroLive]}>
+    <View style={styles.tabs}>
+      <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status, 'Scheduled')}</Text>
+      <Text style={styles.liveSync}>{view.phaseLabel}</Text>
+      {match.homeAway ? <Text style={styles.liveSync}>{label(match.homeAway)}</Text> : null}
+      {match.fixtureType ? <Text style={styles.liveSync}>{label(match.fixtureType)}</Text> : null}
+    </View>
+    <Text accessibilityRole="header" style={styles.fixtureTitle}>{view.displayName}</Text>
+    <Text style={styles.body}>{formatFixtureDate(match.matchDate)}, {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime || 'Time TBC'} at {match.venueName || 'Venue TBC'}</Text>
+    <View style={styles.card}>
+      <Text style={styles.gameStatLabel}>Score</Text>
+      <Text accessibilityLiveRegion="polite" style={styles.score}>{view.displayScore}</Text>
+      <View style={styles.gameStats}>
+        <View style={styles.gameStat}><Text style={styles.gameStatLabel}>Match timer</Text><Text accessibilityLiveRegion="polite" style={styles.gameStatValue}>{view.clock}</Text></View>
+        <View style={styles.gameStat}><Text style={styles.gameStatLabel}>Period</Text><Text style={styles.gameStatValue}>{view.phaseLabel}</Text></View>
+      </View>
+    </View>
   </View>
 }
 
@@ -145,16 +209,89 @@ function VolunteerPanel({ actions, busy, match, onSelect, styles }) {
   </View>
 }
 
-function LivePanel({ actions, busy, eventForm, match, onEventForm, onPrepare, onScore, onTimer, scoreDraft, setScoreDraft, styles }) {
+function LiveTimeline({ match, styles }) {
+  const visibleEvents = (match.events || []).slice(-50).reverse()
+  return <View style={styles.card}>
+    <View style={styles.sectionHeader}><Text style={styles.cardTitle}>Match Timeline</Text><Text style={styles.liveSync}>Coach view</Text></View>
+    {visibleEvents.length === 0 ? <Text style={styles.body}>No match events yet. Goals, cards and match actions will appear here once recorded.</Text> : null}
+    {visibleEvents.map((event) => <View key={event.id} style={styles.timelineItem}>
+      <Text style={styles.timelineMinute}>{event.minute == null ? 'Match event' : `${event.minute}'`}</Text>
+      <Text style={styles.cardTitle}>{label(event.eventType, 'Match event')}</Text>
+      <Text style={styles.body}>{event.scorerName || event.playerName || event.notes || label(event.teamSide)}</Text>
+      <Text style={styles.meta}>{event.homeScore} - {event.awayScore} | {label(event.eventStatus)}</Text>
+    </View>)}
+  </View>
+}
+
+function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPrepare, onScore, onTimer, scoreDraft, setScoreDraft, styles }) {
   const [now, setNow] = useState(() => Date.now())
+  const [eventComposerOpen, setEventComposerOpen] = useState(false)
+  const [keepAwake, setKeepAwake] = useState(false)
+  const [keepAwakeAvailable, setKeepAwakeAvailable] = useState(true)
+  const [scoreCorrectionOpen, setScoreCorrectionOpen] = useState(false)
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [])
+  useEffect(() => {
+    let mounted = true
+    void isAvailableAsync().then((available) => mounted && setKeepAwakeAvailable(available)).catch(() => mounted && setKeepAwakeAvailable(false))
+    return () => {
+      mounted = false
+      void deactivateKeepAwake('football-player-coach-game-day').catch(() => {})
+    }
+  }, [])
   const view = getCoachMatchDayPresentation(match, now)
+  const prepareEvent = (eventType) => {
+    onEventForm(createCoachMatchDayEventForm(eventType, match))
+    setEventComposerOpen(true)
+  }
+  const timerAction = (action) => actions.timerActions.find((item) => item.action === action)
+  const runTimer = (action, fallbackLabel) => {
+    const item = timerAction(action)
+    if (!item) return
+    onPrepare({ kind: 'timer', label: item.label || fallbackLabel, run: () => onTimer(action) })
+  }
+  const toggleKeepAwake = async (enabled) => {
+    try {
+      if (enabled) await activateKeepAwakeAsync('football-player-coach-game-day')
+      else await deactivateKeepAwake('football-player-coach-game-day')
+      setKeepAwake(enabled)
+    } catch {
+      setKeepAwake(false)
+      setKeepAwakeAvailable(false)
+    }
+  }
   return <View style={styles.stack}>
-    <View style={styles.card}><Text style={styles.cardTitle}>{view.displayName}</Text><Text accessibilityLiveRegion="polite" style={styles.score}>{view.displayScore}</Text><Text accessibilityLiveRegion="polite" style={styles.clock}>{view.clock}</Text><Text style={styles.meta}>{view.phaseLabel} | {view.lifecycle.replaceAll('_', ' ')}</Text></View>
+    <FixtureHero match={match} now={now} styles={styles} />
     {actions.blockedReason ? <View style={styles.warning}><Text style={styles.body}>{actions.blockedReason}</Text></View> : null}
-    <View style={styles.tabs}>{actions.timerActions.map((item) => <Button disabled={busy || item.disabled} key={item.action} label={item.label} onPress={() => onPrepare({ kind: 'timer', label: item.label, run: () => onTimer(item.action) })} styles={styles} />)}</View>
-    <View style={styles.card}><Text style={styles.cardTitle}>Correct score</Text><View style={styles.row}><Field label="Home" onChangeText={(value) => setScoreDraft({ ...scoreDraft, home: value })} styles={styles} value={scoreDraft.home} /><Field label="Away" onChangeText={(value) => setScoreDraft({ ...scoreDraft, away: value })} styles={styles} value={scoreDraft.away} /></View><Button disabled={busy || !actions.canRecordEvents} label="Review score correction" onPress={() => onPrepare({ kind: 'score', label: 'Save score correction', run: onScore })} secondary styles={styles} /></View>
-    <View style={styles.card}><Text style={styles.cardTitle}>Record event</Text><Chips onChange={(value) => onEventForm(createCoachMatchDayEventForm(value, match))} options={[{ label: 'Goal', value: 'goal' }, { label: 'Yellow card', value: 'yellow_card' }, { label: 'Red card', value: 'red_card' }, { label: 'Substitution', value: 'substitution' }]} styles={styles} value={eventForm.eventType} /><Chips onChange={(value) => onEventForm({ ...eventForm, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={eventForm.teamSide} /><Field label="Minute" onChangeText={(value) => onEventForm({ ...eventForm, minute: value })} styles={styles} value={eventForm.minute} />{eventForm.eventType === 'goal' ? <><Field label="Scorer" onChangeText={(value) => onEventForm({ ...eventForm, scorerName: value })} styles={styles} value={eventForm.scorerName} /><Field label="Scorer shirt number" onChangeText={(value) => onEventForm({ ...eventForm, scorerShirtNumber: value })} styles={styles} value={eventForm.scorerShirtNumber} /><Field label="Assist" onChangeText={(value) => onEventForm({ ...eventForm, assistName: value })} styles={styles} value={eventForm.assistName} /><View style={styles.row}><Text style={styles.fieldLabel}>Penalty</Text><Switch accessibilityLabel="Penalty" onValueChange={(value) => onEventForm({ ...eventForm, isPenaltyGoal: value })} value={eventForm.isPenaltyGoal} /></View></> : <><Field label={eventForm.eventType === 'substitution' ? 'Player off' : 'Player'} onChangeText={(value) => onEventForm({ ...eventForm, playerName: value })} styles={styles} value={eventForm.playerName} />{eventForm.eventType === 'substitution' ? <Field label="Player on" onChangeText={(value) => onEventForm({ ...eventForm, playerOnName: value })} styles={styles} value={eventForm.playerOnName} /> : null}</>}<Field label="Notes" multiline onChangeText={(value) => onEventForm({ ...eventForm, notes: value })} styles={styles} value={eventForm.notes} /><Button disabled={busy || !actions.canRecordEvents} label="Review event" onPress={() => onPrepare({ kind: 'event', label: `Record ${eventForm.eventType.replaceAll('_', ' ')}`, run: () => onScore('event') })} styles={styles} /></View>
+    <View style={styles.gameMode}>
+      <Text style={styles.gameModeEyebrow}>Game mode</Text>
+      <Text style={styles.cardTitle}>Live controller</Text>
+      <Button label="Manage fixture" onPress={onExit} secondary styles={styles} />
+      <Button label="Exit Game Mode" onPress={onExit} secondary styles={styles} />
+      <View style={styles.gameStats}>
+        <View style={styles.gameStat}><Text style={styles.gameStatLabel}>Score</Text><Text style={styles.gameStatValue}>{view.displayScore}</Text></View>
+        <View style={styles.gameStat}><Text style={styles.gameStatLabel}>Match timer</Text><Text style={styles.gameStatValue}>{view.clock}</Text></View>
+        <View style={styles.gameStat}><Text style={styles.gameStatLabel}>Period</Text><Text style={styles.gameStatValue}>{view.phaseLabel}</Text></View>
+      </View>
+      <View style={styles.card}>
+        <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.cardTitle}>Keep screen awake</Text><Text style={styles.meta}>{keepAwakeAvailable ? 'Optional for this Game Day session. No match data is changed.' : 'Unavailable on this device.'}</Text></View><Switch accessibilityLabel="Keep screen awake" disabled={!keepAwakeAvailable} onValueChange={toggleKeepAwake} value={keepAwake} /></View>
+      </View>
+      <View style={styles.quickActions}>
+        <View style={styles.quickAction}><Button disabled={busy || !actions.canRecordEvents} label="Goal" onPress={() => prepareEvent('goal')} styles={styles} /></View>
+        <View style={styles.quickAction}><Button disabled={busy || !actions.canRecordEvents} label="Yellow" onPress={() => prepareEvent('yellow_card')} secondary styles={styles} warning /></View>
+        <View style={styles.quickAction}><Button danger disabled={busy || !actions.canRecordEvents} label="Red" onPress={() => prepareEvent('red_card')} secondary styles={styles} /></View>
+        <View style={styles.quickAction}><Button disabled={busy || !actions.canRecordEvents} label="Sub" onPress={() => prepareEvent('substitution')} secondary styles={styles} /></View>
+        <View style={styles.quickAction}><Button disabled={busy || !timerAction('pause')} label="Pause" onPress={() => runTimer('pause', 'Pause')} secondary styles={styles} /></View>
+        <View style={styles.quickAction}><Button disabled={busy || !timerAction('hydration')} label="Hydration" onPress={() => runTimer('hydration', 'Hydration')} secondary styles={styles} /></View>
+        <View style={styles.quickAction}><Button disabled={busy || !timerAction('half_time')} label="HT" onPress={() => runTimer('half_time', 'Half time')} secondary styles={styles} /></View>
+        <View style={styles.quickAction}><Button disabled={busy || !timerAction('full_time')} label="FT" onPress={() => runTimer('full_time', 'Full time')} danger styles={styles} /></View>
+        {timerAction('start') ? <View style={styles.quickAction}><Button disabled={busy} label="Start match" onPress={() => runTimer('start', 'Start match')} styles={styles} /></View> : null}
+        {timerAction('resume') ? <View style={styles.quickAction}><Button disabled={busy} label="Resume" onPress={() => runTimer('resume', 'Resume')} secondary styles={styles} /></View> : null}
+      </View>
+      <Button label={scoreCorrectionOpen ? 'Hide score correction' : 'Correct score'} onPress={() => setScoreCorrectionOpen((current) => !current)} secondary styles={styles} />
+      {scoreCorrectionOpen ? <View style={styles.card}><Text style={styles.cardTitle}>Correct score</Text><View style={styles.row}><Field label="Home" onChangeText={(value) => setScoreDraft({ ...scoreDraft, home: value })} styles={styles} value={scoreDraft.home} /><Field label="Away" onChangeText={(value) => setScoreDraft({ ...scoreDraft, away: value })} styles={styles} value={scoreDraft.away} /></View><Button disabled={busy || !actions.canRecordEvents} label="Review score correction" onPress={() => onPrepare({ kind: 'score', label: 'Save score correction', run: onScore })} secondary styles={styles} /></View> : null}
+    </View>
+    {eventComposerOpen ? <View style={styles.card}><View style={styles.sectionHeader}><Text style={styles.cardTitle}>Record event</Text><Button label="Close" onPress={() => setEventComposerOpen(false)} secondary styles={styles} /></View><Chips onChange={(value) => onEventForm(createCoachMatchDayEventForm(value, match))} options={[{ label: 'Goal', value: 'goal' }, { label: 'Yellow card', value: 'yellow_card' }, { label: 'Red card', value: 'red_card' }, { label: 'Substitution', value: 'substitution' }]} styles={styles} value={eventForm.eventType} /><Chips onChange={(value) => onEventForm({ ...eventForm, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={eventForm.teamSide} /><Field label="Minute" onChangeText={(value) => onEventForm({ ...eventForm, minute: value })} styles={styles} value={eventForm.minute} />{eventForm.eventType === 'goal' ? <><Field label="Scorer" onChangeText={(value) => onEventForm({ ...eventForm, scorerName: value })} styles={styles} value={eventForm.scorerName} /><Field label="Scorer shirt number" onChangeText={(value) => onEventForm({ ...eventForm, scorerShirtNumber: value })} styles={styles} value={eventForm.scorerShirtNumber} /><Field label="Assist" onChangeText={(value) => onEventForm({ ...eventForm, assistName: value })} styles={styles} value={eventForm.assistName} /><View style={styles.row}><Text style={styles.fieldLabel}>Penalty</Text><Switch accessibilityLabel="Penalty" onValueChange={(value) => onEventForm({ ...eventForm, isPenaltyGoal: value })} value={eventForm.isPenaltyGoal} /></View></> : <><Field label={eventForm.eventType === 'substitution' ? 'Player off' : 'Player'} onChangeText={(value) => onEventForm({ ...eventForm, playerName: value })} styles={styles} value={eventForm.playerName} />{eventForm.eventType === 'substitution' ? <Field label="Player on" onChangeText={(value) => onEventForm({ ...eventForm, playerOnName: value })} styles={styles} value={eventForm.playerOnName} /> : null}</>}<Field label="Notes" multiline onChangeText={(value) => onEventForm({ ...eventForm, notes: value })} styles={styles} value={eventForm.notes} /><Button disabled={busy || !actions.canRecordEvents} label="Review event" onPress={() => onPrepare({ kind: 'event', label: `Record ${eventForm.eventType.replaceAll('_', ' ')}`, run: () => onScore('event') })} styles={styles} /></View> : null}
+    <LiveTimeline match={match} styles={styles} />
   </View>
 }
 
@@ -240,6 +377,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const userRef = useRef(user)
 
   const requestedFixtureId = String(matchDayTarget?.fixtureId || '').trim()
+  const selectedMatchIsLive = isLiveMatch(match)
   if (requestedFixtureId && targetRequestId.current !== matchDayTarget?.requestId) {
     targetRequestId.current = matchDayTarget.requestId
     selectedMatchId.current = requestedFixtureId
@@ -254,8 +392,8 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
 
   useEffect(() => {
     matchRef.current = match
-    selectedMatchId.current = match?.id || ''
-  }, [match])
+    selectedMatchId.current = match?.id || requestedFixtureId || ''
+  }, [match, requestedFixtureId])
 
   const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(userRef.current.id, contextRef.current, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [])
   const load = useCallback(async () => {
@@ -329,8 +467,9 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   useEffect(() => { void load() }, [load])
   useEffect(() => {
     if (!requestedFixtureId || loading || match?.id !== requestedFixtureId) return
+    setPanel(isLiveMatch(match) ? 'live' : 'overview')
     onMatchDayTargetHandled?.()
-  }, [loading, match?.id, onMatchDayTargetHandled, requestedFixtureId])
+  }, [loading, match, onMatchDayTargetHandled, requestedFixtureId])
   useEffect(() => {
     if (quickAction?.intent !== 'create-match') return
     setFixtureFormOpen(true)
@@ -349,11 +488,16 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     })
     return () => subscription.remove()
   }, [load])
+  useEffect(() => {
+    if (!selectedMatchIsLive || stale || reconciling) return undefined
+    const refreshId = setInterval(() => { if (!busyRef.current) void load() }, 15000)
+    return () => clearInterval(refreshId)
+  }, [load, match?.id, reconciling, selectedMatchIsLive, stale])
 
   const open = async (summary) => {
     selectedMatchId.current = summary.id
     setBusy(true); setError('')
-    try { const detail = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id)); matchRef.current = detail; setMatch(detail); setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) }); setEventForm(createCoachMatchDayEventForm('goal', detail)); setPanel('overview'); setStale(false); await cache(matches, detail, players) }
+    try { const detail = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id)); matchRef.current = detail; setMatch(detail); setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) }); setEventForm(createCoachMatchDayEventForm('goal', detail)); setPanel(isLiveMatch(detail) ? 'live' : 'overview'); setStale(false); await cache(matches, detail, players) }
     catch (openError) { setError(errorMessage(openError, 'Fixture details could not be loaded.')) }
     finally { setBusy(false) }
   }
@@ -405,10 +549,17 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     }
   }
 
+  const closeFixture = () => {
+    selectedMatchId.current = ''
+    matchRef.current = null
+    setMatch(null)
+    setPanel('overview')
+  }
+
   return <View style={styles.stack}>
-    <Text accessibilityRole="header" style={styles.title}>Match Day</Text><Text style={styles.body}>Server-authoritative fixture execution, squad, clock, events, volunteers, shootout, and corrections.</Text>
-    <View style={styles.tabs}><Button label="Availability" onPress={() => onNavigate('invites')} secondary styles={styles} /><Button label="Team Chat" onPress={() => onNavigate('chat')} secondary styles={styles} /><Button label="Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /></View>
-    {!fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button label="Create match" onPress={() => { setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
+    <Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Live fixture control with server-authoritative squad, clock, events, volunteers, shootout, and corrections.</Text>
+    {!match ? <View style={styles.tabs}><Button label="Availability" onPress={() => onNavigate('invites')} secondary styles={styles} /><Button label="Team Chat" onPress={() => onNavigate('chat')} secondary styles={styles} /><Button label="Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /></View> : null}
+    {!match && !fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button label="Create match" onPress={() => { setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
     {fixtureFormOpen ? <CoachFixtureForm matches={matches} onCancel={() => { setFixtureFormOpen(false); onRequestScrollTop?.() }} onCreated={handleFixtureCreated} players={players} styles={styles} user={user} /> : null}
     {loading ? <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading authoritative Match Day data...</Text></View> : null}
     {reconciling ? <View accessibilityLiveRegion="assertive" style={styles.warning}><ActivityIndicator /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
@@ -416,13 +567,13 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {error && !visibleError ? <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Checking for the latest Match Day information...</Text></View> : null}
     {visibleError ? <View style={styles.warning}><Text style={styles.dangerText}>{visibleError}</Text><Button label="Refresh" onPress={load} secondary styles={styles} /></View> : null}
     {confirmedStale ? <View style={styles.warning}><Text style={styles.cardTitle}>Offline read</Text><Text style={styles.body}>Showing encrypted cached Match Day data. Every change is disabled until a successful refresh.</Text></View> : null}
-    {!fixtureFormOpen ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
-    {match && !fixtureFormOpen ? <><Chips onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} />
-      {panel === 'overview' ? <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>{getCoachMatchDayPresentation(match).displayName}</Text><Text style={styles.score}>{getCoachMatchDayPresentation(match).displayScore}</Text><Text style={styles.body}>{match.matchDate} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime} | {match.homeAway}</Text><Text style={styles.body}>{match.venueName || 'Venue TBC'}{match.venueAddress ? ` | ${match.venueAddress}` : ''}</Text>{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text></View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the authoritative match clock and open the live controls.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'timer', label: 'Start match', run: () => replace(() => runCoachMatchDayTimerAction(user, match, 'start'), (detail) => isCoachMatchDayTimerActionApplied(detail, 'start')) })} styles={styles} /></View> : <Button label="Open live controls" onPress={() => setPanel('live')} secondary styles={styles} />}</View> : null}
+    {!fixtureFormOpen && !match ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
+    {match && !fixtureFormOpen ? <><Button label="Back to fixtures" onPress={closeFixture} secondary styles={styles} /><Chips onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} />
+      {panel === 'overview' ? <View style={styles.stack}><FixtureHero match={match} styles={styles} /><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><Text style={styles.body}>{match.venueAddress || match.venueName || 'Venue TBC'}</Text>{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text></View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the authoritative match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'timer', label: 'Start match', run: async () => { const detail = await replace(() => runCoachMatchDayTimerAction(user, match, 'start'), (nextDetail) => isCoachMatchDayTimerActionApplied(nextDetail, 'start')); setPanel('live'); return detail } })} styles={styles} /></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
       {panel === 'squad' ? <SquadPanel actions={actions} busy={busy} match={match} onSetDecision={(player, decision) => setPending({ label: `Set ${player.playerName} to ${decision.replaceAll('_', ' ')}`, run: () => replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision)) })} players={players} styles={styles} /> : null}
       {panel === 'formation' ? <CoachFormationBoard context={context} match={match} palette={palette} players={players} stale={stale} user={user} /> : null}
       {panel === 'volunteers' ? <VolunteerPanel actions={actions} busy={busy} match={match} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /> : null}
-      {panel === 'live' ? <LivePanel actions={actions} busy={busy} eventForm={eventForm} match={match} onEventForm={setEventForm} onPrepare={setPending} onScore={(kind) => { if (kind === 'event') return submitEvent(); const commandId = createCoachMatchDayCommandId(); return replace(() => correctCoachMatchDayScore(user, match, scoreDraft.home, scoreDraft.away, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)) }} onTimer={(action) => replace(() => runCoachMatchDayTimerAction(user, match, action), (detail) => isCoachMatchDayTimerActionApplied(detail, action))} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
+      {panel === 'live' ? <LivePanel actions={actions} busy={busy} eventForm={eventForm} match={match} onEventForm={setEventForm} onExit={() => setPanel('overview')} onPrepare={setPending} onScore={(kind) => { if (kind === 'event') return submitEvent(); const commandId = createCoachMatchDayCommandId(); return replace(() => correctCoachMatchDayScore(user, match, scoreDraft.home, scoreDraft.away, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)) }} onTimer={(action) => replace(() => runCoachMatchDayTimerAction(user, match, action), (detail) => isCoachMatchDayTimerActionApplied(detail, action))} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' ? <TimelinePanel busy={busy || reconciling} match={match} onCorrectGoal={(event, goal, reason) => replace(() => correctCoachMatchDayGoal(user, match, event, goal, reason), (detail) => isCoachMatchDayGoalCorrectionApplied(detail, event.id, goal, reason))} onPrepare={setPending} onUndo={(event, input) => replace(() => voidCoachMatchDayEvent(user, match, event, input), (detail) => isCoachMatchDayEventVoided(detail, event.id))} styles={styles} /> : null}
       {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling} match={match} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}
       {panel === 'report' ? <ReportPanel busy={busy || reconciling} canSave={actions.canSaveFinalReport} key={`${match.id}:${match.finalReport?.updatedAt || ''}`} match={match} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}

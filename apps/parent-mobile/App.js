@@ -60,6 +60,7 @@ import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-
 import {
   canSubmitParentPoll,
   getBuildClassification,
+  getParentCalendarDirectionsUrl,
   getParentFriendlyError,
   getParentHomeModel,
   getPollDraftOption,
@@ -494,6 +495,19 @@ function ParentHome() {
       return null
     } finally {
       setIsSyncing(false)
+    }
+  }, [isOffline, selectedMobileUser])
+
+  const refreshParentMatchDay = useCallback(async () => {
+    if (isOffline || !selectedMobileUser?.id) return
+    try {
+      const matches = await getParentPortalMatchDays(selectedMobileUser)
+      setResources((current) => ({
+        ...current,
+        matches: { error: '', items: matches, loading: false },
+      }))
+    } catch {
+      return
     }
   }, [isOffline, selectedMobileUser])
 
@@ -1669,6 +1683,7 @@ function ParentHome() {
                 notifications={resources.notifications}
                 onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
                 onOpenMatch={(match) => setSelectedMatchId(match.id)}
+                onOpenLink={handleOpenMatchLink}
                 onOpenMessages={() => {
                   const room = parentChatRooms.find((candidate) => candidate.id === 'club-announcements')
                   setActiveTab('chat')
@@ -1680,7 +1695,7 @@ function ParentHome() {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitations} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitations} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
@@ -1688,6 +1703,7 @@ function ParentHome() {
                 link={selectedLink}
                 onBack={() => setSelectedMatchId('')}
                 onDismiss={(match) => handleDismissParentItem('matches', match.id, 'match')}
+                onLiveRefresh={refreshParentMatchDay}
                 onOpen={(match) => setSelectedMatchId(match.id)}
                 onOpenLink={handleOpenMatchLink}
                 onScorerAction={handleScorerAction}
@@ -1921,7 +1937,7 @@ function getNotificationTypeIcon(intentType) {
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 
-function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onRetry, selectedMatch }) {
+function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
   const unreadNotifications = prepareParentNotificationInbox(notifications.items.filter((notification) => !notification.isRead))
   if (!link?.id) {
@@ -1965,7 +1981,7 @@ function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches,
           {homeModel.nextActivity?.type === 'match' ? (
             <MatchPreviewCard match={homeModel.nextActivity.item} onPress={onOpenMatch} prominent />
           ) : homeModel.nextActivity?.type === 'calendar' ? (
-            <CalendarCard event={homeModel.nextActivity.item} prominent />
+            <CalendarCard event={homeModel.nextActivity.item} onOpenLink={onOpenLink} prominent />
           ) : (
             <EmptyPanel message="There are no upcoming fixtures or shared calendar events right now." title="Nothing scheduled" />
           )}
@@ -2037,7 +2053,7 @@ function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches,
         <View style={styles.sectionStack}>
           <SectionHeading copy="Training, meetings and club events shared with your family." title="Calendar" />
           {homeModel.upcomingCalendarEvents.slice(0, 4).map((event) => (
-            <CalendarCard event={event} key={event.id} />
+            <CalendarCard event={event} key={event.id} onOpenLink={onOpenLink} />
           ))}
         </View>
       ) : null}
@@ -2126,9 +2142,10 @@ function MatchDetail({ match, onBack }) {
   )
 }
 
-function CalendarCard({ event, prominent = false }) {
+function CalendarCard({ event, onOpenLink, prominent = false }) {
   const { styles } = useParentTheme()
   const cancelled = event.status === 'cancelled' || Boolean(event.cancelledAt)
+  const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
   return (
     <View style={[styles.card, prominent && styles.cardProminent]}>
       <View style={styles.cardTopRow}>
@@ -2138,6 +2155,7 @@ function CalendarCard({ event, prominent = false }) {
       <Text style={styles.cardTitle}>{event.title}</Text>
       {event.location ? <Text style={styles.cardMeta}>{event.location}</Text> : null}
       {event.notes ? <Text numberOfLines={3} style={styles.bodyText}>{event.notes}</Text> : null}
+      {directionsUrl ? <PrimaryAction label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} secondary /> : null}
     </View>
   )
 }

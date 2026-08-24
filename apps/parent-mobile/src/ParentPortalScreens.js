@@ -9,9 +9,11 @@ import {
   formatParentProductTime,
 } from '../../mobile-core/src/parentDateTimeCore'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
+import { getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import {
   canParentRegisterScorerInterest,
+  getParentCalendarDirectionsUrl,
   getParentMatchCalendarUrl,
   getParentMatchDirectionsUrl,
   getParentMatchGroups,
@@ -94,6 +96,16 @@ function usePortalStyles(themeTokens) {
       formationPlayer: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 18, borderWidth: 2, maxWidth: 100, minWidth: 66, paddingHorizontal: 6, paddingVertical: 7, position: 'absolute', transform: [{ translateX: -33 }, { translateY: -16 }] },
       formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
+      gameDayHero: { backgroundColor: colors.accentSoft, borderColor: colors.accent, borderRadius: 18, borderWidth: 1, gap: 12, padding: 16 },
+      gameDayHeroLive: { borderWidth: 2 },
+      gameDayScore: { color: colors.text, fontSize: 42, fontVariant: ['tabular-nums'], fontWeight: '900', textAlign: 'center' },
+      gameDayStat: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 12, borderWidth: 1, flex: 1, gap: 4, minWidth: 88, padding: 12 },
+      gameDayStatLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
+      gameDayStatValue: { color: colors.text, fontSize: 18, fontVariant: ['tabular-nums'], fontWeight: '900' },
+      gameDayStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+      liveSync: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 9, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 7 },
+      timelineItem: { borderTopColor: colors.border, borderTopWidth: 1, gap: 3, paddingTop: 10 },
+      timelineMinute: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
       empty: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: 'center' },
       error: { color: colors.danger, fontSize: 14, lineHeight: 20 },
       field: { backgroundColor: colors.background, borderColor: colors.border, borderRadius: 12, borderWidth: 1, color: colors.text, fontSize: 16, minHeight: 46, paddingHorizontal: 12, paddingVertical: 10 },
@@ -162,9 +174,10 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
   return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
 }
 
-function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpenInvitation, onRespond, styles }) {
+function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpenInvitation, onOpenLink, onRespond, styles }) {
   const actionable = invitation && isParentInvitationActionable(invitation)
   const busy = invitation && activeActionId === `invite:${invitation.invitationId}`
+  const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
   return (
     <View style={styles.card}>
       <Pressable
@@ -200,11 +213,12 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpe
           ))}
         </View>
       ) : null}
+      {directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}
     </View>
   )
 }
 
-export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onDateSelected, onOpenInvitation, onRespond, resource, themeTokens }) {
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onDateSelected, onOpenInvitation, onOpenLink, onRespond, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   const [viewMode, setViewMode] = useState('agenda')
   const [windowKey, setWindowKey] = useState('needs-response')
@@ -290,13 +304,13 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
             return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={[styles.monthLegendItem, !selected && { opacity: 0.42 }]}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
           })}
         </View>
-        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onRespond={onRespond} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
+        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onRespond={onRespond} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
       </View> : null}
       {viewMode === 'agenda' && !resource.loading && activeEvents.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
       {viewMode === 'agenda' ? groups.map((group) => (
         <View key={group.date} style={styles.section}>
           <Text accessibilityRole="header" style={styles.dateHeading}>{group.date === 'date-tbc' ? 'Date to be confirmed' : formatCalendarDay(group.date)}</Text>
-          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onRespond={onRespond} styles={styles} />)}
+          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onRespond={onRespond} styles={styles} />)}
         </View>
       )) : null}
     </View>
@@ -450,8 +464,9 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   return (
     <View style={styles.stack}>
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Accepted Parent scorer</Text>
-        <Text style={styles.helper}>All Game Day changes are checked by the server. Controls are unavailable offline.</Text>
+        <Text style={styles.pill}>Accepted Parent scorer</Text>
+        <Text style={styles.cardTitle}>Game mode</Text>
+        <Text style={styles.helper}>Live scorer controls. All Game Day changes are checked by the server. Controls are unavailable offline.</Text>
         {isOffline ? <Text style={styles.warning}>Connect before changing the clock, score or events.</Text> : null}
         <View style={styles.actionRow}>
           {match.timerStatus === 'not_started' ? <Button disabled={disabled} label="Start match" onPress={() => onAction('start')} styles={styles} /> : null}
@@ -491,20 +506,51 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   )
 }
 
-export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onOpen, onOpenLink, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
+  const [now, setNow] = useState(() => Date.now())
   const matchGroups = useMemo(() => getParentMatchGroups(resource.items), [resource.items])
   const visibleMatches = matchGroups[matchSection] || []
+  const selectedMatchIsLive = Boolean(selectedMatch && ['extra_time', 'half_time', 'live', 'penalties', 'second_half'].includes(selectedMatch.status))
+  const presentation = useMemo(
+    () => selectedMatch ? getCoachMatchDayPresentation(selectedMatch, now) : null,
+    [now, selectedMatch],
+  )
+  useEffect(() => {
+    if (!selectedMatch) return undefined
+    const clockId = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(clockId)
+  }, [selectedMatch])
+  useEffect(() => {
+    if (!selectedMatchIsLive || isOffline || !onLiveRefresh) return undefined
+    const refreshId = setInterval(() => onLiveRefresh(), 15000)
+    return () => clearInterval(refreshId)
+  }, [isOffline, onLiveRefresh, selectedMatchIsLive])
   if (selectedMatch) {
+    const timeline = (selectedMatch.events || []).slice().reverse()
     return (
       <View style={styles.stack}>
         <Button label="Back to Matchday" onPress={onBack} outline styles={styles} />
-        <View style={styles.card}>
-          <View style={styles.row}><Text style={styles.pill}>{labelize(selectedMatch.status)}</Text><Text style={styles.meta}>{formatDate(selectedMatch.matchDate)}</Text></View>
-          <Text accessibilityRole="header" style={styles.header}>{selectedMatch.teamName} v {selectedMatch.opponent}</Text>
-          {scoreVisible(selectedMatch) ? <Text style={styles.score}>{selectedMatch.homeScore} - {selectedMatch.awayScore}</Text> : null}
-          <Text style={styles.body}>{selectedMatch.venueName || 'Location not shared'}</Text>
+        <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
+          <View style={styles.actionRow}>
+            <Text style={styles.pill}>{labelize(selectedMatch.status)}</Text>
+            <Text style={styles.pill}>{presentation?.phaseLabel || 'Pre-match'}</Text>
+            {selectedMatch.homeAway ? <Text style={styles.pill}>{labelize(selectedMatch.homeAway)}</Text> : null}
+            {selectedMatch.fixtureType ? <Text style={styles.pill}>{labelize(selectedMatch.fixtureType)}</Text> : null}
+          </View>
+          <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || `${selectedMatch.teamName} v ${selectedMatch.opponent}`}</Text>
+          <Text style={styles.body}>{formatDate(selectedMatch.matchDate)} at {selectedMatch.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(selectedMatch.kickoffTime)}</Text>
+          <Text style={styles.body}>{[selectedMatch.venueName, selectedMatch.venueAddress].filter(Boolean).join(', ') || 'Location not shared'}</Text>
+          <Text style={styles.liveSync}>{selectedMatchIsLive ? 'Live sync on' : 'Fixture details'}</Text>
+          <View style={styles.card}>
+            <Text style={styles.fieldLabel}>Score</Text>
+            <Text accessibilityLiveRegion="polite" style={styles.gameDayScore}>{presentation?.displayScore || `${selectedMatch.homeScore || 0} - ${selectedMatch.awayScore || 0}`}</Text>
+            <View style={styles.gameDayStats}>
+              <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Match timer</Text><Text accessibilityLiveRegion="polite" style={styles.gameDayStatValue}>{presentation?.clock || '0:00'}</Text></View>
+              <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Period</Text><Text style={styles.gameDayStatValue}>{presentation?.phaseLabel || 'Pre-match'}</Text></View>
+            </View>
+          </View>
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
           <Text style={styles.meta}>Availability: {labelize(selectedMatch.availabilityStatus) || 'No response requested'}</Text>
           <Text style={styles.meta}>Squad: {labelize(selectedMatch.squadDecisionState) || 'Not decided'}</Text>
@@ -517,10 +563,13 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
         {canParentRegisterScorerInterest(selectedMatch) ? (
           <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Coaches are looking for a Parent scorer.'}</Text><Button disabled={isOffline} label="Register interest" onPress={() => onVolunteer(selectedMatch)} styles={styles} /></View>
         ) : null}
+        {!selectedMatch.isScorer ? <View style={styles.card}><Text style={styles.cardTitle}>Parent view</Text><Text style={styles.body}>Live match updates from the club appear here. Only the assigned scorer can make Game Day changes.</Text></View> : null}
         {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} styles={styles} /> : null}
-        {selectedMatch.events?.length ? (
-          <View style={styles.card}><Text style={styles.cardTitle}>Match timeline</Text>{selectedMatch.events.map((event) => <Text key={event.id} style={styles.body}>{event.minute == null ? '' : `${event.minute}' `}{labelize(event.eventType)} {event.scorerName || event.playerName || ''}</Text>)}</View>
-        ) : null}
+        <View style={styles.card}>
+          <View style={styles.row}><Text style={styles.cardTitle}>Match Timeline</Text><Text style={styles.pill}>{selectedMatch.isScorer ? 'Scorer view' : 'Parent view'}</Text></View>
+          {timeline.length === 0 ? <Text style={styles.helper}>No match events yet. Goals, cards and substitutions will appear here once recorded.</Text> : null}
+          {timeline.map((event) => <View key={event.id} style={styles.timelineItem}><Text style={styles.timelineMinute}>{event.minute == null ? 'Match event' : `${event.minute}'`}</Text><Text style={styles.body}>{labelize(event.eventType)} {event.scorerName || event.playerName || ''}</Text>{event.homeScore != null && event.awayScore != null ? <Text style={styles.meta}>{event.homeScore} - {event.awayScore}</Text> : null}</View>)}
+        </View>
       </View>
     )
   }
