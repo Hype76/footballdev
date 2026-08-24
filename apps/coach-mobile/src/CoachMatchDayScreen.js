@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { buildCompletedMatchEventPresentation } from '../../../src/lib/matchday-final-report.js'
 import {
   buildCoachFinalMatchReport,
   buildCoachMatchDaySquad,
@@ -45,7 +46,6 @@ import { CoachFixtureForm } from './CoachFixtureForm'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 
 const config = getMobileRuntimeConfig('coach')
-const COACH_MOBILE_FA_REPORT_VISIBLE = false
 const MATCH_DAY_PANEL_OPTIONS = [
   { label: 'Overview', value: 'overview' },
   { label: 'Squad', value: 'squad' },
@@ -54,7 +54,7 @@ const MATCH_DAY_PANEL_OPTIONS = [
   { label: 'Live', value: 'live' },
   { label: 'Timeline', value: 'timeline' },
   { label: 'Shootout', value: 'shootout' },
-  ...(COACH_MOBILE_FA_REPORT_VISIBLE ? [{ label: 'Report', value: 'report' }] : []),
+  { label: 'Report', value: 'report' },
 ]
 
 function normalize(value) { return String(value ?? '').trim() }
@@ -180,10 +180,34 @@ function ShootoutPanel({ busy, match, onKick, onPrepare, onVoid, styles }) {
   return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Penalty shootout</Text><Text style={styles.score}>{match.homeShootoutScore} - {match.awayShootoutScore}</Text><Chips onChange={(value) => setKick({ ...kick, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={kick.teamSide} /><Chips onChange={(value) => setKick({ ...kick, outcome: value })} options={[{ label: 'Scored', value: 'scored' }, { label: 'Missed', value: 'missed' }]} styles={styles} value={kick.outcome} /><Field label="Player" onChangeText={(value) => setKick({ ...kick, playerName: value })} styles={styles} value={kick.playerName} /><Field label="Notes" onChangeText={(value) => setKick({ ...kick, notes: value })} styles={styles} value={kick.notes} /><Button disabled={busy || match.currentMatchPhase !== 'penalties'} label="Review penalty" onPress={() => onPrepare({ kind: 'kick', label: 'Record penalty', run: () => onKick(kick) })} styles={styles} /></View>{(match.shootoutEvents || []).map((item) => <View key={item.id} style={styles.card}><Text style={styles.cardTitle}>{item.kickNumber}. {item.teamSide} {item.outcome}</Text><Text style={styles.body}>{item.playerName || 'Player not recorded'}</Text>{item.eventStatus !== 'voided' ? <Button disabled={busy} label="Void penalty" onPress={() => onPrepare({ kind: 'void-kick', label: 'Void penalty kick', run: () => onVoid(item.id) })} secondary styles={styles} /> : null}</View>)}</View>
 }
 
-function ReportPanel({ busy, match, onSave, styles }) {
+function ReportPanel({ busy, canSave, match, onSave, styles }) {
   const report = buildCoachFinalMatchReport(match)
+  const activeEvents = report.activeEvents.slice().reverse()
   const [notes, setNotes] = useState(match.finalReport?.staffNotes || '')
-  return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Result and FA submission helper</Text><Text selectable style={styles.score}>{report.result.finalScore}</Text><Text style={styles.meta}>Deferred. Current approved source has no canonical FA SMS, deep-link message format, or authorised direct integration. The Coach app will not invent or automatically send one.</Text></View><View style={styles.card}><Text style={styles.cardTitle}>Final Match Report</Text><Text style={styles.body}>Active events {report.activeEvents.length} | Voided {report.voidedEvents.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text><Field label="Coach notes" multiline onChangeText={setNotes} styles={styles} value={notes} /><Button disabled={busy || match.status !== 'full_time'} label="Save final report" onPress={() => onSave(notes)} styles={styles} /></View></View>
+  return <View style={styles.stack}>
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Final result</Text>
+      <Text selectable style={styles.score}>{report.result.finalScore}</Text>
+      {report.result.shootoutScore ? <Text style={styles.body}>Shootout {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
+    </View>
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Match summary</Text>
+      <Text style={styles.body}>Goals {report.activeGoals.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text>
+      <Text style={styles.meta}>Active events {report.activeEvents.length} | Corrected or voided events {report.voidedEvents.length}</Text>
+      {activeEvents.length === 0 ? <Text style={styles.body}>No match events were recorded.</Text> : null}
+      {activeEvents.map((event) => {
+        const presentation = buildCompletedMatchEventPresentation(event, match)
+        return <View key={event.id} style={styles.field}><View style={styles.row}><Text style={styles.fieldLabel}>{presentation.minuteLabel} | {presentation.title}</Text><Text style={styles.meta}>{presentation.scoreLabel}</Text></View><Text style={styles.body}>{presentation.team.name}{presentation.detail ? ` | ${presentation.detail}` : ''}</Text>{presentation.notes ? <Text style={styles.meta}>{presentation.notes}</Text> : null}</View>
+      })}
+    </View>
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Final Match Report</Text>
+      {match.status !== 'full_time' ? <Text style={styles.body}>Finish the match before saving the final report.</Text> : null}
+      {!canSave && match.status === 'full_time' ? <Text style={styles.body}>Reconnect and confirm Coach access before saving this report.</Text> : null}
+      <Field label="Coach notes" multiline onChangeText={setNotes} styles={styles} value={notes} />
+      <Button disabled={busy || !canSave} label="Save final report" onPress={() => onSave(notes)} styles={styles} />
+    </View>
+  </View>
 }
 
 export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTop, palette, quickAction, user }) {
@@ -401,7 +425,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       {panel === 'live' ? <LivePanel actions={actions} busy={busy} eventForm={eventForm} match={match} onEventForm={setEventForm} onPrepare={setPending} onScore={(kind) => { if (kind === 'event') return submitEvent(); const commandId = createCoachMatchDayCommandId(); return replace(() => correctCoachMatchDayScore(user, match, scoreDraft.home, scoreDraft.away, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)) }} onTimer={(action) => replace(() => runCoachMatchDayTimerAction(user, match, action), (detail) => isCoachMatchDayTimerActionApplied(detail, action))} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' ? <TimelinePanel busy={busy || reconciling} match={match} onCorrectGoal={(event, goal, reason) => replace(() => correctCoachMatchDayGoal(user, match, event, goal, reason), (detail) => isCoachMatchDayGoalCorrectionApplied(detail, event.id, goal, reason))} onPrepare={setPending} onUndo={(event, input) => replace(() => voidCoachMatchDayEvent(user, match, event, input), (detail) => isCoachMatchDayEventVoided(detail, event.id))} styles={styles} /> : null}
       {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling} match={match} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}
-      {COACH_MOBILE_FA_REPORT_VISIBLE && panel === 'report' ? <ReportPanel busy={busy || reconciling} key={`${match.id}:${match.finalReport?.updatedAt || ''}`} match={match} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}
+      {panel === 'report' ? <ReportPanel busy={busy || reconciling} canSave={actions.canSaveFinalReport} key={`${match.id}:${match.finalReport?.updatedAt || ''}`} match={match} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}
     </> : null}
     <Modal animationType="fade" onRequestClose={() => setPending(null)} transparent visible={Boolean(pending)}><View accessibilityViewIsModal style={styles.modalScreen}><Pressable accessibilityLabel="Cancel Match Day change" onPress={() => setPending(null)} style={styles.modalBackdrop} /><View accessibilityLiveRegion="assertive" style={styles.modalCard}><Text style={styles.cardTitle}>Confirm Match Day change</Text><Text style={styles.body}>{pending?.label}</Text><Text style={styles.meta}>The server will recheck Team scope, role, payment, fixture state, and concurrency before saving. The full fixture will then be refreshed.</Text><Button disabled={busy || reconciling} label="Confirm" onPress={confirm} styles={styles} /><Button label="Cancel" onPress={() => setPending(null)} secondary styles={styles} /></View></View></Modal>
   </View>

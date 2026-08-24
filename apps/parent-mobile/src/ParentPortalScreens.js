@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, FlatList, Linking, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
 import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
 import {
@@ -140,11 +141,11 @@ function usePortalStyles(themeTokens) {
   }, [themeTokens])
 }
 
-function Button({ danger = false, disabled = false, label, onPress, outline = false, selected = false, styles }) {
+function Button({ danger = false, disabled = false, expanded, label, onPress, outline = false, selected = false, styles }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled, selected }}
+      accessibilityState={{ disabled, selected, ...(typeof expanded === 'boolean' ? { expanded } : {}) }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [styles.action, outline && styles.actionOutline, selected && styles.actionSelected, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.78 }]}
@@ -541,7 +542,37 @@ export function ResultsScreen({ link, resource, themeTokens }) {
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Results</Text><Text style={styles.helper}>Completed Parent-visible fixtures for {link?.playerName || 'your child'}.</Text></View>
       <ResourceState emptyCopy="There are no completed results for this child." error={resource.error} items={results} loading={resource.loading} styles={styles} />
-      {results.map((match) => <View key={match.id} style={styles.card}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{match.teamName} v {match.opponent}</Text><Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text>{match.shootoutWinner ? <Text style={styles.meta}>Shootout: {match.homeShootoutScore} - {match.awayShootoutScore}</Text> : null}</View>)}
+      {results.map((match) => <ParentMatchReportCard key={match.id} match={match} styles={styles} />)}
+    </View>
+  )
+}
+
+function ParentMatchReportCard({ match, styles }) {
+  const [expanded, setExpanded] = useState(false)
+  const report = useMemo(() => buildFinalMatchReportSummary(match), [match])
+  const activeEvents = report.activeEvents.slice().reverse()
+  return (
+    <View style={styles.card}>
+      <View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View>
+      <Text style={styles.cardTitle}>{match.teamName} v {match.opponent}</Text>
+      <Text style={styles.score}>{report.result.finalScore}</Text>
+      {report.result.shootoutScore ? <Text style={styles.meta}>Shootout: {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
+      <Button expanded={expanded} label={expanded ? 'Hide match report' : 'View match report'} onPress={() => setExpanded((current) => !current)} outline styles={styles} />
+      {expanded ? (
+        <View style={styles.section}>
+          <Text style={styles.cardTitle}>Match report</Text>
+          <Text style={styles.stat}>Goals {report.activeGoals.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text>
+          {match.kickoffTimeTbc ? <Text style={styles.meta}>Kick-off time was not confirmed.</Text> : <Text style={styles.meta}>Kick-off {formatParentProductTime(match.kickoffTime)}</Text>}
+          {match.venueName || match.venueAddress ? <Text style={styles.meta}>{[match.venueName, match.venueAddress].filter(Boolean).join(', ')}</Text> : null}
+          {match.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}
+          <Text style={styles.cardTitle}>Match timeline</Text>
+          {activeEvents.length === 0 ? <Text style={styles.helper}>No match events were recorded.</Text> : null}
+          {activeEvents.map((event) => {
+            const presentation = buildCompletedMatchEventPresentation(event, match, { includeNotes: false })
+            return <View key={event.id} style={styles.section}><View style={styles.row}><Text style={styles.body}>{presentation.minuteLabel} | {presentation.title}</Text><Text style={styles.meta}>{presentation.scoreLabel}</Text></View><Text style={styles.meta}>{presentation.team.name}{presentation.detail ? ` | ${presentation.detail}` : ''}</Text></View>
+          })}
+        </View>
+      ) : null}
     </View>
   )
 }
