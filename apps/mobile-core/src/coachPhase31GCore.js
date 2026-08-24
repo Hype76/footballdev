@@ -31,7 +31,8 @@ function getInvitePlayerKey(invite = {}) {
   return kind && eventId && playerId ? `${kind}:${eventId}:${playerId}` : ''
 }
 
-export function countPendingCoachAvailability(rows = []) {
+export function countPendingCoachAvailability(rows = [], now = new Date()) {
+  const nowTime = now instanceof Date ? now.getTime() : timestamp(now) ?? Date.now()
   const invites = asArray(rows).filter((invite) => ['match', 'training'].includes(normalize(invite?.kind).toLowerCase()))
   const sentPlayerKeys = new Set(invites
     .filter((invite) => normalize(invite?.sentAt))
@@ -41,8 +42,14 @@ export function countPendingCoachAvailability(rows = []) {
   const collapsed = ['match', 'training'].flatMap((kind) => collapseCoachInvitesByPlayer(
     invites.filter((invite) => normalize(invite?.kind).toLowerCase() === kind),
   ))
-  return collapsed.filter((invite) => ['awaiting', 'pending'].includes(normalize(invite?.status).toLowerCase())
-    && sentPlayerKeys.has(getInvitePlayerKey(invite))).length
+  return collapsed.filter((invite) => {
+    const expiresAt = timestamp(invite?.expiresAt)
+    const eventAt = timestamp(invite?.eventAt) ?? localDateTime(invite?.eventDate)
+    return ['awaiting', 'pending'].includes(normalize(invite?.status).toLowerCase())
+      && sentPlayerKeys.has(getInvitePlayerKey(invite))
+      && (expiresAt === null || expiresAt > nowTime)
+      && (eventAt === null || eventAt >= nowTime)
+  }).length
 }
 
 export function buildCoachHomeOperationalSnapshot(input = {}) {
@@ -54,11 +61,16 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
   const messages = asArray(input.messages)
   const inviteRows = asArray(input.invites?.all)
   const developmentRecords = asArray(input.development?.records)
-  const pendingAvailability = countPendingCoachAvailability(inviteRows)
-  const activePolls = polls.filter((poll) => normalize(poll?.status).toLowerCase() === 'open').length
+  const now = input.now || new Date()
+  const nowTime = now instanceof Date ? now.getTime() : timestamp(now) ?? Date.now()
+  const pendingAvailability = countPendingCoachAvailability(inviteRows, now)
+  const activePolls = polls.filter((poll) => {
+    const closesAt = timestamp(poll?.closesAt ?? poll?.closes_at)
+    return normalize(poll?.status).toLowerCase() === 'open'
+      && (closesAt === null || closesAt > nowTime)
+  }).length
   const unreadChat = chatRooms.reduce((total, room) => total + Math.max(0, Number(room?.unreadCount || 0)), 0)
   const unreadCommunication = 0
-  const now = input.now || new Date()
   const nextCalendar = selectNext(calendar, {
     dateTime: (item) => timestamp(item?.startsAt || item?.endsAt),
     excludedStatuses: ['cancelled', 'completed'],

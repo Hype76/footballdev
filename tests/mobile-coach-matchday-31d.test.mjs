@@ -163,6 +163,16 @@ test('Match Day screen disables offline writes and requires explicit confirmatio
   assert.match(source, /server will recheck Team scope, role, payment, fixture state, and concurrency/)
 })
 
+test('Coach Match Day exposes Start match on Overview and keeps confirmation in view', async () => {
+  const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
+  const overview = source.slice(source.indexOf("panel === 'overview'"), source.indexOf("panel === 'squad'"))
+  assert.match(overview, /Ready for kick-off\?/)
+  assert.match(overview, /label="Start match"/)
+  assert.match(overview, /runCoachMatchDayTimerAction\(user, match, 'start'\)/)
+  assert.match(source, /visible=\{Boolean\(pending\)\}/)
+  assert.match(source, /accessibilityViewIsModal/)
+})
+
 test('Match Day keeps the selected fixture stable while cached data refreshes', async () => {
   const [screen, app, calendar] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),

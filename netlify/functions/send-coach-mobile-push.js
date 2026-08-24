@@ -4,6 +4,7 @@ import { supabaseAdmin } from './lib/_supabase.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
+import { buildScopedNotificationTitle, hydrateNotificationScopeNames } from './lib/_notification-scope.js'
 
 export { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
 
@@ -61,7 +62,7 @@ async function getProfile(authUser) {
 async function getMatch(matchDayId) {
   const { data, error } = await supabaseAdmin
     .from('match_days')
-    .select('id, club_id, team_id, opponent, teams:team_id (id, name, status, archived_at)')
+    .select('id, club_id, team_id, opponent, teams:team_id (id, name, status, archived_at), clubs:club_id (name)')
     .eq('id', matchDayId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -114,6 +115,8 @@ function getTeamName(match) {
 
 function buildPayload({ detailLevel, match, type }) {
   const teamName = getTeamName(match)
+  const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
+  const clubName = normalizeText(club?.name)
   const matchName = getMatchDayDisplayName({ ...match, teamName })
   const detailed = detailLevel === 'detailed'
 
@@ -124,13 +127,15 @@ function buildPayload({ detailLevel, match, type }) {
         : 'A scorer volunteer is ready to review.',
       data: {
         app: 'coach',
+        clubName,
         contextId: match.team_id ? `team:${match.team_id}` : `club:${match.club_id}`,
         matchDayId: match.id,
         route: 'matchday',
         teamId: match.team_id || '',
+        teamName,
         type,
       },
-      title: 'Scorer volunteer',
+      title: buildScopedNotificationTitle('Scorer volunteer', { clubName, teamName }),
       type,
     }
   }
@@ -139,13 +144,15 @@ function buildPayload({ detailLevel, match, type }) {
     body: detailed ? matchName : 'You have a new Coach update.',
     data: {
       app: 'coach',
+      clubName,
       contextId: match.team_id ? `team:${match.team_id}` : `club:${match.club_id}`,
       matchDayId: match.id,
       route: 'matchday',
       teamId: match.team_id || '',
+      teamName,
       type,
     },
-    title: 'Coach update',
+    title: buildScopedNotificationTitle('Coach update', { clubName, teamName }),
     type,
   }
 }
@@ -285,9 +292,10 @@ export async function sendCoachAvailabilityResponsePush({
 
   const match = { club_id: clubId, id: targetId, team_id: teamId }
   const devices = await getCoachDevices(match, adminClient)
+  const [scope] = await hydrateNotificationScopeNames(adminClient, [match])
   const deliveries = devices.map((device) => ({
     device,
-    payload: buildCoachAvailabilityResponsePayload({ contextLabel, detailLevel: device.detail_level, playerName, route, status: normalizedStatus, targetId, teamId, type }),
+    payload: buildCoachAvailabilityResponsePayload({ clubName: scope?.club_name, contextLabel, detailLevel: device.detail_level, playerName, route, status: normalizedStatus, targetId, teamId, teamName: scope?.team_name, type }),
   }))
   const pushResult = await sendExpoPushMessages(deliveries.map(({ device, payload }) => ({
     body: payload.body,

@@ -92,12 +92,14 @@ test('Parent and Coach Chat payloads preserve products, deep links, and privacy 
   assert.deepEqual(parentMinimal.data, {
     app: 'parent',
     chatType: 'match_squad',
+    clubName: '',
     contextId: '',
     parentLinkId: 'link-1',
     messageId: '',
     roomId: 'room-1',
     route: 'chat',
     teamId: 'team-1',
+    teamName: '',
     type: 'parent_chat',
   })
   assert.equal(coachDetailed.data.app, 'coach')

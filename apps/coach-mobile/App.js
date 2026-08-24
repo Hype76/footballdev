@@ -220,7 +220,7 @@ function CoachHome() {
     easProjectId: config.easProjectId,
     manageNotifications: false,
     notificationDisabledMessage: 'Coach notifications are disabled on this device.',
-    notificationEnabledMessage: 'Coach notifications are enabled for this context.',
+    notificationEnabledMessage: 'Coach notifications are enabled for this account.',
     onStatusMessage: setNotice,
     teamId: activeContext?.teamId || '',
   })
@@ -262,10 +262,10 @@ function CoachHome() {
     setIsRegisteringPush(true)
     if (!silent) setNotice('')
     try {
-      const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, easProjectId: config.easProjectId })
+      const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, easProjectId: config.easProjectId, preservePreference: silent })
       setNotificationState(next)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
-      if (!silent) setNotice(next.enabled ? 'Coach notifications are enabled for this Coach context.' : next.message)
+      if (!silent) setNotice(next.enabled ? 'Coach notifications are enabled for this Coach account.' : next.message)
       return next
     } catch (error) {
       const message = getCoachPushSetupFailureMessage(error)
@@ -969,7 +969,7 @@ function SettingsScreen({
             : notificationStateLoading ? 'Checking this device' : 'Unable to verify'}
         />
         <Text style={styles.bodyText}>{hasKnownNotificationState
-          ? notificationState.registered ? 'Registered to this Coach installation and Coach context.' : notificationState.message || 'Not enabled on this device.'
+          ? notificationState.registered ? 'Registered to this Coach installation. Your saved choice applies across authorised Coach contexts.' : notificationState.message || 'Not enabled on this device.'
           : notificationStateLoading ? 'Reading the saved notification state.' : 'Notification status could not be read. No setting has been changed.'}</Text>
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
         {hasKnownNotificationState && notificationState.registered ? (

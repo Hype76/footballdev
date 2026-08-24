@@ -171,17 +171,23 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
     if (error.status !== 401) throw safeError(error, 'api')
   }
   const requiresContextRefresh = Boolean(server.registered && normalize(server.contextId) !== normalize(contextId))
+  const authoritativeDetailLevel = server.registered
+    ? normalizeCoachNotificationLevel(server.detailLevel)
+    : detailLevel
+  if (server.registered && authoritativeDetailLevel !== detailLevel) {
+    await setDetailLevel(authoritativeDetailLevel, apiBaseUrl)
+  }
   return normalizeCoachNotificationState({
     ...server,
     ...permission,
-    detailLevel: server.detailLevel || detailLevel,
-    enabled: Boolean(server.enabled && permission.permissionGranted && !requiresContextRefresh),
+    detailLevel: authoritativeDetailLevel,
+    enabled: Boolean(server.enabled && permission.permissionGranted),
     message: requiresContextRefresh ? 'Refresh notifications for this Coach context.' : '',
     requiresContextRefresh,
   })
 }
 
-export async function enableCoachNotifications({ apiBaseUrl, contextId, easProjectId }) {
+export async function enableCoachNotifications({ apiBaseUrl, contextId, easProjectId, preservePreference = false }) {
   getNotificationEnvironment(apiBaseUrl)
   if (!Device.isDevice) throw safeError({ message: 'device unavailable' }, 'device')
   let permission
@@ -206,6 +212,7 @@ export async function enableCoachNotifications({ apiBaseUrl, contextId, easProje
       expoPushToken: token,
       installationId: targetInstallationId,
       platform: Platform.OS,
+      preferenceMode: preservePreference ? 'preserve' : 'enable',
     },
   })
   let result
@@ -220,7 +227,9 @@ export async function enableCoachNotifications({ apiBaseUrl, contextId, easProje
       throw safeError(retryError, 'api')
     }
   }
-  return normalizeCoachNotificationState({ ...(result.installation || {}), canAskAgain: permission.canAskAgain !== false, permissionGranted: true, permissionStatus: normalize(permission.status).toLowerCase() || 'granted' })
+  const installation = result.installation || {}
+  if (installation.detailLevel) await setDetailLevel(installation.detailLevel, apiBaseUrl)
+  return normalizeCoachNotificationState({ ...installation, canAskAgain: permission.canAskAgain !== false, permissionGranted: true, permissionStatus: normalize(permission.status).toLowerCase() || 'granted' })
 }
 
 export async function updateCoachNotificationPreference({ apiBaseUrl, contextId, detailLevel }) {

@@ -18,9 +18,11 @@ test('Coach availability notifications deep-link to the exact Match Day item', (
   assert.equal(payload.body, 'Jack Hughes is available for the match against Wrexham.')
   assert.deepEqual(payload.data, {
     app: 'coach',
+    clubName: '',
     route: 'matchday',
     targetId: 'match-wrexham',
     teamId: 'team-1',
+    teamName: '',
     type: 'match_availability_response',
   })
 })

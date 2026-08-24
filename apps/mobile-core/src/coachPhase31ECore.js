@@ -444,6 +444,9 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
   return Object.freeze({
     id: normalize(row.id), kind, eventId,
     occurrenceDate: normalize(row.occurrence_date ?? row.occurrenceDate),
+    eventAt: normalize(row.occurrence_starts_at ?? row.event_at ?? row.eventAt),
+    eventDate: normalize(row.match_date ?? row.event_date ?? row.eventDate ?? row.occurrence_date ?? row.occurrenceDate),
+    expiresAt: normalize(row.response_deadline_at ?? row.expires_at ?? row.expiresAt),
     teamId: normalize(row.team_id ?? row.teamId), playerId: normalize(row.player_id ?? row.playerId), playerName: normalize(row.player_name ?? row.playerName) || 'Player',
     title: normalize(row.title ?? row.event_title ?? row.session_title ?? row.opponent) || 'Invitation', status,
     response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt: normalize(row.sent_at ?? row.email_sent_at ?? row.invited_at ?? row.sentAt), respondedAt: normalize(row.responded_at ?? row.respondedAt),

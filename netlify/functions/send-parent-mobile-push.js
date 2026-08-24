@@ -3,6 +3,13 @@ import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
+import { addScopeToNotificationPayload } from './lib/_notification-scope.js'
+import {
+  getDateInTimeZone,
+  isCurrentMatchNotificationReference,
+  isCurrentParentPollReference,
+  isCurrentTrainingNotificationReference,
+} from './lib/_parent-notification-validity.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -114,7 +121,7 @@ async function getMessagePayload({ id, profile }) {
 async function getPollPayload({ id, profile }) {
   const { data: poll, error } = await supabaseAdmin
     .from('polls')
-    .select('id, club_id, team_id, title, description, audience, status')
+    .select('id, club_id, team_id, title, description, audience, status, closes_at')
     .eq('id', id)
     .eq('club_id', profile.clubId)
     .eq('audience', 'parents')
@@ -123,6 +130,10 @@ async function getPollPayload({ id, profile }) {
 
   if (error || !poll) {
     throw Object.assign(new Error('Parent poll could not be found.'), { statusCode: 404 })
+  }
+
+  if (!isCurrentParentPollReference(poll)) {
+    throw Object.assign(new Error('Parent poll is no longer active.'), { statusCode: 404 })
   }
 
   return {
@@ -187,7 +198,7 @@ async function getResourcePayload({ id, profile }) {
 async function getMatchDayAvailabilityPayload({ id, profile }) {
   const { data: request, error } = await supabaseAdmin
     .from('match_day_availability_requests')
-    .select('id, club_id, team_id, match_day_id, parent_link_id, status, token_revoked_at')
+    .select('id, club_id, team_id, match_day_id, parent_link_id, status, expires_at, token_revoked_at')
     .eq('id', id)
     .eq('club_id', profile.clubId)
     .maybeSingle()
@@ -198,13 +209,17 @@ async function getMatchDayAvailabilityPayload({ id, profile }) {
 
   const { data: match, error: matchError } = await supabaseAdmin
     .from('match_days')
-    .select('id, club_id, team_id, opponent, match_date')
+    .select('id, club_id, team_id, opponent, match_date, status, deleted_at')
     .eq('id', request.match_day_id)
     .eq('club_id', request.club_id)
     .maybeSingle()
 
   if (matchError || !match || match.team_id !== request.team_id) {
     throw Object.assign(new Error('Availability request match could not be found.'), { statusCode: 404 })
+  }
+
+  if (!isCurrentMatchNotificationReference({ ...request, match_days: match }, request.parent_link_id, Date.now(), getDateInTimeZone())) {
+    throw Object.assign(new Error('Availability request is no longer active.'), { statusCode: 404 })
   }
 
   const matchDate = match.match_date
@@ -236,7 +251,7 @@ async function getMatchDayAvailabilityPayload({ id, profile }) {
 async function getTrainingAvailabilityPayload({ id, profile }) {
   const { data: requestPlayer, error } = await supabaseAdmin
     .from('training_availability_request_players')
-    .select('id, request_id, club_id, team_id, calendar_event_id, parent_link_id, recipient_type, status')
+    .select('id, request_id, club_id, team_id, calendar_event_id, parent_link_id, recipient_type, status, response_deadline_at, token_revoked_at')
     .eq('id', id)
     .eq('club_id', profile.clubId)
     .maybeSingle()
@@ -267,6 +282,10 @@ async function getTrainingAvailabilityPayload({ id, profile }) {
   ])
 
   if (requestError || eventError || !request || !event || request.status === 'cancelled' || event.cancelled_at) {
+    throw Object.assign(new Error('Training availability request is no longer active.'), { statusCode: 404 })
+  }
+
+  if (!isCurrentTrainingNotificationReference({ ...requestPlayer, training_availability_requests: request }, requestPlayer.parent_link_id)) {
     throw Object.assign(new Error('Training availability request is no longer active.'), { statusCode: 404 })
   }
 
@@ -391,7 +410,7 @@ async function revokeMobileDeviceTokens(deviceTokens) {
 }
 
 export async function sendParentMobilePushById({ id, profile, type }) {
-  const payload = type === 'parent_message'
+  const basePayload = type === 'parent_message'
     ? await getMessagePayload({ id, profile })
     : type === 'resource_shared'
       ? await getResourcePayload({ id, profile })
@@ -400,6 +419,7 @@ export async function sendParentMobilePushById({ id, profile, type }) {
       : type === 'training_availability'
         ? await getTrainingAvailabilityPayload({ id, profile })
       : await getPollPayload({ id, profile })
+  const payload = await addScopeToNotificationPayload(supabaseAdmin, basePayload)
   const parentLinks = await getTargetParentLinks(payload)
   const devices = await getMobileDevices({
     parentLinks,

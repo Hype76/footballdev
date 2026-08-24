@@ -40,9 +40,11 @@ function isInvitationTerminal(invitation = {}) {
   return ['cancelled', 'closed', 'expired'].includes(normalizeText(invitation.invitationState).toLowerCase())
 }
 
-function isInvitationActionable(invitation = {}) {
+function isInvitationActionable(invitation = {}, now = new Date()) {
+  const responseDeadline = Date.parse(normalizeText(invitation.responseDeadline))
   return ['active', 'offered'].includes(normalizeText(invitation.invitationState).toLowerCase())
     && (invitation.canRespond === true || invitation.canChangeResponse === true)
+    && (!Number.isFinite(responseDeadline) || responseDeadline > now.getTime())
 }
 
 export function getParentInvitationSections(rows = [], now = new Date()) {
@@ -65,7 +67,7 @@ export function getParentInvitationSections(rows = [], now = new Date()) {
   const futureSort = (left, right) => String(left.eventStart || left.eventDate || '9999-12-31').localeCompare(String(right.eventStart || right.eventDate || '9999-12-31'))
   const historySort = (left, right) => String(right.eventStart || right.eventDate || '').localeCompare(String(left.eventStart || left.eventDate || ''))
   const future = items.filter((item) => !isPast(item) && !isInvitationTerminal(item))
-  const needsResponse = future.filter((item) => item.isPending && isInvitationActionable(item)).sort(futureSort)
+  const needsResponse = future.filter((item) => item.isPending && isInvitationActionable(item, now)).sort(futureSort)
   const responded = future.filter((item) => !item.isPending && normalizeText(item.responseState) !== 'awaiting_response').sort(futureSort)
   const needsResponseIds = new Set(needsResponse.map(invitationOccurrenceKey))
   const respondedIds = new Set(responded.map(invitationOccurrenceKey))

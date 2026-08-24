@@ -252,20 +252,27 @@ export function getParentHomeModel({ calendarEvents, matches, messages, now = ne
     : nextCalendarEvent && { item: nextCalendarEvent, type: 'calendar' }
   const messageList = Array.isArray(messages) ? messages : []
   const pollList = Array.isArray(polls) ? polls : []
+  const activePolls = pollList.filter((poll) => isParentPollActive(poll, now))
 
   return {
-    activePoll: pollList.find((poll) => poll.status === 'open') || null,
+    activePoll: activePolls[0] || null,
     latestMessage: messageList[0] || null,
     nextActivity: nextActivity || null,
     recentMatches: matchGroups.recent,
     unreadMessages: messageList.filter((message) => !message.readAt).length,
-    unansweredPolls: pollList.filter((poll) => {
+    unansweredPolls: activePolls.filter((poll) => {
       const answers = Array.isArray(poll.currentOptionIds) ? poll.currentOptionIds : []
-      return poll.status === 'open' && !poll.currentOptionId && answers.length === 0
+      return !poll.currentOptionId && answers.length === 0
     }).length,
     upcomingCalendarEvents: calendarGroups.upcoming,
     upcomingMatches: matchGroups.upcoming,
   }
+}
+
+export function isParentPollActive(poll = {}, now = new Date()) {
+  if (normalizeText(poll.status).toLowerCase() !== 'open' || poll.isExpired === true) return false
+  const closesAt = toTimestamp(poll.closesAt)
+  return closesAt === 0 || closesAt > now.getTime()
 }
 
 export function getPollDraftOption(poll, drafts) {

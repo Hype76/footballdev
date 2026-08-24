@@ -7,6 +7,7 @@ import { buildParentMatchDayNotificationCopy } from './lib/_match-day-notificati
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
+import { buildScopedNotificationTitle } from './lib/_notification-scope.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -69,7 +70,7 @@ async function getProfile(authUser) {
 async function getMatch(matchDayId) {
   const { data, error } = await supabaseAdmin
     .from('match_days')
-    .select('*, teams:team_id (name)')
+    .select('*, teams:team_id (name), clubs:club_id (name)')
     .eq('id', matchDayId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -363,11 +364,16 @@ export async function handler(event) {
       targetParentLinks: appNotificationParentLinks,
     })
     const notificationCopy = buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
+    const team = Array.isArray(match.teams) ? match.teams[0] : match.teams
+    const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
+    const teamName = normalizeText(team?.name)
+    const clubName = normalizeText(club?.name)
+    const notificationTitle = buildScopedNotificationTitle(notificationCopy.title, { clubName, teamName })
     const payload = {
       body: notificationCopy.detailedBody,
       renotify: notificationCopy.renotify,
       tag: notificationCopy.tag,
-      title: notificationCopy.title,
+      title: notificationTitle,
       url: `/parent-portal?section=matches&matchDayId=${encodeURIComponent(match.id)}`,
       icon: '/icons/icon-192.png',
       badge: '/icons/favicon-48.png',
@@ -378,15 +384,18 @@ export async function handler(event) {
     const sent = results.filter((result) => result.sent).length
     const revoked = results.filter((result) => result.revoked).length
     const nativePayload = {
-      title: notificationCopy.title,
+      title: notificationTitle,
       detailedBody: notificationCopy.detailedBody,
       minimalBody: notificationCopy.minimalBody,
       type,
       data: {
         app: 'parent',
+        clubName,
         eventId,
         route: 'matchday',
         matchDayId: match.id,
+        teamId: match.team_id || '',
+        teamName,
         type,
       },
     }

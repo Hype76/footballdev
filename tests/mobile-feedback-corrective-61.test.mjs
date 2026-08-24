@@ -64,10 +64,12 @@ test('new Parent Poll notification is privacy-safe and deep-links to Parent Poll
   assert.equal(payload.title, 'Football Player Parents')
   assert.deepEqual(payload.data, {
     app: 'parent',
+    clubName: '',
     parentLinkId: 'parent-link-1',
     pollId: 'poll-1',
     route: 'polls',
     teamId: 'team-1',
+    teamName: '',
     type: 'parent_poll',
   })
   assert.doesNotMatch(JSON.stringify(payload), /parentName|playerName|question|optionId|@/i)

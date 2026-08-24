@@ -7,6 +7,7 @@ import {
   buildTrainingCalendarFilename,
 } from './lib/_training-calendar.js'
 import { sendCoachAvailabilityResponsePush } from './send-coach-mobile-push.js'
+import { DEFAULT_CLUB_TIME_ZONE, formatClubDateTime } from './lib/_club-date-time.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 
@@ -68,17 +69,19 @@ function statusLabel(value) {
   return status || 'no response'
 }
 
-function formatReadableDateTime(value) {
-  const parsedDate = new Date(value)
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return 'Time to be confirmed'
-  }
-
-  return new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'full',
-    timeStyle: 'short',
-  }).format(parsedDate)
+function formatReadableDateTime(value, timeZone = DEFAULT_CLUB_TIME_ZONE) {
+  return formatClubDateTime(value, {
+    options: {
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      month: 'long',
+      timeZoneName: 'short',
+      weekday: 'long',
+      year: 'numeric',
+    },
+    timeZone,
+  })
 }
 
 function page({ title, message, content = '' }) {
@@ -126,7 +129,7 @@ function detailRows(response) {
     ['Player', response.player_name || 'Player'],
     ['Team', response.team_name || 'Team'],
     ['Training', response.event_title || 'Training session'],
-    ['When', formatReadableDateTime(response.occurrence_starts_at)],
+    ['When', formatReadableDateTime(response.occurrence_starts_at, response.club_timezone || response.timezone_name)],
     ['Location', response.location || 'Not set'],
   ]
 
@@ -139,7 +142,7 @@ function availabilityFieldset(response) {
   const currentStatus = normalizeText(response.response_status).toLowerCase()
   const selectedBy = normalizeText(response.recipient_name) || 'an authorised responder'
   const currentSummary = VALID_STATUSES.has(currentStatus)
-    ? `<p class="availability-summary">Current availability: ${escapeHtml(statusLabel(currentStatus))}. Last updated ${escapeHtml(formatReadableDateTime(response.responded_at))} by ${escapeHtml(selectedBy)}. The latest valid response is shared by every eligible responder for this Player.</p>`
+    ? `<p class="availability-summary">Current availability: ${escapeHtml(statusLabel(currentStatus))}. Last updated ${escapeHtml(formatReadableDateTime(response.responded_at, response.club_timezone || response.timezone_name))} by ${escapeHtml(selectedBy)}. The latest valid response is shared by every eligible responder for this Player.</p>`
     : ''
   const choices = [
     ['available', 'Attending'],

@@ -11,6 +11,11 @@ import {
   invalidateMemoryCacheByPrefix,
 } from './cache-store.js'
 import {
+  getTeamPlayerSessionFailure,
+  isTeamPlayerAuthorizationError,
+  normalizeTeamPlayerMembershipRows,
+} from './team-player-read.js'
+import {
   CLUB_SELECT,
   MEMBERSHIP_CLUB_SELECT,
   USER_PROFILE_SELECT,
@@ -1126,9 +1131,40 @@ export async function getPlayers({ user, section, playerId, playerName, teamId, 
     const activeMembershipTeamId = normalizedTeamId || (!normalizedPlayerId ? user.activeTeamId : '')
 
     if (activeMembershipTeamId && !includeArchived && status !== 'archived') {
-      const { data: membershipPlayers, error: membershipPlayersError } = await supabase.rpc('get_team_players', {
+      let { data: membershipPlayers, error: membershipPlayersError } = await supabase.rpc('get_team_players', {
         team_id_value: activeMembershipTeamId,
       })
+
+      if (isTeamPlayerAuthorizationError(membershipPlayersError)) {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError || !sessionData?.session?.access_token) {
+          throw getTeamPlayerSessionFailure(sessionError || membershipPlayersError)
+        }
+
+        const retryResult = await supabase.rpc('get_team_players', {
+          team_id_value: activeMembershipTeamId,
+        })
+        membershipPlayers = retryResult.data
+        membershipPlayersError = retryResult.error
+
+        if (isTeamPlayerAuthorizationError(membershipPlayersError)) {
+          const { data: memberships, error: membershipsError } = await supabase
+            .from('player_team_memberships')
+            .select('team_id, player:players(*), team:teams!inner(id, name)')
+            .eq('team_id', activeMembershipTeamId)
+            .eq('status', 'active')
+
+          if (!membershipsError) {
+            membershipPlayers = normalizeTeamPlayerMembershipRows(memberships, activeMembershipTeamId)
+            membershipPlayersError = null
+          } else if (String(membershipsError?.code ?? '') === '42501') {
+            throw getTeamPlayerSessionFailure(membershipsError)
+          } else {
+            membershipPlayersError = membershipsError
+          }
+        }
+      }
 
       if (!membershipPlayersError) {
         return (membershipPlayers ?? [])

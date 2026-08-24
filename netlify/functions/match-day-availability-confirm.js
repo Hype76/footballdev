@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 import { isFixtureKickoffTimeTbc } from '../../src/lib/calendar-datetime-integrity.js'
 import { sendCoachAvailabilityResponsePush } from './send-coach-mobile-push.js'
+import { DEFAULT_CLUB_TIME_ZONE, formatClubDateTime, resolveClubTimeZone } from './lib/_club-date-time.js'
 
 const VALID_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 const VALID_VOLUNTEER_RESPONSES = new Set(['yes', 'no'])
@@ -70,27 +71,25 @@ function sentenceStatusLabel(value) {
   return label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : 'No response'
 }
 
-function formatReadableTimestamp(value) {
+function formatReadableTimestamp(value, timeZone = DEFAULT_CLUB_TIME_ZONE) {
   const timestamp = normalizeText(value)
 
   if (!timestamp) {
     return 'time not recorded'
   }
 
-  const date = new Date(timestamp)
-
-  if (Number.isNaN(date.getTime())) {
-    return timestamp
-  }
-
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  }).format(date)
+  return formatClubDateTime(timestamp, {
+    fallback: timestamp,
+    options: {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    },
+    timeZone,
+  })
 }
 
 function formatTime(value) {
@@ -166,7 +165,7 @@ function buildFixtureResponseCalendarUrl(response) {
     dates,
     details,
     location: normalizeText(response.venue_address || response.venue_name),
-    ctz: 'Europe/London',
+    ctz: resolveClubTimeZone(response.club_timezone || response.timezone_name),
   })
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`
@@ -234,7 +233,10 @@ function detailRows(response) {
 function currentAvailabilityAttribution(response, currentStatus) {
   const selectedBy = normalizeText(response.current_availability_selected_by_name)
     || 'an authorised responder'
-  const selectedAt = formatReadableTimestamp(response.current_availability_selected_at)
+  const selectedAt = formatReadableTimestamp(
+    response.current_availability_selected_at,
+    response.club_timezone || response.timezone_name,
+  )
 
   return `<p class="availability-summary">Current availability: ${escapeHtml(sentenceStatusLabel(currentStatus))}. Last updated at ${escapeHtml(selectedAt)} by ${escapeHtml(selectedBy)}. If this has changed, you can update it below.</p>`
 }

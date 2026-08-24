@@ -65,6 +65,7 @@ import {
   getPollDraftOption,
   isParentDefinitelyOffline,
 } from './src/parentExperience'
+import { getParentInvitationSections } from './src/parentPresentationCore'
 import {
   addParentScorerGoal,
   correctParentScorerGoal,
@@ -1581,7 +1582,7 @@ function ParentHome() {
   const matchInvitations = visibleInvitations.filter((invitation) => (
     ['match_attendance', 'match_role'].includes(invitation.invitationType)
   ))
-  const unansweredInvites = visibleInvitations.filter((invitation) => invitation.isPending).length
+  const unansweredInvites = getParentInvitationSections(visibleInvitations).needsResponse.length
   const unreadChat = parentChatRooms.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
   const tabs = [
     { key: 'home', label: 'Home' },

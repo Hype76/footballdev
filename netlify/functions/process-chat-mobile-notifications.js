@@ -5,6 +5,10 @@ import {
   getParentCommunicationChannels,
 } from './lib/_parent-communication-preferences.js'
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
+import {
+  buildScopedNotificationTitle,
+  hydrateNotificationScopeNames,
+} from './lib/_notification-scope.js'
 
 const BATCH_SIZE = 50
 const RETRY_DELAY_MS = 60_000
@@ -46,6 +50,8 @@ export function buildParentChatMobileNotification(intent = {}) {
   const detailLevel = normalizeDetailLevel(intent.detail_level)
   const chatLabel = parentChatLabel(normalizeText(intent.room_type))
   const isParent = recipientApp === 'parent'
+  const clubName = normalizeText(intent.club_name)
+  const teamName = normalizeText(intent.team_name)
 
   return {
     body: detailLevel === 'detailed'
@@ -54,6 +60,7 @@ export function buildParentChatMobileNotification(intent = {}) {
     data: {
       app: isParent ? 'parent' : 'coach',
       chatType: normalizeText(intent.room_type),
+      clubName,
       contextId: isParent ? '' : getCoachTargetContext({
         clubId: intent.club_id,
         contextId: intent.context_id,
@@ -64,10 +71,11 @@ export function buildParentChatMobileNotification(intent = {}) {
       roomId: normalizeText(intent.room_id),
       route: 'chat',
       teamId: normalizeText(intent.team_id),
+      teamName,
       type: 'parent_chat',
     },
     sound: 'default',
-    title: chatLabel,
+    title: buildScopedNotificationTitle(chatLabel, { clubName, teamName }),
     to: normalizeText(intent.expo_push_token),
   }
 }
@@ -75,6 +83,8 @@ export function buildParentChatMobileNotification(intent = {}) {
 export function buildStaffChatMobileNotification(intent = {}) {
   const detailLevel = normalizeDetailLevel(intent.detail_level)
   const chatLabel = staffChatLabel(normalizeText(intent.conversation_type))
+  const clubName = normalizeText(intent.club_name)
+  const teamName = normalizeText(intent.team_name)
 
   return {
     body: detailLevel === 'detailed'
@@ -83,6 +93,7 @@ export function buildStaffChatMobileNotification(intent = {}) {
     data: {
       app: 'coach',
       chatType: normalizeText(intent.conversation_type),
+      clubName,
       conversationId: normalizeText(intent.conversation_id),
       contextId: getCoachTargetContext({
         clubId: intent.club_id,
@@ -91,30 +102,35 @@ export function buildStaffChatMobileNotification(intent = {}) {
       }),
       route: 'chat',
       teamId: normalizeText(intent.team_id),
+      teamName,
       type: 'staff_chat',
     },
     sound: 'default',
-    title: chatLabel,
+    title: buildScopedNotificationTitle(chatLabel, { clubName, teamName }),
     to: normalizeText(intent.expo_push_token),
   }
 }
 
 export function buildParentPollMobileNotification(intent = {}) {
   const detailLevel = normalizeDetailLevel(intent.detail_level)
+  const clubName = normalizeText(intent.club_name)
+  const teamName = normalizeText(intent.team_name)
   return {
     body: detailLevel === 'detailed'
       ? 'A new Parent Poll is ready to answer.'
       : 'A new Poll is available.',
     data: {
       app: 'parent',
+      clubName,
       parentLinkId: normalizeText(intent.parent_link_id),
       pollId: normalizeText(intent.poll_id),
       route: 'polls',
       teamId: normalizeText(intent.team_id),
+      teamName,
       type: 'parent_poll',
     },
     sound: 'default',
-    title: 'Football Player Parents',
+    title: buildScopedNotificationTitle('Football Player Parents', { clubName, teamName }),
     to: normalizeText(intent.expo_push_token),
   }
 }
@@ -305,11 +321,21 @@ export async function processChatMobileNotifications({
 } = {}) {
   if (!client) throw new Error('chat_notification_client_required')
 
-  const [parentIntents, staffIntents, pollIntents] = await Promise.all([
+  const [claimedParentIntents, claimedStaffIntents, claimedPollIntents] = await Promise.all([
     claimIntents(client, 'claim_parent_chat_mobile_notification_intents'),
     claimIntents(client, 'claim_staff_chat_mobile_notification_intents'),
     claimIntents(client, 'claim_parent_poll_mobile_notification_intents'),
   ])
+  const hydratedIntents = await hydrateNotificationScopeNames(client, [
+    ...claimedParentIntents,
+    ...claimedStaffIntents,
+    ...claimedPollIntents,
+  ])
+  const parentIntents = hydratedIntents.slice(0, claimedParentIntents.length)
+  const staffIntentStart = claimedParentIntents.length
+  const pollIntentStart = staffIntentStart + claimedStaffIntents.length
+  const staffIntents = hydratedIntents.slice(staffIntentStart, pollIntentStart)
+  const pollIntents = hydratedIntents.slice(pollIntentStart)
   const summary = {
     claimed: parentIntents.length + staffIntents.length + pollIntents.length,
     failed: 0,

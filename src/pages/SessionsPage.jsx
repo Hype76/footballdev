@@ -59,6 +59,7 @@ import {
   completeAssessmentSession,
   cancelPendingTrainingAvailabilityRequests,
   createCalendarEvent,
+  createAssessmentReminderOnce,
   createAssessmentSession,
   createPlayerStaffNote,
   deleteCalendarEvent,
@@ -841,6 +842,21 @@ function getFormFromCalendarEvent(event, invites = []) {
       ...inviteFields,
       parentAudience: sourceParentAudience,
       shareWithParents: Boolean(source.parentVisible || inviteFields.shareWithParents),
+    }
+  }
+
+  if (sourceType === 'assessment-reminder') {
+    const evaluation = source.evaluation || {}
+    const reminder = source.reminder || {}
+
+    return {
+      ...getDefaultCalendarForm(reminder.metadata?.dueDate || event.date),
+      date: formatDateInput(reminder.metadata?.dueDate || event.date),
+      endTime: '10:00',
+      eventType: 'general',
+      startTime: '09:00',
+      teamId: evaluation.teamId || '',
+      title: event.title || 'Development review reminder',
     }
   }
 
@@ -2998,6 +3014,48 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     let coreSavedMatchDays = null
 
     try {
+      if (sourceType === 'assessment-reminder') {
+        const dueDate = formatDateInput(calendarForm.date)
+        const evaluation = activeEvent?.data?.evaluation || {}
+        const previousReminder = activeEvent?.data?.reminder || {}
+
+        if (!dueDate) {
+          throw calendarValidationError('date', 'Choose a new Development review date.')
+        }
+
+        if (dueDate < getTodayMatchDayDateValue()) {
+          throw calendarValidationError('date', 'The new Development review date must be today or in the future.')
+        }
+
+        if (!evaluation.id || !evaluation.playerId) {
+          throw new Error('This Development reminder is no longer linked to an available Player record.')
+        }
+
+        await createAssessmentReminderOnce({
+          user,
+          dueDate,
+          evaluationId: evaluation.id,
+          metadata: {
+            ...(previousReminder.metadata || {}),
+            rescheduledAt: new Date().toISOString(),
+            rescheduledFromReminderId: previousReminder.id || activeEvent.sourceId,
+          },
+          playerId: evaluation.playerId,
+        })
+        const nextAssessmentReminders = await getAssessmentReminderLogs({ user })
+        setAssessmentReminders(nextAssessmentReminders)
+        writeCalendarAwareCache({ assessmentReminders: nextAssessmentReminders })
+        setCalendarModal(null)
+        setCalendarForm(getDefaultCalendarForm())
+        setCalendarValidation(null)
+        setErrorMessage('')
+        showToast({
+          title: 'Development review rescheduled',
+          message: `${activeEvent.title || 'Development review'} moved to ${dueDate}.`,
+        })
+        return
+      }
+
       if (!canCreateClubCalendarEvent(user) && !safeTeamId) {
         throw new Error('Choose your assigned team before saving this calendar event.')
       }
@@ -5493,6 +5551,9 @@ function CalendarEventModal({
       && JSON.stringify(form) !== editingBaseline,
   )
   const editableSource = !event || event.editable !== false
+  const isAssessmentReminder = event?.sourceType === 'assessment-reminder'
+  const canManageEventPlayers = editableSource && ['calendar', 'match-day', 'session'].includes(event?.sourceType)
+  const canDeleteEvent = Boolean(event && editableSource && !isAssessmentReminder)
   const isInheritedClubEvent = Boolean(event?.isInheritedClubEvent || event?.data?.isInheritedClubEvent)
   const showOpponent = form.eventType === 'match'
   const isMatchFixture = form.eventType === 'match'
@@ -5505,7 +5566,7 @@ function CalendarEventModal({
       : mode === 'create'
         ? 'Add calendar event'
         : mode === 'edit'
-          ? 'Edit calendar event'
+          ? isAssessmentReminder ? 'Reschedule Development review' : 'Edit calendar event'
           : 'Calendar event'
   const selectedSummary = isMatchFixture
     ? [form.date, form.kickoffTimeTbc ? 'Time TBC' : form.startTime ? `Kick-off ${form.startTime}` : '', form.location].filter(Boolean).join(', ')
@@ -5527,7 +5588,7 @@ function CalendarEventModal({
   const showRepeatUpdateScope = isRecurringCalendarEdit
   const showRepeatDeleteScope = Boolean(event && editableSource && isRecurringCalendarEdit)
   const deleteButtonDisabled = isBusy || (showRepeatDeleteScope && form.deleteRepeatScope !== 'entire_series')
-  const hasMobileSecondaryActions = Boolean(event && editableSource)
+  const hasMobileSecondaryActions = Boolean(event && editableSource && (!isEditing || canDeleteEvent))
   const canBuildFormation = Boolean(event?.sourceType === 'match-day' && event?.sourceId && onBuildFormation)
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
@@ -5722,6 +5783,29 @@ function CalendarEventModal({
                   {validationError.message}
                 </div>
               ) : null}
+              {isAssessmentReminder ? (
+                <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4">
+                  <p className="text-sm font-black text-[#101828]">{event.title || 'Development review reminder'}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                    Choose a new date for this missed Development review. The original reminder remains in the audit history.
+                  </p>
+                  <label className="mt-4 block">
+                    <span className="mb-2 block text-sm font-black text-[#101828]">New review date</span>
+                    <input
+                      name="date"
+                      {...validationProps('date')}
+                      type="date"
+                      min={getTodayMatchDayDateValue()}
+                      value={form.date}
+                      onChange={onChange}
+                      required
+                      className={fieldClass}
+                    />
+                    {validationMessage('date')}
+                  </label>
+                </div>
+              ) : (
+              <>
               <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Type</span>
@@ -6197,6 +6281,8 @@ function CalendarEventModal({
                 {validationMessage('invitedPlayerIds')}
               </div>
             ) : null}
+            </>
+            )}
             </div>
             </div>
 
@@ -6212,7 +6298,7 @@ function CalendarEventModal({
               testId="calendar-mobile-action-bar"
             >
                 <button type="button" onClick={handleModalCancel} disabled={isBusy} className={compactSecondaryButtonClass}>Cancel</button>
-                <button type="submit" disabled={isBusy} className={compactPrimaryButtonClass}>{isBusy ? 'Saving...' : 'Save'}</button>
+                <button type="submit" disabled={isBusy} className={compactPrimaryButtonClass}>{isBusy ? 'Saving...' : isAssessmentReminder ? 'Save new date' : 'Save'}</button>
                 {hasMobileSecondaryActions ? (
                   <button
                     ref={mobileActionMenuButtonRef}
@@ -6232,8 +6318,8 @@ function CalendarEventModal({
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <button type="button" onClick={handleModalCancel} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
-                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save changes'}</button>
-                {event && editableSource ? (
+                <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : isAssessmentReminder ? 'Save new date' : 'Save changes'}</button>
+                {canDeleteEvent ? (
                   <button
                     type="button"
                     onClick={onDelete}
@@ -6281,14 +6367,14 @@ function CalendarEventModal({
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <button type="button" onClick={handleModalCancel} className={secondaryButtonClass}>Close</button>
-                {editableSource ? (
+                {canManageEventPlayers ? (
                   <button type="button" onClick={onManagePlayers} className={secondaryButtonClass}>
                     {getEventPlayerManagementLabel(form.eventType)}
                   </button>
                 ) : null}
-                {editableSource ? <button type="button" onClick={onEdit} className={secondaryButtonClass}>Edit event</button> : null}
+                {editableSource && !isAssessmentReminder ? <button type="button" onClick={onEdit} className={secondaryButtonClass}>Edit event</button> : null}
                 {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Move or reschedule</button> : null}
-                {event && editableSource ? (
+                {canDeleteEvent ? (
                   <button
                     type="button"
                     onClick={onDelete}
@@ -6349,7 +6435,7 @@ function CalendarEventModal({
                     Build Formation Board with attending players
                   </button>
                 ) : null}
-                {!isEditing && !isManagingPlayers && editableSource ? (
+                {!isEditing && !isManagingPlayers && canManageEventPlayers ? (
                   <button
                     type="button"
                     role="menuitem"
@@ -6362,7 +6448,7 @@ function CalendarEventModal({
                     {getEventPlayerManagementLabel(form.eventType)}
                   </button>
                 ) : null}
-                {!isEditing && editableSource ? (
+                {!isEditing && editableSource && !isAssessmentReminder ? (
                   <button
                     type="button"
                     role="menuitem"
@@ -6388,7 +6474,7 @@ function CalendarEventModal({
                     Move or reschedule
                   </button>
                 ) : null}
-                {event && editableSource ? (
+                {canDeleteEvent ? (
                   <button
                     type="button"
                     role="menuitem"

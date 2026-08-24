@@ -317,7 +317,7 @@ function buildAssessmentReminderEvents(assessmentReminders, evaluations) {
         title: `${playerName || 'Player'} assessment reminder`,
         description: [team, reminder.metadata?.section || evaluation.section, 'Next assessment due'].filter(Boolean).join(', '),
         href: `/assess-player/new?evaluationId=${encodeURIComponent(evaluationId)}`,
-        editable: false,
+        editable: true,
         sourceId: reminder.id,
         sourceType: 'assessment-reminder',
         data: {

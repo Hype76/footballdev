@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
+import { resolveCoachMobileRegistrationPreference } from './lib/_coach-mobile-notification-preference.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -193,7 +194,7 @@ async function registerInstallation({ authUser, body, installationId }) {
   const context = await loadCoachContext(authUser, body.contextId)
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('coach_mobile_push_installations')
-    .select('auth_user_id, status')
+    .select('auth_user_id, detail_level, enabled, status')
     .eq('installation_id', installationId)
     .maybeSingle()
   if (existingError) throw existingError
@@ -222,7 +223,11 @@ async function registerInstallation({ authUser, body, installationId }) {
     .neq('installation_id', installationId)
   if (revokeError) throw revokeError
 
-  const detailLevel = normalizeDetailLevel(body.detailLevel)
+  const preference = resolveCoachMobileRegistrationPreference({
+    existing: existing?.auth_user_id === authUser.id ? existing : null,
+    mode: body.preferenceMode,
+    requestedDetailLevel: body.detailLevel,
+  })
   const { data, error } = await supabaseAdmin
     .from('coach_mobile_push_installations')
     .upsert(
@@ -238,8 +243,8 @@ async function registerInstallation({ authUser, body, installationId }) {
         platform,
         app_version: normalizeText(body.appVersion).slice(0, 40),
         build_number: normalizeText(body.buildNumber).slice(0, 40),
-        detail_level: detailLevel,
-        enabled: detailLevel !== 'off',
+        detail_level: preference.detailLevel,
+        enabled: preference.enabled,
         status: 'active',
         last_seen_at: now,
         updated_at: now,

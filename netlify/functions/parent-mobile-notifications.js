@@ -1,3 +1,9 @@
+import {
+  getDateInTimeZone,
+  isCurrentMatchNotificationReference,
+  isCurrentParentPollReference,
+  isCurrentTrainingNotificationReference,
+} from './lib/_parent-notification-validity.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 
 function response(statusCode, payload) {
@@ -123,21 +129,22 @@ async function filterUnavailableNotifications(notifications, link) {
     .map((notification) => referenceId(notification, 'reportId'))
     .filter(Boolean)
 
-  const [validMatches, validTraining, validPolls, validResources, validReports] = await Promise.all([
+  const now = Date.now()
+  const today = getDateInTimeZone(new Date(now))
+  const [validMatches, validTraining, validPollActions, existingPolls, validResources, validReports] = await Promise.all([
     loadValidReferenceIds(
       'match_day_availability_requests',
       matchIds,
-      'id, parent_link_id, token_revoked_at',
-      (row) => normalizeText(row.parent_link_id) === normalizeText(link.id) && !row.token_revoked_at,
+      'id, parent_link_id, status, expires_at, token_revoked_at, match_days:match_day_id(status, match_date, deleted_at)',
+      (row) => isCurrentMatchNotificationReference(row, link.id, now, today),
     ),
     loadValidReferenceIds(
       'training_availability_request_players',
       trainingIds,
-      'id, parent_link_id, recipient_type, status',
-      (row) => normalizeText(row.parent_link_id) === normalizeText(link.id)
-        && normalizeText(row.recipient_type).toLowerCase() === 'parent'
-        && !['cancelled', 'expired'].includes(normalizeText(row.status).toLowerCase()),
+      'id, parent_link_id, recipient_type, status, response_deadline_at, token_revoked_at, training_availability_requests:request_id(status, occurrence_starts_at)',
+      (row) => isCurrentTrainingNotificationReference(row, link.id, now),
     ),
+    loadValidReferenceIds('polls', pollIds, 'id, status, closes_at', (row) => isCurrentParentPollReference(row, now)),
     loadValidReferenceIds('polls', pollIds, 'id', () => true),
     loadValidReferenceIds('resource_library_items', resourceIds, 'id, archived_at', (row) => !row.archived_at),
     loadValidReferenceIds('evaluations', reportIds, 'id, player_id', (row) => normalizeText(row.player_id) === normalizeText(link.player_id)),
@@ -153,9 +160,13 @@ async function filterUnavailableNotifications(notifications, link) {
       const id = referenceId(notification, 'trainingRequestPlayerId')
       return !id || validTraining.has(id)
     }
-    if (intentType === 'parent_poll' || intentType === 'poll_results') {
+    if (intentType === 'parent_poll') {
       const id = referenceId(notification, 'pollId')
-      return !id || validPolls.has(id)
+      return !id || validPollActions.has(id)
+    }
+    if (intentType === 'poll_results') {
+      const id = referenceId(notification, 'pollId')
+      return !id || existingPolls.has(id)
     }
     if (intentType === 'resource_shared') {
       const id = referenceId(notification, 'resourceId')
