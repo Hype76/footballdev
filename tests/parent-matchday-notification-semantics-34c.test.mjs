@@ -110,7 +110,11 @@ test('Parent notification tap opens Matchday and promotes the exact authorised M
   )
   assert.match(parentAppSource, /resolveParentNotificationOpen\(notificationData/)
   assert.match(parentAppSource, /setSelectedMatchId\(destination\.tab === 'matchday' \? destination\.targetId : ''\)/)
-  assert.match(parentAppSource, /This notification no longer has an available Parent item\./)
+  assert.match(parentAppSource, /saveParentOfflineSelection\(selectedMobileUser, requestedLinkId\)/)
+  assert.doesNotMatch(parentAppSource, /requestedTargetId && !destination\.targetId/)
+  assert.doesNotMatch(parentAppSource, /This notification no longer has an available Parent item\./)
+  assert.doesNotMatch(parentAppSource, /This notification is no longer available for an authorised child\./)
+  assert.doesNotMatch(parentAppSource, /This notification could not be verified against current Parent access\./)
 })
 
 test('Parent notification tap retries when an overlapping refresh discards a stale result', async () => {

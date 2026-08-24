@@ -102,15 +102,16 @@ export function AuthProvider({
     const refreshProfile = async () => {
       try {
         const profile = await fetchMobileProfile(nextSession.user, appRole)
-        setUser(profile)
+        let persistedProfile = profile
         if (offlineProfileStore?.write) {
           try {
-            await offlineProfileStore.write(profile)
+            persistedProfile = await offlineProfileStore.write(profile) || profile
           } catch (error) {
             console.warn(error)
           }
         }
-        return profile
+        setUser(persistedProfile)
+        return persistedProfile
       } catch (error) {
         if (cachedProfile && !isAuthoritativeProfileFailure(error)) {
           console.warn(error)

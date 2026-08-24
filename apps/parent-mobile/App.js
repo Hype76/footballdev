@@ -746,25 +746,13 @@ function ParentHome() {
     const requestedLinkId = resolveParentNotificationLinkId(notificationData, parentLinks)
     if (requestedLinkId === null) {
       consumeLastNotificationResponse(responseId)
-      setNotice({ message: 'This notification is no longer available for an authorised child.', tone: 'warning' })
       return undefined
     }
     if (requestedLinkId && requestedLinkId !== selectedLink?.id) {
       setSelectedLinkId(requestedLinkId)
+      void saveParentOfflineSelection(selectedMobileUser, requestedLinkId).catch((error) => console.warn(error))
       return undefined
     }
-
-    const requestedTargetId = normalizeText(
-      notificationData?.targetId
-      || notificationData?.calendarEventId
-      || notificationData?.roomId
-      || notificationData?.reportId
-      || notificationData?.invitationId
-      || notificationData?.matchDayId
-      || notificationData?.messageId
-      || notificationData?.pollId
-      || notificationData?.resourceId,
-    )
     const availableFrom = (items) => ({
       calendar: (items.calendar || []).map((item) => item.id),
       chat: [
@@ -795,10 +783,7 @@ function ParentHome() {
           availableFrom(result?.items || {}),
         )
         consumeLastNotificationResponse(responseId)
-        if (!destination || (requestedTargetId && !destination.targetId)) {
-          setNotice({ message: 'This notification no longer has an available Parent item.', tone: 'warning' })
-          return
-        }
+        if (!destination) return
         if (destination.tab === 'messages') {
           const legacyMessage = (result?.items?.messages || []).find((message) => message.id === destination.targetId)
           if (normalizeText(legacyMessage?.body)) {
@@ -856,7 +841,11 @@ function ParentHome() {
       .catch(() => {
         if (cancelled) return
         consumeLastNotificationResponse(responseId)
-        setNotice({ message: 'This notification could not be verified against current Parent access.', tone: 'warning' })
+        const nestedSection = ['development', 'invites', 'polls', 'resources', 'results', 'settings'].includes(currentDestination.tab)
+          ? currentDestination.tab
+          : ''
+        setMoreSection(nestedSection)
+        setActiveTab(nestedSection ? 'more' : currentDestination.tab)
       })
       .finally(() => {
         if (notificationResponseProcessingRef.current === responseId) {
