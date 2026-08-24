@@ -17,7 +17,7 @@ test('Player notification readiness clamps counts and formats accessible copy', 
   assert.deepEqual(
     normalizeCoachParentNotificationReadiness({
       notification_ready_contact_count: 6,
-      parent_notification_contact_count: 4,
+      parent_contact_count: 4,
       parent_notification_status_available: true,
     }),
     { available: true, contactCount: 4, readyCount: 4 },
@@ -40,7 +40,7 @@ test('Player normalization keeps notification readiness separate from contact de
       { email: 'one@example.test', name: 'One', type: 'parent' },
       { email: 'two@example.test', name: 'Two', type: 'parent' },
     ],
-    parent_notification_contact_count: 2,
+    parent_contact_count: 2,
     parent_notification_status_available: true,
     player_name: 'Test Player',
   }, { canViewContacts: false })

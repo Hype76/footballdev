@@ -34,6 +34,7 @@ function normalizeCount(value) {
 
 export function normalizeCoachParentNotificationReadiness(row = {}) {
   const hasServerCounts = [
+    'parent_contact_count',
     'parent_notification_contact_count',
     'parentNotificationContactCount',
     'notification_ready_contact_count',
@@ -41,7 +42,11 @@ export function normalizeCoachParentNotificationReadiness(row = {}) {
   ].some((key) => Object.prototype.hasOwnProperty.call(row, key))
   const explicitAvailability = row.parent_notification_status_available ?? row.parentNotificationStatusAvailable
   const available = explicitAvailability === true || (explicitAvailability !== false && hasServerCounts)
-  const contactCount = normalizeCount(row.parent_notification_contact_count ?? row.parentNotificationContactCount)
+  const contactCount = normalizeCount(
+    row.parent_contact_count
+      ?? row.parent_notification_contact_count
+      ?? row.parentNotificationContactCount,
+  )
   const readyCount = Math.min(
     contactCount,
     normalizeCount(row.notification_ready_contact_count ?? row.parentNotificationReadyCount),
