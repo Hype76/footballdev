@@ -200,7 +200,7 @@ test('Coach installation registration is test-only, authenticated, context-autho
   assert.doesNotMatch(`${endpoint}\n${migration}`, /hvapkizujvsahvgspser|llpufwzvgxyczxcjwupu/)
 })
 
-test('Coach notification lifecycle covers token rotation, context refresh, preferences, and logout unbind', () => {
+test('Coach notification lifecycle covers token rotation, context refresh, preferences, and logout persistence', () => {
   assert.match(notifications, /Notifications\.addPushTokenListener/)
   assert.match(notifications, /getDevicePushTokenAsync/)
   assert.match(notifications, /getExpoPushTokenAsync/)
@@ -209,7 +209,8 @@ test('Coach notification lifecycle covers token rotation, context refresh, prefe
   assert.match(notifications, /method: 'DELETE'/)
   assert.match(notifications, /unregisterForNotificationsAsync/)
   assert.match(app, /addCoachPushTokenListener/)
-  assert.match(app, /unbindCoachNotifications/)
+  assert.doesNotMatch(app, /unbindCoachNotifications/)
+  assert.match(app, /preserveNativePushOnSignOut/)
   assert.match(app, /Minimal privacy/)
   assert.match(app, /notificationRegistrationRef\.current\.inFlight/)
   assert.match(app, /enableNotifications\(\{ silent: true \}\)/)

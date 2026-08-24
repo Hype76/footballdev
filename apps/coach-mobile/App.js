@@ -10,6 +10,7 @@ import {
   AppState,
   BackHandler,
   Image,
+  KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
@@ -606,88 +607,94 @@ function CoachHome() {
     <CoachThemeContext.Provider value={themeContext}>
       <SafeAreaView edges={['top', 'right', 'left']} style={styles.appShell}>
         <StatusBar style={themeModel.mode === 'dark' ? 'light' : 'dark'} />
-        <Animated.View style={[styles.collapsibleHeader, coachHeaderStyle]}>
-          <CoachHeader context={activeContext} user={selectedMobileUser} />
-          <ContextSwitcher
-            contexts={contextResolution.contexts}
-            onSelect={selectContext}
-            selectedContextId={activeContext.id}
-          />
-        </Animated.View>
-        {activeContext.paymentAccess.state === 'payment_required' ? (
-          <StatePanel
-            message="Viewing remains available, but operational changes are blocked until plan access is restored."
-            title="Payment required"
-            tone="warning"
-          />
-        ) : null}
-        {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
-        <Animated.ScrollView
-          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-          bounces={false}
-          contentContainerStyle={styles.content}
-          contentInsetAdjustmentBehavior="never"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-          keyboardShouldPersistTaps="always"
-          onContentSizeChange={(_width, height) => { contentHeightRef.current = height; clampContentScroll() }}
-          onLayout={(event) => { viewportHeightRef.current = event.nativeEvent.layout.height; clampContentScroll() }}
-          onMomentumScrollEnd={clampContentScroll}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { listener: (event) => { scrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y) }, useNativeDriver: false })}
-          onScrollEndDrag={clampContentScroll}
-          overScrollMode="never"
-          scrollEventThrottle={16}
-          refreshControl={(
-            <RefreshControl
-              colors={[palette.accent]}
-              onRefresh={() => loadHome({ refresh: true })}
-              refreshing={isRefreshing}
-              tintColor={palette.accent}
-            />
-          )}
-          ref={contentScrollRef}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          enabled={Platform.OS === 'ios' || Platform.OS === 'android'}
+          style={styles.keyboardShell}
         >
-          <CoachRoute
-            activeRoute={activeRoute}
-            appBadgeEnabled={appBadgeEnabled}
-            biometricAvailable={biometricAvailable}
-            biometricEnabled={biometricEnabled}
-            biometricStateStatus={biometricStateStatus}
-            context={activeContext}
-            contexts={contextResolution.contexts}
-            chatNotificationTarget={chatNotificationTarget}
-            disableNotifications={disableNotifications}
-            enableNotifications={enableNotifications}
-            homeState={homeState}
-            isRegisteringPush={isRegisteringPush}
-            isUpdatingBiometrics={isUpdatingBiometrics}
-            lastUpdatedAt={lastUpdatedAt}
-            matchDayTarget={matchDayTarget}
-            moreRoute={moreRoute}
-            navigation={navigation}
-            notificationState={notificationState}
-            notificationStateStatus={notificationStateStatus}
-            onRefreshBiometricState={() => refreshBiometricState().catch(() => {})}
-            onRefreshNotificationState={() => refreshNotifications({ showLoading: true })}
-            onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
-            onMatchDayTargetHandled={handleMatchDayTargetHandled}
-            onNavigate={navigate}
-            onQuickActionHandled={handleQuickActionHandled}
-            onRequestScrollTop={scrollContentToTop}
-            onSelectContext={selectContext}
-            onSelectMore={navigate}
-            onSignOut={signOut}
-            onToggleBiometrics={toggleBiometrics}
-            onToggleAppBadge={toggleAppBadgeEnabled}
-            onToggleTheme={toggleTheme}
-            onUpdateNotificationLevel={updateNotificationLevel}
-            reloadHome={loadHome}
-            quickAction={quickActionRequest}
-            themeMode={displayTheme}
-            user={selectedMobileUser}
-          />
-        </Animated.ScrollView>
-        <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
-        <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} />
+          <Animated.View style={[styles.collapsibleHeader, coachHeaderStyle]}>
+            <CoachHeader context={activeContext} user={selectedMobileUser} />
+            <ContextSwitcher
+              contexts={contextResolution.contexts}
+              onSelect={selectContext}
+              selectedContextId={activeContext.id}
+            />
+          </Animated.View>
+          {activeContext.paymentAccess.state === 'payment_required' ? (
+            <StatePanel
+              message="Viewing remains available, but operational changes are blocked until plan access is restored."
+              title="Payment required"
+              tone="warning"
+            />
+          ) : null}
+          {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
+          <Animated.ScrollView
+            automaticallyAdjustKeyboardInsets={false}
+            bounces={false}
+            contentContainerStyle={styles.content}
+            contentInsetAdjustmentBehavior="never"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="always"
+            onContentSizeChange={(_width, height) => { contentHeightRef.current = height; clampContentScroll() }}
+            onLayout={(event) => { viewportHeightRef.current = event.nativeEvent.layout.height; clampContentScroll() }}
+            onMomentumScrollEnd={clampContentScroll}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { listener: (event) => { scrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y) }, useNativeDriver: false })}
+            onScrollEndDrag={clampContentScroll}
+            overScrollMode="never"
+            scrollEventThrottle={16}
+            refreshControl={(
+              <RefreshControl
+                colors={[palette.accent]}
+                onRefresh={() => loadHome({ refresh: true })}
+                refreshing={isRefreshing}
+                tintColor={palette.accent}
+              />
+            )}
+            ref={contentScrollRef}
+          >
+            <CoachRoute
+              activeRoute={activeRoute}
+              appBadgeEnabled={appBadgeEnabled}
+              biometricAvailable={biometricAvailable}
+              biometricEnabled={biometricEnabled}
+              biometricStateStatus={biometricStateStatus}
+              context={activeContext}
+              contexts={contextResolution.contexts}
+              chatNotificationTarget={chatNotificationTarget}
+              disableNotifications={disableNotifications}
+              enableNotifications={enableNotifications}
+              homeState={homeState}
+              isRegisteringPush={isRegisteringPush}
+              isUpdatingBiometrics={isUpdatingBiometrics}
+              lastUpdatedAt={lastUpdatedAt}
+              matchDayTarget={matchDayTarget}
+              moreRoute={moreRoute}
+              navigation={navigation}
+              notificationState={notificationState}
+              notificationStateStatus={notificationStateStatus}
+              onRefreshBiometricState={() => refreshBiometricState().catch(() => {})}
+              onRefreshNotificationState={() => refreshNotifications({ showLoading: true })}
+              onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
+              onMatchDayTargetHandled={handleMatchDayTargetHandled}
+              onNavigate={navigate}
+              onQuickActionHandled={handleQuickActionHandled}
+              onRequestScrollTop={scrollContentToTop}
+              onSelectContext={selectContext}
+              onSelectMore={navigate}
+              onSignOut={signOut}
+              onToggleBiometrics={toggleBiometrics}
+              onToggleAppBadge={toggleAppBadgeEnabled}
+              onToggleTheme={toggleTheme}
+              onUpdateNotificationLevel={updateNotificationLevel}
+              reloadHome={loadHome}
+              quickAction={quickActionRequest}
+              themeMode={displayTheme}
+              user={selectedMobileUser}
+            />
+          </Animated.ScrollView>
+          <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
+          <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} />
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </CoachThemeContext.Provider>
   )
@@ -1319,6 +1326,7 @@ function createCoachStyles(palette) {
     infoLabel: { color: palette.textMuted, fontSize: 13, fontWeight: '700' },
     infoRow: { alignItems: 'flex-start', borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', paddingTop: 11 },
     infoValue: { color: palette.textPrimary, flex: 1, fontSize: 14, fontWeight: '800', textAlign: 'right' },
+    keyboardShell: { flex: 1 },
     logo: { height: 44, width: 44 },
     menuArrow: { color: palette.accent, fontSize: 26, fontWeight: '900' },
     menuRow: { alignItems: 'center', backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 15, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 56, paddingHorizontal: 15 },
