@@ -39,6 +39,7 @@ export function isParentCalendarEventCancelled(event = {}) {
 }
 
 export function isParentCalendarActionRequired(event = {}) {
+  if (isTerminalStatus(event.status)) return false
   const responseState = normalizeStatus(event.responseState)
   return event.requiresResponse === true
     || ['awaiting_response', 'no_response', 'pending'].includes(responseState)
@@ -47,7 +48,7 @@ export function isParentCalendarActionRequired(event = {}) {
 export function getParentCalendarMarkerTone(event = {}) {
   const status = normalizeStatus(event.status)
   const eventType = normalizeStatus(event.eventType)
-  if (['cancelled', 'closed', 'expired', 'postponed'].includes(status)) return 'cancelled'
+  if (['cancelled', 'postponed'].includes(status)) return 'cancelled'
   if (isParentCalendarActionRequired(event)) return 'response'
   if (eventType.includes('match')) return 'match'
   if (eventType.includes('training') || eventType.includes('assessment') || eventType.includes('session')) return 'training'
