@@ -16,6 +16,7 @@ import { getCoachCalendarResources, saveCoachCalendarEvent, saveCoachTrainingInv
 import {
   coachPlayerFormFromPlayer,
   filterCoachPlayers,
+  formatCoachParentNotificationReadiness,
   getCoachPlayerMutationPolicy,
 } from '../../mobile-core/src/coachPlayersCore'
 import { getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
@@ -79,6 +80,11 @@ function useDomainStyles(palette) {
     pickerButton: { alignItems: 'center', borderColor: palette.border, borderRadius: 10, borderWidth: 1, minHeight: 42, justifyContent: 'center', minWidth: 88, paddingHorizontal: 12 },
     pickerButtonText: { color: palette.accent, fontSize: 14, fontWeight: '900' },
     pickerPanel: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, gap: 8, overflow: 'hidden', padding: 8 },
+    readiness: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    readinessDot: { borderRadius: 999, borderWidth: 1, height: 10, width: 10 },
+    readinessDotOff: { backgroundColor: palette.textMuted, borderColor: palette.textMuted, opacity: 0.55 },
+    readinessDotOn: { backgroundColor: palette.success, borderColor: palette.success },
+    readinessDots: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
     row: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
     secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 13, paddingVertical: 9 },
     secondaryText: { color: palette.textPrimary, fontSize: 13, fontWeight: '900' },
@@ -115,6 +121,32 @@ function Field({ label, multiline = false, onChangeText, styles, value }) {
         style={[styles.input, multiline && styles.inputMultiline]}
         value={String(value ?? '')}
       />
+    </View>
+  )
+}
+
+function ParentNotificationReadiness({ player, styles }) {
+  if (player.parentNotificationStatusAvailable !== true) return null
+  const contactCount = Number(player.parentNotificationContactCount || 0)
+  const readyCount = Math.min(contactCount, Number(player.parentNotificationReadyCount || 0))
+  const label = formatCoachParentNotificationReadiness({
+    available: true,
+    contactCount,
+    readyCount,
+  })
+  return (
+    <View accessibilityLabel={label} accessibilityRole="text" style={styles.readiness}>
+      {contactCount > 0 ? (
+        <View style={styles.readinessDots}>
+          {Array.from({ length: contactCount }, (_, index) => (
+            <View
+              key={`${player.id}:parent-notification:${index}`}
+              style={[styles.readinessDot, index < readyCount ? styles.readinessDotOn : styles.readinessDotOff]}
+            />
+          ))}
+        </View>
+      ) : null}
+      <Text style={styles.meta}>{label}</Text>
     </View>
   )
 }
@@ -493,7 +525,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
         </View>
       ) : null}
       {!loading && visible.length === 0 ? <Text style={styles.body}>No active Players match this view.</Text> : null}
-      {visible.map((player) => <Pressable accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.card}><Text style={styles.cardTitle}>{player.playerName}</Text><Text style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text></Pressable>)}
+      {visible.map((player) => <Pressable accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.card}><Text style={styles.cardTitle}>{player.playerName}</Text><Text style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentNotificationReadiness player={player} styles={styles} /></Pressable>)}
     </View>
   )
 }

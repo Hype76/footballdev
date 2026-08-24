@@ -27,6 +27,36 @@ function normalizeContacts(value, fallbackName = '', fallbackEmail = '', contact
     .filter((contact) => contact.name || contact.email)
 }
 
+function normalizeCount(value) {
+  const count = Number(value)
+  return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
+}
+
+export function normalizeCoachParentNotificationReadiness(row = {}) {
+  const hasServerCounts = [
+    'parent_notification_contact_count',
+    'parentNotificationContactCount',
+    'notification_ready_contact_count',
+    'parentNotificationReadyCount',
+  ].some((key) => Object.prototype.hasOwnProperty.call(row, key))
+  const explicitAvailability = row.parent_notification_status_available ?? row.parentNotificationStatusAvailable
+  const available = explicitAvailability === true || (explicitAvailability !== false && hasServerCounts)
+  const contactCount = normalizeCount(row.parent_notification_contact_count ?? row.parentNotificationContactCount)
+  const readyCount = Math.min(
+    contactCount,
+    normalizeCount(row.notification_ready_contact_count ?? row.parentNotificationReadyCount),
+  )
+  return Object.freeze({ available, contactCount, readyCount })
+}
+
+export function formatCoachParentNotificationReadiness(readiness = {}) {
+  if (readiness.available !== true) return ''
+  const contactCount = normalizeCount(readiness.contactCount)
+  const readyCount = Math.min(contactCount, normalizeCount(readiness.readyCount))
+  if (contactCount === 0) return 'Parent app: no Parent contacts'
+  return `Parent app: ${readyCount} of ${contactCount} ready`
+}
+
 export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
   const contactType = COACH_PLAYER_CONTACT_TYPES.includes(normalize(row.contact_type ?? row.contactType).toLowerCase())
     ? normalize(row.contact_type ?? row.contactType).toLowerCase()
@@ -34,6 +64,7 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
   const contacts = canViewContacts
     ? normalizeContacts(row.parent_contacts ?? row.parentContacts, row.parent_name ?? row.parentName, row.parent_email ?? row.parentEmail, contactType)
     : []
+  const notificationReadiness = normalizeCoachParentNotificationReadiness(row)
   return Object.freeze({
     archivedAt: normalize(row.archived_at ?? row.archivedAt),
     clubId: normalize(row.club_id ?? row.clubId),
@@ -44,6 +75,9 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
     parentContacts: contacts,
     parentEmail: contacts[0]?.email || '',
     parentName: contacts[0]?.name || '',
+    parentNotificationContactCount: notificationReadiness.contactCount,
+    parentNotificationReadyCount: notificationReadiness.readyCount,
+    parentNotificationStatusAvailable: notificationReadiness.available,
     playerName: normalize(row.player_name ?? row.playerName) || 'Unnamed player',
     positions: (Array.isArray(row.positions) ? row.positions : []).map(normalize).filter(Boolean),
     section: COACH_PLAYER_SECTIONS.includes(normalize(row.section)) ? normalize(row.section) : 'Trial',

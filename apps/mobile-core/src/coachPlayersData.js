@@ -25,12 +25,11 @@ function normalizePlayerForUser(row, user) {
   })
 }
 
-export async function getCoachPlayerList(user) {
-  assertCoachOperationalRead(user, { requiresTeam: true })
+async function getCoachPlayerRows(user) {
   const { data: rpcData, error: rpcError } = await supabase.rpc('get_team_players', {
     team_id_value: user.activeTeamId,
   })
-  if (!rpcError) return (rpcData || []).map((row) => normalizePlayerForUser(row, user))
+  if (!rpcError) return rpcData || []
   if (!['42883', 'PGRST202'].includes(rpcError.code)) throw rpcError
   const { data, error } = await supabase
     .from('players')
@@ -42,7 +41,35 @@ export async function getCoachPlayerList(user) {
     .order('player_name', { ascending: true })
     .limit(250)
   if (error) throw error
-  return (data || []).map((row) => normalizePlayerForUser(row, user))
+  return data || []
+}
+
+async function getCoachParentNotificationReadiness(user) {
+  const { data, error } = await supabase.rpc('get_team_parent_notification_readiness', {
+    team_id_value: user.activeTeamId,
+  })
+  if (error) return null
+  return data || []
+}
+
+export async function getCoachPlayerList(user) {
+  assertCoachOperationalRead(user, { requiresTeam: true })
+  const [playerRows, readinessRows] = await Promise.all([
+    getCoachPlayerRows(user),
+    getCoachParentNotificationReadiness(user),
+  ])
+  const statusAvailable = Array.isArray(readinessRows)
+  const readinessByPlayer = new Map(
+    (readinessRows || []).map((row) => [normalize(row.player_id ?? row.playerId), row]),
+  )
+  return playerRows.map((row) => {
+    const readiness = readinessByPlayer.get(normalize(row.id)) || {}
+    return normalizePlayerForUser({
+      ...row,
+      ...readiness,
+      parent_notification_status_available: statusAvailable && Boolean(readiness.player_id ?? readiness.playerId),
+    }, user)
+  })
 }
 
 export async function getCoachPlayerDetail(user, playerId) {
