@@ -39,6 +39,10 @@ const metricAuthorityIntegrityMigration = await readFile(
   new URL('../supabase/migrations/20260824095919_platform_metric_authority_integrity.sql', import.meta.url),
   'utf8',
 )
+const workspaceRollupPerformanceMigration = await readFile(
+  new URL('../supabase/migrations/20260824112045_platform_analytics_workspace_rollup_performance.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = Object.freeze({
   club: '10000000-0000-4000-8000-000000000001',
@@ -168,6 +172,7 @@ async function createDatabase() {
   // historical follow-up migration is already applied in production and does
   // not need to be replayed against the corrected source in this fresh schema.
   await db.exec(metricAuthorityIntegrityMigration)
+  await db.exec(workspaceRollupPerformanceMigration)
   return db
 }
 
@@ -596,11 +601,26 @@ test('canonical v4 report aligns headlines with human breakdowns and keeps ident
   }
 })
 
-test('dashboard read model stays bounded at larger synthetic volume', async () => {
+test('canonical dashboard stays bounded as event and Parent authority volume grows', async () => {
   const db = await createDatabase()
 
   try {
     await db.exec(`
+      insert into public.players (id, club_id, team_id, status)
+      values ('${IDS.player}', '${IDS.club}', '${IDS.team}', 'active');
+
+      insert into public.parent_player_links (
+        club_id, team_id, player_id, auth_user_id, status, accepted_at
+      )
+      select
+        '${IDS.club}',
+        '${IDS.team}',
+        '${IDS.player}',
+        ('60000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid,
+        'active',
+        '2026-07-01T09:00:00Z'
+      from generate_series(1, 50) value;
+
       set role service_role;
       insert into public.analytics_events (
         occurred_at, event_name, user_id, role, club_id, session_id, platform,
@@ -621,7 +641,7 @@ test('dashboard read model stays bounded at larger synthetic volume', async () =
 
     const startedAt = performance.now()
     const result = await db.query(`
-      select public.get_platform_analytics_dashboard_14c(
+      select public.get_platform_analytics_canonical_v4(
         '2026-07-01', '2026-07-31', null, null, null, null, null,
         'production', null, false, false
       ) as dashboard
@@ -631,10 +651,12 @@ test('dashboard read model stays bounded at larger synthetic volume', async () =
     assert.equal(dashboard.productActivity.pageViews, 5000)
     assert.equal(dashboard.productActivity.meaningfulActions, 5000)
     assert.equal(dashboard.reconciliation.heatmapPageViewsTotal, 5000)
+    assert.equal(dashboard.accountEstate.usersWithParentAccess, 50)
+    assert.equal(dashboard.accountEstate.activeParentChildLinks, 50)
     assert.ok(dashboard.heatmap.cells.length <= 168)
-    assert.ok(dashboard.productActivity.drilldown.length <= 500)
+    assert.ok(Object.values(dashboard.accountEstate.drilldown).every((rows) => rows.length <= 500))
     assert.ok(JSON.stringify(dashboard).length < 1_000_000)
-    assert.ok(elapsedMs < 10000, `bounded dashboard query took ${elapsedMs}ms`)
+    assert.ok(elapsedMs < 10000, `bounded canonical dashboard query took ${elapsedMs}ms`)
   } finally {
     await db.close()
   }
