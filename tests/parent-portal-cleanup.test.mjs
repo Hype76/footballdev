@@ -7,6 +7,7 @@ const cleanupMigrationUrl = migrationSourceUrl('20260616072046_20260616070626_ha
 const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.url)
 const matchDayPushUrl = new URL('../netlify/functions/send-match-day-push.js', import.meta.url)
 const parentMobilePushUrl = new URL('../netlify/functions/send-parent-mobile-push.js', import.meta.url)
+const parentNotificationInboxUrl = new URL('../netlify/functions/lib/_parent-notification-inbox.js', import.meta.url)
 const parentLoginUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
 const publicParentPortalLoginUrl = new URL('../src/pages/PublicParentPortalLoginPage.jsx', import.meta.url)
 
@@ -102,8 +103,13 @@ test('mobile push senders skip absent native push tables safely', async () => {
     assert.match(source, /message\.includes\('relation'\) && message\.includes\('does not exist'\)/)
     assert.match(source, /return \[\]/)
     assert.match(source, /skipping .*push/i)
-    assert.match(source, /skipping .*event log/i)
   }
+
+  const inboxSource = await readFile(parentNotificationInboxUrl, 'utf8')
+  assert.match(inboxSource, /function isMissingTableError\(error\)/)
+  assert.match(inboxSource, /code === '42P01'/)
+  assert.match(inboxSource, /skipping .*event log/i)
+  assert.match(inboxSource, /return \{ available: 0, inserted: 0 \}/)
 })
 
 test('parent poll count remains behind the parent poll recovery path check', async () => {

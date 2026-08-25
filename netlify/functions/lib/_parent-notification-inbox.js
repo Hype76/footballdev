@@ -2,6 +2,13 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+function isMissingTableError(error) {
+  const code = normalizeText(error?.code)
+  const message = normalizeText(error?.message).toLowerCase()
+
+  return code === '42P01' || code === 'PGRST205' || message.includes('relation') && message.includes('does not exist')
+}
+
 function sourceId(data = {}) {
   const direct = [
     data.availabilityRequestId,
@@ -74,6 +81,13 @@ export async function writeParentNotificationInbox({
     .upsert(rows, { ignoreDuplicates: true, onConflict: 'dedupe_key' })
     .select('id')
 
-  if (error) throw error
+  if (error) {
+    if (isMissingTableError(error)) {
+      console.warn('Parent notification events table is not available; skipping notification event log.')
+      return { available: 0, inserted: 0 }
+    }
+
+    throw error
+  }
   return { available: rows.length, inserted: inserted?.length || 0 }
 }
