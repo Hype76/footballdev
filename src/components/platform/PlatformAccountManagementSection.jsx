@@ -88,7 +88,7 @@ export function PlatformAccountManagementSection({
         <p className="mt-3 text-sm font-semibold text-[#4b5f55]">
           {recordView === 'archived'
             ? 'Restore retained workspaces or permanently delete them after reviewing the archived record.'
-            : 'Archive a Club or Team to retain its records and remove it from active access.'}
+            : 'To permanently delete a Club, archive it first. The app will then open the Archive view where the permanent delete button is available.'}
         </p>
       </div>
       <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(220px,360px)_minmax(260px,1fr)]">
@@ -279,6 +279,12 @@ function ClubSummary({
       {club.suspendedAt ? (
         <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>
       ) : null}
+      <div className="mt-4 rounded-lg border border-[#fecdca] bg-[#fff8f8] p-4">
+        <p className="text-sm font-black text-[#101828]">Need to delete this Club?</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+          Archive it first. You will be taken straight to the archived record where you can review the totals and permanently delete it with password confirmation.
+        </p>
+      </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
@@ -294,9 +300,9 @@ function ClubSummary({
           disabled={updatingClubId === clubId}
           title={updatingClubId === clubId ? 'Please wait while this club is being updated.' : undefined}
           onClick={() => void onArchiveClub(club)}
-          className={secondaryButtonClass}
+          className={dangerButtonClass}
         >
-          Archive Club
+          Archive Club to continue deletion
         </button>
       </div>
     </div>

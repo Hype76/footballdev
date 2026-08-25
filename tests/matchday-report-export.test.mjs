@@ -173,7 +173,8 @@ test('completed report PDF contains accurate visible report data and excludes pr
   assert.match(parentPdf, /María O'Connor-Smith/)
   assert.match(parentPdf, /Penalty shootout kicks/)
   assert.match(parentPdf, /Generated securely by Footballplayer\.online/)
-  assert.match(parentPdf, /Page 1 of 1/)
+  assert.match(parentPdf, /Page 1 of 2/)
+  assert.match(parentPdf, /Page 2 of 2/)
   assert.doesNotMatch(parentPdf, new RegExp(PRIVATE_EVENT_NOTE))
   assert.doesNotMatch(parentPdf, new RegExp(PRIVATE_REPORT_NOTE))
   assert.doesNotMatch(parentPdf, /match-internal-id|team-internal-id|private\.parent@example\.test/)
@@ -188,6 +189,23 @@ test('completed report branding uses the approved safe club-initial fallback', (
   assert.equal(branding.clubInitials, 'ATC')
   assert.equal(branding.brandingSource, 'club-initials')
   assert.equal(branding.platformAttribution, 'Generated securely by Footballplayer.online')
+})
+
+test('completed report branding embeds a JPEG club badge and uses the Club colour', () => {
+  const match = {
+    ...completedMatch(),
+    themeAccent: '#7c3aed',
+    clubLogoData: 'data:image/jpeg;base64,/9j/2Q==',
+    logoWidth: 1,
+    logoHeight: 1,
+  }
+  const branding = buildCompletedReportBranding(match)
+  const pdf = Buffer.from(buildCompletedReportPdf(match, { audience: 'parent' })).toString('latin1')
+
+  assert.equal(branding.primaryColour, '#7c3aed')
+  assert.equal(branding.brandingSource, 'club-logo')
+  assert.match(pdf, /\/Subtype \/Image/)
+  assert.match(pdf, /\/Im1/)
 })
 
 test('completed report filenames and spreadsheet formula protection are stable', () => {

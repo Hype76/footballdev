@@ -27,8 +27,8 @@ import {
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
   buildCoachChatRoomSections,
-  buildCoachPollClosesAt,
   collapseCoachInvitesByPlayer,
+  getCoachInviteStatusLabel,
   getCoachPlayersWithoutAvailabilityRequest,
   getCoachPhase31EOfflinePolicy,
   getCoachChatRoomDisplay,
@@ -46,7 +46,7 @@ import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
-import { CoachDateTimeField } from './CoachDateTimeField'
+import { expiryDurationToIso } from '../../../src/lib/expiry-duration.js'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -548,8 +548,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   const [anonymous, setAnonymous] = useState(false)
   const [audience, setAudience] = useState('parents')
   const [creating, setCreating] = useState(false)
-  const [closingDate, setClosingDate] = useState('')
-  const [closingTime, setClosingTime] = useState('')
+  const [expiryDuration, setExpiryDuration] = useState('')
   const [description, setDescription] = useState('')
   const [maxChoices, setMaxChoices] = useState('')
   const [notifyResultsOnClose, setNotifyResultsOnClose] = useState(false)
@@ -566,17 +565,9 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       setNotice('Add a Poll title and at least two options.')
       return
     }
-    const closesAt = buildCoachPollClosesAt(closingDate, closingTime)
-    if (closesAt === null) {
-      setNotice('Choose both a closing date and closing time, or leave both blank.')
-      return
-    }
-    if (closesAt && new Date(closesAt).getTime() <= Date.now()) {
-      setNotice('Choose a future Poll deadline.')
-      return
-    }
     setCreating(true)
     try {
+      const closesAt = expiryDurationToIso(expiryDuration, { allowBlank: true })
       await createCoachPoll(user, {
         allowMultiple,
         allowVoteChanges,
@@ -591,8 +582,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
       })
       setTitle('')
       setDescription('')
-      setClosingDate('')
-      setClosingTime('')
+      setExpiryDuration('')
       setOptions(['', ''])
       setMaxChoices('')
       setNotifyResultsOnClose(false)
@@ -653,11 +643,9 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
         <TextInput accessibilityLabel="Poll question" onChangeText={setTitle} placeholder="Poll question" placeholderTextColor={placeholderColor} style={styles.input} value={title} />
         <Text style={styles.label}>Description, optional</Text>
         <TextInput accessibilityLabel="Poll description" multiline onChangeText={setDescription} placeholder="Helpful details" placeholderTextColor={placeholderColor} style={[styles.input, styles.inputMultiline]} value={description} />
-        <Text style={styles.label}>Deadline, optional</Text>
-        <Text style={styles.body}>Leave both fields blank to keep the Poll open until a Coach archives it.</Text>
-        <CoachDateTimeField label="Closing date" minimumDate={new Date()} mode="date" onChange={setClosingDate} styles={styles} value={closingDate} />
-        {closingDate ? <CoachDateTimeField label="Closing time" mode="time" onChange={setClosingTime} styles={styles} value={closingTime} /> : null}
-        {closingDate || closingTime ? <Button label="Clear deadline" onPress={() => { setClosingDate(''); setClosingTime('') }} secondary styles={styles} /> : null}
+        <Text style={styles.label}>Poll expiry (DD:HH:MM), optional</Text>
+        <TextInput accessibilityLabel="Poll expiry DD:HH:MM" autoCapitalize="none" onChangeText={setExpiryDuration} placeholder="Example: 02:06:30" placeholderTextColor={placeholderColor} style={styles.input} value={expiryDuration} />
+        <Text style={styles.body}>Days, hours, minutes. Leave blank to keep the Poll open until a Coach archives it.</Text>
         <Text style={styles.label}>Audience</Text>
         <View style={styles.row}><Button label="Parents" onPress={() => setAudience('parents')} secondary={audience !== 'parents'} styles={styles} /><Button label="Coaches" onPress={() => setAudience('staff')} secondary={audience !== 'staff'} styles={styles} /></View>
         <Text style={styles.label}>Options</Text>
@@ -812,11 +800,11 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
               <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
             </Pressable>
             {expanded ? <>
-              <Text style={styles.label}>Available {trainingSummary.available} | Unavailable {trainingSummary.unavailable} | Maybe {trainingSummary.maybe} | Awaiting {trainingSummary.awaiting}</Text>
+              <Text style={styles.label}>Available {trainingSummary.available} | Not available {trainingSummary.unavailable} | Maybe {trainingSummary.maybe} | Awaiting {trainingSummary.awaiting}</Text>
               {selectedTrainingInvites.map((invite) => (
                 <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={[styles.availabilityRow, invite.id === selectedId && styles.formChoiceSelected]}>
                   <Text style={styles.body}>{invite.playerName}</Text>
-                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{invite.status}</Text>
+                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
                 </Pressable>
               ))}
               {selectedCanBeResent ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
@@ -838,11 +826,11 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
               <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
             </Pressable>
             {expanded ? <>
-              <Text style={styles.label}>Available {matchSummary.available} | Unavailable {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
+              <Text style={styles.label}>Available {matchSummary.available} | Not available {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
               {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => (
                 <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={[styles.availabilityRow, invite.id === selectedId && styles.formChoiceSelected]}>
                   <Text style={styles.body}>{invite.playerName}</Text>
-                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{invite.status}</Text>
+                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
                 </Pressable>
               )) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
               {selectedCanBeResent ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}

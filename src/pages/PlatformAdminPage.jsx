@@ -1069,8 +1069,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       if (selectedClubId === clubArchiveTarget.id) {
         setSelectedClubId('All')
       }
+      setClubRecordView('archived')
+      setClubSearchTerm(clubArchiveTarget.name || '')
+      setClubPage(1)
       setSuccessMessage('Club moved to the archive.')
-      showToast({ title: 'Club archived', message: `${clubArchiveTarget.name} can be restored from the archive.` })
+      showToast({ title: 'Club archived', message: 'Review the archived Club below, then restore it or permanently delete it.' })
       setClubArchiveTarget(null)
       refreshStats()
     } catch (error) {
@@ -1267,9 +1270,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setSuccessMessage('')
 
     try {
-      await verifyCurrentUserPassword(user.email, password)
-
       if (accountActionTarget.action === 'role') {
+        await verifyCurrentUserPassword(user.email, password)
         await changeStaffRoleAssignment({
           user,
           assignmentId: accountActionTarget.membershipId,
@@ -1285,9 +1287,12 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
         await deletePlatformUser({
           user,
           targetUserId: accountActionTarget.id,
+          password,
+          accessToken: session?.access_token || '',
         })
         setSuccessMessage('User access deleted.')
       } else {
+        await verifyCurrentUserPassword(user.email, password)
         const nextStatus = accountActionTarget.action === 'suspend' ? 'suspended' : 'active'
         await updatePlatformUserStatus({
           user,
@@ -1596,15 +1601,15 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       <ConfirmModal
         isOpen={Boolean(clubArchiveTarget)}
         isBusy={Boolean(updatingClubId)}
-        title="Archive Club workspace"
-        message="This removes the workspace from active access while retaining its Club, Team, user, player, development, fixture, and communication records."
+        title="Archive Club before deletion"
+        message="Step 1 of 2. This removes the workspace from active access while retaining its records. You will then see the permanent delete option in the Archive view."
         items={[
           `Club: ${clubArchiveTarget?.name || 'Selected Club'}`,
           `${clubArchiveTarget?.teamCount ?? 0} Teams retained`,
           `${clubArchiveTarget?.playerCount ?? 0} player records retained`,
           'The workspace can be restored from the archive.',
         ]}
-        confirmLabel="Archive Club"
+        confirmLabel="Archive and continue"
         onCancel={() => setClubArchiveTarget(null)}
         onConfirm={confirmArchiveClub}
       />
@@ -1701,7 +1706,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
               ]
             : []),
           accountActionTarget?.action === 'delete'
-            ? 'The user profile, club membership, and team allocations will be removed from the app.'
+            ? 'The sign-in, user profile, club memberships, Parent links, Team allocations, and notification registrations will be removed across the platform. Historical records remain for audit.'
             : accountActionTarget?.action === 'role'
               ? 'No Coach email or notification will be sent.'
               : 'The user will be blocked from using their workspace until reactivated.',

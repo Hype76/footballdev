@@ -3,6 +3,7 @@ import { assertValidMatchDayFixtureType, MATCH_DAY_FIXTURE_TYPE_OPTIONS } from '
 import { assertNewMatchHomeAway, assertValidMatchClockMode, assertValidMatchDurationMinutes, isContinuousMatchClock, MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS } from '../../../src/lib/matchday-model.js'
 import { getDateInTimeZone } from './parentCalendarCore.js'
 import { formatCoachCalendarFormDate, normalizeCoachCalendarFormDate } from './coachCalendarCore.js'
+import { DEFAULT_EXPIRY_DURATION, expiryDurationToHours } from '../../../src/lib/expiry-duration.js'
 
 export const COACH_MATCH_DURATION_OPTIONS = Object.freeze([60, 70, 80, 90])
 export const COACH_MATCH_ARRIVAL_OPTIONS = Object.freeze([
@@ -60,7 +61,7 @@ export function createCoachFixtureForm({ defaultDuration = 90, defaultLocation =
     matchDate: formatCoachCalendarFormDate(getDateInTimeZone()),
     matchDurationMinutes: duration,
     motmNotifyResultsOnClose: false,
-    motmPollExpiryHours: 2,
+    motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION,
     notes: '',
     opponent: '',
     parentAudience: 'none',
@@ -115,6 +116,9 @@ export function validateCoachFixtureForm(form = {}) {
   const matchDurationMinutes = assertValidMatchDurationMinutes(form.matchDurationMinutes)
   const arrivalTime = kickoffTimeTbc ? '' : normalize(form.arrivalTime)
   if (!kickoffTimeTbc && arrivalTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(arrivalTime)) throw new Error('Choose a valid arrival time.')
+  const motmPollExpiryHours = form.enableMotmPoll === true
+    ? expiryDurationToHours(form.motmPollExpiryDuration)
+    : 2
   return Object.freeze({
     arrivalTime,
     autoSelectAvailablePlayers: form.autoSelectAvailablePlayers !== false,
@@ -130,7 +134,7 @@ export function validateCoachFixtureForm(form = {}) {
     matchDate,
     matchDurationMinutes,
     motmNotifyResultsOnClose: form.enableMotmPoll === true && form.motmNotifyResultsOnClose === true,
-    motmPollExpiryHours: Math.min(72, Math.max(1, Number(form.motmPollExpiryHours || 2))),
+    motmPollExpiryHours,
     notes: normalize(form.notes),
     opponent,
     parentAudience,

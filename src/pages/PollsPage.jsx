@@ -15,6 +15,7 @@ import {
   updatePollStatus,
   withRequestTimeout,
 } from '../lib/supabase.js'
+import { expiryDurationToIso } from '../lib/expiry-duration.js'
 
 const EMPTY_FORM = {
   title: '',
@@ -22,7 +23,7 @@ const EMPTY_FORM = {
   audience: 'parents',
   pollType: 'text',
   teamId: '',
-  closesAt: '',
+  expiryDuration: '',
   allowMultiple: false,
   maxChoices: '',
   allowOwnChildVotes: true,
@@ -365,10 +366,12 @@ export function PollsPage() {
     setSuccessMessage('')
 
     try {
+      const closesAt = expiryDurationToIso(form.expiryDuration, { allowBlank: true })
       await createPoll({
         user,
         poll: {
           ...form,
+          closesAt,
           options: buildOptionsForSubmit(form),
         },
       })
@@ -587,13 +590,17 @@ export function PollsPage() {
             </label>
 
             <label className="block">
-              <span className={labelClass}>Due date</span>
+              <span className={labelClass}>Poll expiry (DD:HH:MM)</span>
               <input
-                type="datetime-local"
-                value={form.closesAt}
-                onChange={(event) => updateForm({ closesAt: event.target.value })}
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Example: 02:06:30"
+                value={form.expiryDuration}
+                onChange={(event) => updateForm({ expiryDuration: event.target.value })}
                 className={inputClass}
               />
+              <span className="mt-1 block text-xs font-semibold text-[#4b5f55]">Optional. Leave blank to keep the Poll open until a Coach archives it.</span>
             </label>
           </div>
 

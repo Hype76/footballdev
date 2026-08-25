@@ -143,6 +143,11 @@ import {
   matchUsesExtraTime,
 } from '../lib/matchday-extended-ops.js'
 import { MATCH_DAY_LIVE_EVENT_ACTIONS } from '../lib/matchday-capability-manifest.js'
+import {
+  DEFAULT_EXPIRY_DURATION,
+  expiryDurationToHours,
+  parseExpiryDuration,
+} from '../lib/expiry-duration.js'
 
 const LIVE_MATCH_DAY_ADAPTER = Object.freeze({
   addStaffMatchDayEvent: liveAddStaffMatchDayEvent,
@@ -220,7 +225,7 @@ const EMPTY_MATCH_FORM = {
   status: 'scheduled',
   enableMotmPoll: false,
   motmNotifyResultsOnClose: false,
-  motmPollExpiryHours: 2,
+  motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION,
   saveDurationAsDefault: false,
 }
 
@@ -992,6 +997,14 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
     const extraTimeHalfMinutes = Number(form.extraTimeHalfMinutes)
     if (!Number.isInteger(extraTimeHalfMinutes) || extraTimeHalfMinutes < 5 || extraTimeHalfMinutes > 30) {
       return 'Extra-time period length must be a whole number from 5 to 30 minutes.'
+    }
+  }
+
+  if (form.enableMotmPoll) {
+    try {
+      parseExpiryDuration(form.motmPollExpiryDuration)
+    } catch (error) {
+      return error.message
     }
   }
 
@@ -2953,6 +2966,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         user,
         match: {
           ...form,
+          motmPollExpiryHours: expiryDurationToHours(form.motmPollExpiryDuration),
           scorerRequestMessage: form.requestScorer ? volunteerRequestMessages.scorer : '',
         },
       })
@@ -4450,6 +4464,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         clubIdentity={{
           clubLogoUrl: user?.clubLogoUrl || '',
           clubName: user?.clubName || '',
+          themeAccent: user?.themeAccent || '',
         }}
         isGameMode={gameModeMatchId === match.id}
         isExpanded
@@ -4939,6 +4954,7 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
     ...match,
     clubLogoUrl: clubIdentity?.clubLogoUrl || match.clubLogoUrl || '',
     clubName: clubIdentity?.clubName || match.clubName || '',
+    themeAccent: clubIdentity?.themeAccent || match.themeAccent || '',
   }
   const summary = buildFinalMatchReportSummary(reportMatch)
   const hasChanges = staffNotes.trim() !== (report?.staffNotes || '')
@@ -7450,16 +7466,18 @@ function FixtureSetupModal({
               </label>
 
               <label className="block">
-                <span className={labelClass}>Vote expiry hours</span>
+                <span className={labelClass}>Vote expiry (DD:HH:MM)</span>
                 <input
-                  type="number"
-                  min="1"
-                  max="72"
-                  value={form.motmPollExpiryHours}
-                  onChange={(event) => updateForm({ motmPollExpiryHours: event.target.value })}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder={DEFAULT_EXPIRY_DURATION}
+                  value={form.motmPollExpiryDuration}
+                  onChange={(event) => updateForm({ motmPollExpiryDuration: event.target.value })}
                   disabled={!form.enableMotmPoll}
                   className={inputClass}
                 />
+                <span className="mt-1 block text-xs font-semibold text-[#4b5f55]">Days, hours, minutes. Example: 02:06:30.</span>
               </label>
 
               {form.enableMotmPoll ? (

@@ -21,7 +21,7 @@ export const PDF_DEFAULT_SECONDARY_COLOUR = '#ecfdf5'
 export const PDF_DEFAULT_ACCENT_TEXT_COLOUR = '#065f46'
 
 const HEX_COLOUR_PATTERN = /^#[0-9a-f]{6}$/
-const PNG_DATA_URI_PATTERN = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/
+const LOGO_DATA_URI_PATTERN = /^data:image\/(png|jpe?g);base64,([A-Za-z0-9+/]+={0,2})$/
 const SAFE_FALLBACK_REASON_PATTERN = /^[A-Z0-9_]{0,80}$/
 const SAFE_CONFIDENTIALITY_LABELS = new Set(['Confidential', 'Intended recipient only'])
 const SAFE_BRANDING_SOURCES = new Set(Object.values(PDF_BRANDING_SOURCES))
@@ -50,9 +50,15 @@ function safeLogoDataUri(value) {
     return ''
   }
 
-  const match = normalizedValue.match(PNG_DATA_URI_PATTERN)
+  const match = normalizedValue.match(LOGO_DATA_URI_PATTERN)
 
-  if (!match || match[1].length % 4 !== 0 || !match[1].startsWith('iVBORw0KGgo')) {
+  const encodedImage = match?.[2] || ''
+  const imageType = match?.[1] || ''
+  const hasExpectedSignature = imageType === 'png'
+    ? encodedImage.startsWith('iVBORw0KGgo')
+    : encodedImage.startsWith('/9j/')
+
+  if (!match || encodedImage.length % 4 !== 0 || !hasExpectedSignature) {
     return ''
   }
 

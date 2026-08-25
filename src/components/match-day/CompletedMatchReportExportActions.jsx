@@ -10,11 +10,11 @@ export function CompletedMatchReportExportActions({ audience = 'parent', match }
   const [errorMessage, setErrorMessage] = useState('')
   const [busyFormat, setBusyFormat] = useState('')
 
-  const download = (format) => {
+  const download = async (format) => {
     setBusyFormat(format)
     setErrorMessage('')
     try {
-      if (format === 'pdf') downloadCompletedReportPdf(match, { audience })
+      if (format === 'pdf') await downloadCompletedReportPdf(match, { audience })
       else downloadCompletedReportCsv(match, { audience })
     } catch (error) {
       console.error(error)
@@ -34,10 +34,10 @@ export function CompletedMatchReportExportActions({ audience = 'parent', match }
           </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <button type="button" onClick={() => download('pdf')} disabled={Boolean(busyFormat)} className={buttonClass}>
+          <button type="button" onClick={() => void download('pdf')} disabled={Boolean(busyFormat)} className={buttonClass}>
             {busyFormat === 'pdf' ? 'Preparing PDF...' : 'Download PDF'}
           </button>
-          <button type="button" onClick={() => download('csv')} disabled={Boolean(busyFormat)} className={buttonClass}>
+          <button type="button" onClick={() => void download('csv')} disabled={Boolean(busyFormat)} className={buttonClass}>
             {busyFormat === 'csv' ? 'Preparing CSV...' : 'Download CSV'}
           </button>
         </div>

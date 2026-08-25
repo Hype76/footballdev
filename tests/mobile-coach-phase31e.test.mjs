@@ -7,6 +7,7 @@ import {
   COACH_PHASE_31E_DOMAINS,
   assertSyntheticCoachCommunicationTarget,
   collapseCoachInvitesByPlayer,
+  getCoachInviteStatusLabel,
   getCoachPlayersWithoutAvailabilityRequest,
   getCoachResourceErrorMessage,
   getCoachPhase31EOfflinePolicy,
@@ -192,6 +193,12 @@ test('Invite normalization preserves distinct statuses and stale protection', ()
   assert.equal(normalizeCoachInvite({ calendar_event_id: 'calendar-1', match_day_id: 'match-1' }, 'training').eventId, 'calendar-1')
   assert.equal(normalizeCoachInvite({ email_sent_at: '2026-08-23T09:00:00Z' }, 'training').sentAt, '2026-08-23T09:00:00Z')
   assert.equal(normalizeCoachInvite({ invited_at: '2026-08-23T09:01:00Z' }, 'calendar').sentAt, '2026-08-23T09:01:00Z')
+  assert.equal(normalizeCoachInvite({ status: 'responded', availability_status: 'available' }, 'training').status, 'available')
+  assert.equal(normalizeCoachInvite({ status: 'responded', response: 'unavailable' }, 'training').status, 'unavailable')
+  assert.equal(getCoachInviteStatusLabel('available'), 'Available')
+  assert.equal(getCoachInviteStatusLabel('unavailable'), 'Not available')
+  assert.equal(getCoachInviteStatusLabel('maybe'), 'Maybe')
+  assert.equal(getCoachInviteStatusLabel('pending'), 'Awaiting')
 })
 
 test('Invite summary does not merge selected, not selected, maybe, or stale meaning', () => {

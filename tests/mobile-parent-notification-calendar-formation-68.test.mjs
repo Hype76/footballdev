@@ -140,7 +140,7 @@ test('Coach Polls expose deadlines, archive visibility, and safe deletion', asyn
     read('../apps/coach-mobile/src/CoachPhase31EScreens.js'),
     read('../apps/mobile-core/src/coachPhase31EData.js'),
   ])
-  assert.match(screens, /label="Closing date"/)
+  assert.match(screens, /Poll expiry \(DD:HH:MM\), optional/)
   assert.match(screens, /Show archive/)
   assert.match(screens, /Delete Poll/)
   assert.match(data, /configure_poll_result_delivery/)

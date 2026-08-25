@@ -1734,6 +1734,7 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
           ...selectedPreviousMatch,
           clubLogoUrl: selectedLink?.clubLogoUrl || '',
           clubName: selectedLink?.clubName || '',
+          themeAccent: selectedLink?.themeAccent || '',
         } : null}
         onClose={() => setSelectedPreviousMatch(null)}
       />

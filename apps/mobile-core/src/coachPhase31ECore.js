@@ -40,6 +40,7 @@ const INVITE_STATUSES = new Set([
   'awaiting', 'pending', 'available', 'unavailable', 'maybe', 'selected', 'not_selected',
   'responded', 'cancelled', 'closed', 'expired', 'stale',
 ])
+const AVAILABILITY_RESPONSE_STATUSES = new Set(['available', 'unavailable', 'maybe'])
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -434,10 +435,20 @@ export function buildCoachPollClosesAt(dateValue, timeValue) {
 }
 
 export function normalizeCoachInvite(row = {}, kind = 'calendar') {
-  const rawStatus = normalize(row.status ?? row.response_state ?? row.availability_status).toLowerCase().replaceAll(' ', '_')
+  const rawStatus = normalize(row.status).toLowerCase().replaceAll(' ', '_')
+  const responseStatus = normalize(row.response ?? row.response_state ?? row.availability_status).toLowerCase().replaceAll(' ', '_')
   const cancelled = Boolean(row.cancelled_at ?? row.cancelledAt) || rawStatus === 'cancelled'
   const deleted = Boolean(row.deleted_at ?? row.deletedAt)
-  const status = deleted ? 'stale' : cancelled ? 'cancelled' : INVITE_STATUSES.has(rawStatus) ? rawStatus : 'awaiting'
+  const resolvedStatus = AVAILABILITY_RESPONSE_STATUSES.has(responseStatus)
+    ? responseStatus
+    : rawStatus === 'responded'
+      ? 'awaiting'
+      : INVITE_STATUSES.has(rawStatus)
+        ? rawStatus
+        : INVITE_STATUSES.has(responseStatus)
+          ? responseStatus
+          : 'awaiting'
+  const status = deleted ? 'stale' : cancelled ? 'cancelled' : resolvedStatus
   const eventId = kind === 'match'
     ? normalize(row.match_day_id ?? row.eventId ?? row.calendar_event_id)
     : normalize(row.calendar_event_id ?? row.eventId ?? row.session_id)
@@ -452,6 +463,21 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
     response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt: normalize(row.sent_at ?? row.email_sent_at ?? row.invited_at ?? row.sentAt), respondedAt: normalize(row.responded_at ?? row.respondedAt),
     stale: deleted || status === 'stale', cancelled,
   })
+}
+
+export function getCoachInviteStatusLabel(status) {
+  const normalized = normalize(status).toLowerCase().replaceAll(' ', '_')
+  if (normalized === 'available') return 'Available'
+  if (normalized === 'unavailable') return 'Not available'
+  if (normalized === 'maybe') return 'Maybe'
+  if (['awaiting', 'pending', 'responded'].includes(normalized)) return 'Awaiting'
+  if (normalized === 'selected') return 'Selected'
+  if (normalized === 'not_selected') return 'Not selected'
+  if (normalized === 'cancelled') return 'Cancelled'
+  if (normalized === 'stale') return 'No longer active'
+  if (normalized === 'closed') return 'Closed'
+  if (normalized === 'expired') return 'Expired'
+  return 'Awaiting'
 }
 
 export function summarizeCoachInvites(rows = []) {

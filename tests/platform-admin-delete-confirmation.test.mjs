@@ -154,7 +154,8 @@ test('Platform Admin keeps permanent deletion inside the archive view', () => {
   assert.notEqual(activeCardEnd, -1)
   assert.doesNotMatch(activeCardSource, /onDeleteClub|onDeleteTeam|Permanently delete/)
 
-  assert.match(platformAdminPageSource, /title="Archive Club workspace"/)
+  assert.match(platformAdminPageSource, /title="Archive Club before deletion"/)
+  assert.match(platformAdminPageSource, /confirmLabel="Archive and continue"/)
   assert.match(platformAdminPageSource, /title="Archive Team"/)
   assert.match(platformAdminPageSource, /title="Permanently delete archived Club"/)
   assert.match(platformAdminPageSource, /title="Permanently delete archived Team"/)

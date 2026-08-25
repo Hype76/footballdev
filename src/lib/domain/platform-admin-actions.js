@@ -335,7 +335,7 @@ export async function updatePlatformUserStatus({ user, targetUserId, status }) {
   return normalizeUserProfile(data)
 }
 
-export async function deletePlatformUser({ user, targetUserId }) {
+export async function deletePlatformUser({ user, targetUserId, password = '', accessToken = '' }) {
   await blockDemoMutation(user)
 
   if (user?.role !== 'super_admin') {
@@ -352,61 +352,36 @@ export async function deletePlatformUser({ user, targetUserId }) {
     throw new Error('You cannot delete your own platform admin account.')
   }
 
-  const { data: targetUser, error: targetUserError } = await supabase
-    .from('users')
-    .select('id, email, username, name, role, role_label, role_rank, club_id')
-    .eq('id', normalizedTargetUserId)
-    .neq('role', 'super_admin')
-    .single()
+  const response = await fetch('/.netlify/functions/platform-delete-user', {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken || ''}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      targetUserId: normalizedTargetUserId,
+      password: String(password ?? ''),
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
 
-  if (targetUserError) {
-    console.error(targetUserError)
-    throw targetUserError
-  }
-
-  const deleteResults = await Promise.all([
-    supabase.from('team_staff').delete().eq('user_id', normalizedTargetUserId),
-    supabase.from('user_club_memberships').delete().eq('auth_user_id', normalizedTargetUserId),
-  ])
-  const firstDeleteError = deleteResults.find((result) => result.error)?.error
-
-  if (firstDeleteError) {
-    console.error(firstDeleteError)
-    throw firstDeleteError
-  }
-
-  const { error: userError } = await supabase
-    .from('users')
-    .delete()
-    .eq('id', normalizedTargetUserId)
-    .neq('role', 'super_admin')
-
-  if (userError) {
-    console.error(userError)
-    throw userError
+  if (!response.ok || result.success === false) {
+    const error = new Error(result.message || 'User access could not be deleted.')
+    error.code = result.code || 'server_error'
+    error.statusCode = response.status
+    throw error
   }
 
   invalidateMemoryCacheByPrefix('platform-stats')
-  invalidateMemoryCacheByPrefix(`club-users:${targetUser.club_id}`)
-  invalidateMemoryCacheByPrefix(`user-access:${targetUser.club_id}`)
+  invalidateMemoryCacheByPrefix('club-users:')
+  invalidateMemoryCacheByPrefix('user-access:')
   invalidateMemoryCacheByPrefix('available-teams:')
   invalidateMemoryCacheByPrefix('team-assignments:')
   invalidateMemoryCacheByPrefix('assigned-teams:')
   invalidateMemoryCacheByPrefix('visible-club-users:')
   clearViewCaches()
 
-  await createAuditLog({
-    user,
-    action: 'platform_user_deleted',
-    entityType: 'user',
-    entityId: normalizedTargetUserId,
-    metadata: {
-      email: targetUser.email,
-      name: targetUser.name || targetUser.username,
-      role: targetUser.role_label || targetUser.role,
-      clubId: targetUser.club_id,
-    },
-  })
+  return result.user || null
 }
 
 export async function deletePlatformTeam({ user, teamId, clubId, password = '', accessToken = '' }) {
