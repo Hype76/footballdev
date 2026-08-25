@@ -125,6 +125,7 @@ import {
   enableParentNotifications,
   initializeParentNotifications,
   loadParentNotificationState,
+  registerParentAppInstallation,
   sendParentTestNotification,
   updateParentNotificationPreference,
 } from './src/notifications'
@@ -288,6 +289,14 @@ function ParentHome() {
     () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [parentLinks, selectedLink, user],
   )
+  const refreshParentAppInstallationPresence = useCallback(async () => {
+    if (!selectedMobileUser?.id) return null
+    try {
+      return await registerParentAppInstallation({ apiBaseUrl: config.apiBaseUrl })
+    } catch {
+      return null
+    }
+  }, [selectedMobileUser?.id])
   const dismissalStorageKey = useMemo(
     () => selectedMobileUser?.id && selectedLink?.id ? `fp.parent.dismissed.v1.${selectedMobileUser.id}.${selectedLink.id}` : '',
     [selectedLink?.id, selectedMobileUser?.id],
@@ -306,6 +315,10 @@ function ParentHome() {
       .catch(() => { if (mounted) setAppBadgeEnabled(true) })
     return () => { mounted = false }
   }, [])
+
+  useEffect(() => {
+    void refreshParentAppInstallationPresence()
+  }, [refreshParentAppInstallationPresence])
   const homeModel = useMemo(() => getParentHomeModel({
     calendarEvents: resources.calendar.items,
     matches: visibleMatches,
@@ -704,6 +717,7 @@ function ParentHome() {
       const returnedFromBackground = previousState === 'background' && nextState === 'active'
       const wasAwayLongEnough = Date.now() - backgroundedAtRef.current >= 1500
       if (returnedFromBackground && wasAwayLongEnough && selectedLink?.id && !resumeRefreshRef.current) {
+        void refreshParentAppInstallationPresence()
         resumeRefreshRef.current = true
         const roomIdAtResume = selectedRoomId
         resumeInteractionRef.current?.cancel?.()
@@ -726,7 +740,7 @@ function ParentHome() {
       resumeInteractionRef.current = null
       resumeRefreshRef.current = false
     }
-  }, [loadParentData, reloadParentNotificationState, runParentSync, selectedLink?.id, selectedRoomId])
+  }, [loadParentData, refreshParentAppInstallationPresence, reloadParentNotificationState, runParentSync, selectedLink?.id, selectedRoomId])
 
   useEffect(() => {
     if (!notificationState.enabled || !selectedLink?.id) return undefined

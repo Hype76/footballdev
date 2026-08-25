@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import { PGlite } from '@electric-sql/pglite'
 
-const migrationUrls = [
+const readinessMigrationUrls = [
   new URL(
     '../supabase/migrations/20260824082411_coach_mobile_parent_notification_readiness.sql',
     import.meta.url,
@@ -14,6 +14,10 @@ const migrationUrls = [
     import.meta.url,
   ),
 ]
+const installationPresenceMigrationUrl = new URL(
+  '../supabase/migrations/20260825162000_parent_mobile_app_installation_presence.sql',
+  import.meta.url,
+)
 
 const IDS = {
   actor: '10000000-0000-4000-8000-000000000001',
@@ -28,6 +32,10 @@ create role anon;
 create role authenticated;
 create role service_role;
 create schema auth;
+
+create table auth.users (
+  id uuid primary key
+);
 
 create function auth.uid()
 returns uuid
@@ -111,9 +119,14 @@ function installationSchema(tableName) {
       ${environmentColumn}
       auth_user_id uuid,
       expo_push_token text,
+      platform text not null default 'ios',
+      app_version text not null default '',
+      build_number text not null default '',
       detail_level text not null default 'minimal',
       enabled boolean not null default false,
-      status text not null default 'unbound'
+      status text not null default 'unbound',
+      last_seen_at timestamptz not null default now(),
+      created_at timestamptz not null default now()
     );
   `
 }
@@ -134,10 +147,14 @@ async function verifyReadinessTable(tableName) {
 
   try {
     await db.exec(schemaSql)
-    await db.exec(installationSchema(tableName))
-    for (const migrationUrl of migrationUrls) {
+    await db.exec(installationSchema('parent_mobile_push_installations'))
+    if (tableName !== 'parent_mobile_push_installations') {
+      await db.exec(installationSchema(tableName))
+    }
+    for (const migrationUrl of readinessMigrationUrls) {
       await db.exec(await readFile(migrationUrl, 'utf8'))
     }
+    await db.query('insert into auth.users(id) values ($1), ($2)', [IDS.actor, IDS.readyParent])
     await setActor(db)
     await db.query('insert into public.teams(id, club_id) values ($1, $2), ($3, $2)', [IDS.team, IDS.club, IDS.otherTeam])
 
@@ -168,21 +185,40 @@ async function verifyReadinessTable(tableName) {
        values ($1, 'ExpoPushToken[ready]', 'minimal', true, 'active')`,
       [IDS.readyParent],
     )
+    await db.exec(await readFile(installationPresenceMigrationUrl, 'utf8'))
+    if (tableName === 'parent_mobile_push_installations') {
+      const backfilled = await db.query(
+        'select count(*)::integer as count from public.parent_mobile_app_installations where auth_user_id = $1',
+        [IDS.readyParent],
+      )
+      assert.equal(backfilled.rows[0].count, 1)
+    }
+    await db.query("select set_config('request.jwt.claim.sub', $1, false)", [IDS.readyParent])
+    const registration = await db.query(
+      `select public.register_parent_mobile_app_installation(
+        '50000000-0000-4000-8000-000000000001',
+        'ios',
+        '1.0.0',
+        '100'
+      ) as registered`,
+    )
+    assert.equal(registration.rows[0].registered, true)
+    await setActor(db)
 
     const result = await db.query(
-      'select * from public.get_team_parent_notification_readiness($1)',
+      'select * from public.get_team_parent_app_installation_status($1)',
       [IDS.team],
     )
 
     assert.deepEqual(result.rows, [{
-      notification_ready_contact_count: 1,
+      installed_contact_count: 1,
       parent_contact_count: 2,
       player_id: playerId,
     }])
 
     await setActor(db, { assigned: false })
     const denied = await db.query(
-      'select * from public.get_team_parent_notification_readiness($1)',
+      'select * from public.get_team_parent_app_installation_status($1)',
       [IDS.team],
     )
     assert.equal(denied.rows.length, 0)
@@ -191,10 +227,10 @@ async function verifyReadinessTable(tableName) {
   }
 }
 
-test('readiness RPC uses the production Parent installation authority', async () => {
+test('installation status works alongside the production Parent notification authority', async () => {
   await verifyReadinessTable('parent_mobile_push_installations')
 })
 
-test('readiness RPC uses the isolated FP TEST Parent installation authority', async () => {
+test('installation status works alongside the isolated FP TEST Parent notification authority', async () => {
   await verifyReadinessTable('mobile_test_parent_push_installations')
 })

@@ -16,7 +16,7 @@ import { getCoachCalendarResources, saveCoachCalendarEvent, saveCoachTrainingInv
 import {
   coachPlayerFormFromPlayer,
   filterCoachPlayers,
-  formatCoachParentNotificationReadiness,
+  formatCoachParentAppInstallationStatus,
   getCoachPlayerMutationPolicy,
 } from '../../mobile-core/src/coachPlayersCore'
 import { getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
@@ -125,14 +125,14 @@ function Field({ label, multiline = false, onChangeText, styles, value }) {
   )
 }
 
-function ParentNotificationReadiness({ player, styles }) {
-  if (player.parentNotificationStatusAvailable !== true) return null
-  const contactCount = Number(player.parentNotificationContactCount || 0)
-  const readyCount = Math.min(contactCount, Number(player.parentNotificationReadyCount || 0))
-  const label = formatCoachParentNotificationReadiness({
+function ParentAppInstallationStatus({ player, styles }) {
+  if (player.parentAppInstallationStatusAvailable !== true) return null
+  const contactCount = Number(player.parentAppContactCount || 0)
+  const installedCount = Math.min(contactCount, Number(player.parentAppInstalledContactCount || 0))
+  const label = formatCoachParentAppInstallationStatus({
     available: true,
     contactCount,
-    readyCount,
+    installedCount,
   })
   return (
     <View accessibilityLabel={label} accessibilityRole="text" style={styles.readiness}>
@@ -140,8 +140,8 @@ function ParentNotificationReadiness({ player, styles }) {
         <View style={styles.readinessDots}>
           {Array.from({ length: contactCount }, (_, index) => (
             <View
-              key={`${player.id}:parent-notification:${index}`}
-              style={[styles.readinessDot, index < readyCount ? styles.readinessDotOn : styles.readinessDotOff]}
+              key={`${player.id}:parent-app:${index}`}
+              style={[styles.readinessDot, index < installedCount ? styles.readinessDotOn : styles.readinessDotOff]}
             />
           ))}
         </View>
@@ -525,7 +525,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
         </View>
       ) : null}
       {!loading && visible.length === 0 ? <Text style={styles.body}>No active Players match this view.</Text> : null}
-      {visible.map((player) => <Pressable accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.card}><Text style={styles.cardTitle}>{player.playerName}</Text><Text style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentNotificationReadiness player={player} styles={styles} /></Pressable>)}
+      {visible.map((player) => <Pressable accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.card}><Text style={styles.cardTitle}>{player.playerName}</Text><Text style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentAppInstallationStatus player={player} styles={styles} /></Pressable>)}
     </View>
   )
 }

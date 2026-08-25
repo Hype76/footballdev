@@ -44,8 +44,8 @@ async function getCoachPlayerRows(user) {
   return data || []
 }
 
-async function getCoachParentNotificationReadiness(user) {
-  const { data, error } = await supabase.rpc('get_team_parent_notification_readiness', {
+async function getCoachParentAppInstallationStatus(user) {
+  const { data, error } = await supabase.rpc('get_team_parent_app_installation_status', {
     team_id_value: user.activeTeamId,
   })
   if (error) return null
@@ -54,20 +54,20 @@ async function getCoachParentNotificationReadiness(user) {
 
 export async function getCoachPlayerList(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [playerRows, readinessRows] = await Promise.all([
+  const [playerRows, installationRows] = await Promise.all([
     getCoachPlayerRows(user),
-    getCoachParentNotificationReadiness(user),
+    getCoachParentAppInstallationStatus(user),
   ])
-  const statusAvailable = Array.isArray(readinessRows)
-  const readinessByPlayer = new Map(
-    (readinessRows || []).map((row) => [normalize(row.player_id ?? row.playerId), row]),
+  const statusAvailable = Array.isArray(installationRows)
+  const installationByPlayer = new Map(
+    (installationRows || []).map((row) => [normalize(row.player_id ?? row.playerId), row]),
   )
   return playerRows.map((row) => {
-    const readiness = readinessByPlayer.get(normalize(row.id)) || {}
+    const installation = installationByPlayer.get(normalize(row.id)) || {}
     return normalizePlayerForUser({
       ...row,
-      ...readiness,
-      parent_notification_status_available: statusAvailable && Boolean(readiness.player_id ?? readiness.playerId),
+      ...installation,
+      parent_app_installation_status_available: statusAvailable && Boolean(installation.player_id ?? installation.playerId),
     }, user)
   })
 }

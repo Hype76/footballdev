@@ -32,34 +32,34 @@ function normalizeCount(value) {
   return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0
 }
 
-export function normalizeCoachParentNotificationReadiness(row = {}) {
+export function normalizeCoachParentAppInstallationStatus(row = {}) {
   const hasServerCounts = [
     'parent_contact_count',
-    'parent_notification_contact_count',
-    'parentNotificationContactCount',
-    'notification_ready_contact_count',
-    'parentNotificationReadyCount',
+    'parent_app_contact_count',
+    'parentAppContactCount',
+    'installed_contact_count',
+    'parentAppInstalledContactCount',
   ].some((key) => Object.prototype.hasOwnProperty.call(row, key))
-  const explicitAvailability = row.parent_notification_status_available ?? row.parentNotificationStatusAvailable
+  const explicitAvailability = row.parent_app_installation_status_available ?? row.parentAppInstallationStatusAvailable
   const available = explicitAvailability === true || (explicitAvailability !== false && hasServerCounts)
   const contactCount = normalizeCount(
     row.parent_contact_count
-      ?? row.parent_notification_contact_count
-      ?? row.parentNotificationContactCount,
+      ?? row.parent_app_contact_count
+      ?? row.parentAppContactCount,
   )
-  const readyCount = Math.min(
+  const installedCount = Math.min(
     contactCount,
-    normalizeCount(row.notification_ready_contact_count ?? row.parentNotificationReadyCount),
+    normalizeCount(row.installed_contact_count ?? row.parentAppInstalledContactCount),
   )
-  return Object.freeze({ available, contactCount, readyCount })
+  return Object.freeze({ available, contactCount, installedCount })
 }
 
-export function formatCoachParentNotificationReadiness(readiness = {}) {
-  if (readiness.available !== true) return ''
-  const contactCount = normalizeCount(readiness.contactCount)
-  const readyCount = Math.min(contactCount, normalizeCount(readiness.readyCount))
+export function formatCoachParentAppInstallationStatus(status = {}) {
+  if (status.available !== true) return ''
+  const contactCount = normalizeCount(status.contactCount)
+  const installedCount = Math.min(contactCount, normalizeCount(status.installedCount))
   if (contactCount === 0) return 'Parent app: no Parent contacts'
-  return `Parent app: ${readyCount} of ${contactCount} ready`
+  return `Parent app: ${installedCount} of ${contactCount} installed`
 }
 
 export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
@@ -69,7 +69,7 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
   const contacts = canViewContacts
     ? normalizeContacts(row.parent_contacts ?? row.parentContacts, row.parent_name ?? row.parentName, row.parent_email ?? row.parentEmail, contactType)
     : []
-  const notificationReadiness = normalizeCoachParentNotificationReadiness(row)
+  const parentAppInstallation = normalizeCoachParentAppInstallationStatus(row)
   return Object.freeze({
     archivedAt: normalize(row.archived_at ?? row.archivedAt),
     clubId: normalize(row.club_id ?? row.clubId),
@@ -80,9 +80,9 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
     parentContacts: contacts,
     parentEmail: contacts[0]?.email || '',
     parentName: contacts[0]?.name || '',
-    parentNotificationContactCount: notificationReadiness.contactCount,
-    parentNotificationReadyCount: notificationReadiness.readyCount,
-    parentNotificationStatusAvailable: notificationReadiness.available,
+    parentAppContactCount: parentAppInstallation.contactCount,
+    parentAppInstallationStatusAvailable: parentAppInstallation.available,
+    parentAppInstalledContactCount: parentAppInstallation.installedCount,
     playerName: normalize(row.player_name ?? row.playerName) || 'Unnamed player',
     positions: (Array.isArray(row.positions) ? row.positions : []).map(normalize).filter(Boolean),
     section: COACH_PLAYER_SECTIONS.includes(normalize(row.section)) ? normalize(row.section) : 'Trial',

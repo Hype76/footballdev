@@ -14,7 +14,7 @@ import {
   normalizeParentNotificationState,
   withParentPushStepTimeout,
 } from '../../mobile-core/src/parentNotificationsCore'
-import { getAccessToken } from '../../mobile-core/src/supabase'
+import { getAccessToken, supabase } from '../../mobile-core/src/supabase'
 
 const PRODUCTION_API_ORIGIN = 'https://footballplayer.online'
 const INSTALLATION_KEY_PREFIX = 'football-player.parent.push-installation-id.v2'
@@ -132,6 +132,18 @@ async function getInstallationId(apiBaseUrl) {
     keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
   })
   return installationId
+}
+
+export async function registerParentAppInstallation({ apiBaseUrl }) {
+  const installationId = await getInstallationId(apiBaseUrl)
+  const { error } = await supabase.rpc('register_parent_mobile_app_installation', {
+    p_app_version: normalize(Application.nativeApplicationVersion).slice(0, 40),
+    p_build_number: normalize(Application.nativeBuildVersion).slice(0, 40),
+    p_installation_id: installationId,
+    p_platform: Platform.OS,
+  })
+  if (error) throw error
+  return { installationId, registered: true }
 }
 
 async function rotateInstallationId(apiBaseUrl) {
