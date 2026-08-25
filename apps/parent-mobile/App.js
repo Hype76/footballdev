@@ -65,6 +65,7 @@ import {
   getParentHomeModel,
   getPollDraftOption,
   isParentDefinitelyOffline,
+  rankParentPollResults,
 } from './src/parentExperience'
 import { getParentInvitationSections } from './src/parentPresentationCore'
 import {
@@ -2292,10 +2293,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
         const currentOptionId = currentOptionIds[0] || ''
         const busy = activeActionId === `poll:${poll.id}`
         const submitEnabled = canSubmitParentPoll(poll, draftOptionId)
-        const resultCounts = new Map((poll.votes || []).map((vote) => [normalizeText(vote.optionId), Number(vote.count || 0)]))
-        const rankedResults = poll.options
-          .map((option, index) => ({ ...option, count: resultCounts.get(option.id) || 0, sourceIndex: index }))
-          .sort((left, right) => right.count - left.count || left.sourceIndex - right.sourceIndex)
+        const rankedResults = rankParentPollResults(poll.options, poll.votes)
 
         return (
           <View key={poll.id} style={styles.card}>
@@ -2306,8 +2304,8 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
             <Text accessibilityRole="header" style={styles.cardTitle}>{poll.title}</Text>
             {poll.description ? <Text style={styles.bodyText}>{poll.description}</Text> : null}
             {!isOpenPoll(poll) ? <View style={styles.optionStack}>
-              {rankedResults.map((option, index) => <View key={option.id} style={styles.optionButton}>
-                <Badge label={`${index + 1}`} tone={index === 0 && option.count > 0 ? 'accent' : 'neutral'} />
+              {rankedResults.map((option) => <View key={option.id} style={styles.optionButton}>
+                <Badge label={`${option.rank}`} tone={option.rank === 1 && option.count > 0 ? 'accent' : 'neutral'} />
                 <Text style={styles.optionLabel}>{option.label}</Text>
                 <Text style={styles.cardMeta}>{option.count} vote{option.count === 1 ? '' : 's'}</Text>
               </View>)}

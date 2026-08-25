@@ -317,6 +317,37 @@ export function canSubmitParentPoll(poll, draftOptionId) {
   return poll.allowVoteChanges === true && currentOptionId !== optionId
 }
 
+export function rankParentPollResults(options = [], votes = []) {
+  const resultCounts = new Map()
+
+  for (const vote of Array.isArray(votes) ? votes : []) {
+    const optionId = normalizeText(vote?.optionId)
+    if (!optionId) continue
+    resultCounts.set(optionId, Number(vote?.count || 0))
+  }
+
+  const sortedResults = (Array.isArray(options) ? options : [])
+    .map((option, sourceIndex) => ({
+      ...option,
+      count: resultCounts.get(normalizeText(option?.id)) || 0,
+      sourceIndex,
+    }))
+    .sort((left, right) => right.count - left.count || left.sourceIndex - right.sourceIndex)
+
+  let previousCount = null
+  let previousRank = 0
+
+  return sortedResults.map((option, index) => {
+    const rank = index > 0 && option.count === previousCount
+      ? previousRank
+      : index + 1
+    previousCount = option.count
+    previousRank = rank
+    const { sourceIndex: _sourceIndex, ...result } = option
+    return { ...result, rank }
+  })
+}
+
 export function getBuildClassification(buildProfile) {
   const profile = normalizeText(buildProfile).toLowerCase()
 
