@@ -315,7 +315,7 @@ export async function recordCoachMatchDayEvent(user, match, event, commandId = '
     if (!STAFF_EVENT_TYPES.has(type)) throw new Error('Choose a supported Match Day event type.')
     savedEvent = await rpc('record_match_day_staff_event_v2', { match_day_id_value: match.id, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: normalize(commandId) || requestId() })
   }
-  if (type === 'goal' || type === 'yellow_card' || type === 'red_card') await sendCoachMatchDayPush(match, type, savedEvent?.id)
+  if (type === 'goal' || type === 'yellow_card' || type === 'red_card' || type === 'substitution') await sendCoachMatchDayPush(match, type, savedEvent?.id)
   return getCoachMatchDayDetail(user, match.id)
 }
 

@@ -118,7 +118,7 @@ test('Coach Match Day actions request team push delivery after saved lifecycle a
   assert.match(coachData, /sendCoachMatchDayPush\(match, pushType\)/)
   assert.match(coachData, /value === 'resume'.*'half_time'/s)
   assert.match(coachData, /\? 'second_half'/)
-  assert.match(coachData, /type === 'goal' \|\| type === 'yellow_card' \|\| type === 'red_card'/)
+  assert.match(coachData, /type === 'goal' \|\| type === 'yellow_card' \|\| type === 'red_card' \|\| type === 'substitution'/)
   assert.match(coachData, /sendCoachMatchDayPush\(match, 'score_correction', savedEvent\?\.id\)/)
   assert.match(coachData, /\.netlify\/functions\/send-match-day-push/)
 })

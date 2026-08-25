@@ -4201,7 +4201,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         reconcile: reconcileSavedEvent,
         refreshErrorMessage: 'The Match event was added, but the latest Match Day data could not be refreshed. The updated timeline remains visible. Retry live data before recording another event.',
       })
-      if (['yellow_card', 'red_card'].includes(savedEvent.eventType || savedEvent.event_type)) {
+      if (['yellow_card', 'red_card', 'substitution'].includes(savedEvent.eventType || savedEvent.event_type)) {
         void sendMatchDayPushNotification({
           eventId: savedEvent.id,
           matchDayId: match.id,

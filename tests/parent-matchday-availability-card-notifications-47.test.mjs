@@ -23,10 +23,10 @@ test('accepted availability email queues one exact focused Parent response notif
   assert.match(parentPush, /type: 'matchday_update'/)
 })
 
-test('saved yellow and red card events use server-authoritative Parent push scope', () => {
-  assert.match(matchDayPage, /\['yellow_card', 'red_card'\]\.includes\(savedEvent\.eventType \|\| savedEvent\.event_type\)/)
+test('saved cards and substitutions use server-authoritative Parent push scope', () => {
+  assert.match(matchDayPage, /\['yellow_card', 'red_card', 'substitution'\]\.includes\(savedEvent\.eventType \|\| savedEvent\.event_type\)/)
   assert.match(matchDayPage, /eventId: savedEvent\.id/)
-  assert.match(matchDayPush, /\['yellow_card', 'red_card'\]\.includes\(type\)[\s\S]*rpc\('authorize_match_day_push_v2'/)
+  assert.match(matchDayPush, /\['yellow_card', 'red_card', 'substitution'\]\.includes\(type\)[\s\S]*rpc\('authorize_match_day_push_v2'/)
   assert.match(migration, /normalized_type not in \('yellow_card', 'red_card'\)/i)
   assert.match(migration, /from public\.match_day_events[\s\S]*event_type = normalized_type[\s\S]*event_status, 'active'/i)
   assert.match(migration, /from public\.team_staff staff_scope/i)
