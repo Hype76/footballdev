@@ -38,7 +38,6 @@ import {
   deletePlatformFeedback,
   deletePlatformClub,
   deletePlatformTeam,
-  deletePlatformUser,
   getPlatformFeedback,
   getPlatformFeedbackAttachmentUrl,
   getPlatformFeedbackReports,
@@ -52,7 +51,6 @@ import {
   updatePlatformFeedbackReportStatus,
   updatePlatformBanner,
   updatePlatformClubStatus,
-  updatePlatformUserStatus,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
@@ -1251,6 +1249,11 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       return
     }
 
+    if (action !== 'role') {
+      setErrorMessage('Use Club access below to remove or restore a Club assignment without deleting the account.')
+      return
+    }
+
     setAccountActionTarget({
       ...member,
       clubId: club.id,
@@ -1270,37 +1273,22 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setSuccessMessage('')
 
     try {
-      if (accountActionTarget.action === 'role') {
-        await verifyCurrentUserPassword(user.email, password)
-        await changeStaffRoleAssignment({
-          user,
-          assignmentId: accountActionTarget.membershipId,
-          roleKey: accountActionTarget.nextRole?.roleKey,
-          requestSource: 'platform_admin',
-        })
-        setSuccessMessage('Coach role updated.')
-        showToast({
-          title: 'Coach role updated',
-          message: `${accountActionTarget.name || accountActionTarget.email} is now ${accountActionTarget.nextRole?.roleLabel}.`,
-        })
-      } else if (accountActionTarget.action === 'delete') {
-        await deletePlatformUser({
-          user,
-          targetUserId: accountActionTarget.id,
-          password,
-          accessToken: session?.access_token || '',
-        })
-        setSuccessMessage('User access deleted.')
-      } else {
-        await verifyCurrentUserPassword(user.email, password)
-        const nextStatus = accountActionTarget.action === 'suspend' ? 'suspended' : 'active'
-        await updatePlatformUserStatus({
-          user,
-          targetUserId: accountActionTarget.id,
-          status: nextStatus,
-        })
-        setSuccessMessage(nextStatus === 'suspended' ? 'User suspended.' : 'User reactivated.')
+      if (accountActionTarget.action !== 'role') {
+        throw new Error('Use Club access below to change a Club assignment safely.')
       }
+
+      await verifyCurrentUserPassword(user.email, password)
+      await changeStaffRoleAssignment({
+        user,
+        assignmentId: accountActionTarget.membershipId,
+        roleKey: accountActionTarget.nextRole?.roleKey,
+        requestSource: 'platform_admin',
+      })
+      setSuccessMessage('Coach role updated.')
+      showToast({
+        title: 'Coach role updated',
+        message: `${accountActionTarget.name || accountActionTarget.email} is now ${accountActionTarget.nextRole?.roleLabel}.`,
+      })
 
       refreshStats()
     } catch (error) {
@@ -1677,49 +1665,22 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       <ConfirmModal
         isOpen={Boolean(accountActionTarget)}
         isBusy={Boolean(updatingUserId)}
-        title={
-          accountActionTarget?.action === 'delete'
-            ? 'Delete user access'
-            : accountActionTarget?.action === 'suspend'
-              ? 'Suspend user access'
-              : accountActionTarget?.action === 'role'
-                ? 'Confirm Coach role change'
-                : 'Reactivate user access'
-        }
-        message={
-          accountActionTarget?.action === 'role'
-            ? 'Review the Coach, current role, new role, scope, and access consequence before confirming.'
-            : 'This platform admin action requires your password before it can continue.'
-        }
+        title="Confirm Coach role change"
+        message="Review the Coach, current role, new role, scope, and access consequence before confirming."
         items={[
           `Name: ${accountActionTarget?.name || 'No name entered'}`,
           `Email: ${accountActionTarget?.email || 'No email entered'}`,
           `Club: ${accountActionTarget?.clubName || 'No club entered'}`,
           `Current role: ${accountActionTarget?.roleLabel || 'User'}`,
-          ...(accountActionTarget?.action === 'role'
-            ? [
-                `New role: ${accountActionTarget?.nextRole?.roleLabel || 'No role selected'}`,
-                `Scope: ${accountActionTarget?.clubName || 'Selected club'}`,
-                Number(accountActionTarget?.nextRole?.roleRank ?? 0) < Number(accountActionTarget?.roleRank ?? 0)
-                  ? 'Consequence: This removes some club management authority immediately.'
-                  : 'Consequence: This grants only the selected club role authority.',
-              ]
-            : []),
-          accountActionTarget?.action === 'delete'
-            ? 'The sign-in, user profile, club memberships, Parent links, Team allocations, and notification registrations will be removed across the platform. Historical records remain for audit.'
-            : accountActionTarget?.action === 'role'
-              ? 'No Coach email or notification will be sent.'
-              : 'The user will be blocked from using their workspace until reactivated.',
+          `New role: ${accountActionTarget?.nextRole?.roleLabel || 'No role selected'}`,
+          `Scope: ${accountActionTarget?.clubName || 'Selected club'}`,
+          Number(accountActionTarget?.nextRole?.roleRank ?? 0) < Number(accountActionTarget?.roleRank ?? 0)
+            ? 'Consequence: This removes some Club management authority immediately.'
+            : 'Consequence: This grants only the selected club role authority.',
+          'The Parent login and access to other Clubs are not changed.',
+          'No Coach email or notification will be sent.',
         ]}
-        confirmLabel={
-          accountActionTarget?.action === 'delete'
-            ? 'Delete User'
-            : accountActionTarget?.action === 'suspend'
-              ? 'Suspend User'
-              : accountActionTarget?.action === 'role'
-                ? 'Change role'
-                : 'Reactivate User'
-        }
+        confirmLabel="Change role"
         onCancel={() => setAccountActionTarget(null)}
         requirePassword
         onConfirm={(password) => void confirmAccountAction(password)}

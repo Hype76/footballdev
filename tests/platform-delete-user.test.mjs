@@ -15,7 +15,12 @@ function createEvent(body = {}) {
   return {
     httpMethod: 'DELETE',
     headers: { authorization: 'Bearer test-token' },
-    body: JSON.stringify({ targetUserId: targetId, password: 'FixturePass123!', ...body }),
+    body: JSON.stringify({
+      targetUserId: targetId,
+      password: 'FixturePass123!',
+      deletionScope: 'platform_account',
+      ...body,
+    }),
   }
 }
 
@@ -75,6 +80,12 @@ function createMock({ role = 'super_admin', passwordError = null, targetUser = n
     eq(column, value) {
       this.filters.push([column, value])
       calls.push({ table: this.table, action: this.action, column, value })
+      return this
+    }
+
+    ilike(column, value) {
+      this.filters.push([column, value])
+      calls.push({ table: this.table, action: this.action, column, value, operator: 'ilike' })
       return this
     }
 
@@ -142,6 +153,25 @@ test('Platform user delete runs through server authority and removes active acce
     assert.equal(mock.calls.some((call) => call.table === table && call.action === 'delete'), true, table)
   }
   assert.equal(mock.calls.some((call) => call.table === 'audit_logs' && call.action === 'insert'), true)
+  assert.equal(
+    mock.calls.some((call) => call.table === 'parent_player_links' && call.operator === 'ilike' && call.value === 'eliz@example.test'),
+    true,
+  )
+  const audit = mock.calls.find((call) => call.table === 'audit_logs' && call.action === 'insert')?.payload
+  assert.equal(audit.actor_role, undefined)
+  assert.equal(audit.actor_role_label, 'Super Admin')
+  assert.equal(audit.event_category, 'security')
+  assert.equal(audit.source, 'netlify_function')
+})
+
+test('Platform user delete fails closed unless the dedicated platform-wide scope is explicit', async () => {
+  const mock = createMock()
+  const response = parseResponse(await deletePlatformUserResult(createEvent({ deletionScope: '' }), mock))
+
+  assert.equal(response.statusCode, 400)
+  assert.equal(response.body.code, 'platform_scope_required')
+  assert.equal(mock.calls.some((call) => call.action === 'delete'), false)
+  assert.equal(mock.calls.some((call) => call.action === 'deleteUser'), false)
 })
 
 test('Platform user delete rejects wrong password and non-platform authority before mutation', async () => {
@@ -192,4 +222,12 @@ test('Platform admin browser action uses the protected server user-delete route'
   assert.match(pageSource, /Archive and continue/)
   assert.match(accountSource, /Archive Club to continue deletion/)
   assert.match(accountSource, /permanently delete it with password confirmation/)
+
+  const clubUsersStart = accountSource.indexOf('function ClubUsersList')
+  const clubUsersEnd = accountSource.indexOf('function RoleChangeControl')
+  const clubUsersSource = accountSource.slice(clubUsersStart, clubUsersEnd)
+  assert.match(clubUsersSource, /Use Club access below/)
+  assert.doesNotMatch(clubUsersSource, /onAccountAction\(club, member, 'delete'\)/)
+  assert.doesNotMatch(clubUsersSource, />\s*Delete\s*</)
+  assert.doesNotMatch(pageSource, /deletePlatformUser|updatePlatformUserStatus/)
 })

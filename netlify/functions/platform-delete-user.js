@@ -92,6 +92,13 @@ async function deleteRows(supabaseAdmin, table, column, value) {
   if (error && error.code !== '42P01' && error.code !== '42703') throw error
 }
 
+async function deleteRowsByEmail(supabaseAdmin, table, email) {
+  const normalizedEmail = normalizeText(email).toLowerCase()
+  if (!normalizedEmail) return
+  const { error } = await supabaseAdmin.from(table).delete().ilike('email', normalizedEmail)
+  if (error && error.code !== '42P01' && error.code !== '42703') throw error
+}
+
 function normalizeDeleteError(error, stage) {
   if (error?.code && error?.statusCode) return error
   if (error?.code === '23503') {
@@ -120,6 +127,14 @@ export async function deletePlatformUserResult(event, {
 
     stage = 'request_body_parsing'
     const body = parseBody(event)
+    const deletionScope = normalizeText(body.deletionScope)
+    if (deletionScope !== 'platform_account') {
+      throw httpError(
+        'platform_scope_required',
+        'Use Club access to remove a person from one Club. Platform account deletion requires the dedicated platform-wide workflow.',
+        400,
+      )
+    }
     stage = 'target_user_validation'
     const targetUserId = requireUuid(body.targetUserId, 'invalid_user_id', 'User ID is required.')
     safeTargetUserId = targetUserId
@@ -147,6 +162,7 @@ export async function deletePlatformUserResult(event, {
     await deleteRows(supabaseAdmin, 'team_staff', 'user_id', targetUserId)
     await deleteRows(supabaseAdmin, 'user_club_memberships', 'auth_user_id', targetUserId)
     await deleteRows(supabaseAdmin, 'parent_player_links', 'auth_user_id', targetUserId)
+    await deleteRowsByEmail(supabaseAdmin, 'parent_player_links', targetUser.email)
     await deleteRows(supabaseAdmin, 'parent_push_subscriptions', 'auth_user_id', targetUserId)
     await deleteRows(supabaseAdmin, 'parent_mobile_push_installations', 'auth_user_id', targetUserId)
     await deleteRows(supabaseAdmin, 'coach_mobile_push_installations', 'auth_user_id', targetUserId)
@@ -159,13 +175,17 @@ export async function deletePlatformUserResult(event, {
     stage = 'audit_write'
     const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
       actor_id: platformAdmin.id,
+      actor_name: platformAdmin.name,
       actor_email: platformAdmin.email,
-      actor_role: platformAdmin.role,
       actor_role_label: platformAdmin.roleLabel,
       actor_role_rank: platformAdmin.roleRank,
       action: 'platform_user_deleted',
       entity_type: 'user',
       entity_id: targetUserId,
+      event_category: 'security',
+      severity: 'warning',
+      outcome: 'success',
+      source: 'netlify_function',
       metadata: {
         email: targetUser.email,
         name: targetUser.name || targetUser.username,

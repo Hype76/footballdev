@@ -486,6 +486,9 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
   return (
     <div>
       <p className={eyebrowClass}>Adult user accounts</p>
+      <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
+        This is a Club role overview. Use Club access below to remove or restore access without deleting the Parent login or access to another Club.
+      </p>
       <div className="mt-3 space-y-2">
         {users.length === 0 ? (
           <p className={emptyStateClass}>No users found.</p>
@@ -512,32 +515,6 @@ function ClubUsersList({ club, onAccountAction, updatingUserId }) {
                     roles={roles}
                     updatingUserId={updatingUserId}
                   />
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row xl:flex-col">
-                  <button
-                    type="button"
-                    disabled={updatingUserId === member.id}
-                    title={updatingUserId === member.id ? 'Please wait while this user is being updated.' : undefined}
-                    onClick={() =>
-                      void onAccountAction(
-                        club,
-                        member,
-                        member.status === 'suspended' ? 'reactivate' : 'suspend',
-                      )
-                    }
-                    className={secondaryButtonClass}
-                  >
-                    {member.status === 'suspended' ? 'Reactivate' : 'Suspend'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={updatingUserId === member.id}
-                    title={updatingUserId === member.id ? 'Please wait while this user is being updated.' : undefined}
-                    onClick={() => void onAccountAction(club, member, 'delete')}
-                    className={dangerButtonClass}
-                  >
-                    Delete
-                  </button>
                 </div>
               </div>
             </div>
