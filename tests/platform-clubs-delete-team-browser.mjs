@@ -954,7 +954,7 @@ try {
     const reviewRoleButton = page.getByRole('button', { name: 'Review role change' })
     await reviewRoleButton.focus()
     await page.keyboard.press('Enter')
-    const roleDialog = page.locator('[role="dialog"]').filter({ hasText: 'Confirm staff role change' })
+    const roleDialog = page.locator('[role="dialog"]').filter({ hasText: 'Confirm Coach role change' })
     await roleDialog.waitFor({ state: 'visible' })
     for (const [label, value] of [
       ['Current role', 'Coach'],
@@ -965,7 +965,7 @@ try {
       const detailRow = roleDialog.locator('li').filter({ hasText: label })
       await detailRow.getByText(value, { exact: true }).waitFor({ state: 'visible' })
     }
-    await roleDialog.getByText('No staff email or notification will be sent.', { exact: true }).waitFor({ state: 'visible' })
+    await roleDialog.getByText('No Coach email or notification will be sent.', { exact: true }).waitFor({ state: 'visible' })
     await roleDialog.getByRole('button', { name: 'Cancel' }).click()
     assert.equal(await page.getByText(/token_digest|auth_user_id|fixture-owner-token/i).count(), 0)
     assert.ok(requests.platformAccess.some((request) => request.method === 'GET'))
@@ -983,7 +983,7 @@ try {
     await page.getByRole('button', { name: 'Restore access' }).waitFor({ state: 'visible' })
     await page.getByLabel('Club role for Fixture Coach').selectOption('manager')
     await page.getByRole('button', { name: 'Review role change' }).click()
-    await page.locator('[role="dialog"]').filter({ hasText: 'Confirm staff role change' }).waitFor({ state: 'visible' })
+    await page.locator('[role="dialog"]').filter({ hasText: 'Confirm Coach role change' }).waitFor({ state: 'visible' })
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     assert.ok(overflow <= 1, `Unexpected mobile horizontal overflow: ${overflow}px`)
     await mkdir('output/playwright', { recursive: true })
@@ -999,7 +999,7 @@ try {
       'Customer clubs: View customer clubs',
       'Teams: View counted teams',
       'Active players: View active-player breakdown',
-      'Staff accounts: View staff breakdown',
+      'Coach accounts: View Coaches breakdown',
       'Users with Parent access: View Parent access breakdown',
       'Development records: View Development breakdown',
       'Active this week: View product activity',
@@ -1016,7 +1016,7 @@ try {
     assert.equal(await page.getByText('Shared exports', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Audit events', { exact: true }).count(), 0)
 
-    const staffCard = page.getByRole('link', { name: 'Staff accounts: View staff breakdown', exact: true })
+    const staffCard = page.getByRole('link', { name: 'Coach accounts: View Coaches breakdown', exact: true })
     await staffCard.focus()
     await Promise.all([
       page.waitForURL('**/platform-analytics?focus=staffAccounts'),
@@ -1027,7 +1027,7 @@ try {
     await staffMetric.waitFor({ state: 'visible' })
     await staffMetric.locator('details[open]').waitFor({ state: 'attached' })
     await staffMetric.getByText('Coach', { exact: true }).waitFor({ state: 'visible' })
-    await page.getByRole('heading', { name: 'Staff accounts by role', exact: true }).waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Coach accounts by role', exact: true }).waitFor({ state: 'visible' })
     assert.equal(/[0-9a-f]{8}-[0-9a-f-]{27}/i.test(await staffMetric.innerText()), false)
     await context.close()
   })
@@ -1060,9 +1060,9 @@ try {
     }
 
     await navigateInApp(page, '/platform-staff')
-    await page.getByRole('heading', { name: 'Platform Staff', exact: true }).first().waitFor({ state: 'visible' })
-    await page.getByRole('heading', { name: 'Staff access context', exact: true }).waitFor({ state: 'visible' })
-    await page.getByRole('heading', { name: 'Platform admin staff', exact: true }).waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Platform Admins', exact: true }).first().waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Coach access context', exact: true }).waitFor({ state: 'visible' })
+    await page.getByRole('heading', { name: 'Platform Admins', exact: true }).last().waitFor({ state: 'visible' })
 
     await navigateInApp(page, '/platform-data-hygiene')
     await page.getByRole('heading', { name: 'Data Hygiene', exact: true }).first().waitFor({ state: 'visible' })
