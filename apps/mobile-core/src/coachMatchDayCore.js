@@ -210,6 +210,83 @@ export function buildCoachMatchDaySquad(players = [], match = {}) {
   return Object.freeze({ rows: Object.freeze(rows), summary: Object.freeze(summarizeMatchDaySquadDecisions(rows.map((row) => row.decision))) })
 }
 
+function normalizePlayerChoice(player = {}) {
+  return Object.freeze({
+    id: normalize(player.id),
+    playerName: normalize(player.playerName ?? player.player_name),
+    shirtNumber: normalize(player.shirtNumber ?? player.shirt_number),
+  })
+}
+
+export function getCoachMatchDaySelectedPlayers(players = [], match = {}) {
+  const selectedPlayerIds = new Set(
+    (match?.squadDecisions || [])
+      .filter((decision) => normalizeMatchDaySquadDecision(decision?.status) === 'selected')
+      .map((decision) => normalize(decision?.playerId))
+      .filter(Boolean),
+  )
+  const matchTeamId = normalize(match?.teamId)
+  return Object.freeze(
+    (Array.isArray(players) ? players : [])
+      .filter((player) => selectedPlayerIds.has(normalize(player?.id)))
+      .filter((player) => !matchTeamId || normalize(player?.teamId) === matchTeamId)
+      .filter((player) => normalize(player?.section || 'Squad') === 'Squad')
+      .filter((player) => normalize(player?.status || 'active').toLowerCase() !== 'archived')
+      .map(normalizePlayerChoice)
+      .filter((player) => player.id && player.playerName)
+      .sort((left, right) => left.playerName.localeCompare(right.playerName)),
+  )
+}
+
+export function getCoachMatchDayOpponentPlayers(match = {}) {
+  const choices = new Map()
+  const add = (name, shirtNumber) => {
+    const playerName = normalize(name)
+    const normalizedShirt = normalize(shirtNumber)
+    if (!playerName && !normalizedShirt) return
+    const key = `${playerName.toLowerCase()}|${normalizedShirt.toLowerCase()}`
+    if (!choices.has(key)) choices.set(key, normalizePlayerChoice({ id: `opponent:${key}`, playerName, shirtNumber: normalizedShirt }))
+  }
+  for (const event of match?.events || []) {
+    if (normalize(event?.teamSide ?? event?.team_side) !== 'opponent') continue
+    add(event?.scorerName ?? event?.scorer_name ?? event?.playerName ?? event?.player_name, event?.scorerShirtNumber ?? event?.scorer_shirt_number ?? event?.playerShirtNumber ?? event?.player_shirt_number)
+    add(event?.assistName ?? event?.assist_name ?? event?.playerOnName ?? event?.player_on_name, event?.assistShirtNumber ?? event?.assist_shirt_number ?? event?.playerOnShirtNumber ?? event?.player_on_shirt_number)
+  }
+  return Object.freeze([...choices.values()].sort((left, right) => left.playerName.localeCompare(right.playerName)))
+}
+
+export function filterCoachMatchDayPlayerChoices(players = [], query = '') {
+  const normalizedQuery = normalize(query).toLowerCase()
+  const rows = Array.isArray(players) ? players : []
+  return Object.freeze(rows
+    .filter((player) => !normalizedQuery
+      || normalize(player?.playerName).toLowerCase().includes(normalizedQuery)
+      || normalize(player?.shirtNumber).toLowerCase().includes(normalizedQuery))
+    .slice(0, 12))
+}
+
+export function pickCoachMatchDayLinkedPlayer(form = {}, fieldPrefix = 'player', player = {}) {
+  return {
+    ...form,
+    [`${fieldPrefix}Name`]: normalize(player?.playerName ?? player?.player_name),
+    [`${fieldPrefix}ShirtNumber`]: normalize(player?.shirtNumber ?? player?.shirt_number),
+  }
+}
+
+export function updateCoachMatchDayLinkedPlayer(form = {}, fieldPrefix = 'player', field = 'name', value = '', players = []) {
+  const valueKey = field === 'shirt' ? `${fieldPrefix}ShirtNumber` : `${fieldPrefix}Name`
+  const normalizedValue = normalize(value).toLowerCase()
+  const matches = normalizedValue
+    ? (Array.isArray(players) ? players : []).filter((player) => (
+        field === 'shirt'
+          ? normalize(player?.shirtNumber).toLowerCase() === normalizedValue
+          : normalize(player?.playerName).toLowerCase() === normalizedValue
+      ))
+    : []
+  const next = { ...form, [valueKey]: value }
+  return matches.length === 1 ? pickCoachMatchDayLinkedPlayer(next, fieldPrefix, matches[0]) : next
+}
+
 export function createCoachMatchDayEventForm(type = 'goal', match = {}, now = Date.now()) {
   const eventType = normalize(type) || 'goal'
   const capture = captureCoachMatchDayAction(match, eventType, now)
@@ -240,7 +317,7 @@ export function validateCoachMatchDayEventForm(form = {}) {
     const number = Number(minute)
     if (!Number.isInteger(number) || number < 0 || number > 130) throw new Error('Choose a valid match minute before saving this event.')
   }
-  if (eventType === 'substitution' && (!normalize(form.playerName) || !normalize(form.playerOnName))) {
+  if (eventType === 'substitution' && form.teamSide !== 'opponent' && (!normalize(form.playerName) || !normalize(form.playerOnName))) {
     throw new Error('Choose the Player going off and the Player coming on.')
   }
   return { ...form, eventType, minute: minute ? Number(minute) : null, teamSide: form.teamSide === 'opponent' ? 'opponent' : 'club' }

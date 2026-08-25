@@ -1,30 +1,42 @@
 # Design QA
 
-Reference: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-4d17cc9f-7692-4298-8ace-c7bd98911e6c.png`
+Reference: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-bb9e128d-f222-4a40-bb02-b80bfb513db3.png`
 
-Implementation controller: `C:/Users/pulse/AppData/Local/Temp/fp-mobile-matchday-parent-actions-96.png`
+Implementation: `E:/Project Manager/FP-MOBILE-GAMEDAY-PLAYER-PICKERS-97/design-qa-implementation-viewport.png`
 
-Implementation action sheet: `C:/Users/pulse/AppData/Local/Temp/fp-mobile-matchday-parent-goal-sheet-96.png`
+Focused dropdown state: `C:/Users/pulse/AppData/Local/Temp/fp-mobile-matchday-player-dropdown-97.png`
 
-Combined comparison: `C:/Users/pulse/AppData/Local/Temp/fp-mobile-matchday-comparison-96.png`
+Combined comparison: `E:/Project Manager/FP-MOBILE-GAMEDAY-PLAYER-PICKERS-97/design-qa-comparison.png`
 
-Viewport: 390 by 844. The 738 by 1600 reference was scaled to the same mobile viewport for the combined comparison.
+Viewport: 390 by 844 for the implementation. The supplied reference was 394 by 643 and showed the same Coach Add goal action sheet state at nearly identical width.
 
-State: Live first half, 0-0, running timer, accepted Parent scorer.
+State: Live Match Day, Our Team goal action, match minute 80, action time captured independently from form completion.
 
-Checks:
+Interaction checks:
 
-- The Match Day controller uses the same compact score, clock, period, two-column action grid, and timeline hierarchy as the supplied web-style reference.
-- Parent authority remains intentionally narrower than Coach authority. Parent scorer controls expose Goal, Pause, Hydration break, Half time, Full time, and Correct score without inventing card or substitution permissions.
-- Club-specific theme tokens remain active, so the verified Parent palette differs from the Coach reference while retaining the same hierarchy and interaction language.
-- Pressing Goal at 3:51 opened a focused action sheet showing `Time captured at 3:51` and prefilled match minute 4. The live screen continued to 3:52 behind it, confirming that the captured action time remained frozen.
-- The focused sheet kept every Goal field and the Record goal action visible inside the 390 by 844 mobile viewport, with no clipped form controls or hidden save action.
-- The previous long inline score, goal, goal correction, extended-time, and shootout forms no longer occupy the main Match Day screen.
-- The action sheet uses keyboard avoidance and its own scroll container for iOS and Android field visibility.
+- Opening Goal shows the captured match time and a focused, scrollable action sheet.
+- Opening the Scorer choices shows only selected Match squad players.
+- Selecting Steve King fills both `Steve King` and shirt `8`.
+- Typing shirt `10` fills `Alex Green` and shirt `10`.
+- Both fields remain directly typeable when the recorded data is missing or needs correction.
+- Switching to Opponent clears the prior side's player values, closes any open dropdown, and displays Scorer, scorer shirt, Assist, and assist shirt labels as optional.
+- Yellow card, Red card, and Substitution expose the same linked player and shirt controls.
+- Saving a valid Red card closes the sheet after the server-confirmed result.
+- A rejected save remains open and shows the server explanation inside the sheet.
+
+Fidelity checks:
+
+- Structure: The focused bottom sheet, title, captured-time pill, side selector, field order, notes, and save action follow the supplied Coach reference.
+- Typography: Existing Coach mobile weights, sizes, and all-caps section label are preserved.
+- Colour: Existing club-aware Coach palette and cyan action colour are preserved.
+- Spacing: Field rhythm, rounded inputs, action spacing, and touch targets remain consistent with the current mobile design system.
+- Responsive behaviour: The sheet uses its own scroll area and keyboard avoidance, with no horizontal clipping at 390 by 844.
+
+Console review: No browser errors or warnings were present during the tested flow.
 
 Comparison history:
 
-- Initial supplied mobile state: operational forms expanded inline and required a long scroll through the Match Day screen.
-- Final implementation: one compact controller with detail work opened in focused sheets, preserving exact tap-time capture and server authority.
+- Initial state: Plain text fields, no assist shirt field, no player choices, no linked name and shirt behaviour, save errors hidden behind the sheet, and successful closure not verified.
+- Final state: Searchable and typeable linked fields, optional opponent details, selected-squad protection for own-team cards and substitutions, inline save feedback, and confirmed sheet closure.
 
-passed
+final result: passed

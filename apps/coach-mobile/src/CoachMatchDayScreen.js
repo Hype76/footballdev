@@ -7,9 +7,12 @@ import {
   buildCoachMatchDaySquad,
   captureCoachMatchDayAction,
   createCoachMatchDayEventForm,
+  filterCoachMatchDayPlayerChoices,
   filterCoachMatchDays,
+  getCoachMatchDayOpponentPlayers,
   getCoachMatchDayActions,
   getCoachMatchDayPresentation,
+  getCoachMatchDaySelectedPlayers,
   getCoachMatchDayUndoModel,
   hasCoachMatchDayCommandResult,
   isCoachMatchDayEventVoided,
@@ -20,6 +23,8 @@ import {
   isCoachMatchDaySquadDecisionApplied,
   isCoachMatchDayTimerActionApplied,
   isCoachMatchDayVolunteerSelectionApplied,
+  pickCoachMatchDayLinkedPlayer,
+  updateCoachMatchDayLinkedPlayer,
   validateCoachMatchDayEventForm,
 } from '../../mobile-core/src/coachMatchDayCore'
 import {
@@ -105,6 +110,15 @@ function createStyles(palette) {
     input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
     inputText: { color: palette.textPrimary, fontSize: 15 },
     inputMultiline: { minHeight: 96, textAlignVertical: 'top' },
+    linkedInput: { flex: 1 },
+    linkedInputRow: { alignItems: 'stretch', flexDirection: 'row', gap: 8 },
+    playerChoiceEmpty: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18, paddingHorizontal: 11, paddingVertical: 10 },
+    playerChoiceList: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+    playerChoiceMeta: { color: palette.textMuted, fontSize: 12, fontWeight: '800' },
+    playerChoiceName: { color: palette.textPrimary, flex: 1, fontSize: 14, fontWeight: '900' },
+    playerChoiceRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 10, minHeight: 48, paddingHorizontal: 11, paddingVertical: 9 },
+    playerChoiceToggle: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, justifyContent: 'center', minHeight: 48, minWidth: 76, paddingHorizontal: 10 },
+    playerChoiceToggleText: { color: palette.accent, fontSize: 12, fontWeight: '900' },
     meta: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.72)' },
     actionModalCard: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, gap: 12, maxHeight: '92%', padding: 18 },
@@ -141,8 +155,42 @@ function Chips({ onChange, options, styles, value }) {
   return <View style={styles.tabs}>{options.map((option) => { const selected = value === option.value; return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={option.value} onPress={() => onChange(option.value)} style={[styles.chip, selected && styles.chipActive]}><Text style={[styles.chipText, selected && styles.chipTextActive]}>{option.label}</Text></Pressable> })}</View>
 }
 
-function Field({ label, multiline = false, onChangeText, styles, value }) {
-  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={label} multiline={multiline} onChangeText={onChangeText} style={[styles.input, multiline && styles.inputMultiline]} value={String(value ?? '')} /></View>
+function Field({ keyboardType = 'default', label, multiline = false, onChangeText, styles, value }) {
+  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={label} keyboardType={keyboardType} multiline={multiline} onChangeText={onChangeText} style={[styles.input, multiline && styles.inputMultiline]} value={String(value ?? '')} /></View>
+}
+
+function LinkedPlayerField({ emptyMessage, field, form, label: fieldLabel, onChange, playerChoices, prefix, styles }) {
+  const [open, setOpen] = useState(false)
+  const valueKey = field === 'shirt' ? `${prefix}ShirtNumber` : `${prefix}Name`
+  const value = String(form?.[valueKey] ?? '')
+  const choices = filterCoachMatchDayPlayerChoices(playerChoices, value)
+  const choose = (player) => {
+    onChange(pickCoachMatchDayLinkedPlayer(form, prefix, player))
+    setOpen(false)
+  }
+  return <View style={styles.field}>
+    <Text style={styles.fieldLabel}>{fieldLabel}</Text>
+    <View style={styles.linkedInputRow}>
+      <TextInput
+        accessibilityLabel={fieldLabel}
+        onChangeText={(nextValue) => { onChange(updateCoachMatchDayLinkedPlayer(form, prefix, field, nextValue, playerChoices)); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        style={[styles.input, styles.linkedInput]}
+        value={value}
+      />
+      <Pressable accessibilityLabel={`Show ${fieldLabel} choices`} accessibilityRole="button" onPress={() => setOpen((current) => !current)} style={styles.playerChoiceToggle}><Text style={styles.playerChoiceToggleText}>{open ? 'Hide' : 'Choose'}</Text></Pressable>
+    </View>
+    {open ? <View style={styles.playerChoiceList}>
+      {choices.length === 0 ? <Text style={styles.playerChoiceEmpty}>{emptyMessage}</Text> : choices.map((player, index) => <Pressable accessibilityRole="button" key={`${player.id}:${player.playerName}:${player.shirtNumber}`} onPress={() => choose(player)} style={[styles.playerChoiceRow, index === choices.length - 1 && { borderBottomWidth: 0 }]}><Text style={styles.playerChoiceName}>{player.playerName || 'Name not set'}</Text><Text style={styles.playerChoiceMeta}>{player.shirtNumber ? `Shirt ${player.shirtNumber}` : 'Shirt not set'}</Text></Pressable>)}
+    </View> : null}
+  </View>
+}
+
+function LinkedPlayerFields({ emptyMessage, form, nameLabel, onChange, playerChoices, prefix, shirtLabel, styles }) {
+  return <>
+    <LinkedPlayerField emptyMessage={emptyMessage} field="name" form={form} label={nameLabel} onChange={onChange} playerChoices={playerChoices} prefix={prefix} styles={styles} />
+    <LinkedPlayerField emptyMessage={emptyMessage} field="shirt" form={form} label={shirtLabel} onChange={onChange} playerChoices={playerChoices} prefix={prefix} styles={styles} />
+  </>
 }
 
 function MatchDayActionSheet({ busy, capturedClock, children, onClose, styles, title }) {
@@ -245,9 +293,10 @@ function LiveTimeline({ match, styles }) {
   </View>
 }
 
-function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPrepare, onScore, onTimer, scoreDraft, setScoreDraft, styles }) {
+function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPrepare, onScore, onTimer, players, scoreDraft, setScoreDraft, styles }) {
   const [now, setNow] = useState(() => Date.now())
   const [actionSheet, setActionSheet] = useState(null)
+  const [actionError, setActionError] = useState('')
   const [keepAwake, setKeepAwake] = useState(false)
   const [keepAwakeAvailable, setKeepAwakeAvailable] = useState(true)
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [])
@@ -260,15 +309,23 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
     }
   }, [])
   const view = getCoachMatchDayPresentation(match, now)
+  const selectedPlayers = useMemo(() => getCoachMatchDaySelectedPlayers(players, match), [match, players])
+  const opponentPlayers = useMemo(() => getCoachMatchDayOpponentPlayers(match), [match])
+  const playerChoices = eventForm.teamSide === 'opponent' ? opponentPlayers : selectedPlayers
+  const playerChoiceEmptyMessage = eventForm.teamSide === 'opponent'
+    ? 'No opponent players have been saved yet. You can type the details.'
+    : 'No selected Match squad players are available. Choose the Match squad before saving an Our Team card or substitution.'
   const prepareEvent = (eventType) => {
     const pressedAt = Date.now()
     const form = createCoachMatchDayEventForm(eventType, match, pressedAt)
     onEventForm(form)
+    setActionError('')
     setActionSheet({ capturedClock: form.capturedClock, kind: 'event', title: MATCH_DAY_EVENT_TITLES[eventType] || 'Match event' })
   }
   const prepareScoreCorrection = () => {
     const capture = captureCoachMatchDayAction(match, 'score_correction', Date.now())
     setActionSheet({ capturedClock: capture.capturedClock, kind: 'score', title: 'Correct score' })
+    setActionError('')
   }
   const timerAction = (action) => actions.timerActions.find((item) => item.action === action)
   const runTimer = (action, fallbackLabel) => {
@@ -282,17 +339,25 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
   }
   const saveEvent = async () => {
     try {
-      await onScore('event')
+      const saved = await onScore('event')
+      if (!saved) throw new Error('The Match Day event was not confirmed by the server.')
       setActionSheet(null)
-    } catch {
+      setActionError('')
+      return true
+    } catch (saveError) {
+      setActionError(errorMessage(saveError, 'This Match Day event could not be saved. Check the details and try again.'))
       return false
     }
   }
   const saveScore = async () => {
     try {
-      await onScore('score')
+      const saved = await onScore('score')
+      if (!saved) throw new Error('The score correction was not confirmed by the server.')
       setActionSheet(null)
-    } catch {
+      setActionError('')
+      return true
+    } catch (saveError) {
+      setActionError(errorMessage(saveError, 'This score correction could not be saved. Check the details and try again.'))
       return false
     }
   }
@@ -339,15 +404,25 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
     </View>
     {actionSheet?.kind === 'event' ? <MatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
       <Text style={styles.body}>The match time was captured when you pressed the action. Add the details without rushing.</Text>
-      <Chips onChange={(value) => onEventForm({ ...eventForm, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={eventForm.teamSide} />
-      <Field label="Match minute" onChangeText={(value) => onEventForm({ ...eventForm, minute: value })} styles={styles} value={eventForm.minute} />
-      {eventForm.eventType === 'goal' ? <><Field label="Scorer" onChangeText={(value) => onEventForm({ ...eventForm, scorerName: value })} styles={styles} value={eventForm.scorerName} /><Field label="Scorer shirt number" onChangeText={(value) => onEventForm({ ...eventForm, scorerShirtNumber: value })} styles={styles} value={eventForm.scorerShirtNumber} /><Field label="Assist" onChangeText={(value) => onEventForm({ ...eventForm, assistName: value })} styles={styles} value={eventForm.assistName} /><View style={styles.row}><Text style={styles.fieldLabel}>Penalty</Text><Switch accessibilityLabel="Penalty" onValueChange={(value) => onEventForm({ ...eventForm, isPenaltyGoal: value })} value={eventForm.isPenaltyGoal} /></View></> : <><Field label={eventForm.eventType === 'substitution' ? 'Player off' : 'Player'} onChangeText={(value) => onEventForm({ ...eventForm, playerName: value })} styles={styles} value={eventForm.playerName} />{eventForm.eventType === 'substitution' ? <Field label="Player on" onChangeText={(value) => onEventForm({ ...eventForm, playerOnName: value })} styles={styles} value={eventForm.playerOnName} /> : null}</>}
+      <Chips onChange={(value) => { setActionError(''); onEventForm({ ...eventForm, assistName: '', assistShirtNumber: '', playerName: '', playerOnName: '', playerOnShirtNumber: '', playerShirtNumber: '', scorerName: '', scorerShirtNumber: '', teamSide: value }) }} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={eventForm.teamSide} />
+      <Field keyboardType="number-pad" label="Match minute" onChangeText={(value) => onEventForm({ ...eventForm, minute: value })} styles={styles} value={eventForm.minute} />
+      {eventForm.teamSide === 'club' && eventForm.eventType !== 'goal' ? <Text style={styles.meta}>Choose players from the selected Match squad. This prevents cards and substitutions being attached to the wrong player.</Text> : null}
+      {eventForm.eventType === 'goal' ? <>
+        <LinkedPlayerFields emptyMessage={playerChoiceEmptyMessage} form={eventForm} key={`goal-scorer:${eventForm.teamSide}`} nameLabel={eventForm.teamSide === 'opponent' ? 'Scorer (Optional)' : 'Scorer'} onChange={onEventForm} playerChoices={playerChoices} prefix="scorer" shirtLabel={eventForm.teamSide === 'opponent' ? 'Scorer shirt number (Optional)' : 'Scorer shirt number'} styles={styles} />
+        <LinkedPlayerFields emptyMessage={playerChoiceEmptyMessage} form={eventForm} key={`goal-assist:${eventForm.teamSide}`} nameLabel={eventForm.teamSide === 'opponent' ? 'Assist (Optional)' : 'Assist'} onChange={onEventForm} playerChoices={playerChoices} prefix="assist" shirtLabel={eventForm.teamSide === 'opponent' ? 'Assist shirt number (Optional)' : 'Assist shirt number'} styles={styles} />
+        <View style={styles.row}><Text style={styles.fieldLabel}>Penalty</Text><Switch accessibilityLabel="Penalty" onValueChange={(value) => onEventForm({ ...eventForm, isPenaltyGoal: value })} value={eventForm.isPenaltyGoal} /></View>
+      </> : <>
+        <LinkedPlayerFields emptyMessage={playerChoiceEmptyMessage} form={eventForm} key={`event-player:${eventForm.eventType}:${eventForm.teamSide}`} nameLabel={eventForm.teamSide === 'opponent' ? `${eventForm.eventType === 'substitution' ? 'Player off' : 'Player'} (Optional)` : eventForm.eventType === 'substitution' ? 'Player off' : 'Player'} onChange={onEventForm} playerChoices={playerChoices} prefix="player" shirtLabel={eventForm.teamSide === 'opponent' ? `${eventForm.eventType === 'substitution' ? 'Player off shirt number' : 'Player shirt number'} (Optional)` : eventForm.eventType === 'substitution' ? 'Player off shirt number' : 'Player shirt number'} styles={styles} />
+        {eventForm.eventType === 'substitution' ? <LinkedPlayerFields emptyMessage={playerChoiceEmptyMessage} form={eventForm} key={`event-player-on:${eventForm.teamSide}`} nameLabel={eventForm.teamSide === 'opponent' ? 'Player on (Optional)' : 'Player on'} onChange={onEventForm} playerChoices={playerChoices} prefix="playerOn" shirtLabel={eventForm.teamSide === 'opponent' ? 'Player on shirt number (Optional)' : 'Player on shirt number'} styles={styles} /> : null}
+      </>}
       <Field label="Notes" multiline onChangeText={(value) => onEventForm({ ...eventForm, notes: value })} styles={styles} value={eventForm.notes} />
+      {actionError ? <View accessibilityLiveRegion="assertive" style={styles.warning}><Text style={styles.dangerText}>{actionError}</Text></View> : null}
       <Button disabled={busy || !actions.canRecordEvents} label={busy ? 'Saving...' : `Record ${eventForm.eventType.replaceAll('_', ' ')}`} onPress={saveEvent} styles={styles} />
     </MatchDayActionSheet> : null}
     {actionSheet?.kind === 'score' ? <MatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct score">
       <Text style={styles.body}>Use this only when the displayed score is wrong. The correction remains in the Match Day audit history.</Text>
       <View style={styles.row}><View style={{ flex: 1 }}><Field label="Home" onChangeText={(value) => setScoreDraft({ ...scoreDraft, home: value })} styles={styles} value={scoreDraft.home} /></View><View style={{ flex: 1 }}><Field label="Away" onChangeText={(value) => setScoreDraft({ ...scoreDraft, away: value })} styles={styles} value={scoreDraft.away} /></View></View>
+      {actionError ? <View accessibilityLiveRegion="assertive" style={styles.warning}><Text style={styles.dangerText}>{actionError}</Text></View> : null}
       <Button disabled={busy || !actions.canRecordEvents} label={busy ? 'Saving...' : 'Save score correction'} onPress={saveScore} styles={styles} />
     </MatchDayActionSheet> : null}
     <LiveTimeline match={match} styles={styles} />
@@ -591,7 +666,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   }
   const confirm = async () => { const action = pending; setPending(null); if (!action) return; try { await action.run() } catch { return } }
   const actions = getCoachMatchDayActions({ context, match, reconciling, stale })
-  const submitEvent = async () => { const validated = validateCoachMatchDayEventForm(eventForm); const commandId = createCoachMatchDayCommandId(); await replace(() => recordCoachMatchDayEvent(user, match, validated, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)); setEventForm(createCoachMatchDayEventForm(validated.eventType, match)) }
+  const submitEvent = async () => { const validated = validateCoachMatchDayEventForm(eventForm); const commandId = createCoachMatchDayCommandId(); const detail = await replace(() => recordCoachMatchDayEvent(user, match, validated, commandId), (nextDetail) => hasCoachMatchDayCommandResult(nextDetail, commandId)); setEventForm(createCoachMatchDayEventForm(validated.eventType, detail)); return detail }
   const handleFixtureCreated = async (result) => {
     setFixtureFormOpen(false)
     onRequestScrollTop?.()
@@ -632,7 +707,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       {panel === 'squad' ? <SquadPanel actions={actions} busy={busy} match={match} onSetDecision={(player, decision) => setPending({ label: `Set ${player.playerName} to ${decision.replaceAll('_', ' ')}`, run: () => replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision)) })} players={players} styles={styles} /> : null}
       {panel === 'formation' ? <CoachFormationBoard context={context} match={match} palette={palette} players={players} stale={stale} user={user} /> : null}
       {panel === 'volunteers' ? <VolunteerPanel actions={actions} busy={busy} match={match} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /> : null}
-      {panel === 'live' ? <LivePanel actions={actions} busy={busy} eventForm={eventForm} match={match} onEventForm={setEventForm} onExit={() => setPanel('overview')} onPrepare={setPending} onScore={(kind) => { if (kind === 'event') return submitEvent(); const commandId = createCoachMatchDayCommandId(); return replace(() => correctCoachMatchDayScore(user, match, scoreDraft.home, scoreDraft.away, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)) }} onTimer={(action) => replace(() => runCoachMatchDayTimerAction(user, match, action), (detail) => isCoachMatchDayTimerActionApplied(detail, action))} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
+      {panel === 'live' ? <LivePanel actions={actions} busy={busy} eventForm={eventForm} match={match} onEventForm={setEventForm} onExit={() => setPanel('overview')} onPrepare={setPending} onScore={(kind) => { if (kind === 'event') return submitEvent(); const commandId = createCoachMatchDayCommandId(); return replace(() => correctCoachMatchDayScore(user, match, scoreDraft.home, scoreDraft.away, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)) }} onTimer={(action) => replace(() => runCoachMatchDayTimerAction(user, match, action), (detail) => isCoachMatchDayTimerActionApplied(detail, action))} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' ? <TimelinePanel busy={busy || reconciling} match={match} onCorrectGoal={(event, goal, reason) => replace(() => correctCoachMatchDayGoal(user, match, event, goal, reason), (detail) => isCoachMatchDayGoalCorrectionApplied(detail, event.id, goal, reason))} onPrepare={setPending} onUndo={(event, input) => replace(() => voidCoachMatchDayEvent(user, match, event, input), (detail) => isCoachMatchDayEventVoided(detail, event.id))} styles={styles} /> : null}
       {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling} match={match} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}
       {panel === 'report' ? <ReportPanel busy={busy || reconciling} canSave={actions.canSaveFinalReport} key={`${match.id}:${match.finalReport?.updatedAt || ''}`} match={match} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}
