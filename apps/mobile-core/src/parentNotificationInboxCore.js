@@ -52,7 +52,7 @@ export function prepareParentNotificationInbox(notifications = []) {
 
 export function countUnreadNonChatNotifications(notifications = []) {
   return (Array.isArray(notifications) ? notifications : []).filter((notification) => (
-    notification && !notification.isRead && !parentChatRoomId(notification)
+    notification && notification.isBadgeEligible !== false && !notification.isRead && !parentChatRoomId(notification)
   )).length
 }
 

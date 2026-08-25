@@ -61,6 +61,8 @@ export function getParentInvitationSections(rows = [], now = new Date()) {
   }
   const items = [...unique.values()].filter((item) => !normalizeText(item.lockReason).toLowerCase().includes('another parent contact'))
   const isPast = (invitation) => {
+    const eventBoundary = Date.parse(normalizeText(invitation.eventEnd || invitation.eventStart))
+    if (Number.isFinite(eventBoundary)) return eventBoundary <= now.getTime()
     const eventDate = normalizeText(invitation.eventDate || invitation.eventStart).slice(0, 10)
     return Boolean(eventDate) && eventDate < today
   }

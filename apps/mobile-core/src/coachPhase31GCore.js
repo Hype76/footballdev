@@ -14,13 +14,13 @@ function localDateTime(date, time = '23:59:59') {
   return timestamp(`${normalizedDate}T${normalize(time) || '23:59:59'}`)
 }
 
-function selectNext(rows, { dateTime, excludedStatuses = [], now }) {
+function selectNext(rows, { dateTime, activeUntil = dateTime, excludedStatuses = [], now }) {
   const nowTime = now instanceof Date ? now.getTime() : timestamp(now) ?? Date.now()
   const excluded = new Set(excludedStatuses)
   return asArray(rows)
     .filter((item) => !excluded.has(normalize(item?.status).toLowerCase()))
-    .map((item) => ({ item, time: dateTime(item) }))
-    .filter(({ time }) => time !== null && time >= nowTime)
+    .map((item) => ({ item, time: dateTime(item), validUntil: activeUntil(item) }))
+    .filter(({ time, validUntil }) => time !== null && (validUntil ?? time) >= nowTime)
     .sort((left, right) => left.time - right.time)[0]?.item || null
 }
 
@@ -72,6 +72,7 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
   const unreadChat = chatRooms.reduce((total, room) => total + Math.max(0, Number(room?.unreadCount || 0)), 0)
   const unreadCommunication = 0
   const nextCalendar = selectNext(calendar, {
+    activeUntil: (item) => timestamp(item?.endsAt || item?.startsAt),
     dateTime: (item) => timestamp(item?.startsAt || item?.endsAt),
     excludedStatuses: ['cancelled', 'completed'],
     now,
@@ -82,11 +83,13 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
     now,
   })
   const nextAssessmentSession = selectNext(sessions, {
+    activeUntil: (item) => localDateTime(item?.sessionDate || item?.session_date, item?.endTime || item?.end_time || item?.startTime || item?.start_time),
     dateTime: (item) => localDateTime(item?.sessionDate || item?.session_date, item?.startTime || item?.start_time),
     excludedStatuses: ['completed', 'cancelled'],
     now,
   })
   const nextTraining = selectNext(calendar.filter((item) => normalize(item?.eventType).toLowerCase() === 'training'), {
+    activeUntil: (item) => timestamp(item?.endsAt || item?.startsAt),
     dateTime: (item) => timestamp(item?.startsAt || item?.endsAt),
     excludedStatuses: ['cancelled', 'completed'],
     now,

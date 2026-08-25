@@ -102,7 +102,7 @@ test('Calendar keeps loading when a legacy fixture or Session has an impossible 
 
 test('Calendar filters and groups upcoming, history, and cancelled data without hiding null-safe rows', () => {
   const rows = [
-    normalizeCoachCalendarEvent({ id: '1', starts_at: '2026-08-09T10:00:00Z', title: 'Today' }),
+    normalizeCoachCalendarEvent({ id: '1', starts_at: '2026-08-09T10:00:00Z', ends_at: '2026-08-09T13:00:00Z', title: 'Today' }),
     normalizeCoachCalendarEvent({ id: '2', starts_at: '2026-08-10T10:00:00Z', title: 'Cancelled', cancelled_at: '2026-08-08T00:00:00Z' }),
     normalizeCoachCalendarEvent({ id: '3', starts_at: '2026-08-08T10:00:00Z', title: 'Past' }),
   ]

@@ -239,7 +239,7 @@ test('29A eligibility remains authoritative while the selected scorer receives t
   assert.match(volunteerFunction, /if \(selected && !isSameSelection\)/)
   assert.match(volunteerFunction, /Open scorer Game Mode/)
   assert.match(volunteerFunction, /parent-portal\?\$\{searchParams\.toString\(\)\}/)
-  assert.match(volunteerFunction, /role !== 'scorer' && previousAssignment/)
+  assert.match(volunteerFunction, /if \(previousAssignment\?\.id && \(!selected \|\| !isSameSelection\)\)/)
 })
 
 test('29A exposes scorer eligibility only through the authenticated service boundary', async () => {

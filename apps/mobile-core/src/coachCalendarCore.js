@@ -211,6 +211,11 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
       startsAt = ''
       dateTimeIssue = 'invalid_local_time'
     }
+    if (startsAt && !endsAt) {
+      const kickoffTimestamp = Date.parse(startsAt)
+      const matchMinutes = Math.max(Number(row.match_duration_minutes ?? row.matchDurationMinutes ?? 90), 1)
+      if (Number.isFinite(kickoffTimestamp)) endsAt = new Date(kickoffTimestamp + ((matchMinutes + 60) * 60 * 1000)).toISOString()
+    }
   } else if (isSession) {
     startsAt = sessionDate
     if (sessionDate && startTime) {
@@ -297,15 +302,21 @@ export function buildCoachCalendarEvents({ calendarEvents = [], matches = [], se
 
 export function filterCoachCalendarEvents(events = [], windowKey = 'upcoming', now = new Date()) {
   const today = getDateInTimeZone(now)
+  const nowTimestamp = now.getTime()
+  const isPast = (event) => {
+    const boundary = Date.parse(normalize(event.endsAt || event.startsAt))
+    if (Number.isFinite(boundary)) return boundary <= nowTimestamp
+    return event.calendarDate < today
+  }
   if (windowKey === 'all') return [...events]
   if (windowKey === 'cancelled') return events.filter((event) => event.status === 'cancelled' || event.cancelledAt)
   if (windowKey === 'history') return events.filter((event) => (
     event.status !== 'cancelled'
     && !event.cancelledAt
-    && (event.calendarDate < today || event.status === 'completed')
+    && (isPast(event) || event.status === 'completed')
   ))
   return events.filter((event) => (
-    event.calendarDate >= today
+    !isPast(event)
     && event.status !== 'cancelled'
     && event.status !== 'completed'
     && !event.cancelledAt

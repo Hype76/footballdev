@@ -60,6 +60,8 @@ export function getParentCalendarEventBucket(event = {}, now = new Date()) {
   if (isTerminalStatus(event.status)) return 'history'
   if (!event.calendarDate) return 'date-tbc'
   if (event.calendarDate < currentDate) return 'history'
+  const boundary = timestampFor(event.endsAt || event.startsAt)
+  if (event.calendarDate === currentDate && Number.isFinite(boundary) && boundary > 0 && boundary <= now.getTime()) return 'history'
   if (isParentCalendarActionRequired(event)) return 'needs-response'
   return 'upcoming'
 }

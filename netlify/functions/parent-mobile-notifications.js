@@ -1,5 +1,6 @@
 import {
   getDateInTimeZone,
+  isCurrentMatchDayNotificationReference,
   isCurrentMatchNotificationReference,
   isCurrentParentPollReference,
   isCurrentTrainingNotificationReference,
@@ -118,6 +119,7 @@ async function loadValidReferenceIds(table, ids, select, isValid) {
 
 async function filterUnavailableNotifications(notifications, link) {
   const matchIds = uniqueReferenceIds(notifications, 'matchday_update', 'availabilityRequestId')
+  const matchDayIds = uniqueReferenceIds(notifications, 'matchday_update', 'matchDayId')
   const trainingIds = uniqueReferenceIds(notifications, 'training_update', 'trainingRequestPlayerId')
   const pollIds = [...new Set([
     ...uniqueReferenceIds(notifications, 'parent_poll', 'pollId'),
@@ -131,12 +133,18 @@ async function filterUnavailableNotifications(notifications, link) {
 
   const now = Date.now()
   const today = getDateInTimeZone(new Date(now))
-  const [validMatches, validTraining, validPollActions, existingPolls, validResources, validReports] = await Promise.all([
+  const [validMatches, validMatchDays, validTraining, validPollActions, existingPolls, validResources, validReports] = await Promise.all([
     loadValidReferenceIds(
       'match_day_availability_requests',
       matchIds,
       'id, parent_link_id, status, expires_at, token_revoked_at, match_days:match_day_id(status, match_date, deleted_at)',
       (row) => isCurrentMatchNotificationReference(row, link.id, now, today),
+    ),
+    loadValidReferenceIds(
+      'match_days',
+      matchDayIds,
+      'id, status, match_date, concluded_at, deleted_at',
+      (row) => isCurrentMatchDayNotificationReference(row, today),
     ),
     loadValidReferenceIds(
       'training_availability_request_players',
@@ -150,34 +158,36 @@ async function filterUnavailableNotifications(notifications, link) {
     loadValidReferenceIds('evaluations', reportIds, 'id, player_id', (row) => normalizeText(row.player_id) === normalizeText(link.player_id)),
   ])
 
-  return notifications.filter((notification) => {
+  return notifications.map((notification) => {
     const intentType = normalizeText(notification.intentType).toLowerCase()
     if (intentType === 'matchday_update') {
-      const id = referenceId(notification, 'availabilityRequestId')
-      return !id || validMatches.has(id)
+      const requestId = referenceId(notification, 'availabilityRequestId')
+      const matchDayId = referenceId(notification, 'matchDayId')
+      if (requestId && !validMatches.has(requestId)) return null
+      return { ...notification, isBadgeEligible: !matchDayId || validMatchDays.has(matchDayId) }
     }
     if (intentType === 'training_update') {
       const id = referenceId(notification, 'trainingRequestPlayerId')
-      return !id || validTraining.has(id)
+      return !id || validTraining.has(id) ? notification : null
     }
     if (intentType === 'parent_poll') {
       const id = referenceId(notification, 'pollId')
-      return !id || validPollActions.has(id)
+      return !id || validPollActions.has(id) ? notification : null
     }
     if (intentType === 'poll_results') {
       const id = referenceId(notification, 'pollId')
-      return !id || existingPolls.has(id)
+      return !id || existingPolls.has(id) ? { ...notification, isBadgeEligible: false } : null
     }
     if (intentType === 'resource_shared') {
       const id = referenceId(notification, 'resourceId')
-      return !id || validResources.has(id)
+      return !id || validResources.has(id) ? notification : null
     }
     if (normalizeText(notification?.data?.type).toLowerCase() === 'development_report') {
       const id = referenceId(notification, 'reportId')
-      return !id || validReports.has(id)
+      return !id || validReports.has(id) ? notification : null
     }
-    return true
-  })
+    return notification
+  }).filter(Boolean)
 }
 
 export async function handler(event) {
@@ -248,7 +258,7 @@ export async function handler(event) {
     return response(200, {
       notifications,
       success: true,
-      unreadCount: notifications.filter((item) => !item.isRead).length,
+      unreadCount: notifications.filter((item) => !item.isRead && item.isBadgeEligible !== false).length,
     })
   } catch (error) {
     console.error('Parent notification inbox failed', {

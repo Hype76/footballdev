@@ -126,6 +126,23 @@ export function getMobileFormationSelectedPlayerIds(draft) {
   ].filter(Boolean))
 }
 
+export function getMobileFormationPlayerAvailability(playerId, availabilityRows = []) {
+  const row = (Array.isArray(availabilityRows) ? availabilityRows : []).find((item) => (
+    normalize(item?.playerId ?? item?.player_id) === normalize(playerId)
+  ))
+  const status = normalize(row?.status).toLowerCase()
+  if (status === 'available') return Object.freeze({ label: 'Available', status })
+  if (status === 'unavailable') return Object.freeze({ label: 'Unavailable', status })
+  if (status === 'maybe') return Object.freeze({ label: 'Maybe', status })
+  return Object.freeze({ label: 'Awaiting response', status: 'pending' })
+}
+
+export function getMobileAvailableFormationPlayers(players = [], availabilityRows = []) {
+  return (Array.isArray(players) ? players : []).filter((player) => (
+    getMobileFormationPlayerAvailability(player?.id ?? player?.playerId, availabilityRows).status === 'available'
+  ))
+}
+
 export function setMobileFormationSquad(draft, players = []) {
   const nextPlayers = players.map(normalizeMobileFormationPlayer).filter((player) => player.playerId)
   const allowed = new Set(nextPlayers.map((player) => player.playerId))

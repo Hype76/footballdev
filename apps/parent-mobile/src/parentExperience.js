@@ -224,13 +224,13 @@ export function getParentCalendarGroups(events, now = new Date()) {
   const recent = []
 
   for (const event of Array.isArray(events) ? events : []) {
-    const eventTimestamp = toTimestamp(event?.startsAt)
+    const eventBoundaryTimestamp = toTimestamp(event?.endsAt || event?.startsAt)
     const parts = getParentProductDateTimeParts(event?.startsAt || event?.calendarDate)
     const isTerminal = Boolean(event?.cancelledAt)
       || ['cancelled', 'closed', 'expired'].includes(normalizeText(event?.status).toLowerCase())
     const isPast = parts.isAllDay
       ? parts.date < today
-      : eventTimestamp > 0 && eventTimestamp < nowTimestamp
+      : eventBoundaryTimestamp > 0 && eventBoundaryTimestamp <= nowTimestamp
 
     if (isTerminal || isPast) {
       recent.push(event)

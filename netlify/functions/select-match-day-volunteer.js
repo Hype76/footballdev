@@ -586,7 +586,7 @@ function assertParentLinkMatchesVolunteerResponse({ match, parentLink, request }
 async function getCurrentAssignment(adminSupabase, matchDayId, role) {
   const { data, error } = await adminSupabase
     .from('match_day_role_assignments')
-    .select('*, parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))')
+    .select('*, parent_player_links:parent_link_id (id, club_id, team_id, player_id, email, auth_user_id, status, players:player_id (id, player_name))')
     .eq('match_day_id', matchDayId)
     .eq('role', role)
     .maybeSingle()
@@ -722,11 +722,12 @@ export async function handler(event) {
       ? normalizeText(event.queryStringParameters?.matchDayId)
       : normalizeText(body.matchDayId)
     const requestId = normalizeText(body.requestId)
+    const requestedParentLinkId = normalizeText(body.parentLinkId)
     const role = normalizeText(body.role).toLowerCase()
     const selected = body.selected !== false
     const roleConfig = ROLE_CONFIG[role]
 
-    if (!matchDayId || (event.httpMethod === 'POST' && !requestId)) {
+    if (!matchDayId || (event.httpMethod === 'POST' && selected && !requestId) || (event.httpMethod === 'POST' && !selected && !requestedParentLinkId)) {
       throw Object.assign(new Error('Choose a volunteer response first.'), { statusCode: 400 })
     }
 
@@ -765,19 +766,51 @@ export async function handler(event) {
 
     await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
 
-    const { data: request, error: requestError } = await adminSupabase
-      .from('match_day_availability_requests')
-      .select('id, match_day_id, club_id, team_id, player_id, player_name, recipient_email, recipient_name, parent_link_id, status, volunteer_scorer_response, volunteer_linesman_response, volunteer_referee_response')
-      .eq('id', requestId)
-      .eq('match_day_id', match.id)
-      .eq('club_id', match.club_id)
-      .maybeSingle()
+    const previousAssignment = await getCurrentAssignment(adminSupabase, match.id, role)
+    const previousParentLink = Array.isArray(previousAssignment?.parent_player_links)
+      ? previousAssignment.parent_player_links[0]
+      : previousAssignment?.parent_player_links
+    const previousPlayer = Array.isArray(previousParentLink?.players)
+      ? previousParentLink.players[0]
+      : previousParentLink?.players
+
+    if (!selected) {
+      if (!previousAssignment?.id || String(previousAssignment.parent_link_id || '') !== requestedParentLinkId) {
+        throw Object.assign(new Error('This volunteer is not currently selected for that role.'), { statusCode: 409 })
+      }
+    }
+
+    let request = null
+    let requestError = null
+    if (selected) {
+      const requestResult = await adminSupabase
+        .from('match_day_availability_requests')
+        .select('id, match_day_id, club_id, team_id, player_id, player_name, recipient_email, recipient_name, parent_link_id, status, volunteer_scorer_response, volunteer_linesman_response, volunteer_referee_response')
+        .eq('id', requestId)
+        .eq('match_day_id', match.id)
+        .eq('club_id', match.club_id)
+        .maybeSingle()
+      request = requestResult.data
+      requestError = requestResult.error
+    } else {
+      request = {
+        id: requestId,
+        match_day_id: match.id,
+        club_id: match.club_id,
+        team_id: match.team_id,
+        player_id: previousParentLink?.player_id || previousPlayer?.id || null,
+        player_name: previousPlayer?.player_name || '',
+        recipient_email: previousParentLink?.email || '',
+        recipient_name: previousPlayer?.player_name || previousParentLink?.email || 'Parent',
+        parent_link_id: previousAssignment.parent_link_id,
+      }
+    }
 
     if (requestError) {
       throw requestError
     }
 
-    if (!request?.id) {
+    if (selected && !request?.id) {
       throw Object.assign(new Error('Volunteer response was not found.'), { statusCode: 404 })
     }
 
@@ -785,18 +818,25 @@ export async function handler(event) {
       throw Object.assign(new Error('Volunteer response is outside this team.'), { statusCode: 403 })
     }
 
-    if (String(request.status || '').toLowerCase() === 'expired') {
+    if (selected && String(request.status || '').toLowerCase() === 'expired') {
       throw Object.assign(new Error('This volunteer response has expired. Ask the parent to submit a fresh Match Day response.'), { statusCode: 409 })
     }
 
-    if (String(request[roleConfig.responseField] || '').toLowerCase() !== 'yes') {
+    if (selected && String(request[roleConfig.responseField] || '').toLowerCase() !== 'yes') {
       throw Object.assign(new Error('Only parents who replied Yes can be selected for this role.'), { statusCode: 400 })
     }
 
-    const parentLink = role === 'scorer' && selected
-      ? await resolveEligibleScorerParentLink(adminSupabase, { match, request })
-      : await resolveParentLink(adminSupabase, { match, request })
-    const previousAssignment = await getCurrentAssignment(adminSupabase, match.id, role)
+    const parentLink = !selected
+      ? {
+          ...previousParentLink,
+          id: previousAssignment.parent_link_id,
+          auth_user_id: previousAssignment.auth_user_id || previousParentLink?.auth_user_id || null,
+          club_id: previousAssignment.club_id,
+          team_id: previousAssignment.team_id,
+        }
+      : role === 'scorer'
+        ? await resolveEligibleScorerParentLink(adminSupabase, { match, request })
+        : await resolveParentLink(adminSupabase, { match, request })
     const previousParentLinkId = previousAssignment?.parent_link_id || ''
     const isSameSelection = String(previousParentLinkId || '') === String(parentLink.id)
     const queuedNotifications = []
@@ -868,7 +908,7 @@ export async function handler(event) {
         queuedNotifications.push(queued.id)
       }
 
-      if (role !== 'scorer' && previousAssignment?.id && (!selected || !isSameSelection)) {
+      if (previousAssignment?.id && (!selected || !isSameSelection)) {
         const previousEmail = getAssignmentParentEmail(previousAssignment)
         const previousName = getAssignmentParentLabel(previousAssignment)
         if (previousEmail && previousEmail !== normalizeEmail(parentLink.email || request.recipient_email)) {

@@ -241,6 +241,29 @@ async function prepareMutation(user, match, minimumRank = 20) {
 }
 async function rpc(name, parameters) { const { data, error } = await supabase.rpc(name, parameters); if (error) throw error; return data }
 
+async function sendCoachMatchDayPush(match, type, eventId = '') {
+  const normalizedType = normalize(type)
+  if (!normalizedType) return null
+  const config = getMobileRuntimeConfig('coach')
+  const accessToken = await getAccessToken()
+  if (!config.apiBaseUrl || !accessToken) return null
+  const url = joinApiPath(config.apiBaseUrl, '.netlify/functions/send-match-day-push')
+  const options = {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ eventId: normalize(eventId), matchDayId: match.id, type: normalizedType }),
+  }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchJsonWithTimeout(url, options)
+      if (response.ok && response.result?.success !== false) return response.result
+    } catch {
+      if (attempt === 1) return null
+    }
+  }
+  return null
+}
+
 export function createCoachMatchDayCommandId() { return requestId() }
 
 export async function runCoachMatchDayTimerAction(user, match, action) {
@@ -250,6 +273,18 @@ export async function runCoachMatchDayTimerAction(user, match, action) {
   else if (STANDARD_TIMER_ACTIONS.has(value)) await rpc('set_match_day_timer_state', { match_day_id_value: match.id, action_value: value })
   else if (EXTENDED_TIMER_ACTIONS.has(value)) await rpc('set_match_day_extended_state', { match_day_id_value: match.id, action_value: value })
   else throw new Error('Choose a supported Match Day clock action.')
+  const pushType = value === 'start'
+    ? 'live'
+    : value === 'resume' && normalize(match?.status).toLowerCase() === 'half_time'
+      ? 'second_half'
+      : ['half_time', 'full_time'].includes(value)
+        ? value
+        : value === 'start_extra_time'
+          ? 'extra_time'
+          : value === 'start_penalties'
+            ? 'penalties'
+            : ''
+  await sendCoachMatchDayPush(match, pushType)
   return getCoachMatchDayDetail(user, match.id)
 }
 
@@ -262,18 +297,21 @@ export async function setCoachMatchDaySquadDecision(user, match, playerId, decis
 export async function recordCoachMatchDayEvent(user, match, event, commandId = '') {
   await prepareMutation(user, match)
   const type = normalize(event?.eventType)
+  let savedEvent = null
   if (type === 'goal') {
-    await rpc('record_match_day_goal_v2', { match_day_id_value: match.id, parent_link_id_value: null, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(event.scorerName), scorer_shirt_number_value: normalize(event.scorerShirtNumber), assist_name_value: normalize(event.assistName), assist_shirt_number_value: normalize(event.assistShirtNumber), minute_value: event.minute ?? null, notes_value: normalize(event.notes), is_penalty_goal_value: event.isPenaltyGoal === true, request_id_value: normalize(commandId) || requestId() })
+    savedEvent = await rpc('record_match_day_goal_v2', { match_day_id_value: match.id, parent_link_id_value: null, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(event.scorerName), scorer_shirt_number_value: normalize(event.scorerShirtNumber), assist_name_value: normalize(event.assistName), assist_shirt_number_value: normalize(event.assistShirtNumber), minute_value: event.minute ?? null, notes_value: normalize(event.notes), is_penalty_goal_value: event.isPenaltyGoal === true, request_id_value: normalize(commandId) || requestId() })
   } else {
     if (!STAFF_EVENT_TYPES.has(type)) throw new Error('Choose a supported Match Day event type.')
-    await rpc('record_match_day_staff_event_v2', { match_day_id_value: match.id, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: normalize(commandId) || requestId() })
+    savedEvent = await rpc('record_match_day_staff_event_v2', { match_day_id_value: match.id, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: normalize(commandId) || requestId() })
   }
+  if (type === 'goal' || type === 'yellow_card' || type === 'red_card') await sendCoachMatchDayPush(match, type, savedEvent?.id)
   return getCoachMatchDayDetail(user, match.id)
 }
 
 export async function correctCoachMatchDayScore(user, match, homeScore, awayScore, commandId = '') {
   await prepareMutation(user, match)
-  await rpc('record_match_day_score_correction_v2', { match_day_id_value: match.id, parent_link_id_value: null, home_score_value: integer(homeScore), away_score_value: integer(awayScore), notes_value: 'Score corrected in the Coach app', request_id_value: normalize(commandId) || requestId() })
+  const savedEvent = await rpc('record_match_day_score_correction_v2', { match_day_id_value: match.id, parent_link_id_value: null, home_score_value: integer(homeScore), away_score_value: integer(awayScore), notes_value: 'Score corrected in the Coach app', request_id_value: normalize(commandId) || requestId() })
+  await sendCoachMatchDayPush(match, 'score_correction', savedEvent?.id)
   return getCoachMatchDayDetail(user, match.id)
 }
 
@@ -311,11 +349,12 @@ export async function saveCoachMatchDayFinalReport(user, match, staffNotes) {
 export async function selectCoachMatchDayVolunteer(user, match, request, role, selected = true) {
   await prepareMutation(user, match)
   if (!['scorer', 'linesman', 'referee'].includes(role)) throw new Error('Choose a valid volunteer role.')
-  if (!request?.requestId) throw new Error('Choose a volunteer response first.')
+  if (selected !== false && !request?.requestId) throw new Error('Choose a volunteer response first.')
+  if (selected === false && !request?.parentLinkId) throw new Error('Choose the current volunteer assignment first.')
   const config = getMobileRuntimeConfig('coach')
   const accessToken = await getAccessToken()
   if (!config.apiBaseUrl || !accessToken) throw new Error('Login is required.')
-  const response = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/select-match-day-volunteer'), { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ matchDayId: match.id, requestId: request.requestId, role, selected: selected !== false }) })
+  const response = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/select-match-day-volunteer'), { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ matchDayId: match.id, parentLinkId: request.parentLinkId, requestId: request.requestId || '', role, selected: selected !== false }) })
   if (!response.ok || response.result?.success === false) throw new Error(response.result?.message || 'Volunteer selection could not be updated.')
   return getCoachMatchDayDetail(user, match.id)
 }

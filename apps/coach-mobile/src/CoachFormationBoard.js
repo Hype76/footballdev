@@ -8,8 +8,10 @@ import {
   createMobileFormationDraft,
   createMobileFormationPreferenceKey,
   getMobileFormationCapacity,
+  getMobileAvailableFormationPlayers,
   getMobileFormationPitchPercent,
   getMobileFormationPitchRatio,
+  getMobileFormationPlayerAvailability,
   getMobileFormationPresetSlots,
   getMobileFormationSelectedPlayerIds,
   getMobileFormationSlotLabel,
@@ -74,7 +76,7 @@ function createStyles(palette) {
     chip: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10 },
     chipSelected: { backgroundColor: palette.selected, borderColor: palette.accent },
     chipText: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
-    chipTextSelected: { color: palette.selectedForeground },
+    chipTextSelected: { color: palette.textPrimary },
     count: { color: palette.accent, fontSize: 13, fontWeight: '900' },
     eyebrow: { color: palette.accent, fontSize: 11, fontWeight: '900', letterSpacing: 1.1, textTransform: 'uppercase' },
     heading: { color: palette.textPrimary, fontSize: 20, fontWeight: '900' },
@@ -140,6 +142,21 @@ function Action({ danger = false, disabled = false, label, onPress, secondary = 
 
 function Choice({ label, onPress, selected, styles }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}><Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text></Pressable>
+}
+
+export function CoachFormationSquadStep({ availabilityRows = [], draft, onBack, onChange, onContinue, palette, players = [] }) {
+  const styles = useMemo(() => createStyles(palette), [palette])
+  const selectedIds = useMemo(() => getMobileFormationSelectedPlayerIds(draft), [draft])
+  const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
+  return <View style={styles.card}>
+    <Text style={styles.eyebrow}>Step 2 of 4</Text>
+    <View style={styles.rowBetween}><Text style={styles.heading}>Choose squad</Text><Text style={styles.count}>{selectedIds.size} selected</Text></View>
+    <Text style={styles.body}>Availability helps you choose, but the final Match squad remains your decision. Selected Players start on the Bench so you can assign each pitch position yourself.</Text>
+    <Action disabled={!availablePlayers.length} label={`Select available players (${availablePlayers.length})`} onPress={() => onChange(setMobileFormationSquad(draft, availablePlayers))} styles={styles} />
+    <View style={styles.row}><Action label="Select full squad" onPress={() => onChange(setMobileFormationSquad(draft, players))} secondary styles={styles} /><Action label="Clear" onPress={() => onChange(setMobileFormationSquad(draft, []))} secondary styles={styles} /></View>
+    <View style={styles.row}>{players.map((player) => { const availability = getMobileFormationPlayerAvailability(player.id, availabilityRows); return <Choice key={player.id} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName} | ${availability.label}`} onPress={() => onChange(toggleMobileFormationSquadPlayer(draft, player))} selected={selectedIds.has(player.id)} styles={styles} /> })}</View>
+    <View style={styles.row}><Action label="Back" onPress={onBack} secondary styles={styles} /><Action disabled={!selectedIds.size} label="Load empty pitch" onPress={() => onContinue(selectedIds.size)} styles={styles} /></View>
+  </View>
 }
 
 function PitchLines({ styles }) {
@@ -357,6 +374,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const filteredSlotPlayers = players.filter((player) => selectedIds.has(player.id) && player.playerName.toLowerCase().includes(slotSearch.trim().toLowerCase()))
   const linkedMatchId = board?.linkedMatchDayId || ''
   const linkedMatch = (match?.id === linkedMatchId ? match : null) || matches.find((candidate) => candidate.id === linkedMatchId) || null
+  const availabilityMatch = linkedMatch || match || null
+  const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = matchPublications.find((publication) => !(publication.withdrawn_at ?? publication.withdrawnAt)) || null
   const latestResourcePublication = resourcePublications[0] || null
   const unavailable = stale || offline
@@ -612,14 +631,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         <Action disabled={!currentPreset} label="Confirm formation" onPress={() => { setWorkflowStep('squad'); setNotice('Formation confirmed. Choose the Players available for this plan.') }} styles={styles} />
       </View> : null}
 
-      {workflowStep === 'squad' ? <View style={styles.card}>
-        <Text style={styles.eyebrow}>Step 2 of 4</Text>
-        <View style={styles.rowBetween}><Text style={styles.heading}>Choose squad</Text><Text style={styles.count}>{selectedIds.size} selected</Text></View>
-        <Text style={styles.body}>Select the Players for this plan. They will start on the Bench so you can assign each pitch position yourself.</Text>
-        <View style={styles.row}><Action label="Select full squad" onPress={() => setDraft(setMobileFormationSquad(draft, players))} secondary styles={styles} /><Action label="Clear" onPress={() => setDraft(setMobileFormationSquad(draft, []))} secondary styles={styles} /></View>
-        <View style={styles.row}>{players.map((player) => <Choice key={player.id} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} selected={selectedIds.has(player.id)} styles={styles} />)}</View>
-        <View style={styles.row}><Action label="Back" onPress={() => setWorkflowStep('formation')} secondary styles={styles} /><Action disabled={!selectedIds.size} label="Load empty pitch" onPress={() => { setWorkflowStep('lineup'); setNotice(`${selectedIds.size} Players selected. Tap an empty pitch position to add a Player.`) }} styles={styles} /></View>
-      </View> : null}
+      {workflowStep === 'squad' ? <CoachFormationSquadStep availabilityRows={availabilityRows} draft={draft} onBack={() => setWorkflowStep('formation')} onChange={setDraft} onContinue={(count) => { setWorkflowStep('lineup'); setNotice(`${count} Players selected. Tap an empty pitch position to add a Player.`) }} palette={palette} players={players} /> : null}
 
       {workflowStep === 'lineup' ? <View style={styles.card}>
         <Text style={styles.eyebrow}>Step 3 of 4</Text>

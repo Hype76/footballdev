@@ -43,6 +43,16 @@ export function isCurrentMatchNotificationReference(row = {}, parentLinkId = '',
     && (!today || !matchDate || matchDate >= today)
 }
 
+export function isCurrentMatchDayNotificationReference(row = {}, today = '') {
+  const status = normalizeText(row.status).toLowerCase()
+  const matchDate = normalizeText(row.match_date).slice(0, 10)
+  return Boolean(row.id)
+    && !row.deleted_at
+    && !row.concluded_at
+    && !['cancelled', 'completed', 'full_time', 'postponed'].includes(status)
+    && (!today || !matchDate || matchDate >= today)
+}
+
 export function isCurrentTrainingNotificationReference(row = {}, parentLinkId = '', now = Date.now()) {
   const request = relation(row.training_availability_requests)
   const status = normalizeText(row.status).toLowerCase()
