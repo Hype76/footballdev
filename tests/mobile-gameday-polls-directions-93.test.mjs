@@ -71,7 +71,7 @@ test('Coach Game Day matches the canonical live controller while preserving conf
   }
   assert.match(coachScreen, /activateKeepAwakeAsync/)
   assert.match(coachScreen, /setPanel\(isLiveMatch\(detail\) \? 'live' : 'overview'\)/)
-  assert.match(coachScreen, /Confirm Match Day change/)
+  assert.match(coachScreen, /Start this match\?/)
   assert.match(coachScreen, /getCoachMatchDayActions\(\{ context, match, reconciling, stale \}\)/)
   assert.match(coachScreen, /runCoachMatchDayTimerAction/)
   assert.match(coachScreen, /recordCoachMatchDayEvent/)

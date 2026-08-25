@@ -160,7 +160,13 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
         : CLOSED_STATUSES.has(match?.status) || Boolean(match?.concludedAt)
           ? 'This fixture is closed.'
           : ''
-  const timerActions = blockedReason ? [] : getParentScorerTimerActions(match)
+  const lifecycleTimerActions = blockedReason ? [] : getParentScorerTimerActions(match)
+  const startBlockedByFixtureDate = match?.hasPresentationState === true
+    && match?.isToday !== true
+    && lifecycleTimerActions.some((item) => item.action === 'start')
+  const timerActions = startBlockedByFixtureDate
+    ? lifecycleTimerActions.filter((item) => item.action !== 'start')
+    : lifecycleTimerActions
   const hasStarted = !['scheduled', 'scorer_request'].includes(match?.status) || normalize(match?.timerStatus) !== 'not_started'
   return Object.freeze({
     blockedReason,
@@ -169,6 +175,7 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
     canSaveFinalReport: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && isFinalMatchReportAvailable(match),
     canSetSquad: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
     canSelectVolunteers: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
+    startBlockedReason: startBlockedByFixtureDate ? 'This match can only be started on its fixture date.' : '',
     timerActions,
   })
 }

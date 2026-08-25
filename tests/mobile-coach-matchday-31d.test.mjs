@@ -76,6 +76,26 @@ test('timer actions derive from canonical lifecycle including reversible Full Ti
   assert.deepEqual(getCoachMatchDayActions({ context, match: { ...baseMatch, status: 'full_time', timerStatus: 'full_time' } }).timerActions.map((item) => item.action), ['resume', 'conclude'])
 })
 
+test('Start match is unavailable when the server confirms that the fixture date is not today', () => {
+  const actions = getCoachMatchDayActions({
+    context,
+    match: { ...baseMatch, hasPresentationState: true, isToday: false, matchDate: '2026-08-10', serverLocalDate: '2026-08-09', status: 'scheduled', timerStatus: 'not_started' },
+  })
+  assert.deepEqual(actions.timerActions, [])
+  assert.match(actions.startBlockedReason, /fixture date/)
+  assert.equal(actions.canSetSquad, true)
+  assert.equal(actions.canSelectVolunteers, true)
+})
+
+test('Start match remains available when the server confirms that the fixture date is today', () => {
+  const actions = getCoachMatchDayActions({
+    context,
+    match: { ...baseMatch, hasPresentationState: true, isToday: true, matchDate: '2026-08-09', serverLocalDate: '2026-08-09', status: 'scheduled', timerStatus: 'not_started' },
+  })
+  assert.deepEqual(actions.timerActions.map((item) => item.action), ['start'])
+  assert.equal(actions.startBlockedReason, '')
+})
+
 test('extended-time actions preserve extra time and shootout gates', () => {
   const normalComplete = getCoachMatchDayActions({ context, match: { ...baseMatch, conclusionRule: 'extra_time_then_penalties', currentMatchPhase: 'normal_time_complete', status: 'extra_time', timerStatus: 'paused' } })
   assert.deepEqual(normalComplete.timerActions.map((item) => item.action), ['start_extra_time'])
@@ -155,18 +175,22 @@ test('legacy pilot Match Day direct writes and Match Day push side effects are r
   assert.doesNotMatch(source, /send-match-day-push/)
 })
 
-test('Match Day screen disables offline writes and requires explicit confirmation', async () => {
+test('Match Day screen disables offline writes and requires plain-language confirmation', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
   assert.match(source, /Showing encrypted cached Match Day data/)
   assert.match(source, /Every change is disabled/)
-  assert.match(source, /Confirm Match Day change/)
-  assert.match(source, /server will recheck Team scope, role, payment, fixture state, and concurrency/)
+  assert.match(source, /Start this match\?/)
+  assert.match(source, /Only start when both teams are ready for kick-off/)
+  assert.match(source, /This change will be checked and saved online/)
+  assert.doesNotMatch(source, /Canonical recipient action|production authority|concurrency before saving/)
 })
 
 test('Coach Match Day exposes Start match on Overview and keeps confirmation in view', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
   const overview = source.slice(source.indexOf("panel === 'overview'"), source.indexOf("panel === 'squad'"))
   assert.match(overview, /Ready for kick-off\?/)
+  assert.match(overview, /Not available to start today/)
+  assert.match(overview, /edit the fixture date first/)
   assert.match(overview, /label="Start match"/)
   assert.match(overview, /runCoachMatchDayTimerAction\(user, match, 'start'\)/)
   assert.match(source, /visible=\{Boolean\(pending\)\}/)

@@ -15,6 +15,9 @@ export function getCoachFriendlyError(error, fallback = 'This could not be compl
   if (lower.includes('jwt') || lower.includes('token') || lower.includes('sign in')) {
     return 'Your sign-in needs refreshing before this can be completed.'
   }
+  if (lower.includes('only be started on the fixture date')) {
+    return 'This match is not scheduled for today. If it has moved, edit the fixture date before starting it.'
+  }
   if (/\b(pgrst\d*|postgres|schema|column|relation|rpc|42501|42p01|22p\d*|55000)\b/i.test(raw) || /^[a-z0-9_]+$/.test(raw)) {
     return fallback
   }

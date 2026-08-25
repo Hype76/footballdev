@@ -81,6 +81,7 @@ test('Coach errors hide implementation details and explain recoverable condition
   assert.equal(getCoachFriendlyError(new Error('Network request failed'), 'Could not load.'), 'We could not connect just now. Saved information is still available where possible.')
   assert.equal(getCoachFriendlyError(new Error('PGRST205'), 'Could not load.'), 'Could not load.')
   assert.equal(getCoachFriendlyError(new Error('That Europe/London time does not exist because the clocks change.'), 'Could not save.'), 'That time falls during the clock change. Please choose another time.')
+  assert.equal(getCoachFriendlyError(new Error('This match can only be started on the fixture date.'), 'Could not save.'), 'This match is not scheduled for today. If it has moved, edit the fixture date before starting it.')
 })
 
 test('mobile sources provide direct date navigation, actionable attention, offline-first reads, and quiet Coach loading', async () => {

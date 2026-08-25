@@ -70,6 +70,10 @@ export function normalizeCoachMatchDay(row = {}) {
   const finalReportRow = relation(row.match_day_final_reports) || row.finalReport
   const rawEvents = row.match_day_events ?? row.events ?? []
   const rawKicks = row.match_day_shootout_kicks ?? row.shootoutEvents ?? []
+  const hasPresentationState = row.hasPresentationState === true
+    || Object.hasOwn(row, 'is_today')
+    || Object.hasOwn(row, 'server_local_date')
+    || Boolean(normalize(row.serverLocalDate))
   return {
     id: row.id ?? '', clubId: row.club_id ?? row.clubId ?? '', teamId: row.team_id ?? row.teamId ?? '', teamName: normalize(team?.name ?? row.team_name ?? row.teamName) || 'Our team', opponent: normalize(row.opponent) || 'Opponent',
     fixtureType: normalize(row.fixture_type ?? row.fixtureType) || 'league', conclusionRule: normalizeMatchDayConclusionRule(row.match_conclusion_rule ?? row.conclusionRule), currentMatchPhase: normalize(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match', extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(row.extra_time_half_minutes ?? row.extraTimeHalfMinutes), extraTimePeriodCount: normalizeExtraTimePeriodCount(row.extra_time_period_count ?? row.extraTimePeriodCount),
@@ -77,7 +81,7 @@ export function normalizeCoachMatchDay(row = {}) {
     requestScorer: row.request_scorer === true || row.requestScorer === true || row.status === 'scorer_request', requestLinesman: row.request_linesman === true || row.requestLinesman === true, requestReferee: row.request_referee === true || row.requestReferee === true,
     status: normalize(row.status) || 'scheduled', homeScore: integer(row.home_score ?? row.homeScore), awayScore: integer(row.away_score ?? row.awayScore), normalTimeHomeScore: optionalInteger(row.normal_time_home_score ?? row.normalTimeHomeScore), normalTimeAwayScore: optionalInteger(row.normal_time_away_score ?? row.normalTimeAwayScore), extraTimeHomeScore: optionalInteger(row.extra_time_home_score ?? row.extraTimeHomeScore), extraTimeAwayScore: optionalInteger(row.extra_time_away_score ?? row.extraTimeAwayScore), homeShootoutScore: integer(row.home_shootout_score ?? row.homeShootoutScore), awayShootoutScore: integer(row.away_shootout_score ?? row.awayShootoutScore), shootoutWinner: normalize(row.shootout_winner ?? row.shootoutWinner),
     phaseStartedAt: row.phase_started_at ?? row.phaseStartedAt ?? '', timerStartedAt: row.timer_started_at ?? row.timerStartedAt ?? '', timerPausedAt: row.timer_paused_at ?? row.timerPausedAt ?? '', timerElapsedSeconds: integer(row.timer_elapsed_seconds ?? row.timerElapsedSeconds), timerStatus: normalize(row.timer_status ?? row.timerStatus) || 'not_started', fullTimeResumeStatus: normalize(row.full_time_resume_status ?? row.fullTimeResumeStatus), concludedAt: row.concluded_at ?? row.concludedAt ?? '', concludedBy: row.concluded_by ?? row.concludedBy ?? '',
-    presentationPriority: Number(row.presentation_priority ?? row.presentationPriority ?? 99), scheduledKickoffAt: row.scheduled_kickoff_at ?? row.scheduledKickoffAt ?? '', isToday: row.is_today === true || row.isToday === true,
+    presentationPriority: Number(row.presentation_priority ?? row.presentationPriority ?? 99), scheduledKickoffAt: row.scheduled_kickoff_at ?? row.scheduledKickoffAt ?? '', isBeforeKickoff: row.is_before_kickoff === true || row.isBeforeKickoff === true, isToday: row.is_today === true || row.isToday === true, hasPresentationState, serverLocalDate: row.server_local_date ?? row.serverLocalDate ?? '', serverLocalTime: row.server_local_time ?? row.serverLocalTime ?? '',
     playerAvailability: (row.match_day_player_availability ?? row.playerAvailability ?? []).map(normalizeAvailability), squadDecisions: (row.match_day_player_squad_decisions ?? row.squadDecisions ?? []).map(normalizeSquadDecision), availabilityRequests: (row.match_day_availability_requests ?? row.availabilityRequests ?? []).map(normalizeRequest), roleAssignments: (row.match_day_role_assignments ?? row.roleAssignments ?? []).map(normalizeRoleAssignment),
     events: rawEvents.map(normalizeEvent).sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)), shootoutEvents: rawKicks.map(normalizeShootoutKick),
     finalReport: finalReportRow ? { matchDayId: finalReportRow.match_day_id ?? finalReportRow.matchDayId ?? '', staffNotes: normalize(finalReportRow.staff_notes ?? finalReportRow.staffNotes), createdByName: normalize(finalReportRow.created_by_name ?? finalReportRow.createdByName), updatedByName: normalize(finalReportRow.updated_by_name ?? finalReportRow.updatedByName), updatedAt: finalReportRow.updated_at ?? finalReportRow.updatedAt ?? '' } : null,
@@ -229,7 +233,14 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
       result = { ...data, volunteerEligibilityError: normalize(eligibilityError?.message) || 'Volunteer eligibility could not be loaded.' }
     }
   }
-  return { ...normalizeCoachMatchDay(result), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
+  let presentationState = null
+  const status = normalize(result.status)
+  if (['scheduled', 'scorer_request'].includes(status)) {
+    const { data: states, error: stateError } = await supabase.rpc('get_match_day_presentation_states', { match_day_ids_value: [matchDayId] })
+    if (stateError) throw stateError
+    presentationState = (states || [])[0] || null
+  }
+  return { ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}) }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
 }
 
 async function prepareMutation(user, match, minimumRank = 20) {
