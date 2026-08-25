@@ -5,6 +5,7 @@ import { test } from 'node:test'
 const migrationUrl = new URL('../supabase/migrations/20260720091524_p1_tenant_parent_player_staff_feedback_isolation.sql', import.meta.url)
 const parentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727044834_restore_parent_link_authority.sql', import.meta.url)
 const staleProfileParentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727052122_restore_parent_link_authority_for_stale_profiles.sql', import.meta.url)
+const crossClubParentAuthorityMigrationUrl = new URL('../supabase/migrations/20260825133414_cross_club_parent_link_authority_100.sql', import.meta.url)
 const feedbackUrl = new URL('../src/lib/domain/feedback.js', import.meta.url)
 const parentPortalUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
 const coreUrl = new URL('../src/lib/domain/core.js', import.meta.url)
@@ -72,6 +73,25 @@ test('stale staff profiles do not cancel active Parent-link authority', async ()
 
   assert.doesNotMatch(migration, /current_user_has_active_authority\(\)/i)
   assert.match(migration, /link\.status = 'active'|parent_link\.status = 'active'/i)
+  assert.match(migration, /coalesce\(player\.status, 'active'\) <> 'archived'/i)
+  assert.doesNotMatch(migration, /\b(?:insert into|update|delete from)\s+public\./i)
+})
+
+test('cross-Club Parent links survive an unrelated suspended staff profile', async () => {
+  const migration = await readFile(crossClubParentAuthorityMigrationUrl, 'utf8')
+  const helpers = [
+    'current_user_can_access_parent_player',
+    'current_user_can_access_parent_team',
+    'current_user_can_access_parent_link',
+    'current_user_can_access_parent_club',
+  ]
+
+  for (const helper of helpers) {
+    assert.match(migration, new RegExp(`create or replace function public\\.${helper}\\(`, 'i'))
+    assert.match(migration, /actor\.status = 'suspended'[\s\S]*actor\.role = 'parent_portal'[\s\S]*actor\.club_id = (?:link|parent_link)\.club_id/i)
+  }
+
+  assert.match(migration, /link\.auth_user_id = \(select auth\.uid\(\)\)|parent_link\.auth_user_id = \(select auth\.uid\(\)\)/i)
   assert.match(migration, /coalesce\(player\.status, 'active'\) <> 'archived'/i)
   assert.doesNotMatch(migration, /\b(?:insert into|update|delete from)\s+public\./i)
 })

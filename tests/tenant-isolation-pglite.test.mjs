@@ -7,6 +7,7 @@ import { PGlite } from '@electric-sql/pglite'
 const migrationUrl = new URL('../supabase/migrations/20260720091524_p1_tenant_parent_player_staff_feedback_isolation.sql', import.meta.url)
 const parentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727044834_restore_parent_link_authority.sql', import.meta.url)
 const staleProfileParentAuthorityMigrationUrl = new URL('../supabase/migrations/20260727052122_restore_parent_link_authority_for_stale_profiles.sql', import.meta.url)
+const crossClubParentAuthorityMigrationUrl = new URL('../supabase/migrations/20260825133414_cross_club_parent_link_authority_100.sql', import.meta.url)
 
 const ID = Object.freeze({
   clubA: '10000000-0000-4000-8000-000000000001',
@@ -271,6 +272,7 @@ async function createDatabase() {
   await db.exec(await readFile(migrationUrl, 'utf8'))
   await db.exec(await readFile(parentAuthorityMigrationUrl, 'utf8'))
   await db.exec(await readFile(staleProfileParentAuthorityMigrationUrl, 'utf8'))
+  await db.exec(await readFile(crossClubParentAuthorityMigrationUrl, 'utf8'))
 
   await db.exec(`
     insert into public.clubs(id, name, logo_url, website, town_city, country, contact_email, contact_phone) values
@@ -429,7 +431,7 @@ test('Parent-only auth accounts use direct active links without receiving staff 
   }
 })
 
-test('stale staff profiles do not cancel direct Parent-link authority', async () => {
+test('suspended staff profiles do not cancel active Parent links in another Club', async () => {
   const db = await createDatabase()
   try {
     await setActor(db, ID.staleProfileParent)
@@ -444,6 +446,14 @@ test('stale staff profiles do not cancel direct Parent-link authority', async ()
 
     await asOwner(db)
     await db.exec(`update public.users set status = 'suspended' where id = '${ID.staleProfileParent}'`)
+    await setActor(db, ID.staleProfileParent)
+    assert.deepEqual(await visibleIds(db, 'clubs'), [ID.clubB])
+    assert.deepEqual(await visibleIds(db, 'teams'), [ID.teamB1])
+    assert.deepEqual(await visibleIds(db, 'players'), [ID.crossClub])
+    assert.deepEqual((await db.query('select player_id from public.parent_player_links')).rows, [{ player_id: ID.crossClub }])
+
+    await asOwner(db)
+    await db.exec(`update public.users set club_id = '${ID.clubB}' where id = '${ID.staleProfileParent}'`)
     await setActor(db, ID.staleProfileParent)
     assert.deepEqual(await visibleIds(db, 'clubs'), [])
     assert.deepEqual(await visibleIds(db, 'teams'), [])

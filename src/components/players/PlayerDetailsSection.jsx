@@ -33,6 +33,7 @@ export function PlayerDetailsSection({
   onPlayerDraftChange,
   onPromotePlayer,
   onRemoveParentContact,
+  onRemoveParentPortalAccess = () => {},
   onRemovePlayerPosition,
   onRefreshEmailTemplates,
   onSavePlayer,
@@ -42,6 +43,7 @@ export function PlayerDetailsSection({
   onSendDirectEmail,
   onStartEditingPlayer,
   parentPortalInviteSendingKey = '',
+  parentPortalRevokingLinkId = '',
   parentPortalLinksByPlayerId = {},
   playerDrafts,
   playerDetailsEmptyState = {
@@ -113,9 +115,11 @@ export function PlayerDetailsSection({
                     onSelectedDirectInviteDateChange={(value) => onSelectedDirectInviteDateChange(player.id, value)}
                     onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
                     onSendParentPortalInviteForContact={(contact) => onSendParentPortalInviteForContact(player, contact)}
+                    onRemoveParentPortalAccess={(link) => onRemoveParentPortalAccess(player, link)}
                     onSendDirectEmail={() => onSendDirectEmail(player)}
                     onStartEditingPlayer={() => onStartEditingPlayer(player)}
                     parentPortalInviteSendingKey={parentPortalInviteSendingKey}
+                    parentPortalRevokingLinkId={parentPortalRevokingLinkId}
                     parentPortalLinks={parentPortalLinksByPlayerId[player.id] || []}
                     player={player}
                   />
@@ -308,9 +312,11 @@ function PlayerDetailsSummary({
   onSelectedDirectInviteDateChange,
   onSelectedDirectEmailTemplateChange,
   onSendParentPortalInviteForContact = () => {},
+  onRemoveParentPortalAccess = () => {},
   onSendDirectEmail,
   onStartEditingPlayer,
   parentPortalInviteSendingKey = '',
+  parentPortalRevokingLinkId = '',
   parentPortalLinks = [],
   player,
   selectedDirectInviteDate,
@@ -345,6 +351,10 @@ function PlayerDetailsSummary({
                   links: parentPortalLinks,
                   player,
                 })
+                const activeParentLink = parentPortalLinks.find((link) => (
+                  String(link?.status ?? '').trim().toLowerCase() === 'active'
+                  && normalizeParentPortalInviteEmail(link?.email) === email
+                ))
 
                 return (
                   <div key={index} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 shadow-sm shadow-[#047857]/10">
@@ -369,6 +379,17 @@ function PlayerDetailsSummary({
                               className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#047857] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {parentPortalInviteSendingKey === sendingKey ? 'Sending...' : inviteAction.label}
+                            </button>
+                          ) : null}
+                          {activeParentLink ? (
+                            <button
+                              type="button"
+                              disabled={parentPortalRevokingLinkId === activeParentLink.id}
+                              title="Remove this Parent's access to this player only."
+                              onClick={() => onRemoveParentPortalAccess(activeParentLink)}
+                              className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {parentPortalRevokingLinkId === activeParentLink.id ? 'Removing...' : 'Remove Parent access'}
                             </button>
                           ) : null}
                         </div>

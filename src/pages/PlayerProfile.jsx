@@ -123,6 +123,7 @@ import {
   promotePlayerToSquad,
   readViewCache,
   readViewCacheValue,
+  revokeParentPortalLink,
   updateEvaluation,
   updatePlayer,
   withRequestTimeout,
@@ -225,6 +226,8 @@ export function PlayerProfile() {
   const [sendParentPortalLinkOnPromote, setSendParentPortalLinkOnPromote] = useState(true)
   const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
   const [parentPortalInviteSendingKey, setParentPortalInviteSendingKey] = useState('')
+  const [parentPortalRevokeTarget, setParentPortalRevokeTarget] = useState(null)
+  const [parentPortalRevokingLinkId, setParentPortalRevokingLinkId] = useState('')
   const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
@@ -1674,6 +1677,30 @@ export function PlayerProfile() {
     }
   }
 
+  const confirmRemoveParentPortalAccess = async () => {
+    if (!parentPortalRevokeTarget?.id || !parentPortalRevokeTarget?.playerId) {
+      return
+    }
+
+    setParentPortalRevokingLinkId(parentPortalRevokeTarget.id)
+    setErrorMessage('')
+
+    try {
+      await revokeParentPortalLink({ linkId: parentPortalRevokeTarget.id })
+      await refreshParentPortalLinksForPlayer(parentPortalRevokeTarget.playerId)
+      showToast({
+        title: 'Parent access removed',
+        message: `${parentPortalRevokeTarget.email || 'Parent'} can no longer access ${parentPortalRevokeTarget.playerName || 'this player'} in the family portal.`,
+      })
+      setParentPortalRevokeTarget(null)
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'Parent access could not be removed.')
+    } finally {
+      setParentPortalRevokingLinkId('')
+    }
+  }
+
   const confirmPromotePlayer = async () => {
     if (!promoteConfirmTarget?.id) {
       return
@@ -1930,6 +1957,11 @@ export function PlayerProfile() {
         onPlayerDraftChange={handlePlayerDraftChange}
         onPromotePlayer={(playerId) => void handlePromotePlayer(playerId)}
         onRemoveParentContact={handleRemoveParentContact}
+        onRemoveParentPortalAccess={(player, link) => setParentPortalRevokeTarget({
+          ...link,
+          playerId: player.id,
+          playerName: player.playerName,
+        })}
         onRemovePlayerPosition={handleRemovePlayerPosition}
         onSavePlayer={(playerId) => void handleSavePlayer(playerId)}
         onRefreshEmailTemplates={() => void loadEmailTemplates()}
@@ -1949,6 +1981,7 @@ export function PlayerProfile() {
         onSendDirectEmail={(player) => void handleSendDirectEmail(player)}
         onStartEditingPlayer={handleStartEditingPlayer}
         parentPortalInviteSendingKey={parentPortalInviteSendingKey}
+        parentPortalRevokingLinkId={parentPortalRevokingLinkId}
         parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
         playerDetailsEmptyState={playerDetailsEmptyState}
         playerDrafts={playerDrafts}
@@ -2021,6 +2054,20 @@ export function PlayerProfile() {
         staffNotes={staffNotes}
         />
       ) : null}
+
+      <ConfirmModal
+        isOpen={Boolean(parentPortalRevokeTarget)}
+        isBusy={Boolean(parentPortalRevokingLinkId)}
+        title="Remove Parent access"
+        message="This removes access to this player only. It does not delete the Parent account or affect access to any other children."
+        items={[
+          `Parent: ${parentPortalRevokeTarget?.email || 'Selected Parent'}`,
+          `Player: ${parentPortalRevokeTarget?.playerName || 'Selected player'}`,
+        ]}
+        confirmLabel="Remove access"
+        onCancel={() => setParentPortalRevokeTarget(null)}
+        onConfirm={() => void confirmRemoveParentPortalAccess()}
+      />
 
       <ConfirmModal
         isOpen={Boolean(promoteConfirmTarget)}
