@@ -219,6 +219,7 @@ const EMPTY_MATCH_FORM = {
   scorerRequestMessage: 'Can anyone help as live scorer for this match?',
   status: 'scheduled',
   enableMotmPoll: false,
+  motmNotifyResultsOnClose: false,
   motmPollExpiryHours: 2,
   saveDurationAsDefault: false,
 }
@@ -7436,7 +7437,15 @@ function FixtureSetupModal({
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
-                <input type="checkbox" checked={form.enableMotmPoll} onChange={(event) => updateForm({ enableMotmPoll: event.target.checked })} className="h-4 w-4 accent-[#047857]" />
+                <input
+                  type="checkbox"
+                  checked={form.enableMotmPoll}
+                  onChange={(event) => updateForm({
+                    enableMotmPoll: event.target.checked,
+                    motmNotifyResultsOnClose: event.target.checked ? form.motmNotifyResultsOnClose : false,
+                  })}
+                  className="h-4 w-4 accent-[#047857]"
+                />
                 <span className="text-sm font-black text-[#101828]">Create Player of the Match vote at full time</span>
               </label>
 
@@ -7452,6 +7461,21 @@ function FixtureSetupModal({
                   className={inputClass}
                 />
               </label>
+
+              {form.enableMotmPoll ? (
+                <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 md:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={form.motmNotifyResultsOnClose}
+                    onChange={(event) => updateForm({ motmNotifyResultsOnClose: event.target.checked })}
+                    className="h-4 w-4 accent-[#047857]"
+                  />
+                  <span>
+                    <span className="block text-sm font-black text-[#101828]">Send vote results</span>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-[#475467]">Notify eligible parents once the vote closes, expires, or everyone has replied.</span>
+                  </span>
+                </label>
+              ) : null}
             </div>
           </div>
 

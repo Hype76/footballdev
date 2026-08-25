@@ -161,6 +161,7 @@ export async function createCoachMatchDayFixture(user, form) {
       match_conclusion_rule: fixture.conclusionRule,
       match_date: fixture.matchDate,
       match_duration_minutes: fixture.matchDurationMinutes,
+      motm_notify_results_on_close: fixture.motmNotifyResultsOnClose,
       motm_poll_expiry_hours: fixture.motmPollExpiryHours,
       notes: fixture.notes,
       opponent: fixture.opponent,

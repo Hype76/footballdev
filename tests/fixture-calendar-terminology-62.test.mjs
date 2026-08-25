@@ -25,6 +25,7 @@ test('mobile match creation starts with deliberate volunteer and poll choices', 
   assert.equal(form.requestLinesman, false)
   assert.equal(form.requestReferee, false)
   assert.equal(form.enableMotmPoll, false)
+  assert.equal(form.motmNotifyResultsOnClose, false)
   assert.equal(form.matchDurationMinutes, 90)
   assert.equal(form.saveDurationAsDefault, false)
   assert.equal(Object.hasOwn(form, 'recurrenceFrequency'), false)
@@ -49,6 +50,17 @@ test('mobile match creation validates the canonical fixture contract', () => {
   assert.equal(fixture.matchDurationMinutes, 90)
   assert.equal(fixture.requestScorer, false)
   assert.equal(fixture.enableMotmPoll, false)
+  assert.equal(fixture.motmNotifyResultsOnClose, false)
+
+  const resultDeliveryFixture = validateCoachFixtureForm({
+    ...createCoachFixtureForm(),
+    enableMotmPoll: true,
+    fixtureType: 'friendly',
+    matchDate: '17-08-2099',
+    motmNotifyResultsOnClose: true,
+    opponent: 'Visitors FC',
+  })
+  assert.equal(resultDeliveryFixture.motmNotifyResultsOnClose, true)
 })
 
 test('saved match locations are recent first, editable, and de-duplicated', () => {
@@ -73,7 +85,7 @@ test('Coach mobile exposes native pickers and the full Match Day fixture form', 
   assert.match(appPackage, /@react-native-community\/datetimepicker/)
   assert.match(appConfig, /@react-native-community\/datetimepicker/)
   assert.match(picker, /DateTimePicker/)
-  for (const label of ['Opponent', 'Fixture type', 'How this match can finish', 'Home or away', '>Clock<', 'Match duration', 'Request scorer', 'Request linesman', 'Request referee', 'Create Player of the Match poll at full time']) {
+  for (const label of ['Opponent', 'Fixture type', 'How this match can finish', 'Home or away', '>Clock<', 'Match duration', 'Request scorer', 'Request linesman', 'Request referee', 'Create Player of the Match poll at full time', 'Send vote results']) {
     assert.match(fixtureForm, new RegExp(label))
   }
   assert.doesNotMatch(fixtureForm, /Repeat/)
@@ -83,15 +95,33 @@ test('Coach mobile exposes native pickers and the full Match Day fixture form', 
   assert.match(matchData, /kickoff_time_tbc/)
   assert.match(matchData, /request_scorer/)
   assert.match(matchData, /enable_motm_poll/)
+  assert.match(matchData, /motm_notify_results_on_close/)
 })
 
 test('web Match Day preserves safe defaults and explicit duration preference', async () => {
   const matchDay = await source('../src/pages/MatchDayPage.jsx')
   assert.match(matchDay, /requestScorer: false/)
   assert.match(matchDay, /enableMotmPoll: false/)
+  assert.match(matchDay, /motmNotifyResultsOnClose: false/)
+  assert.match(matchDay, /Send vote results/)
   assert.match(matchDay, /saveDurationAsDefault: false/)
   assert.match(matchDay, /Save this duration as my default/)
   assert.match(matchDay, /Choose saved location/)
+})
+
+test('ordinary Parent Polls keep their existing automatic result option across web and Coach app', async () => {
+  const [webPolls, coachPolls, pollDomain, resultWorker] = await Promise.all([
+    source('../src/pages/PollsPage.jsx'),
+    source('../apps/coach-mobile/src/CoachPhase31EScreens.js'),
+    source('../src/lib/domain/polls.js'),
+    source('../netlify/functions/send-poll-result-notifications.js'),
+  ])
+
+  assert.match(webPolls, /Send final results when the poll closes/)
+  assert.match(coachPolls, /Send final Poll results/)
+  assert.match(pollDomain, /configure_poll_result_delivery/)
+  assert.match(resultWorker, /intentType: 'poll_results'/)
+  assert.match(resultWorker, /poll_result_notification_deliveries/)
 })
 
 test('terminology changes visible wording without changing machine contracts', async () => {

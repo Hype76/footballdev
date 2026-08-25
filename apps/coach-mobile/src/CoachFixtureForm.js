@@ -133,8 +133,8 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
         <Toggle label="Request scorer" onValueChange={(value) => setForm({ ...form, requestScorer: value })} styles={styles} value={form.requestScorer} />
         <Toggle label="Request linesman" onValueChange={(value) => setForm({ ...form, requestLinesman: value })} styles={styles} value={form.requestLinesman} />
         <Toggle label="Request referee" onValueChange={(value) => setForm({ ...form, requestReferee: value })} styles={styles} value={form.requestReferee} />
-        <Toggle label="Create Player of the Match poll at full time" onValueChange={(value) => setForm({ ...form, enableMotmPoll: value })} styles={styles} value={form.enableMotmPoll} />
-        {form.enableMotmPoll ? <Field label="Poll expiry hours" onChangeText={(value) => setForm({ ...form, motmPollExpiryHours: value })} styles={styles} value={form.motmPollExpiryHours} /> : null}
+        <Toggle label="Create Player of the Match poll at full time" onValueChange={(value) => setForm({ ...form, enableMotmPoll: value, motmNotifyResultsOnClose: value ? form.motmNotifyResultsOnClose : false })} styles={styles} value={form.enableMotmPoll} />
+        {form.enableMotmPoll ? <><Field label="Poll expiry hours" onChangeText={(value) => setForm({ ...form, motmPollExpiryHours: value })} styles={styles} value={form.motmPollExpiryHours} /><Toggle label="Send vote results" onValueChange={(value) => setForm({ ...form, motmNotifyResultsOnClose: value })} styles={styles} value={form.motmNotifyResultsOnClose} /><Text style={styles.meta}>Eligible parents are notified when the vote closes, expires, or everyone has replied.</Text></> : null}
         <Field label="Match notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
       </View>
       {error ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.dangerText}>{error}</Text></View> : null}
