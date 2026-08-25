@@ -145,6 +145,17 @@ export function getCoachMatchDayPresentation(match, now = Date.now()) {
   })
 }
 
+export function captureCoachMatchDayAction(match, action, now = Date.now()) {
+  const capturedAt = Number.isFinite(now) ? now : Date.now()
+  const presentation = getCoachMatchDayPresentation(match, capturedAt)
+  return Object.freeze({
+    action: normalize(action),
+    capturedAt: new Date(capturedAt).toISOString(),
+    capturedClock: presentation.clock,
+    capturedMinute: presentation.matchMinute,
+  })
+}
+
 export function getCoachMatchDayActions({ context, match, reconciling = false, stale = false } = {}) {
   const roleRank = Number(context?.roleRank || 0)
   const blockedReason = !match || typeof match !== 'object'
@@ -199,14 +210,17 @@ export function buildCoachMatchDaySquad(players = [], match = {}) {
   return Object.freeze({ rows: Object.freeze(rows), summary: Object.freeze(summarizeMatchDaySquadDecisions(rows.map((row) => row.decision))) })
 }
 
-export function createCoachMatchDayEventForm(type = 'goal', match = {}) {
+export function createCoachMatchDayEventForm(type = 'goal', match = {}, now = Date.now()) {
   const eventType = normalize(type) || 'goal'
+  const capture = captureCoachMatchDayAction(match, eventType, now)
   return Object.freeze({
     assistName: '',
     assistShirtNumber: '',
     eventType,
     isPenaltyGoal: false,
-    minute: String(getMatchTimerMinute(match) ?? ''),
+    capturedAt: capture.capturedAt,
+    capturedClock: capture.capturedClock,
+    minute: String(capture.capturedMinute ?? ''),
     notes: '',
     playerName: '',
     playerOnName: '',

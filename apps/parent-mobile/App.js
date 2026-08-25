@@ -1281,7 +1281,7 @@ function ParentHome() {
   }
 
   async function handleScorerAction(match, action, value) {
-    if (isOffline || activeActionId || !match.isScorer) return
+    if (isOffline || activeActionId || !match.isScorer) return false
     setActiveActionId(`scorer:${match.id}:${action}`)
     setNotice(null)
     try {
@@ -1296,8 +1296,10 @@ function ParentHome() {
       if (action === 'void-shootout') await voidParentScorerShootoutKick(match.id, value.kickId, value.reason)
       await loadParentData()
       setNotice({ message: 'Game Day has been updated.', tone: 'success' })
+      return true
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, 'This Game Day change could not be saved.'), tone: 'error' })
+      return false
     } finally {
       setActiveActionId('')
     }

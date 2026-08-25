@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, FlatList, Linking, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
 import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
@@ -9,7 +9,8 @@ import {
   formatParentProductTime,
 } from '../../mobile-core/src/parentDateTimeCore'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
-import { getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
+import { captureCoachMatchDayAction, getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
+import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import {
   canParentRegisterScorerInterest,
@@ -83,11 +84,15 @@ function usePortalStyles(themeTokens) {
       actionOutline: { backgroundColor: 'transparent', borderColor: colors.border, borderWidth: 1 },
       actionSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent, borderWidth: 2 },
       actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+      actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+      actionGridItem: { flexBasis: '47%', flexGrow: 1 },
       actionText: { color: colors.accentForeground, fontSize: 14, fontWeight: '800' },
       actionTextOutline: { color: colors.text },
       actionTextSelected: { color: colors.accentText },
       body: { color: colors.text, fontSize: 15, lineHeight: 22 },
       card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
+      controllerCard: { backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 18, borderWidth: 2, gap: 12, padding: 16 },
+      capturedPill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderColor: colors.accent, borderRadius: 999, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
       volunteerCard: { borderColor: colors.warning, borderWidth: 2 },
       volunteerRole: { color: colors.warning, fontSize: 22, fontWeight: '900' },
       formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
@@ -129,6 +134,11 @@ function usePortalStyles(themeTokens) {
       monthGrid: { gap: 5 },
       monthRow: { flexDirection: 'row', gap: 5 },
       monthWeekday: { color: colors.muted, flex: 1, fontSize: 11, fontWeight: '900', textAlign: 'center' },
+      modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.62)' },
+      modalCard: { backgroundColor: colors.card, borderColor: colors.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, gap: 12, maxHeight: '92%', padding: 18 },
+      modalContent: { gap: 12, paddingBottom: 12 },
+      modalHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
+      modalScreen: { flex: 1, justifyContent: 'flex-end' },
       dateHeading: { color: colors.text, fontSize: 16, fontWeight: '900', marginTop: 4 },
       pill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderRadius: 999, color: colors.accentText, fontSize: 12, fontWeight: '800', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5 },
       row: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
@@ -386,20 +396,29 @@ function MatchCard({ match, onDismiss, onOpen, styles }) {
   )
 }
 
-function GoalForm({ disabled, onAdd, placeholderColor, styles }) {
+function GoalForm({ disabled, initialMinute = '', onAdd, placeholderColor, styles }) {
   const [side, setSide] = useState('club')
   const [scorerName, setScorerName] = useState('')
-  const [minute, setMinute] = useState('')
+  const [scorerShirtNumber, setScorerShirtNumber] = useState('')
+  const [assistName, setAssistName] = useState('')
+  const [assistShirtNumber, setAssistShirtNumber] = useState('')
+  const [isPenaltyGoal, setIsPenaltyGoal] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [minute, setMinute] = useState(String(initialMinute ?? ''))
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Add goal</Text>
+    <View style={styles.section}>
       <View style={styles.actionRow}>
         <Button disabled={disabled} label="Our team" onPress={() => setSide('club')} outline={side !== 'club'} styles={styles} />
         <Button disabled={disabled} label="Opponent" onPress={() => setSide('opponent')} outline={side !== 'opponent'} styles={styles} />
       </View>
       <TextInput accessibilityLabel="Goal scorer name" editable={!disabled} onChangeText={setScorerName} placeholder="Scorer name, optional" placeholderTextColor={placeholderColor} style={styles.field} value={scorerName} />
-      <TextInput accessibilityLabel="Goal minute" editable={!disabled} keyboardType="number-pad" onChangeText={setMinute} placeholder="Minute, optional" placeholderTextColor={placeholderColor} style={styles.field} value={minute} />
-      <Button disabled={disabled} label="Record goal" onPress={() => { onAdd({ minute, scorerName, teamSide: side }); setMinute(''); setScorerName('') }} styles={styles} />
+      <TextInput accessibilityLabel="Goal scorer shirt number" editable={!disabled} keyboardType="number-pad" onChangeText={setScorerShirtNumber} placeholder="Scorer shirt number, optional" placeholderTextColor={placeholderColor} style={styles.field} value={scorerShirtNumber} />
+      <TextInput accessibilityLabel="Assist name" editable={!disabled} onChangeText={setAssistName} placeholder="Assist name, optional" placeholderTextColor={placeholderColor} style={styles.field} value={assistName} />
+      <TextInput accessibilityLabel="Assist shirt number" editable={!disabled} keyboardType="number-pad" onChangeText={setAssistShirtNumber} placeholder="Assist shirt number, optional" placeholderTextColor={placeholderColor} style={styles.field} value={assistShirtNumber} />
+      <TextInput accessibilityLabel="Goal minute" editable={!disabled} keyboardType="number-pad" onChangeText={setMinute} placeholder="Match minute" placeholderTextColor={placeholderColor} style={styles.field} value={minute} />
+      <View style={styles.row}><Text style={styles.cardTitle}>Penalty</Text><Switch accessibilityLabel="Penalty goal" disabled={disabled} onValueChange={setIsPenaltyGoal} value={isPenaltyGoal} /></View>
+      <TextInput accessibilityLabel="Goal notes" editable={!disabled} multiline onChangeText={setNotes} placeholder="Notes, optional" placeholderTextColor={placeholderColor} style={[styles.field, { minHeight: 88, textAlignVertical: 'top' }]} value={notes} />
+      <Button disabled={disabled} label={disabled ? 'Saving...' : 'Record goal'} onPress={() => onAdd({ assistName, assistShirtNumber, isPenaltyGoal, minute, notes, scorerName, scorerShirtNumber, teamSide: side })} styles={styles} />
     </View>
   )
 }
@@ -456,52 +475,67 @@ function ShootoutControls({ disabled, match, onRecord, onVoid, placeholderColor,
   )
 }
 
+function ParentMatchDayActionSheet({ busy, capturedClock, children, onClose, styles, title }) {
+  return <Modal animationType="slide" onRequestClose={() => { if (!busy) onClose() }} transparent visible>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalScreen}>
+      <Pressable accessibilityLabel={`Close ${title}`} disabled={busy} onPress={onClose} style={styles.modalBackdrop} />
+      <View accessibilityViewIsModal style={styles.modalCard}>
+        <View style={styles.modalHeader}>
+          <View style={{ flex: 1, gap: 7 }}><Text style={styles.pill}>Game mode</Text><Text accessibilityRole="header" style={styles.header}>{title}</Text>{capturedClock ? <Text style={styles.capturedPill}>Time captured at {capturedClock}</Text> : null}</View>
+          <Button disabled={busy} label="Close" onPress={onClose} outline styles={styles} />
+        </View>
+        <ScrollView contentContainerStyle={styles.modalContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }}>{children}</ScrollView>
+      </View>
+    </KeyboardAvoidingView>
+  </Modal>
+}
+
 function ScorerControls({ activeActionId, isOffline, match, onAction, placeholderColor, styles }) {
   const busy = activeActionId.startsWith(`scorer:${match.id}:`)
   const [homeScore, setHomeScore] = useState(String(match.homeScore || 0))
   const [awayScore, setAwayScore] = useState(String(match.awayScore || 0))
+  const [actionSheet, setActionSheet] = useState(null)
   const disabled = isOffline || busy
+  const timerActions = getParentScorerTimerActions(match)
+  const canRecordEvents = getMatchDayLifecycleState(match) === 'playing'
+  const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt)
+  const openAction = (kind, title) => {
+    if (kind === 'score') {
+      setHomeScore(String(match.homeScore || 0))
+      setAwayScore(String(match.awayScore || 0))
+    }
+    const capture = captureCoachMatchDayAction(match, kind, Date.now())
+    setActionSheet({ ...capture, kind, title })
+  }
+  const runTimerAction = (action) => {
+    if (action === 'start') return onAction('start')
+    if (['complete_extra_time', 'extra_time_half_time', 'normal_time_complete', 'start_extra_time', 'start_extra_time_second_half', 'start_penalties'].includes(action)) return onAction('extended', action)
+    return onAction('timer', action)
+  }
+  const submitAndClose = async (action, value) => {
+    const saved = await onAction(action, value)
+    if (saved !== false) setActionSheet(null)
+  }
   return (
     <View style={styles.stack}>
-      <View style={styles.card}>
+      <View style={styles.controllerCard}>
         <Text style={styles.pill}>Accepted Parent scorer</Text>
-        <Text style={styles.cardTitle}>Game mode</Text>
-        <Text style={styles.helper}>Live scorer controls. All Game Day changes are checked by the server. Controls are unavailable offline.</Text>
-        {isOffline ? <Text style={styles.warning}>Connect before changing the clock, score or events.</Text> : null}
-        <View style={styles.actionRow}>
-          {match.timerStatus === 'not_started' ? <Button disabled={disabled} label="Start match" onPress={() => onAction('start')} styles={styles} /> : null}
-          <Button disabled={disabled} label="Start clock" onPress={() => onAction('timer', 'start')} outline styles={styles} />
-          <Button disabled={disabled} label="Pause clock" onPress={() => onAction('timer', 'pause')} outline styles={styles} />
-          <Button disabled={disabled} label="Resume clock" onPress={() => onAction('timer', 'resume')} outline styles={styles} />
-          <Button disabled={disabled} label="Half time" onPress={() => onAction('timer', 'half_time')} outline styles={styles} />
-          <Button disabled={disabled} label="Full time" onPress={() => onAction('timer', 'full_time')} danger styles={styles} />
+        <Text style={styles.cardTitle}>Live controller</Text>
+        <Text style={styles.helper}>Use one action at a time. Goal details open separately so the main match screen stays clear.</Text>
+        {isOffline ? <Text style={styles.warning}>Controls are unavailable offline. Connect before changing the clock, score or events.</Text> : null}
+        <View style={styles.actionGrid}>
+          {canRecordEvents ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Goal" onPress={() => openAction('goal', 'Add goal')} styles={styles} /></View> : null}
+          {timerActions.map((item) => <View key={item.action} style={styles.actionGridItem}><Button danger={['conclude', 'full_time'].includes(item.action)} disabled={disabled} label={item.label} onPress={() => { void runTimerAction(item.action) }} outline={!['conclude', 'full_time'].includes(item.action)} styles={styles} /></View>)}
+          <View style={styles.actionGridItem}><Button disabled={disabled || !canRecordEvents} label="Correct score" onPress={() => openAction('score', 'Correct score')} outline styles={styles} /></View>
+          {activeGoals.length ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Correct goal" onPress={() => openAction('correct-goal', 'Correct or remove a goal')} outline styles={styles} /></View> : null}
+          {match.currentMatchPhase === 'penalties' ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Penalty shootout" onPress={() => openAction('shootout', 'Penalty shootout')} outline styles={styles} /></View> : null}
         </View>
-        <Text style={styles.meta}>Clock: {labelize(match.timerStatus)} | {Math.floor(Number(match.timerElapsedSeconds || 0) / 60)} minutes</Text>
+        {busy ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Saving Game Day change...</Text> : null}
       </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Correct score</Text>
-        <View style={styles.actionRow}>
-          <TextInput accessibilityLabel="Home score" editable={!disabled} keyboardType="number-pad" onChangeText={setHomeScore} style={[styles.field, { minWidth: 96 }]} value={homeScore} />
-          <TextInput accessibilityLabel="Away score" editable={!disabled} keyboardType="number-pad" onChangeText={setAwayScore} style={[styles.field, { minWidth: 96 }]} value={awayScore} />
-        </View>
-        <Button disabled={disabled} label="Save score correction" onPress={() => onAction('score', { awayScore, homeScore })} styles={styles} />
-      </View>
-      <GoalForm disabled={disabled} onAdd={(goal) => onAction('goal', goal)} placeholderColor={placeholderColor} styles={styles} />
-      <GoalCorrectionForm disabled={disabled} events={match.events} onCorrect={(value) => onAction('correct-goal', value)} onVoid={(value) => onAction('void-goal', value)} placeholderColor={placeholderColor} styles={styles} />
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Extended match</Text>
-        <View style={styles.actionRow}>
-          <Button disabled={disabled} label="End normal time" onPress={() => onAction('extended', 'normal_time_complete')} outline styles={styles} />
-          <Button disabled={disabled} label="Start extra time" onPress={() => onAction('extended', 'start_extra_time')} outline styles={styles} />
-          <Button disabled={disabled} label="Extra time half time" onPress={() => onAction('extended', 'extra_time_half_time')} outline styles={styles} />
-          <Button disabled={disabled} label="Start extra time second half" onPress={() => onAction('extended', 'start_extra_time_second_half')} outline styles={styles} />
-          <Button disabled={disabled} label="End extra time" onPress={() => onAction('extended', 'complete_extra_time')} outline styles={styles} />
-          <Button disabled={disabled} label="Start penalties" onPress={() => onAction('extended', 'start_penalties')} outline styles={styles} />
-          <Button disabled={disabled} label="Conclude match" onPress={() => onAction('timer', 'conclude')} danger styles={styles} />
-        </View>
-      </View>
-      <ShootoutControls disabled={disabled} match={match} onRecord={(value) => onAction('shootout', value)} onVoid={(value) => onAction('void-shootout', value)} placeholderColor={placeholderColor} styles={styles} />
-      {busy ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Saving Game Day change...</Text> : null}
+      {actionSheet?.kind === 'goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Add goal"><Text style={styles.body}>The match time was captured when you pressed Goal. Add the details without rushing.</Text><GoalForm disabled={disabled} initialMinute={actionSheet.capturedMinute} onAdd={(goal) => submitAndClose('goal', goal)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
+      {actionSheet?.kind === 'score' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct score"><Text style={styles.body}>Use this only when the displayed score is wrong. The correction remains in the Match Day history.</Text><View style={styles.actionRow}><TextInput accessibilityLabel="Home score" editable={!disabled} keyboardType="number-pad" onChangeText={setHomeScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={homeScore} /><TextInput accessibilityLabel="Away score" editable={!disabled} keyboardType="number-pad" onChangeText={setAwayScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={awayScore} /></View><Button disabled={disabled} label={busy ? 'Saving...' : 'Save score correction'} onPress={() => submitAndClose('score', { awayScore, homeScore })} styles={styles} /></ParentMatchDayActionSheet> : null}
+      {actionSheet?.kind === 'correct-goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct or remove a goal"><GoalCorrectionForm disabled={disabled} events={match.events} onCorrect={(value) => submitAndClose('correct-goal', value)} onVoid={(value) => submitAndClose('void-goal', value)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
+      {actionSheet?.kind === 'shootout' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Penalty shootout"><ShootoutControls disabled={disabled} match={match} onRecord={(value) => submitAndClose('shootout', value)} onVoid={(value) => submitAndClose('void-shootout', value)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
     </View>
   )
 }

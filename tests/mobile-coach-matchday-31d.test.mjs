@@ -218,7 +218,7 @@ test('Match Day keeps the selected fixture stable while cached data refreshes', 
 
 test('Match Day screen exposes operational tools and the final report entry', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
-  for (const marker of ['Squad', 'Volunteers', 'Live', 'Timeline', 'Shootout', 'Correct score', 'Record event']) assert.match(source, new RegExp(marker))
+  for (const marker of ['Squad', 'Volunteers', 'Live', 'Timeline', 'Shootout', 'Correct score', 'Add goal']) assert.match(source, new RegExp(marker))
   assert.match(source, /\{ label: 'Report', value: 'report' \}/)
   assert.match(source, /panel === 'report'/)
   assert.match(source, /function ReportPanel/)

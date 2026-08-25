@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
-import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation } from '../../../src/lib/matchday-final-report.js'
 import {
   buildCoachFinalMatchReport,
   buildCoachMatchDaySquad,
+  captureCoachMatchDayAction,
   createCoachMatchDayEventForm,
   filterCoachMatchDays,
   getCoachMatchDayActions,
@@ -57,6 +58,7 @@ const MATCH_DAY_PANEL_OPTIONS = [
   { label: 'Shootout', value: 'shootout' },
   { label: 'Report', value: 'report' },
 ]
+const MATCH_DAY_EVENT_TITLES = Object.freeze({ goal: 'Add goal', red_card: 'Red card', substitution: 'Substitution', yellow_card: 'Yellow card' })
 
 function normalize(value) { return String(value ?? '').trim() }
 const errorMessage = getCoachFriendlyError
@@ -105,6 +107,11 @@ function createStyles(palette) {
     inputMultiline: { minHeight: 96, textAlignVertical: 'top' },
     meta: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.72)' },
+    actionModalCard: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, gap: 12, maxHeight: '92%', padding: 18 },
+    actionModalContent: { gap: 12, paddingBottom: 12 },
+    actionModalHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
+    actionModalScreen: { flex: 1, justifyContent: 'flex-end' },
+    capturedPill: { alignSelf: 'flex-start', backgroundColor: palette.selected, borderColor: palette.accent, borderRadius: 999, borderWidth: 1, color: palette.selectedForeground, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
     modalCard: { backgroundColor: palette.surfaceRaised, borderColor: palette.warning, borderRadius: 18, borderWidth: 1, gap: 10, marginHorizontal: 20, padding: 18 },
     modalScreen: { flex: 1, justifyContent: 'center' },
     pickerActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
@@ -136,6 +143,21 @@ function Chips({ onChange, options, styles, value }) {
 
 function Field({ label, multiline = false, onChangeText, styles, value }) {
   return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={label} multiline={multiline} onChangeText={onChangeText} style={[styles.input, multiline && styles.inputMultiline]} value={String(value ?? '')} /></View>
+}
+
+function MatchDayActionSheet({ busy, capturedClock, children, onClose, styles, title }) {
+  return <Modal animationType="slide" onRequestClose={() => { if (!busy) onClose() }} transparent visible>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.actionModalScreen}>
+      <Pressable accessibilityLabel={`Close ${title}`} disabled={busy} onPress={onClose} style={styles.modalBackdrop} />
+      <View accessibilityViewIsModal style={styles.actionModalCard}>
+        <View style={styles.actionModalHeader}>
+          <View style={{ flex: 1, gap: 7 }}><Text style={styles.gameModeEyebrow}>Game mode</Text><Text accessibilityRole="header" style={styles.title}>{title}</Text>{capturedClock ? <Text style={styles.capturedPill}>Time captured at {capturedClock}</Text> : null}</View>
+          <Button disabled={busy} label="Close" onPress={onClose} secondary styles={styles} />
+        </View>
+        <ScrollView contentContainerStyle={styles.actionModalContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }}>{children}</ScrollView>
+      </View>
+    </KeyboardAvoidingView>
+  </Modal>
 }
 
 function MatchList({ filter, matches, onOpen, selectedId, setFilter, styles }) {
@@ -225,10 +247,9 @@ function LiveTimeline({ match, styles }) {
 
 function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPrepare, onScore, onTimer, scoreDraft, setScoreDraft, styles }) {
   const [now, setNow] = useState(() => Date.now())
-  const [eventComposerOpen, setEventComposerOpen] = useState(false)
+  const [actionSheet, setActionSheet] = useState(null)
   const [keepAwake, setKeepAwake] = useState(false)
   const [keepAwakeAvailable, setKeepAwakeAvailable] = useState(true)
-  const [scoreCorrectionOpen, setScoreCorrectionOpen] = useState(false)
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [])
   useEffect(() => {
     let mounted = true
@@ -240,14 +261,40 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
   }, [])
   const view = getCoachMatchDayPresentation(match, now)
   const prepareEvent = (eventType) => {
-    onEventForm(createCoachMatchDayEventForm(eventType, match))
-    setEventComposerOpen(true)
+    const pressedAt = Date.now()
+    const form = createCoachMatchDayEventForm(eventType, match, pressedAt)
+    onEventForm(form)
+    setActionSheet({ capturedClock: form.capturedClock, kind: 'event', title: MATCH_DAY_EVENT_TITLES[eventType] || 'Match event' })
+  }
+  const prepareScoreCorrection = () => {
+    const capture = captureCoachMatchDayAction(match, 'score_correction', Date.now())
+    setActionSheet({ capturedClock: capture.capturedClock, kind: 'score', title: 'Correct score' })
   }
   const timerAction = (action) => actions.timerActions.find((item) => item.action === action)
   const runTimer = (action, fallbackLabel) => {
     const item = timerAction(action)
     if (!item) return
+    if (['hydration', 'pause', 'resume'].includes(action)) {
+      void onTimer(action).catch(() => {})
+      return
+    }
     onPrepare({ kind: action === 'start' ? 'start-match' : 'timer', label: item.label || fallbackLabel, run: () => onTimer(action) })
+  }
+  const saveEvent = async () => {
+    try {
+      await onScore('event')
+      setActionSheet(null)
+    } catch {
+      return false
+    }
+  }
+  const saveScore = async () => {
+    try {
+      await onScore('score')
+      setActionSheet(null)
+    } catch {
+      return false
+    }
   }
   const toggleKeepAwake = async (enabled) => {
     try {
@@ -288,10 +335,21 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
         {timerAction('start') ? <View style={styles.quickAction}><Button disabled={busy} label="Start match" onPress={() => runTimer('start', 'Start match')} styles={styles} /></View> : null}
         {timerAction('resume') ? <View style={styles.quickAction}><Button disabled={busy} label="Resume" onPress={() => runTimer('resume', 'Resume')} secondary styles={styles} /></View> : null}
       </View>
-      <Button label={scoreCorrectionOpen ? 'Hide score correction' : 'Correct score'} onPress={() => setScoreCorrectionOpen((current) => !current)} secondary styles={styles} />
-      {scoreCorrectionOpen ? <View style={styles.card}><Text style={styles.cardTitle}>Correct score</Text><View style={styles.row}><Field label="Home" onChangeText={(value) => setScoreDraft({ ...scoreDraft, home: value })} styles={styles} value={scoreDraft.home} /><Field label="Away" onChangeText={(value) => setScoreDraft({ ...scoreDraft, away: value })} styles={styles} value={scoreDraft.away} /></View><Button disabled={busy || !actions.canRecordEvents} label="Review score correction" onPress={() => onPrepare({ kind: 'score', label: 'Save score correction', run: onScore })} secondary styles={styles} /></View> : null}
+      <Button disabled={busy || !actions.canRecordEvents} label="Correct score" onPress={prepareScoreCorrection} secondary styles={styles} />
     </View>
-    {eventComposerOpen ? <View style={styles.card}><View style={styles.sectionHeader}><Text style={styles.cardTitle}>Record event</Text><Button label="Close" onPress={() => setEventComposerOpen(false)} secondary styles={styles} /></View><Chips onChange={(value) => onEventForm(createCoachMatchDayEventForm(value, match))} options={[{ label: 'Goal', value: 'goal' }, { label: 'Yellow card', value: 'yellow_card' }, { label: 'Red card', value: 'red_card' }, { label: 'Substitution', value: 'substitution' }]} styles={styles} value={eventForm.eventType} /><Chips onChange={(value) => onEventForm({ ...eventForm, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={eventForm.teamSide} /><Field label="Minute" onChangeText={(value) => onEventForm({ ...eventForm, minute: value })} styles={styles} value={eventForm.minute} />{eventForm.eventType === 'goal' ? <><Field label="Scorer" onChangeText={(value) => onEventForm({ ...eventForm, scorerName: value })} styles={styles} value={eventForm.scorerName} /><Field label="Scorer shirt number" onChangeText={(value) => onEventForm({ ...eventForm, scorerShirtNumber: value })} styles={styles} value={eventForm.scorerShirtNumber} /><Field label="Assist" onChangeText={(value) => onEventForm({ ...eventForm, assistName: value })} styles={styles} value={eventForm.assistName} /><View style={styles.row}><Text style={styles.fieldLabel}>Penalty</Text><Switch accessibilityLabel="Penalty" onValueChange={(value) => onEventForm({ ...eventForm, isPenaltyGoal: value })} value={eventForm.isPenaltyGoal} /></View></> : <><Field label={eventForm.eventType === 'substitution' ? 'Player off' : 'Player'} onChangeText={(value) => onEventForm({ ...eventForm, playerName: value })} styles={styles} value={eventForm.playerName} />{eventForm.eventType === 'substitution' ? <Field label="Player on" onChangeText={(value) => onEventForm({ ...eventForm, playerOnName: value })} styles={styles} value={eventForm.playerOnName} /> : null}</>}<Field label="Notes" multiline onChangeText={(value) => onEventForm({ ...eventForm, notes: value })} styles={styles} value={eventForm.notes} /><Button disabled={busy || !actions.canRecordEvents} label="Review event" onPress={() => onPrepare({ kind: 'event', label: `Record ${eventForm.eventType.replaceAll('_', ' ')}`, run: () => onScore('event') })} styles={styles} /></View> : null}
+    {actionSheet?.kind === 'event' ? <MatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
+      <Text style={styles.body}>The match time was captured when you pressed the action. Add the details without rushing.</Text>
+      <Chips onChange={(value) => onEventForm({ ...eventForm, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={eventForm.teamSide} />
+      <Field label="Match minute" onChangeText={(value) => onEventForm({ ...eventForm, minute: value })} styles={styles} value={eventForm.minute} />
+      {eventForm.eventType === 'goal' ? <><Field label="Scorer" onChangeText={(value) => onEventForm({ ...eventForm, scorerName: value })} styles={styles} value={eventForm.scorerName} /><Field label="Scorer shirt number" onChangeText={(value) => onEventForm({ ...eventForm, scorerShirtNumber: value })} styles={styles} value={eventForm.scorerShirtNumber} /><Field label="Assist" onChangeText={(value) => onEventForm({ ...eventForm, assistName: value })} styles={styles} value={eventForm.assistName} /><View style={styles.row}><Text style={styles.fieldLabel}>Penalty</Text><Switch accessibilityLabel="Penalty" onValueChange={(value) => onEventForm({ ...eventForm, isPenaltyGoal: value })} value={eventForm.isPenaltyGoal} /></View></> : <><Field label={eventForm.eventType === 'substitution' ? 'Player off' : 'Player'} onChangeText={(value) => onEventForm({ ...eventForm, playerName: value })} styles={styles} value={eventForm.playerName} />{eventForm.eventType === 'substitution' ? <Field label="Player on" onChangeText={(value) => onEventForm({ ...eventForm, playerOnName: value })} styles={styles} value={eventForm.playerOnName} /> : null}</>}
+      <Field label="Notes" multiline onChangeText={(value) => onEventForm({ ...eventForm, notes: value })} styles={styles} value={eventForm.notes} />
+      <Button disabled={busy || !actions.canRecordEvents} label={busy ? 'Saving...' : `Record ${eventForm.eventType.replaceAll('_', ' ')}`} onPress={saveEvent} styles={styles} />
+    </MatchDayActionSheet> : null}
+    {actionSheet?.kind === 'score' ? <MatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct score">
+      <Text style={styles.body}>Use this only when the displayed score is wrong. The correction remains in the Match Day audit history.</Text>
+      <View style={styles.row}><View style={{ flex: 1 }}><Field label="Home" onChangeText={(value) => setScoreDraft({ ...scoreDraft, home: value })} styles={styles} value={scoreDraft.home} /></View><View style={{ flex: 1 }}><Field label="Away" onChangeText={(value) => setScoreDraft({ ...scoreDraft, away: value })} styles={styles} value={scoreDraft.away} /></View></View>
+      <Button disabled={busy || !actions.canRecordEvents} label={busy ? 'Saving...' : 'Save score correction'} onPress={saveScore} styles={styles} />
+    </MatchDayActionSheet> : null}
     <LiveTimeline match={match} styles={styles} />
   </View>
 }
