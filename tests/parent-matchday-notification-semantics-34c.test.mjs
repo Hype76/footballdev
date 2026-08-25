@@ -43,7 +43,7 @@ const cases = [
   { type: 'unknown_event', title: 'Match update' },
 ]
 
-test('Minimal and Detailed Match Day copy follows event taxonomy without private person data', () => {
+test('Minimal Match Day copy stays private while detailed live-event copy identifies recorded players', () => {
   for (const scenario of cases) {
     const copy = buildParentMatchDayNotificationCopy({
       match: { ...match, ...(scenario.override || {}) },
@@ -54,10 +54,14 @@ test('Minimal and Detailed Match Day copy follows event taxonomy without private
     assert.equal(copy.title, scenario.title)
     assert.match(copy.minimalBody, /FP TEST U16 v Riverside Juniors/)
     assert.doesNotMatch(copy.minimalBody, /2\s*-\s*1/)
-    assert.doesNotMatch(`${copy.title} ${copy.minimalBody} ${copy.detailedBody}`, /Private Player Name|Another Private Name|Opposition Player Name|Private correction note/)
+    assert.doesNotMatch(`${copy.title} ${copy.minimalBody}`, /Private Player Name|Another Private Name|Opposition Player Name|Private correction note/)
+
+    if (['goal', 'event'].includes(scenario.type) && scenario.event?.event_type !== 'water_break') {
+      assert.match(copy.detailedBody, /Private Player Name|Opposition Player Name/)
+    }
 
     if (scenario.includeScore !== false) {
-      assert.match(copy.detailedBody, /Score 2\s*-\s*1/)
+      assert.match(copy.detailedBody, /2\s*-\s*1/)
     } else {
       assert.doesNotMatch(copy.detailedBody, /Score 2\s*-\s*1/)
     }

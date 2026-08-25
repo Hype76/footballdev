@@ -177,6 +177,58 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
   return normalizeCoachCalendarEvent(data)
 }
 
+async function callCoachCalendarChangeNotifications(payload) {
+  const accessToken = await getAccessToken()
+  if (!config.apiBaseUrl || !accessToken) throw new Error('Sign in again before notifying families.')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/calendar-change-notifications'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!ok || result?.success === false) throw new Error(result?.message || 'Calendar change notifications could not be sent.')
+  return result
+}
+
+export async function prepareCoachCalendarChangeNotification(event, changeAction) {
+  if (!event?.sourceId || event.sourceType !== 'calendar_event') {
+    throw new Error('Open Match Day or Sessions to change this item.')
+  }
+  return callCoachCalendarChangeNotifications({
+    changeAction,
+    operation: 'prepare',
+    requestToken: Crypto.randomUUID(),
+    sourceId: event.sourceId,
+    sourceType: 'calendar',
+  })
+}
+
+export async function commitCoachCalendarChangeNotification(preparationId) {
+  return callCoachCalendarChangeNotifications({ operation: 'commit', preparationId })
+}
+
+export async function cancelCoachCalendarEvent(user, event) {
+  assertCoachOperationalMutation(user)
+  if (!event?.sourceId || event.sourceType !== 'calendar_event' || event.canEdit === false) {
+    throw new Error('This event cannot be cancelled here.')
+  }
+  const now = new Date().toISOString()
+  const { error } = await supabase.from('calendar_events')
+    .update({ ...getCoachEntryIdentity(user, 'updated'), cancelled_at: now, updated_at: now, updated_by: user.id })
+    .eq('id', event.sourceId).eq('club_id', user.clubId)
+  if (error) throw error
+  await recordCoachOperationalAudit({ action: 'calendar_event_cancelled', entityId: event.sourceId, entityType: 'calendar_event', metadata: { title: event.title }, user })
+}
+
+export async function deleteCoachCalendarEvent(user, event) {
+  assertCoachOperationalMutation(user)
+  if (!event?.sourceId || event.sourceType !== 'calendar_event' || event.canEdit === false) {
+    throw new Error('This event cannot be deleted here.')
+  }
+  const { error } = await supabase.from('calendar_events').delete().eq('id', event.sourceId).eq('club_id', user.clubId)
+  if (error) throw error
+  await recordCoachOperationalAudit({ action: 'calendar_event_deleted', entityId: event.sourceId, entityType: 'calendar_event', metadata: { title: event.title }, user })
+}
+
 async function processCoachCalendarNotification(user, commandId) {
   const accessToken = await getAccessToken()
   if (!accessToken) throw new Error('Sign in again before notifying parents.')

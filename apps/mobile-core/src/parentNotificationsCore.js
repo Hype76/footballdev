@@ -9,6 +9,7 @@ export const parentNotificationIntentTypes = Object.freeze([
   'parent_poll',
   'parent_chat',
   'matchday_update',
+  'calendar_update',
 ])
 
 const parentPushFailureStages = new Set(['api', 'device', 'expo', 'local', 'permission'])

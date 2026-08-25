@@ -47,11 +47,13 @@ export function ConfirmModal({
   onCancel,
   onClose,
   onConfirm,
+  onSecondaryAction,
   overlayZIndexClassName = 'z-[80]',
   reasonLabel = 'Reason',
   reasonPlaceholder = '',
   requireReason = false,
   requirePassword = false,
+  secondaryActionLabel = '',
   title = 'Confirm action',
 }) {
   const [password, setPassword] = useState('')
@@ -170,6 +172,22 @@ export function ConfirmModal({
 
     try {
       await onConfirm(nextPassword, nextReason)
+    } catch (error) {
+      console.error(error)
+      setValidationError(error.message || 'This action could not be completed.')
+    } finally {
+      submittingRef.current = false
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleSecondaryAction = async () => {
+    if (!onSecondaryAction || isBusy || isSubmitting || submittingRef.current) return
+    setValidationError('')
+    submittingRef.current = true
+    setIsSubmitting(true)
+    try {
+      await onSecondaryAction()
     } catch (error) {
       console.error(error)
       setValidationError(error.message || 'This action could not be completed.')
@@ -333,6 +351,17 @@ export function ConfirmModal({
               {cancelLabel}
             </button>
           )}
+          {secondaryActionLabel && onSecondaryAction ? (
+            <button
+              type="button"
+              onClick={handleSecondaryAction}
+              disabled={isActionBusy}
+              title={cancelDisabledReason}
+              className={cancelButtonClassName}
+            >
+              {secondaryActionLabel}
+            </button>
+          ) : null}
             <button
               type="submit"
               disabled={isActionBusy || confirmDisabled}

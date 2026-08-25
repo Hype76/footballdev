@@ -50,8 +50,41 @@ export function resolveCalendarEmailAccent(value) {
   return ACCENT_COLOURS[normalizedValue] || ACCENT_COLOURS.green
 }
 
+export function buildCalendarNotificationLocalDateTime(dateValue, timeValue, timeZone = 'Europe/London') {
+  const date = normalizeText(dateValue)
+  const time = normalizeText(timeValue)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return ''
+  if (!time) return date
+  if (!/^\d{2}:\d{2}(?::\d{2})?$/.test(time)) return ''
+
+  const normalizedTime = time.length === 5 ? `${time}:00` : time
+  const probe = new Date(`${date}T${normalizedTime}Z`)
+  if (Number.isNaN(probe.getTime())) return ''
+
+  let zoneName = ''
+  try {
+    zoneName = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      timeZone,
+      timeZoneName: 'longOffset',
+    }).formatToParts(probe).find((part) => part.type === 'timeZoneName')?.value || ''
+  } catch {
+    return ''
+  }
+  const offset = zoneName === 'GMT' ? 'Z' : zoneName.match(/^GMT([+-]\d{2}:\d{2})$/)?.[1]
+  return offset ? `${date}T${normalizedTime}${offset}` : ''
+}
+
 export function formatCalendarNotificationDateTime(value) {
   const normalizedValue = normalizeText(value)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    const parsedDateOnly = new Date(`${normalizedValue}T12:00:00Z`)
+    if (Number.isNaN(parsedDateOnly.getTime())) return 'Date to be confirmed'
+    return new Intl.DateTimeFormat('en-GB', {
+      dateStyle: 'full',
+      timeZone: 'UTC',
+    }).format(parsedDateOnly)
+  }
   const parsedDate = new Date(normalizedValue)
 
   if (!normalizedValue || Number.isNaN(parsedDate.getTime())) {
@@ -85,7 +118,10 @@ export function buildCalendarNotificationHtml({
   themeAccent = '',
   trialInvitation = false,
 }) {
-  const resolvedAction = normalizeText(action).toLowerCase() === 'update' ? 'update' : 'creation'
+  const normalizedAction = normalizeText(action).toLowerCase()
+  const resolvedAction = ['update', 'rescheduled', 'cancelled', 'deleted'].includes(normalizedAction)
+    ? normalizedAction
+    : 'creation'
   const resolvedAccent = resolveCalendarEmailAccent(themeAccent)
   const resolvedClubName = cleanEmailCopy(clubName, 'Your club')
   const resolvedTeamName = cleanEmailCopy(teamName, 'Club event')
@@ -110,7 +146,17 @@ export function buildCalendarNotificationHtml({
     : isTraining
       ? 'This Training session has been shared with you. No attendance response has been requested.'
       : 'This event has been shared with you for information. No attendance response has been requested.'
-  const actionLabel = trialInvitation ? 'Respond to invitation' : 'View event details'
+  const actionLabel = trialInvitation ? 'Respond to invitation' : 'View calendar'
+  const changeSummary = resolvedAction === 'rescheduled'
+    ? `${resolvedPlayerName}'s event has been rescheduled by ${resolvedClubName}.`
+    : resolvedAction === 'cancelled'
+      ? `${resolvedPlayerName}'s event has been cancelled by ${resolvedClubName}.`
+      : resolvedAction === 'deleted'
+        ? `${resolvedPlayerName}'s event has been removed by ${resolvedClubName}.`
+        : resolvedAction === 'update'
+          ? `${resolvedPlayerName}'s event details have been updated by ${resolvedClubName}.`
+          : `${resolvedPlayerName} has been invited to an event from ${resolvedClubName}.`
+  const showEventResponseCopy = !['cancelled', 'deleted'].includes(resolvedAction)
 
   return `
     <div style="font-family:Arial,sans-serif;color:#142018;background:#ffffff;padding:24px;line-height:1.55;max-width:680px;margin:0 auto;color-scheme:light;">
@@ -118,7 +164,7 @@ export function buildCalendarNotificationHtml({
       <p style="margin:0 0 6px;color:${escapeHtml(resolvedAccent)};font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(resolvedClubName)}</p>
       <h1 style="margin:0 0 4px;color:#142018;font-size:25px;line-height:1.25;">${escapeHtml(resolvedTitle)}</h1>
       <p style="margin:0 0 22px;color:#52635a;font-size:15px;font-weight:700;">${escapeHtml(resolvedTeamName)}</p>
-      <p style="margin:0 0 16px;color:#142018;font-size:16px;">Hi ${escapeHtml(resolvedParentName)}, ${escapeHtml(resolvedPlayerName)} ${resolvedAction === 'update' ? 'has updated event details' : 'has been invited to an event'} from ${escapeHtml(resolvedClubName)}.</p>
+      <p style="margin:0 0 16px;color:#142018;font-size:16px;">Hi ${escapeHtml(resolvedParentName)}, ${escapeHtml(changeSummary)}</p>
       <div style="margin:0 0 22px;padding:18px;border:1px solid #d8e5dc;border-radius:12px;background:#f7faf8;">
         <p style="margin:0 0 8px;color:#52635a;font-size:12px;font-weight:800;text-transform:uppercase;">Event details</p>
         <p style="margin:0 0 7px;color:#142018;font-size:14px;"><strong>Type:</strong> ${escapeHtml(resolvedType)}</p>
@@ -127,7 +173,7 @@ export function buildCalendarNotificationHtml({
         ${resolvedLocation ? `<p style="margin:0 0 7px;color:#142018;font-size:14px;"><strong>Location:</strong> ${escapeHtml(resolvedLocation)}</p>` : ''}
         ${resolvedNotes ? `<p style="margin:0;color:#142018;font-size:14px;"><strong>Notes:</strong> ${escapeHtml(resolvedNotes)}</p>` : ''}
       </div>
-      <p style="margin:0 0 18px;color:#3f5147;font-size:14px;">${escapeHtml(responseCopy)}</p>
+      ${showEventResponseCopy ? `<p style="margin:0 0 18px;color:#3f5147;font-size:14px;">${escapeHtml(responseCopy)}</p>` : ''}
       ${resolvedActionUrl ? `<p style="margin:0 0 22px;"><a href="${escapeHtml(resolvedActionUrl)}" style="display:inline-block;background:${escapeHtml(resolvedAccent)};color:#ffffff;text-decoration:none;font-weight:800;padding:12px 18px;border-radius:10px;">${escapeHtml(actionLabel)}</a></p>` : ''}
       <p style="margin:0;color:#52635a;font-size:13px;">Sent by ${escapeHtml(resolvedClubName)} for ${escapeHtml(resolvedTeamName)}.</p>
       <div style="border-top:1px solid #e7ece3;margin-top:24px;padding-top:14px;">

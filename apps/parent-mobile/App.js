@@ -1942,6 +1942,7 @@ function getNotificationTypeLabel(intentType) {
     poll_results: 'RESULT',
     resource_shared: 'FILE',
     training_update: 'TRAINING',
+    calendar_update: 'CALENDAR',
   })[normalizeText(intentType).toLowerCase()] || 'UPDATE'
 }
 
@@ -1954,6 +1955,7 @@ function getNotificationTypeIcon(intentType) {
     poll_results: 'emoji-events',
     resource_shared: 'folder',
     training_update: 'event-available',
+    calendar_update: 'event-repeat',
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 

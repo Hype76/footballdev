@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Keyboard, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
@@ -12,7 +12,15 @@ import {
   formatCoachCalendarFormDate,
   shiftCoachCalendarMonth,
 } from '../../mobile-core/src/coachCalendarCore'
-import { getCoachCalendarResources, saveCoachCalendarEvent, saveCoachTrainingInvitation } from '../../mobile-core/src/coachCalendarData'
+import {
+  cancelCoachCalendarEvent,
+  commitCoachCalendarChangeNotification,
+  deleteCoachCalendarEvent,
+  getCoachCalendarResources,
+  prepareCoachCalendarChangeNotification,
+  saveCoachCalendarEvent,
+  saveCoachTrainingInvitation,
+} from '../../mobile-core/src/coachCalendarData'
 import {
   coachPlayerFormFromPlayer,
   filterCoachPlayers,
@@ -285,6 +293,18 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     setForm({ ...nextForm, ...(!nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}) })
     onQuickActionHandled?.()
   }, [context, onQuickActionHandled, quickAction, savedLocations])
+  const chooseNotification = (actionLabel, itemTitle) => new Promise((resolve) => {
+    Alert.alert(
+      `Notify everyone about this ${actionLabel}?`,
+      `${itemTitle || 'This Calendar item'} will be ${actionLabel}. Would you like to notify everyone involved?`,
+      [
+        { onPress: () => resolve(null), style: 'cancel', text: 'Go back' },
+        { onPress: () => resolve(false), text: `Do not notify` },
+        { onPress: () => resolve(true), text: 'Notify everyone' },
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    )
+  })
   const save = async () => {
     Keyboard.dismiss()
     setSaving(true)
@@ -292,14 +312,62 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     setFormError('')
     setSaveConfirmation('')
     try {
+      const original = selected ? coachCalendarFormFromEvent(selected, context) : null
+      const isRescheduled = Boolean(original && (
+        original.date !== form?.date
+        || original.startTime !== form?.startTime
+        || original.endTime !== form?.endTime
+      ))
+      const notifyEveryone = isRescheduled ? await chooseNotification('rescheduled', selected?.title) : false
+      if (isRescheduled && notifyEveryone === null) return
+      const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled') : null
       await saveCoachCalendarEvent(user, form, selected)
-      setSaveConfirmation(form?.eventType === 'match' ? 'Match saved.' : 'Event saved.')
+      let notificationMessage = ''
+      if (preparation?.preparationId) {
+        try {
+          const delivery = await commitCoachCalendarChangeNotification(preparation.preparationId)
+          notificationMessage = ` ${delivery.recipientCount || 0} involved contact${delivery.recipientCount === 1 ? '' : 's'} notified.`
+        } catch (notificationError) {
+          notificationMessage = ` The change was saved, but notifications could not be completed: ${message(notificationError, 'try again from the web Calendar.')}`
+        }
+      }
+      setSaveConfirmation(`${form?.eventType === 'match' ? 'Match saved.' : 'Event saved.'}${notificationMessage}`)
       setForm(null)
       setSelected(null)
       await load()
     } catch (saveError) {
       setFormError(message(saveError, 'Calendar event could not be saved.'))
     } finally { setSaving(false) }
+  }
+  const changeEventState = async (changeAction) => {
+    if (!selected) return
+    const actionLabel = changeAction === 'cancelled' ? 'cancelled' : 'deleted'
+    const notifyEveryone = await chooseNotification(actionLabel, selected.title)
+    if (notifyEveryone === null) return
+    setSaving(true)
+    setError('')
+    setSaveConfirmation('')
+    try {
+      const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, changeAction) : null
+      if (changeAction === 'cancelled') await cancelCoachCalendarEvent(user, selected)
+      else await deleteCoachCalendarEvent(user, selected)
+      let notificationMessage = ''
+      if (preparation?.preparationId) {
+        try {
+          const delivery = await commitCoachCalendarChangeNotification(preparation.preparationId)
+          notificationMessage = ` ${delivery.recipientCount || 0} involved contact${delivery.recipientCount === 1 ? '' : 's'} notified.`
+        } catch (notificationError) {
+          notificationMessage = ` The change was saved, but notifications could not be completed: ${message(notificationError, 'try again from the web Calendar.')}`
+        }
+      }
+      setSelected(null)
+      setSaveConfirmation(`Event ${actionLabel}.${notificationMessage}`)
+      await load()
+    } catch (changeError) {
+      setError(message(changeError, `Calendar event could not be ${actionLabel}.`))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -420,7 +488,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
               {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}
-              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
+              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
             </Pressable>
           ))}
         </View>

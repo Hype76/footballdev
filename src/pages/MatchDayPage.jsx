@@ -18,6 +18,10 @@ import {
 } from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
+import {
+  commitCalendarChangeNotification,
+  prepareCalendarChangeNotification,
+} from '../lib/calendar-change-notifications.js'
 import { getMatchLocationSummary } from '../lib/match-location.js'
 import {
   EMAIL_TEMPLATE_AUDIENCES,
@@ -3198,6 +3202,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         message: `${getMatchStatusLabel(status)} saved.`,
       })
       showToast({ title: 'Match updated', message: `${getMatchStatusLabel(status)} is now showing.` })
+      return savedMatch
     } catch (error) {
       console.error(error)
       const message = error.message || 'Match status could not be updated.'
@@ -3207,6 +3212,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         tone: 'error',
         message,
       })
+      return null
     } finally {
       setActiveMatchId('')
     }
@@ -3252,6 +3258,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         `Current score: ${getMatchDayDisplayScore(match)}`,
         `Current period: ${getMatchPeriodLabel(match)}`,
       ],
+      notificationChoice: status === 'cancelled',
     })
   }
 
@@ -3328,7 +3335,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     await saveMatchStatus(match, status)
   }
 
-  const handleConfirmStatusAction = async () => {
+  const handleConfirmStatusAction = async (notifyEveryone = true) => {
     if (!pendingStatusAction) {
       return
     }
@@ -3336,6 +3343,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     const match = matches.find((candidate) => candidate.id === pendingStatusAction.matchId)
     const status = pendingStatusAction.status
 
+    const notificationChoice = pendingStatusAction.notificationChoice === true
     setPendingStatusAction(null)
 
     if (!match) {
@@ -3347,7 +3355,25 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       setGameModeMatchId(match.id)
     }
 
-    await saveMatchStatus(match, status)
+    let preparation = null
+    try {
+      if (notificationChoice && notifyEveryone) {
+        preparation = await prepareCalendarChangeNotification({
+          changeAction: 'cancelled',
+          requestToken: crypto.randomUUID(),
+          sourceId: match.id,
+          sourceType: 'match-day',
+        })
+      }
+      const savedMatch = await saveMatchStatus(match, status)
+      if (preparation?.preparationId && savedMatch) {
+        const delivery = await commitCalendarChangeNotification(preparation.preparationId)
+        showToast({ title: 'People notified', message: `${delivery.recipientCount || 0} involved contact${delivery.recipientCount === 1 ? '' : 's'} received the cancellation update.` })
+      }
+    } catch (notificationError) {
+      setErrorMessage(notificationError.message || 'The fixture change notification could not be completed.')
+      showToast({ title: 'Notification not completed', message: notificationError.message || 'The fixture change notification could not be completed.', tone: 'error' })
+    }
   }
 
   const handleGameModeTimerAction = async (match, action) => {
@@ -4834,7 +4860,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       />
 
       <ConfirmModal
-        confirmLabel={pendingStatusAction?.confirmLabel || 'Confirm'}
+        confirmLabel={pendingStatusAction?.notificationChoice ? 'Notify everyone' : pendingStatusAction?.confirmLabel || 'Confirm'}
         isBusy={Boolean(activeMatchId)}
         isOpen={Boolean(pendingStatusAction)}
         items={pendingStatusAction?.items || []}
@@ -4842,7 +4868,9 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         message={pendingStatusAction?.message || ''}
         title={pendingStatusAction?.title || 'Confirm match status'}
         onCancel={() => setPendingStatusAction(null)}
-        onConfirm={handleConfirmStatusAction}
+        secondaryActionLabel={pendingStatusAction?.notificationChoice ? 'Do not notify' : ''}
+        onSecondaryAction={pendingStatusAction?.notificationChoice ? () => handleConfirmStatusAction(false) : undefined}
+        onConfirm={() => handleConfirmStatusAction(true)}
       />
 
       <StartMatchConfirmModal

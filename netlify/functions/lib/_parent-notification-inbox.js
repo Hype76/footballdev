@@ -20,6 +20,7 @@ function sourceId(data = {}) {
     data.resourceId,
     data.invitationId,
     data.eventId,
+    data.calendarChangeId,
   ].map(normalizeText).find(Boolean)
 
   if (direct) return direct

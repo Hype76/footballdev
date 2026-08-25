@@ -42,6 +42,10 @@ import {
   writeStoredSessionWorkspace,
 } from '../lib/session-page-utils.js'
 import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
+import {
+  commitCalendarChangeNotification,
+  prepareCalendarChangeNotification,
+} from '../lib/calendar-change-notifications.js'
 import { getMatchDayDisplayName } from '../lib/matchday-display.js'
 import { buildEventResponsePlayerNavigation } from '../lib/domain/player-profile-navigation.js'
 import { getManageableEventPlayerIds } from '../lib/domain/event-player-selection.js'
@@ -502,6 +506,32 @@ function hasRecurringCalendarDateTimeChange({ event, form } = {}) {
     || sourceEndTime !== formatTimeInput(form?.endTime)
 }
 
+function hasCalendarDateTimeChange({ event, form } = {}) {
+  if (!event?.sourceId) return false
+  if (event.sourceType === 'assessment-reminder') {
+    return formatDateInput(event?.data?.reminder?.metadata?.dueDate || event.date) !== formatDateInput(form?.date)
+  }
+  const source = event.data || {}
+  const sourceDate = event.sourceType === 'match-day'
+    ? formatDateInput(source.matchDate || event.date)
+    : event.sourceType === 'session'
+      ? formatDateInput(source.sessionDate || event.date)
+      : formatDateInput(source.startsAt || event.date)
+  const sourceStartTime = event.sourceType === 'match-day'
+    ? formatTimeInput(source.kickoffTime)
+    : event.sourceType === 'session'
+      ? formatTimeInput(source.startTime)
+      : formatTimeInput(source.startsAt)
+  const sourceEndTime = event.sourceType === 'session'
+    ? formatTimeInput(source.endTime)
+    : event.sourceType === 'calendar'
+      ? formatTimeInput(source.endsAt)
+      : formatTimeInput(form?.endTime)
+  return sourceDate !== formatDateInput(form?.date)
+    || sourceStartTime !== formatTimeInput(form?.startTime)
+    || (event.sourceType !== 'match-day' && sourceEndTime !== formatTimeInput(form?.endTime))
+}
+
 function getLegacyRecurringSessionSeries({ event, sessions = [] } = {}) {
   if (!isLegacyRecurringSessionEvent(event)) {
     return []
@@ -953,6 +983,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const [calendarModal, setCalendarModal] = useState(null)
   const [calendarForm, setCalendarForm] = useState(() => getDefaultCalendarForm())
   const [calendarValidation, setCalendarValidation] = useState(null)
+  const [calendarChangePrompt, setCalendarChangePrompt] = useState(null)
   const [calendarPlayerCommunicationMode, setCalendarPlayerCommunicationMode] = useState(EVENT_PLAYER_COMMUNICATION_MODES.none)
   const [calendarPlayerReview, setCalendarPlayerReview] = useState(null)
   const [calendarPlayerActionError, setCalendarPlayerActionError] = useState('')
@@ -995,6 +1026,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const recordingStartedAtRef = useRef(0)
   const currentSessionRef = useRef(null)
   const calendarDeepLinkRequestRef = useRef('')
+  const calendarChangeDecisionRef = useRef(null)
   const userScopeKey = user
     ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}:${user.activeTeamName || ''}`
     : ''
@@ -2994,14 +3026,60 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     }
   }
 
+  const resumeCalendarChange = (notifyEveryone) => {
+    const prompt = calendarChangePrompt
+    if (!prompt) return
+    calendarChangeDecisionRef.current = { key: prompt.key, notifyEveryone: notifyEveryone === true }
+    setCalendarChangePrompt(null)
+    if (prompt.operation === 'save') {
+      void handleCalendarSave({ preventDefault() {} })
+    } else if (prompt.operation === 'delete') {
+      void handleCalendarDelete()
+    } else if (prompt.operation === 'delete-session') {
+      setDeleteSessionTarget({ ...prompt.deleteTarget, notifyEveryone: notifyEveryone === true })
+    }
+  }
+
+  const finishCalendarChangeNotification = async (preparationId, updateLabel) => {
+    if (!preparationId) return false
+    try {
+      const delivery = await commitCalendarChangeNotification(preparationId)
+      showToast({
+        title: 'People notified',
+        message: `${delivery.recipientCount || 0} involved contact${delivery.recipientCount === 1 ? '' : 's'} received the ${updateLabel} update.`,
+      })
+      return true
+    } catch (notificationError) {
+      console.error(notificationError)
+      showToast({
+        title: 'Change saved, notification incomplete',
+        message: notificationError.message || 'The change was saved, but notifications could not be completed.',
+        tone: 'error',
+      })
+      return false
+    }
+  }
+
   const handleCalendarSave = async (event) => {
     event.preventDefault()
+    const activeEvent = calendarModal?.event || null
+    const sourceType = activeEvent?.sourceType || ''
+    const isRescheduled = hasCalendarDateTimeChange({ event: activeEvent, form: calendarForm })
+    const changeKey = activeEvent?.sourceId ? `save:${activeEvent.sourceType}:${activeEvent.sourceId}:rescheduled` : ''
+    const decision = calendarChangeDecisionRef.current?.key === changeKey ? calendarChangeDecisionRef.current : null
+    if (isRescheduled && !decision) {
+      setCalendarChangePrompt({
+        action: 'rescheduled',
+        key: changeKey,
+        operation: 'save',
+        title: activeEvent.title || calendarForm.title || 'Calendar item',
+      })
+      return
+    }
+    calendarChangeDecisionRef.current = null
     setIsSaving(true)
     setErrorMessage('')
     setCalendarValidation(null)
-
-    const activeEvent = calendarModal?.event || null
-    const sourceType = activeEvent?.sourceType || ''
     const safeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, calendarForm.teamId)
     const teamName = getCalendarTeamName(safeTeamId)
     const isTraining = calendarForm.eventType === 'training'
@@ -3012,8 +3090,17 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     let coreSavedEvent = null
     let coreSavedCalendarItems = null
     let coreSavedMatchDays = null
+    let changeNotificationPreparation = null
 
     try {
+      if (isRescheduled && decision?.notifyEveryone) {
+        changeNotificationPreparation = await prepareCalendarChangeNotification({
+          changeAction: 'rescheduled',
+          requestToken: crypto.randomUUID(),
+          sourceId: activeEvent.sourceId,
+          sourceType: activeEvent.sourceType,
+        })
+      }
       if (sourceType === 'assessment-reminder') {
         const dueDate = formatDateInput(calendarForm.date)
         const evaluation = activeEvent?.data?.evaluation || {}
@@ -3049,6 +3136,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         setCalendarForm(getDefaultCalendarForm())
         setCalendarValidation(null)
         setErrorMessage('')
+        await finishCalendarChangeNotification(changeNotificationPreparation?.preparationId, 'reschedule')
         showToast({
           title: 'Development review rescheduled',
           message: `${activeEvent.title || 'Development review'} moved to ${dueDate}.`,
@@ -3116,7 +3204,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         const sharedAllTeamParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_team_parents'
         const sharedAllClubParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_club_parents'
         const notificationPlayers = buildCalendarNotificationPlayers(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers)
-        const notifyRequested = calendarForm.notifyInvitedFamilies && (sharedInvolvedPlayers || sharedAllTeamParents || sharedAllClubParents)
+        const notifyRequested = calendarForm.notifyInvitedFamilies
+          && !isRescheduled
+          && (sharedInvolvedPlayers || sharedAllTeamParents || sharedAllClubParents)
 
         if (calendarEventId || matchDayId) {
           const eventId = calendarEventId || matchDayId
@@ -3469,6 +3559,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         })
       }
 
+      await finishCalendarChangeNotification(changeNotificationPreparation?.preparationId, 'reschedule')
+
       setCalendarModal(null)
       setCalendarForm(getDefaultCalendarForm())
       setCalendarValidation(null)
@@ -3521,22 +3613,36 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
 
-    const deleteMessage = activeEvent.sourceType === 'match-day'
-      ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar.'
-      : activeEvent.sourceType === 'session'
-        ? 'Delete or remove this session from the calendar? Player records stay in history when a completed session is removed.'
-        : requiresRepeatDeleteScope
-          ? 'Delete this entire repeat series? This cannot be undone.'
-        : 'Delete this calendar event? This cannot be undone.'
-
-    if (!window.confirm(deleteMessage)) {
+    const activeSessionAssessmentCount = activeEvent.sourceType === 'session'
+      ? getAssessmentCountForSession(evaluations, activeEvent.data)
+      : 0
+    const changeAction = activeEvent.sourceType === 'match-day' || activeSessionAssessmentCount > 0 ? 'cancelled' : 'deleted'
+    const changeKey = `delete:${activeEvent.sourceType}:${activeEvent.sourceId}:${changeAction}`
+    const decision = calendarChangeDecisionRef.current?.key === changeKey ? calendarChangeDecisionRef.current : null
+    if (!decision) {
+      setCalendarChangePrompt({
+        action: changeAction,
+        key: changeKey,
+        operation: 'delete',
+        title: activeEvent.title || 'Calendar item',
+      })
       return
     }
+    calendarChangeDecisionRef.current = null
 
     setIsSaving(true)
     setErrorMessage('')
+    let changeNotificationPreparation = null
 
     try {
+      if (decision.notifyEveryone) {
+        changeNotificationPreparation = await prepareCalendarChangeNotification({
+          changeAction,
+          requestToken: crypto.randomUUID(),
+          sourceId: activeEvent.sourceId,
+          sourceType: activeEvent.sourceType,
+        })
+      }
       if (activeEvent.sourceType === 'calendar') {
         if (activeEvent.data?.eventType === 'training') {
           await cancelPendingTrainingAvailabilityRequests({ user, calendarEventId: activeEvent.sourceId })
@@ -3567,6 +3673,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           setDeleteSessionTarget({
             session: activeEvent.data,
             assessmentCount,
+            notificationPreparationId: changeNotificationPreparation?.preparationId || '',
+            notifyEveryone: decision.notifyEveryone,
             playerCount: 0,
             source: 'calendar',
           })
@@ -3606,6 +3714,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       } else {
         throw new Error('This calendar item opens in its own area.')
       }
+
+      await finishCalendarChangeNotification(
+        changeNotificationPreparation?.preparationId,
+        changeAction === 'cancelled' ? 'cancellation' : 'removal',
+      )
 
       setCalendarModal(null)
     } catch (error) {
@@ -3685,11 +3798,18 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
 
-    setDeleteSessionTarget({
+    const deleteTarget = {
       session: selectedSession,
       assessmentCount: selectedSessionAssessmentCount,
       playerCount: sessionPlayers.length,
       source: 'session',
+    }
+    setCalendarChangePrompt({
+      action: selectedSessionAssessmentCount > 0 ? 'cancelled' : 'deleted',
+      deleteTarget,
+      key: `delete-session:${selectedSession.id}:${selectedSessionAssessmentCount > 0 ? 'cancelled' : 'deleted'}`,
+      operation: 'delete-session',
+      title: selectedSession.title || selectedSession.team || 'Session',
     })
   }
 
@@ -3704,6 +3824,17 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     try {
       if ((deleteSessionTarget.assessmentCount ?? 0) === 0) {
         await verifyCurrentUserPassword(user?.email, password)
+      }
+
+      let notificationPreparationId = deleteSessionTarget.notificationPreparationId || ''
+      if (deleteSessionTarget.notifyEveryone && !notificationPreparationId) {
+        const preparation = await prepareCalendarChangeNotification({
+          changeAction: (deleteSessionTarget.assessmentCount ?? 0) > 0 ? 'cancelled' : 'deleted',
+          requestToken: crypto.randomUUID(),
+          sourceId: deleteSessionTarget.session.id,
+          sourceType: 'session',
+        })
+        notificationPreparationId = preparation.preparationId
       }
 
       const deleteResult = await deleteAssessmentSession({
@@ -3722,6 +3853,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         sessions: nextSessions,
       })
       writeCalendarAwareCache({ sessions: nextSessions, calendarInvites: nextCalendarInvites })
+      await finishCalendarChangeNotification(
+        notificationPreparationId,
+        deleteResult?.mode === 'cancelled' ? 'cancellation' : 'removal',
+      )
       showToast({
         title: deleteResult?.mode === 'cancelled' ? 'Session removed' : 'Session deleted',
         message: deleteResult?.mode === 'cancelled'
@@ -4336,6 +4471,27 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         confirmLabel="Delete voice note"
         onCancel={() => setVoiceNoteDeleteTarget(null)}
         onConfirm={() => void confirmDeleteVoiceNote()}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(calendarChangePrompt)}
+        isBusy={isSaving}
+        title={`Notify everyone about this ${calendarChangePrompt?.action || 'change'}?`}
+        message={calendarChangePrompt?.action === 'cancelled'
+          ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar. Choose whether everyone involved should receive an app notification and email.'
+          : `${calendarChangePrompt?.title || 'This Calendar item'} will be ${calendarChangePrompt?.action || 'changed'}. Choose whether everyone involved should receive an app notification and email.`}
+        itemsTitle="Your choices"
+        items={[
+          'Notify everyone: Send the update after the change is confirmed',
+          'Do not notify: Save the change without contacting anyone',
+          'Go back: Make no change yet',
+        ]}
+        cancelLabel="Go back"
+        secondaryActionLabel="Do not notify"
+        confirmLabel="Notify everyone"
+        onCancel={() => setCalendarChangePrompt(null)}
+        onSecondaryAction={() => resumeCalendarChange(false)}
+        onConfirm={() => resumeCalendarChange(true)}
       />
 
       <ConfirmModal
