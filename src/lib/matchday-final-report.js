@@ -344,6 +344,8 @@ export function buildCompletedMatchEventPresentation(event = {}, match = {}, { i
 
   if (eventType === 'substitution') {
     detail = `${primaryPlayerName} off, ${secondaryPlayerName} on`
+  } else if (eventType === 'goal' && secondaryPlayerName !== 'Unknown player') {
+    detail = `${primaryPlayerName}, assisted by ${secondaryPlayerName}`
   } else if (requiresPrimaryPlayer) {
     detail = primaryPlayerName
   } else if (includeNotes) {

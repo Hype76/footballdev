@@ -85,6 +85,7 @@ import {
   openParentResource,
   recordParentScorerShootoutKick,
   respondToParentInvitation,
+  sendParentScorerMatchDayPush,
   sendParentChatMessage,
   setParentChatRoomNotifications,
   setParentScorerExtendedState,
@@ -1289,7 +1290,10 @@ function ParentHome() {
       if (action === 'timer') await setParentScorerTimer(match.id, value)
       if (action === 'extended') await setParentScorerExtendedState(match.id, value)
       if (action === 'score') await updateParentScorerScore(selectedMobileUser, match.id, value.homeScore, value.awayScore)
-      if (action === 'goal') await addParentScorerGoal(selectedMobileUser, match.id, value)
+      if (action === 'goal') {
+        const savedEvent = await addParentScorerGoal(selectedMobileUser, match.id, value)
+        await sendParentScorerMatchDayPush(selectedMobileUser, match.id, 'goal', savedEvent?.id)
+      }
       if (action === 'correct-goal') await correctParentScorerGoal(selectedMobileUser, match, value.event, value.goal, value.reason)
       if (action === 'void-goal') await voidParentScorerGoal(selectedMobileUser, match.id, value.eventId, value.reason)
       if (action === 'shootout') await recordParentScorerShootoutKick(match.id, value)

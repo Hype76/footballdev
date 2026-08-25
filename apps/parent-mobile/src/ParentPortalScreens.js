@@ -602,7 +602,10 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
         <View style={styles.card}>
           <View style={styles.row}><Text style={styles.cardTitle}>Match Timeline</Text><Text style={styles.pill}>{selectedMatch.isScorer ? 'Scorer view' : 'Parent view'}</Text></View>
           {timeline.length === 0 ? <Text style={styles.helper}>No match events yet. Goals, cards and substitutions will appear here once recorded.</Text> : null}
-          {timeline.map((event) => <View key={event.id} style={styles.timelineItem}><Text style={styles.timelineMinute}>{event.minute == null ? 'Match event' : `${event.minute}'`}</Text><Text style={styles.body}>{labelize(event.eventType)} {event.scorerName || event.playerName || ''}</Text>{event.homeScore != null && event.awayScore != null ? <Text style={styles.meta}>{event.homeScore} - {event.awayScore}</Text> : null}</View>)}
+          {timeline.map((event) => {
+            const eventPresentation = buildCompletedMatchEventPresentation(event, selectedMatch, { includeNotes: false })
+            return <View key={event.id} style={styles.timelineItem}><Text style={styles.timelineMinute}>{eventPresentation.minuteLabel}</Text><Text style={styles.body}>{eventPresentation.title}{eventPresentation.detail ? ` ${eventPresentation.detail}` : ''}</Text>{event.homeScore != null && event.awayScore != null ? <Text style={styles.meta}>{event.homeScore} - {event.awayScore}</Text> : null}</View>
+          })}
         </View>
       </View>
     )

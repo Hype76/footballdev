@@ -556,6 +556,24 @@ async function scorerRpc(name, args) {
   return data
 }
 
+export async function sendParentScorerMatchDayPush(user, matchDayId, type, eventId = '') {
+  const link = requireSelectedLink(user)
+  const config = getMobileRuntimeConfig('parent')
+  const accessToken = await getAccessToken()
+  if (!config.apiBaseUrl || !accessToken) return null
+
+  try {
+    const response = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-match-day-push'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventId: normalizeText(eventId), matchDayId, parentLinkId: link.id, type: normalizeText(type) }),
+    })
+    return response.ok && response.result?.success !== false ? response.result : null
+  } catch {
+    return null
+  }
+}
+
 export function startParentScorerMatch(matchId) {
   return scorerRpc('start_match_day', { match_day_id_value: matchId })
 }

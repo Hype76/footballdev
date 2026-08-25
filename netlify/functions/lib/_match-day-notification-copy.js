@@ -92,6 +92,16 @@ function getEventCopy({ match, notificationType, event }) {
   }
 }
 
+function getGoalAssistDetail(notificationType, event) {
+  if (notificationType !== 'goal') return ''
+
+  const assistName = normalizeText(event?.assist_name || event?.assistName)
+  const assistShirtNumber = normalizeText(event?.assist_shirt_number || event?.assistShirtNumber)
+  if (!assistName && !assistShirtNumber) return ''
+
+  return ` Assist: ${assistName || 'Player'}${assistShirtNumber ? ` #${assistShirtNumber}` : ''}.`
+}
+
 export function buildParentMatchDayNotificationCopy({ match, type, event = null } = {}) {
   const teamName = getTeamName(match)
   const matchName = getMatchDayDisplayName({ ...match, teamName })
@@ -99,13 +109,14 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const notificationType = resolveNotificationType(type, event, match)
   const copy = getEventCopy({ match, notificationType, event })
   const eventId = normalizeText(event?.id)
+  const goalAssistDetail = getGoalAssistDetail(notificationType, event)
 
   return {
     title: copy.title,
     minimalBody: `${copy.category} for ${matchName}.`,
     detailedBody: copy.includeScore === false
-      ? `${copy.detail} for ${matchName}.`
-      : `${copy.detail} for ${matchName}. Score ${score}.`,
+      ? `${copy.detail} for ${matchName}.${goalAssistDetail}`
+      : `${copy.detail} for ${matchName}. Score ${score}.${goalAssistDetail}`,
     notificationType,
     renotify: ['goal', 'score_correction', 'full_time', 'extra_time', 'start_extra_time', 'penalties', 'start_penalties'].includes(notificationType),
     tag: `match-day-${normalizeText(match?.id) || 'unknown'}-${notificationType}${eventId ? `-${eventId}` : ''}`,
