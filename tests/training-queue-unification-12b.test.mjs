@@ -19,6 +19,10 @@ const emailSenderUrl = new URL(
   '../netlify/functions/send-parent-email.js',
   import.meta.url,
 )
+const actionableInvitationUrl = new URL(
+  '../netlify/functions/lib/_match-day-actionable-invitation.js',
+  import.meta.url,
+)
 const migrationUrl = new URL(
   '../supabase/migrations/20260731071546_training_queue_unification_12b.sql',
   import.meta.url,
@@ -285,6 +289,51 @@ test('queue identity is stable for overlaps and distinct for resend or retry gen
   assert.equal(first, overlapping)
   assert.notEqual(first, resend)
   assert.match(first, /^[0-9a-f-]{36}$/)
+})
+
+test('adult-player and fallback recipients keep an absent parent link as SQL null', async () => {
+  const { resolveEligibleEventInvitationContacts } = await import(
+    `${actionableInvitationUrl.href}?nullable-parent-link=${Date.now()}`
+  )
+  const contacts = await resolveEligibleEventInvitationContacts({
+    rpc() {
+      return Promise.resolve({
+        data: [
+          {
+            player_id: '10000000-0000-4000-8000-000000000003',
+            player_name: 'FP TEST Adult Player',
+            recipient_email: 'adult@example.test',
+            recipient_name: 'FP TEST Adult Player',
+            recipient_type: 'player',
+            parent_link_id: null,
+          },
+          {
+            player_id: '10000000-0000-4000-8000-000000000004',
+            player_name: 'FP TEST Fallback Player',
+            recipient_email: 'fallback@example.test',
+            recipient_name: 'FP TEST Fallback Parent',
+            recipient_type: 'parent',
+            parent_link_id: '',
+          },
+        ],
+        error: null,
+      })
+    },
+  }, {
+    clubId: '10000000-0000-4000-8000-000000000007',
+    playerIds: [
+      '10000000-0000-4000-8000-000000000003',
+      '10000000-0000-4000-8000-000000000004',
+    ],
+    teamId: '10000000-0000-4000-8000-000000000008',
+  })
+
+  assert.equal(contacts.length, 2)
+  assert.equal(contacts[0].parentLinkId, null)
+  assert.equal(contacts[1].parentLinkId, null)
+
+  const processor = await readFile(processorUrl, 'utf8')
+  assert.match(processor, /parent_link_id: normalizeText\(recipient\.parentLinkId\) \|\| null/)
 })
 
 test('claim preparation reconstructs the current RSVP and rejects cancelled or changed authority', async () => {

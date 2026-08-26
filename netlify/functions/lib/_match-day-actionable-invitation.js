@@ -123,7 +123,7 @@ export async function resolveEligibleEventInvitationContacts(adminSupabase, {
   return (data || []).map((row) => ({
     email: normalizeInvitationEmail(row.recipient_email),
     name: normalizeInvitationText(row.recipient_name),
-    parentLinkId: normalizeInvitationText(row.parent_link_id),
+    parentLinkId: normalizeInvitationText(row.parent_link_id) || null,
     playerId: normalizeInvitationText(row.player_id),
     playerName: normalizeInvitationText(row.player_name),
     type: normalizeInvitationText(row.recipient_type) === 'player' ? 'player' : 'parent',

@@ -146,7 +146,7 @@ export function buildCalendarNotificationHtml({
     : isTraining
       ? 'This Training session has been shared with you. No attendance response has been requested.'
       : 'This event has been shared with you for information. No attendance response has been requested.'
-  const actionLabel = trialInvitation ? 'Respond to invitation' : 'View calendar'
+  const actionLabel = trialInvitation ? 'Respond to invitation' : 'View event details'
   const changeSummary = resolvedAction === 'rescheduled'
     ? `${resolvedPlayerName}'s event has been rescheduled by ${resolvedClubName}.`
     : resolvedAction === 'cancelled'

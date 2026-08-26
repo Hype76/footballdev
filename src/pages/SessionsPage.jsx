@@ -4507,6 +4507,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         title={`Notify everyone about this ${calendarChangePrompt?.action || 'change'}?`}
         message={calendarChangePrompt?.action === 'cancelled'
           ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar. Choose whether everyone involved should receive an app notification and email.'
+          : calendarChangePrompt?.action === 'deleted'
+            ? `Delete ${calendarChangePrompt?.title || 'this Calendar item'}? If this is a repeat series, the entire series will be deleted. This cannot be undone. Choose whether everyone involved should receive an app notification and email.`
           : `${calendarChangePrompt?.title || 'This Calendar item'} will be ${calendarChangePrompt?.action || 'changed'}. Choose whether everyone involved should receive an app notification and email.`}
         itemsTitle="Your choices"
         items={[

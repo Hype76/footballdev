@@ -741,7 +741,7 @@ export async function queueTrainingInvitationRecipient({
     calendar_event_id: request.calendar_event_id,
     player_id: player.id,
     player_name: normalizeText(player.player_name),
-    parent_link_id: recipient.parentLinkId,
+    parent_link_id: normalizeText(recipient.parentLinkId) || null,
     recipient_email: recipient.email,
     recipient_name: recipient.name,
     recipient_type: recipient.type,

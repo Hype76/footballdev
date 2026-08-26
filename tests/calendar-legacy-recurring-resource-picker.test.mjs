@@ -72,7 +72,7 @@ test('calendar modal source includes legacy recurring session update and delete 
   assert.match(pageSource, /getLegacyRecurringSessionSeries\(\{ event: activeEvent, sessions \}\)/)
   assert.match(pageSource, /Choose how to update this repeating event before saving\./)
   assert.match(pageSource, /Choose how to delete this repeating event before continuing\./)
-  assert.match(pageSource, /Delete this entire repeat series\? This cannot be undone\./)
+  assert.match(pageSource, /If this is a repeat series, the entire series will be deleted\. This cannot be undone\./)
   assert.match(pageSource, /Choose from Team Resource Library/)
   assert.match(pageSource, /Search resources/)
   assert.match(pageSource, /Category/)

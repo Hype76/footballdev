@@ -31,6 +31,6 @@ test('Parent Chat exposes and persists a separate DND switch for every room', as
 test('Parent Needs response keeps canonical pending Training RSVP invitations actionable', async () => {
   const source = await readFile(new URL('../apps/parent-mobile/src/parentPresentationCore.js', import.meta.url), 'utf8')
 
-  assert.match(source, /needsResponse = future\.filter\(\(item\) => item\.isPending && isInvitationActionable\(item\)\)/)
+  assert.match(source, /needsResponse = future\.filter\(\(item\) => item\.isPending && isInvitationActionable\(item, now\)\)/)
   assert.match(source, /response_required|requiresResponse|canRespond/)
 })
