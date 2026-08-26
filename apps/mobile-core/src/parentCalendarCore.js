@@ -132,6 +132,8 @@ function normalizeInvitationEvent(invitation) {
     invitationId: invitation.invitationId || '',
     location: invitation.eventLocation || '',
     notes: '',
+    occurrenceDate: calendarDate,
+    resources: Array.isArray(invitation.resources) ? invitation.resources : [],
     responseState: state,
     requiresResponse: Boolean(invitation.isPending),
     sortKey: calendarSortKey(calendarDate, calendarTime),

@@ -254,6 +254,16 @@ function formatDateInput(value) {
   return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
 }
 
+function getCalendarResourceOccurrenceDate(event, form) {
+  return formatDateInput(event?.occurrenceDate || event?.data?.recurrenceOccurrenceDate || event?.startsAt || form?.date)
+}
+
+function getCalendarResourceOccurrenceKey(eventId, occurrenceDate) {
+  const normalizedEventId = String(eventId ?? '').trim()
+  const normalizedOccurrenceDate = formatDateInput(occurrenceDate)
+  return normalizedEventId && normalizedOccurrenceDate ? `${normalizedEventId}:${normalizedOccurrenceDate}` : ''
+}
+
 function formatLocalDate(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return ''
@@ -1105,8 +1115,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   )
   const currentCalendarEventResources = useMemo(() => {
     const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
-    return sourceId ? calendarEventResourcesById[sourceId] || [] : []
-  }, [calendarEventResourcesById, calendarModal?.event?.sourceId])
+    const occurrenceDate = getCalendarResourceOccurrenceDate(calendarModal?.event, calendarForm)
+    const occurrenceKey = getCalendarResourceOccurrenceKey(sourceId, occurrenceDate)
+    return occurrenceKey ? calendarEventResourcesById[occurrenceKey] || [] : []
+  }, [calendarEventResourcesById, calendarForm, calendarModal?.event])
   const currentTrainingAvailabilitySummary = useMemo(() => {
     const sourceId = String(calendarModal?.event?.sourceId ?? '').trim()
     return sourceId ? trainingAvailabilitySummaryByEventId[sourceId] || null : null
@@ -1408,6 +1420,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const event = calendarModal?.event
     const eventId = String(event?.sourceId ?? '').trim()
     const eventTeamId = String(event?.data?.teamId ?? '').trim()
+    const occurrenceDate = getCalendarResourceOccurrenceDate(event, { date: calendarForm.date })
+    const occurrenceKey = getCalendarResourceOccurrenceKey(eventId, occurrenceDate)
 
     if (event?.sourceType !== 'calendar' || !eventId || !eventTeamId || !isCalendarResourceEventType(event?.data?.eventType)) {
       return () => {
@@ -1415,7 +1429,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       }
     }
 
-    getCalendarEventResources({ user, eventId, teamId: eventTeamId })
+    getCalendarEventResources({ user, eventId, occurrenceDate, teamId: eventTeamId })
       .then((resources) => {
         if (!isMounted) {
           return
@@ -1423,7 +1437,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
         setCalendarEventResourcesById((current) => ({
           ...current,
-          [eventId]: resources,
+          [occurrenceKey]: resources,
         }))
         setCalendarForm((current) => ({
           ...current,
@@ -1437,7 +1451,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     return () => {
       isMounted = false
     }
-  }, [calendarModal?.event, user, userScopeKey])
+  }, [calendarForm.date, calendarModal?.event, user, userScopeKey])
 
   useEffect(() => {
     const requestedAction = String(searchParams.get('action') ?? '').trim()
@@ -3523,15 +3537,19 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         }
 
         if (isCalendarResourceEventType(calendarForm.eventType) && safeTeamId && (sourceType === 'calendar' || calendarForm.resourceIds?.length > 0)) {
+          const resourceOccurrenceDate = getCalendarResourceOccurrenceDate(activeEvent, calendarForm)
+          const resourceOccurrenceKey = getCalendarResourceOccurrenceKey(savedEvent.id, resourceOccurrenceDate)
           const attachedResources = await syncCalendarEventResourceLinks({
             user,
             eventId: savedEvent.id,
+            occurrenceDate: resourceOccurrenceDate,
+            replaceAllOccurrences: calendarForm.recurrenceFrequency === 'none',
             teamId: safeTeamId,
             resourceIds: calendarForm.resourceIds,
           })
           setCalendarEventResourcesById((current) => ({
             ...current,
-            [savedEvent.id]: attachedResources,
+            [resourceOccurrenceKey]: attachedResources,
           }))
         }
         const nextCalendarItems = coreSavedCalendarItems

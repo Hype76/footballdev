@@ -44,6 +44,7 @@ import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore
 import {
   formatParentProductDateTime,
   formatParentProductTime,
+  getParentProductDateTimeParts,
 } from '../mobile-core/src/parentDateTimeCore'
 import {
   getParentNotificationStatusLabel,
@@ -176,6 +177,27 @@ function createResourceState() {
 function prepareResourceItems(name, items) {
   const normalizedItems = Array.isArray(items) ? items : []
   return name === 'messages' ? presentParentMessages(normalizedItems) : normalizedItems
+}
+
+function getCalendarResourceOccurrenceKey(eventId, dateValue) {
+  const normalizedEventId = String(eventId || '').trim()
+  const rawDate = String(dateValue || '').trim()
+  const occurrenceDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+    ? rawDate
+    : getParentProductDateTimeParts(rawDate).date
+  return normalizedEventId && occurrenceDate ? `${normalizedEventId}:${occurrenceDate}` : ''
+}
+
+function buildCalendarResourcesByOccurrence(resources = []) {
+  const byOccurrence = new Map()
+  for (const resource of resources) {
+    const key = getCalendarResourceOccurrenceKey(resource.eventId, resource.occurrenceDate)
+    if (!key) continue
+    const current = byOccurrence.get(key) || []
+    current.push(resource)
+    byOccurrence.set(key, current)
+  }
+  return byOccurrence
 }
 
 function normalizeText(value) {
@@ -410,33 +432,38 @@ function ParentHome() {
     if (cachedView?.sync) setSyncSummary(cachedView.sync)
     if (isOffline) return { cached: Boolean(cachedView?.cache), failed: cachedView?.cache ? 0 : resourceNames.length }
 
+    const calendarEventResourcesPromise = getParentCalendarEventResources(selectedMobileUser)
+      .catch((error) => {
+        console.error('Parent calendar attachments could not be loaded', error)
+        return []
+      })
+    const resourcesByOccurrencePromise = calendarEventResourcesPromise.then(buildCalendarResourcesByOccurrence)
     const loaders = {
       calendar: async () => {
-        const calendarEvents = await getParentCalendarEvents(selectedMobileUser)
-
-        try {
-          const eventResources = await getParentCalendarEventResources(selectedMobileUser)
-          const resourcesByEventId = new Map()
-
-          for (const resource of eventResources) {
-            const current = resourcesByEventId.get(resource.eventId) || []
-            current.push(resource)
-            resourcesByEventId.set(resource.eventId, current)
-          }
-
-          return calendarEvents.map((event) => ({
-            ...event,
-            resources: resourcesByEventId.get(String(event.id)) || [],
-          }))
-        } catch (error) {
-          console.error('Parent calendar attachments could not be loaded', error)
-          return calendarEvents
-        }
+        const [calendarEvents, resourcesByOccurrence] = await Promise.all([
+          getParentCalendarEvents(selectedMobileUser),
+          resourcesByOccurrencePromise,
+        ])
+        return calendarEvents.map((event) => ({
+          ...event,
+          occurrenceDate: getParentProductDateTimeParts(event.startsAt).date,
+          resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(event.id, event.startsAt)) || [],
+        }))
       },
       chatHistory: () => Promise.resolve(cachedView?.cache?.resources.chatHistory || []),
       chatRooms: () => getParentChatRooms(selectedMobileUser),
       development: () => getParentDevelopmentHistory(selectedMobileUser),
-      invitations: () => getParentInvitations(selectedMobileUser),
+      invitations: async () => {
+        const [invitations, resourcesByOccurrence] = await Promise.all([
+          getParentInvitations(selectedMobileUser),
+          resourcesByOccurrencePromise,
+        ])
+        return invitations.map((invitation) => ({
+          ...invitation,
+          occurrenceDate: getParentProductDateTimeParts(invitation.eventStart || invitation.eventDate).date,
+          resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(invitation.eventId, invitation.eventStart || invitation.eventDate)) || [],
+        }))
+      },
       matches: () => getParentPortalMatchDays(selectedMobileUser),
       messages: () => getParentMessages(selectedMobileUser),
       notifications: () => getParentNotificationInbox(selectedMobileUser),
@@ -1118,7 +1145,8 @@ function ParentHome() {
 
     try {
       const result = await openParentResource(selectedMobileUser, resource.id, {
-        calendarEventId: event.sourceId || String(event.id || '').replace(/^calendar:/, ''),
+        calendarEventId: event.sourceId || event.eventId || String(event.id || '').replace(/^calendar:/, ''),
+        calendarOccurrenceDate: event.occurrenceDate || event.calendarDate || event.eventDate || getParentProductDateTimeParts(event.startsAt || event.eventStart).date,
       })
       if (result?.formationBoard) setSelectedResourcePreview(result.formationBoard)
       if (result?.externalUrl) await openExternalParentUrl(result.externalUrl)
@@ -1769,7 +1797,7 @@ function ParentHome() {
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
-              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onBackTarget={() => setSelectedInvitationId('')} onDismiss={(invitation) => handleDismissParentItem('invitations', invitation.invitationId, 'request')} onRespond={handleInvitationResponse} resource={{ ...resources.invitations, items: visibleInvitations }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
+              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onBackTarget={() => setSelectedInvitationId('')} onDismiss={(invitation) => handleDismissParentItem('invitations', invitation.invitationId, 'request')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} resource={{ ...resources.invitations, items: visibleInvitations }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
             {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}

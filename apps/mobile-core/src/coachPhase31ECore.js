@@ -205,6 +205,7 @@ export function normalizeCoachResource(row = {}) {
     expiresAt: normalize(row.expires_at ?? row.expiresAt),
     links: Object.freeze(links.map((link) => Object.freeze({
       id: normalize(link.id), linkedType: normalize(link.linked_type ?? link.linkedType), linkedId: normalize(link.linked_id ?? link.linkedId),
+      calendarOccurrenceDate: normalize(link.calendar_occurrence_date ?? link.calendarOccurrenceDate),
       parentVisible: link.parent_visible === true || link.parentVisible === true, shareDescription: normalize(link.share_description ?? link.shareDescription),
     }))),
     updatedAt: normalize(row.updated_at ?? row.updatedAt),

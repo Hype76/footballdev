@@ -1,6 +1,12 @@
 import * as Crypto from 'expo-crypto'
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
-import { buildCoachCalendarEvents, buildCoachCalendarPayload, normalizeCoachCalendarEvent } from './coachCalendarCore'
+import {
+  buildCoachCalendarEvents,
+  buildCoachCalendarOccurrenceDates,
+  buildCoachCalendarPayload,
+  normalizeCoachCalendarEvent,
+  normalizeCoachCalendarFormDate,
+} from './coachCalendarCore'
 import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import {
@@ -40,10 +46,15 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
   for (const row of requestPlayersResult.data || []) {
     const eventId = normalize(row.calendar_event_id)
     if (!eventId) continue
+    const request = Array.isArray(row.training_availability_requests)
+      ? row.training_availability_requests[0]
+      : row.training_availability_requests
+    const occurrenceDate = normalizeCoachCalendarFormDate(request?.occurrence_date || request?.occurrence_starts_at)
+    const summaryKey = occurrenceDate ? `${eventId}:${occurrenceDate}` : eventId
     const response = responses.get(`${row.request_id}:${row.player_id}`)
     const state = normalize(response?.status || row.status || 'pending').toLowerCase()
-    if (!summaries[eventId]) summaries[eventId] = { available: 0, details: [], maybe: 0, pending: 0, unavailable: 0 }
-    const summary = summaries[eventId]
+    if (!summaries[summaryKey]) summaries[summaryKey] = { available: 0, details: [], maybe: 0, pending: 0, unavailable: 0 }
+    const summary = summaries[summaryKey]
     if (state === 'available') summary.available += 1
     else if (state === 'unavailable') summary.unavailable += 1
     else if (state === 'maybe') summary.maybe += 1
@@ -58,6 +69,27 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
     })
   }
   return summaries
+}
+
+async function getInvolvedPlayerIdsByEventId(user, eventIds) {
+  if (eventIds.length === 0) return {}
+  const { data, error } = await supabase
+    .from('calendar_event_invites')
+    .select('calendar_event_id, player_id, invite_status, cancelled_at')
+    .eq('club_id', user.clubId)
+    .in('calendar_event_id', eventIds)
+    .neq('invite_status', 'cancelled')
+    .is('cancelled_at', null)
+  if (error) throw error
+  const byEventId = {}
+  for (const row of data || []) {
+    const eventId = normalize(row.calendar_event_id)
+    const playerId = normalize(row.player_id)
+    if (!eventId || !playerId) continue
+    if (!byEventId[eventId]) byEventId[eventId] = []
+    if (!byEventId[eventId].includes(playerId)) byEventId[eventId].push(playerId)
+  }
+  return byEventId
 }
 
 export async function getCoachCalendarResources(user) {
@@ -92,13 +124,18 @@ export async function getCoachCalendarResources(user) {
   const firstError = calendarResult.error || matchesResult.error || sessionsResult.error
   if (firstError) throw firstError
   const calendarRows = calendarResult.data || []
+  const calendarIds = calendarRows.map((row) => row.id).filter(Boolean)
   const trainingIds = calendarRows.filter((row) => row.event_type === 'training').map((row) => row.id)
-  const availabilityByEventId = await getTrainingAvailabilityByEventId(user, trainingIds)
+  const [availabilityByEventId, involvedPlayerIdsByEventId] = await Promise.all([
+    getTrainingAvailabilityByEventId(user, trainingIds),
+    getInvolvedPlayerIdsByEventId(user, calendarIds),
+  ])
   return buildCoachCalendarEvents({
     availabilityByEventId,
     calendarEvents: calendarRows.map((row) => ({
       ...row,
       canEdit: user.role === 'admin' || Boolean(row.team_id),
+      involvedPlayerIds: involvedPlayerIdsByEventId[normalize(row.id)] || [],
       isInheritedClubEvent: Boolean(user.activeTeamId && !row.team_id),
     })),
     matches: matchesResult.data || [],
@@ -177,14 +214,23 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
   return normalizeCoachCalendarEvent(data)
 }
 
-export async function syncCoachCalendarEventResources(user, event, resourceIds = []) {
+export async function syncCoachCalendarEventResources(user, event, resourceIds = [], occurrenceDate = '') {
   assertCoachOperationalMutation(user, { minimumRank: 50, requiresTeam: true })
   const eventId = normalize(event?.sourceId || event?.id)
   const eventTeamId = normalize(event?.teamId)
+  const selectedOccurrenceDate = normalizeCoachCalendarFormDate(occurrenceDate || event?.occurrenceDate || event?.calendarDate)
   const desiredResourceIds = [...new Set((Array.isArray(resourceIds) ? resourceIds : []).map(normalize).filter(Boolean))]
 
   if (!eventId || event?.sourceType !== 'calendar_event' || !eventTeamId || eventTeamId !== normalize(user.activeTeamId)) {
     throw new Error('Choose an editable event from the active Team before attaching Resources.')
+  }
+  const validOccurrenceDates = buildCoachCalendarOccurrenceDates({
+    date: event?.calendarDate,
+    recurrenceFrequency: event?.recurrenceFrequency,
+    recurrenceUntil: event?.recurrenceUntil,
+  })
+  if (!selectedOccurrenceDate || !validOccurrenceDates.includes(selectedOccurrenceDate)) {
+    throw new Error('Choose a valid dated occurrence before attaching Resources.')
   }
 
   if (desiredResourceIds.length > 0) {
@@ -202,14 +248,18 @@ export async function syncCoachCalendarEventResources(user, event, resourceIds =
     }
   }
 
-  const { data: existingLinks, error: existingLinksError } = await supabase
+  let existingLinksQuery = supabase
     .from('resource_library_links')
-    .select('id, resource_id, team_id')
+    .select('id, resource_id, team_id, calendar_occurrence_date')
     .eq('club_id', user.clubId)
     .eq('team_id', eventTeamId)
     .eq('linked_type', 'calendar_event')
     .eq('linked_id', eventId)
     .is('removed_at', null)
+  if (normalize(event?.recurrenceFrequency).toLowerCase() !== 'none') {
+    existingLinksQuery = existingLinksQuery.eq('calendar_occurrence_date', selectedOccurrenceDate)
+  }
+  const { data: existingLinks, error: existingLinksError } = await existingLinksQuery
   if (existingLinksError) throw existingLinksError
 
   const desiredIds = new Set(desiredResourceIds)
@@ -232,6 +282,7 @@ export async function syncCoachCalendarEventResources(user, event, resourceIds =
       assigned_by_email: normalize(user.email).toLowerCase(),
       assigned_by_name: normalize(user.displayName || user.name || user.email),
       assigned_by_profile_id: user.id,
+      calendar_occurrence_date: selectedOccurrenceDate,
       club_id: user.clubId,
       linked_id: eventId,
       linked_type: 'calendar_event',
@@ -245,7 +296,7 @@ export async function syncCoachCalendarEventResources(user, event, resourceIds =
     action: 'resource_library_event_resources_synced',
     entityId: eventId,
     entityType: 'calendar_event',
-    metadata: { resourceCount: desiredResourceIds.length, teamId: eventTeamId },
+    metadata: { occurrenceDate: selectedOccurrenceDate, resourceCount: desiredResourceIds.length, teamId: eventTeamId },
     user,
   })
   return desiredResourceIds

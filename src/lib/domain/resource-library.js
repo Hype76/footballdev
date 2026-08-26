@@ -206,6 +206,7 @@ export function normalizeResourceLibraryLink(row) {
     teamId: row.team_id ?? row.teamId ?? '',
     linkedType: normalizeText(row.linked_type ?? row.linkedType),
     linkedId: row.linked_id ?? row.linkedId ?? '',
+    calendarOccurrenceDate: normalizeText(row.calendar_occurrence_date ?? row.calendarOccurrenceDate),
     assignedBy: row.assigned_by_profile_id ?? row.assignedByProfileId ?? '',
     assignedByName: normalizeText(row.assigned_by_name ?? row.assignedByName),
     assignedByEmail: normalizeText(row.assigned_by_email ?? row.assignedByEmail),
@@ -764,19 +765,20 @@ export async function getParentPortalResourceAccessUrl({ parentLinkId, resourceI
   return accessUrl
 }
 
-export async function getCalendarEventResources({ eventId, teamId = '', user } = {}) {
+export async function getCalendarEventResources({ eventId, occurrenceDate = '', teamId = '', user } = {}) {
   if (!canUseResourceLibrary(user)) {
     return []
   }
 
   const normalizedEventId = normalizeText(eventId)
+  const normalizedOccurrenceDate = normalizeText(occurrenceDate).slice(0, 10)
   const eventTeamId = getResourceLibraryTeamId(user, teamId, 'Choose the event team before viewing attached resources.')
 
-  if (!normalizedEventId) {
+  if (!normalizedEventId || !/^\d{4}-\d{2}-\d{2}$/.test(normalizedOccurrenceDate)) {
     return []
   }
 
-  return getCachedResource(getResourceLibraryCacheKey(user, `calendar-event:${normalizedEventId}:${eventTeamId}`), async () => {
+  return getCachedResource(getResourceLibraryCacheKey(user, `calendar-event:${normalizedEventId}:${normalizedOccurrenceDate}:${eventTeamId}`), async () => {
     const { data, error } = await supabase
       .from('resource_library_links')
       .select('*, resource_library_items(*, resource_library_external_links(external_url))')
@@ -784,6 +786,7 @@ export async function getCalendarEventResources({ eventId, teamId = '', user } =
       .eq('team_id', eventTeamId)
       .eq('linked_type', 'calendar_event')
       .eq('linked_id', normalizedEventId)
+      .eq('calendar_occurrence_date', normalizedOccurrenceDate)
       .is('removed_at', null)
       .order('assigned_at', { ascending: false })
 
@@ -805,16 +808,17 @@ export async function getCalendarEventResources({ eventId, teamId = '', user } =
   })
 }
 
-export async function syncCalendarEventResourceLinks({ eventId, resourceIds = [], teamId = '', user } = {}) {
+export async function syncCalendarEventResourceLinks({ eventId, occurrenceDate = '', replaceAllOccurrences = false, resourceIds = [], teamId = '', user } = {}) {
   await blockDemoMutation(user)
   assertResourceLibraryManageAccess(user)
 
   const normalizedEventId = normalizeText(eventId)
+  const normalizedOccurrenceDate = normalizeText(occurrenceDate).slice(0, 10)
   const eventTeamId = getResourceLibraryTeamId(user, teamId, 'Choose the event team before attaching resources.')
   const desiredResourceIds = normalizeResourceIds(resourceIds)
 
-  if (!normalizedEventId) {
-    throw new Error('Save the calendar event before attaching resources.')
+  if (!normalizedEventId || !/^\d{4}-\d{2}-\d{2}$/.test(normalizedOccurrenceDate)) {
+    throw new Error('Save a dated calendar occurrence before attaching resources.')
   }
 
   if (desiredResourceIds.length > 0) {
@@ -853,12 +857,15 @@ export async function syncCalendarEventResourceLinks({ eventId, resourceIds = []
   }
 
   const desiredResourceIdSet = new Set(desiredResourceIds)
+  const scopedExistingLinks = replaceAllOccurrences
+    ? (existingLinks ?? [])
+    : (existingLinks ?? []).filter((link) => normalizeText(link.calendar_occurrence_date) === normalizedOccurrenceDate)
   const existingActiveResourceIds = new Set(
-    (existingLinks ?? [])
+    scopedExistingLinks
       .filter((link) => normalizeText(link.team_id) === eventTeamId)
       .map((link) => normalizeText(link.resource_id)),
   )
-  const linkIdsToRemove = (existingLinks ?? [])
+  const linkIdsToRemove = scopedExistingLinks
     .filter((link) => !desiredResourceIdSet.has(normalizeText(link.resource_id)) || normalizeText(link.team_id) !== eventTeamId)
     .map((link) => normalizeText(link.id))
     .filter(Boolean)
@@ -889,6 +896,7 @@ export async function syncCalendarEventResourceLinks({ eventId, resourceIds = []
       linked_type: 'calendar_event',
       linked_id: normalizedEventId,
       assigned_by_profile_id: getEntryUserId(user),
+      calendar_occurrence_date: normalizedOccurrenceDate,
       ...getEntryIdentity(user, 'assigned_by'),
     }))
 
@@ -911,11 +919,12 @@ export async function syncCalendarEventResourceLinks({ eventId, resourceIds = []
     entityId: normalizedEventId,
     metadata: {
       resourceCount: desiredResourceIds.length,
+      occurrenceDate: normalizedOccurrenceDate,
       teamId: eventTeamId,
     },
   })
 
-  return getCalendarEventResources({ eventId: normalizedEventId, teamId: eventTeamId, user })
+  return getCalendarEventResources({ eventId: normalizedEventId, occurrenceDate: normalizedOccurrenceDate, teamId: eventTeamId, user })
 }
 
 export async function getResourceLibraryDownloadUrl({ resourceId, teamId = '', user } = {}) {

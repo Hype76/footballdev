@@ -443,9 +443,10 @@ export async function getParentCalendarEventResources(user) {
     fileSizeBytes: Math.max(0, Number(resource.fileSizeBytes ?? resource.file_size_bytes ?? 0)),
     id: normalizeText(resource.id ?? resource.resourceId ?? resource.resource_id),
     originalFilename: normalizeText(resource.originalFilename ?? resource.original_filename),
+    occurrenceDate: normalizeText(resource.occurrenceDate ?? resource.occurrence_date),
     resourceType: normalizeText(resource.resourceType ?? resource.resource_type) || 'file',
     title: normalizeText(resource.title) || normalizeText(resource.originalFilename ?? resource.original_filename) || 'Event attachment',
-  })).filter((resource) => resource.id && resource.eventId)
+  })).filter((resource) => resource.id && resource.eventId && resource.occurrenceDate)
 }
 
 function safeFilename(value, fallback) {
@@ -482,12 +483,13 @@ export async function openParentDevelopmentReport(user, reportId) {
   return { shared: true }
 }
 
-export async function openParentResource(user, resourceId, { calendarEventId = '' } = {}) {
+export async function openParentResource(user, resourceId, { calendarEventId = '', calendarOccurrenceDate = '' } = {}) {
   const link = requireSelectedLink(user)
   const config = getMobileRuntimeConfig('parent')
   const resourcePath = getParentApiPaths(config).resource
   const result = await callParentApi(resourcePath, {
     calendarEventId: normalizeText(calendarEventId) || undefined,
+    calendarOccurrenceDate: normalizeText(calendarOccurrenceDate) || undefined,
     parentLinkId: link.id,
     resourceId,
   })

@@ -19,6 +19,7 @@ export const COACH_CALENDAR_EVENT_TYPES = Object.freeze([
 
 export const COACH_CALENDAR_RECURRENCE = Object.freeze(['none', 'weekly', 'fortnightly', 'monthly'])
 export const COACH_CALENDAR_PARENT_AUDIENCES = Object.freeze(['none', 'involved_players', 'all_team_parents', 'all_club_parents'])
+const MAX_COACH_CALENDAR_OCCURRENCES = 52
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -41,6 +42,37 @@ export function formatCoachCalendarFormDate(value) {
   if (!date) return normalize(value)
   const [year, month, day] = date.split('-')
   return `${day}-${month}-${year}`
+}
+
+function addUtcDays(date, amount) {
+  const shifted = new Date(`${date}T12:00:00.000Z`)
+  shifted.setUTCDate(shifted.getUTCDate() + amount)
+  return shifted.toISOString().slice(0, 10)
+}
+
+export function buildCoachCalendarOccurrenceDates({ date, recurrenceFrequency = 'none', recurrenceUntil = '' } = {}) {
+  const firstDate = normalizeCoachCalendarFormDate(date)
+  const frequency = COACH_CALENDAR_RECURRENCE.includes(normalizeKey(recurrenceFrequency))
+    ? normalizeKey(recurrenceFrequency)
+    : 'none'
+  const until = normalizeCoachCalendarFormDate(recurrenceUntil) || firstDate
+  if (!firstDate) return []
+  if (frequency === 'none' || until <= firstDate) return [firstDate]
+
+  const dates = []
+  let cursor = firstDate
+  while (cursor <= until && dates.length < MAX_COACH_CALENDAR_OCCURRENCES) {
+    dates.push(cursor)
+    if (frequency === 'monthly') {
+      const [year, month, day] = firstDate.split('-').map(Number)
+      const nextMonth = month - 1 + dates.length
+      const lastDay = new Date(Date.UTC(year, nextMonth + 1, 0)).getUTCDate()
+      cursor = new Date(Date.UTC(year, nextMonth, Math.min(day, lastDay), 12)).toISOString().slice(0, 10)
+    } else {
+      cursor = addUtcDays(cursor, frequency === 'fortnightly' ? 14 : 7)
+    }
+  }
+  return dates
 }
 
 function related(row, key) {
@@ -260,6 +292,7 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     endsAt,
     eventType,
     id: `${source}:${normalize(row.id)}`,
+    involvedPlayerIds: Object.freeze([...(Array.isArray(row.involvedPlayerIds) ? row.involvedPlayerIds : [])].map(normalize).filter(Boolean)),
     isClubWide: !teamId,
     isInheritedClubEvent: Boolean(row.isInheritedClubEvent),
     kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true,
@@ -271,6 +304,9 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     parentVisible: row.parent_visible === true || row.parentVisible === true,
     recurrenceFrequency: normalizeKey(row.recurrence_frequency ?? row.recurrenceFrequency) || 'none',
     recurrenceUntil: normalize(row.recurrence_until ?? row.recurrenceUntil),
+    occurrenceDate: normalize(row.occurrence_date ?? row.occurrenceDate) || sourceCalendarDate || dateParts?.date || normalize(startsAt).slice(0, 10),
+    seriesEndsAt: endsAt,
+    seriesStartsAt: startsAt,
     sourceId: normalize(row.id),
     sourceType: source,
     startsAt,
@@ -282,11 +318,50 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
   })
 }
 
+function expandCoachCalendarEventOccurrences(event, availabilityByEventId = {}) {
+  const occurrenceDates = buildCoachCalendarOccurrenceDates({
+    date: event.calendarDate,
+    recurrenceFrequency: event.recurrenceFrequency,
+    recurrenceUntil: event.recurrenceUntil,
+  })
+  if (occurrenceDates.length <= 1) {
+    return [Object.freeze({
+      ...event,
+      availabilitySummary: availabilityByEventId[`${event.sourceId}:${event.calendarDate}`] || availabilityByEventId[event.sourceId] || event.availabilitySummary,
+      occurrenceDate: event.calendarDate,
+    })]
+  }
+
+  const startParts = londonParts(event.seriesStartsAt)
+  const endParts = londonParts(event.seriesEndsAt)
+  const crossesMidnight = Boolean(startParts?.date && endParts?.date && endParts.date > startParts.date)
+  return occurrenceDates.map((occurrenceDate) => {
+    let startsAt = event.startsAt
+    let endsAt = event.endsAt
+    try {
+      startsAt = londonLocalToUtcIso(occurrenceDate, startParts?.time || event.calendarTime || '18:00')
+      endsAt = londonLocalToUtcIso(crossesMidnight ? addUtcDays(occurrenceDate, 1) : occurrenceDate, endParts?.time || startParts?.time || '19:00')
+    } catch {
+      startsAt = event.startsAt
+      endsAt = event.endsAt
+    }
+    return Object.freeze({
+      ...event,
+      availabilitySummary: availabilityByEventId[`${event.sourceId}:${occurrenceDate}`] || null,
+      calendarDate: occurrenceDate,
+      id: `${event.id}:${occurrenceDate}`,
+      occurrenceDate,
+      startsAt,
+      endsAt,
+    })
+  })
+}
+
 export function buildCoachCalendarEvents({ calendarEvents = [], matches = [], sessions = [], availabilityByEventId = {} } = {}) {
-  const ordinary = calendarEvents.map((row) => normalizeCoachCalendarEvent({
-    ...row,
-    availabilitySummary: availabilityByEventId[normalize(row.id)] || null,
-  }))
+  const ordinary = calendarEvents.flatMap((row) => {
+    const event = normalizeCoachCalendarEvent(row)
+    return expandCoachCalendarEventOccurrences(event, availabilityByEventId)
+  })
   const combined = [
     ...ordinary,
     ...matches.map((row) => normalizeCoachCalendarEvent(row, 'match_day')),
@@ -418,8 +493,8 @@ export function buildCoachCalendarPayload({ context, form }) {
 }
 
 export function coachCalendarFormFromEvent(event = null, context = null) {
-  const start = londonParts(event?.startsAt)
-  const end = londonParts(event?.endsAt)
+  const start = londonParts(event?.seriesStartsAt || event?.startsAt)
+  const end = londonParts(event?.seriesEndsAt || event?.endsAt)
   return {
     date: formatCoachCalendarFormDate(start?.date || getDateInTimeZone()),
     endTime: end?.time || '19:00',
@@ -446,13 +521,15 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
   }
 }
 
-export function getCoachCalendarEventResourceIds(resources = [], eventId = '') {
+export function getCoachCalendarEventResourceIds(resources = [], eventId = '', occurrenceDate = '') {
   const normalizedEventId = normalize(eventId)
-  if (!normalizedEventId) return []
+  const normalizedOccurrenceDate = normalizeCoachCalendarFormDate(occurrenceDate)
+  if (!normalizedEventId || !normalizedOccurrenceDate) return []
   return [...new Set((Array.isArray(resources) ? resources : [])
     .filter((resource) => Array.isArray(resource?.links) && resource.links.some((link) => (
       normalizeKey(link?.linkedType) === 'calendar_event'
       && normalize(link?.linkedId) === normalizedEventId
+      && normalizeCoachCalendarFormDate(link?.calendarOccurrenceDate ?? link?.calendar_occurrence_date) === normalizedOccurrenceDate
     )))
     .map((resource) => normalize(resource?.id))
     .filter(Boolean))]

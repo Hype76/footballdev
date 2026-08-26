@@ -221,8 +221,14 @@ function DomainState({ error, loading, onRetry, stale, styles }) {
   return null
 }
 
+function formatResourceCategory(value) {
+  return String(value || 'general').trim().replaceAll('_', ' ').replaceAll('-', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
 export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActionHandled, onSelectContext, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
+  const [attachmentCategory, setAttachmentCategory] = useState('all')
+  const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false)
   const [events, setEvents] = useState([])
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('upcoming')
@@ -277,6 +283,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   )
   const selectedDay = calendarMonth.days.find((day) => day.date === selectedDate)
   const savedLocations = useMemo(() => getSavedLocationOptions(events), [events])
+  const attachmentCategories = useMemo(() => [...new Set(resources.map((resource) => String(resource.category || 'general').trim().toLowerCase()).filter(Boolean))].sort(), [resources])
   const visibleEvents = selectedDate
     ? events.filter((event) => event.calendarDate === selectedDate)
     : filterCoachCalendarEvents(events, filter)
@@ -285,8 +292,10 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     setFormError('')
     setSaveConfirmation('')
     setSelected(event)
+    setAttachmentCategory('all')
+    setAttachmentPickerOpen(false)
     const nextForm = coachCalendarFormFromEvent(event
-      ? { ...event, resourceIds: getCoachCalendarEventResourceIds(resources, event.sourceId) }
+      ? { ...event, resourceIds: getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate) }
       : null, context)
     setForm({
       ...nextForm,
@@ -299,6 +308,8 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     setSelected(null)
     setFormError('')
     setSaveConfirmation('')
+    setAttachmentCategory('all')
+    setAttachmentPickerOpen(false)
     const nextForm = coachCalendarFormFromEvent(null, context)
     setForm({ ...nextForm, ...(!nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}) })
     onQuickActionHandled?.()
@@ -331,11 +342,12 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
       const notifyEveryone = isRescheduled ? await chooseNotification('rescheduled', selected?.title) : false
       if (isRescheduled && notifyEveryone === null) return
       const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled') : null
+      const attachmentOccurrenceDate = selected?.occurrenceDate || selected?.calendarDate || form?.date
       const savedEvent = await saveCoachCalendarEvent(user, form, selected)
       let attachmentMessage = ''
       if (savedEvent.teamId && Number(user.roleRank || 0) >= 50) {
         try {
-          await syncCoachCalendarEventResources(user, savedEvent, form?.resourceIds || [])
+          await syncCoachCalendarEventResources(user, savedEvent, form?.resourceIds || [], attachmentOccurrenceDate)
         } catch (attachmentError) {
           attachmentMessage = ` The event was saved, but its Resources could not be updated: ${message(attachmentError, 'edit the event and try again.')}`
         }
@@ -489,11 +501,27 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
           {contextModel.isTeamScope && Number(user.roleRank || 0) >= 50 ? (
             <View style={styles.stack}>
               <Text style={styles.fieldLabel}>Event attachments</Text>
-              <Text style={styles.body}>Choose existing Resources from the active Team. Parents who can see this event will receive direct open links.</Text>
-              {resources.length ? resources.map((resource) => {
-                const attached = (form.resourceIds || []).includes(resource.id)
-                return <Button key={resource.id} label={`${attached ? 'Remove' : 'Add'} ${resource.title}`} onPress={() => setForm({ ...form, resourceIds: toggleCoachCalendarResourceId(form.resourceIds, resource.id) })} secondary={!attached} styles={styles} />
-              }) : <><Text style={styles.body}>No active Team Resources are available.</Text><Button label="Open Resources" onPress={() => onNavigate('resources')} secondary styles={styles} /></>}
+              <Text style={styles.body}>Attachments apply only to {formatCoachCalendarFormDate(selected?.occurrenceDate || selected?.calendarDate || form.date)}. Other dates in this repeat series keep their own attachments.</Text>
+              {(form.resourceIds || []).length > 0 ? (
+                <View style={styles.stack}>
+                  <Text style={styles.label}>Selected attachments</Text>
+                  {resources.filter((resource) => (form.resourceIds || []).includes(resource.id)).map((resource) => (
+                    <Button key={resource.id} label={`Remove ${resource.title}`} onPress={() => setForm({ ...form, resourceIds: toggleCoachCalendarResourceId(form.resourceIds, resource.id) })} styles={styles} />
+                  ))}
+                </View>
+              ) : <Text style={styles.body}>No attachments selected for this date.</Text>}
+              {resources.length ? <Button label={attachmentPickerOpen ? 'Close attachment picker' : 'Add or change attachments'} onPress={() => setAttachmentPickerOpen((current) => !current)} secondary styles={styles} /> : <><Text style={styles.body}>No active Team Resources are available.</Text><Button label="Open Resources" onPress={() => onNavigate('resources')} secondary styles={styles} /></>}
+              {attachmentPickerOpen && resources.length ? (
+                <View style={styles.pickerPanel}>
+                  <Text style={styles.fieldLabel}>1. Choose a category</Text>
+                  <Chips onChange={setAttachmentCategory} options={[{ label: 'All', value: 'all' }, ...attachmentCategories.map((category) => ({ label: formatResourceCategory(category), value: category }))]} styles={styles} value={attachmentCategory} />
+                  <Text style={styles.fieldLabel}>2. Select one or more Resources</Text>
+                  {resources.filter((resource) => attachmentCategory === 'all' || String(resource.category || 'general').trim().toLowerCase() === attachmentCategory).map((resource) => {
+                    const attached = (form.resourceIds || []).includes(resource.id)
+                    return <Button key={resource.id} label={`${attached ? 'Selected' : 'Add'} ${resource.title}`} onPress={() => setForm({ ...form, resourceIds: toggleCoachCalendarResourceId(form.resourceIds, resource.id) })} secondary={!attached} styles={styles} />
+                  })}
+                </View>
+              ) : null}
             </View>
           ) : null}
           {form.eventType !== 'match' ? <><Text style={styles.fieldLabel}>Repeat</Text><Chips onChange={(value) => setForm({ ...form, recurrenceFrequency: value })} options={['none', 'weekly', 'fortnightly', 'monthly'].map((value) => ({ label: value, value }))} styles={styles} value={form.recurrenceFrequency} />{form.recurrenceFrequency !== 'none' ? <CoachDateTimeField label="Repeat until" mode="date" onChange={(value) => setForm({ ...form, recurrenceUntil: value })} styles={styles} value={form.recurrenceUntil} /> : null}</> : null}
@@ -511,7 +539,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
           ) : null}
           {formError ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.danger}>{formError}</Text></View> : null}
           <Button disabled={saving || stale} label={saving ? 'Saving...' : 'Save event'} onPress={save} styles={styles} />
-          <Button label="Cancel" onPress={() => { setForm(null); setFormError(''); setSelected(null) }} secondary styles={styles} />
+          <Button label="Cancel" onPress={() => { setForm(null); setFormError(''); setSelected(null); setAttachmentPickerOpen(false) }} secondary styles={styles} />
         </View>
       ) : null}
       {!loading && groups.length === 0 ? <Text style={styles.body}>No Calendar items match this filter.</Text> : null}
@@ -526,7 +554,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
               {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}
-              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{getCoachCalendarEventResourceIds(resources, event.sourceId).map((resourceId) => {
+              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate).map((resourceId) => {
                 const resource = resources.find((item) => item.id === resourceId)
                 return resource ? <Button key={resource.id} label={`Open ${resource.title}`} onPress={() => void openEventResource(resource)} secondary styles={styles} /> : null
               })}{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}

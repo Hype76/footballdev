@@ -343,7 +343,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
   )
 }
 
-export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarget, onDismiss, onRespond, resource, targetInvitationId = '', themeTokens }) {
+export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarget, onDismiss, onOpenResource, onRespond, resource, targetInvitationId = '', themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   const sections = useMemo(() => getParentInvitationSections(resource.items), [resource.items])
   const defaultSection = sections.needsResponse.length ? 'needsResponse' : 'upcoming'
@@ -382,6 +382,21 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarge
             <Text style={styles.body}>{volunteerOffer ? 'Offer status' : 'Response'}: {labelize(invitation.responseState)}</Text>
             {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text style={styles.meta}>{volunteerOffer ? 'Volunteer role status' : 'Squad status'}: {labelize(invitation.selectionState)}</Text> : null}
             {invitation.eventLocation ? <Text style={styles.meta}>{invitation.eventLocation}</Text> : null}
+            {Array.isArray(invitation.resources) && invitation.resources.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.meta}>Attachments</Text>
+                {invitation.resources.map((eventResource) => (
+                  <Button
+                    disabled={isOffline || Boolean(activeActionId)}
+                    key={`${eventResource.id}:${eventResource.occurrenceDate}`}
+                    label={activeActionId === `calendar-resource:${eventResource.id}` ? 'Opening...' : `Open ${eventResource.title}`}
+                    onPress={() => onOpenResource?.(invitation, eventResource)}
+                    outline
+                    styles={styles}
+                  />
+                ))}
+              </View>
+            ) : null}
             {invitation.lockReason ? <Text style={styles.warning}>{invitation.lockReason}</Text> : null}
             {actionable ? (
               <View style={styles.actionRow}>
