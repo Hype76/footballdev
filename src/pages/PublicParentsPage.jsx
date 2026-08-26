@@ -1,4 +1,4 @@
-import fallbackLogo from '../assets/football-player-logo.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
 import parentPortalGoalPhoneImage from '../assets/parent-portal-goal-phone.png'
 import playersListImage from '../assets/marketing/players-list.png'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'

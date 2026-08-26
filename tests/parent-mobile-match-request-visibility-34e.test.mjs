@@ -23,7 +23,7 @@ test('canonical Parent invitation presentation preserves current and historical 
 
 test('Parent mobile fetches the canonical invitation summary without a client date or status exclusion', () => {
   assert.match(parentPortalSource, /supabase\.rpc\('get_parent_portal_invitation_summary', \{ parent_link_id_value: link\.id \}\)/)
-  assert.match(parentPortalSource, /return prepareParentInvitations\(data\)/)
+  assert.match(parentPortalSource, /return prepareParentInvitations\(\(invitationResult\.data \|\| \[\]\)\.map/)
   assert.doesNotMatch(invitationPresentationSource, /Date\.now|new Date|matchDate|responseDeadline.*filter|invitationState.*filter/)
 })
 

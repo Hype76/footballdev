@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import fallbackLogo from '../assets/football-player-logo.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
 
 const rights = [
   'Access a copy of personal data held in the platform.',

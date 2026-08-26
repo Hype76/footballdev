@@ -90,7 +90,6 @@ export function normalizeCoachMatchDay(row = {}) {
 }
 
 const LIST_SELECT = `id,club_id,team_id,opponent,fixture_type,match_conclusion_rule,current_match_phase,extra_time_half_minutes,extra_time_period_count,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,match_clock_mode,match_duration_minutes,venue_name,venue_address,notes,request_scorer,request_linesman,request_referee,status,home_score,away_score,normal_time_home_score,normal_time_away_score,extra_time_home_score,extra_time_away_score,home_shootout_score,away_shootout_score,shootout_winner,phase_started_at,timer_started_at,timer_paused_at,timer_elapsed_seconds,timer_status,full_time_resume_status,concluded_at,concluded_by,previous_hidden_at,created_at,updated_at,teams:team_id(name)`
-const DETAIL_SELECT = `*,teams:team_id(name),match_day_role_assignments(*,parent_player_links:parent_link_id(email,auth_user_id,players:player_id(player_name))),match_day_player_availability(*),match_day_player_squad_decisions(*),match_day_availability_requests(*,players:player_id(player_name),parent_player_links:parent_link_id(email,auth_user_id,players:player_id(player_name))),match_day_events(*),match_day_shootout_kicks(*),match_day_final_reports(*)`
 
 function scoped(query, user) { return query.or(`team_id.is.null,team_id.eq.${user.activeTeamId}`) }
 function assertScope(user, match) { if (match?.teamId && match.teamId !== user?.activeTeamId) throw new Error('This match day is not linked to your active Team.') }
@@ -217,7 +216,10 @@ export async function createCoachMatchDayFixture(user, form) {
 export async function getCoachMatchDayDetail(user, matchDayId, { includeVolunteerEligibility = true } = {}) {
   assertCoachMatchDayAccess(user)
   if (!normalize(matchDayId)) throw new Error('Choose a Match Day fixture.')
-  const { data, error } = await scoped(supabase.from('match_days').select(DETAIL_SELECT).eq('id', matchDayId).eq('club_id', user.clubId).is('deleted_at', null), user).maybeSingle()
+  const { data, error } = await supabase.rpc('get_staff_match_day_detail', {
+    active_team_id_value: user.activeTeamId,
+    target_match_day_id_value: matchDayId,
+  })
   if (error) throw error
   if (!data?.id) throw new Error('This match day is not linked to your active Team.')
   let result = data
@@ -230,9 +232,9 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
       const response = await fetchJsonWithTimeout(url, { headers: { Authorization: `Bearer ${accessToken}` } })
       if (!response.ok || response.result?.success !== true) throw new Error(response.result?.message || 'Volunteer eligibility could not be loaded.')
       const byRequest = new Map((response.result.eligibility || []).map((item) => [String(item.request_id || ''), item]))
-      result = { ...data, match_day_availability_requests: (data.match_day_availability_requests || []).map((item) => ({ ...item, scorer_eligible: byRequest.get(String(item.id))?.eligible === true, scorer_eligibility_reason: byRequest.get(String(item.id))?.reason || '', parent_link_id: byRequest.get(String(item.id))?.parent_link_id || item.parent_link_id, auth_user_id: byRequest.get(String(item.id))?.auth_user_id || item.auth_user_id })) }
+      result = { ...result, match_day_availability_requests: (result.match_day_availability_requests || []).map((item) => ({ ...item, scorer_eligible: byRequest.get(String(item.id))?.eligible === true, scorer_eligibility_reason: byRequest.get(String(item.id))?.reason || '', parent_link_id: byRequest.get(String(item.id))?.parent_link_id || item.parent_link_id, auth_user_id: byRequest.get(String(item.id))?.auth_user_id || item.auth_user_id })) }
     } catch (eligibilityError) {
-      result = { ...data, volunteerEligibilityError: normalize(eligibilityError?.message) || 'Volunteer eligibility could not be loaded.' }
+      result = { ...result, volunteerEligibilityError: normalize(eligibilityError?.message) || 'Volunteer eligibility could not be loaded.' }
     }
   }
   let presentationState = null

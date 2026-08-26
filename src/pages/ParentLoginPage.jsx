@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import fallbackLogo from '../assets/football-player-logo.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { buildParentAppUrl, getMainAppOrigin, getParentAppOrigin, isParentPortalHost } from '../lib/app-origins.js'
 import { isParentPortalUser, useAuth } from '../lib/auth.js'

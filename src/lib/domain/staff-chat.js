@@ -1,5 +1,6 @@
 import { canUseClubStaffChat, canUseStaffChat } from '../auth-permissions.js'
 import { supabase } from '../supabase-client.js'
+import { wakeChatMobileNotificationProcessorFromSession } from '../chat-notification-wake.js'
 import { createAuditLog } from './audit.js'
 import { clearViewCaches, getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
@@ -416,6 +417,7 @@ export async function sendStaffChatMessage({ body, conversationId, user } = {}) 
     throw error
   }
 
+  void wakeChatMobileNotificationProcessorFromSession(supabase)
   const { data, error: messageError } = await supabase
     .from('staff_chat_messages')
     .select('*, users:sender_id(id, email, name, role, role_label, role_rank, club_id)')

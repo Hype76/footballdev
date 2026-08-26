@@ -12,6 +12,7 @@ import { getMatchDayDisplayScore } from '../src/lib/matchday-display.js'
 import { migrationSourceUrl } from './helpers/migration-source.mjs'
 
 const migrationUrl = migrationSourceUrl('20260710183205_match_day_final_reports.sql', 'active')
+const performanceReadMigrationUrl = new URL('../supabase/migrations/20260826175527_chat_read_path_performance_75.sql', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const pageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 const parentPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
@@ -147,14 +148,18 @@ test('report read and save boundaries fail closed for parents and other-team sta
 })
 
 test('staff domain saves through the scoped full-time RPC and strips reports from parent normalization', async () => {
-  const domain = await readFile(domainUrl, 'utf8')
+  const [domain, performanceReadMigration] = await Promise.all([
+    readFile(domainUrl, 'utf8'),
+    readFile(performanceReadMigrationUrl, 'utf8'),
+  ])
   const saveStart = domain.indexOf('export async function saveMatchDayFinalReport')
   const parentStart = domain.indexOf('function normalizeParentPortalMatchDay')
   const parentEnd = domain.indexOf('function assertStaffMatchDayAccess', parentStart)
   const saveSource = domain.slice(saveStart, domain.indexOf('export async function getParentPortalMatchDays', saveStart))
   const parentSource = domain.slice(parentStart, parentEnd)
 
-  assert.match(domain, /match_day_final_reports \(\*\)/)
+  assert.match(domain, /supabase\.rpc\('get_staff_match_day_detail'/)
+  assert.match(performanceReadMigration, /'match_day_final_reports'[\s\S]*from public\.match_day_final_reports report/)
   assert.match(saveSource, /assertStaffMatchDayAccess\(user\)/)
   assert.match(saveSource, /assertMatchInActiveTeamScope\(user, match\)/)
   assert.match(saveSource, /isFinalMatchReportAvailable\(match\)/)

@@ -162,6 +162,40 @@ test('processor uses injected provider sender and records deterministic intent o
   assert.equal(client.calls.filter((call) => call.operation === 'update' && call.value.status === 'sent').length, 2)
 })
 
+test('processor delivers a large claimed batch with bounded concurrency', async () => {
+  const staffIntents = Array.from({ length: 16 }, (_, index) => ({
+    intent_id: index + 1,
+    installation_id: `coach-install-${index + 1}`,
+    auth_user_id: `coach-user-${index + 1}`,
+    user_profile_id: `coach-user-${index + 1}`,
+    club_id: 'club-1',
+    team_id: 'team-1',
+    context_id: 'team:team-1',
+    conversation_id: `conversation-${index + 1}`,
+    conversation_type: 'team_staff',
+    detail_level: 'minimal',
+    expo_push_token: `ExponentPushToken[coach-token-${index + 1}]`,
+  }))
+  const client = createFakeClient({ staffIntents })
+  let active = 0
+  let maximumActive = 0
+
+  const result = await processChatMobileNotifications({
+    client,
+    async sendMessages() {
+      active += 1
+      maximumActive = Math.max(maximumActive, active)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      active -= 1
+      return { sent: 1, failed: 0, invalidTokens: [] }
+    },
+  })
+
+  assert.deepEqual(result, { claimed: 16, failed: 0, sent: 16, skipped: 0 })
+  assert.ok(maximumActive > 1)
+  assert.ok(maximumActive <= 8)
+})
+
 test('Expo provider helper accepts both current Expo token prefixes without a real network call', async () => {
   const originalFetch = globalThis.fetch
   const requests = []

@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import fallbackLogo from '../../assets/football-player-logo.png'
+import fallbackLogo from '../../assets/football-player-logo.webp'
 import { getWorkspaceHomeCopy, useAuth } from '../../lib/auth.js'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
 

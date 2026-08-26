@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import fallbackLogo from '../assets/football-player-logo.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { buildParentAppUrl, getMainAppOrigin, isParentInviteHost } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'

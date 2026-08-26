@@ -66,7 +66,8 @@ test('V1 Chat supports text, safe links, unread state, realtime refresh and no e
   assert.match(domain, /table: 'parent_chat_messages'/)
   assert.match(domain, /filter: `room_id=eq\.\$\{normalizedRoomId\}`/)
   assert.doesNotMatch(workspace, /image upload|file upload|voice note|video|poll|typing indicator|gif|live location/i)
-  assert.doesNotMatch(domain, /send email|notification|invite|sms/i)
+  assert.match(domain, /wakeChatMobileNotificationProcessorFromSession/)
+  assert.doesNotMatch(domain, /send email|invite|sms/i)
 })
 
 test('Chat uses a WhatsApp-style fixed conversation viewport with a persistent composer', async () => {

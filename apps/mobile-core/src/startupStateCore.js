@@ -80,6 +80,11 @@ export async function runMobileStartup({
 
   try {
     await withStartupTimeout(() => prepare?.(), timeoutMs, startupTimeoutCode)
+    const biometricResultPromise = withStartupTimeout(
+      () => getBiometricEnabled(),
+      timeoutMs,
+      startupTimeoutCode,
+    ).then((value) => ({ value }), (error) => ({ error }))
     const result = await withStartupTimeout(() => getSession(), timeoutMs, startupTimeoutCode)
     if (result?.error) throw result.error
     const session = result?.data?.session || null
@@ -89,7 +94,9 @@ export async function runMobileStartup({
       return { diagnosticCode: '', session: null, state: MOBILE_STARTUP_STATES.READY_SIGNED_OUT }
     }
 
-    const biometricEnabled = await withStartupTimeout(() => getBiometricEnabled(), timeoutMs, startupTimeoutCode)
+    const biometricResult = await biometricResultPromise
+    if (biometricResult.error) throw biometricResult.error
+    const biometricEnabled = biometricResult.value
     onLock?.(Boolean(biometricEnabled))
     await onSession?.(session)
     onTransition?.(resolvingProfileState)

@@ -38,11 +38,11 @@ test('heavy Match Day detail loading is restricted to one authorised match', asy
 
   assert.notEqual(start, -1)
   assert.notEqual(end, -1)
-  assert.match(detailSource, /\.select\(buildMatchSelect\(\)\)/)
-  assert.match(detailSource, /\.eq\('id', normalizedMatchDayId\)/)
-  assert.match(detailSource, /\.eq\('club_id', user\.clubId\)/)
-  assert.match(detailSource, /scopeMatchDayQueryToActiveTeam\(query, user\)/)
-  assert.match(detailSource, /\.maybeSingle\(\)/)
+  assert.match(detailSource, /supabase\.rpc\('get_staff_match_day_detail'/)
+  assert.match(detailSource, /active_team_id_value: user\.activeTeamId/)
+  assert.match(detailSource, /target_match_day_id_value: normalizedMatchDayId/)
+  assert.match(detailSource, /if \(!data\?\.id\)/)
+  assert.doesNotMatch(detailSource, /\.select\(buildMatchSelect\(\)\)/)
   assert.doesNotMatch(detailSource, /\.order\(/)
 })
 

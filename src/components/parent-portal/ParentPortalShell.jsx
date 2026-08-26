@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import fallbackLogo from '../../assets/football-player-logo.png'
+import fallbackLogo from '../../assets/football-player-logo.webp'
 import { useAuth } from '../../lib/auth.js'
 import { buildMainAppUrl } from '../../lib/app-origins.js'
 import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'

@@ -1,5 +1,5 @@
-import fallbackLogo from '../assets/football-player-logo.png'
-import landingHeroImage from '../assets/landing-hero-football-club.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
+import landingHeroImage from '../assets/landing-hero-football-club.webp'
 import coachHomeImage from '../assets/marketing/coach-home.png'
 import playerProgressionImage from '../assets/marketing/player-progression.png'
 import playersListImage from '../assets/marketing/players-list.png'

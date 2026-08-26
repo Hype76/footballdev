@@ -6,11 +6,10 @@ export async function claimStripeCheckoutForProfile(session, profile) {
   }
 
   if (typeof window !== 'undefined') {
-    const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
     const searchParams = new URLSearchParams(window.location.search)
     const hasCheckoutReturn = searchParams.get('checkout') === 'success' || searchParams.has('session_id')
 
-    if (paymentsDisabled && !hasCheckoutReturn) {
+    if (!hasCheckoutReturn) {
       return profile
     }
 

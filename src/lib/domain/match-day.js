@@ -796,22 +796,7 @@ function assertMatchDayHasStarted(match) {
 }
 
 function buildMatchSelect() {
-  return `
-    *,
-    teams:team_id (name),
-    match_day_scorer_interest (*, parent_player_links:parent_link_id (players:player_id (player_name))),
-    match_day_scorer_assignments (*),
-    match_day_role_assignments (*, parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
-    match_day_player_availability (*),
-    match_day_player_squad_decisions (*),
-    match_day_player_availability_history (*),
-    match_day_availability_requests (*, players:player_id (player_name), parent_player_links:parent_link_id (email, auth_user_id, players:player_id (player_name))),
-    calendar_event_invites (*, players:player_id (player_name)),
-    match_day_event_log (*, players:player_id (player_name)),
-    match_day_events (*),
-    match_day_shootout_kicks (*),
-    match_day_final_reports (*)
-  `
+  return '*, teams:team_id (name)'
 }
 
 function buildMatchDayListSelect() {
@@ -1168,16 +1153,10 @@ export async function getMatchDay({ user, matchDayId, includeScorerEligibility =
     throw new Error('Choose a match day first.')
   }
 
-  let query = supabase
-    .from('match_days')
-    .select(buildMatchSelect())
-    .eq('id', normalizedMatchDayId)
-    .eq('club_id', user.clubId)
-    .is('deleted_at', null)
-
-  query = scopeMatchDayQueryToActiveTeam(query, user)
-
-  const { data, error } = await query.maybeSingle()
+  const { data, error } = await supabase.rpc('get_staff_match_day_detail', {
+    active_team_id_value: user.activeTeamId,
+    target_match_day_id_value: normalizedMatchDayId,
+  })
 
   if (error) {
     console.error(error)
@@ -1600,7 +1579,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
     },
   })
 
-  return normalizedMatch
+  return getMatchDay({ user, matchDayId: normalizedMatch.id })
 }
 
 function normalizeMatchDayTimerResult(data, fallbackMatch = {}) {

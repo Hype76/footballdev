@@ -1,4 +1,4 @@
-import fallbackLogo from '../../assets/football-player-logo.png'
+import fallbackLogo from '../../assets/football-player-logo.webp'
 import { buildEmailHtml } from '../../lib/email-builder.js'
 import { formatUkDate } from '../../lib/date-format.js'
 

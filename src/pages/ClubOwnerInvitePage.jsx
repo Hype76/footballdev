@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import fallbackLogo from '../assets/football-player-logo.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { supabase } from '../lib/supabase-client.js'
 import { recordSuccessfulLoginAnalytics } from '../lib/domain/platform-analytics.js'

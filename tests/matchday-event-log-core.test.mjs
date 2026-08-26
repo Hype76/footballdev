@@ -7,6 +7,7 @@ import { normalizeMatchDay } from '../src/lib/domain/match-day.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260704084216_match_day_event_log_core.sql', import.meta.url)
 const scorerAuthorityMigrationUrl = new URL('../supabase/migrations/20260731110000_fp_v1_gameday_scorer_authority_02a.sql', import.meta.url)
+const performanceReadMigrationUrl = new URL('../supabase/migrations/20260826175527_chat_read_path_performance_75.sql', import.meta.url)
 const matchEventTypesMigrationUrl = migrationSourceUrl('20260705074811_matchday_event_types_cards_subs_water.sql', 'active')
 const domainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
 const goalStateUrl = new URL('../src/lib/matchday-goal-state.js', import.meta.url)
@@ -47,10 +48,14 @@ test('match day event log migration indexes timeline and player lookups', async 
 })
 
 test('domain read model includes event log entries in Match Day payloads', async () => {
-  const source = await readFile(domainUrl, 'utf8')
+  const [source, performanceReadMigration] = await Promise.all([
+    readFile(domainUrl, 'utf8'),
+    readFile(performanceReadMigrationUrl, 'utf8'),
+  ])
 
   assert.match(source, /function normalizeMatchDayEventLogEntry/)
-  assert.match(source, /match_day_event_log \(\*, players:player_id \(player_name\)\)/)
+  assert.match(source, /supabase\.rpc\('get_staff_match_day_detail'/)
+  assert.match(performanceReadMigration, /'match_day_event_log'[\s\S]*'players'[\s\S]*'player_name', player\.player_name/)
   assert.match(source, /eventLog,/)
 
   const match = normalizeMatchDay({

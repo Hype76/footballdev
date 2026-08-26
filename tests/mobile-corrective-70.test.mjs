@@ -26,7 +26,7 @@ test('active Coach rosters include current promoted Players and exclude archived
 test('Parent Calendar response buttons expose and render the saved selection', async () => {
   const screen = await read('../apps/parent-mobile/src/ParentPortalScreens.js')
 
-  assert.match(screen, /accessibilityState=\{\{ disabled, selected \}\}/)
+  assert.match(screen, /accessibilityState=\{\{ disabled, selected, \.\.\.\(typeof expanded === 'boolean' \? \{ expanded \} : \{\}\) \}\}/)
   assert.match(screen, /selected=\{invitation\.responseState === option\.value\}/)
   assert.match(screen, /styles\.actionSelected/)
   assert.match(screen, /styles\.actionTextSelected/)

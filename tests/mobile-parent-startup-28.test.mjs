@@ -182,6 +182,23 @@ test('fresh production boot reaches visible signed-out state', async () => {
   assert.deepEqual(transitions, [MOBILE_STARTUP_STATES.BOOTING, MOBILE_STARTUP_STATES.RESTORING_SESSION])
 })
 
+test('signed-out startup does not wait for the independent biometric read', async () => {
+  let resolveBiometric
+  const biometricGate = new Promise((resolve) => { resolveBiometric = resolve })
+  const { args } = startupHarness({
+    getBiometricEnabled: () => biometricGate,
+    timeoutMs: 1000,
+  })
+  const completion = runMobileStartup(args)
+  const result = await Promise.race([
+    completion,
+    new Promise((resolve) => setTimeout(() => resolve('blocked'), 50)),
+  ])
+  resolveBiometric(false)
+  assert.notEqual(result, 'blocked')
+  assert.equal(result.state, MOBILE_STARTUP_STATES.READY_SIGNED_OUT)
+})
+
 test('valid production session restores profile and reaches signed-in state', async () => {
   const session = { user: { id: 'synthetic-parent' } }
   let loaded = false

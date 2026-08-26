@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useBlocker, useNavigate, useSearchParams } from 'react-router-dom'
-import fallbackLogo from '../assets/football-player-logo.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
 import { BlankPrintForm } from '../components/evaluations/BlankPrintForm.jsx'
 import { ConfiguredFieldsSection } from '../components/evaluations/ConfiguredFieldsSection.jsx'
 import { EvaluationAvailabilityState } from '../components/evaluations/EvaluationAvailabilityState.jsx'

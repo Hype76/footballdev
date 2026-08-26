@@ -11,6 +11,7 @@ import {
 } from './lib/_notification-scope.js'
 
 const BATCH_SIZE = 50
+const DELIVERY_CONCURRENCY = 8
 const RETRY_DELAY_MS = 60_000
 
 function normalizeText(value) {
@@ -315,6 +316,23 @@ async function claimIntents(client, rpcName) {
   return data || []
 }
 
+async function mapWithConcurrency(items, worker, concurrency = DELIVERY_CONCURRENCY) {
+  const results = new Array(items.length)
+  let nextIndex = 0
+
+  async function run() {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await worker(items[index], index)
+    }
+  }
+
+  const workerCount = Math.min(Math.max(Number(concurrency) || 1, 1), items.length)
+  await Promise.all(Array.from({ length: workerCount }, run))
+  return results
+}
+
 export async function processChatMobileNotifications({
   client,
   sendMessages = sendExpoPushMessages,
@@ -343,18 +361,18 @@ export async function processChatMobileNotifications({
     skipped: 0,
   }
 
-  for (const intent of parentIntents) {
-    const outcome = await deliverIntent({ client, intent, kind: 'parent', sendMessages })
+  const deliveryQueue = [
+    ...parentIntents.map((intent) => ({ intent, kind: 'parent' })),
+    ...staffIntents.map((intent) => ({ intent, kind: 'staff' })),
+    ...pollIntents.map((intent) => ({ intent, kind: 'parent_poll' })),
+  ]
+  const outcomes = await mapWithConcurrency(
+    deliveryQueue,
+    ({ intent, kind }) => deliverIntent({ client, intent, kind, sendMessages }),
+  )
+  outcomes.forEach((outcome) => {
     summary[outcome] += 1
-  }
-  for (const intent of staffIntents) {
-    const outcome = await deliverIntent({ client, intent, kind: 'staff', sendMessages })
-    summary[outcome] += 1
-  }
-  for (const intent of pollIntents) {
-    const outcome = await deliverIntent({ client, intent, kind: 'parent_poll', sendMessages })
-    summary[outcome] += 1
-  }
+  })
 
   return summary
 }

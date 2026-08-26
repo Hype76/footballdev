@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 
 const MINIMUM_CHECK_INTERVAL_MS = 15 * 60 * 1000
+const INITIAL_CHECK_DELAY_MS = 20 * 1000
 
 export function useMobileAutomaticUpdates() {
   const [state, setState] = useState({ readyOnRestart: false, status: 'idle' })
@@ -33,11 +34,16 @@ export function useMobileAutomaticUpdates() {
   }, [])
 
   useEffect(() => {
-    void check({ force: true })
+    const initialCheckId = setTimeout(() => {
+      void check()
+    }, INITIAL_CHECK_DELAY_MS)
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') void check()
     })
-    return () => subscription.remove()
+    return () => {
+      clearTimeout(initialCheckId)
+      subscription.remove()
+    }
   }, [check])
 
   return state

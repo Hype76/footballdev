@@ -1,4 +1,4 @@
-import fallbackLogo from '../../assets/football-player-logo.png'
+import fallbackLogo from '../../assets/football-player-logo.webp'
 
 export function BlankPrintForm({ clubName, logoUrl, fields }) {
   const resolvedLogoUrl = logoUrl || fallbackLogo

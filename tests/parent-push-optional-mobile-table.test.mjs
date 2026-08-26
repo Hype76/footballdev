@@ -9,7 +9,7 @@ const [{ handler }, { supabaseAdmin }] = await Promise.all([
   import('../netlify/functions/lib/_supabase.js'),
 ])
 
-function queryResult(result) {
+function queryResult(result, { inResult = result } = {}) {
   let query
   query = new Proxy({}, {
     get(_target, property) {
@@ -17,7 +17,9 @@ function queryResult(result) {
         return (resolve, reject) => Promise.resolve(result).then(resolve, reject)
       }
 
-      return () => query
+      return property === 'in'
+        ? () => Promise.resolve(inResult)
+        : () => query
     },
   })
   return query
@@ -74,7 +76,14 @@ test('parent message delivery stays successful when the optional mobile table is
     }
 
     if (table === 'clubs') {
-      return queryResult({ data: { id: 'club-1', is_plan_comped: true, plan_key: 'single_team', plan_status: 'active', status: 'active' }, error: null })
+      return queryResult(
+        { data: { id: 'club-1', is_plan_comped: true, plan_key: 'single_team', plan_status: 'active', status: 'active' }, error: null },
+        { inResult: { data: [{ id: 'club-1', name: 'FP TEST Club' }], error: null } },
+      )
+    }
+
+    if (table === 'teams') {
+      return queryResult({ data: [], error: null })
     }
 
     if (table === 'billing_access_state_events') {

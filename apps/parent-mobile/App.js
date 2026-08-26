@@ -138,6 +138,7 @@ import { getSafeParentMessageUrl, presentParentMessages } from './messagePresent
 import { shareParentMobileDevelopmentPdf } from './parentDevelopment'
 
 const config = getMobileRuntimeConfig('parent')
+const PARENT_REFRESH_MIN_INTERVAL_MS = 30 * 1000
 const resourceNames = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'notifications', 'polls', 'resources']
 const resourceFallbacks = {
   calendar: 'Calendar information could not be loaded.',
@@ -294,6 +295,7 @@ function ParentHome() {
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
   const hydratedScopeRef = useRef('')
+  const lastDataRefreshAtRef = useRef(0)
   const requestIdRef = useRef(0)
   const resumeInteractionRef = useRef(null)
   const resumeRefreshRef = useRef(false)
@@ -470,7 +472,35 @@ function ParentHome() {
       polls: () => getParentPolls(selectedMobileUser),
       resources: () => getParentResources(selectedMobileUser),
     }
-    const results = await Promise.allSettled(resourceNames.map((name) => loaders[name]()))
+    const settleResource = async (name) => {
+      try {
+        const value = await loaders[name]()
+        if (requestId === requestIdRef.current && name !== 'calendar') {
+          setResources((current) => ({
+            ...current,
+            [name]: {
+              error: '',
+              items: prepareResourceItems(name, value),
+              loading: false,
+            },
+          }))
+        }
+        return { status: 'fulfilled', value }
+      } catch (reason) {
+        if (requestId === requestIdRef.current && name !== 'calendar') {
+          setResources((current) => ({
+            ...current,
+            [name]: {
+              error: cachedView?.cache ? '' : getParentFriendlyError(reason, resourceFallbacks[name]),
+              items: current[name].items,
+              loading: false,
+            },
+          }))
+        }
+        return { reason, status: 'rejected' }
+      }
+    }
+    const results = await Promise.all(resourceNames.map(settleResource))
 
     if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
 
@@ -489,10 +519,6 @@ function ParentHome() {
     )
     const calendarDependencyFailed = ['calendar', 'invitations', 'matches']
       .some((name) => resultByName[name]?.status === 'rejected')
-    await new Promise((resolve) => {
-      InteractionManager.runAfterInteractions(resolve)
-    })
-    if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
     setResources((current) => {
       const next = { ...current }
       results.forEach((result, index) => {
@@ -525,11 +551,16 @@ function ParentHome() {
 
     if (failed < resourceNames.length) {
       setLastUpdatedAt(new Date().toISOString())
+      lastDataRefreshAtRef.current = Date.now()
       setOfflineCacheState({ source: failed === 0 ? 'online' : cachedView?.cache ? 'cache' : 'online', stale: false })
     }
     let reconciledSync = cachedView?.sync || null
     if (failed === 0) {
       try {
+        await new Promise((resolve) => {
+          InteractionManager.runAfterInteractions(resolve)
+        })
+        if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
         await saveParentOfflineResources(selectedMobileUser, selectedLink.id, Object.fromEntries(
           resourceNames.map((name) => [name, refreshedItems[name]]),
         ))
@@ -766,7 +797,8 @@ function ParentHome() {
       appStateRef.current = nextState
       const returnedFromBackground = previousState === 'background' && nextState === 'active'
       const wasAwayLongEnough = Date.now() - backgroundedAtRef.current >= 1500
-      if (returnedFromBackground && wasAwayLongEnough && selectedLink?.id && !resumeRefreshRef.current) {
+      const dataRefreshDue = Date.now() - lastDataRefreshAtRef.current >= PARENT_REFRESH_MIN_INTERVAL_MS
+      if (returnedFromBackground && wasAwayLongEnough && dataRefreshDue && selectedLink?.id && !resumeRefreshRef.current) {
         void refreshParentAppInstallationPresence()
         resumeRefreshRef.current = true
         const roomIdAtResume = selectedRoomId

@@ -1,4 +1,5 @@
 import { supabase } from '../supabase-client.js'
+import { wakeChatMobileNotificationProcessorFromSession } from '../chat-notification-wake.js'
 import { blockDemoMutation } from './demo-guards.js'
 
 export const PARENT_CHAT_ROOM_TYPES = Object.freeze({
@@ -208,6 +209,7 @@ export async function sendParentChatMessage({ body, roomId, user, ...scope } = {
     throw error
   }
 
+  void wakeChatMobileNotificationProcessorFromSession(supabase)
   return data ?? ''
 }
 

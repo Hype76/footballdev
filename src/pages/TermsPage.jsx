@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import fallbackLogo from '../assets/football-player-logo.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
 
 const terms = [
   ['Use of the service', 'Football Player is provided for football clubs and authorised Coaches to manage development records, notes, communications, teams, and related administration. Users must keep access details secure and use the service only for legitimate club purposes.'],

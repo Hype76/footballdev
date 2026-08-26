@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import fallbackLogo from '../assets/football-player-logo.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
 import { ClubProfileSettingsSection } from '../components/club-settings/ClubProfileSettingsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'

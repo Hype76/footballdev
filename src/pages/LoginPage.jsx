@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import fallbackLogo from '../assets/football-player-logo.png'
-import landingHeroImage from '../assets/landing-hero-football-club.png'
+import fallbackLogo from '../assets/football-player-logo.webp'
+import landingHeroImage from '../assets/landing-hero-football-club.webp'
 import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import fallbackLogo from '../../assets/football-player-logo.png'
+import fallbackLogo from '../../assets/football-player-logo.webp'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,

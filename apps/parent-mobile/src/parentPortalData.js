@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
+import { wakeChatMobileNotificationProcessor } from '../../../src/lib/chat-notification-wake'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { normalizeMatchDay } from '../../mobile-core/src/data'
 import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
@@ -59,10 +60,19 @@ function isTransientChatError(error) {
     || signal.includes('timeout')
 }
 
-const PARENT_CHAT_LOAD_RETRY_DELAYS_MS = [0, 2000, 6000, 14000]
+const PARENT_CHAT_LOAD_RETRY_DELAYS_MS = [0, 500, 1500]
 
 function waitForChatRetry(delayMs) {
   return delayMs > 0 ? new Promise((resolve) => setTimeout(resolve, delayMs)) : Promise.resolve()
+}
+
+function wakeParentChatNotifications() {
+  void getAccessToken()
+    .then((accessToken) => wakeChatMobileNotificationProcessor({
+      accessToken,
+      baseUrl: getMobileRuntimeConfig('parent').apiBaseUrl,
+    }))
+    .catch(() => {})
 }
 
 export function normalizeParentInvitation(row = {}) {
@@ -583,7 +593,10 @@ export async function sendParentChatMessage(user, roomId, body, childOnly = true
       request_id_value: requestId,
       target_room_id: roomId,
     })
-    if (!error) return data
+    if (!error) {
+      wakeParentChatNotifications()
+      return data
+    }
     lastError = error
     if (!isTransientChatError(error) || attempt === 1) break
   }

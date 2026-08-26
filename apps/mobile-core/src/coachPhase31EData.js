@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto'
+import { wakeChatMobileNotificationProcessor } from '../../../src/lib/chat-notification-wake'
 import { CAPABILITIES, getPlanLimit } from '../../../src/lib/paywall-access.js'
 import { getMobileRuntimeConfig } from './config'
 import {
@@ -442,6 +443,12 @@ export async function sendCoachChatMessage(user, room, body) {
       request_id_value: chatRequestId,
     })
   }
+  void getAccessToken()
+    .then((accessToken) => wakeChatMobileNotificationProcessor({
+      accessToken,
+      baseUrl: config.apiBaseUrl,
+    }))
+    .catch(() => {})
   return getCoachChatMessages(user, room)
 }
 

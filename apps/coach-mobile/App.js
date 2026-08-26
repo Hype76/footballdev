@@ -71,6 +71,7 @@ import {
 } from './src/notifications'
 
 const config = getMobileRuntimeConfig('coach')
+const HOME_REFRESH_MIN_INTERVAL_MS = 30 * 1000
 const defaultThemeContext = createCoachThemeContext(DEFAULT_COACH_THEME)
 const CoachThemeContext = createContext(defaultThemeContext)
 
@@ -148,6 +149,7 @@ function CoachHome() {
   const viewportHeightRef = useRef(0)
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
+  const lastHomeRefreshAtRef = useRef(0)
   const headerScrollY = useRef(new Animated.Value(0)).current
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
@@ -345,6 +347,10 @@ function CoachHome() {
       setLastUpdatedAt(savedHome.savedAt || cached.savedAt)
     }
 
+    const attentionResultPromise = getCoachPhase31GAttentionSnapshot(selectedMobileUser)
+      .then((value) => ({ value }))
+      .catch((error) => ({ error }))
+
     try {
       const primary = await getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser)
       if (requestId !== requestIdRef.current) return
@@ -352,16 +358,21 @@ function CoachHome() {
       const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
       setHomeState((current) => ({ ...current, ...primarySnapshot }))
       setLastUpdatedAt(savedAt)
-      await saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
+      lastHomeRefreshAtRef.current = Date.now()
+      void saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
 
-      const attention = await getCoachPhase31GAttentionSnapshot(selectedMobileUser)
+      const attentionResult = await attentionResultPromise
       if (requestId !== requestIdRef.current) return
+      if (attentionResult.error) {
+        setHomeState((current) => ({ ...current, partial: true }))
+        return
+      }
       const completeSnapshot = {
-        ...mergeCoachPhase31GHomeSnapshots(primarySnapshot, attention),
+        ...mergeCoachPhase31GHomeSnapshots(primarySnapshot, attentionResult.value),
         savedAt,
       }
       setHomeState(completeSnapshot)
-      await saveCoachOfflineResources(user.id, activeContext, { home: completeSnapshot }).catch(() => {})
+      void saveCoachOfflineResources(user.id, activeContext, { home: completeSnapshot }).catch(() => {})
     } catch (error) {
       if (requestId !== requestIdRef.current) return
       if (!savedHome) setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false }))
@@ -509,7 +520,8 @@ function CoachHome() {
       appStateRef.current = nextState
       const returnedFromBackground = previousState === 'background' && nextState === 'active'
       const wasAwayLongEnough = Date.now() - backgroundedAtRef.current >= 2500
-      if (returnedFromBackground && wasAwayLongEnough && activeRoute !== 'matchday' && contextOwnedByCurrentUser && selectedMobileUser?.clubId) {
+      const homeRefreshDue = Date.now() - lastHomeRefreshAtRef.current >= HOME_REFRESH_MIN_INTERVAL_MS
+      if (returnedFromBackground && wasAwayLongEnough && homeRefreshDue && activeRoute !== 'matchday' && contextOwnedByCurrentUser && selectedMobileUser?.clubId) {
         void loadHome({ refresh: true })
         void refreshNotifications()
       }
