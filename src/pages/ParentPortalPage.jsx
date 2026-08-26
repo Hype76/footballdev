@@ -80,6 +80,7 @@ import {
   isFixtureKickoffTimeTbc,
 } from '../lib/calendar-datetime-integrity.js'
 import { getMatchDaySquadDecisionLabel } from '../lib/matchday-squad-selection.js'
+import { getMatchDayShirtChoiceLabel } from '../lib/matchday-model.js'
 import {
   getMatchDayPhaseLabel,
   MATCH_DAY_SHOOTOUT_NO_GOAL_OUTCOME,
@@ -1918,6 +1919,7 @@ function ParentMatchDayHero({ matches, onOpenGameMode, selectedLink }) {
               <dl className="mt-3 grid gap-2 text-sm font-semibold text-[var(--text-muted)] sm:grid-cols-2">
                 <div><dt className="font-black text-[var(--text-primary)]">Kick-off</dt><dd>{getFixtureKickoffLabel(match)}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Home or away</dt><dd>{match.homeAway || 'To be confirmed'}</dd></div>
+                <div><dt className="font-black text-[var(--text-primary)]">Shirts</dt><dd>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Venue</dt><dd>{venue || 'To be confirmed'}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Child</dt><dd>{selectedLink?.playerName || 'Linked child'}</dd></div>
               </dl>
@@ -2404,7 +2406,7 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
         eventStatus: match.status,
         type: 'match-day',
         title: getMatchDayDisplayName(match),
-        description: [!kickoffTimeTbc && match.arrivalTime ? `Meet ${match.arrivalTime}` : '', kickoffLabel ? `Kick-off ${kickoffLabel}` : '', getMatchVenueDisplay(match)].filter(Boolean).join(', '),
+        description: [!kickoffTimeTbc && match.arrivalTime ? `Meet ${match.arrivalTime}` : '', kickoffLabel ? `Kick-off ${kickoffLabel}` : '', getMatchDayShirtChoiceLabel(match.shirtChoice), getMatchVenueDisplay(match)].filter(Boolean).join(', '),
         location: getMatchCalendarLocation(match),
         teamName: match.teamName || invitationGroup?.teamName || '',
         childId: invitationGroup?.childId || '',
@@ -3104,6 +3106,7 @@ function ParentMatchListItem({ isSelected, match, onSelect }) {
       <span className="mt-2 flex flex-wrap gap-2 text-xs font-black text-[#4b5f55]">
         <span>{getParentAvailabilityStatusLabel(match.availabilityStatus)}</span>
         <span>{String(match.status || 'scheduled').replace(/_/g, ' ')}</span>
+        <span>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</span>
       </span>
     </button>
   )
@@ -3716,6 +3719,7 @@ function ParentMatchCard({
           </div>
           <h4 className="mt-3 text-lg font-black text-[#101828]">{getMatchDayDisplayName(match)}</h4>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
+          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getMatchDayShirtChoiceLabel(match.shirtChoice)}</p>
           {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{match.venueName}</p> : null}
           {match.notes ? (
             <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">

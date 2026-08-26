@@ -5,6 +5,7 @@ import {
   validateOrdinaryEventDateTime,
 } from '../../../src/lib/calendar-datetime-integrity.js'
 import { getDateInTimeZone } from './parentCalendarCore.js'
+import { normalizeLegacyMatchHomeAway, normalizeMatchDayShirtChoice } from '../../../src/lib/matchday-model.js'
 
 export const COACH_CALENDAR_EVENT_TYPES = Object.freeze([
   'general',
@@ -262,6 +263,8 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     isClubWide: !teamId,
     isInheritedClubEvent: Boolean(row.isInheritedClubEvent),
     kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true,
+    homeAway: isMatchDay ? normalizeLegacyMatchHomeAway(row.home_away ?? row.homeAway) : '',
+    shirtChoice: isMatchDay ? normalizeMatchDayShirtChoice(row.shirt_choice ?? row.shirtChoice) : '',
     location: normalize(row.location || row.venue_address || row.venueAddress || row.venue_name || row.venueName),
     notes: normalize(row.notes),
     parentAudience: normalizeKey(row.parent_audience ?? row.parentAudience) || 'none',
@@ -433,6 +436,7 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
     requestTrainingAvailability: event?.requestTrainingAvailability === true,
     recurrenceFrequency: event?.recurrenceFrequency || 'none',
     recurrenceUntil: formatCoachCalendarFormDate(event?.recurrenceUntil || ''),
+    resourceIds: [...new Set((Array.isArray(event?.resourceIds) ? event.resourceIds : []).map(normalize).filter(Boolean))],
     startTime: start?.time || '18:00',
     teamId: normalize(event?.teamId || context?.teamId || context?.activeTeamId),
     title: normalize(event?.title),
@@ -440,6 +444,27 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
       ? Number(event.trainingAvailabilitySendDaysBefore)
       : 2,
   }
+}
+
+export function getCoachCalendarEventResourceIds(resources = [], eventId = '') {
+  const normalizedEventId = normalize(eventId)
+  if (!normalizedEventId) return []
+  return [...new Set((Array.isArray(resources) ? resources : [])
+    .filter((resource) => Array.isArray(resource?.links) && resource.links.some((link) => (
+      normalizeKey(link?.linkedType) === 'calendar_event'
+      && normalize(link?.linkedId) === normalizedEventId
+    )))
+    .map((resource) => normalize(resource?.id))
+    .filter(Boolean))]
+}
+
+export function toggleCoachCalendarResourceId(resourceIds = [], resourceId = '') {
+  const normalizedResourceId = normalize(resourceId)
+  const current = [...new Set((Array.isArray(resourceIds) ? resourceIds : []).map(normalize).filter(Boolean))]
+  if (!normalizedResourceId) return current
+  return current.includes(normalizedResourceId)
+    ? current.filter((id) => id !== normalizedResourceId)
+    : [...current, normalizedResourceId]
 }
 
 export function getCanonicalCalendarLocalDateTime(date, time) {

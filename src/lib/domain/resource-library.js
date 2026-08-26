@@ -918,9 +918,9 @@ export async function syncCalendarEventResourceLinks({ eventId, resourceIds = []
   return getCalendarEventResources({ eventId: normalizedEventId, teamId: eventTeamId, user })
 }
 
-export async function getResourceLibraryDownloadUrl({ resourceId, user } = {}) {
+export async function getResourceLibraryDownloadUrl({ resourceId, teamId = '', user } = {}) {
   assertResourceLibraryAccess(user)
-  const activeTeamId = getActiveResourceTeamId(user)
+  const resourceTeamId = normalizeText(teamId) || getActiveResourceTeamId(user)
 
   const normalizedResourceId = normalizeText(resourceId)
 
@@ -933,7 +933,7 @@ export async function getResourceLibraryDownloadUrl({ resourceId, user } = {}) {
     .select('id, storage_path, storage_bucket, resource_library_external_links(external_url)')
     .eq('id', normalizedResourceId)
     .eq('club_id', user.clubId)
-    .eq('team_id', activeTeamId)
+    .eq('team_id', resourceTeamId)
     .is('archived_at', null)
     .single()
 

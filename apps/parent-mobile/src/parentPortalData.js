@@ -27,6 +27,30 @@ function createRequestId(value = '') {
   return Crypto.randomUUID()
 }
 
+async function sendCoachTrainingAvailabilityResponsePushSafely({ parentLinkId, requestPlayerId, respondedAt }) {
+  try {
+    const config = getMobileRuntimeConfig('parent')
+    const accessToken = await getAccessToken()
+    if (!config.apiBaseUrl || !accessToken || !parentLinkId || !requestPlayerId || !respondedAt) return null
+
+    const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '/.netlify/functions/send-coach-mobile-push'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parentLinkId,
+        requestPlayerId,
+        respondedAt,
+        type: 'training_availability_response',
+      }),
+    })
+    if (!ok || result?.success === false) throw new Error(result?.message || 'Coach notification could not be sent.')
+    return result
+  } catch (error) {
+    console.warn('Coach training availability notification failed', error)
+    return null
+  }
+}
+
 function isTransientChatError(error) {
   const signal = normalizeText(`${error?.code || ''} ${error?.message || error}`).toLowerCase()
   return signal.includes('network')
@@ -68,6 +92,7 @@ export function normalizeParentInvitation(row = {}) {
     responseState: normalizeText(row.response_state ?? row.responseState).toLowerCase() || 'awaiting_response',
     roleType: normalizeText(row.role_type ?? row.roleType).toLowerCase(),
     selectionState: normalizeText(row.selection_state ?? row.selectionState).toLowerCase() || 'not_applicable',
+    shirtChoice: normalizeText(row.shirt_choice ?? row.shirtChoice).toLowerCase() || 'home',
     sourceRecordId: row.source_record_id ?? row.sourceRecordId ?? '',
     sourceEventType: normalizeText(row.source_event_type ?? row.sourceEventType).toLowerCase(),
     sourceType: normalizeText(row.source_type ?? row.sourceType),
@@ -152,7 +177,8 @@ export function normalizeParentChatRoom(row = {}) {
   }
 }
 
-export function normalizeParentChatMessage(row = {}) {
+export function normalizeParentChatMessage(row = {}, user = {}) {
+  const isCurrentUser = normalizeText(row.sender_id ?? row.senderId) === normalizeText(user.id)
   return {
     body: normalizeText(row.body),
     canDelete: Boolean(row.can_delete ?? row.canDelete),
@@ -161,7 +187,7 @@ export function normalizeParentChatMessage(row = {}) {
     id: row.id ?? '',
     roomId: row.room_id ?? row.roomId ?? '',
     senderKind: normalizeText(row.sender_kind ?? row.senderKind),
-    senderName: normalizeText(row.sender_name ?? row.senderName) || 'Chat participant',
+    senderName: normalizeText(isCurrentUser ? user.displayName || user.name : '') || normalizeText(row.sender_name ?? row.senderName) || 'Chat participant',
     senderRole: normalizeText(row.sender_role ?? row.senderRole),
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
   }
@@ -242,18 +268,20 @@ function normalizeParentMatchDay(row = {}) {
 
 export async function getParentPortalMatchDays(user) {
   const link = requireSelectedLink(user)
-  const [baseResult, extendedResult, teamResult, scorerResult] = await Promise.all([
+  const [baseResult, extendedResult, teamResult, scorerResult, shirtResult] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_scorer_game_mode_match_ids', { parent_link_id_value: link.id }),
+    supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
   ])
-  for (const result of [baseResult, extendedResult, teamResult, scorerResult]) {
+  for (const result of [baseResult, extendedResult, teamResult, scorerResult, shirtResult]) {
     if (result.error) throw result.error
   }
   const extendedById = new Map((extendedResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row]))
   const teamById = new Map((teamResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.selected_player_names ?? row.selectedPlayerNames ?? []]))
   const scorerIds = new Set((scorerResult.data || []).map((row) => String(row.match_day_id ?? row.matchDayId)))
+  const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
   return (baseResult.data || []).map((row) => {
     const extended = extendedById.get(String(row.id)) || {}
     const eventContext = new Map((extended.event_contexts ?? extended.eventContexts ?? []).map((event) => [String(event.id), event]))
@@ -262,6 +290,7 @@ export async function getParentPortalMatchDays(user) {
       ...extended,
       events: (row.events || []).map((event) => ({ ...event, ...(eventContext.get(String(event.id)) || {}) })),
       is_scorer: scorerIds.has(String(row.id)),
+      shirt_choice: shirtsById.get(String(row.id)),
       selected_player_names: teamById.get(String(row.id)) || [],
     })
   })
@@ -281,9 +310,19 @@ export async function getParentPortalMatchDayPlayers(user) {
 
 export async function getParentInvitations(user) {
   const link = requireSelectedLink(user)
-  const { data, error } = await supabase.rpc('get_parent_portal_invitation_summary', { parent_link_id_value: link.id })
-  if (error) throw error
-  return prepareParentInvitations(data)
+  const [invitationResult, shirtResult] = await Promise.all([
+    supabase.rpc('get_parent_portal_invitation_summary', { parent_link_id_value: link.id }),
+    supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
+  ])
+  if (invitationResult.error) throw invitationResult.error
+  if (shirtResult.error) throw shirtResult.error
+  const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
+  return prepareParentInvitations((invitationResult.data || []).map((row) => ({
+    ...row,
+    shirt_choice: normalizeText(row.source_event_type ?? row.sourceEventType).toLowerCase() === 'match_day'
+      ? shirtsById.get(String(row.event_id ?? row.eventId))
+      : undefined,
+  })))
 }
 
 export async function respondToParentInvitation(user, invitation, responseState) {
@@ -292,12 +331,20 @@ export async function respondToParentInvitation(user, invitation, responseState)
   if (!invitation?.sourceRecordId) throw new Error('This invitation could not be opened.')
   if (!isParentInvitationActionable(invitation)) throw new Error('This invitation is no longer available for response.')
   if (invitation.invitationType === 'training_attendance') {
+    const previousResponse = normalizeText(invitation.responseState).toLowerCase()
     const { data, error } = await supabase.rpc('respond_parent_portal_training_invitation', {
       parent_link_id_value: link.id,
       request_player_id_value: invitation.sourceRecordId,
       response_value: response,
     })
     if (error) throw error
+    if (previousResponse !== response && data?.respondedAt) {
+      await sendCoachTrainingAvailabilityResponsePushSafely({
+        parentLinkId: link.id,
+        requestPlayerId: invitation.sourceRecordId,
+        respondedAt: data.respondedAt,
+      })
+    }
     return data
   }
   if (['match_attendance', 'match_role'].includes(invitation.invitationType)) {
@@ -382,6 +429,25 @@ export async function getParentDevelopmentHistory(user) {
   return Array.isArray(result.reports) ? result.reports : []
 }
 
+export async function getParentCalendarEventResources(user) {
+  const link = requireSelectedLink(user)
+  const config = getMobileRuntimeConfig('parent')
+  const result = await callParentApi(getParentApiPaths(config).resource, {
+    action: 'list_calendar_event_resources',
+    parentLinkId: link.id,
+  })
+
+  return (Array.isArray(result.resources) ? result.resources : []).map((resource) => ({
+    category: normalizeText(resource.category) || 'general',
+    eventId: normalizeText(resource.eventId ?? resource.event_id),
+    fileSizeBytes: Math.max(0, Number(resource.fileSizeBytes ?? resource.file_size_bytes ?? 0)),
+    id: normalizeText(resource.id ?? resource.resourceId ?? resource.resource_id),
+    originalFilename: normalizeText(resource.originalFilename ?? resource.original_filename),
+    resourceType: normalizeText(resource.resourceType ?? resource.resource_type) || 'file',
+    title: normalizeText(resource.title) || normalizeText(resource.originalFilename ?? resource.original_filename) || 'Event attachment',
+  })).filter((resource) => resource.id && resource.eventId)
+}
+
 function safeFilename(value, fallback) {
   return normalizeText(value).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-') || fallback
 }
@@ -416,11 +482,15 @@ export async function openParentDevelopmentReport(user, reportId) {
   return { shared: true }
 }
 
-export async function openParentResource(user, resourceId) {
+export async function openParentResource(user, resourceId, { calendarEventId = '' } = {}) {
   const link = requireSelectedLink(user)
   const config = getMobileRuntimeConfig('parent')
   const resourcePath = getParentApiPaths(config).resource
-  const result = await callParentApi(resourcePath, { parentLinkId: link.id, resourceId })
+  const result = await callParentApi(resourcePath, {
+    calendarEventId: normalizeText(calendarEventId) || undefined,
+    parentLinkId: link.id,
+    resourceId,
+  })
   if (result.accessType === 'formation_board' && result.formationBoard) return { formationBoard: result.formationBoard }
   if (result.accessType === 'external_link') return { externalUrl: normalizeText(result.accessUrl) }
   if (config.supabaseEnvironment === 'production') {
@@ -480,7 +550,7 @@ export async function getParentChatMessages(user, roomId, childOnly = true) {
       parent_link_id_value: link.id,
       target_room_id: roomId,
     })
-    if (!error) return (data || []).map(normalizeParentChatMessage)
+    if (!error) return (data || []).map((row) => normalizeParentChatMessage(row, user))
     lastError = error
     if (!isTransientChatError(error)) break
   }
@@ -671,9 +741,18 @@ export async function updateParentPassword(user, currentPassword, nextPassword) 
   if (error) throw error
 }
 
-export async function updateParentDisplayName(displayName) {
+export async function updateParentDisplayName(user, displayName) {
   const nextDisplayName = normalizeText(displayName)
   if (!nextDisplayName) throw new Error('Enter the name you want shown in the app.')
+
+  const currentUsername = normalizeText(user?.name || user?.displayName || user?.email)
+  if (!currentUsername) throw new Error('Your current account name could not be loaded.')
+
+  const { error: profileError } = await supabase.rpc('update_own_user_profile', {
+    profile_display_name: nextDisplayName,
+    profile_username: currentUsername,
+  })
+  if (profileError) throw profileError
 
   const { data, error } = await supabase.auth.updateUser({
     data: {
@@ -682,5 +761,7 @@ export async function updateParentDisplayName(displayName) {
     },
   })
   if (error) throw error
-  return data?.user || null
+  const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
+  if (refreshError) throw refreshError
+  return refreshed?.user || data?.user || null
 }

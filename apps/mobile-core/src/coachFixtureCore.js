@@ -1,6 +1,6 @@
 import { MATCH_DAY_CONCLUSION_RULE_OPTIONS, MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS, matchUsesExtraTime, normalizeExtraTimeHalfMinutes, normalizeExtraTimePeriodCount, normalizeMatchDayConclusionRule } from '../../../src/lib/matchday-extended-ops.js'
 import { assertValidMatchDayFixtureType, MATCH_DAY_FIXTURE_TYPE_OPTIONS } from '../../../src/lib/matchday-fixture-type.js'
-import { assertNewMatchHomeAway, assertValidMatchClockMode, assertValidMatchDurationMinutes, isContinuousMatchClock, MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS } from '../../../src/lib/matchday-model.js'
+import { assertMatchDayShirtChoice, assertNewMatchHomeAway, assertValidMatchClockMode, assertValidMatchDurationMinutes, isContinuousMatchClock, MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS, MATCH_DAY_SHIRT_CHOICE_OPTIONS } from '../../../src/lib/matchday-model.js'
 import { getDateInTimeZone } from './parentCalendarCore.js'
 import { formatCoachCalendarFormDate, normalizeCoachCalendarFormDate } from './coachCalendarCore.js'
 import { DEFAULT_EXPIRY_DURATION, expiryDurationToHours } from '../../../src/lib/expiry-duration.js'
@@ -14,7 +14,7 @@ export const COACH_MATCH_ARRIVAL_OPTIONS = Object.freeze([
   { label: 'Custom arrival time', value: 'custom' },
 ])
 
-export { MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_CONCLUSION_RULE_OPTIONS, MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS, MATCH_DAY_FIXTURE_TYPE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS, isContinuousMatchClock, matchUsesExtraTime }
+export { MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_CONCLUSION_RULE_OPTIONS, MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS, MATCH_DAY_FIXTURE_TYPE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS, MATCH_DAY_SHIRT_CHOICE_OPTIONS, isContinuousMatchClock, matchUsesExtraTime }
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -56,6 +56,7 @@ export function createCoachFixtureForm({ defaultDuration = 90, defaultLocation =
     extraTimePeriodCount: 2,
     fixtureType: '',
     homeAway: 'home',
+    shirtChoice: 'home',
     kickoffTime,
     kickoffTimeTbc: false,
     matchDate: formatCoachCalendarFormDate(getDateInTimeZone()),
@@ -129,6 +130,7 @@ export function validateCoachFixtureForm(form = {}) {
     extraTimePeriodCount: normalizeExtraTimePeriodCount(form.extraTimePeriodCount),
     fixtureType,
     homeAway: assertNewMatchHomeAway(form.homeAway),
+    shirtChoice: assertMatchDayShirtChoice(form.shirtChoice),
     kickoffTime,
     kickoffTimeTbc,
     matchDate,

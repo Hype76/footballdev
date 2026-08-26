@@ -12,6 +12,7 @@ import {
   MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS,
   MATCH_DAY_FIXTURE_TYPE_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
+  MATCH_DAY_SHIRT_CHOICE_OPTIONS,
   matchUsesExtraTime,
   updateCoachFixtureArrivalPreset,
   updateCoachFixtureKickoff,
@@ -105,6 +106,8 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
         {!form.kickoffTimeTbc ? <><Text style={styles.fieldLabel}>Arrival</Text><Chips onChange={(value) => setForm(updateCoachFixtureArrivalPreset(form, value))} options={COACH_MATCH_ARRIVAL_OPTIONS} styles={styles} value={form.arrivalPreset} />{form.arrivalPreset === 'custom' ? <CoachDateTimeField label="Arrival time" mode="time" onChange={(value) => setForm({ ...form, arrivalTime: value })} styles={styles} value={form.arrivalTime} /> : <Text style={styles.meta}>Arrival time: {form.arrivalTime || 'Set a kick-off time'}</Text>}</> : null}
         <Text style={styles.fieldLabel}>Home or away</Text>
         <Chips onChange={(value) => setForm({ ...form, homeAway: value })} options={MATCH_DAY_HOME_AWAY_OPTIONS} styles={styles} value={form.homeAway} />
+        <Text style={styles.fieldLabel}>Shirts</Text>
+        <Chips onChange={(value) => setForm({ ...form, shirtChoice: value })} options={MATCH_DAY_SHIRT_CHOICE_OPTIONS} styles={styles} value={form.shirtChoice} />
       </View>
 
       <View style={styles.card}>

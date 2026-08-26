@@ -75,7 +75,7 @@ export function getParentMatchCalendarUrl(match) {
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     dates: `${start}/${end}`,
-    details: 'Football Player Match Day',
+    details: `Football Player Match Day\nShirts: ${match?.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}`,
     location,
     text: title,
   })

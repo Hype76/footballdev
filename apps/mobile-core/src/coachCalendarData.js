@@ -73,7 +73,7 @@ export async function getCoachCalendarResources(user) {
   const matchesPromise = user.activeTeamId
     ? supabase
       .from('match_days')
-      .select('id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, status, venue_name, venue_address, notes, updated_at, teams:team_id(name)')
+      .select('id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, home_away, shirt_choice, match_duration_minutes, status, venue_name, venue_address, notes, updated_at, teams:team_id(name)')
       .eq('club_id', user.clubId)
       .eq('team_id', user.activeTeamId)
       .order('match_date', { ascending: true })
@@ -175,6 +175,80 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
     user,
   })
   return normalizeCoachCalendarEvent(data)
+}
+
+export async function syncCoachCalendarEventResources(user, event, resourceIds = []) {
+  assertCoachOperationalMutation(user, { minimumRank: 50, requiresTeam: true })
+  const eventId = normalize(event?.sourceId || event?.id)
+  const eventTeamId = normalize(event?.teamId)
+  const desiredResourceIds = [...new Set((Array.isArray(resourceIds) ? resourceIds : []).map(normalize).filter(Boolean))]
+
+  if (!eventId || event?.sourceType !== 'calendar_event' || !eventTeamId || eventTeamId !== normalize(user.activeTeamId)) {
+    throw new Error('Choose an editable event from the active Team before attaching Resources.')
+  }
+
+  if (desiredResourceIds.length > 0) {
+    const { data: resources, error: resourcesError } = await supabase
+      .from('resource_library_items')
+      .select('id')
+      .eq('club_id', user.clubId)
+      .eq('team_id', eventTeamId)
+      .is('archived_at', null)
+      .in('id', desiredResourceIds)
+    if (resourcesError) throw resourcesError
+    const authorisedIds = new Set((resources || []).map((resource) => normalize(resource.id)))
+    if (desiredResourceIds.some((resourceId) => !authorisedIds.has(resourceId))) {
+      throw new Error('Attach Resources from the active Team only.')
+    }
+  }
+
+  const { data: existingLinks, error: existingLinksError } = await supabase
+    .from('resource_library_links')
+    .select('id, resource_id, team_id')
+    .eq('club_id', user.clubId)
+    .eq('team_id', eventTeamId)
+    .eq('linked_type', 'calendar_event')
+    .eq('linked_id', eventId)
+    .is('removed_at', null)
+  if (existingLinksError) throw existingLinksError
+
+  const desiredIds = new Set(desiredResourceIds)
+  const existingIds = new Set((existingLinks || []).map((link) => normalize(link.resource_id)))
+  const linksToRemove = (existingLinks || []).filter((link) => !desiredIds.has(normalize(link.resource_id)))
+  const resourcesToAdd = desiredResourceIds.filter((resourceId) => !existingIds.has(resourceId))
+
+  if (linksToRemove.length > 0) {
+    const removals = await Promise.all(linksToRemove.map((link) => supabase.rpc('remove_resource_library_link', {
+      target_link_id: link.id,
+      target_club_id: user.clubId,
+      target_team_id: eventTeamId,
+    })))
+    const removalError = removals.find((result) => result.error)?.error
+    if (removalError) throw removalError
+  }
+
+  if (resourcesToAdd.length > 0) {
+    const { error: insertError } = await supabase.from('resource_library_links').insert(resourcesToAdd.map((resourceId) => ({
+      assigned_by_email: normalize(user.email).toLowerCase(),
+      assigned_by_name: normalize(user.displayName || user.name || user.email),
+      assigned_by_profile_id: user.id,
+      club_id: user.clubId,
+      linked_id: eventId,
+      linked_type: 'calendar_event',
+      resource_id: resourceId,
+      team_id: eventTeamId,
+    })))
+    if (insertError) throw insertError
+  }
+
+  await recordCoachOperationalAudit({
+    action: 'resource_library_event_resources_synced',
+    entityId: eventId,
+    entityType: 'calendar_event',
+    metadata: { resourceCount: desiredResourceIds.length, teamId: eventTeamId },
+    user,
+  })
+  return desiredResourceIds
 }
 
 async function callCoachCalendarChangeNotifications(payload) {

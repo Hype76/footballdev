@@ -76,6 +76,64 @@ async function getMatch(matchDayId) {
   return data
 }
 
+async function getParentTrainingAvailabilityResponse({ authUser, parentLinkId, requestPlayerId, respondedAt }) {
+  if (!parentLinkId || !requestPlayerId || !respondedAt) {
+    throw Object.assign(new Error('Training response details are required.'), { statusCode: 400 })
+  }
+
+  const { data: link, error: linkError } = await supabaseAdmin
+    .from('parent_player_links')
+    .select('id, club_id, team_id, player_id, status')
+    .eq('id', parentLinkId)
+    .eq('auth_user_id', authUser.id)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (linkError) throw linkError
+  if (!link?.id) throw Object.assign(new Error('This Parent link cannot notify Coaches.'), { statusCode: 403 })
+
+  const { data: requestPlayer, error: requestPlayerError } = await supabaseAdmin
+    .from('training_availability_request_players')
+    .select('id, request_id, club_id, team_id, calendar_event_id, player_id, player_name, status')
+    .eq('id', requestPlayerId)
+    .eq('club_id', link.club_id)
+    .eq('team_id', link.team_id)
+    .eq('player_id', link.player_id)
+    .maybeSingle()
+  if (requestPlayerError) throw requestPlayerError
+  if (!requestPlayer?.id || requestPlayer.status !== 'responded') {
+    throw Object.assign(new Error('This Training response cannot notify Coaches.'), { statusCode: 403 })
+  }
+
+  const [{ data: response, error: responseError }, { data: calendarEvent, error: calendarError }] = await Promise.all([
+    supabaseAdmin
+      .from('training_availability_responses')
+      .select('status, responded_at')
+      .eq('request_id', requestPlayer.request_id)
+      .eq('player_id', requestPlayer.player_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('calendar_events')
+      .select('id, club_id, team_id, event_type, title, cancelled_at')
+      .eq('id', requestPlayer.calendar_event_id)
+      .eq('club_id', requestPlayer.club_id)
+      .eq('team_id', requestPlayer.team_id)
+      .eq('event_type', 'training')
+      .is('cancelled_at', null)
+      .maybeSingle(),
+  ])
+  if (responseError) throw responseError
+  if (calendarError) throw calendarError
+  if (!response?.status || normalizeText(response.responded_at) !== respondedAt || !calendarEvent?.id) {
+    throw Object.assign(new Error('This Training response is no longer current.'), { statusCode: 409 })
+  }
+
+  return {
+    calendarEvent,
+    playerName: requestPlayer.player_name,
+    status: response.status,
+  }
+}
+
 async function canNotifyCoaches({ authUser, match, profile, type }) {
   if (type === 'scorer_volunteer' && profile.role === 'parent_portal') {
     const { data, error } = await supabaseAdmin
@@ -322,10 +380,35 @@ export async function handler(event) {
   try {
     const authUser = await getAuthUser(event)
     const profile = await getProfile(authUser)
-    await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
     const type = normalizeText(body.type) || 'coach_update'
+
+    if (type === 'training_availability_response') {
+      if (profile.role !== 'parent_portal') {
+        return failureResponse(403, 'Only the responding Parent can send this Coach notification.')
+      }
+      const trainingResponse = await getParentTrainingAvailabilityResponse({
+        authUser,
+        parentLinkId: normalizeText(body.parentLinkId),
+        requestPlayerId: normalizeText(body.requestPlayerId),
+        respondedAt: normalizeText(body.respondedAt),
+      })
+      await assertWorkspaceBillingAction({ clubId: trainingResponse.calendarEvent.club_id, profile })
+      const pushResult = await sendCoachAvailabilityResponsePush({
+        clubId: trainingResponse.calendarEvent.club_id,
+        contextLabel: normalizeText(trainingResponse.calendarEvent.title) || 'training',
+        playerName: trainingResponse.playerName,
+        route: 'sessions',
+        status: trainingResponse.status,
+        targetId: trainingResponse.calendarEvent.id,
+        teamId: trainingResponse.calendarEvent.team_id,
+        type,
+      })
+      return jsonResponse(200, { ...pushResult, success: true })
+    }
+
+    await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
 
     if (!matchDayId || !['coach_update', 'scorer_volunteer'].includes(type)) {
       return failureResponse(400, 'Match Day is required.')

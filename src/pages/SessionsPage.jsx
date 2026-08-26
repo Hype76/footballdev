@@ -81,10 +81,13 @@ import {
   getMatchDay,
   getMatchDays,
   getPolls,
+  getResourceLibraryDownloadUrl,
   getResourceLibraryItems,
   getTrainingAvailabilitySettingsForEvents,
   getTrainingAvailabilitySummaryForEvents,
   getTodayMatchDayDateValue,
+  MATCH_DAY_HOME_AWAY_OPTIONS,
+  MATCH_DAY_SHIRT_CHOICE_OPTIONS,
   getAssessmentSessionPlayers,
   getAssessmentSessions,
   getAvailableTeamsForUser,
@@ -324,6 +327,7 @@ function getDefaultCalendarForm(date = '') {
     endTime: '',
     eventType: 'training',
     fixtureType: '',
+    homeAway: 'home',
     invitedPlayerIds: [],
     inviteTrialPlayers: false,
     inviteWholeSquad: false,
@@ -333,6 +337,7 @@ function getDefaultCalendarForm(date = '') {
     notificationRequestToken: '',
     opponent: '',
     kickoffTimeTbc: false,
+    shirtChoice: 'home',
     parentAudience: 'involved_players',
     deleteRepeatScope: '',
     repeatUpdateScope: '',
@@ -836,7 +841,9 @@ function getFormFromCalendarEvent(event, invites = []) {
       endTime: source.kickoffTimeTbc ? '' : addMinutesToTime(source.kickoffTime, 120),
       eventType: 'match',
       fixtureType: source.fixtureType || '',
+      homeAway: source.homeAway || 'home',
       kickoffTimeTbc: source.kickoffTimeTbc === true,
+      shirtChoice: source.shirtChoice || 'home',
       location: source.venueName || '',
       notes: source.notes || '',
       opponent: source.opponent || '',
@@ -2728,6 +2735,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       arrivalTime: form.arrivalTime,
       autoSelectAvailablePlayers: form.autoSelectAvailablePlayers !== false,
       fixtureType: form.fixtureType,
+      homeAway: form.homeAway,
       kickoffTime: form.startTime,
       kickoffTimeTbc: form.kickoffTimeTbc === true,
       matchDate: form.date,
@@ -2735,6 +2743,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       opponent: trimmedOpponent || trimmedTitle,
       parentAudience: form.shareWithParents ? form.parentAudience : 'none',
       parentVisible: form.shareWithParents,
+      shirtChoice: form.shirtChoice,
       teamId: safeTeamId,
       venueName: form.location,
     }, { navigate })
@@ -3399,11 +3408,12 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             arrivalTime: calendarForm.arrivalTime,
             autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers === true,
             fixtureType: calendarForm.fixtureType,
-            homeAway: 'home',
+            homeAway: calendarForm.homeAway,
             kickoffTime: calendarForm.startTime,
             kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
             matchDate: calendarForm.date,
             notes: calendarForm.notes,
+            shirtChoice: calendarForm.shirtChoice,
             ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
             opponent: trimmedOpponent,
             requestScorer: calendarForm.requestScorer,
@@ -4609,7 +4619,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   )
 }
 
-function CalendarAttachedResourcesList({ resources = [] }) {
+function CalendarAttachedResourcesList({ activeResourceId = '', error = '', onOpenResource, resources = [] }) {
   if (!Array.isArray(resources) || resources.length === 0) {
     return null
   }
@@ -4617,16 +4627,26 @@ function CalendarAttachedResourcesList({ resources = [] }) {
   return (
     <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
       <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Attached resources</p>
+      {error ? <p role="alert" className="mt-3 text-sm font-black text-[#b42318]">{error}</p> : null}
       <div className="mt-3 grid gap-2">
         {resources.map((resource) => (
-          <div key={resource.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
-            <p className="text-sm font-black text-[#101828]">{resource.title || resource.originalFilename || 'Team resource'}</p>
-            <p className="mt-1 text-xs font-bold leading-5 text-[#4b5f55]">
+          <button
+            type="button"
+            key={resource.id}
+            onClick={() => onOpenResource?.(resource)}
+            disabled={Boolean(activeResourceId)}
+            className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3 text-left transition hover:border-[#047857] hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#bbf7d0] disabled:cursor-wait disabled:opacity-60"
+          >
+            <span className="block text-sm font-black text-[#101828]">{resource.title || resource.originalFilename || 'Team resource'}</span>
+            <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
               {getResourceCategoryLabel(resource.category)}
               {resource.originalFilename ? `, ${resource.originalFilename}` : ''}
               {resource.fileSizeBytes ? `, ${formatResourceLibraryFileSize(resource.fileSizeBytes)}` : ''}
-            </p>
-          </div>
+            </span>
+            <span className="mt-2 block text-xs font-black text-[#047857]">
+              {activeResourceId === resource.id ? 'Opening...' : resource.resourceType === 'external_link' ? 'Open link' : 'Open attachment'}
+            </span>
+          </button>
         ))}
       </div>
     </div>
@@ -5499,6 +5519,8 @@ function CalendarEventModal({
   const [availabilityAction, setAvailabilityAction] = useState(null)
   const [playerRemovalAction, setPlayerRemovalAction] = useState(null)
   const [playerRemovalResult, setPlayerRemovalResult] = useState(null)
+  const [openingAttachedResourceId, setOpeningAttachedResourceId] = useState('')
+  const [attachedResourceError, setAttachedResourceError] = useState('')
   const [isMobileActionMenuOpen, setIsMobileActionMenuOpen] = useState(false)
   const [isResponseManagerOpen, setIsResponseManagerOpen] = useState(
     () => openResponseManagerOnMount && eventResponseManager?.counts?.total > 0,
@@ -5725,7 +5747,12 @@ function CalendarEventModal({
           ? isAssessmentReminder ? 'Reschedule Development review' : 'Edit calendar event'
           : 'Calendar event'
   const selectedSummary = isMatchFixture
-    ? [form.date, form.kickoffTimeTbc ? 'Time TBC' : form.startTime ? `Kick-off ${form.startTime}` : '', form.location].filter(Boolean).join(', ')
+    ? [
+      form.date,
+      form.kickoffTimeTbc ? 'Time TBC' : form.startTime ? `Kick-off ${form.startTime}` : '',
+      MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === form.shirtChoice)?.label || 'Home shirts',
+      form.location,
+    ].filter(Boolean).join(', ')
     : [form.date, form.startTime, form.location].filter(Boolean).join(', ')
   const canUseClubLevel = canCreateClubCalendarEvent(user)
   const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
@@ -5783,6 +5810,34 @@ function CalendarEventModal({
       {validationError.message}
     </span>
   ) : null
+
+  const handleOpenAttachedResource = async (resource) => {
+    if (!resource?.id || openingAttachedResourceId) return
+
+    const pendingWindow = window.open('', '_blank')
+    if (pendingWindow) pendingWindow.opener = null
+    setOpeningAttachedResourceId(resource.id)
+    setAttachedResourceError('')
+
+    try {
+      const accessUrl = await getResourceLibraryDownloadUrl({
+        resourceId: resource.id,
+        teamId: safeFormTeamId,
+        user,
+      })
+
+      if (!accessUrl) throw new Error('Attachment link could not be prepared.')
+      if (pendingWindow) pendingWindow.location.replace(accessUrl)
+      else window.location.assign(accessUrl)
+    } catch (error) {
+      pendingWindow?.close()
+      console.error(error)
+      setAttachedResourceError(error.message || 'This attachment could not be opened.')
+    } finally {
+      setOpeningAttachedResourceId('')
+    }
+  }
+
   return (
     <>
       <div
@@ -5872,6 +5927,14 @@ function CalendarEventModal({
                     <p className="mt-1 text-sm font-black text-[#101828]">{form.opponent}</p>
                   </div>
                 ) : null}
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Home or away</p>
+                  <p className="mt-1 text-sm font-black text-[#101828]">{MATCH_DAY_HOME_AWAY_OPTIONS.find((option) => option.value === form.homeAway)?.label || 'Home'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Shirts</p>
+                  <p className="mt-1 text-sm font-black text-[#101828]">{MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === form.shirtChoice)?.label || 'Home shirts'}</p>
+                </div>
                 {form.location ? (
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Location</p>
@@ -5909,7 +5972,12 @@ function CalendarEventModal({
               </div>
             )}
             {form.eventType === 'training' ? <TrainingAvailabilityParentNotes details={trainingAvailabilityDetails} /> : null}
-            <CalendarAttachedResourcesList resources={attachedResources} />
+            <CalendarAttachedResourcesList
+              activeResourceId={openingAttachedResourceId}
+              error={attachedResourceError}
+              onOpenResource={handleOpenAttachedResource}
+              resources={attachedResources}
+            />
             {showRepeatDeleteScope ? (
               <div className="mt-4">
                 <CalendarRepeatDeleteScope
@@ -6039,6 +6107,23 @@ function CalendarEventModal({
                 </select>
                 {validationMessage('fixtureType')}
               </label>
+            ) : null}
+
+            {isMatchFixture && event?.sourceType !== 'session' ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Home or away</span>
+                  <select name="homeAway" value={form.homeAway} onChange={onChange} disabled={isBusy} className={fieldClass}>
+                    {MATCH_DAY_HOME_AWAY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Shirts</span>
+                  <select name="shirtChoice" value={form.shirtChoice} onChange={onChange} disabled={isBusy} className={fieldClass}>
+                    {MATCH_DAY_SHIRT_CHOICE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+              </div>
             ) : null}
 
             {isMatchFixture && event?.sourceType !== 'session' ? (

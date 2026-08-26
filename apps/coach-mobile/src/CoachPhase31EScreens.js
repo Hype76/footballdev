@@ -52,6 +52,14 @@ import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../.
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { expiryDurationToIso } from '../../../src/lib/expiry-duration.js'
+import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
+
+function formatCoachChatDateTime(value) {
+  return formatParentProductDateTime(value, {
+    fallback: 'Date not available',
+    year: 'numeric',
+  })
+}
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -85,6 +93,13 @@ function phaseStyles(palette) {
     chatComposerInput: { flex: 1, maxHeight: 110, minHeight: 48 },
     messageBubble: { alignSelf: 'flex-start', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 4, maxWidth: '88%', padding: 11 },
     messageBubbleOwn: { alignSelf: 'flex-end', backgroundColor: palette.selected, borderColor: palette.accent },
+    messageHeader: { alignItems: 'baseline', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
+    messageTime: { color: palette.textMuted, fontSize: 11, lineHeight: 16 },
+    confirmationScreen: { flex: 1, justifyContent: 'center', padding: 20 },
+    confirmationBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.72)' },
+    confirmationCard: { backgroundColor: palette.surfaceRaised, borderColor: palette.danger, borderRadius: 18, borderWidth: 1, gap: 12, padding: 18 },
+    confirmationActions: { flexDirection: 'row', gap: 10 },
+    confirmationAction: { flex: 1 },
     formChoice: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', minHeight: 64, paddingHorizontal: 14, paddingVertical: 10 },
     formChoiceSelected: { borderColor: palette.accent, borderWidth: 2 },
     formChoiceCopy: { flex: 1, gap: 3 },
@@ -526,7 +541,7 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
             ListEmptyComponent={<Text style={styles.body}>No messages in this conversation yet.</Text>}
             onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: false })}
             ref={messageListRef}
-            renderItem={({ item: message }) => <View style={[styles.messageBubble, message.senderId === user.id && styles.messageBubbleOwn]}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>}
+            renderItem={({ item: message }) => <View style={[styles.messageBubble, message.senderId === user.id && styles.messageBubbleOwn]}><View style={styles.messageHeader}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.messageTime}>{formatCoachChatDateTime(message.createdAt)}</Text></View><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>}
             style={styles.chatMessageList}
           />
           <View style={styles.chatComposer}>
@@ -702,6 +717,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
   const [requestPanelOpen, setRequestPanelOpen] = useState(false)
   const [bulkAction, setBulkAction] = useState('')
+  const [removalConfirmation, setRemovalConfirmation] = useState(null)
   const today = new Date().toISOString().slice(0, 10)
   const trainingGroups = [...(data.training || [])
     .filter((invite) => !invite.cancelled && !invite.stale)
@@ -787,12 +803,8 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
       return
     }
     const requiresInProgressConfirmation = previews.some((result) => result.value.requiresInProgressConfirmation)
-    const trainingCopy = invites[0]?.kind === 'training' ? ' For Training, only the selected session is affected.' : ''
     setBulkAction('')
-    Alert.alert(`Remove ${invites.length} Player${invites.length === 1 ? '' : 's'} from event?`, `Team membership and Player records stay unchanged. Previous response and delivery history is preserved. No removal notification will be sent.${trainingCopy}${requiresInProgressConfirmation ? ' This event is in progress, but recorded Match or attendance history will remain.' : ''}`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove from event', style: 'destructive', onPress: () => void commitSelectedRemovals(invites, requiresInProgressConfirmation) },
-    ])
+    setRemovalConfirmation({ invites, requiresInProgressConfirmation })
   }
   const createRequests = async () => {
     const attempt = { matchId: selectedMatch?.id || '', playerIds: [...playerIds] }
@@ -908,6 +920,23 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
           </View>
         )
       }) : trainingGroups.length ? null : <Empty copy="No upcoming Match or Training availability request is available." styles={styles} />}
+      <Modal animationType="fade" onRequestClose={() => setRemovalConfirmation(null)} transparent visible={Boolean(removalConfirmation)}>
+        <View accessibilityViewIsModal style={styles.confirmationScreen}>
+          <Pressable accessibilityLabel="Cancel Player removal" accessibilityRole="button" onPress={() => setRemovalConfirmation(null)} style={styles.confirmationBackdrop} />
+          <View accessibilityLiveRegion="assertive" style={styles.confirmationCard}>
+            <Text style={styles.heading}>Remove {removalConfirmation?.invites.length || 0} Player{removalConfirmation?.invites.length === 1 ? '' : 's'} from event?</Text>
+            <Text style={styles.body}>Team membership and Player records stay unchanged. Previous response and delivery history is preserved. No removal notification will be sent.{removalConfirmation?.invites[0]?.kind === 'training' ? ' For Training, only the selected session is affected.' : ''}{removalConfirmation?.requiresInProgressConfirmation ? ' This event is in progress, but recorded Match or attendance history will remain.' : ''}</Text>
+            <View style={styles.confirmationActions}>
+              <View style={styles.confirmationAction}><Button label="Cancel" onPress={() => setRemovalConfirmation(null)} secondary styles={styles} /></View>
+              <View style={styles.confirmationAction}><Button destructive label="Remove from event" onPress={() => {
+                const confirmation = removalConfirmation
+                setRemovalConfirmation(null)
+                if (confirmation) void commitSelectedRemovals(confirmation.invites, confirmation.requiresInProgressConfirmation)
+              }} styles={styles} /></View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }

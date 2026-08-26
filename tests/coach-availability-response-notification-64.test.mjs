@@ -53,3 +53,19 @@ test('public availability responders trigger non-blocking Coach push delivery', 
   assert.match(matchResponse, /\.catch\(\(pushError\)/)
   assert.match(trainingResponse, /\.catch\(\(pushError\)/)
 })
+
+test('authenticated Parent Training responses notify Coaches only after a changed response is saved', async () => {
+  const [parentData, coachPush] = await Promise.all([
+    readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8'),
+    readFile(new URL('../netlify/functions/send-coach-mobile-push.js', import.meta.url), 'utf8'),
+  ])
+
+  assert.match(parentData, /previousResponse !== response && data\?\.respondedAt/)
+  assert.match(parentData, /type: 'training_availability_response'/)
+  assert.match(parentData, /requestPlayerId: invitation\.sourceRecordId/)
+  assert.match(coachPush, /getParentTrainingAvailabilityResponse/)
+  assert.match(coachPush, /\.eq\('auth_user_id', authUser\.id\)/)
+  assert.match(coachPush, /normalizeText\(response\.responded_at\) !== respondedAt/)
+  assert.match(coachPush, /route: 'sessions'/)
+  assert.match(coachPush, /sendCoachAvailabilityResponsePush/)
+})

@@ -157,6 +157,7 @@ function normalizeMatchEvent(match, invitation) {
     id: `match:${match.id}`,
     invitationId: invitation?.invitationId || '',
     kickoffTimeTbc: Boolean(match.kickoffTimeTbc),
+    shirtChoice: match.shirtChoice === 'away' ? 'away' : 'home',
     location: match.venueAddress || match.venueName || '',
     notes: match.notes || '',
     responseState: invitation ? invitationStatus(invitation) : match.availabilityStatus || '',

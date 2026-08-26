@@ -1,5 +1,6 @@
 import {
   normalizeMatchClockMode,
+  normalizeMatchDayShirtChoice,
   normalizeMatchDurationMinutes,
   normalizeNewMatchHomeAway,
 } from './matchday-model.js'
@@ -30,22 +31,17 @@ function normalizeBoolean(value) {
 
 export function normalizeFixtureSetupIntent(intent = {}) {
   const kickoffTimeTbc = normalizeBoolean(intent.kickoffTimeTbc)
-  const hasMatchDuration = intent.matchDurationMinutes !== undefined
-    && intent.matchDurationMinutes !== null
-    && normalizeText(intent.matchDurationMinutes) !== ''
-
   return {
     arrivalTime: kickoffTimeTbc ? '' : normalizeText(intent.arrivalTime),
     autoSelectAvailablePlayers: intent.autoSelectAvailablePlayers !== false,
     clockMode: normalizeMatchClockMode(intent.clockMode),
     fixtureType: normalizeMatchDayFixtureType(intent.fixtureType),
     homeAway: normalizeNewMatchHomeAway(intent.homeAway),
+    shirtChoice: normalizeMatchDayShirtChoice(intent.shirtChoice),
     kickoffTime: kickoffTimeTbc ? '' : normalizeText(intent.kickoffTime),
     kickoffTimeTbc,
     matchDate: normalizeText(intent.matchDate),
-    ...(hasMatchDuration
-      ? { matchDurationMinutes: normalizeMatchDurationMinutes(intent.matchDurationMinutes) }
-      : {}),
+    matchDurationMinutes: normalizeMatchDurationMinutes(intent.matchDurationMinutes),
     notes: normalizeText(intent.notes),
     opponent: normalizeText(intent.opponent),
     parentAudience: normalizeText(intent.parentAudience) || 'none',

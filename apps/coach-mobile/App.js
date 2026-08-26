@@ -262,10 +262,10 @@ function CoachHome() {
     setIsRegisteringPush(true)
     if (!silent) setNotice('')
     try {
-      const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, easProjectId: config.easProjectId, preservePreference: silent })
+      const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel: options?.detailLevel, easProjectId: config.easProjectId, preservePreference: silent })
       setNotificationState(next)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
-      if (!silent) setNotice(next.enabled ? 'Coach notifications are enabled for this Coach account.' : next.message)
+      if (!silent) setNotice(next.enabled ? `Coach notifications are on with ${next.detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} content.` : next.message)
       return next
     } catch (error) {
       const message = getCoachPushSetupFailureMessage(error)
@@ -308,6 +308,12 @@ function CoachHome() {
     }
     finally { setIsRegisteringPush(false) }
   }, [activeContext?.id])
+
+  const updateNotificationMode = useCallback(async (mode) => {
+    if (mode === 'off') return disableNotifications()
+    if (notificationState?.enabled && notificationState?.registered) return updateNotificationLevel(mode)
+    return enableNotifications({ detailLevel: mode })
+  }, [disableNotifications, enableNotifications, notificationState?.enabled, notificationState?.registered, updateNotificationLevel])
 
   const toggleAppBadgeEnabled = useCallback(async (enabled) => {
     setIsRegisteringPush(true)
@@ -661,8 +667,6 @@ function CoachHome() {
               context={activeContext}
               contexts={contextResolution.contexts}
               chatNotificationTarget={chatNotificationTarget}
-              disableNotifications={disableNotifications}
-              enableNotifications={enableNotifications}
               homeState={homeState}
               isRegisteringPush={isRegisteringPush}
               isUpdatingBiometrics={isUpdatingBiometrics}
@@ -677,6 +681,7 @@ function CoachHome() {
               onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
               onMatchDayTargetHandled={handleMatchDayTargetHandled}
               onNavigate={navigate}
+              onNotificationModeChange={updateNotificationMode}
               onQuickActionHandled={handleQuickActionHandled}
               onRequestScrollTop={scrollContentToTop}
               onSelectContext={selectContext}
@@ -685,7 +690,6 @@ function CoachHome() {
               onToggleBiometrics={toggleBiometrics}
               onToggleAppBadge={toggleAppBadgeEnabled}
               onToggleTheme={toggleTheme}
-              onUpdateNotificationLevel={updateNotificationLevel}
               reloadHome={loadHome}
               quickAction={quickActionRequest}
               themeMode={displayTheme}
@@ -902,20 +906,18 @@ function SettingsScreen({
   biometricEnabled,
   biometricStateStatus,
   context,
-  disableNotifications,
-  enableNotifications,
   isRegisteringPush,
   isUpdatingBiometrics,
   lastUpdatedAt,
   notificationState,
   notificationStateStatus,
+  onNotificationModeChange,
   onRefreshBiometricState,
   onRefreshNotificationState,
   onSignOut,
   onToggleBiometrics,
   onToggleAppBadge,
   onToggleTheme,
-  onUpdateNotificationLevel,
   themeMode,
   user,
 }) {
@@ -928,6 +930,7 @@ function SettingsScreen({
   const biometricStateLoading = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const hasKnownNotificationState = Boolean(notificationState)
+  const selectedNotificationMode = notificationState?.enabled ? notificationState.detailLevel : 'off'
   const [cacheState, setCacheState] = useState(null)
   useEffect(() => {
     let mounted = true
@@ -972,19 +975,34 @@ function SettingsScreen({
           ? notificationState.registered ? 'Registered to this Coach installation. Your saved choice applies across authorised Coach contexts.' : notificationState.message || 'Not enabled on this device.'
           : notificationStateLoading ? 'Reading the saved notification state.' : 'Notification status could not be read. No setting has been changed.'}</Text>
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
-        {hasKnownNotificationState && notificationState.registered ? (
-          <View style={styles.quickGrid}>
-            {['minimal', 'detailed'].map((level) => (
-              <SecondaryAction disabled={isRegisteringPush} key={level} label={level === 'minimal' ? 'Minimal privacy' : 'Detailed'} onPress={() => onUpdateNotificationLevel(level)} />
-            ))}
-          </View>
-        ) : null}
         {!hasKnownNotificationState ? (
           notificationStateLoading ? <ActivityIndicator /> : <PrimaryAction disabled={isRegisteringPush} label="Retry notification check" onPress={onRefreshNotificationState} />
-        ) : notificationState.enabled
-          ? <SecondaryAction disabled={isRegisteringPush} label="Disable notifications" onPress={disableNotifications} />
-          : <PrimaryAction disabled={isRegisteringPush} label="Enable notifications" onPress={enableNotifications} />}
+        ) : (
+          <View style={styles.notificationChoices}>
+            {[
+              { copy: 'Do not send Coach app notifications to this device.', key: 'off', label: 'Off' },
+              { copy: 'General alerts with the least detail.', key: 'minimal', label: 'Minimal' },
+              { copy: 'A little more context, without Player names.', key: 'detailed', label: 'Detailed' },
+            ].map((choice) => {
+              const selected = selectedNotificationMode === choice.key
+              return (
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected, disabled: isRegisteringPush }}
+                  disabled={isRegisteringPush}
+                  key={choice.key}
+                  onPress={() => onNotificationModeChange(choice.key)}
+                  style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{choice.label}</Text>
+                  <Text style={styles.helperText}>{choice.copy}</Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        )}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <SecondaryAction disabled={isRegisteringPush} label="Refresh notification status" onPress={onRefreshNotificationState} /> : null}
+        {hasKnownNotificationState && !notificationState.permissionGranted && (notificationState.permissionStatus === 'denied' || notificationState.canAskAgain === false) ? <SecondaryAction disabled={isRegisteringPush} label="Open device notification settings" onPress={() => Linking.openSettings()} /> : null}
         <SettingRow copy="Show the authoritative unread count on this device." label="App icon badge">
           <Switch
             accessibilityLabel="App icon badge"
@@ -993,7 +1011,7 @@ function SettingsScreen({
             value={appBadgeEnabled}
           />
         </SettingRow>
-        <Text style={styles.helperText}>Minimal is the conservative default. Lock-screen copy excludes Player names, Parent contacts, Chat bodies, and Development notes.</Text>
+        <Text style={styles.helperText}>Minimal privacy is the conservative default. Selecting Minimal or Detailed requests device permission when needed. Lock-screen copy excludes Player names, Parent contacts, Chat bodies, and Development notes.</Text>
       </Section>
       <Section title="Sync and environment">
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
@@ -1335,6 +1353,11 @@ function createCoachStyles(palette) {
     noticeDismiss: { minHeight: 36, paddingHorizontal: 6, justifyContent: 'center' },
     noticeDismissText: { color: palette.accent, fontSize: 12, fontWeight: '900' },
     noticeText: { color: palette.textPrimary, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
+    notificationChoice: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, gap: 4, minHeight: 66, paddingHorizontal: 14, paddingVertical: 11 },
+    notificationChoiceSelected: { backgroundColor: palette.selected, borderColor: palette.accent, borderWidth: 2 },
+    notificationChoices: { gap: 9 },
+    notificationChoiceTitle: { color: palette.textPrimary, fontSize: 15, fontWeight: '900' },
+    notificationChoiceTitleSelected: { color: palette.selectedForeground },
     pressed: { opacity: 0.76 },
     primaryAction: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accent, borderRadius: 14, borderWidth: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 15, paddingVertical: 12 },
     primaryActionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900' },

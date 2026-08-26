@@ -3,6 +3,7 @@ import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../../src/lib
 import { isFixtureKickoffTimeTbc } from '../../../src/lib/calendar-datetime-integrity.js'
 import { resolveMatchDayVolunteerRequestMessages } from '../../../src/lib/email-templates.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
+import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 
 export function normalizeInvitationText(value) {
   return String(value ?? '').trim()
@@ -157,6 +158,7 @@ export function buildMatchDayActionableInvitationEmail({
     ['Date', match.match_date || 'Not set'],
     ['Kick off', kickoffTimeTbc ? 'Time TBC' : formatTime(match.kickoff_time)],
     ['Arrival', kickoffTimeTbc ? 'Available when kickoff is confirmed' : formatTime(match.arrival_time)],
+    ['Shirts', getMatchDayShirtChoiceLabel(match.shirt_choice)],
     ['Venue', match.venue_name || 'Not set'],
     ['Address', match.venue_address || 'Not set'],
   ]

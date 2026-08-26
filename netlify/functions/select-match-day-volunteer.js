@@ -8,6 +8,7 @@ import {
   resolveReachableEmailLogo,
 } from '../../src/lib/email-branding.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
+import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 
 const ROLE_CONFIG = {
@@ -166,6 +167,7 @@ function buildGoogleCalendarLink({ match, matchName, roleLabel, teamName, oppone
     `Opponent: ${opponent}`,
     `Kick-off: ${formatTime(match.kickoff_time)}`,
     match.arrival_time ? `Arrival: ${formatTime(match.arrival_time)}` : '',
+    `Shirts: ${getMatchDayShirtChoiceLabel(match.shirt_choice)}`,
     match.venue_name ? `Venue: ${match.venue_name}` : '',
     portalUrl ? `Parent Portal: ${portalUrl}` : '',
   ].filter(Boolean).join('\n')
@@ -253,6 +255,7 @@ export function buildRoleNotificationEmail({
     ['Date', formatDate(match.match_date)],
     ['Kick off', formatTime(match.kickoff_time)],
     ['Arrival', formatTime(match.arrival_time)],
+    ['Shirts', getMatchDayShirtChoiceLabel(match.shirt_choice)],
     ['Venue', normalizeText(match.venue_name) || 'Not set'],
     ['Address', normalizeText(match.venue_address) || 'Not set'],
   ]

@@ -335,7 +335,7 @@ export function normalizeCoachChatMessage(row = {}) {
   const user = relation(row.users)
   return Object.freeze({
     id: normalize(row.id), roomId: normalize(row.room_id ?? row.roomId ?? row.conversation_id),
-    senderId: normalize(row.sender_id ?? row.senderId), senderName: normalize(row.sender_name ?? row.senderName ?? user?.name) || 'Chat participant',
+    senderId: normalize(row.sender_id ?? row.senderId), senderName: normalize(user?.display_name ?? user?.displayName ?? user?.name ?? user?.username ?? row.sender_name ?? row.senderName) || 'Chat participant',
     senderKind: normalize(row.sender_kind ?? row.senderKind), senderRole: normalize(row.sender_role ?? row.senderRole ?? user?.role_label),
     body: normalize(row.body), deletedAt: normalize(row.deleted_at ?? row.deletedAt), createdAt: normalize(row.created_at ?? row.createdAt),
   })

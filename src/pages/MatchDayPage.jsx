@@ -46,6 +46,7 @@ import {
   MATCH_CLOCK_MODE_OPTIONS,
   MATCH_DAY_ARRIVAL_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
+  MATCH_DAY_SHIRT_CHOICE_OPTIONS,
   MATCH_DAY_STATUS_OPTIONS,
   resetPreviousMatchDayResults as liveResetPreviousMatchDayResults,
   recordMatchDayShootoutKick as liveRecordMatchDayShootoutKick,
@@ -209,6 +210,7 @@ const EMPTY_MATCH_FORM = {
   arrivalTime: '',
   arrivalPreset: '30',
   homeAway: 'home',
+  shirtChoice: 'home',
   clockMode: MATCH_CLOCK_MODE_FIXED,
   matchDurationPreset: '90',
   matchDurationMinutes: 90,
@@ -1534,6 +1536,10 @@ function getHomeAwayLabel(homeAway) {
   }
 
   return MATCH_DAY_HOME_AWAY_OPTIONS.find((option) => option.value === homeAway)?.label || 'Home'
+}
+
+function getShirtChoiceLabel(shirtChoice) {
+  return MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === shirtChoice)?.label || 'Home shirts'
 }
 
 function getAvailabilityPlayerKey(row) {
@@ -5004,6 +5010,7 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
         <DetailItem label="Team" value={match.teamName || 'Our team'} />
         <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
         <DetailItem label="Home or away" value={getHomeAwayLabel(match.homeAway)} />
+        <DetailItem label="Shirts" value={getShirtChoiceLabel(match.shirtChoice)} />
         <DetailItem label="Clock" value={isContinuousMatchClock(match) ? 'Continuous clock' : `Fixed, ${match.matchDurationMinutes} minutes`} />
         <DetailItem label="Final score" value={getMatchDayDisplayScore(match)} />
         <DetailItem label="Match status" value={getMatchLifecycleLabel(match)} />
@@ -5225,6 +5232,9 @@ function MatchDayCard({
               {getHomeAwayLabel(match.homeAway)}
             </span>
             <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
+              {getShirtChoiceLabel(match.shirtChoice)}
+            </span>
+            <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#4b5f55]">
               {getMatchDayFixtureTypeLabel(match.fixtureType)}
             </span>
             {match.teamName ? (
@@ -5422,6 +5432,7 @@ function MatchDayCard({
                 <DetailItem label="Match phase" value={getMatchDayPhaseLabel(match) || getMatchPeriodLabel(match)} />
                 <DetailItem label="Date and time" value={formatMatchDate(match)} />
                 <DetailItem label="Venue" value={locationSummary.displayLabel || getHomeAwayLabel(match.homeAway)} />
+                <DetailItem label="Shirts" value={getShirtChoiceLabel(match.shirtChoice)} />
                 <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
                 <DetailItem label="Status" value={getMatchLifecycleLabel(match)} />
               </dl>
@@ -7278,6 +7289,13 @@ function FixtureSetupModal({
                 <span className={labelClass}>Home or away</span>
                 <select value={form.homeAway} onChange={(event) => updateForm({ homeAway: event.target.value })} className={inputClass}>
                   {MATCH_DAY_HOME_AWAY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Shirts</span>
+                <select value={form.shirtChoice} onChange={(event) => updateForm({ shirtChoice: event.target.value })} className={inputClass}>
+                  {MATCH_DAY_SHIRT_CHOICE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
 

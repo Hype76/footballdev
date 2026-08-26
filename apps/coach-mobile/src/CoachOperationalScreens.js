@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Keyboard, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
@@ -8,9 +8,11 @@ import {
   getCoachCalendarContextModel,
   getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
+  getCoachCalendarEventResourceIds,
   groupCoachCalendarEvents,
   formatCoachCalendarFormDate,
   shiftCoachCalendarMonth,
+  toggleCoachCalendarResourceId,
 } from '../../mobile-core/src/coachCalendarCore'
 import {
   cancelCoachCalendarEvent,
@@ -20,7 +22,9 @@ import {
   prepareCoachCalendarChangeNotification,
   saveCoachCalendarEvent,
   saveCoachTrainingInvitation,
+  syncCoachCalendarEventResources,
 } from '../../mobile-core/src/coachCalendarData'
+import { getCoachResourceAccessUrl, getCoachResources } from '../../mobile-core/src/coachPhase31EData'
 import {
   coachPlayerFormFromPlayer,
   filterCoachPlayers,
@@ -226,6 +230,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   const [formError, setFormError] = useState('')
   const [loading, setLoading] = useState(true)
   const [players, setPlayers] = useState([])
+  const [resources, setResources] = useState([])
   const [saving, setSaving] = useState(false)
   const [selected, setSelected] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
@@ -243,18 +248,21 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     if (hasCachedCalendar) {
       setEvents(cached.resources.calendar)
       setPlayers(Array.isArray(cached.resources.calendarPlayers) ? cached.resources.calendarPlayers : [])
+      setResources(Array.isArray(cached.resources.calendarResourceOptions) ? cached.resources.calendarResourceOptions : [])
       setStale(true)
       setLoading(false)
     }
     try {
-      const [rows, playerRows] = await Promise.all([
+      const [rows, playerRows, resourceRows] = await Promise.all([
         getCoachCalendarResources(user),
         user.activeTeamId ? getCoachPlayerList(user) : Promise.resolve([]),
+        user.activeTeamId ? getCoachResources(user) : Promise.resolve([]),
       ])
       setEvents(rows)
       setPlayers(playerRows)
+      setResources(resourceRows)
       setStale(false)
-      await saveCoachOfflineResources(user.id, context, { calendar: rows, calendarPlayers: playerRows })
+      await saveCoachOfflineResources(user.id, context, { calendar: rows, calendarPlayers: playerRows, calendarResourceOptions: resourceRows })
     } catch (loadError) {
       if (!hasCachedCalendar) setError(message(loadError, 'Calendar could not be loaded.'))
     } finally {
@@ -277,7 +285,9 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     setFormError('')
     setSaveConfirmation('')
     setSelected(event)
-    const nextForm = coachCalendarFormFromEvent(event, context)
+    const nextForm = coachCalendarFormFromEvent(event
+      ? { ...event, resourceIds: getCoachCalendarEventResourceIds(resources, event.sourceId) }
+      : null, context)
     setForm({
       ...nextForm,
       ...(!event && selectedDate ? { date: formatCoachCalendarFormDate(selectedDate) } : {}),
@@ -321,7 +331,15 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
       const notifyEveryone = isRescheduled ? await chooseNotification('rescheduled', selected?.title) : false
       if (isRescheduled && notifyEveryone === null) return
       const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled') : null
-      await saveCoachCalendarEvent(user, form, selected)
+      const savedEvent = await saveCoachCalendarEvent(user, form, selected)
+      let attachmentMessage = ''
+      if (savedEvent.teamId && Number(user.roleRank || 0) >= 50) {
+        try {
+          await syncCoachCalendarEventResources(user, savedEvent, form?.resourceIds || [])
+        } catch (attachmentError) {
+          attachmentMessage = ` The event was saved, but its Resources could not be updated: ${message(attachmentError, 'edit the event and try again.')}`
+        }
+      }
       let notificationMessage = ''
       if (preparation?.preparationId) {
         try {
@@ -331,13 +349,22 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
           notificationMessage = ` The change was saved, but notifications could not be completed: ${message(notificationError, 'try again from the web Calendar.')}`
         }
       }
-      setSaveConfirmation(`${form?.eventType === 'match' ? 'Match saved.' : 'Event saved.'}${notificationMessage}`)
+      setSaveConfirmation(`${form?.eventType === 'match' ? 'Match saved.' : 'Event saved.'}${attachmentMessage}${notificationMessage}`)
       setForm(null)
       setSelected(null)
       await load()
     } catch (saveError) {
       setFormError(message(saveError, 'Calendar event could not be saved.'))
     } finally { setSaving(false) }
+  }
+  const openEventResource = async (resource) => {
+    try {
+      const accessUrl = await getCoachResourceAccessUrl(user, resource)
+      if (!await Linking.canOpenURL(accessUrl)) throw new Error('This Resource link is not supported on this device.')
+      await Linking.openURL(accessUrl)
+    } catch (resourceError) {
+      setError(message(resourceError, 'This Resource could not be opened.'))
+    }
   }
   const changeEventState = async (changeAction) => {
     if (!selected) return
@@ -459,6 +486,16 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
           <CoachDateTimeField label="End time" mode="time" onChange={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />
           <LocationField locations={savedLocations} onChange={(value) => setForm({ ...form, location: value })} styles={styles} value={form.location} />
           <Field label="Notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
+          {contextModel.isTeamScope && Number(user.roleRank || 0) >= 50 ? (
+            <View style={styles.stack}>
+              <Text style={styles.fieldLabel}>Event attachments</Text>
+              <Text style={styles.body}>Choose existing Resources from the active Team. Parents who can see this event will receive direct open links.</Text>
+              {resources.length ? resources.map((resource) => {
+                const attached = (form.resourceIds || []).includes(resource.id)
+                return <Button key={resource.id} label={`${attached ? 'Remove' : 'Add'} ${resource.title}`} onPress={() => setForm({ ...form, resourceIds: toggleCoachCalendarResourceId(form.resourceIds, resource.id) })} secondary={!attached} styles={styles} />
+              }) : <><Text style={styles.body}>No active Team Resources are available.</Text><Button label="Open Resources" onPress={() => onNavigate('resources')} secondary styles={styles} /></>}
+            </View>
+          ) : null}
           {form.eventType !== 'match' ? <><Text style={styles.fieldLabel}>Repeat</Text><Chips onChange={(value) => setForm({ ...form, recurrenceFrequency: value })} options={['none', 'weekly', 'fortnightly', 'monthly'].map((value) => ({ label: value, value }))} styles={styles} value={form.recurrenceFrequency} />{form.recurrenceFrequency !== 'none' ? <CoachDateTimeField label="Repeat until" mode="date" onChange={(value) => setForm({ ...form, recurrenceUntil: value })} styles={styles} value={form.recurrenceUntil} /> : null}</> : null}
           <View style={styles.row}><Text style={styles.fieldLabel}>Visible to parents</Text><Switch accessibilityLabel="Visible to parents" onValueChange={(value) => setForm({ ...form, parentVisible: value })} value={form.parentVisible} /></View>
           {form.parentVisible ? <Chips onChange={(value) => setForm({ ...form, parentAudience: value })} options={[{ label: 'Involved Players', value: 'involved_players' }, { label: 'Team parents', value: 'all_team_parents' }, ...(context.role === 'admin' ? [{ label: 'Club parents', value: 'all_club_parents' }] : [])]} styles={styles} value={form.parentAudience} /> : null}
@@ -485,10 +522,14 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
               <Text style={styles.cardTitle}>{event.title}</Text>
               <Text style={styles.meta}>{formatCoachCalendarEventDateTime(event)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
+              {event.sourceType === 'match_day' ? <Text style={styles.meta}>{event.homeAway === 'away' ? 'Away' : 'Home'} fixture | {event.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
               {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Available {event.availabilitySummary.available} | Maybe {event.availabilitySummary.maybe} | Unavailable {event.availabilitySummary.unavailable} | Pending {event.availabilitySummary.pending}</Text> : null}
-              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
+              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{getCoachCalendarEventResourceIds(resources, event.sourceId).map((resourceId) => {
+                const resource = resources.find((item) => item.id === resourceId)
+                return resource ? <Button key={resource.id} label={`Open ${resource.title}`} onPress={() => void openEventResource(resource)} secondary styles={styles} /> : null
+              })}{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
             </Pressable>
           ))}
         </View>

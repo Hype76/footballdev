@@ -2,6 +2,7 @@ import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getParentPortalLinks, getSelectedParentLink } from './parentLinks'
 import { getAccessToken, supabase } from './supabase'
+import { normalizeMatchDayShirtChoice } from '../../../src/lib/matchday-model.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -88,6 +89,7 @@ export function normalizeMatchDay(row) {
     fixtureType: normalizeText(row.fixture_type ?? row.fixtureType) || 'match',
     hasInterest: Boolean(row.has_interest ?? row.hasInterest),
     homeAway: normalizeText(row.home_away ?? row.homeAway) || 'home',
+    shirtChoice: normalizeMatchDayShirtChoice(row.shirt_choice ?? row.shirtChoice),
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     id: row.id ?? '',
     isScorer: Boolean(row.is_scorer ?? row.isScorer),
@@ -380,15 +382,19 @@ export async function getParentMatchDays(user) {
     return []
   }
 
-  const { data, error } = await supabase.rpc('get_parent_portal_match_days', {
-    parent_link_id_value: selectedLink.id,
-  })
+  const [matchResult, shirtResult] = await Promise.all([
+    supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: selectedLink.id }),
+    supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: selectedLink.id }),
+  ])
 
-  if (error) {
-    throw error
-  }
+  if (matchResult.error) throw matchResult.error
+  if (shirtResult.error) throw shirtResult.error
 
-  return (data || []).map(normalizeMatchDay)
+  const shirtsByMatchId = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
+  return (matchResult.data || []).map((row) => normalizeMatchDay({
+    ...row,
+    shirt_choice: shirtsByMatchId.get(String(row.id)),
+  }))
 }
 
 export async function getParentCalendarEvents(user) {

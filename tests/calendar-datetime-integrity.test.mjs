@@ -189,6 +189,7 @@ test('fixture workflow carries explicit Time TBC without stale arrival or kickof
     opponent: '',
     parentAudience: 'none',
     parentVisible: false,
+    shirtChoice: 'home',
     teamId: '',
     venueAddress: '',
     venueName: '',

@@ -184,7 +184,7 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
   return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
 }
 
-function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpenInvitation, onOpenLink, onRespond, styles }) {
+function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpenInvitation, onOpenLink, onOpenResource, onRespond, styles }) {
   const actionable = invitation && isParentInvitationActionable(invitation)
   const busy = invitation && activeActionId === `invite:${invitation.invitationId}`
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
@@ -202,6 +202,7 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpe
           <Text style={styles.meta}>{event.kickoffTimeTbc ? 'Time TBC' : event.calendarTime || 'All day'}</Text>
         </View>
         <Text style={styles.cardTitle}>{event.title}</Text>
+        {event.eventType === 'match_day' ? <Text style={styles.meta}>{event.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
         {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
         {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
         {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
@@ -223,12 +224,27 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpe
           ))}
         </View>
       ) : null}
+      {Array.isArray(event.resources) && event.resources.length > 0 ? (
+        <View style={styles.stack}>
+          <Text style={styles.meta}>Attachments</Text>
+          {event.resources.map((resource) => (
+            <Button
+              disabled={isOffline || Boolean(activeActionId)}
+              key={resource.id}
+              label={activeActionId === `calendar-resource:${resource.id}` ? 'Opening...' : `Open ${resource.title}`}
+              onPress={() => onOpenResource?.(event, resource)}
+              outline
+              styles={styles}
+            />
+          ))}
+        </View>
+      ) : null}
       {directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}
     </View>
   )
 }
 
-export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onDateSelected, onOpenInvitation, onOpenLink, onRespond, resource, themeTokens }) {
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, resource, themeTokens }) {
   const { styles } = usePortalStyles(themeTokens)
   const [viewMode, setViewMode] = useState('agenda')
   const [windowKey, setWindowKey] = useState('needs-response')
@@ -320,7 +336,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
       {viewMode === 'agenda' ? groups.map((group) => (
         <View key={group.date} style={styles.section}>
           <Text accessibilityRole="header" style={styles.dateHeading}>{group.date === 'date-tbc' ? 'Date to be confirmed' : formatCalendarDay(group.date)}</Text>
-          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onRespond={onRespond} styles={styles} />)}
+          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} styles={styles} />)}
         </View>
       )) : null}
     </View>
@@ -361,6 +377,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarge
             <View style={styles.row}><Text style={styles.pill}>{volunteerOffer ? 'Volunteer offer' : labelize(getParentInvitationDisplayState(invitation))}</Text><Text style={styles.meta}>{formatDate(invitation.eventStart || invitation.eventDate)}</Text></View>
             {volunteerOffer ? <Text style={styles.volunteerRole}>{volunteerRole} offer</Text> : null}
             <Text style={styles.cardTitle}>{invitation.eventTitle}</Text>
+            {['match_attendance', 'match_role'].includes(invitation.invitationType) ? <Text style={styles.meta}>Shirts: {invitation.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
             {volunteerOffer ? <Text style={styles.body}>This is a Parent or guardian volunteer role. It does not select your child for the squad.</Text> : null}
             <Text style={styles.body}>{volunteerOffer ? 'Offer status' : 'Response'}: {labelize(invitation.responseState)}</Text>
             {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text style={styles.meta}>{volunteerOffer ? 'Volunteer role status' : 'Squad status'}: {labelize(invitation.selectionState)}</Text> : null}
@@ -389,6 +406,7 @@ function MatchCard({ match, onDismiss, onOpen, styles }) {
       <View style={styles.row}><Text style={styles.pill}>{labelize(match.status)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View>
       <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
       <Text style={styles.meta}>{match.kickoffTimeTbc ? 'Kick-off time to be confirmed' : formatParentProductTime(match.kickoffTime)}</Text>
+      <Text style={styles.meta}>{match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
       {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
       <Button label="Open Match Day" onPress={() => onOpen(match)} outline styles={styles} />
       {onDismiss ? <Button label="Remove from this list" onPress={() => onDismiss(match)} outline styles={styles} /> : null}
@@ -571,6 +589,7 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
             <Text style={styles.pill}>{labelize(selectedMatch.status)}</Text>
             <Text style={styles.pill}>{presentation?.phaseLabel || 'Pre-match'}</Text>
             {selectedMatch.homeAway ? <Text style={styles.pill}>{labelize(selectedMatch.homeAway)}</Text> : null}
+            <Text style={styles.pill}>{selectedMatch.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
             {selectedMatch.fixtureType ? <Text style={styles.pill}>{labelize(selectedMatch.fixtureType)}</Text> : null}
           </View>
           <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || `${selectedMatch.teamName} v ${selectedMatch.opponent}`}</Text>

@@ -75,6 +75,7 @@ import {
   expressParentScorerInterest,
   getParentChatMessages,
   getParentChatRooms,
+  getParentCalendarEventResources,
   getParentDevelopmentHistory,
   getParentInvitations,
   getParentNotificationInbox,
@@ -410,7 +411,28 @@ function ParentHome() {
     if (isOffline) return { cached: Boolean(cachedView?.cache), failed: cachedView?.cache ? 0 : resourceNames.length }
 
     const loaders = {
-      calendar: () => getParentCalendarEvents(selectedMobileUser),
+      calendar: async () => {
+        const calendarEvents = await getParentCalendarEvents(selectedMobileUser)
+
+        try {
+          const eventResources = await getParentCalendarEventResources(selectedMobileUser)
+          const resourcesByEventId = new Map()
+
+          for (const resource of eventResources) {
+            const current = resourcesByEventId.get(resource.eventId) || []
+            current.push(resource)
+            resourcesByEventId.set(resource.eventId, current)
+          }
+
+          return calendarEvents.map((event) => ({
+            ...event,
+            resources: resourcesByEventId.get(String(event.id)) || [],
+          }))
+        } catch (error) {
+          console.error('Parent calendar attachments could not be loaded', error)
+          return calendarEvents
+        }
+      },
       chatHistory: () => Promise.resolve(cachedView?.cache?.resources.chatHistory || []),
       chatRooms: () => getParentChatRooms(selectedMobileUser),
       development: () => getParentDevelopmentHistory(selectedMobileUser),
@@ -1089,6 +1111,24 @@ function ParentHome() {
     }
   }
 
+  async function handleOpenCalendarResource(event, resource) {
+    if (isOffline || activeActionId || !event || !resource?.id) return
+    setActiveActionId(`calendar-resource:${resource.id}`)
+    setNotice(null)
+
+    try {
+      const result = await openParentResource(selectedMobileUser, resource.id, {
+        calendarEventId: event.sourceId || String(event.id || '').replace(/^calendar:/, ''),
+      })
+      if (result?.formationBoard) setSelectedResourcePreview(result.formationBoard)
+      if (result?.externalUrl) await openExternalParentUrl(result.externalUrl)
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'This event attachment could not be opened.'), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   async function handleOpenMessageLink(url) {
     if (isOffline || activeActionId) return
     const safeUrl = getSafeParentMessageUrl(url)
@@ -1350,7 +1390,7 @@ function ParentHome() {
     setActiveActionId('display-name')
     setNotice(null)
     try {
-      const authUser = await updateParentDisplayName(displayName)
+      const authUser = await updateParentDisplayName(selectedMobileUser, displayName)
       await refreshUserProfile(authUser)
       setNotice({ message: 'Your display name has been updated.', tone: 'success' })
     } catch (error) {
@@ -1675,6 +1715,7 @@ function ParentHome() {
 
             {activeTab === 'home' ? (
               <HomeScreen
+                activeActionId={activeActionId}
                 calendar={resources.calendar}
                 homeModel={homeModel}
                 link={selectedLink}
@@ -1682,6 +1723,7 @@ function ParentHome() {
                 matches={{ ...resources.matches, items: visibleMatches }}
                 messages={{ ...resources.messages, items: visibleMessages }}
                 notifications={resources.notifications}
+                isOffline={isOffline}
                 onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
                 onOpenMatch={(match) => setSelectedMatchId(match.id)}
                 onOpenLink={handleOpenMatchLink}
@@ -1692,11 +1734,12 @@ function ParentHome() {
                 }}
                 onOpenNotification={handleOpenNotification}
                 onOpenPolls={() => { setMoreSection('polls'); setActiveTab('more') }}
+                onOpenResource={handleOpenCalendarResource}
                 onRetry={handleRefresh}
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitations} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitations} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
@@ -1939,7 +1982,7 @@ function getNotificationTypeIcon(intentType) {
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 
-function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onRetry, selectedMatch }) {
+function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
   const unreadNotifications = prepareParentNotificationInbox(notifications.items.filter((notification) => !notification.isRead))
   if (!link?.id) {
@@ -1983,7 +2026,7 @@ function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches,
           {homeModel.nextActivity?.type === 'match' ? (
             <MatchPreviewCard match={homeModel.nextActivity.item} onPress={onOpenMatch} prominent />
           ) : homeModel.nextActivity?.type === 'calendar' ? (
-            <CalendarCard event={homeModel.nextActivity.item} onOpenLink={onOpenLink} prominent />
+            <CalendarCard activeActionId={activeActionId} event={homeModel.nextActivity.item} isOffline={isOffline} onOpenLink={onOpenLink} onOpenResource={onOpenResource} prominent />
           ) : (
             <EmptyPanel message="There are no upcoming fixtures or shared calendar events right now." title="Nothing scheduled" />
           )}
@@ -2055,7 +2098,7 @@ function HomeScreen({ calendar, homeModel, link, matchInvitations = [], matches,
         <View style={styles.sectionStack}>
           <SectionHeading copy="Training, meetings and club events shared with your family." title="Calendar" />
           {homeModel.upcomingCalendarEvents.slice(0, 4).map((event) => (
-            <CalendarCard event={event} key={event.id} onOpenLink={onOpenLink} />
+            <CalendarCard activeActionId={activeActionId} event={event} isOffline={isOffline} key={event.id} onOpenLink={onOpenLink} onOpenResource={onOpenResource} />
           ))}
         </View>
       ) : null}
@@ -2094,6 +2137,7 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
       </View>
       <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
       <Text style={styles.cardMeta}>{formatTime(match.kickoffTime, match.kickoffTimeTbc)}</Text>
+      <Text style={styles.cardMeta}>{match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
       {score ? <Text style={styles.score}>{score}</Text> : null}
       {match.venueName || match.venueAddress ? (
         <Text style={styles.cardMeta}>{[match.venueName, match.venueAddress].filter(Boolean).join(', ')}</Text>
@@ -2129,6 +2173,7 @@ function MatchDetail({ match, onBack }) {
         <InfoRow label="Kick-off" value={formatTime(match.kickoffTime, match.kickoffTimeTbc)} />
         {match.arrivalTime ? <InfoRow label="Arrival" value={formatTime(match.arrivalTime)} /> : null}
         <InfoRow label="Team" value={match.teamName || 'Team not set'} />
+        <InfoRow label="Shirts" value={match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'} />
         <InfoRow label="Location" value={[match.venueName, match.venueAddress].filter(Boolean).join(', ') || 'Location not shared'} />
         <InfoRow label="Availability" value={labelize(match.availabilityStatus) || 'No response requested'} />
         <InfoRow label="Selection" value={selectionLabel} />
@@ -2144,7 +2189,7 @@ function MatchDetail({ match, onBack }) {
   )
 }
 
-function CalendarCard({ event, onOpenLink, prominent = false }) {
+function CalendarCard({ activeActionId, event, isOffline, onOpenLink, onOpenResource, prominent = false }) {
   const { styles } = useParentTheme()
   const cancelled = event.status === 'cancelled' || Boolean(event.cancelledAt)
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
@@ -2157,6 +2202,20 @@ function CalendarCard({ event, onOpenLink, prominent = false }) {
       <Text style={styles.cardTitle}>{event.title}</Text>
       {event.location ? <Text style={styles.cardMeta}>{event.location}</Text> : null}
       {event.notes ? <Text numberOfLines={3} style={styles.bodyText}>{event.notes}</Text> : null}
+      {Array.isArray(event.resources) && event.resources.length > 0 ? (
+        <View style={styles.sectionStack}>
+          <Text style={styles.cardMeta}>Attachments</Text>
+          {event.resources.map((resource) => (
+            <PrimaryAction
+              disabled={isOffline || Boolean(activeActionId)}
+              key={resource.id}
+              label={activeActionId === `calendar-resource:${resource.id}` ? 'Opening...' : `Open ${resource.title}`}
+              onPress={() => onOpenResource?.(event, resource)}
+              secondary
+            />
+          ))}
+        </View>
+      ) : null}
       {directionsUrl ? <PrimaryAction label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} secondary /> : null}
     </View>
   )

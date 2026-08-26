@@ -187,8 +187,11 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
   })
 }
 
-export async function enableCoachNotifications({ apiBaseUrl, contextId, easProjectId, preservePreference = false }) {
+export async function enableCoachNotifications({ apiBaseUrl, contextId, detailLevel: requestedDetailLevel = '', easProjectId, preservePreference = false }) {
   getNotificationEnvironment(apiBaseUrl)
+  const detailLevel = requestedDetailLevel
+    ? await setDetailLevel(requestedDetailLevel, apiBaseUrl)
+    : await getDetailLevel(apiBaseUrl)
   if (!Device.isDevice) throw safeError({ message: 'device unavailable' }, 'device')
   let permission
   try {
@@ -196,10 +199,9 @@ export async function enableCoachNotifications({ apiBaseUrl, contextId, easProje
     permission = current.granted ? current : await Notifications.requestPermissionsAsync()
   } catch (error) { throw safeError(error, 'permission') }
   const granted = permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
-  if (!granted) return normalizeCoachNotificationState({ canAskAgain: permission.canAskAgain !== false, detailLevel: await getDetailLevel(apiBaseUrl), message: 'Notification permission is off. The Coach app remains fully usable.', permissionGranted: false, permissionStatus: normalize(permission.status).toLowerCase() || 'denied' })
+  if (!granted) return normalizeCoachNotificationState({ canAskAgain: permission.canAskAgain !== false, detailLevel, message: 'Notification permission is off. The Coach app remains fully usable.', permissionGranted: false, permissionStatus: normalize(permission.status).toLowerCase() || 'denied' })
   const token = normalize((await getExpoPushToken(easProjectId)).data)
   if (!token) throw safeError({ message: 'token unavailable' }, 'expo')
-  const detailLevel = await getDetailLevel(apiBaseUrl)
   let installationId = await getInstallationId(apiBaseUrl)
   const register = (targetInstallationId) => request({
     apiBaseUrl,

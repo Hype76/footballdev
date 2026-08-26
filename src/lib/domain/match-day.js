@@ -14,12 +14,15 @@ import {
 } from '../calendar-datetime-integrity.js'
 import {
   assertNewMatchHomeAway,
+  assertMatchDayShirtChoice,
   assertValidMatchClockMode,
   assertValidMatchDurationMinutes,
   DEFAULT_MATCH_DURATION_MINUTES,
   MATCH_CLOCK_MODE_OPTIONS,
   MATCH_DAY_HOME_AWAY_OPTIONS,
+  MATCH_DAY_SHIRT_CHOICE_OPTIONS,
   normalizeLegacyMatchHomeAway,
+  normalizeMatchDayShirtChoice,
   normalizeMatchClockMode,
   normalizeMatchDurationMinutes,
 } from '../matchday-model.js'
@@ -51,7 +54,7 @@ export const MATCH_DAY_STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
-export { MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS }
+export { MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS, MATCH_DAY_SHIRT_CHOICE_OPTIONS }
 
 export const MATCH_DAY_ARRIVAL_OPTIONS = [
   { value: '15', label: '15 mins before kick off' },
@@ -566,6 +569,7 @@ export function normalizeMatchDay(row) {
     kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true,
     arrivalTime: row.arrival_time ?? row.arrivalTime ?? '',
     homeAway: normalizeLegacyMatchHomeAway(row.home_away ?? row.homeAway),
+    shirtChoice: normalizeMatchDayShirtChoice(row.shirt_choice ?? row.shirtChoice),
     clockMode: normalizeMatchClockMode(row.match_clock_mode ?? row.clockMode),
     matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes ?? row.matchDurationMinutes),
     venueName: normalizeText(row.venue_name ?? row.venueName),
@@ -826,6 +830,7 @@ function buildMatchDayListSelect() {
     kickoff_time_tbc,
     arrival_time,
     home_away,
+    shirt_choice,
     match_clock_mode,
     match_duration_minutes,
     venue_name,
@@ -981,6 +986,7 @@ function buildMatchDaySnapshot(row) {
     kickoffTimeTbc: row.kickoff_time_tbc === true,
     arrivalTime: row.arrival_time ?? null,
     homeAway: normalizeText(row.home_away),
+    shirtChoice: normalizeMatchDayShirtChoice(row.shirt_choice),
     clockMode: normalizeMatchClockMode(row.match_clock_mode),
     matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes),
     venueName: normalizeText(row.venue_name),
@@ -1013,6 +1019,7 @@ function buildMatchDaySnapshotFromMatch(match) {
     kickoffTimeTbc: match.kickoffTimeTbc === true,
     arrivalTime: match.arrivalTime || null,
     homeAway: normalizeText(match.homeAway),
+    shirtChoice: normalizeMatchDayShirtChoice(match.shirtChoice),
     clockMode: normalizeMatchClockMode(match.clockMode),
     matchDurationMinutes: normalizeMatchDurationMinutes(match.matchDurationMinutes),
     venueName: normalizeText(match.venueName),
@@ -1065,7 +1072,7 @@ async function getMatchDayEventLogSnapshot({ user, matchId }) {
 
   let query = supabase
     .from('match_days')
-    .select('opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, match_clock_mode, match_duration_minutes, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
+    .select('opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, match_clock_mode, match_duration_minutes, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
     .eq('id', normalizedMatchId)
     .eq('club_id', user.clubId)
     .is('deleted_at', null)
@@ -1353,6 +1360,7 @@ export async function createMatchDay({ user, match }) {
   const requestLinesman = normalizeBoolean(match?.requestLinesman)
   const requestReferee = normalizeBoolean(match?.requestReferee)
   const homeAway = assertNewMatchHomeAway(match?.homeAway)
+  const shirtChoice = assertMatchDayShirtChoice(match?.shirtChoice ?? 'home')
   const clockMode = assertValidMatchClockMode(match?.clockMode ?? 'fixed')
   const matchDurationMinutes = assertValidMatchDurationMinutes(match?.matchDurationMinutes)
   const conclusionRule = normalizeMatchDayConclusionRule(match?.conclusionRule)
@@ -1399,6 +1407,7 @@ export async function createMatchDay({ user, match }) {
       kickoff_time_tbc: fixtureDateTime.kickoffTimeTbc,
       arrival_time: fixtureDateTime.kickoffTimeTbc ? null : normalizeTime(match?.arrivalTime) || null,
       home_away: homeAway,
+      shirt_choice: shirtChoice,
       match_clock_mode: clockMode,
       match_duration_minutes: matchDurationMinutes,
       match_conclusion_rule: conclusionRule,
@@ -1511,6 +1520,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
     payload.arrival_time = isTimeTbc ? null : normalizeTime(updates.arrivalTime) || null
   }
   if (updates.homeAway !== undefined) payload.home_away = assertNewMatchHomeAway(updates.homeAway)
+  if (updates.shirtChoice !== undefined) payload.shirt_choice = assertMatchDayShirtChoice(updates.shirtChoice)
   if (updates.clockMode !== undefined) payload.match_clock_mode = assertValidMatchClockMode(updates.clockMode)
   if (updates.matchDurationMinutes !== undefined) payload.match_duration_minutes = assertValidMatchDurationMinutes(updates.matchDurationMinutes)
   if (updates.conclusionRule !== undefined) payload.match_conclusion_rule = normalizeMatchDayConclusionRule(updates.conclusionRule)
@@ -1992,12 +2002,14 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     { data: confirmedTeamData, error: confirmedTeamError },
     { data: scorerGameModeData, error: scorerGameModeError },
     { data: formationPlanData, error: formationPlanError },
+    { data: shirtChoiceData, error: shirtChoiceError },
   ] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_scorer_game_mode_match_ids', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_match_formation_plans', { parent_link_id_value: normalizedParentLinkId }),
+    supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: normalizedParentLinkId }),
   ])
 
   if (error) {
@@ -2025,6 +2037,11 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     throw formationPlanError
   }
 
+  if (shirtChoiceError) {
+    console.error(shirtChoiceError)
+    throw shirtChoiceError
+  }
+
   const extendedByMatchId = new Map((extendedData ?? []).map((row) => [row.match_day_id ?? row.matchDayId, row]))
   const confirmedTeamByMatchId = new Map(
     (confirmedTeamData ?? []).map((row) => [
@@ -2046,6 +2063,10 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
     placements: Array.isArray(row.placements) ? row.placements : [],
     bench: Array.isArray(row.bench) ? row.bench : [],
   }]))
+  const shirtChoiceByMatchId = new Map((shirtChoiceData ?? []).map((row) => [
+    String(row.match_day_id ?? row.matchDayId ?? ''),
+    normalizeMatchDayShirtChoice(row.shirt_choice ?? row.shirtChoice),
+  ]))
 
   const matches = (data ?? []).map((row) => {
     const extended = extendedByMatchId.get(row.id) ?? {}
@@ -2059,6 +2080,7 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
       ...normalizeParentPortalMatchDay({
       ...row,
       ...extended,
+      shirt_choice: shirtChoiceByMatchId.get(String(row.id)),
       is_scorer: scorerGameModeMatchIds.has(String(row.id)),
       selected_player_names: confirmedTeamByMatchId.get(row.id) ?? [],
       events,

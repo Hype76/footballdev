@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { createPublicSupabaseClient, createSupabaseAdminClient } from './lib/_supabase.js'
 import { isFixtureKickoffTimeTbc } from '../../src/lib/calendar-datetime-integrity.js'
+import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import { sendCoachAvailabilityResponsePush } from './send-coach-mobile-push.js'
 import { DEFAULT_CLUB_TIME_ZONE, formatClubDateTime, resolveClubTimeZone } from './lib/_club-date-time.js'
 
@@ -157,6 +158,7 @@ function buildFixtureResponseCalendarUrl(response) {
     `Opponent: ${opponent}`,
     kickoffTimeTbc ? 'Kick-off: Time TBC' : `Kick-off: ${formatTime(response.kickoff_time)}`,
     !kickoffTimeTbc && response.arrival_time ? `Arrival: ${formatTime(response.arrival_time)}` : '',
+    `Shirts: ${getMatchDayShirtChoiceLabel(response.shirt_choice)}`,
     response.venue_name ? `Venue: ${response.venue_name}` : '',
   ].filter(Boolean).join('\n')
   const params = new URLSearchParams({
@@ -221,6 +223,7 @@ function detailRows(response) {
     ['Date', response.match_date || 'Date not set'],
     ['Kick off', kickoffTimeTbc ? 'Time TBC' : response.kickoff_time ? String(response.kickoff_time).slice(0, 5) : 'Not set'],
     ['Arrival', kickoffTimeTbc ? 'Available when kickoff is confirmed' : response.arrival_time ? String(response.arrival_time).slice(0, 5) : 'Not set'],
+    ['Shirts', getMatchDayShirtChoiceLabel(response.shirt_choice)],
     ['Venue', response.venue_name || 'Not set'],
   ]
 
@@ -378,15 +381,22 @@ function normalizeSeatsParam(value, canOfferLift) {
 }
 
 async function getTokenResponse(supabase, token) {
-  const { data, error } = await supabase.rpc('get_match_day_availability_response_v2', {
-    token_hash_value: hashToken(token),
-  })
+  const tokenHash = hashToken(token)
+  const [responseResult, shirtResult] = await Promise.all([
+    supabase.rpc('get_match_day_availability_response_v2', { token_hash_value: tokenHash }),
+    supabase.rpc('get_match_day_availability_shirt_choice', { token_hash_value: tokenHash }),
+  ])
+  const { data, error } = responseResult
 
   if (error) {
     throw error
   }
 
-  return data?.[0] ?? null
+  if (shirtResult.error) {
+    throw shirtResult.error
+  }
+
+  return data?.[0] ? { ...data[0], shirt_choice: shirtResult.data || 'home' } : null
 }
 
 async function submitTokenResponse(supabase, token, params) {

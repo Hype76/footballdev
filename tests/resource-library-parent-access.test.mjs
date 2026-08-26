@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
-import { validateParentResourceAccess } from '../netlify/functions/parent-resource-access.js'
+import {
+  validateParentCalendarEventResourceAccess,
+  validateParentResourceAccess,
+} from '../netlify/functions/parent-resource-access.js'
 
 const functionUrl = new URL('../netlify/functions/parent-resource-access.js', import.meta.url)
 const migrationUrl = new URL('../supabase/migrations/20260727125320_team_resource_parent_sharing_integrity.sql', import.meta.url)
@@ -11,12 +14,46 @@ const parentPortalUrl = new URL('../src/pages/ParentPortalPage.jsx', import.meta
 const ids = {
   authUser: '10000000-0000-4000-8000-000000000001',
   club: '20000000-0000-4000-8000-000000000001',
+  event: '60000000-0000-4000-8000-000000000001',
   otherClub: '20000000-0000-4000-8000-000000000002',
   team: '30000000-0000-4000-8000-000000000001',
   otherTeam: '30000000-0000-4000-8000-000000000002',
   player: '40000000-0000-4000-8000-000000000001',
   otherPlayer: '40000000-0000-4000-8000-000000000002',
   resource: '50000000-0000-4000-8000-000000000001',
+}
+
+function createCalendarInviteRecords() {
+  const records = createCalendarEventRecords()
+  records.calendarEvent.parent_audience = 'involved_players'
+  records.calendarInvite = {
+    calendar_event_id: ids.event,
+    club_id: ids.club,
+    team_id: ids.team,
+    player_id: ids.player,
+    invite_status: 'active',
+    cancelled_at: null,
+  }
+  return records
+}
+
+function createCalendarEventRecords() {
+  const records = createRecords()
+  records.calendarEvent = {
+    id: ids.event,
+    club_id: ids.club,
+    team_id: ids.team,
+    parent_visible: true,
+    parent_audience: 'all_team_parents',
+    cancelled_at: null,
+  }
+  records.resourceLink = {
+    ...records.resourceLink,
+    linked_type: 'calendar_event',
+    linked_id: ids.event,
+    parent_visible: false,
+  }
+  return records
 }
 
 function createRecords() {
@@ -117,6 +154,77 @@ test('Parent resource access fails closed across child, team, club, sharing, rem
   }
 })
 
+test('Parent-visible calendar attachments use event authority and do not require a player assignment', () => {
+  const records = createCalendarEventRecords()
+
+  assert.deepEqual(validateParentCalendarEventResourceAccess(records), {
+    accessType: 'file',
+    accessUrl: '',
+    expiresInSeconds: 60,
+  })
+
+  records.calendarEvent.parent_audience = 'all_club_parents'
+  records.calendarEvent.team_id = ids.otherTeam
+  records.resourceLink.team_id = ids.otherTeam
+  records.resource.team_id = ids.otherTeam
+  records.resource.storage_path = `${ids.club}/${ids.otherTeam}/${ids.resource}/plan.pdf`
+
+  assert.deepEqual(validateParentCalendarEventResourceAccess(records), {
+    accessType: 'file',
+    accessUrl: '',
+    expiresInSeconds: 60,
+  })
+})
+
+test('involved-player calendar attachments require an active invitation for the selected child', () => {
+  const records = createCalendarInviteRecords()
+
+  assert.deepEqual(validateParentCalendarEventResourceAccess(records), {
+    accessType: 'file',
+    accessUrl: '',
+    expiresInSeconds: 60,
+  })
+
+  for (const mutate of [
+    (candidate) => { candidate.calendarInvite = null },
+    (candidate) => { candidate.calendarInvite.player_id = ids.otherPlayer },
+    (candidate) => { candidate.calendarInvite.calendar_event_id = '60000000-0000-4000-8000-000000000002' },
+    (candidate) => { candidate.calendarInvite.team_id = ids.otherTeam },
+    (candidate) => { candidate.calendarInvite.club_id = ids.otherClub },
+    (candidate) => { candidate.calendarInvite.invite_status = 'cancelled' },
+    (candidate) => { candidate.calendarInvite.cancelled_at = '2026-08-26T00:00:00.000Z' },
+  ]) {
+    const candidate = createCalendarInviteRecords()
+    mutate(candidate)
+    assert.throws(() => validateParentCalendarEventResourceAccess(candidate), /not available/)
+  }
+})
+
+test('calendar attachment access fails closed across event visibility, audience, link, and resource scope', () => {
+  const cases = [
+    (records) => { records.parentLink.auth_user_id = '10000000-0000-4000-8000-000000000002' },
+    (records) => { records.player.archived_at = '2026-08-26T00:00:00.000Z' },
+    (records) => { records.calendarEvent.parent_visible = false },
+    (records) => { records.calendarEvent.parent_audience = 'none' },
+    (records) => { records.calendarEvent.team_id = ids.otherTeam },
+    (records) => { records.calendarEvent.club_id = ids.otherClub },
+    (records) => { records.calendarEvent.cancelled_at = '2026-08-26T00:00:00.000Z' },
+    (records) => { records.resourceLink.linked_type = 'player' },
+    (records) => { records.resourceLink.linked_id = ids.player },
+    (records) => { records.resourceLink.team_id = ids.otherTeam },
+    (records) => { records.resourceLink.removed_at = '2026-08-26T00:00:00.000Z' },
+    (records) => { records.resource.team_id = ids.otherTeam },
+    (records) => { records.resource.archived_at = '2026-08-26T00:00:00.000Z' },
+    (records) => { records.resource.storage_path = `${ids.club}/${ids.otherTeam}/private.pdf` },
+  ]
+
+  for (const mutate of cases) {
+    const records = createCalendarEventRecords()
+    mutate(records)
+    assert.throws(() => validateParentCalendarEventResourceAccess(records), /not available/)
+  }
+})
+
 test('Parent listing and access code keep raw resource locations out of Parent payloads', async () => {
   const [source, migration, parentPortal] = await Promise.all([
     readFile(functionUrl, 'utf8'),
@@ -130,6 +238,11 @@ test('Parent listing and access code keep raw resource locations out of Parent p
   assert.match(source, /removed_at/)
   assert.match(source, /pathSegments\.every\(\(segment\) => segment && segment !== '\.' && segment !== '\.\.'\)/)
   assert.match(source, /createSignedUrl\(resource\.storage_path, SIGNED_URL_EXPIRY_SECONDS\)/)
+  assert.match(source, /action === 'list_calendar_event_resources'/)
+  assert.match(source, /linked_type', 'calendar_event'/)
+  assert.match(source, /calendarEventId/)
+  assert.match(source, /calendar_event_invites/)
+  assert.match(source, /invite_status', 'cancelled'/)
   assert.match(parentPortal, /const pendingWindow = window\.open\('', '_blank'\)/)
   assert.match(parentPortal, /pendingWindow\.location\.replace\(accessUrl\)/)
   assert.match(migration, /coalesce\(player\.status, 'active'\) <> 'archived'/i)

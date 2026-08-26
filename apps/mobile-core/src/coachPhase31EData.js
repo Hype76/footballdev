@@ -400,10 +400,20 @@ export async function getCoachChatMessages(user, room) {
       active_team_id_value: user.activeTeamId,
       target_room_id: room.id,
     })
-    return (data || []).map(normalizeCoachChatMessage)
+    const senderIds = [...new Set((data || []).map((row) => normalize(row.sender_id ?? row.senderId)).filter(Boolean))]
+    let currentNames = []
+    if (senderIds.length > 0) {
+      const result = await supabase.from('users').select('id, display_name, name, username').in('id', senderIds)
+      if (!result.error) currentNames = result.data || []
+    }
+    const nameBySenderId = new Map(currentNames.map((profile) => [normalize(profile.id), profile]))
+    return (data || []).map((row) => normalizeCoachChatMessage({
+      ...row,
+      users: nameBySenderId.get(normalize(row.sender_id ?? row.senderId)) || null,
+    }))
   }
   await assertStaffRoomActiveContext(user, room)
-  const { data, error } = await supabase.from('staff_chat_messages').select('*,users:sender_id(id,name,role_label)').eq('conversation_id', room.id).eq('club_id', user.clubId).order('created_at')
+  const { data, error } = await supabase.from('staff_chat_messages').select('*,users:sender_id(id,display_name,name,username,role_label)').eq('conversation_id', room.id).eq('club_id', user.clubId).order('created_at')
   if (error) throw error
   return (data || []).map(normalizeCoachChatMessage)
 }
