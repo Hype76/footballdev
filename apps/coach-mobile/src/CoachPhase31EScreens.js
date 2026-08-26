@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   createCoachExternalResource,
   createCoachMatchAvailabilityRequests,
@@ -32,6 +32,7 @@ import {
   canResendSelectedCoachInvites,
   collapseCoachInvitesByPlayer,
   getCoachInviteStatusLabel,
+  getCoachChatModalTopInset,
   getCoachPlayersWithoutAvailabilityRequest,
   getSelectedCoachInvites,
   getCoachPhase31EOfflinePolicy,
@@ -86,7 +87,7 @@ function phaseStyles(palette) {
     chatRoomSectionHeader: { alignItems: 'baseline', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
     chatRoomSectionCount: { color: palette.textMuted, fontSize: 12, fontWeight: '800' },
     chatModal: { backgroundColor: palette.background, flex: 1 },
-    chatModalHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 5, padding: 14 },
+    chatModalHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 5, paddingBottom: 14, paddingHorizontal: 14, paddingTop: 14 },
     chatMessageList: { flex: 1 },
     chatMessageListContent: { flexGrow: 1, gap: 8, justifyContent: 'flex-end', padding: 14 },
     chatComposer: { alignItems: 'flex-end', backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 8, padding: 10 },
@@ -417,6 +418,8 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
 }
 
 function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, placeholderColor, reloadHome, setNotice, stale, styles, user }) {
+  const safeAreaInsets = useSafeAreaInsets()
+  const chatModalTopInset = getCoachChatModalTopInset({ platform: Platform.OS, safeAreaTop: safeAreaInsets.top })
   const roomSections = useMemo(() => buildCoachChatRoomSections([...(data.staff || []), ...(data.parent || [])]), [data])
   const rooms = useMemo(() => roomSections.flatMap((section) => [...section.activeRooms, ...section.emptyRooms]), [roomSections])
   const [roomId, setRoomId] = useState('')
@@ -524,9 +527,9 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
   const display = getCoachChatRoomDisplay(room)
   return (
     <Modal animationType="slide" onRequestClose={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} visible>
-      <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.chatModal}>
+      <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.chatModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.chatModal}>
-          <View style={styles.chatModalHeader}>
+          <View style={[styles.chatModalHeader, { paddingTop: chatModalTopInset + 14 }]}>
             <Button label="Back to conversations" onPress={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} />
             <Text accessibilityRole="header" style={styles.heading}>{display.title}</Text>
             {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}

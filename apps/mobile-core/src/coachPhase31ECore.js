@@ -46,6 +46,13 @@ function normalize(value) {
   return String(value ?? '').trim()
 }
 
+export function getCoachChatModalTopInset({ platform = '', safeAreaTop = 0 } = {}) {
+  const measuredInset = Number(safeAreaTop)
+  const safeInset = Number.isFinite(measuredInset) ? Math.max(0, measuredInset) : 0
+  const platformMinimum = normalize(platform).toLowerCase() === 'ios' ? 44 : 0
+  return Math.max(safeInset, platformMinimum)
+}
+
 function relation(value) {
   return Array.isArray(value) ? value[0] : value
 }
