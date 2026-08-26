@@ -534,6 +534,25 @@ export function getCoachPlayersWithoutAvailabilityRequest(players = [], invites 
   return Object.freeze((Array.isArray(players) ? players : []).filter((player) => !requestedPlayerIds.has(normalize(player?.id))))
 }
 
+export function toggleCoachInvitePlayerSelection(selectedPlayerIds = [], playerId = '') {
+  const normalizedPlayerId = normalize(playerId)
+  const selected = [...new Set((Array.isArray(selectedPlayerIds) ? selectedPlayerIds : []).map(normalize).filter(Boolean))]
+  if (!normalizedPlayerId) return Object.freeze(selected)
+  return Object.freeze(selected.includes(normalizedPlayerId)
+    ? selected.filter((id) => id !== normalizedPlayerId)
+    : [...selected, normalizedPlayerId])
+}
+
+export function getSelectedCoachInvites(invites = [], selectedPlayerIds = []) {
+  const selected = new Set((Array.isArray(selectedPlayerIds) ? selectedPlayerIds : []).map(normalize).filter(Boolean))
+  return Object.freeze(collapseCoachInvitesByPlayer(invites).filter((invite) => selected.has(normalize(invite?.playerId))))
+}
+
+export function canResendSelectedCoachInvites(invites = []) {
+  const selected = Array.isArray(invites) ? invites : []
+  return selected.length > 0 && selected.every((invite) => ['awaiting', 'pending'].includes(normalize(invite?.status).toLowerCase()) && !invite?.stale && !invite?.cancelled)
+}
+
 export function isCoachMatchAvailabilityRequestCreationApplied(data, matchDayId, playerIds = []) {
   const expectedMatch = normalize(matchDayId)
   const expectedPlayers = new Set((playerIds || []).map(normalize).filter(Boolean))

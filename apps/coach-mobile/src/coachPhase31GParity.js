@@ -38,7 +38,7 @@ const CLOSURE = Object.freeze({
   7: { status: COMPLETE },
   8: { status: COMPLETE },
   9: { status: COMPLETE },
-  10: { status: WEB, reason: 'Team transfer, archive, restore, and event-safe removal are destructive governance workflows with cross-record impact and remain on the authoritative web surface.' },
+  10: { status: GOVERNED, reason: 'Event-safe Player removal is available from Invites and availability through the canonical history-preserving RPC. Team transfer, archive, and restore remain on the authoritative web surface.' },
   11: { status: COMPLETE },
   12: { status: COMPLETE },
   13: { status: COMPLETE },

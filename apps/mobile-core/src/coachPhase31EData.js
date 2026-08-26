@@ -624,3 +624,60 @@ export async function recordCoachInviteIntent(user, invite, action) {
   await recordCoachOperationalAudit({ user, action: `invite_${action}_intent`, entityType: `${invite.kind}_invite`, entityId: invite.id || invite.eventId, metadata: { teamId: user.activeTeamId, communicationDelivery: 'disabled', schedules: 'disabled', syntheticOnly: true } })
   return Object.freeze({ action, communicationDelivery: 'disabled', recorded: true, requestId: requestId('coach-invite-intent') })
 }
+
+function getCoachInviteRemovalRequest(invite) {
+  const sourceType = invite?.kind === 'match' ? 'match-day' : 'calendar'
+  const scope = invite?.kind === 'training' ? 'occurrence' : 'event'
+  const occurrenceDate = scope === 'occurrence' ? normalize(invite?.occurrenceDate) : null
+  if (!normalize(invite?.eventId) || !normalize(invite?.playerId)) throw new Error('Choose an active event and Player before removing participation.')
+  if (scope === 'occurrence' && !/^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate)) throw new Error('Choose the Training session date before removing participation.')
+  return Object.freeze({ occurrenceDate, scope, sourceType })
+}
+
+function normalizeCoachInviteRemovalResult(result = {}) {
+  return Object.freeze({
+    ...result,
+    affectedOccurrenceCount: Number(result?.affectedOccurrenceCount || 0),
+    alreadyRemoved: result?.alreadyRemoved === true,
+    communicationSent: result?.communicationSent === true,
+    communicationWillBeSent: result?.communicationWillBeSent === true,
+    historyPreserved: result?.historyPreserved === true,
+    playerRecordPreserved: result?.playerRecordPreserved === true,
+    requiresInProgressConfirmation: result?.requiresInProgressConfirmation === true,
+    revokedTokenCount: Number(result?.revokedTokenCount || 0),
+    suppressedInvitationCount: Number(result?.suppressedInvitationCount || 0),
+    teamMembershipUnchanged: result?.teamMembershipUnchanged === true,
+  })
+}
+
+export async function previewCoachInviteRemoval(user, invite) {
+  assertCanonicalMutation(user, { minimumRank: 20, requiresTeam: true })
+  assertTeamEntity(user, invite, 'Invitation')
+  if (invite?.stale || invite?.cancelled) throw new Error('This Invitation target is stale or cancelled.')
+  const request = getCoachInviteRemovalRequest(invite)
+  const result = await rpc('preview_event_player_removal', {
+    event_id_value: invite.eventId,
+    occurrence_date_value: request.occurrenceDate,
+    player_id_value: invite.playerId,
+    scope_value: request.scope,
+    source_type_value: request.sourceType,
+  })
+  return normalizeCoachInviteRemovalResult(result)
+}
+
+export async function removeCoachInviteFromEvent(user, invite, { confirmInProgress = false, requestToken = '' } = {}) {
+  assertCanonicalMutation(user, { minimumRank: 20, requiresTeam: true })
+  assertTeamEntity(user, invite, 'Invitation')
+  if (invite?.stale || invite?.cancelled) throw new Error('This Invitation target is stale or cancelled.')
+  const request = getCoachInviteRemovalRequest(invite)
+  const result = await rpc('remove_player_from_event', {
+    confirm_in_progress_value: confirmInProgress === true,
+    event_id_value: invite.eventId,
+    occurrence_date_value: request.occurrenceDate,
+    player_id_value: invite.playerId,
+    request_token_value: normalize(requestToken) || requestId('coach-invite-removal'),
+    scope_value: request.scope,
+    source_type_value: request.sourceType,
+  })
+  return normalizeCoachInviteRemovalResult(result)
+}

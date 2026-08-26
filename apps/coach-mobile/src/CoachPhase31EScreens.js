@@ -16,7 +16,9 @@ import {
   getCoachResourceAccessUrl,
   getCoachResources,
   markCoachChatRead,
+  previewCoachInviteRemoval,
   recordCoachInviteIntent,
+  removeCoachInviteFromEvent,
   removeCoachResourceSharing,
   saveCoachDevelopmentDraft,
   sendCoachChatMessage,
@@ -27,9 +29,11 @@ import {
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
   buildCoachChatRoomSections,
+  canResendSelectedCoachInvites,
   collapseCoachInvitesByPlayer,
   getCoachInviteStatusLabel,
   getCoachPlayersWithoutAvailabilityRequest,
+  getSelectedCoachInvites,
   getCoachPhase31EOfflinePolicy,
   getCoachChatRoomDisplay,
   getCoachResourceErrorMessage,
@@ -40,6 +44,7 @@ import {
   sanitizeCoachChatOfflineValue,
   summarizeCoachInvites,
   summarizeCoachPoll,
+  toggleCoachInvitePlayerSelection,
 } from '../../mobile-core/src/coachPhase31ECore'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
@@ -90,6 +95,8 @@ function phaseStyles(palette) {
     heading: { color: palette.textPrimary, fontSize: 17, fontWeight: '900' },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
     availabilityRow: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', minHeight: 36, paddingHorizontal: 8, paddingVertical: 5 },
+    availabilityPlayer: { flex: 1, gap: 2 },
+    availabilitySelected: { color: palette.accent, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
     availabilityStatus: { fontSize: 13, fontWeight: '900', textTransform: 'capitalize' },
     availabilityAvailable: { color: palette.success },
     availabilityUnavailable: { color: palette.danger },
@@ -103,6 +110,8 @@ function phaseStyles(palette) {
     primaryText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900' },
     secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10 },
     secondaryText: { color: palette.textPrimary, fontSize: 14, fontWeight: '800' },
+    destructive: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.danger, borderRadius: 12, borderWidth: 1, minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10 },
+    destructiveText: { color: palette.danger, fontSize: 14, fontWeight: '900' },
     danger: { color: palette.danger, fontSize: 14, fontWeight: '800' },
     disabled: { opacity: 0.48 },
     divider: { backgroundColor: palette.border, height: 1 },
@@ -117,10 +126,10 @@ function availabilityStatusStyle(status, styles) {
   return styles.availabilityAwaiting
 }
 
-function Button({ disabled = false, label, onPress, secondary = false, styles }) {
+function Button({ destructive = false, disabled = false, label, onPress, secondary = false, styles }) {
   return (
-    <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[secondary ? styles.secondary : styles.primary, disabled && styles.disabled]}>
-      <Text style={secondary ? styles.secondaryText : styles.primaryText}>{label}</Text>
+    <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[destructive ? styles.destructive : secondary ? styles.secondary : styles.primary, disabled && styles.disabled]}>
+      <Text style={destructive ? styles.destructiveText : secondary ? styles.secondaryText : styles.primaryText}>{label}</Text>
     </Pressable>
   )
 }
@@ -689,9 +698,10 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   )
 }
 
-function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user }) {
-  const [selectedId, setSelectedId] = useState('')
+function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, styles, user }) {
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
   const [requestPanelOpen, setRequestPanelOpen] = useState(false)
+  const [bulkAction, setBulkAction] = useState('')
   const today = new Date().toISOString().slice(0, 10)
   const trainingGroups = [...(data.training || [])
     .filter((invite) => !invite.cancelled && !invite.stale)
@@ -721,20 +731,67 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
   const selectedTrainingInvites = [...collapseCoachInvitesByPlayer(trainingGroups.find((group) => group.key === trainingKey)?.invites || [])]
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
-  const selected = [...selectedMatchInvites, ...selectedTrainingInvites].find((invite) => invite.id === selectedId)
+  const activeInvites = matchId ? selectedMatchInvites : selectedTrainingInvites
+  const selectedInvites = getSelectedCoachInvites(activeInvites, selectedPlayerIds)
   const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
-  const selectedCanBeResent = selected && ['awaiting', 'pending'].includes(selected.status)
-  const record = async (action) => {
-    try {
-      const result = await recordCoachInviteIntent(user, selected, action)
-      setNotice(config.isProduction ? `Invitation resent to ${result.recipientCount} server-resolved recipient${result.recipientCount === 1 ? '' : 's'}.` : `${action} intent recorded. External delivery remains disabled.`)
-    } catch (error) { setNotice(getCoachFriendlyError(error)) }
+  const selectedCanBeResent = canResendSelectedCoachInvites(selectedInvites)
+  const selectionDisabled = stale || Boolean(bulkAction)
+  const toggleSelection = (playerId) => setSelectedPlayerIds((current) => toggleCoachInvitePlayerSelection(current, playerId))
+  const refreshAfterBulkAction = async () => {
+    await load()
+    await reloadHome?.({ refresh: true })
+  }
+  const recordSelectedResends = async (invites) => {
+    setBulkAction('resend')
+    const results = await Promise.allSettled(invites.map((invite) => recordCoachInviteIntent(user, invite, 'resend')))
+    const successful = results.filter((result) => result.status === 'fulfilled')
+    const failedPlayerIds = results.flatMap((result, index) => result.status === 'rejected' ? [invites[index].playerId] : [])
+    const recipientCount = successful.reduce((total, result) => total + Number(result.value?.recipientCount || 0), 0)
+    setSelectedPlayerIds(failedPlayerIds)
+    const resultNotice = failedPlayerIds.length
+      ? `${successful.length} of ${invites.length} Player Invitation${invites.length === 1 ? '' : 's'} resent. ${failedPlayerIds.length} failed and remain selected so you can review them.`
+      : config.isProduction
+        ? `${invites.length} Player Invitation${invites.length === 1 ? '' : 's'} resent to ${recipientCount} server-resolved recipient${recipientCount === 1 ? '' : 's'}.`
+        : `${invites.length} resend intent${invites.length === 1 ? '' : 's'} recorded. External delivery remains disabled.`
+    try { await refreshAfterBulkAction(); setNotice(resultNotice) } catch (error) { setNotice(`${failedPlayerIds.length ? `${successful.length} of ${invites.length} Invitations were resent. ` : 'Invitations were resent. '}The latest availability could not be refreshed: ${getCoachFriendlyError(error)}`) }
+    finally { setBulkAction('') }
   }
   const resend = () => {
-    if (!config.isProduction) return void record('resend')
-    Alert.alert('Resend this Invitation?', 'This queues the approved Invitation to the server-resolved eligible contacts. The existing response identity and any saved response are preserved.', [
+    const invites = [...selectedInvites]
+    if (!config.isProduction) return void recordSelectedResends(invites)
+    Alert.alert(`Resend ${invites.length} Invitation${invites.length === 1 ? '' : 's'}?`, 'This queues the approved Invitations to each Player\'s server-resolved eligible contacts. Existing response identity and any saved response are preserved.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Resend', onPress: () => void record('resend') },
+      { text: 'Resend', onPress: () => void recordSelectedResends(invites) },
+    ])
+  }
+  const commitSelectedRemovals = async (invites, confirmInProgress) => {
+    setBulkAction('remove')
+    const results = await Promise.allSettled(invites.map((invite) => removeCoachInviteFromEvent(user, invite, { confirmInProgress })))
+    const successful = results.filter((result) => result.status === 'fulfilled')
+    const failedPlayerIds = results.flatMap((result, index) => result.status === 'rejected' ? [invites[index].playerId] : [])
+    setSelectedPlayerIds(failedPlayerIds)
+    const resultNotice = failedPlayerIds.length
+      ? `${successful.length} of ${invites.length} Players removed from the event. ${failedPlayerIds.length} failed and remain selected so you can review them.`
+      : `${invites.length} Player${invites.length === 1 ? '' : 's'} removed from the event. Team membership, Player records, and previous response history were preserved. No removal notification was sent.`
+    try { await refreshAfterBulkAction(); setNotice(resultNotice) } catch (error) { setNotice(`${successful.length} of ${invites.length} Players were removed. The latest availability could not be refreshed: ${getCoachFriendlyError(error)}`) }
+    finally { setBulkAction('') }
+  }
+  const removeSelected = async () => {
+    const invites = [...selectedInvites]
+    setBulkAction('preview')
+    const previews = await Promise.allSettled(invites.map((invite) => previewCoachInviteRemoval(user, invite)))
+    const failed = previews.filter((result) => result.status === 'rejected')
+    if (failed.length) {
+      setNotice(`Removal was not started because ${failed.length} of ${invites.length} selected Players could not be verified. ${getCoachFriendlyError(failed[0].reason)}`)
+      setBulkAction('')
+      return
+    }
+    const requiresInProgressConfirmation = previews.some((result) => result.value.requiresInProgressConfirmation)
+    const trainingCopy = invites[0]?.kind === 'training' ? ' For Training, only the selected session is affected.' : ''
+    setBulkAction('')
+    Alert.alert(`Remove ${invites.length} Player${invites.length === 1 ? '' : 's'} from event?`, `Team membership and Player records stay unchanged. Previous response and delivery history is preserved. No removal notification will be sent.${trainingCopy}${requiresInProgressConfirmation ? ' This event is in progress, but recorded Match or attendance history will remain.' : ''}`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove from event', style: 'destructive', onPress: () => void commitSelectedRemovals(invites, requiresInProgressConfirmation) },
     ])
   }
   const createRequests = async () => {
@@ -794,21 +851,21 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
         const expanded = group.key === trainingKey
         return (
           <View key={group.key} style={[styles.panel, expanded && styles.panelSelected]}>
-            <Pressable accessibilityRole="button" onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedId(''); setRequestPanelOpen(false); setPlayerIds([]) }}>
+            <Pressable accessibilityRole="button" onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
               <Text style={styles.heading}>{group.title || 'Training'}</Text>
               <Text style={styles.body}>Training | {group.occurrenceDate || 'Date to be confirmed'} | Available {trainingSummary.available} | Awaiting {trainingSummary.awaiting}</Text>
               <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
             </Pressable>
             {expanded ? <>
               <Text style={styles.label}>Available {trainingSummary.available} | Not available {trainingSummary.unavailable} | Maybe {trainingSummary.maybe} | Awaiting {trainingSummary.awaiting}</Text>
-              {selectedTrainingInvites.map((invite) => (
-                <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={[styles.availabilityRow, invite.id === selectedId && styles.formChoiceSelected]}>
-                  <Text style={styles.body}>{invite.playerName}</Text>
+              {selectedTrainingInvites.map((invite) => {
+                const selected = selectedPlayerIds.includes(invite.playerId)
+                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
+                  <View style={styles.availabilityPlayer}><Text style={styles.body}>{invite.playerName}</Text>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
                   <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
                 </Pressable>
-              ))}
-              {selectedCanBeResent ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
-              {selected && !selectedCanBeResent ? <Text style={styles.body}>{selected.playerName} has already responded. This request will not be resent.</Text> : null}
+              })}
+              {selectedInvites.length ? <View style={styles.stack}><Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text><Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} /><Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={() => void removeSelected()} styles={styles} />{!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}</View> : null}
               <Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />
             </> : null}
           </View>
@@ -820,21 +877,21 @@ function InvitesDomain({ data, load, onNavigate, setNotice, stale, styles, user 
         const expanded = match.id === matchId
         return (
           <View key={match.id} style={[styles.panel, expanded && styles.panelSelected]}>
-            <Pressable accessibilityRole="button" onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedId(''); setRequestPanelOpen(false); setPlayerIds([]) }}>
+            <Pressable accessibilityRole="button" onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
               <Text style={styles.heading}>{match.opponent || 'Opponent to be confirmed'}</Text>
               <Text style={styles.body}>{match.matchDate || 'Date to be confirmed'} | Available {matchSummary.available} | Awaiting {matchSummary.awaiting}</Text>
               <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
             </Pressable>
             {expanded ? <>
               <Text style={styles.label}>Available {matchSummary.available} | Not available {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
-              {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => (
-                <Pressable accessibilityRole="button" key={invite.id} onPress={() => setSelectedId(invite.id === selectedId ? '' : invite.id)} style={[styles.availabilityRow, invite.id === selectedId && styles.formChoiceSelected]}>
-                  <Text style={styles.body}>{invite.playerName}</Text>
+              {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => {
+                const selected = selectedPlayerIds.includes(invite.playerId)
+                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
+                  <View style={styles.availabilityPlayer}><Text style={styles.body}>{invite.playerName}</Text>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
                   <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
                 </Pressable>
-              )) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
-              {selectedCanBeResent ? <Button disabled={stale || selected.stale || selected.cancelled || Number(user.roleRank || 0) < 50} label={config.isProduction ? `Resend to ${selected.playerName}` : 'Record resend intent'} onPress={resend} secondary styles={styles} /> : null}
-              {selected && !selectedCanBeResent ? <Text style={styles.body}>{selected.playerName} has already responded. This request will not be resent.</Text> : null}
+              }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
+              {selectedInvites.length ? <View style={styles.stack}><Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text><Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} /><Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={() => void removeSelected()} styles={styles} />{!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}</View> : null}
               {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Send to ${availablePlayers.length} Players without an active request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every active Player already has an availability request for this fixture.</Text>}
               {requestPanelOpen ? <View style={styles.stack}>
                 <Text style={styles.heading}>Create availability requests</Text>

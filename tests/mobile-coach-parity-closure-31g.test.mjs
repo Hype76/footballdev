@@ -54,11 +54,12 @@ test('every non-complete parity row has a concrete bounded reason', () => {
   }
 })
 
-test('known destructive, dense, financial, and platform exclusions remain deliberately web-only', () => {
+test('known dense, financial, and platform exclusions remain deliberately web-only', () => {
   const byRow = new Map(COACH_PHASE_31G_PARITY_MATRIX.map((row) => [row.row, row]))
-  for (const rowNumber of [10, 15, 42, 43, 44, 45, 46, 47]) {
+  for (const rowNumber of [15, 42, 43, 44, 45, 46, 47]) {
     assert.equal(byRow.get(rowNumber).finalStatus, 'INTENTIONAL_WEB_ONLY')
   }
+  assert.equal(byRow.get(10).finalStatus, 'COMPLETE_WITH_WEB_GOVERNANCE')
   assert.equal(byRow.get(23).finalStatus, 'PRODUCT_BACKEND_DECISION_REQUIRED')
   assert.equal(byRow.get(24).finalStatus, 'INTENTIONAL_TEST_EXCLUSION')
 })
