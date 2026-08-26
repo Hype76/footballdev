@@ -1950,6 +1950,7 @@ try {
     )))
 
     await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: 'Rooms', exact: true }).click()
     await childOnlySwitch.waitFor({ state: 'visible' })
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
