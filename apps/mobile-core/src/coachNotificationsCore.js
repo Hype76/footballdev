@@ -55,6 +55,7 @@ export function normalizeCoachNotificationState(value = {}) {
     permissionStatus,
     registered,
     requiresContextRefresh: Boolean(value.requiresContextRefresh),
+    requiresRegistrationRefresh: Boolean(value.requiresRegistrationRefresh),
   })
 }
 
@@ -63,6 +64,15 @@ export function getCoachNotificationStatusLabel(value = {}) {
   if (!state.permissionGranted && state.permissionStatus === 'denied') return 'Blocked in device settings'
   if (!state.enabled || state.detailLevel === 'off') return 'Off'
   return state.detailLevel === 'detailed' ? 'On, Detailed' : 'On, Minimal'
+}
+
+export function shouldRestoreCoachNotificationRegistration(value = {}) {
+  const state = normalizeCoachNotificationState(value)
+  return Boolean(
+    state.permissionGranted
+    && state.detailLevel !== 'off'
+    && (state.requiresRegistrationRefresh || state.requiresContextRefresh)
+  )
 }
 
 export function isCoachInstallationOwnershipConflict(error) {

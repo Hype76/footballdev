@@ -119,7 +119,7 @@ test('native corrective source preserves state, canonical communication authorit
   assert.match(phaseData, /body: JSON\.stringify\(\{ matchDayId: match\.id, playerIds: selectedPlayerIds \}\)/)
   assert.match(phaseData, /filter\(\(room\) => room\.teamId === user\.activeTeamId\)/)
   assert.match(phaseData, /Parent Chat is not assigned to the active Team context/)
-  assert.match(appSource, /requiresContextRefresh && next\.permissionGranted && next\.detailLevel !== 'off'/)
+  assert.match(appSource, /shouldRestoreCoachNotificationRegistration\(next\)/)
   assert.match(buildGuard, /FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35/)
   assert.match(submitGuard, /FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35/)
   assert.match(submitGuard, /--groups', 'Internal Testers'/)

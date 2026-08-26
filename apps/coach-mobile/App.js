@@ -30,7 +30,7 @@ import {
   writeMobileAppBadgeEnabled,
 } from '../mobile-core/src/appBadge'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
-import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, resolveCoachNotificationOpen } from '../mobile-core/src/coachNotificationsCore'
+import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
@@ -244,7 +244,9 @@ function CoachHome() {
     try {
       const next = await loadCoachNotificationState({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id })
       setNotificationState(next)
-      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
+      setNotificationStateStatus(shouldRestoreCoachNotificationRegistration(next)
+        ? MOBILE_SETTING_LOAD_STATES.LOADING
+        : MOBILE_SETTING_LOAD_STATES.READY)
       return next
     } catch (error) {
       setNotificationState((current) => preserveMobileNotificationState(current, getCoachPushSetupFailureMessage(error)))
@@ -503,7 +505,7 @@ function CoachHome() {
   useEffect(() => {
     if (!activeContext?.id || !contextOwnedByCurrentUser) return undefined
     void refreshNotifications().then((next) => {
-      if (next?.registered && next.requiresContextRefresh && next.permissionGranted && next.detailLevel !== 'off') {
+      if (shouldRestoreCoachNotificationRegistration(next)) {
         void enableNotifications({ silent: true })
       }
     })
@@ -979,15 +981,19 @@ function SettingsScreen({
       <Section title="Notifications">
         <InfoRow
           label="Status"
-          value={hasKnownNotificationState
+          value={notificationStateLoading
+            ? 'Checking this device'
+            : hasKnownNotificationState
             ? getCoachNotificationStatusLabel(notificationState)
-            : notificationStateLoading ? 'Checking this device' : 'Unable to verify'}
+            : 'Unable to verify'}
         />
-        <Text style={styles.bodyText}>{hasKnownNotificationState
+        <Text style={styles.bodyText}>{notificationStateLoading
+          ? 'Restoring the saved notification setting for this device.'
+          : hasKnownNotificationState
           ? notificationState.registered ? 'Registered to this Coach installation. Your saved choice applies across authorised Coach contexts.' : notificationState.message || 'Not enabled on this device.'
-          : notificationStateLoading ? 'Reading the saved notification state.' : 'Notification status could not be read. No setting has been changed.'}</Text>
+          : 'Notification status could not be read. No setting has been changed.'}</Text>
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
-        {!hasKnownNotificationState ? (
+        {notificationStateLoading || !hasKnownNotificationState ? (
           notificationStateLoading ? <ActivityIndicator /> : <PrimaryAction disabled={isRegisteringPush} label="Retry notification check" onPress={onRefreshNotificationState} />
         ) : (
           <View style={styles.notificationChoices}>

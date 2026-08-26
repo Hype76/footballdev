@@ -1,6 +1,9 @@
 import { Buffer } from 'node:buffer'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
-import { resolveCoachMobileRegistrationPreference } from './lib/_coach-mobile-notification-preference.js'
+import {
+  resolveCoachMobileRegistrationIdentity,
+  resolveCoachMobileRegistrationPreference,
+} from './lib/_coach-mobile-notification-preference.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -87,6 +90,7 @@ function publicInstallation(row) {
     contextId: normalizeText(row?.context_id),
     detailLevel: normalizeDetailLevel(row?.detail_level),
     enabled: Boolean(row?.enabled && row?.status === 'active'),
+    installationId: normalizeText(row?.installation_id),
     platform: normalizeText(row?.platform),
     registered: row?.status === 'active',
   }
@@ -194,7 +198,7 @@ async function registerInstallation({ authUser, body, installationId }) {
   const context = await loadCoachContext(authUser, body.contextId)
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('coach_mobile_push_installations')
-    .select('auth_user_id, detail_level, enabled, status')
+    .select('installation_id, auth_user_id, detail_level, enabled, status')
     .eq('installation_id', installationId)
     .maybeSingle()
   if (existingError) throw existingError
@@ -204,6 +208,21 @@ async function registerInstallation({ authUser, body, installationId }) {
       statusCode: 403,
     })
   }
+
+  const { data: tokenInstallation, error: tokenInstallationError } = await supabaseAdmin
+    .from('coach_mobile_push_installations')
+    .select('installation_id, auth_user_id, detail_level, enabled, status')
+    .eq('expo_push_token', expoPushToken)
+    .maybeSingle()
+  if (tokenInstallationError) throw tokenInstallationError
+
+  const registrationIdentity = resolveCoachMobileRegistrationIdentity({
+    authUserId: authUser.id,
+    existing,
+    requestedInstallationId: installationId,
+    tokenInstallation,
+  })
+  const targetInstallationId = registrationIdentity.installationId
 
   const now = new Date().toISOString()
   const { error: revokeError } = await supabaseAdmin
@@ -220,11 +239,11 @@ async function registerInstallation({ authUser, body, installationId }) {
       updated_at: now,
     })
     .eq('expo_push_token', expoPushToken)
-    .neq('installation_id', installationId)
+    .neq('installation_id', targetInstallationId)
   if (revokeError) throw revokeError
 
   const preference = resolveCoachMobileRegistrationPreference({
-    existing: existing?.auth_user_id === authUser.id ? existing : null,
+    existing: registrationIdentity.preferenceSource,
     mode: body.preferenceMode,
     requestedDetailLevel: body.detailLevel,
   })
@@ -232,7 +251,7 @@ async function registerInstallation({ authUser, body, installationId }) {
     .from('coach_mobile_push_installations')
     .upsert(
       {
-        installation_id: installationId,
+        installation_id: targetInstallationId,
         auth_user_id: authUser.id,
         user_profile_id: context.profile.id,
         club_id: context.clubId,
@@ -251,7 +270,7 @@ async function registerInstallation({ authUser, body, installationId }) {
       },
       { onConflict: 'installation_id' },
     )
-    .select('context_id, platform, detail_level, enabled, status')
+    .select('installation_id, context_id, platform, detail_level, enabled, status')
     .single()
   if (error) throw error
   return data
@@ -284,7 +303,7 @@ async function updatePreference({ authUser, body, installationId }) {
     })
     .eq('installation_id', installationId)
     .eq('auth_user_id', authUser.id)
-    .select('context_id, platform, detail_level, enabled, status')
+    .select('installation_id, context_id, platform, detail_level, enabled, status')
     .single()
   if (error) throw error
   return data

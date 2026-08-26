@@ -21,8 +21,28 @@ export function resolveCoachMobileRegistrationPreference({ existing = null, mode
     })
   }
 
-  const detailLevel = normalize(mode) === 'enable' && requestedLevel === 'off'
-    ? 'minimal'
-    : requestedLevel
-  return Object.freeze({ detailLevel, enabled: detailLevel !== 'off' })
+  if (normalize(mode) !== 'enable') {
+    return Object.freeze({ detailLevel: requestedLevel, enabled: false })
+  }
+
+  const detailLevel = requestedLevel === 'off' ? 'minimal' : requestedLevel
+  return Object.freeze({ detailLevel, enabled: true })
+}
+
+export function resolveCoachMobileRegistrationIdentity({
+  authUserId = '',
+  existing = null,
+  requestedInstallationId = '',
+  tokenInstallation = null,
+} = {}) {
+  const userId = normalize(authUserId)
+  const requestedOwned = normalize(existing?.auth_user_id) === userId ? existing : null
+  const tokenOwned = normalize(tokenInstallation?.auth_user_id) === userId
+    && tokenInstallation?.status === 'active'
+    ? tokenInstallation
+    : null
+  const preferenceSource = requestedOwned?.status === 'active' ? requestedOwned : tokenOwned
+  const installationId = normalize(preferenceSource?.installation_id) || normalize(requestedInstallationId)
+
+  return Object.freeze({ installationId, preferenceSource })
 }

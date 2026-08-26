@@ -8,6 +8,7 @@ import { Platform } from 'react-native'
 import {
   getCoachNotificationStorageKeys,
   getCoachPushSetupFailureCode,
+  isCoachInstallationId,
   isCoachInstallationOwnershipConflict,
   normalizeCoachNotificationLevel,
   normalizeCoachNotificationState,
@@ -72,7 +73,7 @@ function safeError(error, stage) {
 async function getInstallationId(apiBaseUrl) {
   const key = getStorageKeys(apiBaseUrl).installationId
   const current = normalize(await SecureStore.getItemAsync(key))
-  if (current) return current
+  if (isCoachInstallationId(current)) return current
   const installationId = Crypto.randomUUID()
   await SecureStore.setItemAsync(key, installationId, {
     keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
@@ -80,12 +81,18 @@ async function getInstallationId(apiBaseUrl) {
   return installationId
 }
 
-async function rotateInstallationId(apiBaseUrl) {
-  const installationId = Crypto.randomUUID()
+async function setInstallationId(apiBaseUrl, value) {
+  const installationId = normalize(value)
+  if (!isCoachInstallationId(installationId)) return ''
   await SecureStore.setItemAsync(getStorageKeys(apiBaseUrl).installationId, installationId, {
     keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
   })
   return installationId
+}
+
+async function rotateInstallationId(apiBaseUrl) {
+  const installationId = Crypto.randomUUID()
+  return setInstallationId(apiBaseUrl, installationId)
 }
 
 async function getDetailLevel(apiBaseUrl) {
@@ -171,6 +178,7 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
     if (error.status !== 401) throw safeError(error, 'api')
   }
   const requiresContextRefresh = Boolean(server.registered && normalize(server.contextId) !== normalize(contextId))
+  const requiresRegistrationRefresh = Boolean(!server.registered && permission.permissionGranted && detailLevel !== 'off')
   const authoritativeDetailLevel = server.registered
     ? normalizeCoachNotificationLevel(server.detailLevel)
     : detailLevel
@@ -184,6 +192,7 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
     enabled: Boolean(server.enabled && permission.permissionGranted),
     message: requiresContextRefresh ? 'Refresh notifications for this Coach context.' : '',
     requiresContextRefresh,
+    requiresRegistrationRefresh,
   })
 }
 
@@ -230,6 +239,7 @@ export async function enableCoachNotifications({ apiBaseUrl, contextId, detailLe
     }
   }
   const installation = result.installation || {}
+  if (installation.installationId) await setInstallationId(apiBaseUrl, installation.installationId)
   if (installation.detailLevel) await setDetailLevel(installation.detailLevel, apiBaseUrl)
   return normalizeCoachNotificationState({ ...installation, canAskAgain: permission.canAskAgain !== false, permissionGranted: true, permissionStatus: normalize(permission.status).toLowerCase() || 'granted' })
 }

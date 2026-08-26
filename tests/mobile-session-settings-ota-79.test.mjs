@@ -40,6 +40,20 @@ test('shared Auth uses the supported React Native auto-refresh path without a se
   assert.doesNotMatch(source, /supabase\.auth\.refreshSession\(\)/)
 })
 
+test('Coach and Parent use the coordinated Supabase Auth release', async () => {
+  const [coachPackage, parentPackage, coachLock, parentLock] = await Promise.all([
+    readSource('../apps/coach-mobile/package.json').then(JSON.parse),
+    readSource('../apps/parent-mobile/package.json').then(JSON.parse),
+    readSource('../apps/coach-mobile/package-lock.json').then(JSON.parse),
+    readSource('../apps/parent-mobile/package-lock.json').then(JSON.parse),
+  ])
+  for (const [manifest, lock] of [[coachPackage, coachLock], [parentPackage, parentLock]]) {
+    assert.equal(manifest.dependencies['@supabase/supabase-js'], '2.110.8')
+    assert.equal(lock.packages['node_modules/@supabase/supabase-js'].version, '2.110.8')
+    assert.equal(lock.packages['node_modules/@supabase/auth-js'].version, '2.110.8')
+  }
+})
+
 test('Parent settings do not display an unconfirmed off state', async () => {
   const source = await readSource('../apps/parent-mobile/App.js')
   assert.match(source, /preserveMobileNotificationState\(current, message\)/)
