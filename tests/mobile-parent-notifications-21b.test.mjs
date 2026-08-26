@@ -112,7 +112,7 @@ test('restored Auth reloads notification state without duplicate focus registrat
   assert.doesNotMatch(appStateEffect, /enableParentNotifications/)
 })
 
-test('Minimal is the default and Detailed requires an explicit selection', () => {
+test('Off, Minimal and Detailed are the single Parent notification mode control', () => {
   assert.equal(normalizeParentNotificationDetail(undefined), 'minimal')
   assert.equal(normalizeParentNotificationDetail('detailed'), 'detailed')
   assert.equal(normalizeParentNotificationDetail('unexpected'), 'minimal')
@@ -126,7 +126,19 @@ test('Minimal is the default and Detailed requires an explicit selection', () =>
     registered: true,
   })
   assert.equal(getParentNotificationStatusLabel({ enabled: true, registered: true }), 'On, Minimal')
-  assert.match(app, /onNotificationDetailChange\(choice\.key\)/)
+  assert.match(app, /key: 'off', label: 'Off'/)
+  assert.match(app, /key: 'minimal', label: 'Minimal'/)
+  assert.match(app, /key: 'detailed', label: 'Detailed'/)
+  assert.match(app, /const selectedMode = notificationState\.enabled \? notificationState\.detailLevel : 'off'/)
+  assert.match(app, /onNotificationModeChange\(choice\.key\)/)
+  assert.doesNotMatch(app, /accessibilityLabel="Parent notifications"/)
+  assert.doesNotMatch(app, /App notifications are selected, but they are not enabled on this device\./)
+  assert.match(app, /mode === 'off'[\s\S]*enabled: false/)
+  assert.match(app, /notificationState\.enabled[\s\S]*enabled: true[\s\S]*enableParentNotifications/)
+  assert.match(client, /detailLevel: requestedDetailLevel/)
+  assert.match(client, /setLocalDetailLevel\(requestedDetailLevel, apiBaseUrl\)/)
+  assert.doesNotMatch(client, /if \(enabled\) throw error/)
+  assert.match(client, /throw createSafePushSetupError\(error, 'api'\)/)
 })
 
 test('server-owned notification copy contains no Player full name or private content', () => {

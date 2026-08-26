@@ -1383,22 +1383,31 @@ function ParentHome() {
     }
   }
 
-  async function handleNotificationEnabledChange(enabled) {
+  async function handleNotificationModeChange(mode) {
     if (activeActionId || !selectedLink?.id) return
+    const currentMode = notificationState.enabled ? notificationState.detailLevel : 'off'
+    if (mode === currentMode) return
     setActiveActionId('notifications')
     setNotice(null)
     try {
-      const nextState = enabled
-        ? await enableParentNotifications({
-            apiBaseUrl: config.apiBaseUrl,
-            easProjectId: config.easProjectId,
-            parentLinkId: selectedLink.id,
-          })
-        : await updateParentNotificationPreference({
+      const nextState = mode === 'off'
+        ? await updateParentNotificationPreference({
             apiBaseUrl: config.apiBaseUrl,
             detailLevel: notificationState.detailLevel,
             enabled: false,
           })
+        : notificationState.enabled
+          ? await updateParentNotificationPreference({
+              apiBaseUrl: config.apiBaseUrl,
+              detailLevel: mode,
+              enabled: true,
+            })
+          : await enableParentNotifications({
+              apiBaseUrl: config.apiBaseUrl,
+              detailLevel: mode,
+              easProjectId: config.easProjectId,
+              parentLinkId: selectedLink.id,
+            })
       setNotificationState(nextState)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice({
@@ -1410,35 +1419,6 @@ function ParentHome() {
     } catch (error) {
       console.warn('Parent notification setup failed.', normalizeText(error?.code) || 'unknown')
       const message = getParentFriendlyError(error, 'Notification settings could not be changed.')
-      setNotificationState((current) => preserveMobileNotificationState(current, message))
-      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.STALE)
-      setNotice({
-        message,
-        tone: 'warning',
-      })
-    } finally {
-      setActiveActionId('')
-    }
-  }
-
-  async function handleNotificationDetailChange(detailLevel) {
-    if (activeActionId || detailLevel === notificationState.detailLevel) return
-    setActiveActionId('notifications')
-    setNotice(null)
-    try {
-      const nextState = await updateParentNotificationPreference({
-        apiBaseUrl: config.apiBaseUrl,
-        detailLevel,
-        enabled: notificationState.enabled,
-      })
-      setNotificationState(nextState)
-      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
-      setNotice({
-        message: `${detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} notification content selected. Full Player names are never included.`,
-        tone: 'success',
-      })
-    } catch (error) {
-      const message = getParentFriendlyError(error, 'Notification detail could not be changed.')
       setNotificationState((current) => preserveMobileNotificationState(current, message))
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.STALE)
       setNotice({
@@ -1799,8 +1779,7 @@ function ParentHome() {
                 notificationState={notificationState}
                 notificationStateStatus={notificationStateStatus}
                 onCommunicationChannelChange={handleCommunicationChannelChange}
-                onNotificationDetailChange={handleNotificationDetailChange}
-                onNotificationEnabledChange={handleNotificationEnabledChange}
+                onNotificationModeChange={handleNotificationModeChange}
                 onRetryBiometricState={retryParentBiometricState}
                 onRetryNotificationState={() => reloadParentNotificationState()}
                 onDisplayThemeChange={handleDisplayThemeChange}
@@ -2428,8 +2407,7 @@ function SettingsScreen({
   onCommunicationChannelChange,
   onDisplayThemeChange,
   onDisplayNameChange,
-  onNotificationDetailChange,
-  onNotificationEnabledChange,
+  onNotificationModeChange,
   onRetryBiometricState,
   onRetryNotificationState,
   onPasswordChange,
@@ -2601,7 +2579,6 @@ function SettingsScreen({
             )
           })}
         </View>
-        {communicationPreference.communicationChannel !== 'email' && notificationStateKnown && !notificationState.enabled ? <Text style={styles.helperText}>App notifications are selected, but they are not enabled on this device.</Text> : null}
       </InfoPanel>
 
       <InfoPanel title="Notifications">
@@ -2613,26 +2590,12 @@ function SettingsScreen({
         />
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>Notification status could not be read. No setting has been changed.</Text> : null}
-        <View style={styles.settingRow}>
-          <View style={styles.settingCopy}>
-            <Text style={styles.cardTitle}>Parent updates</Text>
-            <Text style={styles.bodyText}>Receive Parent messages, polls and Matchday updates. You can turn this off at any time.</Text>
-            <Text style={styles.helperText}>Permission is requested only when you turn notifications on. Full Player names, message text, assessments and Coach notes are never included.</Text>
-            {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
-              <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
-            ) : null}
-            {notificationStateKnown && notificationState.message ? <Text style={styles.helperText}>{notificationState.message}</Text> : null}
-          </View>
-          {activeActionId === 'notifications' || notificationStateLoading ? <ActivityIndicator color={palette.accent} /> : notificationStateKnown ? (
-            <Switch
-              accessibilityLabel="Parent notifications"
-              onValueChange={onNotificationEnabledChange}
-              trackColor={{ false: palette.borderStrong, true: palette.accentMuted }}
-              thumbColor={notificationState.enabled ? palette.accent : palette.textMuted}
-              value={notificationState.enabled}
-            />
-          ) : null}
-        </View>
+        <Text style={styles.bodyText}>Choose Off, Minimal or Detailed. Selecting Minimal or Detailed turns Parent messages, polls and Matchday alerts on for this device.</Text>
+        <Text style={styles.helperText}>Permission is requested when needed. Full Player names, message text, assessments and Coach notes are never included.</Text>
+        {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
+          <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
+        ) : null}
+        {notificationStateKnown && notificationState.message ? <Text style={styles.helperText}>{notificationState.message}</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <PrimaryAction label="Retry notification check" onPress={onRetryNotificationState} secondary /> : null}
 
         <View style={styles.settingRow}>
@@ -2655,19 +2618,22 @@ function SettingsScreen({
           <PrimaryAction label="Open device notification settings" onPress={() => Linking.openSettings()} secondary />
         ) : null}
 
+        {activeActionId === 'notifications' || notificationStateLoading ? <ActivityIndicator color={palette.accent} /> : null}
         {notificationStateKnown ? <View style={styles.notificationChoices}>
           {[
+            { copy: 'Do not send app notifications to this device.', key: 'off', label: 'Off' },
             { copy: 'General alerts with the least detail.', key: 'minimal', label: 'Minimal' },
             { copy: 'A little more context, without Player names.', key: 'detailed', label: 'Detailed' },
           ].map((choice) => {
-            const selected = notificationState.detailLevel === choice.key
+            const selectedMode = notificationState.enabled ? notificationState.detailLevel : 'off'
+            const selected = selectedMode === choice.key
             return (
               <Pressable
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
                 disabled={activeActionId === 'notifications'}
                 key={choice.key}
-                onPress={() => onNotificationDetailChange(choice.key)}
+                onPress={() => onNotificationModeChange(choice.key)}
                 style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
               >
                 <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{choice.label}</Text>

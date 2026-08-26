@@ -263,9 +263,18 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
   return mergeParentNotificationPermission(serverState, permission, detailLevel)
 }
 
-export async function enableParentNotifications({ apiBaseUrl, devicePushToken, easProjectId, parentLinkId }) {
+export async function enableParentNotifications({ apiBaseUrl, detailLevel: requestedDetailLevel, devicePushToken, easProjectId, parentLinkId }) {
   if (!Device.isDevice) {
     throw createSafePushSetupError({ message: 'device unavailable' }, 'device')
+  }
+
+  let detailLevel
+  try {
+    detailLevel = requestedDetailLevel === undefined
+      ? await getLocalDetailLevel(apiBaseUrl)
+      : await setLocalDetailLevel(requestedDetailLevel, apiBaseUrl)
+  } catch (error) {
+    throw createSafePushSetupError(error, 'local')
   }
 
   let permission
@@ -298,14 +307,14 @@ export async function enableParentNotifications({ apiBaseUrl, devicePushToken, e
       method: 'PATCH',
       path: getInstallationPath(apiBaseUrl),
       body: {
-        detailLevel: await getLocalDetailLevel(apiBaseUrl),
+        detailLevel,
         enabled: false,
         installationId,
       },
     }).catch(() => {})
     return normalizeParentNotificationState({
       canAskAgain: permission.canAskAgain !== false,
-      detailLevel: await getLocalDetailLevel(apiBaseUrl),
+      detailLevel,
       enabled: false,
       message: 'Notification permission is off. The app remains fully usable.',
       permissionGranted: false,
@@ -321,10 +330,8 @@ export async function enableParentNotifications({ apiBaseUrl, devicePushToken, e
   }
 
   let installationId
-  let detailLevel
   try {
     installationId = await getInstallationId(apiBaseUrl)
-    detailLevel = await getLocalDetailLevel(apiBaseUrl)
   } catch (error) {
     throw createSafePushSetupError(error, 'local')
   }
@@ -387,7 +394,7 @@ export async function updateParentNotificationPreference({ apiBaseUrl, detailLev
     })
     serverState = result.installation || serverState
   } catch (error) {
-    if (enabled) throw error
+    throw createSafePushSetupError(error, 'api')
   }
 
   return mergeParentNotificationPermission(serverState, permission, normalizedDetail)

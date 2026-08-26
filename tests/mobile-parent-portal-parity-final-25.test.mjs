@@ -113,7 +113,7 @@ test('settings include password reauthentication, biometrics, notifications and 
   assert.match(data, /signInWithPassword/)
   assert.match(data, /updateUser\(\{ password: nextPassword \}\)/)
   assert.match(app, /Biometric app lock/)
-  assert.match(app, /Parent updates/)
+  assert.match(app, /Choose Off, Minimal or Detailed/)
   assert.match(app, /\['dark', 'light'\]/)
   assert.match(app, /PARENT_THEME_STORAGE_KEY/)
 })
