@@ -329,6 +329,20 @@ function ParentHome() {
   )
   const visibleInvitations = useMemo(() => resources.invitations.items.filter((item) => !dismissedItems.invitations.includes(item.invitationId)), [dismissedItems.invitations, resources.invitations.items])
   const visibleMatches = useMemo(() => resources.matches.items.filter((item) => !dismissedItems.matches.includes(item.id)), [dismissedItems.matches, resources.matches.items])
+  const visibleInvitationsWithMatchTimes = useMemo(() => {
+    const matchesById = new Map(resources.matches.items.map((match) => [normalizeText(match.id), match]))
+    return visibleInvitations.map((invitation) => {
+      if (!['match_attendance', 'match_role'].includes(invitation.invitationType)) return invitation
+      const match = matchesById.get(normalizeText(invitation.eventId))
+      if (!match) return invitation
+      return {
+        ...invitation,
+        arrivalTime: match.arrivalTime || '',
+        kickoffTime: match.kickoffTime || '',
+        kickoffTimeTbc: match.kickoffTimeTbc === true,
+      }
+    })
+  }, [resources.matches.items, visibleInvitations])
   const visibleMessages = useMemo(() => resources.messages.items.filter((item) => !dismissedItems.messages.includes(item.id)), [dismissedItems.messages, resources.messages.items])
   const visibleDevelopment = useMemo(() => resources.development.items.filter((item) => !dismissedItems.development.includes(item.id)), [dismissedItems.development, resources.development.items])
   const visiblePolls = useMemo(() => resources.polls.items.filter((item) => !dismissedItems.polls.includes(item.id)), [dismissedItems.polls, resources.polls.items])
@@ -1694,7 +1708,7 @@ function ParentHome() {
 
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
   const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId)
-  const matchInvitations = visibleInvitations.filter((invitation) => (
+  const matchInvitations = visibleInvitationsWithMatchTimes.filter((invitation) => (
     ['match_attendance', 'match_role'].includes(invitation.invitationType)
   ))
   const unansweredInvites = getParentInvitationSections(visibleInvitations).needsResponse.length
@@ -1799,7 +1813,7 @@ function ParentHome() {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitations} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
@@ -1829,7 +1843,7 @@ function ParentHome() {
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
-              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onBackTarget={() => setSelectedInvitationId('')} onDismiss={(invitation) => handleDismissParentItem('invitations', invitation.invitationId, 'request')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} resource={{ ...resources.invitations, items: visibleInvitations }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
+              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onBackTarget={() => setSelectedInvitationId('')} onDismiss={(invitation) => handleDismissParentItem('invitations', invitation.invitationId, 'request')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
             {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
@@ -2139,8 +2153,8 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
         />
         <SummaryButton
           count={pendingMatchRequests.length}
-          detail={pendingMatchRequests[0]?.eventTitle || 'Match requests and response history'}
-          label="Match requests"
+          detail={pendingMatchRequests[0]?.eventTitle || 'No match response needed'}
+          label="Matches needing a response"
           onPress={onOpenInvites}
         />
       </View>

@@ -15,13 +15,17 @@ test('Player details restores a visible removal action for each active Parent li
   assert.match(source, /Remove Parent access/)
 })
 
-test('Player profile requires confirmation and refreshes the selected player after revocation', async () => {
+test('Player profile waits for confirmation, removes the saved link immediately, and treats refresh as non-fatal', async () => {
   const source = await readFile(playerProfileUrl, 'utf8')
 
   assert.match(source, /title="Remove Parent access"/)
   assert.match(source, /does not delete the Parent account or affect access to any other children/)
-  assert.match(source, /await revokeParentPortalLink\(\{ linkId: parentPortalRevokeTarget\.id \}\)/)
-  assert.match(source, /await refreshParentPortalLinksForPlayer\(parentPortalRevokeTarget\.playerId\)/)
+  assert.match(source, /await revokeParentPortalLink\(\{[\s\S]*linkId: revokeTarget\.id,[\s\S]*playerId: revokeTarget\.playerId/)
+  assert.match(source, /setParentPortalLinksByPlayerId\([\s\S]*\.filter\(\(link\) => String\(link\?\.id\) !== String\(revokeTarget\.id\)\)/)
+  assert.match(source, /await refreshParentPortalLinksForPlayer\(revokeTarget\.playerId\)[\s\S]*catch \(refreshError\)/)
+  assert.match(source, /errorMessage=\{parentPortalRevokeError\}/)
+  assert.match(source, /onConfirm=\{confirmRemoveParentPortalAccess\}/)
+  assert.doesNotMatch(source, /onConfirm=\{\(\) => void confirmRemoveParentPortalAccess\(\)\}/)
   assert.match(source, /setParentPortalRevokeTarget\(null\)/)
 })
 
@@ -34,5 +38,9 @@ test('revocation removes only the selected relationship and never deletes an Aut
   assert.match(revokeSource, /\.from\('parent_player_links'\)[\s\S]*\.update\(\{[\s\S]*status: 'revoked'/)
   assert.match(revokeSource, /auth_user_id: null/)
   assert.match(revokeSource, /\.eq\('id', normalizedLinkId\)/)
+  assert.match(revokeSource, /\.neq\('status', 'revoked'\)/)
+  assert.match(revokeSource, /query = query\.eq\('player_id', normalizedPlayerId\)/)
+  assert.match(revokeSource, /\.maybeSingle\(\)/)
+  assert.match(revokeSource, /if \(!data\?\.id\)/)
   assert.doesNotMatch(revokeSource, /auth\.admin|deleteUser|\.delete\(\)/)
 })

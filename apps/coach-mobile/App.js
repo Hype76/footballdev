@@ -770,15 +770,6 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
         <Text accessibilityRole="header" style={styles.heroTitle}>Hi {user.displayName || user.name}.</Text>
         <Text style={styles.bodyText}>{context.teamId ? `${context.teamName} is ready.` : `${context.clubName} overview.`}</Text>
       </View>
-      {homeState.stale ? (
-        <StatePanel
-          actionLabel="Refresh when online"
-          message={`Last updated ${formatDateTime(homeState.savedAt, 'time unavailable')}. Match and availability information may have changed.`}
-          onAction={() => reloadHome({ refresh: true })}
-          title="Offline, stale data"
-          tone="warning"
-        />
-      ) : null}
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <StatePanel actionLabel="Refresh" message="The main overview is available, but one or more supporting summaries could not be refreshed." onAction={() => reloadHome({ refresh: true })} title="Some summaries are unavailable" tone="warning" /> : null}

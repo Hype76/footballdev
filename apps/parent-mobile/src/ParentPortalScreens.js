@@ -42,6 +42,10 @@ function formatDate(value, fallback = 'Date to be confirmed') {
   return formatParentProductDateTime(value, { fallback, year: 'numeric' })
 }
 
+function formatDateOnly(value, fallback = 'Date to be confirmed') {
+  return formatParentProductDateTime(value, { fallback, includeTime: false, year: 'numeric' })
+}
+
 function formatCalendarDay(value) {
   return formatParentProductDateTime(value, {
     fallback: normalizeText(value) || 'Date to be confirmed',
@@ -188,6 +192,9 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpe
   const actionable = invitation && isParentInvitationActionable(invitation)
   const busy = invitation && activeActionId === `invite:${invitation.invitationId}`
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
+  const isMatch = event.eventType === 'match_day' || ['match_attendance', 'match_role'].includes(invitation?.invitationType)
+  const arrivalTime = event.arrivalTime || invitation?.arrivalTime || ''
+  const kickoffTime = event.calendarTime || invitation?.kickoffTime || invitation?.eventStart || ''
   return (
     <View style={styles.card}>
       <Pressable
@@ -199,10 +206,11 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpe
       >
         <View style={styles.row}>
           <Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text>
-          <Text style={styles.meta}>{event.kickoffTimeTbc ? 'Time TBC' : event.calendarTime || 'All day'}</Text>
+          <Text style={styles.meta}>{isMatch ? `Kick-off: ${event.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}` : event.calendarTime || 'All day'}</Text>
         </View>
         <Text style={styles.cardTitle}>{event.title}</Text>
         {event.eventType === 'match_day' ? <Text style={styles.meta}>{event.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
+        {isMatch && arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(arrivalTime)}</Text> : null}
         {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
         {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
         {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
@@ -372,12 +380,16 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarge
         const actionable = isParentInvitationActionable(invitation)
         const volunteerOffer = invitation.invitationType === 'match_role'
         const volunteerRole = volunteerOffer ? getParentVolunteerRoleLabel(invitation) : ''
+        const matchInvitation = ['match_attendance', 'match_role'].includes(invitation.invitationType)
+        const kickoffTime = invitation.kickoffTime || invitation.eventStart || ''
         return (
           <View key={invitation.invitationId || `${invitation.sourceRecordId}:${invitation.invitationType}`} style={[styles.card, volunteerOffer && styles.volunteerCard]}>
-            <View style={styles.row}><Text style={styles.pill}>{volunteerOffer ? 'Volunteer offer' : labelize(getParentInvitationDisplayState(invitation))}</Text><Text style={styles.meta}>{formatDate(invitation.eventStart || invitation.eventDate)}</Text></View>
+            <View style={styles.row}><Text style={styles.pill}>{volunteerOffer ? 'Volunteer offer' : labelize(getParentInvitationDisplayState(invitation))}</Text><Text style={styles.meta}>{formatDateOnly(invitation.eventStart || invitation.eventDate)}</Text></View>
             {volunteerOffer ? <Text style={styles.volunteerRole}>{volunteerRole} offer</Text> : null}
             <Text style={styles.cardTitle}>{invitation.eventTitle}</Text>
-            {['match_attendance', 'match_role'].includes(invitation.invitationType) ? <Text style={styles.meta}>Shirts: {invitation.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
+            {matchInvitation ? <Text style={styles.meta}>Shirts: {invitation.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
+            {matchInvitation && invitation.arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(invitation.arrivalTime)}</Text> : null}
+            {matchInvitation ? <Text style={styles.meta}>Kick-off: {invitation.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}</Text> : null}
             {volunteerOffer ? <Text style={styles.body}>This is a Parent or guardian volunteer role. It does not select your child for the squad.</Text> : null}
             <Text style={styles.body}>{volunteerOffer ? 'Offer status' : 'Response'}: {labelize(invitation.responseState)}</Text>
             {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text style={styles.meta}>{volunteerOffer ? 'Volunteer role status' : 'Squad status'}: {labelize(invitation.selectionState)}</Text> : null}
@@ -420,7 +432,8 @@ function MatchCard({ match, onDismiss, onOpen, styles }) {
     <View style={styles.card}>
       <View style={styles.row}><Text style={styles.pill}>{labelize(match.status)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View>
       <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
-      <Text style={styles.meta}>{match.kickoffTimeTbc ? 'Kick-off time to be confirmed' : formatParentProductTime(match.kickoffTime)}</Text>
+      {match.arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(match.arrivalTime)}</Text> : null}
+      <Text style={styles.meta}>Kick-off: {match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)}</Text>
       <Text style={styles.meta}>{match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
       {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
       <Button label="Open Match Day" onPress={() => onOpen(match)} outline styles={styles} />
@@ -608,7 +621,9 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
             {selectedMatch.fixtureType ? <Text style={styles.pill}>{labelize(selectedMatch.fixtureType)}</Text> : null}
           </View>
           <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || `${selectedMatch.teamName} v ${selectedMatch.opponent}`}</Text>
-          <Text style={styles.body}>{formatDate(selectedMatch.matchDate)} at {selectedMatch.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(selectedMatch.kickoffTime)}</Text>
+          <Text style={styles.body}>{formatDateOnly(selectedMatch.matchDate)}</Text>
+          {selectedMatch.arrivalTime ? <Text style={styles.body}>Arrival: {formatParentProductTime(selectedMatch.arrivalTime)}</Text> : null}
+          <Text style={styles.body}>Kick-off: {selectedMatch.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(selectedMatch.kickoffTime)}</Text>
           <Text style={styles.body}>{[selectedMatch.venueName, selectedMatch.venueAddress].filter(Boolean).join(', ') || 'Location not shared'}</Text>
           <Text style={styles.liveSync}>{selectedMatchIsLive ? 'Live sync on' : 'Fixture details'}</Text>
           <View style={styles.card}>

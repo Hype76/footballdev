@@ -285,14 +285,15 @@ export async function getParentLinksForPlayer({ playerId, teamId, clubId } = {})
   }))
 }
 
-export async function revokeParentPortalLink({ linkId }) {
+export async function revokeParentPortalLink({ linkId, playerId } = {}) {
   const normalizedLinkId = String(linkId ?? '').trim()
+  const normalizedPlayerId = String(playerId ?? '').trim()
 
   if (!normalizedLinkId) {
     throw new Error('Choose a parent link before removing access.')
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('parent_player_links')
     .update({
       status: 'revoked',
@@ -301,12 +302,23 @@ export async function revokeParentPortalLink({ linkId }) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', normalizedLinkId)
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style)')
-    .single()
+    .neq('status', 'revoked')
+
+  if (normalizedPlayerId) {
+    query = query.eq('player_id', normalizedPlayerId)
+  }
+
+  const { data, error } = await query
+    .select('id, club_id, team_id, player_id, parent_link_id, link_type, email, auth_user_id, invite_token, status, accepted_at, invite_sent_at, expires_at, created_at, invited_by_name')
+    .maybeSingle()
 
   if (error) {
     console.error(error)
     throw error
+  }
+
+  if (!data?.id) {
+    throw new Error('Parent access is already removed or no longer available. Refresh the player details and try again.')
   }
 
   return normalizeParentLink(data)

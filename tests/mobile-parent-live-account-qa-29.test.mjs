@@ -141,13 +141,14 @@ test('Calendar parity combines shared events, fixtures, and invitation-only even
       { childName: 'Child', eventId: 'event-training', eventStart: '2026-08-10T17:30:00+01:00', eventTitle: 'Training', invitationId: 'invite-training', responseState: 'available', teamName: 'U12' },
       { childName: 'Child', eventId: 'event-general', eventStart: '2026-08-11T18:00:00+01:00', eventTitle: 'Club evening', invitationId: 'invite-general', responseState: 'awaiting_response', teamName: 'U12' },
     ],
-    matches: [{ id: 'match-1', kickoffTime: '10:00:00', matchDate: '2026-08-12', opponent: 'Visitors', status: 'scheduled', teamName: 'U12' }],
+    matches: [{ arrivalTime: '09:15:00', id: 'match-1', kickoffTime: '10:00:00', matchDate: '2026-08-12', opponent: 'Visitors', status: 'scheduled', teamName: 'U12' }],
   })
 
   assert.equal(events.length, 3)
   assert.deepEqual(events.map((event) => event.sourceType), ['calendar_event', 'invitation', 'match_day'])
   assert.equal(events[0].responseState, 'available')
   assert.equal(events[2].title, 'U12 v Visitors')
+  assert.equal(events[2].arrivalTime, '09:15')
   assert.equal(groupParentCalendarEvents(events).length, 3)
 })
 

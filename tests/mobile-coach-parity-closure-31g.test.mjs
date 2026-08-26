@@ -219,9 +219,8 @@ test('archive and membership-loss journeys fail closed without retaining unsafe 
   assert.match(app, /This Coach destination is stale or no longer authorised/)
 })
 
-test('offline end-to-end journey uses encrypted reads, obvious stale state, online writes, and clean refresh', () => {
-  assert.match(app, /Offline, stale data/)
-  assert.match(app, /Refresh when online/)
+test('offline end-to-end journey keeps encrypted reads and protected writes without the removed Home warning card', () => {
+  assert.doesNotMatch(app, /Offline, stale data|Refresh when online/)
   assert.match(operationalScreens, /Showing saved information\. Connect before making changes/)
   assert.match(matchDayScreen, /Every change is disabled until a successful refresh/)
   assert.match(phase31EScreens, /Offline and read-only/)

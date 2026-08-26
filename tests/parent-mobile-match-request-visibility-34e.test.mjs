@@ -2,9 +2,10 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const [parentAppSource, parentPortalSource] = await Promise.all([
+const [parentAppSource, parentPortalSource, parentScreensSource] = await Promise.all([
   readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8'),
   readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8'),
+  readFile(new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url), 'utf8'),
 ])
 
 const invitationPresentationSource = parentPortalSource.slice(
@@ -36,12 +37,25 @@ test('Parent mobile response reuses the canonical Match invitation command and a
   assert.match(parentPortalSource, /response_value: response/)
 })
 
-test('Parent Home exposes pending Match requests directly while Invites retains response history', () => {
-  assert.match(parentAppSource, /const matchInvitations = visibleInvitations\.filter/)
+test('Parent Home labels the pending-only Match count clearly while Invites retains response history', () => {
+  assert.match(parentAppSource, /const matchInvitations = visibleInvitationsWithMatchTimes\.filter/)
   assert.match(parentAppSource, /\['match_attendance', 'match_role'\]\.includes\(invitation\.invitationType\)/)
   assert.match(parentAppSource, /const pendingMatchRequests = matchInvitations\.filter\(\(invitation\) => invitation\.isPending\)/)
-  assert.match(parentAppSource, /label="Match requests"/)
+  assert.match(parentAppSource, /label="Matches needing a response"/)
+  assert.match(parentAppSource, /detail=\{pendingMatchRequests\[0\]\?\.eventTitle \|\| 'No match response needed'\}/)
+  assert.doesNotMatch(parentAppSource, /label="Match requests"/)
   assert.match(parentAppSource, /onPress=\{onOpenInvites\}/)
   assert.match(parentAppSource, /moreSection === 'invites'/)
   assert.match(parentAppSource, /<InvitationsScreen/)
+})
+
+test('Parent Match cards label arrival and kick-off as separate fixture times', () => {
+  assert.match(parentAppSource, /const visibleInvitationsWithMatchTimes = useMemo/)
+  assert.match(parentAppSource, /arrivalTime: match\.arrivalTime \|\| ''/)
+  assert.match(parentAppSource, /kickoffTime: match\.kickoffTime \|\| ''/)
+  assert.match(parentScreensSource, /Arrival: \{formatParentProductTime\(invitation\.arrivalTime\)\}/)
+  assert.match(parentScreensSource, /Kick-off: \{invitation\.kickoffTimeTbc \? 'Time TBC' : formatParentProductTime\(kickoffTime\)\}/)
+  assert.match(parentScreensSource, /Arrival: \{formatParentProductTime\(match\.arrivalTime\)\}/)
+  assert.match(parentScreensSource, /Kick-off: \{match\.kickoffTimeTbc \? 'Time TBC' : formatParentProductTime\(match\.kickoffTime\)\}/)
+  assert.doesNotMatch(parentScreensSource, /formatDate\(invitation\.eventStart \|\| invitation\.eventDate\)/)
 })

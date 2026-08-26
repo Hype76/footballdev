@@ -236,11 +236,11 @@ test('hostile security matrix fails closed for session, role, environment, archi
   assert.equal(evaluateCoachSecurityBoundary({ context: { ...contextA, paymentAccess: { canMutate: false } }, profile: { id: 'user-a' } }).code, 'payment_required')
 })
 
-test('accessibility contract and source cover labels, stale state, touch size, text wrapping, and bounded Match timeline', () => {
+test('accessibility contract and source cover labels, touch size, text wrapping, and bounded Match timeline', () => {
   assert.equal(COACH_ACCESSIBILITY_REQUIREMENTS.touchTarget, 48)
   assert.match(COACH_ACCESSIBILITY_REQUIREMENTS.colour, /never colour alone/)
   assert.match(app, /accessibilityLabel=.*tab/)
-  assert.match(app, /Offline, stale data/)
+  assert.doesNotMatch(app, /Offline, stale data|Refresh when online/)
   assert.match(app, /minHeight: 48/)
   assert.match(phase31E, /accessibilityState=\{\{ disabled \}\}/)
   assert.match(matchDay, /slice\(-200\)/)

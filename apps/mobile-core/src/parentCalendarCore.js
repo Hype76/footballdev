@@ -151,6 +151,7 @@ function normalizeMatchEvent(match, invitation) {
   const date = dateOnly(match.matchDate)
   const time = match.kickoffTimeTbc ? '' : timeOnly(match.kickoffTime)
   return {
+    arrivalTime: timeOnly(match.arrivalTime),
     calendarDate: date,
     calendarTime: time,
     childName: invitation?.childName || '',
