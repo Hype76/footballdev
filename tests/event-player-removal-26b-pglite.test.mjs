@@ -7,6 +7,10 @@ const migration = await readFile(
   new URL('../supabase/migrations/20260802205428_event_player_removal_26b.sql', import.meta.url),
   'utf8',
 )
+const trainingParticipationMigration = await readFile(
+  new URL('../supabase/migrations/20260826162309_coach_training_event_removal_participation.sql', import.meta.url),
+  'utf8',
+)
 
 const IDS = {
   club: '10000000-0000-4000-8000-000000000001',
@@ -239,6 +243,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(trainingParticipationMigration)
   await db.query(`insert into public.clubs (id) values ($1), ($2)`, [IDS.club, IDS.otherClub])
   await db.query(`insert into public.teams (id, club_id) values ($1, $2), ($3, $2)`, [IDS.team, IDS.club, IDS.otherTeam])
   await db.query(`
@@ -274,6 +279,55 @@ async function createDatabase() {
 
   return db
 }
+
+test('Training occurrence removal accepts an active availability recipient without a Calendar invite row', async () => {
+  const db = await createDatabase()
+
+  try {
+    await setActor(db, IDS.manager)
+    await db.query(`
+      insert into public.training_availability_request_players
+        (request_id, club_id, team_id, player_id, status)
+      values ($1, $2, $3, $4, 'failed')
+    `, [IDS.request, IDS.club, IDS.team, IDS.secondPlayer])
+
+    const preview = await db.query(
+      `select public.preview_event_player_removal('calendar', $1, $2, '2099-01-12', 'occurrence') as result`,
+      [IDS.event, IDS.secondPlayer],
+    )
+    assert.equal(preview.rows[0].result.alreadyRemoved, false)
+    assert.equal(preview.rows[0].result.affectedOccurrenceCount, 1)
+    assert.equal(preview.rows[0].result.revokedTokenCount, 1)
+
+    const token = '80000000-0000-4000-8000-000000000112'
+    const removal = await db.query(
+      `select public.remove_player_from_event('calendar', $1, $2, '2099-01-12', 'occurrence', $3, false) as result`,
+      [IDS.event, IDS.secondPlayer, token],
+    )
+    assert.equal(removal.rows[0].result.status, 'completed')
+    assert.equal(removal.rows[0].result.communicationSent, false)
+
+    const state = await db.query(`
+      select
+        (select count(*) from public.calendar_event_invites where calendar_event_id = $1 and player_id = $2) as calendar_invite_count,
+        (select count(*) from public.event_player_occurrence_exclusions where calendar_event_id = $1 and player_id = $2 and effective_from_date = '2099-01-12') as exclusion_count,
+        (select count(*) from public.event_player_removal_commands where calendar_event_id = $1 and player_id = $2) as command_count,
+        (select status from public.training_availability_request_players where request_id = $3 and player_id = $2) as recipient_status,
+        (select token_revoked_at is not null from public.training_availability_request_players where request_id = $3 and player_id = $2) as recipient_revoked,
+        (select count(*) from public.players where id = $2 and team_id = $4) as preserved_player_count
+    `, [IDS.event, IDS.secondPlayer, IDS.request, IDS.team])
+    assert.deepEqual(state.rows[0], {
+      calendar_invite_count: 0,
+      exclusion_count: 1,
+      command_count: 1,
+      recipient_status: 'cancelled',
+      recipient_revoked: true,
+      preserved_player_count: 1,
+    })
+  } finally {
+    await db.close()
+  }
+})
 
 test('occurrence removal is staff-only, idempotent, scoped, and preserves the Team and history', async () => {
   const db = await createDatabase()

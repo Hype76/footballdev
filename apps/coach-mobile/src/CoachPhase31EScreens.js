@@ -99,6 +99,7 @@ function phaseStyles(palette) {
     confirmationScreen: { flex: 1, justifyContent: 'center', padding: 20 },
     confirmationBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.72)' },
     confirmationCard: { backgroundColor: palette.surfaceRaised, borderColor: palette.danger, borderRadius: 18, borderWidth: 1, gap: 12, padding: 18 },
+    confirmationError: { color: palette.danger, fontSize: 14, fontWeight: '800', lineHeight: 20 },
     confirmationActions: { flexDirection: 'row', gap: 10 },
     confirmationAction: { flex: 1 },
     formChoice: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', minHeight: 64, paddingHorizontal: 14, paddingVertical: 10 },
@@ -795,19 +796,37 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
     try { await refreshAfterBulkAction(); setNotice(resultNotice) } catch (error) { setNotice(`${successful.length} of ${invites.length} Players were removed. The latest availability could not be refreshed: ${getCoachFriendlyError(error)}`) }
     finally { setBulkAction('') }
   }
-  const removeSelected = async () => {
+  const openRemovalConfirmation = () => {
     const invites = [...selectedInvites]
+    if (!invites.length) return
+    setRemovalConfirmation({ error: '', invites, previewed: false, requiresInProgressConfirmation: false })
+  }
+  const confirmSelectedRemoval = async () => {
+    const confirmation = removalConfirmation
+    if (!confirmation || bulkAction) return
+    const invites = [...confirmation.invites]
+    if (confirmation.previewed) {
+      setRemovalConfirmation(null)
+      await commitSelectedRemovals(invites, confirmation.requiresInProgressConfirmation)
+      return
+    }
     setBulkAction('preview')
     const previews = await Promise.allSettled(invites.map((invite) => previewCoachInviteRemoval(user, invite)))
     const failed = previews.filter((result) => result.status === 'rejected')
     if (failed.length) {
-      setNotice(`Removal was not started because ${failed.length} of ${invites.length} selected Players could not be verified. ${getCoachFriendlyError(failed[0].reason)}`)
+      const error = `Removal was not started because ${failed.length} of ${invites.length} selected Players could not be verified. ${getCoachFriendlyError(failed[0].reason)}`
+      setRemovalConfirmation((current) => current ? { ...current, error } : current)
       setBulkAction('')
       return
     }
     const requiresInProgressConfirmation = previews.some((result) => result.value.requiresInProgressConfirmation)
-    setBulkAction('')
-    setRemovalConfirmation({ invites, requiresInProgressConfirmation })
+    if (requiresInProgressConfirmation) {
+      setRemovalConfirmation((current) => current ? { ...current, error: '', previewed: true, requiresInProgressConfirmation: true } : current)
+      setBulkAction('')
+      return
+    }
+    setRemovalConfirmation(null)
+    await commitSelectedRemovals(invites, false)
   }
   const createRequests = async () => {
     const attempt = { matchId: selectedMatch?.id || '', playerIds: [...playerIds] }
@@ -880,7 +899,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
                   <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
                 </Pressable>
               })}
-              {selectedInvites.length ? <View style={styles.stack}><Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text><Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} /><Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={() => void removeSelected()} styles={styles} />{!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}</View> : null}
+              {selectedInvites.length ? <View style={styles.stack}><Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text><Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} /><Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={openRemovalConfirmation} styles={styles} />{!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}</View> : null}
               <Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />
             </> : null}
           </View>
@@ -906,7 +925,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
                   <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
                 </Pressable>
               }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
-              {selectedInvites.length ? <View style={styles.stack}><Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text><Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} /><Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={() => void removeSelected()} styles={styles} />{!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}</View> : null}
+              {selectedInvites.length ? <View style={styles.stack}><Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text><Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} /><Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={openRemovalConfirmation} styles={styles} />{!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}</View> : null}
               {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Send to ${availablePlayers.length} Players without an active request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every active Player already has an availability request for this fixture.</Text>}
               {requestPanelOpen ? <View style={styles.stack}>
                 <Text style={styles.heading}>Create availability requests</Text>
@@ -929,13 +948,10 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
           <View accessibilityLiveRegion="assertive" style={styles.confirmationCard}>
             <Text style={styles.heading}>Remove {removalConfirmation?.invites.length || 0} Player{removalConfirmation?.invites.length === 1 ? '' : 's'} from event?</Text>
             <Text style={styles.body}>Team membership and Player records stay unchanged. Previous response and delivery history is preserved. No removal notification will be sent.{removalConfirmation?.invites[0]?.kind === 'training' ? ' For Training, only the selected session is affected.' : ''}{removalConfirmation?.requiresInProgressConfirmation ? ' This event is in progress, but recorded Match or attendance history will remain.' : ''}</Text>
+            {removalConfirmation?.error ? <Text accessibilityLiveRegion="assertive" style={styles.confirmationError}>{removalConfirmation.error}</Text> : null}
             <View style={styles.confirmationActions}>
-              <View style={styles.confirmationAction}><Button label="Cancel" onPress={() => setRemovalConfirmation(null)} secondary styles={styles} /></View>
-              <View style={styles.confirmationAction}><Button destructive label="Remove from event" onPress={() => {
-                const confirmation = removalConfirmation
-                setRemovalConfirmation(null)
-                if (confirmation) void commitSelectedRemovals(confirmation.invites, confirmation.requiresInProgressConfirmation)
-              }} styles={styles} /></View>
+              <View style={styles.confirmationAction}><Button disabled={Boolean(bulkAction)} label="Cancel" onPress={() => setRemovalConfirmation(null)} secondary styles={styles} /></View>
+              <View style={styles.confirmationAction}><Button destructive disabled={Boolean(bulkAction)} label={bulkAction === 'preview' ? 'Checking...' : removalConfirmation?.previewed ? 'Confirm removal' : 'Remove from event'} onPress={() => void confirmSelectedRemoval()} styles={styles} /></View>
             </View>
           </View>
         </View>
