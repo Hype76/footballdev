@@ -8,6 +8,10 @@ const migration = await readFile(
   new URL('../supabase/migrations/20260725153849_parent_portal_confirmed_team_read_model.sql', import.meta.url),
   'utf8',
 )
+const availableSelectedMigration = await readFile(
+  new URL('../supabase/migrations/20260827143000_parent_portal_available_selected_squad.sql', import.meta.url),
+  'utf8',
+)
 
 const ids = Object.freeze({
   parentA: '10000000-0000-4000-8000-000000000001',
@@ -88,6 +92,8 @@ async function createDatabase() {
     create table public.match_day_player_availability (
       id uuid primary key default gen_random_uuid(),
       match_day_id uuid not null,
+      club_id uuid not null,
+      team_id uuid not null,
       player_id uuid not null,
       status text not null
     );
@@ -110,6 +116,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(availableSelectedMigration)
 
   await db.query(
     `insert into public.parent_player_links (id, auth_user_id, club_id, team_id, player_id, status)
@@ -166,12 +173,19 @@ async function createDatabase() {
     ],
   )
   await db.query(
-    `insert into public.match_day_player_availability (match_day_id, player_id, status)
+    `insert into public.match_day_player_availability (match_day_id, club_id, team_id, player_id, status)
      values
-       ($1, $2, 'unavailable'),
-       ($1, $3, 'maybe'),
-       ($1, $4, 'available')`,
-    [ids.fixtureA, ids.playerA, ids.playerB, ids.playerD],
+       ($1, $10, $11, $2, 'unavailable'),
+       ($1, $10, $11, $3, 'maybe'),
+       ($1, $10, $11, $4, 'available'),
+       ($1, $10, $11, $5, 'available'),
+       ($6, $10, $12, $7, 'available'),
+       ($8, $13, $14, $9, 'available')`,
+    [
+      ids.fixtureA, ids.playerA, ids.playerB, ids.playerC, ids.playerD,
+      ids.fixtureB, ids.playerOtherTeam, ids.fixtureC, ids.playerOtherClub,
+      ids.clubA, ids.teamA, ids.teamB, ids.clubB, ids.teamC,
+    ],
   )
 
   return db
@@ -187,22 +201,22 @@ async function readConfirmedTeam(db, parentId, linkId) {
   return result.rows
 }
 
-test('same-team parents and another guardian receive one identical ordered confirmed team', async () => {
+test('same-team parents and another guardian receive only the identical Available and Selected squad', async () => {
   const db = await createDatabase()
 
   try {
     const parentA = await readConfirmedTeam(db, ids.parentA, ids.linkA)
     const parentB = await readConfirmedTeam(db, ids.parentB, ids.linkB)
     const guardianA = await readConfirmedTeam(db, ids.parentA, ids.guardianLinkA)
-    const expected = ['alex Young', 'Ben Stone', 'Zoe Able']
+    const expected = ['Ben Stone']
 
     assert.deepEqual(parentA, [{ match_day_id: ids.fixtureA, selected_player_names: expected }])
     assert.deepEqual(parentB, parentA)
     assert.deepEqual(guardianA, parentA)
-    assert.equal(new Set(parentA[0].selected_player_names).size, 3)
+    assert.equal(new Set(parentA[0].selected_player_names).size, 1)
     assert.ok(!parentA[0].selected_player_names.includes('Available Unselected'))
-    assert.ok(parentA[0].selected_player_names.includes('Zoe Able'))
-    assert.ok(parentA[0].selected_player_names.includes('alex Young'))
+    assert.ok(!parentA[0].selected_player_names.includes('Zoe Able'))
+    assert.ok(!parentA[0].selected_player_names.includes('alex Young'))
   } finally {
     await db.close()
   }
@@ -236,7 +250,7 @@ test('other-team, cross-club, guessed-link and anonymous access fail closed', as
   }
 })
 
-test('deselection and an empty squad update the same bounded read model', async () => {
+test('availability and selection changes update the same bounded read model', async () => {
   const db = await createDatabase()
 
   try {
@@ -244,22 +258,22 @@ test('deselection and an empty squad update the same bounded read model', async 
       `update public.match_day_player_squad_decisions
        set status = 'not_selected'
        where match_day_id = $1 and player_id = $2`,
-      [ids.fixtureA, ids.playerB],
-    )
-    assert.deepEqual(
-      await readConfirmedTeam(db, ids.parentA, ids.linkA),
-      [{ match_day_id: ids.fixtureA, selected_player_names: ['Ben Stone', 'Zoe Able'] }],
-    )
-
-    await db.query(
-      `update public.match_day_player_squad_decisions
-       set status = 'not_selected'
-       where match_day_id = $1`,
-      [ids.fixtureA],
+      [ids.fixtureA, ids.playerC],
     )
     assert.deepEqual(
       await readConfirmedTeam(db, ids.parentA, ids.linkA),
       [{ match_day_id: ids.fixtureA, selected_player_names: [] }],
+    )
+
+    await db.query(
+      `update public.match_day_player_availability
+       set status = 'available'
+       where match_day_id = $1 and player_id = $2`,
+      [ids.fixtureA, ids.playerA],
+    )
+    assert.deepEqual(
+      await readConfirmedTeam(db, ids.parentA, ids.linkA),
+      [{ match_day_id: ids.fixtureA, selected_player_names: ['Zoe Able'] }],
     )
   } finally {
     await db.close()

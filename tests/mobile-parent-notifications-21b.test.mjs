@@ -156,7 +156,7 @@ test('server-owned notification copy contains no Player full name or private con
   assert.doesNotMatch(pushApi, /title\s*[:=]\s*body|body\s*[:=]\s*body/)
 })
 
-test('notification opens route only through current authoritative resources', () => {
+test('notification opens its route immediately and validates its target through current authoritative resources', () => {
   assert.deepEqual(resolveParentNotificationOpen({ app: 'parent', route: 'messages', targetId: 'current' }, {
     messages: ['current'],
   }), { tab: 'messages', targetId: 'current' })
@@ -165,7 +165,7 @@ test('notification opens route only through current authoritative resources', ()
   }), { tab: 'polls', targetId: '' })
   assert.equal(resolveParentNotificationOpen({ app: 'coach', route: 'messages' }), null)
   assert.equal(resolveParentNotificationOpen({ app: 'parent', route: 'staff' }), null)
-  assert.match(app, /loadCurrentParentNotificationData\(loadParentData\)\s*\.then/)
+  assert.match(app, /applyParentNotificationDestination\(currentDestination, \{ pending: true \}\)[\s\S]*loadCurrentParentNotificationData\(loadParentData, 1\)\s*\.then/)
 })
 
 test('test schema is least-privilege, RLS protected, indexed, and allowlisted to one Android and one iOS slot', () => {

@@ -9,6 +9,7 @@ import {
 } from '../apps/mobile-core/src/parentCalendarCore.js'
 import {
   getParentChatRoomContext,
+  getParentAnnouncementMessages,
   getParentInvitationSections,
   prepareParentChatMessages,
   prepareParentChatRooms,
@@ -59,12 +60,36 @@ test('Parent Chat uses newest room activity first and oldest-to-newest conversat
     { id: 'newer', latestMessageAt: '2026-08-13T10:00:00Z', matchDate: '2026-08-20', kickoffTime: '18:30', opponent: 'United', teamName: 'U17', title: 'Match squad' },
   ], [{ body: 'Club update', createdAt: '2026-08-12T10:00:00Z', id: 'announcement-1', readAt: '', senderName: 'Demo FC' }])
   assert.deepEqual(rooms.map((room) => room.id), ['newer', 'club-announcements', 'older'])
+  assert.equal(rooms.find((room) => room.id === 'club-announcements').canPost, false)
   assert.match(getParentChatRoomContext(rooms[0]), /U17 v United/)
   const messages = prepareParentChatMessages([
     { body: 'Second', createdAt: '2026-08-13T10:01:00Z', id: '2' },
     { body: 'First', createdAt: '2026-08-13T10:00:00Z', id: '1' },
   ])
   assert.deepEqual(messages.map((message) => message.id), ['1', '2'])
+})
+
+test('Club Announcements keep the useful heading and remove delivery boilerplate', () => {
+  const [message] = getParentAnnouncementMessages([{
+    body: [
+      'New event added',
+      'What is this event',
+      'Hi Simon and Steve, the latest details for Jack Hughes are available in the Parent Portal.',
+      'Team: U17 Green',
+      'Type: other',
+      'Starts: Sat 01 Aug 2026 at 15:00',
+      'Ends: Sat 01 Aug 2026 at 16:00',
+      'Venue: Football Player Stadium',
+      'Notes: Where does this appear',
+      'Response: No response is required. This event is informational.',
+      'View event details (https://parent.footballplayer.online/parent-portal?section=calendar)',
+    ].join('\n'),
+    id: 'announcement-1',
+    subject: 'New event added',
+  }])
+
+  assert.equal(message.body, 'New event added\nWhat is this event')
+  assert.doesNotMatch(message.body, /https?:|Team:|Response:|Hi Simon/)
 })
 
 test('mobile UX wiring preserves sessions, updates automatically, deep-links responses and removes legacy Messages navigation', async () => {

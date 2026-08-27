@@ -35,13 +35,22 @@ test('Parent Chat notification targets only an authoritative Parent link and exa
     tab: 'chat',
     targetId: '',
   })
+  assert.deepEqual(resolveParentNotificationOpen({
+    app: 'parent',
+    route: 'chat',
+    roomId: 'room-second',
+  }), {
+    tab: 'chat',
+    targetId: 'room-second',
+  })
   assert.ok(parentNotificationIntentTypes.includes('parent_chat'))
 })
 
-test('Parent app switches child context before consuming and verifies current resources before opening', () => {
+test('Parent app switches child context before opening immediately and validating in the background', () => {
   assert.match(parentAppSource, /if \(requestedLinkId && requestedLinkId !== selectedLink\?\.id\) \{\s*setSelectedLinkId\(requestedLinkId\)\s*void saveParentOfflineSelection\(selectedMobileUser, requestedLinkId\)[\s\S]*return undefined\s*\}/)
-  assert.match(parentAppSource, /notificationResponseProcessingRef\.current = responseId[\s\S]*void loadCurrentParentNotificationData\(loadParentData\)[\s\S]*resolveParentNotificationOpen/)
   assert.match(parentAppSource, /const currentDestination = resolveParentNotificationOpen\(notificationData, \{\}\)[\s\S]*if \(!currentDestination\)/)
-  assert.match(parentAppSource, /resolveParentNotificationOpen\(\s*notificationData,\s*availableFrom\(result\?\.items \|\| \{\}\),\s*\)[\s\S]*if \(!destination\) return/)
-  assert.match(parentAppSource, /if \(destination\.tab === 'chat'\)[\s\S]*setSelectedRoomId\(room\.id\)[\s\S]*else setSelectedRoomId\(''\)/)
+  assert.match(parentAppSource, /applyParentNotificationDestination\(currentDestination, \{ pending: true \}\)[\s\S]*loadCurrentParentNotificationData\(loadParentData, 1\)/)
+  assert.match(parentAppSource, /resolveParentNotificationOpen\(\s*notificationData,\s*getParentNotificationTargets\(result\?\.items \|\| \{\}\),\s*\)[\s\S]*if \(!destination\) return/)
+  assert.match(parentAppSource, /pendingNotificationRoomId[\s\S]*title: 'Opening chat'/)
+  assert.match(parentAppSource, /handleOpenNotification[\s\S]*resolveParentNotificationOpen\(notification\?\.data, getParentNotificationTargets\(currentItems\)\)[\s\S]*applyParentNotificationDestination\(destination\)/)
 })

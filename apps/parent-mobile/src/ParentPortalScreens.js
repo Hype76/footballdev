@@ -589,6 +589,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
 export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
+  const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
   const [now, setNow] = useState(() => Date.now())
   const matchGroups = useMemo(() => getParentMatchGroups(resource.items), [resource.items])
   const visibleMatches = matchGroups[matchSection] || []
@@ -637,12 +638,27 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
           <Text style={styles.meta}>Availability: {labelize(selectedMatch.availabilityStatus) || 'No response requested'}</Text>
           <Text style={styles.meta}>Squad: {labelize(selectedMatch.squadDecisionState) || 'Not decided'}</Text>
-          {selectedMatch.confirmedTeam?.length ? <Text style={styles.meta}>Confirmed team: {selectedMatch.confirmedTeam.join(', ')}</Text> : null}
           <View style={styles.actionRow}>
+            <Button
+              expanded={squadOpenMatchId === selectedMatch.id}
+              label={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`}
+              onPress={() => setSquadOpenMatchId((current) => current === selectedMatch.id ? '' : selectedMatch.id)}
+              outline
+              styles={styles}
+            />
             {getParentMatchCalendarUrl(selectedMatch) ? <Button label="Add to calendar" onPress={() => onOpenLink?.(getParentMatchCalendarUrl(selectedMatch), 'calendar')} outline styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <Button label="Get directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} outline styles={styles} /> : null}
           </View>
         </View>
+        {squadOpenMatchId === selectedMatch.id ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Selected and confirmed squad</Text>
+            <Text style={styles.helper}>Only Players who are both Available and Selected are shown.</Text>
+            {selectedMatch.confirmedTeam?.length
+              ? selectedMatch.confirmedTeam.map((playerName) => <Text key={playerName} style={styles.body}>{playerName}</Text>)
+              : <Text style={styles.body}>No Available and Selected Players are confirmed yet.</Text>}
+          </View>
+        ) : null}
         {canParentRegisterScorerInterest(selectedMatch) ? (
           <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Coaches are looking for a Parent scorer.'}</Text><Button disabled={isOffline} label="Register interest" onPress={() => onVolunteer(selectedMatch)} styles={styles} /></View>
         ) : null}

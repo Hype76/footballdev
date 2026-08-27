@@ -45,17 +45,35 @@ export function normalizeCoachNotificationState(value = {}) {
   value = value || {}
   const detailLevel = normalizeCoachNotificationLevel(value.detailLevel)
   const permissionStatus = normalizeLower(value.permissionStatus) || 'undetermined'
+  const preferenceEnabled = value.preferenceEnabled === undefined
+    ? Boolean(value.enabled)
+    : Boolean(value.preferenceEnabled)
   const registered = Boolean(value.registered)
   return Object.freeze({
     canAskAgain: value.canAskAgain !== false,
     detailLevel,
-    enabled: Boolean(detailLevel !== 'off' && value.enabled && registered && value.permissionGranted),
+    enabled: Boolean(detailLevel !== 'off' && preferenceEnabled && registered && value.permissionGranted),
     message: normalize(value.message),
     permissionGranted: Boolean(value.permissionGranted),
     permissionStatus,
+    preferenceEnabled,
     registered,
     requiresContextRefresh: Boolean(value.requiresContextRefresh),
     requiresRegistrationRefresh: Boolean(value.requiresRegistrationRefresh),
+  })
+}
+
+export function preserveCoachNotificationRegistration(currentValue, nextValue) {
+  const current = normalizeCoachNotificationState(currentValue)
+  const next = normalizeCoachNotificationState(nextValue)
+  if (!current.registered || next.registered || next.permissionGranted) return next
+  return Object.freeze({
+    ...current,
+    canAskAgain: next.canAskAgain,
+    enabled: false,
+    message: next.message,
+    permissionGranted: false,
+    permissionStatus: next.permissionStatus,
   })
 }
 
@@ -98,7 +116,7 @@ export function getCoachPushSetupFailureCode(error, stage = 'expo') {
 
 export function getCoachPushSetupFailureMessage(error) {
   const code = normalize(error?.code || error?.message || error).toUpperCase()
-  if (code.includes('SIGNED_OUT')) return 'Sign in again to enable notifications.'
+  if (code.includes('SIGNED_OUT')) return 'Your account could not be verified just now. Your saved notification setting has not been changed.'
   if (code.includes('PERMISSION')) return 'Notifications are turned off in device settings. The Coach app remains fully usable.'
   if (code.includes('NETWORK') || code.includes('SERVICE')) return 'Notifications could not be refreshed while the service is unavailable. The Coach app remains fully usable.'
   if (code.includes('FORBIDDEN')) return 'Notifications are not available for this Coach context. The Coach app remains fully usable.'
@@ -169,8 +187,9 @@ export function resolveCoachNotificationOpen(data, authority = {}) {
   const chatTargetId = route === 'chat' ? normalize(data?.roomId || data?.conversationId) : ''
   const targetId = normalize(data?.targetId || chatTargetId)
   if (targetId && route !== 'chat') {
+    const availabilityProvided = Object.prototype.hasOwnProperty.call(authority.availableTargets || {}, route)
     const availableIds = new Set((authority.availableTargets?.[route] || []).map(normalize).filter(Boolean))
-    if (!availableIds.has(targetId)) return Object.freeze({ allowed: false, code: 'notification_target_stale' })
+    if (availabilityProvided && !availableIds.has(targetId)) return Object.freeze({ allowed: false, code: 'notification_target_stale' })
   }
   const notificationType = normalizeLower(data?.type || data?.intentType)
   const chatKind = route === 'chat' && targetId

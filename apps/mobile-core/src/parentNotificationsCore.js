@@ -194,10 +194,11 @@ export function resolveParentNotificationOpen(data, available = {}) {
     results: data?.matchDayId,
   }
   const targetId = normalize(data?.targetId || routeTargetIds[route])
+  const availabilityProvided = Object.prototype.hasOwnProperty.call(available, route)
   const availableIds = new Set((available[route] || []).map(normalize).filter(Boolean))
 
   return {
-    targetId: targetId && availableIds.has(targetId) ? targetId : '',
+    targetId: targetId && (!availabilityProvided || availableIds.has(targetId)) ? targetId : '',
     tab,
   }
 }

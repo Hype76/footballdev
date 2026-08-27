@@ -30,7 +30,7 @@ import {
   writeMobileAppBadgeEnabled,
 } from '../mobile-core/src/appBadge'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
-import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
+import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, preserveCoachNotificationRegistration, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
@@ -154,6 +154,7 @@ function CoachHome() {
   const requestIdRef = useRef(0)
   const notificationResponseIdRef = useRef('')
   const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
+  const notificationStateRef = useRef(null)
   const latestBadgeCountRef = useRef(0)
 
   const contextResolution = useMemo(
@@ -244,9 +245,7 @@ function CoachHome() {
     try {
       const next = await loadCoachNotificationState({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id })
       setNotificationState(next)
-      setNotificationStateStatus(shouldRestoreCoachNotificationRegistration(next)
-        ? MOBILE_SETTING_LOAD_STATES.LOADING
-        : MOBILE_SETTING_LOAD_STATES.READY)
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       return next
     } catch (error) {
       setNotificationState((current) => preserveMobileNotificationState(current, getCoachPushSetupFailureMessage(error)))
@@ -258,8 +257,9 @@ function CoachHome() {
   const enableNotifications = useCallback(async (options = {}) => {
     if (!activeContext?.id) return null
     const silent = options?.silent === true
+    const force = options?.force === true
     const now = Date.now()
-    if (!canStartCoachNotificationRegistration(notificationRegistrationRef.current, { contextId: activeContext.id, now, silent })) return null
+    if (!canStartCoachNotificationRegistration(notificationRegistrationRef.current, { contextId: activeContext.id, now, silent: silent && !force })) return null
     notificationRegistrationRef.current.inFlight = true
     notificationRegistrationRef.current.contextId = activeContext.id
     notificationRegistrationRef.current.lastRegistrationAt = now
@@ -267,10 +267,11 @@ function CoachHome() {
     if (!silent) setNotice('')
     try {
       const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel: options?.detailLevel, easProjectId: config.easProjectId, preservePreference: silent })
-      setNotificationState(next)
+      const resolved = preserveCoachNotificationRegistration(notificationStateRef.current, next)
+      setNotificationState(resolved)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
-      if (!silent) setNotice(next.enabled ? `Coach notifications are on with ${next.detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} content.` : next.message)
-      return next
+      if (!silent) setNotice(resolved.enabled ? `Coach notifications are on with ${resolved.detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} content.` : resolved.message)
+      return resolved
     } catch (error) {
       const message = getCoachPushSetupFailureMessage(error)
       setNotificationState((current) => preserveMobileNotificationState(current, message))
@@ -282,6 +283,12 @@ function CoachHome() {
       setIsRegisteringPush(false)
     }
   }, [activeContext?.id])
+
+  const refreshNotificationRegistration = useCallback(async ({ force = false, showLoading = false } = {}) => {
+    const next = await refreshNotifications({ showLoading })
+    if (!shouldRestoreCoachNotificationRegistration(next)) return next
+    return enableNotifications({ force, silent: true })
+  }, [enableNotifications, refreshNotifications])
 
   const disableNotifications = useCallback(async () => {
     if (!activeContext?.id) return
@@ -411,10 +418,6 @@ function CoachHome() {
   const openCoachTarget = useCallback((data) => {
     const result = resolveCoachNotificationOpen(data, {
       activeContextId: activeContext?.id,
-      availableTargets: {
-        matchday: (homeState.matches || []).map((item) => item.id),
-        sessions: (homeState.sessions || []).map((item) => item.id),
-      },
       contexts: contextResolution.contexts,
     })
     if (!result.allowed) {
@@ -445,7 +448,7 @@ function CoachHome() {
         }
       : null)
     return true
-  }, [activeContext?.id, contextResolution.contexts, homeState.matches, homeState.sessions, resetContextDomainState])
+  }, [activeContext?.id, contextResolution.contexts, resetContextDomainState])
 
   useEffect(() => {
     let mounted = true
@@ -503,17 +506,17 @@ function CoachHome() {
   }, [activeContext?.id])
 
   useEffect(() => {
+    notificationStateRef.current = notificationState
+  }, [notificationState])
+
+  useEffect(() => {
     if (!activeContext?.id || !contextOwnedByCurrentUser) return undefined
-    void refreshNotifications().then((next) => {
-      if (shouldRestoreCoachNotificationRegistration(next)) {
-        void enableNotifications({ silent: true })
-      }
-    })
+    void refreshNotificationRegistration()
     const subscription = addCoachPushTokenListener(() => {
-      if (notificationState?.registered) void enableNotifications({ silent: true })
+      if (notificationStateRef.current?.registered) void enableNotifications({ silent: true })
     })
     return () => subscription.remove()
-  }, [activeContext?.id, contextOwnedByCurrentUser, enableNotifications, notificationState?.registered, refreshNotifications])
+  }, [activeContext?.id, contextOwnedByCurrentUser, enableNotifications, refreshNotificationRegistration])
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -691,7 +694,7 @@ function CoachHome() {
               notificationState={notificationState}
               notificationStateStatus={notificationStateStatus}
               onRefreshBiometricState={() => refreshBiometricState().catch(() => {})}
-              onRefreshNotificationState={() => refreshNotifications({ showLoading: true })}
+              onRefreshNotificationState={() => refreshNotificationRegistration({ force: true, showLoading: true })}
               onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
               onMatchDayTargetHandled={handleMatchDayTargetHandled}
               onNavigate={navigate}
@@ -935,7 +938,7 @@ function SettingsScreen({
   const biometricStateLoading = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const hasKnownNotificationState = Boolean(notificationState)
-  const selectedNotificationMode = notificationState?.enabled ? notificationState.detailLevel : 'off'
+  const selectedNotificationMode = notificationState?.preferenceEnabled ? notificationState.detailLevel : 'off'
   const [cacheState, setCacheState] = useState(null)
   useEffect(() => {
     let mounted = true

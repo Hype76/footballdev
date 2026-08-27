@@ -7,7 +7,11 @@ import {
   preserveMobileNotificationState,
   shouldClearMobileDevicePreferences,
 } from '../apps/mobile-core/src/deviceSettingsCore.js'
-import { isCoachInstallationOwnershipConflict } from '../apps/mobile-core/src/coachNotificationsCore.js'
+import {
+  isCoachInstallationOwnershipConflict,
+  normalizeCoachNotificationState,
+  preserveCoachNotificationRegistration,
+} from '../apps/mobile-core/src/coachNotificationsCore.js'
 
 const readSource = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
@@ -25,6 +29,30 @@ test('transient notification errors preserve the last confirmed state', () => {
   })
   assert.equal(preserveMobileNotificationState(null, 'Could not refresh.'), null)
   assert.equal(MOBILE_SETTING_LOAD_STATES.STALE, 'stale')
+})
+
+test('Coach keeps the saved server choice visible when iPhone permission is blocked', () => {
+  const current = normalizeCoachNotificationState({
+    detailLevel: 'detailed',
+    enabled: true,
+    permissionGranted: true,
+    registered: true,
+  })
+  const blocked = preserveCoachNotificationRegistration(current, {
+    canAskAgain: false,
+    detailLevel: 'minimal',
+    enabled: false,
+    message: 'Notification permission is off.',
+    permissionGranted: false,
+    permissionStatus: 'denied',
+    registered: false,
+  })
+
+  assert.equal(blocked.detailLevel, 'detailed')
+  assert.equal(blocked.preferenceEnabled, true)
+  assert.equal(blocked.enabled, false)
+  assert.equal(blocked.permissionStatus, 'denied')
+  assert.equal(blocked.registered, true)
 })
 
 test('first boot preserves device preferences while an environment mismatch clears them', () => {
@@ -66,10 +94,16 @@ test('Parent settings do not display an unconfirmed off state', async () => {
 
 test('Coach settings preserve known values and expose explicit retry states', async () => {
   const source = await readSource('../apps/coach-mobile/App.js')
+  const notifications = await readSource('../apps/coach-mobile/src/notifications.js')
   const controls = await readSource('../apps/mobile-core/src/deviceControls.js')
   assert.match(source, /preserveMobileNotificationState\(current, getCoachPushSetupFailureMessage\(error\)\)/)
   assert.match(source, /Refresh notification status/)
   assert.match(source, /The last confirmed setting is shown and has not been changed\./)
+  assert.match(source, /refreshNotificationRegistration\(\{ force: true, showLoading: true \}\)/)
+  assert.match(source, /notificationStateRef\.current\?\.registered/)
+  assert.match(source, /notificationState\?\.preferenceEnabled \? notificationState\.detailLevel : 'off'/)
+  assert.doesNotMatch(source, /notificationState\?\.registered, refreshNotifications/)
+  assert.doesNotMatch(notifications, /if \(error\.status !== 401\)/)
   assert.doesNotMatch(source, /setNotificationState\(\(current\) => \(\{ \.\.\.\(current \|\| \{\}\), enabled: false/)
   assert.match(controls, /biometricStateStatus/)
   assert.match(controls, /refreshBiometricState/)

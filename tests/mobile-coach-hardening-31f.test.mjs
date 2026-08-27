@@ -176,6 +176,10 @@ test('deep links restore only current active staff authority and exact available
   assert.deepEqual(resolveCoachNotificationOpen({ app: 'coach', contextId: contextA.id, route: 'matchday', targetId: 'match-1' }, authority), {
     allowed: true, code: 'notification_route_ready', contextId: contextA.id, route: 'matchday', targetId: 'match-1',
   })
+  assert.equal(resolveCoachNotificationOpen({ app: 'coach', contextId: contextA.id, route: 'matchday', targetId: 'match-1' }, {
+    activeContextId: contextA.id,
+    contexts: authority.contexts,
+  }).allowed, true)
   assert.equal(resolveCoachNotificationOpen({ app: 'coach', contextId: contextA.id, route: 'matchday', targetId: 'deleted' }, authority).code, 'notification_target_stale')
   assert.equal(resolveCoachNotificationOpen({ app: 'parent', route: 'matchday' }, authority).code, 'notification_app_mismatch')
   assert.equal(resolveCoachNotificationOpen({ app: 'coach', contextId: 'team:other', route: 'matchday' }, authority).code, 'notification_context_denied')
@@ -269,7 +273,7 @@ test('production-shape helpers tolerate null, empty, and malformed optional coll
   assert.deepEqual(normalizeCoachCollection([null, { id: 'a' }, 'bad']), [{ id: 'a' }])
   assert.deepEqual(normalizeCoachNotificationState(null), {
     canAskAgain: true, detailLevel: 'minimal', enabled: false, message: '', permissionGranted: false,
-    permissionStatus: 'undetermined', registered: false, requiresContextRefresh: false,
+    permissionStatus: 'undetermined', preferenceEnabled: false, registered: false, requiresContextRefresh: false,
     requiresRegistrationRefresh: false,
   })
 })

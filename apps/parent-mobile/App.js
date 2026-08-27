@@ -207,6 +207,23 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+function getParentNotificationTargets(items = {}) {
+  return {
+    calendar: (items.calendar || []).map((item) => item.id),
+    chat: [
+      ...(items.chatRooms || []).map((item) => item.id),
+      ...((items.messages || []).some((item) => normalizeText(item.body)) ? ['club-announcements'] : []),
+    ],
+    development: (items.development || []).map((item) => item.id),
+    invites: (items.invitations || []).map((item) => item.invitationId),
+    matchday: (items.matches || []).map((item) => item.id),
+    messages: (items.messages || []).map((item) => item.id),
+    polls: (items.polls || []).map((item) => item.id),
+    resources: (items.resources || []).map((item) => item.id),
+    results: (items.matches || []).filter((item) => item.status === 'full_time').map((item) => item.id),
+  }
+}
+
 function labelize(value) {
   const label = normalizeText(value).replaceAll('_', ' ')
   return label ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : ''
@@ -293,6 +310,7 @@ function ParentHome() {
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [selectedPollId, setSelectedPollId] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState('')
+  const [pendingNotificationRoomId, setPendingNotificationRoomId] = useState('')
   const [syncSummary, setSyncSummary] = useState({ attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 })
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
@@ -372,7 +390,17 @@ function ParentHome() {
     () => prepareParentChatRooms(resources.chatRooms.items, visibleMessages),
     [resources.chatRooms.items, visibleMessages],
   )
-  const selectedRoom = parentChatRooms.find((room) => room.id === selectedRoomId) || null
+  const selectedRoom = parentChatRooms.find((room) => room.id === selectedRoomId)
+    || (pendingNotificationRoomId && pendingNotificationRoomId === selectedRoomId
+      ? {
+          canPost: false,
+          id: pendingNotificationRoomId,
+          notificationsMuted: false,
+          title: 'Opening chat',
+          type: 'parent_staff',
+          unreadCount: 0,
+        }
+      : null)
   chatMessagesRef.current = chatMessages
   const themeModel = useMemo(
     () => createParentMobileTheme({ mode: displayTheme, selectedLink }),
@@ -400,6 +428,28 @@ function ParentHome() {
     }
     void Notifications.clearLastNotificationResponseAsync().catch(() => {})
   }, [notificationResponseHistoryKey])
+
+  const applyParentNotificationDestination = useCallback((destination, { pending = false } = {}) => {
+    const nestedSection = ['development', 'invites', 'messages', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
+      ? destination.tab
+      : ''
+    setSelectedMatchId(destination.tab === 'matchday' ? destination.targetId : '')
+    setSelectedInvitationId(destination.tab === 'invites' ? destination.targetId : '')
+    setSelectedMessageId(destination.tab === 'messages' ? destination.targetId : '')
+    setSelectedPollId(destination.tab === 'polls' ? destination.targetId : '')
+    if (destination.tab === 'chat') {
+      setSelectedRoomId(destination.targetId)
+      setPendingNotificationRoomId(pending ? destination.targetId : '')
+      if (pending && destination.targetId) {
+        setChatMessages({ error: '', items: [], loading: true })
+      }
+    } else {
+      setSelectedRoomId('')
+      setPendingNotificationRoomId('')
+    }
+    setMoreSection(nestedSection)
+    setActiveTab(nestedSection ? 'more' : destination.tab)
+  }, [])
 
   const loadParentData = useCallback(async ({ reset = false } = {}) => {
     const requestId = ++requestIdRef.current
@@ -654,6 +704,7 @@ function ParentHome() {
     setSelectedInvitationId('')
     setSelectedMessageId('')
     setSelectedRoomId('')
+    setPendingNotificationRoomId('')
     setMoreSection('')
     setChatMessages({ error: '', items: [], loading: false })
     setPollDrafts({})
@@ -883,37 +934,28 @@ function ParentHome() {
       void saveParentOfflineSelection(selectedMobileUser, requestedLinkId).catch((error) => console.warn(error))
       return undefined
     }
-    const availableFrom = (items) => ({
-      calendar: (items.calendar || []).map((item) => item.id),
-      chat: [
-        ...(items.chatRooms || []).map((item) => item.id),
-        ...((items.messages || []).some((item) => normalizeText(item.body)) ? ['club-announcements'] : []),
-      ],
-      development: (items.development || []).map((item) => item.id),
-      invites: (items.invitations || []).map((item) => item.invitationId),
-      matchday: (items.matches || []).map((item) => item.id),
-      messages: (items.messages || []).map((item) => item.id),
-      polls: (items.polls || []).map((item) => item.id),
-      resources: (items.resources || []).map((item) => item.id),
-      results: (items.matches || []).filter((item) => item.status === 'full_time').map((item) => item.id),
-    })
     const currentDestination = resolveParentNotificationOpen(notificationData, {})
     if (!currentDestination) {
       consumeLastNotificationResponse(responseId)
       return undefined
     }
 
-    let cancelled = false
     notificationResponseProcessingRef.current = responseId
-    void loadCurrentParentNotificationData(loadParentData)
+    applyParentNotificationDestination(currentDestination, { pending: true })
+    consumeLastNotificationResponse(responseId)
+    void loadCurrentParentNotificationData(loadParentData, 1)
       .then(async (result) => {
-        if (cancelled) return
+        if (notificationResponseProcessingRef.current !== responseId) return
         let destination = resolveParentNotificationOpen(
           notificationData,
-          availableFrom(result?.items || {}),
+          getParentNotificationTargets(result?.items || {}),
         )
-        consumeLastNotificationResponse(responseId)
         if (!destination) return
+        if (currentDestination.targetId && !destination.targetId) {
+          applyParentNotificationDestination({ tab: currentDestination.tab, targetId: '' })
+          setNotice({ message: 'That notification item is no longer available. The latest information for this section is shown.', tone: 'warning' })
+          return
+        }
         if (destination.tab === 'messages') {
           const legacyMessage = (result?.items?.messages || []).find((message) => message.id === destination.targetId)
           if (normalizeText(legacyMessage?.body)) {
@@ -921,21 +963,16 @@ function ParentHome() {
           } else if (legacyMessage?.evaluationId) {
             destination = { tab: 'development', targetId: legacyMessage.evaluationId }
           } else {
+            applyParentNotificationDestination({ tab: 'messages', targetId: '' })
             setNotice({ message: 'This email update did not contain an in-app message. Open Chat or the relevant request to continue.', tone: 'warning' })
             return
           }
         }
-        const nestedSection = ['development', 'invites', 'polls', 'resources', 'results', 'settings'].includes(destination.tab)
-          ? destination.tab
-          : ''
-        setSelectedMatchId(destination.tab === 'matchday' ? destination.targetId : '')
-        setSelectedInvitationId(destination.tab === 'invites' ? destination.targetId : '')
-        setSelectedMessageId('')
+        applyParentNotificationDestination(destination)
         if (destination.tab === 'chat') {
           const room = prepareParentChatRooms(result?.items?.chatRooms || [], result?.items?.messages || [])
             .find((candidate) => candidate.id === destination.targetId)
           if (room) {
-            setSelectedRoomId(room.id)
             if (room.id === 'club-announcements') {
               setChatMessages({ error: '', items: getParentAnnouncementMessages(result?.items?.messages || []), loading: false })
             } else {
@@ -949,9 +986,7 @@ function ParentHome() {
               }
             }
           }
-        } else setSelectedRoomId('')
-        setMoreSection(nestedSection)
-        setActiveTab(nestedSection ? 'more' : destination.tab)
+        }
         if (destination.tab === 'invites' && ['parent_accept', 'parent_decline'].includes(notificationAction)) {
           const invitation = (result?.items?.invitations || []).find((item) => item.invitationId === destination.targetId)
           if (invitation && isParentInvitationActionable(invitation)) {
@@ -969,13 +1004,11 @@ function ParentHome() {
         }
       })
       .catch(() => {
-        if (cancelled) return
-        consumeLastNotificationResponse(responseId)
-        const nestedSection = ['development', 'invites', 'polls', 'resources', 'results', 'settings'].includes(currentDestination.tab)
-          ? currentDestination.tab
-          : ''
-        setMoreSection(nestedSection)
-        setActiveTab(nestedSection ? 'more' : currentDestination.tab)
+        if (notificationResponseProcessingRef.current !== responseId) return
+        if (currentDestination.tab === 'chat' && currentDestination.targetId) {
+          setChatMessages({ error: 'Chat messages could not be loaded. Pull to retry or return to Chat rooms.', items: [], loading: false })
+        }
+        setNotice({ message: 'The destination opened, but its latest information could not be refreshed. Pull to retry.', tone: 'warning' })
       })
       .finally(() => {
         if (notificationResponseProcessingRef.current === responseId) {
@@ -983,13 +1016,8 @@ function ParentHome() {
         }
       })
 
-    return () => {
-      cancelled = true
-      if (notificationResponseProcessingRef.current === responseId) {
-        notificationResponseProcessingRef.current = ''
-      }
-    }
-  }, [consumeLastNotificationResponse, lastNotificationResponse, loadParentData, notificationResponseHistoryReady, parentLinks, selectedLink?.id, selectedMobileUser])
+    return undefined
+  }, [applyParentNotificationDestination, consumeLastNotificationResponse, lastNotificationResponse, loadParentData, notificationResponseHistoryReady, parentLinks, selectedLink?.id, selectedMobileUser])
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined
@@ -1005,6 +1033,7 @@ function ParentHome() {
       }
       if (selectedRoomId) {
         setSelectedRoomId('')
+        setPendingNotificationRoomId('')
         return true
       }
       if (moreSection) {
@@ -1051,6 +1080,7 @@ function ParentHome() {
     setSelectedMessageId('')
     setSelectedPollId('')
     setSelectedRoomId('')
+    setPendingNotificationRoomId('')
     setMoreSection('')
     setChildSwitcherOpen(false)
     setActiveTab(tab)
@@ -1275,6 +1305,7 @@ function ParentHome() {
   }
 
   async function handleOpenChatRoom(room) {
+    setPendingNotificationRoomId('')
     setSelectedRoomId(room.id)
     if (room.id === 'club-announcements') {
       const items = getParentAnnouncementMessages(visibleMessages)
@@ -1668,7 +1699,6 @@ function ParentHome() {
   }
 
   async function handleOpenNotification(notification) {
-    const route = normalizeText(notification?.data?.route).toLowerCase()
     const notificationIds = Array.isArray(notification?.notificationIds) && notification.notificationIds.length
       ? notification.notificationIds
       : [notification?.id].filter(Boolean)
@@ -1683,31 +1713,22 @@ function ParentHome() {
     void markParentOfflineNotificationRead(selectedMobileUser, selectedLink.id, notificationIds).catch(() => {})
     void markParentNotificationRead(selectedMobileUser, notificationIds).catch(() => {})
 
-    if (route === 'chat') {
-      setActiveTab('chat')
-      const room = parentChatRooms.find((candidate) => candidate.id === notification.data?.roomId)
-      if (room) void handleOpenChatRoom(room)
+    const currentItems = Object.fromEntries(resourceNames.map((name) => [name, resources[name].items]))
+    let destination = resolveParentNotificationOpen(notification?.data, getParentNotificationTargets(currentItems))
+    if (!destination) {
+      setNotice({ message: 'That notification destination is not available.', tone: 'warning' })
       return
     }
-    if (route === 'polls') {
-      setMoreSection('polls'); setActiveTab('more'); return
+    if (destination.tab === 'messages') {
+      const legacyMessage = resources.messages.items.find((message) => message.id === destination.targetId)
+      if (normalizeText(legacyMessage?.body)) destination = { tab: 'chat', targetId: 'club-announcements' }
+      else if (legacyMessage?.evaluationId) destination = { tab: 'development', targetId: legacyMessage.evaluationId }
     }
-    if (route === 'resources') {
-      setMoreSection('resources'); setActiveTab('more'); return
-    }
-    if (route === 'development') {
-      setMoreSection('development'); setActiveTab('more'); return
-    }
-    if (route === 'invites') {
-      setMoreSection('invites'); setActiveTab('more'); return
-    }
-    if (route === 'matchday') {
-      setActiveTab('matchday'); return
-    }
-    if (route === 'calendar') {
-      setActiveTab('calendar'); return
-    }
-    setActiveTab('home')
+    applyParentNotificationDestination(destination)
+    if (destination.tab !== 'chat' || !destination.targetId) return
+    const room = parentChatRooms.find((candidate) => candidate.id === destination.targetId)
+    if (room) void handleOpenChatRoom(room)
+    else setNotice({ message: 'That Chat is no longer available. Your current Chat rooms are shown.', tone: 'warning' })
   }
 
   useEffect(() => {
@@ -1792,7 +1813,7 @@ function ParentHome() {
               isOffline={isOffline}
               link={selectedLink}
               messages={chatMessages}
-              onBack={() => setSelectedRoomId('')}
+              onBack={() => { setSelectedRoomId(''); setPendingNotificationRoomId('') }}
               onDelete={handleDeleteChatMessage}
               onDismissAnnouncement={(message) => handleDismissParentItem('messages', message.legacyMessageId, 'announcement')}
               onOpenRoom={handleOpenChatRoom}
@@ -2268,6 +2289,8 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
 
 function MatchDetail({ match, onBack }) {
   const { styles } = useParentTheme()
+  const [squadOpen, setSquadOpen] = useState(false)
+  const squadNames = [...new Set((match.confirmedTeam || []).map(normalizeText).filter(Boolean))]
   const selectionLabel = match.squadDecisionState && match.squadDecisionState !== 'undecided'
     ? labelize(match.squadDecisionState)
     : 'Not confirmed'
@@ -2294,6 +2317,20 @@ function MatchDetail({ match, onBack }) {
         <InfoRow label="Availability" value={labelize(match.availabilityStatus) || 'No response requested'} />
         <InfoRow label="Selection" value={selectionLabel} />
       </InfoPanel>
+
+      <PrimaryAction
+        label={squadOpen ? 'Hide squad' : `See squad (${squadNames.length})`}
+        onPress={() => setSquadOpen((open) => !open)}
+        secondary
+      />
+      {squadOpen ? (
+        <InfoPanel title="Selected and confirmed squad">
+          <Text style={styles.helperText}>Only Players who are both Available and Selected are shown. Automatic selections appear after this fixture refreshes.</Text>
+          {squadNames.length
+            ? squadNames.map((playerName) => <Text key={playerName} style={styles.bodyText}>{playerName}</Text>)
+            : <Text style={styles.bodyText}>No Available and Selected Players are confirmed yet.</Text>}
+        </InfoPanel>
+      ) : null}
 
       {match.notes ? (
         <InfoPanel title="Shared notes">

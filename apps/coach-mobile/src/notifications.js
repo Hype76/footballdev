@@ -175,7 +175,7 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
     const result = await request({ apiBaseUrl, method: 'GET', path: `${installationPath}?installationId=${encodeURIComponent(installationId)}` })
     server = result.installation || server
   } catch (error) {
-    if (error.status !== 401) throw safeError(error, 'api')
+    throw safeError(error, 'api')
   }
   const requiresContextRefresh = Boolean(server.registered && normalize(server.contextId) !== normalize(contextId))
   const requiresRegistrationRefresh = Boolean(!server.registered && permission.permissionGranted && detailLevel !== 'off')
@@ -191,6 +191,7 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
     detailLevel: authoritativeDetailLevel,
     enabled: Boolean(server.enabled && permission.permissionGranted),
     message: requiresContextRefresh ? 'Refresh notifications for this Coach context.' : '',
+    preferenceEnabled: Boolean(server.enabled),
     requiresContextRefresh,
     requiresRegistrationRefresh,
   })

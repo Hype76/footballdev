@@ -102,11 +102,32 @@ export function prepareParentChatMessages(rows = []) {
     .sort((left, right) => String(left.createdAt || '').localeCompare(String(right.createdAt || '')))
 }
 
+export function getParentAnnouncementSummary(message = {}) {
+  const body = normalizeText(message.body)
+  const subject = normalizeText(message.subject)
+  if (!body) return subject || 'Club update'
+
+  const lines = body.split(/\r?\n/).map(normalizeText).filter(Boolean)
+  const structuredAnnouncement = lines.some((line) => /^view (event|fixture|request|report) details\b/i.test(line))
+    || lines.some((line) => /^team\s*:/i.test(line)) && lines.some((line) => /^(starts|kick-off|date)\s*:/i.test(line))
+  if (!structuredAnnouncement) return body
+
+  const boilerplate = /^(hi\b|team\s*:|type\s*:|starts\s*:|ends\s*:|date\s*:|kick-off\s*:|arrival\s*:|venue\s*:|location\s*:|notes\s*:|response\s*:|view (event|fixture|request|report) details\b|https?:\/\/)/i
+  const detail = lines.find((line) => (
+    line.toLowerCase() !== subject.toLowerCase()
+    && !boilerplate.test(line)
+    && !/footballplayer\.online/i.test(line)
+    && !/the latest details for .* are available in the parent portal\.?/i.test(line)
+  ))
+  const heading = subject && subject.toLowerCase() !== 'club message' ? subject : ''
+  return [...new Set([heading, detail].filter(Boolean))].join('\n') || heading || 'Club update'
+}
+
 export function getParentAnnouncementMessages(messages = []) {
   return (Array.isArray(messages) ? messages : [])
     .filter((message) => normalizeText(message.body))
     .map((message) => ({
-      body: normalizeText(message.body),
+      body: getParentAnnouncementSummary(message),
       canDelete: false,
       createdAt: message.createdAt || '',
       deletedAt: '',
