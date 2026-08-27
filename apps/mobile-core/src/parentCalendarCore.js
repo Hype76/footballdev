@@ -131,7 +131,7 @@ function normalizeInvitationEvent(invitation) {
     id: `invitation:${sourceId}:${invitation.invitationId}`,
     invitationId: invitation.invitationId || '',
     location: invitation.eventLocation || '',
-    notes: '',
+    notes: normalizeText(invitation.notes),
     occurrenceDate: calendarDate,
     resources: Array.isArray(invitation.resources) ? invitation.resources : [],
     responseState: state,

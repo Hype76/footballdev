@@ -77,6 +77,7 @@ import {
   expressParentScorerInterest,
   getParentChatMessages,
   getParentChatRooms,
+  getParentCalendarEventDetails,
   getParentCalendarEventResources,
   getParentDevelopmentHistory,
   getParentInvitations,
@@ -508,14 +509,24 @@ function ParentHome() {
         return []
       })
     const resourcesByOccurrencePromise = calendarEventResourcesPromise.then(buildCalendarResourcesByOccurrence)
+    const calendarEventDetailsPromise = getParentCalendarEventDetails(selectedMobileUser)
+      .catch((error) => {
+        console.error('Parent calendar event details could not be loaded', error)
+        return []
+      })
+    const calendarEventDetailsByIdPromise = calendarEventDetailsPromise.then((events) => new Map(
+      events.map((event) => [normalizeText(event.id), event]),
+    ))
     const loaders = {
       calendar: async () => {
-        const [calendarEvents, resourcesByOccurrence] = await Promise.all([
+        const [calendarEvents, resourcesByOccurrence, detailsById] = await Promise.all([
           getParentCalendarEvents(selectedMobileUser),
           resourcesByOccurrencePromise,
+          calendarEventDetailsByIdPromise,
         ])
         return calendarEvents.map((event) => ({
           ...event,
+          notes: detailsById.get(normalizeText(event.id))?.notes || event.notes,
           occurrenceDate: getParentProductDateTimeParts(event.startsAt).date,
           resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(event.id, event.startsAt)) || [],
         }))
@@ -524,12 +535,14 @@ function ParentHome() {
       chatRooms: () => getParentChatRooms(selectedMobileUser),
       development: () => getParentDevelopmentHistory(selectedMobileUser),
       invitations: async () => {
-        const [invitations, resourcesByOccurrence] = await Promise.all([
+        const [invitations, resourcesByOccurrence, detailsById] = await Promise.all([
           getParentInvitations(selectedMobileUser),
           resourcesByOccurrencePromise,
+          calendarEventDetailsByIdPromise,
         ])
         return invitations.map((invitation) => ({
           ...invitation,
+          notes: detailsById.get(normalizeText(invitation.eventId))?.notes || invitation.notes || '',
           occurrenceDate: getParentProductDateTimeParts(invitation.eventStart || invitation.eventDate).date,
           resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(invitation.eventId, invitation.eventStart || invitation.eventDate)) || [],
         }))

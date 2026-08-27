@@ -460,6 +460,20 @@ export async function getParentCalendarEventResources(user) {
   })).filter((resource) => resource.id && resource.eventId && resource.occurrenceDate)
 }
 
+export async function getParentCalendarEventDetails(user) {
+  const link = requireSelectedLink(user)
+  const { data, error } = await supabase.rpc('get_parent_portal_calendar_event_details', {
+    parent_link_id_value: link.id,
+  })
+
+  if (error) throw error
+
+  return (Array.isArray(data) ? data : []).map((event) => ({
+    id: normalizeText(event.id),
+    notes: normalizeText(event.notes),
+  })).filter((event) => event.id)
+}
+
 function safeFilename(value, fallback) {
   return normalizeText(value).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-') || fallback
 }
