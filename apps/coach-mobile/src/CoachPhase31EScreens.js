@@ -817,6 +817,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
     ? selectedInvites[0]
     : null
   const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
+  const matchRequestPlayerCount = selectedMatchInvites.length
   const selectedCanBeResent = canResendSelectedCoachInvites(selectedInvites)
   const selectionDisabled = stale || Boolean(bulkAction)
   const toggleSelection = (playerId) => setSelectedPlayerIds((current) => toggleCoachInvitePlayerSelection(current, playerId))
@@ -1024,6 +1025,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
             </Pressable>
             {expanded ? <>
               <Text style={styles.label}>Available {matchSummary.available} | Not available {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
+              <Text style={styles.body}>{matchRequestPlayerCount} Player{matchRequestPlayerCount === 1 ? '' : 's'} shown below already {matchRequestPlayerCount === 1 ? 'has' : 'have'} an availability request. {availablePlayers.length} current Team Player{availablePlayers.length === 1 ? '' : 's'} {availablePlayers.length === 1 ? 'has' : 'have'} no request.</Text>
               {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => {
                 const selected = selectedPlayerIds.includes(invite.playerId)
                 return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
@@ -1031,11 +1033,12 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
                   <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
                 </Pressable>
               }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
+              {selectedMatchInvites.length ? <Text style={styles.helper}>Sent and Delivered show provider progress. Seen turns green only after a Parent or Player response is recorded.</Text> : null}
               {renderSelectedInviteActions()}
-              {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Send to ${availablePlayers.length} Players without an active request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every active Player already has an availability request for this fixture.</Text>}
+              {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Choose ${availablePlayers.length} Team Players with no request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every current Team Player already has an availability request for this fixture.</Text>}
               {requestPanelOpen ? <View style={styles.stack}>
                 <Text style={styles.heading}>Create availability requests</Text>
-                <Text style={styles.body}>{playerIds.length} of {availablePlayers.length} Players without an active request selected. Players who already responded are excluded and cannot be resent from this action.</Text>
+                <Text style={styles.body}>{availablePlayers.length} Team Player{availablePlayers.length === 1 ? '' : 's'} currently {availablePlayers.length === 1 ? 'has' : 'have'} no request for this fixture. {playerIds.length} selected to receive one. Players who already have a request or response are excluded and cannot be resent from this action.</Text>
                 {availablePlayers.length ? <>
                   <Button label={playerIds.length === availablePlayers.length ? 'Clear selection' : 'Select all'} onPress={() => setPlayerIds(playerIds.length === availablePlayers.length ? [] : availablePlayers.map((player) => player.id))} secondary styles={styles} />
                   <View style={styles.row}>{availablePlayers.map((player) => { const selectedPlayer = playerIds.includes(player.id); return <Button key={player.id} label={player.playerName} onPress={() => setPlayerIds((current) => selectedPlayer ? current.filter((id) => id !== player.id) : [...current, player.id])} secondary={!selectedPlayer} styles={styles} /> })}</View>

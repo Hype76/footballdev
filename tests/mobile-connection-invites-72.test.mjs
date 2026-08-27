@@ -39,7 +39,7 @@ test('Coach invites include upcoming Training availability and canonical request
   assert.match(screenSource, /Choose an upcoming Match or Training session to see its availability/)
   assert.match(screenSource, /Training \| \{group\.occurrenceDate/)
   assert.match(screenSource, /Existing request identity is reused/)
-  assert.match(screenSource, /Players who already responded are excluded and cannot be resent/)
+  assert.match(screenSource, /Players who already have a request or response are excluded and cannot be resent/)
 })
 
 test('all user-facing goal controls use UK Penalty wording', async () => {
