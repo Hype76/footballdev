@@ -64,6 +64,7 @@ import {
   getBuildClassification,
   getParentCalendarDirectionsUrl,
   getParentFriendlyError,
+  getParentHomeFixtureCards,
   getParentHomeModel,
   getPollDraftOption,
   isParentDefinitelyOffline,
@@ -2137,6 +2138,7 @@ function getNotificationTypeIcon(intentType) {
 function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
   const unreadNotifications = prepareParentNotificationInbox(notifications.items.filter((notification) => !notification.isRead))
+  const homeFixtures = getParentHomeFixtureCards(homeModel)
   if (!link?.id) {
     return (
       <EmptyPanel
@@ -2237,10 +2239,10 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
         />
       </View>
 
-      {homeModel.upcomingMatches.length > 1 ? (
+      {homeFixtures.length > 0 ? (
         <View style={styles.sectionStack}>
           <SectionHeading copy="Upcoming Parent-visible Matchday items." title="Fixtures" />
-          {homeModel.upcomingMatches.slice(1, 4).map((match) => (
+          {homeFixtures.map((match) => (
             <MatchPreviewCard key={match.id} match={match} onPress={onOpenMatch} />
           ))}
         </View>

@@ -12,6 +12,7 @@ import {
   canSubmitParentPoll,
   getBuildClassification,
   getParentFriendlyError,
+  getParentHomeFixtureCards,
   getParentHomeModel,
   getParentMatchGroups,
   getPollDraftOption,
@@ -142,6 +143,46 @@ test('Home model remains child-scoped and distinguishes upcoming, recent, unread
   assert.equal(model.nextActivity.item.id, 'future')
   assert.equal(model.unreadMessages, 1)
   assert.equal(model.unansweredPolls, 1)
+})
+
+test('Parent Home keeps the next Match in Fixtures when a Calendar item is Next up and orders fixtures chronologically', () => {
+  const home = getParentHomeModel({
+    calendarEvents: [{ id: 'training', startsAt: '2026-08-28T17:00:00Z', status: 'scheduled' }],
+    matches: [
+      { id: 'dk', kickoffTime: '10:00', matchDate: '2026-09-12', status: 'scheduled' },
+      { id: 'haverhill', kickoffTime: '09:15', matchDate: '2026-08-29', status: 'scheduled' },
+      { id: 'st-neots', kickoffTime: '11:45', matchDate: '2026-09-05', status: 'scheduled' },
+    ],
+    messages: [],
+    now: new Date('2026-08-27T16:30:00Z'),
+    polls: [],
+  })
+
+  assert.equal(home.nextActivity.type, 'calendar')
+  assert.deepEqual(
+    getParentHomeFixtureCards(home).map((match) => match.id),
+    ['haverhill', 'st-neots', 'dk'],
+  )
+})
+
+test('Parent Home removes only a Match already shown as Next up from the chronological Fixtures list', () => {
+  const home = getParentHomeModel({
+    calendarEvents: [],
+    matches: [
+      { id: 'st-neots', kickoffTime: '11:45', matchDate: '2026-09-05', status: 'scheduled' },
+      { id: 'haverhill', kickoffTime: '09:15', matchDate: '2026-08-29', status: 'scheduled' },
+      { id: 'dk', kickoffTime: '10:00', matchDate: '2026-09-12', status: 'scheduled' },
+    ],
+    messages: [],
+    now: new Date('2026-08-27T16:30:00Z'),
+    polls: [],
+  })
+
+  assert.equal(home.nextActivity.item.id, 'haverhill')
+  assert.deepEqual(
+    getParentHomeFixtureCards(home).map((match) => match.id),
+    ['st-neots', 'dk'],
+  )
 })
 
 test('Matchday, calendar, message and poll reads use existing Parent-authorised RPCs', () => {

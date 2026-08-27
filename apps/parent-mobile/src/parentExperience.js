@@ -278,6 +278,22 @@ export function getParentHomeModel({ calendarEvents, matches, messages, now = ne
   }
 }
 
+export function getParentHomeFixtureCards(homeModel = {}, limit = 3) {
+  const nextMatch = homeModel?.nextActivity?.type === 'match'
+    ? homeModel.nextActivity.item
+    : null
+  const nextMatchId = normalizeText(nextMatch?.id)
+  const fixtureLimit = Math.max(0, Number(limit) || 0)
+
+  return [...(Array.isArray(homeModel?.upcomingMatches) ? homeModel.upcomingMatches : [])]
+    .sort((left, right) => getMatchTimestamp(left) - getMatchTimestamp(right))
+    .filter((match) => !nextMatch || !(
+      match === nextMatch
+      || (nextMatchId && normalizeText(match?.id) === nextMatchId)
+    ))
+    .slice(0, fixtureLimit)
+}
+
 export function isParentPollActive(poll = {}, now = new Date()) {
   if (normalizeText(poll.status).toLowerCase() !== 'open' || poll.isExpired === true) return false
   const closesAt = toTimestamp(poll.closesAt)
