@@ -8,10 +8,14 @@ const migrationUrl = new URL(
   import.meta.url,
 )
 const truthMigrationUrl = new URL(
-  '../supabase/migrations/20260827144500_event_delivery_pre_provider_truth.sql',
+  '../supabase/migrations/20260827134912_team_notification_display_name.sql',
   import.meta.url,
 )
-const migrationSql = `${await readFile(migrationUrl, 'utf8')}\n${await readFile(truthMigrationUrl, 'utf8')}`
+const truthMigrationSql = await readFile(truthMigrationUrl, 'utf8')
+const deliveryTruthSql = truthMigrationSql.slice(
+  truthMigrationSql.indexOf('create or replace function public.get_event_response_delivery_evidence'),
+)
+const migrationSql = `${await readFile(migrationUrl, 'utf8')}\n${deliveryTruthSql}`
 
 const CLUB_ID = '10000000-0000-4000-8000-000000000001'
 const TEAM_ID = '10000000-0000-4000-8000-000000000002'
