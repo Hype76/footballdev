@@ -11,7 +11,7 @@ test('Coach invite reads match the live Calendar schema and use an explicit even
   assert.doesNotMatch(invites, /calendar_events:calendar_event_id\(title,team_id,cancelled_at,deleted_at\)/)
   assert.doesNotMatch(invites, /training_availability_requests:request_id\(\*,calendar_events:/)
   assert.match(invites, /training_availability_requests:request_id\(\*\)/)
-  assert.match(invites, /from\('calendar_events'\)\.select\('id,title,team_id,cancelled_at'\)/)
+  assert.match(invites, /from\('calendar_events'\)\.select\('id,title,team_id,cancelled_at,recurrence_frequency'\)/)
   assert.match(invites, /new Map\(\(trainingEventResult\.data \|\| \[\]\)/)
   assert.match(invites, /trainingEvents\.get\(normalize\(request\?\.calendar_event_id\)\)/)
 })
