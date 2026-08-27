@@ -2510,12 +2510,6 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'The player could not be accepted on their behalf.')
-      showToast({
-        title: 'Player not accepted',
-        message: error.message || 'The player could not be accepted on their behalf.',
-        tone: 'error',
-      })
       throw error
     } finally {
       setIsSaving(false)
@@ -2582,12 +2576,6 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'The player could not be marked unavailable.')
-      showToast({
-        title: 'Availability not updated',
-        message: error.message || 'The player could not be marked unavailable.',
-        tone: 'error',
-      })
       throw error
     } finally {
       setIsSaving(false)

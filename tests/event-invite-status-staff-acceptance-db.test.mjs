@@ -11,6 +11,10 @@ const responsePolishMigrationUrl = new URL(
   '../supabase/migrations/20260730151849_calendar_response_polish_10a.sql',
   import.meta.url,
 )
+const repairMigrationUrl = new URL(
+  '../supabase/migrations/20260827131500_match_invite_staff_response_authority.sql',
+  import.meta.url,
+)
 
 const IDS = {
   audit: '00000000-0000-0000-0000-000000000001',
@@ -39,9 +43,10 @@ async function setActor(db, actorId) {
 
 async function createDatabase() {
   const db = new PGlite()
-  const [migration, responsePolishMigration] = await Promise.all([
+  const [migration, responsePolishMigration, repairMigration] = await Promise.all([
     readFile(migrationUrl, 'utf8'),
     readFile(responsePolishMigrationUrl, 'utf8'),
+    readFile(repairMigrationUrl, 'utf8'),
   ])
   const unavailableFunction = responsePolishMigration.match(
     /create or replace function public\.mark_event_player_unavailable_on_behalf[\s\S]*?comment on function public\.mark_event_player_unavailable_on_behalf\(text, uuid, uuid, date\) is[\s\S]*?;/,
@@ -186,6 +191,18 @@ async function createDatabase() {
       unique (match_day_id, player_id)
     );
 
+    create table public.match_day_availability_requests (
+      id uuid primary key default gen_random_uuid(),
+      match_day_id uuid not null,
+      club_id uuid not null,
+      team_id uuid not null,
+      player_id uuid not null,
+      status text,
+      sent_at timestamptz,
+      expires_at timestamptz,
+      token_revoked_at timestamptz
+    );
+
     create table public.match_day_player_availability_history (
       id uuid primary key default gen_random_uuid(),
       match_day_id uuid not null,
@@ -283,6 +300,7 @@ async function createDatabase() {
 
   await db.exec(migration)
   await db.exec(unavailableFunction)
+  await db.exec(repairMigration)
 
   await db.exec(`
     insert into public.users (id, status, role, role_rank, name, username, email, role_label, club_id)
@@ -307,8 +325,13 @@ async function createDatabase() {
       ('${IDS.match}', '${IDS.club}', '${IDS.team}', 'scheduled'),
       ('${IDS.closedMatch}', '${IDS.club}', '${IDS.team}', 'full_time');
 
-    insert into public.calendar_event_invites (club_id, team_id, match_day_id, player_id, invite_status)
-    values ('${IDS.club}', '${IDS.team}', '${IDS.match}', '${IDS.player}', 'active');
+    insert into public.match_day_availability_requests (
+      match_day_id, club_id, team_id, player_id, status, sent_at, expires_at
+    )
+    values (
+      '${IDS.match}', '${IDS.club}', '${IDS.team}', '${IDS.player}', 'pending',
+      timezone('utc', now()), '2099-01-02 23:59:59+00'
+    );
 
     insert into public.match_day_player_squad_decisions (match_day_id, player_id, status)
     values ('${IDS.match}', '${IDS.player}', 'selected');
@@ -461,7 +484,7 @@ test('parent, cross-team staff, uninvited players, and closed events are denied'
       `select public.accept_event_player_availability_on_behalf('match', $1, $2, null)`,
       [IDS.match, IDS.uninvitedPlayer],
     ),
-    /not actively invited/,
+    /active Match Day availability invitation/,
   )
   await assert.rejects(
     db.query(
@@ -483,6 +506,41 @@ test('parent, cross-team staff, uninvited players, and closed events are denied'
     training_responses: 0,
   })
 
+  await db.close()
+})
+
+test('revoked Match Day request cannot be used for either staff response action', async () => {
+  const db = await createDatabase()
+  await setActor(db, IDS.manager)
+  await db.exec(`
+    update public.match_day_availability_requests
+    set token_revoked_at = timezone('utc', now())
+    where match_day_id = '${IDS.match}'
+      and player_id = '${IDS.player}'
+  `)
+
+  await assert.rejects(
+    db.query(
+      `select public.accept_event_player_availability_on_behalf('match', $1, $2, null)`,
+      [IDS.match, IDS.player],
+    ),
+    /active Match Day availability invitation/,
+  )
+  await assert.rejects(
+    db.query(
+      `select public.mark_event_player_unavailable_on_behalf('match', $1, $2, null)`,
+      [IDS.match, IDS.player],
+    ),
+    /active Match Day availability invitation/,
+  )
+
+  const evidence = await db.query(`
+    select
+      (select count(*)::int from public.match_day_player_availability) response_rows,
+      (select count(*)::int from public.match_day_player_availability_history) history_rows,
+      (select count(*)::int from public.audit_logs) audit_rows
+  `)
+  assert.deepEqual(evidence.rows[0], { audit_rows: 0, history_rows: 0, response_rows: 0 })
   await db.close()
 })
 

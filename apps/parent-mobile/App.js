@@ -36,6 +36,7 @@ import {
 } from '../mobile-core/src/appBadge'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
+import { getMobileChatMessagesFingerprint } from '../mobile-core/src/mobileChatCore'
 import { MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsCore'
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
@@ -91,6 +92,7 @@ import {
   sendParentScorerMatchDayPush,
   sendParentChatMessage,
   setParentChatRoomNotifications,
+  subscribeToParentChatRoom,
   setParentScorerExtendedState,
   setParentScorerTimer,
   startParentScorerMatch,
@@ -305,6 +307,7 @@ function ParentHome() {
   const notificationResponseHistoryRef = useRef(new Set())
   const notificationResponseProcessingRef = useRef('')
   const reloadSelectedChatRoomRef = useRef(() => Promise.resolve())
+  const chatMessagesRef = useRef(chatMessages)
   const latestBadgeCountRef = useRef(0)
   const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
   const selectedLink = useMemo(
@@ -370,6 +373,7 @@ function ParentHome() {
     [resources.chatRooms.items, visibleMessages],
   )
   const selectedRoom = parentChatRooms.find((room) => room.id === selectedRoomId) || null
+  chatMessagesRef.current = chatMessages
   const themeModel = useMemo(
     () => createParentMobileTheme({ mode: displayTheme, selectedLink }),
     [displayTheme, selectedLink],
@@ -1347,10 +1351,48 @@ function ParentHome() {
       return
     }
     const items = await getParentChatMessages(selectedMobileUser, selectedRoomId)
+    const changed = getMobileChatMessagesFingerprint(items) !== getMobileChatMessagesFingerprint(chatMessagesRef.current.items)
     setChatMessages({ error: '', items, loading: false })
+    chatMessagesRef.current = { error: '', items, loading: false }
     cacheChatRoomMessages(selectedRoomId, items)
+    if (changed) {
+      await markParentChatRoomRead(selectedMobileUser, selectedRoomId)
+      const latestMessage = items[items.length - 1]
+      setResources((current) => ({
+        ...current,
+        chatRooms: {
+          ...current.chatRooms,
+          items: current.chatRooms.items.map((room) => room.id === selectedRoomId
+            ? {
+                ...room,
+                latestMessage: latestMessage?.deletedAt ? 'Message deleted' : latestMessage?.body || room.latestMessage,
+                latestMessageAt: latestMessage?.createdAt || room.latestMessageAt,
+                unreadCount: 0,
+              }
+            : room),
+        },
+      }))
+    }
   }
   reloadSelectedChatRoomRef.current = reloadSelectedChatRoom
+
+  useEffect(() => {
+    if (activeTab !== 'chat' || !selectedRoomId || selectedRoomId === 'club-announcements' || isOffline || !selectedLink?.id) return undefined
+    const refreshOpenRoom = () => {
+      if (AppState.currentState !== 'active') return
+      void reloadSelectedChatRoomRef.current().catch(() => {})
+    }
+    const unsubscribe = subscribeToParentChatRoom(selectedMobileUser, selectedRoomId, { onChange: refreshOpenRoom })
+    const interval = setInterval(refreshOpenRoom, 15000)
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') refreshOpenRoom()
+    })
+    return () => {
+      clearInterval(interval)
+      appStateSubscription.remove()
+      unsubscribe()
+    }
+  }, [activeTab, isOffline, selectedLink?.id, selectedMobileUser, selectedRoomId])
 
   function cacheChatRoomMessages(roomId, items) {
     const roomMessages = items.map((message) => ({ ...message, roomId }))

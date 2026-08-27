@@ -9,7 +9,7 @@ import {
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const actionDomainUrl = new URL('../src/lib/domain/event-availability-staff-actions.js', import.meta.url)
 const migrationUrl = new URL(
-  '../supabase/migrations/20260728150556_event_invite_status_staff_acceptance.sql',
+  '../supabase/migrations/20260827131500_match_invite_staff_response_authority.sql',
   import.meta.url,
 )
 
@@ -94,6 +94,20 @@ test('staff acceptance client sends only the scoped server command and clears st
   assert.doesNotMatch(source, /\.from\('training_availability_responses'\)/)
 })
 
+test('staff response failures remain inside the active confirmation modal', async () => {
+  const source = await readFile(sessionsPageUrl, 'utf8')
+  const acceptStart = source.indexOf('const handleAcceptEventAvailabilityOnBehalf')
+  const unavailableStart = source.indexOf('const handleMarkEventUnavailableOnBehalf')
+  const nextHandlerStart = source.indexOf('const handleSelectEventPlayerForSquad')
+  const acceptCatch = source.slice(source.indexOf('} catch (error) {', acceptStart), unavailableStart)
+  const unavailableCatch = source.slice(source.indexOf('} catch (error) {', unavailableStart), nextHandlerStart)
+
+  assert.match(acceptCatch, /throw error/)
+  assert.match(unavailableCatch, /throw error/)
+  assert.doesNotMatch(acceptCatch, /setErrorMessage|showToast/)
+  assert.doesNotMatch(unavailableCatch, /setErrorMessage|showToast/)
+})
+
 test('staff acceptance migration keeps authority, idempotency, and audit attribution server side', async () => {
   const migration = await readFile(migrationUrl, 'utf8')
 
@@ -104,7 +118,11 @@ test('staff acceptance migration keeps authority, idempotency, and audit attribu
   assert.match(migration, /public\.current_user_can_access_team\(calendar_event_row\.club_id, calendar_event_row\.team_id\)/)
   assert.match(migration, /player\.club_id = match_row\.club_id[\s\S]*player\.team_id = match_row\.team_id/)
   assert.match(migration, /player\.club_id = calendar_event_row\.club_id[\s\S]*player\.team_id = calendar_event_row\.team_id/)
-  assert.match(migration, /invite\.invite_status <> 'cancelled'/)
+  assert.match(migration, /from public\.match_day_availability_requests request/)
+  assert.match(migration, /request\.sent_at is not null/)
+  assert.match(migration, /request\.expires_at >= response_time/)
+  assert.match(migration, /request\.token_revoked_at is null/)
+  assert.doesNotMatch(migration, /from public\.calendar_event_invites invite/)
   assert.match(migration, /previous_status = 'available'[\s\S]*'changed', false/)
   assert.match(migration, /on conflict \(match_day_id, player_id\)/)
   assert.match(migration, /on conflict \(request_id, player_id\)/)

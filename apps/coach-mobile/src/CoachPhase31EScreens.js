@@ -24,8 +24,11 @@ import {
   sendCoachChatMessage,
   setCoachResourceSharing,
   setCoachPollStatus,
+  setCoachInviteAvailabilityOnBehalf,
+  subscribeToCoachChatRoom,
   submitCoachPollVote,
 } from '../../mobile-core/src/coachPhase31EData'
+import { getMobileChatMessagesFingerprint } from '../../mobile-core/src/mobileChatCore'
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
   buildCoachChatRoomSections,
@@ -430,13 +433,19 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
   const [markingAllRead, setMarkingAllRead] = useState(false)
   const [expandedEmptySections, setExpandedEmptySections] = useState({})
   const messageListRef = useRef(null)
+  const activeRoomIdRef = useRef('')
+  const messagesRef = useRef([])
+  const roomRefreshRef = useRef(false)
   const activeRoomId = rooms.some((item) => item.id === roomId) ? roomId : ''
   const room = rooms.find((item) => item.id === activeRoomId)
+  activeRoomIdRef.current = activeRoomId
+  messagesRef.current = messages
   const unreadRooms = rooms.filter((item) => Number(item.unreadCount || 0) > 0)
   const open = useCallback(async (nextRoom) => {
     setMessages([])
     setBody('')
     setRoomId(nextRoom.id)
+    activeRoomIdRef.current = nextRoom.id
     setNotice('Loading current room history...')
     try {
       const next = await getCoachChatMessages(user, nextRoom)
@@ -464,6 +473,38 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
     })
     return () => { cancelled = true }
   }, [chatNotificationTarget, onChatNotificationTargetHandled, open, rooms, setNotice, user.activeCoachContextId])
+  useEffect(() => {
+    if (!room?.id) return undefined
+    let disposed = false
+    const refreshOpenRoom = async () => {
+      if (disposed || roomRefreshRef.current || AppState.currentState !== 'active') return
+      roomRefreshRef.current = true
+      try {
+        const next = await getCoachChatMessages(user, room)
+        if (disposed || activeRoomIdRef.current !== room.id) return
+        if (getMobileChatMessagesFingerprint(next) === getMobileChatMessagesFingerprint(messagesRef.current)) return
+        setMessages(next)
+        messagesRef.current = next
+        await markCoachChatRead(user, room)
+        await Promise.all([load({ silent: true }), reloadHome({ refresh: true })])
+      } catch {
+        // The secured fallback refresh will try again without disrupting the open composer.
+      } finally {
+        roomRefreshRef.current = false
+      }
+    }
+    const unsubscribe = subscribeToCoachChatRoom(user, room, { onChange: refreshOpenRoom })
+    const interval = setInterval(() => void refreshOpenRoom(), 15000)
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') void refreshOpenRoom()
+    })
+    return () => {
+      disposed = true
+      clearInterval(interval)
+      appStateSubscription.remove()
+      unsubscribe()
+    }
+  }, [load, reloadHome, room, user])
   const send = async () => {
     setSending(true)
     try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice('') } catch (error) { setNotice(getCoachFriendlyError(error)) }
@@ -527,11 +568,11 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
   }
   const display = getCoachChatRoomDisplay(room)
   return (
-    <Modal animationType="slide" onRequestClose={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} visible>
+    <Modal animationType="slide" onRequestClose={() => { activeRoomIdRef.current = ''; setRoomId(''); setMessages([]); setBody(''); setNotice('') }} visible>
       <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.chatModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.chatModal}>
           <View style={[styles.chatModalHeader, { paddingTop: chatModalTopInset + 14 }]}>
-            <Button label="Back to conversations" onPress={() => { setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} />
+            <Button label="Back to conversations" onPress={() => { activeRoomIdRef.current = ''; setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} />
             <Text accessibilityRole="header" style={styles.heading}>{display.title}</Text>
             {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
             {notice ? <Text accessibilityLiveRegion="assertive" style={styles.danger}>{notice}</Text> : null}
@@ -753,6 +794,9 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
   const activeInvites = matchId ? selectedMatchInvites : selectedTrainingInvites
   const selectedInvites = getSelectedCoachInvites(activeInvites, selectedPlayerIds)
+  const selectedAvailabilityInvite = selectedInvites.length === 1 && ['match', 'training'].includes(selectedInvites[0]?.kind)
+    ? selectedInvites[0]
+    : null
   const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
   const selectedCanBeResent = canResendSelectedCoachInvites(selectedInvites)
   const selectionDisabled = stale || Boolean(bulkAction)
@@ -876,6 +920,49 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
     { text: 'Cancel', style: 'cancel' },
     { text: 'Create requests', onPress: () => void createRequests() },
   ])
+  const recordAvailabilityOnBehalf = async (availabilityStatus) => {
+    const invite = selectedAvailabilityInvite
+    if (!invite || bulkAction) return
+    setBulkAction(availabilityStatus)
+    try {
+      const result = await setCoachInviteAvailabilityOnBehalf(user, invite, availabilityStatus)
+      setSelectedPlayerIds([])
+      await refreshAfterBulkAction()
+      const label = availabilityStatus === 'available' ? 'Available' : 'Unavailable'
+      setNotice(result.changed
+        ? `${invite.playerName} is now ${label}. This was recorded as you acting on behalf. Squad selection is unchanged.`
+        : `${invite.playerName} is already ${label}. Squad selection is unchanged.`)
+    } catch (error) {
+      setNotice(getCoachFriendlyError(error, 'The Player availability response could not be recorded.'))
+    } finally {
+      setBulkAction('')
+    }
+  }
+  const confirmAvailabilityOnBehalf = (availabilityStatus) => {
+    const invite = selectedAvailabilityInvite
+    if (!invite) return
+    const available = availabilityStatus === 'available'
+    Alert.alert(
+      available ? 'Accept on behalf of player?' : 'Mark player unavailable?',
+      `This records ${available ? 'Available' : 'Unavailable'} by you as authorised Team staff. It does not sign in as or impersonate the Parent or Player. Squad selection is unchanged.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: available ? 'Accept on behalf' : 'Mark unavailable', style: available ? 'default' : 'destructive', onPress: () => void recordAvailabilityOnBehalf(availabilityStatus) },
+      ],
+    )
+  }
+  const renderSelectedInviteActions = () => selectedInvites.length ? (
+    <View style={styles.stack}>
+      <Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text>
+      {selectedAvailabilityInvite ? <View style={styles.row}>
+        <Button disabled={selectionDisabled || selectedAvailabilityInvite.status === 'available' || Number(user.roleRank || 0) < 20} label={bulkAction === 'available' ? 'Recording Available...' : 'Accept on behalf of player'} onPress={() => confirmAvailabilityOnBehalf('available')} styles={styles} />
+        <Button destructive disabled={selectionDisabled || selectedAvailabilityInvite.status === 'unavailable' || Number(user.roleRank || 0) < 20} label={bulkAction === 'unavailable' ? 'Recording Unavailable...' : 'Mark unavailable'} onPress={() => confirmAvailabilityOnBehalf('unavailable')} styles={styles} />
+      </View> : <Text style={styles.body}>Select one Player to record availability on their behalf.</Text>}
+      <Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} />
+      <Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={openRemovalConfirmation} styles={styles} />
+      {!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}
+    </View>
+  ) : null
   return (
     <View style={styles.stack}>
       <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text>
@@ -899,7 +986,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
                   <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
                 </Pressable>
               })}
-              {selectedInvites.length ? <View style={styles.stack}><Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text><Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} /><Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={openRemovalConfirmation} styles={styles} />{!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}</View> : null}
+              {renderSelectedInviteActions()}
               <Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />
             </> : null}
           </View>
@@ -925,7 +1012,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
                   <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
                 </Pressable>
               }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
-              {selectedInvites.length ? <View style={styles.stack}><Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text><Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} /><Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={openRemovalConfirmation} styles={styles} />{!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}</View> : null}
+              {renderSelectedInviteActions()}
               {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Send to ${availablePlayers.length} Players without an active request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every active Player already has an availability request for this fixture.</Text>}
               {requestPanelOpen ? <View style={styles.stack}>
                 <Text style={styles.heading}>Create availability requests</Text>

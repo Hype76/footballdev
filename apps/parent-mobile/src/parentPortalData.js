@@ -7,6 +7,7 @@ import { normalizeMatchDay } from '../../mobile-core/src/data'
 import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
 import { getSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { getAccessToken, supabase } from '../../mobile-core/src/supabase'
+import { subscribeToMobileChatRoom } from '../../mobile-core/src/chatRealtime'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -567,6 +568,16 @@ export async function getParentChatMessages(user, roomId, childOnly = true) {
     if (!isTransientChatError(error)) break
   }
   throw lastError
+}
+
+export function subscribeToParentChatRoom(user, roomId, options = {}) {
+  requireSelectedLink(user)
+  return subscribeToMobileChatRoom({
+    kind: 'parent',
+    onChange: options.onChange,
+    onStatusChange: options.onStatusChange,
+    roomId,
+  })
 }
 
 export async function getParentChatHistory(user, childOnly = true) {

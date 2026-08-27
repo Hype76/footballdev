@@ -11,6 +11,7 @@ import {
 } from './coachOperationalData'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getAccessToken, supabase } from './supabase'
+import { subscribeToMobileChatRoom } from './chatRealtime'
 import { getCoachMatchDayList } from './coachMatchDayData'
 import { getCoachPlayerList } from './coachPlayersData'
 import {
@@ -419,6 +420,18 @@ export async function getCoachChatMessages(user, room) {
   return (data || []).map(normalizeCoachChatMessage)
 }
 
+export function subscribeToCoachChatRoom(user, room, options = {}) {
+  assertCoachOperationalRead(user, { requiresTeam: true })
+  assertTeamEntity(user, room, 'Chat')
+  assertParentChatTeam(user, room)
+  return subscribeToMobileChatRoom({
+    kind: room.kind === 'staff' ? 'staff' : 'parent',
+    onChange: options.onChange,
+    onStatusChange: options.onStatusChange,
+    roomId: room.id,
+  })
+}
+
 export async function sendCoachChatMessage(user, room, body) {
   assertCanonicalMutation(user, { requiresTeam: true })
   assertTeamEntity(user, room, 'Chat')
@@ -535,14 +548,15 @@ export async function submitCoachPollVote(user, poll, optionId) {
 
 export async function getCoachInvitesAndAvailability(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [calendarResult, trainingResult, matchResult, matches, players] = await Promise.all([
+  const [calendarResult, trainingResult, matchResult, matchAvailabilityResult, matches, players] = await Promise.all([
     supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*),training_availability_responses(*)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('match_day_availability_requests').select('*,match_days:match_day_id(opponent,team_id,status,deleted_at,match_date)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
+    supabase.from('match_day_player_availability').select('match_day_id,player_id,status,selected_at,updated_at').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).limit(250),
     getCoachMatchDayList(user),
     getCoachPlayerList(user),
   ])
-  const hardError = calendarResult.error || trainingResult.error || matchResult.error
+  const hardError = calendarResult.error || trainingResult.error || matchResult.error || matchAvailabilityResult.error
   if (hardError) throw hardError
   const trainingRows = trainingResult.data || []
   const trainingEventIds = [...new Set(trainingRows.map((row) => {
@@ -561,11 +575,51 @@ export async function getCoachInvitesAndAvailability(user) {
     const response = Array.isArray(row.training_availability_responses) ? row.training_availability_responses[0] : row.training_availability_responses
     return normalizeCoachInvite({ ...row, ...response, calendar_event_id: request?.calendar_event_id, occurrence_date: request?.occurrence_date, occurrence_starts_at: request?.occurrence_starts_at, title: event?.title, cancelled_at: event?.cancelled_at }, 'training')
   })
+  const matchAvailabilityByPlayer = new Map((matchAvailabilityResult.data || []).map((row) => [
+    `${normalize(row.match_day_id)}:${normalize(row.player_id)}`,
+    row,
+  ]))
   const match = (matchResult.data || []).map((row) => {
     const fixture = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days
-    return normalizeCoachInvite({ ...row, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
+    const response = matchAvailabilityByPlayer.get(`${normalize(row.match_day_id)}:${normalize(row.player_id)}`)
+    return normalizeCoachInvite({ ...row, availability_status: response?.status, responded_at: response?.selected_at || row.responded_at, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
   })
   return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(training), match: Object.freeze(match), matches: Object.freeze(matches), players: Object.freeze(players), all: Object.freeze([...match, ...training, ...calendar]) })
+}
+
+export async function setCoachInviteAvailabilityOnBehalf(user, invite, availabilityStatus) {
+  assertCanonicalMutation(user, { minimumRank: 20, requiresTeam: true })
+  assertTeamEntity(user, invite, 'Invitation')
+  if (invite?.stale || invite?.cancelled) throw new Error('This Invitation target is stale or cancelled.')
+  if (!['match', 'training'].includes(invite?.kind)) throw new Error('Choose a Match Day or Training availability invitation.')
+  const normalizedStatus = normalize(availabilityStatus).toLowerCase()
+  if (!['available', 'unavailable'].includes(normalizedStatus)) throw new Error('Choose Available or Unavailable.')
+  if (!normalize(invite?.eventId) || !normalize(invite?.playerId)) throw new Error('Choose an active event and Player.')
+  if (invite.kind === 'training' && !/^\d{4}-\d{2}-\d{2}$/.test(normalize(invite?.occurrenceDate))) {
+    throw new Error('Choose the Training session date before recording availability.')
+  }
+
+  const result = await rpc(
+    normalizedStatus === 'available'
+      ? 'accept_event_player_availability_on_behalf'
+      : 'mark_event_player_unavailable_on_behalf',
+    {
+      event_id_value: invite.eventId,
+      event_type_value: invite.kind,
+      occurrence_date_value: invite.kind === 'training' ? invite.occurrenceDate : null,
+      player_id_value: invite.playerId,
+    },
+  )
+  return Object.freeze({
+    changed: result?.changed === true,
+    eventId: normalize(result?.eventId),
+    eventType: normalize(result?.eventType),
+    playerId: normalize(result?.playerId),
+    previousStatus: normalize(result?.previousStatus),
+    respondedAt: normalize(result?.respondedAt),
+    responseStatus: normalize(result?.responseStatus) || normalizedStatus,
+    source: normalize(result?.source) || 'staff_on_behalf',
+  })
 }
 
 export async function createCoachMatchAvailabilityRequests(user, match, playerIds = []) {
