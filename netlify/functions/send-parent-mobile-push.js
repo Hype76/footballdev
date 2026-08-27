@@ -77,7 +77,7 @@ async function getStaffProfile(authUser) {
 async function getMessagePayload({ id, profile }) {
   const { data: log, error } = await supabaseAdmin
     .from('communication_logs')
-    .select('id, club_id, player_id, evaluation_id, user_name, metadata, created_at')
+    .select('id, club_id, player_id, evaluation_id, user_id, user_name, metadata, created_at')
     .eq('id', id)
     .eq('club_id', profile.clubId)
     .eq('channel', 'email')
@@ -91,25 +91,63 @@ async function getMessagePayload({ id, profile }) {
   const metadata = log.metadata && typeof log.metadata === 'object' ? log.metadata : {}
   const messageBody = normalizeText(metadata.body)
   const reportId = normalizeText(log.evaluation_id || metadata.evaluationId || metadata.evaluation_id || metadata.reportId || metadata.report_id)
-  if (!messageBody && !reportId) {
+  const calendarEventId = normalizeText(metadata.calendarEventId || metadata.calendar_event_id)
+  const matchDayId = normalizeText(metadata.matchDayId || metadata.match_day_id)
+  const isClubStaffAnnouncement = normalizeText(metadata.source).toLowerCase() === 'club_announcement'
+    && normalizeText(metadata.authorType).toLowerCase() === 'club_staff'
+    && Boolean(messageBody)
+  if (!isClubStaffAnnouncement && !reportId && !calendarEventId && !matchDayId) {
     throw Object.assign(new Error('This email record has no in-app destination.'), { statusCode: 422 })
+  }
+
+  if (isClubStaffAnnouncement) {
+    const { data: author, error: authorError } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('id', log.user_id)
+      .eq('club_id', log.club_id)
+      .eq('status', 'active')
+      .gte('role_rank', 20)
+      .maybeSingle()
+
+    if (authorError || !author) {
+      throw Object.assign(new Error('This Club announcement does not have an active staff author.'), { statusCode: 403 })
+    }
+  }
+
+  const data = isClubStaffAnnouncement ? {
+    app: 'parent',
+    communicationLogId: log.id,
+    roomId: 'club-announcements',
+    route: 'chat',
+    type: 'parent_message',
+  } : reportId ? {
+    app: 'parent',
+    reportId,
+    route: 'development',
+    type: 'development_report',
+  } : calendarEventId ? {
+    app: 'parent',
+    calendarEventId,
+    route: 'calendar',
+    type: 'calendar_update',
+  } : {
+    app: 'parent',
+    matchDayId,
+    route: 'matchday',
+    type: 'matchday_update',
   }
 
   return {
     clubId: log.club_id,
-    data: messageBody ? {
-      app: 'parent',
-      communicationLogId: log.id,
-      roomId: 'club-announcements',
-      route: 'chat',
-      type: 'parent_message',
-    } : {
-      app: 'parent',
-      reportId,
-      route: 'development',
-      type: 'development_report',
-    },
-    detailedBody: messageBody ? 'Your club has shared a new announcement.' : 'A Development report is ready to view.',
+    data,
+    detailedBody: isClubStaffAnnouncement
+      ? 'Your club has shared a new announcement.'
+      : reportId
+        ? 'A Development report is ready to view.'
+        : calendarEventId
+          ? 'Calendar information has been updated.'
+          : 'Matchday information has been updated.',
     minimalBody: 'You have a new update in Football Player Parents.',
     parentLinkQuery: (query) => query.eq('player_id', log.player_id),
     teamId: null,

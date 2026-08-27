@@ -549,11 +549,13 @@ export function buildEventResponseReadModel({
         ? normalizeStatus(detail.responseStatus)
         : 'awaiting_response'
       const recipientStatus = normalizeStatus(detail.recipientStatus)
-      const deliveryState = recipientStatus === 'failed' || normalizeText(detail.lastError)
-        ? 'failed'
-        : recipientStatus === 'sent' || recipientStatus === 'responded'
-          ? 'delivered'
-          : 'queued'
+      const deliveryState = detail.emailSentAt || recipientStatus === 'sent' || recipientStatus === 'responded'
+        ? 'delivered'
+        : recipientStatus === 'failed' || normalizeText(detail.lastError)
+          ? 'failed'
+          : recipientStatus === 'cancelled' || recipientStatus === 'expired'
+            ? 'not_sent'
+            : 'queued'
       const responseSource = getAuditSource(auditEvents, playerId)
         || normalizeStatus(detail.responseSource)
         || (detail.parentLinkId ? 'parent' : '')
@@ -570,7 +572,7 @@ export function buildEventResponseReadModel({
         invitationState: 'created',
         notifyRequested: true,
         deliveryState,
-        deliveryError: normalizeText(detail.lastError),
+        deliveryError: deliveryState === 'delivered' ? '' : normalizeText(detail.lastError),
         deliveryUpdatedAt: detail.updatedAt || detail.createdAt || '',
         responseState,
         responseLabel: getResponseLabel(eventType, responseState),

@@ -58,7 +58,7 @@ test('Parent Chat uses newest room activity first and oldest-to-newest conversat
   const rooms = prepareParentChatRooms([
     { id: 'older', latestMessageAt: '2026-08-10T10:00:00Z', title: 'Older room' },
     { id: 'newer', latestMessageAt: '2026-08-13T10:00:00Z', matchDate: '2026-08-20', kickoffTime: '18:30', opponent: 'United', teamName: 'U17', title: 'Match squad' },
-  ], [{ body: 'Club update', createdAt: '2026-08-12T10:00:00Z', id: 'announcement-1', readAt: '', senderName: 'Demo FC' }])
+  ], [{ authorType: 'club_staff', body: 'Club update', createdAt: '2026-08-12T10:00:00Z', id: 'announcement-1', readAt: '', senderName: 'Demo FC', source: 'club_announcement' }])
   assert.deepEqual(rooms.map((room) => room.id), ['newer', 'club-announcements', 'older'])
   assert.equal(rooms.find((room) => room.id === 'club-announcements').canPost, false)
   assert.match(getParentChatRoomContext(rooms[0]), /U17 v United/)
@@ -71,6 +71,7 @@ test('Parent Chat uses newest room activity first and oldest-to-newest conversat
 
 test('Club Announcements keep the useful heading and remove delivery boilerplate', () => {
   const [message] = getParentAnnouncementMessages([{
+    authorType: 'club_staff',
     body: [
       'New event added',
       'What is this event',
@@ -85,6 +86,7 @@ test('Club Announcements keep the useful heading and remove delivery boilerplate
       'View event details (https://parent.footballplayer.online/parent-portal?section=calendar)',
     ].join('\n'),
     id: 'announcement-1',
+    source: 'club_announcement',
     subject: 'New event added',
   }])
 

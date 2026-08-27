@@ -8,6 +8,7 @@ import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
 import { getSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { getAccessToken, supabase } from '../../mobile-core/src/supabase'
 import { subscribeToMobileChatRoom } from '../../mobile-core/src/chatRealtime'
+import { normalizePersonName } from '../../../src/lib/person-name.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -82,7 +83,7 @@ export function normalizeParentInvitation(row = {}) {
     canChangeResponse: normalizeBoolean(row.can_change_response ?? row.canChangeResponse),
     canRespond: normalizeBoolean(row.can_respond ?? row.canRespond),
     childId: row.child_id ?? row.childId ?? '',
-    childName: normalizeText(row.child_name ?? row.childName) || 'Linked child',
+    childName: normalizePersonName(row.child_name ?? row.childName) || 'Linked child',
     eventDate: normalizeText(row.event_date ?? row.eventDate),
     eventEnd: row.event_end ?? row.eventEnd ?? '',
     eventId: row.event_id ?? row.eventId ?? '',
@@ -167,7 +168,7 @@ export function isParentInvitationActionable(invitation = {}) {
 export function normalizeParentChatRoom(row = {}) {
   return {
     canPost: Boolean(row.can_post ?? row.canPost),
-    childNames: Array.isArray(row.child_names ?? row.childNames) ? (row.child_names ?? row.childNames).map(normalizeText).filter(Boolean) : [],
+    childNames: Array.isArray(row.child_names ?? row.childNames) ? (row.child_names ?? row.childNames).map(normalizePersonName).filter(Boolean) : [],
     clubName: normalizeText(row.club_name ?? row.clubName),
     fixtureStatus: normalizeText(row.fixture_status ?? row.fixtureStatus),
     id: row.id ?? '',
@@ -179,7 +180,7 @@ export function normalizeParentChatRoom(row = {}) {
     matchDayId: row.match_day_id ?? row.matchDayId ?? '',
     notificationsMuted: Boolean(row.notifications_muted ?? row.notificationsMuted),
     opponent: normalizeText(row.opponent),
-    playerName: normalizeText(row.player_name ?? row.playerName),
+    playerName: normalizePersonName(row.player_name ?? row.playerName),
     status: normalizeText(row.status) || 'active',
     teamName: normalizeText(row.team_name ?? row.teamName),
     title: normalizeText(row.title) || 'Parent Chat',
@@ -222,7 +223,7 @@ export function normalizeParentResource(row = {}) {
 
 function normalizeParentMatchEvent(row = {}) {
   return {
-    assistName: normalizeText(row.assist_name ?? row.assistName),
+    assistName: normalizePersonName(row.assist_name ?? row.assistName),
     assistShirtNumber: normalizeText(row.assist_shirt_number ?? row.assistShirtNumber),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     createdAt: row.created_at ?? row.createdAt ?? '',
@@ -236,9 +237,9 @@ function normalizeParentMatchEvent(row = {}) {
     minute: row.minute ?? null,
     notes: normalizeText(row.notes),
     phaseOrder: Number(row.phase_order ?? row.phaseOrder ?? 0),
-    playerName: normalizeText(row.player_name ?? row.playerName),
-    playerOnName: normalizeText(row.player_on_name ?? row.playerOnName),
-    scorerName: normalizeText(row.scorer_name ?? row.scorerName),
+    playerName: normalizePersonName(row.player_name ?? row.playerName),
+    playerOnName: normalizePersonName(row.player_on_name ?? row.playerOnName),
+    scorerName: normalizePersonName(row.scorer_name ?? row.scorerName),
     scorerShirtNumber: normalizeText(row.scorer_shirt_number ?? row.scorerShirtNumber),
     stoppageMinute: row.stoppage_minute ?? row.stoppageMinute ?? null,
     teamSide: normalizeText(row.team_side ?? row.teamSide) || 'club',
@@ -253,7 +254,7 @@ function normalizeParentMatchDay(row = {}) {
     clockMode: normalizeText(row.match_clock_mode ?? row.clockMode) || 'fixed',
     conclusionRule: normalizeText(row.match_conclusion_rule ?? row.conclusionRule) || 'normal_time',
     confirmedTeam: Array.isArray(row.selected_player_names ?? row.selectedPlayerNames)
-      ? (row.selected_player_names ?? row.selectedPlayerNames).map(normalizeText).filter(Boolean)
+      ? (row.selected_player_names ?? row.selectedPlayerNames).map(normalizePersonName).filter(Boolean)
       : [],
     currentMatchPhase: normalizeText(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match',
     events: Array.isArray(row.events) ? row.events.map(normalizeParentMatchEvent) : match.events,
@@ -265,7 +266,7 @@ function normalizeParentMatchDay(row = {}) {
           createdAt: kick.created_at ?? kick.createdAt ?? '',
           id: kick.id ?? '',
           outcome: normalizeText(kick.outcome),
-          playerName: normalizeText(kick.player_name ?? kick.playerName),
+          playerName: normalizePersonName(kick.player_name ?? kick.playerName),
           teamSide: normalizeText(kick.team_side ?? kick.teamSide),
           voidedAt: kick.voided_at ?? kick.voidedAt ?? '',
         }))
@@ -313,7 +314,7 @@ export async function getParentPortalMatchDayPlayers(user) {
   if (error) throw error
   return (data || []).map((row) => ({
     id: row.id ?? '',
-    playerName: normalizeText(row.player_name ?? row.playerName),
+    playerName: normalizePersonName(row.player_name ?? row.playerName),
     shirtNumber: normalizeText(row.shirt_number ?? row.shirtNumber),
     status: normalizeText(row.status) || 'active',
   }))

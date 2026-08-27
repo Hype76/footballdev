@@ -95,7 +95,8 @@ test('legacy drafts are removed, submission deletion works, and sign-out cleanup
 })
 
 test('password policy rejects weak values and accepts a strong value', () => {
-  assert.equal(PASSWORD_MIN_LENGTH, 12)
+  assert.equal(PASSWORD_MIN_LENGTH, 8)
+  assert.equal(assertPasswordPolicy('Harb0ur!'), 'Harb0ur!')
   assert.ok(getPasswordPolicyErrors('password123!').length > 0)
   assert.throws(() => assertPasswordPolicy('Football123!'), /commonly used|at least/i)
   assert.equal(assertPasswordPolicy('Harbour-Lantern-27!'), 'Harbour-Lantern-27!')

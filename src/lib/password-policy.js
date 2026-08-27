@@ -1,5 +1,5 @@
-export const PASSWORD_MIN_LENGTH = 12
-export const PASSWORD_POLICY_SUMMARY = 'Use at least 12 characters with uppercase, lowercase, number, and symbol characters.'
+export const PASSWORD_MIN_LENGTH = 8
+export const PASSWORD_POLICY_SUMMARY = 'Use at least 8 characters with uppercase, lowercase, number, and symbol characters.'
 
 const OBVIOUSLY_WEAK_PASSWORDS = new Set([
   '123456789012',

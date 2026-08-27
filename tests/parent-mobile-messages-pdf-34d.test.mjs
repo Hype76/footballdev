@@ -69,7 +69,7 @@ test('Parent app sanitizes messages and exposes only canonical authorised Develo
   assert.match(parentDataSource, /row\.evaluation_id/)
   assert.match(parentDataSource, /metadata\.reportId/)
   assert.match(parentAppSource, /function prepareResourceItems\(name, items\)/)
-  assert.match(parentAppSource, /name === 'messages' \? presentParentMessages\(normalizedItems\)/)
+  assert.match(parentAppSource, /presentParentMessages\(normalizedItems\)\.filter\(isParentStaffAnnouncement\)/)
   assert.match(parentAppSource, /const linkedReport = development\.items\.find/)
   assert.match(parentAppSource, /linkedReport\?\.canDownloadPdf === true/)
   assert.match(parentAppSource, /label="View Development PDF"/)

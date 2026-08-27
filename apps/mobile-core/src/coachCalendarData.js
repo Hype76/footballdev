@@ -18,6 +18,11 @@ import {
   scopeCoachQuery,
 } from './coachOperationalData'
 import { getAccessToken, supabase } from './supabase'
+import {
+  collapseCoachInvitesByPlayer,
+  normalizeCoachInvite,
+  summarizeCoachInvites,
+} from './coachPhase31ECore'
 
 const config = getMobileRuntimeConfig('coach')
 
@@ -30,7 +35,7 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
   const [requestPlayersResult, responsesResult] = await Promise.all([
     supabase
       .from('training_availability_request_players')
-      .select('id, request_id, calendar_event_id, player_id, player_name, status, training_availability_requests(occurrence_date, occurrence_starts_at)')
+      .select('id, request_id, calendar_event_id, player_id, player_name, status, email_sent_at, last_error, training_availability_requests(occurrence_date, occurrence_starts_at)')
       .eq('club_id', user.clubId)
       .in('calendar_event_id', eventIds),
     supabase
@@ -42,7 +47,7 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
   if (requestPlayersResult.error) throw requestPlayersResult.error
   if (responsesResult.error) throw responsesResult.error
   const responses = new Map((responsesResult.data || []).map((row) => [`${row.request_id}:${row.player_id}`, row]))
-  const summaries = {}
+  const invitesByOccurrence = {}
   for (const row of requestPlayersResult.data || []) {
     const eventId = normalize(row.calendar_event_id)
     if (!eventId) continue
@@ -52,23 +57,30 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
     const occurrenceDate = normalizeCoachCalendarFormDate(request?.occurrence_date || request?.occurrence_starts_at)
     const summaryKey = occurrenceDate ? `${eventId}:${occurrenceDate}` : eventId
     const response = responses.get(`${row.request_id}:${row.player_id}`)
-    const state = normalize(response?.status || row.status || 'pending').toLowerCase()
-    if (!summaries[summaryKey]) summaries[summaryKey] = { available: 0, details: [], maybe: 0, pending: 0, unavailable: 0 }
-    const summary = summaries[summaryKey]
-    if (state === 'available') summary.available += 1
-    else if (state === 'unavailable') summary.unavailable += 1
-    else if (state === 'maybe') summary.maybe += 1
-    else summary.pending += 1
-    summary.details.push({
-      note: normalize(response?.note),
-      playerId: normalize(row.player_id),
-      playerName: normalize(row.player_name),
-      respondedAt: normalize(response?.responded_at),
-      respondedByName: normalize(response?.responded_by_name),
-      status: state,
-    })
+    if (!invitesByOccurrence[summaryKey]) invitesByOccurrence[summaryKey] = []
+    invitesByOccurrence[summaryKey].push(normalizeCoachInvite({
+      ...row,
+      ...response,
+      occurrence_date: occurrenceDate,
+    }, 'training'))
   }
-  return summaries
+  return Object.fromEntries(Object.entries(invitesByOccurrence).map(([summaryKey, invites]) => {
+    const collapsed = collapseCoachInvitesByPlayer(invites)
+    const summary = summarizeCoachInvites(collapsed)
+    return [summaryKey, {
+      ...summary,
+      details: collapsed.map((invite) => ({
+        deliveryStatus: invite.deliveryStatus,
+        lastError: invite.lastError,
+        note: invite.note,
+        playerId: invite.playerId,
+        playerName: invite.playerName,
+        respondedAt: invite.respondedAt,
+        respondedByName: invite.respondedByName,
+        status: invite.status,
+      })),
+    }]
+  }))
 }
 
 async function getInvolvedPlayerIdsByEventId(user, eventIds) {

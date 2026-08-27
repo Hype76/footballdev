@@ -2061,7 +2061,7 @@ export async function promotePlayerToSquad({ user, playerId }) {
     .from('players')
     .update({
       section: 'Squad',
-      status: 'promoted',
+      status: 'active',
       promoted_at: promotedAt,
       promoted_by: user.id,
       updated_by: getEntryUserId(user),

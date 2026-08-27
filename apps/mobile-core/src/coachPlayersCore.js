@@ -1,3 +1,5 @@
+import { normalizePersonName } from '../../../src/lib/person-name.js'
+
 export const COACH_PLAYER_SECTIONS = Object.freeze(['Trial', 'Squad'])
 export const COACH_PLAYER_CONTACT_TYPES = Object.freeze(['parent', 'self'])
 
@@ -83,7 +85,7 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
     parentAppContactCount: parentAppInstallation.contactCount,
     parentAppInstallationStatusAvailable: parentAppInstallation.available,
     parentAppInstalledContactCount: parentAppInstallation.installedCount,
-    playerName: normalize(row.player_name ?? row.playerName) || 'Unnamed player',
+    playerName: normalizePersonName(row.player_name ?? row.playerName) || 'Unnamed player',
     positions: (Array.isArray(row.positions) ? row.positions : []).map(normalize).filter(Boolean),
     section: COACH_PLAYER_SECTIONS.includes(normalize(row.section)) ? normalize(row.section) : 'Trial',
     shirtNumber: normalize(row.shirt_number ?? row.shirtNumber),
@@ -153,7 +155,7 @@ export function getCoachPlayerMutationPolicy({ context, player = null } = {}) {
 }
 
 export function buildCoachPlayerPayload({ context, form }) {
-  const playerName = normalizeWords(form?.playerName)
+  const playerName = normalizePersonName(form?.playerName)
   if (!playerName) throw new Error('Add the Player name.')
   const teamId = normalize(context?.teamId || context?.activeTeamId)
   const teamName = normalize(context?.teamName || context?.activeTeamName)

@@ -103,7 +103,7 @@ import {
   voidParentScorerGoal,
   voidParentScorerShootoutKick,
 } from './src/parentPortalData'
-import { getParentAnnouncementMessages, prepareParentChatRooms } from './src/parentPresentationCore'
+import { getParentAnnouncementMessages, isParentStaffAnnouncement, prepareParentChatRooms } from './src/parentPresentationCore'
 import {
   CalendarScreen,
   ChatScreen,
@@ -180,7 +180,9 @@ function createResourceState() {
 
 function prepareResourceItems(name, items) {
   const normalizedItems = Array.isArray(items) ? items : []
-  return name === 'messages' ? presentParentMessages(normalizedItems) : normalizedItems
+  return name === 'messages'
+    ? presentParentMessages(normalizedItems).filter(isParentStaffAnnouncement)
+    : normalizedItems
 }
 
 function getCalendarResourceOccurrenceKey(eventId, dateValue) {

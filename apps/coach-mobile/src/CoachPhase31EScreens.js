@@ -34,6 +34,7 @@ import {
   buildCoachChatRoomSections,
   canResendSelectedCoachInvites,
   collapseCoachInvitesByPlayer,
+  getCoachInviteDeliveryLabel,
   getCoachInviteStatusLabel,
   getCoachChatModalTopInset,
   getCoachPlayersWithoutAvailabilityRequest,
@@ -122,6 +123,7 @@ function phaseStyles(palette) {
     availabilityUnavailable: { color: palette.danger },
     availabilityMaybe: { color: palette.warning },
     availabilityAwaiting: { color: palette.textMuted },
+    availabilityDelivery: { color: palette.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'right' },
     label: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
     status: { color: palette.accent, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
     input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 16, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
@@ -974,16 +976,16 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
           <View key={group.key} style={[styles.panel, expanded && styles.panelSelected]}>
             <Pressable accessibilityRole="button" onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
               <Text style={styles.heading}>{group.title || 'Training'}</Text>
-              <Text style={styles.body}>Training | {group.occurrenceDate || 'Date to be confirmed'} | Available {trainingSummary.available} | Awaiting {trainingSummary.awaiting}</Text>
+              <Text style={styles.body}>Training | {group.occurrenceDate || 'Date to be confirmed'} | Attending {trainingSummary.attending} | Awaiting response {trainingSummary.awaitingResponse}</Text>
               <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
             </Pressable>
             {expanded ? <>
-              <Text style={styles.label}>Available {trainingSummary.available} | Not available {trainingSummary.unavailable} | Maybe {trainingSummary.maybe} | Awaiting {trainingSummary.awaiting}</Text>
+              <Text style={styles.label}>Attending {trainingSummary.attending} | Maybe {trainingSummary.maybe} | Awaiting response {trainingSummary.awaitingResponse} | Not attending {trainingSummary.notAttending} | Invitation not sent {trainingSummary.invitationNotSent} | Delivery issue {trainingSummary.deliveryIssue}</Text>
               {selectedTrainingInvites.map((invite) => {
                 const selected = selectedPlayerIds.includes(invite.playerId)
-                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
+                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
                   <View style={styles.availabilityPlayer}><Text style={styles.body}>{invite.playerName}</Text>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
+                  <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><Text style={styles.availabilityDelivery}>Send: {getCoachInviteDeliveryLabel(invite.deliveryStatus)}</Text></View>
                 </Pressable>
               })}
               {renderSelectedInviteActions()}
@@ -1007,9 +1009,9 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
               <Text style={styles.label}>Available {matchSummary.available} | Not available {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
               {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => {
                 const selected = selectedPlayerIds.includes(invite.playerId)
-                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
+                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
                   <View style={styles.availabilityPlayer}><Text style={styles.body}>{invite.playerName}</Text>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status)}</Text>
+                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text>
                 </Pressable>
               }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
               {renderSelectedInviteActions()}

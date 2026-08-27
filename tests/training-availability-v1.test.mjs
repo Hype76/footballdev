@@ -208,6 +208,42 @@ test('staff response summaries show one shared child response across linked pare
   assert.equal(summary.details[0].respondedByName, 'Parent B')
 })
 
+test('staff response summary prefers provider-backed delivery over an obsolete recipient error', async () => {
+  const { summarizeTrainingAvailabilityRows } = await import(domainUrl.href)
+  const sharedRequest = {
+    id: 'request-delivery',
+    occurrence_date: '2026-08-27',
+    occurrence_starts_at: '2026-08-27T17:45:00+00:00',
+  }
+  const summary = summarizeTrainingAvailabilityRows([
+    {
+      id: 'request-player-delivered',
+      request_id: 'request-delivery',
+      calendar_event_id: 'event-delivery',
+      player_id: 'player-delivery',
+      player_name: 'Delivered Player',
+      status: 'sent',
+      email_sent_at: '2026-08-27T08:00:00Z',
+      training_availability_requests: sharedRequest,
+    },
+    {
+      id: 'request-player-obsolete',
+      request_id: 'request-delivery',
+      calendar_event_id: 'event-delivery',
+      last_error: 'Recipient authority changed before delivery.',
+      player_id: 'player-delivery',
+      player_name: 'Delivered Player',
+      status: 'cancelled',
+      training_availability_requests: sharedRequest,
+    },
+  ])
+
+  assert.equal(summary.details.length, 1)
+  assert.equal(summary.details[0].requestPlayerId, 'request-player-delivered')
+  assert.equal(summary.details[0].emailSentAt, '2026-08-27T08:00:00Z')
+  assert.equal(summary.details[0].lastError, '')
+})
+
 test('scheduled processor claims bounded due work without push, sms, or volunteer roles', async () => {
   const [processor, netlifyToml] = await Promise.all([
     readFile(processorUrl, 'utf8'),

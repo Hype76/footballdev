@@ -432,6 +432,33 @@ test('newer canonical training delivery state supersedes an older legacy failure
   assert.equal(staleCanonical.warningState, 'delivery_issue')
 })
 
+test('provider-backed Training send evidence wins over a stale recipient error', () => {
+  const participant = buildEventResponseReadModel({
+    event: {
+      sourceId: CALENDAR_ID,
+      sourceType: 'calendar',
+      data: { eventType: 'training' },
+    },
+    occurrenceDate: '2026-08-27',
+    trainingAvailabilitySummary: {
+      details: [{
+        emailSentAt: '2026-08-27T08:00:00Z',
+        lastError: 'Invitation was reclaimed after provider acceptance.',
+        occurrenceDate: '2026-08-27',
+        playerId: 'provider-backed-player',
+        playerName: 'Provider Backed Player',
+        recipientStatus: 'cancelled',
+        requestId: 'provider-backed-request',
+        requestPlayerId: 'provider-backed-recipient',
+      }],
+    },
+  }).participants[0]
+
+  assert.equal(participant.deliveryState, 'delivered')
+  assert.equal(participant.deliveryError, '')
+  assert.equal(participant.warningState, '')
+})
+
 test('training states use attending language and remain separate from attendance', () => {
   const event = {
     sourceId: CALENDAR_ID,

@@ -119,10 +119,7 @@ export function summarizeTrainingAvailabilityRows(rows = []) {
     const sharedKey = `${detail.requestId}:${detail.playerId}`
     const existingDetail = sharedResponses.get(sharedKey)
 
-    if (!existingDetail || (
-      detail.respondedAt
-      && (!existingDetail.respondedAt || detail.respondedAt >= existingDetail.respondedAt)
-    )) {
+    if (!existingDetail || compareTrainingAvailabilityDetails(detail, existingDetail) > 0) {
       sharedResponses.set(sharedKey, detail)
     }
   }
@@ -144,6 +141,25 @@ export function summarizeTrainingAvailabilityRows(rows = []) {
   }
 
   return summary
+}
+
+function getTrainingAvailabilityDetailPriority(detail = {}) {
+  const responseStatus = normalizeText(detail.responseStatus).toLowerCase()
+  const recipientStatus = normalizeText(detail.recipientStatus).toLowerCase()
+  if (['available', 'unavailable', 'maybe'].includes(responseStatus)) return 5
+  if (detail.emailSentAt || ['sent', 'responded'].includes(recipientStatus)) return 4
+  if (['queued', 'pending'].includes(recipientStatus)) return 3
+  if (recipientStatus === 'expired') return 2
+  if (['failed', 'cancelled'].includes(recipientStatus)) return 1
+  return 0
+}
+
+function compareTrainingAvailabilityDetails(left = {}, right = {}) {
+  const priorityDifference = getTrainingAvailabilityDetailPriority(left) - getTrainingAvailabilityDetailPriority(right)
+  if (priorityDifference !== 0) return priorityDifference
+  const leftTime = Date.parse(left.respondedAt || left.emailSentAt || left.updatedAt || left.createdAt || '') || 0
+  const rightTime = Date.parse(right.respondedAt || right.emailSentAt || right.updatedAt || right.createdAt || '') || 0
+  return leftTime - rightTime
 }
 
 export function normalizeTrainingAvailabilityDetail(row = {}) {

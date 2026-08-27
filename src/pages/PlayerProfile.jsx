@@ -48,6 +48,7 @@ import {
   normalizeParentPortalInviteEmail,
 } from '../lib/parent-portal-invite-actions.js'
 import { buildPlayerProfilePath } from '../hooks/players/playersPageUtils.js'
+import { normalizePersonName } from '../lib/person-name.js'
 import {
   EMAIL_SECTION_DEFAULTS,
   buildProgressionEmailSections,
@@ -151,6 +152,7 @@ export function PlayerProfile() {
   const isDemoAccount = isDemoUser(user)
   const { showToast } = useToast()
   const routePlayerName = decodeURIComponent(id)
+  const displayPlayerName = normalizePersonName(routePlayerName) || routePlayerName
   const profileSource = normalizePlayerProfileSource(searchParams.get('source'))
   const routePlayerId = String(searchParams.get('playerId') ?? '').trim()
   const routeTeamId = String(searchParams.get('teamId') ?? '').trim()
@@ -1917,7 +1919,7 @@ export function PlayerProfile() {
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Player Profile"
-        title={routePlayerName}
+        title={displayPlayerName}
         description="Review the development history for this player with club-scoped visibility."
       />
 

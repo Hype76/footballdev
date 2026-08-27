@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { getSelectedParentLink } from './parentLinks'
 import { applyCoachContext, normalizeCoachContext, resolveCoachStaffContext } from './coachContextCore'
+import { normalizePersonName } from '../../../src/lib/person-name.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -223,7 +224,7 @@ function normalizeParentLink(row) {
     id: row.id,
     linkType: normalizeText(row.link_type || 'parent'),
     playerId: row.player_id || '',
-    playerName: normalizeText(player?.player_name || 'Linked player'),
+    playerName: normalizePersonName(player?.player_name) || 'Linked player',
     playerSection: normalizeText(player?.section || ''),
     teamId: row.team_id || '',
     teamName: normalizeText(team?.name || player?.team || ''),

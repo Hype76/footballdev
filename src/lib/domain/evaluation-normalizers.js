@@ -1,4 +1,5 @@
 import { formatUkDate, normalizeDateOnly } from '../date-format.js'
+import { normalizePersonName } from '../person-name.js'
 import {
   normalizeParentContacts,
   normalizePlayerContactType,
@@ -156,7 +157,7 @@ export function normalizeEvaluationRow(row) {
     id: row.id,
     playerId: row.player_id ?? row.playerId ?? '',
     teamId: row.team_id ?? row.teamId ?? '',
-    playerName: String(row.player_name ?? row.playerName ?? '').trim() || 'Unknown Player',
+    playerName: normalizePersonName(row.player_name ?? row.playerName) || 'Unknown Player',
     team: String(row.team ?? '').trim() || 'Unassigned Club',
     teamRequireApproval: Boolean(row.teamRequireApproval ?? row.team_require_approval ?? row.require_approval ?? true),
     section: String(row.section ?? row.evaluation_section ?? 'Trial').trim() || 'Trial',
@@ -225,7 +226,7 @@ export function mapEvaluationToRow(data) {
 
   return {
     id: data.id || undefined,
-    player_name: data.playerName,
+    player_name: normalizePersonName(data.playerName),
     player_id: data.playerId || null,
     team: data.team,
     team_id: data.teamId || null,

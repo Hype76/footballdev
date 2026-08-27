@@ -7,6 +7,7 @@ import {
   COACH_PHASE_31E_DOMAINS,
   assertSyntheticCoachCommunicationTarget,
   collapseCoachInvitesByPlayer,
+  getCoachInviteDeliveryLabel,
   getCoachInviteStatusLabel,
   getCoachPlayersWithoutAvailabilityRequest,
   getCoachResourceErrorMessage,
@@ -197,13 +198,31 @@ test('Invite normalization preserves distinct statuses and stale protection', ()
   assert.equal(normalizeCoachInvite({ status: 'responded', response: 'unavailable' }, 'training').status, 'unavailable')
   assert.equal(getCoachInviteStatusLabel('available'), 'Available')
   assert.equal(getCoachInviteStatusLabel('unavailable'), 'Not available')
+  assert.equal(getCoachInviteStatusLabel('available', 'training'), 'Attending')
+  assert.equal(getCoachInviteStatusLabel('unavailable', 'training'), 'Not attending')
   assert.equal(getCoachInviteStatusLabel('maybe'), 'Maybe')
-  assert.equal(getCoachInviteStatusLabel('pending'), 'Awaiting')
+  assert.equal(getCoachInviteStatusLabel('pending'), 'Awaiting response')
+  assert.equal(getCoachInviteDeliveryLabel('delivered'), 'Delivered')
+  assert.equal(getCoachInviteDeliveryLabel('delivery_issue'), 'Delivery issue')
 })
 
 test('Invite summary does not merge selected, not selected, maybe, or stale meaning', () => {
   const rows = ['pending', 'available', 'unavailable', 'maybe', 'selected', 'not_selected', 'stale', 'cancelled'].map((status) => ({ status }))
-  assert.deepEqual(summarizeCoachInvites(rows), { awaiting: 1, available: 1, unavailable: 1, maybe: 1, selected: 1, notSelected: 1, stale: 1, cancelled: 1 })
+  assert.deepEqual(summarizeCoachInvites(rows), {
+    attending: 1,
+    maybe: 1,
+    awaitingResponse: 1,
+    notAttending: 1,
+    invitationNotSent: 0,
+    deliveryIssue: 0,
+    selected: 1,
+    notSelected: 1,
+    stale: 1,
+    cancelled: 1,
+    available: 1,
+    unavailable: 1,
+    awaiting: 1,
+  })
 })
 
 test('Match availability collapses recipient rows to one authoritative Player response', () => {
@@ -216,7 +235,36 @@ test('Match availability collapses recipient rows to one authoritative Player re
   const collapsed = collapseCoachInvitesByPlayer(rows)
   assert.equal(collapsed.length, 2)
   assert.equal(collapsed.find((invite) => invite.playerId === 'player-1').status, 'available')
-  assert.deepEqual(summarizeCoachInvites(collapsed), { awaiting: 1, available: 1, unavailable: 0, maybe: 0, selected: 0, notSelected: 0, stale: 0, cancelled: 0 })
+  assert.equal(summarizeCoachInvites(collapsed).attending, 1)
+  assert.equal(summarizeCoachInvites(collapsed).awaitingResponse, 1)
+})
+
+test('Training availability prefers a delivered recipient over an obsolete failed contact and counts Players once', () => {
+  const rows = [
+    normalizeCoachInvite({
+      calendar_event_id: 'training-1',
+      email_sent_at: '2026-08-27T08:00:00Z',
+      id: 'delivered',
+      player_id: 'player-1',
+      player_name: 'Alex Player',
+      status: 'sent',
+    }, 'training'),
+    normalizeCoachInvite({
+      calendar_event_id: 'training-1',
+      id: 'obsolete',
+      last_error: 'Recipient authority changed before delivery.',
+      player_id: 'player-1',
+      player_name: 'Alex Player',
+      status: 'cancelled',
+    }, 'training'),
+  ]
+  const collapsed = collapseCoachInvitesByPlayer(rows)
+  const summary = summarizeCoachInvites(collapsed)
+  assert.equal(collapsed.length, 1)
+  assert.equal(collapsed[0].deliveryStatus, 'delivered')
+  assert.equal(collapsed[0].cancelled, false)
+  assert.equal(summary.awaitingResponse, 1)
+  assert.equal(summary.deliveryIssue, 0)
 })
 
 test('Match availability creation includes only Players without an active request', () => {

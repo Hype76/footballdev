@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 function hasStrongPassword(password: string) {
-  return password.length >= 12
+  return password.length >= 8
     && /[a-z]/.test(password)
     && /[A-Z]/.test(password)
     && /[0-9]/.test(password)

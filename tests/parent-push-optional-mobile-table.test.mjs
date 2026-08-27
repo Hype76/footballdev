@@ -96,10 +96,13 @@ test('parent message delivery stays successful when the optional mobile table is
           id: 'message-1',
           club_id: 'club-1',
           player_id: 'player-1',
+          user_id: 'staff-1',
           user_name: 'Coach',
           metadata: {
+            authorType: 'club_staff',
             body: 'Development update is ready.',
             playerName: 'FP TEST Player',
+            source: 'club_announcement',
             subject: 'Development update',
           },
           created_at: '2026-07-29T12:00:00.000Z',

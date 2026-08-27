@@ -1,4 +1,5 @@
 import { EVALUATION_SECTIONS } from '../supabase-client.js'
+import { normalizePersonName } from '../person-name.js'
 import {
   normalizeParentContacts,
   normalizePlayerContactType,
@@ -6,7 +7,6 @@ import {
 import {
   getEntryIdentity,
   getEntryUserId,
-  normalizeWords,
 } from './core-normalizers.js'
 import { ARCHIVED_PLAYER_RETENTION_MONTHS, addMonths } from '../retention.js'
 
@@ -45,7 +45,7 @@ export function normalizePlayerRow(row) {
     id: row.id,
     clubId: row.club_id ?? row.clubId ?? '',
     teamId: row.team_id ?? row.teamId ?? '',
-    playerName: String(row.player_name ?? row.playerName ?? '').trim(),
+    playerName: normalizePersonName(row.player_name ?? row.playerName),
     shirtNumber: String(row.shirt_number ?? row.shirtNumber ?? '').trim(),
     section: String(row.section ?? 'Trial').trim() || 'Trial',
     team: String(row.team ?? '').trim(),
@@ -87,7 +87,7 @@ export function mapPlayerToRow(player, user) {
   return {
     club_id: player.clubId ?? user?.clubId ?? '',
     team_id: player.teamId || user?.activeTeamId || null,
-    player_name: normalizeWords(player.playerName),
+    player_name: normalizePersonName(player.playerName),
     shirt_number: String(player.shirtNumber ?? player.shirt_number ?? '').trim(),
     section: EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Trial',
     team: String(player.team ?? '').trim(),

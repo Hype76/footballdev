@@ -3,6 +3,7 @@ import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getParentPortalLinks, getSelectedParentLink } from './parentLinks'
 import { getAccessToken, supabase } from './supabase'
 import { normalizeMatchDayShirtChoice } from '../../../src/lib/matchday-model.js'
+import { normalizePersonName } from '../../../src/lib/person-name.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -140,7 +141,7 @@ function normalizePlayer(row) {
   return {
     id: row.id || '',
     parentEmail: normalizeText(row.parent_email),
-    playerName: normalizeText(row.player_name || 'Unnamed player'),
+    playerName: normalizePersonName(row.player_name) || 'Unnamed player',
     positions: Array.isArray(row.positions) ? row.positions.map(normalizeText).filter(Boolean) : [],
     section: normalizeText(row.section || 'Trial'),
     shirtNumber: normalizeText(row.shirt_number),
@@ -169,6 +170,7 @@ function normalizeMessage(row) {
   const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {}
 
   return {
+    authorType: normalizeText(metadata.authorType).toLowerCase(),
     body: normalizeText(metadata.body),
     createdAt: row.created_at || '',
     evaluationId: normalizeText(
@@ -182,6 +184,7 @@ function normalizeMessage(row) {
     readAt: row.read_at || '',
     senderEmail: normalizeText(row.sender_email),
     senderName: normalizeText(row.sender_name),
+    source: normalizeText(metadata.source).toLowerCase(),
     subject: normalizeText(metadata.subject || 'Club message'),
     templateName: normalizeText(metadata.templateName),
   }

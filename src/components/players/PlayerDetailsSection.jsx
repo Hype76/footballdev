@@ -409,7 +409,7 @@ function PlayerDetailsSummary({
           label="Positions"
           value={player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
         />
-        <PlayerDetailItem label="Status" value={player.status === 'promoted' ? 'Promoted' : 'Active'} />
+        <PlayerDetailItem label="Status" value={player.status === 'archived' ? 'Archived' : 'Active'} />
       </div>
 
       <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">

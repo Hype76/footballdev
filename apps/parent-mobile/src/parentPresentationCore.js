@@ -123,9 +123,15 @@ export function getParentAnnouncementSummary(message = {}) {
   return [...new Set([heading, detail].filter(Boolean))].join('\n') || heading || 'Club update'
 }
 
+export function isParentStaffAnnouncement(message = {}) {
+  return normalizeText(message.source).toLowerCase() === 'club_announcement'
+    && normalizeText(message.authorType).toLowerCase() === 'club_staff'
+    && Boolean(normalizeText(message.body))
+}
+
 export function getParentAnnouncementMessages(messages = []) {
   return (Array.isArray(messages) ? messages : [])
-    .filter((message) => normalizeText(message.body))
+    .filter(isParentStaffAnnouncement)
     .map((message) => ({
       body: getParentAnnouncementSummary(message),
       canDelete: false,
@@ -133,6 +139,7 @@ export function getParentAnnouncementMessages(messages = []) {
       deletedAt: '',
       id: `announcement:${message.id}`,
       legacyMessageId: message.id,
+      readAt: message.readAt || '',
       roomId: 'club-announcements',
       senderKind: 'club',
       senderName: message.senderName || 'Your club',
@@ -170,7 +177,7 @@ export function prepareParentChatRooms(rooms = [], messages = []) {
       teamName: '',
       title: 'Club Announcements',
       type: 'announcement',
-      unreadCount: messages.filter((message) => normalizeText(message.body) && !message.readAt).length,
+      unreadCount: announcements.filter((message) => !message.readAt).length,
     })
   }
   return normalizedRooms.sort((left, right) => (

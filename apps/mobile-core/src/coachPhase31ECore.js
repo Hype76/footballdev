@@ -445,21 +445,32 @@ export function buildCoachPollClosesAt(dateValue, timeValue) {
 export function normalizeCoachInvite(row = {}, kind = 'calendar') {
   const rawStatus = normalize(row.status).toLowerCase().replaceAll(' ', '_')
   const responseStatus = normalize(row.response ?? row.response_state ?? row.availability_status).toLowerCase().replaceAll(' ', '_')
-  const cancelled = Boolean(row.cancelled_at ?? row.cancelledAt) || rawStatus === 'cancelled'
+  const sentAt = normalize(row.sent_at ?? row.email_sent_at ?? row.invited_at ?? row.sentAt)
+  const lastError = normalize(row.last_error ?? row.lastError)
+  const cancelled = Boolean(row.cancelled_at ?? row.cancelledAt) || (kind !== 'training' && rawStatus === 'cancelled')
   const deleted = Boolean(row.deleted_at ?? row.deletedAt)
   const resolvedStatus = AVAILABILITY_RESPONSE_STATUSES.has(responseStatus)
     ? responseStatus
-    : rawStatus === 'responded'
+    : kind === 'training' && ['cancelled', 'failed', 'queued', 'sending', 'sent'].includes(rawStatus)
       ? 'awaiting'
-      : INVITE_STATUSES.has(rawStatus)
-        ? rawStatus
-        : INVITE_STATUSES.has(responseStatus)
-          ? responseStatus
-          : 'awaiting'
+      : rawStatus === 'responded'
+        ? 'awaiting'
+        : INVITE_STATUSES.has(rawStatus)
+          ? rawStatus
+          : INVITE_STATUSES.has(responseStatus)
+            ? responseStatus
+            : 'awaiting'
   const status = deleted ? 'stale' : cancelled ? 'cancelled' : resolvedStatus
   const eventId = kind === 'match'
     ? normalize(row.match_day_id ?? row.eventId ?? row.calendar_event_id)
     : normalize(row.calendar_event_id ?? row.eventId ?? row.session_id)
+  const deliveryStatus = sentAt || ['sent', 'responded'].includes(rawStatus)
+    ? 'delivered'
+    : lastError && ['cancelled', 'failed'].includes(rawStatus)
+      ? 'delivery_issue'
+      : ['cancelled', 'expired'].includes(rawStatus)
+        ? 'not_sent'
+        : 'queued'
   return Object.freeze({
     id: normalize(row.id), kind, eventId,
     occurrenceDate: normalize(row.occurrence_date ?? row.occurrenceDate),
@@ -468,35 +479,69 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
     expiresAt: normalize(row.response_deadline_at ?? row.expires_at ?? row.expiresAt),
     teamId: normalize(row.team_id ?? row.teamId), playerId: normalize(row.player_id ?? row.playerId), playerName: normalize(row.player_name ?? row.playerName) || 'Player',
     title: normalize(row.title ?? row.event_title ?? row.session_title ?? row.opponent) || 'Invitation', status,
-    response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt: normalize(row.sent_at ?? row.email_sent_at ?? row.invited_at ?? row.sentAt), respondedAt: normalize(row.responded_at ?? row.respondedAt),
+    response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt, respondedAt: normalize(row.responded_at ?? row.respondedAt),
+    deliveryStatus, lastError, note: normalize(row.note), respondedByName: normalize(row.responded_by_name ?? row.respondedByName),
     stale: deleted || status === 'stale', cancelled,
   })
 }
 
-export function getCoachInviteStatusLabel(status) {
+export function getCoachInviteStatusLabel(status, kind = '') {
   const normalized = normalize(status).toLowerCase().replaceAll(' ', '_')
-  if (normalized === 'available') return 'Available'
-  if (normalized === 'unavailable') return 'Not available'
+  const training = normalize(kind).toLowerCase() === 'training'
+  if (normalized === 'available') return training ? 'Attending' : 'Available'
+  if (normalized === 'unavailable') return training ? 'Not attending' : 'Not available'
   if (normalized === 'maybe') return 'Maybe'
-  if (['awaiting', 'pending', 'responded'].includes(normalized)) return 'Awaiting'
+  if (['awaiting', 'pending', 'responded'].includes(normalized)) return 'Awaiting response'
   if (normalized === 'selected') return 'Selected'
   if (normalized === 'not_selected') return 'Not selected'
   if (normalized === 'cancelled') return 'Cancelled'
   if (normalized === 'stale') return 'No longer active'
   if (normalized === 'closed') return 'Closed'
   if (normalized === 'expired') return 'Expired'
-  return 'Awaiting'
+  return 'Awaiting response'
+}
+
+export function getCoachInviteDeliveryLabel(deliveryStatus) {
+  const normalized = normalize(deliveryStatus).toLowerCase().replaceAll(' ', '_')
+  if (normalized === 'delivered') return 'Delivered'
+  if (normalized === 'delivery_issue') return 'Delivery issue'
+  if (normalized === 'not_sent') return 'Invitation not sent'
+  return 'Queued'
 }
 
 export function summarizeCoachInvites(rows = []) {
-  const summary = { awaiting: 0, available: 0, unavailable: 0, maybe: 0, selected: 0, notSelected: 0, stale: 0, cancelled: 0 }
-  for (const row of rows) {
-    const status = normalize(row?.status)
-    if (['awaiting', 'pending'].includes(status)) summary.awaiting += 1
-    else if (status === 'not_selected') summary.notSelected += 1
-    else if (status in summary) summary[status] += 1
+  const summary = {
+    attending: 0,
+    maybe: 0,
+    awaitingResponse: 0,
+    notAttending: 0,
+    invitationNotSent: 0,
+    deliveryIssue: 0,
+    selected: 0,
+    notSelected: 0,
+    stale: 0,
+    cancelled: 0,
   }
-  return Object.freeze(summary)
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const status = normalize(row?.status).toLowerCase()
+    const deliveryStatus = normalize(row?.deliveryStatus).toLowerCase()
+    if (status === 'available') summary.attending += 1
+    else if (status === 'unavailable') summary.notAttending += 1
+    else if (status === 'maybe') summary.maybe += 1
+    else if (status === 'not_selected') summary.notSelected += 1
+    else if (status === 'selected') summary.selected += 1
+    else if (status === 'stale') summary.stale += 1
+    else if (status === 'cancelled') summary.cancelled += 1
+    else if (deliveryStatus === 'delivery_issue') summary.deliveryIssue += 1
+    else if (deliveryStatus === 'not_sent') summary.invitationNotSent += 1
+    else summary.awaitingResponse += 1
+  }
+  return Object.freeze({
+    ...summary,
+    available: summary.attending,
+    unavailable: summary.notAttending,
+    awaiting: summary.awaitingResponse,
+  })
 }
 
 function getCoachInviteStatusPriority(status) {
@@ -509,6 +554,15 @@ function getCoachInviteStatusPriority(status) {
 function getCoachInviteSortTime(invite = {}) {
   const parsed = Date.parse(normalize(invite.respondedAt || invite.sentAt))
   return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function getCoachInviteDeliveryPriority(deliveryStatus) {
+  const normalized = normalize(deliveryStatus).toLowerCase()
+  if (normalized === 'delivered') return 4
+  if (normalized === 'queued') return 3
+  if (normalized === 'not_sent') return 2
+  if (normalized === 'delivery_issue') return 1
+  return 0
 }
 
 export function collapseCoachInvitesByPlayer(rows = []) {
@@ -524,7 +578,12 @@ export function collapseCoachInvitesByPlayer(rows = []) {
       continue
     }
     const priorityDifference = getCoachInviteStatusPriority(invite?.status) - getCoachInviteStatusPriority(current?.status)
-    if (priorityDifference > 0 || (priorityDifference === 0 && getCoachInviteSortTime(invite) > getCoachInviteSortTime(current))) {
+    const deliveryPriorityDifference = getCoachInviteDeliveryPriority(invite?.deliveryStatus) - getCoachInviteDeliveryPriority(current?.deliveryStatus)
+    if (
+      priorityDifference > 0
+      || (priorityDifference === 0 && deliveryPriorityDifference > 0)
+      || (priorityDifference === 0 && deliveryPriorityDifference === 0 && getCoachInviteSortTime(invite) > getCoachInviteSortTime(current))
+    ) {
       invitesByPlayer.set(key, invite)
     }
   }

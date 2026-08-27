@@ -153,6 +153,42 @@ async function lockScheduledEmail(row, {
   return Array.isArray(data) ? data[0] || null : data
 }
 
+async function markScheduledEmailProviderAccepted(row, sendResult, {
+  subject,
+  workerInvocationId,
+} = {}) {
+  const providerMessageId = getProviderMessageId(sendResult)
+  const providerAcceptedAt = new Date().toISOString()
+  const { data, error } = await supabaseAdmin
+    .from('scheduled_email_queue')
+    .update({
+      status: 'sent',
+      delivery_state: 'provider_accepted',
+      last_error: null,
+      next_retry_at: null,
+      failure_category: null,
+      safe_error_code: null,
+      provider_message_id: providerMessageId,
+      provider_accepted_at: providerAcceptedAt,
+      terminal_at: null,
+      ...(subject ? { subject } : {}),
+    })
+    .eq('id', row.id)
+    .eq('lease_owner', workerInvocationId)
+    .select('id')
+    .maybeSingle()
+
+  if (error) throw error
+
+  if (!data?.id) {
+    throw Object.assign(new Error('Email provider acceptance could not be attached to the active queue lease.'), {
+      code: 'scheduled_email_provider_acceptance_lease_changed',
+    })
+  }
+
+  return { providerAcceptedAt, providerMessageId }
+}
+
 async function markScheduledEmailFailed(row, error, workerInvocationId) {
   const attempts = Number(row.attempts ?? 0) + 1
   const failure = classifyEmailFailure(error)
@@ -246,6 +282,58 @@ async function markScheduledAppNotificationSent(row, workerInvocationId) {
     .eq('lease_owner', workerInvocationId)
 
   if (error) throw error
+}
+
+async function retryProviderAcceptedParentAppNotification(row, workerInvocationId) {
+  const appNotificationSent = await sendScheduledParentPush(row, null)
+  if (!appNotificationSent) {
+    await markParentAppNotificationRetry(row, {
+      payload: row.payload,
+      providerAccepted: true,
+      providerMessageId: row.provider_message_id,
+      subject: row.subject,
+    })
+    return 'failed'
+  }
+
+  const appNotificationSentAt = new Date().toISOString()
+  const payload = {
+    ...(row.payload || {}),
+    parentCommunication: {
+      ...(row.payload?.parentCommunication || {}),
+      appNotificationSentAt,
+    },
+  }
+  const { error } = await supabaseAdmin
+    .from('scheduled_email_queue')
+    .update({
+      status: 'sent',
+      delivery_state: 'provider_accepted',
+      failure_category: null,
+      last_error: null,
+      lease_expires_at: null,
+      lease_owner: null,
+      leased_at: null,
+      next_retry_at: null,
+      payload,
+      safe_error_code: null,
+      terminal_at: null,
+    })
+    .eq('id', row.id)
+    .eq('lease_owner', workerInvocationId)
+
+  if (error) throw error
+
+  if (isTrainingInvitationQueueRow(row)) {
+    await updateTrainingInvitationDelivery({
+      queueId: row.id,
+      status: 'sent',
+      supabase: supabaseAdmin,
+    })
+  }
+  await updateMatchDayAvailabilityDelivery(row)
+  await updateEventPlayerNotificationEvent(row.id, 'sent')
+  return 'sent'
 }
 
 async function discardSkippedScheduledEmail(row, reason) {
@@ -473,7 +561,22 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
   }
   await updateEventPlayerNotificationEvent(lockedRow.id, 'processing')
 
+  let providerAcceptance = lockedRow.provider_message_id && lockedRow.provider_accepted_at
+    ? {
+        providerAcceptedAt: lockedRow.provider_accepted_at,
+        providerMessageId: lockedRow.provider_message_id,
+      }
+    : null
+
   try {
+    if (
+      providerAcceptance
+      && lockedRow.failure_category === 'parent_app_notification'
+      && lockedRow.safe_error_code === 'parent_app_notification_pending'
+    ) {
+      return await retryProviderAcceptedParentAppNotification(lockedRow, workerInvocationId)
+    }
+
     const scorerReminderValidation = await validateMatchDayScorerReminder(lockedRow)
     if (!scorerReminderValidation.valid) {
       await discardSkippedScheduledEmail(lockedRow, scorerReminderValidation.reason)
@@ -635,9 +738,14 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       retryOwner: 'scheduled_queue',
       retryPending: true,
     })
-    await markScheduledParentPortalInviteSent(supabaseAdmin, preparedScheduledRow)
-    await updateMatchDayAvailabilityDelivery(preparedScheduledRow)
-
+    providerAcceptance = await markScheduledEmailProviderAccepted(
+      lockedRow,
+      sendResult,
+      {
+        subject: preparedScheduledRow.subject,
+        workerInvocationId,
+      },
+    )
     if (isTrainingInvitationQueueRow(lockedRow)) {
       await updateTrainingInvitationDelivery({
         queueId: lockedRow.id,
@@ -645,6 +753,8 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
         supabase: supabaseAdmin,
       })
     }
+    await markScheduledParentPortalInviteSent(supabaseAdmin, preparedScheduledRow)
+    await updateMatchDayAvailabilityDelivery(preparedScheduledRow)
     await updateEventPlayerNotificationEvent(lockedRow.id, 'sent')
 
     const preparedRow = preparedScheduledRow
@@ -699,8 +809,8 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
         next_retry_at: null,
         failure_category: null,
         safe_error_code: null,
-        provider_message_id: getProviderMessageId(sendResult),
-        provider_accepted_at: new Date().toISOString(),
+        provider_message_id: providerAcceptance.providerMessageId,
+        provider_accepted_at: providerAcceptance.providerAcceptedAt,
         lease_owner: null,
         leased_at: null,
         lease_expires_at: null,
@@ -721,6 +831,37 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
     return sendResult.duplicate ? 'duplicate' : 'sent'
   } catch (error) {
     console.error('Scheduled email send failed', getSafeErrorDetails(error))
+    if (providerAcceptance) {
+      const { error: preserveError } = await supabaseAdmin
+        .from('scheduled_email_queue')
+        .update({
+          status: 'sent',
+          delivery_state: 'provider_accepted',
+          failure_category: 'post_provider_processing',
+          last_error: 'Email accepted. Follow-up processing did not finish.',
+          lease_expires_at: null,
+          lease_owner: null,
+          leased_at: null,
+          next_retry_at: null,
+          provider_accepted_at: providerAcceptance.providerAcceptedAt,
+          provider_message_id: providerAcceptance.providerMessageId,
+          safe_error_code: 'post_provider_processing_incomplete',
+          terminal_at: null,
+        })
+        .eq('id', lockedRow.id)
+        .eq('lease_owner', workerInvocationId)
+      if (preserveError) console.error('Provider-accepted queue preservation failed', preserveError)
+      if (isTrainingInvitationQueueRow(lockedRow)) {
+        await updateTrainingInvitationDelivery({
+          queueId: lockedRow.id,
+          status: 'sent',
+          supabase: supabaseAdmin,
+        }).catch((deliveryError) => {
+          console.error('Training invitation provider-accepted state preservation failed', getSafeErrorDetails(deliveryError))
+        })
+      }
+      return 'sent'
+    }
     await markEmailLogFailed(error.emailLogRecord, error)
     await markScheduledEmailFailed(lockedRow, error, workerInvocationId)
     if (isTrainingInvitationQueueRow(lockedRow)) {

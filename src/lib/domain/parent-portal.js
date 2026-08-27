@@ -4,6 +4,7 @@ import { buildParentAppUrl } from '../app-origins.js'
 import { CAPABILITIES } from '../paywall-access.js'
 import { assertClubFeature } from './plan-gates.js'
 import { normalizeLegacyThemeButtonStyle } from '../theme.js'
+import { normalizePersonName } from '../person-name.js'
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -28,7 +29,7 @@ function normalizeParentLink(row) {
       ?? normalizeLegacyThemeButtonStyle(team?.theme_button_style),
     ).trim(),
     playerId: row.player_id,
-    playerName: String(player?.player_name ?? '').trim(),
+    playerName: normalizePersonName(player?.player_name),
     playerSection: String(player?.section ?? '').trim(),
     parentLinkId: row.parent_link_id ?? '',
     linkType: String(row.link_type ?? 'parent').trim(),
@@ -249,7 +250,7 @@ export async function acceptParentPortalInvite(token) {
 }
 
 export async function getParentLinkingPlayers({ user } = {}) {
-  return getPlayers({ user, section: 'Squad', status: 'active' })
+  return getPlayers({ user, section: 'Squad' })
 }
 
 export async function getParentLinksForPlayer({ playerId, teamId, clubId } = {}) {
