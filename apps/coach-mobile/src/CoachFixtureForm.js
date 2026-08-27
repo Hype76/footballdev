@@ -21,6 +21,8 @@ import { createCoachMatchDayFixture } from '../../mobile-core/src/coachMatchDayD
 import { CoachDateTimeField } from './CoachDateTimeField'
 import { readCoachFixturePreferences, writeCoachFixturePreferences } from './coachFixturePreferences'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
+import { getCoachTeamNotificationDisplayName } from '../../mobile-core/src/coachTeamNotificationData'
+import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 
 function Button({ disabled = false, label, onPress, secondary = false, styles }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={secondary ? styles.secondaryText : styles.actionText}>{label}</Text></Pressable>
@@ -47,13 +49,32 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
 
   useEffect(() => {
     let active = true
-    void readCoachFixturePreferences(user.id, user.activeTeamId).then((preferences) => {
-      if (!active) return
-      const savedLocation = preferences.location?.name ? preferences.location : fallbackLocation
-      setForm((current) => initializeCoachFixtureForm(current, { defaultDuration: preferences.duration, defaultLocation: savedLocation }))
-    })
+    void Promise.all([
+      readCoachFixturePreferences(user.id, user.activeTeamId),
+      getCoachTeamNotificationDisplayName(user),
+    ])
+      .then(([preferences, notificationTeamName]) => {
+        if (!active) return
+        const savedLocation = preferences.location?.name ? preferences.location : fallbackLocation
+        setForm((current) => initializeCoachFixtureForm(current, {
+          defaultDuration: preferences.duration,
+          defaultLocation: savedLocation,
+          notificationTeamName,
+        }))
+      })
+      .catch(async () => {
+        if (!active) return
+        const preferences = await readCoachFixturePreferences(user.id, user.activeTeamId).catch(() => ({ duration: 90, location: null }))
+        if (!active) return
+        const savedLocation = preferences.location?.name ? preferences.location : fallbackLocation
+        setForm((current) => initializeCoachFixtureForm(current, {
+          defaultDuration: preferences.duration,
+          defaultLocation: savedLocation,
+          notificationTeamName: deriveTeamNotificationDisplayName(user.activeTeamName || ''),
+        }))
+      })
     return () => { active = false }
-  }, [fallbackLocation, user.activeTeamId, user.id])
+  }, [fallbackLocation, user, user.activeTeamId, user.id])
 
   if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
 
@@ -94,6 +115,8 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Fixture</Text>
+        <Field label="Notification Team name" onChangeText={(value) => setForm({ ...form, notificationTeamName: value })} placeholder="Example: U14 JPL" styles={styles} value={form.notificationTeamName} />
+        <Text style={styles.meta}>Used only in notifications and remembered for this Team. The official Team name stays unchanged.</Text>
         <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} />
         <Text style={styles.fieldLabel}>Fixture type</Text>
         <Chips onChange={(value) => setForm({ ...form, fixtureType: value })} options={MATCH_DAY_FIXTURE_TYPE_OPTIONS} styles={styles} value={form.fixtureType} />

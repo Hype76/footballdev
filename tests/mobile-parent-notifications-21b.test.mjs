@@ -165,7 +165,7 @@ test('notification opens its route immediately and validates its target through 
   }), { tab: 'polls', targetId: '' })
   assert.equal(resolveParentNotificationOpen({ app: 'coach', route: 'messages' }), null)
   assert.equal(resolveParentNotificationOpen({ app: 'parent', route: 'staff' }), null)
-  assert.match(app, /applyParentNotificationDestination\(currentDestination, \{ pending: true \}\)[\s\S]*loadCurrentParentNotificationData\(loadParentData, 1\)\s*\.then/)
+  assert.match(app, /applyParentNotificationDestination\(currentDestination, \{ pending: true \}\)[\s\S]*loadCurrentParentNotificationData\(loadParentData\)\s*\.then/)
 })
 
 test('test schema is least-privilege, RLS protected, indexed, and allowlisted to one Android and one iOS slot', () => {

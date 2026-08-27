@@ -18,6 +18,7 @@ import {
   scopeCoachQuery,
 } from './coachOperationalData'
 import { getAccessToken, supabase } from './supabase'
+import { saveCoachTeamNotificationDisplayName } from './coachTeamNotificationData'
 import {
   collapseCoachInvitesByPlayer,
   normalizeCoachInvite,
@@ -35,7 +36,7 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
   const [requestPlayersResult, responsesResult] = await Promise.all([
     supabase
       .from('training_availability_request_players')
-      .select('id, request_id, calendar_event_id, player_id, player_name, status, email_sent_at, last_error, training_availability_requests(occurrence_date, occurrence_starts_at)')
+      .select('id, request_id, calendar_event_id, player_id, player_name, status, email_sent_at, last_error, training_availability_requests(occurrence_date, occurrence_starts_at),scheduled_email_queue:email_queue_id(delivery_state,provider_accepted_at,provider_delivered_at,status)')
       .eq('club_id', user.clubId)
       .in('calendar_event_id', eventIds),
     supabase
@@ -108,7 +109,7 @@ export async function getCoachCalendarResources(user) {
   assertCoachOperationalRead(user)
   let calendarQuery = supabase
     .from('calendar_events')
-    .select('*, teams:team_id(name)')
+    .select('*, teams:team_id(name,notification_display_name)')
     .eq('club_id', user.clubId)
     .order('starts_at', { ascending: true })
     .limit(300)
@@ -117,7 +118,7 @@ export async function getCoachCalendarResources(user) {
   const matchesPromise = user.activeTeamId
     ? supabase
       .from('match_days')
-      .select('id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, home_away, shirt_choice, match_duration_minutes, status, venue_name, venue_address, notes, updated_at, teams:team_id(name)')
+      .select('id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, home_away, shirt_choice, match_duration_minutes, status, venue_name, venue_address, notes, updated_at, teams:team_id(name,notification_display_name)')
       .eq('club_id', user.clubId)
       .eq('team_id', user.activeTeamId)
       .order('match_date', { ascending: true })
@@ -126,7 +127,7 @@ export async function getCoachCalendarResources(user) {
   const sessionsPromise = user.activeTeamId
     ? supabase
       .from('assessment_sessions')
-      .select('id, team_id, team, title, opponent, session_type, session_date, start_time, end_time, location, notes, status, updated_at, teams:team_id(name)')
+      .select('id, team_id, team, title, opponent, session_type, session_date, start_time, end_time, location, notes, status, updated_at, teams:team_id(name,notification_display_name)')
       .eq('club_id', user.clubId)
       .eq('team_id', user.activeTeamId)
       .order('session_date', { ascending: true })
@@ -172,6 +173,9 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
     throw new Error('Add at least one involved Player or choose a wider parent audience.')
   }
   assertCalendarCapabilities(user, payload)
+  if (payload.team_id) {
+    await saveCoachTeamNotificationDisplayName(user, payload.team_id, form?.notificationTeamName)
+  }
   const now = new Date().toISOString()
   const identity = getCoachEntryIdentity(user, 'updated')
   let query
@@ -195,7 +199,7 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
       })
     action = 'calendar_event_created'
   }
-  const { data, error } = await query.select('*, teams:team_id(name)').single()
+  const { data, error } = await query.select('*, teams:team_id(name,notification_display_name)').single()
   if (error) throw error
 
   if (payload.parent_visible && payload.team_id) {

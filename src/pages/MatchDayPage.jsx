@@ -58,11 +58,16 @@ import {
   sortMatchDayPresentation,
   startMatchDay as liveStartMatchDay,
   updateMatchDay as liveUpdateMatchDay,
+  updateTeamNotificationDisplayName,
   updateStaffMatchDayScore as liveUpdateStaffMatchDayScore,
   voidMatchDayShootoutKick as liveVoidMatchDayShootoutKick,
   voidStaffMatchDayEvent as liveVoidStaffMatchDayEvent,
   withRequestTimeout,
 } from '../lib/supabase.js'
+import {
+  deriveTeamNotificationDisplayName,
+  resolveTeamNotificationDisplayName,
+} from '../lib/team-notification-display.js'
 import {
   DEMO_MATCH_DAY_CLUB_ID,
   DEMO_MATCH_DAY_FIXTURE_ID,
@@ -232,6 +237,7 @@ const EMPTY_MATCH_FORM = {
   enableMotmPoll: false,
   motmNotifyResultsOnClose: false,
   motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION,
+  notificationTeamName: '',
   saveDurationAsDefault: false,
 }
 
@@ -2327,10 +2333,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     [players],
   )
   const selectedFixtureTeamId = isDemoExperience ? DEMO_MATCH_DAY_TEAM_ID : form.teamId || user.activeTeamId || ''
+  const selectedFixtureTeam = teams.find((team) => String(team.id) === String(selectedFixtureTeamId))
   const isTeamScopedFixture = Boolean(user.activeTeamId) || Number(user.roleRank ?? 0) < 50
   const selectedFixtureTeamName = isDemoExperience
-    ? teams.find((team) => String(team.id) === DEMO_MATCH_DAY_TEAM_ID)?.name || 'Demo Academy U16'
-    : user.activeTeamName || teams.find((team) => String(team.id) === String(selectedFixtureTeamId))?.name || ''
+    ? selectedFixtureTeam?.name || 'Demo Academy U16'
+    : user.activeTeamName || selectedFixtureTeam?.name || ''
   const fixturePlayers = useMemo(
     () =>
       squadPlayers.filter((player) => {
@@ -2374,6 +2381,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       const baseForm = {
         ...EMPTY_MATCH_FORM,
         ...getMatchDurationFormFields(preferences.duration),
+        notificationTeamName: resolveTeamNotificationDisplayName(
+          teams.find((team) => String(team.id) === String(setupIntent?.teamId || user.activeTeamId || '')) || {},
+          user.activeTeamName || '',
+        ),
         venueAddress: preferredLocation?.address || '',
         venueName: preferredLocation?.name || '',
       }
@@ -2406,7 +2417,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     return () => {
       window.removeEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
     }
-  }, [allowsFixtureManagement, locations])
+  }, [allowsFixtureManagement, locations, teams, user.activeTeamId, user.activeTeamName])
 
   async function loadData() {
     const [nextMatches, nextTeams, nextPlayers, nextLocations, savedVolunteerTemplates] = await Promise.all([
@@ -2972,6 +2983,14 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     setErrorMessage('')
 
     try {
+      const teamId = String(form.teamId || user.activeTeamId || '').trim()
+      if (teamId) {
+        await updateTeamNotificationDisplayName({
+          notificationDisplayName: form.notificationTeamName || deriveTeamNotificationDisplayName(selectedFixtureTeamName),
+          teamId,
+          user,
+        })
+      }
       const createdMatch = await createMatchDay({
         user,
         match: {
@@ -4672,6 +4691,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           isTeamScopedFixture={isTeamScopedFixture}
           locations={locations}
           selectedLocationId={selectedLocationId}
+          selectedFixtureTeamId={selectedFixtureTeamId}
           selectedFixtureTeamName={selectedFixtureTeamName}
           teams={teams}
           updateArrivalFromPreset={updateArrivalFromPreset}
@@ -7116,6 +7136,7 @@ function FixtureSetupModal({
   locations,
   onClose,
   selectedLocationId,
+  selectedFixtureTeamId,
   selectedFixtureTeamName,
   teams,
   updateArrivalFromPreset,
@@ -7233,12 +7254,40 @@ function FixtureSetupModal({
               ) : (
                 <label className="block">
                   <span className={labelClass}>Team</span>
-                  <select value={form.teamId} onChange={(event) => updateForm({ teamId: event.target.value })} className={inputClass}>
+                  <select
+                    value={form.teamId}
+                    onChange={(event) => {
+                      const teamId = event.target.value
+                      const team = teams.find((candidate) => String(candidate.id) === teamId)
+                      updateForm({
+                        notificationTeamName: teamId ? resolveTeamNotificationDisplayName(team || {}, team?.name || '') : '',
+                        teamId,
+                      })
+                    }}
+                    className={inputClass}
+                  >
                     <option value="">Club-wide fixture</option>
                     {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
                   </select>
                 </label>
               )}
+
+              {selectedFixtureTeamId ? (
+                <label className="block">
+                  <span className={labelClass}>Notification Team name</span>
+                  <input
+                    type="text"
+                    maxLength={40}
+                    value={form.notificationTeamName}
+                    onChange={(event) => updateForm({ notificationTeamName: event.target.value })}
+                    placeholder="Example: U14 JPL"
+                    className={inputClass}
+                  />
+                  <span className="mt-2 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                    Used only in notifications and remembered for this Team. The official Team name stays unchanged.
+                  </span>
+                </label>
+              ) : null}
 
               <label className="block">
                 <span className={labelClass}>Date</span>

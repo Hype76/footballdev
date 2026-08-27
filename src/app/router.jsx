@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { Component, Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { Component, Suspense, lazy, useEffect, useState } from 'react'
 import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
 import {
@@ -308,65 +308,96 @@ function RecoverableParentAccessState({ accessModeOptions = [], reason = 'no_act
   )
 }
 
-function ParentAccessSignInRedirect() {
-  const { signOut } = useAuth()
-  const redirectStartedRef = useRef(false)
+function AccessIntentRecoveryState({ availableAccessMode = '', intendedAccessMode = 'parent' }) {
+  const { selectAccessMode, signOut } = useAuth()
+  const [isOpening, setIsOpening] = useState(false)
+  const [selectionError, setSelectionError] = useState('')
+  const normalizedAvailableMode = ['parent', 'team', 'platform_admin'].includes(availableAccessMode)
+    ? availableAccessMode
+    : ''
+  const availableLabel = normalizedAvailableMode === 'parent'
+    ? 'Parent workspace'
+    : normalizedAvailableMode === 'platform_admin'
+      ? 'Platform Admin'
+      : 'Team / Coach workspace'
+  const intendedLabel = intendedAccessMode === 'team' ? 'Team / Coach' : 'Parent'
 
-  useEffect(() => {
-    if (redirectStartedRef.current) {
-      return undefined
+  const handleContinue = async () => {
+    if (!normalizedAvailableMode) return
+    setIsOpening(true)
+    setSelectionError('')
+
+    try {
+      const targetPath = normalizedAvailableMode === 'parent'
+        ? '/parent-portal'
+        : normalizedAvailableMode === 'platform_admin'
+          ? '/platform-admin'
+          : '/coach'
+      await selectAccessMode(normalizedAvailableMode, { redirectTo: buildMainAppUrl(targetPath) })
+    } catch (error) {
+      console.error(error)
+      setSelectionError(error.message || 'Could not open the available workspace.')
+      setIsOpening(false)
     }
+  }
 
-    redirectStartedRef.current = true
+  const handleDifferentAccount = async () => {
+    setIsOpening(true)
+    setSelectionError('')
 
-    const redirectToParentSignIn = async () => {
-      try {
-        await signOut()
-      } catch (error) {
-        console.error(error)
-      }
-
+    try {
+      await signOut()
       window.sessionStorage.clear()
-      rememberParentAccessIntent()
-      window.location.assign(getParentLoginTarget())
+      if (intendedAccessMode === 'parent') rememberParentAccessIntent()
+      window.location.assign(intendedAccessMode === 'parent' ? getParentLoginTarget() : '/sign-in')
+    } catch (error) {
+      console.error(error)
+      setSelectionError(error.message || 'Could not sign out this device.')
+      setIsOpening(false)
     }
+  }
 
-    void redirectToParentSignIn()
-  }, [signOut])
+  return (
+    <RouteGateState
+      eyebrow="Workspace access"
+      title={`${intendedLabel} access is not available for this account`}
+      message={selectionError || 'Your current session has been kept active. Continue with an available workspace, or choose to sign in with a different account.'}
+      rules={[
+        {
+          title: 'No automatic sign-out',
+          body: 'A route or access mismatch does not sign this device out and does not revoke sessions on other devices.',
+        },
+        {
+          title: 'Choose before changing account',
+          body: 'Signing in with a different account happens only after you select that action.',
+        },
+      ]}
+      actions={(
+        <>
+          {normalizedAvailableMode ? (
+            <button type="button" onClick={handleContinue} className={primaryActionClassName} disabled={isOpening}>
+              {isOpening ? 'Opening...' : `Open ${availableLabel}`}
+            </button>
+          ) : null}
+          <button type="button" onClick={handleDifferentAccount} className={normalizedAvailableMode ? secondaryActionClassName : primaryActionClassName} disabled={isOpening}>
+            {isOpening ? 'Please wait...' : 'Sign in with a different account'}
+          </button>
+        </>
+      )}
+    />
+  )
+}
 
-  return <LoadingScreen />
+function ParentAccessSignInRedirect() {
+  return <AccessIntentRecoveryState intendedAccessMode="parent" />
 }
 
 function TeamAccessSignInRedirect() {
-  const { signOut } = useAuth()
-  const redirectStartedRef = useRef(false)
-
-  useEffect(() => {
-    if (redirectStartedRef.current) {
-      return undefined
-    }
-
-    redirectStartedRef.current = true
-
-    const redirectToTeamSignIn = async () => {
-      try {
-        await signOut()
-      } catch (error) {
-        console.error(error)
-      }
-
-      window.sessionStorage.clear()
-      window.location.assign('/sign-in')
-    }
-
-    void redirectToTeamSignIn()
-  }, [signOut])
-
-  return <LoadingScreen />
+  return <AccessIntentRecoveryState intendedAccessMode="team" />
 }
 
-function LoginIntentSignInRedirect({ intent }) {
-  return intent === 'team' ? <TeamAccessSignInRedirect /> : <ParentAccessSignInRedirect />
+function LoginIntentSignInRedirect({ availableAccessMode = '', intent }) {
+  return <AccessIntentRecoveryState availableAccessMode={availableAccessMode} intendedAccessMode={intent} />
 }
 
 function TeamAccessUnavailableState() {
@@ -787,7 +818,7 @@ function useWorkspaceRouteGate({
 
     if (accessRouteMismatch?.loginIntentMismatch) {
       return {
-        element: <LoginIntentSignInRedirect intent={accessRouteMismatch.intendedAccessMode || loginIntent} />,
+        element: <LoginIntentSignInRedirect availableAccessMode={accessRouteMismatch.availableAccessMode} intent={accessRouteMismatch.intendedAccessMode || loginIntent} />,
         user: null,
       }
     }
@@ -987,7 +1018,7 @@ function WorkspaceHome() {
     }
 
     if (accessRouteMismatch?.loginIntentMismatch) {
-      return <LoginIntentSignInRedirect intent={accessRouteMismatch.intendedAccessMode || loginIntent} />
+      return <LoginIntentSignInRedirect availableAccessMode={accessRouteMismatch.availableAccessMode} intent={accessRouteMismatch.intendedAccessMode || loginIntent} />
     }
 
     if (accessRouteMismatch?.teamAccessUnavailable) {

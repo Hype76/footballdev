@@ -7,6 +7,7 @@ import {
   CALENDAR_NOTIFICATION_PARENT_PORTAL_URL,
   formatCalendarNotificationDateTime,
 } from '../../src/lib/calendar-notification-email.js'
+import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
@@ -298,7 +299,7 @@ async function deliverPreparation(preparation, currentSource) {
   if (linksError) throw linksError
   if (clubError || !club) throw clubError || new Error('Club branding could not be loaded.')
   const team = preparation.team_id
-    ? await maybeSingle(supabaseAdmin.from('teams').select('id, name').eq('id', preparation.team_id).eq('club_id', preparation.club_id), '')
+    ? await maybeSingle(supabaseAdmin.from('teams').select('id, name, notification_display_name').eq('id', preparation.team_id).eq('club_id', preparation.club_id), '')
     : null
   const authUserIds = unique((links || []).map((link) => link.auth_user_id))
   const [{ data: parents, error: parentsError }, channels] = await Promise.all([
@@ -334,7 +335,8 @@ async function deliverPreparation(preparation, currentSource) {
   const source = currentSource || preparation.source_snapshot
   const presentation = getSourcePresentation(preparation.source_type, source)
   const copy = getChangeCopy(preparation.change_action, presentation)
-  const title = buildScopedNotificationTitle(copy.label, { clubName: club.name, teamName: team?.name || '' })
+  const notificationTeamName = resolveTeamNotificationDisplayName(team || {}, team?.name || '')
+  const title = buildScopedNotificationTitle(copy.label, { clubName: club.name, teamName: notificationTeamName })
   const notificationData = {
     app: 'parent',
     calendarChangeId: preparation.id,
@@ -381,7 +383,7 @@ async function deliverPreparation(preparation, currentSource) {
       playerName: player?.player_name || 'your child',
       portalUrl: CALENDAR_NOTIFICATION_PARENT_PORTAL_URL,
       startsAt: presentation.startsAt,
-      teamName: team?.name || club.name,
+      teamName: notificationTeamName || club.name,
       themeAccent: club.theme_accent,
     })
     return sendEmail({ from: createFromAddress(club.name), html, subject: `${club.name}: ${copy.label}`, to: [link.email] }, {

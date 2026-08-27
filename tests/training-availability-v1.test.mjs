@@ -244,6 +244,51 @@ test('staff response summary prefers provider-backed delivery over an obsolete r
   assert.equal(summary.details[0].lastError, '')
 })
 
+test('one parent response settles the Player even when another recipient was cancelled', async () => {
+  const { summarizeTrainingAvailabilityRows } = await import(domainUrl.href)
+  const sharedResponse = {
+    status: 'available',
+    responded_at: '2026-08-27T08:35:36Z',
+    responded_by_name: 'Responding Parent',
+    response_source: 'parent',
+  }
+  const sharedRequest = {
+    id: 'request-one-response',
+    occurrence_date: '2026-08-27',
+    occurrence_starts_at: '2026-08-27T17:45:00Z',
+  }
+  const summary = summarizeTrainingAvailabilityRows([
+    {
+      id: 'request-player-responded',
+      request_id: 'request-one-response',
+      calendar_event_id: 'event-one-response',
+      player_id: 'player-one-response',
+      player_name: 'One Response Player',
+      status: 'responded',
+      email_sent_at: '2026-08-27T08:34:39Z',
+      training_availability_requests: sharedRequest,
+      training_availability_responses: sharedResponse,
+    },
+    {
+      id: 'request-player-cancelled',
+      request_id: 'request-one-response',
+      calendar_event_id: 'event-one-response',
+      player_id: 'player-one-response',
+      player_name: 'One Response Player',
+      status: 'cancelled',
+      last_error: 'Training invitation recipient authority changed before delivery.',
+      training_availability_requests: sharedRequest,
+      training_availability_responses: sharedResponse,
+    },
+  ])
+
+  assert.equal(summary.available, 1)
+  assert.equal(summary.details.length, 1)
+  assert.equal(summary.details[0].recipientStatus, 'responded')
+  assert.equal(summary.details[0].lastError, '')
+  assert.equal(summary.details[0].responseStatus, 'available')
+})
+
 test('scheduled processor claims bounded due work without push, sms, or volunteer roles', async () => {
   const [processor, netlifyToml] = await Promise.all([
     readFile(processorUrl, 'utf8'),

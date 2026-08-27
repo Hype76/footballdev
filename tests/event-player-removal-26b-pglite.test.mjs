@@ -8,7 +8,7 @@ const migration = await readFile(
   'utf8',
 )
 const trainingParticipationMigration = await readFile(
-  new URL('../supabase/migrations/20260826162309_coach_training_event_removal_participation.sql', import.meta.url),
+  new URL('../supabase/migrations/20260826162759_coach_training_event_removal_participation.sql', import.meta.url),
   'utf8',
 )
 

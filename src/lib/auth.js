@@ -1304,7 +1304,7 @@ function RuntimeAuthProvider({ children }) {
       eventName: 'auth.logout',
       route: window.location.pathname,
     }).catch(() => {})
-    const { error } = await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
 
     if (error) {
       console.error(error)

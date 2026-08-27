@@ -443,9 +443,15 @@ export function buildCoachPollClosesAt(dateValue, timeValue) {
 }
 
 export function normalizeCoachInvite(row = {}, kind = 'calendar') {
+  const deliveryQueue = Array.isArray(row.scheduled_email_queue)
+    ? row.scheduled_email_queue[0]
+    : row.scheduled_email_queue
   const rawStatus = normalize(row.status).toLowerCase().replaceAll(' ', '_')
   const responseStatus = normalize(row.response ?? row.response_state ?? row.availability_status).toLowerCase().replaceAll(' ', '_')
-  const sentAt = normalize(row.sent_at ?? row.email_sent_at ?? row.invited_at ?? row.sentAt)
+  const sentAt = normalize(row.sent_at ?? row.email_sent_at ?? row.invited_at ?? row.sentAt ?? deliveryQueue?.provider_accepted_at)
+  const deliveryState = normalize(row.delivery_state ?? row.deliveryState ?? deliveryQueue?.delivery_state).toLowerCase().replaceAll(' ', '_')
+  const respondedAt = normalize(row.responded_at ?? row.respondedAt)
+  const responseSource = normalize(row.response_source ?? row.responseSource).toLowerCase()
   const lastError = normalize(row.last_error ?? row.lastError)
   const cancelled = Boolean(row.cancelled_at ?? row.cancelledAt) || (kind !== 'training' && rawStatus === 'cancelled')
   const deleted = Boolean(row.deleted_at ?? row.deletedAt)
@@ -464,13 +470,16 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
   const eventId = kind === 'match'
     ? normalize(row.match_day_id ?? row.eventId ?? row.calendar_event_id)
     : normalize(row.calendar_event_id ?? row.eventId ?? row.session_id)
-  const deliveryStatus = sentAt || ['sent', 'responded'].includes(rawStatus)
+  const deliveryStatus = deliveryState === 'delivered'
     ? 'delivered'
+    : sentAt || ['provider_accepted', 'sent', 'responded'].includes(deliveryState || rawStatus)
+      ? 'sent'
     : lastError && ['cancelled', 'failed'].includes(rawStatus)
       ? 'delivery_issue'
       : ['cancelled', 'expired'].includes(rawStatus)
         ? 'not_sent'
         : 'queued'
+  const recurrenceFrequency = normalize(row.recurrence_frequency ?? row.recurrenceFrequency).toLowerCase() || 'none'
   return Object.freeze({
     id: normalize(row.id), kind, eventId,
     occurrenceDate: normalize(row.occurrence_date ?? row.occurrenceDate),
@@ -479,9 +488,19 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
     expiresAt: normalize(row.response_deadline_at ?? row.expires_at ?? row.expiresAt),
     teamId: normalize(row.team_id ?? row.teamId), playerId: normalize(row.player_id ?? row.playerId), playerName: normalize(row.player_name ?? row.playerName) || 'Player',
     title: normalize(row.title ?? row.event_title ?? row.session_title ?? row.opponent) || 'Invitation', status,
-    response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt, respondedAt: normalize(row.responded_at ?? row.respondedAt),
-    deliveryStatus, lastError, note: normalize(row.note), respondedByName: normalize(row.responded_by_name ?? row.respondedByName),
+    response: normalize(row.response ?? row.response_state ?? row.availability_status), sentAt, respondedAt,
+    deliveryState, deliveryStatus, lastError, note: normalize(row.note), respondedByName: normalize(row.responded_by_name ?? row.respondedByName), responseSource,
+    recurrenceFrequency, recurring: recurrenceFrequency !== 'none',
     stale: deleted || status === 'stale', cancelled,
+  })
+}
+
+export function getCoachInviteRemovalScope(invite = {}) {
+  const recurringTraining = invite.kind === 'training' && invite.recurring === true
+  return Object.freeze({
+    occurrenceDate: recurringTraining ? normalize(invite.occurrenceDate) : null,
+    scope: recurringTraining ? 'occurrence' : 'event',
+    sourceType: invite.kind === 'match' ? 'match-day' : 'calendar',
   })
 }
 
@@ -504,9 +523,20 @@ export function getCoachInviteStatusLabel(status, kind = '') {
 export function getCoachInviteDeliveryLabel(deliveryStatus) {
   const normalized = normalize(deliveryStatus).toLowerCase().replaceAll(' ', '_')
   if (normalized === 'delivered') return 'Delivered'
+  if (normalized === 'sent') return 'Sent'
   if (normalized === 'delivery_issue') return 'Delivery issue'
   if (normalized === 'not_sent') return 'Invitation not sent'
   return 'Queued'
+}
+
+export function getCoachInviteDeliveryProgress(invite = {}) {
+  const deliveryState = normalize(invite.deliveryState ?? invite.deliveryStatus).toLowerCase().replaceAll(' ', '_')
+  const sent = Boolean(normalize(invite.sentAt)) || ['sent', 'provider_accepted', 'delivered'].includes(deliveryState)
+  const delivered = deliveryState === 'delivered'
+  const responseSource = normalize(invite.responseSource).toLowerCase()
+  const seen = Boolean(normalize(invite.respondedAt)) && responseSource !== 'staff_on_behalf'
+
+  return Object.freeze({ delivered, seen, sent })
 }
 
 export function summarizeCoachInvites(rows = []) {
@@ -558,7 +588,8 @@ function getCoachInviteSortTime(invite = {}) {
 
 function getCoachInviteDeliveryPriority(deliveryStatus) {
   const normalized = normalize(deliveryStatus).toLowerCase()
-  if (normalized === 'delivered') return 4
+  if (normalized === 'delivered') return 5
+  if (normalized === 'sent') return 4
   if (normalized === 'queued') return 3
   if (normalized === 'not_sent') return 2
   if (normalized === 'delivery_issue') return 1

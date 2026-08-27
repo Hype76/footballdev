@@ -35,6 +35,7 @@ import {
   canResendSelectedCoachInvites,
   collapseCoachInvitesByPlayer,
   getCoachInviteDeliveryLabel,
+  getCoachInviteDeliveryProgress,
   getCoachInviteStatusLabel,
   getCoachChatModalTopInset,
   getCoachPlayersWithoutAvailabilityRequest,
@@ -124,6 +125,9 @@ function phaseStyles(palette) {
     availabilityMaybe: { color: palette.warning },
     availabilityAwaiting: { color: palette.textMuted },
     availabilityDelivery: { color: palette.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'right' },
+    availabilityDeliveryActive: { color: palette.success },
+    availabilityDeliveryItem: { color: palette.textMuted, fontSize: 10, fontWeight: '900' },
+    availabilityDeliveryTicks: { flexDirection: 'row', gap: 7, justifyContent: 'flex-end', marginTop: 2 },
     label: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
     status: { color: palette.accent, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
     input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 16, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
@@ -146,6 +150,19 @@ function availabilityStatusStyle(status, styles) {
   if (normalized === 'unavailable') return styles.availabilityUnavailable
   if (normalized === 'maybe') return styles.availabilityMaybe
   return styles.availabilityAwaiting
+}
+
+function InviteDeliveryTicks({ invite, styles }) {
+  const progress = getCoachInviteDeliveryProgress(invite)
+  const label = `Sent ${progress.sent ? 'yes' : 'no'}, delivered ${progress.delivered ? 'yes' : 'no'}, seen ${progress.seen ? 'yes' : 'no'}`
+
+  return <View accessibilityLabel={label} style={styles.availabilityDeliveryTicks}>
+    {[
+      ['Sent', progress.sent],
+      ['Delivered', progress.delivered],
+      ['Seen', progress.seen],
+    ].map(([name, active]) => <Text key={name} style={[styles.availabilityDeliveryItem, active && styles.availabilityDeliveryActive]}>✓ {name}</Text>)}
+  </View>
 }
 
 function Button({ destructive = false, disabled = false, label, onPress, secondary = false, styles }) {
@@ -985,7 +1002,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
                 const selected = selectedPlayerIds.includes(invite.playerId)
                 return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
                   <View style={styles.availabilityPlayer}><Text style={styles.body}>{invite.playerName}</Text>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-                  <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><Text style={styles.availabilityDelivery}>Send: {getCoachInviteDeliveryLabel(invite.deliveryStatus)}</Text></View>
+                  <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
                 </Pressable>
               })}
               {renderSelectedInviteActions()}
@@ -1009,9 +1026,9 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
               <Text style={styles.label}>Available {matchSummary.available} | Not available {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
               {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => {
                 const selected = selectedPlayerIds.includes(invite.playerId)
-                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
+                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
                   <View style={styles.availabilityPlayer}><Text style={styles.body}>{invite.playerName}</Text>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-                  <Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text>
+                  <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
                 </Pressable>
               }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
               {renderSelectedInviteActions()}

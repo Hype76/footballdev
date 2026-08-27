@@ -8,6 +8,7 @@ import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 import { buildScopedNotificationTitle } from './lib/_notification-scope.js'
+import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -70,7 +71,7 @@ async function getProfile(authUser) {
 async function getMatch(matchDayId) {
   const { data, error } = await supabaseAdmin
     .from('match_days')
-    .select('*, teams:team_id (name), clubs:club_id (name)')
+    .select('*, teams:team_id (name, notification_display_name), clubs:club_id (name)')
     .eq('id', matchDayId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -366,7 +367,7 @@ export async function handler(event) {
     const notificationCopy = buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
     const team = Array.isArray(match.teams) ? match.teams[0] : match.teams
     const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
-    const teamName = normalizeText(team?.name)
+    const teamName = resolveTeamNotificationDisplayName(team || {}, team?.name)
     const clubName = normalizeText(club?.name)
     const notificationTitle = buildScopedNotificationTitle(notificationCopy.title, { clubName, teamName })
     const payload = {

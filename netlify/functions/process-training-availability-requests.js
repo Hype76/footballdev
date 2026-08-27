@@ -7,6 +7,7 @@ import { getTrainingAvailabilitySendGate } from './lib/_training-availability-se
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
 import { resolveEligibleEventInvitationContacts } from './lib/_match-day-actionable-invitation.js'
 import { buildEmailLogoMarkup, buildEventMapLinksMarkup } from '../../src/lib/email-branding.js'
+import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 import {
   buildOccurrences,
   formatLondonDateLabel,
@@ -292,7 +293,7 @@ export function buildAvailabilityEmail({ appOrigin, event, includeRecurringSched
 async function loadRecurrenceSetting({ supabase, work }) {
   const { data, error } = await supabase
     .from('training_availability_settings')
-    .select('*, calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url))')
+    .select('*, calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url))')
     .eq('id', work.setting_id)
     .maybeSingle()
 
@@ -880,7 +881,7 @@ export async function prepareScheduledTrainingInvitationRow(row, {
       .maybeSingle(),
     supabaseClient
       .from('calendar_events')
-      .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url)')
+      .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url)')
       .eq('id', eventId)
       .maybeSingle(),
     supabaseClient
@@ -987,8 +988,18 @@ export async function prepareScheduledTrainingInvitationRow(row, {
         && normalizeEmail(parentLink.email) === recipientEmail,
     )
   } else {
-    recipientIsCurrent = requestPlayer.recipient_type === 'parent'
-      && normalizeEmail(player.parent_email) === recipientEmail
+    const eligibleContacts = requestPlayer.recipient_type === 'parent'
+      ? await resolveEligibleEventInvitationContacts(supabaseClient, {
+          clubId: request.club_id,
+          playerIds: [player.id],
+          teamId: request.team_id,
+        })
+      : []
+    recipientIsCurrent = eligibleContacts.some((contact) => (
+      contact.playerId === player.id
+      && contact.type === 'parent'
+      && normalizeEmail(contact.email) === recipientEmail
+    ))
   }
 
   if (!recipientIsCurrent) {
@@ -1016,7 +1027,7 @@ export async function prepareScheduledTrainingInvitationRow(row, {
     recipient,
     request: currentRequest,
     requestPlayerId: requestPlayer.id,
-    teamName: event.teams?.name || '',
+    teamName: resolveTeamNotificationDisplayName(event.teams || {}, event.teams?.name || ''),
     token: rawToken,
   })
 
@@ -1300,7 +1311,7 @@ export async function loadRequestWork({ supabase, work }) {
 
   const { data: event, error: eventError } = await supabase
     .from('calendar_events')
-    .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url)')
+    .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url)')
     .eq('id', request.calendar_event_id)
     .maybeSingle()
 
@@ -1494,7 +1505,7 @@ async function processDueRequest({ appOrigin, event, occurrence, occurrences, re
     terminal: 0,
     retryableFailures: 0,
   }
-  const teamName = event.teams?.name || ''
+  const teamName = resolveTeamNotificationDisplayName(event.teams || {}, event.teams?.name || '')
 
   for (const player of players ?? []) {
     const contacts = eligibleContacts.filter((contact) => String(contact.playerId) === String(player.id))

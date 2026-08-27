@@ -110,6 +110,7 @@ export {
   getTeamStaffAssignments,
   replaceTeamStaffAssignments,
   updateTeamSettings,
+  updateTeamNotificationDisplayName,
 } from './domain/teams.js'
 
 export {

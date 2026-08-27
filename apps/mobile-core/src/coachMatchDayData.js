@@ -9,6 +9,7 @@ import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { assertCoachOperationalMutation, assertCoachOperationalRead, recordCoachOperationalAudit } from './coachOperationalData'
 import { getAccessToken, supabase } from './supabase'
+import { saveCoachTeamNotificationDisplayName } from './coachTeamNotificationData'
 
 const STANDARD_TIMER_ACTIONS = new Set(['pause', 'half_time', 'hydration', 'resume', 'full_time', 'conclude'])
 const EXTENDED_TIMER_ACTIONS = new Set(['normal_time_complete', 'start_extra_time', 'extra_time_half_time', 'start_extra_time_second_half', 'complete_extra_time', 'start_penalties'])
@@ -89,7 +90,7 @@ export function normalizeCoachMatchDay(row = {}) {
   }
 }
 
-const LIST_SELECT = `id,club_id,team_id,opponent,fixture_type,match_conclusion_rule,current_match_phase,extra_time_half_minutes,extra_time_period_count,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,match_clock_mode,match_duration_minutes,venue_name,venue_address,notes,request_scorer,request_linesman,request_referee,status,home_score,away_score,normal_time_home_score,normal_time_away_score,extra_time_home_score,extra_time_away_score,home_shootout_score,away_shootout_score,shootout_winner,phase_started_at,timer_started_at,timer_paused_at,timer_elapsed_seconds,timer_status,full_time_resume_status,concluded_at,concluded_by,previous_hidden_at,created_at,updated_at,teams:team_id(name)`
+const LIST_SELECT = `id,club_id,team_id,opponent,fixture_type,match_conclusion_rule,current_match_phase,extra_time_half_minutes,extra_time_period_count,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,match_clock_mode,match_duration_minutes,venue_name,venue_address,notes,request_scorer,request_linesman,request_referee,status,home_score,away_score,normal_time_home_score,normal_time_away_score,extra_time_home_score,extra_time_away_score,home_shootout_score,away_shootout_score,shootout_winner,phase_started_at,timer_started_at,timer_paused_at,timer_elapsed_seconds,timer_status,full_time_resume_status,concluded_at,concluded_by,previous_hidden_at,created_at,updated_at,teams:team_id(name,notification_display_name)`
 
 function scoped(query, user) { return query.or(`team_id.is.null,team_id.eq.${user.activeTeamId}`) }
 function assertScope(user, match) { if (match?.teamId && match.teamId !== user?.activeTeamId) throw new Error('This match day is not linked to your active Team.') }
@@ -132,6 +133,7 @@ export async function createCoachMatchDayFixture(user, form) {
   assertCoachOperationalMutation(user, { minimumRank: 20, requiresTeam: true })
   const fixture = validateCoachFixtureForm(form)
   const teamId = normalize(user.activeTeamId)
+  await saveCoachTeamNotificationDisplayName(user, teamId, fixture.notificationTeamName)
   const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location_for_team', {
     p_address: fixture.venueAddress,
     p_name: fixture.venueName,

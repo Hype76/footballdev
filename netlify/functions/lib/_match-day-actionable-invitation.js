@@ -4,6 +4,7 @@ import { isFixtureKickoffTimeTbc } from '../../../src/lib/calendar-datetime-inte
 import { resolveMatchDayVolunteerRequestMessages } from '../../../src/lib/email-templates.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
+import { resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 
 export function normalizeInvitationText(value) {
   return String(value ?? '').trim()
@@ -141,7 +142,7 @@ export function buildMatchDayActionableInvitationEmail({
   updated = false,
   volunteerTemplates = [],
 }) {
-  const teamName = normalizeInvitationText(match.teams?.name || match.team_name || 'the team')
+  const teamName = resolveTeamNotificationDisplayName(match.teams || {}, match.team_name || 'the team')
   const matchName = getMatchDayDisplayName({ ...match, teamName })
   const subject = `${updated ? 'Updated ' : ''}${teamName} availability: ${matchName}`
   const clubName = normalizeInvitationText(match.clubs?.name || match.club_name || 'Football Player')

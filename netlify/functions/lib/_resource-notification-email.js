@@ -1,6 +1,7 @@
 import {
   buildAuthoritativeResourceNotificationEmail,
 } from '../../../src/lib/resource-notification-email.js'
+import { resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -88,7 +89,7 @@ export async function loadAuthoritativeResourceNotificationContext(
     loadMaybeSingle(
       supabaseClient
         .from('teams')
-        .select('id, club_id, name')
+        .select('id, club_id, name, notification_display_name')
         .eq('id', notification.team_id)
         .eq('club_id', notification.club_id),
       'Team',
@@ -148,7 +149,7 @@ export async function loadAuthoritativeResourceNotificationContext(
     resourceId: normalizeText(resource.id),
     resourceTitle: normalizeText(resource.title),
     sendable: true,
-    teamName: normalizeText(team.name),
+    teamName: resolveTeamNotificationDisplayName(team, team.name),
   }
 }
 

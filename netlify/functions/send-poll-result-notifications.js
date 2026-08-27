@@ -1,4 +1,5 @@
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
+import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { getParentCommunicationChannels, normalizeParentCommunicationChannel } from './lib/_parent-communication-preferences.js'
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
@@ -93,7 +94,7 @@ async function getPollBrand(poll) {
     poll.team_id
       ? supabaseAdmin
           .from('teams')
-          .select('id, club_id, name')
+          .select('id, club_id, name, notification_display_name')
           .eq('id', poll.team_id)
           .eq('club_id', poll.club_id)
           .maybeSingle()
@@ -119,11 +120,11 @@ async function deliverPollResult({ poll, ranked, votes }) {
     pollId: poll.id,
     pollTitle: poll.title,
     ranked,
-    teamName: brand.team?.name || brand.club.name,
+    teamName: resolveTeamNotificationDisplayName(brand.team || {}, brand.team?.name) || brand.club.name,
     themeAccent: brand.club.theme_accent,
   })
   const copy = {
-    body: `${brand.team?.name || brand.club.name}: ${resultCopy.body}`,
+    body: `${resolveTeamNotificationDisplayName(brand.team || {}, brand.team?.name) || brand.club.name}: ${resultCopy.body}`,
     subject: `${brand.club.name}: ${resultCopy.subject}`,
   }
   let emailSent = 0

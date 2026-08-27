@@ -86,7 +86,7 @@ test('Calendar Match Day edits use the shared server service and no browser reci
   assert.match(processor, /contains\('payload', \{ communicationLog: \{ metadata: \{ notificationCommandId: command\.id \} \} \}\)/)
 })
 
-test('edits reuse active tokens while removed scope and closed fixtures fail closed', async () => {
+test('edits reuse active tokens and safely rotate only when no reusable token remains', async () => {
   const [sendFunction, migration, responseFunction] = await Promise.all([
     readFile(sendFunctionUrl, 'utf8'),
     readFile(migrationUrl, 'utf8'),
@@ -99,11 +99,13 @@ test('edits reuse active tokens while removed scope and closed fixtures fail clo
     editUpdateStart,
     sendFunction.indexOf('const responseUrl =', editUpdateStart),
   )
-  assert.doesNotMatch(editUpdate, /token_hash:/)
+  assert.match(editUpdate, /token_hash: tokenHash/)
   assert.match(editUpdate, /expires_at: expiry/)
   assert.doesNotMatch(editUpdate, /status:/)
   assert.doesNotMatch(editUpdate, /volunteer_scorer_response:/)
-  assert.match(sendFunction, /const token = getReusableMatchDayResponseToken\(request, queue \? \[queue\] : \[\]\)/)
+  assert.match(sendFunction, /historicalQueueRows/)
+  assert.match(sendFunction, /getReusableMatchDayResponseToken\(request, \[queue, \.\.\.historicalRequestQueues\]\.filter\(Boolean\)\)/)
+  assert.match(sendFunction, /if \(!token\) \{[\s\S]*createInvitationToken\(\)[\s\S]*tokenHash = createdToken\.tokenHash/)
   assert.match(sendFunction, /staleRequests[\s\S]*token_revoked_reason: 'recipient_authority_removed'[\s\S]*expires_at: new Date\(0\)\.toISOString\(\)/)
   assert.match(migration, /match_day\.deleted_at is null/)
   assert.match(migration, /not in \('cancelled', 'full_time', 'postponed'\)/)

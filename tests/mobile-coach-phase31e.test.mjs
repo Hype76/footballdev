@@ -8,6 +8,8 @@ import {
   assertSyntheticCoachCommunicationTarget,
   collapseCoachInvitesByPlayer,
   getCoachInviteDeliveryLabel,
+  getCoachInviteDeliveryProgress,
+  getCoachInviteRemovalScope,
   getCoachInviteStatusLabel,
   getCoachPlayersWithoutAvailabilityRequest,
   getCoachResourceErrorMessage,
@@ -206,6 +208,63 @@ test('Invite normalization preserves distinct statuses and stale protection', ()
   assert.equal(getCoachInviteDeliveryLabel('delivery_issue'), 'Delivery issue')
 })
 
+test('Coach removal uses event scope for one-off Training and occurrence scope only for recurring Training', () => {
+  const oneOff = normalizeCoachInvite({
+    calendar_event_id: 'training-one-off',
+    occurrence_date: '2026-08-27',
+    recurrence_frequency: 'none',
+  }, 'training')
+  const recurring = normalizeCoachInvite({
+    calendar_event_id: 'training-series',
+    occurrence_date: '2026-08-27',
+    recurrence_frequency: 'weekly',
+  }, 'training')
+
+  assert.deepEqual(getCoachInviteRemovalScope(oneOff), {
+    occurrenceDate: null,
+    scope: 'event',
+    sourceType: 'calendar',
+  })
+  assert.deepEqual(getCoachInviteRemovalScope(recurring), {
+    occurrenceDate: '2026-08-27',
+    scope: 'occurrence',
+    sourceType: 'calendar',
+  })
+  assert.deepEqual(getCoachInviteRemovalScope({ kind: 'match' }), {
+    occurrenceDate: null,
+    scope: 'event',
+    sourceType: 'match-day',
+  })
+})
+
+test('Invite delivery progress advances through sent, delivered, and confirmed seen', () => {
+  assert.deepEqual(getCoachInviteDeliveryProgress({ deliveryState: 'queued' }), {
+    delivered: false,
+    seen: false,
+    sent: false,
+  })
+  assert.deepEqual(getCoachInviteDeliveryProgress({ deliveryState: 'delivered', sentAt: '2026-08-27T08:34:00Z' }), {
+    delivered: true,
+    seen: false,
+    sent: true,
+  })
+  assert.deepEqual(getCoachInviteDeliveryProgress({ deliveryState: 'delivered', respondedAt: '2026-08-27T08:35:00Z', sentAt: '2026-08-27T08:34:00Z' }), {
+    delivered: true,
+    seen: true,
+    sent: true,
+  })
+  assert.deepEqual(getCoachInviteDeliveryProgress({
+    deliveryState: 'delivered',
+    respondedAt: '2026-08-27T08:35:00Z',
+    responseSource: 'staff_on_behalf',
+    sentAt: '2026-08-27T08:34:00Z',
+  }), {
+    delivered: true,
+    seen: false,
+    sent: true,
+  })
+})
+
 test('Invite summary does not merge selected, not selected, maybe, or stale meaning', () => {
   const rows = ['pending', 'available', 'unavailable', 'maybe', 'selected', 'not_selected', 'stale', 'cancelled'].map((status) => ({ status }))
   assert.deepEqual(summarizeCoachInvites(rows), {
@@ -239,7 +298,7 @@ test('Match availability collapses recipient rows to one authoritative Player re
   assert.equal(summarizeCoachInvites(collapsed).awaitingResponse, 1)
 })
 
-test('Training availability prefers a delivered recipient over an obsolete failed contact and counts Players once', () => {
+test('Training availability prefers a sent recipient over an obsolete failed contact and counts Players once', () => {
   const rows = [
     normalizeCoachInvite({
       calendar_event_id: 'training-1',
@@ -261,10 +320,62 @@ test('Training availability prefers a delivered recipient over an obsolete faile
   const collapsed = collapseCoachInvitesByPlayer(rows)
   const summary = summarizeCoachInvites(collapsed)
   assert.equal(collapsed.length, 1)
-  assert.equal(collapsed[0].deliveryStatus, 'delivered')
+  assert.equal(collapsed[0].deliveryStatus, 'sent')
   assert.equal(collapsed[0].cancelled, false)
   assert.equal(summary.awaitingResponse, 1)
   assert.equal(summary.deliveryIssue, 0)
+})
+
+test('Training availability lets a final Player response outrank every sibling recipient row', () => {
+  const rows = [
+    normalizeCoachInvite({
+      calendar_event_id: 'training-response',
+      id: 'responded-parent',
+      player_id: 'player-response',
+      player_name: 'Response Player',
+      responded_at: '2026-08-27T08:35:00Z',
+      status: 'available',
+    }, 'training'),
+    normalizeCoachInvite({
+      calendar_event_id: 'training-response',
+      id: 'obsolete-parent',
+      last_error: 'Recipient authority changed before delivery.',
+      player_id: 'player-response',
+      player_name: 'Response Player',
+      status: 'cancelled',
+    }, 'training'),
+  ]
+  const collapsed = collapseCoachInvitesByPlayer(rows)
+
+  assert.equal(collapsed.length, 1)
+  assert.equal(collapsed[0].status, 'available')
+  assert.equal(summarizeCoachInvites(collapsed).attending, 1)
+  assert.equal(summarizeCoachInvites(collapsed).deliveryIssue, 0)
+})
+
+test('Training delivery uses the linked queue webhook state for the Delivered tick', () => {
+  const invite = normalizeCoachInvite({
+    calendar_event_id: 'training-delivered',
+    email_sent_at: '2026-08-27T08:00:00Z',
+    id: 'delivered',
+    player_id: 'player-delivered',
+    player_name: 'Delivered Player',
+    scheduled_email_queue: {
+      delivery_state: 'delivered',
+      provider_accepted_at: '2026-08-27T08:00:00Z',
+      provider_delivered_at: '2026-08-27T08:00:02Z',
+      status: 'sent',
+    },
+    status: 'sent',
+  }, 'training')
+
+  assert.equal(invite.deliveryState, 'delivered')
+  assert.equal(invite.deliveryStatus, 'delivered')
+  assert.deepEqual(getCoachInviteDeliveryProgress(invite), {
+    delivered: true,
+    seen: false,
+    sent: true,
+  })
 })
 
 test('Match availability creation includes only Players without an active request', () => {

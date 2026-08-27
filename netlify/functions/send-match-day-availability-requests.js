@@ -13,6 +13,7 @@ import {
   normalizeInvitationText,
   resolveEligibleMatchDayInvitationContacts,
 } from './lib/_match-day-actionable-invitation.js'
+import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -209,7 +210,7 @@ async function prepareCalendarEditInvitations({
       .maybeSingle(),
     adminSupabase
       .from('match_days')
-      .select('*, teams:team_id (name), clubs:club_id (name, logo_url)')
+      .select('*, teams:team_id (name, notification_display_name), clubs:club_id (name, logo_url)')
       .eq('id', matchDayId)
       .eq('club_id', profile.club_id)
       .is('deleted_at', null)
@@ -231,7 +232,7 @@ async function prepareCalendarEditInvitations({
   }
 
   const authoritativePlayerIds = [...new Set((command.player_ids ?? []).map(String).filter(Boolean))]
-  const [{ data: players, error: playersError }, eligibleContacts, { data: requests, error: requestsError }, { data: assignments, error: assignmentsError }, queueResult] = await Promise.all([
+  const [{ data: players, error: playersError }, eligibleContacts, { data: requests, error: requestsError }, { data: assignments, error: assignmentsError }, queueResult, historicalQueueResult] = await Promise.all([
     adminSupabase
       .from('players')
       .select('id, club_id, team_id, player_name, section, status, parent_name, parent_email, parent_contacts, contact_type')
@@ -259,11 +260,20 @@ async function prepareCalendarEditInvitations({
       .eq('club_id', profile.club_id)
       .eq('team_id', match.team_id)
       .contains('payload', { communicationLog: { metadata: { notificationCommandId: commandId } } }),
+    adminSupabase
+      .from('scheduled_email_queue')
+      .select('id, payload, status, created_at')
+      .eq('club_id', profile.club_id)
+      .eq('team_id', match.team_id)
+      .contains('payload', { matchDayAvailability: { matchDayId } })
+      .order('created_at', { ascending: false })
+      .limit(500),
   ])
   const { data: queueRows, error: queueError } = queueResult
+  const { data: historicalQueueRows, error: historicalQueueError } = historicalQueueResult
 
-  if (playersError || requestsError || assignmentsError || queueError) {
-    throw playersError || requestsError || assignmentsError || queueError
+  if (playersError || requestsError || assignmentsError || queueError || historicalQueueError) {
+    throw playersError || requestsError || assignmentsError || queueError || historicalQueueError
   }
 
   const volunteerTemplates = await getVolunteerRequestTemplates(adminSupabase, match)
@@ -318,14 +328,17 @@ async function prepareCalendarEditInvitations({
       continue
     }
 
-    const token = getReusableMatchDayResponseToken(request, queue ? [queue] : [])
+    const historicalRequestQueues = (historicalQueueRows ?? []).filter((candidate) =>
+      candidate.payload?.matchDayAvailability?.requestId === request.id)
+    let token = getReusableMatchDayResponseToken(request, [queue, ...historicalRequestQueues].filter(Boolean))
+    let tokenHash = request.token_hash
 
     if (!token) {
-      failedCount += 1
-      continue
+      const createdToken = createInvitationToken()
+      token = createdToken.token
+      tokenHash = createdToken.tokenHash
     }
 
-    const tokenHash = request.token_hash
     const expiry = getInvitationExpiry(match)
     const { error: requestUpdateError } = await adminSupabase
       .from('match_day_availability_requests')
@@ -334,6 +347,11 @@ async function prepareCalendarEditInvitations({
         parent_link_id: contact.parentLinkId || null,
         recipient_email: recipientEmail,
         recipient_name: request.recipient_name || contact.name || (contact.type === 'player' ? player.player_name : 'Parent or guardian'),
+        token_hash: tokenHash,
+        token_revoked_at: null,
+        token_revoked_reason: null,
+        token_revoked_by: null,
+        token_revoked_source: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', request.id)
@@ -387,7 +405,7 @@ async function prepareCalendarEditInvitations({
       },
       visibleInEmailQueue: false,
       displayName: 'Football Player',
-      teamName: normalizeText(match.teams?.name),
+      teamName: resolveTeamNotificationDisplayName(match.teams || {}, match.teams?.name),
       clubName: normalizeText(match.clubs?.name),
       playerName: normalizeText(player.player_name),
       parentName: normalizeText(request.recipient_name),
@@ -635,7 +653,7 @@ export async function handler(event) {
 
     const { data: match, error: matchError } = await supabase
       .from('match_days')
-      .select('*, teams:team_id (name), clubs:club_id (name, logo_url)')
+      .select('*, teams:team_id (name, notification_display_name), clubs:club_id (name, logo_url)')
       .eq('id', matchDayId)
       .eq('club_id', profile.club_id)
       .is('deleted_at', null)
@@ -921,7 +939,7 @@ export async function handler(event) {
             text: email.text,
           },
           displayName: 'Football Player',
-          teamName: normalizeText(match.teams?.name || match.team_name),
+          teamName: resolveTeamNotificationDisplayName(match.teams || {}, match.team_name),
           clubName: normalizeText(match.clubs?.name),
           playerName: normalizeText(player.player_name),
           parentName: normalizeText(contact.name),

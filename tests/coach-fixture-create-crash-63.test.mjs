@@ -36,11 +36,13 @@ test('fixture setup still applies saved defaults before the Coach starts editing
   const initialized = initializeCoachFixtureForm(null, {
     defaultDuration: 70,
     defaultLocation: { address: '1 Football Road', name: 'Home Ground' },
+    notificationTeamName: 'U14 JPL',
   })
 
   assert.equal(initialized.matchDurationMinutes, 70)
   assert.equal(initialized.venueName, 'Home Ground')
   assert.equal(initialized.venueAddress, '1 Football Road')
+  assert.equal(initialized.notificationTeamName, 'U14 JPL')
 })
 
 test('Coach Match Day returns to visible content after creating or cancelling a long fixture form', async () => {
@@ -52,6 +54,8 @@ test('Coach Match Day returns to visible content after creating or cancelling a 
 
   assert.match(form, /setForm\(\(current\) => initializeCoachFixtureForm\(current,/)
   assert.match(form, /const submittedForm = \{[\s\S]*selectedPlayerIds: \[\.\.\.form\.selectedPlayerIds\]/)
+  assert.match(form, /Notification Team name/)
+  assert.match(form, /getCoachTeamNotificationDisplayName/)
   assert.match(app, /ref=\{contentScrollRef\}/)
   assert.match(app, /scrollTo\(\{ animated: false, y: 0 \}\)/)
   assert.match(screen, /handleFixtureCreated[\s\S]*setFixtureFormOpen\(false\)[\s\S]*onRequestScrollTop\?\.\(\)/)

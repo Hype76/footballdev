@@ -22,6 +22,7 @@ import {
   normalizeCoachDevelopmentForm,
   normalizeCoachDevelopmentRecord,
   normalizeCoachInvite,
+  getCoachInviteRemovalScope,
   normalizeCoachMessage,
   normalizeCoachPoll,
   normalizeCoachResource,
@@ -548,15 +549,16 @@ export async function submitCoachPollVote(user, poll, optionId) {
 
 export async function getCoachInvitesAndAvailability(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [calendarResult, trainingResult, matchResult, matchAvailabilityResult, matches, players] = await Promise.all([
-    supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
-    supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*),training_availability_responses(*)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
+  const [calendarResult, trainingResult, trainingResponseResult, matchResult, matchAvailabilityResult, matches, players] = await Promise.all([
+    supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at,recurrence_frequency)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
+    supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*),scheduled_email_queue:email_queue_id(delivery_state,provider_accepted_at,provider_delivered_at,status)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
+    supabase.from('training_availability_responses').select('request_id,player_id,status,note,responded_at,responded_by_name,response_source').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('responded_at', { ascending: false }).limit(250),
     supabase.from('match_day_availability_requests').select('*,match_days:match_day_id(opponent,team_id,status,deleted_at,match_date)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('match_day_player_availability').select('match_day_id,player_id,status,selected_at,updated_at').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).limit(250),
     getCoachMatchDayList(user),
     getCoachPlayerList(user),
   ])
-  const hardError = calendarResult.error || trainingResult.error || matchResult.error || matchAvailabilityResult.error
+  const hardError = calendarResult.error || trainingResult.error || trainingResponseResult.error || matchResult.error || matchAvailabilityResult.error
   if (hardError) throw hardError
   const trainingRows = trainingResult.data || []
   const trainingEventIds = [...new Set(trainingRows.map((row) => {
@@ -564,16 +566,20 @@ export async function getCoachInvitesAndAvailability(user) {
     return normalize(request?.calendar_event_id)
   }).filter(Boolean))]
   const trainingEventResult = trainingEventIds.length
-    ? await supabase.from('calendar_events').select('id,title,team_id,cancelled_at').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('id', trainingEventIds)
+    ? await supabase.from('calendar_events').select('id,title,team_id,cancelled_at,recurrence_frequency').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('id', trainingEventIds)
     : { data: [], error: null }
   if (trainingEventResult.error) throw trainingEventResult.error
   const trainingEvents = new Map((trainingEventResult.data || []).map((event) => [normalize(event.id), event]))
-  const calendar = (calendarResult.data || []).map((row) => normalizeCoachInvite({ ...row, title: row.calendar_events?.title, cancelled_at: row.calendar_events?.cancelled_at }, 'calendar'))
+  const trainingResponses = new Map((trainingResponseResult.data || []).map((response) => [
+    `${normalize(response.request_id)}:${normalize(response.player_id)}`,
+    response,
+  ]))
+  const calendar = (calendarResult.data || []).map((row) => normalizeCoachInvite({ ...row, title: row.calendar_events?.title, cancelled_at: row.calendar_events?.cancelled_at, recurrence_frequency: row.calendar_events?.recurrence_frequency }, 'calendar'))
   const training = trainingRows.map((row) => {
     const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
     const event = trainingEvents.get(normalize(request?.calendar_event_id))
-    const response = Array.isArray(row.training_availability_responses) ? row.training_availability_responses[0] : row.training_availability_responses
-    return normalizeCoachInvite({ ...row, ...response, calendar_event_id: request?.calendar_event_id, occurrence_date: request?.occurrence_date, occurrence_starts_at: request?.occurrence_starts_at, title: event?.title, cancelled_at: event?.cancelled_at }, 'training')
+    const response = trainingResponses.get(`${normalize(row.request_id)}:${normalize(row.player_id)}`)
+    return normalizeCoachInvite({ ...row, ...response, calendar_event_id: request?.calendar_event_id, occurrence_date: request?.occurrence_date, occurrence_starts_at: request?.occurrence_starts_at, title: event?.title, cancelled_at: event?.cancelled_at, recurrence_frequency: event?.recurrence_frequency }, 'training')
   })
   const matchAvailabilityByPlayer = new Map((matchAvailabilityResult.data || []).map((row) => [
     `${normalize(row.match_day_id)}:${normalize(row.player_id)}`,
@@ -582,7 +588,7 @@ export async function getCoachInvitesAndAvailability(user) {
   const match = (matchResult.data || []).map((row) => {
     const fixture = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days
     const response = matchAvailabilityByPlayer.get(`${normalize(row.match_day_id)}:${normalize(row.player_id)}`)
-    return normalizeCoachInvite({ ...row, availability_status: response?.status, responded_at: response?.selected_at || row.responded_at, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
+    return normalizeCoachInvite({ ...row, availability_status: response?.status, responded_at: row.responded_at, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
   })
   return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(training), match: Object.freeze(match), matches: Object.freeze(matches), players: Object.freeze(players), all: Object.freeze([...match, ...training, ...calendar]) })
 }
@@ -697,9 +703,7 @@ export async function recordCoachInviteIntent(user, invite, action) {
 }
 
 function getCoachInviteRemovalRequest(invite) {
-  const sourceType = invite?.kind === 'match' ? 'match-day' : 'calendar'
-  const scope = invite?.kind === 'training' ? 'occurrence' : 'event'
-  const occurrenceDate = scope === 'occurrence' ? normalize(invite?.occurrenceDate) : null
+  const { occurrenceDate, scope, sourceType } = getCoachInviteRemovalScope(invite)
   if (!normalize(invite?.eventId) || !normalize(invite?.playerId)) throw new Error('Choose an active event and Player before removing participation.')
   if (scope === 'occurrence' && !/^\d{4}-\d{2}-\d{2}$/.test(occurrenceDate)) throw new Error('Choose the Training session date before removing participation.')
   return Object.freeze({ occurrenceDate, scope, sourceType })

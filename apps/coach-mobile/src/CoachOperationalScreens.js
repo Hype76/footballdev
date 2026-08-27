@@ -24,6 +24,8 @@ import {
   saveCoachTrainingInvitation,
   syncCoachCalendarEventResources,
 } from '../../mobile-core/src/coachCalendarData'
+import { getCoachTeamNotificationDisplayName } from '../../mobile-core/src/coachTeamNotificationData'
+import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 import { getCoachResourceAccessUrl, getCoachResources } from '../../mobile-core/src/coachPhase31EData'
 import {
   coachPlayerFormFromPlayer,
@@ -242,6 +244,9 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   const [selectedDate, setSelectedDate] = useState('')
   const [saveConfirmation, setSaveConfirmation] = useState('')
   const [stale, setStale] = useState(false)
+  const [teamNotificationName, setTeamNotificationName] = useState(
+    () => deriveTeamNotificationDisplayName(user.activeTeamName || context?.teamName || ''),
+  )
   const [visibleMonth, setVisibleMonth] = useState(() => getCoachCalendarMonthKey())
   const contextModel = getCoachCalendarContextModel({ context, contexts })
   const policy = getCoachCalendarMutationPolicy({ context, event: selected })
@@ -267,6 +272,12 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
       setEvents(rows)
       setPlayers(playerRows)
       setResources(resourceRows)
+      if (user.activeTeamId) {
+        const savedTeamNotificationName = await getCoachTeamNotificationDisplayName(user).catch(() => (
+          deriveTeamNotificationDisplayName(user.activeTeamName || context?.teamName || '')
+        ))
+        setTeamNotificationName(savedTeamNotificationName)
+      }
       setStale(false)
       await saveCoachOfflineResources(user.id, context, { calendar: rows, calendarPlayers: playerRows, calendarResourceOptions: resourceRows })
     } catch (loadError) {
@@ -299,6 +310,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
       : null, context)
     setForm({
       ...nextForm,
+      notificationTeamName: nextForm.notificationTeamName || teamNotificationName,
       ...(!event && selectedDate ? { date: formatCoachCalendarFormDate(selectedDate) } : {}),
       ...(!event && !nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}),
     })
@@ -311,9 +323,13 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     setAttachmentCategory('all')
     setAttachmentPickerOpen(false)
     const nextForm = coachCalendarFormFromEvent(null, context)
-    setForm({ ...nextForm, ...(!nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}) })
+    setForm({
+      ...nextForm,
+      notificationTeamName: nextForm.notificationTeamName || teamNotificationName,
+      ...(!nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}),
+    })
     onQuickActionHandled?.()
-  }, [context, onQuickActionHandled, quickAction, savedLocations])
+  }, [context, onQuickActionHandled, quickAction, savedLocations, teamNotificationName])
   const chooseNotification = (actionLabel, itemTitle) => new Promise((resolve) => {
     Alert.alert(
       `Notify everyone about this ${actionLabel}?`,
@@ -493,6 +509,10 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
           {form.eventType === 'match'
             ? <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} />
             : <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />}
+          {contextModel.isTeamScope ? <>
+            <Field label="Notification Team name" onChangeText={(value) => setForm({ ...form, notificationTeamName: value })} placeholder="Example: U14 JPL" styles={styles} value={form.notificationTeamName} />
+            <Text style={styles.meta}>Used only in notifications and remembered for this Team. The official Team name stays unchanged.</Text>
+          </> : null}
           <CoachDateTimeField label="Date" mode="date" onChange={(value) => setForm({ ...form, date: value })} styles={styles} value={form.date} />
           <CoachDateTimeField label="Start time" mode="time" onChange={(value) => setForm({ ...form, startTime: value })} styles={styles} value={form.startTime} />
           <CoachDateTimeField label="End time" mode="time" onChange={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />

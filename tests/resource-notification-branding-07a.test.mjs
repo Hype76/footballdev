@@ -148,6 +148,7 @@ function resourceNotificationFixture({
       club_id: ids.club,
       id: ids.team,
       name: 'U17 Green',
+      notification_display_name: 'U17G',
     }],
   }
 
@@ -251,7 +252,7 @@ test('processor reloads exact authoritative notification context and replaces le
   assert.equal(preparation.handled, true)
   assert.equal(preparation.skipped, false)
   assert.equal(preparation.row.payload.clubName, 'St Neots Town FC')
-  assert.equal(preparation.row.payload.teamName, 'U17 Green')
+  assert.equal(preparation.row.payload.teamName, 'U17G')
   assert.equal(preparation.row.payload.playerName, 'Alex Player')
   assert.equal(preparation.email.fromDisplayName, 'St Neots Town FC via Football Player')
   assert.equal(Object.hasOwn(preparation.row.payload, 'fromDisplayName'), false)

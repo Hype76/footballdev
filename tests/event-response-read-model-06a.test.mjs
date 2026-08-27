@@ -459,6 +459,43 @@ test('provider-backed Training send evidence wins over a stale recipient error',
   assert.equal(participant.warningState, '')
 })
 
+test('a final Player response clears sibling recipient delivery failures', () => {
+  const participant = buildEventResponseReadModel({
+    deliveryEvents: [{
+      playerId: 'one-response-player',
+      status: 'failed',
+      lastError: 'A second linked recipient did not receive the invitation.',
+      updatedAt: '2026-08-27T08:36:00Z',
+    }],
+    event: {
+      sourceId: CALENDAR_ID,
+      sourceType: 'calendar',
+      data: { eventType: 'training' },
+    },
+    occurrenceDate: '2026-08-27',
+    trainingAvailabilitySummary: {
+      details: [{
+        lastError: 'A second linked recipient did not receive the invitation.',
+        occurrenceDate: '2026-08-27',
+        playerId: 'one-response-player',
+        playerName: 'One Response Player',
+        recipientStatus: 'cancelled',
+        requestId: 'one-response-request',
+        requestPlayerId: 'one-response-recipient',
+        respondedAt: '2026-08-27T08:35:36Z',
+        responseSource: 'parent',
+        responseStatus: 'available',
+      }],
+    },
+  }).participants[0]
+
+  assert.equal(participant.responseState, 'available')
+  assert.equal(participant.deliveryState, 'delivered')
+  assert.equal(participant.deliveryError, '')
+  assert.equal(participant.warningState, '')
+  assert.equal(participant.display.primaryLabel, 'Attending')
+})
+
 test('training states use attending language and remain separate from attendance', () => {
   const event = {
     sourceId: CALENDAR_ID,
@@ -533,6 +570,36 @@ test('delivery failures remain visible beside an awaiting response', () => {
   assert.equal(row.warningState, 'delivery_issue')
   assert.equal(row.display.primaryLabel, 'Awaiting response')
   assert.match(row.display.secondaryLabel, /Delivery issue/)
+})
+
+test('a pre-provider block remains Invitation not sent instead of a delivery issue', () => {
+  const event = matchEvent({
+    availabilityRequests: [{
+      id: 'request-blocked-before-send',
+      playerId: 'player-blocked-before-send',
+      playerName: 'Pre-send Blocked Player',
+      status: 'pending',
+    }],
+  })
+  const model = buildEventResponseReadModel({
+    deliveryEvents: [{
+      id: 'delivery-blocked-before-send',
+      playerId: 'player-blocked-before-send',
+      status: 'not_sent',
+      createdAt: '2026-08-27T13:06:25Z',
+    }],
+    event,
+  })
+  const row = model.participants[0]
+
+  assert.equal(row.invitationState, 'not_sent')
+  assert.equal(row.responseState, 'not_invited')
+  assert.equal(row.deliveryState, 'not_sent')
+  assert.equal(row.warningState, '')
+  assert.equal(row.display.primaryLabel, 'Invitation not sent')
+  assert.equal(row.staffActions.invitationAction, 'send')
+  assert.equal(model.counts.invitationNotSent, 1)
+  assert.equal(model.counts.deliveryIssues, 0)
 })
 
 test('staff response source is shown without collapsing selection or attendance', () => {

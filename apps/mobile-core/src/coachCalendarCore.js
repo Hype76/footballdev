@@ -6,6 +6,7 @@ import {
 } from '../../../src/lib/calendar-datetime-integrity.js'
 import { getDateInTimeZone } from './parentCalendarCore.js'
 import { normalizeLegacyMatchHomeAway, normalizeMatchDayShirtChoice } from '../../../src/lib/matchday-model.js'
+import { resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 
 export const COACH_CALENDAR_EVENT_TYPES = Object.freeze([
   'general',
@@ -313,6 +314,10 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     status,
     teamId,
     teamName: normalize(team?.name ?? row.team ?? row.team_name ?? row.teamName),
+    teamNotificationDisplayName: resolveTeamNotificationDisplayName(
+      team || {},
+      row.team_notification_display_name ?? row.teamNotificationDisplayName ?? team?.name ?? row.team_name ?? row.teamName,
+    ),
     title,
     updatedAt: normalize(row.updated_at ?? row.updatedAt),
   })
@@ -503,6 +508,10 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
     location: normalize(event?.location),
     notes: normalize(event?.notes),
     notifyParents: event?.notifyParents === true,
+    notificationTeamName: resolveTeamNotificationDisplayName(
+      { notificationDisplayName: event?.teamNotificationDisplayName },
+      context?.teamName || context?.activeTeamName || event?.teamName,
+    ),
     opponent: event?.eventType === 'match'
       ? normalize(event?.title).replace(new RegExp(`^${normalize(context?.teamName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+v\\s+`, 'i'), '')
       : '',

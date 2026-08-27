@@ -7,4 +7,5 @@ export {
   getTeamStaffAssignments,
   replaceTeamStaffAssignments,
   updateTeamSettings,
+  updateTeamNotificationDisplayName,
 } from './core.js'

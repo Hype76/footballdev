@@ -20,7 +20,7 @@ function createScopeClient() {
           return {
             async in() {
               if (table === 'clubs') return { data: [{ id: 'club-1', name: 'St Neots FC' }], error: null }
-              if (table === 'teams') return { data: [{ id: 'team-1', club_id: 'club-1', name: 'U17 Green' }], error: null }
+              if (table === 'teams') return { data: [{ id: 'team-1', club_id: 'club-1', name: 'U17 Green', notification_display_name: 'U17G' }], error: null }
               return { data: [], error: null }
             },
           }
@@ -51,7 +51,7 @@ test('scope names are loaded from authoritative ids and included in notification
   const client = createScopeClient()
   const [scope] = await hydrateNotificationScopeNames(client, [{ club_id: 'club-1', team_id: 'team-1' }])
   assert.equal(scope.club_name, 'St Neots FC')
-  assert.equal(scope.team_name, 'U17 Green')
+  assert.equal(scope.team_name, 'U17G')
 
   const payload = await addScopeToNotificationPayload(client, {
     clubId: 'club-1',
@@ -59,10 +59,10 @@ test('scope names are loaded from authoritative ids and included in notification
     teamId: 'team-1',
     title: 'Training response requested',
   })
-  assert.equal(payload.title, 'St Neots FC | U17 Green | Training response requested')
+  assert.equal(payload.title, 'St Neots FC | U17G | Training response requested')
   assert.deepEqual(payload.data, {
     clubName: 'St Neots FC',
     route: 'invites',
-    teamName: 'U17 Green',
+    teamName: 'U17G',
   })
 })

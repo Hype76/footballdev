@@ -171,6 +171,7 @@ export function normalizeTrainingAvailabilityDetail(row = {}) {
     : row.training_availability_requests
   const responseStatus = normalizeText(response?.status).toLowerCase()
   const state = getTrainingAvailabilityChipState(responseStatus)
+  const hasFinalPlayerResponse = ['available', 'unavailable', 'maybe'].includes(responseStatus)
 
   return {
     requestId: row.request_id ?? row.requestId ?? request?.id ?? '',
@@ -180,11 +181,11 @@ export function normalizeTrainingAvailabilityDetail(row = {}) {
     occurrenceStartsAt: request?.occurrence_starts_at ?? row.occurrence_starts_at ?? row.occurrenceStartsAt ?? '',
     playerId: row.player_id ?? row.playerId ?? '',
     playerName: normalizeText(row.player_name ?? row.playerName),
-    recipientStatus: normalizeText(row.status ?? row.recipientStatus),
+    recipientStatus: hasFinalPlayerResponse ? 'responded' : normalizeText(row.status ?? row.recipientStatus),
     recipientType: normalizeText(row.recipient_type ?? row.recipientType),
     parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
     emailSentAt: row.email_sent_at ?? row.emailSentAt ?? '',
-    lastError: normalizeText(row.last_error ?? row.lastError),
+    lastError: hasFinalPlayerResponse ? '' : normalizeText(row.last_error ?? row.lastError),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedAt: row.updated_at ?? row.updatedAt ?? row.created_at ?? row.createdAt ?? '',
     responseStatus: responseStatus || 'pending',

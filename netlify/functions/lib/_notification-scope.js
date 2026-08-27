@@ -1,3 +1,5 @@
+import { resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
+
 function normalizeText(value) {
   return String(value ?? '').trim()
 }
@@ -17,7 +19,7 @@ export async function hydrateNotificationScopeNames(client, intents = []) {
       ? client.from('clubs').select('id, name').in('id', clubIds)
       : Promise.resolve({ data: [], error: null }),
     teamIds.length > 0
-      ? client.from('teams').select('id, club_id, name').in('id', teamIds)
+      ? client.from('teams').select('id, club_id, name, notification_display_name').in('id', teamIds)
       : Promise.resolve({ data: [], error: null }),
   ])
 
@@ -27,7 +29,7 @@ export async function hydrateNotificationScopeNames(client, intents = []) {
   const clubs = new Map((clubResult.data || []).map((club) => [normalizeText(club.id), normalizeText(club.name)]))
   const teams = new Map((teamResult.data || []).map((team) => [normalizeText(team.id), {
     clubId: normalizeText(team.club_id),
-    name: normalizeText(team.name),
+    name: resolveTeamNotificationDisplayName(team, team.name),
   }]))
 
   return rows.map((row) => {

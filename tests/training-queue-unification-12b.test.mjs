@@ -371,6 +371,41 @@ test('claim preparation reconstructs the current RSVP and rejects cancelled or c
   assert.match(changedRecipient.skipReason, /recipient authority changed/)
 })
 
+test('claim preparation accepts a current legacy parent found by the authoritative recipient resolver', async () => {
+  const { prepareScheduledTrainingInvitationRow } = await import(
+    `${processorUrl.href}?legacy-authority=${Date.now()}`
+  )
+  const fixture = buildCurrentFixture()
+  fixture.rows.training_availability_request_players.parent_link_id = null
+  fixture.row.payload.trainingInvitation.parentLinkId = null
+  const baseClient = createReadClient(fixture.rows)
+  const client = {
+    ...baseClient,
+    rpc(name) {
+      assert.equal(name, 'event_player_eligible_recipients')
+      return Promise.resolve({
+        data: [{
+          player_id: fixture.rows.players.id,
+          player_name: fixture.rows.players.player_name,
+          recipient_email: fixture.rows.training_availability_request_players.recipient_email,
+          recipient_name: 'Current Parent',
+          recipient_type: 'parent',
+          parent_link_id: null,
+        }],
+        error: null,
+      })
+    },
+  }
+
+  const current = await prepareScheduledTrainingInvitationRow(fixture.row, {
+    appOrigin: 'https://footballplayer.online',
+    supabaseClient: client,
+  })
+
+  assert.equal(current.skipped, false)
+  assert.match(current.row.payload.resendPayload.html, /Open response form/)
+})
+
 test('manual Send, Resend and Retry share one invitation and reusable-token queue model', async () => {
   const [manualInvitation, processor] = await Promise.all([
     readFile(manualInvitationUrl, 'utf8'),

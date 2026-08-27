@@ -9,6 +9,7 @@ import {
 } from '../../src/lib/email-branding.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
+import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 
 const ROLE_CONFIG = {
@@ -224,7 +225,7 @@ export function buildRoleNotificationEmail({
   action,
 }) {
   const roleLabel = ROLE_CONFIG[role]?.label || 'Volunteer'
-  const teamName = normalizeText(match.teams?.name || match.team_name || 'the team')
+  const teamName = resolveTeamNotificationDisplayName(match.teams || {}, match.team_name || 'the team')
   const opponent = normalizeText(match.opponent || 'Fixture')
   const matchName = getMatchDayDisplayName({ ...match, teamName })
   const clubName = normalizeText(match.clubs?.name || match.club_name || 'Football Player')
@@ -344,7 +345,7 @@ async function queueRoleNotification(adminSupabase, { appOrigin, match, profile,
       text: email.text,
     },
     displayName: `${normalizeText(match.clubs?.name) || 'Football Player'} via Football Player`,
-    teamName: normalizeText(match.teams?.name || match.team_name),
+    teamName: resolveTeamNotificationDisplayName(match.teams || {}, match.team_name),
     clubName: normalizeText(match.clubs?.name),
     playerName: '',
     parentName: normalizeText(recipientName),
@@ -740,7 +741,7 @@ export async function handler(event) {
 
     const { data: match, error: matchError } = await supabase
       .from('match_days')
-      .select('*, teams:team_id (name, theme_accent), clubs:club_id (name, logo_url, theme_accent)')
+      .select('*, teams:team_id (name, notification_display_name, theme_accent), clubs:club_id (name, logo_url, theme_accent)')
       .eq('id', matchDayId)
       .eq('club_id', profile.club_id)
       .is('deleted_at', null)

@@ -4,6 +4,7 @@ import { buildEventResponseManagerModel } from './event-response-manager.js'
 
 const FINAL_RESPONSE_STATES = new Set(['available', 'maybe', 'unavailable'])
 const DELIVERY_FAILURE_STATES = new Set(['failed', 'delivery_failed'])
+const DELIVERY_NOT_SENT_STATES = new Set(['not_sent'])
 const DELIVERY_SUCCESS_STATES = new Set(['delivered', 'responded', 'sent'])
 const DELIVERY_QUEUE_STATES = new Set(['pending', 'processing', 'queued'])
 const RESPONSE_AUDIT_ACTIONS = [
@@ -104,6 +105,10 @@ function getDeliveryStateFromRows(rows = [], fallback = '') {
 
   if (hasSuccess) {
     return 'delivered'
+  }
+
+  if (states.some((status) => DELIVERY_NOT_SENT_STATES.has(status))) {
+    return 'not_sent'
   }
 
   if (states.some((status) => DELIVERY_QUEUE_STATES.has(status))) {
@@ -326,6 +331,15 @@ function mergeInviteRows(current, invite) {
 }
 
 function applyDeliveryEvidence(row, deliveryRows) {
+  if (FINAL_RESPONSE_STATES.has(normalizeStatus(row.responseState))) {
+    return {
+      ...row,
+      deliveryState: 'delivered',
+      deliveryError: '',
+      warningState: '',
+    }
+  }
+
   const playerDeliveryRows = deliveryRows.filter((delivery) => (
     normalizeText(delivery.playerId) === normalizeText(row.playerId)
   ))
@@ -335,6 +349,7 @@ function applyDeliveryEvidence(row, deliveryRows) {
   }
 
   const deliveryState = getDeliveryStateFromRows(playerDeliveryRows, row.deliveryState)
+  const invitationNotSent = deliveryState === 'not_sent'
   const latestDelivery = getLatestRow(playerDeliveryRows)
   const legacyDeliveryUpdatedAt = normalizeText(
     latestDelivery?.updatedAt || latestDelivery?.requestedAt || latestDelivery?.createdAt,
@@ -352,11 +367,15 @@ function applyDeliveryEvidence(row, deliveryRows) {
 
   return {
     ...row,
-    invitationState: 'created',
+    invitationState: invitationNotSent ? 'not_sent' : 'created',
     deliveryState,
     deliveryError: normalizeText(latestDelivery?.lastError),
     deliveryUpdatedAt: legacyDeliveryUpdatedAt,
-    responseState: row.responseState === 'not_invited'
+    responseState: invitationNotSent
+      ? row.eventType === 'general'
+        ? 'not_requested'
+        : 'not_invited'
+      : row.responseState === 'not_invited'
       ? row.eventType === 'general'
         ? 'not_requested'
         : 'awaiting_response'
@@ -549,7 +568,9 @@ export function buildEventResponseReadModel({
         ? normalizeStatus(detail.responseStatus)
         : 'awaiting_response'
       const recipientStatus = normalizeStatus(detail.recipientStatus)
-      const deliveryState = detail.emailSentAt || recipientStatus === 'sent' || recipientStatus === 'responded'
+      const deliveryState = FINAL_RESPONSE_STATES.has(responseState)
+        ? 'delivered'
+        : detail.emailSentAt || recipientStatus === 'sent' || recipientStatus === 'responded'
         ? 'delivered'
         : recipientStatus === 'failed' || normalizeText(detail.lastError)
           ? 'failed'
@@ -578,7 +599,7 @@ export function buildEventResponseReadModel({
         responseLabel: getResponseLabel(eventType, responseState),
         responseSource,
         respondedAt: detail.respondedAt || next.respondedAt,
-        warningState: deliveryState === 'failed' ? 'delivery_issue' : next.warningState,
+        warningState: deliveryState === 'failed' ? 'delivery_issue' : '',
         player: {
           ...(next.player || {}),
           id: playerId,
@@ -633,6 +654,7 @@ export function buildEventResponseReadModel({
       const matchSelectionState = normalizeStatus(withDelivery.matchSelectionState)
       const invitationAction = source.sourceType === 'match-day'
         ? withDelivery.hasAvailabilityRequest !== true
+          || normalizeStatus(withDelivery.invitationState) === 'not_sent'
           ? 'send'
           : ['failed', 'partial_failure'].includes(normalizeStatus(withDelivery.deliveryState))
             ? 'retry'

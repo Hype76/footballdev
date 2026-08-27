@@ -10,6 +10,7 @@ import {
   queueTrainingInvitationRecipient,
 } from './process-training-availability-requests.js'
 import { handler as sendMatchDayAvailabilityRequests } from './send-match-day-availability-requests.js'
+import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 
 const ACTIONS = new Set(['send', 'resend', 'retry'])
 const SOURCE_TYPES = new Set(['calendar', 'match-day'])
@@ -390,7 +391,7 @@ async function sendTrainingInvitation({
   ] = await Promise.all([
     adminSupabase
       .from('calendar_events')
-      .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name), clubs:club_id(name, logo_url)')
+      .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url)')
       .eq('id', eventId)
       .eq('club_id', scopedEvent.club_id)
       .eq('team_id', scopedEvent.team_id)
@@ -639,7 +640,7 @@ async function sendTrainingInvitation({
         recipient: contact,
         request,
         supabase: adminSupabase,
-        teamName: event.teams?.name || '',
+        teamName: resolveTeamNotificationDisplayName(event.teams || {}, event.teams?.name || ''),
       })
       queuedCount += queueResult.status === 'queued' ? 1 : 0
     } catch (error) {

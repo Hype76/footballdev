@@ -958,7 +958,7 @@ function ParentHome() {
     notificationResponseProcessingRef.current = responseId
     applyParentNotificationDestination(currentDestination, { pending: true })
     consumeLastNotificationResponse(responseId)
-    void loadCurrentParentNotificationData(loadParentData, 1)
+    void loadCurrentParentNotificationData(loadParentData)
       .then(async (result) => {
         if (notificationResponseProcessingRef.current !== responseId) return
         let destination = resolveParentNotificationOpen(

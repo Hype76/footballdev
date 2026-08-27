@@ -114,11 +114,16 @@ import {
   updateCalendarEvent,
   updateAssessmentSession,
   updateMatchDay,
+  updateTeamNotificationDisplayName,
   isPastMatchDayDate,
   withRequestTimeout,
   writeViewCache,
   buildEventResponseReadModel,
 } from '../lib/supabase.js'
+import {
+  deriveTeamNotificationDisplayName,
+  resolveTeamNotificationDisplayName,
+} from '../lib/team-notification-display.js'
 import { createScheduledEmail } from '../lib/domain/scheduled-emails.js'
 import {
   applyTrialPlayerSelection,
@@ -345,6 +350,7 @@ function getDefaultCalendarForm(date = '') {
     notes: '',
     notifyInvitedFamilies: false,
     notificationRequestToken: '',
+    notificationTeamName: '',
     opponent: '',
     kickoffTimeTbc: false,
     shirtChoice: 'home',
@@ -2094,11 +2100,16 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
 
+    const teamId = canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim()
+    const selectedTeam = teams.find((team) => String(team.id) === teamId)
     setCalendarForm({
       ...defaultForm,
       eventType,
+      notificationTeamName: teamId
+        ? resolveTeamNotificationDisplayName(selectedTeam || {}, user?.activeTeamName || '')
+        : '',
       requestTrainingAvailability: false,
-      teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
+      teamId,
     })
     setCalendarModal({ mode: 'create', event: null })
   }
@@ -2132,10 +2143,15 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   function handleOpenSessionCreateModal() {
     setErrorMessage('')
     setCalendarValidation(null)
+    const teamId = canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim()
+    const selectedTeam = teams.find((team) => String(team.id) === teamId)
     setCalendarForm({
       ...getDefaultCalendarForm(),
       eventType: 'training',
-      teamId: canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim(),
+      notificationTeamName: teamId
+        ? resolveTeamNotificationDisplayName(selectedTeam || {}, user?.activeTeamName || '')
+        : '',
+      teamId,
     })
     setCalendarModal({ mode: 'create', event: null, variant: 'session' })
   }
@@ -2157,6 +2173,12 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
     setCalendarForm({
       ...baseForm,
+      notificationTeamName: baseForm.teamId
+        ? resolveTeamNotificationDisplayName(
+          teams.find((team) => String(team.id) === String(baseForm.teamId)) || {},
+          getCalendarTeamName(baseForm.teamId),
+        )
+        : '',
       requestTrainingAvailability: sourceEventType === 'training' ? setting?.enabled ?? false : false,
       shareWithParents: sourceEventType === 'training' && setting?.enabled ? true : baseForm.shareWithParents,
       parentAudience: sourceEventType === 'training' && setting?.enabled ? 'involved_players' : baseForm.parentAudience,
@@ -2889,6 +2911,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       if (name === 'teamId') {
         const selectedTeam = teams.find((team) => team.id === value)
         nextForm.team = selectedTeam?.name || ''
+        nextForm.notificationTeamName = value
+          ? resolveTeamNotificationDisplayName(selectedTeam || {}, selectedTeam?.name || '')
+          : ''
         nextForm.invitedPlayerIds = []
         nextForm.inviteTrialPlayers = false
         nextForm.inviteWholeSquad = false
@@ -3093,6 +3118,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     setCalendarValidation(null)
     const safeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, calendarForm.teamId)
     const teamName = getCalendarTeamName(safeTeamId)
+    const notificationTeamName = safeTeamId
+      ? String(calendarForm.notificationTeamName || deriveTeamNotificationDisplayName(teamName)).trim()
+      : ''
     const isTraining = calendarForm.eventType === 'training'
     const isMatch = calendarForm.eventType === 'match'
     const saveTrainingAsSession = isTraining && sourceType === 'session'
@@ -3183,12 +3211,21 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           opponent: trimmedOpponent || trimmedTitle,
           parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
           parentVisible: calendarForm.shareWithParents,
+          notificationTeamName,
           teamId: safeTeamId,
           venueName: calendarForm.location,
         }, { navigate })
         setCalendarModal(null)
         showToast({ title: 'Opening Match Day', message: 'Create this fixture in the full Match Day workflow.' })
         return
+      }
+
+      if (safeTeamId) {
+        await updateTeamNotificationDisplayName({
+          notificationDisplayName: notificationTeamName,
+          teamId: safeTeamId,
+          user,
+        })
       }
 
       const fixtureEndTime = isMatch
@@ -3298,7 +3335,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             safeTeamId,
             savedInvites,
             sourceTitle,
-            teamName,
+            teamName: notificationTeamName,
           })
           queuedInviteEmails += queueResult.queued
           failedInviteEmails += queueResult.failed
@@ -6082,6 +6119,24 @@ function CalendarEventModal({
                 </label>
               )}
             </div>
+
+            {!clubWideOnly && form.teamId ? (
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Notification Team name</span>
+                <input
+                  name="notificationTeamName"
+                  value={form.notificationTeamName}
+                  onChange={onChange}
+                  maxLength={40}
+                  placeholder="Example: U14 JPL"
+                  disabled={isBusy}
+                  className={fieldClass}
+                />
+                <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
+                  Used only in notifications and remembered for this Team. The official Team name stays unchanged.
+                </span>
+              </label>
+            ) : null}
 
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#101828]">Title</span>

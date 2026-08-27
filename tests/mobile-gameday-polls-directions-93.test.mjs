@@ -126,7 +126,8 @@ test('Poll result email is branded, complete and safe for email clients', async 
 
 test('Poll result sender loads authoritative club and Team branding without weakening idempotency', () => {
   assert.match(pollSender, /from\('clubs'\)[\s\S]*select\('id, name, logo_url, theme_accent'\)/)
-  assert.match(pollSender, /from\('teams'\)[\s\S]*select\('id, club_id, name'\)/)
+  assert.match(pollSender, /from\('teams'\)[\s\S]*select\('id, club_id, name, notification_display_name'\)/)
+  assert.match(pollSender, /resolveTeamNotificationDisplayName\(brand\.team \|\| \{\}, brand\.team\?\.name\)/)
   assert.match(pollSender, /buildAuthoritativePollResultEmail/)
   assert.match(pollSender, /createFromAddress\(emailPresentation\.fromDisplayName\)/)
   assert.match(pollSender, /idempotencyKey: `poll-results:\$\{poll\.id\}:\$\{authUserId\}`/)

@@ -16,6 +16,7 @@ import {
   normalizeTeamStaffRow,
 } from './team-normalizers.js'
 import { assertClubFeature } from './plan-gates.js'
+import { normalizeTeamNotificationDisplayName } from '../team-notification-display.js'
 
 async function getAccessToken() {
   const { data, error } = await supabase.auth.getSession()
@@ -199,6 +200,37 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
   }
 
   return normalizeTeamRow(updatedTeam)
+}
+
+export async function updateTeamNotificationDisplayName({ teamId, notificationDisplayName, user = null }) {
+  await blockDemoMutation(user)
+
+  if (!teamId) {
+    throw new Error('Team ID is required.')
+  }
+
+  const normalizedDisplayName = normalizeTeamNotificationDisplayName(notificationDisplayName)
+
+  if (!normalizedDisplayName) {
+    throw new Error('Notification Team name must be between 1 and 40 characters.')
+  }
+
+  const { data, error } = await supabase.rpc('set_team_notification_display_name', {
+    display_name_value: normalizedDisplayName,
+    team_id_value: teamId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('teams:')
+  invalidateMemoryCacheByPrefix('available-teams:')
+  invalidateMemoryCacheByPrefix('assigned-teams:')
+  invalidateMemoryCacheByPrefix('team-assignments:')
+
+  return normalizeTeamRow(data)
 }
 
 export async function getAvailableTeamsForUser(user) {

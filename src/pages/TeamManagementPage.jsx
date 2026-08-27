@@ -40,9 +40,11 @@ import {
   getTeams,
   replaceTeamStaffAssignments,
   updateTeamSettings,
+  updateTeamNotificationDisplayName,
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+import { deriveTeamNotificationDisplayName } from '../lib/team-notification-display.js'
 import { canAddStaffAccessEmail, createLimitUpgradeMessage, getUniqueStaffAccessEmails, isWithinPlanLimit } from '../lib/plans.js'
 import {
   canManageAssignedTeamRole,
@@ -134,6 +136,7 @@ export function TeamManagementPage() {
   })
   const [newTeamName, setNewTeamName] = useState('')
   const [teamNameDrafts, setTeamNameDrafts] = useState({})
+  const [teamNotificationNameDrafts, setTeamNotificationNameDrafts] = useState({})
   const [coachForm, setCoachForm] = useState(initialCoachForm)
   const [selectedTeamId, setSelectedTeamId] = useState('')
   const [staffToAddId, setStaffToAddId] = useState('')
@@ -225,6 +228,10 @@ export function TeamManagementPage() {
         setRoles(nextRoles)
         setTeamStats(nextTeamStats)
         setTeamNameDrafts(Object.fromEntries(nextTeams.map((team) => [team.id, team.name])))
+        setTeamNotificationNameDrafts(Object.fromEntries(nextTeams.map((team) => [
+          team.id,
+          team.notificationDisplayName || deriveTeamNotificationDisplayName(team.name),
+        ])))
         writeViewCache(cacheKey, {
           teams: nextTeams,
           users: nextUsers.filter((member) => member.role !== 'super_admin'),
@@ -814,6 +821,52 @@ export function TeamManagementPage() {
     }
   }
 
+  const handleTeamNotificationNameSave = async (teamId) => {
+    const currentTeam = teams.find((team) => team.id === teamId)
+    const nextName = String(
+      teamNotificationNameDrafts[teamId]
+        ?? currentTeam?.notificationDisplayName
+        ?? deriveTeamNotificationDisplayName(currentTeam?.name),
+    ).trim()
+
+    if (!currentTeam || !nextName || nextName === currentTeam.notificationDisplayName) {
+      return
+    }
+
+    setIsSaving(true)
+    setMessage('')
+    setErrorMessage('')
+
+    try {
+      const updatedTeam = await updateTeamNotificationDisplayName({
+        notificationDisplayName: nextName,
+        teamId,
+        user,
+      })
+      setTeams((current) => {
+        const nextTeams = current.map((team) => (team.id === teamId ? updatedTeam : team))
+        writeTeamCache({ teams: nextTeams })
+        return nextTeams
+      })
+      setTeamNotificationNameDrafts((current) => ({
+        ...current,
+        [teamId]: updatedTeam.notificationDisplayName,
+      }))
+      setMessage('Notification Team name updated.')
+      showToast({ title: 'Notification name saved', message: `${updatedTeam.notificationDisplayName} will be used in Team notifications.` })
+    } catch (error) {
+      console.error(error)
+      setTeamNotificationNameDrafts((current) => ({
+        ...current,
+        [teamId]: currentTeam.notificationDisplayName || deriveTeamNotificationDisplayName(currentTeam.name),
+      }))
+      setErrorMessage(error.message || 'Could not update the notification Team name.')
+      showToast({ title: 'Notification name not saved', message: error.message || 'Could not update the notification Team name.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -909,12 +962,19 @@ export function TeamManagementPage() {
         onRemoveStaff={handleRemoveStaffFromSelectedTeam}
         onRoleChangeRequest={handleRoleChangeRequest}
         onSaveTeamName={handleTeamNameSave}
+        onSaveTeamNotificationName={handleTeamNotificationNameSave}
         onSelectedTeamChange={setSelectedTeamId}
         onStaffPageChange={setStaffPage}
         onStaffSearchChange={setStaffSearch}
         onStaffToAddChange={setStaffToAddId}
         onTeamNameDraftChange={(teamId, value) =>
           setTeamNameDrafts((current) => ({
+            ...current,
+            [teamId]: value,
+          }))
+        }
+        onTeamNotificationNameDraftChange={(teamId, value) =>
+          setTeamNotificationNameDrafts((current) => ({
             ...current,
             [teamId]: value,
           }))
@@ -931,6 +991,7 @@ export function TeamManagementPage() {
         teamAssignments={teamAssignments}
         teamStats={teamStats}
         teamNameDrafts={teamNameDrafts}
+        teamNotificationNameDrafts={teamNotificationNameDrafts}
         teamPage={teamPage}
         teamPageSize={TEAM_PAGE_SIZE}
         teamRoleOptions={teamRoleOptions}

@@ -39,11 +39,13 @@ export function TeamStaffAllocationsSection({
   onRemoveStaff,
   onRoleChangeRequest,
   onSaveTeamName,
+  onSaveTeamNotificationName,
   onSelectedTeamChange,
   onStaffPageChange,
   onStaffSearchChange,
   onStaffToAddChange,
   onTeamNameDraftChange,
+  onTeamNotificationNameDraftChange,
   onTeamPageChange,
   paginatedSelectedTeamStaff,
   paginatedTeams,
@@ -56,6 +58,7 @@ export function TeamStaffAllocationsSection({
   teamAssignments,
   teamStats,
   teamNameDrafts,
+  teamNotificationNameDrafts,
   teamPage,
   teamPageSize,
   teamRoleOptions,
@@ -106,10 +109,12 @@ export function TeamStaffAllocationsSection({
               onRemoveStaff={onRemoveStaff}
               onRoleChangeRequest={onRoleChangeRequest}
               onSaveTeamName={onSaveTeamName}
+              onSaveTeamNotificationName={onSaveTeamNotificationName}
               onStaffPageChange={onStaffPageChange}
               onStaffSearchChange={onStaffSearchChange}
               onStaffToAddChange={onStaffToAddChange}
               onTeamNameDraftChange={onTeamNameDraftChange}
+              onTeamNotificationNameDraftChange={onTeamNotificationNameDraftChange}
               paginatedSelectedTeamStaff={paginatedSelectedTeamStaff}
               selectedTeam={selectedTeam}
               selectedTeamStaff={selectedTeamStaff}
@@ -118,6 +123,7 @@ export function TeamStaffAllocationsSection({
               staffSearch={staffSearch}
               staffToAddId={staffToAddId}
               teamNameDrafts={teamNameDrafts}
+              teamNotificationNameDrafts={teamNotificationNameDrafts}
               teamRoleOptions={teamRoleOptions}
               teamRoleAuthorityMessage={teamRoleAuthorityMessage}
             />
@@ -191,10 +197,12 @@ function SelectedTeamPanel({
   onRemoveStaff,
   onRoleChangeRequest,
   onSaveTeamName,
+  onSaveTeamNotificationName,
   onStaffPageChange,
   onStaffSearchChange,
   onStaffToAddChange,
   onTeamNameDraftChange,
+  onTeamNotificationNameDraftChange,
   paginatedSelectedTeamStaff,
   selectedTeam,
   selectedTeamStaff,
@@ -203,6 +211,7 @@ function SelectedTeamPanel({
   staffSearch,
   staffToAddId,
   teamNameDrafts,
+  teamNotificationNameDrafts,
   teamRoleOptions,
   teamRoleAuthorityMessage,
 }) {
@@ -249,6 +258,33 @@ function SelectedTeamPanel({
           <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
             {selectedTeamStaff.length} Coaches allocated to this team.
           </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-[#101828]">Notification Team name</span>
+              <input
+                type="text"
+                maxLength={40}
+                value={teamNotificationNameDrafts[selectedTeam.id] ?? selectedTeam.notificationDisplayName ?? ''}
+                onChange={(event) => onTeamNotificationNameDraftChange(selectedTeam.id, event.target.value)}
+                className={fieldClass}
+              />
+              <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
+                Used only in notifications. The official Team name stays unchanged.
+              </span>
+            </label>
+            <button
+              type="button"
+              disabled={
+                isSaving
+                || !String(teamNotificationNameDrafts[selectedTeam.id] ?? '').trim()
+                || String(teamNotificationNameDrafts[selectedTeam.id] ?? '').trim() === selectedTeam.notificationDisplayName
+              }
+              onClick={() => void onSaveTeamNotificationName(selectedTeam.id)}
+              className={`${secondaryButtonClass} md:w-auto`}
+            >
+              Save notification name
+            </button>
+          </div>
         </div>
         {canDeleteTeam ? (
           <button

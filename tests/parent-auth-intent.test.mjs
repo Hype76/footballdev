@@ -108,7 +108,7 @@ test('parent login blocks an existing non-parent session instead of submitting u
 test('recoverable parent access states preserve the authenticated session', async () => {
   const source = await readFile(routerUrl, 'utf8')
   const stateStart = source.indexOf('function RecoverableParentAccessState')
-  const stateEnd = source.indexOf('function ParentAccessSignInRedirect', stateStart)
+  const stateEnd = source.indexOf('function AccessIntentRecoveryState', stateStart)
   const section = source.slice(stateStart, stateEnd)
 
   assert.match(section, /Parent access could not be confirmed/)
@@ -139,7 +139,7 @@ test('recoverable parent access states preserve the authenticated session', asyn
   assert.doesNotMatch(source, /Test and live workspaces keep accounts separate/)
 })
 
-test('retired access mismatch screen is removed in favour of safe sign-in redirects', async () => {
+test('access mismatch preserves the session and requires an explicit account change', async () => {
   const source = await readFile(routerUrl, 'utf8')
   const retiredParentHeading = ['This sign-in', 'is for parent access'].join(' ')
   const retiredClubAction = ['Use Club', 'login'].join(' ')
@@ -150,10 +150,29 @@ test('retired access mismatch screen is removed in favour of safe sign-in redire
   assert.equal(source.includes(retiredClubAction), false)
   assert.equal(source.includes(retiredAlternateAction), false)
   assert.equal(source.includes(retiredComponent), false)
+  assert.match(source, /function AccessIntentRecoveryState/)
+  assert.match(source, /No automatic sign-out/)
+  assert.match(source, /Your current session has been kept active/)
+  assert.match(source, /Sign in with a different account/)
+  assert.match(source, /await selectAccessMode\(normalizedAvailableMode/)
   assert.match(source, /function TeamAccessSignInRedirect\(\)/)
-  assert.match(source, /function LoginIntentSignInRedirect\(\{ intent \}\)/)
-  assert.match(source, /intent === 'team' \? <TeamAccessSignInRedirect \/> : <ParentAccessSignInRedirect \/>/)
-  assert.match(source, /accessRouteMismatch\?\.loginIntentMismatch[\s\S]*<LoginIntentSignInRedirect/)
+  assert.match(source, /function LoginIntentSignInRedirect\(\{ availableAccessMode = '', intent \}\)/)
+  assert.match(source, /<AccessIntentRecoveryState availableAccessMode=\{availableAccessMode\} intendedAccessMode=\{intent\}/)
+  assert.match(source, /accessRouteMismatch\?\.loginIntentMismatch[\s\S]*availableAccessMode=\{accessRouteMismatch\.availableAccessMode\}/)
+  const recoveryStart = source.indexOf('function AccessIntentRecoveryState')
+  const recoveryEnd = source.indexOf('function ParentAccessSignInRedirect', recoveryStart)
+  const automaticSection = source.slice(recoveryStart, recoveryEnd).split('const handleDifferentAccount')[0]
+  assert.doesNotMatch(automaticSection, /signOut\(/)
+})
+
+test('web and mobile sign-out are isolated to the current session', async () => {
+  const authSource = await readFile(authSourceUrl, 'utf8')
+  const mobileAuthSource = await readFile(new URL('../apps/mobile-core/src/auth.js', import.meta.url), 'utf8')
+
+  assert.match(authSource, /supabase\.auth\.signOut\(\{ scope: 'local' \}\)/)
+  assert.match(mobileAuthSource, /supabase\.auth\.signOut\(\{ scope: 'local' \}\)/)
+  assert.doesNotMatch(authSource, /supabase\.auth\.signOut\(\)/)
+  assert.doesNotMatch(mobileAuthSource, /supabase\.auth\.signOut\(\)/)
 })
 
 test('production auth success copy avoids staging workspace wording', async () => {
