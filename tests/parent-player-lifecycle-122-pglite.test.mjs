@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
-const migrationUrl = new URL('../supabase/migrations/20260828123000_parent_trial_access_and_safe_player_archive.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260828102649_parent_trial_access_and_safe_player_archive.sql', import.meta.url)
 
 async function createDatabase() {
   const db = new PGlite()

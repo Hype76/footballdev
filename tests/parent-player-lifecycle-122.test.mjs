@@ -8,7 +8,7 @@ const playerDetailsUrl = new URL('../src/components/players/PlayerDetailsSection
 const playerLifecycleUrl = new URL('../src/lib/domain/player-event-lifecycle.js', import.meta.url)
 const playerProfileUrl = new URL('../src/pages/PlayerProfile.jsx', import.meta.url)
 const coreUrl = new URL('../src/lib/domain/core.js', import.meta.url)
-const migrationUrl = new URL('../supabase/migrations/20260828123000_parent_trial_access_and_safe_player_archive.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260828102649_parent_trial_access_and_safe_player_archive.sql', import.meta.url)
 
 test('every player creation and Trial promotion exposes explicit Parent access and future-event choices', async () => {
   const [addPlayerPage, onboarding, profile, lifecycle] = await Promise.all([
