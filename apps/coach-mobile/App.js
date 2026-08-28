@@ -266,7 +266,8 @@ function CoachHome() {
     setIsRegisteringPush(true)
     if (!silent) setNotice('')
     try {
-      const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel: options?.detailLevel, easProjectId: config.easProjectId, preservePreference: silent })
+      const preservePreference = options?.preservePreference === undefined ? silent : options.preservePreference === true
+      const next = await enableCoachNotifications({ apiBaseUrl: config.apiBaseUrl, contextId: activeContext.id, detailLevel: options?.detailLevel, easProjectId: config.easProjectId, preservePreference })
       const resolved = preserveCoachNotificationRegistration(notificationStateRef.current, next)
       setNotificationState(resolved)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
@@ -287,7 +288,11 @@ function CoachHome() {
   const refreshNotificationRegistration = useCallback(async ({ force = false, showLoading = false } = {}) => {
     const next = await refreshNotifications({ showLoading })
     if (!shouldRestoreCoachNotificationRegistration(next)) return next
-    return enableNotifications({ force, silent: true })
+    return enableNotifications({
+      force,
+      preservePreference: next?.requiresPreferenceRefresh !== true,
+      silent: true,
+    })
   }, [enableNotifications, refreshNotifications])
 
   const disableNotifications = useCallback(async () => {

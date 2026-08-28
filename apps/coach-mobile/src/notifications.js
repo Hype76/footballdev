@@ -179,6 +179,12 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
   }
   const requiresContextRefresh = Boolean(server.registered && normalize(server.contextId) !== normalize(contextId))
   const requiresRegistrationRefresh = Boolean(!server.registered && permission.permissionGranted && detailLevel !== 'off')
+  const requiresPreferenceRefresh = Boolean(
+    server.registered
+    && server.enabled !== true
+    && permission.permissionGranted
+    && detailLevel !== 'off'
+  )
   const authoritativeDetailLevel = server.registered
     ? normalizeCoachNotificationLevel(server.detailLevel)
     : detailLevel
@@ -193,6 +199,7 @@ export async function loadCoachNotificationState({ apiBaseUrl, contextId }) {
     message: requiresContextRefresh ? 'Refresh notifications for this Coach context.' : '',
     preferenceEnabled: Boolean(server.enabled),
     requiresContextRefresh,
+    requiresPreferenceRefresh,
     requiresRegistrationRefresh,
   })
 }

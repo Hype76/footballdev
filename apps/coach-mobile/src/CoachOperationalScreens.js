@@ -510,8 +510,9 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
             ? <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} />
             : <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />}
           {contextModel.isTeamScope ? <>
-            <Field label="Notification Team name" onChangeText={(value) => setForm({ ...form, notificationTeamName: value })} placeholder="Example: U14 JPL" styles={styles} value={form.notificationTeamName} />
-            <Text style={styles.meta}>Used only in notifications and remembered for this Team. The official Team name stays unchanged.</Text>
+            <Field label="Your Team notification name" onChangeText={(value) => setForm({ ...form, notificationTeamName: value })} placeholder="Example: U14 JPL" styles={styles} value={form.notificationTeamName} />
+            <Text style={styles.meta}>This is Your Team, not the opponent. It is used in notifications only. The official Team name does not change.</Text>
+            <View style={styles.row}><Text style={styles.fieldLabel}>Remember this name for Your Team</Text><Switch accessibilityLabel="Remember this name for Your Team" onValueChange={(value) => setForm({ ...form, rememberNotificationTeamName: value })} value={form.rememberNotificationTeamName === true} /></View>
           </> : null}
           <CoachDateTimeField label="Date" mode="date" onChange={(value) => setForm({ ...form, date: value })} styles={styles} value={form.date} />
           <CoachDateTimeField label="Start time" mode="time" onChange={(value) => setForm({ ...form, startTime: value })} styles={styles} value={form.startTime} />

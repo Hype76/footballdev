@@ -54,7 +54,7 @@ test('Coach Match Day returns to visible content after creating or cancelling a 
 
   assert.match(form, /setForm\(\(current\) => initializeCoachFixtureForm\(current,/)
   assert.match(form, /const submittedForm = \{[\s\S]*selectedPlayerIds: \[\.\.\.form\.selectedPlayerIds\]/)
-  assert.match(form, /Notification Team name/)
+  assert.match(form, /Your Team notification name/)
   assert.match(form, /getCoachTeamNotificationDisplayName/)
   assert.match(app, /ref=\{contentScrollRef\}/)
   assert.match(app, /scrollTo\(\{ animated: false, y: 0 \}\)/)

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
@@ -443,7 +444,40 @@ function MatchCard({ match, onDismiss, onOpen, styles }) {
   )
 }
 
-function GoalForm({ disabled, initialMinute = '', onAdd, placeholderColor, styles }) {
+function GoalPlayerPicker({ allowClear = false, disabled, label, onSelect, players, styles, value }) {
+  const [open, setOpen] = useState(false)
+  const selected = players.find((player) => player.playerName === value) || null
+  return (
+    <View style={styles.stack}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <Button
+        disabled={disabled}
+        expanded={open}
+        label={selected ? `${selected.playerName}${selected.shirtNumber ? ` | Shirt ${selected.shirtNumber}` : ''}` : `Choose ${label.toLowerCase()}`}
+        onPress={() => setOpen((current) => !current)}
+        outline
+        styles={styles}
+      />
+      {open ? (
+        <View style={styles.card}>
+          {allowClear ? <Button label="No assist" onPress={() => { onSelect(null); setOpen(false) }} outline styles={styles} /> : null}
+          {players.map((player) => (
+            <Button
+              key={player.id || `${player.playerName}:${player.shirtNumber}`}
+              label={`${player.playerName}${player.shirtNumber ? ` | Shirt ${player.shirtNumber}` : ''}`}
+              onPress={() => { onSelect(player); setOpen(false) }}
+              selected={selected?.id === player.id}
+              styles={styles}
+            />
+          ))}
+          {players.length === 0 ? <Text style={styles.helper}>No selected squad Players are available yet.</Text> : null}
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+function GoalForm({ disabled, initialMinute = '', onAdd, placeholderColor, players = [], styles }) {
   const [side, setSide] = useState('club')
   const [scorerName, setScorerName] = useState('')
   const [scorerShirtNumber, setScorerShirtNumber] = useState('')
@@ -455,13 +489,16 @@ function GoalForm({ disabled, initialMinute = '', onAdd, placeholderColor, style
   return (
     <View style={styles.section}>
       <View style={styles.actionRow}>
-        <Button disabled={disabled} label="Our team" onPress={() => setSide('club')} outline={side !== 'club'} styles={styles} />
-        <Button disabled={disabled} label="Opponent" onPress={() => setSide('opponent')} outline={side !== 'opponent'} styles={styles} />
+        <Button disabled={disabled} label="Our team" onPress={() => { setSide('club'); setScorerName(''); setScorerShirtNumber(''); setAssistName(''); setAssistShirtNumber('') }} outline={side !== 'club'} styles={styles} />
+        <Button disabled={disabled} label="Opponent" onPress={() => { setSide('opponent'); setScorerName(''); setScorerShirtNumber(''); setAssistName(''); setAssistShirtNumber('') }} outline={side !== 'opponent'} styles={styles} />
       </View>
-      <TextInput accessibilityLabel="Goal scorer name" editable={!disabled} onChangeText={setScorerName} placeholder="Scorer name, optional" placeholderTextColor={placeholderColor} style={styles.field} value={scorerName} />
-      <TextInput accessibilityLabel="Goal scorer shirt number" editable={!disabled} keyboardType="number-pad" onChangeText={setScorerShirtNumber} placeholder="Scorer shirt number, optional" placeholderTextColor={placeholderColor} style={styles.field} value={scorerShirtNumber} />
-      <TextInput accessibilityLabel="Assist name" editable={!disabled} onChangeText={setAssistName} placeholder="Assist name, optional" placeholderTextColor={placeholderColor} style={styles.field} value={assistName} />
-      <TextInput accessibilityLabel="Assist shirt number" editable={!disabled} keyboardType="number-pad" onChangeText={setAssistShirtNumber} placeholder="Assist shirt number, optional" placeholderTextColor={placeholderColor} style={styles.field} value={assistShirtNumber} />
+      {side === 'club' ? <>
+        <GoalPlayerPicker disabled={disabled} label="Scorer" onSelect={(player) => { setScorerName(player?.playerName || ''); setScorerShirtNumber(player?.shirtNumber || '') }} players={players} styles={styles} value={scorerName} />
+        <GoalPlayerPicker allowClear disabled={disabled} label="Assist" onSelect={(player) => { setAssistName(player?.playerName || ''); setAssistShirtNumber(player?.shirtNumber || '') }} players={players.filter((player) => player.playerName !== scorerName)} styles={styles} value={assistName} />
+      </> : <>
+        <TextInput accessibilityLabel="Opponent goal scorer name" editable={!disabled} onChangeText={setScorerName} placeholder="Opponent scorer, optional" placeholderTextColor={placeholderColor} style={styles.field} value={scorerName} />
+        <TextInput accessibilityLabel="Opponent assist name" editable={!disabled} onChangeText={setAssistName} placeholder="Opponent assist, optional" placeholderTextColor={placeholderColor} style={styles.field} value={assistName} />
+      </>}
       <TextInput accessibilityLabel="Goal minute" editable={!disabled} keyboardType="number-pad" onChangeText={setMinute} placeholder="Match minute" placeholderTextColor={placeholderColor} style={styles.field} value={minute} />
       <View style={styles.row}><Text style={styles.cardTitle}>Penalty</Text><Switch accessibilityLabel="Penalty goal" disabled={disabled} onValueChange={setIsPenaltyGoal} value={isPenaltyGoal} /></View>
       <TextInput accessibilityLabel="Goal notes" editable={!disabled} multiline onChangeText={setNotes} placeholder="Notes, optional" placeholderTextColor={placeholderColor} style={[styles.field, { minHeight: 88, textAlignVertical: 'top' }]} value={notes} />
@@ -537,16 +574,28 @@ function ParentMatchDayActionSheet({ busy, capturedClock, children, onClose, sty
   </Modal>
 }
 
-function ScorerControls({ activeActionId, isOffline, match, onAction, placeholderColor, styles }) {
+function ScorerControls({ activeActionId, isOffline, match, onAction, placeholderColor, players = [], styles }) {
   const busy = activeActionId.startsWith(`scorer:${match.id}:`)
   const [homeScore, setHomeScore] = useState(String(match.homeScore || 0))
   const [awayScore, setAwayScore] = useState(String(match.awayScore || 0))
   const [actionSheet, setActionSheet] = useState(null)
+  const [actionError, setActionError] = useState('')
+  const [keepAwake, setKeepAwake] = useState(false)
+  const [keepAwakeAvailable, setKeepAwakeAvailable] = useState(true)
   const disabled = isOffline || busy
   const timerActions = getParentScorerTimerActions(match)
   const canRecordEvents = getMatchDayLifecycleState(match) === 'playing'
   const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt)
+  useEffect(() => {
+    let mounted = true
+    void isAvailableAsync().then((available) => mounted && setKeepAwakeAvailable(available)).catch(() => mounted && setKeepAwakeAvailable(false))
+    return () => {
+      mounted = false
+      void deactivateKeepAwake('football-player-parent-game-day').catch(() => {})
+    }
+  }, [])
   const openAction = (kind, title) => {
+    setActionError('')
     if (kind === 'score') {
       setHomeScore(String(match.homeScore || 0))
       setAwayScore(String(match.awayScore || 0))
@@ -561,7 +610,22 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   }
   const submitAndClose = async (action, value) => {
     const saved = await onAction(action, value)
-    if (saved !== false) setActionSheet(null)
+    if (saved !== false) {
+      setActionError('')
+      setActionSheet(null)
+    } else {
+      setActionError('This change was not saved. Check your connection and try again.')
+    }
+  }
+  const toggleKeepAwake = async (enabled) => {
+    try {
+      if (enabled) await activateKeepAwakeAsync('football-player-parent-game-day')
+      else await deactivateKeepAwake('football-player-parent-game-day')
+      setKeepAwake(enabled)
+    } catch {
+      setKeepAwake(false)
+      setKeepAwakeAvailable(false)
+    }
   }
   return (
     <View style={styles.stack}>
@@ -570,6 +634,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
         <Text style={styles.cardTitle}>Live controller</Text>
         <Text style={styles.helper}>Use one action at a time. Goal details open separately so the main match screen stays clear.</Text>
         {isOffline ? <Text style={styles.warning}>Controls are unavailable offline. Connect before changing the clock, score or events.</Text> : null}
+        <View style={styles.card}><View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.cardTitle}>Keep screen awake</Text><Text style={styles.meta}>{keepAwakeAvailable ? 'Optional for this live controller session. No match data is changed.' : 'Unavailable on this device.'}</Text></View><Switch accessibilityLabel="Keep screen awake" disabled={!keepAwakeAvailable} onValueChange={toggleKeepAwake} value={keepAwake} /></View></View>
         <View style={styles.actionGrid}>
           {canRecordEvents ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Goal" onPress={() => openAction('goal', 'Add goal')} styles={styles} /></View> : null}
           {timerActions.map((item) => <View key={item.action} style={styles.actionGridItem}><Button danger={['conclude', 'full_time'].includes(item.action)} disabled={disabled} label={item.label} onPress={() => { void runTimerAction(item.action) }} outline={!['conclude', 'full_time'].includes(item.action)} styles={styles} /></View>)}
@@ -579,7 +644,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
         </View>
         {busy ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Saving Game Day change...</Text> : null}
       </View>
-      {actionSheet?.kind === 'goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Add goal"><Text style={styles.body}>The match time was captured when you pressed Goal. Add the details without rushing.</Text><GoalForm disabled={disabled} initialMinute={actionSheet.capturedMinute} onAdd={(goal) => submitAndClose('goal', goal)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
+      {actionSheet?.kind === 'goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Add goal"><Text style={styles.body}>The match time was captured when you pressed Goal. Add the details without rushing.</Text>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<GoalForm disabled={disabled} initialMinute={actionSheet.capturedMinute} onAdd={(goal) => submitAndClose('goal', goal)} placeholderColor={placeholderColor} players={players} styles={styles} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'score' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct score"><Text style={styles.body}>Use this only when the displayed score is wrong. The correction remains in the Match Day history.</Text><View style={styles.actionRow}><TextInput accessibilityLabel="Home score" editable={!disabled} keyboardType="number-pad" onChangeText={setHomeScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={homeScore} /><TextInput accessibilityLabel="Away score" editable={!disabled} keyboardType="number-pad" onChangeText={setAwayScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={awayScore} /></View><Button disabled={disabled} label={busy ? 'Saving...' : 'Save score correction'} onPress={() => submitAndClose('score', { awayScore, homeScore })} styles={styles} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'correct-goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct or remove a goal"><GoalCorrectionForm disabled={disabled} events={match.events} onCorrect={(value) => submitAndClose('correct-goal', value)} onVoid={(value) => submitAndClose('void-goal', value)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'shootout' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Penalty shootout"><ShootoutControls disabled={disabled} match={match} onRecord={(value) => submitAndClose('shootout', value)} onVoid={(value) => submitAndClose('void-shootout', value)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
@@ -587,7 +652,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   )
 }
 
-export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -611,6 +676,8 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
   }, [isOffline, onLiveRefresh, selectedMatchIsLive])
   if (selectedMatch) {
     const timeline = (selectedMatch.events || []).slice().reverse()
+    const confirmedPlayerNames = new Set(selectedMatch.confirmedTeam || [])
+    const scorerPlayers = players.filter((player) => confirmedPlayerNames.has(player.playerName))
     return (
       <View style={styles.stack}>
         <Button label="Back to Matchday" onPress={onBack} outline styles={styles} />
@@ -664,7 +731,7 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
           <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Coaches are looking for a Parent scorer.'}</Text><Button disabled={isOffline} label="Register interest" onPress={() => onVolunteer(selectedMatch)} styles={styles} /></View>
         ) : null}
         {!selectedMatch.isScorer ? <View style={styles.card}><Text style={styles.cardTitle}>Parent view</Text><Text style={styles.body}>Live match updates from the club appear here. Only the assigned scorer can make Game Day changes.</Text></View> : null}
-        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} styles={styles} /> : null}
+        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} players={scorerPlayers} styles={styles} /> : null}
         <View style={styles.card}>
           <View style={styles.row}><Text style={styles.cardTitle}>Match Timeline</Text><Text style={styles.pill}>{selectedMatch.isScorer ? 'Scorer view' : 'Parent view'}</Text></View>
           {timeline.length === 0 ? <Text style={styles.helper}>No match events yet. Goals, cards and substitutions will appear here once recorded.</Text> : null}

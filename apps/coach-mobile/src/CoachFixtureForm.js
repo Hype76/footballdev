@@ -59,6 +59,7 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
         setForm((current) => initializeCoachFixtureForm(current, {
           defaultDuration: preferences.duration,
           defaultLocation: savedLocation,
+          defaultMotmPollExpiryDuration: preferences.motmPollExpiryDuration,
           notificationTeamName,
         }))
       })
@@ -70,6 +71,7 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
         setForm((current) => initializeCoachFixtureForm(current, {
           defaultDuration: preferences.duration,
           defaultLocation: savedLocation,
+          defaultMotmPollExpiryDuration: preferences.motmPollExpiryDuration,
           notificationTeamName: deriveTeamNotificationDisplayName(user.activeTeamName || ''),
         }))
       })
@@ -91,6 +93,9 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
       await writeCoachFixturePreferences(user.id, user.activeTeamId, {
         duration: submittedForm.saveDurationAsDefault ? submittedForm.matchDurationMinutes : (await readCoachFixturePreferences(user.id, user.activeTeamId)).duration,
         location: submittedForm.venueName ? { address: submittedForm.venueAddress, name: submittedForm.venueName } : null,
+        motmPollExpiryDuration: submittedForm.saveMotmExpiryAsDefault
+          ? submittedForm.motmPollExpiryDuration
+          : (await readCoachFixturePreferences(user.id, user.activeTeamId)).motmPollExpiryDuration,
       })
       onCreated(result)
     } catch (saveError) {
@@ -115,8 +120,9 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Fixture</Text>
-        <Field label="Notification Team name" onChangeText={(value) => setForm({ ...form, notificationTeamName: value })} placeholder="Example: U14 JPL" styles={styles} value={form.notificationTeamName} />
-        <Text style={styles.meta}>Used only in notifications and remembered for this Team. The official Team name stays unchanged.</Text>
+        <Field label="Your Team notification name" onChangeText={(value) => setForm({ ...form, notificationTeamName: value })} placeholder="Example: U14 JPL" styles={styles} value={form.notificationTeamName} />
+        <Text style={styles.meta}>This is Your Team, not the opponent. It is used in notifications only. The official Team name does not change.</Text>
+        <Toggle label="Remember this name for Your Team" onValueChange={(value) => setForm({ ...form, rememberNotificationTeamName: value })} styles={styles} value={form.rememberNotificationTeamName} />
         <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} />
         <Text style={styles.fieldLabel}>Fixture type</Text>
         <Chips onChange={(value) => setForm({ ...form, fixtureType: value })} options={MATCH_DAY_FIXTURE_TYPE_OPTIONS} styles={styles} value={form.fixtureType} />
@@ -160,7 +166,7 @@ export function CoachFixtureForm({ matches, onCancel, onCreated, players, styles
         <Toggle label="Request linesman" onValueChange={(value) => setForm({ ...form, requestLinesman: value })} styles={styles} value={form.requestLinesman} />
         <Toggle label="Request referee" onValueChange={(value) => setForm({ ...form, requestReferee: value })} styles={styles} value={form.requestReferee} />
         <Toggle label="Create Player of the Match poll at full time" onValueChange={(value) => setForm({ ...form, enableMotmPoll: value, motmNotifyResultsOnClose: value ? form.motmNotifyResultsOnClose : false })} styles={styles} value={form.enableMotmPoll} />
-        {form.enableMotmPoll ? <><Field autoCapitalize="none" label="Poll expiry (DD:HH:MM)" onChangeText={(value) => setForm({ ...form, motmPollExpiryDuration: value })} placeholder="00:02:00" styles={styles} value={form.motmPollExpiryDuration} /><Text style={styles.meta}>Days, hours, minutes. Example: 02:06:30.</Text><Toggle label="Send vote results" onValueChange={(value) => setForm({ ...form, motmNotifyResultsOnClose: value })} styles={styles} value={form.motmNotifyResultsOnClose} /><Text style={styles.meta}>Eligible parents are notified when the vote closes, expires, or everyone has replied.</Text></> : null}
+        {form.enableMotmPoll ? <><Field autoCapitalize="none" label="Poll expiry (DD:HH:MM)" onChangeText={(value) => setForm({ ...form, motmPollExpiryDuration: value })} placeholder="00:02:00" styles={styles} value={form.motmPollExpiryDuration} /><Text style={styles.meta}>Days, hours, minutes. Example: 02:06:30.</Text><Toggle label="Save this vote expiry as my default" onValueChange={(value) => setForm({ ...form, saveMotmExpiryAsDefault: value })} styles={styles} value={form.saveMotmExpiryAsDefault} /><Toggle label="Send vote results" onValueChange={(value) => setForm({ ...form, motmNotifyResultsOnClose: value })} styles={styles} value={form.motmNotifyResultsOnClose} /><Text style={styles.meta}>Eligible parents are notified when the vote closes, expires, or everyone has replied.</Text></> : null}
         <Field label="Match notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
       </View>
       {error ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.dangerText}>{error}</Text></View> : null}

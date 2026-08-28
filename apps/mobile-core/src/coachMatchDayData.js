@@ -133,7 +133,9 @@ export async function createCoachMatchDayFixture(user, form) {
   assertCoachOperationalMutation(user, { minimumRank: 20, requiresTeam: true })
   const fixture = validateCoachFixtureForm(form)
   const teamId = normalize(user.activeTeamId)
-  await saveCoachTeamNotificationDisplayName(user, teamId, fixture.notificationTeamName)
+  if (fixture.rememberNotificationTeamName) {
+    await saveCoachTeamNotificationDisplayName(user, teamId, fixture.notificationTeamName)
+  }
   const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location_for_team', {
     p_address: fixture.venueAddress,
     p_name: fixture.venueName,

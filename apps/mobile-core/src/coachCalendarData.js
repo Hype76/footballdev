@@ -173,7 +173,7 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
     throw new Error('Add at least one involved Player or choose a wider parent audience.')
   }
   assertCalendarCapabilities(user, payload)
-  if (payload.team_id) {
+  if (payload.team_id && form?.rememberNotificationTeamName === true) {
     await saveCoachTeamNotificationDisplayName(user, payload.team_id, form?.notificationTeamName)
   }
   const now = new Date().toISOString()

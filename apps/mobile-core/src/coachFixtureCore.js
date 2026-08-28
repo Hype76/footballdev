@@ -42,7 +42,7 @@ export function getCoachMatchLocationOptions(matches = []) {
     .map((location) => Object.freeze({ ...location, id: `${location.name}|${location.address}`, label: location.address ? `${location.name} | ${location.address}` : location.name }))
 }
 
-export function createCoachFixtureForm({ defaultDuration = 90, defaultLocation = null, notificationTeamName = '' } = {}) {
+export function createCoachFixtureForm({ defaultDuration = 90, defaultLocation = null, defaultMotmPollExpiryDuration = DEFAULT_EXPIRY_DURATION, notificationTeamName = '' } = {}) {
   const duration = assertValidMatchDurationMinutes(defaultDuration)
   const kickoffTime = '10:00'
   return {
@@ -62,9 +62,10 @@ export function createCoachFixtureForm({ defaultDuration = 90, defaultLocation =
     matchDate: formatCoachCalendarFormDate(getDateInTimeZone()),
     matchDurationMinutes: duration,
     motmNotifyResultsOnClose: false,
-    motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION,
+    motmPollExpiryDuration: normalize(defaultMotmPollExpiryDuration) || DEFAULT_EXPIRY_DURATION,
     notes: '',
     notificationTeamName: normalize(notificationTeamName),
+    rememberNotificationTeamName: true,
     opponent: '',
     parentAudience: 'none',
     parentVisible: false,
@@ -72,6 +73,7 @@ export function createCoachFixtureForm({ defaultDuration = 90, defaultLocation =
     requestReferee: false,
     requestScorer: false,
     saveDurationAsDefault: false,
+    saveMotmExpiryAsDefault: false,
     selectedPlayerIds: [],
     venueAddress: normalize(defaultLocation?.address),
     venueName: normalize(defaultLocation?.name),
@@ -140,6 +142,7 @@ export function validateCoachFixtureForm(form = {}) {
     motmPollExpiryHours,
     notes: normalize(form.notes),
     notificationTeamName: normalize(form.notificationTeamName),
+    rememberNotificationTeamName: form.rememberNotificationTeamName === true,
     opponent,
     parentAudience,
     parentVisible,

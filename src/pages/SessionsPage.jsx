@@ -351,6 +351,7 @@ function getDefaultCalendarForm(date = '') {
     notifyInvitedFamilies: false,
     notificationRequestToken: '',
     notificationTeamName: '',
+    rememberNotificationTeamName: true,
     opponent: '',
     kickoffTimeTbc: false,
     shirtChoice: 'home',
@@ -2767,6 +2768,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       opponent: trimmedOpponent || trimmedTitle,
       parentAudience: form.shareWithParents ? form.parentAudience : 'none',
       parentVisible: form.shareWithParents,
+      notificationTeamName: form.notificationTeamName,
+      rememberNotificationTeamName: form.rememberNotificationTeamName === true,
       shirtChoice: form.shirtChoice,
       teamId: safeTeamId,
       venueName: form.location,
@@ -3212,6 +3215,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
           parentVisible: calendarForm.shareWithParents,
           notificationTeamName,
+          rememberNotificationTeamName: calendarForm.rememberNotificationTeamName === true,
           teamId: safeTeamId,
           venueName: calendarForm.location,
         }, { navigate })
@@ -3220,7 +3224,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         return
       }
 
-      if (safeTeamId) {
+      if (safeTeamId && calendarForm.rememberNotificationTeamName) {
         await updateTeamNotificationDisplayName({
           notificationDisplayName: notificationTeamName,
           teamId: safeTeamId,
@@ -6122,7 +6126,7 @@ function CalendarEventModal({
 
             {!clubWideOnly && form.teamId ? (
               <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#101828]">Notification Team name</span>
+                <span className="mb-2 block text-sm font-black text-[#101828]">Your Team notification name</span>
                 <input
                   name="notificationTeamName"
                   value={form.notificationTeamName}
@@ -6133,7 +6137,18 @@ function CalendarEventModal({
                   className={fieldClass}
                 />
                 <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
-                  Used only in notifications and remembered for this Team. The official Team name stays unchanged.
+                  This is Your Team, not the opponent. It is used in notifications only. The official Team name does not change.
+                </span>
+                <span className="mt-3 flex items-center gap-3 text-xs font-black text-[#344054]">
+                  <input
+                    type="checkbox"
+                    name="rememberNotificationTeamName"
+                    checked={form.rememberNotificationTeamName === true}
+                    onChange={onChange}
+                    disabled={isBusy}
+                    className="h-4 w-4 accent-[#175cd3]"
+                  />
+                  Remember this name for Your Team
                 </span>
               </label>
             ) : null}

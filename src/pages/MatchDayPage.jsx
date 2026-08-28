@@ -238,24 +238,34 @@ const EMPTY_MATCH_FORM = {
   motmNotifyResultsOnClose: false,
   motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION,
   notificationTeamName: '',
+  rememberNotificationTeamName: true,
   saveDurationAsDefault: false,
+  saveMotmExpiryAsDefault: false,
 }
 
 const MATCH_DAY_FIXTURE_PREFERENCES_KEY = 'fp.matchday.fixture.preferences.v1'
 
 function readMatchDayFixturePreferences() {
-  if (typeof window === 'undefined') return { duration: 90, location: null }
+  if (typeof window === 'undefined') return { duration: 90, location: null, motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION }
   try {
     const value = JSON.parse(window.localStorage.getItem(MATCH_DAY_FIXTURE_PREFERENCES_KEY) || '{}')
     const duration = Number(value.duration)
+    let motmPollExpiryDuration = DEFAULT_EXPIRY_DURATION
+    try {
+      parseExpiryDuration(value.motmPollExpiryDuration)
+      motmPollExpiryDuration = String(value.motmPollExpiryDuration)
+    } catch {
+      motmPollExpiryDuration = DEFAULT_EXPIRY_DURATION
+    }
     return {
       duration: Number.isInteger(duration) && duration >= 20 && duration <= 140 ? duration : 90,
       location: value.location && typeof value.location === 'object'
         ? { address: String(value.location.address || ''), name: String(value.location.name || '') }
         : null,
+      motmPollExpiryDuration,
     }
   } catch {
-    return { duration: 90, location: null }
+    return { duration: 90, location: null, motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION }
   }
 }
 
@@ -265,6 +275,9 @@ function writeMatchDayFixturePreferences(form) {
   window.localStorage.setItem(MATCH_DAY_FIXTURE_PREFERENCES_KEY, JSON.stringify({
     duration: form.saveDurationAsDefault ? Number(form.matchDurationMinutes) : current.duration,
     location: form.venueName ? { address: String(form.venueAddress || ''), name: String(form.venueName || '') } : null,
+    motmPollExpiryDuration: form.saveMotmExpiryAsDefault
+      ? String(form.motmPollExpiryDuration || DEFAULT_EXPIRY_DURATION)
+      : current.motmPollExpiryDuration,
   }))
 }
 
@@ -2381,6 +2394,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       const baseForm = {
         ...EMPTY_MATCH_FORM,
         ...getMatchDurationFormFields(preferences.duration),
+        motmPollExpiryDuration: preferences.motmPollExpiryDuration,
         notificationTeamName: resolveTeamNotificationDisplayName(
           teams.find((team) => String(team.id) === String(setupIntent?.teamId || user.activeTeamId || '')) || {},
           user.activeTeamName || '',
@@ -2984,7 +2998,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
     try {
       const teamId = String(form.teamId || user.activeTeamId || '').trim()
-      if (teamId) {
+      if (teamId && form.rememberNotificationTeamName) {
         await updateTeamNotificationDisplayName({
           notificationDisplayName: form.notificationTeamName || deriveTeamNotificationDisplayName(selectedFixtureTeamName),
           teamId,
@@ -7274,7 +7288,7 @@ function FixtureSetupModal({
 
               {selectedFixtureTeamId ? (
                 <label className="block">
-                  <span className={labelClass}>Notification Team name</span>
+                  <span className={labelClass}>Your Team notification name</span>
                   <input
                     type="text"
                     maxLength={40}
@@ -7284,7 +7298,16 @@ function FixtureSetupModal({
                     className={inputClass}
                   />
                   <span className="mt-2 block text-xs font-semibold leading-5 text-[#4b5f55]">
-                    Used only in notifications and remembered for this Team. The official Team name stays unchanged.
+                    This is Your Team, not the opponent. It is used in notifications only. The official Team name does not change.
+                  </span>
+                  <span className="mt-3 flex items-center gap-3 text-xs font-black text-[#344054]">
+                    <input
+                      type="checkbox"
+                      checked={form.rememberNotificationTeamName === true}
+                      onChange={(event) => updateForm({ rememberNotificationTeamName: event.target.checked })}
+                      className="h-4 w-4 accent-[#047857]"
+                    />
+                    Remember this name for Your Team
                   </span>
                 </label>
               ) : null}
@@ -7573,6 +7596,17 @@ function FixtureSetupModal({
                   className={inputClass}
                 />
                 <span className="mt-1 block text-xs font-semibold text-[#4b5f55]">Days, hours, minutes. Example: 02:06:30.</span>
+                {form.enableMotmPoll ? (
+                  <span className="mt-3 flex items-center gap-3 text-xs font-black text-[#344054]">
+                    <input
+                      type="checkbox"
+                      checked={form.saveMotmExpiryAsDefault === true}
+                      onChange={(event) => updateForm({ saveMotmExpiryAsDefault: event.target.checked })}
+                      className="h-4 w-4 accent-[#047857]"
+                    />
+                    Save this vote expiry as my default
+                  </span>
+                ) : null}
               </label>
 
               {form.enableMotmPoll ? (

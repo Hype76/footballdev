@@ -84,6 +84,7 @@ import {
   getParentInvitations,
   getParentNotificationInbox,
   getParentPortalMatchDays,
+  getParentPortalMatchDayPlayers,
   getParentResources,
   isParentInvitationActionable,
   markParentChatRoomRead,
@@ -307,6 +308,7 @@ function ParentHome() {
   const [moreSection, setMoreSection] = useState('')
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
+  const [matchDayPlayers, setMatchDayPlayers] = useState([])
   const [selectedResourcePreview, setSelectedResourcePreview] = useState(null)
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [selectedInvitationId, setSelectedInvitationId] = useState('')
@@ -466,6 +468,7 @@ function ParentHome() {
         loading: false,
       }])))
       setLastUpdatedAt('')
+      setMatchDayPlayers([])
       setOfflineCacheState({ source: '', stale: false })
       return { failed: 0 }
     }
@@ -550,7 +553,14 @@ function ParentHome() {
           resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(invitation.eventId, invitation.eventStart || invitation.eventDate)) || [],
         }))
       },
-      matches: () => getParentPortalMatchDays(selectedMobileUser),
+      matches: async () => {
+        const [matches, players] = await Promise.all([
+          getParentPortalMatchDays(selectedMobileUser),
+          getParentPortalMatchDayPlayers(selectedMobileUser),
+        ])
+        if (requestId === requestIdRef.current) setMatchDayPlayers(players)
+        return matches
+      },
       messages: () => getParentMessages(selectedMobileUser),
       notifications: () => getParentNotificationInbox(selectedMobileUser),
       polls: () => getParentPolls(selectedMobileUser),
@@ -680,7 +690,11 @@ function ParentHome() {
   const refreshParentMatchDay = useCallback(async () => {
     if (isOffline || !selectedMobileUser?.id) return
     try {
-      const matches = await getParentPortalMatchDays(selectedMobileUser)
+      const [matches, players] = await Promise.all([
+        getParentPortalMatchDays(selectedMobileUser),
+        getParentPortalMatchDayPlayers(selectedMobileUser),
+      ])
+      setMatchDayPlayers(players)
       setResources((current) => ({
         ...current,
         matches: { error: '', items: matches, loading: false },
@@ -1905,6 +1919,7 @@ function ParentHome() {
                 onOpenLink={handleOpenMatchLink}
                 onScorerAction={handleScorerAction}
                 onVolunteer={handleScorerInterest}
+                players={matchDayPlayers}
                 resource={{ ...resources.matches, items: visibleMatches }}
                 selectedMatch={selectedMatch}
                 theme={displayTheme}

@@ -59,6 +59,7 @@ export function normalizeCoachNotificationState(value = {}) {
     preferenceEnabled,
     registered,
     requiresContextRefresh: Boolean(value.requiresContextRefresh),
+    requiresPreferenceRefresh: Boolean(value.requiresPreferenceRefresh),
     requiresRegistrationRefresh: Boolean(value.requiresRegistrationRefresh),
   })
 }
@@ -89,7 +90,7 @@ export function shouldRestoreCoachNotificationRegistration(value = {}) {
   return Boolean(
     state.permissionGranted
     && state.detailLevel !== 'off'
-    && (state.requiresRegistrationRefresh || state.requiresContextRefresh)
+    && (state.requiresRegistrationRefresh || state.requiresContextRefresh || state.requiresPreferenceRefresh)
   )
 }
 

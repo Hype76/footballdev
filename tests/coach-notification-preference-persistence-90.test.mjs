@@ -82,6 +82,16 @@ test('Coach restores only an authorised notification choice that needs registrat
     permissionGranted: false,
     requiresRegistrationRefresh: true,
   }), false)
+  assert.equal(shouldRestoreCoachNotificationRegistration({
+    detailLevel: 'detailed',
+    permissionGranted: true,
+    requiresPreferenceRefresh: true,
+  }), true)
+  assert.equal(shouldRestoreCoachNotificationRegistration({
+    detailLevel: 'off',
+    permissionGranted: true,
+    requiresPreferenceRefresh: true,
+  }), false)
 })
 
 test('Coach app keeps context refresh separate from the saved notification choice', async () => {
@@ -91,11 +101,13 @@ test('Coach app keeps context refresh separate from the saved notification choic
     readFile(new URL('../netlify/functions/coach-mobile-push-installation.js', import.meta.url), 'utf8'),
   ])
 
-  assert.match(app, /preservePreference: silent/)
+  assert.match(app, /const preservePreference = options\?\.preservePreference === undefined \? silent : options\.preservePreference === true/)
   assert.match(app, /Restoring the saved notification setting for this device\./)
   assert.match(app, /shouldRestoreCoachNotificationRegistration\(next\)/)
+  assert.match(app, /preservePreference: next\?\.requiresPreferenceRefresh !== true/)
   assert.match(notifications, /enabled: Boolean\(server\.enabled && permission\.permissionGranted\)/)
   assert.doesNotMatch(notifications, /server\.enabled && permission\.permissionGranted && !requiresContextRefresh/)
+  assert.match(notifications, /server\.registered[\s\S]*server\.enabled !== true[\s\S]*permission\.permissionGranted[\s\S]*detailLevel !== 'off'/)
   assert.match(notifications, /preferenceMode: preservePreference \? 'preserve' : 'enable'/)
   assert.match(notifications, /isCoachInstallationId\(current\)/)
   assert.match(notifications, /setInstallationId\(apiBaseUrl, installation\.installationId\)/)

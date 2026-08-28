@@ -11,6 +11,7 @@ import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
+import { handler as sendMatchDayPushHandler } from './send-match-day-push.js'
 
 const ROLE_CONFIG = {
   scorer: {
@@ -844,6 +845,7 @@ export async function handler(event) {
     const previousParentLinkId = previousAssignment?.parent_link_id || ''
     const isSameSelection = String(previousParentLinkId || '') === String(parentLink.id)
     const queuedNotifications = []
+    let scorerAlert = null
     let notificationWarning = ''
     let savedAssignment = null
 
@@ -946,12 +948,37 @@ export async function handler(event) {
       notificationWarning = 'Volunteer selection was saved, but notification email could not be queued.'
     }
 
+    if (selected && role === 'scorer' && !isSameSelection) {
+      try {
+        const pushResponse = await sendMatchDayPushHandler({
+          body: JSON.stringify({ matchDayId: match.id, parentLinkId: parentLink.id, type: 'scorer_selected' }),
+          headers: event.headers,
+          httpMethod: 'POST',
+        })
+        const pushBody = JSON.parse(pushResponse?.body || '{}')
+        if (Number(pushResponse?.statusCode || 500) >= 400 || pushBody.success === false) {
+          throw new Error(pushBody.message || 'Scorer alert could not be sent.')
+        }
+        scorerAlert = {
+          inbox: pushBody.mobileInbox === true,
+          mobileSent: Number(pushBody.mobileSent || 0),
+          webSent: Number(pushBody.sent || 0),
+        }
+      } catch (pushError) {
+        console.error('Match Day scorer alert failed', pushError)
+        notificationWarning = notificationWarning
+          ? `${notificationWarning} The app alert could not be sent.`
+          : 'Volunteer selection was saved, but the app alert could not be sent.'
+      }
+    }
+
     try {
       await createMatchDayEventLogEntry(adminSupabase, {
         action: selected === false ? 'removed' : 'assigned',
         match,
         metadata: {
           notificationQueuedCount: queuedNotifications.length,
+          scorerAlert,
           notificationWarning,
           replacedExisting: Boolean(previousAssignment?.id && selected && !isSameSelection),
         },
@@ -976,6 +1003,7 @@ export async function handler(event) {
       authUserId: savedAssignment?.authUserId || parentLink.auth_user_id || '',
       notificationQueuedCount: queuedNotifications.length,
       notificationQueueIds: queuedNotifications,
+      scorerAlert,
       warning: notificationWarning,
     })
   } catch (error) {

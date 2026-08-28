@@ -263,6 +263,16 @@ async function prepareContext(browser, viewportOptions, {
 
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(getFixtureMatches()) })
   })
+  await context.route('**/rest/v1/rpc/get_staff_match_day_detail', async (route) => {
+    const payload = route.request().postDataJSON()
+    const match = getFixtureMatches().find((candidate) => candidate.id === payload.target_match_day_id_value)
+    const permitted = match && match.team_id === payload.active_team_id_value
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(permitted ? match : null),
+    })
+  })
   await context.route('**/rest/v1/rpc/get_parent_portal_match_day_players', async (route) => {
     await route.fulfill({
       status: 200,
@@ -387,7 +397,7 @@ async function signIn(page, { parent = false } = {}) {
   const baseUrl = parent ? parentBaseUrl : mainBaseUrl
   await page.goto(`${baseUrl}/sign-in${parent ? '?tab=parent' : ''}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 30000 })
-  await page.getByRole('button', { name: parent ? 'Parent' : 'Club' }).click()
+  await page.getByRole('button', { name: parent ? 'Parent' : 'Coach' }).click()
   await page.getByPlaceholder('you@club.com').fill(parent ? 'parent.fixture@footballplayer.test' : 'coach.fixture@footballplayer.test')
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()

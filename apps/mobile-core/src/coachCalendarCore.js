@@ -512,6 +512,7 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
       { notificationDisplayName: event?.teamNotificationDisplayName },
       context?.teamName || context?.activeTeamName || event?.teamName,
     ),
+    rememberNotificationTeamName: true,
     opponent: event?.eventType === 'match'
       ? normalize(event?.title).replace(new RegExp(`^${normalize(context?.teamName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+v\\s+`, 'i'), '')
       : '',

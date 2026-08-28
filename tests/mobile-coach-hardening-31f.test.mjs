@@ -274,6 +274,7 @@ test('production-shape helpers tolerate null, empty, and malformed optional coll
   assert.deepEqual(normalizeCoachNotificationState(null), {
     canAskAgain: true, detailLevel: 'minimal', enabled: false, message: '', permissionGranted: false,
     permissionStatus: 'undetermined', preferenceEnabled: false, registered: false, requiresContextRefresh: false,
+    requiresPreferenceRefresh: false,
     requiresRegistrationRefresh: false,
   })
 })
