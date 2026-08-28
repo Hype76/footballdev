@@ -2290,7 +2290,7 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
         <Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text>
       </View>
       <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
-      <Text style={styles.cardMeta}>{formatTime(match.kickoffTime, match.kickoffTimeTbc)}</Text>
+      <Text style={styles.cardMeta}>{match.arrivalTime ? `Arrival: ${formatTime(match.arrivalTime)}` : `Kick-off: ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`}</Text>
       <Text style={styles.cardMeta}>{match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
       {score ? <Text style={styles.score}>{score}</Text> : null}
       {match.venueName || match.venueAddress ? (

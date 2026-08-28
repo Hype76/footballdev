@@ -116,6 +116,7 @@ function phaseStyles(palette) {
     title: { color: palette.textPrimary, fontSize: 26, fontWeight: '900' },
     heading: { color: palette.textPrimary, fontSize: 17, fontWeight: '900' },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
+    helper: { color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
     availabilityRow: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', minHeight: 36, paddingHorizontal: 8, paddingVertical: 5 },
     availabilityPlayer: { flex: 1, gap: 2 },
     availabilitySelected: { color: palette.accent, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },

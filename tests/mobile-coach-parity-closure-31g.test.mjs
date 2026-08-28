@@ -110,6 +110,17 @@ test('Home pending availability counts sent invitations per child instead of rec
   assert.equal(countPendingCoachAvailability(rows), 2)
 })
 
+test('Home pending availability keeps recurring Training occurrences separate', () => {
+  const rows = [
+    { eventId: 'training-1', id: 'first-parent', kind: 'training', occurrenceDate: '2026-09-03', playerId: 'player-1', sentAt: '2026-08-27T09:00:00Z', status: 'pending' },
+    { eventId: 'training-1', id: 'first-parent-copy', kind: 'training', occurrenceDate: '2026-09-03', playerId: 'player-1', sentAt: '2026-08-27T09:01:00Z', status: 'pending' },
+    { eventId: 'training-1', id: 'second-session', kind: 'training', occurrenceDate: '2026-09-10', playerId: 'player-1', sentAt: '2026-08-27T09:02:00Z', status: 'pending' },
+    { eventId: 'training-1', id: 'second-player', kind: 'training', occurrenceDate: '2026-09-10', playerId: 'player-2', sentAt: '2026-08-27T09:03:00Z', status: 'pending' },
+  ]
+
+  assert.equal(countPendingCoachAvailability(rows, new Date('2026-08-28T12:00:00Z')), 3)
+})
+
 test('Home tolerates partial response shapes and exposes the degraded state', () => {
   const snapshot = buildCoachHomeOperationalSnapshot({ errors: ['polls:timeout'], matches: null, sessions: {}, summary: null })
   assert.equal(snapshot.partial, true)
@@ -129,6 +140,7 @@ test('Home data composes current authoritative adapters with partial failure con
   assert.match(app, /Operational attention/)
   assert.match(app, /Unread totals come from the current Chat room read state/)
   assert.doesNotMatch(app, /unread communication updates|Open Messages/)
+  assert.match(phase31EScreens, /helper: \{ color: palette\.textSecondary/)
 })
 
 test('Settings exposes identity, role, context, branding, security, notification, cache, environment, build, and logout state', () => {

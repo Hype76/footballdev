@@ -387,6 +387,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarge
             <View style={styles.row}><Text style={styles.pill}>{volunteerOffer ? 'Volunteer offer' : labelize(getParentInvitationDisplayState(invitation))}</Text><Text style={styles.meta}>{formatDateOnly(invitation.eventStart || invitation.eventDate)}</Text></View>
             {volunteerOffer ? <Text style={styles.volunteerRole}>{volunteerRole} offer</Text> : null}
             <Text style={styles.cardTitle}>{invitation.eventTitle}</Text>
+            {!matchInvitation && invitation.eventStart ? <Text style={styles.meta}>Starts: {formatParentProductTime(invitation.eventStart)}</Text> : null}
             {matchInvitation ? <Text style={styles.meta}>Shirts: {invitation.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
             {matchInvitation && invitation.arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(invitation.arrivalTime)}</Text> : null}
             {matchInvitation ? <Text style={styles.meta}>Kick-off: {invitation.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}</Text> : null}

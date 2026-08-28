@@ -59,3 +59,8 @@ test('Parent Match cards label arrival and kick-off as separate fixture times', 
   assert.match(parentScreensSource, /Kick-off: \{match\.kickoffTimeTbc \? 'Time TBC' : formatParentProductTime\(match\.kickoffTime\)\}/)
   assert.doesNotMatch(parentScreensSource, /formatDate\(invitation\.eventStart \|\| invitation\.eventDate\)/)
 })
+
+test('Parent request and Home cards show the operational time Parents need', () => {
+  assert.match(parentScreensSource, /!matchInvitation && invitation\.eventStart \? <Text style=\{styles\.meta\}>Starts: \{formatParentProductTime\(invitation\.eventStart\)\}/)
+  assert.match(parentAppSource, /match\.arrivalTime \? `Arrival: \$\{formatTime\(match\.arrivalTime\)\}` : `Kick-off: \$\{formatTime\(match\.kickoffTime, match\.kickoffTimeTbc\)\}`/)
+})

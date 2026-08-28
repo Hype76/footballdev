@@ -28,7 +28,24 @@ function getInvitePlayerKey(invite = {}) {
   const kind = normalize(invite?.kind).toLowerCase()
   const eventId = normalize(invite?.eventId)
   const playerId = normalize(invite?.playerId)
-  return kind && eventId && playerId ? `${kind}:${eventId}:${playerId}` : ''
+  const occurrenceDate = kind === 'training'
+    ? normalize(invite?.occurrenceDate || invite?.eventDate || invite?.eventAt).slice(0, 10)
+    : ''
+  return kind && eventId && playerId ? `${kind}:${eventId}:${occurrenceDate}:${playerId}` : ''
+}
+
+function collapseCoachInvitesByRequest(rows = []) {
+  const requestGroups = new Map()
+  for (const invite of asArray(rows)) {
+    const kind = normalize(invite?.kind).toLowerCase()
+    const eventId = normalize(invite?.eventId)
+    const occurrenceDate = kind === 'training'
+      ? normalize(invite?.occurrenceDate || invite?.eventDate || invite?.eventAt).slice(0, 10)
+      : ''
+    const key = `${kind}:${eventId}:${occurrenceDate}`
+    requestGroups.set(key, [...(requestGroups.get(key) || []), invite])
+  }
+  return [...requestGroups.values()].flatMap(collapseCoachInvitesByPlayer)
 }
 
 export function countPendingCoachAvailability(rows = [], now = new Date()) {
@@ -39,9 +56,7 @@ export function countPendingCoachAvailability(rows = [], now = new Date()) {
     .map(getInvitePlayerKey)
     .filter(Boolean))
 
-  const collapsed = ['match', 'training'].flatMap((kind) => collapseCoachInvitesByPlayer(
-    invites.filter((invite) => normalize(invite?.kind).toLowerCase() === kind),
-  ))
+  const collapsed = collapseCoachInvitesByRequest(invites)
   return collapsed.filter((invite) => {
     const expiresAt = timestamp(invite?.expiresAt)
     const eventAt = timestamp(invite?.eventAt) ?? localDateTime(invite?.eventDate)
