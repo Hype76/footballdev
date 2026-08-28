@@ -26,8 +26,10 @@ function getPlayerContacts(player) {
     .filter((contact) => contact.email)
 }
 
-function isSquadPlayer(player) {
-  return String(player?.section ?? '').trim().toLowerCase() === 'squad'
+function isEligiblePlayer(player) {
+  const section = String(player?.section ?? '').trim().toLowerCase()
+  const status = String(player?.status ?? 'active').trim().toLowerCase()
+  return ['trial', 'squad'].includes(section) && status !== 'archived'
 }
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -42,8 +44,8 @@ const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-s
 
 const parentAccessRules = [
   {
-    label: 'Squad players only',
-    body: 'Portal access starts from saved squad player records so families only see players in the active football workspace.',
+    label: 'Trial and Squad players',
+    body: 'Parent app access can start during a Trial and stays attached to the same player record after promotion.',
   },
   {
     label: 'One login per parent',
@@ -91,7 +93,7 @@ export function ParentLinkingPage() {
       setErrorMessage('')
 
       try {
-        const nextPlayers = (await getParentLinkingPlayers({ user })).filter(isSquadPlayer)
+        const nextPlayers = (await getParentLinkingPlayers({ user })).filter(isEligiblePlayer)
 
         if (!isMounted) {
           return
@@ -279,7 +281,7 @@ export function ParentLinkingPage() {
                 Give every parent the right child record.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                Invite saved parent emails, keep access tied to squad players, and remove links when a family should no longer see a player.
+                Invite saved parent emails, keep access tied to Trial and Squad players, and remove links when a family should no longer see a player.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {parentAccessRules.map((item) => (
@@ -295,20 +297,20 @@ export function ParentLinkingPage() {
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Access state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {players.length} squad players available
+                {players.length} Trial and Squad players available
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
                 {playersWithContacts.length} have parent emails ready for invite.
               </p>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <ParentMetric label="Squad" value={players.length} isLoading={isLoading} />
+              <ParentMetric label="Players" value={players.length} isLoading={isLoading} />
               <ParentMetric label="With email" value={playersWithContacts.length} isLoading={isLoading} />
               <ParentMetric label="Emails" value={totalParentEmails} isLoading={isLoading} />
               <ParentMetric label="Active" value={activeLinks.length} isLoading={isLoading} />
             </div>
             <p className="mt-4 text-sm font-semibold leading-6 text-[#4b5f55]">
-              Guardian access should mirror real squad access, not Coach permissions.
+              Guardian access follows the linked player record and never grants Coach permissions.
             </p>
           </div>
         </div>
@@ -318,7 +320,7 @@ export function ParentLinkingPage() {
 
       <section className="grid gap-3 sm:grid-cols-3">
         {[
-          { label: 'Squad players', value: players.length },
+          { label: 'Eligible players', value: players.length },
           { label: 'Selected contacts', value: selectedContactIds.length },
           { label: 'Active links', value: activeLinks.length },
         ].map((item) => (
@@ -336,14 +338,14 @@ export function ParentLinkingPage() {
               <p className={eyebrowClass}>Parent invites</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Send and control guardian access</h2>
               <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-                Choose one squad player and selected saved contacts, or invite every squad parent email in the current team.
+                Choose one Trial or Squad player and selected saved contacts, or invite every eligible parent email in the current team.
               </p>
             </div>
             <button
               type="button"
               onClick={handleInviteAll}
               disabled={isLoading || isSending || players.length === 0}
-              title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'Create a squad player before sending parent invites.' : undefined}
+              title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'Create a Trial or Squad player before sending parent invites.' : undefined}
               className={`${primaryButtonClass} w-full sm:w-auto`}
             >
               {isSending ? 'Sending...' : 'Invite all guardians'}
@@ -354,17 +356,17 @@ export function ParentLinkingPage() {
         <div className="px-5 py-5 sm:px-6">
           {isLoading ? (
             <ParentAccessStatePanel
-              action="Keep this page open while squad players, contacts, and existing links are checked."
-              body="The invite controls need the current team, squad list, saved parent emails, and active portal links before access can be changed."
+              action="Keep this page open while Trial and Squad players, contacts, and existing links are checked."
+              body="The invite controls need the current team, player list, saved parent emails, and active Parent app links before access can be changed."
               eyebrow="Loading parent access"
               title="Checking who can be invited."
             />
           ) : players.length === 0 ? (
               <ParentAccessStatePanel
-                action="Move the first player into Squad, add parent emails, then return here to invite families."
-                body="Family portal access is limited to squad players so families only see players who are part of the active team."
+                action="Add a Trial or Squad player with a parent email, then return here to invite the family."
+                body="Parent app access is available to active Trial and Squad players in the current team."
                 eyebrow="Setup required"
-                title="No squad players are ready for parent access."
+                title="No Trial or Squad players are ready for Parent app access."
             />
           ) : (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">

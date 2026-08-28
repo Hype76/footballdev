@@ -120,7 +120,7 @@ export async function loadAuthoritativeParentPortalInviteContext(
     && isCurrentTimestamp(inviteLink.expires_at)
     && normalizeEmail(inviteLink.email) === queueRecipient
     && normalizeText(inviteLink.invited_by) === queueActorId
-    && normalizeText(player.section).toLowerCase() === 'squad'
+    && ['trial', 'squad'].includes(normalizeText(player.section).toLowerCase())
     && ['active', 'promoted'].includes(playerStatus)
     && !player.archived_at
     && normalizeText(membership.status).toLowerCase() === 'active'

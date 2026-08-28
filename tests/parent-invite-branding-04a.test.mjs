@@ -160,8 +160,10 @@ test('Parent invite delivery renders only server-authoritative relationship and 
 
   assert.match(
     sendInviteFunction,
-    /invite_token, players:player_id \(player_name, section\), teams:team_id \(name\), clubs:club_id \(name, contact_email, logo_url\)/,
+    /invite_token, players:player_id \(player_name, section, status, archived_at\), teams:team_id \(name\), clubs:club_id \(name, contact_email, logo_url\)/,
   )
+  assert.match(sendInviteFunction, /\['trial', 'squad'\]\.includes\(playerSection\)/)
+  assert.match(sendInviteFunction, /playerStatus === 'archived'/)
   assert.match(sendInviteFunction, /buildAuthoritativeParentInviteEmail\(\{/)
   assert.match(sendInviteFunction, /recipient = normaliseEmail\(inviteLink\.email\)/)
   assert.doesNotMatch(sendInviteFunction, /const emailHtml = String\(html/)

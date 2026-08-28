@@ -640,6 +640,31 @@ export async function sendParentPortalInvite(data) {
   return result
 }
 
+export async function sendParentPasswordReset(parentLinkId) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token || ''
+
+  if (!accessToken) {
+    throw new Error('Sign in again before sending a Parent password reset.')
+  }
+
+  const response = await fetch('/.netlify/functions/send-parent-password-reset', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ parentLinkId }),
+  })
+  const result = await response.json().catch(() => ({}))
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || 'Parent password reset email could not be sent.')
+  }
+
+  return result
+}
+
 export function buildStaffInviteUrl(token) {
   return buildMainAppUrl(`/staff-invite/${token}`)
 }

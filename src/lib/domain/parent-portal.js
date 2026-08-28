@@ -250,7 +250,7 @@ export async function acceptParentPortalInvite(token) {
 }
 
 export async function getParentLinkingPlayers({ user } = {}) {
-  return getPlayers({ user, section: 'Squad' })
+  return getPlayers({ user })
 }
 
 export async function getParentLinksForPlayer({ playerId, teamId, clubId } = {}) {
@@ -378,8 +378,10 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     throw new Error('Choose a player before creating parent links.')
   }
 
-  if (String(player.section ?? '').trim().toLowerCase() !== 'squad') {
-    throw new Error('Family portal links can only be sent for squad players.')
+  const playerSection = String(player.section ?? '').trim().toLowerCase()
+  const playerStatus = String(player.status ?? 'active').trim().toLowerCase()
+  if (!['trial', 'squad'].includes(playerSection) || playerStatus === 'archived') {
+    throw new Error('Family portal links can only be sent for active Trial or Squad players.')
   }
 
   const normalizedContacts = (contacts ?? [])
@@ -502,12 +504,13 @@ export async function createParentPortalInvitesForPlayers({ user, players }) {
     throw new Error('Team access is required before creating parent links.')
   }
 
-  const squadPlayers = (players ?? []).filter(
-    (player) => String(player?.section ?? '').trim().toLowerCase() === 'squad',
+  const eligiblePlayers = (players ?? []).filter(
+    (player) => ['trial', 'squad'].includes(String(player?.section ?? '').trim().toLowerCase())
+      && String(player?.status ?? 'active').trim().toLowerCase() !== 'archived',
   )
 
   const inviteBatches = await Promise.all(
-    squadPlayers.map((player) => {
+    eligiblePlayers.map((player) => {
       const contacts = Array.isArray(player.parentContacts) && player.parentContacts.length > 0
         ? player.parentContacts
         : [{ name: player.parentName || '', email: player.parentEmail || '' }]

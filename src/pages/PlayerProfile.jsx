@@ -30,6 +30,7 @@ import {
 import {
   confirmDevelopmentSubmission,
   sendParentEmail,
+  sendParentPasswordReset,
   sendParentPortalInvite,
 } from '../lib/email-builder.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
@@ -101,6 +102,7 @@ import { getRecorderOptions } from '../lib/session-page-utils.js'
 import {
   EVALUATION_SECTIONS,
   PLAYER_CONTACT_TYPES,
+  addPlayerToFutureTeamEvents,
   archivePlayer,
   createCommunicationLog,
   createPlayerStaffNote,
@@ -226,11 +228,16 @@ export function PlayerProfile() {
   const [staffNoteDeleteTarget, setStaffNoteDeleteTarget] = useState(null)
   const [promoteConfirmTarget, setPromoteConfirmTarget] = useState(null)
   const [sendParentPortalLinkOnPromote, setSendParentPortalLinkOnPromote] = useState(true)
+  const [addFutureEventsOnPromote, setAddFutureEventsOnPromote] = useState(false)
+  const [sendEventInvitationsOnPromote, setSendEventInvitationsOnPromote] = useState(true)
   const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
   const [parentPortalInviteSendingKey, setParentPortalInviteSendingKey] = useState('')
   const [parentPortalRevokeTarget, setParentPortalRevokeTarget] = useState(null)
   const [parentPortalRevokingLinkId, setParentPortalRevokingLinkId] = useState('')
   const [parentPortalRevokeError, setParentPortalRevokeError] = useState('')
+  const [parentPasswordResetTarget, setParentPasswordResetTarget] = useState(null)
+  const [parentPasswordResetSendingLinkId, setParentPasswordResetSendingLinkId] = useState('')
+  const [parentPasswordResetError, setParentPasswordResetError] = useState('')
   const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const mediaRecorderRef = useRef(null)
   const recordingChunksRef = useRef([])
@@ -517,16 +524,16 @@ export function PlayerProfile() {
   )
   useEffect(() => {
     let isMounted = true
-    const squadPlayers = profilePlayers.filter(isParentPortalInviteEligiblePlayer)
+    const eligiblePlayers = profilePlayers.filter(isParentPortalInviteEligiblePlayer)
 
     const loadParentPortalLinks = async () => {
-      if (squadPlayers.length === 0) {
+      if (eligiblePlayers.length === 0) {
         setParentPortalLinksByPlayerId({})
         return
       }
 
       const results = await Promise.allSettled(
-        squadPlayers.map(async (player) => [
+        eligiblePlayers.map(async (player) => [
           player.id,
           await getParentLinksForPlayer({
             clubId: player.clubId || user?.clubId,
@@ -1567,6 +1574,8 @@ export function PlayerProfile() {
 
     setPromoteConfirmTarget(targetPlayer)
     setSendParentPortalLinkOnPromote(getPlayerPortalContacts(targetPlayer).length > 0)
+    setAddFutureEventsOnPromote(false)
+    setSendEventInvitationsOnPromote(true)
   }
 
   const sendParentPortalInvitesForPlayer = async (player) => {
@@ -1624,7 +1633,7 @@ export function PlayerProfile() {
     const email = normalizeParentPortalInviteEmail(contact?.email)
 
     if (!isParentPortalInviteEligiblePlayer(player)) {
-      setErrorMessage('Parent portal invites can only be sent for Squad players.')
+      setErrorMessage('Parent portal invites can only be sent for active Trial or Squad players.')
       return
     }
 
@@ -1726,6 +1735,34 @@ export function PlayerProfile() {
     }
   }
 
+  const confirmSendParentPasswordReset = async () => {
+    if (!parentPasswordResetTarget?.id) {
+      throw new Error('Choose an active Parent link before sending a password reset.')
+    }
+
+    const resetTarget = parentPasswordResetTarget
+    setParentPasswordResetSendingLinkId(resetTarget.id)
+    setParentPasswordResetError('')
+    setErrorMessage('')
+
+    try {
+      await sendParentPasswordReset(resetTarget.id)
+      setParentPasswordResetTarget(null)
+      showToast({
+        title: 'Password reset sent',
+        message: `A secure password reset email was sent to ${resetTarget.email || 'the Parent account'}.`,
+      })
+    } catch (error) {
+      console.error(error)
+      const message = error.message || 'Parent password reset email could not be sent.'
+      setParentPasswordResetError(message)
+      setErrorMessage(message)
+      throw error
+    } finally {
+      setParentPasswordResetSendingLinkId('')
+    }
+  }
+
   const confirmPromotePlayer = async () => {
     if (!promoteConfirmTarget?.id) {
       return
@@ -1746,26 +1783,48 @@ export function PlayerProfile() {
       })
 
       let inviteCount = 0
-      let inviteError = null
+      let eventResult = null
+      const followUpErrors = []
       if (sendParentPortalLinkOnPromote) {
         try {
           const invites = await sendParentPortalInvitesForPlayer(promotedPlayer)
           inviteCount = invites.length
         } catch (error) {
           console.error(error)
-          inviteError = error
-          setErrorMessage(error.message || 'Player was promoted, but the parent portal invite could not be sent.')
+          followUpErrors.push(error.message || 'The Parent app invite could not be sent.')
         }
       }
 
+      if (addFutureEventsOnPromote) {
+        try {
+          eventResult = await addPlayerToFutureTeamEvents({
+            player: promotedPlayer,
+            sendInvitations: sendEventInvitationsOnPromote,
+            user,
+          })
+        } catch (error) {
+          console.error(error)
+          followUpErrors.push(error.message || 'Future events could not all be updated.')
+        }
+      }
+
+      navigate(buildPlayerProfilePath(promotedPlayer), { replace: true })
       showToast({
         title: 'Player promoted',
-        message: inviteError
-          ? `${promotedPlayer.playerName} has been moved to Squad, but the parent invite could not be sent.`
-          : sendParentPortalLinkOnPromote
-            ? `${promotedPlayer.playerName} has been moved to Squad. ${inviteCount} parent invite${inviteCount === 1 ? '' : 's'} sent.`
-            : `${promotedPlayer.playerName} has been moved to Squad.`,
+        message: [
+          `${promotedPlayer.playerName} has been moved to Squad.`,
+          sendParentPortalLinkOnPromote
+            ? `${inviteCount} Parent app invite${inviteCount === 1 ? '' : 's'} sent.`
+            : '',
+          addFutureEventsOnPromote && eventResult
+            ? `${eventResult.addedCount} future event${eventResult.addedCount === 1 ? '' : 's'} added.`
+            : '',
+        ].filter(Boolean).join(' '),
       })
+
+      if (followUpErrors.length > 0) {
+        setErrorMessage(`The player was promoted safely. ${followUpErrors.join(' ')}`)
+      }
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not promote this player to Squad.')
@@ -1801,6 +1860,7 @@ export function PlayerProfile() {
         evaluations,
         players: nextPlayers,
       })
+      navigate(buildPlayerProfilePath(movedPlayer), { replace: true })
       showToast({ title: 'Player moved', message: `${movedPlayer.playerName} has been moved to Trial players.` })
     } catch (error) {
       console.error(error)
@@ -1990,6 +2050,15 @@ export function PlayerProfile() {
             playerName: player.playerName,
           })
         }}
+        onSendParentPasswordReset={(player, link) => {
+          setParentPasswordResetError('')
+          setParentPasswordResetTarget({
+            ...link,
+            playerId: player.id,
+            playerName: player.playerName,
+            teamName: player.team,
+          })
+        }}
         onRemovePlayerPosition={handleRemovePlayerPosition}
         onSavePlayer={(playerId) => void handleSavePlayer(playerId)}
         onRefreshEmailTemplates={() => void loadEmailTemplates()}
@@ -2009,6 +2078,7 @@ export function PlayerProfile() {
         onSendDirectEmail={(player) => void handleSendDirectEmail(player)}
         onStartEditingPlayer={handleStartEditingPlayer}
         parentPortalInviteSendingKey={parentPortalInviteSendingKey}
+        parentPasswordResetSendingLinkId={parentPasswordResetSendingLinkId}
         parentPortalRevokingLinkId={parentPortalRevokingLinkId}
         parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
         playerDetailsEmptyState={playerDetailsEmptyState}
@@ -2084,6 +2154,25 @@ export function PlayerProfile() {
       ) : null}
 
       <ConfirmModal
+        isOpen={Boolean(parentPasswordResetTarget)}
+        isBusy={Boolean(parentPasswordResetSendingLinkId)}
+        errorMessage={parentPasswordResetError}
+        title="Send Parent password reset"
+        message="This sends a secure, club-branded reset link. The current password stays unchanged unless the Parent opens the link and chooses a new password."
+        items={[
+          `Parent: ${parentPasswordResetTarget?.email || 'Selected Parent'}`,
+          `Player: ${parentPasswordResetTarget?.playerName || 'Selected player'}`,
+          `Team: ${parentPasswordResetTarget?.teamName || 'Selected team'}`,
+        ]}
+        confirmLabel="Send reset email"
+        onCancel={() => {
+          setParentPasswordResetError('')
+          setParentPasswordResetTarget(null)
+        }}
+        onConfirm={confirmSendParentPasswordReset}
+      />
+
+      <ConfirmModal
         isOpen={Boolean(parentPortalRevokeTarget)}
         isBusy={Boolean(parentPortalRevokingLinkId)}
         errorMessage={parentPortalRevokeError}
@@ -2123,14 +2212,44 @@ export function PlayerProfile() {
             className="mt-1 h-4 w-4 accent-[#047857] disabled:cursor-not-allowed"
           />
           <span>
-            <span className="block font-black">Send parent portal invite</span>
+            <span className="block font-black">Send Parent app invite</span>
             <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
               {getPlayerPortalContacts(promoteConfirmTarget).length > 0
-                ? 'Parent contacts saved on this player will receive the portal invite.'
-                : 'Add a parent email before sending a parent portal invite.'}
+                ? 'Parent contacts saved on this player will receive secure Parent app access.'
+                : 'Add a parent email before sending Parent app access.'}
             </span>
           </span>
         </label>
+        <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
+          <input
+            type="checkbox"
+            checked={addFutureEventsOnPromote}
+            onChange={(event) => setAddFutureEventsOnPromote(event.target.checked)}
+            className="mt-1 h-4 w-4 accent-[#047857]"
+          />
+          <span>
+            <span className="block font-black">Add to all future team events</span>
+            <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+              Add this player to future fixtures and team calendar events without changing past events.
+            </span>
+          </span>
+        </label>
+        {addFutureEventsOnPromote ? (
+          <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
+            <input
+              type="checkbox"
+              checked={sendEventInvitationsOnPromote}
+              onChange={(event) => setSendEventInvitationsOnPromote(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-[#047857]"
+            />
+            <span>
+              <span className="block font-black">Send event invitations now</span>
+              <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                Existing invitations are not resent and duplicate messages are blocked.
+              </span>
+            </span>
+          </label>
+        ) : null}
       </ConfirmModal>
 
       <ConfirmModal

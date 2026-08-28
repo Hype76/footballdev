@@ -124,7 +124,7 @@ async function getInviteLink(linkId) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, players:player_id (player_name, section), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
+    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, players:player_id (player_name, section, status, archived_at), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
     .eq('id', normalizedLinkId)
     .maybeSingle()
 
@@ -136,8 +136,10 @@ async function getInviteLink(linkId) {
     throw Object.assign(new Error('This family portal invite is no longer available.'), { statusCode: 403 })
   }
 
-  if (String(data.players?.section ?? '').trim().toLowerCase() !== 'squad') {
-    throw Object.assign(new Error('Family portal invites can only be sent for squad players.'), { statusCode: 403 })
+  const playerSection = String(data.players?.section ?? '').trim().toLowerCase()
+  const playerStatus = String(data.players?.status ?? 'active').trim().toLowerCase()
+  if (!['trial', 'squad'].includes(playerSection) || playerStatus === 'archived' || data.players?.archived_at) {
+    throw Object.assign(new Error('Family portal invites can only be sent for active Trial or Squad players.'), { statusCode: 403 })
   }
 
   return data

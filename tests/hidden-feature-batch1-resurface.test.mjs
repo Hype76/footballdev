@@ -79,11 +79,12 @@ test('parent poll totals stay out of hidden vote payloads until the parent has r
   assert.doesNotMatch(migration, /grant execute on function public\.get_parent_portal_polls\(uuid\) to anon;/i)
 })
 
-test('parent invite management remains squad-only and does not expose token fields in UI copy', async () => {
+test('parent invite management supports active Trial and Squad players without exposing token fields in UI copy', async () => {
   const source = await readFile(parentLinkingPageUrl, 'utf8')
 
-  assert.match(source, /filter\(isSquadPlayer\)/)
-  assert.match(source, /Squad players only/)
+  assert.match(source, /filter\(isEligiblePlayer\)/)
+  assert.match(source, /\['trial', 'squad'\]\.includes\(section\)/)
+  assert.match(source, /Trial and Squad players/)
   assert.match(source, /Status: \{link\.status\}, Access: \{link\.linkType\}/)
   assert.doesNotMatch(source, /inviteToken|invite_token|auth_user_id|parent_link_id/)
 })

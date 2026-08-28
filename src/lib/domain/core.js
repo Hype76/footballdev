@@ -78,10 +78,8 @@ import {
   normalizePlayerRow,
 } from './player-normalizers.js'
 import {
-  ARCHIVED_PLAYER_RETENTION_MONTHS,
   VOICE_NOTE_RETENTION_DAYS,
   addDays,
-  addMonths,
 } from '../retention.js'
 export { supabase, CLUB_LOGOS_BUCKET, MAX_LOGO_FILE_SIZE_BYTES, EVALUATION_SECTIONS, REQUEST_TIMEOUT_MS } from '../supabase-client.js'
 export {
@@ -1315,60 +1313,36 @@ export async function archivePlayer({ user, playerId, reason }) {
     throw new Error('Add an archive reason before continuing.')
   }
 
-  const { data: currentPlayerRow, error: currentPlayerError } = await supabase
-    .from('players')
-    .select('*')
-    .eq('id', playerId)
-    .eq('club_id', user.clubId)
-    .single()
-
-  if (currentPlayerError) {
-    console.error(currentPlayerError)
-    throw currentPlayerError
+  if (typeof globalThis.crypto?.randomUUID !== 'function') {
+    throw new Error('This browser cannot create a safe archive request. Refresh or update the browser before retrying.')
   }
 
-  const currentPlayer = normalizePlayerRow(currentPlayerRow)
-  const previousStatus = currentPlayer.status === 'archived'
-    ? currentPlayer.archivedPreviousStatus || 'active'
-    : currentPlayer.status || 'active'
-  const archivedAt = new Date()
-
-  const { data, error } = await supabase
-    .from('players')
-    .update({
-      status: 'archived',
-      archived_reason: normalizedReason,
-      archived_at: archivedAt.toISOString(),
-      archived_delete_at: addMonths(archivedAt, ARCHIVED_PLAYER_RETENTION_MONTHS).toISOString(),
-      archived_by: user.id,
-      archived_previous_status: previousStatus,
-      updated_by: getEntryUserId(user),
-      ...getEntryIdentity(user, 'updated_by'),
-    })
-    .eq('id', playerId)
-    .eq('club_id', user.clubId)
-    .select('*')
-    .single()
+  const { error } = await supabase.rpc('archive_player_with_future_events', {
+    player_id_value: playerId,
+    reason_value: normalizedReason,
+    request_token_value: globalThis.crypto.randomUUID(),
+  })
 
   if (error) {
     console.error(error)
     throw error
   }
 
+  const { data, error: playerError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', playerId)
+    .eq('club_id', user.clubId)
+    .eq('status', 'archived')
+    .single()
+
+  if (playerError) {
+    console.error(playerError)
+    throw playerError
+  }
+
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
   clearViewCaches()
-  await createAuditLog({
-    user,
-    action: 'player_archived',
-    entityType: 'player',
-    entityId: data.id,
-    metadata: {
-      playerName: data.player_name,
-      section: data.section,
-      team: data.team,
-      reason: normalizedReason,
-    },
-  })
 
   return normalizePlayerRow(data)
 }
@@ -2078,6 +2052,7 @@ export async function promotePlayerToSquad({ user, playerId }) {
   }
 
   invalidateMemoryCacheByPrefix(`players:${user.clubId}:`)
+  clearViewCaches()
   await createAuditLog({
     user,
     action: 'player_promoted',
@@ -2124,8 +2099,6 @@ export async function movePlayerToTrial({ user, playerId }) {
     .update({
       section: 'Trial',
       status: 'active',
-      promoted_at: null,
-      promoted_by: null,
       updated_by: getEntryUserId(user),
       ...getEntryIdentity(user, 'updated_by'),
     })

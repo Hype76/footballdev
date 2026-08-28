@@ -4,6 +4,7 @@ import { ConfirmModal } from '../ui/ConfirmModal.jsx'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
 import {
   createAssessmentSession,
+  addPlayerToFutureTeamEvents,
   createParentPortalInvites,
   createPlayer,
   createStaffInvite,
@@ -385,8 +386,10 @@ function getPlayerContacts(player) {
     .filter((contact) => contact.email)
 }
 
-function isSquadPlayer(player) {
-  return String(player?.section ?? '').trim().toLowerCase() === 'squad'
+function isParentInviteEligiblePlayer(player) {
+  const section = String(player?.section ?? '').trim().toLowerCase()
+  const status = String(player?.status ?? 'active').trim().toLowerCase()
+  return ['trial', 'squad'].includes(section) && status !== 'archived'
 }
 
 function OnboardingActionModal({
@@ -418,6 +421,9 @@ function OnboardingActionModal({
   const [playerSection, setPlayerSection] = useState('Squad')
   const [parentContactName, setParentContactName] = useState('')
   const [parentContactEmail, setParentContactEmail] = useState('')
+  const [sendParentInviteOnAdd, setSendParentInviteOnAdd] = useState(true)
+  const [addFutureEventsOnAdd, setAddFutureEventsOnAdd] = useState(false)
+  const [sendEventInvitationsOnAdd, setSendEventInvitationsOnAdd] = useState(true)
   const [parentInvitePlayers, setParentInvitePlayers] = useState([])
   const [parentInvitePlayerId, setParentInvitePlayerId] = useState('')
   const [parentInviteContactIds, setParentInviteContactIds] = useState([])
@@ -465,7 +471,7 @@ function OnboardingActionModal({
           ['club-details', 'branding-theme'].includes(actionType) && user?.clubId ? getClubSettings(user.clubId) : Promise.resolve(null),
         ])
         const nextParentInvitePlayers = shouldLoadParentInvitePlayers
-          ? (await getParentLinkingPlayers({ user })).filter(isSquadPlayer)
+          ? (await getParentLinkingPlayers({ user })).filter(isParentInviteEligiblePlayer)
           : []
 
         if (!isMounted) {
@@ -640,7 +646,7 @@ function OnboardingActionModal({
           throw new Error('Choose a team before adding a player.')
         }
 
-        await createPlayer({
+        const createdPlayer = await createPlayer({
           user,
           player: {
             playerName,
@@ -652,9 +658,41 @@ function OnboardingActionModal({
               : [],
           },
         })
+
+        if (sendParentInviteOnAdd && parentContactEmail.trim()) {
+          const invites = await createParentPortalInvites({
+            user,
+            player: createdPlayer,
+            contacts: [{ name: parentContactName, email: parentContactEmail }],
+          })
+
+          await Promise.all(
+            invites.map((invite) => sendParentPortalInvite({
+              clubId: invite.clubId,
+              inviteLinkId: invite.id,
+              parentEmail: invite.email,
+              senderEmail: user.email,
+              displayName: user.displayName || user.username || user.name,
+              existingParentPortalUser: invite.existingParentPortalUser,
+              teamName: invite.teamName,
+              clubName: invite.clubName || user.clubName,
+              playerName: invite.playerName,
+              subject: `Parent app invite for ${invite.playerName}`,
+              inviteUrl: invite.inviteUrl,
+            })),
+          )
+        }
+
+        if (addFutureEventsOnAdd) {
+          await addPlayerToFutureTeamEvents({
+            player: createdPlayer,
+            sendInvitations: sendEventInvitationsOnAdd,
+            user,
+          })
+        }
       } else if (actionType === 'send-parent-invite') {
         if (!selectedParentInvitePlayer) {
-          throw new Error('Choose a squad player before sending parent invites.')
+          throw new Error('Choose a Trial or Squad player before sending Parent app invites.')
         }
 
         const contacts = selectedParentInviteContacts.filter((contact) => parentInviteContactIds.includes(contact.id))
@@ -1127,6 +1165,53 @@ function OnboardingActionModal({
                 <span className={modalLabelClass}>Parent or guardian email</span>
                 <input type="email" value={parentContactEmail} onChange={(event) => setParentContactEmail(event.target.value)} className={modalInputClass} />
               </label>
+              <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={sendParentInviteOnAdd}
+                  disabled={!parentContactEmail.trim()}
+                  onChange={(event) => setSendParentInviteOnAdd(event.target.checked)}
+                  className="mt-1 h-4 w-4 accent-[#047857] disabled:cursor-not-allowed"
+                />
+                <span>
+                  <span className="block text-sm font-black text-[#101828]">Send Parent app invite</span>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                    {parentContactEmail.trim()
+                      ? 'Send secure access for this Trial or Squad player after saving.'
+                      : 'Add a parent or guardian email to send Parent app access.'}
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={addFutureEventsOnAdd}
+                  onChange={(event) => setAddFutureEventsOnAdd(event.target.checked)}
+                  className="mt-1 h-4 w-4 accent-[#047857]"
+                />
+                <span>
+                  <span className="block text-sm font-black text-[#101828]">Add to all future team events</span>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                    Existing selections are kept and duplicate event entries are skipped.
+                  </span>
+                </span>
+              </label>
+              {addFutureEventsOnAdd ? (
+                <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={sendEventInvitationsOnAdd}
+                    onChange={(event) => setSendEventInvitationsOnAdd(event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-[#047857]"
+                  />
+                  <span>
+                    <span className="block text-sm font-black text-[#101828]">Send event invitations now</span>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                      Turn this off to update future event lists without sending email, push, or SMS.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
             </div>
           ) : null}
 
@@ -1135,7 +1220,7 @@ function OnboardingActionModal({
               {renderTeamSelect()}
               {parentInvitePlayers.length > 0 ? (
                 <label className="block">
-                  <span className={modalLabelClass}>Squad player</span>
+                  <span className={modalLabelClass}>Trial or Squad player</span>
                   <select
                     value={parentInvitePlayerId}
                     onChange={(event) => setParentInvitePlayerId(event.target.value)}
@@ -1152,7 +1237,7 @@ function OnboardingActionModal({
                 </label>
               ) : (
                 <div className="rounded-lg border border-[#fedf89] bg-[#fffbeb] px-4 py-3 text-sm font-black text-[#b54708]">
-                  Add a squad player before sending parent invites.
+                  Add a Trial or Squad player before sending Parent app invites.
                 </div>
               )}
               {selectedParentInvitePlayer && selectedParentInviteContacts.length > 0 ? (

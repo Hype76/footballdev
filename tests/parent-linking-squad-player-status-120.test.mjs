@@ -5,7 +5,7 @@ import test from 'node:test'
 const parentPortalDomainUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
 const parentLinkingPageUrl = new URL('../src/pages/ParentLinkingPage.jsx', import.meta.url)
 
-test('Parent Invites includes every non-archived Squad player regardless of active or promoted status', async () => {
+test('Parent Invites includes every active Trial and Squad player', async () => {
   const [domain, page] = await Promise.all([
     readFile(parentPortalDomainUrl, 'utf8'),
     readFile(parentLinkingPageUrl, 'utf8'),
@@ -13,7 +13,8 @@ test('Parent Invites includes every non-archived Squad player regardless of acti
   const start = domain.indexOf('export async function getParentLinkingPlayers')
   const end = domain.indexOf('export async function getParentLinksForPlayer', start)
   const loader = domain.slice(start, end)
-  assert.match(loader, /getPlayers\(\{ user, section: 'Squad' \}\)/)
+  assert.match(loader, /return getPlayers\(\{ user \}\)/)
   assert.doesNotMatch(loader, /status:\s*'active'/)
-  assert.match(page, /filter\(isSquadPlayer\)/)
+  assert.match(page, /filter\(isEligiblePlayer\)/)
+  assert.match(page, /\['trial', 'squad'\]\.includes\(section\)/)
 })

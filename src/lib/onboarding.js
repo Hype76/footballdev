@@ -532,8 +532,8 @@ function buildTeamManagerSteps(user, snapshot, scope) {
           makeStep({
             id: 'team-parent-contacts',
             title: 'Send parent invite',
-            rule: 'Parent communication only works from saved squad player contacts.',
-            detail: 'Choose a squad player and send the first parent portal invite to a saved parent or guardian email.',
+            rule: 'Parent communication works from saved Trial and Squad player contacts.',
+            detail: 'Choose a Trial or Squad player and send the first Parent app invite to a saved parent or guardian email.',
             href: '/parent-linking',
             actionLabel: 'Send invite',
             actionType: 'send-parent-invite',

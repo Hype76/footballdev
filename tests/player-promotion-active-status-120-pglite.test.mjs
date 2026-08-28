@@ -23,6 +23,20 @@ test('promoting a Trial player makes the Squad player active while retaining pro
   assert.match(details, /player\.status === 'archived' \? 'Archived' : 'Active'/)
 })
 
+test('moving a promoted player back to Trial preserves promotion fields and the profile follows the saved record', async () => {
+  const core = await readFile(coreUrl, 'utf8')
+  const profile = await readFile(new URL('../src/pages/PlayerProfile.jsx', import.meta.url), 'utf8')
+  const start = core.indexOf('export async function movePlayerToTrial')
+  const end = core.indexOf('export async function deletePlayerRecord', start)
+  const moveToTrial = core.slice(start, end)
+
+  assert.match(moveToTrial, /section:\s*'Trial',[\s\S]*status:\s*'active'/)
+  assert.doesNotMatch(moveToTrial, /promoted_at:\s*null/)
+  assert.doesNotMatch(moveToTrial, /promoted_by:\s*null/)
+  assert.match(profile, /navigate\(buildPlayerProfilePath\(movedPlayer\), \{ replace: true \}\)/)
+  assert.match(profile, /navigate\(buildPlayerProfilePath\(promotedPlayer\), \{ replace: true \}\)/)
+})
+
 test('promotion reconciliation updates only current promoted Squad players without deleting records', async () => {
   const db = new PGlite()
   try {

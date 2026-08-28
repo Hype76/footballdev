@@ -34,6 +34,7 @@ export function PlayerDetailsSection({
   onPromotePlayer,
   onRemoveParentContact,
   onRemoveParentPortalAccess = () => {},
+  onSendParentPasswordReset = () => {},
   onRemovePlayerPosition,
   onRefreshEmailTemplates,
   onSavePlayer,
@@ -43,6 +44,7 @@ export function PlayerDetailsSection({
   onSendDirectEmail,
   onStartEditingPlayer,
   parentPortalInviteSendingKey = '',
+  parentPasswordResetSendingLinkId = '',
   parentPortalRevokingLinkId = '',
   parentPortalLinksByPlayerId = {},
   playerDrafts,
@@ -116,9 +118,11 @@ export function PlayerDetailsSection({
                     onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
                     onSendParentPortalInviteForContact={(contact) => onSendParentPortalInviteForContact(player, contact)}
                     onRemoveParentPortalAccess={(link) => onRemoveParentPortalAccess(player, link)}
+                    onSendParentPasswordReset={(link) => onSendParentPasswordReset(player, link)}
                     onSendDirectEmail={() => onSendDirectEmail(player)}
                     onStartEditingPlayer={() => onStartEditingPlayer(player)}
                     parentPortalInviteSendingKey={parentPortalInviteSendingKey}
+                    parentPasswordResetSendingLinkId={parentPasswordResetSendingLinkId}
                     parentPortalRevokingLinkId={parentPortalRevokingLinkId}
                     parentPortalLinks={parentPortalLinksByPlayerId[player.id] || []}
                     player={player}
@@ -313,9 +317,11 @@ function PlayerDetailsSummary({
   onSelectedDirectEmailTemplateChange,
   onSendParentPortalInviteForContact = () => {},
   onRemoveParentPortalAccess = () => {},
+  onSendParentPasswordReset = () => {},
   onSendDirectEmail,
   onStartEditingPlayer,
   parentPortalInviteSendingKey = '',
+  parentPasswordResetSendingLinkId = '',
   parentPortalRevokingLinkId = '',
   parentPortalLinks = [],
   player,
@@ -382,15 +388,26 @@ function PlayerDetailsSummary({
                             </button>
                           ) : null}
                           {activeParentLink ? (
-                            <button
-                              type="button"
-                              disabled={parentPortalRevokingLinkId === activeParentLink.id}
-                              title="Remove this Parent's access to this player only."
-                              onClick={() => onRemoveParentPortalAccess(activeParentLink)}
-                              className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {parentPortalRevokingLinkId === activeParentLink.id ? 'Removing...' : 'Remove Parent access'}
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                disabled={parentPasswordResetSendingLinkId === activeParentLink.id}
+                                title="Send a secure password reset email to this active Parent account."
+                                onClick={() => onSendParentPasswordReset(activeParentLink)}
+                                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#047857] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {parentPasswordResetSendingLinkId === activeParentLink.id ? 'Sending reset...' : 'Send password reset'}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={parentPortalRevokingLinkId === activeParentLink.id}
+                                title="Remove this Parent's access to this player only."
+                                onClick={() => onRemoveParentPortalAccess(activeParentLink)}
+                                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {parentPortalRevokingLinkId === activeParentLink.id ? 'Removing...' : 'Remove Parent access'}
+                              </button>
+                            </>
                           ) : null}
                         </div>
                       </div>

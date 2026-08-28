@@ -210,6 +210,10 @@ export {
 } from './domain/event-player-management.js'
 
 export {
+  addPlayerToFutureTeamEvents,
+} from './domain/player-event-lifecycle.js'
+
+export {
   EVENT_PLAYER_REMOVAL_SCOPES,
   previewEventPlayerRemoval,
   removePlayerFromEvent,

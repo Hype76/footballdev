@@ -3,7 +3,10 @@ export function normalizeParentPortalInviteEmail(email) {
 }
 
 export function isParentPortalInviteEligiblePlayer(player) {
-  return String(player?.section ?? '').trim().toLowerCase() === 'squad'
+  const section = String(player?.section ?? '').trim().toLowerCase()
+  const status = String(player?.status ?? 'active').trim().toLowerCase()
+
+  return ['trial', 'squad'].includes(section) && status !== 'archived'
 }
 
 export function getParentPortalInviteActionForContact({

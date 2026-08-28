@@ -12,6 +12,7 @@ import {
   getContactGroups,
 } from '../hooks/players/addPlayerUtils.js'
 import {
+  addPlayerToFutureTeamEvents,
   createPlayer,
   createParentPortalInvites,
   getAvailableTeamsForUser,
@@ -55,6 +56,9 @@ export function AddPlayerPage() {
   const [isAddingPlayer, setIsAddingPlayer] = useState(false)
   const [isSendingParentPortalLink, setIsSendingParentPortalLink] = useState(false)
   const [parentPortalInviteTarget, setParentPortalInviteTarget] = useState(null)
+  const [addFutureEventsForNewPlayer, setAddFutureEventsForNewPlayer] = useState(false)
+  const [sendEventInvitationsForNewPlayer, setSendEventInvitationsForNewPlayer] = useState(true)
+  const [sendParentInviteForNewPlayer, setSendParentInviteForNewPlayer] = useState(true)
   const [message, setMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -265,9 +269,10 @@ export function AddPlayerPage() {
       setMessage('Player added.')
       showToast({ title: 'Player saved', message: `${createdPlayer.playerName} has been added.` })
 
-      if (String(createdPlayer.section ?? '').trim().toLowerCase() === 'squad' && getPlayerPortalContacts(createdPlayer).length > 0) {
-        setParentPortalInviteTarget(createdPlayer)
-      }
+      setSendParentInviteForNewPlayer(getPlayerPortalContacts(createdPlayer).length > 0)
+      setAddFutureEventsForNewPlayer(false)
+      setSendEventInvitationsForNewPlayer(true)
+      setParentPortalInviteTarget(createdPlayer)
     } catch (error) {
       console.error(error)
       const message = String(error.message ?? '')
@@ -315,7 +320,7 @@ export function AddPlayerPage() {
     return invites
   }
 
-  const confirmSendParentPortalLink = async () => {
+  const confirmNewPlayerSetup = async () => {
     if (!parentPortalInviteTarget?.id) {
       return
     }
@@ -324,12 +329,33 @@ export function AddPlayerPage() {
     setErrorMessage('')
 
     try {
-      const invites = await sendParentPortalInvitesForPlayer(parentPortalInviteTarget)
+      let invites = []
+      let eventResult = null
+
+      if (sendParentInviteForNewPlayer) {
+        invites = await sendParentPortalInvitesForPlayer(parentPortalInviteTarget)
+      }
+
+      if (addFutureEventsForNewPlayer) {
+        eventResult = await addPlayerToFutureTeamEvents({
+          player: parentPortalInviteTarget,
+          sendInvitations: sendEventInvitationsForNewPlayer,
+          user,
+        })
+      }
+
       showToast({
-        title: invites.length > 0 ? 'Parent invite sent' : 'No new invite needed',
-        message: invites.length > 0
-          ? `${invites.length} parent invite${invites.length === 1 ? '' : 's'} sent.`
-          : 'Every parent email already has an invite or link for this team.',
+        title: 'Player setup updated',
+        message: [
+          sendParentInviteForNewPlayer
+            ? invites.length > 0
+              ? `${invites.length} Parent app invite${invites.length === 1 ? '' : 's'} sent.`
+              : 'No new Parent app invite was needed.'
+            : '',
+          addFutureEventsForNewPlayer
+            ? `${eventResult?.addedCount || 0} future event${eventResult?.addedCount === 1 ? '' : 's'} added.`
+            : '',
+        ].filter(Boolean).join(' '),
       })
       setParentPortalInviteTarget(null)
     } catch (error) {
@@ -391,17 +417,67 @@ export function AddPlayerPage() {
       <ConfirmModal
         isOpen={Boolean(parentPortalInviteTarget)}
         isBusy={isSendingParentPortalLink}
-        title="Send parent portal invite"
-        message="This player has been added straight to Squad. Send the parent portal invite now?"
+        title="Finish player setup"
+        message={`This player has been added to ${parentPortalInviteTarget?.section || 'the team'}. Choose the access and future calendar actions to apply now.`}
         items={[
           `Player: ${parentPortalInviteTarget?.playerName || 'Selected player'}`,
           `Team: ${parentPortalInviteTarget?.team || 'No team entered'}`,
         ]}
         cancelLabel="Not now"
-        confirmLabel="Send parent invite"
+        confirmLabel="Apply selected options"
         onCancel={() => setParentPortalInviteTarget(null)}
-        onConfirm={() => void confirmSendParentPortalLink()}
-      />
+        onConfirm={() => void confirmNewPlayerSetup()}
+      >
+        <div className="space-y-3">
+          <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
+            <input
+              type="checkbox"
+              checked={sendParentInviteForNewPlayer}
+              disabled={getPlayerPortalContacts(parentPortalInviteTarget).length === 0}
+              onChange={(event) => setSendParentInviteForNewPlayer(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-[#047857] disabled:cursor-not-allowed"
+            />
+            <span>
+              <span className="block">Send Parent app invite</span>
+              <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                {getPlayerPortalContacts(parentPortalInviteTarget).length > 0
+                  ? 'Send the same secure Parent app access used for Trial and Squad players.'
+                  : 'Add a parent email to this player before sending Parent app access.'}
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-black text-[#101828]">
+            <input
+              type="checkbox"
+              checked={addFutureEventsForNewPlayer}
+              onChange={(event) => setAddFutureEventsForNewPlayer(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-[#047857]"
+            />
+            <span>
+              <span className="block">Add to all future team events</span>
+              <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                Add this player to future fixtures and team calendar events without changing past events.
+              </span>
+            </span>
+          </label>
+          {addFutureEventsForNewPlayer ? (
+            <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828]">
+              <input
+                type="checkbox"
+                checked={sendEventInvitationsForNewPlayer}
+                onChange={(event) => setSendEventInvitationsForNewPlayer(event.target.checked)}
+                className="mt-1 h-4 w-4 accent-[#047857]"
+              />
+              <span>
+                <span className="block">Send event invitations now</span>
+                <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
+                  Existing invitations are not resent and duplicate messages are blocked.
+                </span>
+              </span>
+            </label>
+          ) : null}
+        </div>
+      </ConfirmModal>
     </div>
   )
 }

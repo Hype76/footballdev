@@ -12,9 +12,10 @@ const playerDetailsSectionUrl = new URL('../src/components/players/PlayerDetails
 const playerProfileUrl = new URL('../src/pages/PlayerProfile.jsx', import.meta.url)
 const sendParentPortalInviteFunctionUrl = new URL('../netlify/functions/send-parent-portal-invite.js', import.meta.url)
 
-test('parent portal invite action only appears for squad players with parent email', () => {
+test('parent portal invite action appears for active Trial and Squad players with parent email', () => {
   assert.equal(isParentPortalInviteEligiblePlayer({ section: 'Squad' }), true)
-  assert.equal(isParentPortalInviteEligiblePlayer({ section: 'Trial' }), false)
+  assert.equal(isParentPortalInviteEligiblePlayer({ section: 'Trial' }), true)
+  assert.equal(isParentPortalInviteEligiblePlayer({ section: 'Trial', status: 'archived' }), false)
 
   const squadAction = getParentPortalInviteActionForContact({
     contact: { email: 'parent@example.com' },
@@ -27,8 +28,8 @@ test('parent portal invite action only appears for squad players with parent ema
 
   assert.equal(squadAction.canSend, true)
   assert.equal(squadAction.label, 'Send parent portal invite')
-  assert.equal(trialAction.canSend, false)
-  assert.equal(trialAction.label, '')
+  assert.equal(trialAction.canSend, true)
+  assert.equal(trialAction.label, 'Send parent portal invite')
 })
 
 test('parent portal invite action supports pending resend but hides active links', () => {
@@ -59,7 +60,7 @@ test('saved parent emails render the inline parent portal invite action', async 
   assert.match(source, /parentPortalInviteSendingKey === sendingKey \? 'Sending\.\.\.' : inviteAction\.label/)
 })
 
-test('explicit resend path reuses pending parent links and keeps squad guard', async () => {
+test('explicit resend path reuses pending parent links and keeps active Trial or Squad guard', async () => {
   const [domainSource, profileSource, functionSource] = await Promise.all([
     readFile(parentPortalDomainUrl, 'utf8'),
     readFile(playerProfileUrl, 'utf8'),
@@ -68,8 +69,7 @@ test('explicit resend path reuses pending parent links and keeps squad guard', a
 
   assert.match(domainSource, /includeSentPending = false/)
   assert.match(domainSource, /row\.status === 'pending' && \(includeSentPending \|\| !row\.invite_sent_at\)/)
-  assert.match(domainSource, /Family portal links can only be sent for squad players\./)
+  assert.match(domainSource, /Family portal links can only be sent for active Trial or Squad players\./)
   assert.match(profileSource, /includeSentPending: true/)
-  assert.match(profileSource, /Parent portal invites can only be sent for Squad players\./)
-  assert.match(functionSource, /Family portal invites can only be sent for squad players\./)
+  assert.match(functionSource, /Family portal invites can only be sent for active Trial or Squad players\./)
 })
