@@ -50,6 +50,7 @@ test('Resource Library file validation allows approved V1 files only', () => {
   })).mimeType, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
   assert.equal(validateResourceLibraryFile(createFile({ name: 'notes.txt', type: 'text/plain' })).mimeType, 'text/plain')
   assert.equal(validateResourceLibraryFile(createFile({ name: 'image.jpg', type: 'image/jpeg' })).mimeType, 'image/jpeg')
+  assert.equal(validateResourceLibraryFile(createFile({ name: 'animation.gif', type: 'image/gif' })).mimeType, 'image/gif')
 })
 
 test('Resource Library file validation blocks risky or oversized uploads', () => {
@@ -58,5 +59,6 @@ test('Resource Library file validation blocks risky or oversized uploads', () =>
   assert.throws(() => validateResourceLibraryFile(createFile({ name: 'archive.zip', type: 'application/zip' })), /not allowed|Upload a PDF/)
   assert.throws(() => validateResourceLibraryFile(createFile({ name: 'macro.docm', type: 'application/vnd.ms-word.document.macroEnabled.12' })), /not allowed|Upload a PDF/)
   assert.throws(() => validateResourceLibraryFile(createFile({ name: 'plan.pdf', type: 'text/plain' })), /not allowed/)
+  assert.throws(() => validateResourceLibraryFile(createFile({ name: 'fake.gif', type: 'image/png' })), /not allowed/)
   assert.throws(() => validateResourceLibraryFile(createFile({ size: RESOURCE_LIBRARY_MAX_FILE_SIZE_BYTES + 1 })), /20 MB/)
 })

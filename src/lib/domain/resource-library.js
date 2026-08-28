@@ -19,6 +19,7 @@ export const RESOURCE_LIBRARY_ALLOWED_MIME_TYPES = new Set([
   'text/plain',
   'image/png',
   'image/jpeg',
+  'image/gif',
   'image/webp',
 ])
 
@@ -40,6 +41,7 @@ const EXTENSION_MIME_TYPES = new Map([
   ['png', 'image/png'],
   ['jpg', 'image/jpeg'],
   ['jpeg', 'image/jpeg'],
+  ['gif', 'image/gif'],
   ['webp', 'image/webp'],
 ])
 
@@ -123,7 +125,7 @@ export function validateResourceLibraryFile(file) {
   const extension = getFileExtension(file.name)
 
   if (!extension || BLOCKED_EXTENSIONS.has(extension) || !EXTENSION_MIME_TYPES.has(extension)) {
-    throw new Error('Upload a PDF, DOCX, XLSX, PPTX, CSV, TXT, PNG, JPG, JPEG, or WebP file.')
+    throw new Error('Upload a PDF, DOCX, XLSX, PPTX, CSV, TXT, PNG, JPG, JPEG, GIF, or WebP file.')
   }
 
   const browserMimeType = normalizeText(file.type).toLowerCase()
@@ -420,6 +422,15 @@ export async function uploadResourceLibraryItem({ category = 'general', descript
 
   if (error) {
     console.error(error)
+
+    const { error: cleanupError } = await supabase.storage
+      .from(RESOURCE_LIBRARY_BUCKET)
+      .remove([storagePath])
+
+    if (cleanupError) {
+      console.error('Could not remove the unlinked Resource Library upload.', cleanupError)
+    }
+
     throw error
   }
 

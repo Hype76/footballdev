@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
@@ -17,12 +17,27 @@ import {
   getResourceLibraryItems,
   getResourceLibraryPlayers,
   uploadResourceLibraryItem,
+  validateResourceLibraryFile,
 } from '../lib/supabase.js'
 
 const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60'
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60'
+const resourceLibraryFileAccept = '.pdf,.docx,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp,image/gif'
+
+function getQueuedFileId(file) {
+  return [file.name, file.size, file.type, file.lastModified].join(':')
+}
+
+function getDefaultResourceTitle(fileName = '') {
+  return String(fileName)
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120) || 'Resource'
+}
 
 function createUploadDraft() {
   return {
@@ -30,7 +45,7 @@ function createUploadDraft() {
     description: '',
     category: 'general',
     externalUrl: '',
-    file: null,
+    files: [],
     resourceType: 'file',
   }
 }
@@ -211,12 +226,15 @@ export function ResourceLibraryPage() {
   const [players, setPlayers] = useState([])
   const [filters, setFilters] = useState({ category: '', searchTerm: '' })
   const [uploadDraft, setUploadDraft] = useState(() => createUploadDraft())
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
   const [assignmentDraft, setAssignmentDraft] = useState(() => createAssignmentDraft())
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [downloadingId, setDownloadingId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const fileInputRef = useRef(null)
 
   const filteredPlayers = useMemo(() => {
     return players.filter((player) => String(player.teamId ?? '') === activeTeamId)
@@ -306,6 +324,60 @@ export function ResourceLibraryPage() {
     })
   }
 
+  const queueUploadFiles = (fileList) => {
+    const incomingFiles = Array.from(fileList || [])
+    const validFiles = []
+    const rejectedFiles = []
+
+    incomingFiles.forEach((file) => {
+      try {
+        validateResourceLibraryFile(file)
+        validFiles.push(file)
+      } catch (error) {
+        rejectedFiles.push(`${file.name || 'File'}: ${error.message}`)
+      }
+    })
+
+    if (validFiles.length > 0) {
+      setUploadDraft((current) => {
+        const existingIds = new Set(current.files.map((item) => item.id))
+        const queuedFiles = validFiles
+          .map((file) => ({
+            id: getQueuedFileId(file),
+            file,
+            title: getDefaultResourceTitle(file.name),
+          }))
+          .filter((item) => {
+            if (existingIds.has(item.id)) {
+              return false
+            }
+
+            existingIds.add(item.id)
+            return true
+          })
+
+        return { ...current, files: [...current.files, ...queuedFiles] }
+      })
+    }
+
+    setErrorMessage(rejectedFiles.join(' '))
+    setSuccessMessage('')
+  }
+
+  const removeQueuedFile = (fileId) => {
+    setUploadDraft((current) => ({
+      ...current,
+      files: current.files.filter((item) => item.id !== fileId),
+    }))
+  }
+
+  const updateQueuedFileTitle = (fileId, title) => {
+    setUploadDraft((current) => ({
+      ...current,
+      files: current.files.map((item) => item.id === fileId ? { ...item, title } : item),
+    }))
+  }
+
   const handleUpload = async (event) => {
     event.preventDefault()
     setIsSaving(true)
@@ -313,8 +385,8 @@ export function ResourceLibraryPage() {
     setSuccessMessage('')
 
     try {
-      const resource = uploadDraft.resourceType === 'external_link'
-        ? await createExternalResourceLibraryItem({
+      if (uploadDraft.resourceType === 'external_link') {
+        const resource = await createExternalResourceLibraryItem({
           user,
           title: uploadDraft.title,
           description: uploadDraft.description,
@@ -322,23 +394,63 @@ export function ResourceLibraryPage() {
           teamId: activeTeamId,
           externalUrl: uploadDraft.externalUrl,
         })
-        : await uploadResourceLibraryItem({
-          user,
-          title: uploadDraft.title,
-          description: uploadDraft.description,
-          category: uploadDraft.category,
-          teamId: activeTeamId,
-          file: uploadDraft.file,
-        })
+        setUploadDraft(createUploadDraft())
+        await refreshResources()
+        setSuccessMessage(`${resource.title} saved.`)
+        showToast({ title: 'Resource saved', message: `${resource.title} is available to authorised Coaches.` })
+        return
+      }
+
+      if (uploadDraft.files.length === 0) {
+        throw new Error('Choose one or more resource files before uploading.')
+      }
+
+      const failedFiles = []
+      const uploadedResources = []
+      setUploadProgress({ current: 0, total: uploadDraft.files.length })
+
+      for (const [index, queuedFile] of uploadDraft.files.entries()) {
+        setUploadProgress({ current: index + 1, total: uploadDraft.files.length })
+
+        try {
+          const resource = await uploadResourceLibraryItem({
+            user,
+            title: queuedFile.title,
+            description: uploadDraft.description,
+            category: uploadDraft.category,
+            teamId: activeTeamId,
+            file: queuedFile.file,
+          })
+          uploadedResources.push(resource)
+        } catch (error) {
+          console.error(error)
+          failedFiles.push({ ...queuedFile, errorMessage: error.message || 'Upload failed.' })
+        }
+      }
+
+      if (uploadedResources.length > 0) {
+        await refreshResources()
+      }
+
+      if (failedFiles.length > 0) {
+        setUploadDraft((current) => ({ ...current, files: failedFiles }))
+        setErrorMessage(`${failedFiles.length} file${failedFiles.length === 1 ? '' : 's'} could not be uploaded and remain ready to retry. ${failedFiles.map((item) => `${item.file.name}: ${item.errorMessage}`).join(' ')}`)
+
+        if (uploadedResources.length > 0) {
+          setSuccessMessage(`${uploadedResources.length} resource${uploadedResources.length === 1 ? '' : 's'} uploaded successfully.`)
+          showToast({ title: 'Some resources uploaded', message: `${uploadedResources.length} succeeded and ${failedFiles.length} remain ready to retry.` })
+        }
+        return
+      }
 
       setUploadDraft(createUploadDraft())
-      await refreshResources()
-      setSuccessMessage(`${resource.title} uploaded.`)
-      showToast({ title: 'Resource uploaded', message: `${resource.title} is available to authorised Coaches.` })
+      setSuccessMessage(`${uploadedResources.length} resource${uploadedResources.length === 1 ? '' : 's'} uploaded.`)
+      showToast({ title: 'Resources uploaded', message: `${uploadedResources.length} resource${uploadedResources.length === 1 ? '' : 's'} are available to authorised Coaches.` })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not upload this resource.')
     } finally {
+      setUploadProgress({ current: 0, total: 0 })
       setIsSaving(false)
     }
   }
@@ -580,16 +692,23 @@ export function ResourceLibraryPage() {
         <section className="rounded-lg border border-[#d7e5dc] bg-white p-5 shadow-sm shadow-[#047857]/10 sm:p-6">
           <form className="space-y-4" onSubmit={handleUpload}>
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem_14rem]">
-              <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#101828]">Title</span>
-                <input
-                  value={uploadDraft.title}
-                  onChange={(event) => setUploadDraft((current) => ({ ...current, title: event.target.value }))}
-                  onKeyDown={stopTextInputSpacePropagation}
-                  className={fieldClass}
-                  placeholder="Example: Pre-season training plan"
-                />
-              </label>
+              {uploadDraft.resourceType === 'external_link' ? (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Title</span>
+                  <input
+                    value={uploadDraft.title}
+                    onChange={(event) => setUploadDraft((current) => ({ ...current, title: event.target.value }))}
+                    onKeyDown={stopTextInputSpacePropagation}
+                    className={fieldClass}
+                    placeholder="Example: Pre-season training plan"
+                  />
+                </label>
+              ) : (
+                <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3">
+                  <span className="block text-sm font-black text-[#101828]">Multiple file upload</span>
+                  <span className="mt-2 block text-sm font-semibold text-[#4b5f55]">Each file is saved as its own resource. Review each title before uploading.</span>
+                </div>
+              )}
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Category</span>
                 <select
@@ -612,7 +731,7 @@ export function ResourceLibraryPage() {
                 <span className="mb-2 block text-sm font-black text-[#101828]">Resource type</span>
                 <select
                   value={uploadDraft.resourceType}
-                  onChange={(event) => setUploadDraft((current) => ({ ...current, resourceType: event.target.value, file: null, externalUrl: '' }))}
+                  onChange={(event) => setUploadDraft((current) => ({ ...current, resourceType: event.target.value, files: [], externalUrl: '', title: '' }))}
                   className={fieldClass}
                 >
                   <option value="file">File</option>
@@ -643,24 +762,90 @@ export function ResourceLibraryPage() {
                 placeholder="Short Coach note for this resource"
               />
             </label>
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="space-y-3">
               {uploadDraft.resourceType === 'file' ? (
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">File</span>
+                <>
                   <input
+                    ref={fileInputRef}
                     type="file"
-                    accept=".pdf,.docx,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.webp"
-                    onChange={(event) => setUploadDraft((current) => ({ ...current, file: event.target.files?.[0] ?? null }))}
-                    className={fieldClass}
+                    multiple
+                    accept={resourceLibraryFileAccept}
+                    aria-label="Choose resource files"
+                    onChange={(event) => {
+                      queueUploadFiles(event.target.files)
+                      event.target.value = ''
+                    }}
+                    className="sr-only"
                   />
-                </label>
+                  <div
+                    onDragEnter={(event) => {
+                      event.preventDefault()
+                      setIsDraggingFiles(true)
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault()
+                      event.dataTransfer.dropEffect = 'copy'
+                      setIsDraggingFiles(true)
+                    }}
+                    onDragLeave={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget)) {
+                        setIsDraggingFiles(false)
+                      }
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      setIsDraggingFiles(false)
+                      queueUploadFiles(event.dataTransfer.files)
+                    }}
+                    className={`rounded-lg border-2 border-dashed px-5 py-7 text-center transition ${isDraggingFiles ? 'border-[#047857] bg-[#ecfdf5]' : 'border-[#a8c7b5] bg-[#f7faf8]'}`}
+                    data-testid="resource-file-drop-zone"
+                  >
+                    <p className="text-base font-black text-[#101828]">Drop files and images here</p>
+                    <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Select several at once. PDF, Office files, text, PNG, JPG, GIF, and WebP are supported up to 20 MB each.</p>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className={`${secondaryButtonClass} mt-4`}>
+                      Choose files
+                    </button>
+                  </div>
+                  {uploadDraft.files.length > 0 ? (
+                    <div className="space-y-3" aria-live="polite">
+                      <p className="text-sm font-black text-[#101828]">{uploadDraft.files.length} file{uploadDraft.files.length === 1 ? '' : 's'} ready</p>
+                      {uploadDraft.files.map((item) => (
+                        <div key={item.id} className="grid gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                          <div className="min-w-0">
+                            <span className="block truncate text-sm font-black text-[#101828]">{item.file.name}</span>
+                            <span className="mt-1 block text-xs font-bold text-[#66756c]">{formatResourceLibraryFileSize(item.file.size)}</span>
+                            {item.errorMessage ? <span className="mt-1 block text-xs font-bold text-red-700">{item.errorMessage}</span> : null}
+                          </div>
+                          <label className="block">
+                            <span className="mb-2 block text-sm font-black text-[#101828]">Resource title</span>
+                            <input
+                              value={item.title}
+                              maxLength={120}
+                              aria-label={`Title for ${item.file.name}`}
+                              onChange={(event) => updateQueuedFileTitle(item.id, event.target.value)}
+                              onKeyDown={stopTextInputSpacePropagation}
+                              className={fieldClass}
+                            />
+                          </label>
+                          <button type="button" onClick={() => removeQueuedFile(item.id)} className={secondaryButtonClass}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-bold text-[#4b5f55]">
                   External links are saved in the team scope and are Coach-only until assigned to a player with parent sharing enabled.
                 </div>
               )}
-              <button type="submit" disabled={isSaving} className={primaryButtonClass}>
-                {isSaving ? 'Saving...' : uploadDraft.resourceType === 'external_link' ? 'Save link' : 'Upload resource'}
+              <button type="submit" disabled={isSaving || (uploadDraft.resourceType === 'file' && uploadDraft.files.length === 0)} className={primaryButtonClass}>
+                {isSaving && uploadDraft.resourceType === 'file'
+                  ? `Uploading ${uploadProgress.current} of ${uploadProgress.total}...`
+                  : isSaving
+                    ? 'Saving...'
+                    : uploadDraft.resourceType === 'external_link'
+                      ? 'Save link'
+                      : `Upload resources (${uploadDraft.files.length})`}
               </button>
             </div>
           </form>
