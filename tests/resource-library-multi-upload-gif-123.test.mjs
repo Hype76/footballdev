@@ -4,7 +4,7 @@ import { test } from 'node:test'
 
 const pageUrl = new URL('../src/pages/ResourceLibraryPage.jsx', import.meta.url)
 const domainUrl = new URL('../src/lib/domain/resource-library.js', import.meta.url)
-const migrationUrl = new URL('../supabase/migrations/20260828110054_resource_library_gif_multi_upload.sql', import.meta.url)
+const migrationUrl = new URL('../supabase/migrations/20260828111801_resource_library_gif_multi_upload.sql', import.meta.url)
 
 test('Team Resources provides drag and drop, multi-select, review, removal, and retry-safe progress', async () => {
   const page = await readFile(pageUrl, 'utf8')
