@@ -7,6 +7,7 @@ const DELIVERY_FAILURE_STATES = new Set(['failed', 'delivery_failed'])
 const DELIVERY_NOT_SENT_STATES = new Set(['not_sent'])
 const DELIVERY_SUCCESS_STATES = new Set(['delivered', 'responded', 'sent'])
 const DELIVERY_QUEUE_STATES = new Set(['pending', 'processing', 'queued'])
+const INACTIVE_MATCH_AVAILABILITY_REQUEST_STATES = new Set(['cancelled', 'expired'])
 const RESPONSE_AUDIT_ACTIONS = [
   'adult_player_match_response_saved',
   'adult_player_training_response_saved',
@@ -31,6 +32,22 @@ function normalizeDateOnly(value) {
 
   const parsedDate = new Date(normalizedValue)
   return Number.isNaN(parsedDate.getTime()) ? '' : parsedDate.toISOString().slice(0, 10)
+}
+
+export function isActiveMatchDayAvailabilityRequest(request = {}, referenceTime = new Date()) {
+  const status = normalizeStatus(request.status) || 'pending'
+  const sentAt = normalizeText(request.sentAt)
+  const expiresAt = normalizeText(request.expiresAt)
+  const tokenRevokedAt = normalizeText(request.tokenRevokedAt)
+  const referenceTimestamp = new Date(referenceTime).getTime()
+  const expiryTimestamp = new Date(expiresAt).getTime()
+
+  return !INACTIVE_MATCH_AVAILABILITY_REQUEST_STATES.has(status)
+    && Boolean(sentAt)
+    && !tokenRevokedAt
+    && Number.isFinite(referenceTimestamp)
+    && Number.isFinite(expiryTimestamp)
+    && expiryTimestamp >= referenceTimestamp
 }
 
 function getEventSource(event = {}) {
@@ -476,7 +493,12 @@ export function buildEventResponseReadModel({
       }
 
       const playerRequests = requests.filter((row) => normalizeText(row.playerId) === playerId)
-      const request = getLatestRow(playerRequests)
+      const activeRequest = getLatestRow(playerRequests.filter((row) => (
+        isActiveMatchDayAvailabilityRequest(row)
+      )))
+      const historicalRequest = getLatestRow(playerRequests)
+      const request = activeRequest || historicalRequest
+      const hasActiveAvailabilityRequest = Boolean(activeRequest)
       const availability = getLatestRow(
         availabilityRows.filter((row) => normalizeText(row.playerId) === playerId),
       )
@@ -492,11 +514,13 @@ export function buildEventResponseReadModel({
       })
       const requestStatus = normalizeStatus(request?.status)
       const availabilityStatus = normalizeStatus(availability?.status)
+      const hasFinalResponse = FINAL_RESPONSE_STATES.has(availabilityStatus)
+        || FINAL_RESPONSE_STATES.has(requestStatus)
       const responseState = FINAL_RESPONSE_STATES.has(availabilityStatus)
         ? availabilityStatus
         : FINAL_RESPONSE_STATES.has(requestStatus)
           ? requestStatus
-          : request
+          : hasActiveAvailabilityRequest
             ? 'awaiting_response'
             : 'not_invited'
       const responseSource = getAuditSource(auditEvents, playerId)
@@ -505,21 +529,26 @@ export function buildEventResponseReadModel({
         || (request?.respondedAt && normalizeStatus(request?.recipientType) === 'player' ? 'adult_player' : '')
         || (request?.respondedAt ? 'parent' : '')
       const matchSelectionState = normalizeStatus(decision?.status) || 'undecided'
-      const deliveryState = request
+      const deliveryState = hasFinalResponse
+        ? 'delivered'
+        : hasActiveAvailabilityRequest
         ? request.sentAt || FINAL_RESPONSE_STATES.has(requestStatus)
           ? 'delivered'
           : 'queued'
-        : 'not_requested'
+        : request
+          ? 'not_sent'
+          : 'not_requested'
 
       participantsByPlayerId.set(playerId, {
         ...next,
         availabilityRequestCount: playerRequests.length,
         hasAvailabilityRequest: Boolean(request),
+        hasActiveAvailabilityRequest,
         parentLinkId: next.parentLinkId || request?.parentLinkId || '',
         recipientType: next.recipientType || request?.recipientType || '',
         invitationCreatedAt: request?.createdAt || '',
-        invitationState: request ? 'created' : 'not_sent',
-        notifyRequested: Boolean(request),
+        invitationState: hasFinalResponse || hasActiveAvailabilityRequest ? 'created' : 'not_sent',
+        notifyRequested: hasActiveAvailabilityRequest,
         deliveryState,
         responseState,
         responseLabel: responseState === 'not_invited'
@@ -646,14 +675,14 @@ export function buildEventResponseReadModel({
   const participants = [...participantsByPlayerId.values()]
     .filter((row) => !effectiveRemovedPlayerIds.has(normalizeText(row.playerId)))
     .map((row) => {
-      const withDelivery = source.sourceType === 'match-day' && row.hasAvailabilityRequest !== true
+      const withDelivery = source.sourceType === 'match-day' && row.hasActiveAvailabilityRequest !== true
         ? row
         : applyDeliveryEvidence(row, deliveryEvents)
       const display = getEventResponseDisplayState(withDelivery)
       const responseState = normalizeStatus(withDelivery.responseState)
       const matchSelectionState = normalizeStatus(withDelivery.matchSelectionState)
       const invitationAction = source.sourceType === 'match-day'
-        ? withDelivery.hasAvailabilityRequest !== true
+        ? withDelivery.hasActiveAvailabilityRequest !== true
           || normalizeStatus(withDelivery.invitationState) === 'not_sent'
           ? 'send'
           : ['failed', 'partial_failure'].includes(normalizeStatus(withDelivery.deliveryState))
@@ -675,10 +704,14 @@ export function buildEventResponseReadModel({
             : getResponseLabel(eventType, withDelivery.responseState),
         staffActions: {
           canAcceptOnBehalf: display.canAcceptOnBehalf
-            && normalizeStatus(withDelivery.invitationState) !== 'not_sent',
+            && (source.sourceType === 'match-day'
+              ? withDelivery.hasActiveAvailabilityRequest === true
+              : normalizeStatus(withDelivery.invitationState) !== 'not_sent'),
           canMarkUnavailable: ['match', 'training'].includes(eventType)
             && responseState !== 'unavailable'
-            && normalizeStatus(withDelivery.invitationState) !== 'not_sent',
+            && (source.sourceType === 'match-day'
+              ? withDelivery.hasActiveAvailabilityRequest === true
+              : normalizeStatus(withDelivery.invitationState) !== 'not_sent'),
           canSelectForSquad: eventType === 'match'
             && matchSelectionState !== 'selected',
           invitationAction,

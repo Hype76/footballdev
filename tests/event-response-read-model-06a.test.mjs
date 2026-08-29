@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   buildEventResponseReadModel,
   getEventResponseDisplayState,
+  isActiveMatchDayAvailabilityRequest,
 } from '../src/lib/domain/event-response-read-model.js'
 
 const MATCH_ID = '10000000-0000-4000-8000-000000000001'
@@ -62,6 +63,7 @@ test('historical Match Day requests remain visible without calendar invite rows'
         recipientType: 'parent',
         status: 'available',
         sentAt: '2026-07-30T08:01:00Z',
+        expiresAt: '2099-07-30T08:01:00Z',
         respondedAt: '2026-07-30T08:02:00Z',
       },
     ],
@@ -139,6 +141,7 @@ test('Match Day players with canonical availability requests can be resent', () 
       playerName: 'Player With Request',
       status: 'pending',
       sentAt: '2026-07-30T08:01:00Z',
+      expiresAt: '2099-07-30T08:01:00Z',
     }],
   })
 
@@ -164,6 +167,7 @@ test('current Match Day links merge with request, response, delivery and selecti
         recipientType: 'player',
         status: 'available',
         sentAt: '2026-07-30T08:01:00Z',
+        expiresAt: '2099-07-30T08:01:00Z',
         respondedAt: '2026-07-30T08:02:00Z',
       },
     ],
@@ -225,6 +229,38 @@ test('current Match Day links merge with request, response, delivery and selecti
   assert.equal(row.display.primaryLabel, 'Selected')
   assert.match(row.display.secondaryLabel, /Available/)
   assert.match(row.display.secondaryLabel, /Delivered/)
+})
+
+test('expired Match Day requests never expose staff availability actions or mask squad selection', () => {
+  const expiredRequest = {
+    id: 'expired-request',
+    playerId: 'expired-player',
+    playerName: 'Expired Request Player',
+    status: 'pending',
+    sentAt: '2026-08-25T21:08:08.605Z',
+    expiresAt: '1970-01-01T00:00:00.000Z',
+  }
+  const event = matchEvent({
+    availabilityRequests: [expiredRequest],
+    squadDecisions: [{
+      id: 'selected-decision',
+      playerId: 'expired-player',
+      status: 'selected',
+    }],
+  })
+
+  assert.equal(isActiveMatchDayAvailabilityRequest(expiredRequest), false)
+
+  const row = buildEventResponseReadModel({ event }).participants[0]
+  assert.equal(row.hasAvailabilityRequest, true)
+  assert.equal(row.hasActiveAvailabilityRequest, false)
+  assert.equal(row.invitationState, 'not_sent')
+  assert.equal(row.responseState, 'not_invited')
+  assert.equal(row.matchSelectionState, 'selected')
+  assert.equal(row.staffActions.canAcceptOnBehalf, false)
+  assert.equal(row.staffActions.canMarkUnavailable, false)
+  assert.equal(row.staffActions.canSelectForSquad, false)
+  assert.equal(row.staffActions.invitationAction, 'send')
 })
 
 test('an attached player without communication is labelled Invitation not sent', () => {
@@ -555,6 +591,8 @@ test('delivery failures remain visible beside an awaiting response', () => {
       playerId: 'player-failed',
       playerName: 'Failed Delivery Player',
       status: 'pending',
+      sentAt: '2026-07-30T08:00:00Z',
+      expiresAt: '2099-07-30T08:00:00Z',
     }],
   })
   const model = buildEventResponseReadModel({
@@ -647,7 +685,7 @@ test('Maybe, unavailable, awaiting and selected counts reconcile exactly', () =>
       { id: 'r1', playerId: 'p1', playerName: 'One', status: 'available', sentAt: '2026-07-30T08:00:00Z' },
       { id: 'r2', playerId: 'p2', playerName: 'Two', status: 'maybe', sentAt: '2026-07-30T08:00:00Z' },
       { id: 'r3', playerId: 'p3', playerName: 'Three', status: 'unavailable', sentAt: '2026-07-30T08:00:00Z' },
-      { id: 'r4', playerId: 'p4', playerName: 'Four', status: 'pending', sentAt: '2026-07-30T08:00:00Z' },
+      { id: 'r4', playerId: 'p4', playerName: 'Four', status: 'pending', sentAt: '2026-07-30T08:00:00Z', expiresAt: '2099-07-30T08:00:00Z' },
     ],
     squadDecisions: [
       { id: 'd1', playerId: 'p1', status: 'selected' },

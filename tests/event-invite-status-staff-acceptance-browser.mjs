@@ -120,6 +120,7 @@ const matchState = {
       status: 'available',
       responded_at: new Date().toISOString(),
       sent_at: new Date().toISOString(),
+      expires_at: dateAtOffset(14).toISOString(),
     },
     {
       id: 'request-pending',
@@ -127,6 +128,17 @@ const matchState = {
       player_id: 'pending-player',
       player_name: 'Pending Player',
       status: 'pending',
+      sent_at: new Date().toISOString(),
+      expires_at: dateAtOffset(14).toISOString(),
+    },
+    {
+      id: 'request-expired-selected',
+      match_day_id: 'match-fixture',
+      player_id: 'bulk-player-1',
+      player_name: 'Long List Player 01',
+      status: 'pending',
+      sent_at: new Date().toISOString(),
+      expires_at: '1970-01-01T00:00:00.000Z',
     },
   ],
   decisions: [
@@ -136,6 +148,14 @@ const matchState = {
       club_id: 'club-fixture',
       team_id: 'team-u12',
       player_id: 'selected-player',
+      status: 'selected',
+    },
+    {
+      id: 'decision-expired-selected',
+      match_day_id: 'match-fixture',
+      club_id: 'club-fixture',
+      team_id: 'team-u12',
+      player_id: 'bulk-player-1',
       status: 'selected',
     },
   ],
@@ -671,6 +691,17 @@ try {
 
   await desktopManager.getByRole('tab', { name: 'Invitation not sent (32)' }).click()
   assert.equal(await desktopManager.locator('[role="row"][data-player-id]').count(), 32)
+  const expiredSelectedRow = desktopManager.locator('[role="row"][data-player-id="bulk-player-1"]')
+  await expiredSelectedRow.getByRole('button', { name: 'Expand' }).click()
+  const expiredSelectedDetails = desktopManager.locator('[role="row"][data-player-id="bulk-player-1-details"]')
+  await expiredSelectedDetails.getByText('Selected', { exact: true }).waitFor({ state: 'visible' })
+  await expiredSelectedDetails.getByRole('button', { name: 'Actions for Long List Player 01' }).click()
+  const expiredSelectedMenu = expiredSelectedDetails.getByRole('menu', { name: 'Actions for Long List Player 01' })
+  await expiredSelectedMenu.getByRole('menuitem', { name: 'Send invitation' }).waitFor({ state: 'visible' })
+  assert.equal(await expiredSelectedMenu.getByRole('menuitem', { name: 'Mark available on behalf' }).count(), 0)
+  assert.equal(await expiredSelectedMenu.getByRole('menuitem', { name: 'Add to match squad' }).count(), 0)
+  await expiredSelectedDetails.getByRole('button', { name: 'Actions for Long List Player 01' }).click()
+  await expiredSelectedRow.getByRole('button', { name: 'Collapse' }).click()
   const desktopSearch = desktopManager.getByRole('searchbox', { name: 'Search players' })
   await desktopSearch.fill('long list player 17')
   await desktopManager.getByText('1 of 34 players', { exact: true }).waitFor({ state: 'visible' })
