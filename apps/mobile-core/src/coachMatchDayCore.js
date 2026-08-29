@@ -230,7 +230,6 @@ export function getCoachMatchDaySelectedPlayers(players = [], match = {}) {
     (Array.isArray(players) ? players : [])
       .filter((player) => selectedPlayerIds.has(normalize(player?.id)))
       .filter((player) => !matchTeamId || normalize(player?.teamId) === matchTeamId)
-      .filter((player) => normalize(player?.section || 'Squad') === 'Squad')
       .filter((player) => normalize(player?.status || 'active').toLowerCase() !== 'archived')
       .map(normalizePlayerChoice)
       .filter((player) => player.id && player.playerName)
@@ -299,14 +298,24 @@ export function createCoachMatchDayEventForm(type = 'goal', match = {}, now = Da
     capturedClock: capture.capturedClock,
     minute: String(capture.capturedMinute ?? ''),
     notes: '',
+    participantType: 'player',
     playerName: '',
     playerOnName: '',
+    playerOnParticipantType: 'player',
     playerOnShirtNumber: '',
     playerShirtNumber: '',
     scorerName: '',
+    scorerParticipantType: 'player',
     scorerShirtNumber: '',
     teamSide: 'club',
   })
+}
+
+export function formatCoachMatchDayParticipantName(participantType, value) {
+  const name = normalize(value)
+  if (participantType === 'coach') return name ? `Coach: ${name}` : ''
+  if (participantType === 'other') return name ? `Other: ${name}` : ''
+  return name
 }
 
 export function validateCoachMatchDayEventForm(form = {}) {
@@ -317,10 +326,31 @@ export function validateCoachMatchDayEventForm(form = {}) {
     const number = Number(minute)
     if (!Number.isInteger(number) || number < 0 || number > 130) throw new Error('Choose a valid match minute before saving this event.')
   }
-  if (eventType === 'substitution' && form.teamSide !== 'opponent' && (!normalize(form.playerName) || !normalize(form.playerOnName))) {
+  const teamSide = form.teamSide === 'opponent' ? 'opponent' : 'club'
+  const scorerParticipantType = ['coach', 'other'].includes(form.scorerParticipantType) ? form.scorerParticipantType : 'player'
+  const participantType = ['coach', 'other'].includes(form.participantType) ? form.participantType : 'player'
+  const playerOnParticipantType = form.playerOnParticipantType === 'other' ? 'other' : 'player'
+  if (eventType === 'goal' && teamSide === 'club' && scorerParticipantType !== 'player' && !normalize(form.scorerName)) {
+    throw new Error(`Enter the ${scorerParticipantType === 'coach' ? 'Coach' : 'Other participant'} name.`)
+  }
+  if (eventType !== 'goal' && eventType !== 'water_break' && teamSide === 'club' && participantType !== 'player' && !normalize(form.playerName)) {
+    throw new Error(`Enter the ${participantType === 'coach' ? 'Coach' : 'Other participant'} name.`)
+  }
+  if (eventType === 'substitution' && teamSide === 'club' && (!normalize(form.playerName) || !normalize(form.playerOnName))) {
     throw new Error('Choose the Player going off and the Player coming on.')
   }
-  return { ...form, eventType, minute: minute ? Number(minute) : null, teamSide: form.teamSide === 'opponent' ? 'opponent' : 'club' }
+  return {
+    ...form,
+    eventType,
+    minute: minute ? Number(minute) : null,
+    participantType,
+    playerName: teamSide === 'club' ? formatCoachMatchDayParticipantName(participantType, form.playerName) : normalize(form.playerName),
+    playerOnName: teamSide === 'club' ? formatCoachMatchDayParticipantName(playerOnParticipantType, form.playerOnName) : normalize(form.playerOnName),
+    playerOnParticipantType,
+    scorerName: teamSide === 'club' ? formatCoachMatchDayParticipantName(scorerParticipantType, form.scorerName) : normalize(form.scorerName),
+    scorerParticipantType,
+    teamSide,
+  }
 }
 
 export function getCoachMatchDayUndoModel(event, { note = '', reasonCode = '' } = {}) {

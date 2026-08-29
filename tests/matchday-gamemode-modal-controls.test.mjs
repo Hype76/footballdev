@@ -65,14 +65,16 @@ test('Game Mode modal fields prevent opponent and own-team mixed states', async 
   assert.match(liveEntrySlice, /const isOpponentGoal = goalForm\.teamSide === 'opponent'/)
   assert.match(liveEntrySlice, /onGoalFormChange\(match\.id, getGoalSideFormReset\(event\.target\.value\)\)/)
   assert.match(liveEntrySlice, /\{!isOpponentGoal \? \([\s\S]*Scorer player/)
-  assert.match(liveEntrySlice, /\{isOpponentGoal \? 'Opponent scorer name optional' : 'Scorer name'\}/)
+  assert.match(liveEntrySlice, /Scorer type[\s\S]*<option value="player">Player<\/option>[\s\S]*<option value="coach">Coach<\/option>[\s\S]*<option value="other">Other<\/option>/)
+  assert.match(liveEntrySlice, /'Opponent scorer name optional'[\s\S]*'Coach name'[\s\S]*'Other participant name'[\s\S]*'Scorer name'/)
   assert.match(liveEntrySlice, /\{isOpponentGoal \? 'Opponent scorer shirt optional' : 'Scorer shirt'\}/)
   assert.match(liveEntrySlice, /\{!isOpponentGoal \? \([\s\S]*Assist player[\s\S]*Assist name[\s\S]*Assist shirt/)
 
   assert.match(liveEntrySlice, /const isOpponentMatchEvent = matchEventForm\.teamSide === 'opponent'/)
   assert.match(liveEntrySlice, /const matchEventPlayerLabels = getMatchEventPlayerLabels\(matchEventForm\.eventType, isOpponentMatchEvent\)/)
   assert.match(liveEntrySlice, /onMatchEventFormChange\(match\.id, getMatchEventTeamSideFormReset\(event\.target\.value\)\)/)
-  assert.match(liveEntrySlice, /\{matchEventPlayerLabels\.playerSelect \? \([\s\S]*onMatchEventPlayerPick/)
+  assert.match(liveEntrySlice, /Participant type[\s\S]*<option value="coach">Coach<\/option>[\s\S]*<option value="other">Other<\/option>/)
+  assert.match(liveEntrySlice, /matchEventPlayerLabels\.playerSelect && matchEventForm\.participantType === 'player'[\s\S]*onMatchEventPlayerPick/)
   assert.match(source, /playerSelect: null,[\s\S]*playerName: 'Opponent player name optional'[\s\S]*playerOnSelect: null/)
   assert.match(source, /playerSelect: 'Player Off',[\s\S]*playerName: 'Player Off name'[\s\S]*playerOnSelect: 'Player On'[\s\S]*playerOnName: 'Player On name'[\s\S]*notes: 'Note'/)
 

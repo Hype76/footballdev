@@ -6,6 +6,7 @@ import {
   filterCoachMatchDayPlayerChoices,
   getCoachMatchDayOpponentPlayers,
   getCoachMatchDaySelectedPlayers,
+  formatCoachMatchDayParticipantName,
   pickCoachMatchDayLinkedPlayer,
   updateCoachMatchDayLinkedPlayer,
   validateCoachMatchDayEventForm,
@@ -30,10 +31,19 @@ const match = {
   ],
 }
 
-test('Match Day action player choices include only the selected active Match squad', () => {
+test('Match Day action player choices include selected active same-team players, including non-roster participants', () => {
   assert.deepEqual(getCoachMatchDaySelectedPlayers(players, match), [
     { id: 'p1', playerName: 'Steve King', shirtNumber: '8' },
+    { id: 'p3', playerName: 'Trial Player', shirtNumber: '11' },
   ])
+})
+
+test('Coach and Other participants are match-only labelled names', () => {
+  assert.equal(formatCoachMatchDayParticipantName('coach', 'Simon Bailey'), 'Coach: Simon Bailey')
+  assert.equal(formatCoachMatchDayParticipantName('other', 'Guest 12'), 'Other: Guest 12')
+  assert.equal(formatCoachMatchDayParticipantName('player', 'Steve King'), 'Steve King')
+  assert.throws(() => validateCoachMatchDayEventForm({ eventType: 'yellow_card', participantType: 'coach', teamSide: 'club' }), /Coach name/)
+  assert.equal(validateCoachMatchDayEventForm({ eventType: 'red_card', participantType: 'coach', playerName: 'Simon Bailey', teamSide: 'club' }).playerName, 'Coach: Simon Bailey')
 })
 
 test('Known player names and unique shirts populate both linked fields while manual text remains valid', () => {
@@ -90,7 +100,9 @@ test('Coach action sheets expose linked fields, optional opponent labels, inline
   assert.match(livePanel, /Assist shirt number \(Optional\)/)
   assert.match(livePanel, /prefix="player"/)
   assert.match(livePanel, /prefix="playerOn"/)
-  assert.match(livePanel, /No selected Match squad players are available/)
+  assert.match(livePanel, /No selected active team players are available/)
+  assert.match(livePanel, /label: 'Coach', value: 'coach'/)
+  assert.match(livePanel, /label: 'Other', value: 'other'/)
   assert.match(livePanel, /actionError/)
   assert.match(livePanel, /if \(!saved\) throw new Error/)
   assert.match(livePanel, /setActionSheet\(null\)/)

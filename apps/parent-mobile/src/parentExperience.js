@@ -83,6 +83,68 @@ export function getParentMatchCalendarUrl(match) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`
 }
 
+function escapeCalendarText(value) {
+  return normalizeText(value)
+    .replaceAll('\\', '\\\\')
+    .replaceAll('\n', '\\n')
+    .replaceAll(',', '\\,')
+    .replaceAll(';', '\\;')
+}
+
+function compactCalendarDateTime(value) {
+  const normalized = normalizeText(value)
+  if (!normalized) return ''
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/)
+  if (!match) return ''
+  return `${match[1]}${match[2]}${match[3]}${match[4] ? `T${match[4]}${match[5]}${match[6] || '00'}` : ''}`
+}
+
+export function buildParentCalendarIcs(item = {}) {
+  const matchDate = normalizeText(item.matchDate ?? item.calendarDate ?? item.eventDate).slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDate)) return ''
+  const rawTime = normalizeText(item.kickoffTime ?? item.calendarTime).slice(0, 5)
+  const eventStart = compactCalendarDateTime(item.startsAt ?? item.eventStart)
+  const timed = item.kickoffTimeTbc !== true && (/^\d{2}:\d{2}$/.test(rawTime) || eventStart.includes('T'))
+  const start = /^\d{2}:\d{2}$/.test(rawTime)
+    ? `${matchDate.replaceAll('-', '')}T${rawTime.replace(':', '')}00`
+    : eventStart || matchDate.replaceAll('-', '')
+  const end = timed
+    ? addWallTimeMinutes(
+        matchDate,
+        /^\d{2}:\d{2}$/.test(rawTime) ? rawTime : `${eventStart.slice(9, 11)}:${eventStart.slice(11, 13)}`,
+        Math.max(60, Number(item.matchDurationMinutes || 120)),
+      )
+    : nextCalendarDate(matchDate)
+  if (!start || !end) return ''
+  const title = normalizeText(item.title ?? item.eventTitle)
+    || `${normalizeText(item.teamName) || 'Team'} v ${normalizeText(item.opponent) || 'Opponent'}`
+  const location = normalizeText(item.location)
+    || [normalizeText(item.venueName), normalizeText(item.venueAddress), normalizeText(item.eventLocation)].filter(Boolean).join(', ')
+  const description = normalizeText(item.notes)
+    || (item.shirtChoice ? `Shirts: ${item.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}` : 'Football Player event')
+  const uid = `${normalizeText(item.id ?? item.eventId ?? item.sourceRecordId) || `${matchDate}-${title}`}@footballplayer.online`
+  const startLine = timed ? `DTSTART;TZID=Europe/London:${start}` : `DTSTART;VALUE=DATE:${start}`
+  const endLine = timed ? `DTEND;TZID=Europe/London:${end}` : `DTEND;VALUE=DATE:${end}`
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Football Player//Parent Calendar//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${escapeCalendarText(uid)}`,
+    `DTSTAMP:${new Date().toISOString().replaceAll('-', '').replaceAll(':', '').replace(/\.\d{3}Z$/, 'Z')}`,
+    startLine,
+    endLine,
+    `SUMMARY:${escapeCalendarText(title)}`,
+    `DESCRIPTION:${escapeCalendarText(description)}`,
+    `LOCATION:${escapeCalendarText(location)}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+    '',
+  ].join('\r\n')
+}
+
 export function getParentMatchDirectionsUrl(match, platform = 'android') {
   const location = [normalizeText(match?.venueName), normalizeText(match?.venueAddress)].filter(Boolean).join(', ')
   return getParentLocationDirectionsUrl(location, platform)

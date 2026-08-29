@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
@@ -16,7 +17,6 @@ import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirme
 import {
   canParentRegisterScorerInterest,
   getParentCalendarDirectionsUrl,
-  getParentMatchCalendarUrl,
   getParentMatchDirectionsUrl,
   getParentMatchGroups,
 } from './parentExperience'
@@ -106,6 +106,9 @@ function usePortalStyles(themeTokens) {
       formationPlayer: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 18, borderWidth: 2, maxWidth: 100, minWidth: 66, paddingHorizontal: 6, paddingVertical: 7, position: 'absolute', transform: [{ translateX: -33 }, { translateY: -16 }] },
       formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
+      cardLink: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
+      carpoolChoice: { alignItems: 'center', flexDirection: 'row', gap: 9 },
+      carpoolIcon: { alignItems: 'center', borderRadius: 999, height: 38, justifyContent: 'center', width: 38 },
       gameDayHero: { backgroundColor: colors.accentSoft, borderColor: colors.accent, borderRadius: 18, borderWidth: 1, gap: 12, padding: 16 },
       gameDayHeroLive: { borderWidth: 2 },
       gameDayScore: { color: colors.text, fontSize: 42, fontVariant: ['tabular-nums'], fontWeight: '900', textAlign: 'center' },
@@ -189,7 +192,43 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
   return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
 }
 
-function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpenInvitation, onOpenLink, onOpenResource, onRespond, styles }) {
+function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, onTransport, styles }) {
+  const [seatsOffered, setSeatsOffered] = useState(Math.max(1, Number(invitation?.transportSeatsOffered) || 1))
+  const busy = activeActionId === `transport:${invitation?.invitationId}`
+  const needsLift = Boolean(invitation?.transportNeedsLift)
+  const offeringLift = Boolean(invitation?.transportCanOfferLift)
+  const iconColor = needsLift ? colors.danger : offeringLift ? colors.accent : colors.muted
+  const status = needsLift
+    ? 'Needs a lift'
+    : offeringLift
+      ? `Offering ${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered)} seat${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered) === 1 ? '' : 's'}`
+      : 'Carpool not set'
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.row}>
+        <View style={styles.carpoolChoice}>
+          <View style={[styles.carpoolIcon, { backgroundColor: `${iconColor}22` }]}>
+            <MaterialIcons color={iconColor} name="directions-car" size={24} />
+          </View>
+          <View><Text style={styles.cardTitle}>Carpool</Text><Text style={styles.meta}>{status}</Text></View>
+        </View>
+      </View>
+      {offeringLift ? (
+        <View style={styles.actionRow}>
+          {[1, 2, 3, 4].map((seats) => <Button disabled={isOffline || busy} key={seats} label={`${seats} seat${seats === 1 ? '' : 's'}`} onPress={() => { setSeatsOffered(seats); onTransport?.(invitation, 'offering_lift', seats) }} outline={seatsOffered !== seats} selected={seatsOffered === seats} styles={styles} />)}
+        </View>
+      ) : null}
+      <View style={styles.actionRow}>
+        <Button disabled={isOffline || busy} label={busy && needsLift ? 'Saving...' : 'Need a lift'} onPress={() => onTransport?.(invitation, 'needs_lift', 0)} outline={!needsLift} selected={needsLift} styles={styles} />
+        <Button disabled={isOffline || busy} label={busy && offeringLift ? 'Saving...' : 'Offer a lift'} onPress={() => onTransport?.(invitation, 'offering_lift', seatsOffered)} outline={!offeringLift} selected={offeringLift} styles={styles} />
+        {(needsLift || offeringLift) ? <Button disabled={isOffline || busy} label="Clear" onPress={() => onTransport?.(invitation, 'none', 0)} outline styles={styles} /> : null}
+      </View>
+    </View>
+  )
+}
+
+function CalendarEventCard({ activeActionId, colors, event, invitation, isOffline, onAddToCalendar, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, styles }) {
   const actionable = invitation && isParentInvitationActionable(invitation)
   const busy = invitation && activeActionId === `invite:${invitation.invitationId}`
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
@@ -233,6 +272,7 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpe
           ))}
         </View>
       ) : null}
+      {isMatch && invitation?.invitationType === 'match_attendance' ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
       {Array.isArray(event.resources) && event.resources.length > 0 ? (
         <View style={styles.stack}>
           <Text style={styles.meta}>Attachments</Text>
@@ -248,13 +288,14 @@ function CalendarEventCard({ activeActionId, event, invitation, isOffline, onOpe
           ))}
         </View>
       ) : null}
+      {event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <Button disabled={Boolean(activeActionId)} label="Add to calendar" onPress={() => onAddToCalendar?.(event)} outline styles={styles} /> : null}
       {directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}
     </View>
   )
 }
 
-export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, resource, themeTokens }) {
-  const { styles } = usePortalStyles(themeTokens)
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, resource, themeTokens }) {
+  const { colors, styles } = usePortalStyles(themeTokens)
   const [viewMode, setViewMode] = useState('agenda')
   const [windowKey, setWindowKey] = useState('needs-response')
   const [monthCursor, setMonthCursor] = useState(() => new Date())
@@ -339,21 +380,21 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
             return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={[styles.monthLegendItem, !selected && { opacity: 0.42 }]}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
           })}
         </View>
-        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
+        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
       </View> : null}
       {viewMode === 'agenda' && !resource.loading && activeEvents.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
       {viewMode === 'agenda' ? groups.map((group) => (
         <View key={group.date} style={styles.section}>
           <Text accessibilityRole="header" style={styles.dateHeading}>{group.date === 'date-tbc' ? 'Date to be confirmed' : formatCalendarDay(group.date)}</Text>
-          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} styles={styles} />)}
+          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />)}
         </View>
       )) : null}
     </View>
   )
 }
 
-export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarget, onDismiss, onOpenResource, onRespond, resource, targetInvitationId = '', themeTokens }) {
-  const { styles } = usePortalStyles(themeTokens)
+export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCalendar, onBackTarget, onDismiss, onOpenResource, onRespond, onTransport, resource, targetInvitationId = '', themeTokens }) {
+  const { colors, styles } = usePortalStyles(themeTokens)
   const sections = useMemo(() => getParentInvitationSections(resource.items), [resource.items])
   const defaultSection = sections.needsResponse.length ? 'needsResponse' : 'upcoming'
   const [sectionKey, setSectionKey] = useState(defaultSection)
@@ -417,6 +458,8 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onBackTarge
                 {options.map((option) => <Button disabled={isOffline || busy} key={option.value} label={busy ? 'Saving...' : option.label} onPress={() => onRespond(invitation, option.value)} outline styles={styles} />)}
               </View>
             ) : null}
+            {invitation.invitationType === 'match_attendance' ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
+            {matchInvitation && (invitation.eventDate || invitation.eventStart) ? <Button disabled={Boolean(activeActionId)} label="Add to calendar" onPress={() => onAddToCalendar?.(invitation)} outline styles={styles} /> : null}
             {!targetedInvitation && onDismiss ? <Button label="Remove from this list" onPress={() => onDismiss(invitation)} outline styles={styles} /> : null}
           </View>
         )
@@ -479,6 +522,7 @@ function GoalPlayerPicker({ allowClear = false, disabled, label, onSelect, playe
 
 function GoalForm({ disabled, initialMinute = '', onAdd, placeholderColor, players = [], styles }) {
   const [side, setSide] = useState('club')
+  const [scorerParticipantType, setScorerParticipantType] = useState('player')
   const [scorerName, setScorerName] = useState('')
   const [scorerShirtNumber, setScorerShirtNumber] = useState('')
   const [assistName, setAssistName] = useState('')
@@ -489,11 +533,17 @@ function GoalForm({ disabled, initialMinute = '', onAdd, placeholderColor, playe
   return (
     <View style={styles.section}>
       <View style={styles.actionRow}>
-        <Button disabled={disabled} label="Our team" onPress={() => { setSide('club'); setScorerName(''); setScorerShirtNumber(''); setAssistName(''); setAssistShirtNumber('') }} outline={side !== 'club'} styles={styles} />
-        <Button disabled={disabled} label="Opponent" onPress={() => { setSide('opponent'); setScorerName(''); setScorerShirtNumber(''); setAssistName(''); setAssistShirtNumber('') }} outline={side !== 'opponent'} styles={styles} />
+        <Button disabled={disabled} label="Our team" onPress={() => { setSide('club'); setScorerParticipantType('player'); setScorerName(''); setScorerShirtNumber(''); setAssistName(''); setAssistShirtNumber('') }} outline={side !== 'club'} styles={styles} />
+        <Button disabled={disabled} label="Opponent" onPress={() => { setSide('opponent'); setScorerParticipantType('player'); setScorerName(''); setScorerShirtNumber(''); setAssistName(''); setAssistShirtNumber('') }} outline={side !== 'opponent'} styles={styles} />
       </View>
       {side === 'club' ? <>
-        <GoalPlayerPicker disabled={disabled} label="Scorer" onSelect={(player) => { setScorerName(player?.playerName || ''); setScorerShirtNumber(player?.shirtNumber || '') }} players={players} styles={styles} value={scorerName} />
+        <Text style={styles.fieldLabel}>Scorer type</Text>
+        <View style={styles.actionRow}>
+          {[['player', 'Player'], ['coach', 'Coach'], ['other', 'Other']].map(([value, label]) => <Button disabled={disabled} key={value} label={label} onPress={() => { setScorerParticipantType(value); setScorerName(''); setScorerShirtNumber('') }} outline={scorerParticipantType !== value} selected={scorerParticipantType === value} styles={styles} />)}
+        </View>
+        {scorerParticipantType === 'player'
+          ? <GoalPlayerPicker disabled={disabled} label="Scorer" onSelect={(player) => { setScorerName(player?.playerName || ''); setScorerShirtNumber(player?.shirtNumber || '') }} players={players} styles={styles} value={scorerName} />
+          : <TextInput accessibilityLabel={scorerParticipantType === 'coach' ? 'Coach name' : 'Other participant name'} editable={!disabled} onChangeText={setScorerName} placeholder={scorerParticipantType === 'coach' ? 'Coach name' : 'Other participant name'} placeholderTextColor={placeholderColor} style={styles.field} value={scorerName} />}
         <GoalPlayerPicker allowClear disabled={disabled} label="Assist" onSelect={(player) => { setAssistName(player?.playerName || ''); setAssistShirtNumber(player?.shirtNumber || '') }} players={players.filter((player) => player.playerName !== scorerName)} styles={styles} value={assistName} />
       </> : <>
         <TextInput accessibilityLabel="Opponent goal scorer name" editable={!disabled} onChangeText={setScorerName} placeholder="Opponent scorer, optional" placeholderTextColor={placeholderColor} style={styles.field} value={scorerName} />
@@ -502,7 +552,7 @@ function GoalForm({ disabled, initialMinute = '', onAdd, placeholderColor, playe
       <TextInput accessibilityLabel="Goal minute" editable={!disabled} keyboardType="number-pad" onChangeText={setMinute} placeholder="Match minute" placeholderTextColor={placeholderColor} style={styles.field} value={minute} />
       <View style={styles.row}><Text style={styles.cardTitle}>Penalty</Text><Switch accessibilityLabel="Penalty goal" disabled={disabled} onValueChange={setIsPenaltyGoal} value={isPenaltyGoal} /></View>
       <TextInput accessibilityLabel="Goal notes" editable={!disabled} multiline onChangeText={setNotes} placeholder="Notes, optional" placeholderTextColor={placeholderColor} style={[styles.field, { minHeight: 88, textAlignVertical: 'top' }]} value={notes} />
-      <Button disabled={disabled} label={disabled ? 'Saving...' : 'Record goal'} onPress={() => onAdd({ assistName, assistShirtNumber, isPenaltyGoal, minute, notes, scorerName, scorerShirtNumber, teamSide: side })} styles={styles} />
+      <Button disabled={disabled || (side === 'club' && scorerParticipantType !== 'player' && !normalizeText(scorerName))} label={disabled ? 'Saving...' : 'Record goal'} onPress={() => onAdd({ assistName, assistShirtNumber, isPenaltyGoal, minute, notes, scorerName: side === 'club' && scorerParticipantType !== 'player' ? `${scorerParticipantType === 'coach' ? 'Coach' : 'Other'}: ${normalizeText(scorerName)}` : scorerName, scorerShirtNumber: scorerParticipantType === 'player' ? scorerShirtNumber : '', teamSide: side })} styles={styles} />
     </View>
   )
 }
@@ -652,7 +702,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   )
 }
 
-export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, isOffline, link, onAddToCalendar, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -714,7 +764,7 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onBack, onDism
               outline
               styles={styles}
             />
-            {getParentMatchCalendarUrl(selectedMatch) ? <Button label="Add to calendar" onPress={() => onOpenLink?.(getParentMatchCalendarUrl(selectedMatch), 'calendar')} outline styles={styles} /> : null}
+            {selectedMatch.matchDate ? <Button label="Add to calendar" onPress={() => onAddToCalendar?.(selectedMatch)} outline styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <Button label="Get directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} outline styles={styles} /> : null}
           </View>
         </View>

@@ -92,6 +92,8 @@ import {
   openParentResource,
   recordParentScorerShootoutKick,
   respondToParentInvitation,
+  setParentMatchTransport,
+  shareParentCalendarItem,
   sendParentScorerMatchDayPush,
   sendParentChatMessage,
   setParentChatRoomNotifications,
@@ -1227,6 +1229,34 @@ function ParentHome() {
     }
   }
 
+  async function handleMatchTransport(invitation, mode, seatsOffered = 0) {
+    if (isOffline || activeActionId) return
+    setActiveActionId(`transport:${invitation.invitationId}`)
+    setNotice(null)
+    try {
+      await setParentMatchTransport(selectedMobileUser, invitation, mode, seatsOffered)
+      await loadParentData()
+      setNotice({ message: 'Your carpool choice has been saved.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'Your carpool choice could not be saved.'), tone: 'error' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
+  async function handleAddToCalendar(item) {
+    if (isOffline || activeActionId || !item) return
+    setActiveActionId(`calendar-share:${item.id || item.invitationId || item.eventId || 'event'}`)
+    setNotice(null)
+    try {
+      await shareParentCalendarItem(item)
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'This event could not be added to your calendar.'), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   async function handleOpenParentItem(type, item) {
     if (isOffline || activeActionId) return
     setActiveActionId(`${type}:${item.id}`)
@@ -1567,7 +1597,7 @@ function ParentHome() {
     setActiveActionId('display-name')
     setNotice(null)
     try {
-      const authUser = await updateParentDisplayName(selectedMobileUser, displayName)
+      const authUser = await updateParentDisplayName(displayName)
       await refreshUserProfile(authUser)
       setNotice({ message: 'Your display name has been updated.', tone: 'success' })
     } catch (error) {
@@ -1906,7 +1936,7 @@ function ParentHome() {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
@@ -1916,6 +1946,7 @@ function ParentHome() {
                 onDismiss={(match) => handleDismissParentItem('matches', match.id, 'match')}
                 onLiveRefresh={refreshParentMatchDay}
                 onOpen={(match) => setSelectedMatchId(match.id)}
+                onAddToCalendar={handleAddToCalendar}
                 onOpenLink={handleOpenMatchLink}
                 onScorerAction={handleScorerAction}
                 onVolunteer={handleScorerInterest}
@@ -1937,7 +1968,7 @@ function ParentHome() {
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
-              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onBackTarget={() => setSelectedInvitationId('')} onDismiss={(invitation) => handleDismissParentItem('invitations', invitation.invitationId, 'request')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
+              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onDismiss={(invitation) => handleDismissParentItem('invitations', invitation.invitationId, 'request')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
             {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}

@@ -9,6 +9,7 @@ import { getSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { getAccessToken, supabase } from '../../mobile-core/src/supabase'
 import { subscribeToMobileChatRoom } from '../../mobile-core/src/chatRealtime'
 import { normalizePersonName } from '../../../src/lib/person-name.js'
+import { buildParentCalendarIcs } from './parentExperience.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -109,6 +110,10 @@ export function normalizeParentInvitation(row = {}) {
     sourceEventType: normalizeText(row.source_event_type ?? row.sourceEventType).toLowerCase(),
     sourceType: normalizeText(row.source_type ?? row.sourceType),
     teamName: normalizeText(row.team_name ?? row.teamName),
+    transportCanOfferLift: normalizeBoolean(row.transport_can_offer_lift ?? row.transportCanOfferLift),
+    transportNeedsLift: normalizeBoolean(row.transport_needs_lift ?? row.transportNeedsLift),
+    transportRespondedAt: row.transport_responded_at ?? row.transportRespondedAt ?? '',
+    transportSeatsOffered: Math.max(0, Number(row.transport_seats_offered ?? row.transportSeatsOffered ?? 0)),
   }
 }
 
@@ -322,19 +327,53 @@ export async function getParentPortalMatchDayPlayers(user) {
 
 export async function getParentInvitations(user) {
   const link = requireSelectedLink(user)
-  const [invitationResult, shirtResult] = await Promise.all([
+  const [invitationResult, shirtResult, transportResult] = await Promise.all([
     supabase.rpc('get_parent_portal_invitation_summary', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
+    supabase.rpc('get_parent_portal_match_transport_states', { parent_link_id_value: link.id }),
   ])
   if (invitationResult.error) throw invitationResult.error
   if (shirtResult.error) throw shirtResult.error
+  if (transportResult.error) throw transportResult.error
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
+  const transportByRequestId = new Map((transportResult.data || []).map((row) => [String(row.request_id ?? row.requestId), row]))
   return prepareParentInvitations((invitationResult.data || []).map((row) => ({
     ...row,
+    ...(transportByRequestId.get(String(row.source_record_id ?? row.sourceRecordId)) || {}),
     shirt_choice: normalizeText(row.source_event_type ?? row.sourceEventType).toLowerCase() === 'match_day'
       ? shirtsById.get(String(row.event_id ?? row.eventId))
       : undefined,
   })))
+}
+
+export async function setParentMatchTransport(user, invitation, mode, seatsOffered = 0) {
+  const link = requireSelectedLink(user)
+  if (invitation?.invitationType !== 'match_attendance' || !invitation?.sourceRecordId) {
+    throw new Error('Choose a Match attendance request before changing carpool.')
+  }
+  const { data, error } = await supabase.rpc('set_parent_portal_match_transport', {
+    parent_link_id_value: link.id,
+    request_id_value: invitation.sourceRecordId,
+    transport_mode_value: normalizeText(mode),
+    transport_seats_offered_value: Math.max(0, Math.min(8, Number(seatsOffered || 0))),
+  })
+  if (error) throw error
+  return data
+}
+
+export async function shareParentCalendarItem(item) {
+  const content = buildParentCalendarIcs(item)
+  if (!content) throw new Error('This event needs a confirmed date before it can be added to a calendar.')
+  if (!await Sharing.isAvailableAsync()) throw new Error('Calendar sharing is not available on this device.')
+  const fileName = safeFilename(item?.title || item?.eventTitle || `${item?.teamName || 'team'}-${item?.opponent || 'event'}`, 'football-player-event')
+  const localUri = `${FileSystem.cacheDirectory}${fileName}.ics`
+  await FileSystem.writeAsStringAsync(localUri, content, { encoding: FileSystem.EncodingType.UTF8 })
+  try {
+    await Sharing.shareAsync(localUri, { dialogTitle: 'Add to calendar', mimeType: 'text/calendar', UTI: 'public.calendar-event' })
+    return { shared: true }
+  } finally {
+    await FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {})
+  }
 }
 
 export async function respondToParentInvitation(user, invitation, responseState) {
@@ -782,18 +821,9 @@ export async function updateParentPassword(user, currentPassword, nextPassword) 
   if (error) throw error
 }
 
-export async function updateParentDisplayName(user, displayName) {
+export async function updateParentDisplayName(displayName) {
   const nextDisplayName = normalizeText(displayName)
   if (!nextDisplayName) throw new Error('Enter the name you want shown in the app.')
-
-  const currentUsername = normalizeText(user?.name || user?.displayName || user?.email)
-  if (!currentUsername) throw new Error('Your current account name could not be loaded.')
-
-  const { error: profileError } = await supabase.rpc('update_own_user_profile', {
-    profile_display_name: nextDisplayName,
-    profile_username: currentUsername,
-  })
-  if (profileError) throw profileError
 
   const { data, error } = await supabase.auth.updateUser({
     data: {

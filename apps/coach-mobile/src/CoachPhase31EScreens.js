@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -119,6 +120,9 @@ function phaseStyles(palette) {
     helper: { color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
     availabilityRow: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', minHeight: 36, paddingHorizontal: 8, paddingVertical: 5 },
     availabilityPlayer: { flex: 1, gap: 2 },
+    availabilityPlayerName: { alignItems: 'center', flexDirection: 'row', gap: 7 },
+    carpoolNeed: { color: palette.danger },
+    carpoolOffer: { color: palette.accent },
     availabilitySelected: { color: palette.accent, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
     availabilityStatus: { fontSize: 13, fontWeight: '900', textTransform: 'capitalize' },
     availabilityAvailable: { color: palette.success },
@@ -164,6 +168,15 @@ function InviteDeliveryTicks({ invite, styles }) {
       ['Seen', progress.seen],
     ].map(([name, active]) => <Text key={name} style={[styles.availabilityDeliveryItem, active && styles.availabilityDeliveryActive]}>✓ {name}</Text>)}
   </View>
+}
+
+function InviteCarpoolIcon({ invite, styles }) {
+  if (invite.kind !== 'match' || (!invite.transportNeedsLift && !invite.transportCanOfferLift)) return null
+  const needsLift = invite.transportNeedsLift === true
+  const label = needsLift
+    ? 'Needs a lift'
+    : `Offering ${Math.max(1, Number(invite.transportSeatsOffered) || 1)} carpool seat${Math.max(1, Number(invite.transportSeatsOffered) || 1) === 1 ? '' : 's'}`
+  return <MaterialIcons accessibilityLabel={label} name="directions-car" size={20} style={needsLift ? styles.carpoolNeed : styles.carpoolOffer} />
 }
 
 function Button({ destructive = false, disabled = false, label, onPress, secondary = false, styles }) {
@@ -1003,7 +1016,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
               {selectedTrainingInvites.map((invite) => {
                 const selected = selectedPlayerIds.includes(invite.playerId)
                 return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
-                  <View style={styles.availabilityPlayer}><Text style={styles.body}>{invite.playerName}</Text>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
+                  <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
                   <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
                 </Pressable>
               })}
@@ -1030,7 +1043,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
               {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => {
                 const selected = selectedPlayerIds.includes(invite.playerId)
                 return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
-                  <View style={styles.availabilityPlayer}><Text style={styles.body}>{invite.playerName}</Text>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
+                  <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
                   <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
                 </Pressable>
               }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
