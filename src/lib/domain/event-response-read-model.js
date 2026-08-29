@@ -674,12 +674,12 @@ export function buildEventResponseReadModel({
             ? 'Response not requested'
             : getResponseLabel(eventType, withDelivery.responseState),
         staffActions: {
-          canAcceptOnBehalf: display.canAcceptOnBehalf,
+          canAcceptOnBehalf: display.canAcceptOnBehalf
+            && normalizeStatus(withDelivery.invitationState) !== 'not_sent',
           canMarkUnavailable: ['match', 'training'].includes(eventType)
             && responseState !== 'unavailable'
             && normalizeStatus(withDelivery.invitationState) !== 'not_sent',
           canSelectForSquad: eventType === 'match'
-            && responseState === 'available'
             && matchSelectionState !== 'selected',
           invitationAction,
         },

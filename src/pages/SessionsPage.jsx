@@ -2642,7 +2642,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         sourceType: event.sourceType,
       })
       showToast({
-        title: 'Player selected',
+        title: 'Player added to match squad',
         message: `${invite.player?.playerName || 'Player'} is selected for the match squad. Their availability response was not changed.`,
       })
     } catch (error) {
@@ -6857,6 +6857,10 @@ function CalendarEventModal({
               status: row.sourceRow.display,
             })
           }}
+          onManagePlayers={() => {
+            setIsResponseManagerOpen(false)
+            onManagePlayers()
+          }}
           onOpenPlayerProfile={onOpenPlayerProfile}
           onRemoveFromEvent={onRemovePlayerFromEvent && ['calendar', 'match-day'].includes(event?.sourceType)
             ? async (row) => {
@@ -6947,7 +6951,7 @@ function CalendarEventModal({
             ? 'This records an Attending response by you as an authorised Coach. It does not sign in as, or impersonate, the parent or player.'
             : 'This records an Available response by you as an authorised Coach. It does not sign in as, or impersonate, the parent or player.',
           unavailable: 'This records an Unavailable response by you as an authorised Coach. It does not sign in as, or impersonate, the parent or player.',
-          select: 'This selects only this available player for the saved match squad. It does not change their availability response.',
+          select: 'This adds the player to the saved match squad regardless of their availability response. It does not change their availability or notify a Parent or Player.',
           send: 'This sends an invitation to server-resolved eligible contacts for this player only.',
           resend: 'This rotates the response token and deliberately resends an invitation to server-resolved eligible contacts for this player only.',
           retry: 'This rotates the response token and retries the failed invitation for this player only.',
@@ -6967,7 +6971,7 @@ function CalendarEventModal({
         confirmLabel={{
           available: form.eventType === 'training' ? 'Mark attending on behalf' : 'Accept on behalf of player',
           unavailable: 'Mark Unavailable',
-          select: 'Select for squad',
+          select: 'Add to match squad',
           send: 'Send invitation',
           resend: 'Resend invitation',
           retry: 'Retry invitation',

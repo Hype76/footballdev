@@ -56,7 +56,7 @@ function participant({
     staffActions: {
       canAcceptOnBehalf: display.canAcceptOnBehalf,
       canMarkUnavailable: responseState !== 'unavailable' && invitationState !== 'not_sent',
-      canSelectForSquad: responseState === 'available' && matchSelectionState !== 'selected',
+      canSelectForSquad: matchSelectionState !== 'selected',
       invitationAction,
     },
   }
@@ -69,7 +69,7 @@ test('manager rows expose state-aware invitation, unavailable, and match selecti
   }).rows[0]
   assert.equal(awaiting.invitationActionLabel, 'Resend invitation')
   assert.equal(awaiting.canMarkUnavailable, true)
-  assert.equal(awaiting.canSelectForSquad, false)
+  assert.equal(awaiting.canSelectForSquad, true)
 
   const available = buildEventResponseManagerModel({
     eventType: 'match',
@@ -103,7 +103,8 @@ test('response manager is compact, expandable, accessible, and keeps one expande
   assert.match(component, /expandedPlayerId/)
   assert.match(component, /setExpandedPlayerId\(playerId\)/)
   assert.match(component, /Mark Unavailable/)
-  assert.match(component, /Select for squad/)
+  assert.match(component, /Add to match squad/)
+  assert.match(component, /Add or remove players/)
   assert.match(component, /row\.invitationActionLabel/)
   assert.match(component, /100dvh/)
   assert.match(component, /safe-area-inset-top/)

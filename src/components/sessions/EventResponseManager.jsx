@@ -305,7 +305,7 @@ function ResponseManagerRow({
                           }}
                           className={`${secondaryButtonClass} w-full justify-start text-left`}
                         >
-                          Select for squad
+                          Add to match squad
                         </button>
                       ) : null}
                       {onRemoveFromEvent ? (
@@ -347,6 +347,7 @@ export function EventResponseManagerDialog({
   onClose,
   onInvitationAction,
   onMarkUnavailable,
+  onManagePlayers,
   onOpenPlayerProfile,
   onRemoveFromEvent,
   onSelectForSquad,
@@ -396,14 +397,25 @@ export function EventResponseManagerDialog({
               </h2>
               {eventContext ? <p className="mt-1 break-words text-sm font-semibold text-[#4b5f55]">{eventContext}</p> : null}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className={secondaryButtonClass}
-              aria-label="Close response manager"
-            >
-              Close
-            </button>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              {onManagePlayers ? (
+                <button
+                  type="button"
+                  onClick={onManagePlayers}
+                  className={primaryButtonClass}
+                >
+                  Add or remove players
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onClose}
+                className={secondaryButtonClass}
+                aria-label="Close response manager"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </header>
 
