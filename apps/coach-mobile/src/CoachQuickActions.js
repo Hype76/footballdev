@@ -19,21 +19,21 @@ import {
   parseCoachQuickActionPosition,
   serializeCoachQuickActionPosition,
 } from './coachQuickActionsCore'
+import { getCoachQuickActionIconKey, getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
 function createStyles(palette, bottomInset) {
   return StyleSheet.create({
     action: {
       alignItems: 'center',
-      backgroundColor: palette.surfaceRaised,
-      borderColor: palette.accent,
-      borderRadius: 14,
-      borderWidth: 1,
+      borderBottomColor: palette.border,
+      borderBottomWidth: 1,
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      minHeight: 54,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      gap: 12,
+      minHeight: 58,
+      paddingHorizontal: 4,
+      paddingVertical: 8,
     },
+    actionCopy: { flex: 1 },
     actionText: { color: palette.textPrimary, fontSize: 15, fontWeight: '900' },
     backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.58)' },
     close: { alignItems: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
@@ -76,7 +76,7 @@ function createStyles(palette, bottomInset) {
     menuCopy: { color: palette.textSecondary, fontSize: 13, lineHeight: 19 },
     menuTitle: { color: palette.textPrimary, fontSize: 24, fontWeight: '900' },
     overlay: { flex: 1, justifyContent: 'flex-end' },
-    scrollContent: { gap: 8, paddingBottom: 4 },
+    scrollContent: { paddingBottom: 4 },
   })
 }
 
@@ -189,7 +189,8 @@ export function CoachQuickActions({ actions, bottomInset = 0, onAction, palette,
                   onPress={() => { setOpen(false); onAction(action) }}
                   style={({ pressed }) => [styles.action, pressed && { opacity: 0.76 }]}
                 >
-                  <Text style={styles.actionText}>{action.label}</Text>
+                  <MaterialIcons color={palette.accent} name={getMobileIconName(getCoachQuickActionIconKey(action.id))} size={28} />
+                  <View style={styles.actionCopy}><Text style={styles.actionText}>{action.label}</Text></View>
                   <MaterialIcons color={palette.accent} name="add" size={20} />
                 </Pressable>
               ))}

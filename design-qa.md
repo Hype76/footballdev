@@ -40,3 +40,45 @@ Comparison history:
 - Final state: Searchable and typeable linked fields, optional opponent details, selected-squad protection for own-team cards and substitutions, inline save feedback, and confirmed sheet closure.
 
 final result: passed
+
+---
+
+# Mobile icon and density design QA
+
+## Scope
+
+- Coach mobile compact icon system, Home, More, Quick Add, Players, Settings, Match Day, Game Mode, and Formation Board.
+- Parent mobile compact Home, active child context, summary actions, fixture and calendar cards, and bottom navigation.
+- Club accent is the normal action and navigation colour. Success, warning, unavailable, and destructive states retain semantic colours and text labels.
+
+## Visual sources
+
+- Coach Home: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-b56bff26-d7a8-4e48-a8d5-1e2cebe09a54.png`
+- Coach operational Home: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-244cb8df-9da3-46db-b7ee-f5124d266f60.png`
+- Coach Match Day: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-9db93996-26c8-428d-a9cb-b34416dd455e.png`
+- Coach More: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-8fcdaefa-4895-44d7-b55a-c129f0d586a1.png`
+- Coach Settings: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-4c1b6566-3a49-4b22-89dd-77bbfe0b9f9b.png`
+- Coach Formation Board: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-3956060f-453e-4789-acf9-f7bd070095af.png`
+- Coach Game Mode: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-205a260d-e382-4cd4-aa00-50e07f168441.png`
+- Parent Home: `C:/Users/pulse/AppData/Local/Temp/codex-clipboard-18e7e3e5-d794-474d-b4d4-16f9be802c70.png`
+
+## Local render evidence
+
+- Coach production web export: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/apps/coach-mobile/dist-web-check`
+- Parent production web export: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/apps/parent-mobile/dist-web-check`
+- Intended comparison viewport: 375 by 812 pixels.
+- Implementation screenshot paths: unavailable.
+
+## Comparison history
+
+1. The supplied before and after screenshots were inspected at original resolution before implementation.
+2. Both real Expo apps were exported successfully with the installed Material Icons font bundled.
+3. A local-only populated visual state was exported for comparison, with no live account or service access.
+4. Screenshot capture stopped because the Codex in-app browser runtime failed before opening the local preview with `failed to write kernel assets: The system cannot find the path specified.`
+5. No other browser automation was substituted because Playwright requires explicit user approval for this Product Design workflow.
+
+## Result
+
+`final result: blocked`
+
+Code, icon glyph, regression, Expo Doctor, and web export checks passed. Pixel comparison remains blocked until the in-app browser works or the user approves local Playwright screenshot capture.

@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
@@ -34,6 +35,7 @@ import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel,
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
+import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
@@ -765,7 +767,7 @@ function CoachNotificationsScreen({ homeState, onNavigate }) {
   )
 }
 
-function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
+function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
   const { styles } = useCoachTheme()
   const nextMatch = homeState.nextMatch || homeState.matches[0]
   const nextSession = homeState.nextSession || homeState.sessions[0]
@@ -773,60 +775,63 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
 
   return (
     <View style={styles.stack}>
-      <View style={styles.hero}>
-        <Text style={styles.eyebrow}>{context.roleLabel}</Text>
-        <Text accessibilityRole="header" style={styles.heroTitle}>Hi {user.displayName || user.name}.</Text>
-        <Text style={styles.bodyText}>{context.teamId ? `${context.teamName} is ready.` : `${context.clubName} overview.`}</Text>
-      </View>
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <StatePanel actionLabel="Refresh" message="The main overview is available, but one or more supporting summaries could not be refreshed." onAction={() => reloadHome({ refresh: true })} title="Some summaries are unavailable" tone="warning" /> : null}
-      <Section title="Coming up">
-        <PreviewCard
-          actionLabel="Open Calendar"
-          detail={nextCalendar ? `${formatDateTime(nextCalendar.startsAt)} | ${nextCalendar.title || 'Calendar item'}` : 'No upcoming Calendar item is available.'}
-          onAction={() => onNavigate('calendar')}
-          title="Next Calendar item"
+      <View style={styles.iconList}>
+        <HomeNextRow
+          iconKey="route.calendar"
+          label="Next Calendar item"
+          meta={nextCalendar?.title || ''}
+          onPress={() => onNavigate('calendar')}
+          value={nextCalendar ? formatDateTime(nextCalendar.startsAt) : 'No upcoming Calendar item'}
         />
         {context.teamId ? (
           <>
-            <PreviewCard
-              actionLabel="Open Match Day"
-              detail={nextMatch ? `${formatDateTime(nextMatch.matchDate || nextMatch.match_date)} | ${nextMatch.opponent || 'Opponent to be confirmed'}` : 'No upcoming match is available.'}
-              onAction={() => onNavigate('matchday')}
-              title="Next match"
+            <HomeNextRow
+              iconKey="coach.match"
+              label="Next match"
+              meta={nextMatch?.opponent || ''}
+              onPress={() => onNavigate('matchday')}
+              value={nextMatch ? formatDateTime(nextMatch.matchDate || nextMatch.match_date) : 'No upcoming match'}
             />
-            <PreviewCard
-              actionLabel="Open Sessions"
-              detail={nextSession ? `${formatDateTime(nextSession.startsAt || nextSession.sessionDate || nextSession.session_date)} | ${nextSession.title || nextSession.type || 'Training session'}` : 'No upcoming session is available.'}
-              onAction={() => onNavigate('sessions')}
-              title="Next session"
+            <HomeNextRow
+              iconKey="coach.session"
+              label="Next session"
+              meta={nextSession?.title || nextSession?.type || ''}
+              onPress={() => onNavigate('sessions')}
+              value={nextSession ? formatDateTime(nextSession.startsAt || nextSession.sessionDate || nextSession.session_date) : 'No upcoming session'}
             />
           </>
         ) : <EmptyPanel message="Choose a Team context to see Team fixtures, Players, and Sessions." title="Club overview" />}
-      </Section>
-      <Section title="Operational attention">
-        <View style={styles.statGrid}>
-          <StatCard label="Availability pending" value={homeState.pendingAvailability || 0} />
-          <StatCard label="Active Polls" value={homeState.activePolls || 0} />
-          <StatCard label="Unread Chat" value={homeState.unreadChat || 0} />
-          <StatCard label="Development records" value={homeState.developmentRecords || 0} />
+      </View>
+      <IconSection iconKey="coach.attention" title="Operational attention">
+        <View style={styles.iconStatGrid}>
+          <IconStat iconKey="coach.availability" label="Availability pending" onPress={() => onNavigate('invites')} value={homeState.pendingAvailability || 0} />
+          <IconStat iconKey="coach.polls" label="Active Polls" onPress={() => onNavigate('polls')} value={homeState.activePolls || 0} />
+          <IconStat iconKey="coach.chat" label="Unread Chat" onPress={() => onNavigate('chat')} value={homeState.unreadChat || 0} />
+          <IconStat iconKey="coach.development" label="Development records" onPress={() => onNavigate('development')} value={homeState.developmentRecords || 0} />
         </View>
-        <View style={styles.quickGrid}>
-          <SecondaryAction label="Availability" onPress={() => onNavigate('invites')} />
-          <SecondaryAction label="Chat" onPress={() => onNavigate('chat')} />
-          <SecondaryAction label="Polls" onPress={() => onNavigate('polls')} />
-          <SecondaryAction label="Development" onPress={() => onNavigate('development')} />
+        <View style={styles.iconActionGrid}>
+          <IconAction iconKey="coach.availability" label="Availability" onPress={() => onNavigate('invites')} />
+          <IconAction iconKey="coach.chat" label="Chat" onPress={() => onNavigate('chat')} />
+          <IconAction iconKey="coach.polls" label="Polls" onPress={() => onNavigate('polls')} />
+          <IconAction iconKey="coach.development" label="Development" onPress={() => onNavigate('development')} />
         </View>
         <Text style={styles.helperText}>Unread totals come from the current Chat room read state.</Text>
-      </Section>
-      <Section title="Quick access">
-        <View style={styles.quickGrid}>
-          {['calendar', 'players', 'matchday', 'development'].map((route) => (
-            <SecondaryAction key={route} label={route === 'matchday' ? 'Match Day' : `${route.charAt(0).toUpperCase()}${route.slice(1)}`} onPress={() => onNavigate(route)} />
+      </IconSection>
+      <IconSection iconKey="coach.quick-access" title="Quick access">
+        <View style={styles.iconActionGrid}>
+          {[
+            { iconKey: 'route.calendar', label: 'Calendar', route: 'calendar' },
+            { iconKey: 'route.players', label: 'Players', route: 'players' },
+            { iconKey: 'route.matchday', label: 'Match Day', route: 'matchday' },
+            { iconKey: 'coach.development', label: 'Development', route: 'development' },
+          ].map((item) => (
+            <IconAction iconKey={item.iconKey} key={item.route} label={item.label} onPress={() => onNavigate(item.route)} />
           ))}
         </View>
-      </Section>
+      </IconSection>
     </View>
   )
 }
@@ -907,7 +912,7 @@ function MoreScreen({ navigation, onSelectMore }) {
   return (
     <ScreenIntro copy="Open the Coach tools available for this role and context." title="More">
       <View style={styles.stackTight}>
-        {navigation.more.map((route) => <MenuRow description={route.description} key={route.key} label={route.label} onPress={() => onSelectMore(route.key)} />)}
+        {navigation.more.map((route) => <MenuRow description={route.description} iconKey={getCoachRouteIconKey(route.key)} key={route.key} label={route.label} onPress={() => onSelectMore(route.key)} />)}
       </View>
     </ScreenIntro>
   )
@@ -952,18 +957,18 @@ function SettingsScreen({
   }, [lastUpdatedAt, user.id])
   return (
     <ScreenIntro copy="Account, device security, notifications, sync, and app information." title="Settings">
-      <Section title="Account">
-        <InfoRow label="Name" value={user.displayName || user.name} />
-        <InfoRow label="Email" value={user.email} />
-        <InfoRow label="Role" value={context.roleLabel} />
-        <InfoRow label="Context" value={context.teamName || context.clubName} />
+      <Section compact iconKey="settings.account" title="Account">
+        <InfoRow iconName="person-outline" label="Name" value={user.displayName || user.name} />
+        <InfoRow iconName="mail-outline" label="Email" value={user.email} />
+        <InfoRow iconName="shield" label="Role" value={context.roleLabel} />
+        <InfoRow iconName="groups" label="Context" value={context.teamName || context.clubName} />
       </Section>
-      <Section title="Appearance">
+      <Section compact iconKey="settings.appearance" title="Appearance">
         <SettingRow copy="Use a complete semantic light or dark palette." label={`Light mode ${themeMode === 'light' ? 'on' : 'off'}`}>
           <Switch accessibilityLabel="Toggle light mode" onValueChange={onToggleTheme} value={themeMode === 'light'} />
         </SettingRow>
       </Section>
-      <Section title="Device security">
+      <Section compact iconKey="settings.security" title="Device security">
         <SettingRow
           copy={biometricStateLoading
             ? 'Checking the saved biometric setting on this device.'
@@ -977,7 +982,7 @@ function SettingsScreen({
           ) : <SecondaryAction label="Retry" onPress={onRefreshBiometricState} />}
         </SettingRow>
       </Section>
-      <Section title="Notifications">
+      <Section compact iconKey="settings.notifications" title="Notifications">
         <InfoRow
           label="Status"
           value={notificationStateLoading
@@ -1030,7 +1035,7 @@ function SettingsScreen({
         </SettingRow>
         <Text style={styles.helperText}>Minimal privacy is the conservative default. Selecting Minimal or Detailed requests device permission when needed. Lock-screen copy excludes Player names, Parent contacts, Chat bodies, and Development notes.</Text>
       </Section>
-      <Section title="Sync and environment">
+      <Section compact iconKey="settings.sync" title="Sync and environment">
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
         <InfoRow label="Encrypted cache" value={cacheState?.hasDocument ? `Ready, schema ${cacheState.schemaVersion}` : cacheState?.status || 'Checking'} />
         <InfoRow label="Cache ownership" value="Coach, user, environment, Club, Team, context, and resource isolated" />
@@ -1038,7 +1043,7 @@ function SettingsScreen({
         <InfoRow label="Production access" value={config.isProduction ? 'True' : 'False'} />
         <InfoRow label="Offline changes" value="High-risk changes require an online authority check" />
       </Section>
-      <Section title="App">
+      <Section compact iconKey="settings.badge" title="App">
         <InfoRow label="Branding" value={`${context.clubName}${context.teamName ? ` | ${context.teamName}` : ''}`} />
         <InfoRow label="Accent source" value={context.teamAccent ? 'Team accent' : context.clubAccent ? 'Club accent' : 'Football Player fallback'} />
         <InfoRow label="Version" value={appVersion} />
@@ -1094,7 +1099,7 @@ function ContextSwitcher({ contexts, onSelect, selectedContextId }) {
 }
 
 function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, platform }) {
-  const { styles } = useCoachTheme()
+  const { palette, styles } = useCoachTheme()
   return (
     <View accessibilityRole="tablist" style={[styles.tabBar, { paddingBottom: getCoachBottomNavigationPadding(bottomInset, platform) }]}>
       {navigation.map((route) => {
@@ -1108,6 +1113,7 @@ function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, p
             onPress={() => onNavigate(route.key)}
             style={({ pressed }) => [styles.tab, selected && styles.tabSelected, pressed && styles.pressed]}
           >
+            <CoachIcon color={selected ? palette.selectedForeground : palette.textMuted} iconKey={getCoachRouteIconKey(route.key)} size={23} />
             <Text numberOfLines={1} style={[styles.tabText, selected && styles.tabTextSelected]}>{route.label}</Text>
           </Pressable>
         )
@@ -1129,11 +1135,60 @@ function ScreenIntro({ children, copy, title }) {
   )
 }
 
-function Section({ children, title }) {
+function CoachIcon({ color = '', iconKey = '', name = '', size = 24 }) {
+  const { palette } = useCoachTheme()
+  return <MaterialIcons color={color || palette.accent} name={name || getMobileIconName(iconKey)} size={size} />
+}
+
+function HomeNextRow({ iconKey, label, meta = '', onPress, value }) {
   const { styles } = useCoachTheme()
   return (
-    <View style={styles.section}>
-      <Text accessibilityRole="header" style={styles.sectionTitle}>{title}</Text>
+    <Pressable accessibilityLabel={`${label}: ${value}`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.homeNextRow, pressed && styles.pressed]}>
+      <CoachIcon iconKey={iconKey} size={30} />
+      <View style={styles.homeNextCopy}>
+        <Text style={styles.iconEyebrow}>{label}</Text>
+        <Text numberOfLines={1} style={styles.homeNextValue}>{value}</Text>
+        {meta ? <Text numberOfLines={1} style={styles.iconMeta}>{meta}</Text> : null}
+      </View>
+      <CoachIcon iconKey="action.open" size={22} />
+    </Pressable>
+  )
+}
+
+function IconSection({ children, iconKey, title }) {
+  return <Section compact iconKey={iconKey} title={title}>{children}</Section>
+}
+
+function IconStat({ iconKey, label, onPress, value }) {
+  const { styles } = useCoachTheme()
+  return (
+    <Pressable accessibilityLabel={`${label}: ${value}`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.iconStat, pressed && styles.pressed]}>
+      <CoachIcon iconKey={iconKey} size={29} />
+      <Text style={styles.iconStatValue}>{value}</Text>
+      <Text numberOfLines={2} style={styles.iconStatLabel}>{label}</Text>
+    </Pressable>
+  )
+}
+
+function IconAction({ iconKey, label, onPress }) {
+  const { styles } = useCoachTheme()
+  return (
+    <Pressable accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.iconAction, pressed && styles.pressed]}>
+      <CoachIcon iconKey={iconKey} size={28} />
+      <Text numberOfLines={2} style={styles.iconActionLabel}>{label}</Text>
+      <CoachIcon iconKey="action.open" size={16} />
+    </Pressable>
+  )
+}
+
+function Section({ children, compact = false, iconKey = '', title }) {
+  const { styles } = useCoachTheme()
+  return (
+    <View style={[styles.section, compact && styles.sectionCompact]}>
+      <View style={styles.sectionHeadingRow}>
+        {iconKey ? <CoachIcon iconKey={iconKey} size={24} /> : null}
+        <Text accessibilityRole="header" style={styles.sectionTitle}>{title}</Text>
+      </View>
       {children}
     </View>
   )
@@ -1155,18 +1210,20 @@ function PreviewCard({ actionLabel, detail, onAction, title }) {
   )
 }
 
-function MenuRow({ description = '', label, onPress }) {
+function MenuRow({ description = '', iconKey = '', label, onPress }) {
   const { styles } = useCoachTheme()
   return (
     <Pressable accessibilityHint={`Open ${label}`} accessibilityLabel={label} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}>
-      <View><Text style={styles.menuText}>{label}</Text>{description ? <Text style={styles.helperText}>{description}</Text> : null}</View><Text style={styles.menuArrow}>›</Text>
+      <CoachIcon iconKey={iconKey} size={27} />
+      <View style={styles.menuCopy}><Text style={styles.menuText}>{label}</Text>{description ? <Text style={styles.helperText}>{description}</Text> : null}</View>
+      <CoachIcon iconKey="action.open" size={22} />
     </Pressable>
   )
 }
 
-function InfoRow({ label, value }) {
+function InfoRow({ iconName = '', label, value }) {
   const { styles } = useCoachTheme()
-  return <View style={styles.infoRow}><Text style={styles.infoLabel}>{label}</Text><Text selectable style={styles.infoValue}>{value}</Text></View>
+  return <View style={styles.infoRow}>{iconName ? <CoachIcon name={iconName} size={20} /> : null}<Text style={styles.infoLabel}>{label}</Text><Text selectable style={styles.infoValue}>{value}</Text></View>
 }
 
 function SettingRow({ children, copy, label }) {
@@ -1359,12 +1416,25 @@ function createCoachStyles(palette) {
     hero: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 22, borderWidth: 1, gap: 8, padding: 20 },
     heroTitle: { color: palette.textPrimary, fontSize: 32, fontWeight: '900', letterSpacing: -0.8, lineHeight: 38 },
     infoLabel: { color: palette.textMuted, fontSize: 13, fontWeight: '700' },
-    infoRow: { alignItems: 'flex-start', borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', paddingTop: 11 },
+    infoRow: { alignItems: 'center', borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 10, justifyContent: 'space-between', minHeight: 44, paddingVertical: 8 },
     infoValue: { color: palette.textPrimary, flex: 1, fontSize: 14, fontWeight: '800', textAlign: 'right' },
+    iconAction: { alignItems: 'center', flex: 1, gap: 4, justifyContent: 'center', minHeight: 68, minWidth: 70, paddingHorizontal: 2, paddingVertical: 6 },
+    iconActionGrid: { flexDirection: 'row', gap: 4, justifyContent: 'space-between' },
+    iconActionLabel: { color: palette.textPrimary, flex: 1, fontSize: 11, fontWeight: '800', lineHeight: 14, textAlign: 'center' },
+    iconEyebrow: { color: palette.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
+    iconList: { borderBottomColor: palette.border, borderBottomWidth: 1, borderTopColor: palette.border, borderTopWidth: 1 },
+    iconMeta: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 16 },
+    iconStat: { alignItems: 'center', borderRightColor: palette.border, borderRightWidth: 1, flex: 1, gap: 3, justifyContent: 'center', minHeight: 98, minWidth: 70, paddingHorizontal: 3, paddingVertical: 8 },
+    iconStatGrid: { flexDirection: 'row', justifyContent: 'space-between' },
+    iconStatLabel: { color: palette.textSecondary, fontSize: 10, fontWeight: '800', lineHeight: 13, minHeight: 26, textAlign: 'center' },
+    iconStatValue: { color: palette.accent, fontSize: 24, fontWeight: '900', lineHeight: 28 },
+    homeNextCopy: { flex: 1, gap: 1, minWidth: 0 },
+    homeNextRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 78, paddingHorizontal: 2, paddingVertical: 10 },
+    homeNextValue: { color: palette.textPrimary, fontSize: 17, fontWeight: '800', lineHeight: 21 },
     keyboardShell: { flex: 1 },
     logo: { height: 44, width: 44 },
-    menuArrow: { color: palette.accent, fontSize: 26, fontWeight: '900' },
-    menuRow: { alignItems: 'center', backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 15, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 56, paddingHorizontal: 15 },
+    menuCopy: { flex: 1, gap: 1, minWidth: 0 },
+    menuRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 58, paddingHorizontal: 4, paddingVertical: 7 },
     menuText: { color: palette.textPrimary, fontSize: 15, fontWeight: '900' },
     notice: { alignItems: 'center', backgroundColor: palette.selected, borderBottomColor: palette.accent, borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
     noticeDismiss: { minHeight: 36, paddingHorizontal: 6, justifyContent: 'center' },
@@ -1384,6 +1454,8 @@ function createCoachStyles(palette) {
     secondaryAction: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, justifyContent: 'center', minHeight: 48, minWidth: 118, paddingHorizontal: 14, paddingVertical: 11 },
     secondaryActionText: { color: palette.textPrimary, fontSize: 14, fontWeight: '900' },
     section: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 11, padding: 16 },
+    sectionCompact: { backgroundColor: 'transparent', borderColor: palette.border, borderLeftWidth: 0, borderRadius: 0, borderRightWidth: 0, gap: 8, paddingHorizontal: 0, paddingVertical: 12 },
+    sectionHeadingRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
     sectionTitle: { color: palette.textPrimary, fontSize: 20, fontWeight: '900' },
     settingCopy: { flex: 1, gap: 4 },
     settingRow: { alignItems: 'center', flexDirection: 'row', gap: 14 },
@@ -1398,7 +1470,7 @@ function createCoachStyles(palette) {
     stateDanger: { borderColor: palette.danger },
     statePanel: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 9, marginHorizontal: 16, marginTop: 12, padding: 16 },
     stateWarning: { borderColor: palette.warning },
-    tab: { alignItems: 'center', borderColor: 'transparent', borderRadius: 12, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 3, paddingVertical: 7 },
+    tab: { alignItems: 'center', borderColor: 'transparent', borderRadius: 12, borderWidth: 1, flex: 1, gap: 2, justifyContent: 'center', minHeight: 54, paddingHorizontal: 3, paddingVertical: 5 },
     tabBar: { backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: 8, paddingHorizontal: 8, paddingTop: 8 },
     tabSelected: { backgroundColor: palette.selected, borderColor: palette.accent },
     tabText: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },

@@ -40,6 +40,7 @@ import {
 } from '../../mobile-core/src/coachFormationBoardData'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
+import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
 const normalize = (value) => String(value ?? '').trim()
 const RESOURCE_CATEGORIES = Object.freeze([
@@ -50,15 +51,15 @@ const RESOURCE_CATEGORIES = Object.freeze([
   Object.freeze({ label: 'Admin', value: 'admin' }),
 ])
 const WORKFLOW_STEPS = Object.freeze([
-  Object.freeze({ label: 'Formation', value: 'formation' }),
-  Object.freeze({ label: 'Squad', value: 'squad' }),
-  Object.freeze({ label: 'Lineup', value: 'lineup' }),
-  Object.freeze({ label: 'Save', value: 'finish' }),
+  Object.freeze({ iconKey: 'formation.formation', label: 'Formation', value: 'formation' }),
+  Object.freeze({ iconKey: 'formation.squad', label: 'Squad', value: 'squad' }),
+  Object.freeze({ iconKey: 'formation.lineup', label: 'Lineup', value: 'lineup' }),
+  Object.freeze({ iconKey: 'formation.finish', label: 'Save', value: 'finish' }),
 ])
 
 function createStyles(palette) {
   return StyleSheet.create({
-    action: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accent, borderRadius: 14, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 50, minWidth: 138, paddingHorizontal: 14, paddingVertical: 11 },
+    action: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accent, borderRadius: 14, borderWidth: 1, flex: 1, flexDirection: 'row', gap: 7, justifyContent: 'center', minHeight: 50, minWidth: 138, paddingHorizontal: 14, paddingVertical: 11 },
     actionDanger: { backgroundColor: palette.surfaceRaised, borderColor: palette.danger },
     actionDisabled: { opacity: 0.45 },
     actionSecondary: { backgroundColor: palette.surfaceRaised, borderColor: palette.border },
@@ -73,7 +74,7 @@ function createStyles(palette) {
     benchContent: { gap: 8, paddingBottom: 2, paddingRight: 12 },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 21 },
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 11, padding: 14 },
-    chip: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10 },
+    chip: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10 },
     chipSelected: { backgroundColor: palette.selected, borderColor: palette.accent },
     chipText: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
     chipTextSelected: { color: palette.textPrimary },
@@ -107,9 +108,9 @@ function createStyles(palette) {
     pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.82)', height: 2, left: 11, position: 'absolute', right: 11, top: '50%' },
     pitchOutline: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 17, borderWidth: 2, bottom: 11, left: 11, position: 'absolute', right: 11, top: 11 },
     pitchStripe: { bottom: 0, position: 'absolute', top: 0, width: '12.5%' },
-    planHeader: { backgroundColor: palette.surfaceRaised, borderColor: palette.accent, borderRadius: 20, borderWidth: 1, gap: 8, padding: 16 },
+    planHeader: { backgroundColor: palette.surfaceRaised, borderColor: palette.accent, borderRadius: 18, borderWidth: 1, gap: 7, padding: 13 },
     progress: { flexDirection: 'row', gap: 6 },
-    progressItem: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 3, minHeight: 50, paddingHorizontal: 5, paddingVertical: 7 },
+    progressItem: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 2, minHeight: 58, paddingHorizontal: 4, paddingVertical: 6 },
     progressItemActive: { backgroundColor: palette.selected, borderColor: palette.accent },
     progressLabel: { color: palette.textSecondary, fontSize: 10, fontWeight: '800', textAlign: 'center' },
     progressLabelActive: { color: palette.selectedForeground },
@@ -126,7 +127,8 @@ function createStyles(palette) {
   })
 }
 
-function Action({ danger = false, disabled = false, label, onPress, secondary = false, styles }) {
+function Action({ danger = false, disabled = false, iconKey = '', label, onPress, secondary = false, styles }) {
+  const contentStyle = [styles.actionText, secondary && styles.actionTextSecondary, danger && styles.actionTextDanger]
   return (
     <Pressable
       accessibilityRole="button"
@@ -135,13 +137,15 @@ function Action({ danger = false, disabled = false, label, onPress, secondary = 
       onPress={onPress}
       style={({ pressed }) => [styles.action, secondary && styles.actionSecondary, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.78 }]}
     >
-      <Text style={[styles.actionText, secondary && styles.actionTextSecondary, danger && styles.actionTextDanger]}>{label}</Text>
+      {iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={20} style={contentStyle} /> : null}
+      <Text style={contentStyle}>{label}</Text>
     </Pressable>
   )
 }
 
-function Choice({ label, onPress, selected, styles }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}><Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text></Pressable>
+function Choice({ iconKey = '', label, onPress, selected, styles }) {
+  const contentStyle = [styles.chipText, selected && styles.chipTextSelected]
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={19} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
 }
 
 export function CoachFormationSquadStep({ availabilityRows = [], draft, onBack, onChange, onContinue, palette, players = [] }) {
@@ -608,7 +612,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         </View>
         <Text style={styles.body}>{draft.gameFormat} | {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')} | {draft.placements.length} on pitch | {draft.bench.length} Bench</Text>
         {linkedMatch ? <Text style={styles.body}>{linkedMatch.teamName} v {linkedMatch.opponent}</Text> : null}
-        {!match?.id ? <View style={styles.row}><Action label="New board" onPress={startNewBoard} secondary styles={styles} /><Action disabled={!boards.length} label={showBoards ? 'Hide saved' : `Open saved (${boards.length})`} onPress={() => setShowBoards((current) => !current)} secondary styles={styles} /></View> : null}
+        {!match?.id ? <View style={styles.row}><Action iconKey="action.new-board" label="New board" onPress={startNewBoard} secondary styles={styles} /><Action disabled={!boards.length} iconKey="more.resources" label={showBoards ? 'Hide saved' : `Open saved (${boards.length})`} onPress={() => setShowBoards((current) => !current)} secondary styles={styles} /></View> : null}
       </View>
 
       {showBoards ? <View style={styles.card}><Text style={styles.heading}>Saved Formation Boards</Text>{boards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => void applyBoard(item)} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>{item.linkedMatchDayId ? 'Linked to a match' : 'Standalone'} | Version {item.currentVersionNumber}</Text></Pressable>)}</View> : null}
@@ -617,7 +621,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       {notice ? <View style={styles.selectedPanel}><Text style={styles.body}>{notice}</Text></View> : null}
 
       <View accessibilityLabel={`Formation Board step ${workflowStepIndex + 1} of ${WORKFLOW_STEPS.length}`} style={styles.progress}>
-        {WORKFLOW_STEPS.map((step, index) => <View key={step.value} style={[styles.progressItem, index === workflowStepIndex && styles.progressItemActive]}><Text style={[styles.progressNumber, index === workflowStepIndex && styles.progressNumberActive]}>{index + 1}</Text><Text style={[styles.progressLabel, index === workflowStepIndex && styles.progressLabelActive]}>{step.label}</Text></View>)}
+        {WORKFLOW_STEPS.map((step, index) => { const active = index === workflowStepIndex; const contentStyle = [styles.progressLabel, active && styles.progressLabelActive]; return <View key={step.value} style={[styles.progressItem, active && styles.progressItemActive]}><Text style={[styles.progressNumber, active && styles.progressNumberActive]}>{index + 1}</Text><MaterialIcons name={getMobileIconName(step.iconKey)} size={22} style={contentStyle} /><Text style={contentStyle}>{step.label}</Text></View> })}
       </View>
 
       {workflowStep === 'formation' ? <View style={styles.card}>
@@ -627,8 +631,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         <Text style={styles.label}>Game format</Text>
         <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
         <Text style={styles.label}>Formation</Text>
-        <View style={styles.row}>{presets.filter((preset) => preset.gameFormat === draft.gameFormat).map((preset) => <Choice key={preset.key} label={preset.displayName || preset.key.replace(`${draft.gameFormat}-`, '')} onPress={() => rememberPreset(applyMobileFormationPreset(draft, preset))} selected={draft.presetKey === preset.key} styles={styles} />)}</View>
-        <Action disabled={!currentPreset} label="Confirm formation" onPress={() => { setWorkflowStep('squad'); setNotice('Formation confirmed. Choose the Players available for this plan.') }} styles={styles} />
+        <View style={styles.row}>{presets.filter((preset) => preset.gameFormat === draft.gameFormat).map((preset) => <Choice iconKey="formation.formation" key={preset.key} label={preset.displayName || preset.key.replace(`${draft.gameFormat}-`, '')} onPress={() => rememberPreset(applyMobileFormationPreset(draft, preset))} selected={draft.presetKey === preset.key} styles={styles} />)}</View>
+        <Action disabled={!currentPreset} iconKey="action.save" label="Confirm formation" onPress={() => { setWorkflowStep('squad'); setNotice('Formation confirmed. Choose the Players available for this plan.') }} styles={styles} />
       </View> : null}
 
       {workflowStep === 'squad' ? <CoachFormationSquadStep availabilityRows={availabilityRows} draft={draft} onBack={() => setWorkflowStep('formation')} onChange={setDraft} onContinue={(count) => { setWorkflowStep('lineup'); setNotice(`${count} Players selected. Tap an empty pitch position to add a Player.`) }} palette={palette} players={players} /> : null}

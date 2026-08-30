@@ -59,10 +59,12 @@ import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { useConfirmedConnectionIssue } from '../mobile-core/src/useConfirmedConnectionIssue'
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
+import { getMobileIconName, getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
 import {
   canSubmitParentPoll,
   getBuildClassification,
   getParentCalendarDirectionsUrl,
+  getParentMatchDirectionsUrl,
   getParentFriendlyError,
   getParentHomeFixtureCards,
   getParentHomeModel,
@@ -1922,6 +1924,7 @@ function ParentHome() {
                 notifications={resources.notifications}
                 isOffline={isOffline}
                 onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
+                onOpenCalendar={() => setActiveTab('calendar')}
                 onOpenMatch={(match) => setSelectedMatchId(match.id)}
                 onOpenLink={handleOpenMatchLink}
                 onOpenMessages={() => {
@@ -2070,7 +2073,7 @@ function ClubBrandLogo({ link }) {
 }
 
 function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onToggleChildSwitcher, selectedLink, theme }) {
-  const { styles } = useParentTheme()
+  const { palette, styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
     <View style={[styles.header, isLight && styles.headerLight]}>
@@ -2084,21 +2087,23 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
         </View>
       </View>
 
-      {childCount > 1 ? (
+      {childCount > 0 ? (
         <>
           <Pressable
-            accessibilityHint="Shows your linked children"
+            accessibilityHint={childCount > 1 ? 'Shows your linked children' : 'Shows the active child'}
             accessibilityLabel={`Active child ${selectedLink?.playerName || 'not selected'}`}
             accessibilityRole="button"
+            disabled={childCount <= 1}
             onPress={onToggleChildSwitcher}
             style={({ pressed }) => [styles.childButton, isLight && styles.surfaceLight, pressed && styles.pressed]}
           >
+            <MaterialIcons color={palette.accent} name="account-circle" size={30} />
             <View style={styles.childButtonCopy}>
               <Text style={[styles.childButtonEyebrow, isLight && styles.textMutedLight]}>Active child</Text>
               <Text numberOfLines={1} style={[styles.childButtonName, isLight && styles.textLight]}>{selectedLink?.playerName || 'Choose a child'}</Text>
               <Text numberOfLines={1} style={[styles.childButtonTeam, isLight && styles.textMutedLight]}>{selectedLink?.teamName || 'No Team assigned'}</Text>
             </View>
-            <Text style={styles.childButtonAction}>{childSwitcherOpen ? 'Close' : 'Switch'}</Text>
+            {childCount > 1 ? <Text style={styles.childButtonAction}>{childSwitcherOpen ? 'Close' : 'Switch'}</Text> : null}
           </Pressable>
           {childSwitcherOpen ? (
             <ScrollView
@@ -2131,7 +2136,7 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
 }
 
 function BottomTabs({ activeTab, onChange, tabs, theme }) {
-  const { styles } = useParentTheme()
+  const { palette, styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
     <View accessibilityLabel="Parent app navigation" style={[styles.tabBar, isLight && styles.tabBarLight]}>
@@ -2146,6 +2151,7 @@ function BottomTabs({ activeTab, onChange, tabs, theme }) {
             onPress={() => onChange(tab.key)}
             style={({ pressed }) => [styles.tabButton, active && styles.tabButtonActive, isLight && active && styles.tabButtonActiveLight, pressed && styles.pressed]}
           >
+            <MaterialIcons color={active ? palette.accent : palette.textMuted} name={getMobileIconName(getParentTabIconKey(tab.key))} size={23} />
             <Text style={[styles.tabLabel, isLight && styles.textMutedLight, active && styles.tabLabelActive]}>{tab.label}</Text>
             {tab.count > 0 ? <Text style={[styles.tabCount, active && styles.tabCountActive]}>{tab.count}</Text> : null}
           </Pressable>
@@ -2181,7 +2187,7 @@ function getNotificationTypeIcon(intentType) {
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 
-function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matchInvitations = [], matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
+function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matchInvitations = [], matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
   const unreadNotifications = prepareParentNotificationInbox(notifications.items.filter((notification) => !notification.isRead))
   const homeFixtures = getParentHomeFixtureCards(homeModel)
@@ -2200,25 +2206,25 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
 
   const isInitialLoading = [calendar, matches, messages].every((resource) => resource.loading && resource.items.length === 0)
   const pendingMatchRequests = matchInvitations.filter((invitation) => invitation.isPending)
+  const nextDirectionsUrl = homeModel.nextActivity?.type === 'match'
+    ? getParentMatchDirectionsUrl(homeModel.nextActivity.item, Platform.OS)
+    : homeModel.nextActivity?.type === 'calendar'
+      ? getParentCalendarDirectionsUrl(homeModel.nextActivity.item, Platform.OS)
+      : ''
 
   return (
     <View style={styles.screenStack}>
-      <View style={styles.heroCard}>
-        <Text style={styles.eyebrow}>Family home</Text>
-        <Text accessibilityRole="header" style={styles.heroTitle}>{link.playerName}</Text>
-        <View style={styles.identityRow}>
-          <Badge label="Player" tone="accent" />
-          <Text style={styles.identityValue}>{link.playerName}</Text>
-        </View>
-        <View style={styles.identityRow}>
-          <Badge label="Team" />
-          <Text style={styles.identityValue}>{link.teamName || 'No Team assigned'}</Text>
-        </View>
-      </View>
-
       {isInitialLoading ? <LoadingPanel message="Loading your family updates" /> : null}
       <ResourceError onRetry={onRetry} resource={matches} title="Matchday unavailable" />
       <ResourceError onRetry={onRetry} resource={calendar} title="Calendar unavailable" />
+
+      <View accessibilityLabel="Family actions" style={styles.summaryGrid}>
+        <SummaryButton count={homeModel.unreadMessages} iconKey="parent.updates" label="Updates" onPress={onOpenMessages} />
+        <SummaryButton count={homeModel.unansweredPolls} iconKey="parent.polls" label="Polls" onPress={onOpenPolls} />
+        <SummaryButton count={pendingMatchRequests.length} iconKey="parent.match" label="Matches" onPress={onOpenInvites} />
+        <SummaryButton iconKey="parent.calendar" label="Calendar" onPress={onOpenCalendar} />
+        <SummaryButton disabled={!nextDirectionsUrl} iconKey="parent.directions" label="Directions" onPress={() => onOpenLink?.(nextDirectionsUrl, 'directions')} />
+      </View>
 
       {!isInitialLoading ? (
         <>
@@ -2264,27 +2270,6 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
         </View>
       ) : null}
 
-      <View style={styles.summaryGrid}>
-        <SummaryButton
-          count={homeModel.unreadMessages}
-          detail={homeModel.latestMessage?.subject || 'Club updates appear here'}
-          label="Unread announcements"
-          onPress={onOpenMessages}
-        />
-        <SummaryButton
-          count={homeModel.unansweredPolls}
-          detail={homeModel.activePoll?.title || 'No response needed'}
-          label="Polls to answer"
-          onPress={onOpenPolls}
-        />
-        <SummaryButton
-          count={pendingMatchRequests.length}
-          detail={pendingMatchRequests[0]?.eventTitle || 'No match response needed'}
-          label="Matches needing a response"
-          onPress={onOpenInvites}
-        />
-      </View>
-
       {homeFixtures.length > 0 ? (
         <View style={styles.sectionStack}>
           <SectionHeading copy="Upcoming Parent-visible Matchday items." title="Fixtures" />
@@ -2316,7 +2301,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
 }
 
 function MatchPreviewCard({ match, onPress, prominent = false }) {
-  const { styles } = useParentTheme()
+  const { palette, styles } = useParentTheme()
   const status = labelize(match.status || 'scheduled')
   const isFinished = match.status === 'full_time'
   const score = isFinished || ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)
@@ -2329,13 +2314,13 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
       accessibilityLabel={`${match.teamName} versus ${match.opponent}, ${status}`}
       accessibilityRole="button"
       onPress={() => onPress(match)}
-      style={({ pressed }) => [styles.card, prominent && styles.cardProminent, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, styles.homeCard, prominent && styles.cardProminent, pressed && styles.pressed]}
     >
       <View style={styles.cardTopRow}>
         <Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} />
         <Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text>
       </View>
-      <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
+      <View style={styles.homeCardTitleRow}><MaterialIcons color={palette.accent} name={getMobileIconName('parent.match')} size={23} /><Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text><MaterialIcons color={palette.accent} name="chevron-right" size={21} /></View>
       <Text style={styles.cardMeta}>{match.arrivalTime ? `Arrival: ${formatTime(match.arrivalTime)}` : `Kick-off: ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`}</Text>
       <Text style={styles.cardMeta}>{match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
       {score ? <Text style={styles.score}>{score}</Text> : null}
@@ -2406,18 +2391,18 @@ function MatchDetail({ match, onBack }) {
 }
 
 function CalendarCard({ activeActionId, event, isOffline, onOpenLink, onOpenResource, prominent = false }) {
-  const { styles } = useParentTheme()
+  const { palette, styles } = useParentTheme()
   const cancelled = event.status === 'cancelled' || Boolean(event.cancelledAt)
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
   return (
-    <View style={[styles.card, prominent && styles.cardProminent]}>
+    <View style={[styles.card, styles.homeCard, prominent && styles.cardProminent]}>
       <View style={styles.cardTopRow}>
         <Badge label={cancelled ? 'Cancelled' : labelize(event.eventType)} tone={cancelled ? 'danger' : 'neutral'} />
         <Text style={styles.cardDate}>{formatDateTime(event.startsAt)}</Text>
       </View>
-      <Text style={styles.cardTitle}>{event.title}</Text>
+      <View style={styles.homeCardTitleRow}><MaterialIcons color={palette.accent} name={getMobileIconName('parent.calendar')} size={23} /><Text style={styles.cardTitle}>{event.title}</Text></View>
       {event.location ? <Text style={styles.cardMeta}>{event.location}</Text> : null}
-      {event.notes ? <Text numberOfLines={3} style={styles.bodyText}>{event.notes}</Text> : null}
+      {event.notes ? <Text numberOfLines={2} style={styles.bodyText}>{event.notes}</Text> : null}
       {Array.isArray(event.resources) && event.resources.length > 0 ? (
         <View style={styles.sectionStack}>
           <Text style={styles.cardMeta}>Attachments</Text>
@@ -2432,7 +2417,7 @@ function CalendarCard({ activeActionId, event, isOffline, onOpenLink, onOpenReso
           ))}
         </View>
       ) : null}
-      {directionsUrl ? <PrimaryAction label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} secondary /> : null}
+      {directionsUrl ? <Pressable accessibilityLabel="Get directions" accessibilityRole="button" onPress={() => onOpenLink?.(directionsUrl, 'directions')} style={({ pressed }) => [styles.homeInlineAction, pressed && styles.pressed]}><MaterialIcons color={palette.accent} name={getMobileIconName('parent.directions')} size={19} /><Text style={styles.homeInlineActionText}>Get directions</Text></Pressable> : null}
     </View>
   )
 }
@@ -2983,18 +2968,22 @@ function SectionHeading({ copy, title }) {
   )
 }
 
-function SummaryButton({ count, detail, label, onPress }) {
-  const { styles } = useParentTheme()
+function SummaryButton({ count = null, disabled = false, iconKey, label, onPress }) {
+  const { palette, styles } = useParentTheme()
   return (
     <Pressable
-      accessibilityLabel={`${count} ${label}. ${detail}`}
+      accessibilityLabel={count === null ? label : `${count} ${label}`}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.summaryCard, disabled && styles.disabled, pressed && styles.pressed]}
     >
-      <Text style={styles.summaryCount}>{count}</Text>
+      <View style={styles.summaryIconWrap}>
+        <MaterialIcons color={palette.accent} name={getMobileIconName(iconKey)} size={28} />
+        {count !== null ? <Text style={styles.summaryCount}>{count}</Text> : null}
+      </View>
       <Text style={styles.summaryLabel}>{label}</Text>
-      <Text numberOfLines={2} style={styles.summaryDetail}>{detail}</Text>
     </Pressable>
   )
 }
@@ -3260,10 +3249,14 @@ function createParentAppStyles(tokens) {
   cardProminent: { backgroundColor: palette.cardRaised, borderColor: palette.accentMuted },
   cardTitle: { color: palette.text, flexShrink: 1, fontSize: 18, fontWeight: '900', lineHeight: 23 },
   cardTopRow: { alignItems: 'center', flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
+  homeCard: { borderRadius: 14, gap: 7, padding: 12 },
+  homeCardTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  homeInlineAction: { alignItems: 'center', alignSelf: 'flex-start', borderColor: palette.borderStrong, borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 44, paddingHorizontal: 12 },
+  homeInlineActionText: { color: palette.text, fontSize: 12, fontWeight: '900' },
   notificationContent: { flex: 1, gap: 8 },
   notificationIcon: { alignItems: 'center', borderColor: palette.borderStrong, borderRadius: 24, borderWidth: 1, height: 44, justifyContent: 'center', width: 44 },
   notificationRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
-  childButton: { alignItems: 'center', backgroundColor: palette.card, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', marginTop: 12, minHeight: 58, paddingHorizontal: 14, paddingVertical: 9 },
+  childButton: { alignItems: 'center', backgroundColor: palette.card, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, justifyContent: 'space-between', marginTop: 8, minHeight: 58, paddingHorizontal: 12, paddingVertical: 8 },
   childButtonAction: { color: palette.accent, fontSize: 13, fontWeight: '900' },
   childButtonCopy: { flex: 1, minWidth: 0 },
   childButtonEyebrow: { color: palette.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
@@ -3285,7 +3278,7 @@ function createParentAppStyles(tokens) {
   errorPanel: { backgroundColor: palette.dangerBackground, borderColor: palette.danger, borderRadius: 16, borderWidth: 1, gap: 6, padding: 14 },
   errorTitle: { color: palette.danger, fontSize: 15, fontWeight: '900' },
   eyebrow: { color: palette.accent, fontSize: 12, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
-  header: { backgroundColor: palette.background, borderBottomColor: palette.border, borderBottomWidth: 1, paddingBottom: 12, paddingHorizontal: 16, paddingTop: 10 },
+  header: { backgroundColor: palette.background, borderBottomColor: palette.border, borderBottomWidth: 1, paddingBottom: 9, paddingHorizontal: 16, paddingTop: 8 },
   headerLight: { backgroundColor: palette.background, borderBottomColor: palette.border },
   headerLogo: { height: 42, width: 42 },
   helperText: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
@@ -3333,7 +3326,7 @@ function createParentAppStyles(tokens) {
   screenIntro: { gap: 4 },
   screenStack: { gap: 14 },
   screenTitle: { color: palette.text, fontSize: 30, fontWeight: '900', letterSpacing: -0.5 },
-  scrollContent: { paddingBottom: 28, paddingHorizontal: 16, paddingTop: 16 },
+  scrollContent: { paddingBottom: 24, paddingHorizontal: 16, paddingTop: 10 },
   secondaryAction: { backgroundColor: palette.card, borderColor: palette.borderStrong },
   secondaryActionText: { color: palette.text },
   sectionCopy: { color: palette.textMuted, fontSize: 13, lineHeight: 19 },
@@ -3348,11 +3341,12 @@ function createParentAppStyles(tokens) {
   settingCopy: { flex: 1, gap: 6 },
   settingRow: { alignItems: 'center', flexDirection: 'row', gap: 14 },
   settingsInput: { backgroundColor: palette.background, borderColor: palette.borderStrong, borderRadius: 12, borderWidth: 1, color: palette.text, fontSize: 16, minHeight: 50, paddingHorizontal: 14, paddingVertical: 11 },
-  summaryCard: { backgroundColor: palette.card, borderColor: palette.border, borderRadius: 18, borderWidth: 1, flex: 1, gap: 4, minHeight: 132, minWidth: 145, padding: 16 },
-  summaryCount: { color: palette.accent, fontSize: 32, fontWeight: '900' },
+  summaryCard: { alignItems: 'center', flex: 1, gap: 4, justifyContent: 'center', minHeight: 76, minWidth: 58, paddingHorizontal: 2, paddingVertical: 7 },
+  summaryCount: { backgroundColor: palette.card, borderColor: palette.accent, borderRadius: 999, borderWidth: 1, color: palette.accent, fontSize: 9, fontWeight: '900', minWidth: 17, overflow: 'hidden', paddingHorizontal: 4, paddingVertical: 1, position: 'absolute', right: -8, textAlign: 'center', top: -5 },
   summaryDetail: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  summaryLabel: { color: palette.text, fontSize: 14, fontWeight: '900' },
+  summaryGrid: { borderBottomColor: palette.border, borderBottomWidth: 1, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 2, justifyContent: 'space-between', paddingVertical: 3 },
+  summaryIconWrap: { position: 'relative' },
+  summaryLabel: { color: palette.text, fontSize: 10, fontWeight: '900', textAlign: 'center' },
   syncStatus: { alignItems: 'center', backgroundColor: palette.card, borderColor: palette.borderStrong, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, marginBottom: 12, minHeight: 48, paddingHorizontal: 14, paddingVertical: 10 },
   syncStatusAction: { alignItems: 'center', borderColor: palette.warning, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 34, paddingHorizontal: 10 },
   syncStatusActionText: { color: palette.text, fontSize: 12, fontWeight: '900' },

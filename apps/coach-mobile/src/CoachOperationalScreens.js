@@ -1,3 +1,4 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
@@ -52,12 +53,13 @@ import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { CoachDateTimeField } from './CoachDateTimeField'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
+import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
 const message = getCoachFriendlyError
 
 function useDomainStyles(palette) {
   return useMemo(() => StyleSheet.create({
-    action: { alignItems: 'center', backgroundColor: palette.accent, borderRadius: 12, justifyContent: 'center', minHeight: 48, paddingHorizontal: 14, paddingVertical: 10 },
+    action: { alignItems: 'center', backgroundColor: palette.accent, borderRadius: 12, flexDirection: 'row', gap: 7, justifyContent: 'center', minHeight: 48, paddingHorizontal: 14, paddingVertical: 10 },
     actionDisabled: { opacity: 0.45 },
     actionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900' },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
@@ -94,13 +96,15 @@ function useDomainStyles(palette) {
     pickerButton: { alignItems: 'center', borderColor: palette.border, borderRadius: 10, borderWidth: 1, minHeight: 42, justifyContent: 'center', minWidth: 88, paddingHorizontal: 12 },
     pickerButtonText: { color: palette.accent, fontSize: 14, fontWeight: '900' },
     pickerPanel: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, gap: 8, overflow: 'hidden', padding: 8 },
+    playerCard: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 11, minHeight: 72, paddingHorizontal: 2, paddingVertical: 10 },
+    playerCopy: { flex: 1, gap: 3, minWidth: 0 },
     readiness: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     readinessDot: { borderRadius: 999, borderWidth: 1, height: 10, width: 10 },
     readinessDotOff: { backgroundColor: palette.textMuted, borderColor: palette.textMuted, opacity: 0.55 },
     readinessDotOn: { backgroundColor: palette.success, borderColor: palette.success },
     readinessDots: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
     row: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
-    secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 13, paddingVertical: 9 },
+    secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 7, justifyContent: 'center', minHeight: 46, paddingHorizontal: 13, paddingVertical: 9 },
     secondaryText: { color: palette.textPrimary, fontSize: 13, fontWeight: '900' },
     stack: { gap: 12 },
     title: { color: palette.textPrimary, fontSize: 27, fontWeight: '900' },
@@ -110,7 +114,8 @@ function useDomainStyles(palette) {
   }), [palette])
 }
 
-function Button({ disabled = false, label, onPress, secondary = false, styles }) {
+function Button({ disabled = false, iconKey = '', label, onPress, secondary = false, styles }) {
+  const contentStyle = secondary ? styles.secondaryText : styles.actionText
   return (
     <Pressable
       accessibilityRole="button"
@@ -119,7 +124,8 @@ function Button({ disabled = false, label, onPress, secondary = false, styles })
       onPress={onPress}
       style={({ pressed }) => [secondary ? styles.secondary : styles.action, disabled && styles.actionDisabled, pressed && { opacity: 0.75 }]}
     >
-      <Text style={secondary ? styles.secondaryText : styles.actionText}>{label}</Text>
+      {iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={21} style={contentStyle} /> : null}
+      <Text style={contentStyle}>{label}</Text>
     </Pressable>
   )
 }
@@ -641,7 +647,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
       <Field label="Search Players" onChangeText={setQuery} styles={styles} value={query} />
       <Chips onChange={setSection} options={[{ label: 'All', value: 'all' }, { label: 'Trial', value: 'Trial' }, { label: 'Squad', value: 'Squad' }]} styles={styles} value={section} />
-      {policy.canCreate && !form ? <Button label="Add Player" onPress={() => { setDetail(null); setForm(coachPlayerFormFromPlayer()) }} styles={styles} /> : null}
+      {policy.canCreate && !form ? <Button iconKey="action.add-player" label="Add Player" onPress={() => { setDetail(null); setForm(coachPlayerFormFromPlayer()) }} styles={styles} /> : null}
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{detail ? 'Edit Player' : 'Add Player'}</Text>
@@ -683,7 +689,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
         </View>
       ) : null}
       {!loading && visible.length === 0 ? <Text style={styles.body}>No active Players match this view.</Text> : null}
-      {visible.map((player) => <Pressable accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.card}><Text style={styles.cardTitle}>{player.playerName}</Text><Text style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentAppInstallationStatus player={player} styles={styles} /></Pressable>)}
+      {visible.map((player) => <Pressable accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.playerCard}><MaterialIcons name="person-outline" size={28} style={styles.secondaryText} /><View style={styles.playerCopy}><Text numberOfLines={1} style={styles.cardTitle}>{player.playerName}</Text><Text numberOfLines={1} style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentAppInstallationStatus player={player} styles={styles} /></View><MaterialIcons name="chevron-right" size={22} style={styles.secondaryText} /></Pressable>)}
     </View>
   )
 }
