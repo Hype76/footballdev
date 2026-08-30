@@ -383,13 +383,11 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
     }
   }
   return <View style={styles.stack}>
-    <FixtureHero match={match} now={now} styles={styles} />
     {actions.blockedReason ? <View style={styles.warning}><Text style={styles.body}>{actions.blockedReason}</Text></View> : null}
     {actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : null}
     <View style={styles.gameMode}>
       <Text style={styles.gameModeEyebrow}>Game mode</Text>
       <Text style={styles.cardTitle}>Live controller</Text>
-      <Button iconKey="panel.overview" label="Manage fixture" onPress={onExit} secondary styles={styles} />
       <Button iconKey="panel.overview" label="Exit Game Mode" onPress={onExit} secondary styles={styles} />
       <View style={styles.gameStats}>
         <View style={styles.gameStat}><View style={styles.gameStatHeading}><MaterialIcons name={getMobileIconName('match.score')} size={18} style={styles.secondaryText} /><Text style={styles.gameStatLabel}>Score</Text></View><Text style={styles.gameStatValue}>{view.displayScore}</Text></View>
@@ -710,8 +708,10 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     setPanel('overview')
   }
 
+  const focusedLiveMode = Boolean(match && !fixtureFormOpen && panel === 'live')
+
   return <View style={styles.stack}>
-    <Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Live fixture control with server-authoritative squad, clock, events, volunteers, shootout, and corrections.</Text>
+    {!focusedLiveMode ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Live fixture control with server-authoritative squad, clock, events, volunteers, shootout, and corrections.</Text></> : null}
     {!match ? <View style={styles.tabs}><Button iconKey="coach.availability" label="Availability" onPress={() => onNavigate('invites')} secondary styles={styles} /><Button iconKey="coach.chat" label="Team Chat" onPress={() => onNavigate('chat')} secondary styles={styles} /><Button iconKey="route.calendar" label="Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /></View> : null}
     {!match && !fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button iconKey="match.create" label="Create match" onPress={() => { setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
     {fixtureFormOpen ? <CoachFixtureForm matches={matches} onCancel={() => { setFixtureFormOpen(false); onRequestScrollTop?.() }} onCreated={handleFixtureCreated} players={players} styles={styles} user={user} /> : null}
@@ -722,7 +722,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {visibleError ? <View style={styles.warning}><Text style={styles.dangerText}>{visibleError}</Text><Button label="Refresh" onPress={load} secondary styles={styles} /></View> : null}
     {confirmedStale ? <View style={styles.warning}><Text style={styles.cardTitle}>Offline read</Text><Text style={styles.body}>Showing encrypted cached Match Day data. Every change is disabled until a successful refresh.</Text></View> : null}
     {!fixtureFormOpen && !match ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
-    {match && !fixtureFormOpen ? <><Button iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} /><Chips iconResolver={getMatchDayPanelIconKey} onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} />
+    {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><Button iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} /><Chips iconResolver={getMatchDayPanelIconKey} onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} /></> : null}
       {panel === 'overview' ? <View style={styles.stack}><FixtureHero match={match} styles={styles} /><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><Text style={styles.body}>{match.venueAddress || match.venueName || 'Venue TBC'}</Text>{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text></View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'start-match', label: 'Start match', run: async () => { const detail = await replace(() => runCoachMatchDayTimerAction(user, match, 'start'), (nextDetail) => isCoachMatchDayTimerActionApplied(nextDetail, 'start')); setPanel('live'); return detail } })} styles={styles} /></View> : actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
       {panel === 'squad' ? <SquadPanel actions={actions} busy={busy} match={match} onSetDecision={(player, decision) => setPending({ label: `Set ${player.playerName} to ${decision.replaceAll('_', ' ')}`, run: () => replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision)) })} players={players} styles={styles} /> : null}
       {panel === 'formation' ? <CoachFormationBoard context={context} match={match} palette={palette} players={players} stale={stale} user={user} /> : null}

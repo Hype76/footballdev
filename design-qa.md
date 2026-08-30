@@ -66,19 +66,30 @@ final result: passed
 
 - Coach production web export: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/apps/coach-mobile/dist-web-check`
 - Parent production web export: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/apps/parent-mobile/dist-web-check`
-- Intended comparison viewport: 375 by 812 pixels.
-- Implementation screenshot paths: unavailable.
+- Comparison viewport: 375 by 812 pixels.
+- Combined reference and implementation comparison: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/output/playwright/comparison-final.png`
+- Coach Home: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/output/playwright/coach-home-final.png`
+- Coach More: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/output/playwright/coach-more.png`
+- Coach Quick Add: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/output/playwright/coach-quick-add.png`
+- Coach Players: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/output/playwright/coach-players.png`
+- Coach Formation Board: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/output/playwright/coach-formation.png`
+- Coach Game Mode: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/output/playwright/coach-matchday-live-final.png`
+- Parent Home: `E:/Project Manager/FP-MOBILE-ICON-DENSITY-REFRESH/output/playwright/parent-home.png`
 
 ## Comparison history
 
 1. The supplied before and after screenshots were inspected at original resolution before implementation.
 2. Both real Expo apps were exported successfully with the installed Material Icons font bundled.
 3. A local-only populated visual state was exported for comparison, with no live account or service access.
-4. Screenshot capture stopped because the Codex in-app browser runtime failed before opening the local preview with `failed to write kernel assets: The system cannot find the path specified.`
-5. No other browser automation was substituted because Playwright requires explicit user approval for this Product Design workflow.
+4. The Codex in-app browser runtime could not open the local preview, so capture paused until the user explicitly authorised local Playwright.
+5. Playwright captured Coach Home, More, Quick Add, Players, Formation Board, Game Mode, and Parent Home at 375 by 812.
+6. The first Game Mode comparison showed the live controls below redundant fixture navigation, a duplicated action, and the Quick Add button over the control grid.
+7. Game Mode was changed to open directly on the live controller, the duplicate action was removed, and the default Quick Add position moved to the upper right.
+8. The final side-by-side comparison confirms the compact hierarchy, consistent icon family, club-aware normal actions, semantic Yellow, Red, and Full Time treatments, and unobstructed Match Day controls.
+9. Browser console review found only the expected Expo notifications web warning and a missing local favicon. No application render error was present.
 
 ## Result
 
-`final result: blocked`
+`final result: passed`
 
-Code, icon glyph, regression, Expo Doctor, and web export checks passed. Pixel comparison remains blocked until the in-app browser works or the user approves local Playwright screenshot capture.
+The final local candidate matches the supplied compact icon direction at the tested mobile viewport. No push, OTA publication, native build, store submission, production authentication, or live data mutation was performed.

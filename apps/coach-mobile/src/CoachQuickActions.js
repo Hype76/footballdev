@@ -85,7 +85,7 @@ export function CoachQuickActions({ actions, bottomInset = 0, onAction, palette,
   const styles = useMemo(() => createStyles(palette, bottomInset), [bottomInset, palette])
   const storageKey = useMemo(() => getCoachQuickActionStorageKey(userId), [userId])
   const viewportSize = useMemo(() => ({ height: viewport.height, width: viewport.width }), [viewport.height, viewport.width])
-  const initialPosition = useMemo(() => clampCoachQuickActionPosition({ x: viewportSize.width - 72, y: viewportSize.height * 0.63 }, viewportSize, bottomInset), [bottomInset, viewportSize])
+  const initialPosition = useMemo(() => clampCoachQuickActionPosition({ x: viewportSize.width - 72, y: 84 }, viewportSize, bottomInset), [bottomInset, viewportSize])
   const [animatedPosition] = useState(() => new Animated.ValueXY(initialPosition))
   const [position, setPosition] = useState(initialPosition)
   const renderedPosition = useMemo(() => clampCoachQuickActionPosition(position, viewportSize, bottomInset), [bottomInset, position, viewportSize])

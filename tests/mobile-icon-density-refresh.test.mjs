@@ -49,3 +49,14 @@ test('mobile icon refresh stays on the installed OTA-safe icon library and seman
     assert.match(parentTheme, new RegExp(`\\b${token}\\b`))
   }
 })
+
+test('Game Mode stays focused and Quick Add defaults clear of the live controls', async () => {
+  const [matchDayScreen, quickActions] = await Promise.all([
+    readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/coach-mobile/src/CoachQuickActions.js', import.meta.url), 'utf8'),
+  ])
+
+  assert.match(matchDayScreen, /const focusedLiveMode = Boolean\(match && !fixtureFormOpen && panel === 'live'\)/)
+  assert.doesNotMatch(matchDayScreen, /label="Manage fixture"/)
+  assert.match(quickActions, /y: 84/)
+})
