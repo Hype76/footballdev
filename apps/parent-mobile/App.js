@@ -37,7 +37,7 @@ import {
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { getMobileChatMessagesFingerprint } from '../mobile-core/src/mobileChatCore'
-import { MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
+import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsCore'
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
@@ -304,6 +304,7 @@ function ParentHome() {
     registered: false,
   })
   const [notificationStateStatus, setNotificationStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
+  const [notificationSettingsFocusRequest, setNotificationSettingsFocusRequest] = useState(null)
   const [notificationResponseHistoryReady, setNotificationResponseHistoryReady] = useState(false)
   const [communicationPreference, setCommunicationPreference] = useState({ communicationChannel: 'both', updatedAt: '' })
   const [chatMessages, setChatMessages] = useState({ error: '', items: [], loading: false })
@@ -337,6 +338,18 @@ function ParentHome() {
   const reloadSelectedChatRoomRef = useRef(() => Promise.resolve())
   const chatMessagesRef = useRef(chatMessages)
   const latestBadgeCountRef = useRef(0)
+  const openNotificationSettings = useCallback(() => {
+    setChildSwitcherOpen(false)
+    setMoreSection('settings')
+    setActiveTab('more')
+    setNotificationSettingsFocusRequest({ id: Date.now() })
+  }, [])
+  const focusNotificationSettings = useCallback((sectionY) => {
+    const numericY = Number(sectionY)
+    const targetY = Number.isFinite(numericY) ? Math.max(0, numericY - 12) : 0
+    requestAnimationFrame(() => scrollViewRef.current?.scrollTo({ animated: true, y: targetY }))
+    setNotificationSettingsFocusRequest(null)
+  }, [])
   const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
   const selectedLink = useMemo(
     () => getSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLinkId),
@@ -1861,6 +1874,9 @@ function ParentHome() {
           childSwitcherOpen={childSwitcherOpen}
           links={parentLinks}
           onChildChange={handleChildChange}
+          notificationState={notificationState}
+          notificationStateStatus={notificationStateStatus}
+          onOpenNotificationSettings={openNotificationSettings}
           onToggleChildSwitcher={() => setChildSwitcherOpen((open) => !open)}
           selectedLink={selectedLink}
           theme={displayTheme}
@@ -2023,8 +2039,10 @@ function ParentHome() {
                 communicationPreference={communicationPreference}
                 notificationState={notificationState}
                 notificationStateStatus={notificationStateStatus}
+                notificationSettingsFocusRequest={notificationSettingsFocusRequest}
                 onCommunicationChannelChange={handleCommunicationChannelChange}
                 onNotificationModeChange={handleNotificationModeChange}
+                onNotificationSettingsFocus={focusNotificationSettings}
                 onRetryBiometricState={retryParentBiometricState}
                 onRetryNotificationState={() => reloadParentNotificationState()}
                 onDisplayThemeChange={handleDisplayThemeChange}
@@ -2072,7 +2090,7 @@ function ClubBrandLogo({ link }) {
   )
 }
 
-function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onToggleChildSwitcher, selectedLink, theme }) {
+function AppHeader({ childCount, childSwitcherOpen, links, notificationState, notificationStateStatus, onChildChange, onOpenNotificationSettings, onToggleChildSwitcher, selectedLink, theme }) {
   const { palette, styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
@@ -2085,6 +2103,11 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
             {selectedLink?.clubName || 'Private family view'}
           </Text>
         </View>
+        <NotificationStatusButton
+          notificationState={notificationState}
+          notificationStateStatus={notificationStateStatus}
+          onPress={onOpenNotificationSettings}
+        />
       </View>
 
       {childCount > 0 ? (
@@ -2132,6 +2155,26 @@ function AppHeader({ childCount, childSwitcherOpen, links, onChildChange, onTogg
         </>
       ) : null}
     </View>
+  )
+}
+
+function NotificationStatusButton({ notificationState, notificationStateStatus, onPress }) {
+  const { palette, styles } = useParentTheme()
+  const indicator = getMobileNotificationIndicator(notificationState, notificationStateStatus)
+  return (
+    <Pressable
+      accessibilityHint="Opens the Notifications section in Settings"
+      accessibilityLabel={indicator.accessibilityLabel}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.notificationStatusButton, pressed && styles.pressed]}
+    >
+      <MaterialIcons
+        color={indicator.enabled ? palette.accent : palette.textMuted}
+        name={getMobileIconName(indicator.iconKey)}
+        size={27}
+      />
+    </Pressable>
   )
 }
 
@@ -2662,12 +2705,14 @@ function SettingsScreen({
   links,
   notificationState,
   notificationStateStatus,
+  notificationSettingsFocusRequest,
   onBiometricChange,
   onAppBadgeEnabledChange,
   onCommunicationChannelChange,
   onDisplayThemeChange,
   onDisplayNameChange,
   onNotificationModeChange,
+  onNotificationSettingsFocus,
   onRetryBiometricState,
   onRetryNotificationState,
   onPasswordChange,
@@ -2690,9 +2735,17 @@ function SettingsScreen({
   const biometricStateLoading = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const notificationStateKnown = [MOBILE_SETTING_LOAD_STATES.READY, MOBILE_SETTING_LOAD_STATES.STALE].includes(notificationStateStatus)
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
+  const [notificationSectionY, setNotificationSectionY] = useState(null)
+  const [settingsRootY, setSettingsRootY] = useState(null)
+
+  useEffect(() => {
+    if (!notificationSettingsFocusRequest || notificationSectionY === null || settingsRootY === null || !onNotificationSettingsFocus) return
+    const frame = requestAnimationFrame(() => onNotificationSettingsFocus(settingsRootY + notificationSectionY))
+    return () => cancelAnimationFrame(frame)
+  }, [notificationSectionY, notificationSettingsFocusRequest, onNotificationSettingsFocus, settingsRootY])
 
   return (
-    <View style={styles.screenStack}>
+    <View onLayout={(event) => setSettingsRootY(event.nativeEvent.layout.y)} style={styles.screenStack}>
       <ScreenIntro copy="Account, security and app information." title="Settings" />
 
       <InfoPanel title="Signed-in Parent">
@@ -2841,7 +2894,7 @@ function SettingsScreen({
         </View>
       </InfoPanel>
 
-      <InfoPanel title="Notifications">
+      <InfoPanel onLayout={(event) => setNotificationSectionY(event.nativeEvent.layout.y)} title="Notifications">
         <InfoRow
           label="Status"
           value={notificationStateKnown
@@ -2988,10 +3041,10 @@ function SummaryButton({ count = null, disabled = false, iconKey, label, onPress
   )
 }
 
-function InfoPanel({ children, title }) {
+function InfoPanel({ children, onLayout, title }) {
   const { styles } = useParentTheme()
   return (
-    <View style={styles.card}>
+    <View onLayout={onLayout} style={styles.card}>
       <Text accessibilityRole="header" style={styles.cardTitle}>{title}</Text>
       <View style={styles.infoStack}>{children}</View>
     </View>
@@ -3307,6 +3360,7 @@ function createParentAppStyles(tokens) {
   notificationChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   notificationChoiceTitle: { color: palette.text, fontSize: 15, fontWeight: '900' },
   notificationChoiceTitleSelected: { color: palette.accent },
+  notificationStatusButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
   notificationTestActions: { gap: 9 },
   optionButton: { alignItems: 'center', backgroundColor: palette.cardRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, minHeight: 52, paddingHorizontal: 14, paddingVertical: 10 },
   optionButtonDisabled: { opacity: 0.55 },

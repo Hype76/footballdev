@@ -34,7 +34,7 @@ import { applyCoachContext, createCoachContextTransition, resolveCoachStaffConte
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, preserveCoachNotificationRegistration, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
-import { MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
+import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
@@ -142,6 +142,7 @@ function CoachHome() {
   const [notice, setNotice] = useState('')
   const [notificationState, setNotificationState] = useState(null)
   const [notificationStateStatus, setNotificationStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
+  const [notificationSettingsFocusRequest, setNotificationSettingsFocusRequest] = useState(null)
   const [quickActionRequest, setQuickActionRequest] = useState(null)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
@@ -415,6 +416,20 @@ function CoachHome() {
     return true
   }, [activeContext, scrollContentToTop])
 
+  const openNotificationSettings = useCallback(() => {
+    if (navigate('settings')) {
+      setNotificationSettingsFocusRequest({ id: Date.now() })
+    }
+  }, [navigate])
+
+  const focusNotificationSettings = useCallback((sectionY) => {
+    const numericY = Number(sectionY)
+    const targetY = Number.isFinite(numericY) ? Math.max(0, numericY - 12) : 0
+    scrollOffsetRef.current = targetY
+    requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: true, y: targetY }))
+    setNotificationSettingsFocusRequest(null)
+  }, [])
+
   const launchQuickAction = useCallback((action) => {
     setQuickActionRequest(action.intent ? { ...action, requestId: `${Date.now()}:${action.id}` } : null)
     if (!navigate(action.route)) setQuickActionRequest(null)
@@ -643,7 +658,13 @@ function CoachHome() {
           style={styles.keyboardShell}
         >
           <Animated.View style={[styles.collapsibleHeader, coachHeaderStyle]}>
-            <CoachHeader context={activeContext} user={selectedMobileUser} />
+            <CoachHeader
+              context={activeContext}
+              notificationState={notificationState}
+              notificationStateStatus={notificationStateStatus}
+              onOpenNotificationSettings={openNotificationSettings}
+              user={selectedMobileUser}
+            />
             <ContextSwitcher
               contexts={contextResolution.contexts}
               onSelect={selectContext}
@@ -700,12 +721,14 @@ function CoachHome() {
               navigation={navigation}
               notificationState={notificationState}
               notificationStateStatus={notificationStateStatus}
+              notificationSettingsFocusRequest={notificationSettingsFocusRequest}
               onRefreshBiometricState={() => refreshBiometricState().catch(() => {})}
               onRefreshNotificationState={() => refreshNotificationRegistration({ force: true, showLoading: true })}
               onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
               onMatchDayTargetHandled={handleMatchDayTargetHandled}
               onNavigate={navigate}
               onNotificationModeChange={updateNotificationMode}
+              onNotificationSettingsFocus={focusNotificationSettings}
               onQuickActionHandled={handleQuickActionHandled}
               onRequestScrollTop={scrollContentToTop}
               onSelectContext={selectContext}
@@ -929,7 +952,9 @@ function SettingsScreen({
   lastUpdatedAt,
   notificationState,
   notificationStateStatus,
+  notificationSettingsFocusRequest,
   onNotificationModeChange,
+  onNotificationSettingsFocus,
   onRefreshBiometricState,
   onRefreshNotificationState,
   onSignOut,
@@ -950,11 +975,17 @@ function SettingsScreen({
   const hasKnownNotificationState = Boolean(notificationState)
   const selectedNotificationMode = notificationState?.preferenceEnabled ? notificationState.detailLevel : 'off'
   const [cacheState, setCacheState] = useState(null)
+  const [notificationSectionY, setNotificationSectionY] = useState(null)
   useEffect(() => {
     let mounted = true
     void inspectCoachOfflineState(user.id).then((state) => { if (mounted) setCacheState(state) }).catch(() => { if (mounted) setCacheState({ hasDocument: false, status: 'unavailable' }) })
     return () => { mounted = false }
   }, [lastUpdatedAt, user.id])
+  useEffect(() => {
+    if (!notificationSettingsFocusRequest || notificationSectionY === null || !onNotificationSettingsFocus) return
+    const frame = requestAnimationFrame(() => onNotificationSettingsFocus(notificationSectionY))
+    return () => cancelAnimationFrame(frame)
+  }, [notificationSectionY, notificationSettingsFocusRequest, onNotificationSettingsFocus])
   return (
     <ScreenIntro copy="Account, device security, notifications, sync, and app information." title="Settings">
       <Section compact iconKey="settings.account" title="Account">
@@ -982,7 +1013,7 @@ function SettingsScreen({
           ) : <SecondaryAction label="Retry" onPress={onRefreshBiometricState} />}
         </SettingRow>
       </Section>
-      <Section compact iconKey="settings.notifications" title="Notifications">
+      <Section compact iconKey="settings.notifications" onLayout={(event) => setNotificationSectionY(event.nativeEvent.layout.y)} title="Notifications">
         <InfoRow
           label="Status"
           value={notificationStateLoading
@@ -1054,7 +1085,7 @@ function SettingsScreen({
   )
 }
 
-function CoachHeader({ context, user }) {
+function CoachHeader({ context, notificationState, notificationStateStatus, onOpenNotificationSettings, user }) {
   const { branding, styles } = useCoachTheme()
   const source = branding.logoUrl ? { uri: branding.logoUrl } : require('./assets/football-player-logo.png')
   return (
@@ -1064,8 +1095,29 @@ function CoachHeader({ context, user }) {
         <Text numberOfLines={1} style={styles.headerTitle}>{context.clubName}</Text>
         <Text numberOfLines={1} style={styles.headerMeta}>{context.teamName || 'Club context'} | {user.roleLabel}</Text>
       </View>
+      <NotificationStatusButton
+        notificationState={notificationState}
+        notificationStateStatus={notificationStateStatus}
+        onPress={onOpenNotificationSettings}
+      />
       <View style={styles.testBadge}><Text style={styles.testBadgeText}>{config.isProduction ? 'LIVE' : 'TEST'}</Text></View>
     </View>
+  )
+}
+
+function NotificationStatusButton({ notificationState, notificationStateStatus, onPress }) {
+  const { palette, styles } = useCoachTheme()
+  const indicator = getMobileNotificationIndicator(notificationState, notificationStateStatus)
+  return (
+    <Pressable
+      accessibilityHint="Opens the Notifications section in Settings"
+      accessibilityLabel={indicator.accessibilityLabel}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.notificationStatusButton, pressed && styles.pressed]}
+    >
+      <CoachIcon color={indicator.enabled ? palette.accent : palette.textMuted} iconKey={indicator.iconKey} size={27} />
+    </Pressable>
   )
 }
 
@@ -1181,10 +1233,10 @@ function IconAction({ iconKey, label, onPress }) {
   )
 }
 
-function Section({ children, compact = false, iconKey = '', title }) {
+function Section({ children, compact = false, iconKey = '', onLayout, title }) {
   const { styles } = useCoachTheme()
   return (
-    <View style={[styles.section, compact && styles.sectionCompact]}>
+    <View onLayout={onLayout} style={[styles.section, compact && styles.sectionCompact]}>
       <View style={styles.sectionHeadingRow}>
         {iconKey ? <CoachIcon iconKey={iconKey} size={24} /> : null}
         <Text accessibilityRole="header" style={styles.sectionTitle}>{title}</Text>
@@ -1445,6 +1497,7 @@ function createCoachStyles(palette) {
     notificationChoices: { gap: 9 },
     notificationChoiceTitle: { color: palette.textPrimary, fontSize: 15, fontWeight: '900' },
     notificationChoiceTitleSelected: { color: palette.selectedForeground },
+    notificationStatusButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
     pressed: { opacity: 0.76 },
     primaryAction: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accent, borderRadius: 14, borderWidth: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 15, paddingVertical: 12 },
     primaryActionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900' },
