@@ -43,6 +43,7 @@ import {
   getParentEmailTemplates as liveGetParentEmailTemplates,
   getPlayers as liveGetPlayers,
   getTeams as liveGetTeams,
+  getOwnTeamFixturePreferences,
   isPastMatchDayDateTime,
   MATCH_CLOCK_MODE_OPTIONS,
   MATCH_DAY_ARRIVAL_OPTIONS,
@@ -61,6 +62,7 @@ import {
   syncCalendarEventParentScope,
   updateMatchDay as liveUpdateMatchDay,
   updateTeamNotificationDisplayName,
+  updateOwnTeamFixturePreferences,
   updateStaffMatchDayScore as liveUpdateStaffMatchDayScore,
   voidMatchDayShootoutKick as liveVoidMatchDayShootoutKick,
   voidStaffMatchDayEvent as liveVoidStaffMatchDayEvent,
@@ -2410,8 +2412,30 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       return undefined
     }
 
-    const openFixtureSetup = (setupIntent = consumeFixtureSetupIntent()) => {
-      const preferences = readMatchDayFixturePreferences()
+    const openFixtureSetup = async (setupIntent = consumeFixtureSetupIntent()) => {
+      const localPreferences = readMatchDayFixturePreferences()
+      const preferenceTeamId = String(setupIntent?.teamId || user.activeTeamId || '').trim()
+      let serverPreferences = null
+
+      if (preferenceTeamId) {
+        try {
+          serverPreferences = await getOwnTeamFixturePreferences({
+            teamId: preferenceTeamId,
+            user,
+          })
+        } catch (preferenceError) {
+          console.warn('Shared fixture defaults could not be loaded. Device defaults will be used.', preferenceError)
+        }
+      }
+
+      const preferences = serverPreferences?.found
+        ? {
+          ...localPreferences,
+          arrivalPreset: serverPreferences.arrivalPreset,
+          arrivalTime: serverPreferences.arrivalTime,
+          duration: serverPreferences.duration,
+        }
+        : localPreferences
       const preferredLocation = preferences.location?.name
         ? preferences.location
         : locations[0] || null
@@ -2450,17 +2474,17 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     const storedSetupIntent = consumeFixtureSetupIntent()
 
     if (storedSetupIntent) {
-      window.setTimeout(() => openFixtureSetup(storedSetupIntent), 120)
+      window.setTimeout(() => void openFixtureSetup(storedSetupIntent), 120)
     }
 
-    const handleFixtureSetupEvent = () => openFixtureSetup()
+    const handleFixtureSetupEvent = () => void openFixtureSetup()
 
     window.addEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
 
     return () => {
       window.removeEventListener(FIXTURE_SETUP_EVENT, handleFixtureSetupEvent)
     }
-  }, [allowsFixtureManagement, locations, teams, user.activeTeamId, user.activeTeamName])
+  }, [allowsFixtureManagement, locations, teams, user, user.activeTeamId, user.activeTeamName])
 
   async function loadData() {
     const [nextMatches, nextTeams, nextPlayers, nextLocations, savedVolunteerTemplates] = await Promise.all([
@@ -3055,6 +3079,13 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         setTeams((currentTeams) => currentTeams.map((team) => (
           String(team.id) === String(updatedTeam.id) ? updatedTeam : team
         )))
+      }
+      if (teamId && (form.saveArrivalAsDefault || form.saveDurationAsDefault)) {
+        await updateOwnTeamFixturePreferences({
+          form: submittedForm,
+          teamId,
+          user,
+        })
       }
       const createdMatch = await createMatchDay({
         user,

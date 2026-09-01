@@ -119,6 +119,7 @@ import {
   updateCalendarEvent,
   updateAssessmentSession,
   updateMatchDay,
+  updateOwnTeamFixturePreferences,
   updateTeamNotificationDisplayName,
   isPastMatchDayDate,
   withRequestTimeout,
@@ -320,6 +321,27 @@ function isTimeAfter(leftTime, rightTime) {
   return leftValue > rightValue
 }
 
+function getCalendarArrivalDefaultForm(form = {}) {
+  const kickoffTime = formatTimeInput(form.startTime)
+  const arrivalTime = formatTimeInput(form.arrivalTime)
+  const toMinutes = (value) => {
+    const [hours, minutes] = value.split(':').map(Number)
+    return (hours * 60) + minutes
+  }
+  const leadMinutes = kickoffTime && arrivalTime
+    ? (toMinutes(kickoffTime) - toMinutes(arrivalTime) + 1440) % 1440
+    : 30
+  const arrivalPreset = [15, 30, 45, 60].includes(leadMinutes)
+    ? String(leadMinutes)
+    : 'custom'
+
+  return {
+    ...form,
+    arrivalPreset,
+    arrivalTime,
+  }
+}
+
 function createNotificationRequestToken() {
   if (typeof globalThis.crypto?.randomUUID === 'function') {
     return globalThis.crypto.randomUUID()
@@ -360,6 +382,8 @@ function getDefaultCalendarForm(date = '') {
     notificationRequestToken: '',
     notificationTeamName: '',
     rememberNotificationTeamName: true,
+    saveArrivalAsDefault: false,
+    saveDurationAsDefault: false,
     opponent: '',
     kickoffTimeTbc: false,
     matchDurationMinutes: 90,
@@ -3257,6 +3281,17 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         setTeams((currentTeams) => currentTeams.map((team) => (
           String(team.id) === String(updatedTeam.id) ? updatedTeam : team
         )))
+      }
+      if (
+        sourceType === 'match-day'
+        && safeTeamId
+        && (calendarForm.saveArrivalAsDefault || calendarForm.saveDurationAsDefault)
+      ) {
+        await updateOwnTeamFixturePreferences({
+          form: getCalendarArrivalDefaultForm(calendarForm),
+          teamId: safeTeamId,
+          user,
+        })
       }
 
       const fixtureEndTime = isMatch
@@ -6303,6 +6338,17 @@ function CalendarEventModal({
                     className={fieldClass}
                   />
                   <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">Use an even number from 20 to 140 minutes.</span>
+                  <span className="mt-3 flex items-center gap-3 text-xs font-black text-[#344054]">
+                    <input
+                      type="checkbox"
+                      name="saveDurationAsDefault"
+                      checked={form.saveDurationAsDefault === true}
+                      onChange={onChange}
+                      disabled={isBusy}
+                      className="h-4 w-4 accent-[#175cd3]"
+                    />
+                    Save this duration as my default
+                  </span>
                 </label>
                 {matchUsesExtraTime(form) ? (
                   <>
@@ -6352,6 +6398,19 @@ function CalendarEventModal({
                   <span className="mb-2 block text-sm font-black text-[#101828]">Arrival time</span>
                   <input name="arrivalTime" {...validationProps('arrivalTime')} type="time" value={form.arrivalTime} onChange={onChange} disabled={form.kickoffTimeTbc} className={fieldClass} />
                   {validationMessage('arrivalTime')}
+                  {event?.sourceType === 'match-day' ? (
+                    <span className="mt-3 flex items-center gap-3 text-xs font-black text-[#344054]">
+                      <input
+                        type="checkbox"
+                        name="saveArrivalAsDefault"
+                        checked={form.saveArrivalAsDefault === true}
+                        onChange={onChange}
+                        disabled={isBusy || form.kickoffTimeTbc}
+                        className="h-4 w-4 accent-[#175cd3]"
+                      />
+                      Save this arrival as my default
+                    </span>
+                  ) : null}
                 </label>
               ) : null}
               <label className="block">

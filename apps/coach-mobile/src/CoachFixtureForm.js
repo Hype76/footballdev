@@ -20,7 +20,11 @@ import { archiveCoachMatchLocation, createCoachMatchDayFixture, getCoachMatchLoc
 import { CoachDateTimeField } from './CoachDateTimeField'
 import { readCoachFixturePreferences, writeCoachFixturePreferences } from './coachFixturePreferences'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
-import { getCoachTeamNotificationDisplayName } from '../../mobile-core/src/coachTeamNotificationData'
+import {
+  getCoachOwnTeamFixturePreferences,
+  getCoachTeamNotificationDisplayName,
+  saveCoachOwnTeamFixturePreferences,
+} from '../../mobile-core/src/coachTeamNotificationData'
 import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 
 function Button({ disabled = false, label, onPress, secondary = false, styles }) {
@@ -52,10 +56,19 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
       readCoachFixturePreferences(user.id, user.activeTeamId),
       getCoachTeamNotificationDisplayName(user),
       getCoachMatchLocations(user, matches),
+      getCoachOwnTeamFixturePreferences(user),
     ])
-      .then(([preferences, notificationTeamName, savedLocations]) => {
+      .then(([devicePreferences, notificationTeamName, savedLocations, sharedPreferences]) => {
         if (!active) return
         setLocations(savedLocations)
+        const preferences = sharedPreferences.found
+          ? {
+            ...devicePreferences,
+            arrivalPreset: sharedPreferences.arrivalPreset,
+            arrivalTime: sharedPreferences.arrivalTime,
+            duration: sharedPreferences.duration,
+          }
+          : devicePreferences
         const savedLocation = preferences.location?.name ? preferences.location : savedLocations[0] || null
         setForm((current) => initializeCoachFixtureForm(current, {
           defaultArrivalPreset: preferences.arrivalPreset,
@@ -101,6 +114,9 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
         : [...form.selectedPlayerIds],
     }
     try {
+      if (submittedForm.saveArrivalAsDefault || submittedForm.saveDurationAsDefault) {
+        await saveCoachOwnTeamFixturePreferences(user, user.activeTeamId, submittedForm)
+      }
       const result = isEditing
         ? await updateCoachMatchDayFixture(user, match, submittedForm)
         : await createCoachMatchDayFixture(user, submittedForm, { calendarTarget })

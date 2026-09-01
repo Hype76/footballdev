@@ -106,11 +106,13 @@ export {
   deleteTeam,
   getAssignedTeamsForUser,
   getAvailableTeamsForUser,
+  getOwnTeamFixturePreferences,
   getTeams,
   getTeamStaffAssignments,
   replaceTeamStaffAssignments,
   updateTeamSettings,
   updateTeamNotificationDisplayName,
+  updateOwnTeamFixturePreferences,
 } from './domain/teams.js'
 
 export {

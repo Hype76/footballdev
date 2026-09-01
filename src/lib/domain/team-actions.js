@@ -17,6 +17,10 @@ import {
 } from './team-normalizers.js'
 import { assertClubFeature } from './plan-gates.js'
 import { normalizeTeamNotificationDisplayName } from '../team-notification-display.js'
+import {
+  buildOwnTeamFixturePreferenceUpdate,
+  normalizeOwnTeamFixturePreferences,
+} from '../team-fixture-preferences.js'
 
 async function getAccessToken() {
   const { data, error } = await supabase.auth.getSession()
@@ -231,6 +235,55 @@ export async function updateTeamNotificationDisplayName({ teamId, notificationDi
   invalidateMemoryCacheByPrefix('team-assignments:')
 
   return normalizeTeamRow(data)
+}
+
+export async function getOwnTeamFixturePreferences({ teamId, user = null }) {
+  await blockDemoMutation(user)
+
+  if (!teamId) {
+    return normalizeOwnTeamFixturePreferences()
+  }
+
+  const { data, error } = await supabase.rpc('get_own_team_fixture_preferences', {
+    team_id_value: teamId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return normalizeOwnTeamFixturePreferences(data)
+}
+
+export async function updateOwnTeamFixturePreferences({ form, teamId, user = null }) {
+  await blockDemoMutation(user)
+
+  if (!teamId) {
+    throw new Error('Team ID is required.')
+  }
+
+  const preferences = buildOwnTeamFixturePreferenceUpdate(form)
+
+  if (!preferences.saveArrival && !preferences.saveDuration) {
+    return normalizeOwnTeamFixturePreferences()
+  }
+
+  const { data, error } = await supabase.rpc('set_own_team_fixture_preferences', {
+    arrival_preset_value: preferences.arrivalPreset,
+    arrival_time_value: preferences.arrivalPreset === 'custom' ? preferences.arrivalTime || null : null,
+    duration_minutes_value: preferences.duration,
+    save_arrival_value: preferences.saveArrival,
+    save_duration_value: preferences.saveDuration,
+    team_id_value: teamId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  return normalizeOwnTeamFixturePreferences(data)
 }
 
 export async function getAvailableTeamsForUser(user) {
