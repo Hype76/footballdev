@@ -5,7 +5,7 @@ import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
 import { buildScopedNotificationTitle, hydrateNotificationScopeNames } from './lib/_notification-scope.js'
-import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
+import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 
 export { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
 
@@ -63,7 +63,7 @@ async function getProfile(authUser) {
 async function getMatch(matchDayId) {
   const { data, error } = await supabaseAdmin
     .from('match_days')
-    .select('id, club_id, team_id, opponent, teams:team_id (id, name, notification_display_name, status, archived_at), clubs:club_id (name)')
+    .select('id, club_id, team_id, notification_team_name, opponent, teams:team_id (id, name, notification_display_name, status, archived_at), clubs:club_id (name)')
     .eq('id', matchDayId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -168,8 +168,7 @@ async function canNotifyCoaches({ authUser, match, profile, type }) {
 }
 
 function getTeamName(match) {
-  const team = Array.isArray(match.teams) ? match.teams[0] : match.teams
-  return resolveTeamNotificationDisplayName(team || {}, team?.name) || 'Your team'
+  return resolveMatchDayNotificationTeamName(match) || 'Your team'
 }
 
 function buildPayload({ detailLevel, match, type }) {

@@ -4,7 +4,7 @@ import {
   CALENDAR_NOTIFICATION_PARENT_PORTAL_URL,
   CALENDAR_NOTIFICATION_PLATFORM_ORIGIN,
 } from '../../../src/lib/calendar-notification-email.js'
-import { resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
+import { resolveMatchDayNotificationTeamName, resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 
 const CALENDAR_NOTIFICATION_SOURCES = new Set([
   'calendar_event_notification',
@@ -63,7 +63,7 @@ async function loadMatchDayContext(supabaseClient, { clubId, matchDayId }) {
   const fixture = await loadMaybeSingle(
     supabaseClient
       .from('match_days')
-      .select('id, club_id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, status')
+      .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, status')
       .eq('id', matchDayId)
       .eq('club_id', clubId),
     'Match Day fixture',
@@ -85,6 +85,7 @@ async function loadMatchDayContext(supabaseClient, { clubId, matchDayId }) {
     id: fixture.id,
     location: fixture.venue_name,
     notes: fixture.notes,
+    notification_team_name: fixture.notification_team_name,
     parent_audience: fixture.parent_audience,
     parent_visible: fixture.parent_visible,
     starts_at: startsAt,
@@ -109,6 +110,17 @@ async function loadEventContext(supabaseClient, notification) {
   }
 
   return null
+}
+
+function resolveEventNotificationTeamName(event, brand) {
+  if (normalizeText(event?.event_type).toLowerCase() === 'match') {
+    return resolveMatchDayNotificationTeamName({
+      notification_team_name: event.notification_team_name,
+      teams: brand.team,
+    }, brand.team?.name) || normalizeText(brand.club?.name)
+  }
+
+  return resolveTeamNotificationDisplayName(brand.team || {}, brand.team?.name) || normalizeText(brand.club?.name)
 }
 
 async function loadCommonBrandContext(supabaseClient, { clubId, teamId }) {
@@ -257,7 +269,7 @@ async function loadParentNotificationContext(supabaseClient, row) {
     recipientEmail: queueRecipient,
     sendable: true,
     startsAt: event.starts_at,
-    teamName: resolveTeamNotificationDisplayName(brand.team || {}, brand.team?.name) || normalizeText(brand.club.name),
+    teamName: resolveEventNotificationTeamName(event, brand),
     themeAccent: normalizeText(brand.club.theme_accent),
     trialInvitation: false,
   }
@@ -364,7 +376,7 @@ async function loadTrialNotificationContext(supabaseClient, row) {
     responseUrl: `${CALENDAR_NOTIFICATION_PLATFORM_ORIGIN}/.netlify/functions/calendar-trial-rsvp?token=${encodeURIComponent(rawToken)}`,
     sendable: true,
     startsAt: event.starts_at,
-    teamName: resolveTeamNotificationDisplayName(brand.team || {}, brand.team?.name) || normalizeText(brand.club.name),
+    teamName: resolveEventNotificationTeamName(event, brand),
     themeAccent: normalizeText(brand.club.theme_accent),
     trialInvitation: true,
   }

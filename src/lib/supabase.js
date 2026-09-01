@@ -394,6 +394,7 @@ export {
   addStaffMatchDayEvent,
   addStaffMatchDayGoal,
   calculateArrivalTime,
+  archiveMatchLocation,
   createMatchDayEventLogEntry,
   createMatchDay,
   deletePreviousMatchDay,

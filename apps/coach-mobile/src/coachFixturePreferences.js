@@ -16,6 +16,8 @@ export async function readCoachFixturePreferences(userId, teamId) {
       motmPollExpiryDuration = DEFAULT_EXPIRY_DURATION
     }
     return {
+      arrivalPreset: ['15', '30', '45', '60', 'custom'].includes(String(value.arrivalPreset)) ? String(value.arrivalPreset) : '30',
+      arrivalTime: String(value.arrivalTime || ''),
       duration: Number.isInteger(Number(value.duration)) ? Number(value.duration) : 90,
       location: value.location && typeof value.location === 'object'
         ? { address: String(value.location.address || ''), name: String(value.location.name || '') }
@@ -23,12 +25,14 @@ export async function readCoachFixturePreferences(userId, teamId) {
       motmPollExpiryDuration,
     }
   } catch {
-    return { duration: 90, location: null, motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION }
+    return { arrivalPreset: '30', arrivalTime: '', duration: 90, location: null, motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION }
   }
 }
 
 export async function writeCoachFixturePreferences(userId, teamId, preferences) {
   const value = {
+    arrivalPreset: ['15', '30', '45', '60', 'custom'].includes(String(preferences?.arrivalPreset)) ? String(preferences.arrivalPreset) : '30',
+    arrivalTime: String(preferences?.arrivalTime || ''),
     duration: Number(preferences?.duration || 90),
     location: preferences?.location?.name
       ? { address: String(preferences.location.address || ''), name: String(preferences.location.name || '') }

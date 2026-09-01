@@ -13,7 +13,7 @@ import {
   normalizeInvitationText,
   resolveEligibleMatchDayInvitationContacts,
 } from './lib/_match-day-actionable-invitation.js'
-import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
+import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -405,7 +405,7 @@ async function prepareCalendarEditInvitations({
       },
       visibleInEmailQueue: false,
       displayName: 'Football Player',
-      teamName: resolveTeamNotificationDisplayName(match.teams || {}, match.teams?.name),
+      teamName: resolveMatchDayNotificationTeamName(match),
       clubName: normalizeText(match.clubs?.name),
       playerName: normalizeText(player.player_name),
       parentName: normalizeText(request.recipient_name),
@@ -939,7 +939,7 @@ export async function handler(event) {
             text: email.text,
           },
           displayName: 'Football Player',
-          teamName: resolveTeamNotificationDisplayName(match.teams || {}, match.team_name),
+          teamName: resolveMatchDayNotificationTeamName(match),
           clubName: normalizeText(match.clubs?.name),
           playerName: normalizeText(player.player_name),
           parentName: normalizeText(contact.name),

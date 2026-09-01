@@ -36,6 +36,7 @@ import {
   normalizeExtraTimePeriodCount,
   normalizeMatchDayConclusionRule,
 } from '../matchday-extended-ops.js'
+import { normalizeTeamNotificationDisplayName } from '../team-notification-display.js'
 export { sortMatchDayPresentation } from '../matchday-presentation.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
@@ -559,6 +560,9 @@ export function normalizeMatchDay(row) {
     clubId: row.club_id ?? row.clubId ?? '',
     teamId: row.team_id ?? row.teamId ?? '',
     teamName: normalizeText(team?.name ?? row.team_name ?? row.teamName),
+    notificationTeamName: normalizeTeamNotificationDisplayName(
+      row.notification_team_name ?? row.notificationTeamName,
+    ),
     opponent: normalizeText(row.opponent),
     fixtureType: normalizeMatchDayFixtureType(row.fixture_type ?? row.fixtureType),
     conclusionRule: normalizeMatchDayConclusionRule(row.match_conclusion_rule ?? row.conclusionRule),
@@ -805,6 +809,7 @@ function buildMatchDayListSelect() {
     id,
     club_id,
     team_id,
+    notification_team_name,
     opponent,
     fixture_type,
     match_conclusion_rule,
@@ -1265,36 +1270,69 @@ export async function getMatchLocations({ user } = {}) {
     throw usageError
   }
 
-  const locationIds = [...new Set(
-    (usageRows ?? []).map((row) => normalizeText(row.location_id)).filter(Boolean),
-  )]
-  let savedRows = []
+  const { data: savedRows = [], error: savedLocationsError } = await supabase
+    .from('match_locations')
+    .select('id, name, address, notes, archived_at')
+    .eq('club_id', user.clubId)
+    .order('name', { ascending: true })
 
-  if (locationIds.length > 0) {
-    const { data, error } = await supabase
-      .from('match_locations')
-      .select('id, name, address, notes')
-      .eq('club_id', user.clubId)
-      .in('id', locationIds)
-      .order('name', { ascending: true })
-
-    if (error) {
-      console.error(error)
-      throw error
-    }
-
-    savedRows = data ?? []
+  if (savedLocationsError) {
+    console.error(savedLocationsError)
+    throw savedLocationsError
   }
 
-  const usedRows = (usageRows ?? []).map((row) => ({
-    id: normalizeText(row.location_id)
-      || `used:${normalizeText(row.venue_name).toLocaleLowerCase()}:${normalizeText(row.venue_address).toLocaleLowerCase()}`,
-    name: row.venue_name,
-    address: row.venue_address,
-    notes: '',
-  }))
+  const archivedIdentities = new Set(
+    savedRows
+      .filter((row) => row.archived_at)
+      .map((row) => `${normalizeText(row.name).toLocaleLowerCase()}|${normalizeText(row.address).toLocaleLowerCase()}`),
+  )
 
-  return normalizeMatchLocations([...savedRows, ...usedRows])
+  const usedRows = (usageRows ?? [])
+    .filter((row) => !archivedIdentities.has(
+      `${normalizeText(row.venue_name).toLocaleLowerCase()}|${normalizeText(row.venue_address).toLocaleLowerCase()}`,
+    ))
+    .map((row) => ({
+      id: normalizeText(row.location_id)
+        || `used:${normalizeText(row.venue_name).toLocaleLowerCase()}:${normalizeText(row.venue_address).toLocaleLowerCase()}`,
+      name: row.venue_name,
+      address: row.venue_address,
+      notes: '',
+    }))
+
+  return normalizeMatchLocations([
+    ...savedRows.filter((row) => !row.archived_at),
+    ...usedRows,
+  ])
+}
+
+export async function archiveMatchLocation({ location, teamId, user } = {}) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+
+  const locationName = normalizeText(location?.name)
+  const locationAddress = normalizeText(location?.address)
+  const locationId = normalizeText(location?.id)
+  const savedLocationId = locationId && !locationId.startsWith('used:') ? locationId : null
+  const targetTeamId = normalizeText(teamId || user?.activeTeamId)
+
+  if (!targetTeamId || !locationName) {
+    throw new Error('Choose a saved location to delete.')
+  }
+
+  const { data, error } = await supabase.rpc('archive_match_location_for_team', {
+    p_address: locationAddress,
+    p_location_id: savedLocationId,
+    p_name: locationName,
+    p_team_id: targetTeamId,
+  })
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix('match-day:')
+  return data
 }
 
 export function normalizeMatchLocations(rows = []) {
@@ -1341,6 +1379,7 @@ export async function createMatchDay({ user, match }) {
   const requestReferee = normalizeBoolean(match?.requestReferee)
   const homeAway = assertNewMatchHomeAway(match?.homeAway)
   const shirtChoice = assertMatchDayShirtChoice(match?.shirtChoice ?? 'home')
+  const notificationTeamName = normalizeTeamNotificationDisplayName(match?.notificationTeamName)
   const clockMode = assertValidMatchClockMode(match?.clockMode ?? 'fixed')
   const matchDurationMinutes = assertValidMatchDurationMinutes(match?.matchDurationMinutes)
   const conclusionRule = normalizeMatchDayConclusionRule(match?.conclusionRule)
@@ -1379,6 +1418,7 @@ export async function createMatchDay({ user, match }) {
     .insert({
       club_id: user.clubId,
       team_id: teamId,
+      notification_team_name: notificationTeamName,
       location_id: locationId || null,
       opponent,
       fixture_type: fixtureType,
@@ -1494,6 +1534,9 @@ export async function updateMatchDay({ user, matchId, updates }) {
   }
 
   if (updates.opponent !== undefined) payload.opponent = normalizeText(updates.opponent)
+  if (updates.notificationTeamName !== undefined) {
+    payload.notification_team_name = normalizeTeamNotificationDisplayName(updates.notificationTeamName)
+  }
   if (updates.fixtureType !== undefined) payload.fixture_type = assertValidMatchDayFixtureType(updates.fixtureType)
   if (updates.arrivalTime !== undefined) {
     const isTimeTbc = nextFixtureDateTime?.kickoffTimeTbc ?? (previousSnapshot?.kickoffTimeTbc === true)

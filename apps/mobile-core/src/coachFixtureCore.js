@@ -42,41 +42,48 @@ export function getCoachMatchLocationOptions(matches = []) {
     .map((location) => Object.freeze({ ...location, id: `${location.name}|${location.address}`, label: location.address ? `${location.name} | ${location.address}` : location.name }))
 }
 
-export function createCoachFixtureForm({ defaultDuration = 90, defaultLocation = null, defaultMotmPollExpiryDuration = DEFAULT_EXPIRY_DURATION, notificationTeamName = '' } = {}) {
+export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArrivalTime = '', defaultDuration = 90, defaultLocation = null, defaultMotmPollExpiryDuration = DEFAULT_EXPIRY_DURATION, match = null, notificationTeamName = '' } = {}) {
   const duration = assertValidMatchDurationMinutes(defaultDuration)
-  const kickoffTime = '10:00'
+  const kickoffTime = normalize(match?.kickoffTime) || '10:00'
+  const arrivalPreset = match?.id
+    ? 'custom'
+    : COACH_MATCH_ARRIVAL_OPTIONS.some((option) => option.value === String(defaultArrivalPreset))
+      ? String(defaultArrivalPreset)
+      : '30'
   return {
-    arrivalPreset: '30',
-    arrivalTime: calculateCoachArrivalTime(kickoffTime, '30'),
+    arrivalPreset,
+    arrivalTime: normalize(match?.arrivalTime)
+      || (arrivalPreset === 'custom' ? normalize(defaultArrivalTime) : calculateCoachArrivalTime(kickoffTime, arrivalPreset)),
     autoSelectAvailablePlayers: true,
-    clockMode: 'fixed',
-    conclusionRule: 'normal_time',
+    clockMode: normalize(match?.clockMode) || 'fixed',
+    conclusionRule: normalizeMatchDayConclusionRule(match?.conclusionRule),
     enableMotmPoll: false,
-    extraTimeHalfMinutes: 15,
-    extraTimePeriodCount: 2,
-    fixtureType: '',
-    homeAway: 'home',
-    shirtChoice: 'home',
+    extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(match?.extraTimeHalfMinutes),
+    extraTimePeriodCount: normalizeExtraTimePeriodCount(match?.extraTimePeriodCount),
+    fixtureType: normalize(match?.fixtureType),
+    homeAway: normalize(match?.homeAway) || 'home',
+    shirtChoice: normalize(match?.shirtChoice) || 'home',
     kickoffTime,
-    kickoffTimeTbc: false,
-    matchDate: formatCoachCalendarFormDate(getDateInTimeZone()),
-    matchDurationMinutes: duration,
+    kickoffTimeTbc: match?.kickoffTimeTbc === true,
+    matchDate: formatCoachCalendarFormDate(match?.matchDate || getDateInTimeZone()),
+    matchDurationMinutes: match?.matchDurationMinutes ?? duration,
     motmNotifyResultsOnClose: false,
     motmPollExpiryDuration: normalize(defaultMotmPollExpiryDuration) || DEFAULT_EXPIRY_DURATION,
-    notes: '',
-    notificationTeamName: normalize(notificationTeamName),
+    notes: normalize(match?.notes),
+    notificationTeamName: normalize(match?.notificationTeamName || notificationTeamName),
     rememberNotificationTeamName: true,
-    opponent: '',
+    opponent: normalize(match?.opponent),
     parentAudience: 'none',
     parentVisible: false,
-    requestLinesman: false,
-    requestReferee: false,
-    requestScorer: false,
+    requestLinesman: match?.requestLinesman === true,
+    requestReferee: match?.requestReferee === true,
+    requestScorer: match?.requestScorer === true,
     saveDurationAsDefault: false,
+    saveArrivalAsDefault: false,
     saveMotmExpiryAsDefault: false,
     selectedPlayerIds: [],
-    venueAddress: normalize(defaultLocation?.address),
-    venueName: normalize(defaultLocation?.name),
+    venueAddress: normalize(match?.venueAddress || defaultLocation?.address),
+    venueName: normalize(match?.venueName || defaultLocation?.name),
   }
 }
 

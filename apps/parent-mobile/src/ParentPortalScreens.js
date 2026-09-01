@@ -13,6 +13,7 @@ import {
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
 import { captureCoachMatchDayAction, getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
 import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
+import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import {
   canParentRegisterScorerInterest,
@@ -249,7 +250,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
           <Text style={styles.meta}>{isMatch ? `Kick-off: ${event.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}` : event.calendarTime || 'All day'}</Text>
         </View>
         <Text style={styles.cardTitle}>{event.title}</Text>
-        {event.eventType === 'match_day' ? <Text style={styles.meta}>{event.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
+        {event.eventType === 'match_day' ? <Text style={styles.meta}>{getMatchDayShirtChoiceLabel(event.shirtChoice)}</Text> : null}
         {isMatch && arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(arrivalTime)}</Text> : null}
         {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
         {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
@@ -430,7 +431,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
             {volunteerOffer ? <Text style={styles.volunteerRole}>{volunteerRole} offer</Text> : null}
             <Text style={styles.cardTitle}>{invitation.eventTitle}</Text>
             {!matchInvitation && invitation.eventStart ? <Text style={styles.meta}>Starts: {formatParentProductTime(invitation.eventStart)}</Text> : null}
-            {matchInvitation ? <Text style={styles.meta}>Shirts: {invitation.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
+            {matchInvitation ? <Text style={styles.meta}>Kits: {getMatchDayShirtChoiceLabel(invitation.shirtChoice)}</Text> : null}
             {matchInvitation && invitation.arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(invitation.arrivalTime)}</Text> : null}
             {matchInvitation ? <Text style={styles.meta}>Kick-off: {invitation.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}</Text> : null}
             {volunteerOffer ? <Text style={styles.body}>This is a Parent or guardian volunteer role. It does not select your child for the squad.</Text> : null}
@@ -479,7 +480,7 @@ function MatchCard({ match, onDismiss, onOpen, styles }) {
       <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
       {match.arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(match.arrivalTime)}</Text> : null}
       <Text style={styles.meta}>Kick-off: {match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)}</Text>
-      <Text style={styles.meta}>{match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
+      <Text style={styles.meta}>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text>
       {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
       <Button label="Open Match Day" onPress={() => onOpen(match)} outline styles={styles} />
       {onDismiss ? <Button label="Remove from this list" onPress={() => onDismiss(match)} outline styles={styles} /> : null}
@@ -736,7 +737,7 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onAddToCalenda
             <Text style={styles.pill}>{labelize(selectedMatch.status)}</Text>
             <Text style={styles.pill}>{presentation?.phaseLabel || 'Pre-match'}</Text>
             {selectedMatch.homeAway ? <Text style={styles.pill}>{labelize(selectedMatch.homeAway)}</Text> : null}
-            <Text style={styles.pill}>{selectedMatch.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
+            <Text style={styles.pill}>{getMatchDayShirtChoiceLabel(selectedMatch.shirtChoice)}</Text>
             {selectedMatch.fixtureType ? <Text style={styles.pill}>{labelize(selectedMatch.fixtureType)}</Text> : null}
           </View>
           <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || `${selectedMatch.teamName} v ${selectedMatch.opponent}`}</Text>

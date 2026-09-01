@@ -9,7 +9,7 @@ import {
 } from '../../src/lib/email-branding.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
-import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
+import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { handler as sendMatchDayPushHandler } from './send-match-day-push.js'
 
@@ -169,7 +169,7 @@ function buildGoogleCalendarLink({ match, matchName, roleLabel, teamName, oppone
     `Opponent: ${opponent}`,
     `Kick-off: ${formatTime(match.kickoff_time)}`,
     match.arrival_time ? `Arrival: ${formatTime(match.arrival_time)}` : '',
-    `Shirts: ${getMatchDayShirtChoiceLabel(match.shirt_choice)}`,
+    `Kits: ${getMatchDayShirtChoiceLabel(match.shirt_choice)}`,
     match.venue_name ? `Venue: ${match.venue_name}` : '',
     portalUrl ? `Parent Portal: ${portalUrl}` : '',
   ].filter(Boolean).join('\n')
@@ -226,7 +226,7 @@ export function buildRoleNotificationEmail({
   action,
 }) {
   const roleLabel = ROLE_CONFIG[role]?.label || 'Volunteer'
-  const teamName = resolveTeamNotificationDisplayName(match.teams || {}, match.team_name || 'the team')
+  const teamName = resolveMatchDayNotificationTeamName(match, 'the team')
   const opponent = normalizeText(match.opponent || 'Fixture')
   const matchName = getMatchDayDisplayName({ ...match, teamName })
   const clubName = normalizeText(match.clubs?.name || match.club_name || 'Football Player')
@@ -257,7 +257,7 @@ export function buildRoleNotificationEmail({
     ['Date', formatDate(match.match_date)],
     ['Kick off', formatTime(match.kickoff_time)],
     ['Arrival', formatTime(match.arrival_time)],
-    ['Shirts', getMatchDayShirtChoiceLabel(match.shirt_choice)],
+    ['Kits', getMatchDayShirtChoiceLabel(match.shirt_choice)],
     ['Venue', normalizeText(match.venue_name) || 'Not set'],
     ['Address', normalizeText(match.venue_address) || 'Not set'],
   ]
@@ -346,7 +346,7 @@ async function queueRoleNotification(adminSupabase, { appOrigin, match, profile,
       text: email.text,
     },
     displayName: `${normalizeText(match.clubs?.name) || 'Football Player'} via Football Player`,
-    teamName: resolveTeamNotificationDisplayName(match.teams || {}, match.team_name),
+    teamName: resolveMatchDayNotificationTeamName(match),
     clubName: normalizeText(match.clubs?.name),
     playerName: '',
     parentName: normalizeText(recipientName),

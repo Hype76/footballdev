@@ -30,6 +30,7 @@ import {
 import {
   addStaffMatchDayEvent as liveAddStaffMatchDayEvent,
   addStaffMatchDayGoal as liveAddStaffMatchDayGoal,
+  archiveMatchLocation as liveArchiveMatchLocation,
   calculateArrivalTime,
   correctStaffMatchDayGoal as liveCorrectStaffMatchDayGoal,
   createMatchDay as liveCreateMatchDay,
@@ -162,6 +163,7 @@ import {
 const LIVE_MATCH_DAY_ADAPTER = Object.freeze({
   addStaffMatchDayEvent: liveAddStaffMatchDayEvent,
   addStaffMatchDayGoal: liveAddStaffMatchDayGoal,
+  archiveMatchLocation: liveArchiveMatchLocation,
   correctStaffMatchDayGoal: liveCorrectStaffMatchDayGoal,
   createMatchDay: liveCreateMatchDay,
   createMatchDayEventLogEntry: liveCreateMatchDayEventLogEntry,
@@ -240,16 +242,20 @@ const EMPTY_MATCH_FORM = {
   notificationTeamName: '',
   rememberNotificationTeamName: true,
   saveDurationAsDefault: false,
+  saveArrivalAsDefault: false,
   saveMotmExpiryAsDefault: false,
 }
 
 const MATCH_DAY_FIXTURE_PREFERENCES_KEY = 'fp.matchday.fixture.preferences.v1'
 
 function readMatchDayFixturePreferences() {
-  if (typeof window === 'undefined') return { duration: 90, location: null, motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION }
+  if (typeof window === 'undefined') return { arrivalPreset: '30', arrivalTime: '', duration: 90, location: null, motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION }
   try {
     const value = JSON.parse(window.localStorage.getItem(MATCH_DAY_FIXTURE_PREFERENCES_KEY) || '{}')
     const duration = Number(value.duration)
+    const arrivalPreset = MATCH_DAY_ARRIVAL_OPTIONS.some((option) => option.value === String(value.arrivalPreset))
+      ? String(value.arrivalPreset)
+      : '30'
     let motmPollExpiryDuration = DEFAULT_EXPIRY_DURATION
     try {
       parseExpiryDuration(value.motmPollExpiryDuration)
@@ -258,6 +264,8 @@ function readMatchDayFixturePreferences() {
       motmPollExpiryDuration = DEFAULT_EXPIRY_DURATION
     }
     return {
+      arrivalPreset,
+      arrivalTime: arrivalPreset === 'custom' ? String(value.arrivalTime || '') : '',
       duration: Number.isInteger(duration) && duration >= 20 && duration <= 140 ? duration : 90,
       location: value.location && typeof value.location === 'object'
         ? { address: String(value.location.address || ''), name: String(value.location.name || '') }
@@ -265,7 +273,7 @@ function readMatchDayFixturePreferences() {
       motmPollExpiryDuration,
     }
   } catch {
-    return { duration: 90, location: null, motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION }
+    return { arrivalPreset: '30', arrivalTime: '', duration: 90, location: null, motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION }
   }
 }
 
@@ -273,6 +281,10 @@ function writeMatchDayFixturePreferences(form) {
   if (typeof window === 'undefined') return
   const current = readMatchDayFixturePreferences()
   window.localStorage.setItem(MATCH_DAY_FIXTURE_PREFERENCES_KEY, JSON.stringify({
+    arrivalPreset: form.saveArrivalAsDefault ? String(form.arrivalPreset || '30') : current.arrivalPreset,
+    arrivalTime: form.saveArrivalAsDefault && form.arrivalPreset === 'custom'
+      ? String(form.arrivalTime || '')
+      : current.arrivalTime,
     duration: form.saveDurationAsDefault ? Number(form.matchDurationMinutes) : current.duration,
     location: form.venueName ? { address: String(form.venueAddress || ''), name: String(form.venueName || '') } : null,
     motmPollExpiryDuration: form.saveMotmExpiryAsDefault
@@ -1571,7 +1583,7 @@ function getHomeAwayLabel(homeAway) {
 }
 
 function getShirtChoiceLabel(shirtChoice) {
-  return MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === shirtChoice)?.label || 'Home shirts'
+  return MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === shirtChoice)?.label || 'Home Kits'
 }
 
 function getAvailabilityPlayerKey(row) {
@@ -2221,6 +2233,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const {
     addStaffMatchDayEvent,
     addStaffMatchDayGoal,
+    archiveMatchLocation,
     correctStaffMatchDayGoal,
     createMatchDay,
     createMatchDayEventLogEntry,
@@ -2407,6 +2420,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       const baseForm = {
         ...EMPTY_MATCH_FORM,
         ...getMatchDurationFormFields(preferences.duration),
+        arrivalPreset: preferences.arrivalPreset,
+        arrivalTime: preferences.arrivalTime,
         motmPollExpiryDuration: preferences.motmPollExpiryDuration,
         notificationTeamName: resolveTeamNotificationDisplayName(
           teams.find((team) => String(team.id) === String(setupIntent?.teamId || user.activeTeamId || '')) || {},
@@ -2997,11 +3012,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     })
   }
 
-  const handleConfirmCreateMatch = async () => {
+  const handleConfirmCreateMatch = async ({ calendarOnly = false } = {}) => {
     const selectedPlayerIds = squadSelection.selectedPlayerIds
     const selectionMode = squadSelection.mode
 
-    if (selectedPlayerIds.length === 0) {
+    if (!calendarOnly && selectedPlayerIds.length === 0) {
       setErrorMessage('Choose at least one availability invitation recipient before creating the fixture.')
       return
     }
@@ -3031,19 +3046,21 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       })
 
       setMatches(reconcileCreatedMatch)
-      await logFixtureAvailabilityRecipientEvents({
-        createEventLogEntry: createMatchDayEventLogEntry,
-        match: createdMatch,
-        players: fixturePlayers,
-        selectedPlayerIds,
-        selectionMode,
-        user,
-      })
+      if (!calendarOnly) {
+        await logFixtureAvailabilityRecipientEvents({
+          createEventLogEntry: createMatchDayEventLogEntry,
+          match: createdMatch,
+          players: fixturePlayers,
+          selectedPlayerIds,
+          selectionMode,
+          user,
+        })
+      }
       const communicationRuntime = {
         env: import.meta.env,
         location: window.location,
       }
-      const canSendAvailabilityRequests = shouldSendMatchdayAvailabilityRequests({
+      const canSendAvailabilityRequests = !calendarOnly && shouldSendMatchdayAvailabilityRequests({
         parentVisible: form.parentVisible,
         runtime: communicationRuntime,
       }) && allowsCommunication
@@ -3072,7 +3089,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         }
       }
 
-      if (allowsCommunication && shouldSendMatchdayPushNotification({
+      if (!calendarOnly && allowsCommunication && shouldSendMatchdayPushNotification({
         parentVisible: form.parentVisible,
         runtime: communicationRuntime,
       })) {
@@ -3098,6 +3115,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         title: 'Fixture created',
         message: availabilityWarning
           ? `The fixture was saved, but availability requests could not be sent: ${availabilityWarning}`
+          : calendarOnly
+            ? 'The fixture was added to calendars only. No availability requests or notifications were sent.'
           : canSendAvailabilityRequests
             ? `${result.queuedCount ?? result.sentCount ?? 0} availability request notification${(result.queuedCount ?? result.sentCount ?? 0) === 1 ? '' : 's'} scheduled. ${result.missingContactCount ?? 0} players need contact details.`
             : 'The fixture was saved. Availability sending is enabled only on production or approved live runtimes.',
@@ -3105,6 +3124,42 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Match Day could not be created.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDeleteSavedLocation = async () => {
+    const location = locations.find((candidate) => String(candidate.id) === String(selectedLocationId))
+
+    if (!location || !window.confirm(`Delete ${location.label} from saved locations? Existing fixtures will keep their venue details.`)) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await archiveMatchLocation({
+        location,
+        teamId: form.teamId || user.activeTeamId,
+        user,
+      })
+      const nextLocations = await getMatchLocations({ user })
+      const preferences = readMatchDayFixturePreferences()
+      if (preferences.location?.name === location.name && preferences.location?.address === location.address) {
+        window.localStorage.setItem(MATCH_DAY_FIXTURE_PREFERENCES_KEY, JSON.stringify({
+          ...preferences,
+          location: null,
+        }))
+      }
+      setLocations(nextLocations)
+      setSelectedLocationId('')
+      updateForm({ venueAddress: '', venueName: '' })
+      showToast({ title: 'Saved location deleted', message: 'Existing fixtures keep their venue details. Re-entering this address will save it again.' })
+    } catch (error) {
+      console.error(error)
+      setErrorMessage(error.message || 'The saved location could not be deleted.')
     } finally {
       setIsSaving(false)
     }
@@ -4748,6 +4803,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           isSaving={isSaving}
           isTeamScopedFixture={isTeamScopedFixture}
           locations={locations}
+          onDeleteSavedLocation={handleDeleteSavedLocation}
           selectedLocationId={selectedLocationId}
           selectedFixtureTeamId={selectedFixtureTeamId}
           selectedFixtureTeamName={selectedFixtureTeamName}
@@ -4777,6 +4833,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           validationMessage={errorMessage}
           onCancel={() => setSquadSelection(EMPTY_SQUAD_SELECTION)}
           onConfirm={handleConfirmCreateMatch}
+          onCalendarOnly={() => handleConfirmCreateMatch({ calendarOnly: true })}
           onSelectionModeChange={(mode) => {
             setSquadSelection((current) => ({
               ...current,
@@ -4805,6 +4862,13 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
             ...current,
             mode: 'full',
             selectedPlayerIds: fixturePlayers.map((player) => player.id),
+          }))}
+          onSelectSquad={() => setSquadSelection((current) => ({
+            ...current,
+            mode: 'squad',
+            selectedPlayerIds: fixturePlayers
+              .filter((player) => String(player.section || '').trim().toLowerCase() === 'squad')
+              .map((player) => player.id),
           }))}
           onClearAll={() => setSquadSelection((current) => ({
             ...current,
@@ -5088,7 +5152,7 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
         <DetailItem label="Team" value={match.teamName || 'Our team'} />
         <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
         <DetailItem label="Home or away" value={getHomeAwayLabel(match.homeAway)} />
-        <DetailItem label="Shirts" value={getShirtChoiceLabel(match.shirtChoice)} />
+        <DetailItem label="Kits" value={getShirtChoiceLabel(match.shirtChoice)} />
         <DetailItem label="Clock" value={isContinuousMatchClock(match) ? 'Continuous clock' : `Fixed, ${match.matchDurationMinutes} minutes`} />
         <DetailItem label="Final score" value={getMatchDayDisplayScore(match)} />
         <DetailItem label="Match status" value={getMatchLifecycleLabel(match)} />
@@ -5510,7 +5574,7 @@ function MatchDayCard({
                 <DetailItem label="Match phase" value={getMatchDayPhaseLabel(match) || getMatchPeriodLabel(match)} />
                 <DetailItem label="Date and time" value={formatMatchDate(match)} />
                 <DetailItem label="Venue" value={locationSummary.displayLabel || getHomeAwayLabel(match.homeAway)} />
-                <DetailItem label="Shirts" value={getShirtChoiceLabel(match.shirtChoice)} />
+                <DetailItem label="Kits" value={getShirtChoiceLabel(match.shirtChoice)} />
                 <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
                 <DetailItem label="Status" value={getMatchLifecycleLabel(match)} />
               </dl>
@@ -7218,6 +7282,7 @@ function FixtureSetupModal({
   isSaving,
   isTeamScopedFixture,
   locations,
+  onDeleteSavedLocation,
   onClose,
   selectedLocationId,
   selectedFixtureTeamId,
@@ -7427,6 +7492,17 @@ function FixtureSetupModal({
                 </div>
               )}
 
+              <label className="flex min-h-11 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">
+                <input
+                  type="checkbox"
+                  checked={form.saveArrivalAsDefault === true}
+                  onChange={(event) => updateForm({ saveArrivalAsDefault: event.target.checked })}
+                  disabled={form.kickoffTimeTbc}
+                  className="mt-0.5 h-4 w-4 accent-[#047857]"
+                />
+                <span className="text-sm font-black text-[#101828]">Save this arrival as my default</span>
+              </label>
+
               <label className="block">
                 <span className={labelClass}>Home or away</span>
                 <select value={form.homeAway} onChange={(event) => updateForm({ homeAway: event.target.value })} className={inputClass}>
@@ -7435,7 +7511,7 @@ function FixtureSetupModal({
               </label>
 
               <label className="block">
-                <span className={labelClass}>Shirts</span>
+                <span className={labelClass}>Kits</span>
                 <select value={form.shirtChoice} onChange={(event) => updateForm({ shirtChoice: event.target.value })} className={inputClass}>
                   {MATCH_DAY_SHIRT_CHOICE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
@@ -7495,13 +7571,23 @@ function FixtureSetupModal({
                 ) : null}
               </div>
 
-              <label className="block">
+              <div className="block">
                 <span className={labelClass}>Reuse location</span>
                 <select value={selectedLocationId} onChange={(event) => applyLocation(event.target.value)} className={inputClass}>
                   <option value="">{locations.length > 0 ? 'Choose saved location' : 'No saved locations yet'}</option>
                   {locations.map((location) => <option key={location.id} value={location.id}>{location.label}</option>)}
                 </select>
-              </label>
+                {selectedLocationId ? (
+                  <button
+                    type="button"
+                    onClick={onDeleteSavedLocation}
+                    disabled={isSaving}
+                    className="mt-2 inline-flex min-h-10 items-center justify-center rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-black text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Delete saved address
+                  </button>
+                ) : null}
+              </div>
 
               <label className="block">
                 <span className={labelClass}>Venue</span>
@@ -7716,10 +7802,12 @@ function FixtureSetupModal({
 
 function FixtureSquadSelectionModal({
   isSaving,
+  onCalendarOnly,
   onCancel,
   onClearAll,
   onConfirm,
   onSelectAll,
+  onSelectSquad,
   onSelectionModeChange,
   onTogglePlayer,
   parentVisible,
@@ -7762,6 +7850,7 @@ function FixtureSquadSelectionModal({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:hidden">
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Choose all active players</button>
+              <button type="button" onClick={onSelectSquad} className={secondaryButtonClass}>Squad only</button>
               <button type="button" onClick={onClearAll} className={secondaryButtonClass}>Clear</button>
             </div>
           </div>
@@ -7797,6 +7886,7 @@ function FixtureSquadSelectionModal({
             <p className="text-sm font-black text-[#101828]">{selectedCount} of {players.length} recipients</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={onSelectAll} className={secondaryButtonClass}>Choose all active players</button>
+              <button type="button" onClick={onSelectSquad} className={secondaryButtonClass}>Squad only</button>
               <button type="button" onClick={onClearAll} className={secondaryButtonClass}>Clear</button>
             </div>
           </div>
@@ -7833,6 +7923,9 @@ function FixtureSquadSelectionModal({
         <div className="shrink-0 flex flex-col-reverse gap-3 border-t border-[#d7e5dc] bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end sm:px-6">
           <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>
             Cancel
+          </button>
+          <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onCalendarOnly} disabled={isSaving} className={secondaryButtonClass}>
+            {isSaving ? 'Creating...' : 'Add to calendars only'}
           </button>
           <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onConfirm} disabled={isSaving || selectedCount === 0} className={primaryButtonClass}>
             {isSaving ? 'Creating...' : parentVisible ? 'Create fixture and request availability' : 'Create fixture'}

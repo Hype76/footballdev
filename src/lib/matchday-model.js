@@ -15,8 +15,9 @@ export const MATCH_DAY_HOME_AWAY_OPTIONS = [
 ]
 
 export const MATCH_DAY_SHIRT_CHOICE_OPTIONS = [
-  { value: 'home', label: 'Home shirts' },
-  { value: 'away', label: 'Away shirts' },
+  { value: 'home', label: 'Home Kits' },
+  { value: 'away', label: 'Away Kits' },
+  { value: 'tbc', label: 'TBC' },
 ]
 
 const LEGACY_MATCH_DAY_HOME_AWAY_VALUES = new Set(['home', 'away', 'neutral'])
@@ -57,7 +58,7 @@ export function assertMatchDayShirtChoice(value) {
   const shirtChoice = normalizeText(value)
 
   if (!MATCH_DAY_SHIRT_CHOICE_VALUES.has(shirtChoice)) {
-    throw new Error('Choose Home shirts or Away shirts for this fixture.')
+    throw new Error('Choose Home Kits, Away Kits, or TBC for this fixture.')
   }
 
   return shirtChoice
@@ -65,7 +66,7 @@ export function assertMatchDayShirtChoice(value) {
 
 export function getMatchDayShirtChoiceLabel(value) {
   const shirtChoice = normalizeMatchDayShirtChoice(value)
-  return MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === shirtChoice)?.label || 'Home shirts'
+  return MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === shirtChoice)?.label || 'Home Kits'
 }
 
 export function normalizeMatchClockMode(value) {

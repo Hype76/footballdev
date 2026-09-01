@@ -158,7 +158,7 @@ function buildFixtureResponseCalendarUrl(response) {
     `Opponent: ${opponent}`,
     kickoffTimeTbc ? 'Kick-off: Time TBC' : `Kick-off: ${formatTime(response.kickoff_time)}`,
     !kickoffTimeTbc && response.arrival_time ? `Arrival: ${formatTime(response.arrival_time)}` : '',
-    `Shirts: ${getMatchDayShirtChoiceLabel(response.shirt_choice)}`,
+    `Kits: ${getMatchDayShirtChoiceLabel(response.shirt_choice)}`,
     response.venue_name ? `Venue: ${response.venue_name}` : '',
   ].filter(Boolean).join('\n')
   const params = new URLSearchParams({
@@ -223,7 +223,7 @@ function detailRows(response) {
     ['Date', response.match_date || 'Date not set'],
     ['Kick off', kickoffTimeTbc ? 'Time TBC' : response.kickoff_time ? String(response.kickoff_time).slice(0, 5) : 'Not set'],
     ['Arrival', kickoffTimeTbc ? 'Available when kickoff is confirmed' : response.arrival_time ? String(response.arrival_time).slice(0, 5) : 'Not set'],
-    ['Shirts', getMatchDayShirtChoiceLabel(response.shirt_choice)],
+    ['Kits', getMatchDayShirtChoiceLabel(response.shirt_choice)],
     ['Venue', response.venue_name || 'Not set'],
   ]
 

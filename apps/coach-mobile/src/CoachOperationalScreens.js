@@ -27,6 +27,7 @@ import {
 } from '../../mobile-core/src/coachCalendarData'
 import { getCoachTeamNotificationDisplayName } from '../../mobile-core/src/coachTeamNotificationData'
 import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
+import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 import { getCoachResourceAccessUrl, getCoachResources } from '../../mobile-core/src/coachPhase31EData'
 import {
   coachPlayerFormFromPlayer,
@@ -577,7 +578,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
               <Text style={styles.cardTitle}>{event.title}</Text>
               <Text style={styles.meta}>{formatCoachCalendarEventDateTime(event)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
-              {event.sourceType === 'match_day' ? <Text style={styles.meta}>{event.homeAway === 'away' ? 'Away' : 'Home'} fixture | {event.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text> : null}
+              {event.sourceType === 'match_day' ? <Text style={styles.meta}>{event.homeAway === 'away' ? 'Away' : 'Home'} fixture | {getMatchDayShirtChoiceLabel(event.shirtChoice)}</Text> : null}
               {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Attending {event.availabilitySummary.attending} | Maybe {event.availabilitySummary.maybe} | Awaiting response {event.availabilitySummary.awaitingResponse} | Not attending {event.availabilitySummary.notAttending} | Invitation not sent {event.availabilitySummary.invitationNotSent} | Delivery issue {event.availabilitySummary.deliveryIssue}</Text> : null}

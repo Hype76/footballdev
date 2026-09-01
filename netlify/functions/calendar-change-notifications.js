@@ -7,7 +7,7 @@ import {
   CALENDAR_NOTIFICATION_PARENT_PORTAL_URL,
   formatCalendarNotificationDateTime,
 } from '../../src/lib/calendar-notification-email.js'
-import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
+import { resolveMatchDayNotificationTeamName, resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
@@ -111,7 +111,7 @@ async function loadSource(sourceType, sourceId, clubId, { required = true } = {}
   if (sourceType === 'match-day') {
     return maybeSingle(
       supabaseAdmin.from('match_days')
-        .select('id, club_id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, status, deleted_at, updated_at')
+        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, status, deleted_at, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Match Day fixture could not be found.' : '',
     )
@@ -335,7 +335,9 @@ async function deliverPreparation(preparation, currentSource) {
   const source = currentSource || preparation.source_snapshot
   const presentation = getSourcePresentation(preparation.source_type, source)
   const copy = getChangeCopy(preparation.change_action, presentation)
-  const notificationTeamName = resolveTeamNotificationDisplayName(team || {}, team?.name || '')
+  const notificationTeamName = preparation.source_type === 'match-day'
+    ? resolveMatchDayNotificationTeamName({ ...source, teams: team }, team?.name || '')
+    : resolveTeamNotificationDisplayName(team || {}, team?.name || '')
   const title = buildScopedNotificationTitle(copy.label, { clubName: club.name, teamName: notificationTeamName })
   const notificationData = {
     app: 'parent',

@@ -158,12 +158,13 @@ test('backend deltas explicitly refuse invented fixture-linked lineup and extern
   assert.equal(COACH_MATCH_DAY_BACKEND_DELTAS.some((item) => item.category === 'E' && /No external communication/.test(item.decision)), true)
 })
 
-test('Match Day data adapter uses only canonical RPC mutations and authenticated volunteer function', async () => {
+test('Match Day live operations use canonical RPC mutations while pre-match fixture details remain editable', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
   for (const rpc of ['start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'set_match_day_player_squad_decision_v2', 'record_match_day_goal_v2', 'record_match_day_score_correction_v2', 'record_match_day_staff_event_v2', 'void_match_day_event', 'record_match_day_shootout_kick', 'void_match_day_shootout_kick', 'save_match_day_final_report']) assert.match(source, new RegExp(`['\"]${rpc}['\"]`))
   assert.match(source, /select-match-day-volunteer/)
   assert.match(source, /Authorization: `Bearer \$\{accessToken\}`/)
-  assert.doesNotMatch(source, /\.from\('match_days'\)[\s\S]{0,300}\.update\(/)
+  assert.equal((source.match(/\.from\('match_days'\)\.update\(/g) || []).length, 1)
+  assert.match(source, /export async function updateCoachMatchDayFixture[\s\S]*Fixture details can only be edited before the match starts/)
   assert.doesNotMatch(source, /\.from\('match_day_events'\)[\s\S]{0,300}\.insert\(/)
   assert.match(source, /\['admin', 'parent_portal', 'adult_player', 'super_admin'\]/)
   assert.match(source, /archived or unavailable/)

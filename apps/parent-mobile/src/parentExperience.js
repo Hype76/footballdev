@@ -4,6 +4,7 @@ import {
   getParentProductWallTimeSortTimestamp,
 } from '../../mobile-core/src/parentDateTimeCore.js'
 import { getDateInTimeZone } from '../../mobile-core/src/parentCalendarCore.js'
+import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -75,7 +76,7 @@ export function getParentMatchCalendarUrl(match) {
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     dates: `${start}/${end}`,
-    details: `Football Player Match Day\nShirts: ${match?.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}`,
+    details: `Football Player Match Day\nKits: ${getMatchDayShirtChoiceLabel(match?.shirtChoice)}`,
     location,
     text: title,
   })
@@ -121,7 +122,7 @@ export function buildParentCalendarIcs(item = {}) {
   const location = normalizeText(item.location)
     || [normalizeText(item.venueName), normalizeText(item.venueAddress), normalizeText(item.eventLocation)].filter(Boolean).join(', ')
   const description = normalizeText(item.notes)
-    || (item.shirtChoice ? `Shirts: ${item.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}` : 'Football Player event')
+    || (item.shirtChoice ? `Kits: ${getMatchDayShirtChoiceLabel(item.shirtChoice)}` : 'Football Player event')
   const uid = `${normalizeText(item.id ?? item.eventId ?? item.sourceRecordId) || `${matchDate}-${title}`}@footballplayer.online`
   const startLine = timed ? `DTSTART;TZID=Europe/London:${start}` : `DTSTART;VALUE=DATE:${start}`
   const endLine = timed ? `DTEND;TZID=Europe/London:${end}` : `DTEND;VALUE=DATE:${end}`

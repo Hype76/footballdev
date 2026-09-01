@@ -60,6 +60,7 @@ import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { useConfirmedConnectionIssue } from '../mobile-core/src/useConfirmedConnectionIssue'
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import { getMobileIconName, getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
+import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import {
   canSubmitParentPoll,
   getBuildClassification,
@@ -2365,7 +2366,7 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
       </View>
       <View style={styles.homeCardTitleRow}><MaterialIcons color={palette.accent} name={getMobileIconName('parent.match')} size={23} /><Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text><MaterialIcons color={palette.accent} name="chevron-right" size={21} /></View>
       <Text style={styles.cardMeta}>{match.arrivalTime ? `Arrival: ${formatTime(match.arrivalTime)}` : `Kick-off: ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`}</Text>
-      <Text style={styles.cardMeta}>{match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'}</Text>
+      <Text style={styles.cardMeta}>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text>
       {score ? <Text style={styles.score}>{score}</Text> : null}
       {match.venueName || match.venueAddress ? (
         <Text style={styles.cardMeta}>{[match.venueName, match.venueAddress].filter(Boolean).join(', ')}</Text>
@@ -2403,7 +2404,7 @@ function MatchDetail({ match, onBack }) {
         <InfoRow label="Kick-off" value={formatTime(match.kickoffTime, match.kickoffTimeTbc)} />
         {match.arrivalTime ? <InfoRow label="Arrival" value={formatTime(match.arrivalTime)} /> : null}
         <InfoRow label="Team" value={match.teamName || 'Team not set'} />
-        <InfoRow label="Shirts" value={match.shirtChoice === 'away' ? 'Away shirts' : 'Home shirts'} />
+        <InfoRow label="Kits" value={getMatchDayShirtChoiceLabel(match.shirtChoice)} />
         <InfoRow label="Location" value={[match.venueName, match.venueAddress].filter(Boolean).join(', ') || 'Location not shared'} />
         <InfoRow label="Availability" value={labelize(match.availabilityStatus) || 'No response requested'} />
         <InfoRow label="Selection" value={selectionLabel} />

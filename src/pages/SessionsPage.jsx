@@ -53,6 +53,11 @@ import {
   assertValidMatchDayFixtureType,
   MATCH_DAY_FIXTURE_TYPE_OPTIONS,
 } from '../lib/matchday-fixture-type.js'
+import {
+  MATCH_DAY_CONCLUSION_RULE_OPTIONS,
+  MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS,
+  matchUsesExtraTime,
+} from '../lib/matchday-extended-ops.js'
 import { openMatchDayFixtureSetup } from '../lib/matchday-workflow.js'
 import { isRecoveryModuleVisible } from '../lib/recovery-phase.js'
 import {
@@ -342,6 +347,9 @@ function getDefaultCalendarForm(date = '') {
     endTime: '',
     eventType: 'training',
     fixtureType: '',
+    conclusionRule: 'normal_time',
+    extraTimeHalfMinutes: 15,
+    extraTimePeriodCount: 2,
     homeAway: 'home',
     invitedPlayerIds: [],
     inviteTrialPlayers: false,
@@ -354,6 +362,7 @@ function getDefaultCalendarForm(date = '') {
     rememberNotificationTeamName: true,
     opponent: '',
     kickoffTimeTbc: false,
+    matchDurationMinutes: 90,
     shirtChoice: 'home',
     parentAudience: 'involved_players',
     deleteRepeatScope: '',
@@ -858,8 +867,13 @@ function getFormFromCalendarEvent(event, invites = []) {
       endTime: source.kickoffTimeTbc ? '' : addMinutesToTime(source.kickoffTime, 120),
       eventType: 'match',
       fixtureType: source.fixtureType || '',
+      conclusionRule: source.conclusionRule || 'normal_time',
+      extraTimeHalfMinutes: source.extraTimeHalfMinutes || 15,
+      extraTimePeriodCount: source.extraTimePeriodCount || 2,
       homeAway: source.homeAway || 'home',
       kickoffTimeTbc: source.kickoffTimeTbc === true,
+      matchDurationMinutes: source.matchDurationMinutes || 90,
+      notificationTeamName: source.notificationTeamName || '',
       shirtChoice: source.shirtChoice || 'home',
       location: source.venueName || '',
       notes: source.notes || '',
@@ -2175,10 +2189,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     setCalendarForm({
       ...baseForm,
       notificationTeamName: baseForm.teamId
-        ? resolveTeamNotificationDisplayName(
-          teams.find((team) => String(team.id) === String(baseForm.teamId)) || {},
-          getCalendarTeamName(baseForm.teamId),
-        )
+        ? baseForm.notificationTeamName || resolveTeamNotificationDisplayName(
+            teams.find((team) => String(team.id) === String(baseForm.teamId)) || {},
+            getCalendarTeamName(baseForm.teamId),
+          )
         : '',
       requestTrainingAvailability: sourceEventType === 'training' ? setting?.enabled ?? false : false,
       shareWithParents: sourceEventType === 'training' && setting?.enabled ? true : baseForm.shareWithParents,
@@ -2760,10 +2774,14 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       arrivalTime: form.arrivalTime,
       autoSelectAvailablePlayers: form.autoSelectAvailablePlayers !== false,
       fixtureType: form.fixtureType,
+      conclusionRule: form.conclusionRule,
+      extraTimeHalfMinutes: form.extraTimeHalfMinutes,
+      extraTimePeriodCount: form.extraTimePeriodCount,
       homeAway: form.homeAway,
       kickoffTime: form.startTime,
       kickoffTimeTbc: form.kickoffTimeTbc === true,
       matchDate: form.date,
+      matchDurationMinutes: form.matchDurationMinutes,
       notes: form.notes,
       opponent: trimmedOpponent || trimmedTitle,
       parentAudience: form.shareWithParents ? form.parentAudience : 'none',
@@ -3207,15 +3225,21 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           arrivalTime: calendarForm.arrivalTime,
           autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers !== false,
           fixtureType: calendarForm.fixtureType,
+          conclusionRule: calendarForm.conclusionRule,
+          extraTimeHalfMinutes: calendarForm.extraTimeHalfMinutes,
+          extraTimePeriodCount: calendarForm.extraTimePeriodCount,
+          homeAway: calendarForm.homeAway,
           kickoffTime: calendarForm.startTime,
           kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
           matchDate: calendarForm.date,
+          matchDurationMinutes: calendarForm.matchDurationMinutes,
           notes: calendarForm.notes,
           opponent: trimmedOpponent || trimmedTitle,
           parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
           parentVisible: calendarForm.shareWithParents,
           notificationTeamName,
           rememberNotificationTeamName: calendarForm.rememberNotificationTeamName === true,
+          shirtChoice: calendarForm.shirtChoice,
           teamId: safeTeamId,
           venueName: calendarForm.location,
         }, { navigate })
@@ -3451,11 +3475,16 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             arrivalTime: calendarForm.arrivalTime,
             autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers === true,
             fixtureType: calendarForm.fixtureType,
+            conclusionRule: calendarForm.conclusionRule,
+            extraTimeHalfMinutes: calendarForm.extraTimeHalfMinutes,
+            extraTimePeriodCount: calendarForm.extraTimePeriodCount,
             homeAway: calendarForm.homeAway,
             kickoffTime: calendarForm.startTime,
             kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
             matchDate: calendarForm.date,
+            matchDurationMinutes: calendarForm.matchDurationMinutes,
             notes: calendarForm.notes,
+            notificationTeamName,
             shirtChoice: calendarForm.shirtChoice,
             ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
             opponent: trimmedOpponent,
@@ -5799,7 +5828,7 @@ function CalendarEventModal({
     ? [
       form.date,
       form.kickoffTimeTbc ? 'Time TBC' : form.startTime ? `Kick-off ${form.startTime}` : '',
-      MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === form.shirtChoice)?.label || 'Home shirts',
+      MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === form.shirtChoice)?.label || 'Home Kits',
       form.location,
     ].filter(Boolean).join(', ')
     : [form.date, form.startTime, form.location].filter(Boolean).join(', ')
@@ -5981,8 +6010,8 @@ function CalendarEventModal({
                   <p className="mt-1 text-sm font-black text-[#101828]">{MATCH_DAY_HOME_AWAY_OPTIONS.find((option) => option.value === form.homeAway)?.label || 'Home'}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Shirts</p>
-                  <p className="mt-1 text-sm font-black text-[#101828]">{MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === form.shirtChoice)?.label || 'Home shirts'}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Kits</p>
+                  <p className="mt-1 text-sm font-black text-[#101828]">{MATCH_DAY_SHIRT_CHOICE_OPTIONS.find((option) => option.value === form.shirtChoice)?.label || 'Home Kits'}</p>
                 </div>
                 {form.location ? (
                   <div>
@@ -6196,11 +6225,51 @@ function CalendarEventModal({
                   </select>
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">Shirts</span>
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Kits</span>
                   <select name="shirtChoice" value={form.shirtChoice} onChange={onChange} disabled={isBusy} className={fieldClass}>
                     {MATCH_DAY_SHIRT_CHOICE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
                 </label>
+              </div>
+            ) : null}
+
+            {isMatchFixture && event?.sourceType === 'match-day' ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">How this match can finish</span>
+                  <select name="conclusionRule" value={form.conclusionRule} onChange={onChange} disabled={isBusy} className={fieldClass}>
+                    {MATCH_DAY_CONCLUSION_RULE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">Game duration</span>
+                  <input
+                    name="matchDurationMinutes"
+                    type="number"
+                    min="20"
+                    max="140"
+                    step="2"
+                    value={form.matchDurationMinutes}
+                    onChange={onChange}
+                    disabled={isBusy}
+                    className={fieldClass}
+                  />
+                  <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">Use an even number from 20 to 140 minutes.</span>
+                </label>
+                {matchUsesExtraTime(form) ? (
+                  <>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-[#101828]">Extra-time periods</span>
+                      <select name="extraTimePeriodCount" value={form.extraTimePeriodCount} onChange={onChange} disabled={isBusy} className={fieldClass}>
+                        {MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-[#101828]">Extra-time period minutes</span>
+                      <input name="extraTimeHalfMinutes" type="number" min="5" max="30" value={form.extraTimeHalfMinutes} onChange={onChange} disabled={isBusy} className={fieldClass} />
+                    </label>
+                  </>
+                ) : null}
               </div>
             ) : null}
 

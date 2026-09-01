@@ -17,8 +17,10 @@ test('shirt choice has a safe legacy default and strict new fixture validation',
   assert.equal(normalizeMatchDayShirtChoice(''), 'home')
   assert.equal(normalizeMatchDayShirtChoice('AWAY'), 'away')
   assert.equal(assertMatchDayShirtChoice('home'), 'home')
-  assert.equal(getMatchDayShirtChoiceLabel('away'), 'Away shirts')
-  assert.throws(() => assertMatchDayShirtChoice('third'), /Choose Home shirts or Away shirts/)
+  assert.equal(getMatchDayShirtChoiceLabel('away'), 'Away Kits')
+  assert.equal(getMatchDayShirtChoiceLabel('tbc'), 'TBC')
+  assert.equal(assertMatchDayShirtChoice('tbc'), 'tbc')
+  assert.throws(() => assertMatchDayShirtChoice('third'), /Choose Home Kits, Away Kits, or TBC/)
 
   const form = createCoachFixtureForm()
   assert.equal(form.shirtChoice, 'home')
@@ -41,7 +43,7 @@ test('Calendar and actionable invitations include the selected shirts', () => {
     teamName: 'U15 Green',
   }
   const [event] = buildFootballCalendarEvents({ matchDays: [match] })
-  assert.match(event.description, /Away shirts/)
+  assert.match(event.description, /Away Kits/)
 
   const email = buildMatchDayActionableInvitationEmail({
     appOrigin: 'https://footballplayer.online',
@@ -56,9 +58,9 @@ test('Calendar and actionable invitations include the selected shirts', () => {
     recipient: { email: 'parent@example.test', name: 'Parent' },
     responseUrl: 'https://footballplayer.online/respond?token=test',
   })
-  assert.match(email.html, /Shirts/)
-  assert.match(email.html, /Away shirts/)
-  assert.match(email.text, /Shirts: Away shirts/)
+  assert.match(email.html, /Kits/)
+  assert.match(email.html, /Away Kits/)
+  assert.match(email.text, /Kits: Away Kits/)
 })
 
 test('shirt choice is persisted and rendered across Coach, Parent, Calendar, and response flows', async () => {
@@ -94,11 +96,11 @@ test('shirt choice is persisted and rendered across Coach, Parent, Calendar, and
   assert.match(domain, /payload\.shirt_choice = assertMatchDayShirtChoice/)
   assert.match(matchPage, /MATCH_DAY_SHIRT_CHOICE_OPTIONS/)
   assert.match(sessionsPage, /name="shirtChoice"/)
-  assert.match(coachForm, />Shirts</)
+  assert.match(coachForm, />Kits</)
   assert.match(coachData, /shirt_choice: fixture\.shirtChoice/)
   assert.match(parentData, /get_parent_portal_match_shirt_choices/)
-  assert.match(parentScreens, /Away shirts/)
-  assert.match(parentApp, /InfoRow label="Shirts"/)
+  assert.match(parentScreens, /getMatchDayShirtChoiceLabel/)
+  assert.match(parentApp, /InfoRow label="Kits"/)
   assert.match(responseFunction, /get_match_day_availability_shirt_choice/)
-  assert.match(responseFunction, /Shirts/)
+  assert.match(responseFunction, /Kits/)
 })

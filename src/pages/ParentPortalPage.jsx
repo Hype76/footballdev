@@ -1919,7 +1919,7 @@ function ParentMatchDayHero({ matches, onOpenGameMode, selectedLink }) {
               <dl className="mt-3 grid gap-2 text-sm font-semibold text-[var(--text-muted)] sm:grid-cols-2">
                 <div><dt className="font-black text-[var(--text-primary)]">Kick-off</dt><dd>{getFixtureKickoffLabel(match)}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Home or away</dt><dd>{match.homeAway || 'To be confirmed'}</dd></div>
-                <div><dt className="font-black text-[var(--text-primary)]">Shirts</dt><dd>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</dd></div>
+                <div><dt className="font-black text-[var(--text-primary)]">Kits</dt><dd>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Venue</dt><dd>{venue || 'To be confirmed'}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Child</dt><dd>{selectedLink?.playerName || 'Linked child'}</dd></div>
               </dl>

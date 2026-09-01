@@ -49,4 +49,16 @@ export function resolveTeamNotificationDisplayName(team = {}, fallbackName = '')
   return saved || deriveTeamNotificationDisplayName(team.name ?? fallbackName)
 }
 
+export function resolveMatchDayNotificationTeamName(match = {}, fallbackName = '') {
+  const snapshot = normalizeTeamNotificationDisplayName(
+    match.notification_team_name ?? match.notificationTeamName,
+  )
+  const team = Array.isArray(match.teams) ? match.teams[0] : match.teams
+
+  return snapshot || resolveTeamNotificationDisplayName(
+    team || {},
+    match.team_name ?? match.teamName ?? fallbackName,
+  )
+}
+
 export { MAX_NOTIFICATION_TEAM_NAME_LENGTH }

@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto'
 import { normalizeExtraTimeHalfMinutes, normalizeExtraTimePeriodCount, normalizeMatchDayConclusionRule } from '../../../src/lib/matchday-extended-ops.js'
-import { normalizeLegacyMatchHomeAway, normalizeMatchClockMode, normalizeMatchDayShirtChoice, normalizeMatchDurationMinutes } from '../../../src/lib/matchday-model.js'
+import { assertMatchDayShirtChoice, assertNewMatchHomeAway, assertValidMatchDurationMinutes, normalizeLegacyMatchHomeAway, normalizeMatchClockMode, normalizeMatchDayShirtChoice, normalizeMatchDurationMinutes } from '../../../src/lib/matchday-model.js'
+import { normalizeTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 import { normalizeMatchDaySquadDecision } from '../../../src/lib/matchday-squad-selection.js'
 import { validateFinalMatchReportNotes } from '../../../src/lib/matchday-final-report.js'
 import { validateMatchDayEventUndoInput } from '../../../src/lib/matchday-event-undo.js'
@@ -76,7 +77,7 @@ export function normalizeCoachMatchDay(row = {}) {
     || Object.hasOwn(row, 'server_local_date')
     || Boolean(normalize(row.serverLocalDate))
   return {
-    id: row.id ?? '', clubId: row.club_id ?? row.clubId ?? '', teamId: row.team_id ?? row.teamId ?? '', teamName: normalize(team?.name ?? row.team_name ?? row.teamName) || 'Our team', opponent: normalize(row.opponent) || 'Opponent',
+    id: row.id ?? '', clubId: row.club_id ?? row.clubId ?? '', teamId: row.team_id ?? row.teamId ?? '', teamName: normalize(team?.name ?? row.team_name ?? row.teamName) || 'Our team', notificationTeamName: normalizeTeamNotificationDisplayName(row.notification_team_name ?? row.notificationTeamName), opponent: normalize(row.opponent) || 'Opponent',
     fixtureType: normalize(row.fixture_type ?? row.fixtureType) || 'league', conclusionRule: normalizeMatchDayConclusionRule(row.match_conclusion_rule ?? row.conclusionRule), currentMatchPhase: normalize(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match', extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(row.extra_time_half_minutes ?? row.extraTimeHalfMinutes), extraTimePeriodCount: normalizeExtraTimePeriodCount(row.extra_time_period_count ?? row.extraTimePeriodCount),
     matchDate: row.match_date ?? row.matchDate ?? '', kickoffTime: row.kickoff_time ?? row.kickoffTime ?? '', kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true, arrivalTime: row.arrival_time ?? row.arrivalTime ?? '', homeAway: normalizeLegacyMatchHomeAway(row.home_away ?? row.homeAway), shirtChoice: normalizeMatchDayShirtChoice(row.shirt_choice ?? row.shirtChoice), clockMode: normalizeMatchClockMode(row.match_clock_mode ?? row.clockMode), matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes ?? row.matchDurationMinutes), venueName: normalize(row.venue_name ?? row.venueName), venueAddress: normalize(row.venue_address ?? row.venueAddress), notes: normalize(row.notes),
     requestScorer: row.request_scorer === true || row.requestScorer === true || row.status === 'scorer_request', requestLinesman: row.request_linesman === true || row.requestLinesman === true, requestReferee: row.request_referee === true || row.requestReferee === true,
@@ -90,7 +91,7 @@ export function normalizeCoachMatchDay(row = {}) {
   }
 }
 
-const LIST_SELECT = `id,club_id,team_id,opponent,fixture_type,match_conclusion_rule,current_match_phase,extra_time_half_minutes,extra_time_period_count,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,match_clock_mode,match_duration_minutes,venue_name,venue_address,notes,request_scorer,request_linesman,request_referee,status,home_score,away_score,normal_time_home_score,normal_time_away_score,extra_time_home_score,extra_time_away_score,home_shootout_score,away_shootout_score,shootout_winner,phase_started_at,timer_started_at,timer_paused_at,timer_elapsed_seconds,timer_status,full_time_resume_status,concluded_at,concluded_by,previous_hidden_at,created_at,updated_at,teams:team_id(name,notification_display_name)`
+const LIST_SELECT = `id,club_id,team_id,notification_team_name,opponent,fixture_type,match_conclusion_rule,current_match_phase,extra_time_half_minutes,extra_time_period_count,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,match_clock_mode,match_duration_minutes,venue_name,venue_address,notes,request_scorer,request_linesman,request_referee,parent_visible,parent_audience,status,home_score,away_score,normal_time_home_score,normal_time_away_score,extra_time_home_score,extra_time_away_score,home_shootout_score,away_shootout_score,shootout_winner,phase_started_at,timer_started_at,timer_paused_at,timer_elapsed_seconds,timer_status,full_time_resume_status,concluded_at,concluded_by,previous_hidden_at,created_at,updated_at,teams:team_id(name,notification_display_name)`
 
 function scoped(query, user) { return query.or(`team_id.is.null,team_id.eq.${user.activeTeamId}`) }
 function assertScope(user, match) { if (match?.teamId && match.teamId !== user?.activeTeamId) throw new Error('This match day is not linked to your active Team.') }
@@ -129,7 +130,7 @@ async function sendCoachFixtureInvitations(user, match, playerIds) {
   return result
 }
 
-export async function createCoachMatchDayFixture(user, form) {
+export async function createCoachMatchDayFixture(user, form, { calendarOnly = false } = {}) {
   assertCoachOperationalMutation(user, { minimumRank: 20, requiresTeam: true })
   const fixture = validateCoachFixtureForm(form)
   const teamId = normalize(user.activeTeamId)
@@ -163,6 +164,7 @@ export async function createCoachMatchDayFixture(user, form) {
       location_id: locationId || null,
       match_clock_mode: fixture.clockMode,
       match_conclusion_rule: fixture.conclusionRule,
+      notification_team_name: normalizeTeamNotificationDisplayName(fixture.notificationTeamName),
       match_date: fixture.matchDate,
       match_duration_minutes: fixture.matchDurationMinutes,
       motm_notify_results_on_close: fixture.motmNotifyResultsOnClose,
@@ -207,7 +209,7 @@ export async function createCoachMatchDayFixture(user, form) {
   ])
   let invitationResult = null
   let invitationWarning = ''
-  if (fixture.parentVisible) {
+  if (fixture.parentVisible && !calendarOnly) {
     try {
       invitationResult = await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, fixture.selectedPlayerIds)
     } catch (invitationError) {
@@ -215,6 +217,89 @@ export async function createCoachMatchDayFixture(user, form) {
     }
   }
   return Object.freeze({ invitationResult, invitationWarning, match })
+}
+
+export async function getCoachMatchLocations(user, matches = []) {
+  assertCoachMatchDayAccess(user)
+  const { data, error } = await supabase
+    .from('match_locations')
+    .select('id,name,address,notes,archived_at')
+    .eq('club_id', user.clubId)
+    .order('name', { ascending: true })
+  if (error) throw error
+  const archived = new Set((data || []).filter((row) => row.archived_at).map((row) => `${normalize(row.name).toLowerCase()}|${normalize(row.address).toLowerCase()}`))
+  const rows = [
+    ...(data || []).filter((row) => !row.archived_at),
+    ...(matches || []).filter((match) => !archived.has(`${normalize(match.venueName).toLowerCase()}|${normalize(match.venueAddress).toLowerCase()}`)).map((match) => ({ id: normalize(match.locationId) || `used:${normalize(match.venueName).toLowerCase()}:${normalize(match.venueAddress).toLowerCase()}`, name: match.venueName, address: match.venueAddress, notes: '' })),
+  ]
+  const seen = new Set()
+  return rows.filter((row) => {
+    const key = `${normalize(row.name).toLowerCase()}|${normalize(row.address).toLowerCase()}`
+    if (!normalize(row.name) || seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).map((row) => ({
+    id: row.id,
+    name: normalize(row.name),
+    address: normalize(row.address),
+    label: [normalize(row.name), normalize(row.address)].filter(Boolean).join(' | '),
+  }))
+}
+
+export async function archiveCoachMatchLocation(user, location) {
+  assertCoachOperationalMutation(user, { minimumRank: 20, requiresTeam: true })
+  const rawId = normalize(location?.id)
+  const { data, error } = await supabase.rpc('archive_match_location_for_team', {
+    p_address: normalize(location?.address),
+    p_location_id: rawId && !rawId.startsWith('used:') ? rawId : null,
+    p_name: normalize(location?.name),
+    p_team_id: user.activeTeamId,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function updateCoachMatchDayFixture(user, match, form) {
+  await prepareMutation(user, match)
+  if (!['scheduled', 'scorer_request', 'postponed'].includes(normalize(match.status))) {
+    throw new Error('Fixture details can only be edited before the match starts.')
+  }
+  const fixture = validateCoachFixtureForm({ ...form, parentVisible: false, selectedPlayerIds: [] })
+  if (fixture.rememberNotificationTeamName) {
+    await saveCoachTeamNotificationDisplayName(user, user.activeTeamId, fixture.notificationTeamName)
+  }
+  const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location_for_team', {
+    p_address: fixture.venueAddress,
+    p_name: fixture.venueName,
+    p_notes: '',
+    p_team_id: user.activeTeamId,
+  })
+  if (locationError) throw locationError
+  const { data, error } = await supabase.rpc('update_match_day_fixture_for_team', {
+    p_fixture: {
+      arrivalTime: fixture.kickoffTimeTbc ? '' : fixture.arrivalTime,
+      conclusionRule: normalizeMatchDayConclusionRule(fixture.conclusionRule),
+      extraTimeHalfMinutes: fixture.extraTimeHalfMinutes,
+      extraTimePeriodCount: fixture.extraTimePeriodCount,
+      fixtureType: fixture.fixtureType,
+      homeAway: assertNewMatchHomeAway(fixture.homeAway),
+      kickoffTime: fixture.kickoffTime,
+      kickoffTimeTbc: fixture.kickoffTimeTbc,
+      locationId: locationId || '',
+      matchDate: fixture.matchDate,
+      matchDurationMinutes: assertValidMatchDurationMinutes(fixture.matchDurationMinutes),
+      notes: fixture.notes,
+      notificationTeamName: normalizeTeamNotificationDisplayName(fixture.notificationTeamName),
+      opponent: fixture.opponent,
+      shirtChoice: assertMatchDayShirtChoice(fixture.shirtChoice),
+      venueAddress: fixture.venueAddress,
+      venueName: fixture.venueName,
+    },
+    p_match_day_id: match.id,
+    p_team_id: user.activeTeamId,
+  })
+  if (error) throw error
+  return normalizeCoachMatchDay(data)
 }
 
 export async function getCoachMatchDayDetail(user, matchDayId, { includeVolunteerEligibility = true } = {}) {

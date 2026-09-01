@@ -1,5 +1,5 @@
 import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../../src/lib/matchday-display.js'
-import { resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
+import { resolveMatchDayNotificationTeamName } from '../../../src/lib/team-notification-display.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -10,8 +10,7 @@ function normalizeType(value) {
 }
 
 function getTeamName(match) {
-  const team = Array.isArray(match?.teams) ? match.teams[0] : match?.teams
-  return resolveTeamNotificationDisplayName(team || {}, match?.teamName || match?.team_name) || 'Our team'
+  return resolveMatchDayNotificationTeamName(match) || 'Our team'
 }
 
 function getOpponentName(match) {
