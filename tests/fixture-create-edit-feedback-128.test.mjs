@@ -98,6 +98,9 @@ test('web fixture defaults persist as soon as the fixture save succeeds', async 
   assert.ok(preferenceWrite > createStart)
   assert.ok(availabilitySend > preferenceWrite)
   assert.match(web, /const updatedTeam = await updateTeamNotificationDisplayName\([\s\S]*setTeams\(\(currentTeams\)/)
+  assert.match(web, /const openNewFixtureSetup = \(\) => \{[\s\S]*window\.dispatchEvent\(new Event\(FIXTURE_SETUP_EVENT\)\)/)
+  assert.equal((web.match(/onClick=\{openNewFixtureSetup\}/g) || []).length, 2)
+  assert.doesNotMatch(web, /onClick=\{\(\) => setIsFixtureFormOpen\(true\)\}/)
 })
 
 test('Calendar editing refreshes the remembered Team notification name immediately', async () => {

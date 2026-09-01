@@ -2906,6 +2906,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     setErrorMessage('')
   }
 
+  const openNewFixtureSetup = () => {
+    window.dispatchEvent(new Event(FIXTURE_SETUP_EVENT))
+  }
+
   const updateArrivalFromPreset = (arrivalPreset, kickoffTime = form.kickoffTime) => {
     const nextArrivalTime = arrivalPreset === 'custom' ? form.arrivalTime : calculateArrivalTime(kickoffTime, arrivalPreset)
     updateForm({
@@ -4817,7 +4821,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
             </p>
             <button
               type="button"
-              onClick={() => setIsFixtureFormOpen(true)}
+              onClick={openNewFixtureSetup}
               className={`${primaryButtonClass} mt-4 w-full sm:w-auto`}
             >
               Create fixture
@@ -4957,7 +4961,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
             </div>
             <button
               type="button"
-              onClick={() => setIsFixtureFormOpen(true)}
+              onClick={openNewFixtureSetup}
               className={`${secondaryButtonClass} w-full sm:w-auto`}
             >
               Create fixture
