@@ -23,12 +23,13 @@ test('mobile icon system uses one Material icon vocabulary for both apps', () =>
 })
 
 test('mobile icon refresh stays on the installed OTA-safe icon library and semantic palettes', async () => {
-  const [coachApp, coachPackage, matchDayScreen, quickActions, parentApp, parentPackage, coachTheme, parentTheme] = await Promise.all([
+  const [coachApp, coachPackage, matchDayScreen, quickActions, parentApp, parentIcon, parentPackage, coachTheme, parentTheme] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/package.json', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachQuickActions.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/parent-mobile/src/ParentIcon.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/package.json', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/coachThemeCore.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/mobile-core/src/parentThemeCore.js', import.meta.url), 'utf8'),
@@ -37,7 +38,9 @@ test('mobile icon refresh stays on the installed OTA-safe icon library and seman
   assert.match(coachPackage, /"@expo\/vector-icons": "15\.1\.1"/)
   assert.match(parentPackage, /"@expo\/vector-icons": "15\.1\.1"/)
   assert.match(coachApp, /@expo\/vector-icons\/MaterialIcons/)
-  assert.match(parentApp, /@expo\/vector-icons\/MaterialIcons/)
+  assert.match(parentIcon, /@expo\/vector-icons\/MaterialIcons/)
+  assert.match(parentIcon, /@expo\/vector-icons\/FontAwesome5/)
+  assert.match(parentIcon, /name="futbol"/)
   assert.match(coachApp, /getCoachRouteIconKey/)
   assert.match(parentApp, /getParentTabIconKey/)
   assert.match(quickActions, /getCoachQuickActionIconKey/)

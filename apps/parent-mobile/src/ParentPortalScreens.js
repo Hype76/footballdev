@@ -15,16 +15,16 @@ import { captureCoachMatchDayAction, getCoachMatchDayPresentation } from '../../
 import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
 import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
+import ParentIcon from './ParentIcon'
 import {
   canParentRegisterScorerInterest,
   getParentCalendarDirectionsUrl,
   getParentMatchDirectionsUrl,
   getParentMatchGroups,
 } from './parentExperience'
-import { getParentChatRoomContext, getParentChatRoomTypeLabel, getParentInvitationSections, prepareParentChatMessages, prepareParentChatRooms } from './parentPresentationCore'
+import { getParentChatRoomContext, getParentChatRoomTypeLabel, getParentInvitationEventKey, getParentInvitationSections, groupParentInvitationsByEvent, prepareParentChatMessages, prepareParentChatRooms } from './parentPresentationCore'
 import {
   getInvitationResponseOptions,
-  getParentInvitationDisplayState,
   getParentVolunteerRoleLabel,
   isParentInvitationActionable,
 } from './parentPortalData'
@@ -96,10 +96,10 @@ function usePortalStyles(themeTokens) {
       actionTextOutline: { color: colors.text },
       actionTextSelected: { color: colors.accentText },
       body: { color: colors.text, fontSize: 15, lineHeight: 22 },
-      card: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
-      controllerCard: { backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 18, borderWidth: 2, gap: 12, padding: 16 },
+      card: { backgroundColor: 'transparent', borderBottomColor: colors.border, borderBottomWidth: 1, gap: 8, paddingHorizontal: 0, paddingVertical: 12 },
+      controllerCard: { backgroundColor: 'transparent', borderBottomColor: colors.accent, borderBottomWidth: 2, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
       capturedPill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderColor: colors.accent, borderRadius: 999, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
-      volunteerCard: { borderColor: colors.warning, borderWidth: 2 },
+      volunteerCard: { borderBottomColor: colors.warning },
       volunteerRole: { color: colors.warning, fontSize: 22, fontWeight: '900' },
       formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
       formationPitch: { aspectRatio: 0.68, backgroundColor: colors.pitch, borderColor: colors.pitchLine, borderRadius: 18, borderWidth: 2, overflow: 'hidden', position: 'relative', width: '100%' },
@@ -110,10 +110,12 @@ function usePortalStyles(themeTokens) {
       cardLink: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
       carpoolChoice: { alignItems: 'center', flexDirection: 'row', gap: 9 },
       carpoolIcon: { alignItems: 'center', borderRadius: 999, height: 38, justifyContent: 'center', width: 38 },
-      gameDayHero: { backgroundColor: colors.accentSoft, borderColor: colors.accent, borderRadius: 18, borderWidth: 1, gap: 12, padding: 16 },
-      gameDayHeroLive: { borderWidth: 2 },
+      compactCopy: { flex: 1, gap: 3, minWidth: 0 },
+      compactRow: { alignItems: 'center', flexDirection: 'row', gap: 11, minHeight: 58 },
+      gameDayHero: { borderBottomColor: colors.accent, borderBottomWidth: 1, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
+      gameDayHeroLive: { borderBottomWidth: 2 },
       gameDayScore: { color: colors.text, fontSize: 42, fontVariant: ['tabular-nums'], fontWeight: '900', textAlign: 'center' },
-      gameDayStat: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 12, borderWidth: 1, flex: 1, gap: 4, minWidth: 88, padding: 12 },
+      gameDayStat: { borderLeftColor: colors.border, borderLeftWidth: 1, flex: 1, gap: 4, minWidth: 88, paddingHorizontal: 10, paddingVertical: 4 },
       gameDayStatLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
       gameDayStatValue: { color: colors.text, fontSize: 18, fontVariant: ['tabular-nums'], fontWeight: '900' },
       gameDayStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -126,7 +128,29 @@ function usePortalStyles(themeTokens) {
       fieldLabel: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
       header: { color: colors.text, fontSize: 28, fontWeight: '900' },
       helper: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+      iconAction: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 44 },
+      iconChoice: { alignItems: 'center', gap: 4, justifyContent: 'center', minHeight: 64, minWidth: 66, paddingHorizontal: 5, paddingVertical: 5 },
+      iconChoiceDisabled: { opacity: 0.42 },
+      iconChoiceLabel: { color: colors.muted, fontSize: 11, fontWeight: '800', textAlign: 'center' },
+      iconChoiceRow: { alignItems: 'flex-start', flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+      inviteGroup: { borderBottomColor: colors.border, borderBottomWidth: 1, gap: 12, paddingBottom: 14 },
+      inviteHeader: { alignItems: 'center', flexDirection: 'row', gap: 11 },
+      inviteHeaderCopy: { flex: 1, gap: 3 },
+      inviteMetadata: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+      inviteMetadataItem: { alignItems: 'center', flexDirection: 'row', gap: 5 },
+      inviteSection: { borderTopColor: colors.border, borderTopWidth: 1, gap: 8, paddingTop: 10 },
+      inviteSectionCopy: { flex: 1 },
+      inviteSectionHeader: { alignItems: 'center', flexDirection: 'row', gap: 8, minHeight: 44 },
+      inviteStatus: { alignItems: 'center', flexDirection: 'row', gap: 9, minHeight: 44 },
+      inviteStatusCopy: { flex: 1, gap: 2 },
+      inviteStatusLabel: { fontSize: 14, fontWeight: '900' },
+      seatChoice: { alignItems: 'center', justifyContent: 'center', minHeight: 40, minWidth: 40 },
+      seatChoiceText: { color: colors.muted, fontSize: 13, fontWeight: '900' },
       meta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+      moreGrid: { borderBottomColor: colors.border, borderBottomWidth: 1, borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 5 },
+      moreItem: { alignItems: 'center', gap: 4, justifyContent: 'center', minHeight: 88, paddingHorizontal: 5, width: '33.333%' },
+      moreItemCopy: { color: colors.muted, fontSize: 10, lineHeight: 14, textAlign: 'center' },
+      moreItemTitle: { color: colors.text, fontSize: 12, fontWeight: '900', textAlign: 'center' },
       monthCell: { borderColor: colors.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 4, minHeight: 54, padding: 6 },
       monthCellActive: { borderColor: colors.accent, borderWidth: 2 },
       monthCellMuted: { opacity: 0.42 },
@@ -186,6 +210,85 @@ function Button({ danger = false, disabled = false, expanded, label, onPress, ou
   )
 }
 
+function invitationResponsePresentation(invitation = {}) {
+  const state = normalizeText(invitation.responseState).toLowerCase()
+  if (state === 'available') return { iconKey: 'attendance.available', label: 'Attending', tone: 'success' }
+  if (state === 'maybe') return { iconKey: 'attendance.maybe', label: 'Maybe', tone: 'warning' }
+  if (state === 'unavailable') return { iconKey: 'attendance.unavailable', label: 'Not attending', tone: 'danger' }
+  if (state === 'yes') return { iconKey: 'attendance.available', label: 'Yes', tone: 'success' }
+  if (state === 'no') return { iconKey: 'attendance.unavailable', label: 'No', tone: 'danger' }
+  return { iconKey: 'attendance.maybe', label: 'Not answered', tone: 'muted' }
+}
+
+function invitationToneColor(colors, tone) {
+  return ({ danger: colors.danger, success: colors.success, warning: colors.warning })[tone] || colors.muted
+}
+
+function volunteerIconKey(invitation = {}) {
+  const role = normalizeText(invitation.roleType).toLowerCase().replace(/^volunteer_/, '')
+  return ['linesman', 'referee', 'scorer'].includes(role) ? `role.${role}` : 'invite'
+}
+
+function IconAction({ accessibilityLabel, colors, disabled = false, iconKey, onPress, styles }) {
+  return (
+    <Pressable accessibilityLabel={accessibilityLabel} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.iconAction, disabled && styles.actionDisabled, pressed && { opacity: 0.72 }]}>
+      <ParentIcon color={colors.accent} iconKey={iconKey} size={22} />
+    </Pressable>
+  )
+}
+
+function IconChoice({ accessibilityLabel, colors, disabled = false, iconKey, label, onPress, selected = false, styles, tone = 'muted' }) {
+  const color = selected ? invitationToneColor(colors, tone) : colors.muted
+  return (
+    <Pressable accessibilityLabel={accessibilityLabel || label} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.iconChoice, disabled && styles.iconChoiceDisabled, pressed && { opacity: 0.72 }]}>
+      <ParentIcon color={color} iconKey={iconKey} size={31} />
+      <Text style={[styles.iconChoiceLabel, selected && { color }]}>{label}</Text>
+    </Pressable>
+  )
+}
+
+function InvitationResponseControl({ activeActionId, colors, editingInvitationId, invitation, isOffline, label, onDismiss, onEdit, onRespond, styles }) {
+  const response = invitationResponsePresentation(invitation)
+  const answered = response.label !== 'Not answered'
+  const editing = editingInvitationId === invitation.invitationId
+  const actionable = isParentInvitationActionable(invitation)
+  const busy = activeActionId === `invite:${invitation.invitationId}`
+  const isVolunteer = invitation.invitationType === 'match_role'
+  const sectionIcon = isVolunteer ? volunteerIconKey(invitation) : 'football'
+  const options = getInvitationResponseOptions(invitation)
+
+  return (
+    <View style={styles.inviteSection}>
+      <View style={styles.inviteSectionHeader}>
+        <ParentIcon color={colors.muted} iconKey={sectionIcon} size={23} />
+        <Text style={[styles.cardTitle, styles.inviteSectionCopy]}>{label}</Text>
+        {onDismiss ? <IconAction accessibilityLabel={`Hide ${label}`} colors={colors} iconKey="action.hide" onPress={() => onDismiss(invitation)} styles={styles} /> : null}
+      </View>
+      {answered && !editing ? (
+        <View style={styles.inviteStatus}>
+          <ParentIcon color={invitationToneColor(colors, response.tone)} iconKey={response.iconKey} size={31} />
+          <View style={styles.inviteStatusCopy}>
+            <Text style={[styles.inviteStatusLabel, { color: invitationToneColor(colors, response.tone) }]}>{response.label}</Text>
+            {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text style={styles.meta}>{isVolunteer ? 'Volunteer role status' : 'Squad status'}: {labelize(invitation.selectionState)}</Text> : null}
+          </View>
+          {actionable ? <IconAction accessibilityLabel={`Edit ${label}`} colors={colors} disabled={busy} iconKey="action.edit" onPress={() => onEdit(invitation.invitationId)} styles={styles} /> : null}
+        </View>
+      ) : (
+        <View accessibilityLabel={`${label} choices`} accessibilityRole="radiogroup" style={styles.iconChoiceRow}>
+          {options.map((option) => {
+            const selected = normalizeText(invitation.responseState).toLowerCase() === option.value
+            const tone = ['available', 'yes'].includes(option.value) ? 'success' : option.value === 'maybe' ? 'warning' : 'danger'
+            const iconKey = ['available', 'yes'].includes(option.value) ? 'attendance.available' : option.value === 'maybe' ? 'attendance.maybe' : 'attendance.unavailable'
+            const optionLabel = isVolunteer ? option.value === 'yes' ? 'Yes' : 'No' : option.value === 'available' ? 'Attending' : option.value === 'unavailable' ? 'Not attending' : option.label
+            return <IconChoice accessibilityLabel={`${label}, ${optionLabel}`} colors={colors} disabled={isOffline || busy || !actionable} iconKey={iconKey} key={option.value} label={busy ? 'Saving' : optionLabel} onPress={() => onRespond(invitation, option.value)} selected={selected} styles={styles} tone={tone} />
+          })}
+        </View>
+      )}
+      {invitation.lockReason ? <Text style={styles.warning}>{invitation.lockReason}</Text> : null}
+    </View>
+  )
+}
+
 function ResourceState({ emptyCopy, error, items, loading, styles }) {
   if (loading && items.length === 0) return <Text accessibilityLiveRegion="polite" style={styles.helper}>Loading...</Text>
   if (error && items.length === 0) return <Text accessibilityRole="alert" style={styles.error}>{error}</Text>
@@ -195,36 +298,25 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
 
 function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, onTransport, styles }) {
   const [seatsOffered, setSeatsOffered] = useState(Math.max(1, Number(invitation?.transportSeatsOffered) || 1))
+  const [open, setOpen] = useState(false)
   const busy = activeActionId === `transport:${invitation?.invitationId}`
   const needsLift = Boolean(invitation?.transportNeedsLift)
   const offeringLift = Boolean(invitation?.transportCanOfferLift)
-  const iconColor = needsLift ? colors.danger : offeringLift ? colors.accent : colors.muted
-  const status = needsLift
-    ? 'Needs a lift'
-    : offeringLift
-      ? `Offering ${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered)} seat${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered) === 1 ? '' : 's'}`
-      : 'Carpool not set'
-
+  const status = needsLift ? 'Needs a lift' : offeringLift ? `Offering ${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered)} seat${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered) === 1 ? '' : 's'}` : invitation?.transportRespondedAt ? 'Not needed' : 'Optional'
   return (
-    <View style={styles.card}>
-      <View style={styles.row}>
-        <View style={styles.carpoolChoice}>
-          <View style={[styles.carpoolIcon, { backgroundColor: `${iconColor}22` }]}>
-            <MaterialIcons color={iconColor} name="directions-car" size={24} />
-          </View>
-          <View><Text style={styles.cardTitle}>Carpool</Text><Text style={styles.meta}>{status}</Text></View>
-        </View>
-      </View>
-      {offeringLift ? (
-        <View style={styles.actionRow}>
-          {[1, 2, 3, 4].map((seats) => <Button disabled={isOffline || busy} key={seats} label={`${seats} seat${seats === 1 ? '' : 's'}`} onPress={() => { setSeatsOffered(seats); onTransport?.(invitation, 'offering_lift', seats) }} outline={seatsOffered !== seats} selected={seatsOffered === seats} styles={styles} />)}
+    <View style={styles.inviteSection}>
+      <Pressable accessibilityLabel={`Carpool, ${status}`} accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((current) => !current)} style={styles.inviteSectionHeader}><ParentIcon color={needsLift ? colors.danger : offeringLift ? colors.success : colors.muted} iconKey="carpool.offer" size={23} /><View style={styles.inviteSectionCopy}><Text style={styles.cardTitle}>Carpool</Text><Text style={styles.meta}>{status}</Text></View><ParentIcon color={colors.accent} iconKey={open ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
+      {open ? <View style={styles.iconChoiceRow}>
+        <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.need" label="Need a lift" onPress={() => onTransport?.(invitation, 'needs_lift', 0)} selected={needsLift} styles={styles} tone="danger" />
+        <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.offer" label="Offer a lift" onPress={() => onTransport?.(invitation, 'offering_lift', seatsOffered)} selected={offeringLift} styles={styles} tone="success" />
+        <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.none" label="Not needed" onPress={() => onTransport?.(invitation, 'none', 0)} selected={!needsLift && !offeringLift && Boolean(invitation?.transportRespondedAt)} styles={styles} />
+      </View> : null}
+      {open && offeringLift ? (
+        <View accessibilityLabel="Seats offered" style={styles.actionRow}>
+          <Text style={styles.meta}>Seats</Text>
+          {[1, 2, 3, 4].map((seats) => <Pressable accessibilityLabel={`${seats} seat${seats === 1 ? '' : 's'}`} accessibilityRole="radio" accessibilityState={{ checked: seatsOffered === seats }} disabled={isOffline || busy} key={seats} onPress={() => { setSeatsOffered(seats); onTransport?.(invitation, 'offering_lift', seats) }} style={styles.seatChoice}><Text style={[styles.seatChoiceText, seatsOffered === seats && { color: colors.success }]}>{seats}</Text></Pressable>)}
         </View>
       ) : null}
-      <View style={styles.actionRow}>
-        <Button disabled={isOffline || busy} label={busy && needsLift ? 'Saving...' : 'Need a lift'} onPress={() => onTransport?.(invitation, 'needs_lift', 0)} outline={!needsLift} selected={needsLift} styles={styles} />
-        <Button disabled={isOffline || busy} label={busy && offeringLift ? 'Saving...' : 'Offer a lift'} onPress={() => onTransport?.(invitation, 'offering_lift', seatsOffered)} outline={!offeringLift} selected={offeringLift} styles={styles} />
-        {(needsLift || offeringLift) ? <Button disabled={isOffline || busy} label="Clear" onPress={() => onTransport?.(invitation, 'none', 0)} outline styles={styles} /> : null}
-      </View>
     </View>
   )
 }
@@ -244,53 +336,33 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
         accessibilityRole="button"
         disabled={!invitation}
         onPress={() => invitation && onOpenInvitation?.(invitation)}
+        style={styles.compactRow}
       >
-        <View style={styles.row}>
-          <Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text>
-          <Text style={styles.meta}>{isMatch ? `Kick-off: ${event.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}` : event.calendarTime || 'All day'}</Text>
+        <ParentIcon color={isMatch ? colors.text : colors.accent} iconKey={isMatch ? 'football' : 'parent.calendar'} size={32} />
+        <View style={styles.compactCopy}>
+          <View style={styles.row}><Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text><Text style={styles.meta}>{isMatch ? event.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime) : event.calendarTime || 'All day'}</Text></View>
+          <Text style={styles.cardTitle}>{event.title}</Text>
+          <Text numberOfLines={1} style={styles.meta}>{[event.teamName, isMatch && arrivalTime ? `Arrive ${formatParentProductTime(arrivalTime)}` : '', event.responseState ? labelize(event.responseState) : ''].filter(Boolean).join(' | ')}</Text>
         </View>
-        <Text style={styles.cardTitle}>{event.title}</Text>
-        {event.eventType === 'match_day' ? <Text style={styles.meta}>{getMatchDayShirtChoiceLabel(event.shirtChoice)}</Text> : null}
-        {isMatch && arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(arrivalTime)}</Text> : null}
-        {event.teamName ? <Text style={styles.meta}>{event.teamName}</Text> : null}
-        {event.location ? <Text style={styles.meta}>{event.location}</Text> : null}
-        {event.responseState ? <Text style={styles.meta}>Response: {labelize(event.responseState)}</Text> : null}
-        {event.notes ? <Text style={styles.body}>{event.notes}</Text> : null}
-        {invitation ? <Text style={styles.cardLink}>{actionable ? 'Open and respond' : 'Open request'}</Text> : null}
+        {invitation ? <ParentIcon color={colors.accent} iconKey="action.open" size={22} /> : null}
       </Pressable>
       {actionable ? (
-        <View style={styles.actionRow}>
-          {getInvitationResponseOptions(invitation).map((option) => (
-            <Button
-              disabled={isOffline || busy}
-              key={option.value}
-              label={busy ? 'Saving...' : option.label}
-              onPress={() => onRespond(invitation, option.value)}
-              outline
-              selected={invitation.responseState === option.value}
-              styles={styles}
-            />
-          ))}
+        <View style={styles.iconChoiceRow}>
+          {getInvitationResponseOptions(invitation).map((option) => {
+            const selected = invitation.responseState === option.value
+            const tone = ['available', 'yes'].includes(option.value) ? 'success' : option.value === 'maybe' ? 'warning' : 'danger'
+            const iconKey = ['available', 'yes'].includes(option.value) ? 'attendance.available' : option.value === 'maybe' ? 'attendance.maybe' : 'attendance.unavailable'
+            const label = invitation.invitationType === 'match_role' ? option.value === 'yes' ? 'Yes' : 'No' : option.value === 'available' ? 'Attending' : option.value === 'unavailable' ? 'Not attending' : option.label
+            return <IconChoice colors={colors} disabled={isOffline || busy} iconKey={iconKey} key={option.value} label={busy ? 'Saving' : label} onPress={() => onRespond(invitation, option.value)} selected={selected} styles={styles} tone={tone} />
+          })}
         </View>
       ) : null}
       {isMatch && invitation?.invitationType === 'match_attendance' ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
-      {Array.isArray(event.resources) && event.resources.length > 0 ? (
-        <View style={styles.stack}>
-          <Text style={styles.meta}>Attachments</Text>
-          {event.resources.map((resource) => (
-            <Button
-              disabled={isOffline || Boolean(activeActionId)}
-              key={resource.id}
-              label={activeActionId === `calendar-resource:${resource.id}` ? 'Opening...' : `Open ${resource.title}`}
-              onPress={() => onOpenResource?.(event, resource)}
-              outline
-              styles={styles}
-            />
-          ))}
-        </View>
-      ) : null}
-      {event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <Button disabled={Boolean(activeActionId)} label="Add to calendar" onPress={() => onAddToCalendar?.(event)} outline styles={styles} /> : null}
-      {directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}
+      {Array.isArray(event.resources) && event.resources.length > 0 ? <View style={styles.stack}>{event.resources.map((resource) => <Pressable accessibilityLabel={`Open ${resource.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={resource.id} onPress={() => onOpenResource?.(event, resource)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accent} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resource.title}</Text><ParentIcon color={colors.accent} iconKey="action.open" size={21} /></Pressable>)}</View> : null}
+      <View style={styles.row}>
+        {event.location ? <View style={[styles.inviteMetadataItem, styles.inviteSectionCopy]}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={1} style={styles.meta}>{event.location}</Text></View> : <View />}
+        <View style={styles.actionRow}>{event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <IconAction accessibilityLabel="Add to calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(event)} styles={styles} /> : null}{directionsUrl ? <IconAction accessibilityLabel="Get directions" colors={colors} iconKey="parent.directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} styles={styles} /> : null}</View>
+      </View>
     </View>
   )
 }
@@ -399,15 +471,29 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
   const sections = useMemo(() => getParentInvitationSections(resource.items), [resource.items])
   const defaultSection = sections.needsResponse.length ? 'needsResponse' : 'upcoming'
   const [sectionKey, setSectionKey] = useState(defaultSection)
+  const [editingInvitationId, setEditingInvitationId] = useState('')
+  const [volunteerHelpOpen, setVolunteerHelpOpen] = useState(false)
   const activeSectionKey = sectionKey === 'needsResponse' && !sections.needsResponse.length ? 'upcoming' : sectionKey
   const targetedInvitation = targetInvitationId
     ? resource.items.find((invitation) => invitation.invitationId === targetInvitationId) || null
     : null
-  const visibleInvitations = targetedInvitation ? [targetedInvitation] : sections[activeSectionKey] || []
+  const uniqueInvitations = useMemo(() => [
+    ...sections.needsResponse,
+    ...sections.upcoming,
+    ...sections.responded,
+    ...sections.history,
+  ], [sections])
+  const groupedInvitations = useMemo(() => groupParentInvitationsByEvent(uniqueInvitations), [uniqueInvitations])
+  const visibleEventKeys = useMemo(() => new Set((targetedInvitation ? [targetedInvitation] : sections[activeSectionKey] || []).map(getParentInvitationEventKey)), [activeSectionKey, sections, targetedInvitation])
+  const visibleGroups = groupedInvitations.filter((group) => visibleEventKeys.has(group.eventKey))
+  const respond = (invitation, responseState) => {
+    setEditingInvitationId('')
+    onRespond(invitation, responseState)
+  }
   return (
     <View style={styles.stack}>
       {targetedInvitation && onBackTarget ? <Button label="Back to all requests" onPress={onBackTarget} outline styles={styles} /> : null}
-      <View><Text accessibilityRole="header" style={styles.header}>{targetedInvitation ? 'Respond to request' : 'Invites'}</Text><Text style={styles.helper}>{targetedInvitation ? 'Review this request and answer it directly.' : `Attendance and volunteer responses for ${link?.playerName || 'your child'}.`}</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>{targetedInvitation ? 'Respond to request' : 'Invites'}</Text><Text style={styles.helper}>{targetedInvitation ? 'Choose the icons that match your answer.' : `Compact attendance and volunteer responses for ${link?.playerName || 'your child'}.`}</Text></View>
       {isOffline ? <Text style={styles.warning}>Responses need a connection. Saved invitations remain available to read.</Text> : null}
       {!targetedInvitation ? <View style={styles.actionRow}>{[
         ['needsResponse', 'Needs response'],
@@ -416,52 +502,38 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
         ['history', 'History'],
       ].map(([key, label]) => <Button key={key} label={`${label}${sections[key].length ? ` (${sections[key].length})` : ''}`} onPress={() => setSectionKey(key)} outline={activeSectionKey !== key} styles={styles} />)}</View> : null}
       <ResourceState emptyCopy="There are no invitations for this child." {...resource} styles={styles} />
-      {!resource.loading && resource.items.length > 0 && visibleInvitations.length === 0 ? <Text style={styles.empty}>Nothing is in this section.</Text> : null}
-      {visibleInvitations.map((invitation) => {
-        const options = getInvitationResponseOptions(invitation)
-        const busy = activeActionId === `invite:${invitation.invitationId}`
-        const actionable = isParentInvitationActionable(invitation)
-        const volunteerOffer = invitation.invitationType === 'match_role'
-        const volunteerRole = volunteerOffer ? getParentVolunteerRoleLabel(invitation) : ''
-        const matchInvitation = ['match_attendance', 'match_role'].includes(invitation.invitationType)
-        const kickoffTime = invitation.kickoffTime || invitation.eventStart || ''
+      {!resource.loading && resource.items.length > 0 && visibleGroups.length === 0 ? <Text style={styles.empty}>Nothing is in this section.</Text> : null}
+      {visibleGroups.map((group) => {
+        const matchAttendance = group.invitations.find((invitation) => invitation.invitationType === 'match_attendance') || null
+        const volunteerOffers = group.invitations.filter((invitation) => invitation.invitationType === 'match_role')
+        const otherInvitations = group.invitations.filter((invitation) => !['match_attendance', 'match_role'].includes(invitation.invitationType))
+        const primary = matchAttendance || volunteerOffers[0] || otherInvitations[0]
+        const isMatch = Boolean(matchAttendance || volunteerOffers.length)
+        const kickoffTime = primary?.kickoffTime || primary?.eventStart || ''
+        const resources = group.invitations.flatMap((invitation) => Array.isArray(invitation.resources) ? invitation.resources.map((resourceItem) => ({ invitation, resourceItem })) : [])
         return (
-          <View key={invitation.invitationId || `${invitation.sourceRecordId}:${invitation.invitationType}`} style={[styles.card, volunteerOffer && styles.volunteerCard]}>
-            <View style={styles.row}><Text style={styles.pill}>{volunteerOffer ? 'Volunteer offer' : labelize(getParentInvitationDisplayState(invitation))}</Text><Text style={styles.meta}>{formatDateOnly(invitation.eventStart || invitation.eventDate)}</Text></View>
-            {volunteerOffer ? <Text style={styles.volunteerRole}>{volunteerRole} offer</Text> : null}
-            <Text style={styles.cardTitle}>{invitation.eventTitle}</Text>
-            {!matchInvitation && invitation.eventStart ? <Text style={styles.meta}>Starts: {formatParentProductTime(invitation.eventStart)}</Text> : null}
-            {matchInvitation ? <Text style={styles.meta}>Kits: {getMatchDayShirtChoiceLabel(invitation.shirtChoice)}</Text> : null}
-            {matchInvitation && invitation.arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(invitation.arrivalTime)}</Text> : null}
-            {matchInvitation ? <Text style={styles.meta}>Kick-off: {invitation.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}</Text> : null}
-            {volunteerOffer ? <Text style={styles.body}>This is a Parent or guardian volunteer role. It does not select your child for the squad.</Text> : null}
-            <Text style={styles.body}>{volunteerOffer ? 'Offer status' : 'Response'}: {labelize(invitation.responseState)}</Text>
-            {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text style={styles.meta}>{volunteerOffer ? 'Volunteer role status' : 'Squad status'}: {labelize(invitation.selectionState)}</Text> : null}
-            {invitation.eventLocation ? <Text style={styles.meta}>{invitation.eventLocation}</Text> : null}
-            {Array.isArray(invitation.resources) && invitation.resources.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.meta}>Attachments</Text>
-                {invitation.resources.map((eventResource) => (
-                  <Button
-                    disabled={isOffline || Boolean(activeActionId)}
-                    key={`${eventResource.id}:${eventResource.occurrenceDate}`}
-                    label={activeActionId === `calendar-resource:${eventResource.id}` ? 'Opening...' : `Open ${eventResource.title}`}
-                    onPress={() => onOpenResource?.(invitation, eventResource)}
-                    outline
-                    styles={styles}
-                  />
-                ))}
+          <View key={group.eventKey} style={styles.inviteGroup}>
+            <View style={styles.row}><Text style={styles.pill}>{isMatch ? 'Match & volunteer invite' : 'Event invite'}</Text><Text style={styles.meta}>{formatDateOnly(primary?.eventStart || primary?.eventDate)}</Text></View>
+            <View style={styles.inviteHeader}>
+              <ParentIcon color={colors.text} iconKey={isMatch ? 'football' : 'parent.calendar'} size={38} />
+              <View style={styles.inviteHeaderCopy}><Text style={styles.cardTitle}>{group.eventTitle}</Text>{primary?.teamName ? <Text style={styles.meta}>{primary.teamName}</Text> : null}</View>
+            </View>
+            <View style={styles.inviteMetadata}>
+              {isMatch ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.accent} iconKey="shirt" size={20} /><Text style={styles.meta}>{getMatchDayShirtChoiceLabel(primary?.shirtChoice)}</Text></View> : null}
+              {isMatch && primary?.arrivalTime ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.danger} iconKey="time.arrival" size={20} /><Text style={styles.meta}>Arrive {formatParentProductTime(primary.arrivalTime)}</Text></View> : null}
+              {isMatch ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.success} iconKey="time.kickoff" size={20} /><Text style={styles.meta}>Kick-off {primary?.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}</Text></View> : primary?.eventStart ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.accent} iconKey="time.arrival" size={20} /><Text style={styles.meta}>{formatParentProductTime(primary.eventStart)}</Text></View> : null}
+            </View>
+            {matchAttendance ? <InvitationResponseControl activeActionId={activeActionId} colors={colors} editingInvitationId={editingInvitationId} invitation={matchAttendance} isOffline={isOffline} label="Match attendance" onDismiss={!targetedInvitation ? onDismiss : null} onEdit={setEditingInvitationId} onRespond={respond} styles={styles} /> : null}
+            {matchAttendance ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={matchAttendance} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
+            {volunteerOffers.length ? <View style={styles.inviteSection}><View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="invite" size={23} /><Text style={[styles.cardTitle, styles.inviteSectionCopy]}>Volunteer roles</Text><IconAction accessibilityLabel="About Volunteer offers" colors={colors} iconKey="info-outline" onPress={() => setVolunteerHelpOpen((open) => !open)} styles={styles} /></View>{volunteerHelpOpen ? <Text style={styles.helper}>This is a Parent or guardian volunteer role. It does not select your child for the squad.</Text> : null}</View> : null}
+            {volunteerOffers.map((invitation) => <InvitationResponseControl activeActionId={activeActionId} colors={colors} editingInvitationId={editingInvitationId} invitation={invitation} isOffline={isOffline} key={invitation.invitationId} label={getParentVolunteerRoleLabel(invitation)} onDismiss={!targetedInvitation ? onDismiss : null} onEdit={setEditingInvitationId} onRespond={respond} styles={styles} />)}
+            {otherInvitations.map((invitation) => <InvitationResponseControl activeActionId={activeActionId} colors={colors} editingInvitationId={editingInvitationId} invitation={invitation} isOffline={isOffline} key={invitation.invitationId} label={invitation.invitationType === 'training_attendance' ? 'Training attendance' : 'Attendance'} onDismiss={!targetedInvitation ? onDismiss : null} onEdit={setEditingInvitationId} onRespond={respond} styles={styles} />)}
+            {resources.length ? (
+              <View style={styles.inviteSection}>
+                {resources.map(({ invitation, resourceItem }) => <Pressable accessibilityLabel={`Open ${resourceItem.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={`${resourceItem.id}:${resourceItem.occurrenceDate}:${invitation.invitationId}`} onPress={() => onOpenResource?.(invitation, resourceItem)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accent} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resourceItem.title}</Text><ParentIcon color={colors.accent} iconKey="action.open" size={21} /></Pressable>)}
               </View>
             ) : null}
-            {invitation.lockReason ? <Text style={styles.warning}>{invitation.lockReason}</Text> : null}
-            {actionable ? (
-              <View style={styles.actionRow}>
-                {options.map((option) => <Button disabled={isOffline || busy} key={option.value} label={busy ? 'Saving...' : option.label} onPress={() => onRespond(invitation, option.value)} outline styles={styles} />)}
-              </View>
-            ) : null}
-            {invitation.invitationType === 'match_attendance' ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
-            {matchInvitation && (invitation.eventDate || invitation.eventStart) ? <Button disabled={Boolean(activeActionId)} label="Add to calendar" onPress={() => onAddToCalendar?.(invitation)} outline styles={styles} /> : null}
-            {!targetedInvitation && onDismiss ? <Button label="Remove from this list" onPress={() => onDismiss(invitation)} outline styles={styles} /> : null}
+            {primary?.eventLocation ? <View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="location" size={23} /><Text style={[styles.meta, styles.inviteSectionCopy]}>{primary.eventLocation}</Text>{(primary.eventDate || primary.eventStart) ? <IconAction accessibilityLabel="Add invite to calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /> : null}</View> : (primary?.eventDate || primary?.eventStart) ? <View style={styles.row}><Text style={styles.meta}>Add this event to your calendar</Text><IconAction accessibilityLabel="Add invite to calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /></View> : null}
           </View>
         )
       })}
@@ -473,17 +545,15 @@ function scoreVisible(match) {
   return ['extra_time', 'full_time', 'half_time', 'live', 'penalties', 'second_half'].includes(match.status)
 }
 
-function MatchCard({ match, onDismiss, onOpen, styles }) {
+function MatchCard({ colors, match, onDismiss, onOpen, styles }) {
   return (
     <View style={styles.card}>
-      <View style={styles.row}><Text style={styles.pill}>{labelize(match.status)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View>
-      <Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text>
-      {match.arrivalTime ? <Text style={styles.meta}>Arrival: {formatParentProductTime(match.arrivalTime)}</Text> : null}
-      <Text style={styles.meta}>Kick-off: {match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)}</Text>
-      <Text style={styles.meta}>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text>
-      {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
-      <Button label="Open Match Day" onPress={() => onOpen(match)} outline styles={styles} />
-      {onDismiss ? <Button label="Remove from this list" onPress={() => onDismiss(match)} outline styles={styles} /> : null}
+      <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
+        <ParentIcon color={colors.text} iconKey="football" size={34} />
+        <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{labelize(match.status)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
+        {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accent} iconKey="action.open" size={22} />}
+      </Pressable>
+      {onDismiss ? <View style={styles.row}><Text style={styles.meta}>{match.arrivalTime ? `Arrive ${formatParentProductTime(match.arrivalTime)}` : ''}</Text><IconAction accessibilityLabel="Hide match" colors={colors} iconKey="action.hide" onPress={() => onDismiss(match)} styles={styles} /></View> : null}
     </View>
   )
 }
@@ -800,34 +870,31 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onAddToCalenda
       <View style={styles.actionRow}><Button label={`Coming up (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button label={`History (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
       <ResourceState emptyCopy="There are no Parent-visible match cards for this child." {...resource} styles={styles} />
       {!resource.loading && resource.items.length > 0 && visibleMatches.length === 0 ? <Text style={styles.empty}>No matches are in this section.</Text> : null}
-      {visibleMatches.map((match) => <MatchCard key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} styles={styles} />)}
+      {visibleMatches.map((match) => <MatchCard colors={colors} key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} styles={styles} />)}
     </View>
   )
 }
 
 export function ResultsScreen({ link, resource, themeTokens }) {
-  const { styles } = usePortalStyles(themeTokens)
+  const { colors, styles } = usePortalStyles(themeTokens)
   const results = getParentMatchGroups(resource.items).recent.filter((match) => match.status === 'full_time')
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Results</Text><Text style={styles.helper}>Completed Parent-visible fixtures for {link?.playerName || 'your child'}.</Text></View>
       <ResourceState emptyCopy="There are no completed results for this child." error={resource.error} items={results} loading={resource.loading} styles={styles} />
-      {results.map((match) => <ParentMatchReportCard key={match.id} match={match} styles={styles} />)}
+      {results.map((match) => <ParentMatchReportCard colors={colors} key={match.id} match={match} styles={styles} />)}
     </View>
   )
 }
 
-function ParentMatchReportCard({ match, styles }) {
+function ParentMatchReportCard({ colors, match, styles }) {
   const [expanded, setExpanded] = useState(false)
   const report = useMemo(() => buildFinalMatchReportSummary(match), [match])
   const activeEvents = report.activeEvents.slice().reverse()
   return (
     <View style={styles.card}>
-      <View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View>
-      <Text style={styles.cardTitle}>{match.teamName} v {match.opponent}</Text>
-      <Text style={styles.score}>{report.result.finalScore}</Text>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.compactRow}><ParentIcon color={colors.text} iconKey="football" size={34} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{match.teamName} v {match.opponent}</Text></View><Text style={styles.score}>{report.result.finalScore}</Text><ParentIcon color={colors.accent} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
       {report.result.shootoutScore ? <Text style={styles.meta}>Shootout: {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
-      <Button expanded={expanded} label={expanded ? 'Hide match report' : 'View match report'} onPress={() => setExpanded((current) => !current)} outline styles={styles} />
       {expanded ? (
         <View style={styles.section}>
           <Text style={styles.cardTitle}>Match report</Text>
@@ -848,19 +915,19 @@ function ParentMatchReportCard({ match, styles }) {
 }
 
 export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, themeTokens }) {
-  const { styles } = usePortalStyles(themeTokens)
+  const { colors, styles } = usePortalStyles(themeTokens)
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history previously shared with this Parent link.</Text></View>
       {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Opening a PDF needs a connection.</Text> : null}
       <ResourceState emptyCopy="No delivered Development reports are available for this child." {...resource} styles={styles} />
-      {resource.items.map((report) => <View key={report.id} style={styles.card}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.stat}>Overall score: {report.overallScore} / {report.overallMaxScore || 10}</Text>}{report.responseItems?.slice(0, 6).map((item, index) => <Text key={`${item.label}:${index}`} style={styles.body}>{item.label}: {item.displayValue}</Text>)}<Button disabled={isOffline || !report.canDownloadPdf} label={report.canDownloadPdf ? 'View or share PDF' : 'PDF not included'} onPress={() => onOpen(report)} outline styles={styles} /><Button label="Remove from this list" onPress={() => onDismiss(report)} outline styles={styles} /></View>)}
+      {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel={report.canDownloadPdf ? 'View or share PDF' : 'PDF not included'} accessibilityRole="button" accessibilityState={{ disabled: isOffline || !report.canDownloadPdf }} disabled={isOffline || !report.canDownloadPdf} onPress={() => onOpen(report)} style={styles.compactRow}><ParentIcon color={colors.accent} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={report.canDownloadPdf ? colors.accent : colors.muted} iconKey={report.canDownloadPdf ? 'action.open' : 'block'} size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>{report.canDownloadPdf ? 'Open report' : 'PDF not included'}</Text><IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /></View></View>)}
     </View>
   )
 }
 
 export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
-  const { styles } = usePortalStyles(themeTokens)
+  const { colors, styles } = usePortalStyles(themeTokens)
   if (formationBoard) {
     const placements = getNamedParentFormationPlayers(formationBoard.placements)
     const bench = getNamedParentFormationPlayers(formationBoard.bench)
@@ -888,7 +955,7 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
       <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected child.</Text></View>
       {isOffline ? <Text style={styles.warning}>Resource details are saved for reading. Opening the item needs a connection.</Text> : null}
       <ResourceState emptyCopy="No resources are shared with this child." {...resource} styles={styles} />
-      {resource.items.map((item) => <View key={item.id} style={styles.card}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text>{item.description || item.shareDescription ? <Text style={styles.body}>{item.description || item.shareDescription}</Text> : null}<Button disabled={isOffline} label="Open resource" onPress={() => onOpen(item)} outline styles={styles} /><Button label="Remove from this list" onPress={() => onDismiss(item)} outline styles={styles} /></View>)}
+      {resource.items.map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accent} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text></View><ParentIcon color={colors.accent} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text><IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /></View></View>)}
     </View>
   )
 }
@@ -945,12 +1012,10 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
         keyExtractor={(room) => String(room.id)}
         renderItem={({ item: room }) => (
           <View style={styles.card}>
-            <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)}>
-              <View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View>
-              <Text style={styles.cardTitle}>{room.title}</Text>
-              {getParentChatRoomContext(room) ? <Text style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}
-              <Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text>
-              {room.latestMessageAt ? <Text style={styles.meta}>{formatDate(room.latestMessageAt)}</Text> : null}
+            <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)} style={styles.compactRow}>
+              <ParentIcon color={room.unreadCount ? colors.accent : colors.muted} iconKey="message" size={30} />
+              <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text numberOfLines={1} style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text></View>
+              <ParentIcon color={colors.accent} iconKey="action.open" size={22} />
             </Pressable>
             <View style={styles.row}>
               <View><Text style={styles.body}>Do not disturb</Text><Text style={styles.meta}>{room.notificationsMuted ? 'Notifications muted for this room' : 'Notifications on for this room'}</Text></View>
@@ -971,16 +1036,16 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
 }
 
 export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredPolls }) {
-  const { styles } = usePortalStyles(themeTokens)
+  const { colors, styles } = usePortalStyles(themeTokens)
   const items = [
-    ['invites', 'Invites', unansweredInvites ? `${unansweredInvites} need a response` : 'Attendance and volunteer requests'],
-    ['results', 'Results', 'Completed fixtures'],
-    ['development', 'Development', 'Reports shared with your family'],
-    ['resources', 'Resources', 'Files and links'],
-    ['polls', 'Polls', unansweredPolls ? `${unansweredPolls} need a response` : 'Parent polls'],
-    ['settings', 'Settings', 'Account, security, display and alerts'],
+    ['invites', 'invite', 'Invites', unansweredInvites ? `${unansweredInvites} to answer` : 'Attendance and roles'],
+    ['results', 'result', 'Results', 'Completed fixtures'],
+    ['development', 'development', 'Development', 'Shared reports'],
+    ['resources', 'resource', 'Resources', 'Files and links'],
+    ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls'],
+    ['settings', 'settings', 'Settings', 'Account and alerts'],
   ]
-  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text>{items.map(([key, title, copy]) => <Pressable accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={styles.card}><Text style={styles.cardTitle}>{title}</Text><Text style={styles.helper}>{copy}</Text></Pressable>)}</View>
+  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><ParentIcon color={colors.accent} iconKey={iconKey} size={31} /><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
 }
 
 export async function openExternalParentUrl(url) {

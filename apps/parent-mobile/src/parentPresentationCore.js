@@ -27,6 +27,44 @@ function invitationOccurrenceKey(invitation = {}) {
   ].map(normalizeText).join(':')
 }
 
+export function getParentInvitationEventKey(invitation = {}) {
+  const eventId = normalizeText(invitation.eventId)
+  if (eventId) return `event:${eventId}`
+  return [
+    invitation.childId,
+    invitation.eventStart || invitation.eventDate,
+    invitation.eventTitle,
+    invitation.teamName,
+  ].map((value) => normalizeText(value).toLowerCase()).join(':')
+}
+
+export function groupParentInvitationsByEvent(rows = []) {
+  const groups = new Map()
+  for (const invitation of Array.isArray(rows) ? rows : []) {
+    const key = getParentInvitationEventKey(invitation)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(invitation)
+  }
+  return [...groups.entries()]
+    .map(([key, invitations]) => ({
+      eventDate: invitations[0]?.eventStart || invitations[0]?.eventDate || '',
+      eventId: normalizeText(invitations[0]?.eventId),
+      eventKey: key,
+      eventTitle: normalizeText(invitations[0]?.eventTitle) || 'Club event',
+      invitations: invitations.slice().sort((left, right) => {
+        const typeRank = { match_attendance: 0, match_role: 1, training_attendance: 2, calendar_attendance: 3 }
+        const roleRank = { scorer: 0, linesman: 1, referee: 2 }
+        const typeDifference = (typeRank[left.invitationType] ?? 9) - (typeRank[right.invitationType] ?? 9)
+        if (typeDifference) return typeDifference
+        const leftRole = normalizeText(left.roleType).toLowerCase().replace(/^volunteer_/, '')
+        const rightRole = normalizeText(right.roleType).toLowerCase().replace(/^volunteer_/, '')
+        return (roleRank[leftRole] ?? 9) - (roleRank[rightRole] ?? 9)
+          || leftRole.localeCompare(rightRole)
+      }),
+    }))
+    .sort((left, right) => String(left.eventDate || '9999-12-31').localeCompare(String(right.eventDate || '9999-12-31')))
+}
+
 function invitationRecency(invitation = {}) {
   return new Date(invitation.lastRespondedAt || invitation.eventStart || invitation.eventDate || 0).getTime() || 0
 }
