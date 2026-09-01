@@ -3043,11 +3043,14 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     try {
       const teamId = String(form.teamId || user.activeTeamId || '').trim()
       if (teamId && form.rememberNotificationTeamName) {
-        await updateTeamNotificationDisplayName({
+        const updatedTeam = await updateTeamNotificationDisplayName({
           notificationDisplayName: form.notificationTeamName || deriveTeamNotificationDisplayName(selectedFixtureTeamName),
           teamId,
           user,
         })
+        setTeams((currentTeams) => currentTeams.map((team) => (
+          String(team.id) === String(updatedTeam.id) ? updatedTeam : team
+        )))
       }
       const createdMatch = await createMatchDay({
         user,
@@ -3057,6 +3060,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           scorerRequestMessage: submittedForm.requestScorer ? volunteerRequestMessages.scorer : '',
         },
       })
+      writeMatchDayFixturePreferences(submittedForm)
       const reconcileCreatedMatch = (currentMatches) => reconcileCreatedMatchDayInList(currentMatches, {
         match: createdMatch,
       })
@@ -3130,7 +3134,6 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           type: 'scorer_request',
         })
       }
-      writeMatchDayFixturePreferences(submittedForm)
       setForm(EMPTY_MATCH_FORM)
       setSelectedLocationId('')
       setIsFixtureFormOpen(false)

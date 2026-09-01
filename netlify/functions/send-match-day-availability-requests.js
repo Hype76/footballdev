@@ -301,18 +301,79 @@ async function prepareCalendarEditInvitations({
 
   for (const { contact, player, recipientEmail } of recipientUnits) {
     const notification = notificationMap.get(`${player.id}:${recipientEmail}`)
-    const request = (requests ?? []).find((candidate) =>
+    let request = (requests ?? []).find((candidate) =>
       String(candidate.player_id) === String(player.id)
       && normalizeEmail(candidate.recipient_email) === recipientEmail
       && candidate.recipient_type === contact.type
       && candidate.channel === 'email')
+    let token = ''
+    let tokenHash = ''
+
+    if (!request) {
+      const createdToken = createInvitationToken()
+      const { data: createdRequest, error: requestCreateError } = await supabase
+        .from('match_day_availability_requests')
+        .insert({
+          match_day_id: matchDayId,
+          club_id: profile.club_id,
+          team_id: match.team_id,
+          player_id: player.id,
+          player_name: player.player_name,
+          recipient_email: recipientEmail,
+          recipient_name: contact.name || (contact.type === 'player' ? player.player_name : 'Parent or guardian'),
+          recipient_type: contact.type,
+          parent_link_id: contact.parentLinkId || null,
+          channel: 'email',
+          expires_at: getInvitationExpiry(match),
+          token_hash: createdToken.tokenHash,
+          status: 'pending',
+          volunteer_scorer_response: 'no_response',
+          volunteer_linesman_response: 'no_response',
+          volunteer_referee_response: 'no_response',
+          volunteer_responded_at: null,
+          created_by: profile.id,
+          created_by_name: normalizeText(profile.display_name || profile.name || profile.email),
+          updated_at: new Date().toISOString(),
+        })
+        .select('*')
+        .single()
+
+      if (requestCreateError?.code === '23505') {
+        const { data: concurrentRequest, error: concurrentRequestError } = await adminSupabase
+          .from('match_day_availability_requests')
+          .select('*')
+          .eq('match_day_id', matchDayId)
+          .eq('club_id', profile.club_id)
+          .eq('team_id', match.team_id)
+          .eq('player_id', player.id)
+          .eq('recipient_email', recipientEmail)
+          .eq('recipient_type', contact.type)
+          .eq('channel', 'email')
+          .maybeSingle()
+
+        if (concurrentRequestError || !concurrentRequest?.id) {
+          failedCount += 1
+          continue
+        }
+
+        request = concurrentRequest
+      } else if (requestCreateError || !createdRequest?.id) {
+        failedCount += 1
+        continue
+      } else {
+        request = createdRequest
+        token = createdToken.token
+        tokenHash = createdToken.tokenHash
+      }
+    }
+
     let queue = notification?.email_queue_id ? queueMap.get(String(notification.email_queue_id)) : null
 
     if (!queue && request?.id) {
       queue = (queueRows ?? []).find((candidate) => candidate.payload?.matchDayAvailability?.requestId === request.id) || null
     }
 
-    if (!player || !request) {
+    if (!player) {
       failedCount += 1
       continue
     }
@@ -330,8 +391,8 @@ async function prepareCalendarEditInvitations({
 
     const historicalRequestQueues = (historicalQueueRows ?? []).filter((candidate) =>
       candidate.payload?.matchDayAvailability?.requestId === request.id)
-    let token = getReusableMatchDayResponseToken(request, [queue, ...historicalRequestQueues].filter(Boolean))
-    let tokenHash = request.token_hash
+    token = token || getReusableMatchDayResponseToken(request, [queue, ...historicalRequestQueues].filter(Boolean))
+    tokenHash = tokenHash || request.token_hash
 
     if (!token) {
       const createdToken = createInvitationToken()

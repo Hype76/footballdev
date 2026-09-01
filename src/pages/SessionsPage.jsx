@@ -3249,11 +3249,14 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       }
 
       if (safeTeamId && calendarForm.rememberNotificationTeamName) {
-        await updateTeamNotificationDisplayName({
+        const updatedTeam = await updateTeamNotificationDisplayName({
           notificationDisplayName: notificationTeamName,
           teamId: safeTeamId,
           user,
         })
+        setTeams((currentTeams) => currentTeams.map((team) => (
+          String(team.id) === String(updatedTeam.id) ? updatedTeam : team
+        )))
       }
 
       const fixtureEndTime = isMatch
@@ -5099,6 +5102,29 @@ function EventPlayerManagementPanel({
   const currentPlayerIds = new Set(currentInviteByPlayerId.keys())
   const selectedPlayerIds = new Set((form.invitedPlayerIds ?? []).map(String))
   const selectedRemovalIds = new Set(review?.selectedRemovalPlayerIds ?? [])
+  const invitationRequestPlayerIds = new Set(
+    (event?.data?.availabilityRequests ?? [])
+      .map((request) => String(request?.playerId ?? ''))
+      .filter(Boolean),
+  )
+  const selectedInvitationRequestCount = (review?.selectedPlayerIds ?? [])
+    .filter((playerId) => invitationRequestPlayerIds.has(String(playerId)))
+    .length
+  const invitationActionState = selectedInvitationRequestCount === 0
+    ? 'send'
+    : selectedInvitationRequestCount < (review?.selectedPlayerIds?.length ?? 0)
+      ? 'send_or_resend'
+      : 'resend'
+  const invitationActionLabel = invitationActionState === 'send'
+    ? 'Send invitations to everyone'
+    : invitationActionState === 'send_or_resend'
+      ? 'Send or resend invitations to everyone'
+      : 'Resend invitations to everyone'
+  const invitationActionDescription = invitationActionState === 'send'
+    ? 'No availability invitations have been sent yet. Secure response links will be created for all current eligible authorised recipients.'
+    : invitationActionState === 'send_or_resend'
+      ? 'Secure response links will be created where missing and safely reused for recipients who already have an invitation.'
+      : 'All current eligible authorised recipients will be contacted. Existing secure response links are safely reused.'
   const playersById = new Map(invitePlayers.map((player) => [String(player.id), player]))
   const getPlayerName = (playerId) => (
     playersById.get(String(playerId))?.playerName
@@ -5135,7 +5161,12 @@ function EventPlayerManagementPanel({
     }
 
     if (communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll) {
-      return `Resend invitations to ${recipientCount} eligible recipient${recipientCount === 1 ? '' : 's'}`
+      const action = invitationActionState === 'send'
+        ? 'Send invitations'
+        : invitationActionState === 'send_or_resend'
+          ? 'Send or resend invitations'
+          : 'Resend invitations'
+      return `${action} to ${recipientCount} eligible recipient${recipientCount === 1 ? '' : 's'}`
     }
 
     if (addedCount > 0 && removedCount > 0) {
@@ -5320,12 +5351,18 @@ function EventPlayerManagementPanel({
               </fieldset>
 
               <fieldset className="rounded-lg border border-[#fedf89] bg-[#fffaeb] p-4">
-                <legend className="px-1 text-sm font-black text-[#92400e]">Separate resend action</legend>
+                <legend className="px-1 text-sm font-black text-[#92400e]">
+                  {invitationActionState === 'send'
+                    ? 'Send availability invitations'
+                    : invitationActionState === 'send_or_resend'
+                      ? 'Send or resend availability invitations'
+                      : 'Separate resend action'}
+                </legend>
                 <PlayerCommunicationChoice
                   checked={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll}
-                  description={`${review.selectedPlayerIds.length} current player${review.selectedPlayerIds.length === 1 ? '' : 's'}. All ${review.currentRecipientCount} eligible authorised recipient${review.currentRecipientCount === 1 ? '' : 's'} will be contacted. Retries use the same idempotent command.`}
+                  description={`${review.selectedPlayerIds.length} current player${review.selectedPlayerIds.length === 1 ? '' : 's'}. ${invitationActionDescription} Retries use the same idempotent command.`}
                   disabled={review.selectedPlayerIds.length === 0}
-                  label="Resend invitations to everyone"
+                  label={invitationActionLabel}
                   mode={EVENT_PLAYER_COMMUNICATION_MODES.resendAll}
                   onChange={onCommunicationModeChange}
                 />
@@ -5371,11 +5408,17 @@ function EventPlayerManagementPanel({
         isOpen={isConfirmationOpen}
         isBusy={isBusy}
         title={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll
-          ? 'Confirm resend to all current contacts'
+          ? invitationActionState === 'send'
+            ? 'Confirm invitations to all current contacts'
+            : invitationActionState === 'send_or_resend'
+              ? 'Confirm send or resend to all current contacts'
+              : 'Confirm resend to all current contacts'
           : 'Confirm player changes'}
         message={communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.none
           ? 'Player changes will be saved without notifications.'
-          : 'Only the reviewed recipient scope will be queued. Unchanged recipients are not contacted unless resend all was selected.'}
+          : communicationMode === EVENT_PLAYER_COMMUNICATION_MODES.resendAll
+            ? invitationActionDescription
+            : 'Only the reviewed recipient scope will be queued. Unchanged recipients are not contacted.'}
         items={confirmationItems}
         itemsTitle="This command will:"
         confirmLabel={primaryLabel}

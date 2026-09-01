@@ -88,6 +88,25 @@ test('web and app fixture creation expose recipient, Coach-calendar, and squad-c
   assert.match(coachData, /fixture\.parentVisible && !normalizedCalendarTarget/)
 })
 
+test('web fixture defaults persist as soon as the fixture save succeeds', async () => {
+  const web = await source('../src/pages/MatchDayPage.jsx')
+  const createStart = web.indexOf('const createdMatch = await createMatchDay')
+  const preferenceWrite = web.indexOf('writeMatchDayFixturePreferences(submittedForm)', createStart)
+  const availabilitySend = web.indexOf("fetch('/.netlify/functions/send-match-day-availability-requests'", createStart)
+
+  assert.notEqual(createStart, -1)
+  assert.ok(preferenceWrite > createStart)
+  assert.ok(availabilitySend > preferenceWrite)
+  assert.match(web, /const updatedTeam = await updateTeamNotificationDisplayName\([\s\S]*setTeams\(\(currentTeams\)/)
+})
+
+test('Calendar editing refreshes the remembered Team notification name immediately', async () => {
+  const sessions = await source('../src/pages/SessionsPage.jsx')
+
+  assert.match(sessions, /if \(safeTeamId && calendarForm\.rememberNotificationTeamName\) \{[\s\S]*const updatedTeam = await updateTeamNotificationDisplayName/)
+  assert.match(sessions, /setTeams\(\(currentTeams\) => currentTeams\.map/)
+})
+
 test('fixture duration, conclusion rule, Kits, and saved locations are editable on web and Coach mobile', async () => {
   const [sessions, coachScreen, coachData, migration] = await Promise.all([
     source('../src/pages/SessionsPage.jsx'),

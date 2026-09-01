@@ -426,6 +426,31 @@ async function preparePage(context, { standalone = false } = {}) {
       })
     }
 
+    if (path.endsWith('/rpc/preview_event_player_changes')) {
+      const payload = request.postDataJSON()
+      const selectedPlayerIds = Array.isArray(payload.selected_player_ids_value)
+        ? payload.selected_player_ids_value
+        : []
+      return json(route, {
+        eventId: payload.event_id_value,
+        sourceType: payload.source_type_value,
+        eventType: 'match',
+        teamId: 'team-u12',
+        currentPlayerIds: selectedPlayerIds,
+        selectedPlayerIds,
+        addedPlayerIds: [],
+        removedPlayerIds: [],
+        unchangedPlayerIds: selectedPlayerIds,
+        selectedRemovalPlayerIds: [],
+        addedRecipientCount: 0,
+        removedRecipientCount: 0,
+        currentRecipientCount: selectedPlayerIds.length,
+        addedMissingContactPlayerIds: [],
+        removedMissingContactPlayerIds: [],
+        currentMissingContactPlayerIds: [],
+      })
+    }
+
     if (
       path.endsWith('/rpc/set_match_day_player_squad_decision')
       || path.endsWith('/rpc/set_match_day_player_squad_decision_v2')
@@ -533,7 +558,7 @@ async function signIn(page) {
   await page.getByRole('heading', { name: /Calendar$/ }).waitFor({ state: 'visible', timeout: 15000 })
 }
 
-async function verifyMatchDayManagePlayersDeepLink(page) {
+async function verifyMatchDayManagePlayersDeepLink(page, { firstSend = false } = {}) {
   await page.goto(`${baseUrl}/match-day`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByRole('heading', { name: 'Game Day' }).waitFor({ state: 'visible', timeout: 15000 })
   await page.evaluate(() => {
@@ -567,6 +592,15 @@ async function verifyMatchDayManagePlayersDeepLink(page) {
     throw error
   }
   await modal.getByText('FP TEST Match Invite', { exact: false }).first().waitFor({ state: 'visible' })
+  await modal.getByRole('button', { name: 'Review player changes' }).click()
+  if (firstSend) {
+    await modal.getByText('Send availability invitations', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await modal.getByText('Send invitations to everyone', { exact: true }).waitFor({ state: 'visible' })
+    assert.equal(await modal.getByText('Resend invitations to everyone', { exact: true }).count(), 0)
+  } else {
+    await modal.getByText('Send or resend availability invitations', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await modal.getByText('Send or resend invitations to everyone', { exact: true }).waitFor({ state: 'visible' })
+  }
   assert.ok(matchDayDetailReadCount > detailReadsBeforeOpen)
   assert.equal(await page.getByText('The requested event could not be opened in the saved event context.').count(), 0)
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
@@ -598,8 +632,11 @@ try {
 
   const desktopContext = await browser.newContext({ colorScheme: 'dark', viewport: { width: 1440, height: 1000 } })
   const desktop = await preparePage(desktopContext)
+  const existingRequests = matchState.requests
+  matchState.requests = []
   await signIn(desktop.page)
-  await verifyMatchDayManagePlayersDeepLink(desktop.page)
+  await verifyMatchDayManagePlayersDeepLink(desktop.page, { firstSend: true })
+  matchState.requests = existingRequests
   await desktop.page.goto(`${baseUrl}/calendar?action=view&eventId=training-event&source=calendar`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   const managerHomeDeepLinkModal = desktop.page.getByTestId('calendar-event-modal')
   await managerHomeDeepLinkModal.getByRole('heading', { name: 'Calendar event' }).waitFor({ state: 'visible', timeout: 15000 })

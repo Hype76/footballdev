@@ -8,6 +8,10 @@ const migration = readFileSync(
   new URL('../supabase/migrations/20260717194345_matchday_fixture_controls.sql', import.meta.url),
   'utf8',
 )
+const manualPlayerCalendarScopeRepair = readFileSync(
+  new URL('../supabase/migrations/20260901123000_matchday_manual_player_calendar_scope_repair.sql', import.meta.url),
+  'utf8',
+)
 const pastDeleteRepair = readFileSync(
   new URL('../supabase/migrations/20260817141000_past_match_delete_repair.sql', import.meta.url),
   'utf8',
@@ -261,6 +265,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(manualPlayerCalendarScopeRepair)
   await db.exec(pastDeleteRepair)
   await db.exec(`
     insert into auth.users(id) values ('${ACTOR_ID}');
@@ -394,7 +399,7 @@ test('candidate migration applies and previous game deletion retains dependencie
   await db.query('update public.match_days set parent_visible = true, parent_audience = $1 where id = $2', ['involved_players', matchId])
   await db.query('insert into public.players(id, club_id, team_id) values ($1, $2, $3)', [playerId, CLUB_A_ID, TEAM_A_ID])
   await db.query('insert into public.parent_player_links(id, auth_user_id, club_id, team_id, player_id, status) values ($1, $2, $3, $4, $5, $6)', [parentLinkId, ACTOR_ID, CLUB_A_ID, TEAM_A_ID, playerId, 'active'])
-  await db.query('insert into public.calendar_event_invites(match_day_id, club_id, team_id, player_id, invite_status, response_requirement) values ($1, $2, $3, $4, $5, $6)', [matchId, CLUB_A_ID, TEAM_A_ID, playerId, 'sent', 'informational'])
+  await db.query('insert into public.calendar_event_invites(match_day_id, club_id, team_id, player_id, invite_status, response_requirement) values ($1, $2, $3, $4, $5, $6)', [matchId, CLUB_A_ID, TEAM_A_ID, playerId, 'active', 'response_required'])
   await db.query('insert into public.match_day_events(match_day_id, event_type) values ($1, $2)', [matchId, 'goal'])
   await db.query('insert into public.match_day_final_reports(match_day_id) values ($1)', [matchId])
 

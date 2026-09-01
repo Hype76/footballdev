@@ -77,6 +77,10 @@ test('Calendar Match Day edits use the shared server service and no browser reci
   assert.match(sendFunction, /resolveEligibleMatchDayInvitationContacts[\s\S]*recipientUnits/)
   assert.match(sendFunction, /`\$\{contact\.playerId\}:\$\{recipientEmail\}`/)
   assert.match(sendFunction, /candidate\.recipient_type === contact\.type/)
+  assert.match(sendFunction, /if \(!request\) \{[\s\S]*from\('match_day_availability_requests'\)[\s\S]*\.insert\(\{/)
+  assert.match(sendFunction, /recipient_email: recipientEmail[\s\S]*recipient_type: contact\.type/)
+  assert.match(sendFunction, /token = createdToken\.token[\s\S]*tokenHash = createdToken\.tokenHash/)
+  assert.match(sendFunction, /requestCreateError\?\.code === '23505'[\s\S]*concurrentRequest/)
   assert.match(sendFunction, /parent_link_id: contact\.parentLinkId \|\| null/)
   assert.match(sendFunction, /match_day_role_assignments/)
   assert.match(sendFunction, /!filledRoles\.has\('scorer'\)/)
@@ -126,4 +130,15 @@ test('edit remains opt-in and the UI promises updated actionable links', async (
   assert.match(sessionsPage, /Send updated invitations to parents/)
   assert.match(sessionsPage, /secure availability and configured volunteer response links/)
   assert.match(sessionsPage, /const notifyRequested = calendarForm\.notifyInvitedFamilies/)
+})
+
+test('calendar-only fixtures expose a clear first-send action after creation', async () => {
+  const sessionsPage = await readFile(sessionsPageUrl, 'utf8')
+
+  assert.match(sessionsPage, /event\?\.data\?\.availabilityRequests/)
+  assert.match(sessionsPage, /selectedInvitationRequestCount === 0[\s\S]*\? 'send'/)
+  assert.match(sessionsPage, /Send availability invitations/)
+  assert.match(sessionsPage, /Send invitations to everyone/)
+  assert.match(sessionsPage, /No availability invitations have been sent yet/)
+  assert.match(sessionsPage, /Secure response links will be created where missing and safely reused/)
 })
