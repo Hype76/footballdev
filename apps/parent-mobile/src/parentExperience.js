@@ -36,10 +36,6 @@ function addWallTimeMinutes(date, time, minutes) {
   return `${value.getUTCFullYear()}${String(value.getUTCMonth() + 1).padStart(2, '0')}${String(value.getUTCDate()).padStart(2, '0')}T${String(value.getUTCHours()).padStart(2, '0')}${String(value.getUTCMinutes()).padStart(2, '0')}00`
 }
 
-function compactDate(value) {
-  return normalizeText(value).replaceAll('-', '')
-}
-
 function nextCalendarDate(value) {
   const normalized = normalizeText(value)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return ''
@@ -61,27 +57,49 @@ export function canParentRegisterScorerInterest(match, now = new Date()) {
   return ['scheduled', 'scorer_request', 'live'].includes(normalizeText(match?.status).toLowerCase())
 }
 
-export function getParentMatchCalendarUrl(match) {
-  const matchDate = normalizeText(match?.matchDate).slice(0, 10)
+function getParentCalendarTemplate(item = {}) {
+  const matchDate = normalizeText(item.matchDate ?? item.calendarDate ?? item.eventDate).slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDate)) return ''
-  const kickoffTime = normalizeText(match?.kickoffTime).slice(0, 5)
-  const timed = !match?.kickoffTimeTbc && /^\d{2}:\d{2}$/.test(kickoffTime)
-  const start = timed ? addWallTimeMinutes(matchDate, kickoffTime, 0) : compactDate(matchDate)
+  const rawTime = normalizeText(item.kickoffTime ?? item.calendarTime).slice(0, 5)
+  const eventStart = compactCalendarDateTime(item.startsAt ?? item.eventStart)
+  const timed = item.kickoffTimeTbc !== true && (/^\d{2}:\d{2}$/.test(rawTime) || eventStart.includes('T'))
+  const start = timed
+    ? (/^\d{2}:\d{2}$/.test(rawTime) ? `${matchDate.replaceAll('-', '')}T${rawTime.replace(':', '')}00` : eventStart)
+    : matchDate.replaceAll('-', '')
   const end = timed
-    ? addWallTimeMinutes(matchDate, kickoffTime, Math.max(90, Number(match?.matchDurationMinutes || 120)))
+    ? addWallTimeMinutes(
+        matchDate,
+        /^\d{2}:\d{2}$/.test(rawTime) ? rawTime : `${eventStart.slice(9, 11)}:${eventStart.slice(11, 13)}`,
+        Math.max(60, Number(item.matchDurationMinutes || 120)),
+      )
     : nextCalendarDate(matchDate)
   if (!start || !end) return ''
-  const title = `${normalizeText(match?.teamName) || 'Team'} v ${normalizeText(match?.opponent) || 'Opponent'}`
-  const location = [normalizeText(match?.venueName), normalizeText(match?.venueAddress)].filter(Boolean).join(', ')
+  const title = normalizeText(item.title ?? item.eventTitle)
+    || `${normalizeText(item.teamName) || 'Team'} v ${normalizeText(item.opponent) || 'Opponent'}`
+  const location = normalizeText(item.location)
+    || [normalizeText(item.venueName), normalizeText(item.venueAddress), normalizeText(item.eventLocation)].filter(Boolean).join(', ')
+  const details = normalizeText(item.notes)
+    || (item.shirtChoice ? `Kits: ${getMatchDayShirtChoiceLabel(item.shirtChoice)}` : 'Football Player event')
+
+  return { details, end, location, start, timed, title }
+}
+
+export function getParentGoogleCalendarUrl(item = {}) {
+  const event = getParentCalendarTemplate(item)
+  if (!event) return ''
   const params = new URLSearchParams({
     action: 'TEMPLATE',
-    dates: `${start}/${end}`,
-    details: `Football Player Match Day\nKits: ${getMatchDayShirtChoiceLabel(match?.shirtChoice)}`,
-    location,
-    text: title,
+    dates: `${event.start}/${event.end}`,
+    details: event.details,
+    location: event.location,
+    text: event.title,
   })
-  if (timed) params.set('ctz', 'Europe/London')
+  if (event.timed) params.set('ctz', 'Europe/London')
   return `https://calendar.google.com/calendar/render?${params.toString()}`
+}
+
+export function getParentMatchCalendarUrl(match) {
+  return getParentGoogleCalendarUrl(match)
 }
 
 function escapeCalendarText(value) {
@@ -101,31 +119,12 @@ function compactCalendarDateTime(value) {
 }
 
 export function buildParentCalendarIcs(item = {}) {
+  const event = getParentCalendarTemplate(item)
+  if (!event) return ''
   const matchDate = normalizeText(item.matchDate ?? item.calendarDate ?? item.eventDate).slice(0, 10)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDate)) return ''
-  const rawTime = normalizeText(item.kickoffTime ?? item.calendarTime).slice(0, 5)
-  const eventStart = compactCalendarDateTime(item.startsAt ?? item.eventStart)
-  const timed = item.kickoffTimeTbc !== true && (/^\d{2}:\d{2}$/.test(rawTime) || eventStart.includes('T'))
-  const start = /^\d{2}:\d{2}$/.test(rawTime)
-    ? `${matchDate.replaceAll('-', '')}T${rawTime.replace(':', '')}00`
-    : eventStart || matchDate.replaceAll('-', '')
-  const end = timed
-    ? addWallTimeMinutes(
-        matchDate,
-        /^\d{2}:\d{2}$/.test(rawTime) ? rawTime : `${eventStart.slice(9, 11)}:${eventStart.slice(11, 13)}`,
-        Math.max(60, Number(item.matchDurationMinutes || 120)),
-      )
-    : nextCalendarDate(matchDate)
-  if (!start || !end) return ''
-  const title = normalizeText(item.title ?? item.eventTitle)
-    || `${normalizeText(item.teamName) || 'Team'} v ${normalizeText(item.opponent) || 'Opponent'}`
-  const location = normalizeText(item.location)
-    || [normalizeText(item.venueName), normalizeText(item.venueAddress), normalizeText(item.eventLocation)].filter(Boolean).join(', ')
-  const description = normalizeText(item.notes)
-    || (item.shirtChoice ? `Kits: ${getMatchDayShirtChoiceLabel(item.shirtChoice)}` : 'Football Player event')
-  const uid = `${normalizeText(item.id ?? item.eventId ?? item.sourceRecordId) || `${matchDate}-${title}`}@footballplayer.online`
-  const startLine = timed ? `DTSTART;TZID=Europe/London:${start}` : `DTSTART;VALUE=DATE:${start}`
-  const endLine = timed ? `DTEND;TZID=Europe/London:${end}` : `DTEND;VALUE=DATE:${end}`
+  const uid = `${normalizeText(item.id ?? item.eventId ?? item.sourceRecordId) || `${matchDate}-${event.title}`}@footballplayer.online`
+  const startLine = event.timed ? `DTSTART;TZID=Europe/London:${event.start}` : `DTSTART;VALUE=DATE:${event.start}`
+  const endLine = event.timed ? `DTEND;TZID=Europe/London:${event.end}` : `DTEND;VALUE=DATE:${event.end}`
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -137,9 +136,9 @@ export function buildParentCalendarIcs(item = {}) {
     `DTSTAMP:${new Date().toISOString().replaceAll('-', '').replaceAll(':', '').replace(/\.\d{3}Z$/, 'Z')}`,
     startLine,
     endLine,
-    `SUMMARY:${escapeCalendarText(title)}`,
-    `DESCRIPTION:${escapeCalendarText(description)}`,
-    `LOCATION:${escapeCalendarText(location)}`,
+    `SUMMARY:${escapeCalendarText(event.title)}`,
+    `DESCRIPTION:${escapeCalendarText(event.details)}`,
+    `LOCATION:${escapeCalendarText(event.location)}`,
     'END:VEVENT',
     'END:VCALENDAR',
     '',

@@ -361,7 +361,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
       {Array.isArray(event.resources) && event.resources.length > 0 ? <View style={styles.stack}>{event.resources.map((resource) => <Pressable accessibilityLabel={`Open ${resource.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={resource.id} onPress={() => onOpenResource?.(event, resource)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accent} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resource.title}</Text><ParentIcon color={colors.accent} iconKey="action.open" size={21} /></Pressable>)}</View> : null}
       <View style={styles.row}>
         {event.location ? <View style={[styles.inviteMetadataItem, styles.inviteSectionCopy]}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={1} style={styles.meta}>{event.location}</Text></View> : <View />}
-        <View style={styles.actionRow}>{event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <IconAction accessibilityLabel="Add to calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(event)} styles={styles} /> : null}{directionsUrl ? <IconAction accessibilityLabel="Get directions" colors={colors} iconKey="parent.directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} styles={styles} /> : null}</View>
+        <View style={styles.actionRow}>{event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <IconAction accessibilityLabel="Add to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(event)} styles={styles} /> : null}{directionsUrl ? <IconAction accessibilityLabel="Get directions" colors={colors} iconKey="parent.directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} styles={styles} /> : null}</View>
       </View>
     </View>
   )
@@ -533,7 +533,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
                 {resources.map(({ invitation, resourceItem }) => <Pressable accessibilityLabel={`Open ${resourceItem.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={`${resourceItem.id}:${resourceItem.occurrenceDate}:${invitation.invitationId}`} onPress={() => onOpenResource?.(invitation, resourceItem)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accent} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resourceItem.title}</Text><ParentIcon color={colors.accent} iconKey="action.open" size={21} /></Pressable>)}
               </View>
             ) : null}
-            {primary?.eventLocation ? <View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="location" size={23} /><Text style={[styles.meta, styles.inviteSectionCopy]}>{primary.eventLocation}</Text>{(primary.eventDate || primary.eventStart) ? <IconAction accessibilityLabel="Add invite to calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /> : null}</View> : (primary?.eventDate || primary?.eventStart) ? <View style={styles.row}><Text style={styles.meta}>Add this event to your calendar</Text><IconAction accessibilityLabel="Add invite to calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /></View> : null}
+            {primary?.eventLocation ? <View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="location" size={23} /><Text style={[styles.meta, styles.inviteSectionCopy]}>{primary.eventLocation}</Text>{(primary.eventDate || primary.eventStart) ? <IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /> : null}</View> : (primary?.eventDate || primary?.eventStart) ? <View style={styles.row}><Text style={styles.meta}>Add this event to Google Calendar</Text><IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /></View> : null}
           </View>
         )
       })}
@@ -835,7 +835,7 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onAddToCalenda
               outline
               styles={styles}
             />
-            {selectedMatch.matchDate ? <Button label="Add to calendar" onPress={() => onAddToCalendar?.(selectedMatch)} outline styles={styles} /> : null}
+            {selectedMatch.matchDate ? <Button label="Add to Google Calendar" onPress={() => onAddToCalendar?.(selectedMatch)} outline styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <Button label="Get directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} outline styles={styles} /> : null}
           </View>
         </View>

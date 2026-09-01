@@ -9,7 +9,6 @@ import { getSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { getAccessToken, supabase } from '../../mobile-core/src/supabase'
 import { subscribeToMobileChatRoom } from '../../mobile-core/src/chatRealtime'
 import { normalizePersonName } from '../../../src/lib/person-name.js'
-import { buildParentCalendarIcs } from './parentExperience.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -359,21 +358,6 @@ export async function setParentMatchTransport(user, invitation, mode, seatsOffer
   })
   if (error) throw error
   return data
-}
-
-export async function shareParentCalendarItem(item) {
-  const content = buildParentCalendarIcs(item)
-  if (!content) throw new Error('This event needs a confirmed date before it can be added to a calendar.')
-  if (!await Sharing.isAvailableAsync()) throw new Error('Calendar sharing is not available on this device.')
-  const fileName = safeFilename(item?.title || item?.eventTitle || `${item?.teamName || 'team'}-${item?.opponent || 'event'}`, 'football-player-event')
-  const localUri = `${FileSystem.cacheDirectory}${fileName}.ics`
-  await FileSystem.writeAsStringAsync(localUri, content, { encoding: FileSystem.EncodingType.UTF8 })
-  try {
-    await Sharing.shareAsync(localUri, { dialogTitle: 'Add to calendar', mimeType: 'text/calendar', UTI: 'public.calendar-event' })
-    return { shared: true }
-  } finally {
-    await FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {})
-  }
 }
 
 export async function respondToParentInvitation(user, invitation, responseState) {

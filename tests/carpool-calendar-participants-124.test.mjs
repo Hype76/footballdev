@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 import { normalizeCoachInvite } from '../apps/mobile-core/src/coachPhase31ECore.js'
-import { buildParentCalendarIcs } from '../apps/parent-mobile/src/parentExperience.js'
+import { buildParentCalendarIcs, getParentGoogleCalendarUrl } from '../apps/parent-mobile/src/parentExperience.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260829160252_parent_carpool_and_active_team_selection_124.sql', import.meta.url)
 const parentScreensUrl = new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url)
@@ -32,6 +32,40 @@ test('Parent calendar export supports date-only events and invitation field name
   const ics = buildParentCalendarIcs({ eventDate: '2026-09-03', eventTitle: 'JPL Training 3G Pitch', sourceRecordId: 'request-1' })
   assert.match(ics, /DTSTART;VALUE=DATE:20260903/)
   assert.match(ics, /SUMMARY:JPL Training 3G Pitch/)
+})
+
+test('Parent Google Calendar links support matches, sessions, and date-only events', () => {
+  const matchUrl = new URL(getParentGoogleCalendarUrl({
+    kickoffTime: '09:15',
+    matchDate: '2026-09-05',
+    opponent: 'St Neots',
+    shirtChoice: 'home',
+    teamName: 'U14 JPL 26/27',
+    venueAddress: 'Back Lane, Cambourne',
+  }))
+  assert.equal(matchUrl.origin, 'https://calendar.google.com')
+  assert.equal(matchUrl.searchParams.get('text'), 'U14 JPL 26/27 v St Neots')
+  assert.equal(matchUrl.searchParams.get('dates'), '20260905T091500/20260905T111500')
+  assert.equal(matchUrl.searchParams.get('ctz'), 'Europe/London')
+  assert.equal(matchUrl.searchParams.get('location'), 'Back Lane, Cambourne')
+
+  const sessionUrl = new URL(getParentGoogleCalendarUrl({
+    eventDate: '2026-09-03',
+    eventStart: '2026-09-03T18:45:00',
+    eventTitle: 'JPL Training 3G Pitch',
+  }))
+  assert.equal(sessionUrl.searchParams.get('text'), 'JPL Training 3G Pitch')
+  assert.equal(sessionUrl.searchParams.get('dates'), '20260903T184500/20260903T204500')
+  assert.equal(sessionUrl.searchParams.get('ctz'), 'Europe/London')
+
+  const allDayUrl = new URL(getParentGoogleCalendarUrl({
+    eventDate: '2026-09-06',
+    eventTitle: 'Team event',
+    kickoffTime: '10:00',
+    kickoffTimeTbc: true,
+  }))
+  assert.equal(allDayUrl.searchParams.get('dates'), '20260906/20260907')
+  assert.equal(allDayUrl.searchParams.has('ctz'), false)
 })
 
 test('Carpool state remains independent from attendance and is Parent scoped', async () => {
@@ -66,12 +100,13 @@ test('Coach invite normalisation exposes red need-lift and club-colour offer sta
 test('Parent views show calendar and carpool actions without changing attendance', async () => {
   const [screens, data] = await Promise.all([readFile(parentScreensUrl, 'utf8'), readFile(parentDataUrl, 'utf8')])
   assert.match(screens, /function ParentCarpoolControl/)
-  assert.match(screens, /'Need a lift'/)
-  assert.match(screens, /'Offer a lift'/)
-  assert.match(screens, /label="Add to calendar"/)
+  assert.match(screens, /label="Need a lift"/)
+  assert.match(screens, /label="Offer a lift"/)
+  assert.match(screens, /label="Add to Google Calendar"/)
+  assert.match(screens, /accessibilityLabel="Add to Google Calendar"/)
   assert.match(data, /get_parent_portal_match_transport_states/)
   assert.match(data, /set_parent_portal_match_transport/)
-  assert.match(data, /mimeType: 'text\/calendar'/)
+  assert.doesNotMatch(data, /mimeType: 'text\/calendar'/)
 })
 
 test('Web match entry separates Player, Coach, and Other match-only names', async () => {

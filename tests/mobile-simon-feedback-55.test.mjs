@@ -144,7 +144,7 @@ test('Parent notification, focused Chat, resource, poll and scorer regression gu
   assert.match(app, /behavior=\{Platform\.OS === 'ios' \? 'padding' : 'height'\}/)
   assert.match(app, /enabled=\{Platform\.OS === 'ios' \|\| focusedChatRoom\}/)
   assert.match(parentData, /if \(config\.supabaseEnvironment === 'production'\)[\s\S]*return \{ externalUrl: accessUrl \}/)
-  assert.match(screens, /Add to calendar/)
+  assert.match(screens, /Add to Google Calendar/)
   assert.match(screens, /Get directions/)
 
   const chatStart = coachScreens.indexOf('function ChatDomain')

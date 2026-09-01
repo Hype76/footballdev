@@ -65,6 +65,7 @@ import {
   canSubmitParentPoll,
   getBuildClassification,
   getParentCalendarDirectionsUrl,
+  getParentGoogleCalendarUrl,
   getParentMatchDirectionsUrl,
   getParentFriendlyError,
   getParentHomeFixtureCards,
@@ -96,7 +97,6 @@ import {
   recordParentScorerShootoutKick,
   respondToParentInvitation,
   setParentMatchTransport,
-  shareParentCalendarItem,
   sendParentScorerMatchDayPush,
   sendParentChatMessage,
   setParentChatRoomNotifications,
@@ -1262,12 +1262,14 @@ function ParentHome() {
 
   async function handleAddToCalendar(item) {
     if (isOffline || activeActionId || !item) return
-    setActiveActionId(`calendar-share:${item.id || item.invitationId || item.eventId || 'event'}`)
+    setActiveActionId(`calendar-google:${item.id || item.invitationId || item.eventId || 'event'}`)
     setNotice(null)
     try {
-      await shareParentCalendarItem(item)
+      const url = getParentGoogleCalendarUrl(item)
+      if (!url) throw new Error('This event needs a confirmed date before it can be added to Google Calendar.')
+      await openExternalParentUrl(url)
     } catch (error) {
-      setNotice({ message: getParentFriendlyError(error, 'This event could not be added to your calendar.'), tone: 'warning' })
+      setNotice({ message: getParentFriendlyError(error, 'Google Calendar could not be opened.'), tone: 'warning' })
     } finally {
       setActiveActionId('')
     }
