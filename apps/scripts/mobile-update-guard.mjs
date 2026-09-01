@@ -6,14 +6,20 @@ import { mobileApps } from './mobile-apps.mjs'
 import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const [appRole] = process.argv.slice(2)
+const [appRole, updatePlatform = 'all'] = process.argv.slice(2)
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
+const supportedUpdatePlatforms = new Set(['all', 'ios', 'android'])
 const updateConfirmed = String(process.env.MOBILE_OTA_UPDATE_CONFIRMED || '').trim().toLowerCase() === 'true'
 const updateMessage = String(process.env.MOBILE_OTA_UPDATE_MESSAGE || '').trim()
 const productionProfile = 'store-live'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
+  process.exit(1)
+}
+
+if (!supportedUpdatePlatforms.has(updatePlatform)) {
+  console.error('Unknown mobile update platform. Expected all, ios, or android.')
   process.exit(1)
 }
 
@@ -86,7 +92,7 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
   shell: process.platform === 'win32',
 })
 
-console.log(`Publishing the guarded ${app.expectedName} production update from ${headCommit}.`)
+console.log(`Publishing the guarded ${app.expectedName} ${updatePlatform} production update from ${headCommit}.`)
 const updateMessageArgument = process.platform === 'win32' ? `"${updateMessage}"` : updateMessage
 execFileSync('npx', [
   'eas-cli',
@@ -98,7 +104,7 @@ execFileSync('npx', [
   '--message',
   updateMessageArgument,
   '--platform',
-  'all',
+  updatePlatform,
   '--clear-cache',
   '--non-interactive',
   '--json',

@@ -692,6 +692,8 @@ assertIncludes(mobileUpdateGuard, 'MOBILE_OTA_UPDATE_CONFIRMED', 'Mobile product
 assertIncludes(mobileUpdateGuard, 'EXPO_PUBLIC_BUILD_PROFILE: productionProfile', 'Mobile production update profile')
 assertIncludes(mobileUpdateGuard, "'--channel',", 'Mobile production update channel')
 assertIncludes(mobileUpdateGuard, "'--environment',", 'Mobile production update environment')
+assertIncludes(mobileUpdateGuard, "new Set(['all', 'ios', 'android'])", 'Mobile production update platforms')
+assertIncludes(mobileUpdateGuard, "'--platform',", 'Mobile production update platform')
 assertIncludes(mobileExportWebCheck, "assertExportFile(app, 'index.html')", 'Mobile web export check')
 assertIncludes(mobileExportWebCheck, "assertExportFile(app, 'metadata.json')", 'Mobile web export check')
 assertIncludes(mobileExportWebCheck, "assertExportDirectoryHasFiles(app, '_expo')", 'Mobile web export check')
