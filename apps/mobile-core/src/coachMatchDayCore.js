@@ -98,6 +98,25 @@ export function isCoachMatchDayVolunteerSelectionApplied(match, request, role, s
   return Boolean(assignment && normalize(assignment.parentLinkId) === normalize(request?.parentLinkId))
 }
 
+export function getCoachVolunteerPersonLabel(request = {}, fallback = 'Parent or guardian') {
+  return normalize(request.recipientName ?? request.recipient_name)
+    || normalize(request.recipientEmail ?? request.recipient_email)
+    || fallback
+}
+
+export function getCoachVolunteerAssignmentLabel(assignment = {}, requests = []) {
+  const request = (Array.isArray(requests) ? requests : []).find((item) => (
+    normalize(item?.parentLinkId ?? item?.parent_link_id) === normalize(assignment?.parentLinkId ?? assignment?.parent_link_id)
+  ))
+  return getCoachVolunteerPersonLabel(
+    request || {
+      recipientName: assignment.parentName ?? assignment.parent_name,
+      recipientEmail: assignment.parentEmail ?? assignment.parent_email,
+    },
+    assignment?.id ? 'Assigned Parent or guardian' : 'Not assigned',
+  )
+}
+
 export const COACH_MATCH_DAY_BACKEND_DELTAS = Object.freeze([
   Object.freeze({ category: 'A', capability: 'Fixture, squad, availability, clock, event, shootout, result, and final-report authority', decision: 'Reuse current Match Day tables, RLS, and RPCs without a mobile-only business model.' }),
   Object.freeze({ category: 'B', capability: 'Mobile scorer and volunteer coordination', decision: 'Reuse the production-authoritative selection function through the approved test API adapter.' }),

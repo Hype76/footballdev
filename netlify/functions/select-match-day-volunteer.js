@@ -12,6 +12,7 @@ import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { handler as sendMatchDayPushHandler } from './send-match-day-push.js'
+import { enrichVolunteerEligibilityRecipients } from './lib/_volunteer-recipient-labels.js'
 
 const ROLE_CONFIG = {
   scorer: {
@@ -766,7 +767,12 @@ export async function handler(event) {
         throw eligibilityError
       }
 
-      return json(200, { success: true, eligibility: eligibility || [] })
+      const enrichedEligibility = await enrichVolunteerEligibilityRecipients(adminSupabase, {
+        eligibility: eligibility || [],
+        match,
+      })
+
+      return json(200, { success: true, eligibility: enrichedEligibility })
     }
 
     await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })

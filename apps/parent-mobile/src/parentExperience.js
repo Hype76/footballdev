@@ -45,6 +45,42 @@ function nextCalendarDate(value) {
   return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}`
 }
 
+export function enrichParentMatchInvitations(invitations = [], matches = []) {
+  const matchesById = new Map((Array.isArray(matches) ? matches : []).map((match) => [normalizeText(match?.id), match]))
+
+  return (Array.isArray(invitations) ? invitations : []).map((invitation) => {
+    if (!['match_attendance', 'match_role'].includes(normalizeText(invitation?.invitationType))) return invitation
+    const match = matchesById.get(normalizeText(invitation?.eventId))
+    if (!match) return invitation
+
+    const matchDate = normalizeText(match.matchDate || invitation.eventDate).slice(0, 10)
+    const kickoffTime = normalizeText(match.kickoffTime).slice(0, 5)
+    const kickoffTimeTbc = match.kickoffTimeTbc === true
+    const eventStart = normalizeText(invitation.eventStart)
+      || (matchDate ? (kickoffTime && !kickoffTimeTbc ? `${matchDate}T${kickoffTime}:00` : matchDate) : '')
+    const eventLocation = normalizeText(invitation.eventLocation)
+      || normalizeText(match.venueAddress)
+      || normalizeText(match.venueName)
+
+    return {
+      ...invitation,
+      arrivalTime: normalizeText(match.arrivalTime),
+      eventDate: normalizeText(invitation.eventDate) || matchDate,
+      eventLocation,
+      eventStart,
+      kickoffTime,
+      kickoffTimeTbc,
+      matchDate,
+      matchDurationMinutes: Number(match.matchDurationMinutes || 120),
+      opponent: normalizeText(match.opponent),
+      shirtChoice: normalizeText(match.shirtChoice || invitation.shirtChoice),
+      teamName: normalizeText(match.teamName || invitation.teamName),
+      venueAddress: normalizeText(match.venueAddress),
+      venueName: normalizeText(match.venueName),
+    }
+  })
+}
+
 export function isParentDefinitelyOffline(networkState = {}) {
   return networkState.isConnected === false
 }
@@ -77,7 +113,7 @@ function getParentCalendarTemplate(item = {}) {
   const title = normalizeText(item.title ?? item.eventTitle)
     || `${normalizeText(item.teamName) || 'Team'} v ${normalizeText(item.opponent) || 'Opponent'}`
   const location = normalizeText(item.location)
-    || [normalizeText(item.venueName), normalizeText(item.venueAddress), normalizeText(item.eventLocation)].filter(Boolean).join(', ')
+    || [...new Set([normalizeText(item.venueName), normalizeText(item.venueAddress), normalizeText(item.eventLocation)].filter(Boolean))].join(', ')
   const details = normalizeText(item.notes)
     || (item.shirtChoice ? `Kits: ${getMatchDayShirtChoiceLabel(item.shirtChoice)}` : 'Football Player event')
 

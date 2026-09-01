@@ -63,6 +63,7 @@ import ParentIcon from './src/ParentIcon'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import {
   canSubmitParentPoll,
+  enrichParentMatchInvitations,
   getBuildClassification,
   getParentCalendarDirectionsUrl,
   getParentGoogleCalendarUrl,
@@ -374,20 +375,10 @@ function ParentHome() {
   )
   const visibleInvitations = useMemo(() => resources.invitations.items.filter((item) => !dismissedItems.invitations.includes(item.invitationId)), [dismissedItems.invitations, resources.invitations.items])
   const visibleMatches = useMemo(() => resources.matches.items.filter((item) => !dismissedItems.matches.includes(item.id)), [dismissedItems.matches, resources.matches.items])
-  const visibleInvitationsWithMatchTimes = useMemo(() => {
-    const matchesById = new Map(resources.matches.items.map((match) => [normalizeText(match.id), match]))
-    return visibleInvitations.map((invitation) => {
-      if (!['match_attendance', 'match_role'].includes(invitation.invitationType)) return invitation
-      const match = matchesById.get(normalizeText(invitation.eventId))
-      if (!match) return invitation
-      return {
-        ...invitation,
-        arrivalTime: match.arrivalTime || '',
-        kickoffTime: match.kickoffTime || '',
-        kickoffTimeTbc: match.kickoffTimeTbc === true,
-      }
-    })
-  }, [resources.matches.items, visibleInvitations])
+  const visibleInvitationsWithMatchTimes = useMemo(
+    () => enrichParentMatchInvitations(visibleInvitations, resources.matches.items),
+    [resources.matches.items, visibleInvitations],
+  )
   const visibleMessages = useMemo(() => resources.messages.items.filter((item) => !dismissedItems.messages.includes(item.id)), [dismissedItems.messages, resources.messages.items])
   const visibleDevelopment = useMemo(() => resources.development.items.filter((item) => !dismissedItems.development.includes(item.id)), [dismissedItems.development, resources.development.items])
   const visiblePolls = useMemo(() => resources.polls.items.filter((item) => !dismissedItems.polls.includes(item.id)), [dismissedItems.polls, resources.polls.items])

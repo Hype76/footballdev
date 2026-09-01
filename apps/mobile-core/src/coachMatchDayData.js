@@ -349,7 +349,7 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
       const response = await fetchJsonWithTimeout(url, { headers: { Authorization: `Bearer ${accessToken}` } })
       if (!response.ok || response.result?.success !== true) throw new Error(response.result?.message || 'Volunteer eligibility could not be loaded.')
       const byRequest = new Map((response.result.eligibility || []).map((item) => [String(item.request_id || ''), item]))
-      result = { ...result, match_day_availability_requests: (result.match_day_availability_requests || []).map((item) => ({ ...item, scorer_eligible: byRequest.get(String(item.id))?.eligible === true, scorer_eligibility_reason: byRequest.get(String(item.id))?.reason || '', parent_link_id: byRequest.get(String(item.id))?.parent_link_id || item.parent_link_id, auth_user_id: byRequest.get(String(item.id))?.auth_user_id || item.auth_user_id })) }
+      result = { ...result, match_day_availability_requests: (result.match_day_availability_requests || []).map((item) => ({ ...item, scorer_eligible: byRequest.get(String(item.id))?.eligible === true, scorer_eligibility_reason: byRequest.get(String(item.id))?.reason || '', parent_link_id: byRequest.get(String(item.id))?.parent_link_id || item.parent_link_id, auth_user_id: byRequest.get(String(item.id))?.auth_user_id || item.auth_user_id, recipient_email: byRequest.get(String(item.id))?.recipient_email || item.recipient_email, recipient_name: byRequest.get(String(item.id))?.recipient_name || item.recipient_name })) }
     } catch (eligibilityError) {
       result = { ...result, volunteerEligibilityError: normalize(eligibilityError?.message) || 'Volunteer eligibility could not be loaded.' }
     }
