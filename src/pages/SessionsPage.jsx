@@ -4207,6 +4207,31 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     return user?.clubId ? 'Club Calendar' : 'Team Calendar'
   })()
 
+  const calendarChangeConfirmModal = (
+    <ConfirmModal
+      isOpen={Boolean(calendarChangePrompt)}
+      isBusy={isSaving}
+      title={`Notify everyone about this ${calendarChangePrompt?.action || 'change'}?`}
+      message={calendarChangePrompt?.action === 'cancelled'
+        ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar. Choose whether everyone involved should receive an app notification and email.'
+        : calendarChangePrompt?.action === 'deleted'
+          ? `Delete ${calendarChangePrompt?.title || 'this Calendar item'}? If this is a repeat series, the entire series will be deleted. This cannot be undone. Choose whether everyone involved should receive an app notification and email.`
+          : `${calendarChangePrompt?.title || 'This Calendar item'} will be ${calendarChangePrompt?.action || 'changed'}. Choose whether everyone involved should receive an app notification and email.`}
+      itemsTitle="Your choices"
+      items={[
+        'Notify everyone: Send the update after the change is confirmed',
+        'Do not notify: Save the change without contacting anyone',
+        'Go back: Make no change yet',
+      ]}
+      cancelLabel="Go back"
+      secondaryActionLabel="Do not notify"
+      confirmLabel="Notify everyone"
+      onCancel={() => setCalendarChangePrompt(null)}
+      onSecondaryAction={() => resumeCalendarChange(false)}
+      onConfirm={() => resumeCalendarChange(true)}
+    />
+  )
+
   if (calendarOnly) {
     return (
       <div className="space-y-5">
@@ -4308,6 +4333,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           user={user}
           variant={calendarModal?.variant || ''}
         />
+        {calendarChangeConfirmModal}
       </div>
     )
   }
@@ -4559,28 +4585,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         onConfirm={() => void confirmDeleteVoiceNote()}
       />
 
-      <ConfirmModal
-        isOpen={Boolean(calendarChangePrompt)}
-        isBusy={isSaving}
-        title={`Notify everyone about this ${calendarChangePrompt?.action || 'change'}?`}
-        message={calendarChangePrompt?.action === 'cancelled'
-          ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar. Choose whether everyone involved should receive an app notification and email.'
-          : calendarChangePrompt?.action === 'deleted'
-            ? `Delete ${calendarChangePrompt?.title || 'this Calendar item'}? If this is a repeat series, the entire series will be deleted. This cannot be undone. Choose whether everyone involved should receive an app notification and email.`
-          : `${calendarChangePrompt?.title || 'This Calendar item'} will be ${calendarChangePrompt?.action || 'changed'}. Choose whether everyone involved should receive an app notification and email.`}
-        itemsTitle="Your choices"
-        items={[
-          'Notify everyone: Send the update after the change is confirmed',
-          'Do not notify: Save the change without contacting anyone',
-          'Go back: Make no change yet',
-        ]}
-        cancelLabel="Go back"
-        secondaryActionLabel="Do not notify"
-        confirmLabel="Notify everyone"
-        onCancel={() => setCalendarChangePrompt(null)}
-        onSecondaryAction={() => resumeCalendarChange(false)}
-        onConfirm={() => resumeCalendarChange(true)}
-      />
+      {calendarChangeConfirmModal}
 
       <ConfirmModal
         isOpen={Boolean(clearSessionTarget)}

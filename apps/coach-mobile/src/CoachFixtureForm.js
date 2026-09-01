@@ -87,7 +87,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
 
   if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
 
-  const save = async ({ calendarOnly = false } = {}) => {
+  const save = async ({ calendarTarget = '' } = {}) => {
     Keyboard.dismiss()
     setBusy(true)
     setError('')
@@ -98,7 +98,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
     try {
       const result = isEditing
         ? await updateCoachMatchDayFixture(user, match, submittedForm)
-        : await createCoachMatchDayFixture(user, submittedForm, { calendarOnly })
+        : await createCoachMatchDayFixture(user, submittedForm, { calendarTarget })
       const currentPreferences = await readCoachFixturePreferences(user.id, user.activeTeamId)
       await writeCoachFixturePreferences(user.id, user.activeTeamId, {
         arrivalPreset: submittedForm.saveArrivalAsDefault ? submittedForm.arrivalPreset : currentPreferences.arrivalPreset,
@@ -152,6 +152,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
   }
   const locationValue = locations.find((item) => item.name === form.venueName && item.address === form.venueAddress)?.id || ''
   const durationIsCustom = !COACH_MATCH_DURATION_OPTIONS.includes(Number(form.matchDurationMinutes))
+  const hasSquadPlayers = players.some((player) => String(player.section || '').trim().toLowerCase() === 'squad')
 
   return (
     <View style={styles.stack}>
@@ -213,7 +214,8 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
       </View> : <View style={styles.card}><Field label="Match notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} /><Text style={styles.meta}>Editing fixture details does not send a new availability request.</Text></View>}
       {error ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.dangerText}>{error}</Text></View> : null}
       <Button disabled={busy} label={busy ? (isEditing ? 'Saving fixture...' : 'Creating fixture...') : (isEditing ? 'Save fixture changes' : 'Create fixture and request availability')} onPress={save} styles={styles} />
-      {!isEditing ? <Button disabled={busy} label="Add to calendars only" onPress={() => save({ calendarOnly: true })} secondary styles={styles} /> : null}
+      {!isEditing ? <Button disabled={busy} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
+      {!isEditing ? <Button disabled={busy || !hasSquadPlayers} label="Add to squad calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
       <Button disabled={busy} label="Cancel" onPress={onCancel} secondary styles={styles} />
     </View>
   )

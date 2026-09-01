@@ -58,6 +58,7 @@ import {
   setMatchDayTimerState as liveSetMatchDayTimerState,
   sortMatchDayPresentation,
   startMatchDay as liveStartMatchDay,
+  syncCalendarEventParentScope,
   updateMatchDay as liveUpdateMatchDay,
   updateTeamNotificationDisplayName,
   updateStaffMatchDayScore as liveUpdateStaffMatchDayScore,
@@ -3012,9 +3013,16 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     })
   }
 
-  const handleConfirmCreateMatch = async ({ calendarOnly = false } = {}) => {
+  const handleConfirmCreateMatch = async ({ calendarTarget = '' } = {}) => {
     const selectedPlayerIds = squadSelection.selectedPlayerIds
     const selectionMode = squadSelection.mode
+    const normalizedCalendarTarget = ['coach', 'squad'].includes(calendarTarget) ? calendarTarget : ''
+    const calendarOnly = Boolean(normalizedCalendarTarget)
+    const submittedForm = normalizedCalendarTarget === 'coach'
+      ? { ...form, parentAudience: 'none', parentVisible: false }
+      : normalizedCalendarTarget === 'squad'
+        ? { ...form, parentAudience: 'involved_players', parentVisible: true }
+        : form
 
     if (!calendarOnly && selectedPlayerIds.length === 0) {
       setErrorMessage('Choose at least one availability invitation recipient before creating the fixture.')
@@ -3036,9 +3044,9 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       const createdMatch = await createMatchDay({
         user,
         match: {
-          ...form,
-          motmPollExpiryHours: expiryDurationToHours(form.motmPollExpiryDuration),
-          scorerRequestMessage: form.requestScorer ? volunteerRequestMessages.scorer : '',
+          ...submittedForm,
+          motmPollExpiryHours: expiryDurationToHours(submittedForm.motmPollExpiryDuration),
+          scorerRequestMessage: submittedForm.requestScorer ? volunteerRequestMessages.scorer : '',
         },
       })
       const reconcileCreatedMatch = (currentMatches) => reconcileCreatedMatchDayInList(currentMatches, {
@@ -3056,12 +3064,27 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           user,
         })
       }
+      let calendarScopeWarning = ''
+      if (normalizedCalendarTarget === 'squad') {
+        try {
+          await syncCalendarEventParentScope({
+            eventId: createdMatch.id,
+            eventSource: 'match-day',
+            includeTrialPlayers: false,
+            selectionMode: 'whole_squad',
+            user,
+          })
+        } catch (scopeError) {
+          console.error(scopeError)
+          calendarScopeWarning = scopeError.message || 'Squad calendars could not be updated.'
+        }
+      }
       const communicationRuntime = {
         env: import.meta.env,
         location: window.location,
       }
       const canSendAvailabilityRequests = !calendarOnly && shouldSendMatchdayAvailabilityRequests({
-        parentVisible: form.parentVisible,
+        parentVisible: submittedForm.parentVisible,
         runtime: communicationRuntime,
       }) && allowsCommunication
       let result = {
@@ -3090,7 +3113,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       }
 
       if (!calendarOnly && allowsCommunication && shouldSendMatchdayPushNotification({
-        parentVisible: form.parentVisible,
+        parentVisible: submittedForm.parentVisible,
         runtime: communicationRuntime,
       })) {
         void sendMatchDayPushNotification({
@@ -3098,7 +3121,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           type: 'scorer_request',
         })
       }
-      writeMatchDayFixturePreferences(form)
+      writeMatchDayFixturePreferences(submittedForm)
       setForm(EMPTY_MATCH_FORM)
       setSelectedLocationId('')
       setIsFixtureFormOpen(false)
@@ -3112,14 +3135,19 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         setErrorMessage(loadError.message || 'Fixture was saved, but Match Day could not be refreshed. Refresh the page before creating another fixture.')
       }
       showToast({
-        title: 'Fixture created',
-        message: availabilityWarning
+        title: calendarScopeWarning ? 'Fixture partly added' : 'Fixture created',
+        message: calendarScopeWarning
+          ? `The fixture was added to Coach calendars, but squad calendars could not be updated: ${calendarScopeWarning}`
+          : availabilityWarning
           ? `The fixture was saved, but availability requests could not be sent: ${availabilityWarning}`
-          : calendarOnly
-            ? 'The fixture was added to calendars only. No availability requests or notifications were sent.'
+          : normalizedCalendarTarget === 'coach'
+            ? 'The fixture was added to Coach calendars. No squad requests or notifications were sent.'
+          : normalizedCalendarTarget === 'squad'
+            ? 'The fixture was added to Coach and squad calendars. No availability requests or notifications were sent.'
           : canSendAvailabilityRequests
             ? `${result.queuedCount ?? result.sentCount ?? 0} availability request notification${(result.queuedCount ?? result.sentCount ?? 0) === 1 ? '' : 's'} scheduled. ${result.missingContactCount ?? 0} players need contact details.`
             : 'The fixture was saved. Availability sending is enabled only on production or approved live runtimes.',
+        ...(calendarScopeWarning ? { tone: 'error' } : {}),
       })
     } catch (error) {
       console.error(error)
@@ -4833,7 +4861,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           validationMessage={errorMessage}
           onCancel={() => setSquadSelection(EMPTY_SQUAD_SELECTION)}
           onConfirm={handleConfirmCreateMatch}
-          onCalendarOnly={() => handleConfirmCreateMatch({ calendarOnly: true })}
+          onCoachCalendars={() => handleConfirmCreateMatch({ calendarTarget: 'coach' })}
+          onSquadCalendars={() => handleConfirmCreateMatch({ calendarTarget: 'squad' })}
           onSelectionModeChange={(mode) => {
             setSquadSelection((current) => ({
               ...current,
@@ -7802,13 +7831,14 @@ function FixtureSetupModal({
 
 function FixtureSquadSelectionModal({
   isSaving,
-  onCalendarOnly,
   onCancel,
   onClearAll,
+  onCoachCalendars,
   onConfirm,
   onSelectAll,
   onSelectSquad,
   onSelectionModeChange,
+  onSquadCalendars,
   onTogglePlayer,
   parentVisible,
   players,
@@ -7819,6 +7849,7 @@ function FixtureSquadSelectionModal({
 }) {
   const selectedIds = new Set(selectedPlayerIds)
   const selectedCount = selectedIds.size
+  const squadPlayerCount = players.filter((player) => String(player.section || '').trim().toLowerCase() === 'squad').length
   const { viewportStyle } = useFixtureModalViewportStyle()
 
   return (
@@ -7924,8 +7955,11 @@ function FixtureSquadSelectionModal({
           <button type="button" onClick={onCancel} disabled={isSaving} className={secondaryButtonClass}>
             Cancel
           </button>
-          <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onCalendarOnly} disabled={isSaving} className={secondaryButtonClass}>
-            {isSaving ? 'Creating...' : 'Add to calendars only'}
+          <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onCoachCalendars} disabled={isSaving} className={secondaryButtonClass}>
+            {isSaving ? 'Creating...' : 'Add to Coach calendars'}
+          </button>
+          <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onSquadCalendars} disabled={isSaving || squadPlayerCount === 0} className={secondaryButtonClass}>
+            {isSaving ? 'Creating...' : 'Add to squad calendars'}
           </button>
           <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onConfirm} disabled={isSaving || selectedCount === 0} className={primaryButtonClass}>
             {isSaving ? 'Creating...' : parentVisible ? 'Create fixture and request availability' : 'Create fixture'}

@@ -50,22 +50,41 @@ test('Coach fixture defaults include a reusable arrival choice and TBC Kits', ()
     opponent: 'Visitors FC',
     shirtChoice: 'tbc',
   }).shirtChoice, 'tbc')
+
+  const squadCalendarForm = {
+    ...form,
+    fixtureType: 'friendly',
+    matchDate: '17-08-2099',
+    opponent: 'Visitors FC',
+    parentAudience: 'involved_players',
+    parentVisible: true,
+    selectedPlayerIds: [],
+  }
+  assert.throws(() => validateCoachFixtureForm(squadCalendarForm), /Choose at least one Player/)
+  assert.equal(validateCoachFixtureForm(squadCalendarForm, { requireSelectedPlayers: false }).parentVisible, true)
 })
 
-test('web and app fixture creation expose the requested recipient and calendar-only actions', async () => {
+test('web and app fixture creation expose recipient, Coach-calendar, and squad-calendar actions', async () => {
   const [web, coachForm, coachData] = await Promise.all([
     source('../src/pages/MatchDayPage.jsx'),
     source('../apps/coach-mobile/src/CoachFixtureForm.js'),
     source('../apps/mobile-core/src/coachMatchDayData.js'),
   ])
-  for (const label of ['Squad only', 'Add to calendars only', 'Save this arrival as my default', 'Delete saved address']) {
+  for (const label of ['Squad only', 'Save this arrival as my default', 'Delete saved address']) {
     assert.match(web, new RegExp(label))
     assert.match(coachForm, new RegExp(label))
   }
-  assert.match(web, /calendarOnly/)
+  for (const label of ['Add to Coach calendars', 'Add to squad calendars']) {
+    assert.match(web, new RegExp(label))
+    assert.match(coachForm, new RegExp(label))
+  }
+  assert.match(web, /calendarTarget/)
+  assert.match(web, /syncCalendarEventParentScope/)
+  assert.match(web, /selectionMode: 'whole_squad'/)
   assert.match(web, /No availability requests or notifications were sent/)
-  assert.match(coachData, /calendarOnly/)
-  assert.match(coachData, /fixture\.parentVisible && !calendarOnly/)
+  assert.match(coachData, /calendarTarget/)
+  assert.match(coachData, /sync_calendar_event_parent_scope_v2/)
+  assert.match(coachData, /fixture\.parentVisible && !normalizedCalendarTarget/)
 })
 
 test('fixture duration, conclusion rule, Kits, and saved locations are editable on web and Coach mobile', async () => {

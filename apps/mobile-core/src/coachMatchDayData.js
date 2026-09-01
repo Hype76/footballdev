@@ -130,9 +130,21 @@ async function sendCoachFixtureInvitations(user, match, playerIds) {
   return result
 }
 
-export async function createCoachMatchDayFixture(user, form, { calendarOnly = false } = {}) {
+export async function createCoachMatchDayFixture(user, form, { calendarOnly = false, calendarTarget = '' } = {}) {
   assertCoachOperationalMutation(user, { minimumRank: 20, requiresTeam: true })
-  const fixture = validateCoachFixtureForm(form)
+  const normalizedCalendarTarget = ['coach', 'squad'].includes(normalize(calendarTarget))
+    ? normalize(calendarTarget)
+    : calendarOnly
+      ? 'coach'
+      : ''
+  const fixture = validateCoachFixtureForm(
+    normalizedCalendarTarget === 'coach'
+      ? { ...form, parentAudience: 'none', parentVisible: false, selectedPlayerIds: [] }
+      : normalizedCalendarTarget === 'squad'
+        ? { ...form, parentAudience: 'involved_players', parentVisible: true }
+        : form,
+    { requireSelectedPlayers: normalizedCalendarTarget !== 'squad' },
+  )
   const teamId = normalize(user.activeTeamId)
   if (fixture.rememberNotificationTeamName) {
     await saveCoachTeamNotificationDisplayName(user, teamId, fixture.notificationTeamName)
@@ -207,16 +219,32 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
       team_id: teamId,
     }).then(({ error: eventLogError }) => { if (eventLogError) console.warn(eventLogError) }),
   ])
+  let calendarScopeResult = null
+  let calendarScopeWarning = ''
+  if (normalizedCalendarTarget === 'squad') {
+    const { data: scopeResult, error: scopeError } = await supabase.rpc('sync_calendar_event_parent_scope_v2', {
+      calendar_event_id_value: null,
+      include_trial_players_value: false,
+      match_day_id_value: match.id,
+      player_ids_value: [],
+      selection_mode_value: 'whole_squad',
+    })
+    if (scopeError) {
+      calendarScopeWarning = normalize(scopeError.message) || 'Squad calendars could not be updated.'
+    } else {
+      calendarScopeResult = scopeResult
+    }
+  }
   let invitationResult = null
   let invitationWarning = ''
-  if (fixture.parentVisible && !calendarOnly) {
+  if (fixture.parentVisible && !normalizedCalendarTarget) {
     try {
       invitationResult = await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, fixture.selectedPlayerIds)
     } catch (invitationError) {
       invitationWarning = normalize(invitationError?.message) || 'The fixture was saved, but Parent invitations remain unsent.'
     }
   }
-  return Object.freeze({ invitationResult, invitationWarning, match })
+  return Object.freeze({ calendarScopeResult, calendarScopeWarning, calendarTarget: normalizedCalendarTarget, invitationResult, invitationWarning, match })
 }
 
 export async function getCoachMatchLocations(user, matches = []) {

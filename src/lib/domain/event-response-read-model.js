@@ -23,6 +23,11 @@ function normalizeStatus(value) {
   return normalizeText(value).toLowerCase()
 }
 
+export function isEventResponseSourceId(value) {
+  const normalizedValue = normalizeText(value)
+  return Boolean(normalizedValue) && !normalizedValue.toLowerCase().startsWith('history:')
+}
+
 function normalizeDateOnly(value) {
   const normalizedValue = normalizeText(value)
 
@@ -857,7 +862,7 @@ export async function getEventResponseEvidenceForEvent({ event, user } = {}) {
     || user.role === 'parent_portal'
     || user.role === 'super_admin'
     || Number(user.roleRank ?? 0) < 20
-    || !source.sourceId
+    || !isEventResponseSourceId(source.sourceId)
     || !['calendar', 'match-day', 'session'].includes(source.sourceType)
   ) {
     return {

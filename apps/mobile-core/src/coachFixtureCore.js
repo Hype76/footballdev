@@ -108,7 +108,7 @@ export function updateCoachFixtureArrivalPreset(form, arrivalPreset) {
   }
 }
 
-export function validateCoachFixtureForm(form = {}) {
+export function validateCoachFixtureForm(form = {}, { requireSelectedPlayers = true } = {}) {
   const opponent = normalize(form.opponent)
   if (!opponent) throw new Error('Add the opponent.')
   const fixtureType = assertValidMatchDayFixtureType(form.fixtureType)
@@ -122,7 +122,7 @@ export function validateCoachFixtureForm(form = {}) {
   const parentAudience = parentVisible ? normalize(form.parentAudience) : 'none'
   if (parentVisible && !['involved_players', 'all_team_parents'].includes(parentAudience)) throw new Error('Choose which team parents can see this fixture.')
   const selectedPlayerIds = [...new Set((form.selectedPlayerIds || []).map(normalize).filter(Boolean))]
-  if (parentVisible && selectedPlayerIds.length === 0) throw new Error('Choose at least one Player to receive the fixture invitation.')
+  if (parentVisible && requireSelectedPlayers && selectedPlayerIds.length === 0) throw new Error('Choose at least one Player to receive the fixture invitation.')
   const clockMode = assertValidMatchClockMode(form.clockMode)
   const matchDurationMinutes = assertValidMatchDurationMinutes(form.matchDurationMinutes)
   const arrivalTime = kickoffTimeTbc ? '' : normalize(form.arrivalTime)

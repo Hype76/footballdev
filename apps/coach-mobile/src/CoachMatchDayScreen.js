@@ -690,7 +690,14 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const handleFixtureCreated = async (result) => {
     setFixtureFormOpen(false)
     onRequestScrollTop?.()
-    setNotice(result.invitationWarning || 'Fixture created. Match Day controls are ready.')
+    setNotice(result.calendarScopeWarning
+      ? `The fixture was added to Coach calendars, but squad calendars could not be updated: ${result.calendarScopeWarning}`
+      : result.invitationWarning
+        || (result.calendarTarget === 'coach'
+          ? 'Fixture added to Coach calendars. No squad requests or notifications were sent.'
+          : result.calendarTarget === 'squad'
+            ? 'Fixture added to Coach and squad calendars. No availability requests or notifications were sent.'
+            : 'Fixture created. Match Day controls are ready.'))
     const summary = normalizeCoachMatchDay(result.match)
     setMatches((current) => [summary, ...current.filter((item) => item.id !== summary.id)])
     try {

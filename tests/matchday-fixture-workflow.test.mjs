@@ -136,7 +136,7 @@ test('fixture setup Continue validates visibly and advances to squad selection',
     'utf8',
   )
   const handlerStart = source.indexOf('const handleCreateMatch = async (event) => {')
-  const handlerEnd = source.indexOf('const handleConfirmCreateMatch = async ({ calendarOnly = false } = {}) => {', handlerStart)
+  const handlerEnd = source.indexOf("const handleConfirmCreateMatch = async ({ calendarTarget = '' } = {}) => {", handlerStart)
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)
   const handlerSource = source.slice(handlerStart, handlerEnd)
@@ -665,7 +665,7 @@ test('match day fixture creation reports queued availability requests or post-sa
     new URL('../src/pages/MatchDayPage.jsx', import.meta.url),
     'utf8',
   )
-  const handlerStart = source.indexOf('const handleConfirmCreateMatch = async ({ calendarOnly = false } = {}) => {')
+  const handlerStart = source.indexOf("const handleConfirmCreateMatch = async ({ calendarTarget = '' } = {}) => {")
   const handlerEnd = source.indexOf('const handleStatusChange = async', handlerStart)
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)
@@ -680,6 +680,9 @@ test('match day fixture creation reports queued availability requests or post-sa
   assert.doesNotMatch(handlerSource, /availability requests queued/)
   assert.match(handlerSource, /result\.queuedCount \?\? result\.sentCount/)
   assert.match(handlerSource, /Availability sending is enabled only on production or approved live runtimes\./)
-  assert.match(handlerSource, /The fixture was added to calendars only\. No availability requests or notifications were sent\./)
+  assert.match(handlerSource, /The fixture was added to Coach calendars\. No squad requests or notifications were sent\./)
+  assert.match(handlerSource, /The fixture was added to Coach and squad calendars\. No availability requests or notifications were sent\./)
+  assert.match(handlerSource, /syncCalendarEventParentScope/)
+  assert.match(handlerSource, /selectionMode: 'whole_squad'/)
   assert.doesNotMatch(handlerSource, /Availability sending is gated in this environment/)
 })
