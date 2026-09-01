@@ -41,13 +41,16 @@ test('web and Coach app calendar actions keep communications off and sync squad 
 
   assert.match(web, /normalizedCalendarTarget === 'coach'[\s\S]*parentAudience: 'none', parentVisible: false/)
   assert.match(web, /normalizedCalendarTarget === 'squad'[\s\S]*parentAudience: 'involved_players', parentVisible: true/)
-  assert.match(web, /syncCalendarEventParentScope\(\{[\s\S]*eventSource: 'match-day'[\s\S]*includeTrialPlayers: false[\s\S]*selectionMode: 'whole_squad'/)
+  assert.match(web, /const squadCalendarPlayerIds = fixturePlayers[\s\S]*section[\s\S]*=== 'squad'[\s\S]*\.map\(\(player\) => player\.id\)/)
+  assert.match(web, /syncCalendarEventParentScope\(\{[\s\S]*eventSource: 'match-day'[\s\S]*includeTrialPlayers: false[\s\S]*playerIds: squadCalendarPlayerIds[\s\S]*selectionMode: 'manual'/)
   assert.match(web, /const canSendAvailabilityRequests = !calendarOnly/)
   assert.match(web, /if \(!calendarOnly && allowsCommunication/)
 
   assert.match(coachData, /normalizedCalendarTarget === 'coach'[\s\S]*parentAudience: 'none', parentVisible: false/)
   assert.match(coachData, /normalizedCalendarTarget === 'squad'[\s\S]*parentAudience: 'involved_players', parentVisible: true/)
   assert.match(coachData, /sync_calendar_event_parent_scope_v2/)
-  assert.match(coachData, /selection_mode_value: 'whole_squad'/)
+  assert.match(coachForm, /calendarTarget === 'squad'[\s\S]*squadCalendarPlayerIds/)
+  assert.match(coachData, /player_ids_value: fixture\.selectedPlayerIds/)
+  assert.match(coachData, /selection_mode_value: 'manual'/)
   assert.match(coachData, /if \(fixture\.parentVisible && !normalizedCalendarTarget\)/)
 })

@@ -3018,6 +3018,9 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     const selectionMode = squadSelection.mode
     const normalizedCalendarTarget = ['coach', 'squad'].includes(calendarTarget) ? calendarTarget : ''
     const calendarOnly = Boolean(normalizedCalendarTarget)
+    const squadCalendarPlayerIds = fixturePlayers
+      .filter((player) => String(player.section || '').trim().toLowerCase() === 'squad')
+      .map((player) => player.id)
     const submittedForm = normalizedCalendarTarget === 'coach'
       ? { ...form, parentAudience: 'none', parentVisible: false }
       : normalizedCalendarTarget === 'squad'
@@ -3026,6 +3029,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
     if (!calendarOnly && selectedPlayerIds.length === 0) {
       setErrorMessage('Choose at least one availability invitation recipient before creating the fixture.')
+      return
+    }
+
+    if (normalizedCalendarTarget === 'squad' && squadCalendarPlayerIds.length === 0) {
+      setErrorMessage('Add at least one active Squad player before sharing this fixture with squad calendars.')
       return
     }
 
@@ -3071,7 +3079,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
             eventId: createdMatch.id,
             eventSource: 'match-day',
             includeTrialPlayers: false,
-            selectionMode: 'whole_squad',
+            playerIds: squadCalendarPlayerIds,
+            selectionMode: 'manual',
             user,
           })
         } catch (scopeError) {

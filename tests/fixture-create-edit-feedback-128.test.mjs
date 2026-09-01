@@ -80,7 +80,8 @@ test('web and app fixture creation expose recipient, Coach-calendar, and squad-c
   }
   assert.match(web, /calendarTarget/)
   assert.match(web, /syncCalendarEventParentScope/)
-  assert.match(web, /selectionMode: 'whole_squad'/)
+  assert.match(web, /playerIds: squadCalendarPlayerIds/)
+  assert.match(web, /selectionMode: 'manual'/)
   assert.match(web, /No availability requests or notifications were sent/)
   assert.match(coachData, /calendarTarget/)
   assert.match(coachData, /sync_calendar_event_parent_scope_v2/)

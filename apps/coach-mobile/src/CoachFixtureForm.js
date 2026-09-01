@@ -91,9 +91,14 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
     Keyboard.dismiss()
     setBusy(true)
     setError('')
+    const squadCalendarPlayerIds = players
+      .filter((player) => String(player.section || '').trim().toLowerCase() === 'squad')
+      .map((player) => player.id)
     const submittedForm = {
       ...form,
-      selectedPlayerIds: [...form.selectedPlayerIds],
+      selectedPlayerIds: calendarTarget === 'squad'
+        ? squadCalendarPlayerIds
+        : [...form.selectedPlayerIds],
     }
     try {
       const result = isEditing

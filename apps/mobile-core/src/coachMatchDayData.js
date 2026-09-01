@@ -143,7 +143,7 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
       : normalizedCalendarTarget === 'squad'
         ? { ...form, parentAudience: 'involved_players', parentVisible: true }
         : form,
-    { requireSelectedPlayers: normalizedCalendarTarget !== 'squad' },
+    { requireSelectedPlayers: true },
   )
   const teamId = normalize(user.activeTeamId)
   if (fixture.rememberNotificationTeamName) {
@@ -226,8 +226,8 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
       calendar_event_id_value: null,
       include_trial_players_value: false,
       match_day_id_value: match.id,
-      player_ids_value: [],
-      selection_mode_value: 'whole_squad',
+      player_ids_value: fixture.selectedPlayerIds,
+      selection_mode_value: 'manual',
     })
     if (scopeError) {
       calendarScopeWarning = normalize(scopeError.message) || 'Squad calendars could not be updated.'

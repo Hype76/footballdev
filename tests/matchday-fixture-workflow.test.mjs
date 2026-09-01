@@ -683,6 +683,7 @@ test('match day fixture creation reports queued availability requests or post-sa
   assert.match(handlerSource, /The fixture was added to Coach calendars\. No squad requests or notifications were sent\./)
   assert.match(handlerSource, /The fixture was added to Coach and squad calendars\. No availability requests or notifications were sent\./)
   assert.match(handlerSource, /syncCalendarEventParentScope/)
-  assert.match(handlerSource, /selectionMode: 'whole_squad'/)
+  assert.match(handlerSource, /playerIds: squadCalendarPlayerIds/)
+  assert.match(handlerSource, /selectionMode: 'manual'/)
   assert.doesNotMatch(handlerSource, /Availability sending is gated in this environment/)
 })

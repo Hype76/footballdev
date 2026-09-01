@@ -164,6 +164,37 @@ test('whole squad scope materializes Squad players and optional Trial players wi
   }
 })
 
+test('manual involved-player scope materializes the exact Squad calendar players', async () => {
+  const db = await createFixtureDatabase()
+
+  try {
+    const synced = await db.query(`
+      select public.sync_calendar_event_parent_scope_v2(
+        null,
+        false,
+        '${INVOLVED_MATCH_ID}',
+        array[
+          '50000000-0000-4000-8000-000000000001'::uuid,
+          '50000000-0000-4000-8000-000000000002'::uuid
+        ],
+        'manual'
+      ) as result
+    `)
+    const activeInvites = await db.query(`
+      select count(*)::integer as count
+      from public.calendar_event_invites
+      where match_day_id = '${INVOLVED_MATCH_ID}'
+        and invite_status = 'active'
+    `)
+
+    assert.equal(synced.rows[0].result.portalRecordCount, 2)
+    assert.equal(synced.rows[0].result.selectedPlayerCount, 2)
+    assert.equal(activeInvites.rows[0].count, 2)
+  } finally {
+    await db.close()
+  }
+})
+
 test('selection mode and player scope injection remain fail closed', async () => {
   const db = await createFixtureDatabase()
 
