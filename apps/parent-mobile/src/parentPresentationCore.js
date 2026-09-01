@@ -4,6 +4,19 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+export function isParentInvitationOptionSelected(invitation = {}, optionValue = '') {
+  const response = normalizeText(invitation.responseState ?? invitation.response_state).toLowerCase()
+  const option = normalizeText(optionValue).toLowerCase()
+  const equivalentResponses = {
+    available: ['available', 'accepted', 'attending', 'yes'],
+    maybe: ['maybe'],
+    no: ['no', 'declined', 'unavailable', 'not_attending'],
+    unavailable: ['unavailable', 'declined', 'not_attending', 'no'],
+    yes: ['yes', 'accepted', 'available', 'attending'],
+  }
+  return (equivalentResponses[option] || [option]).includes(response)
+}
+
 export function getParentChatRoomTypeLabel(value) {
   const type = normalizeText(value).toLowerCase()
   if (type === 'parent_staff') return 'Parent coach'
