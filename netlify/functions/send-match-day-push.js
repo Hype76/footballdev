@@ -8,6 +8,7 @@ import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
+import { sendCoachMatchReviewPush } from './send-coach-mobile-push.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -360,6 +361,13 @@ export async function handler(event) {
     }
     claimedOperationKey = operationKey
 
+    const coachReview = type === 'full_time' && profile.role === 'parent_portal'
+      ? await sendCoachMatchReviewPush({ match })
+      : { sent: 0, failed: 0 }
+    if (coachReview.failed > 0 && coachReview.sent === 0) {
+      throw new Error('The match was saved, but the Coach review notification could not be sent.')
+    }
+
     let eventRow = null
 
     if (eventId) {
@@ -433,6 +441,8 @@ export async function handler(event) {
     })
     const mobileResult = await sendExpoPushMessages(mobileDevices.map((device) => ({
       to: device.expo_push_token,
+      collapseId: notificationCopy.tag,
+      tag: notificationCopy.tag,
       title: nativePayload.title,
       body: device.detail_level === 'detailed' ? nativePayload.detailedBody : nativePayload.minimalBody,
       data: {
@@ -452,6 +462,8 @@ export async function handler(event) {
       mobileSent: mobileResult.sent,
       mobileFailed: mobileResult.failed,
       mobileInbox: inboxResult.available,
+      coachReviewSent: coachReview.sent,
+      coachReviewFailed: coachReview.failed,
     })
   } catch (error) {
     if (claimedOperationKey) {

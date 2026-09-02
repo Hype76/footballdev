@@ -6,6 +6,7 @@ import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
 import { buildScopedNotificationTitle, hydrateNotificationScopeNames } from './lib/_notification-scope.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
+import { buildCoachMatchReviewPayload } from './lib/_coach-match-review-push.js'
 
 export { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
 
@@ -343,6 +344,20 @@ async function revokeMobileDeviceTokens(deviceTokens, client = supabaseAdmin) {
   if (error) {
     console.error('Coach mobile push device revoke failed', error)
   }
+}
+
+export async function sendCoachMatchReviewPush({ match, adminClient = supabaseAdmin, sendMessages = sendExpoPushMessages } = {}) {
+  if (!match?.id || !match.team_id || match.status !== 'full_time' || match.concluded_at) {
+    return { failed: 0, sent: 0, skipped: true }
+  }
+  const devices = await getCoachDevices(match, adminClient)
+  const deliveries = devices.map((device) => ({ device, payload: buildCoachMatchReviewPayload(match) }))
+  const result = await sendMessages(deliveries.map(({ device, payload }) => ({
+    to: device.expo_push_token, title: payload.title, body: payload.body, data: payload.data, sound: 'default',
+  })))
+  await revokeMobileDeviceTokens(result.invalidTokens || [], adminClient)
+  await logNotificationEvents({ client: adminClient, deliveries, match, status: result.failed > 0 && result.sent === 0 ? 'failed' : 'sent' })
+  return { failed: result.failed, sent: result.sent, skipped: devices.length === 0 }
 }
 
 export async function sendCoachAvailabilityResponsePush({

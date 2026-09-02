@@ -15,7 +15,7 @@ const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] shadow-sm sh
 const seasonRules = [
   {
     label: 'Match day only',
-    body: 'Goals, assists, and player votes come from match day records for this calendar year.',
+    body: 'Goals and assists use active goal entries for this calendar year. Removed goals and own goals do not count towards individual totals.',
   },
   {
     label: 'Zero still matters',
@@ -256,7 +256,7 @@ export function EndSeasonStatsPage() {
         </SectionCard>
       ) : null}
 
-      <SectionCard title="Player stats" description="All active squad players are listed, including players with zero Match Day stats.">
+      <SectionCard title="Player stats" description="All active squad players are listed. Manual score corrections do not assign goals or assists to a player.">
         {isLoading ? (
           <p className={emptyStateClass}>
             Loading end of season stats...

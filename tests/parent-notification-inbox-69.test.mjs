@@ -16,7 +16,7 @@ test('Parent inbox dedupe keys are stable per source, intent, and Parent link', 
     data: { matchDayId: 'match-1', type: 'yellow_card' },
     intentType: 'matchday_update',
     parentLinkId: 'link-1',
-  }), 'matchday_update:link-1:match-1:yellow_card')
+  }), 'matchday_update:link-1:match-1')
   assert.equal(getParentNotificationDedupeKey({
     data: { notificationId: 'notification-1', resourceId: 'resource-1' },
     intentType: 'resource_shared',

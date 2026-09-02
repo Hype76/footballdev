@@ -61,6 +61,7 @@ import { useConfirmedConnectionIssue } from '../mobile-core/src/useConfirmedConn
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import { getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
 import ParentIcon from './src/ParentIcon'
+import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import {
   canSubmitParentPoll,
@@ -272,7 +273,7 @@ function LoginScreen() {
       authError={authError ? getParentFriendlyError(authError, 'Email or password not recognised.') : ''}
       copy="Use the email and password linked to your family account."
       emailPlaceholder="parent@example.com"
-      kicker="Football Player Parents"
+      kicker="Parent access"
       logoSource={require('./assets/football-player-logo.png')}
       meta="Private family access. Password sign-in only."
       requestPasswordReset={requestPasswordReset}
@@ -1569,7 +1570,7 @@ function ParentHome() {
         }
       }
       if (action === 'score') {
-        const savedEvent = await updateParentScorerScore(selectedMobileUser, match.id, value.homeScore, value.awayScore)
+        const savedEvent = await updateParentScorerScore(selectedMobileUser, match.id, value.homeScore, value.awayScore, value.reason)
         notificationType = 'score_correction'
         notificationEventId = savedEvent?.id || ''
       }
@@ -1954,7 +1955,7 @@ function ParentHome() {
                 isOffline={isOffline}
                 onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
                 onOpenCalendar={() => setActiveTab('calendar')}
-                onOpenMatch={(match) => setSelectedMatchId(match.id)}
+                onOpenMatch={(match) => { setSelectedMatchId(match.id); setActiveTab('matchday'); scrollViewRef.current?.scrollTo({ y: 0, animated: false }) }}
                 onOpenLink={handleOpenMatchLink}
                 onOpenMessages={() => {
                   const room = parentChatRooms.find((candidate) => candidate.id === 'club-announcements')
@@ -2095,7 +2096,7 @@ function ClubBrandLogo({ link }) {
   return (
     <Image
       accessibilityIgnoresInvertColors
-      accessibilityLabel={remoteUrl && !remoteFailed ? `${link?.clubName || 'Club'} logo` : 'Football Player Parents'}
+      accessibilityLabel={remoteUrl && !remoteFailed ? `${link?.clubName || 'Club'} logo` : 'Club logo'}
       onError={() => setRemoteFailed(true)}
       resizeMode="contain"
       source={remoteUrl && !remoteFailed ? { uri: remoteUrl } : require('./assets/football-player-logo.png')}
@@ -2112,10 +2113,7 @@ function AppHeader({ childCount, childSwitcherOpen, links, notificationState, no
       <View style={styles.brandRow}>
         <ClubBrandLogo key={`${selectedLink?.id || 'default'}:${selectedLink?.clubLogoUrl || ''}`} link={selectedLink} />
         <View style={styles.brandCopy}>
-          <Text style={[styles.brandName, isLight && styles.textLight]}>Football Player Parents</Text>
-          <Text numberOfLines={1} style={[styles.brandMeta, isLight && styles.textMutedLight]}>
-            {selectedLink?.clubName || 'Private family view'}
-          </Text>
+          <Text style={[styles.brandName, isLight && styles.textLight]}>{selectedLink?.clubName || 'Your club'}</Text>
         </View>
         <NotificationStatusButton
           notificationState={notificationState}
@@ -2242,9 +2240,10 @@ function getNotificationTypeIcon(intentType) {
 
 function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
-  const unreadNotifications = prepareParentNotificationInbox(notifications.items.filter((notification) => !notification.isRead))
+  const unreadNotifications = prepareParentNotificationInbox(notifications.items).filter((notification) => !notification.isRead)
     .map((notification) => ({ ...notification, ...getParentNotificationPresentation(notification, matches.items) }))
   const homeFixtures = getParentHomeFixtureCards(homeModel)
+  const scorerMatches = getParentScorerMatches(matches.items)
   if (!link?.id) {
     return (
       <EmptyPanel
@@ -2279,6 +2278,13 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOf
         <SummaryButton disabled={!nextDirectionsUrl} iconKey="parent.directions" label="Directions" onPress={() => onOpenLink?.(nextDirectionsUrl, 'directions')} />
       </View>
 
+      {scorerMatches.map((match) => (
+        <View key={`scoring:${match.id}`} style={styles.sectionStack}>
+          <Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>
+          <Text style={styles.helperText}>You are the scorer for this match.</Text>
+          <PrimaryAction label={getParentScorerActionLabel(match)} onPress={() => onOpenMatch(match)} />
+        </View>
+      ))}
       {!isInitialLoading ? (
         <>
           <SectionHeading copy="The nearest Parent-visible fixture or event." title="Next up" />
@@ -2980,7 +2986,7 @@ function SettingsScreen({
       </InfoPanel>
 
       <PrimaryAction label="Sign out" onPress={onSignOut} secondary />
-      <Text style={styles.legalText}>Football Player Parents. Private family access.</Text>
+      <Text style={styles.legalText}>Private family access.</Text>
     </View>
   )
 }
@@ -3153,7 +3159,7 @@ function AppContent() {
   } = useMobileAuth()
 
   if ([MOBILE_STARTUP_STATES.BOOTING, MOBILE_STARTUP_STATES.RESTORING_SESSION].includes(startupState)) {
-    return <LoadingScreen message="Loading Football Player Parents..." />
+    return <LoadingScreen message="Loading your club..." />
   }
   if (startupState === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR) {
     return (
@@ -3184,7 +3190,7 @@ function StartupRecoveryScreen({ diagnosticCode, message, onReset, onRetry, show
   return (
     <SafeAreaView style={styles.startupRecovery}>
       <View accessibilityLiveRegion="assertive" style={styles.startupRecoveryCard}>
-        <Text style={styles.startupRecoveryKicker}>Football Player Parents</Text>
+        <Text style={styles.startupRecoveryKicker}>Your club</Text>
         <Text style={styles.startupRecoveryTitle}>Something went wrong</Text>
         <Text style={styles.bodyText}>{message || 'The app could not finish starting safely.'}</Text>
         <Text style={styles.startupDiagnostic}>Code {diagnosticCode || 'PARENT_STARTUP_FAILED'} | Version {version} ({buildNumber})</Text>

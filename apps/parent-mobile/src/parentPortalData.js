@@ -238,6 +238,7 @@ function normalizeParentMatchEvent(row = {}) {
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     id: row.id ?? '',
     isPenaltyGoal: row.is_penalty_goal === true || row.isPenaltyGoal === true,
+    isOwnGoal: row.is_own_goal === true || row.isOwnGoal === true,
     matchPhase: normalizeText(row.match_phase ?? row.matchPhase),
     minute: row.minute ?? null,
     notes: normalizeText(row.notes),
@@ -726,13 +727,13 @@ export function setParentScorerExtendedState(matchId, action) {
   return scorerRpc('set_match_day_extended_state', { action_value: action, match_day_id_value: matchId })
 }
 
-export async function updateParentScorerScore(user, matchId, homeScore, awayScore) {
+export async function updateParentScorerScore(user, matchId, homeScore, awayScore, reason = '') {
   const link = requireSelectedLink(user)
   return scorerRpc('record_match_day_score_correction_v2', {
     away_score_value: Math.max(0, Number(awayScore || 0)),
     home_score_value: Math.max(0, Number(homeScore || 0)),
     match_day_id_value: matchId,
-    notes_value: 'Score corrected by parent scorer',
+    notes_value: normalizeText(reason) || 'Score corrected by parent scorer',
     parent_link_id_value: link.id,
     request_id_value: createRequestId(),
   })
@@ -740,10 +741,12 @@ export async function updateParentScorerScore(user, matchId, homeScore, awayScor
 
 export async function addParentScorerGoal(user, matchId, goal = {}) {
   const link = requireSelectedLink(user)
-  return scorerRpc('record_match_day_goal_v2', {
+  return scorerRpc('record_match_day_goal_v3', {
     assist_name_value: normalizeText(goal.assistName),
     assist_shirt_number_value: normalizeText(goal.assistShirtNumber),
     is_penalty_goal_value: goal.isPenaltyGoal === true,
+    is_own_goal_value: goal.isOwnGoal === true,
+    stoppage_minute_value: goal.stoppageMinute ? Number(goal.stoppageMinute) : null,
     match_day_id_value: matchId,
     minute_value: goal.minute === '' || goal.minute == null ? null : Number(goal.minute),
     notes_value: normalizeText(goal.notes),
@@ -757,7 +760,9 @@ export async function addParentScorerGoal(user, matchId, goal = {}) {
 
 export async function correctParentScorerGoal(user, match, event, goal = {}, reason = '') {
   const link = requireSelectedLink(user)
-  return scorerRpc('correct_match_day_goal', {
+  return scorerRpc('correct_match_day_goal_v2', {
+    is_own_goal_value: goal.isOwnGoal ?? event.isOwnGoal ?? false,
+    stoppage_minute_value: goal.stoppageMinute === '' ? null : Number(goal.stoppageMinute ?? event.stoppageMinute) || null,
     assist_name_value: normalizeText(goal.assistName ?? event.assistName),
     assist_shirt_number_value: normalizeText(goal.assistShirtNumber ?? event.assistShirtNumber),
     correction_reason_value: normalizeText(reason),

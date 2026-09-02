@@ -1,3 +1,5 @@
+import { getMatchEventTime } from './matchday-event-time.js'
+
 export const MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH = 5000
 
 const COMPLETED_REPORT_SUMMARY_TYPES = new Set([
@@ -24,6 +26,8 @@ const MATCH_PHASE_ORDER = new Map([
 ])
 
 const EVENT_TYPE_LABELS = {
+  kick_off: 'Kick-off',
+  full_time: 'Full time',
   goal: 'Goal',
   score_correction: 'Score correction',
   status_change: 'Status update',
@@ -358,12 +362,14 @@ export function buildCompletedMatchEventPresentation(event = {}, match = {}, { i
   return {
     detail,
     eventType,
-    minuteLabel: formatCompletedMatchEventMinute(event),
+    minuteLabel: event.timelineBoundary ? (eventType === 'kick_off' ? 'KO' : 'FT') : formatCompletedMatchEventMinute({ ...event, ...getMatchEventTime(match, event.minute, event.matchPhase ?? event.match_phase, event.stoppageMinute ?? event.stoppage_minute) }),
     notes: includeNotes && requiresPrimaryPlayer ? normalizeText(event?.notes) : '',
     scoreLabel: homeScore !== null && awayScore !== null ? `${homeScore} - ${awayScore}` : 'Score not recorded',
     status: normalizeEventStatus(event),
     team,
-    title: eventType === 'goal' && (event?.isPenaltyGoal === true || event?.is_penalty_goal === true)
+    title: eventType === 'goal' && (event?.isOwnGoal === true || event?.is_own_goal === true)
+      ? 'Own goal'
+      : eventType === 'goal' && (event?.isPenaltyGoal === true || event?.is_penalty_goal === true)
       ? 'Penalty'
       : EVENT_TYPE_LABELS[eventType] || 'Match event',
   }

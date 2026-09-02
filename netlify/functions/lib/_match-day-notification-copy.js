@@ -109,6 +109,7 @@ function getCompactEventDetail(notificationType, event) {
   const relatedShirt = normalizeText(event?.assist_shirt_number || event?.assistShirtNumber || event?.player_on_shirt_number || event?.playerOnShirtNumber)
   if (notificationType === 'goal') {
     const scorer = formatPerson(playerName, playerShirt)
+    if (event?.is_own_goal === true || event?.isOwnGoal === true) return `Own goal${playerName || playerShirt ? `: ${scorer}` : ''}.`
     const assist = relatedName || relatedShirt ? ` Assist: ${formatPerson(relatedName, relatedShirt)}.` : ''
     return `Goal: ${scorer}.${assist}`
   }
@@ -126,7 +127,6 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const score = getMatchDayDisplayScore(match)
   const notificationType = resolveNotificationType(type, event, match)
   const copy = getEventCopy({ match, notificationType, event })
-  const eventId = normalizeText(event?.id)
   const compactEventDetail = getCompactEventDetail(notificationType, event)
   const opponentName = getOpponentName(match)
   const compactScore = `${score} v ${opponentName}`
@@ -145,6 +145,6 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
     detailedBody,
     notificationType,
     renotify: ['goal', 'score_correction', 'full_time', 'extra_time', 'start_extra_time', 'penalties', 'start_penalties'].includes(notificationType),
-    tag: `match-day-${normalizeText(match?.id) || 'unknown'}-${notificationType}${eventId ? `-${eventId}` : ''}`,
+    tag: `match-day-${normalizeText(match?.id) || 'unknown'}`,
   }
 }

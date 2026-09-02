@@ -2,6 +2,14 @@ import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
 const normalize = (value) => String(value ?? '').trim()
 
+export function getParentMatchNotificationGroupKey(notification = {}) {
+  const data = notification.data || {}
+  const matchId = normalize(data.matchDayId)
+  const kind = normalize(notification.intentType || notification.intent_type)
+  return matchId && (kind === 'matchday_update' || ['matchday', 'invites'].includes(normalize(data.route)))
+    ? `match:${normalize(data.parentLinkId)}:${matchId}` : ''
+}
+
 function parentChatRoomId(notification = {}) {
   const intentType = normalize(notification.intentType).toLowerCase()
   const route = normalize(notification.data?.route).toLowerCase()
@@ -29,6 +37,7 @@ export function getParentOpenedNotificationIds(data = {}, notifications = []) {
   return notifications.filter((notification) => {
     const candidate = notification.data || {}
     if (normalize(data.parentLinkId) && normalize(candidate.parentLinkId) !== normalize(data.parentLinkId)) return false
+    if (getParentMatchNotificationGroupKey({ data })) return normalize(candidate.matchDayId) === normalize(data.matchDayId)
     if ((normalize(data.route) === 'invites' || normalize(data.type) === 'scorer_request') && normalize(data.matchDayId)) {
       return (normalize(candidate.route) === 'invites' || normalize(candidate.type) === 'scorer_request') && normalize(candidate.matchDayId) === normalize(data.matchDayId)
     }
@@ -58,12 +67,14 @@ export function prepareParentNotificationInbox(notifications = []) {
   const prepared = []
   const chatGroups = new Map()
 
-  for (const notification of Array.isArray(notifications) ? notifications : []) {
+  const ordered = (Array.isArray(notifications) ? [...notifications] : []).sort((a, b) =>
+    (Date.parse(b?.sentAt || b?.createdAt) || 0) - (Date.parse(a?.sentAt || a?.createdAt) || 0))
+  for (const notification of ordered) {
     if (!notification || typeof notification !== 'object') continue
     const id = normalize(notification.id)
     if (!id) continue
     const roomId = parentChatRoomId(notification)
-    const groupKey = roomId ? `chat:${roomId}` : invitationGroupKey(notification)
+    const groupKey = roomId ? `chat:${roomId}` : getParentMatchNotificationGroupKey(notification) || invitationGroupKey(notification)
     const sourceIds = notificationIds(notification)
 
     if (!groupKey) {
@@ -75,7 +86,7 @@ export function prepareParentNotificationInbox(notifications = []) {
     if (existing) {
       existing.notificationIds = [...new Set([...existing.notificationIds, ...sourceIds])]
       existing.groupedCount = existing.notificationIds.length
-      if (!notification.isRead) existing.isRead = false
+      if (!groupKey.startsWith('match:') && !notification.isRead) existing.isRead = false
       continue
     }
 

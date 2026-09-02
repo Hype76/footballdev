@@ -6,6 +6,7 @@ import {
   isCurrentTrainingNotificationReference,
 } from './lib/_parent-notification-validity.js'
 import { supabaseAdmin } from './lib/_supabase.js'
+import { getParentMatchNotificationGroupKey } from '../../apps/mobile-core/src/parentNotificationInboxCore.js'
 
 function response(statusCode, payload) {
   return {
@@ -51,7 +52,7 @@ async function getAuthorisedParentLink(event, requestedParentLinkId) {
 function mapNotification(row) {
   return {
     body: normalizeText(row.body),
-    createdAt: row.created_at,
+    createdAt: row.sent_at || row.created_at,
     data: row.data && typeof row.data === 'object' ? row.data : {},
     id: String(row.id),
     intentType: normalizeText(row.intent_type),
@@ -73,18 +74,21 @@ export function collapseParentNotificationRows(rows = []) {
   const notifications = []
   const chatGroups = new Map()
 
-  for (const row of Array.isArray(rows) ? rows : []) {
+  const ordered = (Array.isArray(rows) ? [...rows] : []).sort((a, b) =>
+    (Date.parse(b?.sent_at || b?.created_at) || 0) - (Date.parse(a?.sent_at || a?.created_at) || 0))
+  for (const row of ordered) {
     const notification = mapNotification(row)
     const roomId = parentChatRoomId(notification)
-    if (!roomId) {
+    const groupKey = roomId ? `chat:${roomId}` : getParentMatchNotificationGroupKey(notification)
+    if (!groupKey) {
       notifications.push({ ...notification, notificationIds: [notification.id] })
       continue
     }
 
-    const existing = chatGroups.get(roomId)
+    const existing = chatGroups.get(groupKey)
     if (existing) {
       existing.notificationIds.push(notification.id)
-      if (!notification.isRead) existing.isRead = false
+      if (!groupKey.startsWith('match:') && !notification.isRead) existing.isRead = false
       continue
     }
 
@@ -92,7 +96,7 @@ export function collapseParentNotificationRows(rows = []) {
       ...notification,
       notificationIds: [notification.id],
     }
-    chatGroups.set(roomId, grouped)
+    chatGroups.set(groupKey, grouped)
     notifications.push(grouped)
   }
 
@@ -232,8 +236,8 @@ export async function handler(event) {
       .eq('parent_link_id', link.id)
       .eq('status', 'sent')
       .gte('created_at', link.created_at)
-      .order('created_at', { ascending: false })
-      .limit(50)
+      .order('sent_at', { ascending: false })
+      .limit(500)
 
     if (error) throw error
 

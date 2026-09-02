@@ -32,8 +32,8 @@ function sourceId(data = {}) {
 
 export function getParentNotificationDedupeKey({ data = {}, intentType, parentLinkId } = {}) {
   const linkId = normalizeText(parentLinkId || data.parentLinkId)
-  const source = sourceId(data)
   const kind = normalizeText(intentType || data.type).toLowerCase()
+  const source = kind === 'matchday_update' && normalizeText(data.matchDayId) ? normalizeText(data.matchDayId) : sourceId(data)
   return linkId && source && kind ? `${kind}:${linkId}:${source}` : ''
 }
 
@@ -69,6 +69,7 @@ export async function writeParentNotificationInbox({
       intent_type: normalizeText(intentType),
       parent_link_id: normalizeText(link.id),
       sent_at: now,
+      ...(intentType === 'matchday_update' && data.matchDayId ? { read_at: null, created_at: now } : {}),
       status: 'sent',
       team_id: normalizeText(teamId) || null,
       title: normalizeText(title) || 'Football Player update',
@@ -79,7 +80,7 @@ export async function writeParentNotificationInbox({
 
   const { data: inserted, error } = await client
     .from('parent_mobile_notification_events')
-    .upsert(rows, { ignoreDuplicates: true, onConflict: 'dedupe_key' })
+    .upsert(rows, { ignoreDuplicates: !(intentType === 'matchday_update' && data.matchDayId), onConflict: 'dedupe_key' })
     .select('id')
 
   if (error) {

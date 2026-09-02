@@ -241,6 +241,7 @@ function normalizeMatchDayEvent(row) {
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     notes: normalizeText(row.notes),
     isPenaltyGoal: row.is_penalty_goal === true || row.isPenaltyGoal === true,
+    isOwnGoal: row.is_own_goal === true || row.isOwnGoal === true,
     eventStatus: normalizeText(row.event_status ?? row.eventStatus) || 'active',
     correctedAt: row.corrected_at ?? row.correctedAt ?? '',
     correctedByName: normalizeText(row.corrected_by_name ?? row.correctedByName),
