@@ -270,18 +270,18 @@ async function getMatchDayAvailabilityPayload({ id, profile }) {
     data: {
       app: 'parent',
       availabilityRequestId: request.id,
-      invitationId: `match:${request.id}`,
+      invitationId: `match_attendance:${request.id}`,
       matchDayId: request.match_day_id,
       parentLinkId: request.parent_link_id,
       route: 'invites',
       type: 'matchday_availability',
     },
     categoryId: 'parent-response',
-    detailedBody: `Please confirm availability for the match against ${opponent} on ${matchDate}.`,
-    minimalBody: 'Your club needs an availability response for an upcoming match.',
+    detailedBody: `Match v ${opponent}, ${matchDate}. Open the invitation to answer attendance and any volunteer requests together.`,
+    minimalBody: `Match v ${opponent}, ${matchDate}. Your event invitation is ready to answer.`,
     parentLinkQuery: (query) => query.eq('id', request.parent_link_id),
     teamId: request.team_id || null,
-    title: 'Availability requested',
+    title: 'Match invitation',
     type: 'matchday_update',
   }
 }

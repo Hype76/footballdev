@@ -14,7 +14,6 @@ import { useToast } from '../components/ui/toast-context.js'
 import { canManageMatchDay, useAuth } from '../lib/auth.js'
 import {
   shouldSendMatchdayAvailabilityRequests,
-  shouldSendMatchdayPushNotification,
 } from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
@@ -3160,15 +3159,6 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         }
       }
 
-      if (!calendarOnly && allowsCommunication && shouldSendMatchdayPushNotification({
-        parentVisible: submittedForm.parentVisible,
-        runtime: communicationRuntime,
-      })) {
-        void sendMatchDayPushNotification({
-          matchDayId: createdMatch.id,
-          type: 'scorer_request',
-        })
-      }
       setForm(EMPTY_MATCH_FORM)
       setSelectedLocationId('')
       setIsFixtureFormOpen(false)
@@ -6628,7 +6618,6 @@ function LiveMatchEntryModal({
                     <span className={smallLabelClass}>Scorer type</span>
                     <select value={goalForm.scorerParticipantType || 'player'} onChange={(event) => onGoalFormChange(match.id, { scorerParticipantType: event.target.value, scorerName: '', scorerShirtNumber: '' })} className={compactInputClass}>
                       <option value="player">Player</option>
-                      <option value="coach">Coach</option>
                       <option value="other">Other</option>
                     </select>
                   </label>

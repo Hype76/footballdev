@@ -221,6 +221,8 @@ async function createDatabase() {
 
     create table public.match_day_player_squad_decisions (
       match_day_id uuid not null,
+      club_id uuid,
+      team_id uuid,
       player_id uuid not null,
       status text not null,
       primary key (match_day_id, player_id)
@@ -301,6 +303,10 @@ async function createDatabase() {
   await db.exec(migration)
   await db.exec(unavailableFunction)
   await db.exec(repairMigration)
+  const candidate = await readFile(new URL('../supabase/migrations/20260902101356_parent_invites_scorer_repair.sql', import.meta.url), 'utf8')
+  const acceptance = candidate.match(/create or replace function public\.accept_event_player_availability_on_behalf[\s\S]*?\$\$;/)?.[0]
+  assert.ok(acceptance)
+  await db.exec(acceptance)
 
   await db.exec(`
     insert into public.users (id, status, role, role_rank, name, username, email, role_label, club_id)
@@ -333,8 +339,8 @@ async function createDatabase() {
       timezone('utc', now()), '2099-01-02 23:59:59+00'
     );
 
-    insert into public.match_day_player_squad_decisions (match_day_id, player_id, status)
-    values ('${IDS.match}', '${IDS.player}', 'selected');
+    insert into public.match_day_player_squad_decisions (match_day_id, club_id, team_id, player_id, status)
+    values ('${IDS.match}', '${IDS.club}', '${IDS.team}', '${IDS.player}', 'selected');
 
     insert into public.calendar_events (id, club_id, team_id, event_type)
     values ('${IDS.trainingEvent}', '${IDS.club}', '${IDS.team}', 'training');
@@ -484,7 +490,7 @@ test('parent, cross-team staff, uninvited players, and closed events are denied'
       `select public.accept_event_player_availability_on_behalf('match', $1, $2, null)`,
       [IDS.match, IDS.uninvitedPlayer],
     ),
-    /active Match Day availability invitation/,
+    /not attached to this Match Day fixture/,
   )
   await assert.rejects(
     db.query(
@@ -509,14 +515,15 @@ test('parent, cross-team staff, uninvited players, and closed events are denied'
   await db.close()
 })
 
-test('revoked Match Day request cannot be used for either staff response action', async () => {
+test('removed player with a revoked request cannot use either staff response action', async () => {
   const db = await createDatabase()
   await setActor(db, IDS.manager)
   await db.exec(`
     update public.match_day_availability_requests
     set token_revoked_at = timezone('utc', now())
     where match_day_id = '${IDS.match}'
-      and player_id = '${IDS.player}'
+      and player_id = '${IDS.player}';
+    delete from public.match_day_player_squad_decisions where match_day_id = '${IDS.match}' and player_id = '${IDS.player}';
   `)
 
   await assert.rejects(
@@ -524,7 +531,7 @@ test('revoked Match Day request cannot be used for either staff response action'
       `select public.accept_event_player_availability_on_behalf('match', $1, $2, null)`,
       [IDS.match, IDS.player],
     ),
-    /active Match Day availability invitation/,
+    /not attached to this Match Day fixture/,
   )
   await assert.rejects(
     db.query(
@@ -610,4 +617,22 @@ test('authorised staff can mark a training player unavailable idempotently', asy
   })
 
   await db.close()
+})
+
+
+test('staff can accept an attached player before sending any invitation', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, IDS.manager)
+    await db.exec('delete from public.match_day_availability_requests')
+    const first = await db.query("select public.accept_event_player_availability_on_behalf('match', $1, $2, null) result", [IDS.match, IDS.player])
+    assert.ok(first.rows[0].result)
+    await db.query("select public.accept_event_player_availability_on_behalf('match', $1, $2, null)", [IDS.match, IDS.player])
+    const state = await db.query(`select
+      (select count(*)::int from public.match_day_availability_requests) invites,
+      (select count(*)::int from public.match_day_player_availability where status = 'available') responses,
+      (select count(*)::int from public.audit_logs) audits,
+      (select status from public.match_day_player_squad_decisions limit 1) selection`)
+    assert.deepEqual(state.rows[0], { invites: 0, responses: 1, audits: 1, selection: 'selected' })
+  } finally { await db.close() }
 })

@@ -44,7 +44,7 @@ test('web and Coach app calendar actions keep communications off and sync squad 
   assert.match(web, /const squadCalendarPlayerIds = fixturePlayers[\s\S]*section[\s\S]*=== 'squad'[\s\S]*\.map\(\(player\) => player\.id\)/)
   assert.match(web, /syncCalendarEventParentScope\(\{[\s\S]*eventSource: 'match-day'[\s\S]*includeTrialPlayers: false[\s\S]*playerIds: squadCalendarPlayerIds[\s\S]*selectionMode: 'manual'/)
   assert.match(web, /const canSendAvailabilityRequests = !calendarOnly/)
-  assert.match(web, /if \(!calendarOnly && allowsCommunication/)
+  assert.match(web, /canSendAvailabilityRequests = !calendarOnly[\s\S]*?&& allowsCommunication/)
 
   assert.match(coachData, /normalizedCalendarTarget === 'coach'[\s\S]*parentAudience: 'none', parentVisible: false/)
   assert.match(coachData, /normalizedCalendarTarget === 'squad'[\s\S]*parentAudience: 'involved_players', parentVisible: true/)

@@ -65,7 +65,7 @@ test('Game Mode modal fields prevent opponent and own-team mixed states', async 
   assert.match(liveEntrySlice, /const isOpponentGoal = goalForm\.teamSide === 'opponent'/)
   assert.match(liveEntrySlice, /onGoalFormChange\(match\.id, getGoalSideFormReset\(event\.target\.value\)\)/)
   assert.match(liveEntrySlice, /\{!isOpponentGoal \? \([\s\S]*Scorer player/)
-  assert.match(liveEntrySlice, /Scorer type[\s\S]*<option value="player">Player<\/option>[\s\S]*<option value="coach">Coach<\/option>[\s\S]*<option value="other">Other<\/option>/)
+  assert.match(liveEntrySlice, /Scorer type[\s\S]*<option value="player">Player<\/option>[\s\S]*<option value="other">Other<\/option>/)
   assert.match(liveEntrySlice, /'Opponent scorer name optional'[\s\S]*'Coach name'[\s\S]*'Other participant name'[\s\S]*'Scorer name'/)
   assert.match(liveEntrySlice, /\{isOpponentGoal \? 'Opponent scorer shirt optional' : 'Scorer shirt'\}/)
   assert.match(liveEntrySlice, /\{!isOpponentGoal \? \([\s\S]*Assist player[\s\S]*Assist name[\s\S]*Assist shirt/)

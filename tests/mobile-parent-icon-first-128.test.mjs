@@ -28,7 +28,7 @@ test('Parent invitations group attendance and volunteer roles into one event', (
     sourceRecordId: 'linesman-request-1',
   }
 
-  assert.equal(getParentInvitationEventKey(attendance), 'event:match-1')
+  assert.equal(getParentInvitationEventKey(attendance), 'event:match-1:child-1:2026-09-05')
   assert.equal(groupParentInvitationsByEvent([attendance, scorer, linesman]).length, 1)
   assert.deepEqual(
     groupParentInvitationsByEvent([attendance, linesman, scorer])[0].invitations.map((item) => `${item.invitationType}:${item.roleType || ''}`),

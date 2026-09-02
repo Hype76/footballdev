@@ -38,7 +38,7 @@ const cases = [
   { type: 'score_correction', event: { id: 'correction', event_type: 'score_correction', notes: 'Private correction note' }, title: 'Score corrected' },
   { type: 'status_change', override: { status: 'cancelled' }, title: 'Match cancelled', includeScore: false },
   { type: 'status_change', override: { status: 'postponed' }, title: 'Match postponed', includeScore: false },
-  { type: 'scorer_selected', title: 'Match Day scorer selected', includeScore: false },
+  { type: 'scorer_selected', title: 'You are the Match Day scorer', includeScore: false },
   { type: 'scorer_request', title: 'Scorer needed', includeScore: false },
   { type: 'unknown_event', title: 'Match update' },
 ]

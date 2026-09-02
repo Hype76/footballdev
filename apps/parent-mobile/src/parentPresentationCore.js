@@ -33,16 +33,16 @@ export function getParentChatRoomTitle(room = {}) {
 function invitationOccurrenceKey(invitation = {}) {
   return [
     invitation.childId,
-    invitation.sourceRecordId || invitation.eventId,
+    invitation.eventId || invitation.sourceRecordId,
     invitation.invitationType,
     invitation.roleType,
-    invitation.eventStart || invitation.eventDate,
+    normalizeText(invitation.eventDate || invitation.eventStart).slice(0, 10),
   ].map(normalizeText).join(':')
 }
 
 export function getParentInvitationEventKey(invitation = {}) {
   const eventId = normalizeText(invitation.eventId)
-  if (eventId) return `event:${eventId}`
+  if (eventId) return ['event', eventId, invitation.childId, normalizeText(invitation.eventDate || invitation.eventStart).slice(0, 10)].map(normalizeText).join(':')
   return [
     invitation.childId,
     invitation.eventStart || invitation.eventDate,
@@ -82,7 +82,8 @@ function invitationRecency(invitation = {}) {
   return new Date(invitation.lastRespondedAt || invitation.eventStart || invitation.eventDate || 0).getTime() || 0
 }
 
-function invitationVersionRank(invitation = {}) {
+function invitationVersionRank(invitation = {}, now = new Date()) {
+  if (isInvitationActionable(invitation, now)) return normalizeText(invitation.lastRespondedAt) ? 4 : 3
   if (normalizeText(invitation.lastRespondedAt)) return 2
   return invitation.isPending ? 0 : 1
 }
@@ -106,15 +107,18 @@ export function getParentInvitationSections(rows = [], now = new Date()) {
     const current = unique.get(key)
     if (
       !current
-      || invitationVersionRank(invitation) > invitationVersionRank(current)
-      || invitationVersionRank(invitation) === invitationVersionRank(current) && invitationRecency(invitation) >= invitationRecency(current)
+      || invitationVersionRank(invitation, now) > invitationVersionRank(current, now)
+      || invitationVersionRank(invitation, now) === invitationVersionRank(current, now) && invitationRecency(invitation) >= invitationRecency(current)
     ) unique.set(key, invitation)
   }
   const items = [...unique.values()].filter((item) => !normalizeText(item.lockReason).toLowerCase().includes('another parent contact'))
   const isPast = (invitation) => {
+    const eventDate = normalizeText(invitation.eventDate || invitation.eventStart).slice(0, 10)
+    if (invitation.kickoffTimeTbc || /^\d{4}-\d{2}-\d{2}$/.test(normalizeText(invitation.eventStart))) {
+      return Boolean(eventDate) && eventDate < today
+    }
     const eventBoundary = Date.parse(normalizeText(invitation.eventEnd || invitation.eventStart))
     if (Number.isFinite(eventBoundary)) return eventBoundary <= now.getTime()
-    const eventDate = normalizeText(invitation.eventDate || invitation.eventStart).slice(0, 10)
     return Boolean(eventDate) && eventDate < today
   }
   const futureSort = (left, right) => String(left.eventStart || left.eventDate || '9999-12-31').localeCompare(String(right.eventStart || right.eventDate || '9999-12-31'))
@@ -125,7 +129,7 @@ export function getParentInvitationSections(rows = [], now = new Date()) {
   const needsResponseIds = new Set(needsResponse.map(invitationOccurrenceKey))
   const respondedIds = new Set(responded.map(invitationOccurrenceKey))
   return {
-    history: items.filter((item) => isPast(item) || isInvitationTerminal(item)).sort(historySort),
+    history: items.filter((item) => !needsResponseIds.has(invitationOccurrenceKey(item)) && (isPast(item) || isInvitationTerminal(item))).sort(historySort),
     needsResponse,
     responded,
     upcoming: future.filter((item) => {
@@ -133,6 +137,11 @@ export function getParentInvitationSections(rows = [], now = new Date()) {
       return !needsResponseIds.has(key) && !respondedIds.has(key)
     }).sort(futureSort),
   }
+}
+
+export function getParentInvitationCounts(rows = [], now = new Date()) {
+  return Object.fromEntries(Object.entries(getParentInvitationSections(rows, now))
+    .map(([section, invitations]) => [section, groupParentInvitationsByEvent(invitations).length]))
 }
 
 export function getParentChatRoomContext(room = {}) {

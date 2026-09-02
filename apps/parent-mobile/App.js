@@ -52,7 +52,7 @@ import {
   resolveParentNotificationLinkId,
   resolveParentNotificationOpen,
 } from '../mobile-core/src/parentNotificationsCore'
-import { countUnreadNonChatNotifications, prepareParentNotificationInbox } from '../mobile-core/src/parentNotificationInboxCore'
+import { countUnreadNonChatNotifications, getParentNotificationPresentation, getParentOpenedNotificationIds, prepareParentNotificationInbox } from '../mobile-core/src/parentNotificationInboxCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
@@ -75,7 +75,7 @@ import {
   isParentDefinitelyOffline,
   rankParentPollResults,
 } from './src/parentExperience'
-import { getParentInvitationSections } from './src/parentPresentationCore'
+import { getParentInvitationCounts } from './src/parentPresentationCore'
 import {
   addParentScorerGoal,
   correctParentScorerGoal,
@@ -227,6 +227,7 @@ function getParentNotificationTargets(items = {}) {
     ],
     development: (items.development || []).map((item) => item.id),
     invites: (items.invitations || []).map((item) => item.invitationId),
+    invitationRecords: items.invitations || [],
     matchday: (items.matches || []).map((item) => item.id),
     messages: (items.messages || []).map((item) => item.id),
     polls: (items.polls || []).map((item) => item.id),
@@ -249,7 +250,7 @@ function formatDateTime(value, fallback = 'Time to be confirmed') {
 }
 
 function formatTime(value, isTbc = false) {
-  if (isTbc) return 'Kick-off time to be confirmed'
+  if (isTbc) return 'Time TBC'
   return formatParentProductTime(value)
 }
 
@@ -373,7 +374,7 @@ function ParentHome() {
     () => selectedMobileUser?.id && selectedLink?.id ? `fp.parent.dismissed.v1.${selectedMobileUser.id}.${selectedLink.id}` : '',
     [selectedLink?.id, selectedMobileUser?.id],
   )
-  const visibleInvitations = useMemo(() => resources.invitations.items.filter((item) => !dismissedItems.invitations.includes(item.invitationId)), [dismissedItems.invitations, resources.invitations.items])
+  const visibleInvitations = resources.invitations.items
   const visibleMatches = useMemo(() => resources.matches.items.filter((item) => !dismissedItems.matches.includes(item.id)), [dismissedItems.matches, resources.matches.items])
   const visibleInvitationsWithMatchTimes = useMemo(
     () => enrichParentMatchInvitations(visibleInvitations, resources.matches.items),
@@ -990,6 +991,13 @@ function ParentHome() {
           getParentNotificationTargets(result?.items || {}),
         )
         if (!destination) return
+        const openedIds = getParentOpenedNotificationIds(notificationData, result?.items?.notifications || [])
+        if (openedIds.length) {
+          const openedIdSet = new Set(openedIds)
+          setResources((current) => ({ ...current, notifications: { ...current.notifications, items: current.notifications.items.map((item) => openedIdSet.has(item.id) ? { ...item, isRead: true } : item) } }))
+          void markParentOfflineNotificationRead(selectedMobileUser, selectedLink.id, openedIds).catch(() => {})
+          void markParentNotificationRead(selectedMobileUser, openedIds).catch(() => {})
+        }
         if (currentDestination.targetId && !destination.targetId) {
           applyParentNotificationDestination({ tab: currentDestination.tab, targetId: '' })
           setNotice({ message: 'That notification item is no longer available. The latest information for this section is shown.', tone: 'warning' })
@@ -1556,25 +1564,41 @@ function ParentHome() {
     if (isOffline || activeActionId || !match.isScorer) return false
     setActiveActionId(`scorer:${match.id}:${action}`)
     setNotice(null)
+    let changeSaved = false
+    let notificationType = ''
+    let notificationEventId = ''
     try {
-      if (action === 'start') await startParentScorerMatch(match.id)
+      if (action === 'start') {
+        await startParentScorerMatch(match.id)
+        notificationType = 'live'
+      }
       if (action === 'timer') await setParentScorerTimer(match.id, value)
       if (action === 'extended') await setParentScorerExtendedState(match.id, value)
       if (action === 'score') await updateParentScorerScore(selectedMobileUser, match.id, value.homeScore, value.awayScore)
       if (action === 'goal') {
         const savedEvent = await addParentScorerGoal(selectedMobileUser, match.id, value)
-        await sendParentScorerMatchDayPush(selectedMobileUser, match.id, 'goal', savedEvent?.id)
+        notificationType = 'goal'
+        notificationEventId = savedEvent?.id || ''
       }
       if (action === 'correct-goal') await correctParentScorerGoal(selectedMobileUser, match, value.event, value.goal, value.reason)
       if (action === 'void-goal') await voidParentScorerGoal(selectedMobileUser, match.id, value.eventId, value.reason)
       if (action === 'shootout') await recordParentScorerShootoutKick(match.id, value)
       if (action === 'void-shootout') await voidParentScorerShootoutKick(match.id, value.kickId, value.reason)
+      changeSaved = true
+      const notificationResult = notificationType ? await sendParentScorerMatchDayPush(selectedMobileUser, match.id, notificationType, notificationEventId) : true
       await loadParentData()
-      setNotice({ message: 'Game Day has been updated.', tone: 'success' })
+      setNotice(notificationResult
+        ? { message: 'Game Day has been updated.', tone: 'success' }
+        : { message: 'Game Day was saved, but its notification could not be confirmed.', tone: 'warning' })
       return true
     } catch (error) {
-      setNotice({ message: getParentFriendlyError(error, 'This Game Day change could not be saved.'), tone: 'error' })
-      return false
+      if (changeSaved) {
+        setNotice({ message: 'Your change was saved. Refresh Matchday to see the latest information.', tone: 'warning' })
+        return true
+      }
+      const message = getParentFriendlyError(error, 'This Game Day change could not be saved. Please try again.')
+      setNotice({ message, tone: 'error' })
+      return { saved: false, message }
     } finally {
       setActiveActionId('')
     }
@@ -1843,7 +1867,7 @@ function ParentHome() {
   const matchInvitations = visibleInvitationsWithMatchTimes.filter((invitation) => (
     ['match_attendance', 'match_role'].includes(invitation.invitationType)
   ))
-  const unansweredInvites = getParentInvitationSections(visibleInvitations).needsResponse.length
+  const unansweredInvites = getParentInvitationCounts(visibleInvitationsWithMatchTimes).needsResponse
   const unreadChat = parentChatRooms.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
   const tabs = [
     { key: 'home', label: 'Home' },
@@ -1981,7 +2005,7 @@ function ParentHome() {
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
-              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onDismiss={(invitation) => handleDismissParentItem('invitations', invitation.invitationId, 'request')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
+              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
             {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
@@ -2223,6 +2247,7 @@ function getNotificationTypeIcon(intentType) {
 function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matchInvitations = [], matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
   const unreadNotifications = prepareParentNotificationInbox(notifications.items.filter((notification) => !notification.isRead))
+    .map((notification) => ({ ...notification, ...getParentNotificationPresentation(notification, matches.items) }))
   const homeFixtures = getParentHomeFixtureCards(homeModel)
   if (!link?.id) {
     return (
@@ -2275,7 +2300,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
       {unreadNotifications.length > 0 ? (
         <View style={styles.sectionStack}>
           <SectionHeading copy="Tap an update to open the right place." title="Notifications" />
-          {unreadNotifications.slice(0, 8).map((notification) => (
+          {unreadNotifications.map((notification) => (
             <Pressable
               accessibilityHint="Opens this update"
               accessibilityLabel={`${getNotificationTypeLabel(notification.intentType)}: ${notification.title}`}
@@ -2293,9 +2318,9 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
                     <Badge label={getNotificationTypeLabel(notification.intentType)} tone={notification.isRead ? 'neutral' : 'accent'} />
                     <Text style={styles.cardDate}>{formatDateTime(notification.sentAt || notification.createdAt)}</Text>
                   </View>
-                  <Text style={styles.cardTitle}>{notification.title}</Text>
-                  <Text numberOfLines={2} style={styles.bodyText}>{notification.body}</Text>
-                  <Text style={styles.cardLink}>{notification.isRead ? 'Open' : 'New, tap to open'}</Text>
+                  <Text style={styles.cardTitle}>{notification.displayTitle}</Text>
+                  <Text numberOfLines={2} style={styles.bodyText}>{notification.displayBody}</Text>
+                  <Text style={styles.cardLink}>{notification.actionLabel}</Text>
                 </View>
               </View>
             </Pressable>

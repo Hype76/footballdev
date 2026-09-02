@@ -172,11 +172,17 @@ test('02A migration applies transactionally and enforces date, idempotency, assi
   const schemaMatch = hardeningDbTest.match(/const schemaSql = `([\s\S]*?)`;\r?\n\r?\nasync function setActor/)
   assert.ok(schemaMatch, 'Expected reusable Match Day disposable schema')
 
+  const candidate = await readFile(new URL('../supabase/migrations/20260902101356_parent_invites_scorer_repair.sql', import.meta.url), 'utf8')
+  const parentAuthority = await readFile(new URL('../supabase/migrations/20260825133414_cross_club_parent_link_authority_100.sql', import.meta.url), 'utf8')
+  const scorerHelper = candidate.match(/create or replace function public\.current_user_has_match_day_scorer_assignment[\s\S]*?\$\$;/)?.[0]
+  const parentHelper = parentAuthority.match(/create or replace function public\.current_user_can_access_parent_link\([\s\S]*?\$\$;/)?.[0]
+  assert.ok(scorerHelper && parentHelper)
   const db = new PGlite()
   try {
     await db.exec(schemaMatch[1])
     await db.exec(`
       create table auth.users (id uuid primary key);
+      alter table public.clubs add column status text default 'active';
       alter table public.users
         add column name text,
         add column email text,
@@ -258,6 +264,8 @@ test('02A migration applies transactionally and enforces date, idempotency, assi
     )
     assert.equal(afterRollback.rows[0].present, false)
     await db.exec(migration)
+    await db.exec(parentHelper)
+    await db.exec(scorerHelper)
 
     await db.query('insert into auth.users(id) values ($1), ($2), ($3)', [ids.staff, ids.scorer, ids.replacementScorer])
     await db.query("insert into public.clubs(id, timezone_name) values ($1, 'Europe/London')", [ids.club])
@@ -301,9 +309,14 @@ test('02A migration applies transactionally and enforces date, idempotency, assi
       [ids.match, ids.club, ids.team, ids.scorerLink, ids.scorer],
     )
 
+    // Parent accounts use active child links and need no staff profile.
+    await db.query('delete from public.users where id = $1', [ids.scorer])
     await setActor(db, ids.scorer)
     let authority = await db.query('select public.current_user_is_match_day_scorer($1) as allowed', [ids.match])
     assert.equal(authority.rows[0].allowed, true)
+    await db.query("insert into public.users(id, club_id, role, status) values ($1, $2, 'parent_portal', 'suspended')", [ids.scorer, ids.club])
+    assert.equal((await db.query('select public.current_user_is_match_day_scorer($1) as allowed', [ids.match])).rows[0].allowed, false)
+    await db.query('delete from public.users where id = $1', [ids.scorer])
     await db.query("update public.match_days set match_date = match_date + 1 where id = $1", [ids.match])
     authority = await db.query('select public.current_user_is_match_day_scorer($1) as allowed', [ids.match])
     assert.equal(authority.rows[0].allowed, false)

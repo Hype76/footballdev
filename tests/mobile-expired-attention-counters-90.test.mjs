@@ -83,7 +83,7 @@ test('notification inbox validity requires actionable unexpired source records',
 
 test('Parent shell uses actionable invitation sections for the More badge', async () => {
   const source = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
-  assert.match(source, /getParentInvitationSections\(visibleInvitations\)\.needsResponse\.length/)
+  assert.match(source, /getParentInvitationCounts\(visibleInvitationsWithMatchTimes\)\.needsResponse/)
   assert.doesNotMatch(source, /visibleInvitations\.filter\(\(invitation\) => invitation\.isPending\)\.length/)
 })
 

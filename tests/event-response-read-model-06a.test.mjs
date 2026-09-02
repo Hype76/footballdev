@@ -118,7 +118,7 @@ test('Match Day communication state follows canonical availability requests', ()
   assert.equal(row.deliveryState, 'not_requested')
   assert.equal(row.responseState, 'not_invited')
   assert.equal(row.display.primaryLabel, 'Invitation not sent')
-  assert.equal(row.staffActions.canAcceptOnBehalf, false)
+  assert.equal(row.staffActions.canAcceptOnBehalf, true)
   assert.equal(row.staffActions.canSelectForSquad, true)
   assert.equal(row.staffActions.invitationAction, 'send')
 })
@@ -231,7 +231,7 @@ test('current Match Day links merge with request, response, delivery and selecti
   assert.match(row.display.secondaryLabel, /Delivered/)
 })
 
-test('expired Match Day requests never expose staff availability actions or mask squad selection', () => {
+test('selected players retain staff acceptance when their invitation expires', () => {
   const expiredRequest = {
     id: 'expired-request',
     playerId: 'expired-player',
@@ -257,7 +257,7 @@ test('expired Match Day requests never expose staff availability actions or mask
   assert.equal(row.invitationState, 'not_sent')
   assert.equal(row.responseState, 'not_invited')
   assert.equal(row.matchSelectionState, 'selected')
-  assert.equal(row.staffActions.canAcceptOnBehalf, false)
+  assert.equal(row.staffActions.canAcceptOnBehalf, true)
   assert.equal(row.staffActions.canMarkUnavailable, false)
   assert.equal(row.staffActions.canSelectForSquad, false)
   assert.equal(row.staffActions.invitationAction, 'send')

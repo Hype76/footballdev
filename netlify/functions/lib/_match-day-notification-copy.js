@@ -94,7 +94,7 @@ function getEventCopy({ match, notificationType, event }) {
     case 'postponed':
       return { title: 'Match postponed', category: 'Match postponed', detail: 'The Match was postponed', includeScore: false }
     case 'scorer_selected':
-      return { title: 'Match Day scorer selected', category: 'Scorer update', detail: 'A Match Day scorer was selected', includeScore: false }
+      return { title: 'You are the Match Day scorer', category: 'You are the Match Day scorer', detail: 'You are the Match Day scorer', includeScore: false }
     case 'scorer_request':
       return { title: 'Scorer needed', category: 'Scorer request', detail: 'A Match Day scorer is needed', includeScore: false }
     default:

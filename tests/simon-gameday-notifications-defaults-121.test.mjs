@@ -61,7 +61,7 @@ test('Parent scorer has confirmed-squad dropdowns, a working goal save path, and
   assert.match(screens, /label="No assist"/)
   assert.match(screens, /openAction\('goal', 'Add goal'\)/)
   assert.match(screens, /submitAndClose\('goal', goal\)/)
-  assert.match(screens, /This change was not saved\. Check your connection and try again\./)
+  assert.match(screens, /saved\?\.message/)
   assert.match(data, /scorerRpc\('record_match_day_goal_v2'/)
   assert.match(screens, /activateKeepAwakeAsync\('football-player-parent-game-day'\)/)
   assert.match(screens, /deactivateKeepAwake\('football-player-parent-game-day'\)/)

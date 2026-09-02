@@ -204,6 +204,19 @@ export function getParentFriendlyError(error, fallback = 'This information could
   const message = normalizeText(error?.message || error).toLowerCase()
   const status = Number(error?.status || error?.statusCode || 0)
 
+  if (/cannot (record goals|correct|change|manage)|selected scorer|scorer access/.test(message)) {
+    return 'Your scorer access for this match could not be confirmed. Refresh Matchday or ask a coach to check your selection.'
+  }
+  if (message.includes('fixture has closed') || message.includes('match has closed') || message.includes('concluded match')) {
+    return 'This match is closed, so this change cannot be saved.'
+  }
+  if (message.includes('start or resume the match') || message.includes('start the match before')) {
+    return 'Start or resume the match before recording this change.'
+  }
+  if (message.includes('timed out') || message.includes('timeout')) {
+    return 'The server took too long to respond. Refresh to check whether your change was saved before trying again.'
+  }
+
   if (
     code.includes('parent_push_device_firebase_configuration')
     || code.includes('parent_push_expo_app_configuration')

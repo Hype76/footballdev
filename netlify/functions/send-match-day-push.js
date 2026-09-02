@@ -54,8 +54,31 @@ async function getAuthUser(event) {
   return data.user
 }
 
-async function getProfile(authUser) {
+async function getProfile(authUser, match, parentLinkId = '') {
   const email = normalizeText(authUser.email).toLowerCase()
+  if (parentLinkId) {
+    const { data: parentLink, error: linkError } = await supabaseAdmin
+      .from('parent_player_links')
+      .select('id')
+      .eq('id', parentLinkId)
+      .eq('auth_user_id', authUser.id)
+      .eq('club_id', match.club_id)
+      .eq('team_id', match.team_id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (linkError) throw linkError
+    if (parentLink) {
+      const { data: suspended, error: suspendedError } = await supabaseAdmin
+        .from('users').select('id, role, club_id').eq('id', authUser.id).eq('status', 'suspended').maybeSingle()
+      if (suspendedError) throw suspendedError
+      const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
+      if ((suspended && (suspended.role === 'parent_portal' || suspended.club_id === match.club_id))
+        || normalizeText(club?.status || 'active') !== 'active') {
+        throw Object.assign(new Error('Your Parent access is not active.'), { statusCode: 403 })
+      }
+      return { id: authUser.id, email, role: 'parent_portal', roleRank: 0, clubId: match.club_id }
+    }
+  }
   const userProfile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
     select: 'id, email, role, role_rank, club_id, status',
   })
@@ -71,7 +94,7 @@ async function getProfile(authUser) {
 async function getMatch(matchDayId) {
   const { data, error } = await supabaseAdmin
     .from('match_days')
-    .select('*, teams:team_id (name, notification_display_name), clubs:club_id (name)')
+    .select('*, teams:team_id (name, notification_display_name), clubs:club_id (name, status)')
     .eq('id', matchDayId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -301,7 +324,6 @@ export async function handler(event) {
     const webPushConfigured = configureWebPush()
 
     const authUser = await getAuthUser(event)
-    const profile = await getProfile(authUser)
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
     const type = normalizeText(body.type)
@@ -313,6 +335,7 @@ export async function handler(event) {
     }
 
     const match = await getMatch(matchDayId)
+    const profile = await getProfile(authUser, match, parentLinkId)
     await assertWorkspaceBillingAction({ clubId: match.club_id, profile })
     const authorization = await authorizePush({ authUser, match, parentLinkId, type, eventId })
 

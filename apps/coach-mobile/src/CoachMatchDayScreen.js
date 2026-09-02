@@ -325,7 +325,7 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
   const playerChoiceEmptyMessage = eventForm.teamSide === 'opponent'
     ? 'No opponent players have been saved yet. You can type the details.'
     : 'No selected active team players are available. Select a Match participant or choose Other.'
-  const participantOptions = eventForm.eventType === 'substitution'
+  const participantOptions = ['goal', 'substitution'].includes(eventForm.eventType)
     ? [{ label: 'Player', value: 'player' }, { label: 'Other', value: 'other' }]
     : [{ label: 'Player', value: 'player' }, { label: 'Coach', value: 'coach' }, { label: 'Other', value: 'other' }]
   const prepareEvent = (eventType) => {

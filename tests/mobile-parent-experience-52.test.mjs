@@ -109,7 +109,7 @@ test('mobile UX wiring preserves sessions, updates automatically, deep-links res
   assert.match(parentApp, /parent_accept/)
   assert.match(parentApp, /targetInvitationId/)
   assert.match(parentApp, /handleRestoreDismissedItems/)
-  for (const kind of ['development', 'invitations', 'matches', 'messages', 'polls', 'resources']) {
+  for (const kind of ['development', 'matches', 'messages', 'polls', 'resources']) {
     assert.match(parentApp, new RegExp(`handleDismissParentItem\\('${kind}'`))
   }
   assert.match(screens, /Club Announcements|prepareParentChatRooms/)

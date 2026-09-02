@@ -183,7 +183,7 @@ export function getEventResponseDisplayState(row = {}) {
       accessibleLabel: 'Invitation not sent',
       availabilityLabel: 'Invitation not sent',
       availabilityStatus: 'not_invited',
-      canAcceptOnBehalf: false,
+      canAcceptOnBehalf: eventType === 'match',
       matchSelectionLabel: eventType === 'match' && matchSelectionState === 'selected' ? 'Selected' : '',
       matchSelectionStatus: eventType === 'match' ? matchSelectionState || 'undecided' : '',
       primaryLabel: 'Invitation not sent',
@@ -549,6 +549,7 @@ export function buildEventResponseReadModel({
         availabilityRequestCount: playerRequests.length,
         hasAvailabilityRequest: Boolean(request),
         hasActiveAvailabilityRequest,
+        hasAttachedParticipation: matchSelectionState === 'selected' || Boolean(current && normalizeStatus(current.invitationState) !== 'cancelled'),
         parentLinkId: next.parentLinkId || request?.parentLinkId || '',
         recipientType: next.recipientType || request?.recipientType || '',
         invitationCreatedAt: request?.createdAt || '',
@@ -710,7 +711,7 @@ export function buildEventResponseReadModel({
         staffActions: {
           canAcceptOnBehalf: display.canAcceptOnBehalf
             && (source.sourceType === 'match-day'
-              ? withDelivery.hasActiveAvailabilityRequest === true
+              ? withDelivery.hasActiveAvailabilityRequest === true || withDelivery.hasAttachedParticipation === true
               : normalizeStatus(withDelivery.invitationState) !== 'not_sent'),
           canMarkUnavailable: ['match', 'training'].includes(eventType)
             && responseState !== 'unavailable'

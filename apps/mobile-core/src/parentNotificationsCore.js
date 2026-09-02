@@ -166,7 +166,7 @@ export function getParentNotificationStatusLabel(value = {}) {
 export function resolveParentNotificationOpen(data, available = {}) {
   if (normalize(data?.app).toLowerCase() !== 'parent') return null
 
-  const route = normalize(data?.route).toLowerCase()
+  const route = normalize(data?.type) === 'scorer_request' ? 'invites' : normalize(data?.route).toLowerCase()
   const routeMap = {
     calendar: 'calendar',
     chat: 'chat',
@@ -193,9 +193,17 @@ export function resolveParentNotificationOpen(data, available = {}) {
     resources: data?.resourceId,
     results: data?.matchDayId,
   }
-  const targetId = normalize(data?.targetId || routeTargetIds[route])
+  let targetId = normalize(data?.targetId || routeTargetIds[route])
   const availabilityProvided = Object.prototype.hasOwnProperty.call(available, route)
   const availableIds = new Set((available[route] || []).map(normalize).filter(Boolean))
+  if (route === 'invites' && availabilityProvided && !availableIds.has(targetId)) {
+    const canonicalId = targetId.replace(/^match:/, 'match_attendance:')
+    const eventInvitation = (available.invitationRecords || []).find((item) => (
+      normalize(item.eventId) === normalize(data?.matchDayId || data?.calendarEventId)
+      && normalize(item.eventId)
+    ))
+    targetId = availableIds.has(canonicalId) ? canonicalId : normalize(eventInvitation?.invitationId)
+  }
 
   return {
     targetId: targetId && (!availabilityProvided || availableIds.has(targetId)) ? targetId : '',
