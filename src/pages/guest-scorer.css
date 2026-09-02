@@ -1,0 +1,30 @@
+.guest-scorer { max-width: 620px; margin: 0 auto; padding: 22px 18px 48px; color: #17302e; background: #f6faf9; min-height: 100dvh; font-family: system-ui, sans-serif; }
+.guest-scorer h1 { font-size: 25px; line-height: 1.25; font-weight: 850; margin: 6px 0 18px; }
+.guest-scorer h2 { font-size: 21px; font-weight: 800; margin: 16px 0 10px; }
+.guest-scorer p { line-height: 1.5; margin: 10px 0; }
+.guest-scorer button { border: 1px solid #b8cdca; border-radius: 12px; padding: 13px 16px; min-height: 48px; font-weight: 750; background: white; cursor: pointer; }
+.guest-scorer button:disabled { opacity: .5; cursor: default; }
+.guest-scorer button:focus-visible, .guest-scorer input:focus-visible, .guest-scorer select:focus-visible, .guest-scorer textarea:focus-visible { outline: 3px solid #05776f; outline-offset: 2px; }
+.guest-scorer .gs-primary { background: #087b73; color: white; border-color: #087b73; }
+.guest-scorer .gs-danger { border-color: #b52b32; color: #a21e26; }
+.guest-scorer label, .guest-scorer fieldset { display: block; margin: 14px 0; font-weight: 650; }
+.guest-scorer legend { margin-bottom: 7px; }
+.guest-scorer input:not([type=checkbox]), .guest-scorer select, .guest-scorer textarea { display: block; width: 100%; background: white; border: 1px solid #b8cdca; border-radius: 10px; padding: 12px; min-height: 48px; margin-top: 6px; font-size: 16px; font-weight: 400; }
+.guest-scorer textarea { min-height: 78px; }
+.guest-scorer .gs-check { display: flex; gap: 12px; align-items: center; min-height: 44px; }
+.guest-scorer .gs-check input { width: 24px; height: 24px; }
+.gs-header { border-bottom: 1px solid #b8cdca; }
+.gs-header p, .gs-caption { color: #486661; font-size: 14px; }
+.gs-score { display: flex; align-items: center; flex-direction: column; padding: 24px 0; }
+.gs-score strong { font-size: 52px; letter-spacing: 4px; }
+.gs-score span { font-size: 32px; font-variant-numeric: tabular-nums; color: #087b73; }
+.gs-score small { text-transform: capitalize; margin-top: 4px; }
+.gs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+.gs-error, .gs-notice { border: 1px solid #c06960; border-radius: 12px; padding: 14px; background: #fff2ef; margin: 14px 0; position: relative; z-index: 110; }
+.guest-scorer .gs-event { border: 0; border-top: 1px solid #c8d8d5; border-radius: 0; background: transparent; width: 100%; display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 5px; }
+.gs-event span { font-size: 13px; font-weight: 400; }
+.gs-backdrop { position: fixed; inset: 0; background: #10272199; z-index: 100; display: flex; align-items: flex-end; justify-content: center; }
+.gs-sheet { background: #fff; width: 100%; max-width: 620px; padding: 20px 18px max(24px, env(safe-area-inset-bottom)); max-height: 92dvh; overflow-y: auto; border-radius: 22px 22px 0 0; }
+.gs-sheet header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.gs-sheet form > button { width: 100%; margin-top: 10px; }
+.gs-sheet > button { margin: 12px 8px 0 0; }

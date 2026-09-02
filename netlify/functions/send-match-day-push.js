@@ -321,8 +321,6 @@ export async function handler(event) {
   let claimedOperationKey = ''
 
   try {
-    const webPushConfigured = configureWebPush()
-
     const authUser = await getAuthUser(event)
     const body = JSON.parse(event.body || '{}')
     const matchDayId = normalizeText(body.matchDayId)
@@ -368,6 +366,36 @@ export async function handler(event) {
       throw new Error('The match was saved, but the Coach review notification could not be sent.')
     }
 
+    const delivery = await deliverMatchDayNotification({ match, type, eventId, targetParentLinkIds })
+    await completePushOperation({ operationKey, succeeded: true })
+    claimedOperationKey = ''
+
+    return jsonResponse(200, {
+      success: true,
+      ...delivery,
+      coachReviewSent: coachReview.sent,
+      coachReviewFailed: coachReview.failed,
+    })
+  } catch (error) {
+    if (claimedOperationKey) {
+      try {
+        await completePushOperation({
+          operationKey: claimedOperationKey,
+          succeeded: false,
+          errorMessage: error.message,
+        })
+      } catch (completionError) {
+        console.error('Match Day push operation completion failed', completionError)
+      }
+    }
+
+    console.error(error)
+    return failureResponse(error.statusCode || 500, error.message || 'Match Day notifications could not be sent.')
+  }
+}
+
+export async function deliverMatchDayNotification({ match, type, eventId = '', targetParentLinkIds }) {
+  const webPushConfigured = configureWebPush()
     let eventRow = null
 
     if (eventId) {
@@ -452,33 +480,31 @@ export async function handler(event) {
       sound: 'default',
     })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
-    await completePushOperation({ operationKey, succeeded: true })
-    claimedOperationKey = ''
+  return { sent, revoked, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available }
+}
 
-    return jsonResponse(200, {
-      success: true,
-      sent,
-      revoked,
-      mobileSent: mobileResult.sent,
-      mobileFailed: mobileResult.failed,
-      mobileInbox: inboxResult.available,
-      coachReviewSent: coachReview.sent,
-      coachReviewFailed: coachReview.failed,
-    })
-  } catch (error) {
-    if (claimedOperationKey) {
-      try {
-        await completePushOperation({
-          operationKey: claimedOperationKey,
-          succeeded: false,
-          errorMessage: error.message,
-        })
-      } catch (completionError) {
-        console.error('Match Day push operation completion failed', completionError)
-      }
+export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
+  const claimArgs = { token_hash: tokenHash, request_id_value: requestId, completed: false }
+  const { data: command, error } = await supabaseAdmin.rpc('claim_guest_match_notification', claimArgs)
+  if (error) throw error
+  if (!command) return
+  if (command.pending) throw new Error('Notification delivery is still being confirmed. Retry shortly.')
+  const type = command.action === 'start' ? 'match_started'
+    : command.action === 'timer' || command.action === 'extended' ? command.details.action
+      : command.action === 'goal' ? 'goal'
+        : ['score', 'correct_goal', 'remove_goal'].includes(command.action) ? 'score_correction' : ''
+  if (type) {
+    const match = await getMatch(command.matchId)
+    if (type === 'full_time') {
+      const result = await sendCoachMatchReviewPush({ match: { ...match, guestScorer: true } })
+      if (result.failed > 0) throw new Error('Coach review notification failed.')
     }
-
-    console.error(error)
-    return failureResponse(error.statusCode || 500, error.message || 'Match Day notifications could not be sent.')
+    const { data: targets, error: requestError } = await supabaseAdmin.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: match.id })
+    if (requestError) throw requestError
+    const targetParentLinkIds = [...new Set((targets || []).filter(Boolean))]
+    const result = await deliverMatchDayNotification({ match, type, eventId: command.eventId || '', targetParentLinkIds })
+    if (result.mobileFailed > 0) throw new Error('Match notification failed.')
   }
+  const complete = await supabaseAdmin.rpc('claim_guest_match_notification', { ...claimArgs, completed: true })
+  if (complete.error) throw complete.error
 }

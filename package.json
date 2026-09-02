@@ -97,6 +97,7 @@
     "fast-xml-parser": "5.10.1",
     "jszip": "3.10.1",
     "puppeteer-core": "^25.8.0",
+    "qrcode": "1.5.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.18.2",

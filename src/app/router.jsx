@@ -84,6 +84,7 @@ const GdprPage = lazyRoute(() => import('../pages/GdprPage.jsx'), 'GdprPage')
 const InformationPage = lazyRoute(() => import('../pages/InformationPage.jsx'), 'InformationPage')
 const LoginPage = lazyRoute(() => import('../pages/LoginPage.jsx'), 'LoginPage')
 const MatchDayPage = lazyRoute(() => import('../pages/MatchDayPage.jsx'), 'MatchDayPage')
+const GuestScorerPage = lazyRoute(() => import('../pages/GuestScorerPage.jsx'), 'GuestScorerPage')
 const NotFoundPage = lazyRoute(() => import('../pages/NotFoundPage.jsx'), 'NotFoundPage')
 const ParentEmailTemplatesPage = lazyRoute(() => import('../pages/ParentEmailTemplatesPage.jsx'), 'ParentEmailTemplatesPage')
 const ParentInvitePage = lazyRoute(() => import('../pages/ParentInvitePage.jsx'), 'ParentInvitePage')
@@ -1775,6 +1776,10 @@ export const router = createBrowserRouter([
         <TermsPage />
       </PageSuspense>
     ),
+  },
+  {
+    path: '/guest-scorer',
+    element: <PageSuspense><GuestScorerPage /></PageSuspense>,
   },
   {
     path: '/parent-invite/:token',

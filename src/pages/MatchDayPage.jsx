@@ -7,6 +7,7 @@ import { CompletedMatchReportExportActions } from '../components/match-day/Compl
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
 import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import { FixtureNavigationCard } from '../components/match-day/FixtureNavigationCard.jsx'
+import { GuestScorerManager } from '../components/match-day/GuestScorerManager.jsx'
 import {
   MatchDayWorkspaceTabs,
 } from '../components/match-day/MatchDayWorkspaceTabs.jsx'
@@ -5899,6 +5900,7 @@ function MatchDayCard({
 
           {workspaceSection === 'roles' ? <section data-testid="game-day-roles-section" aria-label="Scorer and Match roles" className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Scorer and Match roles</h5>
+            {allowFixtureManagement && !match.id.startsWith('demo-') ? <GuestScorerManager key={match.id} match={match} /> : null}
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
               <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
