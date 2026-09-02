@@ -85,7 +85,7 @@ test('Parent request and Calendar views use occurrence-scoped direct attachment 
   assert.match(app, /buildCalendarResourcesByOccurrence/)
   assert.match(app, /calendarOccurrenceDate:/)
   assert.match(screen, /Array\.isArray\(invitation\.resources\)/)
-  assert.match(screen, /onOpenResource\?\.\(invitation, eventResource\)/)
+  assert.match(screen, /onOpenResource\?\.\(invitation, resourceItem\)/)
   assert.match(endpoint, /calendar_occurrence_date/)
   assert.match(endpoint, /occurrenceDate: normalizeText\(link\.calendar_occurrence_date\)/)
 })

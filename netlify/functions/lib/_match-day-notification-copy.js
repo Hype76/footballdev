@@ -140,7 +140,7 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
 
   return {
     title: copy.title,
-    matchTitle: `${teamName} v ${opponentName}`,
+    matchTitle: matchName,
     minimalBody: `${copy.category} for ${matchName}.`,
     detailedBody,
     notificationType,

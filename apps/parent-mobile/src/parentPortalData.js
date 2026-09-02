@@ -175,6 +175,7 @@ export function normalizeParentChatRoom(row = {}) {
     childNames: Array.isArray(row.child_names ?? row.childNames) ? (row.child_names ?? row.childNames).map(normalizePersonName).filter(Boolean) : [],
     clubName: normalizeText(row.club_name ?? row.clubName),
     fixtureStatus: normalizeText(row.fixture_status ?? row.fixtureStatus),
+    homeAway: normalizeText(row.home_away ?? row.homeAway),
     id: row.id ?? '',
     kickoffTime: row.kickoff_time ?? row.kickoffTime ?? '',
     kickoffTimeTbc: Boolean(row.kickoff_time_tbc ?? row.kickoffTimeTbc),

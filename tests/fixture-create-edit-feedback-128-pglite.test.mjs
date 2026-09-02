@@ -46,10 +46,10 @@ create function app_private.actor_can_manage_team_resource(
 returns boolean
 language sql stable
 as $$
-  select actor_id_value = '${IDS.actor}'::uuid
+  select coalesce(actor_id_value = '${IDS.actor}'::uuid
     and club_id_value = '${IDS.club}'::uuid
     and team_id_value = '${IDS.team}'::uuid
-    and minimum_role_level = 20
+    and minimum_role_level = 20, false)
 $$;
 
 create table public.match_days (
@@ -107,6 +107,47 @@ insert into public.clubs(id) values ('${IDS.club}');
 insert into public.teams(id, club_id) values ('${IDS.team}', '${IDS.club}');
 insert into public.match_days(id, club_id, team_id) values ('${IDS.match}', '${IDS.club}', '${IDS.team}');
 `
+
+test('short fixture durations save through constraints and authorised RPCs with the same permission checks', async () => {
+  const db = new PGlite()
+  try {
+    await db.exec(schemaSql)
+    await db.exec(await readFile(migrationUrl, 'utf8'))
+    await db.exec(`
+      create table public.users (id uuid primary key);
+      insert into public.users values ('${IDS.actor}');
+      alter table public.teams add column archived_at timestamptz;
+      alter table public.match_days add constraint match_days_match_duration_minutes_check
+        check (match_duration_minutes between 20 and 140 and mod(match_duration_minutes, 2) = 0);
+    `)
+    await db.exec(await readFile(new URL('../supabase/migrations/20260901151224_shared_fixture_defaults.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20260902133512_match_duration_minimum_two_minutes.sql', import.meta.url), 'utf8'))
+    const payload = {
+      opponent: 'FP TEST Visitors', fixtureType: 'friendly', homeAway: 'away', shirtChoice: 'home',
+      matchDate: '2099-09-06', kickoffTimeTbc: true, conclusionRule: 'normal_time',
+      extraTimeHalfMinutes: 10, extraTimePeriodCount: 2,
+    }
+    for (const duration of [2, 10, 18, 140]) {
+      const updated = await db.query('select public.update_match_day_fixture_for_team($1, $2, $3) as fixture',
+        [IDS.match, IDS.team, { ...payload, matchDurationMinutes: duration }])
+      assert.equal(updated.rows[0].fixture.match_duration_minutes, duration)
+      const saved = await db.query("select public.set_own_team_fixture_preferences($1, false, '30', null, true, $2) as preferences", [IDS.team, duration])
+      assert.equal(saved.rows[0].preferences.duration, duration)
+    }
+    for (const duration of [0, 1, 3, 141, 142]) {
+      await assert.rejects(db.query('update public.match_days set match_duration_minutes=$1 where id=$2', [duration, IDS.match]), /match_days_match_duration_minutes_check/)
+      await assert.rejects(db.query('select public.update_match_day_fixture_for_team($1, $2, $3)', [IDS.match, IDS.team, { ...payload, matchDurationMinutes: duration }]), /match_day_fixture_invalid/)
+      await assert.rejects(db.query("select public.set_own_team_fixture_preferences($1, false, '30', null, true, $2)", [IDS.team, duration]), /even number from 2 to 140/)
+    }
+    await db.exec('create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;')
+    await assert.rejects(db.query('select public.update_match_day_fixture_for_team($1, $2, $3)', [IDS.match, IDS.team, { ...payload, matchDurationMinutes: 2 }]), /match_day_fixture_not_permitted/)
+    await assert.rejects(db.query("select public.set_own_team_fixture_preferences($1, false, '30', null, true, 2)", [IDS.team]), /Authentication is required/)
+    const privileges = await db.query("select has_function_privilege('anon', 'public.set_own_team_fixture_preferences(uuid,boolean,text,time,boolean,integer)', 'execute') as anon, has_function_privilege('authenticated', 'public.set_own_team_fixture_preferences(uuid,boolean,text,time,boolean,integer)', 'execute') as authenticated")
+    assert.deepEqual(privileges.rows, [{ anon: false, authenticated: true }])
+  } finally {
+    await db.close()
+  }
+})
 
 test('fixture feedback migration stores the notification snapshot, TBC Kits, and archived locations', async () => {
   const db = new PGlite()

@@ -17,6 +17,7 @@ import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import ParentIcon from './ParentIcon'
+import { getParentEventPresentation } from './parentEventPresentation'
 import {
   getParentScorerInterestInvitation,
   getParentCalendarDirectionsUrl,
@@ -111,7 +112,8 @@ function usePortalStyles(themeTokens) {
       formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
       cardLink: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
-      calendarEventCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 14, borderWidth: 1, gap: 0, marginBottom: 8, overflow: 'hidden', paddingHorizontal: 12, paddingTop: 8 },
+      calendarEventCard: { backgroundColor: 'transparent', borderBottomColor: colors.border, borderBottomWidth: 1, gap: 0, marginBottom: 8, paddingHorizontal: 0, paddingVertical: 12 },
+      eventLabel: { fontSize: 12, fontWeight: '800' },
       carpoolChoice: { alignItems: 'center', flexDirection: 'row', gap: 9 },
       carpoolIcon: { alignItems: 'center', borderRadius: 999, height: 38, justifyContent: 'center', width: 38 },
       compactCopy: { flex: 1, gap: 3, minWidth: 0 },
@@ -137,7 +139,7 @@ function usePortalStyles(themeTokens) {
       iconChoiceDisabled: { opacity: 0.42 },
       iconChoiceLabel: { color: colors.muted, fontSize: 11, fontWeight: '900', textAlign: 'center' },
       iconChoiceRow: { alignItems: 'center', flexDirection: 'row', flexShrink: 1, gap: 2, justifyContent: 'flex-end' },
-      inviteGroup: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 14, borderWidth: 1, gap: 0, marginBottom: 10, overflow: 'hidden', paddingHorizontal: 12, paddingTop: 10 },
+      inviteGroup: { backgroundColor: 'transparent', borderBottomColor: colors.border, borderBottomWidth: 2, gap: 0, marginBottom: 16, paddingHorizontal: 0, paddingVertical: 12 },
       inviteHeader: { alignItems: 'center', flexDirection: 'row', gap: 9, paddingBottom: 7 },
       inviteHeaderCopy: { flex: 1, gap: 3 },
       inviteMetadata: { alignItems: 'center', borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingVertical: 7 },
@@ -257,7 +259,7 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
   const actionable = isParentInvitationActionable(invitation)
   const busy = activeActionId === `invite:${invitation.invitationId}`
   const isVolunteer = invitation.invitationType === 'match_role'
-  const sectionIcon = isVolunteer ? volunteerIconKey(invitation) : 'football'
+  const sectionIcon = isVolunteer ? volunteerIconKey(invitation) : getParentEventPresentation(invitation).iconKey
   const options = getInvitationResponseOptions(invitation)
   const lockReason = getParentInvitationLockReason(invitation)
 
@@ -320,6 +322,8 @@ function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, o
 }
 
 function CalendarEventCard({ activeActionId, colors, event, invitation, isOffline, onAddToCalendar, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, styles }) {
+  const presentation = getParentEventPresentation(event)
+  const eventColor = colors[presentation.tone]
   const actionable = invitation && isParentInvitationActionable(invitation)
   const busy = invitation && activeActionId === `invite:${invitation.invitationId}`
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
@@ -336,9 +340,9 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
         onPress={() => invitation && onOpenInvitation?.(invitation)}
         style={styles.compactRow}
       >
-        <ParentIcon color={isMatch ? colors.text : colors.accent} iconKey={isMatch ? 'football' : 'parent.calendar'} size={32} />
+        <ParentIcon color={eventColor} iconKey={presentation.iconKey} size={32} />
         <View style={styles.compactCopy}>
-          <View style={styles.row}><Text style={styles.pill}>{labelize(['cancelled', 'closed', 'expired'].includes(event.status) ? event.status : event.eventType)}</Text><Text style={styles.meta}>{isMatch ? event.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime) : event.calendarTime || 'All day'}</Text></View>
+          <View style={styles.row}><Text style={[styles.eventLabel, { color: eventColor }]}>{presentation.label}</Text><Text style={styles.meta}>{isMatch ? event.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime) : event.calendarTime || 'All day'}</Text></View>
           <Text style={styles.cardTitle}>{event.title}</Text>
           <Text numberOfLines={1} style={styles.meta}>{[event.teamName, isMatch && arrivalTime ? `Arrive ${formatParentProductTime(arrivalTime)}` : '', event.responseState ? labelize(event.responseState) : ''].filter(Boolean).join(' | ')}</Text>
         </View>
@@ -508,13 +512,14 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
         const otherInvitations = group.invitations.filter((invitation) => !['match_attendance', 'match_role'].includes(invitation.invitationType))
         const primary = matchAttendance || volunteerOffers[0] || otherInvitations[0]
         const isMatch = Boolean(matchAttendance || volunteerOffers.length)
+        const presentation = getParentEventPresentation(primary)
         const kickoffTime = primary?.kickoffTime || primary?.eventStart || ''
         const resources = group.invitations.flatMap((invitation) => Array.isArray(invitation.resources) ? invitation.resources.map((resourceItem) => ({ invitation, resourceItem })) : [])
         return (
           <View key={group.eventKey} style={styles.inviteGroup}>
-            <View style={styles.row}><Text style={styles.pill}>{isMatch ? 'Match & volunteer invite' : 'Event invite'}</Text><Text style={styles.meta}>{formatDateOnly(primary?.eventStart || primary?.eventDate)}</Text></View>
+            <View style={styles.row}><Text style={[styles.eventLabel, { color: colors[presentation.tone] }]}>{isMatch ? 'Match & volunteer invite' : `${presentation.label} invite`}</Text><Text style={styles.meta}>{formatDateOnly(primary?.eventStart || primary?.eventDate)}</Text></View>
             <View style={styles.inviteHeader}>
-              <ParentIcon color={colors.text} iconKey={isMatch ? 'football' : 'parent.calendar'} size={38} />
+              <ParentIcon color={colors[presentation.tone]} iconKey={presentation.iconKey} size={34} />
               <View style={styles.inviteHeaderCopy}><Text style={styles.cardTitle}>{group.eventTitle}</Text>{primary?.teamName ? <Text style={styles.meta}>{primary.teamName}</Text> : null}</View>
             </View>
             <View style={styles.inviteMetadata}>

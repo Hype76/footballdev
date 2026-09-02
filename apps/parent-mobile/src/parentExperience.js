@@ -69,6 +69,8 @@ export function enrichParentMatchInvitations(invitations = [], matches = []) {
       eventDate: normalizeText(invitation.eventDate) || matchDate,
       eventLocation,
       eventStart,
+      eventTitle: getMatchDayDisplayName({ ...match, teamName: match.teamName || invitation.teamName }),
+      homeAway: match.homeAway ?? match.home_away,
       kickoffTime,
       kickoffTimeTbc,
       matchDate,

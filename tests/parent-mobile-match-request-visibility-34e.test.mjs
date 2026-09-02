@@ -37,13 +37,10 @@ test('Parent mobile response reuses the canonical Match invitation command and a
   assert.match(parentPortalSource, /response_value: response/)
 })
 
-test('Parent Home labels the pending-only Match count clearly while Invites retains response history', () => {
-  assert.match(parentAppSource, /const matchInvitations = visibleInvitationsWithMatchTimes\.filter/)
-  assert.match(parentAppSource, /\['match_attendance', 'match_role'\]\.includes\(invitation\.invitationType\)/)
-  assert.match(parentAppSource, /const pendingMatchRequests = matchInvitations\.filter\(\(invitation\) => invitation\.isPending\)/)
-  assert.match(parentAppSource, /label="Matches needing a response"/)
-  assert.match(parentAppSource, /detail=\{pendingMatchRequests\[0\]\?\.eventTitle \|\| 'No match response needed'\}/)
-  assert.doesNotMatch(parentAppSource, /label="Match requests"/)
+test('Parent Home names the Invites destination and shares its grouped response count', () => {
+  assert.match(parentAppSource, /getParentInvitationCounts\(visibleInvitationsWithMatchTimes\)\.needsResponse/)
+  assert.match(parentAppSource, /inviteCount=\{unansweredInvites\}/)
+  assert.match(parentAppSource, /count=\{inviteCount\} iconKey="parent.invites" label="Invites"/)
   assert.match(parentAppSource, /onPress=\{onOpenInvites\}/)
   assert.match(parentAppSource, /moreSection === 'invites'/)
   assert.match(parentAppSource, /<InvitationsScreen/)
@@ -51,16 +48,15 @@ test('Parent Home labels the pending-only Match count clearly while Invites reta
 
 test('Parent Match cards label arrival and kick-off as separate fixture times', () => {
   assert.match(parentAppSource, /const visibleInvitationsWithMatchTimes = useMemo/)
-  assert.match(parentAppSource, /arrivalTime: match\.arrivalTime \|\| ''/)
-  assert.match(parentAppSource, /kickoffTime: match\.kickoffTime \|\| ''/)
-  assert.match(parentScreensSource, /Arrival: \{formatParentProductTime\(invitation\.arrivalTime\)\}/)
-  assert.match(parentScreensSource, /Kick-off: \{invitation\.kickoffTimeTbc \? 'Time TBC' : formatParentProductTime\(kickoffTime\)\}/)
-  assert.match(parentScreensSource, /Arrival: \{formatParentProductTime\(match\.arrivalTime\)\}/)
-  assert.match(parentScreensSource, /Kick-off: \{match\.kickoffTimeTbc \? 'Time TBC' : formatParentProductTime\(match\.kickoffTime\)\}/)
+  assert.match(parentAppSource, /enrichParentMatchInvitations\(visibleInvitations, resources\.matches\.items\)/)
+  assert.match(parentScreensSource, /Arrive \{formatParentProductTime\(primary\.arrivalTime\)\}/)
+  assert.match(parentScreensSource, /Kick-off \{primary\?\.kickoffTimeTbc \? 'Time TBC' : formatParentProductTime\(kickoffTime\)\}/)
+  assert.match(parentScreensSource, /Arrive \{formatParentProductTime\(match\.arrivalTime\)\}/)
+  assert.match(parentScreensSource, /Kick-off: \{selectedMatch\.kickoffTimeTbc \? 'Time TBC' : formatParentProductTime\(selectedMatch\.kickoffTime\)\}/)
   assert.doesNotMatch(parentScreensSource, /formatDate\(invitation\.eventStart \|\| invitation\.eventDate\)/)
 })
 
 test('Parent request and Home cards show the operational time Parents need', () => {
-  assert.match(parentScreensSource, /!matchInvitation && invitation\.eventStart \? <Text style=\{styles\.meta\}>Starts: \{formatParentProductTime\(invitation\.eventStart\)\}/)
-  assert.match(parentAppSource, /match\.arrivalTime \? `Arrival: \$\{formatTime\(match\.arrivalTime\)\}` : `Kick-off: \$\{formatTime\(match\.kickoffTime, match\.kickoffTimeTbc\)\}`/)
+  assert.match(parentScreensSource, /formatParentProductTime\(primary\.eventStart\)/)
+  assert.match(parentAppSource, /match\.arrivalTime \? `Arrive \$\{formatTime\(match\.arrivalTime\)\}` : `Kick-off \$\{formatTime\(match\.kickoffTime, match\.kickoffTimeTbc\)\}`/)
 })

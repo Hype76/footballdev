@@ -1,5 +1,5 @@
 export const DEFAULT_MATCH_DURATION_MINUTES = 90
-export const MATCH_DURATION_MINUTES_MIN = 20
+export const MATCH_DURATION_MINUTES_MIN = 2
 export const MATCH_DURATION_MINUTES_MAX = 140
 export const MATCH_CLOCK_MODE_FIXED = 'fixed'
 export const MATCH_CLOCK_MODE_CONTINUOUS = 'continuous'

@@ -1,3 +1,5 @@
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
+
 const normalize = (value) => String(value ?? '').trim()
 
 function parentChatRoomId(notification = {}) {
@@ -44,7 +46,7 @@ export function getParentNotificationPresentation(notification = {}, matches = [
   const date = normalize(match?.matchDate).slice(0, 10)
   const dateLabel = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(new Date(`${date}T12:00:00`)) : ''
   return {
-    displayTitle: isInvitation && match ? `${match.teamName || data.teamName || 'Team'} v ${match.opponent || 'Opponent'}` : title,
+    displayTitle: isInvitation && match ? getMatchDayDisplayName({ ...match, teamName: match.teamName || data.teamName || 'Team' }) : title,
     displayBody: isInvitation && match
       ? [dateLabel, 'Attendance and volunteer requests'].filter(Boolean).join(' | ')
       : normalize(notification.body),

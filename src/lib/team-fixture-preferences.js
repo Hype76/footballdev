@@ -1,3 +1,5 @@
+import { getRequiredMatchDurationValidationError } from './matchday-model.js'
+
 export const DEFAULT_TEAM_FIXTURE_PREFERENCES = Object.freeze({
   arrivalPreset: '30',
   arrivalTime: '',
@@ -14,7 +16,7 @@ function normalizeTime(value) {
 
 function normalizeDuration(value) {
   const duration = Number(value)
-  return Number.isInteger(duration) && duration >= 20 && duration <= 140 && duration % 2 === 0
+  return !getRequiredMatchDurationValidationError(duration)
     ? duration
     : DEFAULT_TEAM_FIXTURE_PREFERENCES.duration
 }

@@ -2,6 +2,7 @@ import {
   getParentProductDateTimeParts,
   getParentProductSortTimestamp,
 } from './parentDateTimeCore.js'
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -130,6 +131,7 @@ function normalizeInvitationEvent(invitation) {
     eventType: normalizeText(invitation.sourceType || invitation.invitationType) || 'invitation',
     id: `invitation:${sourceId}:${invitation.invitationId}`,
     invitationId: invitation.invitationId || '',
+    kickoffTimeTbc: Boolean(invitation.kickoffTimeTbc),
     location: invitation.eventLocation || '',
     notes: normalizeText(invitation.notes),
     occurrenceDate: calendarDate,
@@ -157,6 +159,7 @@ function normalizeMatchEvent(match, invitation) {
     childName: invitation?.childName || '',
     endsAt: invitation?.eventEnd || '',
     eventType: 'match_day',
+    homeAway: match.homeAway ?? match.home_away,
     id: `match:${match.id}`,
     invitationId: invitation?.invitationId || '',
     kickoffTimeTbc: Boolean(match.kickoffTimeTbc),
@@ -174,7 +177,7 @@ function normalizeMatchEvent(match, invitation) {
     startsAt: invitation?.eventStart || (date ? `${date}T${time || '23:59'}:00` : ''),
     status: match.status || 'scheduled',
     teamName: match.teamName || invitation?.teamName || '',
-    title: `${match.teamName || 'Team'} v ${match.opponent || 'Opponent'}`,
+    title: getMatchDayDisplayName({ ...match, teamName: match.teamName || invitation?.teamName || 'Team' }),
   }
 }
 

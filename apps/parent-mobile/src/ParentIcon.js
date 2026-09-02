@@ -1,5 +1,6 @@
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
+import { View } from 'react-native'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
 const FOOTBALL_KEYS = new Set([
@@ -25,6 +26,7 @@ const PARENT_ICONS = Object.freeze({
   child: 'account-circle',
   development: 'trending-up',
   invite: 'group-add',
+  'parent.training': 'sports',
   location: 'location-on',
   message: 'chat-bubble-outline',
   poll: 'poll',
@@ -53,6 +55,16 @@ export function getParentIconName(iconKey) {
 }
 
 export default function ParentIcon({ color, iconKey, size = 24, style }) {
+  if (['invite', 'parent.invites'].includes(normalize(iconKey))) {
+    return (
+      <View accessible={false} style={[{ height: size, width: size }, style]}>
+        <MaterialIcons color={color} name="mail-outline" size={size * 0.88} style={{ left: 0, position: 'absolute', top: 0 }} />
+        <View style={{ backgroundColor: color, borderRadius: size * 0.24, bottom: 0, height: size * 0.48, position: 'absolute', right: 0, width: size * 0.48 }}>
+          <MaterialIcons color="#ffffff" name="check" size={size * 0.42} style={{ left: size * 0.03, top: size * 0.03 }} />
+        </View>
+      </View>
+    )
+  }
   if (isParentFootballIcon(iconKey)) {
     return <FontAwesome5 accessible={false} color={color} name="futbol" size={size} solid style={style} />
   }

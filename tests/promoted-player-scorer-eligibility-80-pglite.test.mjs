@@ -50,7 +50,13 @@ create table public.parent_player_links (
   player_id uuid not null,
   link_type text not null,
   status text not null,
-  auth_user_id uuid
+  auth_user_id uuid,
+  email text
+);
+
+create table public.match_day_availability_requests (
+  id uuid primary key default gen_random_uuid(), match_day_id uuid, club_id uuid, team_id uuid,
+  player_id uuid, parent_link_id uuid, recipient_email text, status text, volunteer_scorer_response text
 );
 
 create table public.player_team_memberships (
@@ -71,12 +77,13 @@ async function getEligibility(db) {
   return result.rows[0]
 }
 
-test('promoted Squad players with current memberships remain eligible scorer volunteers', async () => {
+test('promoted Squad and invited Trial parents can score while inactive links and invalid invitations stay blocked', async () => {
   const db = new PGlite()
 
   try {
     await db.exec(schemaSql)
     await db.exec(await readFile(migrationUrl, 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20260902133513_invited_parent_scorer_eligibility.sql', import.meta.url), 'utf8'))
     await db.query(
       `insert into public.match_days(id, club_id, team_id)
        values ($1, $2, $3)`,
@@ -114,6 +121,20 @@ test('promoted Squad players with current memberships remain eligible scorer vol
     )
     eligibility = await getEligibility(db)
     assert.equal(eligibility.eligible, false)
+    await db.query("update public.player_team_memberships set status = 'active', ended_at = null, team_id = $2 where id = $1", [IDS.membership, IDS.team])
+    await db.query("update public.players set archived_at = null, section = 'Trial' where id = $1", [IDS.player])
+    assert.equal((await getEligibility(db)).eligible, false)
+    await db.query("insert into public.match_day_availability_requests(match_day_id,club_id,team_id,player_id,parent_link_id,status,volunteer_scorer_response) values ($1,$2,$3,$4,$5,'responded','yes')", [IDS.match, IDS.club, IDS.team, IDS.player, IDS.link])
+    assert.equal((await getEligibility(db)).eligible, true)
+    for (const change of ["volunteer_scorer_response='no'", "status='expired'", "team_id='70000000-0000-4000-8000-000000000002'", "parent_link_id='30000000-0000-4000-8000-000000000002'"]) {
+      await db.exec('begin; update public.match_day_availability_requests set '+change+';')
+      assert.equal((await getEligibility(db)).eligible, false)
+      await db.exec('rollback;')
+    }
+    await db.exec('begin; update public.parent_player_links set auth_user_id=null;')
+    assert.equal((await getEligibility(db)).eligible, false)
+    await db.exec('rollback;')
+    await db.query("update public.players set section = 'Squad', archived_at=now() where id=$1", [IDS.player])
 
     await db.query(
       "update public.players set archived_at = null where id = $1",

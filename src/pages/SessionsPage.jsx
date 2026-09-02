@@ -6329,7 +6329,7 @@ function CalendarEventModal({
                   <input
                     name="matchDurationMinutes"
                     type="number"
-                    min="20"
+                    min="2"
                     max="140"
                     step="2"
                     value={form.matchDurationMinutes}
@@ -6337,7 +6337,7 @@ function CalendarEventModal({
                     disabled={isBusy}
                     className={fieldClass}
                   />
-                  <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">Use an even number from 20 to 140 minutes.</span>
+                  <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">Use an even number from 2 to 140 minutes.</span>
                   <span className="mt-3 flex items-center gap-3 text-xs font-black text-[#344054]">
                     <input
                       type="checkbox"

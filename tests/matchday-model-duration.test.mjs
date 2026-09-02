@@ -53,7 +53,7 @@ test('match duration defaults safely and validates new fixture values', () => {
     assert.equal(assertValidMatchDurationMinutes(duration), duration)
   }
 
-  for (const duration of [20, 60, 82, 100, 140]) {
+  for (const duration of [2, 4, 10, 18, 20, 60, 82, 100, 140]) {
     assert.equal(getRequiredMatchDurationValidationError(duration), '')
     assert.equal(assertValidMatchDurationMinutes(duration), duration)
   }
@@ -61,10 +61,10 @@ test('match duration defaults safely and validates new fixture values', () => {
   assert.equal(assertValidMatchDurationMinutes(90), 90)
   assert.equal(assertValidMatchDurationMinutes(80), 80)
   assert.throws(() => assertValidMatchDurationMinutes(71), /even match duration/)
-  assert.throws(() => assertValidMatchDurationMinutes(18), /even match duration/)
+  assert.throws(() => assertValidMatchDurationMinutes(0), /even match duration/)
   assert.match(getRequiredMatchDurationValidationError(''), /Enter a custom match duration/)
   assert.match(getRequiredMatchDurationValidationError(21), /even match duration/)
-  assert.match(getRequiredMatchDurationValidationError(18), /even match duration/)
+  assert.match(getRequiredMatchDurationValidationError(1), /even match duration/)
   assert.match(getRequiredMatchDurationValidationError(142), /even match duration/)
 })
 
@@ -76,7 +76,7 @@ test('fixture setup intent preserves the saved duration when no duration overrid
 test('second-half timer and event minute use the configured match duration', () => {
   const now = Date.parse('2026-07-10T09:00:00Z')
 
-  for (const [duration, expectedClock] of [[90, '45:00'], [82, '41:00'], [100, '50:00'], [80, '40:00'], [70, '35:00'], [60, '30:00']]) {
+  for (const [duration, expectedClock] of [[2, '1:00'], [10, '5:00'], [90, '45:00'], [82, '41:00'], [100, '50:00'], [80, '40:00'], [70, '35:00'], [60, '30:00']]) {
     const match = {
       status: 'second_half',
       timerStatus: 'running',
@@ -170,7 +170,7 @@ test('creation UI, domain writes, and migration enforce the new model narrowly',
   assert.match(page, /Custom duration/)
   assert.match(page, /Custom minutes/)
   assert.match(page, /getRequiredMatchDurationValidationError\(form\.customMatchDurationMinutes/)
-  assert.match(page, /min="20"/)
+  assert.match(page, /min="2"/)
   assert.match(page, /max="140"/)
   assert.match(page, /step="2"/)
   assert.match(page, /updateCustomMatchDuration\(event\.target\.value\)/)

@@ -78,6 +78,7 @@ import {
   rankParentPollResults,
 } from './src/parentExperience'
 import { getParentInvitationCounts } from './src/parentPresentationCore'
+import { getParentEventDateTimeLabel, getParentEventPresentation } from './src/parentEventPresentation'
 import {
   addParentScorerGoal,
   correctParentScorerGoal,
@@ -404,8 +405,8 @@ function ParentHome() {
     polls: visiblePolls,
   }), [resources.calendar.items, visibleMatches, visibleMessages, visiblePolls])
   const parentChatRooms = useMemo(
-    () => prepareParentChatRooms(resources.chatRooms.items, visibleMessages),
-    [resources.chatRooms.items, visibleMessages],
+    () => prepareParentChatRooms(resources.chatRooms.items, visibleMessages, visibleMatches),
+    [resources.chatRooms.items, visibleMessages, visibleMatches],
   )
   const selectedRoom = parentChatRooms.find((room) => room.id === selectedRoomId)
     || (pendingNotificationRoomId && pendingNotificationRoomId === selectedRoomId
@@ -1018,7 +1019,7 @@ function ParentHome() {
         }
         applyParentNotificationDestination(destination)
         if (destination.tab === 'chat') {
-          const room = prepareParentChatRooms(result?.items?.chatRooms || [], result?.items?.messages || [])
+          const room = prepareParentChatRooms(result?.items?.chatRooms || [], result?.items?.messages || [], result?.items?.matches || [])
             .find((candidate) => candidate.id === destination.targetId)
           if (room) {
             if (room.id === 'club-announcements') {
@@ -1861,9 +1862,6 @@ function ParentHome() {
 
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
   const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId)
-  const matchInvitations = visibleInvitationsWithMatchTimes.filter((invitation) => (
-    ['match_attendance', 'match_role'].includes(invitation.invitationType)
-  ))
   const unansweredInvites = getParentInvitationCounts(visibleInvitationsWithMatchTimes).needsResponse
   const unreadChat = parentChatRooms.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
   const tabs = [
@@ -1949,7 +1947,7 @@ function ParentHome() {
                 calendar={resources.calendar}
                 homeModel={homeModel}
                 link={selectedLink}
-                matchInvitations={matchInvitations}
+                inviteCount={unansweredInvites}
                 matches={{ ...resources.matches, items: visibleMatches }}
                 messages={{ ...resources.messages, items: visibleMessages }}
                 notifications={resources.notifications}
@@ -2242,7 +2240,7 @@ function getNotificationTypeIcon(intentType) {
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 
-function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matchInvitations = [], matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
+function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
   const unreadNotifications = prepareParentNotificationInbox(notifications.items.filter((notification) => !notification.isRead))
     .map((notification) => ({ ...notification, ...getParentNotificationPresentation(notification, matches.items) }))
@@ -2261,7 +2259,6 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
   }
 
   const isInitialLoading = [calendar, matches, messages].every((resource) => resource.loading && resource.items.length === 0)
-  const pendingMatchRequests = matchInvitations.filter((invitation) => invitation.isPending)
   const nextDirectionsUrl = homeModel.nextActivity?.type === 'match'
     ? getParentMatchDirectionsUrl(homeModel.nextActivity.item, Platform.OS)
     : homeModel.nextActivity?.type === 'calendar'
@@ -2277,7 +2274,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
       <View accessibilityLabel="Family actions" style={styles.summaryGrid}>
         <SummaryButton count={homeModel.unreadMessages} iconKey="parent.updates" label="Updates" onPress={onOpenMessages} />
         <SummaryButton count={homeModel.unansweredPolls} iconKey="parent.polls" label="Polls" onPress={onOpenPolls} />
-        <SummaryButton count={pendingMatchRequests.length} iconKey="parent.match" label="Matches" onPress={onOpenInvites} />
+        <SummaryButton count={inviteCount} iconKey="parent.invites" label="Invites" onPress={onOpenInvites} />
         <SummaryButton iconKey="parent.calendar" label="Calendar" onPress={onOpenCalendar} />
         <SummaryButton disabled={!nextDirectionsUrl} iconKey="parent.directions" label="Directions" onPress={() => onOpenLink?.(nextDirectionsUrl, 'directions')} />
       </View>
@@ -2438,13 +2435,18 @@ function MatchDetail({ match, onBack }) {
 
 function CalendarCard({ event, onOpenLink, prominent = false }) {
   const { palette, styles } = useParentTheme()
-  const cancelled = event.status === 'cancelled' || Boolean(event.cancelledAt)
+  const presentation = getParentEventPresentation(event)
+  const eventColor = palette[presentation.tone]
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
   return (
     <View style={[styles.card, styles.homeCard, prominent && styles.cardProminent]}>
       <View style={styles.compactRow}>
-        <ParentIcon color={palette.accent} iconKey="parent.calendar" size={31} />
-        <View style={styles.compactCopy}><View style={styles.cardTopRow}><Badge label={cancelled ? 'Cancelled' : labelize(event.eventType)} tone={cancelled ? 'danger' : 'neutral'} /><Text style={styles.cardDate}>{formatDateTime(event.startsAt)}</Text></View><Text style={styles.cardTitle}>{event.title}</Text>{event.location ? <Text numberOfLines={1} style={styles.cardMeta}>{event.location}</Text> : null}</View>
+        <ParentIcon color={eventColor} iconKey={presentation.iconKey} size={31} />
+        <View style={styles.compactCopy}>
+          <View style={styles.cardTopRow}><Text style={[styles.eventLabel, { color: eventColor }]}>{presentation.label}</Text><Text style={styles.cardDate}>{getParentEventDateTimeLabel(event)}</Text></View>
+          <Text style={styles.cardTitle}>{event.title}</Text>
+          {event.location ? <Text numberOfLines={1} style={styles.cardMeta}>{event.location}</Text> : null}
+        </View>
         {directionsUrl ? <Pressable accessibilityLabel="Get directions" accessibilityRole="button" onPress={() => onOpenLink?.(directionsUrl, 'directions')} style={({ pressed }) => [styles.homeInlineAction, pressed && styles.pressed]}><ParentIcon color={palette.accent} iconKey="parent.directions" size={22} /></Pressable> : null}
       </View>
     </View>
@@ -3243,6 +3245,7 @@ function createParentAppPalette(tokens) {
   return {
     accent: tokens.buttonPrimary,
     accentMuted: tokens.accentMuted,
+    accentText: tokens.accentText,
     background: tokens.background,
     border: tokens.border,
     borderStrong: tokens.borderStrong,
@@ -3253,6 +3256,7 @@ function createParentAppPalette(tokens) {
     ink: tokens.accentForeground,
     selectedSurface: tokens.selectedSurface,
     successBackground: tokens.successSurface,
+    success: tokens.success,
     text: tokens.textPrimary,
     textMuted: tokens.textSecondary,
     warning: tokens.warning,
@@ -3284,7 +3288,8 @@ function createParentAppStyles(tokens) {
   cardProminent: { backgroundColor: 'transparent', borderBottomColor: palette.accentMuted },
   cardTitle: { color: palette.text, flexShrink: 1, fontSize: 18, fontWeight: '900', lineHeight: 23 },
   cardTopRow: { alignItems: 'center', flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
-  homeCard: { gap: 6, paddingHorizontal: 0, paddingVertical: 10 },
+  homeCard: { gap: 6, paddingHorizontal: 0, paddingVertical: 14 },
+  eventLabel: { fontSize: 11, fontWeight: '800' },
   homeCardTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   homeInlineAction: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 44, minWidth: 44 },
   homeInlineActionText: { color: palette.text, fontSize: 12, fontWeight: '900' },

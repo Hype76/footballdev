@@ -268,7 +268,7 @@ function readMatchDayFixturePreferences() {
     return {
       arrivalPreset,
       arrivalTime: arrivalPreset === 'custom' ? String(value.arrivalTime || '') : '',
-      duration: Number.isInteger(duration) && duration >= 20 && duration <= 140 ? duration : 90,
+      duration: !getRequiredMatchDurationValidationError(duration) ? duration : 90,
       location: value.location && typeof value.location === 'object'
         ? { address: String(value.location.address || ''), name: String(value.location.name || '') }
         : null,
@@ -7607,7 +7607,7 @@ function FixtureSetupModal({
                         <span className={labelClass}>Custom minutes</span>
                         <input
                           type="number"
-                          min="20"
+                          min="2"
                           max="140"
                           step="2"
                           inputMode="numeric"
@@ -7617,7 +7617,7 @@ function FixtureSetupModal({
                           aria-describedby="match-duration-custom-help"
                         />
                         <span id="match-duration-custom-help" className="mt-1 block text-xs font-semibold text-[#4b5f55]">
-                          Use an even number from 20 to 140.
+                          Use an even number from 2 to 140.
                         </span>
                       </label>
                     ) : null}

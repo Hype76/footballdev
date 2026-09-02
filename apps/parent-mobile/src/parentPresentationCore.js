@@ -1,4 +1,5 @@
 import { getDateInTimeZone } from '../../mobile-core/src/parentCalendarCore.js'
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -157,7 +158,7 @@ export function getParentChatRoomContext(room = {}) {
   if (normalizeText(room.type) === 'team') {
     return `${normalizeText(room.teamName) || 'Team'} | Parents and Team Coaches`
   }
-  const matchLabel = room.opponent ? `${room.teamName || 'Team'} v ${room.opponent}` : room.teamName || room.clubName || ''
+  const matchLabel = room.opponent ? getMatchDayDisplayName(room) : room.teamName || room.clubName || ''
   const dateLabel = room.matchDate
     ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${String(room.matchDate).slice(0, 10)}T12:00:00`))
     : ''
@@ -218,13 +219,18 @@ export function getParentAnnouncementMessages(messages = []) {
     .sort((left, right) => String(left.createdAt).localeCompare(String(right.createdAt)))
 }
 
-export function prepareParentChatRooms(rooms = [], messages = []) {
-  const normalizedRooms = (Array.isArray(rooms) ? rooms : []).map((room) => ({
-    ...room,
-    latestMessage: normalizeText(room.latestMessage),
-    title: getParentChatRoomTitle(room),
-    unreadCount: Number(room.unreadCount || 0),
-  }))
+export function prepareParentChatRooms(rooms = [], messages = [], matches = []) {
+  const matchesById = new Map(matches.map((match) => [normalizeText(match.id), match]))
+  const normalizedRooms = (Array.isArray(rooms) ? rooms : []).map((room) => {
+    const match = matchesById.get(normalizeText(room.matchDayId))
+    return {
+      ...room,
+      ...(match ? { homeAway: match.homeAway ?? match.home_away, opponent: match.opponent, teamName: match.teamName || room.teamName } : {}),
+      latestMessage: normalizeText(room.latestMessage),
+      title: match ? getMatchDayDisplayName({ ...match, teamName: match.teamName || room.teamName }) : getParentChatRoomTitle(room),
+      unreadCount: Number(room.unreadCount || 0),
+    }
+  })
   const announcements = getParentAnnouncementMessages(messages)
   if (announcements.length) {
     const latest = announcements.at(-1)
