@@ -373,7 +373,7 @@ export async function respondToParentInvitation(user, invitation, responseState)
       response_value: response,
     })
     if (error) throw error
-    if (previousResponse !== response && data?.respondedAt) {
+    if (data?.changed !== false && previousResponse !== response && data?.respondedAt) {
       await sendCoachTrainingAvailabilityResponsePushSafely({
         parentLinkId: link.id,
         requestPlayerId: invitation.sourceRecordId,
@@ -696,16 +696,21 @@ export async function sendParentScorerMatchDayPush(user, matchDayId, type, event
   const accessToken = await getAccessToken()
   if (!config.apiBaseUrl || !accessToken) return null
 
-  try {
-    const response = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-match-day-push'), {
+  const url = joinApiPath(config.apiBaseUrl, '.netlify/functions/send-match-day-push')
+  const options = {
       method: 'POST',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ eventId: normalizeText(eventId), matchDayId, parentLinkId: link.id, type: normalizeText(type) }),
-    })
-    return response.ok && response.result?.success !== false ? response.result : null
-  } catch {
-    return null
   }
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchJsonWithTimeout(url, options)
+      if (response.ok && response.result?.success !== false) return response.result
+    } catch {
+      if (attempt === 1) return null
+    }
+  }
+  return null
 }
 
 export function startParentScorerMatch(matchId) {

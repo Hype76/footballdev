@@ -204,6 +204,9 @@ export function getParentFriendlyError(error, fallback = 'This information could
   const message = normalizeText(error?.message || error).toLowerCase()
   const status = Number(error?.status || error?.statusCode || 0)
 
+  if (message.includes('minute must be')) return 'Enter a match minute of zero or greater.'
+  if (message.includes('training response window has closed')) return 'This training response window has closed.'
+
   if (/cannot (record goals|correct|change|manage)|selected scorer|scorer access/.test(message)) {
     return 'Your scorer access for this match could not be confirmed. Refresh Matchday or ask a coach to check your selection.'
   }

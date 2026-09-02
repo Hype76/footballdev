@@ -110,6 +110,15 @@ test('Player of the Match poll contains only selected active squad Players', asy
     await db.exec(schemaSql)
     await db.exec(migration)
     await db.exec(migration)
+    await db.exec(`
+      create table public.users (id uuid primary key);
+      alter table public.audit_logs add constraint audit_logs_actor_id_fkey foreign key (actor_id) references public.users(id);
+      alter table public.match_days add column motm_notify_results_on_close boolean default false;
+      alter table public.polls add column notify_results_on_close boolean default false;
+      create or replace function auth.uid() returns uuid language sql stable as $$ select '90000000-0000-4000-8000-000000000065'::uuid $$;
+    `)
+    const followup = await readFile(new URL('../supabase/migrations/20260902104350_parent_save_notifications_followup.sql', import.meta.url), 'utf8')
+    await db.exec(followup.match(/CREATE OR REPLACE FUNCTION public\.create_match_day_motm_poll[\s\S]*?\$function\$;/)[0])
 
     await db.query(
       `insert into public.match_days(id, club_id, team_id, status, opponent)
@@ -138,6 +147,8 @@ test('Player of the Match poll contains only selected active squad Players', asy
       [ids.match],
     )
     assert.ok(created.rows[0].poll_id)
+    const audit = await db.query("select actor_id, metadata ->> 'actorAuthUserId' as parent_id from public.audit_logs where entity_id = $1", [created.rows[0].poll_id])
+    assert.deepEqual(audit.rows[0], { actor_id: null, parent_id: '90000000-0000-4000-8000-000000000065' })
 
     const result = await db.query(
       `select option ->> 'label' as label

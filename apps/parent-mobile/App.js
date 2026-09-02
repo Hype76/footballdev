@@ -375,7 +375,7 @@ function ParentHome() {
     [selectedLink?.id, selectedMobileUser?.id],
   )
   const visibleInvitations = resources.invitations.items
-  const visibleMatches = useMemo(() => resources.matches.items.filter((item) => !dismissedItems.matches.includes(item.id)), [dismissedItems.matches, resources.matches.items])
+  const visibleMatches = resources.matches.items
   const visibleInvitationsWithMatchTimes = useMemo(
     () => enrichParentMatchInvitations(visibleInvitations, resources.matches.items),
     [resources.matches.items, visibleInvitations],
@@ -1572,9 +1572,19 @@ function ParentHome() {
         await startParentScorerMatch(match.id)
         notificationType = 'live'
       }
-      if (action === 'timer') await setParentScorerTimer(match.id, value)
-      if (action === 'extended') await setParentScorerExtendedState(match.id, value)
-      if (action === 'score') await updateParentScorerScore(selectedMobileUser, match.id, value.homeScore, value.awayScore)
+      if (action === 'timer' || action === 'extended') {
+        const savedMatch = action === 'timer'
+          ? await setParentScorerTimer(match.id, value)
+          : await setParentScorerExtendedState(match.id, value)
+        if (savedMatch?.status !== match.status && ['live', 'half_time', 'second_half', 'extra_time', 'penalties', 'full_time'].includes(savedMatch?.status)) {
+          notificationType = savedMatch.status
+        }
+      }
+      if (action === 'score') {
+        const savedEvent = await updateParentScorerScore(selectedMobileUser, match.id, value.homeScore, value.awayScore)
+        notificationType = 'score_correction'
+        notificationEventId = savedEvent?.id || ''
+      }
       if (action === 'goal') {
         const savedEvent = await addParentScorerGoal(selectedMobileUser, match.id, value)
         notificationType = 'goal'

@@ -266,6 +266,10 @@ test('02A migration applies transactionally and enforces date, idempotency, assi
     await db.exec(migration)
     await db.exec(parentHelper)
     await db.exec(scorerHelper)
+    const followup = await readFile(new URL('../supabase/migrations/20260902104350_parent_save_notifications_followup.sql', import.meta.url), 'utf8')
+    await db.exec('alter table public.match_day_events add constraint match_day_events_minute_check check (minute is null or (minute >= 0 and minute <= 130))')
+    await db.exec(followup.slice(0, followup.indexOf('CREATE OR REPLACE FUNCTION')))
+    await db.exec(followup.match(/CREATE OR REPLACE FUNCTION public\.record_match_day_goal_v2[\s\S]*?\$function\$;/)[0])
 
     await db.query('insert into auth.users(id) values ($1), ($2), ($3)', [ids.staff, ids.scorer, ids.replacementScorer])
     await db.query("insert into public.clubs(id, timezone_name) values ($1, 'Europe/London')", [ids.club])
@@ -367,14 +371,16 @@ test('02A migration applies transactionally and enforces date, idempotency, assi
     await db.exec('reset role')
     await setActor(db, ids.scorer)
     const firstGoal = await db.query(
-      "select public.record_match_day_goal_v2($1, $2, 'club', 'FP TEST Player', '9', '', '', 1, '', false, $3) as result",
+      "select public.record_match_day_goal_v2($1, $2, 'club', 'FP TEST Player', '9', '', '', 174, '', false, $3) as result",
       [ids.match, ids.scorerLink, ids.request],
     )
     const replayGoal = await db.query(
-      "select public.record_match_day_goal_v2($1, $2, 'club', 'FP TEST Player', '9', '', '', 1, '', false, $3) as result",
+      "select public.record_match_day_goal_v2($1, $2, 'club', 'FP TEST Player', '9', '', '', 174, '', false, $3) as result",
       [ids.match, ids.scorerLink, ids.request],
     )
     assert.equal(firstGoal.rows[0].result.id, replayGoal.rows[0].result.id)
+    assert.equal(firstGoal.rows[0].result.minute, 174)
+    await assert.rejects(db.query("select public.record_match_day_goal_v2($1, $2, 'club', '', '', '', '', -1, '', false, $3)", [ids.match, ids.scorerLink, ids.secondRequest]), /Minute must be zero or greater/)
     const replayState = await db.query(
       'select home_score, (select count(*)::integer from public.match_day_events where match_day_id = $1) as event_count from public.match_days where id = $1',
       [ids.match],

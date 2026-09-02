@@ -74,6 +74,8 @@ test('goals omit Coach, invitations omit hide controls, and creation sends no se
   assert.doesNotMatch(portal.slice(portal.indexOf('function GoalForm'), portal.indexOf('function GoalCorrectionForm')), /label="Coach"|\['coach'/)
   assert.doesNotMatch(portal.slice(portal.indexOf('function InvitationResponseControl'), portal.indexOf('function scoreVisible')), /action\.hide|onDismiss/)
   assert.doesNotMatch(page, /type: 'scorer_request'/)
+  assert.doesNotMatch(portal.slice(portal.indexOf('function MatchCard'), portal.indexOf('function GoalPlayerPicker')), /action\.hide|onDismiss/)
+  assert.doesNotMatch(app, /resources\.matches\.items\.filter.*dismissedItems/)
   assert.match(app, /notificationType = 'live'/)
   assert.match(app, /if \(changeSaved\)\s*\{[\s\S]*?return true/)
 })

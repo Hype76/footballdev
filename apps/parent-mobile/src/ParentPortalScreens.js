@@ -542,7 +542,7 @@ function scoreVisible(match) {
   return ['extra_time', 'full_time', 'half_time', 'live', 'penalties', 'second_half'].includes(match.status)
 }
 
-function MatchCard({ colors, match, onDismiss, onOpen, styles }) {
+function MatchCard({ colors, match, onOpen, styles }) {
   return (
     <View style={styles.card}>
       <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
@@ -550,7 +550,7 @@ function MatchCard({ colors, match, onDismiss, onOpen, styles }) {
         <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{labelize(match.status)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accent} iconKey="action.open" size={22} />}
       </Pressable>
-      {onDismiss ? <View style={styles.row}><Text style={styles.meta}>{match.arrivalTime ? `Arrive ${formatParentProductTime(match.arrivalTime)}` : ''}</Text><IconAction accessibilityLabel="Hide match" colors={colors} iconKey="action.hide" onPress={() => onDismiss(match)} styles={styles} /></View> : null}
+      {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
     </View>
   )
 }

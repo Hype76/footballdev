@@ -11,7 +11,7 @@ test('Parent native pushes identify the exact authorised child and item', async 
   ])
 
   assert.match(parentPush, /communicationLogId: log\.id/)
-  assert.match(parentPush, /invitationId: `match:\$\{request\.id\}`/)
+  assert.match(parentPush, /invitationId: `match_attendance:\$\{request\.id\}`/)
   assert.match(parentPush, /route: 'invites'/)
   assert.match(parentPush, /categoryId: 'parent-response'/)
   assert.match(parentPush, /parentLinkId: payload\.data\.parentLinkId \|\| device\.parent_link_id/)
