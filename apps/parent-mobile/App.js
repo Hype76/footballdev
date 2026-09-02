@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
@@ -73,6 +74,7 @@ import {
   getParentHomeModel,
   getPollDraftOption,
   isParentDefinitelyOffline,
+  getParentMatchStatusLabel,
   rankParentPollResults,
 } from './src/parentExperience'
 import { getParentInvitationCounts } from './src/parentPresentationCore'
@@ -80,7 +82,6 @@ import {
   addParentScorerGoal,
   correctParentScorerGoal,
   deleteParentChatMessage,
-  expressParentScorerInterest,
   getParentChatMessages,
   getParentChatRooms,
   getParentCalendarEventDetails,
@@ -1546,20 +1547,6 @@ function ParentHome() {
     }
   }
 
-  async function handleScorerInterest(match) {
-    if (isOffline || activeActionId) return
-    setActiveActionId(`scorer:${match.id}:interest`)
-    try {
-      await expressParentScorerInterest(selectedMobileUser, match.id)
-      await loadParentData()
-      setNotice({ message: 'Your scorer interest has been registered with Coaches.', tone: 'success' })
-    } catch (error) {
-      setNotice({ message: getParentFriendlyError(error, 'Scorer interest could not be registered.'), tone: 'error' })
-    } finally {
-      setActiveActionId('')
-    }
-  }
-
   async function handleScorerAction(match, action, value) {
     if (isOffline || activeActionId || !match.isScorer) return false
     setActiveActionId(`scorer:${match.id}:${action}`)
@@ -1987,6 +1974,7 @@ function ParentHome() {
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
+                invitations={visibleInvitationsWithMatchTimes}
                 isOffline={isOffline}
                 link={selectedLink}
                 onBack={() => setSelectedMatchId('')}
@@ -1996,7 +1984,7 @@ function ParentHome() {
                 onAddToCalendar={handleAddToCalendar}
                 onOpenLink={handleOpenMatchLink}
                 onScorerAction={handleScorerAction}
-                onVolunteer={handleScorerInterest}
+                onVolunteer={handleInvitationResponse}
                 players={matchDayPlayers}
                 resource={{ ...resources.matches, items: visibleMatches }}
                 selectedMatch={selectedMatch}
@@ -2370,7 +2358,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, isOffline, link, matc
 
 function MatchPreviewCard({ match, onPress, prominent = false }) {
   const { palette, styles } = useParentTheme()
-  const status = labelize(match.status || 'scheduled')
+  const status = getParentMatchStatusLabel(match)
   const isFinished = match.status === 'full_time'
   const score = isFinished || ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)
     ? `${match.homeScore} - ${match.awayScore}`
@@ -2379,14 +2367,14 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
   return (
     <Pressable
       accessibilityHint="Opens fixture details"
-      accessibilityLabel={`${match.teamName} versus ${match.opponent}, ${status}`}
+      accessibilityLabel={`${getMatchDayDisplayName(match)}, ${status}`}
       accessibilityRole="button"
       onPress={() => onPress(match)}
       style={({ pressed }) => [styles.card, styles.homeCard, prominent && styles.cardProminent, pressed && styles.pressed]}
     >
       <View style={styles.compactRow}>
         <ParentIcon color={palette.text} iconKey="football" size={35} />
-        <View style={styles.compactCopy}><View style={styles.cardTopRow}><Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /><Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text><Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
+        <View style={styles.compactCopy}><View style={styles.cardTopRow}><Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /><Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {score ? <Text style={styles.score}>{score}</Text> : <ParentIcon color={palette.accent} iconKey="action.open" size={22} />}
       </View>
     </Pressable>
@@ -2407,10 +2395,10 @@ function MatchDetail({ match, onBack }) {
       <BackButton label="Back to Home" onPress={onBack} />
       <View style={styles.heroCard}>
         <View style={styles.cardTopRow}>
-          <Badge label={labelize(match.status)} tone={match.status === 'live' ? 'accent' : 'neutral'} />
+          <Badge label={getParentMatchStatusLabel(match)} tone={match.status === 'live' ? 'accent' : 'neutral'} />
           <Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text>
         </View>
-        <Text accessibilityRole="header" style={styles.detailTitle}>{match.teamName} v {match.opponent}</Text>
+        <Text accessibilityRole="header" style={styles.detailTitle}>{getMatchDayDisplayName(match)}</Text>
         {showScore ? <Text style={styles.detailScore}>{match.homeScore} - {match.awayScore}</Text> : null}
       </View>
 

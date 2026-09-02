@@ -67,10 +67,13 @@ test('Parent Match Day actions create safe Calendar and directions links', () =>
   assert.match(getParentMatchDirectionsUrl(match, 'android'), /^https:\/\/www\.google\.com\/maps\/search\//)
 })
 
-test('Parent scorer interest is hidden for past fixtures and available for current requests', () => {
-  assert.equal(canParentRegisterScorerInterest({ matchDate: '2026-07-07', requestScorer: true, status: 'live' }, fixtureNow), false)
-  assert.equal(canParentRegisterScorerInterest({ matchDate: '2026-08-16', requestScorer: true, status: 'scheduled' }, fixtureNow), true)
-  assert.equal(canParentRegisterScorerInterest({ hasInterest: true, matchDate: '2026-08-16', requestScorer: true, status: 'scheduled' }, fixtureNow), false)
+test('Parent scorer interest is hidden until this parent has a current scorer invitation', () => {
+  const match = { id: 'match-55', matchDate: '2026-08-16', requestScorer: true, status: 'scheduled' }
+  const invitations = [{ eventId: match.id, invitationType: 'match_role', roleType: 'scorer', sourceRecordId: 'request-55', invitationState: 'offered', canRespond: true }]
+  assert.equal(canParentRegisterScorerInterest(match, fixtureNow), false)
+  assert.equal(canParentRegisterScorerInterest(match, fixtureNow, invitations), true)
+  assert.equal(canParentRegisterScorerInterest({ ...match, matchDate: '2026-07-07', status: 'live' }, fixtureNow, invitations), false)
+  assert.equal(canParentRegisterScorerInterest({ ...match, hasInterest: true }, fixtureNow, invitations), false)
 })
 
 test('Parent network state trusts an active connection while reachability is still being checked', () => {

@@ -4,6 +4,15 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+export function getParentInvitationLockReason(invitation = {}) {
+  if (invitation.invitationType === 'match_attendance'
+    && invitation.invitationState === 'shared'
+    && !normalizeText(invitation.sourceRecordId)) {
+    return 'Invites have not yet been sent for this event.'
+  }
+  return normalizeText(invitation.lockReason)
+}
+
 export function isParentInvitationOptionSelected(invitation = {}, optionValue = '') {
   const response = normalizeText(invitation.responseState ?? invitation.response_state).toLowerCase()
   const option = normalizeText(optionValue).toLowerCase()

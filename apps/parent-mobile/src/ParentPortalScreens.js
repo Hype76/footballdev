@@ -14,15 +14,17 @@ import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCo
 import { captureCoachMatchDayAction, getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
 import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
 import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import ParentIcon from './ParentIcon'
 import {
-  canParentRegisterScorerInterest,
+  getParentScorerInterestInvitation,
   getParentCalendarDirectionsUrl,
   getParentMatchDirectionsUrl,
   getParentMatchGroups,
+  getParentMatchStatusLabel,
 } from './parentExperience'
-import { getParentChatRoomContext, getParentChatRoomTypeLabel, getParentInvitationCounts, getParentInvitationEventKey, getParentInvitationSections, groupParentInvitationsByEvent, isParentInvitationOptionSelected, prepareParentChatMessages, prepareParentChatRooms } from './parentPresentationCore'
+import { getParentChatRoomContext, getParentChatRoomTypeLabel, getParentInvitationCounts, getParentInvitationEventKey, getParentInvitationLockReason, getParentInvitationSections, groupParentInvitationsByEvent, isParentInvitationOptionSelected, prepareParentChatMessages, prepareParentChatRooms } from './parentPresentationCore'
 import {
   getInvitationResponseOptions,
   getParentVolunteerRoleLabel,
@@ -257,6 +259,7 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
   const isVolunteer = invitation.invitationType === 'match_role'
   const sectionIcon = isVolunteer ? volunteerIconKey(invitation) : 'football'
   const options = getInvitationResponseOptions(invitation)
+  const lockReason = getParentInvitationLockReason(invitation)
 
   return (
     <View style={styles.inviteResponseRow}>
@@ -266,7 +269,7 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
           <Text style={styles.inviteSectionTitle}>{label}</Text>
           {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text accessibilityLabel={`${isVolunteer ? VOLUNTEER_ROLE_STATUS_LABEL : 'Squad status'}: ${labelize(invitation.selectionState)}`} numberOfLines={1} style={styles.meta}>{isVolunteer ? 'Role' : 'Squad'}: {labelize(invitation.selectionState)}</Text> : null}
           {!options.length ? <Text style={[styles.meta, { color: invitationToneColor(colors, response.tone) }]}>{response.label}</Text> : null}
-          {invitation.lockReason ? <Text numberOfLines={2} style={styles.warning}>{invitation.lockReason}</Text> : null}
+          {lockReason ? <Text style={styles.warning}>{lockReason}</Text> : null}
         </View>
       </View>
       {options.length ? (
@@ -547,7 +550,7 @@ function MatchCard({ colors, match, onOpen, styles }) {
     <View style={styles.card}>
       <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
         <ParentIcon color={colors.text} iconKey="football" size={34} />
-        <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{labelize(match.status)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{match.teamName || 'Team'} v {match.opponent || 'Opponent'}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
+        <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accent} iconKey="action.open" size={22} />}
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
@@ -809,7 +812,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   )
 }
 
-export function MatchdayScreen({ activeActionId, isOffline, link, onAddToCalendar, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -832,6 +835,7 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onAddToCalenda
     return () => clearInterval(refreshId)
   }, [isOffline, onLiveRefresh, selectedMatchIsLive])
   if (selectedMatch) {
+    const scorerInvitation = getParentScorerInterestInvitation(selectedMatch, invitations, new Date(now))
     const timeline = (selectedMatch.events || []).slice().reverse()
     const confirmedPlayerNames = new Set(selectedMatch.confirmedTeam || [])
     const scorerPlayers = players.filter((player) => confirmedPlayerNames.has(player.playerName))
@@ -840,13 +844,13 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onAddToCalenda
         <Button label="Back to Matchday" onPress={onBack} outline styles={styles} />
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           <View style={styles.actionRow}>
-            <Text style={styles.pill}>{labelize(selectedMatch.status)}</Text>
+            <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text>
             <Text style={styles.pill}>{presentation?.phaseLabel || 'Pre-match'}</Text>
             {selectedMatch.homeAway ? <Text style={styles.pill}>{labelize(selectedMatch.homeAway)}</Text> : null}
             <Text style={styles.pill}>{getMatchDayShirtChoiceLabel(selectedMatch.shirtChoice)}</Text>
             {selectedMatch.fixtureType ? <Text style={styles.pill}>{labelize(selectedMatch.fixtureType)}</Text> : null}
           </View>
-          <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || `${selectedMatch.teamName} v ${selectedMatch.opponent}`}</Text>
+          <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || getMatchDayDisplayName(selectedMatch)}</Text>
           <Text style={styles.body}>{formatDateOnly(selectedMatch.matchDate)}</Text>
           {selectedMatch.arrivalTime ? <Text style={styles.body}>Arrival: {formatParentProductTime(selectedMatch.arrivalTime)}</Text> : null}
           <Text style={styles.body}>Kick-off: {selectedMatch.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(selectedMatch.kickoffTime)}</Text>
@@ -884,8 +888,8 @@ export function MatchdayScreen({ activeActionId, isOffline, link, onAddToCalenda
               : <Text style={styles.body}>No Available and Selected Players are confirmed yet.</Text>}
           </View>
         ) : null}
-        {canParentRegisterScorerInterest(selectedMatch) ? (
-          <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Coaches are looking for a Parent scorer.'}</Text><Button disabled={isOffline} label="Register interest" onPress={() => onVolunteer(selectedMatch)} styles={styles} /></View>
+        {scorerInvitation ? (
+          <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Coaches are looking for a Parent scorer.'}</Text><Button disabled={isOffline || Boolean(activeActionId)} label={activeActionId === `invite:${scorerInvitation.invitationId}` ? 'Saving...' : 'Register interest'} onPress={() => onVolunteer(scorerInvitation, 'yes')} styles={styles} /></View>
         ) : null}
         {!selectedMatch.isScorer ? <View style={styles.card}><Text style={styles.cardTitle}>Parent view</Text><Text style={styles.body}>Live match updates from the club appear here. Only the assigned scorer can make Game Day changes.</Text></View> : null}
         {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} players={scorerPlayers} styles={styles} /> : null}
@@ -929,7 +933,7 @@ function ParentMatchReportCard({ colors, match, styles }) {
   const activeEvents = report.activeEvents.slice().reverse()
   return (
     <View style={styles.card}>
-      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.compactRow}><ParentIcon color={colors.text} iconKey="football" size={34} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{match.teamName} v {match.opponent}</Text></View><Text style={styles.score}>{report.result.finalScore}</Text><ParentIcon color={colors.accent} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.compactRow}><ParentIcon color={colors.text} iconKey="football" size={34} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text></View><Text style={styles.score}>{report.result.finalScore}</Text><ParentIcon color={colors.accent} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
       {report.result.shootoutScore ? <Text style={styles.meta}>Shootout: {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
       {expanded ? (
         <View style={styles.section}>

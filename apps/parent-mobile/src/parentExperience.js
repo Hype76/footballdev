@@ -5,6 +5,7 @@ import {
 } from '../../mobile-core/src/parentDateTimeCore.js'
 import { getDateInTimeZone } from '../../mobile-core/src/parentCalendarCore.js'
 import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -85,12 +86,32 @@ export function isParentDefinitelyOffline(networkState = {}) {
   return networkState.isConnected === false
 }
 
-export function canParentRegisterScorerInterest(match, now = new Date()) {
-  if (!match?.requestScorer || match?.isScorer || match?.hasInterest) return false
+export function getParentScorerInterestInvitation(match, invitations = [], now = new Date()) {
+  if (!match?.id || !match.requestScorer || match.isScorer || match.hasInterest) return null
   const today = getDateInTimeZone(now)
   const matchDate = normalizeText(match?.matchDate).slice(0, 10)
-  if (!matchDate || matchDate < today) return false
-  return ['scheduled', 'scorer_request', 'live'].includes(normalizeText(match?.status).toLowerCase())
+  if (!matchDate || matchDate < today || !['scheduled', 'scorer_request', 'live'].includes(normalizeText(match.status).toLowerCase())) return null
+  return invitations.find((invitation) => {
+    const deadline = Date.parse(normalizeText(invitation.responseDeadline))
+    return invitation.eventId === match.id
+      && invitation.invitationType === 'match_role'
+      && normalizeText(invitation.roleType).replace(/^volunteer_/, '') === 'scorer'
+      && Boolean(normalizeText(invitation.sourceRecordId))
+      && ['active', 'offered'].includes(invitation.invitationState)
+      && (invitation.canRespond === true || invitation.canChangeResponse === true)
+      && (!Number.isFinite(deadline) || deadline > now.getTime())
+      && !['yes', 'accepted', 'available', 'attending'].includes(invitation.responseState)
+  }) || null
+}
+
+export function canParentRegisterScorerInterest(match, now = new Date(), invitations = []) {
+  return Boolean(getParentScorerInterestInvitation(match, invitations, now))
+}
+
+export function getParentMatchStatusLabel(match = {}) {
+  const status = normalizeText(match.status).toLowerCase()
+  const label = (status === 'scorer_request' ? 'scheduled' : status || 'scheduled').replaceAll('_', ' ')
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)}`
 }
 
 function getParentCalendarTemplate(item = {}) {
@@ -111,7 +132,7 @@ function getParentCalendarTemplate(item = {}) {
     : nextCalendarDate(matchDate)
   if (!start || !end) return ''
   const title = normalizeText(item.title ?? item.eventTitle)
-    || `${normalizeText(item.teamName) || 'Team'} v ${normalizeText(item.opponent) || 'Opponent'}`
+    || getMatchDayDisplayName(item)
   const location = normalizeText(item.location)
     || [...new Set([normalizeText(item.venueName), normalizeText(item.venueAddress), normalizeText(item.eventLocation)].filter(Boolean))].join(', ')
   const details = normalizeText(item.notes)
