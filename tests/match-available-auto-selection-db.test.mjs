@@ -11,6 +11,10 @@ const privilegeMigrationUrl = new URL(
   '../supabase/migrations/20260728164000_lock_auto_selection_trigger_function.sql',
   import.meta.url,
 )
+const activePlayerMigrationUrl = new URL(
+  '../supabase/migrations/20260902140157_match_available_active_player_selection.sql',
+  import.meta.url,
+)
 
 const IDS = {
   club: '10000000-0000-0000-0000-000000000001',
@@ -199,6 +203,7 @@ async function createDatabase() {
 
   await db.exec(migration)
   await db.exec(privilegeMigration)
+  await db.exec(await readFile(activePlayerMigrationUrl, 'utf8'))
 
   await db.exec(`
     insert into public.match_days (id, club_id, team_id)
@@ -367,6 +372,8 @@ test('eligibility and selection constraints preserve Available with safe staff-v
   const db = await createDatabase()
   await setActor(db, IDS.staff)
 
+  await db.query(`update public.players set status = 'archived' where id = $1`, [IDS.trialPlayer])
+
   await addAvailableResponse(db, {
     name: 'Trial Player',
     playerId: IDS.trialPlayer,
@@ -404,6 +411,54 @@ test('eligibility and selection constraints preserve Available with safe staff-v
     selection_count: 0,
   })
   await db.close()
+})
+
+test('invited active Trial players are selected without promotion and repeated Available is idempotent', async () => {
+  const db = await createDatabase()
+  await db.query(`update public.parent_player_links set player_id = $1 where id = $2`, [IDS.trialPlayer, IDS.parentLink])
+  await setActor(db, IDS.parent)
+  await addAvailableResponse(db, { name: 'Trial Player', playerId: IDS.trialPlayer, parentLinkId: IDS.parentLink })
+  await db.query(`update public.match_day_player_availability set status = 'available' where player_id = $1`, [IDS.trialPlayer])
+  const result = await db.query(`
+    select p.section, p.status as player_status, a.status as availability, d.status as decision,
+      (select count(*)::int from public.match_day_event_log where metadata->>'automaticSelectionSucceeded' = 'true') as success_events,
+      (select count(*)::int from public.audit_logs where metadata->>'responseSource' = 'parent_managed') as parent_audits
+    from public.players p
+    join public.match_day_player_availability a on a.player_id = p.id
+    left join public.match_day_player_squad_decisions d on d.player_id = p.id
+    where p.id = $1
+  `, [IDS.trialPlayer])
+  assert.deepEqual(result.rows[0], {
+    section: 'Trial', player_status: 'active', availability: 'available', decision: 'selected',
+    success_events: 1, parent_audits: 1,
+  })
+  await db.close()
+})
+
+test('Trial selection retains invitation, team, club and fixture lifecycle boundaries', async () => {
+  const cases = [
+    ["delete from public.calendar_event_invites", 'not_invited'],
+    ["update public.calendar_event_invites set invite_status = 'cancelled', cancelled_at = now()", 'not_invited'],
+    ["update public.players set team_id = '20000000-0000-0000-0000-000000000099'", 'ineligible_player'],
+    ["update public.players set club_id = '10000000-0000-0000-0000-000000000099'", 'ineligible_player'],
+    ["update public.match_days set status = 'live'", 'lifecycle_locked'],
+    ["update public.match_days set deleted_at = now()", 'archived_fixture'],
+  ]
+  for (const [change, expectedFailure] of cases) {
+    const db = await createDatabase()
+    try {
+      await db.exec(change)
+      await addAvailableResponse(db, { name: 'Trial Player', playerId: IDS.trialPlayer })
+      const result = await db.query(`
+        select (select count(*)::int from public.match_day_player_squad_decisions) as selections,
+          (select status from public.match_day_player_availability where player_id = $1) as availability,
+          (select metadata->>'failureCategory' from public.match_day_event_log where player_id = $1) as failure
+      `, [IDS.trialPlayer])
+      assert.deepEqual(result.rows[0], { selections: 0, availability: 'available', failure: expectedFailure }, change)
+    } finally {
+      await db.close()
+    }
+  }
 })
 
 test('training attendance remains independent from match selection', async () => {
