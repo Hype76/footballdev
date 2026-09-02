@@ -18,7 +18,7 @@ function getOpponentName(match) {
 }
 
 function formatPerson(name, shirtNumber, fallback = 'Player') {
-  const resolvedName = normalizeText(name) || fallback
+  const resolvedName = normalizeText(name).replace(/^Other:\s*/i, '').trim() || fallback
   const resolvedShirtNumber = normalizeText(shirtNumber)
   return `${resolvedName}${resolvedShirtNumber ? ` #${resolvedShirtNumber}` : ''}`
 }
@@ -140,6 +140,7 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
 
   return {
     title: copy.title,
+    matchTitle: `${teamName} v ${opponentName}`,
     minimalBody: `${copy.category} for ${matchName}.`,
     detailedBody,
     notificationType,

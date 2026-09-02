@@ -7,7 +7,6 @@ import { buildParentMatchDayNotificationCopy } from './lib/_match-day-notificati
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
-import { buildScopedNotificationTitle } from './lib/_notification-scope.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 
 function jsonResponse(statusCode, payload) {
@@ -391,7 +390,7 @@ export async function handler(event) {
     const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
     const teamName = resolveMatchDayNotificationTeamName(match)
     const clubName = normalizeText(club?.name)
-    const notificationTitle = buildScopedNotificationTitle(notificationCopy.title, { clubName, teamName })
+    const notificationTitle = notificationCopy.matchTitle
     const payload = {
       body: notificationCopy.detailedBody,
       renotify: notificationCopy.renotify,
