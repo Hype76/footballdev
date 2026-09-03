@@ -1,5 +1,6 @@
+import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { getCoachMatchDayList, normalizeCoachMatchDay } from '../../mobile-core/src/coachMatchDayData'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { CoachFormationBoard } from './CoachFormationBoard'
@@ -75,7 +76,7 @@ export function CoachFormationScreen({ context, onQuickActionHandled, palette, q
 
       {error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load()} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
       {stale ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
-      {loading ? <View style={styles.card}><ActivityIndicator color={palette.accent} /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
+      {loading ? <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
       {!loading && !error ? <CoachFormationBoard context={context} matches={matches} palette={palette} players={players} stale={stale} user={user} /> : null}
     </View>
   )

@@ -1,7 +1,8 @@
+import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
-import { ActivityIndicator, Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
@@ -224,8 +225,8 @@ function DomainHeader({ copy, styles, title }) {
 function DomainState({ error, loading, onRetry, stale, styles }) {
   const confirmedStale = useConfirmedConnectionIssue(stale)
   const visibleError = useConfirmedConnectionMessage(error)
-  if (loading) return <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading...</Text></View>
-  if (error && !visibleError) return <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Checking for the latest information...</Text></View>
+  if (loading) return <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading...</Text></View>
+  if (error && !visibleError) return <View style={styles.card}><BrandLoader /><Text style={styles.body}>Checking for the latest information...</Text></View>
   if (visibleError) return <View style={styles.warning}><Text style={styles.danger}>{visibleError}</Text>{onRetry ? <Button label="Try again" onPress={onRetry} secondary styles={styles} /> : null}</View>
   if (confirmedStale) return <View style={styles.warning}><Text style={styles.cardTitle}>You are offline</Text><Text style={styles.body}>Showing saved information. Connect before making changes.</Text></View>
   return null

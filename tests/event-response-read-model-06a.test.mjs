@@ -6,6 +6,7 @@ import {
   getEventResponseDisplayState,
   isActiveMatchDayAvailabilityRequest,
 } from '../src/lib/domain/event-response-read-model.js'
+import { getEventResponseManagerView } from '../src/lib/domain/event-response-manager.js'
 
 const MATCH_ID = '10000000-0000-4000-8000-000000000001'
 const CALENDAR_ID = '10000000-0000-4000-8000-000000000002'
@@ -52,6 +53,58 @@ function matchEvent(overrides = {}) {
     },
   }
 }
+
+test('squad decisions without invitations resolve every name by roster ID', () => {
+  const rosterPlayers = Array.from({ length: 20 }, (_, index) => ({
+    id: `roster-${index}`,
+    playerName: `FP TEST Player ${String(index + 1).padStart(2, '0')}`,
+    parentEmail: 'private@example.test',
+  }))
+  const event = matchEvent({
+    squadDecisions: rosterPlayers.slice(0, 12).reverse().map((player) => ({
+      playerId: player.id,
+      status: 'selected',
+    })),
+  })
+  const model = buildEventResponseReadModel({ event, rosterPlayers })
+
+  assert.equal(model.participants.length, 12)
+  assert.equal(model.counts.selected, 12)
+  assert.equal(model.counts.invitationNotSent, 12)
+  assert.equal(model.counts.available, 0)
+  assert.deepEqual(model.responseManager.rows.map((row) => row.playerName),
+    rosterPlayers.slice(0, 12).map((player) => player.playerName))
+  assert.ok(model.participants.every((row) => !('parentEmail' in row.player)))
+  assert.equal(getEventResponseManagerView({
+    model: model.responseManager,
+    searchTerm: 'player 09',
+  }).groups[0].rows[0].playerId, 'roster-8')
+})
+
+test('roster name refresh keeps participation and response authority unchanged', () => {
+  const event = matchEvent({ squadDecisions: [{ playerId: 'player-1', status: 'selected' }] })
+  const before = buildEventResponseReadModel({ event })
+  const after = buildEventResponseReadModel({
+    event,
+    rosterPlayers: [{ id: 'player-1', playerName: 'Ava Morgan' }],
+  })
+  assert.equal(before.responseManager.rows[0].playerName, 'Player')
+  assert.equal(after.responseManager.rows[0].playerName, 'Ava Morgan')
+  assert.equal(after.responseManager.rows[0].initials, 'AM')
+  assert.deepEqual(after.counts, before.counts)
+  assert.deepEqual(after.participants[0].staffActions, before.participants[0].staffActions)
+})
+
+test('historical invite names survive a missing or blank roster entry', () => {
+  const calendarInvites = [playerInvite({
+    id: 'historical-invite', matchDayId: MATCH_ID,
+    playerId: 'historical-player', playerName: 'Historical Name',
+  })]
+  for (const rosterPlayers of [[], [{ id: 'historical-player', playerName: '  ' }]]) {
+    const model = buildEventResponseReadModel({ event: matchEvent(), calendarInvites, rosterPlayers })
+    assert.equal(model.responseManager.rows[0].playerName, 'Historical Name')
+  }
+})
 
 test('historical Match Day requests remain visible without calendar invite rows', () => {
   const event = matchEvent({

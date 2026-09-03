@@ -1,7 +1,8 @@
+import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   applyMobileFormationPreset,
   assignMobileFormationPlayerToSlot,
@@ -601,7 +602,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setSelectedPlayerId('')
   }
 
-  if (loading) return <View style={styles.card}><ActivityIndicator color={palette.accent} /><Text style={styles.body}>Loading Formation Board...</Text></View>
+  if (loading) return <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View>
 
   return (
     <View style={styles.stack}>

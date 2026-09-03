@@ -413,12 +413,18 @@ export function buildEventResponseReadModel({
   event = {},
   occurrenceDate = '',
   participationRemovals = [],
+  rosterPlayers = [],
   sessionParticipants = [],
   trainingAvailabilitySummary = null,
 } = {}) {
   const source = getEventSource(event)
   const eventType = source.eventType
   const participantsByPlayerId = new Map()
+  const rosterNamesByPlayerId = new Map(
+    (Array.isArray(rosterPlayers) ? rosterPlayers : [])
+      .map((player) => [normalizeText(player.id), normalizeText(player.playerName)])
+      .filter(([id, name]) => id && name),
+  )
   const requestedOccurrenceDate = normalizeDateOnly(occurrenceDate || event?.occurrenceDate || event?.date)
   const relevantInvites = (Array.isArray(calendarInvites) ? calendarInvites : [])
     .filter((invite) => inviteMatchesEvent(invite, source))
@@ -703,6 +709,13 @@ export function buildEventResponseReadModel({
               : ''
       return {
         ...withDelivery,
+        player: {
+          ...withDelivery.player,
+          playerName: getPlayerName(
+            rosterNamesByPlayerId.get(normalizeText(withDelivery.playerId)),
+            withDelivery.player?.playerName,
+          ),
+        },
         responseLabel: withDelivery.responseState === 'not_invited'
           ? 'Invitation not sent'
           : withDelivery.responseState === 'not_requested'

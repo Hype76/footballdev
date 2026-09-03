@@ -54,7 +54,7 @@ test('supply policy has bounded development-only exceptions and no production ac
   assert.match(policy.review.reason, /No production advisory or Critical advisory is accepted/)
   assert.deepEqual(
     policy.advisoryExceptions.map((exception) => exception.id).sort(),
-    ['GHSA-7p8r-x3mc-p8w7', 'GHSA-jmr9-qjv8-65gv', 'GHSA-v2hh-gcrm-f6hx'].sort(),
+    ['GHSA-jmr9-qjv8-65gv'],
   )
   for (const exception of policy.advisoryExceptions) {
     assert.equal(exception.productionReachable, false)
