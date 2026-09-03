@@ -13,6 +13,7 @@ import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notifica
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { handler as sendMatchDayPushHandler } from './send-match-day-push.js'
 import { enrichVolunteerEligibilityRecipients } from './lib/_volunteer-recipient-labels.js'
+import { assertCoachConfirmedVolunteerSelection } from './lib/_coach-confirmed-volunteer.js'
 
 const ROLE_CONFIG = {
   scorer: {
@@ -731,9 +732,12 @@ export async function handler(event) {
     const requestedParentLinkId = normalizeText(body.parentLinkId)
     const role = normalizeText(body.role).toLowerCase()
     const selected = body.selected !== false
+    const confirmedByCoach = selected && body.confirmedByCoach === true
     const roleConfig = ROLE_CONFIG[role]
 
-    if (!matchDayId || (event.httpMethod === 'POST' && selected && !requestId) || (event.httpMethod === 'POST' && !selected && !requestedParentLinkId)) {
+    if (!matchDayId || (event.httpMethod === 'POST' && selected && !requestId)
+      || (event.httpMethod === 'POST' && confirmedByCoach && !requestedParentLinkId)
+      || (event.httpMethod === 'POST' && !selected && !requestedParentLinkId)) {
       throw Object.assign(new Error('Choose a volunteer response first.'), { statusCode: 400 })
     }
 
@@ -825,6 +829,8 @@ export async function handler(event) {
       throw Object.assign(new Error('Volunteer response was not found.'), { statusCode: 404 })
     }
 
+    if (confirmedByCoach) request = { ...request, parent_link_id: requestedParentLinkId }
+
     if (match.team_id && request.team_id && String(request.team_id) !== String(match.team_id)) {
       throw Object.assign(new Error('Volunteer response is outside this team.'), { statusCode: 403 })
     }
@@ -833,7 +839,13 @@ export async function handler(event) {
       throw Object.assign(new Error('This volunteer response has expired. Ask the parent to submit a fresh Match Day response.'), { statusCode: 409 })
     }
 
-    if (selected && String(request[roleConfig.responseField] || '').toLowerCase() !== 'yes') {
+    assertCoachConfirmedVolunteerSelection({
+      confirmedByCoach,
+      parentLinkId: requestedParentLinkId,
+      response: request[roleConfig.responseField],
+    })
+
+    if (selected && !confirmedByCoach && String(request[roleConfig.responseField] || '').toLowerCase() !== 'yes') {
       throw Object.assign(new Error('Only parents who replied Yes can be selected for this role.'), { statusCode: 400 })
     }
 
@@ -845,7 +857,7 @@ export async function handler(event) {
           club_id: previousAssignment.club_id,
           team_id: previousAssignment.team_id,
         }
-      : role === 'scorer'
+      : role === 'scorer' && !confirmedByCoach
         ? await resolveEligibleScorerParentLink(adminSupabase, { match, request })
         : await resolveParentLink(adminSupabase, { match, request })
     const previousParentLinkId = previousAssignment?.parent_link_id || ''
@@ -983,6 +995,7 @@ export async function handler(event) {
         action: selected === false ? 'removed' : 'assigned',
         match,
         metadata: {
+          confirmedByCoach,
           notificationQueuedCount: queuedNotifications.length,
           scorerAlert,
           notificationWarning,

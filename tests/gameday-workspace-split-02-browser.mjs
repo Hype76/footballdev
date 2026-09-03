@@ -7,9 +7,9 @@ import { chromium } from 'playwright'
 
 const port = Number(process.env.GAMEDAY_WORKSPACE_SPLIT_BROWSER_PORT || 5650 + Math.floor(Math.random() * 250))
 const baseUrl = `http://127.0.0.1:${port}`
-const artifactDir = 'docs/audits/FP-V1-GAMEDAY-MOBILE-COMPACTION-29C-screenshots'
-const capabilityArtifactDir = 'docs/audits/FP-V1-GAMEDAY-CAPABILITY-RESTORATION-31A-screenshots'
-const layoutArtifactDir = 'docs/audits/FP-V1-GAMEDAY-RESPONSIVE-LAYOUT-INTEGRITY-31B-screenshots'
+const artifactDir = 'output/playwright/gameday-mobile-compaction'
+const capabilityArtifactDir = 'output/playwright/gameday-capability-restoration'
+const layoutArtifactDir = 'output/playwright/gameday-responsive-layout'
 const liveMatchId = '22222222-2222-4222-8222-222222222222'
 const upcomingMatchId = '33333333-3333-4333-8333-333333333333'
 const previousMatchId = '44444444-4444-4444-8444-444444444444'
@@ -240,6 +240,16 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
   let invitedPlayerLastSentAt = ''
   let invitedPlayerSquadDecision = null
 
+  const getCurrentDetails = (match) => {
+    const details = match ? detailedMatch(match) : null
+    if (details && match.id === upcomingMatchId) {
+      details.calendar_event_invites = [{ id: 'invite-casey', club_id: 'club-fixture', team_id: 'team-u12', match_day_id: match.id, player_id: invitedPlayerId, invite_status: 'active', response_requirement: 'response_required', players: { player_name: 'Casey Invite' } }]
+      if (invitedPlayerLastSentAt) details.match_day_availability_requests.push({ id: 'request-casey', match_day_id: match.id, player_id: invitedPlayerId, player_name: 'Casey Invite', recipient_name: 'Casey Parent', recipient_email: 'casey.parent@fixture.test', status: 'pending', sent_at: invitedPlayerLastSentAt, created_at: invitedPlayerLastSentAt })
+      if (invitedPlayerSquadDecision) details.match_day_player_squad_decisions.push(invitedPlayerSquadDecision)
+    }
+    return details
+  }
+
   await context.route('http://fixture.supabase.test/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -249,40 +259,17 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
       return
     }
 
+    if (url.pathname.endsWith('/rpc/get_staff_match_day_detail')) {
+      const body = request.postDataJSON()
+      await fulfillJson(route, getCurrentDetails(fixtureSummaries.find((candidate) => candidate.id === body.target_match_day_id_value)))
+      return
+    }
+
     if (url.pathname.endsWith('/match_days')) {
       const requestedId = url.searchParams.get('id')?.replace(/^eq\./, '')
       if (requestedId) {
         const match = fixtureSummaries.find((candidate) => candidate.id === requestedId)
-        const details = match ? detailedMatch(match) : null
-
-        if (details && match.id === upcomingMatchId) {
-          details.calendar_event_invites = [{
-            id: 'invite-casey',
-            club_id: 'club-fixture',
-            team_id: 'team-u12',
-            match_day_id: match.id,
-            player_id: invitedPlayerId,
-            invite_status: 'active',
-            response_requirement: 'response_required',
-            players: { player_name: 'Casey Invite' },
-          }]
-          if (invitedPlayerLastSentAt) {
-            details.match_day_availability_requests.push({
-              id: 'request-casey',
-              match_day_id: match.id,
-              player_id: invitedPlayerId,
-              player_name: 'Casey Invite',
-              recipient_name: 'Casey Parent',
-              recipient_email: 'casey.parent@fixture.test',
-              status: 'pending',
-              sent_at: invitedPlayerLastSentAt,
-              created_at: invitedPlayerLastSentAt,
-            })
-          }
-          if (invitedPlayerSquadDecision) {
-            details.match_day_player_squad_decisions.push(invitedPlayerSquadDecision)
-          }
-        }
+        const details = getCurrentDetails(match)
 
         await fulfillJson(route, details)
       } else {
@@ -415,7 +402,7 @@ async function preparePage(browser, viewport, contextOptions = {}, fixtureSummar
   })
 
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page.getByRole('button', { name: 'Club' }).click()
+  await page.getByRole('button', { name: 'Coach' }).click()
   await page.getByPlaceholder('you@club.com').fill('coach.fixture@footballplayer.test')
   await page.getByPlaceholder('Enter password').fill('FixturePass123!')
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
@@ -517,7 +504,12 @@ function assertFixtureListFlow(flow, name) {
 
 async function openSelectedFixture(page, opponent = 'Academy United') {
   await page.getByTestId('game-day-fixture-summary').filter({ hasText: opponent }).getByRole('button', { name: /Manage/ }).click()
-  await page.getByTestId('game-day-selected-workspace').waitFor({ state: 'visible', timeout: 30000 })
+  try {
+    await page.getByTestId('game-day-selected-workspace').waitFor({ state: 'visible', timeout: 30000 })
+  } catch (error) {
+    console.error(JSON.stringify({ url: page.url(), body: await page.locator('body').innerText() }))
+    throw error
+  }
   await page.getByRole('tab', { name: 'Scorer and roles' }).waitFor({ state: 'visible' })
 }
 
@@ -636,6 +628,20 @@ async function runMobile(browser) {
     assert.deepEqual(roleCardLabels, ['Scorer', 'Referee', 'Linesman'])
     assert.match(await page.getByTestId('game-day-role-scorer').innerText(), /Selected:/)
     assert.equal(await page.getByTestId('game-day-role-scorer').getByRole('button', { name: /Deselect|Replace selected volunteer|^Select$/ }).first().isVisible(), true)
+    const rolesSection = page.getByTestId('game-day-roles-section')
+    const confirmedParentControl = rolesSection.locator('details').filter({ hasText: 'Assign confirmed parent' })
+    assert.equal(await confirmedParentControl.locator('summary').isVisible(), true)
+    await confirmedParentControl.locator('summary').click()
+    await confirmedParentControl.getByLabel('Role').selectOption('referee')
+    const confirmedParentPicker = confirmedParentControl.getByLabel('Parent')
+    const candidate = await confirmedParentPicker.locator('option').nth(1).getAttribute('value')
+    await confirmedParentPicker.selectOption(candidate)
+    assert.equal(await confirmedParentPicker.inputValue(), candidate)
+    await confirmedParentControl.getByRole('button', { name: /confirmed parent$/ }).click()
+    await page.getByRole('heading', { name: 'Assign confirmed referee' }).waitFor({ state: 'visible' })
+    assert.match(await page.getByRole('dialog').innerText(), /The Parent has not volunteered through the app/)
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
+    await confirmedParentControl.locator('summary').click()
     await page.screenshot({ path: `${artifactDir}/mobile-selected-scorer-roles.png`, fullPage: true })
 
     const mobileCockpit = await assertRestoredLiveActions(page, 'mobile-375x812')

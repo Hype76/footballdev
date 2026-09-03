@@ -70,6 +70,12 @@ export async function enrichVolunteerEligibilityRecipients(adminSupabase, { elig
     const recipientName = normalizeText(guardianName || profile.display_name || profile.name || request.recipient_name || recipientEmail
       || (request.player_name ? `Parent or guardian of ${request.player_name}` : ''))
     // Display enrichment must not change scorer eligibility or assignment authority.
-    return { ...row, recipient_email: recipientEmail, recipient_name: recipientName }
+    return {
+      ...row,
+      confirmed_auth_user_id: normalizeText(link.auth_user_id),
+      confirmed_parent_link_id: normalizeText(link.id),
+      recipient_email: recipientEmail,
+      recipient_name: recipientName,
+    }
   })
 }

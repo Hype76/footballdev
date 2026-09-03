@@ -1214,8 +1214,10 @@ export async function getMatchDay({ user, matchDayId, includeScorerEligibility =
         ...request,
         scorer_eligible: eligibility?.eligible === true,
         scorer_eligibility_reason: eligibility?.reason || '',
-        parent_link_id: eligibility?.parent_link_id || request.parent_link_id,
-        auth_user_id: eligibility?.auth_user_id || request.auth_user_id,
+        parent_link_id: eligibility?.parent_link_id || eligibility?.confirmed_parent_link_id || request.parent_link_id,
+        auth_user_id: eligibility?.auth_user_id || eligibility?.confirmed_auth_user_id || request.auth_user_id,
+        recipient_email: eligibility?.recipient_email || request.recipient_email,
+        recipient_name: eligibility?.recipient_name || request.recipient_name,
       }
     }),
   }
@@ -1846,6 +1848,8 @@ export async function selectMatchDayVolunteer({ user, match, volunteer, role = '
     },
     body: JSON.stringify({
       matchDayId: match.id,
+      confirmedByCoach: volunteer.confirmedByCoach === true,
+      parentLinkId: volunteer.parentLinkId || '',
       requestId: volunteer.requestId,
       role: normalizedRole,
       selected: selected !== false,

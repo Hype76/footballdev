@@ -111,6 +111,8 @@ jobs:
           tests/mobile-chat-counter-volunteer-labels.test.mjs
           tests/mobile-chat-unread-summary-pglite.test.mjs
           tests/mobile-invite-calendar-volunteer-labels-136.test.mjs
+          tests/calendar-edit-confirmed-volunteers.test.mjs
+          tests/coach-confirmed-volunteer.test.mjs
           tests/parent-child-notification-badges.test.mjs
           tests/parent-notification-inbox-controls.test.mjs
       - name: Parent notification badge rendering
