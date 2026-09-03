@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const migrationUrl = new URL(
-  '../supabase/migrations/20260725153849_parent_portal_confirmed_team_read_model.sql',
+  '../supabase/migrations/20260903104104_parent_selected_squad.sql',
   import.meta.url,
 )
 const matchDayDomainUrl = new URL('../src/lib/domain/match-day.js', import.meta.url)
@@ -15,9 +15,9 @@ const [migration, matchDayDomain, parentPortalPage] = await Promise.all([
   readFile(parentPortalPageUrl, 'utf8'),
 ])
 
-test('Parent Portal displays the Confirmed Team heading and exact empty state', () => {
-  assert.match(parentPortalPage, />Confirmed Team</)
-  assert.match(parentPortalPage, />Team not confirmed yet\.<\/p>/)
+test('Parent Portal displays the Selected squad heading and exact empty state', () => {
+  assert.match(parentPortalPage, />Selected squad</)
+  assert.match(parentPortalPage, />No players have been selected yet\.<\/p>/)
   assert.match(parentPortalPage, /match\.confirmedTeam\?\.length > 0/)
 })
 
@@ -95,7 +95,7 @@ test('read model exposes execute only to authenticated and service roles', () =>
   assert.doesNotMatch(migration, /grant execute[\s\S]*to anon;/)
 })
 
-test('Confirmed Team names are plain non-clickable list items', () => {
+test('Selected squad names are plain non-clickable list items', () => {
   const section = parentPortalPage.match(
     /<section className=\{`\$\{softPanelClass\} mt-4`\} aria-labelledby=\{`confirmed-team-\$\{match\.id\}`\}>[\s\S]*?<\/section>/,
   )?.[0] ?? ''

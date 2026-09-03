@@ -36,7 +36,7 @@ test('Parent matches prioritises response needs and exposes bounded history', ()
 test('Focused match keeps response, team, role, scoring and timeline capabilities', () => {
   assert.match(cardSource, /Your fixture response/)
   assert.match(cardSource, /Review response/)
-  assert.match(cardSource, />Confirmed Team</)
+  assert.match(cardSource, />Selected squad</)
   assert.match(cardSource, /Volunteer role status/)
   assert.match(cardSource, /Open Game Mode/)
   assert.match(cardSource, /Update score/)

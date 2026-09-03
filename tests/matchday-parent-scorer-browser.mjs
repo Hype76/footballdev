@@ -611,7 +611,7 @@ async function verifyParentMatchWorkspace(browser, viewport) {
 
   if (viewport.width < 768) {
     assert.ok(listMeasurement.ratio <= 3, `mobile list ratio ${listMeasurement.ratio} must be at most 3.00`)
-    assert.equal(await sessionState.page.getByRole('heading', { name: 'Confirmed Team' }).isVisible(), false)
+    assert.equal(await sessionState.page.getByRole('heading', { name: 'Selected squad' }).isVisible(), false)
 
     await sessionState.page.getByRole('button', { name: /Balanced City/ }).click()
     await sessionState.page.waitForURL('**matchDayId=match-workspace-2')
@@ -634,7 +634,7 @@ async function verifyParentMatchWorkspace(browser, viewport) {
     await sessionState.page.getByText('Upcoming matches', { exact: true }).waitFor({ state: 'visible' })
   } else {
     assert.ok(listMeasurement.ratio <= 2, `desktop selected ratio ${listMeasurement.ratio} must be at most 2.00`)
-    await sessionState.page.getByRole('heading', { name: 'Confirmed Team' }).waitFor({ state: 'visible' })
+    await sessionState.page.getByRole('heading', { name: 'Selected squad' }).waitFor({ state: 'visible' })
     await sessionState.page.getByRole('button', { name: /Balanced City/ }).click()
     await sessionState.page.waitForURL('**matchDayId=match-workspace-2')
     await sessionState.page.getByText('Awaiting response', { exact: true }).first().waitFor({ state: 'visible' })
@@ -752,7 +752,7 @@ try {
     await openParentMatches(ordinary.page)
     await ordinary.page.getByTestId('parent-match-day-hero').waitFor({ state: 'visible', timeout: 30000 })
     await ordinary.page.getByText('Fixture information only.', { exact: false }).waitFor({ state: 'visible' })
-    await ordinary.page.getByRole('heading', { name: 'Confirmed Team' }).waitFor({ state: 'visible' })
+    await ordinary.page.getByRole('heading', { name: 'Selected squad' }).waitFor({ state: 'visible' })
     for (const playerName of ordinary.fixtureState.confirmedNames) {
       await ordinary.page.getByText(playerName, { exact: true }).waitFor({ state: 'visible' })
     }
@@ -776,7 +776,7 @@ try {
     })
     await signIn(emptyTeam.page, { parent: true })
     await openParentMatches(emptyTeam.page)
-    await emptyTeam.page.getByText('Team not confirmed yet.', { exact: true }).waitFor({ state: 'visible' })
+    await emptyTeam.page.getByText('No players have been selected yet.', { exact: true }).waitFor({ state: 'visible' })
     assert.equal(await emptyTeam.page.locator('section[aria-labelledby^="confirmed-team-"] li').count(), 0)
     assert.equal(await emptyTeam.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.deepEqual(emptyTeam.consoleErrors, [])
@@ -789,7 +789,7 @@ try {
 
     process.stdout.write(
       parentConfirmedTeamOnly
-        ? `PASS ${viewport.name}: Confirmed Team populated, refreshed, empty, responsive, and error-free\n`
+        ? `PASS ${viewport.name}: Selected squad populated, refreshed, empty, responsive, and error-free\n`
         : `PASS ${viewport.name}: staff, accepted scorer, ordinary parent, refresh, background, revocation, no console errors\n`,
     )
   }

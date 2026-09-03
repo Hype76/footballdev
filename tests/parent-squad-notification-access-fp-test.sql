@@ -26,7 +26,7 @@ select set_config('request.jwt.claims','{"sub":"0397797e-6b6e-4962-bb87-a4e2fd7c
 set local role authenticated;
 do $$ begin
   if (select count(*) from public.get_parent_portal_match_days('9a090304-0000-4000-8000-000000000004') where id='9a090304-0000-4000-8000-000000000001' and squad_decision_state='selected' and availability_status is null)<>1 then raise exception 'TEST FAILED selected player without invite cannot open match'; end if;
-  if (select count(*) from public.get_parent_portal_confirmed_teams('9a090304-0000-4000-8000-000000000004') where match_day_id='9a090304-0000-4000-8000-000000000001' and cardinality(selected_player_names)=0)<>1 then raise exception 'TEST FAILED confirmed squad visibility differs'; end if;
+  if (select count(*) from public.get_parent_portal_confirmed_teams('9a090304-0000-4000-8000-000000000004') where match_day_id='9a090304-0000-4000-8000-000000000001' and selected_player_names=array['FP TEST selected child'])<>1 then raise exception 'TEST FAILED selected player without attendance missing from squad'; end if;
   if not exists(select 1 from public.get_parent_portal_match_day_extended_state('9a090304-0000-4000-8000-000000000004') where match_day_id='9a090304-0000-4000-8000-000000000001') then raise exception 'TEST FAILED extended match inaccessible'; end if;
 end $$;
 reset role;
@@ -43,6 +43,7 @@ end $$;
 update public.match_day_player_availability set status='unavailable' where player_id='9a090304-0000-4000-8000-000000000002';
 do $$ begin
   if not exists(select 1 from public.get_parent_portal_match_days('9a090304-0000-4000-8000-000000000004') where id='9a090304-0000-4000-8000-000000000001' and availability_status='unavailable') then raise exception 'TEST FAILED attendance changed or hides selection'; end if;
+  if not exists(select 1 from public.get_parent_portal_confirmed_teams('9a090304-0000-4000-8000-000000000004') where match_day_id='9a090304-0000-4000-8000-000000000001' and selected_player_names=array['FP TEST selected child']) then raise exception 'TEST FAILED unavailable response hides selected player'; end if;
 end $$;
 select set_config('request.jwt.claim.sub','79716f3d-f312-4117-ad49-162207c96710',true);
 select set_config('request.jwt.claims','{"sub":"79716f3d-f312-4117-ad49-162207c96710","role":"authenticated"}',true);
@@ -71,6 +72,7 @@ select set_config('request.jwt.claims','{"sub":"0397797e-6b6e-4962-bb87-a4e2fd7c
 set local role authenticated;
 do $$ begin
   if not exists(select 1 from public.get_parent_portal_match_days('9a090304-0000-4000-8000-000000000004') where id='9a090304-0000-4000-8000-000000000001' and squad_decision_state='not_selected' and availability_status='unavailable') then raise exception 'TEST FAILED notified deselection cannot open match'; end if;
+  if not exists(select 1 from public.get_parent_portal_confirmed_teams('9a090304-0000-4000-8000-000000000004') where match_day_id='9a090304-0000-4000-8000-000000000001' and cardinality(selected_player_names)=0) then raise exception 'TEST FAILED not selected player remains in squad'; end if;
 end $$;
 reset role;
 do $$ begin

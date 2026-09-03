@@ -903,11 +903,11 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
         </View>
         {squadOpenMatchId === selectedMatch.id ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Selected and confirmed squad</Text>
-            <Text style={styles.helper}>Only Players who are both Available and Selected are shown.</Text>
+            <Text style={styles.cardTitle}>Selected squad</Text>
+            <Text style={styles.helper}>Players selected by the coach for this match.</Text>
             {selectedMatch.confirmedTeam?.length
-              ? selectedMatch.confirmedTeam.map((playerName) => <Text key={playerName} style={styles.body}>{playerName}</Text>)
-              : <Text style={styles.body}>No Available and Selected Players are confirmed yet.</Text>}
+              ? selectedMatch.confirmedTeam.map((playerName, index) => <Text key={`${playerName}-${index}`} style={styles.body}>{playerName}</Text>)
+              : <Text style={styles.body}>No players have been selected yet.</Text>}
           </View>
         ) : null}
         {scorerInvitation ? (

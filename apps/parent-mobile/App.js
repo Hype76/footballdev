@@ -2387,7 +2387,7 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
 function MatchDetail({ match, onBack }) {
   const { styles } = useParentTheme()
   const [squadOpen, setSquadOpen] = useState(false)
-  const squadNames = [...new Set((match.confirmedTeam || []).map(normalizeText).filter(Boolean))]
+  const squadNames = (match.confirmedTeam || []).map(normalizeText).filter(Boolean)
   const selectionLabel = match.squadDecisionState && match.squadDecisionState !== 'undecided'
     ? labelize(match.squadDecisionState)
     : 'Not confirmed'
@@ -2421,11 +2421,11 @@ function MatchDetail({ match, onBack }) {
         secondary
       />
       {squadOpen ? (
-        <InfoPanel title="Selected and confirmed squad">
-          <Text style={styles.helperText}>Only Players who are both Available and Selected are shown. Automatic selections appear after this fixture refreshes.</Text>
+        <InfoPanel title="Selected squad">
+          <Text style={styles.helperText}>Players selected by the coach for this match.</Text>
           {squadNames.length
-            ? squadNames.map((playerName) => <Text key={playerName} style={styles.bodyText}>{playerName}</Text>)
-            : <Text style={styles.bodyText}>No Available and Selected Players are confirmed yet.</Text>}
+            ? squadNames.map((playerName, index) => <Text key={`${playerName}-${index}`} style={styles.bodyText}>{playerName}</Text>)
+            : <Text style={styles.bodyText}>No players have been selected yet.</Text>}
         </InfoPanel>
       ) : null}
 

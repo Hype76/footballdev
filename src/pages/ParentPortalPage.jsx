@@ -3783,7 +3783,7 @@ function ParentMatchCard({
       ) : null}
 
       <section className={`${softPanelClass} mt-4`} aria-labelledby={`confirmed-team-${match.id}`}>
-        <h5 id={`confirmed-team-${match.id}`} className="text-sm font-black text-[#101828]">Confirmed Team</h5>
+        <h5 id={`confirmed-team-${match.id}`} className="text-sm font-black text-[#101828]">Selected squad</h5>
         {match.confirmedTeam?.length > 0 ? (
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {match.confirmedTeam.map((playerName, index) => (
@@ -3796,7 +3796,7 @@ function ParentMatchCard({
             ))}
           </ul>
         ) : (
-          <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">Team not confirmed yet.</p>
+          <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">No players have been selected yet.</p>
         )}
       </section>
 
