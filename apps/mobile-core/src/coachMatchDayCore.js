@@ -232,6 +232,14 @@ export function isCoachMatchDaySquadNotificationApplied(match, playerId, revisio
     && decision.decisionRevision === revision && Boolean(decision.notifiedAt))
 }
 
+export function reconcileCoachSquadNotificationResults(choices, results = [], match, error = '') {
+  return choices.map((player) => {
+    const result = results.find((item) => item.playerId === player.id && item.revision === player.decisionRevision)
+    const sent = result?.sent === true || isCoachMatchDaySquadNotificationApplied(match || {}, player.id, player.decisionRevision)
+    return { playerId: player.id, revision: player.decisionRevision, sent, message: sent ? '' : result?.message || error || 'Notification could not be confirmed. Try again.' }
+  })
+}
+
 function normalizePlayerChoice(player = {}) {
   return Object.freeze({
     id: normalize(player.id),

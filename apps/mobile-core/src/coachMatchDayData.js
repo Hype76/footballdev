@@ -440,6 +440,20 @@ export async function notifyCoachMatchDaySquadDecision(user, match, playerId, re
   return getCoachMatchDayDetail(user, match.id)
 }
 
+export async function notifyCoachMatchDaySquadDecisions(user, match, decisions) {
+  await prepareMutation(user, match)
+  const config = getMobileRuntimeConfig('coach')
+  if (!config.isProduction) throw new Error('Parent notifications are disabled in the test app.')
+  const token = await getAccessToken()
+  if (!token) throw new Error('Sign in again before notifying parents.')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/notify-match-day-squad'), {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ matchId: match.id, decisions: decisions.map(({ id, decisionRevision }) => ({ playerId: id, revision: decisionRevision })) }),
+  })
+  if (!ok || !Array.isArray(result?.results)) throw new Error(result?.message || 'Notifications could not be confirmed. Try again.')
+  return result.results
+}
+
 export async function recordCoachMatchDayEvent(user, match, event, commandId = '') {
   await prepareMutation(user, match)
   const type = normalize(event?.eventType)

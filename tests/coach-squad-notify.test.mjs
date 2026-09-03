@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildCoachMatchDaySquad, filterCoachMatchDays, isCoachMatchDaySquadNotificationApplied } from '../apps/mobile-core/src/coachMatchDayCore.js'
+import { buildCoachMatchDaySquad, filterCoachMatchDays, isCoachMatchDaySquadNotificationApplied, reconcileCoachSquadNotificationResults } from '../apps/mobile-core/src/coachMatchDayCore.js'
 process.env.VITE_SUPABASE_URL = 'https://example.supabase.co'
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-only-not-a-real-key'
 const { createSquadNotificationHandler } = await import('../netlify/functions/notify-match-day-squad.mjs')
@@ -60,4 +60,33 @@ test('receipt delivery only uses the saved recipient and never rewrites the alre
 })
 test('an already claimed or obsolete receipt does not produce another phone message', async () => {
   assert.deepEqual(await deliverSquadDecisionNotifications([id], { admin: { rpc: async () => ({ data: null }) }, deliver: async () => { throw new Error('Must not deliver') } }), { completed: 0 })
+})
+
+test('batch endpoint calls one authority RPC and returns each player outcome without direct phone fanout', async () => {
+  const second = '9a090303-0000-4000-8000-000000000002'
+  let call
+  const outcomes = [{ playerId: id, revision: id, sent: true }, { playerId: second, revision: second, sent: false, message: 'No active parent app account is linked to this player.' }]
+  const handler = createSquadNotificationHandler({ admin: { auth: { getUser: async () => ({ data: { user: { id } } }) } }, publicClient: () => ({ rpc: async (name, args) => { call = { name, args }; return { data: { results: outcomes, notificationIds: ['private-receipt'] } } } }), deliver: async () => { throw new Error('Batch phone delivery belongs to the durable worker') } })
+  const response = await handler(request({ matchId: id, decisions: [{ playerId: id, revision: id, copy: 'ignored' }, { playerId: second, revision: second }], parentIds: ['ignored'] }))
+  assert.equal(response.status, 200)
+  assert.deepEqual(call, { name: 'notify_match_day_squad_decisions', args: { match_id: id, decisions: [{ playerId: id, revision: id }, { playerId: second, revision: second }] } })
+  assert.deepEqual(await response.json(), { success: true, results: outcomes })
+})
+
+test('batch rejects empty, duplicate, malformed and oversized choices before any write', async () => {
+  let calls = 0
+  const handler = createSquadNotificationHandler({ admin: { auth: { getUser: async () => ({ data: { user: { id } } }) } }, publicClient: () => { calls++; throw new Error('Must not write') } })
+  for (const decisions of [[], [{ playerId: id, revision: id }, { playerId: id, revision: id }], [null], [{ playerId: id, revision: 'old' }], Array.from({ length: 101 }, () => ({ playerId: id, revision: id }))]) {
+    assert.equal((await handler(request({ matchId: id, decisions }))).status, 400)
+  }
+  assert.equal(calls, 0)
+})
+
+test('uncertain batch reconciles each current revision without losing partial success', () => {
+  const choices = [{ id: 'a', decisionRevision: 'a1' }, { id: 'b', decisionRevision: 'b1' }, { id: 'c', decisionRevision: 'c1' }]
+  const results = reconcileCoachSquadNotificationResults(choices, [{ playerId: 'b', revision: 'b1', sent: false, message: 'No linked parent.' }, { playerId: 'c', revision: 'old', sent: true }], { squadDecisions: [{ playerId: 'a', decisionRevision: 'a1', notifiedAt: 'now' }, { playerId: 'c', decisionRevision: 'c2', notifiedAt: 'now' }] }, 'Request timed out.')
+  assert.deepEqual(results.map((r) => r.sent), [true, false, false])
+  assert.equal(results[1].message, 'No linked parent.')
+  assert.equal(results[2].message, 'Request timed out.')
+  assert.equal(reconcileCoachSquadNotificationResults([choices[0]], [{ playerId: 'a', revision: 'a1', sent: true }], null)[0].sent, true)
 })

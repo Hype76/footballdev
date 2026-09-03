@@ -23,7 +23,7 @@ import {
   isCoachMatchDayShootoutKickApplied,
   isCoachMatchDayShootoutKickVoided,
   isCoachMatchDaySquadDecisionApplied,
-  isCoachMatchDaySquadNotificationApplied,
+  reconcileCoachSquadNotificationResults,
   isCoachMatchDayTimerActionApplied,
   isCoachMatchDayVolunteerSelectionApplied,
   pickCoachMatchDayLinkedPlayer,
@@ -43,7 +43,7 @@ import {
   saveCoachMatchDayFinalReport,
   selectCoachMatchDayVolunteer,
   setCoachMatchDaySquadDecision,
-  notifyCoachMatchDaySquadDecision,
+  notifyCoachMatchDaySquadDecisions,
   voidCoachMatchDayEvent,
   voidCoachMatchDayShootoutKick,
 } from '../../mobile-core/src/coachMatchDayData'
@@ -681,6 +681,24 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     } finally { setBusy(false) }
   }
   const confirm = async () => { const action = pending; setPending(null); if (!action) return; try { await action.run() } catch { return } }
+  const notifySquad = async (choices) => {
+    if (busyRef.current) return []
+    busyRef.current = true
+    setBusy(true); setError(''); setNotice('')
+    let results = []; let detail = null; let message = ''
+    try {
+      try { results = await notifyCoachMatchDaySquadDecisions(user, match, choices) }
+      catch (notifyError) { message = errorMessage(notifyError, 'Notifications could not be confirmed. Try again.') }
+      try {
+        detail = await getCoachMatchDayDetail(user, match.id)
+        const nextMatches = matches.map((item) => item.id === detail.id ? detail : item)
+        matchRef.current = detail
+        setMatch(detail); setMatches(nextMatches); setStale(false)
+        await cache(nextMatches, detail, players).catch(() => {})
+      } catch { /* Per-player server results remain valid if the following refresh fails. */ }
+      return reconcileCoachSquadNotificationResults(choices, results, detail, message)
+    } finally { busyRef.current = false; setBusy(false) }
+  }
   const actions = getCoachMatchDayActions({ context, match, reconciling, stale })
   const submitEvent = async () => { const validated = validateCoachMatchDayEventForm(eventForm); const commandId = createCoachMatchDayCommandId(); const detail = await replace(() => recordCoachMatchDayEvent(user, match, validated, commandId), (nextDetail) => hasCoachMatchDayCommandResult(nextDetail, commandId)); setEventForm(createCoachMatchDayEventForm(validated.eventType, detail)); return detail }
   const handleFixtureCreated = async (result) => {
@@ -742,9 +760,9 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {!fixtureFormOpen && !match ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
     {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><Button iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} /><Chips iconResolver={getMatchDayPanelIconKey} onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} /></> : null}
       {panel === 'overview' ? <View style={styles.stack}><FixtureHero match={match} styles={styles} /><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><Text style={styles.body}>{match.venueAddress || match.venueName || 'Venue TBC'}</Text>{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text>{['scheduled', 'scorer_request', 'postponed'].includes(match.status) ? <Button label="Edit fixture" onPress={() => { setFixtureFormMatch(match); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'start-match', label: 'Start match', run: async () => { const detail = await replace(() => runCoachMatchDayTimerAction(user, match, 'start'), (nextDetail) => isCoachMatchDayTimerActionApplied(nextDetail, 'start')); setPanel('live'); return detail } })} styles={styles} /></View> : actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
-      {panel === 'squad' ? <CoachSquadPanel actions={actions} busy={busy || reconciling} match={match} palette={palette}
+      {panel === 'squad' ? <CoachSquadPanel key={match.id} actions={actions} busy={busy || reconciling} match={match} palette={palette}
         onSetDecision={(player, decision) => { void replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision)).catch(() => {}) }}
-        onNotify={(player) => { void replace(() => notifyCoachMatchDaySquadDecision(user, match, player.id, player.decisionRevision), (detail) => isCoachMatchDaySquadNotificationApplied(detail, player.id, player.decisionRevision)).catch(() => {}) }}
+        onNotify={notifySquad}
         players={players} styles={styles} /> : null}
       {panel === 'formation' ? <CoachFormationBoard context={context} match={match} palette={palette} players={players} stale={stale} user={user} /> : null}
       {panel === 'volunteers' ? <VolunteerPanel actions={actions} busy={busy} match={match} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /> : null}
