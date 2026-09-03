@@ -525,7 +525,7 @@ function normalizeVolunteerText(value) {
 }
 
 function getVolunteerConfirmationCopy({ match, roleLabel, selected, volunteer }) {
-  const parentName = volunteer.parentEmail || volunteer.parentName || 'this parent'
+  const parentName = volunteer.parentName || volunteer.parentEmail || 'this parent'
   const currentAssignment = getSelectedRoleAssignment(match, roleLabel.key)
   const isReplacing = Boolean(selected && currentAssignment && !isSelectedRoleVolunteer(currentAssignment, volunteer))
   const title = selected
@@ -538,6 +538,14 @@ function getVolunteerConfirmationCopy({ match, roleLabel, selected, volunteer })
       ? `Replace the selected ${roleLabel.label.toLowerCase()} with ${parentName}?`
       : `Select ${parentName} as ${roleLabel.label.toLowerCase()}?`
     : `Deselect ${parentName} as ${roleLabel.label.toLowerCase()}?`
+
+  if (selected && volunteer.confirmedByCoach === true) {
+    return {
+      title: `Assign confirmed ${roleLabel.label.toLowerCase()}`,
+      message: `Assign ${parentName} as ${roleLabel.label.toLowerCase()} based on the coach's direct confirmation? The Parent has not volunteered through the app.`,
+      confirmLabel: 'Confirm coach assignment',
+    }
+  }
 
   return {
     title,
@@ -579,7 +587,7 @@ function getRequestedVolunteerRoles(match) {
 
 function getRoleResponseRows(match, role) {
   return (match.availabilityRequests || [])
-    .filter((request) => ['yes', 'no'].includes(String(request[role.responseKey] || '').toLowerCase()))
+    .filter((request) => String(request.status || '').toLowerCase() !== 'expired')
     .map((request) => ({
       id: `${role.key}:${request.id}`,
       requestId: request.id,
@@ -590,7 +598,7 @@ function getRoleResponseRows(match, role) {
       playerName: request.playerName || 'Player',
       parentName: request.recipientName,
       parentEmail: request.recipientEmail,
-      parentLabel: request.recipientEmail || request.recipientName || 'Parent',
+      parentLabel: request.recipientName || request.recipientEmail || 'Parent',
       response: request[role.responseKey],
       respondedAt: request.volunteerRespondedAt || request.respondedAt,
     }))
@@ -5346,8 +5354,22 @@ function MatchDayCard({
 }) {
   const [isFinalReportOpen, setIsFinalReportOpen] = useState(false)
   const [availabilityDisclosureState, setAvailabilityDisclosureState] = useState({ groups: {}, matchId: '' })
+  const [confirmedRoleChoice, setConfirmedRoleChoice] = useState('')
+  const [confirmedParentChoices, setConfirmedParentChoices] = useState({})
   const isBusy = activeMatchId === match.id
   const requestedVolunteerRoles = getRequestedVolunteerRoles(match)
+  const confirmedRoleOptions = requestedVolunteerRoles.map((role) => {
+    const selectedAssignment = getSelectedRoleAssignment(match, role.key)
+    const candidates = getRoleResponseRows(match, role).filter((row) => (
+      normalizeVolunteerText(row.response) === 'no_response'
+      && Boolean(row.parentLinkId)
+      && !isSelectedRoleVolunteer(selectedAssignment, row)
+    ))
+    return { ...role, candidates, selectedAssignment }
+  }).filter((role) => role.candidates.length > 0)
+  const confirmedRole = confirmedRoleOptions.find((role) => role.key === confirmedRoleChoice) || null
+  const confirmedChoiceKey = confirmedRole ? `${match.id}:${confirmedRole.key}` : ''
+  const confirmedParent = confirmedRole?.candidates.find((row) => row.id === confirmedParentChoices[confirmedChoiceKey]) || null
   const currentAvailabilityRows = getCurrentAvailabilityRows(match)
   const liveClockLabel = formatLiveMatchClock(match, now)
   const availabilityStats = getAvailabilityStats(match)
@@ -5901,29 +5923,25 @@ function MatchDayCard({
           {workspaceSection === 'roles' ? <section data-testid="game-day-roles-section" aria-label="Scorer and Match roles" className={panelClass}>
             <h5 className="text-sm font-black text-[#101828]">Scorer and Match roles</h5>
             {allowFixtureManagement && !match.id.startsWith('demo-') ? <GuestScorerManager key={match.id} match={match} /> : null}
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <CompactFact label="Scorer" value={getRoleStatus(match, 'scorer')} />
-              <CompactFact label="Referee" value={getRoleStatus(match, 'referee')} />
-              <CompactFact label="Linesman" value={getRoleStatus(match, 'linesman')} />
-            </div>
             {requestedVolunteerRoles.length > 0 ? (
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 grid gap-2">
                 {requestedVolunteerRoles.map((role) => {
-                  const roleRows = getRoleResponseRows(match, role)
+                  const allRoleRows = getRoleResponseRows(match, role)
                   const selectedAssignment = getSelectedRoleAssignment(match, role.key)
+                  const roleRows = allRoleRows.filter((row) => ['yes', 'no'].includes(normalizeVolunteerText(row.response)) || isSelectedRoleVolunteer(selectedAssignment, row))
 
                   return (
-                    <div key={role.key} data-testid={`game-day-role-${role.key}`} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <div key={role.key} data-testid={`game-day-role-${role.key}`} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10 sm:p-2">
+                      <div className="flex flex-wrap items-start justify-between gap-1">
                         <p className="text-sm font-black text-[#101828]">{role.label}</p>
                         {selectedAssignment ? (
-                          <p className="text-xs font-black text-[#047857]">
+                          <p className="break-all text-xs font-black text-[#047857]">
                             Selected: {selectedAssignment.parentEmail || selectedAssignment.playerName || 'Parent'}
                           </p>
                         ) : null}
                       </div>
                       {roleRows.length > 0 ? (
-                        <div className="mt-2 space-y-2">
+                        <div className={`mt-2 grid gap-2 ${roleRows.length > 1 ? 'sm:grid-cols-2' : ''}`}>
                           {roleRows.map((row) => {
                             const selectionReason = getVolunteerSelectionReason(row)
                             const isSelected = isSelectedRoleVolunteer(selectedAssignment, row)
@@ -5934,16 +5952,12 @@ function MatchDayCard({
                             const rowActionStatus = volunteerSelectionStatus?.key === actionKey ? volunteerSelectionStatus : null
 
                             return (
-                              <div key={row.id} className="flex flex-col gap-2 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="min-w-0">
-                                  <p className="text-xs font-black text-[#101828]">{row.parentLabel}</p>
-                                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Linked to {row.playerName}</p>
-                                  <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{formatResponseDateTime(row.respondedAt)}</p>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#101828]">
-                                    Response: {getVolunteerResponseLabel(row.response)}
-                                  </span>
+                              <div key={row.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2">
+                                <p className="text-xs font-black text-[#101828]">{row.parentLabel}</p>
+                                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+                                  Response: {getVolunteerResponseLabel(row.response)} | {row.playerName}
+                                </p>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                   <span className={`inline-flex w-fit rounded-lg border px-3 py-1 text-xs font-black ${
                                     isSelected
                                       ? 'border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]'
@@ -5954,7 +5968,7 @@ function MatchDayCard({
                                   >
                                     {rowStatus}
                                   </span>
-                                  {canSelect ? (
+                                  {canSelect || isSelected ? (
                                     <button
                                       type="button"
                                       onClick={() => onVolunteerSelection(match, row, role.key, !isSelected)}
@@ -5993,6 +6007,46 @@ function MatchDayCard({
                     </div>
                   )
                 })}
+                {confirmedRoleOptions.length > 0 ? (
+                  <details>
+                    <summary className="cursor-pointer text-xs font-black leading-5 text-[#047857]">Assign confirmed parent</summary>
+                    <p className="mt-2 text-xs font-semibold leading-5 text-[#4b5f55]">Choose a parent who has confirmed directly with you but has not replied to the role request.</p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <label className="block text-xs font-black text-[#101828]">
+                        Role
+                        <select
+                          value={confirmedRole?.key || ''}
+                          onChange={(event) => setConfirmedRoleChoice(event.target.value)}
+                          disabled={isBusy}
+                          className={`${inputClass} mt-1 w-full min-w-0`}
+                        >
+                          <option value="">Choose role</option>
+                          {confirmedRoleOptions.map((role) => <option key={role.key} value={role.key}>{role.label}</option>)}
+                        </select>
+                      </label>
+                      <label className="block text-xs font-black text-[#101828]">
+                        Parent
+                        <select
+                          value={confirmedParent?.id || ''}
+                          onChange={(event) => setConfirmedParentChoices((choices) => ({ ...choices, [confirmedChoiceKey]: event.target.value }))}
+                          disabled={isBusy || !confirmedRole}
+                          className={`${inputClass} mt-1 w-full min-w-0`}
+                        >
+                          <option value="">Choose parent</option>
+                          {(confirmedRole?.candidates || []).map((row) => <option key={row.id} value={row.id}>{row.parentLabel} | {row.playerName}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onVolunteerSelection(match, { ...confirmedParent, confirmedByCoach: true }, confirmedRole.key, true)}
+                      disabled={isBusy || !confirmedParent}
+                      className={`${secondaryButtonClass} mt-2`}
+                    >
+                      {confirmedRole?.selectedAssignment ? 'Replace with confirmed parent' : 'Assign selected parent'}
+                    </button>
+                  </details>
+                ) : null}
               </div>
             ) : (
               <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-5">

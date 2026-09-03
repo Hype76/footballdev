@@ -74,6 +74,8 @@ test('Volunteer eligibility enrichment stays within the fixture and club scope',
   assert.equal(result[0].eligible, false)
   assert.equal(result[0].auth_user_id, null)
   assert.equal(result[0].parent_link_id, null)
+  assert.equal(result[0].confirmed_parent_link_id, 'link-1')
+  assert.equal(result[0].confirmed_auth_user_id, 'auth-1')
   assert.ok(calls.some((call) => call[0] === 'match_day_availability_requests' && call[1] === 'match_day_id' && call[2] === 'match-1'))
   assert.ok(calls.some((call) => call[0] === 'parent_player_links' && call[1] === 'club_id' && call[2] === 'club-1'))
   assert.equal(calls.some((call) => call[0] === 'users' && call[1] === 'club_id'), false)

@@ -4335,8 +4335,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           onEdit={handleCalendarEdit}
           onOpenWorkflow={() => {
             const href = calendarModal?.event?.href
+            const matchDayId = calendarModal?.event?.sourceType === 'match-day' ? calendarModal.event.sourceId : ''
             setCalendarModal(null)
-            navigate(href || '/sessions')
+            navigate(matchDayId ? `/match-day?fixture=${encodeURIComponent(matchDayId)}&section=roles` : href || '/sessions')
           }}
           onBuildFormation={() => {
             const matchDayId = calendarModal?.event?.sourceId
@@ -4701,8 +4702,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         onEdit={handleCalendarEdit}
         onOpenWorkflow={() => {
           const href = calendarModal?.event?.href
+          const matchDayId = calendarModal?.event?.sourceType === 'match-day' ? calendarModal.event.sourceId : ''
           setCalendarModal(null)
-          navigate(href || '/sessions')
+          navigate(matchDayId ? `/match-day?fixture=${encodeURIComponent(matchDayId)}&section=roles` : href || '/sessions')
         }}
         onBuildFormation={() => {
           const matchDayId = calendarModal?.event?.sourceId
@@ -6578,6 +6580,32 @@ function CalendarEventModal({
                 ) : null}
               </div>
             ) : (
+            <>
+            {isMatchFixture && event?.sourceType === 'match-day' ? (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" data-calendar-field="volunteerRequests">
+                <p className="text-sm font-black text-[#101828]">Parent volunteer requests</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+                  Choose the roles needed for this fixture. Select the invitation option below to send the request to parents.
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  {[
+                    ['requestScorer', 'Request scorer'],
+                    ['requestLinesman', 'Request linesman'],
+                    ['requestReferee', 'Request referee'],
+                  ].map(([name, label]) => (
+                    <label key={name} className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
+                      <input type="checkbox" name={name} checked={form[name] === true} onChange={onChange} disabled={isBusy} className="h-5 w-5 accent-[#047857]" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#d7e5dc] pt-3">
+                  <p className="text-xs font-semibold leading-5 text-[#4b5f55]">Save any role request changes first, then assign a parent who has confirmed directly with you.</p>
+                  <button type="button" onClick={onOpenWorkflow} disabled={isBusy} className={secondaryButtonClass}>Manage volunteer assignments</button>
+                </div>
+              </div>
+            ) : null}
+
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
@@ -6642,6 +6670,7 @@ function CalendarEventModal({
                 </label>
               ) : null}
             </div>
+            </>
             )}
 
             {isMatchFixture ? (
@@ -6812,7 +6841,7 @@ function CalendarEventModal({
             </MobileActionDock>
             <div className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
               <div>
-                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
+                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : 'Open item'}</button> : null}
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <button type="button" onClick={handleModalCancel} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
@@ -6842,7 +6871,7 @@ function CalendarEventModal({
                 testId="calendar-mobile-action-bar"
               >
                   {event?.href ? (
-                    <button type="button" onClick={onOpenWorkflow} className={compactPrimaryButtonClass}>Open item</button>
+                    <button type="button" onClick={onOpenWorkflow} className={compactPrimaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : 'Open item'}</button>
                   ) : null}
                   {hasMobileSecondaryActions ? (
                     <button
@@ -6860,7 +6889,7 @@ function CalendarEventModal({
             ) : null}
             <div data-testid="calendar-desktop-action-bar" className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
               <div className="flex flex-wrap items-center gap-3">
-                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>Open item</button> : null}
+                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : 'Open item'}</button> : null}
                 {canBuildFormation ? <button type="button" onClick={onBuildFormation} className={primaryButtonClass}>Build Formation Board with attending players</button> : null}
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
