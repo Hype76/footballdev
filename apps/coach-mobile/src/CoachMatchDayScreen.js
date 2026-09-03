@@ -5,7 +5,6 @@ import { ActivityIndicator, AppState, KeyboardAvoidingView, Modal, Platform, Pre
 import { buildCompletedMatchEventPresentation } from '../../../src/lib/matchday-final-report.js'
 import {
   buildCoachFinalMatchReport,
-  buildCoachMatchDaySquad,
   captureCoachMatchDayAction,
   createCoachMatchDayEventForm,
   filterCoachMatchDayPlayerChoices,
@@ -24,6 +23,7 @@ import {
   isCoachMatchDayShootoutKickApplied,
   isCoachMatchDayShootoutKickVoided,
   isCoachMatchDaySquadDecisionApplied,
+  isCoachMatchDaySquadNotificationApplied,
   isCoachMatchDayTimerActionApplied,
   isCoachMatchDayVolunteerSelectionApplied,
   pickCoachMatchDayLinkedPlayer,
@@ -43,6 +43,7 @@ import {
   saveCoachMatchDayFinalReport,
   selectCoachMatchDayVolunteer,
   setCoachMatchDaySquadDecision,
+  notifyCoachMatchDaySquadDecision,
   voidCoachMatchDayEvent,
   voidCoachMatchDayShootoutKick,
 } from '../../mobile-core/src/coachMatchDayData'
@@ -55,6 +56,7 @@ import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { CoachFormationBoard } from './CoachFormationBoard'
 import { CoachFixtureForm } from './CoachFixtureForm'
 import { CoachGuestScorer } from './CoachGuestScorer'
+import { CoachSquadPanel } from './CoachSquadPanel'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 
 const config = getMobileRuntimeConfig('coach')
@@ -266,15 +268,6 @@ function FixtureHero({ match, now, styles }) {
         <View style={styles.gameStat}><View style={styles.gameStatHeading}><MaterialIcons name={getMobileIconName('match.period')} size={18} style={styles.secondaryText} /><Text style={styles.gameStatLabel}>Period</Text></View><Text style={styles.gameStatValue}>{view.phaseLabel}</Text></View>
       </View>
     </View>
-  </View>
-}
-
-function SquadPanel({ actions, busy, match, onSetDecision, players, styles }) {
-  const squad = buildCoachMatchDaySquad(players, match)
-  return <View style={styles.stack}>
-    <View style={styles.card}><Text style={styles.cardTitle}>Squad summary</Text><Text style={styles.body}>Selected {squad.summary.selected} | Waiting {squad.summary.waiting} | Not selected {squad.summary.notSelected} | Undecided {squad.summary.undecided}</Text><Text style={styles.meta}>Availability and squad decisions are separate authoritative states. Optimistic concurrency protects each decision.</Text></View>
-    {!actions.canSetSquad ? <View style={styles.warning}><Text style={styles.body}>{actions.blockedReason || 'Squad decisions are locked after the fixture starts.'}</Text></View> : null}
-    {squad.rows.map((player) => <View key={player.id} style={styles.card}><Text style={styles.cardTitle}>{player.playerName}</Text><Text style={styles.meta}>{player.availabilityLabel} | {player.decisionLabel}{player.shirtNumber ? ` | #${player.shirtNumber}` : ''}</Text><View style={styles.tabs}>{['selected', 'waiting', 'not_selected', 'undecided'].map((decision) => <Button disabled={busy || !actions.canSetSquad || decision === player.decision} key={decision} label={decision.replace('_', ' ')} onPress={() => onSetDecision(player, decision)} secondary styles={styles} />)}</View></View>)}
   </View>
 }
 
@@ -749,7 +742,10 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {!fixtureFormOpen && !match ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
     {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><Button iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} /><Chips iconResolver={getMatchDayPanelIconKey} onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} /></> : null}
       {panel === 'overview' ? <View style={styles.stack}><FixtureHero match={match} styles={styles} /><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><Text style={styles.body}>{match.venueAddress || match.venueName || 'Venue TBC'}</Text>{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text>{['scheduled', 'scorer_request', 'postponed'].includes(match.status) ? <Button label="Edit fixture" onPress={() => { setFixtureFormMatch(match); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'start-match', label: 'Start match', run: async () => { const detail = await replace(() => runCoachMatchDayTimerAction(user, match, 'start'), (nextDetail) => isCoachMatchDayTimerActionApplied(nextDetail, 'start')); setPanel('live'); return detail } })} styles={styles} /></View> : actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
-      {panel === 'squad' ? <SquadPanel actions={actions} busy={busy} match={match} onSetDecision={(player, decision) => setPending({ label: `Set ${player.playerName} to ${decision.replaceAll('_', ' ')}`, run: () => replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision)) })} players={players} styles={styles} /> : null}
+      {panel === 'squad' ? <CoachSquadPanel actions={actions} busy={busy || reconciling} match={match} palette={palette}
+        onSetDecision={(player, decision) => { void replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision)).catch(() => {}) }}
+        onNotify={(player) => { void replace(() => notifyCoachMatchDaySquadDecision(user, match, player.id, player.decisionRevision), (detail) => isCoachMatchDaySquadNotificationApplied(detail, player.id, player.decisionRevision)).catch(() => {}) }}
+        players={players} styles={styles} /> : null}
       {panel === 'formation' ? <CoachFormationBoard context={context} match={match} palette={palette} players={players} stale={stale} user={user} /> : null}
       {panel === 'volunteers' ? <VolunteerPanel actions={actions} busy={busy} match={match} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /> : null}
       {panel === 'live' ? <LivePanel actions={actions} busy={busy} eventForm={eventForm} match={match} onEventForm={setEventForm} onExit={() => setPanel('overview')} onPrepare={setPending} onScore={(kind) => { if (kind === 'event') return submitEvent(); const commandId = createCoachMatchDayCommandId(); return replace(() => correctCoachMatchDayScore(user, match, scoreDraft.home, scoreDraft.away, commandId), (detail) => hasCoachMatchDayCommandResult(detail, commandId)) }} onTimer={(action) => replace(() => runCoachMatchDayTimerAction(user, match, action), (detail) => isCoachMatchDayTimerActionApplied(detail, action))} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}

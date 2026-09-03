@@ -58,7 +58,7 @@ test('Parent scorer Game Mode uses the shared compact action grid and focused sh
 
   assert.match(screen, /function ParentMatchDayActionSheet/)
   assert.match(scorerControls, /getParentScorerTimerActions\(match\)/)
-  assert.match(scorerControls, /captureCoachMatchDayAction\(match, kind, Date\.now\(\)\)/)
+  assert.match(scorerControls, /captureParentScorerAction\(match, kind, Date\.now\(\)\)/)
   assert.match(scorerControls, /actionSheet\?\.kind === 'goal'/)
   assert.match(scorerControls, /actionSheet\?\.kind === 'score'/)
   assert.match(scorerControls, /actionSheet\?\.kind === 'correct-goal'/)

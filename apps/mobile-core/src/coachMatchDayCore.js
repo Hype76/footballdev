@@ -19,11 +19,6 @@ function normalize(value) {
   return String(value ?? '').trim()
 }
 
-function timestamp(value) {
-  const result = new Date(value || 0).getTime()
-  return Number.isFinite(result) ? result : 0
-}
-
 function sameText(left, right) {
   return normalize(left).toLowerCase() === normalize(right).toLowerCase()
 }
@@ -143,11 +138,12 @@ export function filterCoachMatchDays(matches, filter = 'current', now = new Date
       const priority = Number(left.presentationPriority ?? left.presentation_priority ?? 99) - Number(right.presentationPriority ?? right.presentation_priority ?? 99)
       if (filter === 'current' && priority) return priority
       const direction = filter === 'previous' ? -1 : 1
-      const leftDate = left.matchDate ?? left.match_date ?? ''
-      const leftTime = left.kickoffTime ?? left.kickoff_time ?? '23:59'
-      const rightDate = right.matchDate ?? right.match_date ?? ''
-      const rightTime = right.kickoffTime ?? right.kickoff_time ?? '23:59'
-      return direction * (timestamp(left.scheduledKickoffAt ?? left.scheduled_kickoff_at ?? `${leftDate}T${leftTime}`) - timestamp(right.scheduledKickoffAt ?? right.scheduled_kickoff_at ?? `${rightDate}T${rightTime}`))
+      const leftDate = normalize(left.matchDate || left.match_date)
+      const rightDate = normalize(right.matchDate || right.match_date)
+      if (!leftDate || !rightDate) return Number(!leftDate) - Number(!rightDate)
+      const time = (match) => match.kickoffTimeTbc || match.kickoff_time_tbc ? '23:59:59' : normalize(match.kickoffTime || match.kickoff_time) || '23:59:59'
+      return direction * (`${leftDate}T${time(left)}`.localeCompare(`${rightDate}T${time(right)}`))
+        || normalize(left.id).localeCompare(normalize(right.id))
     })
 }
 
@@ -224,9 +220,16 @@ export function buildCoachMatchDaySquad(players = [], match = {}) {
       decision: decisionValue,
       decisionLabel: getMatchDaySquadDecisionLabel(decisionValue),
       decidedAt: decision?.decidedAt || '',
+      decisionRevision: decision?.decisionRevision || '',
+      notifiedAt: decision?.notifiedAt || '',
     })
   })
   return Object.freeze({ rows: Object.freeze(rows), summary: Object.freeze(summarizeMatchDaySquadDecisions(rows.map((row) => row.decision))) })
+}
+
+export function isCoachMatchDaySquadNotificationApplied(match, playerId, revision) {
+  return (match?.squadDecisions || []).some((decision) => decision.playerId === playerId
+    && decision.decisionRevision === revision && Boolean(decision.notifiedAt))
 }
 
 function normalizePlayerChoice(player = {}) {

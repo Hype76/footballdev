@@ -394,7 +394,7 @@ export async function handler(event) {
   }
 }
 
-export async function deliverMatchDayNotification({ match, type, eventId = '', targetParentLinkIds }) {
+export async function deliverMatchDayNotification({ match, type, eventId = '', targetParentLinkIds, notificationCopy: suppliedCopy, inboxAlreadySaved = false }) {
   const webPushConfigured = configureWebPush()
     let eventRow = null
 
@@ -422,7 +422,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
     const mobileDevices = await getMobileDevices({
       targetParentLinks: appNotificationParentLinks,
     })
-    const notificationCopy = buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
+    const notificationCopy = suppliedCopy || buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
     const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
     const teamName = resolveMatchDayNotificationTeamName(match)
     const clubName = normalizeText(club?.name)
@@ -457,7 +457,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
         type,
       },
     }
-    const inboxResult = await writeParentNotificationInbox({
+    const inboxResult = inboxAlreadySaved ? { available: appNotificationParentLinks.length } : await writeParentNotificationInbox({
       body: nativePayload.minimalBody,
       client: supabaseAdmin,
       clubId: match.club_id,
@@ -480,7 +480,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
       sound: 'default',
     })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
-  return { sent, revoked, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available }
+  return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available }
 }
 
 export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {

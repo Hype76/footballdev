@@ -43,7 +43,7 @@ function normalizeShootoutKick(row = {}) {
 }
 
 function normalizeSquadDecision(row = {}) {
-  return { id: row.id ?? '', matchDayId: row.match_day_id ?? row.matchDayId ?? '', playerId: row.player_id ?? row.playerId ?? '', status: normalizeMatchDaySquadDecision(row.status), decidedByName: normalize(row.decided_by_name ?? row.decidedByName), decidedAt: row.decided_at ?? row.decidedAt ?? '', updatedAt: row.updated_at ?? row.updatedAt ?? '' }
+  return { id: row.id ?? '', matchDayId: row.match_day_id ?? row.matchDayId ?? '', playerId: row.player_id ?? row.playerId ?? '', status: normalizeMatchDaySquadDecision(row.status), decidedByName: normalize(row.decided_by_name ?? row.decidedByName), decidedAt: row.decided_at ?? row.decidedAt ?? '', updatedAt: row.updated_at ?? row.updatedAt ?? '', decisionRevision: row.decision_revision ?? row.decisionRevision ?? '', notifiedAt: row.notified_at ?? row.notifiedAt ?? '' }
 }
 
 function normalizeAvailability(row = {}) {
@@ -423,6 +423,20 @@ export async function runCoachMatchDayTimerAction(user, match, action) {
 export async function setCoachMatchDaySquadDecision(user, match, playerId, decision, expectedDecidedAt = null) {
   await prepareMutation(user, match)
   await rpc('set_match_day_player_squad_decision_v2', { match_day_id_value: match.id, player_id_value: playerId, decision_value: normalizeMatchDaySquadDecision(decision), expected_decided_at_value: expectedDecidedAt || null })
+  return getCoachMatchDayDetail(user, match.id)
+}
+
+export async function notifyCoachMatchDaySquadDecision(user, match, playerId, revision) {
+  await prepareMutation(user, match)
+  const config = getMobileRuntimeConfig('coach')
+  if (!config.isProduction) throw new Error('Parent notifications are disabled in the test app.')
+  const token = await getAccessToken()
+  if (!token) throw new Error('Sign in again before notifying parents.')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/notify-match-day-squad'), {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ matchId: match.id, playerId, revision }),
+  })
+  if (!ok || result?.sent !== true) throw new Error(result?.message || 'The parent notification could not be confirmed.')
   return getCoachMatchDayDetail(user, match.id)
 }
 
