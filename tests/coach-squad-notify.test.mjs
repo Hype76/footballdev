@@ -62,6 +62,37 @@ test('an already claimed or obsolete receipt does not produce another phone mess
   assert.deepEqual(await deliverSquadDecisionNotifications([id], { admin: { rpc: async () => ({ data: null }) }, deliver: async () => { throw new Error('Must not deliver') } }), { completed: 0 })
 })
 
+test('email fallback uses only the saved recipient and a stable provider key across retries', async () => {
+  const emails = []; const updates = []
+  const receipt = { id, match_day_id: 'fixture', delivery_channel: 'email', recipient_email: 'parent@example.test', body: 'Alex is in the squad.', notified_by: 'coach' }
+  const admin = { rpc: async () => ({ data: receipt }), from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'fixture', club_id: 'club', team_id: 'team', clubs: { name: 'FP TEST' } } }) }) }), update: (value) => ({ eq: async () => { updates.push(value); return {} } }) }) }
+  const email = async (payload, options) => { emails.push({ payload, options }); if (emails.length === 1) throw new Error('Network interrupted') }
+  const deliver = async () => { throw new Error('Email receipt must not send an app push') }
+  assert.equal((await deliverSquadDecisionNotifications([id], { admin, deliver, email })).completed, 0)
+  assert.equal(updates[0].push_claimed_at, null)
+  assert.equal((await deliverSquadDecisionNotifications([id], { admin, deliver, email })).completed, 1)
+  assert.equal(emails[0].payload.to, 'parent@example.test')
+  assert.equal(emails[0].options.idempotencyKey, emails[1].options.idempotencyKey)
+  assert.equal(emails[1].options.idempotencyKey, `squad-decision:${id}`)
+  assert.equal(emails[1].payload.text, 'Alex is in the squad.\n\nFP TEST')
+  assert.ok(updates[1].push_finished_at)
+})
+
+test('contact flags distinguish email delivery, no contacts and explicit preferences', () => {
+  const players = ['app', 'email', 'none', 'off', 'unknown'].map((id) => ({ id, playerName: id }))
+  const rows = buildCoachMatchDaySquad(players, { squadNotificationContacts: [
+    { playerId: 'app', canNotify: true, hasContact: true, appRecipientCount: 1 },
+    { playerId: 'email', canNotify: true, hasContact: true, emailRecipientCount: 1 },
+    { playerId: 'none', canNotify: false, hasContact: false },
+    { playerId: 'off', canNotify: false, hasContact: true },
+  ] }).rows
+  assert.equal(rows.find((p) => p.id === 'email').emailRecipientCount, 1)
+  assert.equal(rows.find((p) => p.id === 'app').canNotify, true)
+  assert.equal(rows.find((p) => p.id === 'none').notificationContactState, 'no_contact')
+  assert.equal(rows.find((p) => p.id === 'off').notificationContactState, 'disabled')
+  assert.equal(rows.find((p) => p.id === 'unknown').notificationContactState, 'unknown')
+})
+
 test('batch endpoint calls one authority RPC and returns each player outcome without direct phone fanout', async () => {
   const second = '9a090303-0000-4000-8000-000000000002'
   let call

@@ -85,6 +85,7 @@ export function normalizeCoachMatchDay(row = {}) {
     phaseStartedAt: row.phase_started_at ?? row.phaseStartedAt ?? '', timerStartedAt: row.timer_started_at ?? row.timerStartedAt ?? '', timerPausedAt: row.timer_paused_at ?? row.timerPausedAt ?? '', timerElapsedSeconds: integer(row.timer_elapsed_seconds ?? row.timerElapsedSeconds), timerStatus: normalize(row.timer_status ?? row.timerStatus) || 'not_started', fullTimeResumeStatus: normalize(row.full_time_resume_status ?? row.fullTimeResumeStatus), concludedAt: row.concluded_at ?? row.concludedAt ?? '', concludedBy: row.concluded_by ?? row.concludedBy ?? '',
     presentationPriority: Number(row.presentation_priority ?? row.presentationPriority ?? 99), scheduledKickoffAt: row.scheduled_kickoff_at ?? row.scheduledKickoffAt ?? '', isBeforeKickoff: row.is_before_kickoff === true || row.isBeforeKickoff === true, isToday: row.is_today === true || row.isToday === true, hasPresentationState, serverLocalDate: row.server_local_date ?? row.serverLocalDate ?? '', serverLocalTime: row.server_local_time ?? row.serverLocalTime ?? '',
     playerAvailability: (row.match_day_player_availability ?? row.playerAvailability ?? []).map(normalizeAvailability), squadDecisions: (row.match_day_player_squad_decisions ?? row.squadDecisions ?? []).map(normalizeSquadDecision), availabilityRequests: (row.match_day_availability_requests ?? row.availabilityRequests ?? []).map(normalizeRequest), roleAssignments: (row.match_day_role_assignments ?? row.roleAssignments ?? []).map(normalizeRoleAssignment),
+    squadNotificationContacts: (row.squad_notification_contacts ?? row.squadNotificationContacts ?? []).map((contact) => ({ playerId: contact.player_id ?? contact.playerId, canNotify: contact.can_notify === true || contact.canNotify === true, hasContact: contact.has_contact === true || contact.hasContact === true, appRecipientCount: integer(contact.app_recipient_count ?? contact.appRecipientCount), emailRecipientCount: integer(contact.email_recipient_count ?? contact.emailRecipientCount) })),
     events: rawEvents.map(normalizeEvent).sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)), shootoutEvents: rawKicks.map(normalizeShootoutKick),
     finalReport: finalReportRow ? { matchDayId: finalReportRow.match_day_id ?? finalReportRow.matchDayId ?? '', staffNotes: normalize(finalReportRow.staff_notes ?? finalReportRow.staffNotes), createdByName: normalize(finalReportRow.created_by_name ?? finalReportRow.createdByName), updatedByName: normalize(finalReportRow.updated_by_name ?? finalReportRow.updatedByName), updatedAt: finalReportRow.updated_at ?? finalReportRow.updatedAt ?? '' } : null,
     previousHiddenAt: row.previous_hidden_at ?? row.previousHiddenAt ?? '', deletedAt: row.deleted_at ?? row.deletedAt ?? '', updatedAt: row.updated_at ?? row.updatedAt ?? '', isHydrated: Array.isArray(row.match_day_events),
@@ -340,6 +341,11 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
   if (error) throw error
   if (!data?.id) throw new Error('This match day is not linked to your active Team.')
   let result = data
+  if (['scheduled', 'scorer_request'].includes(data.status) && Number(user.roleRank || 0) >= 20) {
+    const { data: contacts, error: contactsError } = await supabase.rpc('get_match_day_squad_notification_contacts', { match_id: matchDayId })
+    // Missing contact metadata disables Notify without blocking the fixture or live controller.
+    result = { ...data, squad_notification_contacts: !contactsError && Array.isArray(contacts) ? contacts : [] }
+  }
   if (includeVolunteerEligibility) {
     const config = getMobileRuntimeConfig('coach')
     const accessToken = await getAccessToken()

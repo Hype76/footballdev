@@ -320,7 +320,8 @@ async function seedDatabase(db) {
 }
 
 test("disposable database applies, rolls back, reapplies, and enforces parent scorer authority", async () => {
-  const migration = await readFile(migrationPath, "utf8");
+  const conclusionGuard = (await readFile(new URL("../supabase/migrations/20260903120639_squad_notification_email_fallback.sql", import.meta.url), "utf8")).split("alter table public.match_day_squad_notifications")[0];
+  const migration = await readFile(migrationPath, "utf8") + "\n" + conclusionGuard;
   const db = new PGlite();
 
   try {
@@ -572,9 +573,10 @@ test("disposable database applies, rolls back, reapplies, and enforces parent sc
     await db.query(`select public.set_match_day_timer_state($1, 'full_time')`, [
       IDS.matchA,
     ]);
-    await db.query(`select public.set_match_day_timer_state($1, 'conclude')`, [
-      IDS.matchA,
-    ]);
+    await expectDatabaseError(db.query(`select public.set_match_day_timer_state($1, 'conclude')`, [IDS.matchA]), /Only a coach or manager/);
+    await setActor(db, IDS.staff);
+    await db.query(`select public.set_match_day_timer_state($1, 'conclude')`, [IDS.matchA]);
+    await setActor(db, IDS.scorerB);
     await expectDatabaseError(
       db.query(
         `select public.update_match_day_score_as_scorer($1, $2, 3, 1, null)`,

@@ -10,6 +10,7 @@ values('9a090303-0000-4000-8000-000000000002','31e8bebc-07fb-4c8b-9ecc-2304d3641
 ('9a090303-0000-4000-8000-000000000003','31e8bebc-07fb-4c8b-9ecc-2304d36415ed','492cee77-d3c4-4e07-b31b-6abc07328d25','FP TEST no parent','Squad','active');
 insert into public.parent_player_links(id,club_id,team_id,player_id,email,auth_user_id,status,receives_communications)
 values('9a090303-0000-4000-8000-000000000004','31e8bebc-07fb-4c8b-9ecc-2304d36415ed','492cee77-d3c4-4e07-b31b-6abc07328d25','9a090303-0000-4000-8000-000000000002','fp-test-squad@example.invalid','0397797e-6b6e-4962-bb87-a4e2fd7c20eb','active',true);
+insert into public.parent_mobile_app_installations(installation_id,auth_user_id,platform) values('9a090303-0000-4000-8000-000000000008','0397797e-6b6e-4962-bb87-a4e2fd7c20eb','ios');
 update public.parent_communication_preferences set communication_channel='both' where auth_user_id='0397797e-6b6e-4962-bb87-a4e2fd7c20eb';
 select set_config('request.jwt.claim.sub','79716f3d-f312-4117-ad49-162207c96710',true);
 select set_config('request.jwt.claims','{"sub":"79716f3d-f312-4117-ad49-162207c96710","role":"authenticated"}',true);

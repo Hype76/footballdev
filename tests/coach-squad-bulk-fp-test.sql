@@ -10,7 +10,7 @@ do $$ declare d public.match_day_player_squad_decisions%rowtype; missing public.
   items:=jsonb_build_array(jsonb_build_object('playerId',d.player_id,'revision',d.decision_revision),jsonb_build_object('playerId',missing.player_id,'revision',missing.decision_revision));
   r:=public.notify_match_day_squad_decisions(d.match_day_id,items);
   if (select count(*) from jsonb_array_elements(r->'results') x where x->>'sent'='true')<>1
-    or (select count(*) from jsonb_array_elements(r->'results') x where x->>'sent'='false' and x->>'message'='No active parent app account is linked to this player.')<>1
+    or (select count(*) from jsonb_array_elements(r->'results') x where x->>'sent'='false' and x->>'message' like 'No contact details%')<>1
     or jsonb_array_length(r->'notificationIds')<>1 then raise exception 'TEST FAILED mixed batch or legacy default blocked'; end if;
   r:=public.notify_match_day_squad_decisions(d.match_day_id,items);
   if jsonb_array_length(r->'notificationIds')<>0 or not exists(select 1 from jsonb_array_elements(r->'results') x where x->>'alreadySent'='true') then raise exception 'TEST FAILED repeat batch duplicated notification'; end if;
@@ -26,7 +26,8 @@ set local role authenticated;
 do $$ declare d public.match_day_player_squad_decisions%rowtype; r jsonb; begin
   select * into d from public.match_day_player_squad_decisions where player_id='9a090303-0000-4000-8000-000000000002';
   r:=public.notify_match_day_squad_decisions(d.match_day_id,jsonb_build_array(jsonb_build_object('playerId',d.player_id,'revision',d.decision_revision)));
-  if r#>>'{results,0,sent}'<>'false' or r#>>'{results,0,message}' not like 'App notifications are switched off%' then raise exception 'TEST FAILED app opt-out ignored'; end if;
+  if r#>>'{results,0,sent}'<>'true' then raise exception 'TEST FAILED email preference not honoured'; end if;
+  perform public.set_match_day_player_squad_decision_v2(d.match_day_id,d.player_id,'selected',d.decided_at);
 end $$;
 reset role;
 update public.parent_communication_preferences set communication_channel='both' where auth_user_id='0397797e-6b6e-4962-bb87-a4e2fd7c20eb';
@@ -42,7 +43,7 @@ end $$;
 reset role;
 do $$ begin
   if has_function_privilege('anon','public.notify_match_day_squad_decisions(uuid,jsonb)','execute') then raise exception 'TEST FAILED anonymous batch permission'; end if;
-  if (select count(*) from public.match_day_squad_notifications n join public.match_day_player_squad_decisions d on d.id=n.decision_id where d.match_day_id='9a090303-0000-4000-8000-000000000001')<>3 then raise exception 'TEST FAILED final receipt count'; end if;
+  if (select count(*) from public.match_day_squad_notifications n join public.match_day_player_squad_decisions d on d.id=n.decision_id where d.match_day_id='9a090303-0000-4000-8000-000000000001')<>4 then raise exception 'TEST FAILED final receipt count'; end if;
   if (select count(*) from public.parent_mobile_notification_events where parent_link_id='9a090303-0000-4000-8000-000000000004')<>1 then raise exception 'TEST FAILED final inbox count'; end if;
 end $$;
 -- Installed linked accounts count even when the Player contact snapshot is different.

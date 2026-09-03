@@ -53,7 +53,7 @@ import {
   resolveParentNotificationLinkId,
   resolveParentNotificationOpen,
 } from '../mobile-core/src/parentNotificationsCore'
-import { countUnreadNonChatNotifications, getParentNotificationPresentation, getParentOpenedNotificationIds, prepareParentNotificationInbox } from '../mobile-core/src/parentNotificationInboxCore'
+import { countUnreadNonChatNotifications, getParentNotificationPresentation, getParentOpenedNotificationIds, prepareParentNotificationInbox, prepareParentUpdates } from '../mobile-core/src/parentNotificationInboxCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
@@ -1957,11 +1957,7 @@ function ParentHome() {
                 onOpenCalendar={() => setActiveTab('calendar')}
                 onOpenMatch={(match) => { setSelectedMatchId(match.id); setActiveTab('matchday'); scrollViewRef.current?.scrollTo({ y: 0, animated: false }) }}
                 onOpenLink={handleOpenMatchLink}
-                onOpenMessages={() => {
-                  const room = parentChatRooms.find((candidate) => candidate.id === 'club-announcements')
-                  setActiveTab('chat')
-                  if (room) void handleOpenChatRoom(room)
-                }}
+                onOpenUpdates={() => { setMoreSection('updates'); setActiveTab('more'); scrollViewRef.current?.scrollTo({ y: 0, animated: false }) }}
                 onOpenNotification={handleOpenNotification}
                 onOpenPolls={() => { setMoreSection('polls'); setActiveTab('more') }}
                 onOpenResource={handleOpenCalendarResource}
@@ -2001,6 +1997,7 @@ function ParentHome() {
               />
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
+            {activeTab === 'more' && moreSection === 'updates' ? <UpdatesScreen matches={visibleMatches} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
@@ -2238,7 +2235,38 @@ function getNotificationTypeIcon(intentType) {
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 
-function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenMessages, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
+function UpdatesScreen({ matches, onOpenNotification, onRetry, resource }) {
+  const { palette, styles } = useParentTheme()
+  const [unreadOnly, setUnreadOnly] = useState(false)
+  const updates = prepareParentUpdates(resource.items)
+  const visible = updates.filter((item) => !unreadOnly || !item.isRead)
+  return <View style={styles.screenStack}>
+    <SectionHeading title="Updates" copy="Squad selection, scores and club notifications." />
+    <ResourceError onRetry={onRetry} resource={resource} title="Updates unavailable" />
+    <View style={styles.cardTopRow}>
+      <PrimaryAction label={`All (${updates.length})`} onPress={() => setUnreadOnly(false)} secondary={unreadOnly} />
+      <PrimaryAction label={`Unread (${countUnreadNonChatNotifications(updates)})`} onPress={() => setUnreadOnly(true)} secondary={!unreadOnly} />
+    </View>
+    {resource.loading && !updates.length ? <LoadingPanel message="Loading updates" /> : null}
+    {!resource.loading && !visible.length ? <EmptyPanel title={unreadOnly ? 'All caught up' : 'No updates yet'} message={unreadOnly ? 'Read updates are still available under All.' : 'Squad decisions, match scores and other club updates will appear here.'} /> : null}
+    {visible.map((notification) => {
+      const presentation = getParentNotificationPresentation(notification, matches)
+      return <Pressable accessibilityRole="button" accessibilityLabel={`${notification.isRead ? 'Read' : 'Unread'}: ${presentation.displayTitle}`} key={notification.id} onPress={() => onOpenNotification(notification)} style={({ pressed }) => [styles.card, !notification.isRead && styles.cardProminent, pressed && styles.pressed]}>
+        <View style={styles.notificationRow}>
+          <View style={styles.notificationIcon}><ParentIcon color={palette.accent} iconKey={getNotificationTypeIcon(notification.intentType)} size={23} /></View>
+          <View style={styles.notificationContent}>
+            <View style={styles.cardTopRow}><Badge label={getNotificationTypeLabel(notification.intentType)} tone={notification.isRead ? 'neutral' : 'accent'} /><Text style={styles.cardDate}>{formatDateTime(notification.sentAt || notification.createdAt)}</Text></View>
+            <Text style={styles.cardTitle}>{presentation.displayTitle}</Text>
+            <Text style={styles.bodyText}>{presentation.displayBody}</Text>
+            <Text style={styles.cardLink}>{presentation.actionLabel}</Text>
+          </View>
+        </View>
+      </Pressable>
+    })}
+  </View>
+}
+
+function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
   const unreadNotifications = prepareParentNotificationInbox(notifications.items).filter((notification) => !notification.isRead)
     .map((notification) => ({ ...notification, ...getParentNotificationPresentation(notification, matches.items) }))
@@ -2271,7 +2299,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOf
       <ResourceError onRetry={onRetry} resource={calendar} title="Calendar unavailable" />
 
       <View accessibilityLabel="Family actions" style={styles.summaryGrid}>
-        <SummaryButton count={homeModel.unreadMessages} iconKey="parent.updates" label="Updates" onPress={onOpenMessages} />
+        <SummaryButton count={countUnreadNonChatNotifications(notifications.items)} iconKey="parent.updates" label="Updates" onPress={onOpenUpdates} />
         <SummaryButton count={homeModel.unansweredPolls} iconKey="parent.polls" label="Polls" onPress={onOpenPolls} />
         <SummaryButton count={inviteCount} iconKey="parent.invites" label="Invites" onPress={onOpenInvites} />
         <SummaryButton iconKey="parent.calendar" label="Calendar" onPress={onOpenCalendar} />

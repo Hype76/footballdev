@@ -14,6 +14,15 @@ import {
 
 const coachScreenUrl = new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url)
 
+test('Game Mode lists the complete selected squad and can search players beyond the first twelve', () => {
+  const players = Array.from({ length: 32 }, (_, index) => ({ id: `player-${index}`, playerName: `Player ${String(index + 1).padStart(2, '0')}`, shirtNumber: String(index + 1), teamId: 'team-1', status: 'active' }))
+  const match = { teamId: 'team-1', squadDecisions: players.map((player) => ({ playerId: player.id, status: 'selected' })) }
+  const selected = getCoachMatchDaySelectedPlayers(players, match)
+  assert.equal(filterCoachMatchDayPlayerChoices(selected).length, 32)
+  assert.equal(filterCoachMatchDayPlayerChoices(selected, '32')[0].id, 'player-31')
+  assert.equal(filterCoachMatchDayPlayerChoices(selected, 'Player').length, 32)
+})
+
 const players = [
   { id: 'p1', playerName: 'Steve King', section: 'Squad', shirtNumber: '8', status: 'active', teamId: 'team-1' },
   { id: 'p2', playerName: 'Alex Green', section: 'Squad', shirtNumber: '10', status: 'active', teamId: 'team-1' },

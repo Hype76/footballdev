@@ -209,10 +209,12 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
 export function buildCoachMatchDaySquad(players = [], match = {}) {
   const decisions = new Map((match.squadDecisions || []).map((decision) => [decision.playerId, decision]))
   const availability = new Map((match.playerAvailability || []).map((item) => [item.playerId, item]))
+  const notificationContacts = new Map((match.squadNotificationContacts || []).map((item) => [item.playerId, item]))
   const rows = (Array.isArray(players) ? players : []).map((player) => {
     const decision = decisions.get(player.id)
     const response = availability.get(player.id)
     const decisionValue = normalizeMatchDaySquadDecision(decision?.status)
+    const contact = notificationContacts.get(player.id)
     return Object.freeze({
       ...player,
       availability: response?.status || 'pending',
@@ -222,6 +224,10 @@ export function buildCoachMatchDaySquad(players = [], match = {}) {
       decidedAt: decision?.decidedAt || '',
       decisionRevision: decision?.decisionRevision || '',
       notifiedAt: decision?.notifiedAt || '',
+      canNotify: contact?.canNotify === true,
+      notificationContactState: contact ? contact.canNotify ? 'ready' : contact.hasContact ? 'disabled' : 'no_contact' : 'unknown',
+      appRecipientCount: Number(contact?.appRecipientCount || 0),
+      emailRecipientCount: Number(contact?.emailRecipientCount || 0),
     })
   })
   return Object.freeze({ rows: Object.freeze(rows), summary: Object.freeze(summarizeMatchDaySquadDecisions(rows.map((row) => row.decision))) })
@@ -290,8 +296,7 @@ export function filterCoachMatchDayPlayerChoices(players = [], query = '') {
   return Object.freeze(rows
     .filter((player) => !normalizedQuery
       || normalize(player?.playerName).toLowerCase().includes(normalizedQuery)
-      || normalize(player?.shirtNumber).toLowerCase().includes(normalizedQuery))
-    .slice(0, 12))
+      || normalize(player?.shirtNumber).toLowerCase().includes(normalizedQuery)))
 }
 
 export function pickCoachMatchDayLinkedPlayer(form = {}, fieldPrefix = 'player', player = {}) {
