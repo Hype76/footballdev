@@ -389,7 +389,7 @@ async function assertStaffRoomActiveContext(user, room) {
 export async function getCoachChatRooms(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   const [scopedStaffRows, parentRows] = await Promise.all([
-    rpc('get_staff_chat_conversation_ids', { active_team_id_value: user.activeTeamId }),
+    rpc('get_staff_chat_unread_summary', { active_team_id_value: user.activeTeamId }),
     rpc('get_parent_chat_rooms', { active_team_id_value: user.activeTeamId }),
   ])
   const scopedStaffIds = (scopedStaffRows || []).map((row) => normalize(row.id)).filter(Boolean)
@@ -397,7 +397,8 @@ export async function getCoachChatRooms(user) {
     ? await supabase.from('staff_chat_conversations').select('*,staff_chat_members(*)').eq('club_id', user.clubId).in('id', scopedStaffIds).order('last_message_at', { ascending: false, nullsFirst: false })
     : { data: [], error: null }
   if (staffResult.error) throw staffResult.error
-  const staff = (staffResult.data || []).map((row) => normalizeCoachChatRoom(row, 'staff')).filter((room) => canOpenStaffRoom(user, room))
+  const unreadById = new Map((scopedStaffRows || []).map((row) => [normalize(row.id), Number(row.unread_count || 0)]))
+  const staff = (staffResult.data || []).map((row) => normalizeCoachChatRoom({ ...row, unread_count: unreadById.get(normalize(row.id)) || 0 }, 'staff')).filter((room) => canOpenStaffRoom(user, room))
   const parent = (parentRows || []).map((row) => normalizeCoachChatRoom(row, 'parent')).filter((room) => room.teamId === user.activeTeamId)
   return Object.freeze({ staff: Object.freeze(staff), parent: Object.freeze(parent) })
 }

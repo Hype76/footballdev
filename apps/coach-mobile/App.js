@@ -42,6 +42,7 @@ import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
+import { buildCoachChatSummary } from '../mobile-core/src/coachPhase31GCore'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
@@ -160,6 +161,7 @@ function CoachHome() {
   const lastHomeRefreshAtRef = useRef(0)
   const headerScrollY = useRef(new Animated.Value(0)).current
   const requestIdRef = useRef(0)
+  const chatRefreshIdRef = useRef(0)
   const bootstrappedAuthorityRef = useRef('')
   const notificationResponseIdRef = useRef('')
   const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
@@ -360,15 +362,16 @@ function CoachHome() {
     if (!selectedMobileUser?.clubId) return
     if (chatOnly) {
       const requestId = requestIdRef.current
+      const chatRefreshId = ++chatRefreshIdRef.current
       const rooms = await readMobileResource(selectedMobileUser, 'coach:phase31e:chat',
         () => getCoachChatRooms(selectedMobileUser), { force: true })
-      if (requestId === requestIdRef.current) setHomeState((current) => ({
-        ...current, chatRooms: rooms,
-        unreadChat: rooms.reduce((total, room) => total + Math.max(0, Number(room.unreadCount || 0)), 0),
+      if (requestId === requestIdRef.current && chatRefreshId === chatRefreshIdRef.current) setHomeState((current) => ({
+        ...current, ...buildCoachChatSummary(rooms),
       }))
       return
     }
     const requestId = ++requestIdRef.current
+    const chatRefreshId = chatRefreshIdRef.current
     if (refresh) setIsRefreshing(true)
     setHomeState((current) => ({ ...current, error: '', loading: !refresh }))
 
@@ -391,7 +394,7 @@ function CoachHome() {
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
       const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
-      setHomeState((current) => ({ ...current, ...primarySnapshot }))
+      setHomeState((current) => ({ ...current, ...primarySnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat }))
       setLastUpdatedAt(savedAt)
       lastHomeRefreshAtRef.current = Date.now()
       void saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
@@ -406,7 +409,9 @@ function CoachHome() {
         ...mergeCoachPhase31GHomeSnapshots(primarySnapshot, attentionResult.value),
         savedAt,
       }
-      setHomeState(completeSnapshot)
+      setHomeState((current) => chatRefreshId === chatRefreshIdRef.current
+        ? completeSnapshot
+        : { ...completeSnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat })
       void saveCoachOfflineResources(user.id, activeContext, { home: completeSnapshot }).catch(() => {})
       InteractionManager.runAfterInteractions(() => {
         if (requestId !== requestIdRef.current) return
@@ -549,6 +554,23 @@ function CoachHome() {
   useEffect(() => {
     void initializeCoachNotifications().catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!contextOwnedByCurrentUser || !selectedMobileUser?.activeTeamId) return undefined
+    const refreshChat = () => {
+      if (appStateRef.current === 'active') void loadHome({ chatOnly: true }).catch(() => {})
+    }
+    // Refresh from the current context, never from untrusted notification counts.
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification?.request?.content?.data || {}
+      if (data.app === 'coach' && (data.route === 'chat' || ['staff_chat', 'parent_chat'].includes(data.type))) refreshChat()
+    })
+    const timer = activeRoute === 'home' ? setInterval(refreshChat, HOME_REFRESH_MIN_INTERVAL_MS) : null
+    return () => {
+      subscription.remove()
+      if (timer) clearInterval(timer)
+    }
+  }, [activeRoute, contextOwnedByCurrentUser, loadHome, selectedMobileUser?.activeTeamId])
 
   useEffect(() => {
     setNotificationState(null)

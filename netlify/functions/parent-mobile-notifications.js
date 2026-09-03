@@ -8,6 +8,7 @@ import {
 import { supabaseAdmin } from './lib/_supabase.js'
 import { getParentMatchNotificationGroupKey } from '../../apps/mobile-core/src/parentNotificationInboxCore.js'
 import { updateParentNotificationInbox } from './lib/_parent-notification-actions.js'
+import { getParentChildNotificationBadges } from './lib/_parent-child-notification-badges.js'
 
 function response(statusCode, payload) {
   return {
@@ -206,6 +207,14 @@ export async function handler(event) {
     if (!parentLinkId) return response(400, { success: false, message: 'Choose a child before opening notifications.' })
 
     const { authUser, link } = await getAuthorisedParentLink(event, parentLinkId)
+
+    if (event.httpMethod === 'GET' && event.queryStringParameters?.summary === 'children') {
+      const unreadByParentLink = await getParentChildNotificationBadges({
+        admin: supabaseAdmin, authUserId: authUser.id,
+        collapse: collapseParentNotificationRows, filterAvailable: filterUnavailableNotifications,
+      })
+      return response(200, { success: true, unreadByParentLink })
+    }
 
     if (event.httpMethod === 'POST') {
       const notificationIds = [...new Set([

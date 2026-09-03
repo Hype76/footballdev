@@ -101,8 +101,10 @@ export function getCoachVolunteerPersonLabel(request = {}, fallback = 'Parent or
 }
 
 export function getCoachVolunteerAssignmentLabel(assignment = {}, requests = []) {
-  const request = (Array.isArray(requests) ? requests : []).find((item) => (
-    normalize(item?.parentLinkId ?? item?.parent_link_id) === normalize(assignment?.parentLinkId ?? assignment?.parent_link_id)
+  if (!assignment?.id) return 'Not assigned'
+  const parentLinkId = normalize(assignment.parentLinkId ?? assignment.parent_link_id)
+  const request = parentLinkId && (Array.isArray(requests) ? requests : []).find((item) => (
+    normalize(item?.parentLinkId ?? item?.parent_link_id) === parentLinkId
   ))
   return getCoachVolunteerPersonLabel(
     request || {
