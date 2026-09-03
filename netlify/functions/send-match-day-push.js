@@ -492,6 +492,7 @@ export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
   const type = command.action === 'start' ? 'match_started'
     : command.action === 'timer' || command.action === 'extended' ? command.details.action
       : command.action === 'goal' ? 'goal'
+        : command.action === 'event' && ['yellow_card', 'red_card', 'substitution'].includes(command.details.eventType) ? command.details.eventType
         : ['score', 'correct_goal', 'remove_goal'].includes(command.action) ? 'score_correction' : ''
   if (type) {
     const match = await getMatch(command.matchId)

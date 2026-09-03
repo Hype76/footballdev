@@ -4,7 +4,7 @@ import { createPublicSupabaseClient, supabaseAdmin } from './lib/_supabase.js'
 import { sendGuestMatchDayNotifications } from './send-match-day-push.js'
 
 const tokenPattern = /^[a-f0-9]{64}$/
-const guestActions = new Set(['claim', 'read', 'start', 'timer', 'extended', 'goal', 'correct_goal', 'remove_goal', 'score', 'shootout'])
+const guestActions = new Set(['claim', 'read', 'start', 'timer', 'extended', 'goal', 'correct_goal', 'remove_goal', 'event', 'remove_event', 'score', 'shootout'])
 const coachActions = new Set(['status', 'create', 'approve', 'revoke'])
 export function hashGuestToken(value) {
   if (!tokenPattern.test(String(value || ''))) throw new Error('This scoring link is invalid. Ask the coach for a new QR code.')

@@ -8,7 +8,11 @@ export async function requestGuestScorer(body, { token = '', origin = '', fetche
     body: JSON.stringify(body), signal: controller.signal, cache: 'no-store',
   })
   const data = await result.json()
-  if (!result.ok || data.success === false) throw new Error(data.message || 'The change could not be confirmed. Retry the same change.')
+  if (!result.ok || data.success === false) {
+    const error = new Error(data.message || 'The change could not be confirmed. Retry the same change.')
+    error.rejected = result.status === 400 && data.success === false
+    throw error
+  }
   return data
   } finally { clearTimeout(timeout) }
 }

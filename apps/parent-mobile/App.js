@@ -85,6 +85,7 @@ import { getParentInvitationCounts } from './src/parentPresentationCore'
 import { getParentEventDateTimeLabel, getParentEventPresentation } from './src/parentEventPresentation'
 import {
   addParentScorerGoal,
+  addParentScorerEvent,
   correctParentScorerGoal,
   deleteParentChatMessage,
   getParentChatMessages,
@@ -1613,6 +1614,11 @@ function ParentHome() {
       if (action === 'goal') {
         const savedEvent = await addParentScorerGoal(selectedMobileUser, match.id, value)
         notificationType = 'goal'
+        notificationEventId = savedEvent?.id || ''
+      }
+      if (action === 'event') {
+        const savedEvent = await addParentScorerEvent(selectedMobileUser, match.id, value)
+        notificationType = value.eventType
         notificationEventId = savedEvent?.id || ''
       }
       if (action === 'correct-goal') await correctParentScorerGoal(selectedMobileUser, match, value.event, value.goal, value.reason)

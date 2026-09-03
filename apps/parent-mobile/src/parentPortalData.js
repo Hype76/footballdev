@@ -1,3 +1,4 @@
+import { validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event.js'
 import * as Crypto from 'expo-crypto'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
@@ -738,6 +739,19 @@ export async function updateParentScorerScore(user, matchId, homeScore, awayScor
     notes_value: normalizeText(reason) || 'Score corrected by parent scorer',
     parent_link_id_value: link.id,
     request_id_value: createRequestId(),
+  })
+}
+
+export async function addParentScorerEvent(user, matchId, input = {}) {
+  const link = requireSelectedLink(user)
+  const event = validateScorerMatchEvent(input)
+  return scorerRpc('record_match_day_scorer_event_v1', {
+    match_day_id_value: matchId, parent_link_id_value: link.id,
+    event_type_value: event.eventType, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club',
+    minute_value: event.minute, stoppage_minute_value: event.stoppageMinute,
+    player_name_value: event.playerName, player_shirt_number_value: normalizeText(event.playerShirtNumber),
+    player_on_name_value: event.playerOnName, player_on_shirt_number_value: normalizeText(event.playerOnShirtNumber),
+    notes_value: normalizeText(event.notes), request_id_value: createRequestId(event.requestId),
   })
 }
 

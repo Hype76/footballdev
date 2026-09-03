@@ -6,8 +6,12 @@ do $$ begin
 end $$;
 
 insert into public.match_days(id,club_id,team_id,opponent,match_date,home_away,parent_visible,match_duration_minutes,request_scorer,enable_motm_poll,motm_notify_results_on_close)
-values ('9a090208-0000-4000-8000-000000000001','31e8bebc-07fb-4c8b-9ecc-2304d36415ed','492cee77-d3c4-4e07-b31b-6abc07328d25','FP TEST guest scorer',timezone('Europe/London',now())::date,'away',false,20,false,false,false),
-('9a090208-0000-4000-8000-000000000002','31e8bebc-07fb-4c8b-9ecc-2304d36415ed','492cee77-d3c4-4e07-b31b-6abc07328d25','FP TEST other fixture',timezone('Europe/London',now())::date,'home',false,20,false,false,false);
+values ('9a090208-0000-4000-8000-000000000001','31e8bebc-07fb-4c8b-9ecc-2304d36415ed','492cee77-d3c4-4e07-b31b-6abc07328d25','FP TEST guest scorer',timezone('Europe/London',now())::date,'away',false,10,false,false,false),
+('9a090208-0000-4000-8000-000000000002','31e8bebc-07fb-4c8b-9ecc-2304d36415ed','492cee77-d3c4-4e07-b31b-6abc07328d25','FP TEST other fixture',timezone('Europe/London',now())::date,'home',false,10,false,false,false);
+
+insert into public.match_day_player_squad_decisions(match_day_id,club_id,team_id,player_id,status) values
+('9a090208-0000-4000-8000-000000000001','31e8bebc-07fb-4c8b-9ecc-2304d36415ed','492cee77-d3c4-4e07-b31b-6abc07328d25','f9dd1339-7622-4db7-ad91-a8f6cc6ed102','selected'),
+('9a090208-0000-4000-8000-000000000001','31e8bebc-07fb-4c8b-9ecc-2304d36415ed','492cee77-d3c4-4e07-b31b-6abc07328d25','07ce1fad-371d-42e7-ba88-3b64f3e548ab','selected');
 
 select set_config('request.jwt.claim.sub','79716f3d-f312-4117-ad49-162207c96710',true);
 select set_config('request.jwt.claims','{"sub":"79716f3d-f312-4117-ad49-162207c96710","role":"authenticated"}',true);
@@ -48,6 +52,19 @@ do $$ declare r jsonb; goal jsonb; replay jsonb; event_id text; begin
   if r->>'status'<>'approved' or r#>>'{match,id}'<>'9a090208-0000-4000-8000-000000000001' then raise exception 'TEST FAILED approved scope'; end if;
   if r::text like '%parentLink%' or r::text like '%email%' or r::text like '%auth_user%' or r::text like '%staffNotes%' then raise exception 'TEST FAILED private fields'; end if;
   perform public.guest_match_day_scoring(repeat('b',64),'start','{}','9a090208-0000-4000-8000-000000000010');
+  if (r#>>'{match,matchDurationMinutes}')::int<>10 or not (r->'match' ? 'clubLogoUrl') then raise exception 'TEST FAILED guest match settings'; end if;
+  r:=public.guest_match_day_scoring(repeat('b',64),'event','{"eventType":"yellow_card","teamSide":"club","minute":4,"stoppageMinute":1,"playerName":"FP TEST Player One"}','9a090208-0000-4000-8000-000000000021');
+  event_id:=r#>>'{match,events,0,id}';
+  if r#>>'{match,events,0,eventType}'<>'yellow_card' or (r#>>'{match,events,0,stoppageMinute}')::int<>1 then raise exception 'TEST FAILED yellow card'; end if;
+  replay:=public.guest_match_day_scoring(repeat('b',64),'event','{"eventType":"yellow_card","teamSide":"club","minute":4,"stoppageMinute":1,"playerName":"FP TEST Player One"}','9a090208-0000-4000-8000-000000000021');
+  if (replay->>'duplicate')::boolean is not true then raise exception 'TEST FAILED card replay'; end if;
+  begin perform public.guest_match_day_scoring(repeat('b',64),'event','{"eventType":"red_card","teamSide":"club","minute":4,"playerName":"FP TEST Player One"}','9a090208-0000-4000-8000-000000000021'); raise exception 'TEST FAILED conflicting card replay';
+  exception when raise_exception then if sqlerrm like 'TEST FAILED%' then raise; end if; end;
+  perform public.guest_match_day_scoring(repeat('b',64),'event','{"eventType":"red_card","teamSide":"club","minute":4,"playerName":"FP TEST Adult Player"}','9a090208-0000-4000-8000-000000000022');
+  perform public.guest_match_day_scoring(repeat('b',64),'event','{"eventType":"substitution","teamSide":"club","minute":4,"playerName":"FP TEST Player One","playerOnName":"FP TEST Adult Player"}','9a090208-0000-4000-8000-000000000023');
+  perform public.guest_match_day_scoring(repeat('b',64),'remove_event',jsonb_build_object('eventId',event_id),'9a090208-0000-4000-8000-000000000024');
+  begin perform public.guest_match_day_scoring(repeat('b',64),'event','{"eventType":"red_card","teamSide":"club","minute":4,"playerName":"Unselected person"}','9a090208-0000-4000-8000-000000000025'); raise exception 'TEST FAILED unselected participant';
+  exception when raise_exception then if sqlerrm like 'TEST FAILED%' then raise; end if; end;
   goal:=jsonb_build_object('teamSide','opponent','scorerName','FP TEST own goal','assistName','Must clear','minute',10,'stoppageMinute',5,'isOwnGoal',true);
   r:=public.guest_match_day_scoring(repeat('b',64),'goal',goal,'9a090208-0000-4000-8000-000000000011');
   if (r#>>'{match,homeScore}')::int<>1 or (r#>>'{match,awayScore}')::int<>0 then raise exception 'TEST FAILED away score'; end if;
@@ -63,7 +80,8 @@ do $$ declare r jsonb; goal jsonb; replay jsonb; event_id text; begin
   begin perform public.guest_match_day_scoring(repeat('b',64),'timer','{"action":"conclude"}','9a090208-0000-4000-8000-000000000015'); raise exception 'TEST FAILED guest conclude';
   exception when raise_exception then if sqlerrm like 'TEST FAILED%' then raise; end if; end;
   perform public.guest_match_day_scoring(repeat('b',64),'timer','{"action":"half_time"}','9a090208-0000-4000-8000-000000000016');
-  perform public.guest_match_day_scoring(repeat('b',64),'timer','{"action":"resume"}','9a090208-0000-4000-8000-000000000017');
+  r:=public.guest_match_day_scoring(repeat('b',64),'timer','{"action":"resume"}','9a090208-0000-4000-8000-000000000017');
+  if (r#>>'{match,timerElapsedSeconds}')::int<>300 then raise exception 'TEST FAILED 10 minute second half clock'; end if;
   r:=public.guest_match_day_scoring(repeat('b',64),'timer','{"action":"full_time"}','9a090208-0000-4000-8000-000000000018');
   if r->>'status'<>'finished' then raise exception 'TEST FAILED full time'; end if;
   r:=public.claim_guest_match_notification(repeat('b',64),'9a090208-0000-4000-8000-000000000018');
