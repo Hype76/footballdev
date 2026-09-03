@@ -121,8 +121,9 @@ test('Parent notifications request permission only from Settings and scorer cont
   assert.doesNotMatch(appSource, /useMobileDeviceControls|enableNotifications/)
   assert.doesNotMatch(appSource, /volunteerAsMatchScorer|updateCoachMatchStatus|addCoachMatchGoal|undoCoachLastMatchGoal/)
   assert.match(portalDataSource, /express_match_day_scorer_interest/)
-  assert.match(portalDataSource, /record_match_day_goal_v2/)
-  assert.match(portalScreensSource, /selectedMatch\.events/)
+  assert.match(portalDataSource, /record_match_day_goal_v3/)
+  assert.match(portalScreensSource, /getParentMatchTimeline\(selectedMatch\)/)
+  assert.match(portalScreensSource, /timeline\.map\(\(event\)/)
 })
 
 test('Home model remains child-scoped and distinguishes upcoming, recent, unread and polls', () => {

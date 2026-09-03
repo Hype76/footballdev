@@ -954,6 +954,17 @@ async function waitForPathname(page, pathname) {
   })
 }
 
+async function assertLoginIntentRecovery(page, { email, intendedLabel, availableLabel }) {
+  await assertVisibleText(page, `${intendedLabel} access is not available for this account`)
+  await assertVisibleText(page, 'No automatic sign-out')
+  await assertVisibleTextContaining(page, 'Your current session has been kept active')
+  assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), email)
+  assert.equal(await page.getByRole('combobox', { name: 'Access view', exact: true }).count(), 0, 'A mismatched login must not expose staff workspace controls')
+  assert.equal(await page.getByText('Fixture Child', { exact: true }).count(), 0, 'Family data remains hidden until the user chooses Parent access')
+  await page.getByRole('button', { name: `Open ${availableLabel}`, exact: true }).waitFor({ state: 'visible' })
+  await page.getByRole('button', { name: 'Sign in with a different account', exact: true }).waitFor({ state: 'visible' })
+}
+
 async function gotoAfterAuthRedirects(page, url) {
   let lastError
 
@@ -2235,11 +2246,14 @@ try {
     await context.close()
   })
 
-  await runScenario('parent-only account using club login returns safely to club sign-in', async () => {
+  await runScenario('parent-only account using club login returns to club sign-in only after an explicit choice', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await signIn(page, 'parent.fixture@footballplayer.test', mainBaseUrl, 'club')
+    await assertLoginIntentRecovery(page, { email: 'parent.fixture@footballplayer.test', intendedLabel: 'Team / Coach', availableLabel: 'Parent workspace' })
+    await page.getByRole('button', { name: 'Sign in with a different account', exact: true }).click()
     await waitForPathname(page, '/sign-in')
+    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     assert.equal(new URL(page.url()).searchParams.get('tab'), null)
     await page.getByRole('button', { name: 'Coach' }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
@@ -2247,11 +2261,14 @@ try {
     await context.close()
   })
 
-  await runScenario('staff-only account using parent login returns safely to parent sign-in', async () => {
+  await runScenario('staff-only account using parent login returns to parent sign-in only after an explicit choice', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'coach.fixture@footballplayer.test', mainBaseUrl)
+    await assertLoginIntentRecovery(page, { email: 'coach.fixture@footballplayer.test', intendedLabel: 'Parent', availableLabel: 'Team / Coach workspace' })
+    await page.getByRole('button', { name: 'Sign in with a different account', exact: true }).click()
     await waitForPathname(page, '/sign-in')
+    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
@@ -2259,6 +2276,23 @@ try {
     assert.equal(await page.getByText('Choose where to continue', { exact: true }).count(), 0)
     await context.close()
   })
+
+  for (const recovery of [
+    { email: 'parent.fixture@footballplayer.test', intent: 'club', intendedLabel: 'Team / Coach', availableLabel: 'Parent workspace', path: '/parent-portal', content: 'Family Portal' },
+    { email: 'coach.fixture@footballplayer.test', intent: 'parent', intendedLabel: 'Parent', availableLabel: 'Team / Coach workspace', path: '/coach', content: 'Team tools' },
+  ]) {
+    await runScenario(`${recovery.intent} login mismatch keeps the session while opening the available workspace`, async () => {
+      const context = await browser.newContext()
+      const { page } = await preparePage(context)
+      await signIn(page, recovery.email, mainBaseUrl, recovery.intent)
+      await assertLoginIntentRecovery(page, recovery)
+      await page.getByRole('button', { name: `Open ${recovery.availableLabel}`, exact: true }).click()
+      await waitForPathname(page, recovery.path)
+      await assertVisibleText(page, recovery.content)
+      assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), recovery.email)
+      await context.close()
+    })
+  }
 
   await runScenario('stale parent mode does not override club login intent', async () => {
     const context = await browser.newContext()

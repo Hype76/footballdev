@@ -55,7 +55,7 @@ test('all Parent reads and writes use established child-scoped authorities', () 
     'delete_parent_portal_chat_message',
     'express_match_day_scorer_interest',
     'record_match_day_score_correction_v2',
-    'record_match_day_goal_v2',
+    'record_match_day_goal_v3',
     'correct_match_day_goal',
     'void_match_day_goal',
     'record_match_day_shootout_kick',

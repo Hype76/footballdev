@@ -27,26 +27,6 @@
   ],
   "advisoryExceptions": [
     {
-      "id": "GHSA-v2hh-gcrm-f6hx",
-      "severity": "high",
-      "packageChain": "netlify-cli to fastify and vite-plugin-pwa to workbox-build, then ajv or fast-json-stringify to fast-uri",
-      "productionReachable": false,
-      "compensatingControl": "The affected parser is confined to local and CI build tooling; production audit, SBOM, function bundles and browser artifacts exclude it.",
-      "owner": "Steve",
-      "reviewBy": "2026-09-20",
-      "expires": "2026-09-20"
-    },
-    {
-      "id": "GHSA-7p8r-x3mc-p8w7",
-      "severity": "high",
-      "packageChain": "netlify-cli to fastify and vite-plugin-pwa to workbox-build, then ajv or fast-json-stringify to fast-uri",
-      "productionReachable": false,
-      "compensatingControl": "The affected parser is confined to local and CI build tooling; production audit, SBOM, function bundles and browser artifacts exclude it.",
-      "owner": "Steve",
-      "reviewBy": "2026-09-20",
-      "expires": "2026-09-20"
-    },
-    {
       "id": "GHSA-jmr9-qjv8-65gv",
       "severity": "high",
       "packageChain": "netlify-cli to @netlify/dev to @netlify/functions-dev to extract-zip",
