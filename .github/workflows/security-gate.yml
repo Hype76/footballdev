@@ -103,6 +103,7 @@ jobs:
           node --test
           tests/mobile-resource-loading-performance.test.mjs
           tests/mobile-read-path-performance-pglite.test.mjs
+          tests/mobile-match-day-read-performance-pglite.test.mjs
           tests/mobile-parent-offline-sync-21a.test.mjs
           tests/mobile-parent-startup-28.test.mjs
           tests/mobile-chat-notify-performance-58.test.mjs
