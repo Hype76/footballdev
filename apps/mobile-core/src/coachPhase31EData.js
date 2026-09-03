@@ -100,6 +100,15 @@ async function sendChatWithSafeRetry(name, parameters) {
   throw lastError
 }
 
+export async function getCoachDevelopmentSummary(user) {
+  assertCoachOperationalRead(user, { requiresTeam: true })
+  const { count, error } = await supabase.from('evaluations')
+    .select('id', { count: 'exact', head: true })
+    .eq('club_id', user.clubId).eq('team_id', user.activeTeamId)
+  if (error) throw error
+  return { recordCount: count || 0 }
+}
+
 export async function getCoachDevelopmentWorkspace(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   const [playersResult, evaluationsResult, formsResult, legacyFieldsResult, draftsResult, starterFormsResult, starterPreferencesResult, teamResult] = await Promise.all([

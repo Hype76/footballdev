@@ -1,5 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { ActivityIndicator, Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
@@ -258,10 +259,14 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   const contextModel = getCoachCalendarContextModel({ context, contexts })
   const policy = getCoachCalendarMutationPolicy({ context, event: selected })
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ reuseFresh = false } = {}) => {
     setError('')
-    setLoading(true)
-    const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
+    const recent = reuseFresh ? peekMobileResource(user, 'coach:calendar') : undefined
+    if (recent !== undefined) {
+      setEvents(recent); setLoading(false); setStale(false)
+    }
+    else setLoading(true)
+    const cached = recent !== undefined ? null : await readCoachOfflineResources(user.id, context).catch(() => null)
     const hasCachedCalendar = Array.isArray(cached?.resources?.calendar)
     if (hasCachedCalendar) {
       setEvents(cached.resources.calendar)
@@ -271,12 +276,18 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
       setLoading(false)
     }
     try {
-      const [rows, playerRows, resourceRows] = await Promise.all([
-        getCoachCalendarResources(user),
-        user.activeTeamId ? getCoachPlayerList(user) : Promise.resolve([]),
-        user.activeTeamId ? getCoachResources(user) : Promise.resolve([]),
+      const options = { force: !reuseFresh }
+      const optionalResults = Promise.allSettled([
+        user.activeTeamId ? readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), options) : Promise.resolve([]),
+        user.activeTeamId ? readMobileResource(user, 'coach:phase31e:resources', () => getCoachResources(user), options) : Promise.resolve([]),
       ])
+      const rows = await readMobileResource(user, 'coach:calendar', () => getCoachCalendarResources(user), options)
       setEvents(rows)
+      setLoading(false)
+      setStale(false)
+      const [playerResult, resourceResult] = await optionalResults
+      const playerRows = playerResult.status === 'fulfilled' ? playerResult.value : cached?.resources?.calendarPlayers || []
+      const resourceRows = resourceResult.status === 'fulfilled' ? resourceResult.value : cached?.resources?.calendarResourceOptions || []
       setPlayers(playerRows)
       setResources(resourceRows)
       if (user.activeTeamId) {
@@ -294,7 +305,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
     }
   }, [context, user])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load({ reuseFresh: true }) }, [load])
   const calendarMonth = useMemo(
     () => buildCoachCalendarMonth(events, visibleMonth, selectedDate),
     [events, selectedDate, visibleMonth],
@@ -607,20 +618,22 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const [saving, setSaving] = useState(false)
   const [stale, setStale] = useState(false)
   const policy = getCoachPlayerMutationPolicy({ context, player: detail?.player })
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ reuseFresh = false } = {}) => {
+    const recent = reuseFresh ? peekMobileResource(user, 'coach:players') : undefined
+    if (recent !== undefined) { setPlayers(recent); setStale(false); setLoading(false); setError(''); return }
     setError(''); setLoading(true)
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
     const hasCachedPlayers = Array.isArray(cached?.resources?.players)
     if (hasCachedPlayers) { setPlayers(cached.resources.players); setStale(true); setLoading(false) }
     try {
-      const rows = await getCoachPlayerList(user)
+      const rows = await readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), { force: !reuseFresh })
       setPlayers(rows); setStale(false)
       await saveCoachOfflineResources(user.id, context, { players: rows })
     } catch (loadError) {
       if (!hasCachedPlayers) setError(message(loadError, 'Players could not be loaded.'))
     } finally { setLoading(false) }
   }, [context, user])
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load({ reuseFresh: true }) }, [load])
   useEffect(() => {
     if (quickAction?.intent !== 'create-player') return
     setDetail(null)
@@ -721,7 +734,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
     trainingAvailabilitySendDaysBefore: 2,
     ...((trainingLocations[0] || '').trim() ? { location: trainingLocations[0] } : {}),
   }), [context, trainingLocations])
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ reuseFresh = false } = {}) => {
     setError(''); setLoading(true)
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
     const hasCachedSessions = Array.isArray(cached?.resources?.sessions)
@@ -735,9 +748,9 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
     }
     try {
       const [sessionResult, playerResult, calendarResult] = await Promise.allSettled([
-        withMobileAsyncTimeout(() => getCoachSessionList(user)),
-        withMobileAsyncTimeout(() => getCoachPlayerList(user)),
-        withMobileAsyncTimeout(() => getCoachCalendarResources(user)),
+        withMobileAsyncTimeout(() => readMobileResource(user, 'coach:sessions', () => getCoachSessionList(user), { force: !reuseFresh })),
+        withMobileAsyncTimeout(() => readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), { force: !reuseFresh })),
+        withMobileAsyncTimeout(() => readMobileResource(user, 'coach:calendar', () => getCoachCalendarResources(user), { force: !reuseFresh })),
       ])
       if (sessionResult.status === 'rejected') throw sessionResult.reason
       const rows = sessionResult.value
@@ -756,7 +769,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
       if (!hasCachedSessions) setError(message(loadError, 'Sessions could not be loaded.'))
     } finally { setLoading(false) }
   }, [context, user])
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load({ reuseFresh: true }) }, [load])
   useEffect(() => {
     if (quickAction?.intent !== 'create-session') return
     setDetail(null)

@@ -38,6 +38,8 @@ import {
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { getMobileChatMessagesFingerprint } from '../mobile-core/src/mobileChatCore'
+import { runPrioritizedMobileLoads } from '../mobile-core/src/mobileLoadCoordinator'
+import { mobileResourceKey } from '../mobile-core/src/mobileResourceCache'
 import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsCore'
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
@@ -333,6 +335,7 @@ function ParentHome() {
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
   const hydratedScopeRef = useRef('')
+  const loadedAuthorityScopeRef = useRef('')
   const lastDataRefreshAtRef = useRef(0)
   const requestIdRef = useRef(0)
   const resumeInteractionRef = useRef(null)
@@ -580,43 +583,48 @@ function ParentHome() {
       polls: () => getParentPolls(selectedMobileUser),
       resources: () => getParentResources(selectedMobileUser),
     }
-    const settleResource = async (name) => {
-      try {
-        const value = await loaders[name]()
-        if (requestId === requestIdRef.current && name !== 'calendar') {
-          setResources((current) => ({
-            ...current,
-            [name]: {
-              error: '',
-              items: prepareResourceItems(name, value),
+    const calendarDependencies = ['calendar', 'invitations', 'matches']
+    let calendarPublished = false
+    const resultByName = await runPrioritizedMobileLoads(loaders, {
+      priority: [...calendarDependencies, 'notifications', 'chatRooms', 'messages', 'polls'],
+      concurrency: 4,
+      onSettled(name, result, settled) {
+        if (requestId !== requestIdRef.current) return
+        const publishCalendar = !calendarPublished && calendarDependencies.every((dependency) => settled[dependency])
+        if (publishCalendar) calendarPublished = true
+        setResources((current) => {
+          const next = { ...current }
+          if (name !== 'calendar') next[name] = {
+            error: result.status === 'rejected' && !cachedView?.cache
+              ? getParentFriendlyError(result.reason, resourceFallbacks[name]) : '',
+            items: result.status === 'fulfilled' ? prepareResourceItems(name, result.value) : current[name].items,
+            loading: false,
+          }
+          if (publishCalendar) {
+            const dependencyFailed = calendarDependencies.some((dependency) => settled[dependency].status === 'rejected')
+            const calendarValue = (dependency) => settled[dependency].status === 'fulfilled'
+              ? prepareResourceItems(dependency, settled[dependency].value)
+              : cachedView?.cache?.resources[dependency] || []
+            next.calendar = {
+              error: dependencyFailed && !cachedView?.cache ? 'Some Calendar items could not be refreshed.' : '',
+              items: buildParentCalendarEvents({
+                calendarEvents: calendarValue('calendar'), invitations: calendarValue('invitations'), matches: calendarValue('matches'),
+              }),
               loading: false,
-            },
-          }))
-        }
-        return { status: 'fulfilled', value }
-      } catch (reason) {
-        if (requestId === requestIdRef.current && name !== 'calendar') {
-          setResources((current) => ({
-            ...current,
-            [name]: {
-              error: cachedView?.cache ? '' : getParentFriendlyError(reason, resourceFallbacks[name]),
-              items: current[name].items,
-              loading: false,
-            },
-          }))
-        }
-        return { reason, status: 'rejected' }
-      }
-    }
-    const results = await Promise.all(resourceNames.map(settleResource))
+            }
+          }
+          return next
+        })
+      },
+    })
+    const results = resourceNames.map((name) => resultByName[name])
 
     if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
 
     const failed = results.filter((result) => result.status === 'rejected').length
-    const resultByName = Object.fromEntries(resourceNames.map((name, index) => [name, results[index]]))
     const valueFor = (name) => resultByName[name]?.status === 'fulfilled'
       ? prepareResourceItems(name, resultByName[name].value)
-      : []
+      : cachedView?.cache?.resources[name] || []
     const combinedCalendar = buildParentCalendarEvents({
       calendarEvents: valueFor('calendar'),
       invitations: valueFor('invitations'),
@@ -660,20 +668,24 @@ function ParentHome() {
     if (failed < resourceNames.length) {
       setLastUpdatedAt(new Date().toISOString())
       lastDataRefreshAtRef.current = Date.now()
-      setOfflineCacheState({ source: failed === 0 ? 'online' : cachedView?.cache ? 'cache' : 'online', stale: false })
+      setOfflineCacheState({ source: failed === 0 ? 'online' : cachedView?.cache ? 'cache' : 'online', stale: failed > 0 && Boolean(cachedView?.cache?.stale) })
     }
     let reconciledSync = cachedView?.sync || null
-    if (failed === 0) {
+    if (failed < resourceNames.length) {
       try {
         await new Promise((resolve) => {
           InteractionManager.runAfterInteractions(resolve)
         })
         if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
         await saveParentOfflineResources(selectedMobileUser, selectedLink.id, Object.fromEntries(
-          resourceNames.map((name) => [name, refreshedItems[name]]),
+          resourceNames.filter((name) => resultByName[name].status === 'fulfilled'
+            && (name !== 'calendar' || !calendarDependencyFailed))
+            .map((name) => [name, refreshedItems[name]]),
         ))
-        reconciledSync = await reconcileParentOfflineAttention(selectedMobileUser, selectedLink.id, refreshedItems)
-        setSyncSummary(reconciledSync)
+        if (failed === 0) {
+          reconciledSync = await reconcileParentOfflineAttention(selectedMobileUser, selectedLink.id, refreshedItems)
+          setSyncSummary(reconciledSync)
+        }
       } catch (error) {
         console.warn(error)
       }
@@ -744,6 +756,12 @@ function ParentHome() {
   }, [loadParentData, runParentSync, selectedMobileUser?.id])
 
   useEffect(() => {
+    const authorityScope = JSON.stringify([
+      mobileResourceKey(selectedMobileUser, 'parent-startup'),
+      parentLinks.map((link) => [link.id, link.clubId, link.teamId, link.playerId]),
+    ])
+    if (loadedAuthorityScopeRef.current === authorityScope) return
+    loadedAuthorityScopeRef.current = authorityScope
     setSelectedMatchId('')
     setSelectedInvitationId('')
     setSelectedMessageId('')
@@ -754,7 +772,7 @@ function ParentHome() {
     setPollDrafts({})
     setNotice(null)
     void loadParentData({ reset: true }).then(() => runParentSync())
-  }, [loadParentData, runParentSync, selectedLink?.id])
+  }, [loadParentData, parentLinks, runParentSync, selectedLink?.id, selectedMobileUser])
 
   useEffect(() => {
     let mounted = true

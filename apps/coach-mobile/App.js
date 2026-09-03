@@ -11,6 +11,7 @@ import {
   AppState,
   BackHandler,
   Image,
+  InteractionManager,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -33,6 +34,10 @@ import {
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, preserveCoachNotificationRegistration, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
+import { peekMobileResource, readMobileResource } from '../mobile-core/src/mobileResourceCache'
+import { getCoachCalendarResources } from '../mobile-core/src/coachCalendarData'
+import { getCoachPlayerList } from '../mobile-core/src/coachPlayersData'
+import { getCoachChatRooms } from '../mobile-core/src/coachPhase31EData'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
@@ -155,6 +160,7 @@ function CoachHome() {
   const lastHomeRefreshAtRef = useRef(0)
   const headerScrollY = useRef(new Animated.Value(0)).current
   const requestIdRef = useRef(0)
+  const bootstrappedAuthorityRef = useRef('')
   const notificationResponseIdRef = useRef('')
   const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
   const notificationStateRef = useRef(null)
@@ -350,13 +356,24 @@ function CoachHome() {
     }
   }, [])
 
-  const loadHome = useCallback(async ({ refresh = false } = {}) => {
+  const loadHome = useCallback(async ({ refresh = false, chatOnly = false } = {}) => {
     if (!selectedMobileUser?.clubId) return
+    if (chatOnly) {
+      const requestId = requestIdRef.current
+      const rooms = await readMobileResource(selectedMobileUser, 'coach:phase31e:chat',
+        () => getCoachChatRooms(selectedMobileUser), { force: true })
+      if (requestId === requestIdRef.current) setHomeState((current) => ({
+        ...current, chatRooms: rooms,
+        unreadChat: rooms.reduce((total, room) => total + Math.max(0, Number(room.unreadCount || 0)), 0),
+      }))
+      return
+    }
     const requestId = ++requestIdRef.current
     if (refresh) setIsRefreshing(true)
     setHomeState((current) => ({ ...current, error: '', loading: !refresh }))
 
-    const cached = await readCoachOfflineResources(user.id, activeContext).catch(() => null)
+    const recentPrimary = !refresh && peekMobileResource(selectedMobileUser, 'coach:home-primary')
+    const cached = recentPrimary ? null : await readCoachOfflineResources(user.id, activeContext).catch(() => null)
     const savedHome = cached?.resources?.home
     if (requestId !== requestIdRef.current) return
     if (savedHome) {
@@ -364,12 +381,13 @@ function CoachHome() {
       setLastUpdatedAt(savedHome.savedAt || cached.savedAt)
     }
 
-    const attentionResultPromise = getCoachPhase31GAttentionSnapshot(selectedMobileUser)
+    const attentionResultPromise = getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh })
       .then((value) => ({ value }))
       .catch((error) => ({ error }))
 
     try {
-      const primary = await getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser)
+      const primary = await readMobileResource(selectedMobileUser, 'coach:home-primary',
+        () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser), { force: refresh })
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
       const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
@@ -390,6 +408,13 @@ function CoachHome() {
       }
       setHomeState(completeSnapshot)
       void saveCoachOfflineResources(user.id, activeContext, { home: completeSnapshot }).catch(() => {})
+      InteractionManager.runAfterInteractions(() => {
+        if (requestId !== requestIdRef.current) return
+        void readMobileResource(selectedMobileUser, 'coach:calendar', () => getCoachCalendarResources(selectedMobileUser)).catch(() => {})
+        if (selectedMobileUser.activeTeamId) {
+          void readMobileResource(selectedMobileUser, 'coach:players', () => getCoachPlayerList(selectedMobileUser)).catch(() => {})
+        }
+      })
     } catch (error) {
       if (requestId !== requestIdRef.current) return
       if (!savedHome) setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false }))
@@ -482,6 +507,8 @@ function CoachHome() {
 
   useEffect(() => {
     let mounted = true
+    const authorityScope = JSON.stringify([user?.id, user?.role, user?.roleRank, user?.clubId, user?.hasActivePlanAccess, user?.coachContexts])
+    if (bootstrappedAuthorityRef.current === authorityScope) return undefined
     setContextReady(false)
     resetContextDomainState()
     void Promise.all([
@@ -496,6 +523,7 @@ function CoachHome() {
         : normalizeText(user?.activeCoachContextId || available[0]?.id)
       setSelectedContextId(nextContextId)
       setContextOwnerUserId(user?.id || '')
+      bootstrappedAuthorityRef.current = authorityScope
       setContextReady(true)
     }).catch(() => {
       if (mounted) {

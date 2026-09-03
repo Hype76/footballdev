@@ -565,20 +565,9 @@ export async function getParentChatRooms(user, childOnly = true) {
     child_only_value: Boolean(childOnly),
     parent_link_id_value: link.id,
   }
-  const [{ data, error }, { data: preferences, error: preferenceError }] = await Promise.all([
-    supabase.rpc('get_parent_portal_chat_rooms', roomArgs),
-    supabase.rpc('get_parent_portal_chat_notification_preferences', roomArgs),
-  ])
+  const { data, error } = await supabase.rpc('get_parent_portal_chat_rooms_with_preferences', roomArgs)
   if (error) throw error
-  if (preferenceError) throw preferenceError
-  const mutedByRoom = new Map((preferences || []).map((preference) => [
-    String(preference.room_id || ''),
-    Boolean(preference.notifications_muted),
-  ]))
-  return (data || []).map((row) => normalizeParentChatRoom({
-    ...row,
-    notifications_muted: mutedByRoom.get(String(row.id || '')) === true,
-  }))
+  return (data || []).map(normalizeParentChatRoom)
 }
 
 export async function setParentChatRoomNotifications(user, roomId, notificationsMuted, childOnly = true) {

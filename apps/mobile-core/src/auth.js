@@ -4,6 +4,7 @@ import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } 
 import { getMobileRuntimeConfig } from './config'
 import { revokeNativePushDevice } from './notifications'
 import { fetchMobileProfile } from './profile'
+import { mobileResourceCache } from './mobileResourceCache'
 import {
   DEFAULT_MOBILE_STARTUP_TIMEOUT_MS,
   getMobileStartupDiagnosticPrefix,
@@ -208,6 +209,7 @@ export function AuthProvider({
 
       if (!nextSession?.user) {
         if (!['SIGNED_OUT', 'USER_DELETED'].includes(event)) return
+        mobileResourceCache.clear()
         setSession(null)
         setUser(null)
         setIsLocked(false)
@@ -275,6 +277,7 @@ export function AuthProvider({
   }, [])
 
   const resetLocalAppData = useCallback(async () => {
+    mobileResourceCache.clear()
     setStartupState(MOBILE_STARTUP_STATES.BOOTING)
     setStartupDiagnosticCode('')
     setAuthError('')
@@ -300,6 +303,7 @@ export function AuthProvider({
   }, [appRole, offlineProfileStore, onResetLocalData])
 
   const signOut = useCallback(async () => {
+    mobileResourceCache.clear()
     setIsLocked(false)
     setUser(null)
 

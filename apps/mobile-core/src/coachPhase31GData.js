@@ -1,5 +1,6 @@
 import { getCoachCalendarResources } from './coachCalendarData'
-import { getCoachChatRooms, getCoachDevelopmentWorkspace, getCoachInvitesAndAvailability, getCoachPolls } from './coachPhase31EData'
+import { getCoachChatRooms, getCoachDevelopmentSummary, getCoachInvitesAndAvailability, getCoachPolls } from './coachPhase31EData'
+import { readMobileResource } from './mobileResourceCache'
 import { buildCoachHomeOperationalSnapshot, mergeCoachHomeOperationalSnapshots } from './coachPhase31GCore'
 import { getCoachHomeSummary, getCoachMatchDays, getCoachSessions } from './data'
 
@@ -25,7 +26,7 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user) {
     getCoachHomeSummary(user),
     getCoachMatchDays(user),
     getCoachSessions(user),
-    getCoachCalendarResources(user),
+    getCoachCalendarResources(user, { includeDetails: false }),
   ])
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)
@@ -33,13 +34,13 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user) {
   return buildCoachHomeOperationalSnapshot({ ...values, errors })
 }
 
-export async function getCoachPhase31GAttentionSnapshot(user) {
+export async function getCoachPhase31GAttentionSnapshot(user, { force = true } = {}) {
   const names = ['development', 'chatRooms', 'polls', 'invites']
   const results = await Promise.allSettled([
-    getCoachDevelopmentWorkspace(user),
-    getCoachChatRooms(user),
-    getCoachPolls(user),
-    getCoachInvitesAndAvailability(user),
+    readMobileResource(user, 'coach:development-summary', () => getCoachDevelopmentSummary(user), { force }),
+    readMobileResource(user, 'coach:phase31e:chat', () => getCoachChatRooms(user), { force }),
+    readMobileResource(user, 'coach:phase31e:polls', () => getCoachPolls(user), { force }),
+    readMobileResource(user, 'coach:phase31e:invites', () => getCoachInvitesAndAvailability(user), { force }),
   ])
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)
