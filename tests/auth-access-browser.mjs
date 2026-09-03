@@ -961,7 +961,11 @@ async function assertLoginIntentRecovery(page, { email, intendedLabel, available
   assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), email)
   assert.equal(await page.getByRole('combobox', { name: 'Access view', exact: true }).count(), 0, 'A mismatched login must not expose staff workspace controls')
   assert.equal(await page.getByText('Fixture Child', { exact: true }).count(), 0, 'Family data remains hidden until the user chooses Parent access')
-  await page.getByRole('button', { name: `Open ${availableLabel}`, exact: true }).waitFor({ state: 'visible' })
+  if (availableLabel) {
+    await page.getByRole('button', { name: `Open ${availableLabel}`, exact: true }).waitFor({ state: 'visible' })
+  } else {
+    assert.equal(await page.getByRole('button', { name: /^Open / }).count(), 0, 'An account without an available workspace must not offer workspace access')
+  }
   await page.getByRole('button', { name: 'Sign in with a different account', exact: true }).waitFor({ state: 'visible' })
 }
 
@@ -2455,11 +2459,18 @@ try {
     await context.close()
   })
 
-  await runScenario('confirmed no-link parent intent stays strict and returns to Parent sign-in', async () => {
+  await runScenario('confirmed no-link parent intent requires an explicit account change before Parent sign-in', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'fallback-dual.fixture@footballplayer.test', mainBaseUrl)
+    await assertLoginIntentRecovery(page, {
+      email: 'fallback-dual.fixture@footballplayer.test',
+      intendedLabel: 'Parent',
+      availableLabel: 'Team / Coach workspace',
+    })
+    await page.getByRole('button', { name: 'Sign in with a different account', exact: true }).click()
     await waitForPathname(page, '/sign-in')
+    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Choose an available workspace', { exact: true }).count(), 0)
@@ -2467,11 +2478,17 @@ try {
     await context.close()
   })
 
-  await runScenario('parent-only unavailable fallback redirects to unified parent sign-in without exposing data', async () => {
+  await runScenario('parent-only unavailable fallback keeps the session until an explicit account change without exposing data', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
     await parentSignIn(page, 'parent-unlinked.fixture@footballplayer.test', mainBaseUrl)
+    await assertLoginIntentRecovery(page, {
+      email: 'parent-unlinked.fixture@footballplayer.test',
+      intendedLabel: 'Parent',
+    })
+    await page.getByRole('button', { name: 'Sign in with a different account', exact: true }).click()
     await waitForPathname(page, '/sign-in')
+    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
