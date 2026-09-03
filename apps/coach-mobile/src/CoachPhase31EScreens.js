@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -257,8 +258,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
         {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Offline and read-only</Text> : null}
         {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
       </View> : notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
-      {loading ? <Empty copy={`Loading ${TITLES[domain]}...`} styles={styles} /> : null}
-      {!loading && error && !visibleError ? <Empty copy="Checking for the latest information..." styles={styles} /> : null}
+      {loading ? <View style={styles.panel}><BrandLoader size="large" /><Text style={styles.body}>{`Loading ${TITLES[domain]}...`}</Text></View> : null}
+      {!loading && error && !visibleError ? <View style={styles.panel}><BrandLoader /><Text style={styles.body}>Checking for the latest information...</Text></View> : null}
       {visibleError ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
       {!loading && !error && domain === 'development' ? <DevelopmentDomain {...common} /> : null}
       {!loading && !error && domain === 'resources' ? <ResourcesDomain {...common} /> : null}
