@@ -319,3 +319,36 @@ end;
 $$;
 revoke all on function public.guest_match_day_scoring(text,text,jsonb,uuid) from public, anon, authenticated;
 grant execute on function public.guest_match_day_scoring(text,text,jsonb,uuid) to service_role;
+
+-- Keep staff delivery unchanged. A Parent can notify only an event they saved
+-- through the currently selected scorer link for this fixture.
+create or replace function public.authorize_match_day_scorer_event_push(
+  actor_user_id_value uuid, match_day_id_value uuid, parent_link_id_value uuid,
+  notification_type_value text, event_id_value uuid default null
+) returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare m public.match_days%rowtype; e public.match_day_events%rowtype; authorization_result jsonb;
+begin
+  if parent_link_id_value is null then
+    return public.authorize_match_day_push_v2(actor_user_id_value,match_day_id_value,null,notification_type_value,event_id_value);
+  end if;
+  if notification_type_value not in ('yellow_card','red_card','substitution') or notification_type_value is null then
+    return jsonb_build_object('allowed',false,'reason','unsupported_type');
+  end if;
+  select * into m from public.match_days where id=match_day_id_value and deleted_at is null;
+  if m.id is null or m.concluded_at is not null or m.status not in ('live','half_time','second_half','extra_time','penalties')
+    or coalesce(m.timer_status,'not_started') in ('not_started','full_time') then
+    return jsonb_build_object('allowed',false,'reason','gameplay_state');
+  end if;
+  -- The existing lifecycle permission checks the active scorer assignment,
+  -- verified Parent link, fixture date and notification audience.
+  authorization_result:=public.authorize_match_day_push(actor_user_id_value,m.id,parent_link_id_value,m.status,null);
+  if coalesce((authorization_result->>'allowed')::boolean,false) is not true then return authorization_result; end if;
+  select * into e from public.match_day_events where id=event_id_value and match_day_id=m.id
+    and club_id=m.club_id and team_id=m.team_id and event_type=notification_type_value
+    and event_status='active' and created_by=actor_user_id_value and created_by_parent_link_id=parent_link_id_value;
+  if e.id is null then return jsonb_build_object('allowed',false,'reason','event_scope'); end if;
+  return authorization_result||jsonb_build_object('operationKey',concat('match-day:',m.id,':',notification_type_value,':',e.id));
+end;
+$$;
+revoke all on function public.authorize_match_day_scorer_event_push(uuid,uuid,uuid,text,uuid) from public,anon,authenticated;
+grant execute on function public.authorize_match_day_scorer_event_push(uuid,uuid,uuid,text,uuid) to service_role;

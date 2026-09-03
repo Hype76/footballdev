@@ -115,7 +115,7 @@ async function authorizePush({ authUser, match, parentLinkId, type, eventId }) {
     event_id_value: eventId || null,
   }
   const { data, error } = ['yellow_card', 'red_card', 'substitution'].includes(type)
-    ? await supabaseAdmin.rpc('authorize_match_day_push_v2', rpcArgs)
+    ? await supabaseAdmin.rpc('authorize_match_day_scorer_event_push', rpcArgs)
     : await supabaseAdmin.rpc('authorize_match_day_push', rpcArgs)
 
   if (error) {

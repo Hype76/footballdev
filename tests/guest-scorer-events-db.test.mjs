@@ -20,20 +20,22 @@ test('scorer event database enforces guest/parent scope, roster, replay, lifecyc
     await db.exec(baseline.match(/const schemaSql = `([\s\S]*?)`;/)[1])
     await db.exec(`
       create schema private;
-      alter table public.users add column name text default '', add column email text default '';
+      alter table public.users add column name text default '', add column email text default '', add column role_rank integer default 30;
       alter table public.players add column player_name text, add column shirt_number text, add column archived_at timestamptz;
-      alter table public.clubs add column name text, add column logo_url text, add column theme_accent text;
+      alter table public.clubs add column name text, add column logo_url text, add column theme_accent text, add column timezone_name text default 'Europe/London';
       alter table public.teams add column name text;
-      alter table public.match_days add column opponent text, add column match_date date default current_date, add column current_match_phase text default 'first_half', add column match_conclusion_rule text default 'normal_time', add column extra_time_half_minutes integer default 5, add column extra_time_period_count integer default 2, add column home_shootout_score integer default 0, add column away_shootout_score integer default 0;
+      alter table public.match_days add column opponent text, add column match_date date default current_date, add column current_match_phase text default 'first_half', add column match_conclusion_rule text default 'normal_time', add column extra_time_half_minutes integer default 5, add column extra_time_period_count integer default 2, add column home_shootout_score integer default 0, add column away_shootout_score integer default 0, add column notification_revision integer default 1;
       alter table public.match_day_events add column is_penalty_goal boolean default false, add column is_own_goal boolean default false, add column match_phase text, add column phase_order integer, add column request_id uuid, add column stoppage_minute integer, add column event_sequence bigint;
       create unique index event_request on public.match_day_events(match_day_id,request_id);
+      create table public.team_staff(team_id uuid,user_id uuid);
+      alter table public.match_day_role_assignments add column updated_at timestamptz default now();
       create table public.match_day_player_squad_decisions(match_day_id uuid,club_id uuid,team_id uuid,player_id uuid,status text);
       create function public.match_day_phase_order(text) returns integer language sql as $$ select 10 $$;
       create function public.match_day_local_date_is_today(uuid) returns boolean language sql as $$ select match_date=current_date from public.match_days where id=$1 $$;
       create function private.is_guest_match_scorer(uuid) returns boolean language sql as $$ select coalesce(current_setting('test.guest_match',true)=$1::text,false) $$;
       create function private.guest_match_scorer_name(uuid) returns text language sql as $$ select 'FP TEST guest' $$;
       create function public.current_user_is_match_day_scorer(uuid) returns boolean language sql as $$ select exists(select 1 from public.match_day_role_assignments a join public.match_days m on m.id=a.match_day_id where m.id=$1 and a.auth_user_id=auth.uid() and m.match_date=current_date and m.concluded_at is null) $$;
-      insert into public.clubs values('${club}','FP TEST Club','https://example.test/crest.png','#123456');
+      insert into public.clubs(id,name,logo_url,theme_accent) values('${club}','FP TEST Club','https://example.test/crest.png','#123456');
       insert into public.teams values('${team}','${club}','FP TEST Team');
       insert into public.users(id,club_id,role,name) values('${parent}','${club}','parent_portal','Parent'),('${coach}','${club}','coach','Coach');
       insert into public.match_days(id,club_id,team_id,status,timer_status,match_duration_minutes) values('${fixture}','${club}','${team}','live','running',10),('${foreignFixture}','${club}','${team}','live','running',10);
@@ -45,6 +47,9 @@ test('scorer event database enforces guest/parent scope, roster, replay, lifecyc
     `)
     await db.exec(guestSource.match(/CREATE OR REPLACE FUNCTION public.resolve_match_day_mutation_actor[\s\S]*?\$function\$\s*;/)[0])
     await db.exec(migration.slice(0, migration.indexOf('create or replace function public.guest_match_day_scoring')))
+    const pushSource = await readFile(new URL('../supabase/migrations/20260731110000_fp_v1_gameday_scorer_authority_02a.sql', import.meta.url), 'utf8')
+    await db.exec(pushSource.match(/create or replace function public.authorize_match_day_push\([\s\S]*?\$\$;/)[0])
+    await db.exec(migration.slice(migration.indexOf('-- Keep staff delivery unchanged.')))
     let command = 1
     const save = (changes = {}) => {
       const values = { match: fixture, type: 'yellow_card', side: 'club', minute: 5, name: 'Clyde Bates', shirt: '4', onName: '', onShirt: '', request: `70000000-0000-4000-8000-${String(command++).padStart(12, '0')}`, link: null, added: 2, ...changes }
@@ -81,6 +86,12 @@ test('scorer event database enforces guest/parent scope, roster, replay, lifecyc
     const red = (await save({ link, type: 'red_card' })).rows[0].event
     assert.equal(red.created_by, parent)
     assert.equal(red.created_by_parent_link_id, link)
+    const push = (actor, parentLink, eventId, type = 'red_card', matchId = fixture) => db.query('select public.authorize_match_day_scorer_event_push($1,$2,$3,$4,$5) as result', [actor,matchId,parentLink,type,eventId])
+    assert.equal((await push(parent,link,red.id)).rows[0].result.allowed,true)
+    assert.equal((await push(coach,link,red.id)).rows[0].result.allowed,false)
+    assert.equal((await push(parent,link,yellow.id,'yellow_card')).rows[0].result.allowed,false)
+    assert.equal((await push(parent,link,red.id,'red_card',foreignFixture)).rows[0].result.allowed,false)
+    assert.equal((await push(parent,link,red.id,'substitution')).rows[0].result.allowed,false)
     assert.equal((await db.query("select actor_role from public.match_day_event_log where metadata->>'matchEventId'=$1", [red.id])).rows[0].actor_role, 'scorer_parent')
     await db.query("select set_config('request.jwt.claim.sub',$1,false)", [coach])
     assert.equal((await save()).rows[0].event.created_by, coach)

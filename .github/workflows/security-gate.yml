@@ -118,6 +118,8 @@ jobs:
           tests/guest-scorer.test.mjs
           tests/guest-scorer-parity.test.mjs
           tests/guest-scorer-events-db.test.mjs
+          tests/matchday-substitution-notifications-98.test.mjs
+          tests/parent-matchday-availability-card-notifications-47.test.mjs
           tests/mobile-coach-matchday-31d.test.mjs
           tests/parent-scorer-goal-details-db.test.mjs
       - name: Guest and mobile scorer rendering

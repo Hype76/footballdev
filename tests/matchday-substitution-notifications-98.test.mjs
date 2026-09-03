@@ -17,7 +17,7 @@ test('web and Coach mobile request Parent notifications after a saved substituti
 
   assert.match(matchDayPage, /\['yellow_card', 'red_card', 'substitution'\]\.includes\(savedEvent\.eventType \|\| savedEvent\.event_type\)/)
   assert.match(coachData, /type === 'red_card' \|\| type === 'substitution'/)
-  assert.match(sender, /\['yellow_card', 'red_card', 'substitution'\]\.includes\(type\)[\s\S]*authorize_match_day_push_v2/)
+  assert.match(sender, /\['yellow_card', 'red_card', 'substitution'\]\.includes\(type\)[\s\S]*authorize_match_day_scorer_event_push/)
   assert.match(copy, /case 'substitution':[\s\S]*A substitution was recorded/)
 })
 
