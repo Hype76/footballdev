@@ -4,7 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const load = (name) => readFile(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), 'utf8')
-const migration = await load('20260903120639_squad_notification_email_fallback')
+const migration = await load('20260903120639_squad_notification_email_fallback') + '\n' + await load('20260903120851_coach_conclusion_authority')
 const outbox = (await load('20260903091914_coach_squad_decision_notifications')).split('-- Saving a decision')[0]
 const canonicalRecipients = await load('20260823135328_promoted_player_matchday_recipient_fix_78')
 const bulkSource = await load('20260903095629_coach_squad_bulk_notify')
@@ -33,7 +33,7 @@ test('squad notifications choose one current app or email recipient and preserve
     create table public.parent_mobile_notification_events(id uuid default gen_random_uuid(),auth_user_id uuid,parent_link_id uuid,club_id uuid,team_id uuid,intent_type text,title text,body text,data jsonb,status text,sent_at timestamptz,created_at timestamptz,read_at timestamptz,dedupe_key text unique);
     create table public.match_day_event_log(club_id uuid,team_id uuid,match_day_id uuid,player_id uuid,actor_user_id uuid,event_type text,event_label text,new_value jsonb,metadata jsonb);
     create function public.canonical_calendar_invite_recipient_type(text) returns text language sql immutable as $$select case when $1='parent' then 'parent_guardian' else $1 end$$;
-    create function public.set_match_day_timer_state(uuid,text) returns jsonb language plpgsql as $$declare normalized_action text; is_staff_actor boolean; is_scorer_actor boolean; begin
+    create function public.set_match_day_timer_state(uuid,text) returns jsonb language plpgsql as $$declare normalized_action text := $2; is_staff_actor boolean; is_scorer_actor boolean := true; begin
   if not is_staff_actor and not is_scorer_actor then
     return null;
   end if; return '{}'::jsonb; end;$$;
@@ -49,6 +49,7 @@ test('squad notifications choose one current app or email recipient and preserve
   await db.exec(outbox)
   await db.exec(migration)
   await db.exec(bulk)
+  await assert.rejects(db.query("select public.set_match_day_timer_state($1,'conclude')", [id(4)]), /Only a coach or manager/)
   const player = async (n, email = null) => {
     await db.query('insert into public.players(id,club_id,team_id,player_name,status,parent_email) values($1,$2,$3,$4,$5,$6)', [id(n), id(2), id(3), `Player ${n}`, 'active', email])
     await db.query('insert into public.player_team_memberships values($1,$2,$3,$4,null)', [id(n), id(2), id(3), 'active'])

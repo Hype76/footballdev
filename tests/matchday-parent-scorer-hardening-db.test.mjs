@@ -321,7 +321,8 @@ async function seedDatabase(db) {
 
 test("disposable database applies, rolls back, reapplies, and enforces parent scorer authority", async () => {
   const conclusionGuard = (await readFile(new URL("../supabase/migrations/20260903120639_squad_notification_email_fallback.sql", import.meta.url), "utf8")).split("alter table public.match_day_squad_notifications")[0];
-  const migration = await readFile(migrationPath, "utf8") + "\n" + conclusionGuard;
+  const nullAuthorityGuard = await readFile(new URL("../supabase/migrations/20260903120851_coach_conclusion_authority.sql", import.meta.url), "utf8");
+  const migration = await readFile(migrationPath, "utf8") + "\n" + conclusionGuard + "\n" + nullAuthorityGuard;
   const db = new PGlite();
 
   try {
