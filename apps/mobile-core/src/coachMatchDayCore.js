@@ -8,7 +8,8 @@ import {
   normalizeMatchDaySquadDecision,
   summarizeMatchDaySquadDecisions,
 } from '../../../src/lib/matchday-squad-selection.js'
-import { formatMatchTimerClock, getMatchTimerMinute } from '../../../src/lib/matchday-timer.js'
+import { getMatchTimerMinute } from '../../../src/lib/matchday-timer.js'
+import { formatMatchAddedTimeClock } from '../../../src/lib/matchday-event-time.js'
 import { getMatchDayUndoReasonOptions, isMatchDayEventUndoSupported, validateMatchDayEventUndoInput } from '../../../src/lib/matchday-event-undo.js'
 
 const CLOSED_STATUSES = new Set(['cancelled', 'postponed'])
@@ -150,7 +151,7 @@ export function filterCoachMatchDays(matches, filter = 'current', now = new Date
 export function getCoachMatchDayPresentation(match, now = Date.now()) {
   const parts = getMatchDayDisplayParts(match)
   return Object.freeze({
-    clock: formatMatchTimerClock(match, now),
+    clock: formatMatchAddedTimeClock(match, now),
     displayName: getMatchDayDisplayName(match),
     displayScore: getMatchDayDisplayScore(match),
     lifecycle: getMatchDayLifecycleState(match),

@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
+import { formatMatchAddedTimeClock } from '../src/lib/matchday-event-time.js'
+import { getCoachMatchDayPresentation } from '../apps/mobile-core/src/coachMatchDayCore.js'
 const migrationUrl = new URL('../supabase/migrations/20260902144139_parent_scorer_resume_added_time_own_goals.sql', import.meta.url)
+const clockMigrationUrl = new URL('../supabase/migrations/20260903121544_parent_match_clock_settings.sql', import.meta.url)
 const player = '30000000-0000-4000-8000-000000000001'
 const fixture = '60000000-0000-4000-8000-000000000001'
 const club = '10000000-0000-4000-8000-000000000001'
@@ -33,9 +36,48 @@ async function database() {
     select set_config('request.jwt.claim.sub','${player}',false);
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(clockMigrationUrl, 'utf8'))
   await db.exec(`create trigger context before insert on public.match_day_events for each row execute function public.set_match_day_event_extended_context(); create trigger half_floor before update on public.match_days for each row execute function public.enforce_match_day_second_half_floor();`)
   return db
 }
+
+test('parent and coach clocks retain an eight-minute fixture through half-time, pause and fresh reads', async () => {
+  const db = await database()
+  try {
+    const now = Date.parse('2026-09-03T12:00:00Z')
+    const read = async () => {
+      const base = (await db.query('select * from public.match_days')).rows[0]
+      const extended = (await db.query("select * from public.get_parent_portal_match_day_extended_state('50000000-0000-4000-8000-000000000001')")).rows[0]
+      // The base parent API deliberately has no duration or clock-mode fields.
+      const { match_duration_minutes: omittedDuration, match_clock_mode: omittedMode, ...parentBase } = base
+      assert.equal(omittedDuration, 8)
+      assert.ok(omittedMode)
+      return {
+        parent: JSON.parse(JSON.stringify({ ...parentBase, ...extended })),
+        coach: JSON.parse(JSON.stringify({ ...base, matchDurationMinutes: base.match_duration_minutes, clockMode: base.match_clock_mode, currentMatchPhase: base.current_match_phase, timerStatus: base.timer_status, timerStartedAt: base.timer_started_at, timerElapsedSeconds: base.timer_elapsed_seconds })),
+      }
+    }
+    const verify = async (expected, at = now) => {
+      const { parent, coach } = await read()
+      assert.equal(parent.match_duration_minutes, 8)
+      assert.equal(formatMatchAddedTimeClock(parent, at), expected)
+      assert.equal(getCoachMatchDayPresentation(coach, at).clock, expected)
+    }
+    await db.exec("update public.match_days set match_duration_minutes=8,status='half_time',current_match_phase='half_time',timer_status='half_time',timer_elapsed_seconds=300")
+    await verify('4+1:00')
+    await db.query("update public.match_days set status='second_half',current_match_phase='second_half',timer_status='running',timer_started_at=$1", [new Date(now).toISOString()])
+    await verify('4:00')
+    await verify('4:30', now + 30000)
+    await db.exec("update public.match_days set timer_status='paused',timer_started_at=null,timer_elapsed_seconds=270")
+    await verify('4:30', now + 600000)
+    await db.query("update public.match_days set timer_status='running',timer_started_at=$1", [new Date(now + 600000).toISOString()])
+    await verify('5:00', now + 630000)
+    await db.exec("update public.match_days set status='half_time',current_match_phase='half_time',timer_status='half_time',timer_elapsed_seconds=300,match_clock_mode='continuous'; update public.match_days set status='second_half',current_match_phase='second_half',timer_status='paused'")
+    await verify('5:00')
+    await db.exec('set role anon')
+    await assert.rejects(db.query("select * from public.get_parent_portal_match_day_extended_state('50000000-0000-4000-8000-000000000001')"), /permission denied/)
+  } finally { await db.close() }
+})
 
 test('own goals persist added time, credit the chosen side, clear assists and remain idempotent', async () => {
   const db = await database()
