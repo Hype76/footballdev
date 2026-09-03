@@ -4,7 +4,7 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const load = (name) => readFile(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), 'utf8')
-const migration = await load('20260903120639_squad_notification_email_fallback') + '\n' + await load('20260903120851_coach_conclusion_authority')
+const migration = await load('20260903120639_squad_notification_email_fallback') + '\n' + await load('20260903120851_coach_conclusion_authority') + '\n' + await load('20260903125603_squad_notification_copy_branding')
 const outbox = (await load('20260903091914_coach_squad_decision_notifications')).split('-- Saving a decision')[0]
 const canonicalRecipients = await load('20260823135328_promoted_player_matchday_recipient_fix_78')
 const bulkSource = await load('20260903095629_coach_squad_bulk_notify')
@@ -105,6 +105,7 @@ test('squad notifications choose one current app or email recipient and preserve
     assert.equal((await notify(103)).alreadySent, true)
     assert.equal((await db.query('select * from public.parent_mobile_notification_events')).rows.length, 1)
     const receipt = await claim(email.notificationIds[0])
+    assert.equal(receipt.decision_status, 'selected')
     assert.equal(receipt.delivery_channel, 'email'); assert.equal(receipt.recipient_email, 'unsigned@example.test')
     assert.equal(await claim(email.notificationIds[0]), null)
   })
@@ -114,7 +115,10 @@ test('squad notifications choose one current app or email recipient and preserve
     assert.equal(await claim(previous.notificationIds[0]), null)
     const next = await notify(102)
     assert.equal(next.sent, true); assert.notEqual(next.notificationIds[0], previous.notificationIds[0])
-    assert.match((await claim(next.notificationIds[0])).body, /has not been selected/)
+    const receipt = await claim(next.notificationIds[0])
+    assert.match(receipt.body, /has not been selected.*this time\.$/)
+    assert.doesNotMatch(receipt.body, /Thank you for your support/)
+    assert.equal(receipt.decision_status, 'not_selected')
   })
   await t.test('email changed or preference disabled before delivery retires the receipt', async () => {
     await player(107, 'old@example.test'); const before = await notify(107)

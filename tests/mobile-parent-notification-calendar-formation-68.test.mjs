@@ -72,17 +72,19 @@ test('the Parent app does not clear its icon badge before authentication and res
 })
 
 test('opening a grouped Chat card marks every child-scoped event in that room read', async () => {
-  const [app, endpoint, offline] = await Promise.all([
+  const [app, endpoint, offline, actions] = await Promise.all([
     read('../apps/parent-mobile/App.js'),
     read('../netlify/functions/parent-mobile-notifications.js'),
     read('../apps/parent-mobile/src/offline.js'),
+    read('../netlify/functions/lib/_parent-notification-actions.js'),
   ])
   assert.match(app, /notificationIds = Array\.isArray\(notification\?\.notificationIds\)/)
   assert.match(app, /markParentNotificationRead\(selectedMobileUser, notificationIds\)/)
   assert.match(endpoint, /\.eq\('auth_user_id', authUser\.id\)/)
   assert.match(endpoint, /\.eq\('parent_link_id', link\.id\)/)
-  assert.match(endpoint, /serverNotificationIds = notificationIds\.filter/)
-  assert.match(endpoint, /query = query\.in\('id', serverNotificationIds\)/)
+  assert.match(actions, /query = query\.in\('id', ids\)/)
+  assert.match(actions, /\.eq\('auth_user_id', authUser\.id\)/)
+  assert.match(actions, /\.eq\('parent_link_id', link\.id\)/)
   assert.match(endpoint, /\.gte\('created_at', link\.created_at\)/)
   assert.match(endpoint, /filterUnavailableNotifications\(collapsedNotifications, link\)/)
   assert.match(endpoint, /match_day_availability_requests/)
@@ -90,7 +92,7 @@ test('opening a grouped Chat card marks every child-scoped event in that room re
   assert.match(endpoint, /resource_library_items/)
   assert.match(endpoint, /evaluations/)
   assert.match(endpoint, /unavailableIds/)
-  assert.match(offline, /normalizedNotificationIds\.has\(normalize\(notification\.id\)\)/)
+  assert.match(offline, /applyParentNotificationAction\(cache\.resources\.notifications/)
 })
 
 test('Calendar cards open the exact invitation response screen', async () => {

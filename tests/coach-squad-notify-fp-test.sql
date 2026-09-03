@@ -37,7 +37,7 @@ reset role;
 do $$ declare receipt_row public.match_day_squad_notifications%rowtype; r jsonb; begin
   if (select count(*) from public.match_day_squad_notifications n join public.match_day_player_squad_decisions d on d.id=n.decision_id where d.match_day_id='9a090303-0000-4000-8000-000000000001')<>2 then raise exception 'TEST FAILED receipt count'; end if;
   if (select count(*) from public.parent_mobile_notification_events where parent_link_id='9a090303-0000-4000-8000-000000000004' and data->>'matchDayId'='9a090303-0000-4000-8000-000000000001')<>1 then raise exception 'TEST FAILED inbox duplicated'; end if;
-  if not exists(select 1 from public.parent_mobile_notification_events where parent_link_id='9a090303-0000-4000-8000-000000000004' and body like '%has not been selected%Thank you for your support.%') then raise exception 'TEST FAILED sensitive copy'; end if;
+  if not exists(select 1 from public.parent_mobile_notification_events where parent_link_id='9a090303-0000-4000-8000-000000000004' and body like '%has not been selected%this time.' and body not like '%Thank you for your support%') then raise exception 'TEST FAILED sensitive copy'; end if;
   if not exists(select 1 from public.parent_mobile_notification_events where parent_link_id='9a090303-0000-4000-8000-000000000004' and position(to_char(current_date+7,'Dy FMDD Mon') in body)>0) then raise exception 'TEST FAILED notification date'; end if;
   for receipt_row in select n.* from public.match_day_squad_notifications n join public.match_day_player_squad_decisions d on d.id=n.decision_id where d.match_day_id='9a090303-0000-4000-8000-000000000001' order by n.created_at,n.id loop
     r:=public.claim_squad_notification_push(receipt_row.id);
@@ -67,3 +67,12 @@ do $$ declare d public.match_day_player_squad_decisions%rowtype; begin
 end $$;
 reset role;
 select 'FP TEST squad notification checks passed; caller must roll back' as result;
+do $$ declare event_id bigint; begin
+  select id into event_id from public.parent_mobile_notification_events
+  where parent_link_id='9a090303-0000-4000-8000-000000000004' limit 1;
+  if event_id is null then raise exception 'TEST FAILED notification event missing'; end if;
+  update public.parent_mobile_notification_events set dismissed_at=clock_timestamp(),read_at=clock_timestamp() where id=event_id;
+  if not exists(select 1 from public.parent_mobile_notification_events where id=event_id and dismissed_at is not null) then raise exception 'TEST FAILED clear did not persist'; end if;
+  update public.parent_mobile_notification_events set body='FP TEST new score update',sent_at=clock_timestamp(),read_at=null where id=event_id;
+  if not exists(select 1 from public.parent_mobile_notification_events where id=event_id and dismissed_at is null and read_at is null) then raise exception 'TEST FAILED new update remained cleared'; end if;
+end $$;

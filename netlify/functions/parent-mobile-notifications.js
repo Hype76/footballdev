@@ -7,6 +7,7 @@ import {
 } from './lib/_parent-notification-validity.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { getParentMatchNotificationGroupKey } from '../../apps/mobile-core/src/parentNotificationInboxCore.js'
+import { updateParentNotificationInbox } from './lib/_parent-notification-actions.js'
 
 function response(statusCode, payload) {
   return {
@@ -210,23 +211,8 @@ export async function handler(event) {
       const notificationIds = [...new Set([
         ...(Array.isArray(body.notificationIds) ? body.notificationIds : []),
         body.notificationId,
-      ].map(normalizeText).filter(Boolean))].slice(0, 50)
-      const serverNotificationIds = notificationIds.filter((id) => /^\d+$/.test(id))
-      const now = new Date().toISOString()
-      let query = supabaseAdmin
-        .from('parent_mobile_notification_events')
-        .update({ read_at: now })
-        .eq('auth_user_id', authUser.id)
-        .eq('parent_link_id', link.id)
-        .is('read_at', null)
-
-      if (serverNotificationIds.length) query = query.in('id', serverNotificationIds)
-      if (notificationIds.length && serverNotificationIds.length === 0) {
-        return response(200, { readAt: now, success: true })
-      }
-      const { error } = await query
-      if (error) throw error
-      return response(200, { readAt: now, success: true })
+      ].map(normalizeText).filter(Boolean))].slice(0, 500)
+      return response(200, await updateParentNotificationInbox({ admin: supabaseAdmin, authUser, link, action: body.action || 'read', notificationIds }))
     }
 
     const { data, error } = await supabaseAdmin
@@ -235,6 +221,7 @@ export async function handler(event) {
       .eq('auth_user_id', authUser.id)
       .eq('parent_link_id', link.id)
       .eq('status', 'sent')
+      .is('dismissed_at', null)
       .gte('created_at', link.created_at)
       .order('sent_at', { ascending: false })
       .limit(500)

@@ -418,7 +418,7 @@ export async function getParentNotificationInbox(user) {
   return Array.isArray(result.notifications) ? result.notifications : []
 }
 
-export async function markParentNotificationRead(user, notificationIds = []) {
+export async function markParentNotificationRead(user, notificationIds = [], action = 'read') {
   const link = requireSelectedLink(user)
   const config = getMobileRuntimeConfig('parent')
   const accessToken = await getAccessToken()
@@ -427,7 +427,7 @@ export async function markParentNotificationRead(user, notificationIds = []) {
   const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '/.netlify/functions/parent-mobile-notifications'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ notificationIds: ids, parentLinkId: link.id }),
+    body: JSON.stringify({ notificationIds: ids, parentLinkId: link.id, action }),
   })
   if (!ok || result.success === false) throw new Error(result.message || 'Notification state could not be saved.')
   return result

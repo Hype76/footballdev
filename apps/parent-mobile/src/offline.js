@@ -21,6 +21,7 @@ import {
   setParentOfflineSelection,
 } from '../../mobile-core/src/parentOfflineCore'
 import { getParentPortalLinks, withSelectedParentLink } from '../../mobile-core/src/parentLinks'
+import { applyParentNotificationAction } from '../../mobile-core/src/parentNotificationInboxCore'
 
 const config = getMobileRuntimeConfig('parent')
 const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split('.')[0] : ''
@@ -181,7 +182,7 @@ export async function saveParentOfflineResources(user, linkId, resources) {
   return writeDocument(user.id, document)
 }
 
-export async function markParentOfflineNotificationRead(user, linkId, notificationIds) {
+export async function markParentOfflineNotificationRead(user, linkId, notificationIds, action = 'read', appliedAt = '') {
   let document = await ensureDocument(user)
   const cache = getParentOfflineResources(document, linkId)
   const normalizedNotificationIds = new Set((Array.isArray(notificationIds) ? notificationIds : [notificationIds]).map(normalize).filter(Boolean))
@@ -191,11 +192,7 @@ export async function markParentOfflineNotificationRead(user, linkId, notificati
   document = setParentOfflineSelection(document, linkId)
   document = setParentOfflineResources(document, linkId, {
     ...cache.resources,
-    notifications: (cache.resources.notifications || []).map((notification) => (
-      normalizedNotificationIds.has(normalize(notification.id))
-        ? { ...notification, isRead: true }
-        : notification
-    )),
+    notifications: applyParentNotificationAction(cache.resources.notifications || [], [...normalizedNotificationIds], action, appliedAt),
   })
   return writeDocument(user.id, document)
 }

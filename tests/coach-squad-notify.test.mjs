@@ -64,7 +64,7 @@ test('an already claimed or obsolete receipt does not produce another phone mess
 
 test('email fallback uses only the saved recipient and a stable provider key across retries', async () => {
   const emails = []; const updates = []
-  const receipt = { id, match_day_id: 'fixture', delivery_channel: 'email', recipient_email: 'parent@example.test', body: 'Alex is in the squad.', notified_by: 'coach' }
+  const receipt = { id, match_day_id: 'fixture', delivery_channel: 'email', recipient_email: 'parent@example.test', decision_status: 'selected', body: 'Alex is in the squad.', notified_by: 'coach' }
   const admin = { rpc: async () => ({ data: receipt }), from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'fixture', club_id: 'club', team_id: 'team', clubs: { name: 'FP TEST' } } }) }) }), update: (value) => ({ eq: async () => { updates.push(value); return {} } }) }) }
   const email = async (payload, options) => { emails.push({ payload, options }); if (emails.length === 1) throw new Error('Network interrupted') }
   const deliver = async () => { throw new Error('Email receipt must not send an app push') }
@@ -74,8 +74,24 @@ test('email fallback uses only the saved recipient and a stable provider key acr
   assert.equal(emails[0].payload.to, 'parent@example.test')
   assert.equal(emails[0].options.idempotencyKey, emails[1].options.idempotencyKey)
   assert.equal(emails[1].options.idempotencyKey, `squad-decision:${id}`)
-  assert.equal(emails[1].payload.text, 'Alex is in the squad.\n\nFP TEST')
+  assert.match(emails[1].payload.text, /FP TEST[\s\S]*Selected[\s\S]*Alex is in the squad\./)
+  assert.match(emails[1].payload.html, /<html lang="en">/)
+  assert.match(emails[1].payload.html, /FP TEST/)
+  assert.match(emails[1].payload.html, /Squad confirmed/)
   assert.ok(updates[1].push_finished_at)
+})
+
+test('email uses the match club branding and cleans pending non-selected copy', async () => {
+  let sent; let logoArgs; let selection
+  const receipt = { id, match_day_id: 'fixture', delivery_channel: 'email', recipient_email: 'parent@example.test', decision_status: 'not_selected', body: 'Alex has not been selected this time. Thank you for your support.' }
+  const admin = { rpc: async () => ({ data: receipt }), from: () => ({ select: (value) => { selection = value; return { eq: () => ({ single: async () => ({ data: { id: 'fixture', clubs: { name: 'Example FC', logo_url: 'https://example.com/crest.png', theme_accent: '#123456' }, teams: { name: 'U14' } } }) }) } }, update: () => ({ eq: async () => ({}) }) }) }
+  await deliverSquadDecisionNotifications([id], { admin, resolveLogo: async (args) => { logoArgs = args; return { source: 'club', url: args.clubLogoUrl } }, email: async (payload) => { sent = payload } })
+  assert.match(selection, /clubs:club_id\(name,logo_url,theme_accent\)/)
+  assert.deepEqual(logoArgs, { clubLogoUrl: 'https://example.com/crest.png' })
+  assert.match(sent.html, /https:\/\/example.com\/crest.png/)
+  assert.match(sent.html, /#123456/)
+  assert.match(sent.html, /Not selected this time/)
+  assert.doesNotMatch(sent.html + sent.text, /Thank you for your support/)
 })
 
 test('contact flags distinguish email delivery, no contacts and explicit preferences', () => {

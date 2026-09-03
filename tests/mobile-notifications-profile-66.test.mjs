@@ -68,7 +68,7 @@ test('Parent notification inbox is child-scoped and read state remains service-o
   assert.match(app, /title="Notifications"/)
   assert.match(app, /onOpenNotification/)
   assert.match(app, /getNotificationTypeIcon/)
-  assert.match(app, /MaterialIcons/)
+  assert.match(app, /ParentIcon/)
   assert.match(endpoint, /\.eq\('parent_link_id', link\.id\)/)
   assert.match(endpoint, /\.eq\('auth_user_id', authUser\.id\)/)
   assert.match(migration, /add column if not exists read_at timestamptz/)

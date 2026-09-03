@@ -24,6 +24,7 @@ import {
   Switch,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
@@ -53,7 +54,7 @@ import {
   resolveParentNotificationLinkId,
   resolveParentNotificationOpen,
 } from '../mobile-core/src/parentNotificationsCore'
-import { countUnreadNonChatNotifications, getParentNotificationPresentation, getParentOpenedNotificationIds, prepareParentNotificationInbox, prepareParentUpdates } from '../mobile-core/src/parentNotificationInboxCore'
+import { applyParentNotificationAction, countUnreadGeneralNotifications, countUnreadNonChatNotifications, getParentNotificationPresentation, getParentOpenedNotificationIds, prepareParentUpdates } from '../mobile-core/src/parentNotificationInboxCore'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
@@ -1790,6 +1791,25 @@ function ParentHome() {
     }
   }
 
+  async function handleNotificationAction(action, notifications) {
+    if (isOffline || activeActionId) return
+    const notificationIds = notifications.flatMap((item) => item.notificationIds || [item.id])
+    const requestId = requestIdRef.current
+    const linkId = selectedLink.id
+    setActiveActionId(`notifications:${action}`)
+    try {
+      const result = await markParentNotificationRead(selectedMobileUser, notificationIds, action === 'clear' ? 'clear_general' : 'read')
+      await markParentOfflineNotificationRead(selectedMobileUser, linkId, result.notificationIds, action, result.readAt)
+      if (requestId !== requestIdRef.current) return
+      setResources((current) => ({ ...current, notifications: { ...current.notifications, items: applyParentNotificationAction(current.notifications.items, result.notificationIds, action, result.readAt) } }))
+      setNotice({ message: action === 'clear' ? 'Notifications cleared.' : 'Marked as read.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'Notification changes could not be saved. Please try again.'), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   async function handleOpenNotification(notification) {
     const notificationIds = Array.isArray(notification?.notificationIds) && notification.notificationIds.length
       ? notification.notificationIds
@@ -1997,7 +2017,7 @@ function ParentHome() {
               />
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
-            {activeTab === 'more' && moreSection === 'updates' ? <UpdatesScreen matches={visibleMatches} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
+            {activeTab === 'more' && moreSection === 'updates' ? <NotificationsScreen busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
@@ -2235,23 +2255,29 @@ function getNotificationTypeIcon(intentType) {
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 
-function UpdatesScreen({ matches, onOpenNotification, onRetry, resource }) {
+function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotification, onRetry, resource }) {
   const { palette, styles } = useParentTheme()
   const [unreadOnly, setUnreadOnly] = useState(false)
   const updates = prepareParentUpdates(resource.items)
   const visible = updates.filter((item) => !unreadOnly || !item.isRead)
   return <View style={styles.screenStack}>
-    <SectionHeading title="Updates" copy="Squad selection, scores and club notifications." />
-    <ResourceError onRetry={onRetry} resource={resource} title="Updates unavailable" />
+    <SectionHeading title="Notifications" copy="Squad selection, scores and news from your club." />
+    <ResourceError onRetry={onRetry} resource={resource} title="Notifications unavailable" />
     <View style={styles.cardTopRow}>
       <PrimaryAction label={`All (${updates.length})`} onPress={() => setUnreadOnly(false)} secondary={unreadOnly} />
-      <PrimaryAction label={`Unread (${countUnreadNonChatNotifications(updates)})`} onPress={() => setUnreadOnly(true)} secondary={!unreadOnly} />
+      <PrimaryAction label={`Unread (${updates.filter((item) => !item.isRead).length})`} onPress={() => setUnreadOnly(true)} secondary={!unreadOnly} />
     </View>
-    {resource.loading && !updates.length ? <LoadingPanel message="Loading updates" /> : null}
-    {!resource.loading && !visible.length ? <EmptyPanel title={unreadOnly ? 'All caught up' : 'No updates yet'} message={unreadOnly ? 'Read updates are still available under All.' : 'Squad decisions, match scores and other club updates will appear here.'} /> : null}
+    {updates.length ? <View style={styles.cardTopRow}>
+      <PrimaryAction disabled={busy || isOffline || updates.every((item) => item.isRead)} label="Mark all as read" onPress={() => onAction('read', updates.filter((item) => !item.isRead))} secondary />
+      <PrimaryAction disabled={busy || isOffline} label="Clear all" onPress={() => onAction('clear', updates)} secondary />
+    </View> : null}
+    {isOffline ? <Text style={styles.helperText}>Connect to the internet to mark notifications as read or clear them.</Text> : null}
+    {resource.loading && !updates.length ? <LoadingPanel message="Loading notifications" /> : null}
+    {!resource.loading && !visible.length ? <EmptyPanel title={unreadOnly ? 'All caught up' : 'No notifications'} message={unreadOnly ? 'Read notifications are still available under All.' : 'Squad decisions, match scores and club news will appear here.'} /> : null}
     {visible.map((notification) => {
       const presentation = getParentNotificationPresentation(notification, matches)
-      return <Pressable accessibilityRole="button" accessibilityLabel={`${notification.isRead ? 'Read' : 'Unread'}: ${presentation.displayTitle}`} key={notification.id} onPress={() => onOpenNotification(notification)} style={({ pressed }) => [styles.card, !notification.isRead && styles.cardProminent, pressed && styles.pressed]}>
+      return <View key={notification.id} style={[styles.card, !notification.isRead && styles.cardProminent]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${notification.isRead ? 'Read' : 'Unread'}: ${presentation.displayTitle}`} onPress={() => onOpenNotification(notification)} style={({ pressed }) => [pressed && styles.pressed]}>
         <View style={styles.notificationRow}>
           <View style={styles.notificationIcon}><ParentIcon color={palette.accent} iconKey={getNotificationTypeIcon(notification.intentType)} size={23} /></View>
           <View style={styles.notificationContent}>
@@ -2262,13 +2288,15 @@ function UpdatesScreen({ matches, onOpenNotification, onRetry, resource }) {
           </View>
         </View>
       </Pressable>
+      {!notification.isRead ? <PrimaryAction disabled={busy || isOffline} label="Mark as read" onPress={() => onAction('read', [notification])} secondary /> : <Text style={styles.helperText}>Read</Text>}
+      </View>
     })}
   </View>
 }
 
 function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
   const { palette, styles } = useParentTheme()
-  const unreadNotifications = prepareParentNotificationInbox(notifications.items).filter((notification) => !notification.isRead)
+  const unreadNotifications = prepareParentUpdates(notifications.items).filter((notification) => !notification.isRead)
     .map((notification) => ({ ...notification, ...getParentNotificationPresentation(notification, matches.items) }))
   const homeFixtures = getParentHomeFixtureCards(homeModel)
   const scorerMatches = getParentScorerMatches(matches.items)
@@ -2299,7 +2327,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOf
       <ResourceError onRetry={onRetry} resource={calendar} title="Calendar unavailable" />
 
       <View accessibilityLabel="Family actions" style={styles.summaryGrid}>
-        <SummaryButton count={countUnreadNonChatNotifications(notifications.items)} iconKey="parent.updates" label="Updates" onPress={onOpenUpdates} />
+        <SummaryButton count={countUnreadGeneralNotifications(notifications.items)} iconKey="notifications" label="Notifications" onPress={onOpenUpdates} />
         <SummaryButton count={homeModel.unansweredPolls} iconKey="parent.polls" label="Polls" onPress={onOpenPolls} />
         <SummaryButton count={inviteCount} iconKey="parent.invites" label="Invites" onPress={onOpenInvites} />
         <SummaryButton iconKey="parent.calendar" label="Calendar" onPress={onOpenCalendar} />
@@ -2328,7 +2356,8 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOf
 
       {unreadNotifications.length > 0 ? (
         <View style={styles.sectionStack}>
-          <SectionHeading copy="Tap an update to open the right place." title="Notifications" />
+          <SectionHeading copy="Tap a notification to open the details." title="Notifications" />
+          <PrimaryAction label="View all notifications" onPress={onOpenUpdates} secondary />
           {unreadNotifications.map((notification) => (
             <Pressable
               accessibilityHint="Opens this update"
@@ -3041,6 +3070,7 @@ function SectionHeading({ copy, title }) {
 
 function SummaryButton({ count = null, disabled = false, iconKey, label, onPress }) {
   const { palette, styles } = useParentTheme()
+  const { width } = useWindowDimensions()
   return (
     <Pressable
       accessibilityLabel={count === null ? label : `${count} ${label}`}
@@ -3048,13 +3078,13 @@ function SummaryButton({ count = null, disabled = false, iconKey, label, onPress
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.summaryCard, disabled && styles.disabled, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.summaryCard, label === 'Notifications' && { flex: 1.3 }, disabled && styles.disabled, pressed && styles.pressed]}
     >
       <View style={styles.summaryIconWrap}>
       <ParentIcon color={palette.accent} iconKey={iconKey} size={28} />
         {count !== null ? <Text style={styles.summaryCount}>{count}</Text> : null}
       </View>
-      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.85} numberOfLines={1} style={[styles.summaryLabel, width < 360 && { fontSize: 9 }]}>{label}</Text>
     </Pressable>
   )
 }
@@ -3418,7 +3448,7 @@ function createParentAppStyles(tokens) {
   settingCopy: { flex: 1, gap: 6 },
   settingRow: { alignItems: 'center', flexDirection: 'row', gap: 14 },
   settingsInput: { backgroundColor: palette.background, borderColor: palette.borderStrong, borderRadius: 12, borderWidth: 1, color: palette.text, fontSize: 16, minHeight: 50, paddingHorizontal: 14, paddingVertical: 11 },
-  summaryCard: { alignItems: 'center', flex: 1, gap: 4, justifyContent: 'center', minHeight: 76, minWidth: 58, paddingHorizontal: 2, paddingVertical: 7 },
+  summaryCard: { alignItems: 'center', flex: 1, gap: 4, justifyContent: 'center', minHeight: 76, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
   summaryCount: { backgroundColor: palette.card, borderColor: palette.accent, borderRadius: 999, borderWidth: 1, color: palette.accent, fontSize: 9, fontWeight: '900', minWidth: 17, overflow: 'hidden', paddingHorizontal: 4, paddingVertical: 1, position: 'absolute', right: -8, textAlign: 'center', top: -5 },
   summaryDetail: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
   summaryGrid: { borderBottomColor: palette.border, borderBottomWidth: 1, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 2, justifyContent: 'space-between', paddingVertical: 3 },

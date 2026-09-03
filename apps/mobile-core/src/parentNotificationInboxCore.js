@@ -2,12 +2,23 @@ import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
 const normalize = (value) => String(value ?? '').trim()
 
+export function getParentNotificationCategory(notification = {}) {
+  const kind = normalize(notification.intentType || notification.intent_type).toLowerCase()
+  const data = notification.data || {}
+  const route = normalize(data.route).toLowerCase()
+  const type = normalize(data.type).toLowerCase()
+  if (kind === 'parent_chat' || route === 'chat') return 'chat'
+  if (['parent_poll', 'poll_results'].includes(kind) || route === 'polls' || normalize(data.pollId)) return 'polls'
+  if (route === 'invites' || type === 'scorer_request' || normalize(data.availabilityRequestId) || normalize(data.trainingRequestPlayerId)) return 'invites'
+  return 'general'
+}
+
 export function getParentMatchNotificationGroupKey(notification = {}) {
   const data = notification.data || {}
   const matchId = normalize(data.matchDayId)
   const kind = normalize(notification.intentType || notification.intent_type)
   return matchId && (kind === 'matchday_update' || ['matchday', 'invites'].includes(normalize(data.route)))
-    ? `match:${normalize(data.parentLinkId)}:${matchId}` : ''
+    ? `${getParentNotificationCategory(notification) === 'invites' ? 'invite' : 'match'}:${normalize(data.parentLinkId)}:${matchId}` : ''
 }
 
 function parentChatRoomId(notification = {}) {
@@ -38,6 +49,7 @@ export function getParentOpenedNotificationIds(data = {}, notifications = []) {
     const candidate = notification.data || {}
     if (normalize(data.parentLinkId) && normalize(candidate.parentLinkId) !== normalize(data.parentLinkId)) return false
     if (getParentMatchNotificationGroupKey({ data })) return normalize(candidate.matchDayId) === normalize(data.matchDayId)
+      && getParentNotificationCategory(notification) === getParentNotificationCategory({ data })
     if ((normalize(data.route) === 'invites' || normalize(data.type) === 'scorer_request') && normalize(data.matchDayId)) {
       return (normalize(candidate.route) === 'invites' || normalize(candidate.type) === 'scorer_request') && normalize(candidate.matchDayId) === normalize(data.matchDayId)
     }
@@ -103,12 +115,25 @@ export function prepareParentNotificationInbox(notifications = []) {
 }
 
 export function countUnreadNonChatNotifications(notifications = []) {
-  return prepareParentUpdates(notifications).filter((notification) => (
-    notification && notification.isBadgeEligible !== false && !notification.isRead
+  return prepareParentNotificationInbox(notifications).filter((notification) => (
+    notification && getParentNotificationCategory(notification) !== 'chat' && notification.isBadgeEligible !== false && !notification.isRead
   )).length
 }
 
 export function prepareParentUpdates(notifications = []) {
-  return prepareParentNotificationInbox(notifications).filter((notification) => !parentChatRoomId(notification))
+  return prepareParentNotificationInbox(notifications.filter((notification) => getParentNotificationCategory(notification) === 'general'))
+}
+
+export function countUnreadGeneralNotifications(notifications = []) {
+  return prepareParentUpdates(notifications).filter((notification) => !notification.isRead && notification.isBadgeEligible !== false).length
+}
+
+export function applyParentNotificationAction(notifications = [], ids = [], action = 'read', appliedAt = '') {
+  const affected = new Set(ids.map(normalize))
+  return notifications.flatMap((notification) => {
+    // A newer replacement must not be changed by a response for an older event.
+    if (!affected.has(normalize(notification.id)) || (appliedAt && Date.parse(notification.sentAt || notification.createdAt) > Date.parse(appliedAt))) return [notification]
+    return action === 'clear' ? [] : [{ ...notification, isRead: true }]
+  })
 }
 

@@ -1101,7 +1101,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
 export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredPolls }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const items = [
-    ['updates', 'parent.updates', 'Updates', 'Selection, scores and club notifications'],
+    ['updates', 'notifications', 'Notifications', 'Selection, scores and club news'],
     ['invites', 'invite', 'Invites', unansweredInvites ? `${unansweredInvites} to answer` : 'Attendance and roles'],
     ['results', 'result', 'Results', 'Completed fixtures'],
     ['development', 'development', 'Development', 'Shared reports'],
