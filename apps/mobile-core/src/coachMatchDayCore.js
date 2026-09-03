@@ -1,3 +1,4 @@
+import { getGoalScorerSide } from '../../../src/lib/matchday-goal-credit.js'
 import { buildFinalMatchReportSummary, isFinalMatchReportAvailable } from '../../../src/lib/matchday-final-report.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../../../src/lib/matchday-display.js'
 import { getMatchDayPhaseLabel } from '../../../src/lib/matchday-extended-ops.js'
@@ -9,7 +10,7 @@ import {
   summarizeMatchDaySquadDecisions,
 } from '../../../src/lib/matchday-squad-selection.js'
 import { getMatchTimerMinute } from '../../../src/lib/matchday-timer.js'
-import { formatMatchAddedTimeClock } from '../../../src/lib/matchday-event-time.js'
+import { captureMatchEventTime, formatMatchAddedTimeClock } from '../../../src/lib/matchday-event-time.js'
 import { getMatchDayUndoReasonOptions, isMatchDayEventUndoSupported, validateMatchDayEventUndoInput } from '../../../src/lib/matchday-event-undo.js'
 
 const CLOSED_STATUSES = new Set(['cancelled', 'postponed'])
@@ -58,6 +59,8 @@ export function isCoachMatchDayGoalCorrectionApplied(match, eventId, goal = {}, 
     && sameText(event.scorerShirtNumber, goal.scorerShirtNumber)
     && sameText(event.assistName, goal.assistName)
     && Number(event.minute ?? -1) === Number(goal.minute ?? -1)
+    && Boolean(event.isOwnGoal) === Boolean(goal.isOwnGoal)
+    && Number(event.stoppageMinute || 0) === Number(goal.stoppageMinute || 0)
     && sameText(event.correctionReason, reason)
 }
 
@@ -166,11 +169,13 @@ export function getCoachMatchDayPresentation(match, now = Date.now()) {
 export function captureCoachMatchDayAction(match, action, now = Date.now()) {
   const capturedAt = Number.isFinite(now) ? now : Date.now()
   const presentation = getCoachMatchDayPresentation(match, capturedAt)
+  const time = captureMatchEventTime(match, capturedAt)
   return Object.freeze({
     action: normalize(action),
     capturedAt: new Date(capturedAt).toISOString(),
     capturedClock: presentation.clock,
-    capturedMinute: presentation.matchMinute,
+    capturedMinute: time.minute,
+    capturedStoppageMinute: time.stoppageMinute,
   })
 }
 
@@ -332,6 +337,8 @@ export function createCoachMatchDayEventForm(type = 'goal', match = {}, now = Da
     assistShirtNumber: '',
     eventType,
     isPenaltyGoal: false,
+    isOwnGoal: false,
+    stoppageMinute: String(capture.capturedStoppageMinute ?? ''),
     capturedAt: capture.capturedAt,
     capturedClock: capture.capturedClock,
     minute: String(capture.capturedMinute ?? ''),
@@ -362,13 +369,16 @@ export function validateCoachMatchDayEventForm(form = {}) {
   const minute = normalize(form.minute)
   if (minute) {
     const number = Number(minute)
-    if (!Number.isInteger(number) || number < 0 || number > 130) throw new Error('Choose a valid match minute before saving this event.')
+    if (!Number.isInteger(number) || number < 0 || number > 999) throw new Error('Choose a valid match minute before saving this event.')
   }
+  const stoppageMinute = Number(form.stoppageMinute || 0)
+  if (!Number.isInteger(stoppageMinute) || stoppageMinute < 0 || stoppageMinute > 30) throw new Error('Enter added time from 0 to 30 minutes.')
   const teamSide = form.teamSide === 'opponent' ? 'opponent' : 'club'
+  const scorerSide = getGoalScorerSide(form)
   const scorerParticipantType = ['coach', 'other'].includes(form.scorerParticipantType) ? form.scorerParticipantType : 'player'
   const participantType = ['coach', 'other'].includes(form.participantType) ? form.participantType : 'player'
   const playerOnParticipantType = form.playerOnParticipantType === 'other' ? 'other' : 'player'
-  if (eventType === 'goal' && teamSide === 'club' && scorerParticipantType !== 'player' && !normalize(form.scorerName)) {
+  if (eventType === 'goal' && scorerSide === 'club' && scorerParticipantType !== 'player' && !normalize(form.scorerName)) {
     throw new Error(`Enter the ${scorerParticipantType === 'coach' ? 'Coach' : 'Other participant'} name.`)
   }
   if (eventType !== 'goal' && eventType !== 'water_break' && teamSide === 'club' && participantType !== 'player' && !normalize(form.playerName)) {
@@ -381,11 +391,16 @@ export function validateCoachMatchDayEventForm(form = {}) {
     ...form,
     eventType,
     minute: minute ? Number(minute) : null,
+    stoppageMinute: stoppageMinute || null,
+    isOwnGoal: form.isOwnGoal === true,
+    isPenaltyGoal: form.isOwnGoal ? false : form.isPenaltyGoal === true,
+    assistName: form.isOwnGoal ? '' : form.assistName,
+    assistShirtNumber: form.isOwnGoal ? '' : form.assistShirtNumber,
     participantType,
     playerName: teamSide === 'club' ? formatCoachMatchDayParticipantName(participantType, form.playerName) : normalize(form.playerName),
     playerOnName: teamSide === 'club' ? formatCoachMatchDayParticipantName(playerOnParticipantType, form.playerOnName) : normalize(form.playerOnName),
     playerOnParticipantType,
-    scorerName: teamSide === 'club' ? formatCoachMatchDayParticipantName(scorerParticipantType, form.scorerName) : normalize(form.scorerName),
+    scorerName: scorerSide === 'club' ? formatCoachMatchDayParticipantName(scorerParticipantType, form.scorerName) : normalize(form.scorerName),
     scorerParticipantType,
     teamSide,
   }

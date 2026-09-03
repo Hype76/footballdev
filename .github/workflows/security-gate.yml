@@ -115,6 +115,15 @@ jobs:
           tests/coach-confirmed-volunteer.test.mjs
           tests/parent-child-notification-badges.test.mjs
           tests/parent-notification-inbox-controls.test.mjs
+          tests/guest-scorer.test.mjs
+          tests/guest-scorer-parity.test.mjs
+          tests/guest-scorer-events-db.test.mjs
+          tests/matchday-substitution-notifications-98.test.mjs
+          tests/parent-matchday-availability-card-notifications-47.test.mjs
+          tests/mobile-coach-matchday-31d.test.mjs
+          tests/parent-scorer-goal-details-db.test.mjs
+      - name: Guest and mobile scorer rendering
+        run: node tests/guest-scorer-browser.mjs && node tests/mobile-scorer-parity-browser.mjs
       - name: Parent notification badge rendering
         run: node tests/mobile-notification-badges-browser.mjs
 

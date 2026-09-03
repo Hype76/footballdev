@@ -1,6 +1,12 @@
 import { isContinuousMatchClock, normalizeMatchDurationMinutes } from './matchday-model.js'
 import { getMatchTimerElapsedSeconds, getMatchTimerMinute } from './matchday-timer.js'
 
+export function getMatchClockDescription(match = {}) {
+  if (isContinuousMatchClock(match)) return 'Continuous clock. Each half carries on from the recorded time.'
+  const duration = normalizeMatchDurationMinutes(match.matchDurationMinutes ?? match.match_duration_minutes)
+  return `${duration} minute match, ${duration / 2} minutes per half.`
+}
+
 export function getMatchPeriodEndMinute(match = {}, phaseValue) {
   if (isContinuousMatchClock(match)) return null
   const phase = phaseValue || match.currentMatchPhase || match.current_match_phase || match.status

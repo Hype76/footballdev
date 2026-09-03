@@ -27,7 +27,7 @@ function normalizeEvent(row = {}) {
   return {
     id: row.id ?? '', matchDayId: row.match_day_id ?? row.matchDayId ?? '', eventType: normalize(row.event_type ?? row.eventType) || 'goal',
     teamSide: teamSide || 'club', teamSideRecorded: row.team_side_recorded === false || row.teamSideRecorded === false ? false : Boolean(teamSide),
-    minute: row.minute ?? null, scorerName: normalize(row.scorer_name ?? row.scorerName), scorerShirtNumber: normalize(row.scorer_shirt_number ?? row.scorerShirtNumber),
+    minute: row.minute ?? null, stoppageMinute: row.stoppage_minute ?? row.stoppageMinute ?? null, scorerName: normalize(row.scorer_name ?? row.scorerName), scorerShirtNumber: normalize(row.scorer_shirt_number ?? row.scorerShirtNumber),
     assistName: normalize(row.assist_name ?? row.assistName), assistShirtNumber: normalize(row.assist_shirt_number ?? row.assistShirtNumber),
     playerName: normalize(row.player_name ?? row.playerName ?? row.scorer_name ?? row.scorerName), playerShirtNumber: normalize(row.player_shirt_number ?? row.playerShirtNumber ?? row.scorer_shirt_number ?? row.scorerShirtNumber),
     playerOnName: normalize(row.player_on_name ?? row.playerOnName ?? row.assist_name ?? row.assistName), playerOnShirtNumber: normalize(row.player_on_shirt_number ?? row.playerOnShirtNumber ?? row.assist_shirt_number ?? row.assistShirtNumber),
@@ -465,10 +465,10 @@ export async function recordCoachMatchDayEvent(user, match, event, commandId = '
   const type = normalize(event?.eventType)
   let savedEvent = null
   if (type === 'goal') {
-    savedEvent = await rpc('record_match_day_goal_v2', { match_day_id_value: match.id, parent_link_id_value: null, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(event.scorerName), scorer_shirt_number_value: normalize(event.scorerShirtNumber), assist_name_value: normalize(event.assistName), assist_shirt_number_value: normalize(event.assistShirtNumber), minute_value: event.minute ?? null, notes_value: normalize(event.notes), is_penalty_goal_value: event.isPenaltyGoal === true, request_id_value: normalize(commandId) || requestId() })
+    savedEvent = await rpc('record_match_day_goal_v3', { match_day_id_value: match.id, parent_link_id_value: null, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(event.scorerName), scorer_shirt_number_value: normalize(event.scorerShirtNumber), assist_name_value: normalize(event.assistName), assist_shirt_number_value: normalize(event.assistShirtNumber), minute_value: event.minute ?? null, notes_value: normalize(event.notes), is_penalty_goal_value: event.isPenaltyGoal === true, is_own_goal_value: event.isOwnGoal === true, stoppage_minute_value: event.stoppageMinute ? Number(event.stoppageMinute) : null, request_id_value: normalize(commandId) || requestId() })
   } else {
     if (!STAFF_EVENT_TYPES.has(type)) throw new Error('Choose a supported Match Day event type.')
-    savedEvent = await rpc('record_match_day_staff_event_v2', { match_day_id_value: match.id, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: normalize(commandId) || requestId() })
+    savedEvent = await rpc('record_match_day_scorer_event_v1', { match_day_id_value: match.id, parent_link_id_value: null, stoppage_minute_value: event.stoppageMinute ? Number(event.stoppageMinute) : null, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: normalize(commandId) || requestId() })
   }
   if (type === 'goal' || type === 'yellow_card' || type === 'red_card' || type === 'substitution') await sendCoachMatchDayPush(match, type, savedEvent?.id)
   return getCoachMatchDayDetail(user, match.id)
@@ -483,7 +483,7 @@ export async function correctCoachMatchDayScore(user, match, homeScore, awayScor
 
 export async function correctCoachMatchDayGoal(user, match, event, goal, reason = '') {
   await prepareMutation(user, match)
-  await rpc('correct_match_day_goal', { match_day_id_value: match.id, goal_event_id_value: event.id, parent_link_id_value: null, team_side_value: goal.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(goal.scorerName), scorer_shirt_number_value: normalize(goal.scorerShirtNumber), assist_name_value: normalize(goal.assistName), assist_shirt_number_value: normalize(goal.assistShirtNumber), minute_value: goal.minute ?? null, notes_value: normalize(goal.notes), correction_reason_value: normalize(reason) })
+  await rpc('correct_match_day_goal_v2', { match_day_id_value: match.id, goal_event_id_value: event.id, parent_link_id_value: null, team_side_value: goal.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(goal.scorerName), scorer_shirt_number_value: normalize(goal.scorerShirtNumber), assist_name_value: normalize(goal.assistName), assist_shirt_number_value: normalize(goal.assistShirtNumber), minute_value: goal.minute ?? null, notes_value: normalize(goal.notes), correction_reason_value: normalize(reason), is_own_goal_value: goal.isOwnGoal === true, stoppage_minute_value: goal.stoppageMinute ? Number(goal.stoppageMinute) : null })
   return getCoachMatchDayDetail(user, match.id)
 }
 

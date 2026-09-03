@@ -131,7 +131,7 @@ test('cards and substitutions use only canonical staff event types', () => {
 })
 
 test('event validation rejects malformed minutes and incomplete substitutions', () => {
-  assert.throws(() => validateCoachMatchDayEventForm({ eventType: 'goal', minute: '131' }), /valid match minute/)
+  assert.throws(() => validateCoachMatchDayEventForm({ eventType: 'goal', minute: '1000' }), /valid match minute/)
   assert.throws(() => validateCoachMatchDayEventForm({ eventType: 'goal', minute: '1.5' }), /valid match minute/)
   assert.throws(() => validateCoachMatchDayEventForm({ eventType: 'substitution', minute: '60', playerName: 'Alex' }), /Player coming on/)
 })
@@ -160,7 +160,7 @@ test('backend deltas explicitly refuse invented fixture-linked lineup and extern
 
 test('Match Day live operations use canonical RPC mutations while pre-match fixture details remain editable', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
-  for (const rpc of ['start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'set_match_day_player_squad_decision_v2', 'record_match_day_goal_v2', 'record_match_day_score_correction_v2', 'record_match_day_staff_event_v2', 'void_match_day_event', 'record_match_day_shootout_kick', 'void_match_day_shootout_kick', 'save_match_day_final_report']) assert.match(source, new RegExp(`['\"]${rpc}['\"]`))
+  for (const rpc of ['start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'set_match_day_player_squad_decision_v2', 'record_match_day_goal_v3', 'record_match_day_score_correction_v2', 'record_match_day_scorer_event_v1', 'void_match_day_event', 'record_match_day_shootout_kick', 'void_match_day_shootout_kick', 'save_match_day_final_report']) assert.match(source, new RegExp(`['\"]${rpc}['\"]`))
   assert.match(source, /select-match-day-volunteer/)
   assert.match(source, /Authorization: `Bearer \$\{accessToken\}`/)
   assert.equal((source.match(/\.from\('match_days'\)\.update\(/g) || []).length, 0)
