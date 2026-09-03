@@ -1,7 +1,8 @@
+import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
-import { ActivityIndicator, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation } from '../../../src/lib/matchday-final-report.js'
 import {
   buildCoachFinalMatchReport,
@@ -754,10 +755,10 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {!match && !fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
     {fixtureFormOpen ? <CoachFixtureForm match={fixtureFormMatch} matches={matches} onCancel={() => { setFixtureFormOpen(false); setFixtureFormMatch(null); onRequestScrollTop?.() }} onCreated={handleFixtureCreated} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
     {match && !fixtureFormOpen && ['overview', 'volunteers'].includes(panel) ? <CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /> : null}
-    {loading ? <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Loading authoritative Match Day data...</Text></View> : null}
-    {reconciling ? <View accessibilityLiveRegion="assertive" style={styles.warning}><ActivityIndicator /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
+    {loading ? <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading authoritative Match Day data...</Text></View> : null}
+    {reconciling ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
     {notice ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}
-    {error && !visibleError ? <View style={styles.card}><ActivityIndicator /><Text style={styles.body}>Checking for the latest Match Day information...</Text></View> : null}
+    {error && !visibleError ? <View style={styles.card}><BrandLoader /><Text style={styles.body}>Checking for the latest Match Day information...</Text></View> : null}
     {visibleError ? <View style={styles.warning}><Text style={styles.dangerText}>{visibleError}</Text><Button label="Refresh" onPress={load} secondary styles={styles} /></View> : null}
     {confirmedStale ? <View style={styles.warning}><Text style={styles.cardTitle}>Offline read</Text><Text style={styles.body}>Showing encrypted cached Match Day data. Every change is disabled until a successful refresh.</Text></View> : null}
     {!fixtureFormOpen && !match ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
