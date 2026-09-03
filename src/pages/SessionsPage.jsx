@@ -1184,6 +1184,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       event: calendarModal?.event,
       occurrenceDate: calendarForm.date,
       participationRemovals: evidenceMatches ? eventResponseEvidence.participationRemovals : [],
+      rosterPlayers: players,
       sessionParticipants: evidenceMatches ? eventResponseEvidence.sessionParticipants : [],
       trainingAvailabilitySummary: currentTrainingAvailabilitySummary,
     })
@@ -1193,6 +1194,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     calendarModal?.event,
     currentTrainingAvailabilitySummary,
     eventResponseEvidence,
+    players,
   ])
   const currentCalendarEventInvites = currentEventResponseModel.participants
   const manageableCurrentCalendarEventInvites = useMemo(() => {
@@ -2202,6 +2204,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       calendarInvites,
       event,
       occurrenceDate: event.date,
+      rosterPlayers: players,
       trainingAvailabilitySummary: trainingAvailabilitySummaryByEventId[event.sourceId] || null,
     }).participants
     const baseForm = getFormFromCalendarEvent(event, eventResponseRows)
@@ -7053,7 +7056,7 @@ function CalendarEventModal({
                   })
                   setPlayerRemovalAction({
                     playerId: row.playerId,
-                    playerName: row?.player?.playerName || 'Player',
+                    playerName: row.playerName || 'Player',
                     preview,
                     requestToken,
                     scope,
