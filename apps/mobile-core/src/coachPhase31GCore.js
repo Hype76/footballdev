@@ -67,11 +67,20 @@ export function countPendingCoachAvailability(rows = [], now = new Date()) {
   }).length
 }
 
+export function buildCoachChatSummary(groups) {
+  const chatRooms = Array.isArray(groups) ? groups : [...asArray(groups?.staff), ...asArray(groups?.parent)]
+  const unreadChat = chatRooms.reduce((total, room) => {
+    const count = Number(room?.unreadCount || 0)
+    return total + (Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0)
+  }, 0)
+  return { chatRooms, unreadChat }
+}
+
 export function buildCoachHomeOperationalSnapshot(input = {}) {
   const matches = asArray(input.matches)
   const sessions = asArray(input.sessions)
   const calendar = asArray(input.calendar)
-  const chatRooms = asArray(input.chatRooms)
+  const { chatRooms, unreadChat } = buildCoachChatSummary(input.chatRooms)
   const polls = asArray(input.polls)
   const messages = asArray(input.messages)
   const inviteRows = asArray(input.invites?.all)
@@ -84,7 +93,6 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
     return normalize(poll?.status).toLowerCase() === 'open'
       && (closesAt === null || closesAt > nowTime)
   }).length
-  const unreadChat = chatRooms.reduce((total, room) => total + Math.max(0, Number(room?.unreadCount || 0)), 0)
   const unreadCommunication = 0
   const nextCalendar = selectNext(calendar, {
     activeUntil: (item) => timestamp(item?.endsAt || item?.startsAt),

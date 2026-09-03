@@ -493,7 +493,7 @@ test('native Chat opens from an informative conversation list into one focused r
   assert.match(screen, /getCoachChatRoomDisplay/)
   assert.match(screen, /Mark all as read/)
   assert.match(screen, /buildCoachChatRoomSections/)
-  assert.match(screen, /reloadHome\(\{ refresh: true \}\)/)
+  assert.match(screen, /reloadHome\(\{ refresh: true, chatOnly: true \}\)/)
   assert.match(screen, /Back to conversations/)
   assert.match(screen, /chatRoomCard/)
   assert.match(screen, /messageBubble/)

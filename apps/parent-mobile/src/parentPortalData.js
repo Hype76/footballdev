@@ -418,6 +418,19 @@ export async function getParentNotificationInbox(user) {
   return Array.isArray(result.notifications) ? result.notifications : []
 }
 
+export async function getParentChildNotificationBadges(user) {
+  const link = requireSelectedLink(user)
+  const config = getMobileRuntimeConfig('parent')
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error('Sign in again before opening notifications.')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl,
+    `/.netlify/functions/parent-mobile-notifications?parentLinkId=${encodeURIComponent(link.id)}&summary=children`), {
+    method: 'GET', headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!ok || result.success === false) throw new Error(result.message || 'Notification counts could not be loaded.')
+  return result.unreadByParentLink || {}
+}
+
 export async function markParentNotificationRead(user, notificationIds = [], action = 'read') {
   const link = requireSelectedLink(user)
   const config = getMobileRuntimeConfig('parent')

@@ -108,6 +108,13 @@ jobs:
           tests/mobile-parent-startup-28.test.mjs
           tests/mobile-chat-notify-performance-58.test.mjs
           tests/mobile-calendar-resource-occurrences-111.test.mjs
+          tests/mobile-chat-counter-volunteer-labels.test.mjs
+          tests/mobile-chat-unread-summary-pglite.test.mjs
+          tests/mobile-invite-calendar-volunteer-labels-136.test.mjs
+          tests/parent-child-notification-badges.test.mjs
+          tests/parent-notification-inbox-controls.test.mjs
+      - name: Parent notification badge rendering
+        run: node tests/mobile-notification-badges-browser.mjs
 
   production-build:
     name: Production build

@@ -94,6 +94,7 @@ import {
   getParentDevelopmentHistory,
   getParentInvitations,
   getParentNotificationInbox,
+  getParentChildNotificationBadges,
   getParentPortalMatchDays,
   getParentPortalMatchDayPlayers,
   getParentResources,
@@ -297,6 +298,8 @@ function ParentHome() {
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
   const [biometricStateStatus, setBiometricStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
   const [childSwitcherOpen, setChildSwitcherOpen] = useState(false)
+  const [childNotificationBadges, setChildNotificationBadges] = useState({})
+  const [childNotificationBadgeError, setChildNotificationBadgeError] = useState('')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -369,6 +372,20 @@ function ParentHome() {
     () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [parentLinks, selectedLink, user],
   )
+
+  useEffect(() => { setChildNotificationBadges({}) }, [user?.id])
+
+  useEffect(() => {
+    if (!childSwitcherOpen || !selectedMobileUser?.id) return undefined
+    let cancelled = false
+    setChildNotificationBadgeError('')
+    void getParentChildNotificationBadges(selectedMobileUser).then((counts) => {
+      if (!cancelled) setChildNotificationBadges(counts)
+    }).catch(() => {
+      if (!cancelled) setChildNotificationBadgeError('Notification counts could not be refreshed.')
+    })
+    return () => { cancelled = true }
+  }, [childSwitcherOpen, selectedMobileUser])
   const refreshParentAppInstallationPresence = useCallback(async () => {
     if (!selectedMobileUser?.id) return null
     try {
@@ -1924,6 +1941,8 @@ function ParentHome() {
         {!focusedChatRoom ? <AppHeader
           childCount={parentLinks.length}
           childSwitcherOpen={childSwitcherOpen}
+          childNotificationBadges={childNotificationBadges}
+          childNotificationBadgeError={childNotificationBadgeError}
           links={parentLinks}
           onChildChange={handleChildChange}
           notificationState={notificationState}
@@ -2142,7 +2161,7 @@ function ClubBrandLogo({ link }) {
   )
 }
 
-function AppHeader({ childCount, childSwitcherOpen, links, notificationState, notificationStateStatus, onChildChange, onOpenNotificationSettings, onToggleChildSwitcher, selectedLink, theme }) {
+function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, childNotificationBadgeError, links, notificationState, notificationStateStatus, onChildChange, onOpenNotificationSettings, onToggleChildSwitcher, selectedLink, theme }) {
   const { palette, styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
@@ -2188,19 +2207,24 @@ function AppHeader({ childCount, childSwitcherOpen, links, notificationState, no
                 const active = link.id === selectedLink?.id
                 return (
                   <Pressable
+                    accessibilityLabel={`${link.playerName}, ${link.teamName || 'No Team assigned'}${childNotificationBadges[link.id] > 0 ? `, ${childNotificationBadges[link.id]} unread notifications` : ''}`}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     key={link.id}
                     onPress={() => onChildChange(link.id)}
                     style={[styles.childOption, isLight && styles.surfaceLight, active && styles.childOptionActive]}
                   >
-                    <Text style={[styles.childOptionName, isLight && styles.textLight, active && styles.childOptionNameActive]}>{link.playerName}</Text>
+                    <View style={styles.childOptionNameRow}>
+                      <Text style={[styles.childOptionName, isLight && styles.textLight, active && styles.childOptionNameActive]}>{link.playerName}</Text>
+                      {childNotificationBadges[link.id] > 0 ? <View style={styles.childUnreadDot} /> : null}
+                    </View>
                     <Text style={[styles.childOptionTeam, isLight && styles.textMutedLight, active && styles.childOptionTeamActive]}>{link.teamName || 'No Team assigned'}</Text>
                   </Pressable>
                 )
               })}
             </ScrollView>
           ) : null}
+          {childSwitcherOpen && childNotificationBadgeError ? <Text style={styles.sectionCopy}>{childNotificationBadgeError}</Text> : null}
         </>
       ) : null}
     </View>
@@ -2241,7 +2265,7 @@ function BottomTabs({ activeTab, onChange, tabs, theme }) {
           >
             <ParentIcon color={active ? palette.accent : palette.textMuted} iconKey={getParentTabIconKey(tab.key)} size={23} />
             <Text style={[styles.tabLabel, isLight && styles.textMutedLight, active && styles.tabLabelActive]}>{tab.label}</Text>
-            {tab.count > 0 ? <Text style={[styles.tabCount, active && styles.tabCountActive]}>{tab.count}</Text> : null}
+            {tab.count > 0 ? <Text style={[styles.tabCount, styles.unreadCount]}>{tab.count}</Text> : null}
           </Pressable>
         )
       })}
@@ -3102,7 +3126,7 @@ function SummaryButton({ count = null, disabled = false, iconKey, label, onPress
     >
       <View style={styles.summaryIconWrap}>
       <ParentIcon color={palette.accent} iconKey={iconKey} size={28} />
-        {count !== null ? <Text style={styles.summaryCount}>{count}</Text> : null}
+        {count !== null ? <Text style={[styles.summaryCount, count > 0 && styles.unreadCount]}>{count}</Text> : null}
       </View>
       <Text adjustsFontSizeToFit minimumFontScale={0.85} numberOfLines={1} style={[styles.summaryLabel, width < 360 && { fontSize: 9 }]}>{label}</Text>
     </Pressable>
@@ -3471,6 +3495,9 @@ function createParentAppStyles(tokens) {
   settingsInput: { backgroundColor: palette.background, borderColor: palette.borderStrong, borderRadius: 12, borderWidth: 1, color: palette.text, fontSize: 16, minHeight: 50, paddingHorizontal: 14, paddingVertical: 11 },
   summaryCard: { alignItems: 'center', flex: 1, gap: 4, justifyContent: 'center', minHeight: 76, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
   summaryCount: { backgroundColor: palette.card, borderColor: palette.accent, borderRadius: 999, borderWidth: 1, color: palette.accent, fontSize: 9, fontWeight: '900', minWidth: 17, overflow: 'hidden', paddingHorizontal: 4, paddingVertical: 1, position: 'absolute', right: -8, textAlign: 'center', top: -5 },
+  unreadCount: { backgroundColor: '#B91C1C', borderColor: '#B91C1C', color: '#FFFFFF' },
+  childOptionNameRow: { alignItems: 'center', flexDirection: 'row', gap: 7 },
+  childUnreadDot: { backgroundColor: '#B91C1C', borderRadius: 5, height: 10, width: 10 },
   summaryDetail: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
   summaryGrid: { borderBottomColor: palette.border, borderBottomWidth: 1, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 2, justifyContent: 'space-between', paddingVertical: 3 },
   summaryIconWrap: { position: 'relative' },
