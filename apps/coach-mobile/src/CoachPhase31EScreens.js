@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
@@ -203,9 +204,15 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const visibleError = useConfirmedConnectionMessage(error)
   const offlinePolicy = getCoachPhase31EOfflinePolicy(domain)
 
-  const load = useCallback(async ({ silent = false } = {}) => {
+  const load = useCallback(async ({ silent = false, reuseFresh = false } = {}) => {
     const loader = LOADERS[domain]
     if (!loader) return
+    const memoryKey = `coach:phase31e:${domain}`
+    const recent = reuseFresh ? peekMobileResource(user, memoryKey) : undefined
+    if (recent !== undefined) {
+      setData(recent); setStale(false); setLoading(false); setError('')
+      return
+    }
     if (!silent) {
       setLoading(true)
       setError('')
@@ -222,7 +229,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       setLoading(false)
     }
     try {
-      const next = await loader(user)
+      const next = await readMobileResource(user, memoryKey, () => loader(user), { force: !reuseFresh })
       setData(next)
       setStale(false)
       const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
@@ -234,7 +241,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
   }, [context, domain, offlinePolicy.cache, user])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load({ reuseFresh: true }) }, [load])
 
   useEffect(() => {
     if (domain !== 'polls') return undefined
@@ -485,7 +492,7 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
       const next = await getCoachChatMessages(user, nextRoom)
       setMessages(next)
       await markCoachChatRead(user, nextRoom)
-      await Promise.all([load({ silent: true }), reloadHome({ refresh: true })])
+      await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
       setNotice('')
     } catch (error) { setMessages([]); setNotice(getCoachFriendlyError(error)) }
   }, [load, reloadHome, setNotice, user])
@@ -520,7 +527,7 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
         setMessages(next)
         messagesRef.current = next
         await markCoachChatRead(user, room)
-        await Promise.all([load({ silent: true }), reloadHome({ refresh: true })])
+        await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
       } catch {
         // The secured fallback refresh will try again without disrupting the open composer.
       } finally {
@@ -550,7 +557,7 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
     setNotice('Marking all Chat conversations as read...')
     const results = await Promise.allSettled(unreadRooms.map((item) => markCoachChatRead(user, item)))
     const failedCount = results.filter((result) => result.status === 'rejected').length
-    await Promise.all([load({ silent: true }), reloadHome({ refresh: true })])
+    await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
     setNotice(failedCount ? `${failedCount} Chat conversation${failedCount === 1 ? '' : 's'} could not be marked as read.` : 'All Chat conversations are marked as read.')
     setMarkingAllRead(false)
   }

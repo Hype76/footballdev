@@ -120,7 +120,7 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
     activePolls,
     calendar,
     chatRooms,
-    developmentRecords: developmentRecords.length,
+    developmentRecords: input.development?.recordCount ?? developmentRecords.length,
     errors: asArray(input.errors).map(normalize).filter(Boolean),
     matches,
     messages,

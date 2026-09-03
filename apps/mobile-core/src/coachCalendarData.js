@@ -105,7 +105,7 @@ async function getInvolvedPlayerIdsByEventId(user, eventIds) {
   return byEventId
 }
 
-export async function getCoachCalendarResources(user) {
+export async function getCoachCalendarResources(user, { includeDetails = true } = {}) {
   assertCoachOperationalRead(user)
   let calendarQuery = supabase
     .from('calendar_events')
@@ -140,8 +140,8 @@ export async function getCoachCalendarResources(user) {
   const calendarIds = calendarRows.map((row) => row.id).filter(Boolean)
   const trainingIds = calendarRows.filter((row) => row.event_type === 'training').map((row) => row.id)
   const [availabilityByEventId, involvedPlayerIdsByEventId] = await Promise.all([
-    getTrainingAvailabilityByEventId(user, trainingIds),
-    getInvolvedPlayerIdsByEventId(user, calendarIds),
+    includeDetails ? getTrainingAvailabilityByEventId(user, trainingIds) : Promise.resolve({}),
+    includeDetails ? getInvolvedPlayerIdsByEventId(user, calendarIds) : Promise.resolve({}),
   ])
   return buildCoachCalendarEvents({
     availabilityByEventId,

@@ -133,8 +133,8 @@ export function setParentOfflineResources(document, linkId, resources, { now = D
     : []
   if (!links.some((link) => normalize(link?.id) === normalizedLinkId)) throw new Error('offline_child_scope_invalid')
   const retrievedAt = isoNow(now)
-  const entityTypes = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'polls', 'resources']
-  const values = Object.fromEntries(entityTypes.map((entityType) => [entityType, {
+  const entityTypes = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'notifications', 'polls', 'resources']
+  const values = Object.fromEntries(entityTypes.filter((entityType) => Array.isArray(resources?.[entityType])).map((entityType) => [entityType, {
     entityType,
     retrievedAt,
     staleAfter: new Date(now() + (6 * 60 * 60 * 1000)).toISOString(),
@@ -144,7 +144,7 @@ export function setParentOfflineResources(document, linkId, resources, { now = D
     ...document,
     resources: {
       ...(document.resources || {}),
-      [normalizedLinkId]: values,
+      [normalizedLinkId]: { ...document.resources?.[normalizedLinkId], ...values },
     },
     updatedAt: retrievedAt,
   }
@@ -153,14 +153,14 @@ export function setParentOfflineResources(document, linkId, resources, { now = D
 export function getParentOfflineResources(document, linkId, { now = Date.now } = {}) {
   const scoped = document?.resources?.[normalize(linkId)]
   if (!scoped) return null
-  const entityTypes = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'polls', 'resources']
-  const entries = entityTypes.map((name) => scoped[name])
-  if (entries.some((entry) => !entry || !Array.isArray(entry.value))) return null
+  const entityTypes = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'notifications', 'polls', 'resources']
+  const entries = entityTypes.map((name) => scoped[name]).filter((entry) => Array.isArray(entry?.value))
+  if (entries.length === 0) return null
   const retrievedAt = entries.map((entry) => entry.retrievedAt).filter(Boolean).sort().at(-1) || ''
   const stale = entries.some((entry) => entry.staleAfter && new Date(entry.staleAfter).getTime() <= now())
   return {
     retrievedAt,
-    resources: Object.fromEntries(entityTypes.map((name) => [name, scoped[name].value])),
+    resources: Object.fromEntries(entityTypes.map((name) => [name, scoped[name]?.value || []])),
     stale,
   }
 }
