@@ -96,6 +96,8 @@ jobs:
           tests/netlify-deploy-safety.test.mjs
       - name: V1 regression firewall
         run: npm run test:v1-stabilise
+      - name: Install Parent encryption test dependencies
+        run: npm ci --prefix apps/parent-mobile --include=optional
       - name: Mobile loading and read authority regression
         run: >-
           node --test
