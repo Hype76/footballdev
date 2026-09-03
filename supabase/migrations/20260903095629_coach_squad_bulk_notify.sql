@@ -267,5 +267,3 @@ as $$
     on installation.player_id = player.id
   group by player.id;
 $$;
-
-
