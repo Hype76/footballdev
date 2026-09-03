@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -292,7 +293,7 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
 }
 
 function ResourceState({ emptyCopy, error, items, loading, styles }) {
-  if (loading && items.length === 0) return <Text accessibilityLiveRegion="polite" style={styles.helper}>Loading...</Text>
+  if (loading && items.length === 0) return <View style={{ alignItems: 'center', paddingVertical: 12 }}><BrandLoader size="large" /><Text accessibilityLiveRegion="polite" style={styles.helper}>Loading...</Text></View>
   if (error && items.length === 0) return <Text accessibilityRole="alert" style={styles.error}>{error}</Text>
   if (!loading && items.length === 0) return <Text style={styles.empty}>{emptyCopy}</Text>
   return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
@@ -1059,7 +1060,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
           renderItem={({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View><Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Pressable accessibilityLabel="Delete message" accessibilityRole="button" disabled={isOffline || activeActionId === `chat-delete:${message.id}`} onPress={() => onDelete(message)} style={styles.messageDelete}><Text style={styles.messageDeleteText}>{activeActionId === `chat-delete:${message.id}` ? 'Deleting...' : 'Delete'}</Text></Pressable> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>}
           style={styles.chatList}
         />
-        {messages.loading ? <Text style={styles.helper}>Loading messages...</Text> : null}
+        {messages.loading ? <View style={{ alignItems: 'center', paddingVertical: 12 }}><BrandLoader accessibilityLabel="Loading messages" /><Text style={styles.helper}>Loading messages...</Text></View> : null}
         {visibleMessageError ? <Text style={styles.error}>{visibleMessageError}</Text> : null}
         {selectedRoom.canPost ? <View style={styles.composer}><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Message" placeholderTextColor={colors.muted} ref={composerRef} style={[styles.field, styles.composerField]} value={draft} /><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send'} onPress={() => { void onSend(draft).then(() => setDraft('')).catch(() => {}) }} styles={styles} /></View> : null}
       </View>

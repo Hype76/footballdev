@@ -1,5 +1,6 @@
+import { BrandLoader } from './BrandLoader'
 import { useState } from 'react'
-import { ActivityIndicator, Image, Platform, Pressable, SafeAreaView, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Image, Platform, Pressable, SafeAreaView, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, screen } from './theme'
 
 const androidStatusBarPadding = Platform.OS === 'android' ? NativeStatusBar.currentHeight || 0 : 0
@@ -9,6 +10,9 @@ export function PrimaryButton({ children, disabled = false, loading = false, onP
 
   return (
     <Pressable
+      accessibilityLabel={typeof children === 'string' ? children : undefined}
+      accessibilityRole="button"
+      accessibilityState={{ busy: loading, disabled: disabled || loading }}
       disabled={disabled || loading}
       onPress={onPress}
       style={({ pressed }) => [
@@ -18,7 +22,7 @@ export function PrimaryButton({ children, disabled = false, loading = false, onP
         (disabled || loading) ? styles.disabled : null,
       ]}
     >
-      {loading ? <ActivityIndicator color={isSecondary ? colors.text : '#000000'} /> : (
+      {loading ? <BrandLoader accessible={false} /> : (
         <Text style={[styles.buttonText, isSecondary ? styles.secondaryButtonText : null]}>{children}</Text>
       )}
     </Pressable>
@@ -53,7 +57,7 @@ export function ScreenHeader({ copy, kicker, logoSource, title }) {
 export function LoadingRow({ message }) {
   return (
     <View style={styles.loadingRow}>
-      <ActivityIndicator color={colors.accent} />
+      <BrandLoader />
       <Text style={styles.simpleBody}>{message}</Text>
     </View>
   )
@@ -149,7 +153,7 @@ export function LoadingScreen({ message }) {
   return (
     <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.accent} />
+        <BrandLoader accessibilityLabel={message || 'Loading'} size="large" />
         <Text style={styles.simpleBody}>{message}</Text>
       </View>
     </SafeAreaView>

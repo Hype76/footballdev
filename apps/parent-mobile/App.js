@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -8,7 +9,6 @@ import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ActivityIndicator,
   Alert,
   AppState,
   BackHandler,
@@ -431,7 +431,7 @@ function ParentHome() {
     palette: createParentAppPalette(themeModel.tokens),
     styles: createParentAppStyles(themeModel.tokens),
   }), [themeModel])
-  const { palette, styles } = themeContext
+  const { styles } = themeContext
 
   const notificationResponseHistoryKey = useMemo(
     () => selectedMobileUser?.id ? `${PARENT_NOTIFICATION_RESPONSE_HISTORY_PREFIX}.${selectedMobileUser.id}` : '',
@@ -1943,14 +1943,16 @@ function ParentHome() {
           ref={scrollViewRef}
           refreshControl={(
             <RefreshControl
-              colors={[palette.accent]}
+              colors={['transparent']}
+              progressBackgroundColor="transparent"
               onRefresh={handleRefresh}
               refreshing={isRefreshing}
-              tintColor={palette.accent}
+              tintColor="transparent"
             />
           )}
         >
           <View style={styles.contentColumn}>
+            {isRefreshing ? <LoadingLine label="Refreshing" /> : null}
             <SyncStatus
               attentionIndex={attentionIndex}
               cacheState={offlineCacheState}
@@ -2702,7 +2704,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
 }
 
 function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNextAttention, onOpenAttention, summary }) {
-  const { palette, styles } = useParentTheme()
+  const { styles } = useParentTheme()
   const confirmedOffline = useConfirmedConnectionIssue(isOffline)
   let message = ''
   let tone = 'neutral'
@@ -2723,7 +2725,7 @@ function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNe
   }
 
   const content = <>
-      {isSyncing ? <ActivityIndicator color={palette.accent} size="small" /> : null}
+      {isSyncing ? <BrandLoader /> : null}
       <Text style={styles.syncStatusText}>{message}</Text>
       {summary.needsAttention > 1 && onNextAttention ? <Pressable accessibilityLabel={`Show next action, ${attentionIndex + 1} of ${summary.needsAttention}`} accessibilityRole="button" onPress={(event) => { event.stopPropagation(); onNextAttention() }} style={styles.syncStatusAction}><Text style={styles.syncStatusActionText}>Next</Text></Pressable> : null}
     </>
@@ -2899,7 +2901,7 @@ function SettingsScreen({
             {biometricStateLoading ? <Text style={styles.helperText}>Checking this device...</Text> : null}
             {biometricStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>The saved biometric setting could not be read. It has not been changed.</Text> : null}
           </View>
-          {activeActionId === 'biometrics' || biometricStateLoading ? <ActivityIndicator color={palette.accent} /> : biometricStateReady ? (
+          {activeActionId === 'biometrics' || biometricStateLoading ? <BrandLoader /> : biometricStateReady ? (
             <Switch
               accessibilityLabel="Biometric app lock"
               disabled={!biometricAvailable}
@@ -2962,7 +2964,7 @@ function SettingsScreen({
             <Text style={styles.cardTitle}>App icon badge</Text>
             <Text style={styles.bodyText}>Show the authoritative unread count on this device.</Text>
           </View>
-          {activeActionId === 'app-icon-badge' ? <ActivityIndicator color={palette.accent} /> : (
+          {activeActionId === 'app-icon-badge' ? <BrandLoader /> : (
             <Switch
               accessibilityLabel="App icon badge"
               onValueChange={onAppBadgeEnabledChange}
@@ -2977,7 +2979,7 @@ function SettingsScreen({
           <PrimaryAction label="Open device notification settings" onPress={() => Linking.openSettings()} secondary />
         ) : null}
 
-        {activeActionId === 'notifications' || notificationStateLoading ? <ActivityIndicator color={palette.accent} /> : null}
+        {activeActionId === 'notifications' || notificationStateLoading ? <BrandLoader /> : null}
         {notificationStateKnown ? <View style={styles.notificationChoices}>
           {[
             { copy: 'Do not send app notifications to this device.', iconKey: 'notifications-off', key: 'off', label: 'Off' },
@@ -3154,30 +3156,31 @@ function EmptyPanel({ message, title }) {
 }
 
 function LoadingPanel({ message }) {
-  const { palette, styles } = useParentTheme()
+  const { styles } = useParentTheme()
   return (
     <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.loadingPanel}>
-      <ActivityIndicator color={palette.accent} />
+      <BrandLoader accessible={false} size="large" />
       <Text style={styles.bodyText}>{message}</Text>
     </View>
   )
 }
 
 function LoadingLine({ label }) {
-  const { palette, styles } = useParentTheme()
+  const { styles } = useParentTheme()
   return (
     <View accessibilityLiveRegion="polite" style={styles.loadingLine}>
-      <ActivityIndicator color={palette.accent} size="small" />
+      <BrandLoader accessible={false} />
       <Text style={styles.helperText}>{label}</Text>
     </View>
   )
 }
 
 function PrimaryAction({ disabled = false, label, loading = false, onPress, secondary = false }) {
-  const { palette, styles } = useParentTheme()
+  const { styles } = useParentTheme()
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}
@@ -3188,7 +3191,7 @@ function PrimaryAction({ disabled = false, label, loading = false, onPress, seco
         pressed && styles.pressed,
       ]}
     >
-      {loading ? <ActivityIndicator color={secondary ? palette.text : palette.ink} /> : (
+      {loading ? <BrandLoader accessible={false} /> : (
         <Text style={[styles.primaryActionText, secondary && styles.secondaryActionText]}>{label}</Text>
       )}
     </Pressable>

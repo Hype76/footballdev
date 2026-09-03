@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import * as Application from 'expo-application'
 import Constants from 'expo-constants'
@@ -6,7 +7,6 @@ import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ActivityIndicator,
   Animated,
   AppState,
   BackHandler,
@@ -695,14 +695,16 @@ function CoachHome() {
             scrollEventThrottle={16}
             refreshControl={(
               <RefreshControl
-                colors={[palette.accent]}
+                colors={['transparent']}
+                progressBackgroundColor="transparent"
                 onRefresh={() => loadHome({ refresh: true })}
                 refreshing={isRefreshing}
-                tintColor={palette.accent}
+                tintColor="transparent"
               />
             )}
             ref={contentScrollRef}
           >
+            {isRefreshing ? <View style={{ alignItems: 'center', paddingVertical: 8 }}><BrandLoader accessibilityLabel="Refreshing" /></View> : null}
             <CoachRoute
               activeRoute={activeRoute}
               appBadgeEnabled={appBadgeEnabled}
@@ -1008,7 +1010,7 @@ function SettingsScreen({
               : biometricAvailable ? 'Require local device authentication after backgrounding.' : 'Biometric authentication is unavailable on this device.'}
           label="Biometric lock"
         >
-          {biometricStateLoading || isUpdatingBiometrics ? <ActivityIndicator /> : biometricStateReady ? (
+          {biometricStateLoading || isUpdatingBiometrics ? <BrandLoader /> : biometricStateReady ? (
             <Switch disabled={!biometricAvailable} onValueChange={onToggleBiometrics} value={biometricEnabled} />
           ) : <SecondaryAction label="Retry" onPress={onRefreshBiometricState} />}
         </SettingRow>
@@ -1029,7 +1031,7 @@ function SettingsScreen({
           : 'Notification status could not be read. No setting has been changed.'}</Text>
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
         {notificationStateLoading || !hasKnownNotificationState ? (
-          notificationStateLoading ? <ActivityIndicator /> : <PrimaryAction disabled={isRegisteringPush} label="Retry notification check" onPress={onRefreshNotificationState} />
+          notificationStateLoading ? <BrandLoader /> : <PrimaryAction disabled={isRegisteringPush} label="Retry notification check" onPress={onRefreshNotificationState} />
         ) : (
           <View style={styles.notificationChoices}>
             {[
@@ -1286,8 +1288,8 @@ function SettingRow({ children, copy, label }) {
 }
 
 function LoadingPanel({ message }) {
-  const { palette, styles } = useCoachTheme()
-  return <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.statePanel}><ActivityIndicator color={palette.accent} /><Text style={styles.bodyText}>{message}</Text></View>
+  const { styles } = useCoachTheme()
+  return <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.statePanel}><BrandLoader accessible={false} size="large" /><Text style={styles.bodyText}>{message}</Text></View>
 }
 
 function EmptyPanel({ message, title }) {
