@@ -15,7 +15,7 @@ import {
 } from './_pdf-authority.js'
 
 const CLUB_LOGOS_BUCKET = 'club-logos'
-const PDF_LOGO_FETCH_TIMEOUT_MS = 1_750
+const PDF_LOGO_FETCH_TIMEOUT_MS = 5_000
 const PDF_LOGO_MAX_WIDTH = 320
 const PDF_LOGO_MAX_HEIGHT = 160
 const PDF_LOGO_MAX_ASPECT_RATIO = 8

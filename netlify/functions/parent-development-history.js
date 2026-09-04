@@ -18,6 +18,7 @@ import {
 import {
   createDevelopmentOutputKey,
   createDevelopmentOutputQueueId,
+  enrichDevelopmentParentReportWithScores,
   resolveDevelopmentParentReport,
 } from './lib/_development-parent-email-output.js'
 
@@ -126,6 +127,28 @@ async function loadHistory({ parentLink, supabaseAdmin }) {
     return []
   }
 
+  const { data: evaluations, error: evaluationError } = await supabaseAdmin
+    .from('evaluations')
+    .select('id, form_responses, feedback_form_snapshot')
+    .eq('club_id', parentLink.club_id)
+    .eq('player_id', parentLink.player_id)
+    .in('id', evaluationIds)
+
+  if (evaluationError) {
+    throw evaluationError
+  }
+
+  const evaluationById = new Map(
+    (evaluations ?? []).map((evaluation) => [normalizeText(evaluation.id), evaluation]),
+  )
+  const enrichedRows = candidateRows.map((row) => ({
+    ...row,
+    report_snapshot: enrichDevelopmentParentReportWithScores(
+      row.report_snapshot,
+      evaluationById.get(normalizeText(row.evaluation_id)),
+    ),
+  }))
+
   const { data: communicationLogs, error: communicationError } = await supabaseAdmin
     .from('communication_logs')
     .select('id, evaluation_id, channel, action, metadata, created_at')
@@ -157,7 +180,7 @@ async function loadHistory({ parentLink, supabaseAdmin }) {
     communicationLogs: communicationLogs ?? [],
     parentLink,
     queues: queues ?? [],
-    reportRows: candidateRows,
+    reportRows: enrichedRows,
   })
 }
 
@@ -223,7 +246,7 @@ async function loadReportEvaluation({ parentLink, report, supabaseAdmin }) {
   return { evaluation, evaluations: evaluations ?? [evaluation], player }
 }
 
-async function repairEmptyReportSnapshot({
+async function repairReportSnapshot({
   club,
   parentLink,
   report,
@@ -231,10 +254,6 @@ async function repairEmptyReportSnapshot({
   supabaseAdmin,
   team,
 } = {}) {
-  if (Array.isArray(reportSnapshot?.responseItems) && reportSnapshot.responseItems.length > 0) {
-    return reportSnapshot
-  }
-
   const { evaluation, evaluations, player } = await loadReportEvaluation({
     parentLink,
     report,
@@ -245,23 +264,28 @@ async function repairEmptyReportSnapshot({
     : [])
     .map((section) => ({ key: normalizeText(section?.key) }))
     .filter((section) => section.key)
-  const rebuilt = resolveDevelopmentParentReport({
-    club,
-    evaluation,
-    evaluations,
-    player,
-    recipients: Array.isArray(reportSnapshot?.recipients) ? reportSnapshot.recipients : [],
-    requestedResponses: undefined,
-    requestedSections,
-    team,
-  })
+  const hasSharedResponses = Array.isArray(reportSnapshot?.responseItems) &&
+    reportSnapshot.responseItems.length > 0
+  const rebuilt = hasSharedResponses
+    ? reportSnapshot
+    : resolveDevelopmentParentReport({
+        club,
+        evaluation,
+        evaluations,
+        player,
+        recipients: Array.isArray(reportSnapshot?.recipients) ? reportSnapshot.recipients : [],
+        requestedResponses: undefined,
+        requestedSections,
+        team,
+      })
+  const enriched = enrichDevelopmentParentReportWithScores(rebuilt, evaluation)
 
   return {
-    ...rebuilt,
-    finalizedAt: normalizeText(reportSnapshot?.finalizedAt) || rebuilt.finalizedAt,
+    ...enriched,
+    finalizedAt: normalizeText(reportSnapshot?.finalizedAt) || enriched.finalizedAt,
     recipients: Array.isArray(reportSnapshot?.recipients)
       ? reportSnapshot.recipients
-      : rebuilt.recipients,
+      : enriched.recipients,
   }
 }
 
@@ -321,7 +345,7 @@ async function buildParentDevelopmentPdf({
     report,
     supabaseAdmin,
   })
-  const resolvedReportSnapshot = await repairEmptyReportSnapshot({
+  const resolvedReportSnapshot = await repairReportSnapshot({
     club,
     parentLink,
     report,
@@ -334,6 +358,8 @@ async function buildParentDevelopmentPdf({
     normalizeText(report.id),
     normalizeText(resolvedReportSnapshot.finalizedAt),
     String(resolvedReportSnapshot.responseItems?.length || 0),
+    normalizeText(club.logo_url),
+    normalizeText(club.theme_accent),
   ].join(':')
   const cachedPdf = getCachedParentDevelopmentPdf(cacheKey)
 
@@ -373,7 +399,9 @@ async function buildParentDevelopmentPdf({
     filename: buildDevelopmentPdfFilename(resolvedReportSnapshot),
   }
 
-  setCachedParentDevelopmentPdf(cacheKey, result)
+  if (!normalizeText(club.logo_url) || branding.brandingSource === 'club-logo') {
+    setCachedParentDevelopmentPdf(cacheKey, result)
+  }
   return result
 }
 

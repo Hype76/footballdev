@@ -436,6 +436,58 @@ export function resolveDevelopmentParentReport({
   }
 }
 
+export function enrichDevelopmentParentReportWithScores(report, evaluation) {
+  if (!report || typeof report !== 'object' || Array.isArray(report)) {
+    return report
+  }
+
+  const scoreItems = getSnapshotFields(evaluation)
+    .filter((field) => isAssessmentScoreFieldType(normalizeText(field?.type)))
+    .map((field, index) => {
+      const rawValue = getAuthoritativeFieldValue(evaluation, field)
+
+      if (!hasStoredValue(rawValue)) {
+        return null
+      }
+
+      const formatted = formatDevelopmentFieldValue(field, rawValue)
+
+      return {
+        fieldId: normalizeText(field?.id) || `snapshot-score-${index + 1}`,
+        label: normalizeText(field?.label),
+        type: normalizeText(field?.type),
+        rawValue,
+        displayValue: formatted.displayValue,
+        numericScore: formatted.numericScore,
+        maxScore: formatted.maxScore,
+        ratingLabel: formatted.ratingLabel,
+        order: Number(field?.orderIndex ?? field?.order_index ?? index + 1) || index + 1,
+        parentVisible: true,
+        selected: true,
+      }
+    })
+    .filter((item) => item?.label && item.displayValue)
+  const existingItems = Array.isArray(report.responseItems) ? report.responseItems : []
+  const responseItems = [...existingItems, ...scoreItems]
+    .filter((item, index, items) => {
+      const fieldId = normalizeText(item?.fieldId)
+      const label = normalizeText(item?.label)
+      return items.findIndex((candidate) =>
+        (fieldId && normalizeText(candidate?.fieldId) === fieldId) ||
+        (!fieldId && label && normalizeText(candidate?.label) === label),
+      ) === index
+    })
+    .sort((left, right) => Number(left?.order || 0) - Number(right?.order || 0))
+
+  return {
+    ...report,
+    responseItems,
+    overallMaxScore: report.overallMaxScore ||
+      scoreItems.find((item) => Number(item.maxScore) > 0)?.maxScore ||
+      null,
+  }
+}
+
 export function isDevelopmentParentReportSnapshot(value) {
   return value &&
     typeof value === 'object' &&

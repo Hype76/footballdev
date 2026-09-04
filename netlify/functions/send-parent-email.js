@@ -34,6 +34,7 @@ import {
   finalizeDevelopmentParentReportSnapshot,
   createDevelopmentOutputKey,
   createDevelopmentOutputQueueId,
+  enrichDevelopmentParentReportWithScores,
   getDevelopmentParentReport,
   getParentVisibleDevelopmentEmailSections,
   getParentVisibleDevelopmentResponses,
@@ -507,11 +508,20 @@ export async function prepareParentEmail({ body, requestUser }) {
         requestedSections: body.emailSections,
       })
     : null
+  const developmentPdfReport = developmentReport && outputPolicy.shouldAttachPdf
+    ? enrichDevelopmentParentReportWithScores(
+        developmentReport,
+        developmentContext.evaluation,
+      )
+    : developmentReport
   const developmentContent = developmentReport
     ? buildDevelopmentParentReportContent(developmentReport)
     : null
-  const developmentPdfFilename = developmentReport
-    ? buildDevelopmentPdfFilename(developmentReport)
+  const developmentPdfContent = developmentPdfReport
+    ? buildDevelopmentParentReportContent(developmentPdfReport)
+    : null
+  const developmentPdfFilename = developmentPdfReport
+    ? buildDevelopmentPdfFilename(developmentPdfReport)
     : 'player-feedback.pdf'
   const authoritativeResponses = developmentReport
     ? developmentReport.responseItems.map((item) => ({
@@ -583,9 +593,7 @@ export async function prepareParentEmail({ body, requestUser }) {
   const authoritativePdfDocument = shouldAttachPdf
     ? developmentContext
       ? buildAssessmentPdfDocument({
-          content: developmentContent,
-          responseItems: authoritativeResponses,
-          emailSections: authoritativeEmailSections,
+          content: developmentPdfContent,
         })
       : pdfDocument
     : null

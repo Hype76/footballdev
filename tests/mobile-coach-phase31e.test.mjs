@@ -6,6 +6,7 @@ import {
   COACH_PHASE_31E_COMMUNICATION_POLICY,
   COACH_PHASE_31E_DOMAINS,
   assertSyntheticCoachCommunicationTarget,
+  buildCoachAvailabilityTimeline,
   collapseCoachInvitesByPlayer,
   getCoachInviteDeliveryLabel,
   getCoachInviteDeliveryProgress,
@@ -46,6 +47,26 @@ const form = normalizeCoachDevelopmentForm({
 
 test('Phase 31E keeps all six product domains distinct', () => {
   assert.deepEqual(COACH_PHASE_31E_DOMAINS, ['development', 'resources', 'chat', 'messages', 'polls', 'invites'])
+})
+
+test('Coach availability combines Matches and Training in one chronological timeline', () => {
+  const timeline = buildCoachAvailabilityTimeline({
+    trainingGroups: [
+      { key: 'training-later', occurrenceDate: '2026-09-10', title: 'Later Training' },
+      { key: 'training-first', occurrenceDate: '2026-09-05', title: 'First Training' },
+    ],
+    matches: [
+      { id: 'match-middle', matchDate: '2026-09-07', opponent: 'Middle Match' },
+      { id: 'match-last', matchDate: '2026-09-12', opponent: 'Last Match' },
+    ],
+  })
+
+  assert.deepEqual(timeline.map((entry) => entry.title), [
+    'First Training',
+    'Middle Match',
+    'Later Training',
+    'Last Match',
+  ])
 })
 
 test('communication policy disables every external delivery channel', () => {

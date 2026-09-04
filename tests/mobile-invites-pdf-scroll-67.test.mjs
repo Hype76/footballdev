@@ -61,10 +61,10 @@ test('Parent Home removes read notifications from the feed and its offline cache
     readSource('../apps/parent-mobile/src/offline.js'),
   ])
 
-  assert.match(appSource, /notifications\.items\.filter\(\(notification\) => !notification\.isRead\)/)
+  assert.match(appSource, /prepareParentUpdates\(notifications\.items\)\.filter\(\(notification\) => !notification\.isRead\)/)
   assert.match(appSource, /markParentOfflineNotificationRead/)
   assert.match(offlineSource, /export async function markParentOfflineNotificationRead/)
-  assert.match(offlineSource, /isRead:\s*true/)
+  assert.match(offlineSource, /notifications:\s*applyParentNotificationAction/)
 })
 
 test('Parent refresh keeps the current layout after initial hydration and waits for active interactions', async () => {
@@ -75,7 +75,7 @@ test('Parent refresh keeps the current layout after initial hydration and waits 
   assert.match(appSource, /InteractionManager\.runAfterInteractions/)
 })
 
-test('Development PDF caches stable files, keeps iOS files alive, and repairs old empty snapshots', async () => {
+test('Development PDF caches stable files, keeps iOS files alive, and repairs old report snapshots', async () => {
   const [mobileSource, serverSource, outputSource] = await Promise.all([
     readSource('../apps/parent-mobile/parentDevelopment.js'),
     readSource('../netlify/functions/parent-development-history.js'),
@@ -86,7 +86,7 @@ test('Development PDF caches stable files, keeps iOS files alive, and repairs ol
   assert.match(mobileSource, /FileSystem\.moveAsync/)
   assert.match(mobileSource, /if \(await isUsablePdf\(destination\)\)/)
   assert.doesNotMatch(mobileSource, /finally\s*\{[\s\S]*deleteAsync\(destination/)
-  assert.match(serverSource, /repairEmptyReportSnapshot/)
+  assert.match(serverSource, /repairReportSnapshot/)
   assert.match(serverSource, /parentDevelopmentPdfCache/)
   assert.match(serverSource, /requestedResponses:\s*undefined/)
   assert.doesNotMatch(outputSource, /profile,\s*requestedResponses\s*=\s*\[\]/)
