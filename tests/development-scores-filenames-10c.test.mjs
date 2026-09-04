@@ -141,6 +141,28 @@ test('PDF and Parent history enrichment adds every saved score without exposing 
   assert.equal(JSON.stringify(enriched).includes('Never expose this note.'), false)
 })
 
+test('Parent history resolves saved scores by field id with legacy score fallback', () => {
+  const evaluation = buildEvaluation({
+    form_responses: {
+      'first-touch': 1,
+      'private-note': 'Never expose this note.',
+    },
+    scores: {
+      'Decision making': 5,
+    },
+  })
+  const enriched = enrichDevelopmentParentReportWithScores({ responseItems: [] }, evaluation)
+
+  assert.deepEqual(
+    enriched.responseItems.map(({ label, displayValue }) => ({ label, displayValue })),
+    [
+      { label: 'First touch', displayValue: '1 / 10 - Well Below Standard' },
+      { label: 'Decision making', displayValue: '5 / 10 - Expected Level' },
+    ],
+  )
+  assert.equal(JSON.stringify(enriched).includes('Never expose this note.'), false)
+})
+
 test('snapshot, email, PDF, and Parent Portal history share exact score semantics', () => {
   const report = buildResolvedReport()
   const content = buildDevelopmentParentReportContent(report)
@@ -327,6 +349,7 @@ test('email attachment and historical download share only the server-built canon
   assert.doesNotMatch(emailSource, /filename:\s*body\./)
   assert.match(historySource, /buildDevelopmentPdfFilename\(resolvedReportSnapshot\)/)
   assert.match(historySource, /buildDevelopmentPdfContentDisposition\(filename\)/)
+  assert.match(historySource, /select\('id, scores, form_responses, feedback_form_snapshot'\)/)
   assert.doesNotMatch(historySource, /development-report-\$\{date\}/)
   assert.doesNotMatch(panelSource, /numericScore\}\s*\/\s*10/)
 })

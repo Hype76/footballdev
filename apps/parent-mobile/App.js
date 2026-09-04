@@ -1926,12 +1926,13 @@ function ParentHome() {
   const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId)
   const unansweredInvites = getParentInvitationCounts(visibleInvitationsWithMatchTimes).needsResponse
   const unreadChat = parentChatRooms.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
+  const unreadNotifications = countUnreadNonChatNotifications(resources.notifications.items)
   const tabs = [
     { key: 'home', label: 'Home' },
     { key: 'calendar', label: 'Calendar' },
     { key: 'matchday', label: 'Matchday' },
     { count: unreadChat, key: 'chat', label: 'Chat' },
-    { count: homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
+    { count: unreadNotifications + homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
   ]
   const focusedChatRoom = activeTab === 'chat' && Boolean(selectedRoom)
 
@@ -2059,6 +2060,7 @@ function ParentHome() {
                 themeTokens={themeModel.tokens}
                 unansweredInvites={unansweredInvites}
                 unansweredPolls={homeModel.unansweredPolls}
+                unreadNotifications={unreadNotifications}
               />
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}

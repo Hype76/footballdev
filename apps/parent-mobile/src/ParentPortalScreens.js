@@ -167,6 +167,9 @@ function usePortalStyles(themeTokens) {
       seatChoiceText: { color: colors.muted, fontSize: 13, fontWeight: '900' },
       meta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
       moreGrid: { borderBottomColor: colors.border, borderBottomWidth: 1, borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 5 },
+      moreIconBadge: { alignItems: 'center', backgroundColor: colors.danger, borderColor: colors.card, borderRadius: 999, borderWidth: 2, justifyContent: 'center', minHeight: 19, minWidth: 19, paddingHorizontal: 4, position: 'absolute', right: 0, top: -4 },
+      moreIconBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '900', lineHeight: 13 },
+      moreIconWrap: { alignItems: 'center', height: 36, justifyContent: 'center', position: 'relative', width: 48 },
       moreItem: { alignItems: 'center', gap: 4, justifyContent: 'center', minHeight: 88, paddingHorizontal: 5, width: '33.333%' },
       moreItemCopy: { color: colors.muted, fontSize: 10, lineHeight: 14, textAlign: 'center' },
       moreItemTitle: { color: colors.text, fontSize: 12, fontWeight: '900', textAlign: 'center' },
@@ -1184,18 +1187,18 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
   )
 }
 
-export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredPolls }) {
+export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredPolls, unreadNotifications }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const items = [
-    ['updates', 'notifications', 'Notifications', 'Selection, scores and club news'],
-    ['invites', 'invite', 'Invites', unansweredInvites ? `${unansweredInvites} to answer` : 'Attendance and roles'],
-    ['results', 'result', 'Results', 'Completed fixtures'],
-    ['development', 'development', 'Development', 'Shared reports'],
-    ['resources', 'resource', 'Resources', 'Files and links'],
-    ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls'],
-    ['settings', 'settings', 'Settings', 'Account and alerts'],
+    ['updates', 'notifications', 'Notifications', unreadNotifications ? `${unreadNotifications} new` : 'Selection, scores and club news', unreadNotifications],
+    ['invites', 'invite', 'Invites', unansweredInvites ? `${unansweredInvites} to answer` : 'Attendance and roles', unansweredInvites],
+    ['results', 'result', 'Results', 'Completed fixtures', 0],
+    ['development', 'development', 'Development', 'Shared reports', 0],
+    ['resources', 'resource', 'Resources', 'Files and links', 0],
+    ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls', unansweredPolls],
+    ['settings', 'settings', 'Settings', 'Account and alerts', 0],
   ]
-  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><ParentIcon color={colors.accent} iconKey={iconKey} size={31} /><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
+  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accent} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
 }
 
 export async function openExternalParentUrl(url) {
