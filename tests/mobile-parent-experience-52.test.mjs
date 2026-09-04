@@ -113,7 +113,10 @@ test('mobile UX wiring preserves sessions, updates automatically, deep-links res
     assert.match(parentApp, new RegExp(`handleDismissParentItem\\('${kind}'`))
   }
   assert.match(screens, /Club Announcements|prepareParentChatRooms/)
-  assert.match(screens, /View or share PDF/)
+  assert.match(screens, /View Development report/)
+  assert.match(screens, /Share PDF/)
+  assert.match(screens, /selectedReport\.responseItems/)
+  assert.match(screens, /setSelectedReportId\(report\.id\)/)
   assert.doesNotMatch(screens, /\['messages', 'Messages'/)
   assert.match(auth, /\['SIGNED_OUT', 'USER_DELETED'\]\.includes\(event\)/)
   assert.match(updates, /checkForUpdateAsync/)

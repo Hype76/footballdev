@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import {
+  enrichDevelopmentParentReportWithScores,
   resolveDevelopmentParentReport,
   createDevelopmentOutputKey,
 } from '../netlify/functions/lib/_development-parent-email-output.js'
@@ -116,6 +117,28 @@ test('explicitly selected saved scores use their authoritative scales while priv
   assert.equal(report.responseItems[0].maxScore, 10)
   assert.equal(report.responseItems[3].maxScore, 5)
   assert.deepEqual(report.responseItems.map((item) => item.order), [1, 2, 3, 4, 7])
+})
+
+test('PDF and Parent history enrichment adds every saved score without exposing private written fields', () => {
+  const evaluation = buildEvaluation()
+  const selectedReport = resolveDevelopmentParentReport({
+    club: { id: clubId, name: 'FP TEST' },
+    evaluation,
+    player: { id: playerId, player_name: "Ava O'Neil-Smith" },
+    recipients: [{ linkId: parentLinkId, name: 'FP TEST Parent' }],
+    requestedResponses: [{ fieldId: 'coach-narrative', label: 'Coach narrative' }],
+    team: { id: teamId, name: 'U17 Green' },
+  })
+  const enriched = enrichDevelopmentParentReportWithScores(selectedReport, evaluation)
+
+  assert.deepEqual(
+    enriched.responseItems.map((item) => item.label),
+    ['First touch', 'Decision making', 'Game impact', 'Legacy positioning', 'Unselected score', 'Coach narrative'],
+  )
+  assert.equal(enriched.responseItems.find((item) => item.label === 'Unselected score')?.displayValue, '7 / 10 - Good')
+  assert.equal(enriched.responseItems.some((item) => item.label === 'Missing score'), false)
+  assert.equal(enriched.responseItems.some((item) => item.label === 'Private staff note'), false)
+  assert.equal(JSON.stringify(enriched).includes('Never expose this note.'), false)
 })
 
 test('snapshot, email, PDF, and Parent Portal history share exact score semantics', () => {
@@ -299,7 +322,7 @@ test('email attachment and historical download share only the server-built canon
     'utf8',
   )
 
-  assert.match(emailSource, /buildDevelopmentPdfFilename\(developmentReport\)/)
+  assert.match(emailSource, /buildDevelopmentPdfFilename\(developmentPdfReport\)/)
   assert.match(emailSource, /filename: developmentPdfFilename/)
   assert.doesNotMatch(emailSource, /filename:\s*body\./)
   assert.match(historySource, /buildDevelopmentPdfFilename\(resolvedReportSnapshot\)/)

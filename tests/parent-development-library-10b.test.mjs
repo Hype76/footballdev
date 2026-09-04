@@ -290,7 +290,7 @@ test('parent Development source provides navigation, child clearing, direct repo
   assert.match(endpointSource, /development_parent_reports/)
   assert.match(endpointSource, /communication_logs/)
   assert.match(endpointSource, /buildDevelopmentParentReportContent\(resolvedReportSnapshot\)/)
-  assert.match(endpointSource, /repairEmptyReportSnapshot/)
+  assert.match(endpointSource, /repairReportSnapshot/)
   assert.match(endpointSource, /\.eq\('id', report\.id\)/)
   assert.match(endpointSource, /\.eq\('club_id', parentLink\.club_id\)/)
   assert.match(endpointSource, /\.eq\('player_id', parentLink\.player_id\)/)

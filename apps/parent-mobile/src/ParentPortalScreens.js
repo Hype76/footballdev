@@ -109,6 +109,10 @@ function usePortalStyles(themeTokens) {
       card: { backgroundColor: 'transparent', borderBottomColor: colors.border, borderBottomWidth: 1, gap: 8, paddingHorizontal: 0, paddingVertical: 12 },
       controllerCard: { backgroundColor: 'transparent', borderBottomColor: colors.accent, borderBottomWidth: 2, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
       capturedPill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderColor: colors.accent, borderRadius: 999, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
+      developmentScoreCard: { borderColor: colors.border, borderRadius: 12, borderTopColor: colors.accent, borderTopWidth: 3, borderWidth: 1, gap: 8, padding: 12 },
+      developmentScoreNumber: { color: colors.accentText, fontSize: 22, fontWeight: '900' },
+      developmentScoreTrack: { backgroundColor: colors.accentSoft, borderRadius: 999, height: 7, overflow: 'hidden' },
+      developmentScoreTrackFill: { backgroundColor: colors.accent, borderRadius: 999, height: '100%' },
       volunteerCard: { borderBottomColor: colors.warning },
       volunteerRole: { color: colors.warning, fontSize: 22, fontWeight: '900' },
       formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
@@ -1008,12 +1012,65 @@ function ParentMatchReportCard({ colors, match, styles }) {
 
 export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
+  const [selectedReportId, setSelectedReportId] = useState('')
+  const selectedReport = resource.items.find((report) => report.id === selectedReportId) || null
+
+  if (selectedReport) {
+    return (
+      <View style={styles.stack}>
+        <Button label="Back to Development" onPress={() => setSelectedReportId('')} outline styles={styles} />
+        <View>
+          <Text accessibilityRole="header" style={styles.header}>{selectedReport.form?.name || 'Development report'}</Text>
+          <Text style={styles.helper}>{formatDate(selectedReport.recordDate || selectedReport.finalizedAt)} | {selectedReport.team?.name || 'Team'}{selectedReport.author?.name ? ` | ${selectedReport.author.name}` : ''}</Text>
+        </View>
+        {selectedReport.overallScore == null ? null : (
+          <View style={styles.controllerCard}>
+            <Text style={styles.fieldLabel}>Overall assessment</Text>
+            <Text style={styles.score}>{selectedReport.overallScore} / {selectedReport.overallMaxScore || 10}</Text>
+          </View>
+        )}
+        {(selectedReport.responseItems || []).map((item) => {
+          const hasNumericScore = item.numericScore !== null &&
+            item.numericScore !== undefined &&
+            item.numericScore !== ''
+          const score = Number(item.numericScore)
+          const maximum = Number(item.maxScore || selectedReport.overallMaxScore || 10)
+          const scorePercent = hasNumericScore && Number.isFinite(score) && Number.isFinite(maximum) && maximum > 0
+            ? `${Math.max(0, Math.min(100, score / maximum * 100))}%`
+            : '0%'
+          const isScore = hasNumericScore && Number.isFinite(score) && Number.isFinite(maximum) && maximum > 0
+
+          return isScore ? (
+            <View key={item.fieldId || item.label} style={styles.developmentScoreCard}>
+              <View style={styles.row}><Text style={styles.cardTitle}>{item.label}</Text><Text style={styles.developmentScoreNumber}>{score} / {maximum}</Text></View>
+              <View style={styles.developmentScoreTrack}><View style={[styles.developmentScoreTrackFill, { width: scorePercent }]} /></View>
+              {item.ratingLabel ? <Text style={styles.meta}>{item.ratingLabel}</Text> : null}
+            </View>
+          ) : (
+            <View key={item.fieldId || item.label} style={styles.card}>
+              <Text style={styles.cardTitle}>{item.label}</Text>
+              <Text style={styles.body}>{item.displayValue}</Text>
+            </View>
+          )
+        })}
+        {(selectedReport.sections || []).map((section) => (
+          <View key={section.key || section.title} style={styles.card}>
+            <Text style={styles.cardTitle}>{section.title}</Text>
+            {section.body ? <Text style={styles.body}>{section.body}</Text> : null}
+          </View>
+        ))}
+        {!selectedReport.responseItems?.length && !selectedReport.sections?.length ? <Text style={styles.helper}>No detailed Development responses were shared with this report.</Text> : null}
+        <Button disabled={isOffline || !selectedReport.canDownloadPdf} label={isOffline ? 'Share PDF when online' : 'Share PDF'} onPress={() => onOpen(selectedReport)} styles={styles} />
+      </View>
+    )
+  }
+
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history previously shared with this Parent link.</Text></View>
-      {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Opening a PDF needs a connection.</Text> : null}
+      {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Sharing a PDF needs a connection.</Text> : null}
       <ResourceState emptyCopy="No delivered Development reports are available for this child." {...resource} styles={styles} />
-      {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel={report.canDownloadPdf ? 'View or share PDF' : 'PDF not included'} accessibilityRole="button" accessibilityState={{ disabled: isOffline || !report.canDownloadPdf }} disabled={isOffline || !report.canDownloadPdf} onPress={() => onOpen(report)} style={styles.compactRow}><ParentIcon color={colors.accent} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={report.canDownloadPdf ? colors.accent : colors.muted} iconKey={report.canDownloadPdf ? 'action.open' : 'block'} size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>{report.canDownloadPdf ? 'Open report' : 'PDF not included'}</Text><IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /></View></View>)}
+      {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accent} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accent} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text><IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /></View></View>)}
     </View>
   )
 }

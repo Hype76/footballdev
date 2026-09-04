@@ -34,6 +34,7 @@ import {
 import { getMobileChatMessagesFingerprint } from '../../mobile-core/src/mobileChatCore'
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
+  buildCoachAvailabilityTimeline,
   buildCoachChatRoomSections,
   canResendSelectedCoachInvites,
   collapseCoachInvitesByPlayer,
@@ -822,6 +823,10 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
     .filter((match) => !match.matchDate || String(match.matchDate).slice(0, 10) >= today)
     .sort((left, right) => String(left.matchDate || '9999').localeCompare(String(right.matchDate || '9999')))
     .slice(0, 20)
+  const availabilityTimeline = buildCoachAvailabilityTimeline({
+    matches: openMatches,
+    trainingGroups,
+  })
   const [matchId, setMatchId] = useState('')
   const [trainingKey, setTrainingKey] = useState('')
   const [playerIds, setPlayerIds] = useState([])
@@ -1005,74 +1010,79 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
       {!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}
     </View>
   ) : null
+  const renderTrainingAvailability = (group) => {
+    const trainingInvites = collapseCoachInvitesByPlayer(group.invites)
+    const trainingSummary = summarizeCoachInvites(trainingInvites)
+    const expanded = group.key === trainingKey
+    return (
+      <View key={`training:${group.key}`} style={[styles.panel, expanded && styles.panelSelected]}>
+        <Pressable accessibilityRole="button" onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
+          <Text style={styles.heading}>{group.title || 'Training'}</Text>
+          <Text style={styles.body}>Training | {group.occurrenceDate || 'Date to be confirmed'} | Attending {trainingSummary.attending} | Awaiting response {trainingSummary.awaitingResponse}</Text>
+          <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
+        </Pressable>
+        {expanded ? <>
+          <Text style={styles.label}>Attending {trainingSummary.attending} | Maybe {trainingSummary.maybe} | Awaiting response {trainingSummary.awaitingResponse} | Not attending {trainingSummary.notAttending} | Invitation not sent {trainingSummary.invitationNotSent} | Delivery issue {trainingSummary.deliveryIssue}</Text>
+          {selectedTrainingInvites.map((invite) => {
+            const selected = selectedPlayerIds.includes(invite.playerId)
+            return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
+              <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
+              <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
+            </Pressable>
+          })}
+          {renderSelectedInviteActions()}
+          <Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />
+        </> : null}
+      </View>
+    )
+  }
+  const renderMatchAvailability = (match) => {
+    const matchInvites = collapseCoachInvitesByPlayer((data.match || []).filter((invite) => invite.eventId === match.id && !invite.cancelled && !invite.stale))
+    const matchSummary = summarizeCoachInvites(matchInvites)
+    const expanded = match.id === matchId
+    return (
+      <View key={`match:${match.id}`} style={[styles.panel, expanded && styles.panelSelected]}>
+        <Pressable accessibilityRole="button" onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
+          <Text style={styles.heading}>{match.opponent || 'Opponent to be confirmed'}</Text>
+          <Text style={styles.body}>{match.matchDate || 'Date to be confirmed'} | Available {matchSummary.available} | Awaiting {matchSummary.awaiting}</Text>
+          <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
+        </Pressable>
+        {expanded ? <>
+          <Text style={styles.label}>Available {matchSummary.available} | Not available {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
+          <Text style={styles.body}>{matchRequestPlayerCount} Player{matchRequestPlayerCount === 1 ? '' : 's'} shown below already {matchRequestPlayerCount === 1 ? 'has' : 'have'} an availability request. {availablePlayers.length} current Team Player{availablePlayers.length === 1 ? '' : 's'} {availablePlayers.length === 1 ? 'has' : 'have'} no request.</Text>
+          {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => {
+            const selected = selectedPlayerIds.includes(invite.playerId)
+            return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
+              <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
+              <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
+            </Pressable>
+          }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
+          {selectedMatchInvites.length ? <Text style={styles.helper}>Sent and Delivered show provider progress. Seen turns green only after a Parent or Player response is recorded.</Text> : null}
+          {renderSelectedInviteActions()}
+          {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Choose ${availablePlayers.length} Team Players with no request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every current Team Player already has an availability request for this fixture.</Text>}
+          {requestPanelOpen ? <View style={styles.stack}>
+            <Text style={styles.heading}>Create availability requests</Text>
+            <Text style={styles.body}>{availablePlayers.length} Team Player{availablePlayers.length === 1 ? '' : 's'} currently {availablePlayers.length === 1 ? 'has' : 'have'} no request for this fixture. {playerIds.length} selected to receive one. Players who already have a request or response are excluded and cannot be resent from this action.</Text>
+            {availablePlayers.length ? <>
+              <Button label={playerIds.length === availablePlayers.length ? 'Clear selection' : 'Select all'} onPress={() => setPlayerIds(playerIds.length === availablePlayers.length ? [] : availablePlayers.map((player) => player.id))} secondary styles={styles} />
+              <View style={styles.row}>{availablePlayers.map((player) => { const selectedPlayer = playerIds.includes(player.id); return <Button key={player.id} label={player.playerName} onPress={() => setPlayerIds((current) => selectedPlayer ? current.filter((id) => id !== player.id) : [...current, player.id])} secondary={!selectedPlayer} styles={styles} /> })}</View>
+              <Button disabled={stale || creating || Boolean(uncertainAttempt) || playerIds.length === 0 || Number(user.roleRank || 0) < 20} label={`Review and send ${playerIds.length} request${playerIds.length === 1 ? '' : 's'}`} onPress={confirmCreate} styles={styles} />
+            </> : <Text style={styles.body}>Every active Player already has a request.</Text>}
+            {uncertainAttempt ? <Button disabled={creating || stale} label="Reconcile last request" onPress={() => void reconcile()} secondary styles={styles} /> : null}
+          </View> : null}
+          <View style={styles.row}><Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /><Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /></View>
+        </> : null}
+      </View>
+    )
+  }
   return (
     <View style={styles.stack}>
       <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text>
-      {trainingGroups.map((group) => {
-        const trainingInvites = collapseCoachInvitesByPlayer(group.invites)
-        const trainingSummary = summarizeCoachInvites(trainingInvites)
-        const expanded = group.key === trainingKey
-        return (
-          <View key={group.key} style={[styles.panel, expanded && styles.panelSelected]}>
-            <Pressable accessibilityRole="button" onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
-              <Text style={styles.heading}>{group.title || 'Training'}</Text>
-              <Text style={styles.body}>Training | {group.occurrenceDate || 'Date to be confirmed'} | Attending {trainingSummary.attending} | Awaiting response {trainingSummary.awaitingResponse}</Text>
-              <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
-            </Pressable>
-            {expanded ? <>
-              <Text style={styles.label}>Attending {trainingSummary.attending} | Maybe {trainingSummary.maybe} | Awaiting response {trainingSummary.awaitingResponse} | Not attending {trainingSummary.notAttending} | Invitation not sent {trainingSummary.invitationNotSent} | Delivery issue {trainingSummary.deliveryIssue}</Text>
-              {selectedTrainingInvites.map((invite) => {
-                const selected = selectedPlayerIds.includes(invite.playerId)
-                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
-                  <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-                  <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
-                </Pressable>
-              })}
-              {renderSelectedInviteActions()}
-              <Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />
-            </> : null}
-          </View>
-        )
-      })}
-      {openMatches.length ? openMatches.map((match) => {
-        const matchInvites = collapseCoachInvitesByPlayer((data.match || []).filter((invite) => invite.eventId === match.id && !invite.cancelled && !invite.stale))
-        const matchSummary = summarizeCoachInvites(matchInvites)
-        const expanded = match.id === matchId
-        return (
-          <View key={match.id} style={[styles.panel, expanded && styles.panelSelected]}>
-            <Pressable accessibilityRole="button" onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
-              <Text style={styles.heading}>{match.opponent || 'Opponent to be confirmed'}</Text>
-              <Text style={styles.body}>{match.matchDate || 'Date to be confirmed'} | Available {matchSummary.available} | Awaiting {matchSummary.awaiting}</Text>
-              <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
-            </Pressable>
-            {expanded ? <>
-              <Text style={styles.label}>Available {matchSummary.available} | Not available {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
-              <Text style={styles.body}>{matchRequestPlayerCount} Player{matchRequestPlayerCount === 1 ? '' : 's'} shown below already {matchRequestPlayerCount === 1 ? 'has' : 'have'} an availability request. {availablePlayers.length} current Team Player{availablePlayers.length === 1 ? '' : 's'} {availablePlayers.length === 1 ? 'has' : 'have'} no request.</Text>
-              {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => {
-                const selected = selectedPlayerIds.includes(invite.playerId)
-                return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
-                  <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-                  <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
-                </Pressable>
-              }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
-              {selectedMatchInvites.length ? <Text style={styles.helper}>Sent and Delivered show provider progress. Seen turns green only after a Parent or Player response is recorded.</Text> : null}
-              {renderSelectedInviteActions()}
-              {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Choose ${availablePlayers.length} Team Players with no request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every current Team Player already has an availability request for this fixture.</Text>}
-              {requestPanelOpen ? <View style={styles.stack}>
-                <Text style={styles.heading}>Create availability requests</Text>
-                <Text style={styles.body}>{availablePlayers.length} Team Player{availablePlayers.length === 1 ? '' : 's'} currently {availablePlayers.length === 1 ? 'has' : 'have'} no request for this fixture. {playerIds.length} selected to receive one. Players who already have a request or response are excluded and cannot be resent from this action.</Text>
-                {availablePlayers.length ? <>
-                  <Button label={playerIds.length === availablePlayers.length ? 'Clear selection' : 'Select all'} onPress={() => setPlayerIds(playerIds.length === availablePlayers.length ? [] : availablePlayers.map((player) => player.id))} secondary styles={styles} />
-                  <View style={styles.row}>{availablePlayers.map((player) => { const selectedPlayer = playerIds.includes(player.id); return <Button key={player.id} label={player.playerName} onPress={() => setPlayerIds((current) => selectedPlayer ? current.filter((id) => id !== player.id) : [...current, player.id])} secondary={!selectedPlayer} styles={styles} /> })}</View>
-                  <Button disabled={stale || creating || Boolean(uncertainAttempt) || playerIds.length === 0 || Number(user.roleRank || 0) < 20} label={`Review and send ${playerIds.length} request${playerIds.length === 1 ? '' : 's'}`} onPress={confirmCreate} styles={styles} />
-                </> : <Text style={styles.body}>Every active Player already has a request.</Text>}
-                {uncertainAttempt ? <Button disabled={creating || stale} label="Reconcile last request" onPress={() => void reconcile()} secondary styles={styles} /> : null}
-              </View> : null}
-              <View style={styles.row}><Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /><Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /></View>
-            </> : null}
-          </View>
-        )
-      }) : trainingGroups.length ? null : <Empty copy="No upcoming Match or Training availability request is available." styles={styles} />}
+      {availabilityTimeline.length
+        ? availabilityTimeline.map((entry) => entry.kind === 'training'
+            ? renderTrainingAvailability(entry.item)
+            : renderMatchAvailability(entry.item))
+        : <Empty copy="No upcoming Match or Training availability request is available." styles={styles} />}
       <Modal animationType="fade" onRequestClose={() => setRemovalConfirmation(null)} transparent visible={Boolean(removalConfirmation)}>
         <View accessibilityViewIsModal style={styles.confirmationScreen}>
           <Pressable accessibilityLabel="Cancel Player removal" accessibilityRole="button" onPress={() => setRemovalConfirmation(null)} style={styles.confirmationBackdrop} />

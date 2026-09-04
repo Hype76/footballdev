@@ -251,7 +251,7 @@ export function SubmitExportSection({
             <div>
               <p className="text-sm font-black text-[#101828]">Football details to include</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
-                Choose what goes into the {contactNoun} email{isPdfAttachmentApproved ? ' and attached PDF' : ''}. This choice is saved in this browser for this player.
+                Choose what goes into the {contactNoun} email{isPdfAttachmentApproved ? ' and attached PDF' : ''}. Saved Development scores are always included in the PDF. This choice is saved in this browser for this player.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

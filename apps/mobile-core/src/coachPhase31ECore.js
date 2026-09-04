@@ -46,6 +46,30 @@ function normalize(value) {
   return String(value ?? '').trim()
 }
 
+export function buildCoachAvailabilityTimeline({ trainingGroups = [], matches = [] } = {}) {
+  return [
+    ...(Array.isArray(trainingGroups) ? trainingGroups : []).map((item) => ({
+      date: normalize(item?.occurrenceDate),
+      id: normalize(item?.key || item?.eventId),
+      item,
+      kind: 'training',
+      title: normalize(item?.title) || 'Training',
+    })),
+    ...(Array.isArray(matches) ? matches : []).map((item) => ({
+      date: normalize(item?.matchDate),
+      id: normalize(item?.id),
+      item,
+      kind: 'match',
+      title: normalize(item?.opponent) || 'Opponent to be confirmed',
+    })),
+  ].sort((left, right) =>
+    String(left.date || '9999-12-31').localeCompare(String(right.date || '9999-12-31')) ||
+    left.title.localeCompare(right.title) ||
+    left.kind.localeCompare(right.kind) ||
+    left.id.localeCompare(right.id),
+  )
+}
+
 export function getCoachChatModalTopInset({ platform = '', safeAreaTop = 0 } = {}) {
   const measuredInset = Number(safeAreaTop)
   const safeInset = Number.isFinite(measuredInset) ? Math.max(0, measuredInset) : 0

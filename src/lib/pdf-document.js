@@ -642,12 +642,29 @@ function renderBrandMark(branding) {
   return `<div class="club-initials" aria-label="${escapeHtml(`${branding.clubName} initials`)}">${escapeHtml(branding.clubInitials)}</div>`
 }
 
+function formatPdfDisplayDate(value) {
+  const normalizedValue = String(value ?? '').trim()
+  const match = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|$)/)
+
+  if (!match) {
+    return normalizedValue
+  }
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
+  const month = monthNames[Number(match[2]) - 1]
+
+  return month ? `${Number(match[3])} ${month} ${match[1]}` : normalizedValue
+}
+
 function renderContext(document, branding) {
   const context = document.context
   const facts = [
     ['Team', context.teamName || branding.teamName || 'Not provided'],
     ['Section', context.section || 'Development'],
-    ['Report date', context.reportDate || context.session || 'Not provided'],
+    ['Report date', formatPdfDisplayDate(context.reportDate || context.session) || 'Not provided'],
     ...(context.formName ? [['Form', context.formName]] : []),
     ...(context.authorName ? [['Coach or author', context.authorName]] : []),
     ...(context.recipientLabel ? [['Prepared for', context.recipientLabel]] : []),
@@ -690,12 +707,33 @@ function renderRows(items, emptyMessage) {
     const longItem = String(item?.value ?? '').length > 600
     const nextItemIsLong = String(items[index + 1]?.value ?? '').length > 600
     const rowItems = longItem || nextItemIsLong ? [item] : items.slice(index, index + 2)
-    rows.push(`<div class="response-row${longItem ? ' response-row-long' : ''}">${rowItems.map((rowItem) => `
-      <section class="response-card${longItem ? ' response-card-long' : ''}">
-        <h3>${escapeHtml(rowItem.label)}</h3>
-        <p>${escapeHtml(rowItem.value || 'Not provided')}</p>
-      </section>
-    `).join('')}</div>`)
+    rows.push(`<div class="response-row${longItem ? ' response-row-long' : ''}">${rowItems.map((rowItem) => {
+      if (isScoredResponseItem(rowItem)) {
+        const numericScore = Number(rowItem.numericScore)
+        const maxScore = Number(rowItem.maxScore || 10)
+        const scorePercent = Number.isFinite(numericScore) && Number.isFinite(maxScore) && maxScore > 0
+          ? Math.max(0, Math.min(100, numericScore / maxScore * 100))
+          : 0
+
+        return `
+          <section class="response-card response-card-score" aria-label="${escapeHtml(`${rowItem.label}: ${rowItem.value}`)}">
+            <div class="score-card-heading">
+              <h3>${escapeHtml(rowItem.label)}</h3>
+              <strong>${escapeHtml(Number.isFinite(numericScore) ? numericScore : rowItem.value)}${Number.isFinite(numericScore) ? `<span> / ${escapeHtml(maxScore)}</span>` : ''}</strong>
+            </div>
+            <div class="score-track" aria-hidden="true"><span style="width:${scorePercent}%"></span></div>
+            <p class="score-rating">${escapeHtml(rowItem.ratingLabel || rowItem.value || 'Saved score')}</p>
+          </section>
+        `
+      }
+
+      return `
+        <section class="response-card${longItem ? ' response-card-long' : ''}">
+          <h3>${escapeHtml(rowItem.label)}</h3>
+          <p>${escapeHtml(rowItem.value || 'Not provided')}</p>
+        </section>
+      `
+    }).join('')}</div>`)
     index += rowItems.length
   }
 
@@ -733,7 +771,7 @@ function renderScoringGuide(items) {
     <h2>How scoring works</h2>
     <p class="section-body">${escapeHtml(scaleDescription)}</p>
     ${usesApprovedTenPointScale
-      ? DEFAULT_ASSESSMENT_SCORE_GUIDE.map((item) => `<p><strong>${item.score} - ${escapeHtml(item.label)}:</strong> ${escapeHtml(item.description)}</p>`).join('')
+      ? `<div class="scoring-guide-list">${DEFAULT_ASSESSMENT_SCORE_GUIDE.map((item) => `<p aria-label="${item.score} - ${escapeHtml(item.label)}"><strong>${item.score}</strong><span>${escapeHtml(item.label)}</span></p>`).join('')}</div>`
       : ''}
   </section>`
 }
@@ -913,10 +951,10 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           * { box-sizing: border-box; }
           html, body { margin: 0; padding: 0; background: #ffffff; color: #101828; font-family: Arial, Helvetica, sans-serif; }
           body { font-size: 12px; line-height: 1.45; }
-          .report-header { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr); align-items: center; gap: 20px; border-bottom: 3px solid var(--club-accent); padding: 0 0 14px; break-inside: avoid; }
+          .report-header { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr); align-items: center; gap: 20px; border: 1px solid var(--club-accent-soft); border-bottom: 4px solid var(--club-accent); border-radius: 14px; background: linear-gradient(135deg, var(--club-accent-soft) 0%, #ffffff 58%); padding: 14px; break-inside: avoid; }
           .club-identity { display: flex; min-width: 0; align-items: center; gap: 13px; }
-          .club-logo, .club-initials { width: 64px; height: 64px; flex: 0 0 64px; border: 1px solid var(--club-accent-soft); border-radius: 12px; background: #ffffff; }
-          .club-logo { display: block; object-fit: contain; padding: 5px; }
+          .club-logo, .club-initials { width: 72px; height: 72px; flex: 0 0 72px; border: 1px solid var(--club-accent-soft); border-radius: 14px; background: #ffffff; box-shadow: 0 4px 12px rgba(16, 24, 40, .08); }
+          .club-logo { display: block; object-fit: contain; padding: 6px; }
           .club-initials { display: flex; align-items: center; justify-content: center; background: var(--club-accent-soft); color: var(--club-accent-text); font-size: 20px; font-weight: 900; letter-spacing: .04em; }
           .club-copy { min-width: 0; }
           .club-name { margin: 0; color: #101828; font-size: 18px; font-weight: 900; line-height: 1.15; overflow-wrap: anywhere; }
@@ -932,9 +970,9 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           main { margin-top: 16px; }
           .panel { border: 1px solid #d7e5dc; border-radius: 12px; background: #fbfcf9; padding: 12px; margin-top: 12px; break-inside: auto; }
           .panel > h2 { margin: 0; color: #101828; font-size: 15px; line-height: 1.25; }
-          .overall-assessment { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 10px; border: 1px solid #d7e5dc; border-radius: 9px; background: #ffffff; padding: 10px 12px; break-inside: avoid; }
+          .overall-assessment { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; border: 1px solid var(--club-accent-soft); border-left: 5px solid var(--club-accent); border-radius: 10px; background: #ffffff; padding: 11px 13px; break-inside: avoid; }
           .overall-assessment span { color: #4f6552; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-          .overall-assessment strong { color: #101828; font-size: 14px; text-align: right; }
+          .overall-assessment strong { color: var(--club-accent-text); font-size: 24px; line-height: 1; text-align: right; }
           .response-grid { display: block; margin-top: 10px; }
           .response-row { display: flex; align-items: stretch; gap: 8px; margin-top: 8px; break-inside: avoid; }
           .response-row:first-child { margin-top: 0; }
@@ -943,9 +981,21 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           .response-card-long { width: 100%; break-inside: auto; }
           .response-card h3 { margin: 0; color: #4f6552; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
           .response-card p, .section-body { margin: 6px 0 0; color: #334155; white-space: pre-wrap; overflow-wrap: anywhere; }
+          .response-card-score { border-top: 3px solid var(--club-accent); padding-top: 8px; }
+          .score-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+          .score-card-heading h3 { flex: 1; padding-top: 3px; }
+          .score-card-heading strong { color: var(--club-accent-text); font-size: 19px; line-height: 1; white-space: nowrap; }
+          .score-card-heading strong span { color: #667085; font-size: 10px; font-weight: 800; }
+          .score-track { height: 6px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: var(--club-accent-soft); }
+          .score-track span { display: block; height: 100%; border-radius: inherit; background: var(--club-accent); }
+          .score-rating { margin-top: 6px !important; color: #475467 !important; font-size: 10px; font-weight: 700; }
           .section-block { break-inside: avoid; }
           .scoring-guide { break-inside: avoid; }
-          .scoring-guide p { margin: 5px 0 0; color: #334155; font-size: 10px; line-height: 1.35; }
+          .scoring-guide-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 7px; }
+          .scoring-guide-list p { display: flex; align-items: center; gap: 5px; min-width: 0; margin: 0; border: 1px solid #e2e8f0; border-radius: 7px; background: #ffffff; padding: 5px; color: #334155; font-size: 7px; line-height: 1.15; }
+          .scoring-guide-list strong { display: flex; width: 19px; height: 19px; flex: 0 0 19px; align-items: center; justify-content: center; border-radius: 999px; background: var(--club-accent-soft); color: var(--club-accent-text); font-size: 9px; }
+          .scoring-guide-list span { min-width: 0; font-weight: 700; }
+          .scoring-guide > .section-body { margin-top: 6px; font-size: 9px; }
           .empty { margin: 10px 0 0; color: #66756c; }
           .chart-page { width: 760px; min-height: 240px; margin: 0; padding: 20px; }
           .formation-page { width: 100%; min-height: 100vh; margin: 0; padding: 18px; background: #f7faf8; color: #101828; display: flex; flex-direction: column; }
@@ -993,7 +1043,7 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           }
         </style>
       </head>
-      <body>
+      <body style="--club-accent:${branding.primaryColour};--club-accent-soft:${branding.secondaryColour};--club-accent-text:${branding.accentTextColour};">
         ${content}
       </body>
     </html>`
