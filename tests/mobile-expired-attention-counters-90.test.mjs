@@ -83,7 +83,12 @@ test('notification inbox validity requires actionable unexpired source records',
 
 test('Parent shell uses actionable invitation sections for the More badge', async () => {
   const source = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+  const screens = await readFile(new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url), 'utf8')
   assert.match(source, /getParentInvitationCounts\(visibleInvitationsWithMatchTimes\)\.needsResponse/)
+  assert.match(source, /unreadNotifications \+ homeModel\.unansweredPolls \+ unansweredInvites/)
+  assert.match(source, /unreadNotifications=\{unreadNotifications\}/)
+  assert.match(screens, /style=\{styles\.moreIconBadge\}/)
+  assert.match(screens, /count > 99 \? '99\+' : count/)
   assert.doesNotMatch(source, /visibleInvitations\.filter\(\(invitation\) => invitation\.isPending\)\.length/)
 })
 

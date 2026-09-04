@@ -129,7 +129,7 @@ async function loadHistory({ parentLink, supabaseAdmin }) {
 
   const { data: evaluations, error: evaluationError } = await supabaseAdmin
     .from('evaluations')
-    .select('id, form_responses, feedback_form_snapshot')
+    .select('id, scores, form_responses, feedback_form_snapshot')
     .eq('club_id', parentLink.club_id)
     .eq('player_id', parentLink.player_id)
     .in('id', evaluationIds)

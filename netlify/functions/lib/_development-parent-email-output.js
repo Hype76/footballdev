@@ -238,10 +238,26 @@ function getAuthoritativeFieldValue(evaluation, field) {
   const savedResponses = evaluation?.form_responses && typeof evaluation.form_responses === 'object'
     ? evaluation.form_responses
     : {}
+  const savedScores = evaluation?.scores && typeof evaluation.scores === 'object' && !Array.isArray(evaluation.scores)
+    ? evaluation.scores
+    : {}
+  const fieldId = normalizeText(field?.id)
   const label = normalizeText(field?.label)
 
-  if (label && Object.hasOwn(savedResponses, label)) {
-    return normalizeStoredValue(savedResponses[label])
+  for (const [source, key] of [
+    [savedResponses, fieldId],
+    [savedResponses, label],
+    [savedScores, fieldId],
+    [savedScores, label],
+  ]) {
+    if (!key || !Object.hasOwn(source, key)) {
+      continue
+    }
+
+    const value = normalizeStoredValue(source[key])
+    if (hasStoredValue(value)) {
+      return value
+    }
   }
 
   return normalizeStoredValue(field?.value)
