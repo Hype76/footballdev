@@ -37,6 +37,7 @@ import {
   normalizeMatchDayConclusionRule,
 } from '../matchday-extended-ops.js'
 import { normalizeTeamNotificationDisplayName } from '../team-notification-display.js'
+import { assertValidPitchType, normalizePitchType } from '../pitch-type.js'
 export { sortMatchDayPresentation } from '../matchday-presentation.js'
 
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
@@ -580,6 +581,7 @@ export function normalizeMatchDay(row) {
     matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes ?? row.matchDurationMinutes),
     venueName: normalizeText(row.venue_name ?? row.venueName),
     venueAddress: normalizeText(row.venue_address ?? row.venueAddress),
+    pitchType: normalizePitchType(row.pitch_type ?? row.pitchType),
     notes: normalizeText(row.notes),
     scorerRequestMessage: normalizeText(row.scorer_request_message ?? row.scorerRequestMessage),
     requestScorer: normalizeBoolean(row.request_scorer ?? row.requestScorer ?? row.status === 'scorer_request'),
@@ -827,6 +829,7 @@ function buildMatchDayListSelect() {
     match_duration_minutes,
     venue_name,
     venue_address,
+    pitch_type,
     notes,
     scorer_request_message,
     request_scorer,
@@ -983,6 +986,7 @@ function buildMatchDaySnapshot(row) {
     matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes),
     venueName: normalizeText(row.venue_name),
     venueAddress: normalizeText(row.venue_address),
+    pitchType: normalizePitchType(row.pitch_type),
     notes: normalizeText(row.notes),
     scorerRequestMessage: normalizeText(row.scorer_request_message),
     requestScorer: row.request_scorer === true,
@@ -1016,6 +1020,7 @@ function buildMatchDaySnapshotFromMatch(match) {
     matchDurationMinutes: normalizeMatchDurationMinutes(match.matchDurationMinutes),
     venueName: normalizeText(match.venueName),
     venueAddress: normalizeText(match.venueAddress),
+    pitchType: normalizePitchType(match.pitchType),
     notes: normalizeText(match.notes),
     scorerRequestMessage: normalizeText(match.scorerRequestMessage),
     requestScorer: match.requestScorer === true,
@@ -1064,7 +1069,7 @@ async function getMatchDayEventLogSnapshot({ user, matchId }) {
 
   let query = supabase
     .from('match_days')
-    .select('opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, match_clock_mode, match_duration_minutes, venue_name, venue_address, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
+    .select('opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, match_clock_mode, match_duration_minutes, venue_name, venue_address, pitch_type, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
     .eq('id', normalizedMatchId)
     .eq('club_id', user.clubId)
     .is('deleted_at', null)
@@ -1438,6 +1443,7 @@ export async function createMatchDay({ user, match }) {
       extra_time_period_count: extraTimePeriodCount,
       venue_name: venueName,
       venue_address: venueAddress,
+      pitch_type: assertValidPitchType(match?.pitchType),
       notes: normalizeText(match?.notes),
       scorer_request_message: normalizeText(match?.scorerRequestMessage),
       request_scorer: requestScorer,
@@ -1474,6 +1480,7 @@ export async function createMatchDay({ user, match }) {
       conclusionRule,
       teamId,
       venueName,
+      pitchType: assertValidPitchType(match?.pitchType),
     },
   })
   await createMatchDayEventLogEntry({
@@ -1554,6 +1561,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.extraTimePeriodCount !== undefined) payload.extra_time_period_count = normalizeExtraTimePeriodCount(updates.extraTimePeriodCount)
   if (updates.venueName !== undefined) payload.venue_name = normalizeText(updates.venueName)
   if (updates.venueAddress !== undefined) payload.venue_address = normalizeText(updates.venueAddress)
+  if (updates.pitchType !== undefined) payload.pitch_type = assertValidPitchType(updates.pitchType)
   if (updates.notes !== undefined) payload.notes = normalizeText(updates.notes)
   applyScorerRequestMessageUpdate(payload, updates)
   if (updates.requestScorer !== undefined) payload.request_scorer = normalizeBoolean(updates.requestScorer)

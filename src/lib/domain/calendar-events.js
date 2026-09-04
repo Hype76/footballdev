@@ -15,6 +15,7 @@ import {
   buildRequiredLocalDateTime,
   validateOrdinaryEventDateTime,
 } from '../calendar-datetime-integrity.js'
+import { assertValidPitchType, normalizePitchType } from '../pitch-type.js'
 
 const USER_FACING_EVENT_TYPES = ['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other']
 const LEGACY_EVENT_TYPES = ['availability_deadline', 'parent_cutoff']
@@ -75,6 +76,7 @@ export function normalizeCalendarEvent(row, options = {}) {
     startsAt: row.starts_at ?? row.startsAt ?? '',
     endsAt: row.ends_at ?? row.endsAt ?? '',
     location: normalizeText(row.location),
+    pitchType: normalizePitchType(row.pitch_type ?? row.pitchType),
     notes: normalizeText(row.notes),
     recurrenceFrequency: normalizeRecurrenceFrequency(row.recurrence_frequency ?? row.recurrenceFrequency),
     recurrenceUntil: normalizeDateOnly(row.recurrence_until ?? row.recurrenceUntil),
@@ -175,6 +177,7 @@ function buildCalendarPayload({ user, event }) {
     starts_at: startsAt,
     ends_at: endsAt,
     location: normalizeText(event?.location),
+    pitch_type: assertValidPitchType(event?.pitchType),
     notes: normalizeText(event?.notes),
     recurrence_frequency: recurrenceFrequency,
     recurrence_until: recurrenceFrequency === 'none' ? null : recurrenceUntil,
@@ -338,6 +341,7 @@ export async function createCalendarEvent({ user, event }) {
     entityId: data.id,
     metadata: {
       eventType: payload.event_type,
+      pitchType: payload.pitch_type,
       startsAt: payload.starts_at,
       teamId: payload.team_id,
       title: payload.title,
@@ -382,6 +386,7 @@ export async function updateCalendarEvent({ user, eventId, event }) {
     entityId: eventId,
     metadata: {
       eventType: payload.event_type,
+      pitchType: payload.pitch_type,
       startsAt: payload.starts_at,
       teamId: payload.team_id,
       title: payload.title,

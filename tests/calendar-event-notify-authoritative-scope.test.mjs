@@ -105,6 +105,6 @@ test('new event notifications default off but remain optional and one request to
   assert.match(sessionsPage, /notifyInvitedFamilies: false/)
   assert.match(sessionsPage, /type="checkbox"[\s\S]*name="notifyInvitedFamilies"/)
   assert.match(sessionsPage, /current\.notificationRequestToken \|\| createNotificationRequestToken\(\)/)
-  assert.match(sessionsPage, /requestToken: calendarForm\.notificationRequestToken/)
+  assert.match(sessionsPage, /requestToken: notificationRequestToken/)
   assert.match(sessionsPage, /disabled=\{isBusy\}/)
 })

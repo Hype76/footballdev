@@ -2,6 +2,7 @@ import { getMatchDayDisplayName } from './matchday-display.js'
 import { getMatchCalendarLocation, getMatchVenueDisplay } from './match-location.js'
 import { getFixtureKickoffLabel } from './calendar-datetime-integrity.js'
 import { getMatchDayShirtChoiceLabel } from './matchday-model.js'
+import { getPitchTypeLabel } from './pitch-type.js'
 
 function toDateOnly(value) {
   if (value instanceof Date) {
@@ -238,7 +239,7 @@ function buildCalendarEventOccurrences(calendarEvent) {
       time: toTimeOnly(calendarEvent.startsAt),
       type: getCalendarEventDisplayType(calendarEvent.eventType),
       title: occurrenceIndex === 0 ? calendarEvent.title : `${calendarEvent.title} repeats`,
-      description: [isClubWide ? 'Club-wide' : '', calendarEvent.location, calendarEvent.notes].filter(Boolean).join(', ') || 'Calendar event',
+      description: [isClubWide ? 'Club-wide' : '', calendarEvent.location, getPitchTypeLabel(calendarEvent.pitchType), calendarEvent.notes].filter(Boolean).join(', ') || 'Calendar event',
       editable: calendarEvent.canEdit !== false,
       isClubWide,
       isInheritedClubEvent,
@@ -387,7 +388,7 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
         time: kickoffLabel,
         type: 'match-day',
         title: getMatchDayDisplayName(match),
-        description: [kickoffLabel ? `Kick off ${kickoffLabel}` : '', getMatchDayShirtChoiceLabel(match.shirtChoice ?? match.shirt_choice), getMatchVenueDisplay(match)].filter(Boolean).join(', '),
+        description: [kickoffLabel ? `Kick off ${kickoffLabel}` : '', getMatchDayShirtChoiceLabel(match.shirtChoice ?? match.shirt_choice), getMatchVenueDisplay(match), getPitchTypeLabel(match.pitchType ?? match.pitch_type)].filter(Boolean).join(', '),
         location: getMatchCalendarLocation(match),
         href: '/match-day',
         editable: ['scheduled', 'scorer_request', 'postponed'].includes(String(match.status ?? '').trim().toLowerCase()),

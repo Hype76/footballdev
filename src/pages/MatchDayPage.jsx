@@ -83,6 +83,7 @@ import {
   consumeFixtureSetupIntent,
   FIXTURE_SETUP_EVENT,
 } from '../lib/matchday-workflow.js'
+import { getPitchTypeLabel, PITCH_TYPE_OPTIONS } from '../lib/pitch-type.js'
 import {
   getMatchDayVolunteerActionKey,
   reconcileMatchDayVolunteerSelectionInList,
@@ -231,6 +232,7 @@ const EMPTY_MATCH_FORM = {
   teamId: '',
   venueName: '',
   venueAddress: '',
+  pitchType: '',
   notes: '',
   parentAudience: 'none',
   parentVisible: false,
@@ -5663,6 +5665,7 @@ function MatchDayCard({
                 <DetailItem label="Match phase" value={getMatchDayPhaseLabel(match) || getMatchPeriodLabel(match)} />
                 <DetailItem label="Date and time" value={formatMatchDate(match)} />
                 <DetailItem label="Venue" value={locationSummary.displayLabel || getHomeAwayLabel(match.homeAway)} />
+                {match.pitchType ? <DetailItem label="Pitch type" value={getPitchTypeLabel(match.pitchType)} /> : null}
                 <DetailItem label="Kits" value={getShirtChoiceLabel(match.shirtChoice)} />
                 <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
                 <DetailItem label="Status" value={getMatchLifecycleLabel(match)} />
@@ -7718,6 +7721,16 @@ function FixtureSetupModal({
               <label className="block">
                 <span className={labelClass}>Address</span>
                 <input value={form.venueAddress} onChange={(event) => updateManualLocation({ venueAddress: event.target.value })} className={inputClass} />
+              </label>
+
+              <label className="block">
+                <span className={labelClass}>Pitch type</span>
+                <select value={form.pitchType} onChange={(event) => updateForm({ pitchType: event.target.value })} className={inputClass}>
+                  <option value="">Choose pitch type</option>
+                  {PITCH_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </label>
             </div>
 
