@@ -5,6 +5,7 @@ import {
   normalizeNewMatchHomeAway,
 } from './matchday-model.js'
 import { normalizeMatchDayFixtureType } from './matchday-fixture-type.js'
+import { assertValidPitchType } from './pitch-type.js'
 
 export const FIXTURE_SETUP_STORAGE_KEY = 'football-open-fixture-setup'
 export const FIXTURE_SETUP_EVENT = 'football-open-fixture-setup'
@@ -49,6 +50,7 @@ export function normalizeFixtureSetupIntent(intent = {}) {
     opponent: normalizeText(intent.opponent),
     parentAudience: normalizeText(intent.parentAudience) || 'none',
     parentVisible: normalizeBoolean(intent.parentVisible),
+    pitchType: assertValidPitchType(intent.pitchType),
     teamId: normalizeText(intent.teamId),
     venueAddress: normalizeText(intent.venueAddress),
     venueName: normalizeText(intent.venueName),

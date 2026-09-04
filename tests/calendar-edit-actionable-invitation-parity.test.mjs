@@ -122,14 +122,14 @@ test('edits reuse active tokens and safely rotate only when no reusable token re
   assert.match(responseFunction, /id="volunteer-\$\{escapeHtml\(normalizeText\(label\)\.toLowerCase\(\)\)\}"/)
 })
 
-test('edit remains opt-in and the UI promises updated actionable links', async () => {
+test('edit remains opt-in except when a volunteer role is newly enabled', async () => {
   const sessionsPage = await readFile(sessionsPageUrl, 'utf8')
 
   assert.match(sessionsPage, /if \(shouldQueueCalendarNotification\) \{[\s\S]*notifyCalendarEventParents/)
   assert.match(sessionsPage, /shouldQueueCalendarNotification = notifyRequested[\s\S]*!\(isTraining && calendarForm\.requestTrainingAvailability\)/)
   assert.match(sessionsPage, /Send updated invitations to parents/)
   assert.match(sessionsPage, /secure availability and configured volunteer response links/)
-  assert.match(sessionsPage, /const notifyRequested = calendarForm\.notifyInvitedFamilies/)
+  assert.match(sessionsPage, /const notifyRequested = \([\s\S]*calendarForm\.notifyInvitedFamilies[\s\S]*shouldNotifyNewlyEnabledVolunteerRoles/)
 })
 
 test('calendar-only fixtures expose a clear first-send action after creation', async () => {

@@ -59,6 +59,8 @@ import {
   matchUsesExtraTime,
 } from '../lib/matchday-extended-ops.js'
 import { openMatchDayFixtureSetup } from '../lib/matchday-workflow.js'
+import { getNewlyEnabledCalendarVolunteerRoles } from '../lib/calendar-volunteer-invites.js'
+import { getPitchTypeLabel, PITCH_TYPE_OPTIONS } from '../lib/pitch-type.js'
 import { isRecoveryModuleVisible } from '../lib/recovery-phase.js'
 import {
   addPlayersToAssessmentSession,
@@ -378,6 +380,7 @@ function getDefaultCalendarForm(date = '') {
     inviteWholeSquad: false,
     location: '',
     notes: '',
+    pitchType: '',
     notifyInvitedFamilies: false,
     notificationRequestToken: '',
     notificationTeamName: '',
@@ -902,6 +905,7 @@ function getFormFromCalendarEvent(event, invites = []) {
       location: source.venueName || '',
       notes: source.notes || '',
       opponent: source.opponent || '',
+      pitchType: source.pitchType || '',
       requestScorer: source.requestScorer === true,
       requestLinesman: source.requestLinesman === true,
       requestReferee: source.requestReferee === true,
@@ -924,6 +928,7 @@ function getFormFromCalendarEvent(event, invites = []) {
       eventType: source.eventType || 'general',
       location: source.location || '',
       notes: source.notes || '',
+      pitchType: source.pitchType || '',
       repeatUpdateScope: '',
       resourceIds: [],
       recurrenceFrequency: source.recurrenceFrequency || 'none',
@@ -2947,6 +2952,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           : ''
       }
 
+      if (['requestScorer', 'requestLinesman', 'requestReferee'].includes(name) && checked) {
+        nextForm.notificationRequestToken = current.notificationRequestToken || createNotificationRequestToken()
+      }
+
       if (name === 'shareWithParents') {
         const currentSafeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, current.teamId)
         nextForm.parentAudience = checked
@@ -3171,6 +3180,13 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       : ''
     const isTraining = calendarForm.eventType === 'training'
     const isMatch = calendarForm.eventType === 'match'
+    const newlyEnabledVolunteerRoles = getNewlyEnabledCalendarVolunteerRoles({
+      event: activeEvent,
+      form: calendarForm,
+    })
+    const shouldNotifyNewlyEnabledVolunteerRoles = newlyEnabledVolunteerRoles.length > 0
+    const notificationRequestToken = calendarForm.notificationRequestToken
+      || (shouldNotifyNewlyEnabledVolunteerRoles ? createNotificationRequestToken() : '')
     const saveTrainingAsSession = isTraining && sourceType === 'session'
     const trimmedTitle = getTrimmedFormValue(calendarForm.title)
     const trimmedOpponent = getTrimmedFormValue(calendarForm.opponent)
@@ -3247,6 +3263,16 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         user,
       })
 
+      if (
+        shouldNotifyNewlyEnabledVolunteerRoles
+        && (!calendarForm.shareWithParents || calendarForm.parentAudience === 'none')
+      ) {
+        throw calendarValidationError(
+          'shareWithParents',
+          'Share this fixture with parents and choose an audience before enabling a volunteer request.',
+        )
+      }
+
       if (isMatch && !sourceType) {
         openMatchDayFixtureSetup({
           arrivalTime: calendarForm.arrivalTime,
@@ -3264,6 +3290,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           opponent: trimmedOpponent || trimmedTitle,
           parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
           parentVisible: calendarForm.shareWithParents,
+          pitchType: calendarForm.pitchType,
           notificationTeamName,
           rememberNotificationTeamName: calendarForm.rememberNotificationTeamName === true,
           shirtChoice: calendarForm.shirtChoice,
@@ -3321,8 +3348,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         const sharedAllTeamParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_team_parents'
         const sharedAllClubParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_club_parents'
         const notificationPlayers = buildCalendarNotificationPlayers(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers)
-        const notifyRequested = calendarForm.notifyInvitedFamilies
-          && !isRescheduled
+        const notifyRequested = (
+          (calendarForm.notifyInvitedFamilies && !isRescheduled)
+          || shouldNotifyNewlyEnabledVolunteerRoles
+        )
           && (sharedInvolvedPlayers || sharedAllTeamParents || sharedAllClubParents)
 
         if (calendarEventId || matchDayId) {
@@ -3355,7 +3384,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
                 eventId,
                 eventSource,
                 eventAction: sourceType === 'calendar' || sourceType === 'match-day' ? 'update' : 'creation',
-                requestToken: calendarForm.notificationRequestToken,
+                requestToken: notificationRequestToken,
               })
               queuedInviteEmails += calendarNotificationResult.queuedCount
               failedInviteEmails += calendarNotificationResult.failedCount
@@ -3526,6 +3555,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             matchDurationMinutes: calendarForm.matchDurationMinutes,
             notes: calendarForm.notes,
             notificationTeamName,
+            pitchType: calendarForm.pitchType,
             shirtChoice: calendarForm.shirtChoice,
             ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
             opponent: trimmedOpponent,
@@ -3592,6 +3622,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           eventType: calendarForm.eventType,
           location: calendarForm.location,
           notes: calendarForm.notes,
+          pitchType: calendarForm.pitchType,
           ...getCalendarParentVisibility({ form: calendarForm, safeTeamId, user }),
           recurrenceFrequency: calendarForm.recurrenceFrequency,
           recurrenceUntil: calendarForm.recurrenceUntil,
@@ -5896,6 +5927,7 @@ function CalendarEventModal({
   )
   const editableSource = !event || event.editable !== false
   const isAssessmentReminder = event?.sourceType === 'assessment-reminder'
+  const canUsePitchType = !isAssessmentReminder && event?.sourceType !== 'session'
   const canManageEventPlayers = editableSource && ['calendar', 'match-day', 'session'].includes(event?.sourceType)
   const canDeleteEvent = Boolean(event && editableSource && !isAssessmentReminder)
   const isInheritedClubEvent = Boolean(event?.isInheritedClubEvent || event?.data?.isInheritedClubEvent)
@@ -6107,6 +6139,18 @@ function CalendarEventModal({
                     <p className="mt-1 text-sm font-black text-[#101828]">{form.location}</p>
                   </div>
                 ) : null}
+                {form.pitchType ? (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Pitch type</p>
+                    <p className="mt-1 text-sm font-black text-[#101828]">{getPitchTypeLabel(form.pitchType)}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {!isMatchFixture && form.pitchType ? (
+              <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Pitch type</p>
+                <p className="mt-1 text-sm font-black text-[#101828]">{getPitchTypeLabel(form.pitchType)}</p>
               </div>
             ) : null}
             {playerRemovalResult ? (
@@ -6437,6 +6481,18 @@ function CalendarEventModal({
               <input name="location" value={form.location} onChange={onChange} placeholder="Pitch, venue, or meeting point" className={fieldClass} />
             </label>
 
+            {canUsePitchType ? (
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Pitch type</span>
+                <select name="pitchType" value={form.pitchType} onChange={onChange} disabled={isBusy} className={fieldClass}>
+                  <option value="">Choose pitch type</option>
+                  {PITCH_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#101828]">Notes</span>
               <textarea name="notes" value={form.notes} onChange={onChange} rows={4} className={fieldClass} />
@@ -6585,7 +6641,7 @@ function CalendarEventModal({
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" data-calendar-field="volunteerRequests">
                 <p className="text-sm font-black text-[#101828]">Parent volunteer requests</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-                  Choose the roles needed for this fixture. Select the invitation option below to send the request to parents.
+                  Choose the roles needed for this fixture. Saving a newly enabled role sends the normal parent invitations automatically.
                 </p>
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                   {[

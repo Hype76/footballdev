@@ -38,7 +38,7 @@ test('Match Day invite synchronization imports the display helper used after sav
 test('edit form restores Match Day parent scope and retains one retry token until save', () => {
   assert.match(sessionsPage, /sourceType === 'match-day'[\s\S]*source\.parentAudience[\s\S]*source\.parentVisible/)
   assert.match(sessionsPage, /name === 'notifyInvitedFamilies'[\s\S]*current\.notificationRequestToken \|\| createNotificationRequestToken\(\)/)
-  assert.match(sessionsPage, /requestToken: calendarForm\.notificationRequestToken/)
+  assert.match(sessionsPage, /requestToken: notificationRequestToken/)
 })
 
 test('client calls the exact five-argument RPC for Calendar or Match Day', () => {
