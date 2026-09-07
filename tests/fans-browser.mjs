@@ -13,6 +13,8 @@ const connections = []
 const creates = []
 let emailRequests = 0
 let deleteRequests = 0
+let signupRequests = 0
+let signupShouldFail = true
 await mkdir('output/playwright/fans-local', { recursive: true })
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
@@ -26,6 +28,7 @@ try {
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url())
     if (url.hostname === 'fixture.supabase.test') {
+      if (url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password') return route.fulfill({ status: 400, headers: { 'X-Supabase-Api-Version': '2024-01-01', 'Access-Control-Expose-Headers': 'X-Supabase-Api-Version' }, contentType: 'application/json', body: JSON.stringify({ code: 'invalid_credentials', msg: 'Invalid login credentials' }) })
       const name = url.pathname.split('/').at(-1)
       const args = route.request().postDataJSON() || {}
       let result = []
@@ -56,6 +59,11 @@ try {
       assert.equal(action,'send_invitation')
       emailRequests++
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' })
+    }
+    if (url.pathname === '/.netlify/functions/create-fan-account') {
+      signupRequests++
+      assert.equal(route.request().postDataJSON().email, 'newfan@example.test')
+      return route.fulfill({ status: signupShouldFail ? 502 : 200, contentType: 'application/json', body: JSON.stringify(signupShouldFail ? { message: 'Account creation could not be completed. Please try Create account again.' } : { needsEmailVerification: true }) })
     }
     if (url.hostname === 'branding.example.test') return route.fulfill({status:200,contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#123abc"/><text x="18" y="44" fill="white" font-size="36">B</text></svg>'})
     if (url.pathname.startsWith('/.netlify/')) return route.fulfill({status:200,contentType:'application/json',body:'{}'})
@@ -163,6 +171,33 @@ try {
   await page.getByAltText('Blue Club logo').waitFor()
   assert.equal(await page.getByText('Invitation child',{exact:true}).count(),0)
   await page.screenshot({path:'output/playwright/fans-local/fan-invite-branded-signed-out-phone.png',fullPage:true})
+  await page.getByRole('button',{name:'Create account',exact:true}).click()
+  assert.equal(await page.getByLabel('Password',{exact:true}).getAttribute('autocomplete'),'new-password')
+  await page.getByLabel('Email',{exact:true}).fill('newfan@example.test')
+  await page.getByLabel('Password',{exact:true}).fill('short')
+  await page.getByRole('button',{name:'Create account',exact:true}).click()
+  await page.getByRole('status').getByText('Password must be at least 8 characters.',{exact:true}).waitFor()
+  assert.equal(signupRequests,0)
+  await page.getByLabel('Password',{exact:true}).fill('Test-River-729!')
+  await page.getByLabel('Password',{exact:true}).press('Enter')
+  await page.getByRole('status').getByText(/Account creation could not be completed/).waitFor()
+  assert.equal(signupRequests,1)
+  assert.equal(await page.getByRole('heading',{name:'Check your email',exact:true}).count(),0)
+  signupShouldFail = false
+  await page.getByRole('button',{name:'Create account',exact:true}).click()
+  await page.getByRole('heading',{name:'Check your email',exact:true}).waitFor()
+  assert.equal(signupRequests,2)
+  assert.equal(await page.getByLabel('Password',{exact:true}).inputValue(),'')
+  assert.equal(await page.getByLabel('Password',{exact:true}).getAttribute('autocomplete'),'current-password')
+  await page.getByText(/Your Fan access is not active yet/).waitFor()
+  await page.getByText(/same email and password/).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Accept invitation',exact:true}).count(),0)
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
+  await page.screenshot({path:'output/playwright/fans-local/fan-account-confirmation-phone.png',fullPage:true})
+  await page.getByLabel('Password',{exact:true}).fill('Wrong-River-729!')
+  await page.getByRole('button',{name:'Sign in',exact:true}).click()
+  await page.getByRole('status').waitFor()
+  assert.match(await page.getByRole('status').innerText(), /If you are new, choose Create account first/)
   assert.deepEqual(errors,[])
   console.log('PASS: required identity, exact confirmation, Schedule-only access, QR, two pending invitations, simulated email, phone layout, permission-limited viewing, Fan self-removal clears content, recipient acceptance, multi-club logos and colour switching, branded invitation and no browser errors.')
   await context.close()
