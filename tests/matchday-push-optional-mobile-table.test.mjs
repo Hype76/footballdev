@@ -89,6 +89,7 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
     }
     supabaseAdmin.from = (table) => {
       tables.push(table)
+      if (table === 'fan_connections') return queryResult({ data: [], error: null })
 
       if (table === 'users') {
         return queryResult({

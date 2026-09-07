@@ -400,7 +400,7 @@ async function listAuthorisedCalendarEventResources({ authUserId, parentLinkId, 
   }).filter(Boolean)
 }
 
-async function loadAuthorisedResource({ authUserId, calendarEventId = '', calendarOccurrenceDate = '', parentLinkId, resourceId, supabaseAdmin }) {
+export async function loadAuthorisedResource({ authUserId, calendarEventId = '', calendarOccurrenceDate = '', parentLinkId, resourceId, supabaseAdmin }) {
   const unavailableMessage = 'This resource is not available for the selected child.'
   const { parentLink, player } = await loadActiveParentContext({ authUserId, parentLinkId, supabaseAdmin })
   const calendarEvent = calendarEventId

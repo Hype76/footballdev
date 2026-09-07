@@ -93,6 +93,8 @@ const ParentChatPage = lazyRoute(() => import('../pages/ParentChatPage.jsx'), 'P
 const ParentChatStaffPage = lazyRoute(() => import('../pages/ParentChatStaffPage.jsx'), 'ParentChatStaffPage')
 const ParentPollsPage = lazyRoute(() => import('../pages/ParentPollsPage.jsx'), 'ParentPollsPage')
 const ParentPortalPage = lazyRoute(() => import('../pages/ParentPortalPage.jsx'), 'ParentPortalPage')
+const FansPage = lazyRoute(() => import('../pages/FansPage.jsx'), 'FansPage')
+const FanInvitePage = lazyRoute(() => import('../pages/FanInvitePage.jsx'), 'FanInvitePage')
 const FriendsFamilyPage = lazyRoute(() => import('../pages/FriendsFamilyPage.jsx'), 'FriendsFamilyPage')
 const PlayerProfile = lazyRoute(() => import('../pages/PlayerProfile.jsx'), 'PlayerProfile')
 const PlayersPage = lazyRoute(() => import('../pages/PlayersPage.jsx'), 'PlayersPage')
@@ -857,6 +859,10 @@ function useWorkspaceRouteGate({
       element: <Navigate to="/player" replace />,
       user,
     }
+  }
+
+  if (parentIntent && user?.parentPortalLinks?.length && user.parentPortalLinks.every((link) => link.linkType === 'fan')) {
+    return { element: <Navigate to="/fans" replace />, user }
   }
 
   if (parentIntent) {
@@ -1782,6 +1788,14 @@ export const router = createBrowserRouter([
     element: <PageSuspense><GuestScorerPage /></PageSuspense>,
   },
   {
+    path: '/fans',
+    element: <PageSuspense><FansPage /></PageSuspense>,
+  },
+  {
+    path: '/fan-invite/:token',
+    element: <PageSuspense><FanInvitePage /></PageSuspense>,
+  },
+  {
     path: '/parent-invite/:token',
     element: (
       <PageSuspense>
@@ -2055,7 +2069,7 @@ export const router = createBrowserRouter([
                   </PageSuspense>
                 ),
                 handle: {
-                  title: 'Friends and Family',
+                  title: 'Fans',
                 },
               },
             ],

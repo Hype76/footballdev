@@ -1,3 +1,4 @@
+import { normalizeFanProfileLink } from '../fans.js'
 import {
   CLUB_LOGOS_BUCKET,
   EVALUATION_SECTIONS,
@@ -240,10 +241,10 @@ async function getParentPortalMemberships(authUser) {
     }
   })
 
-  return {
-    links,
-    lookupFailed: false,
-  }
+  const fans = await supabase.rpc('list_fan_connections')
+  if (fans.error) throw fans.error
+  links.push(...(fans.data || []).filter((row) => !row.is_owner && row.status === 'active' && row.relationship_type === 'fan').map(normalizeFanProfileLink))
+  return { links, lookupFailed: false }
 }
 
 async function getAdultPlayerAccountState(authUser) {
@@ -640,7 +641,7 @@ export async function fetchUserProfile(authUser, options = {}) {
           requiresAccessModeSelection: true,
           accessModeOptions: [
             { id: 'platform_admin', label: 'Platform Admin', meta: 'Open platform administration tools' },
-            { id: 'parent', label: 'Parent / Friends and Family', meta: 'Open linked child access only' },
+            { id: 'parent', label: 'Parent / Fans', meta: 'Open linked child access only' },
           ],
         }
       }

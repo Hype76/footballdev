@@ -15,5 +15,6 @@ test('Parent native pushes identify the exact authorised child and item', async 
   assert.match(parentPush, /route: 'invites'/)
   assert.match(parentPush, /categoryId: 'parent-response'/)
   assert.match(parentPush, /parentLinkId: payload\.data\.parentLinkId \|\| device\.parent_link_id/)
-  assert.match(matchPush, /parentLinkId: device\.parent_link_id/)
+  assert.match(matchPush, /buildMatchDayNativeMessage/)
+  assert.match(await readSource('netlify/functions/lib/_match-day-native-message.js'), /parentLinkId: device\.parent_link_id/)
 })

@@ -13,6 +13,11 @@ const FOOTBALL_KEYS = new Set([
 ])
 
 const PARENT_ICONS = Object.freeze({
+  fans: 'groups',
+  'fan.email': 'mail-outline',
+  'fan.qr': 'qr-code',
+  'fan.share': 'share',
+  'fan.remove': 'person-remove',
   'action.calendar': 'event-available',
   'action.edit': 'edit',
   'action.hide': 'visibility-off',

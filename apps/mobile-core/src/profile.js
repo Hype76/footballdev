@@ -1,3 +1,4 @@
+import { normalizeFanProfileLink } from '../../../src/lib/fans.js'
 import { supabase } from './supabase'
 import { getSelectedParentLink } from './parentLinks'
 import { applyCoachContext, normalizeCoachContext, resolveCoachStaffContext } from './coachContextCore'
@@ -322,6 +323,9 @@ async function fetchParentProfile(authUser) {
   }
 
   const links = (data || []).map(normalizeParentLink)
+  const fans = await supabase.rpc('list_fan_connections')
+  if (fans.error) throw fans.error
+  links.push(...(fans.data || []).filter((row) => !row.is_owner && row.status === 'active' && row.relationship_type === 'fan').map(normalizeFanProfileLink))
 
   return normalizeParentProfile(authUser, links)
 }

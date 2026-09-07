@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { sendFanMatchNotifications } from './lib/_fan-push.js'
 import webpush from 'web-push'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
@@ -369,7 +370,7 @@ export async function handler(event) {
     }
 
     const delivery = await deliverMatchDayNotification({ match, type, eventId, targetParentLinkIds })
-    const succeeded = delivery.mobileFailed === 0 && delivery.webFailed === 0
+    const succeeded = delivery.mobileFailed === 0 && delivery.webFailed === 0 && !delivery.fanFailed
     await completePushOperation({ operationKey, succeeded, errorMessage: succeeded ? '' : 'Some match notifications were not accepted. Retry delivery.' })
     claimedOperationKey = ''
 
@@ -472,7 +473,8 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
     })
     const mobileResult = await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
-  return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available }
+  const fans = await sendFanMatchNotifications({ client: supabaseAdmin, match, type, eventId, targetParentLinkIds })
+  return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available, ...fans }
 }
 
 export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
@@ -496,7 +498,7 @@ export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
     if (requestError) throw requestError
     const targetParentLinkIds = [...new Set((targets || []).filter(Boolean))]
     const result = await deliverMatchDayNotification({ match, type, eventId: command.eventId || '', targetParentLinkIds })
-    if (result.mobileFailed > 0) throw new Error('Match notification failed.')
+    if (result.mobileFailed > 0 || result.fanFailed > 0) throw new Error('Match notification failed.')
   }
   const complete = await supabaseAdmin.rpc('claim_guest_match_notification', { ...claimArgs, completed: true })
   if (complete.error) throw complete.error

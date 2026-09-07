@@ -36,6 +36,7 @@ const parentPortalSections = [
   { id: 'resources', label: 'Resources', description: 'Shared links', to: '/parent-portal?section=resources' },
   { id: 'chat', label: 'Chat', description: 'Child, team and match chat', to: '/parent-chat', recoveryPath: '/parent-chat' },
   { id: 'polls', label: 'Polls', description: 'Questions to answer', to: '/parent-polls', recoveryPath: '/parent-polls' },
+  { id: 'fans', label: 'Fans', description: 'People and access', to: '/fans' },
   { id: 'settings', label: 'Settings', description: 'Profile and preferences', to: '/parent-portal?section=settings' },
 ]
 

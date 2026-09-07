@@ -426,7 +426,7 @@ const FRIENDLY_PAGE_NAMES = Object.freeze({
   parent_calendar: 'Parent Calendar',
   parent_chat: 'Parent Chat',
   parent_polls: 'Parent Polls',
-  friends_family: 'Friends and Family',
+  friends_family: 'Fans',
   staff_calendar: 'Coach Calendar',
   player_profile: 'Player Profile',
   development: 'Development',

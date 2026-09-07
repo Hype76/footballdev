@@ -10,14 +10,12 @@ import {
 } from '../../src/lib/development-pdf-filename.js'
 import { buildPdfBrandingForAuthorisedScope } from './lib/_pdf-branding.js'
 import {
-  buildParentDevelopmentHistory,
+  loadHistory,
   getParentDevelopmentReport,
   ParentDevelopmentHistoryError,
   validateParentDevelopmentScope,
 } from './lib/_parent-development-history.js'
 import {
-  createDevelopmentOutputKey,
-  createDevelopmentOutputQueueId,
   enrichDevelopmentParentReportWithScores,
   resolveDevelopmentParentReport,
 } from './lib/_development-parent-email-output.js'
@@ -101,88 +99,6 @@ async function loadParentScope({ authUserId, parentLinkId, supabaseAdmin }) {
   return { parentLink, player }
 }
 
-async function loadHistory({ parentLink, supabaseAdmin }) {
-  const { data: reportRows, error: reportError } = await supabaseAdmin
-    .from('development_parent_reports')
-    .select('evaluation_id, club_id, report_snapshot, finalized_at')
-    .eq('club_id', parentLink.club_id)
-    .eq('report_snapshot->player->>id', parentLink.player_id)
-    .order('finalized_at', { ascending: false })
-    .limit(100)
-
-  if (reportError) {
-    throw reportError
-  }
-
-  const candidateRows = (reportRows ?? []).filter((row) =>
-    Array.isArray(row.report_snapshot?.recipients)
-    && row.report_snapshot.recipients.some(
-      (recipient) => normalizeText(recipient?.linkId) === normalizeText(parentLink.id),
-    ))
-  const evaluationIds = candidateRows
-    .map((row) => normalizeText(row.evaluation_id))
-    .filter(Boolean)
-
-  if (evaluationIds.length === 0) {
-    return []
-  }
-
-  const { data: evaluations, error: evaluationError } = await supabaseAdmin
-    .from('evaluations')
-    .select('id, scores, form_responses, feedback_form_snapshot')
-    .eq('club_id', parentLink.club_id)
-    .eq('player_id', parentLink.player_id)
-    .in('id', evaluationIds)
-
-  if (evaluationError) {
-    throw evaluationError
-  }
-
-  const evaluationById = new Map(
-    (evaluations ?? []).map((evaluation) => [normalizeText(evaluation.id), evaluation]),
-  )
-  const enrichedRows = candidateRows.map((row) => ({
-    ...row,
-    report_snapshot: enrichDevelopmentParentReportWithScores(
-      row.report_snapshot,
-      evaluationById.get(normalizeText(row.evaluation_id)),
-    ),
-  }))
-
-  const { data: communicationLogs, error: communicationError } = await supabaseAdmin
-    .from('communication_logs')
-    .select('id, evaluation_id, channel, action, metadata, created_at')
-    .eq('club_id', parentLink.club_id)
-    .eq('player_id', parentLink.player_id)
-    .in('evaluation_id', evaluationIds)
-    .eq('channel', 'email')
-    .in('action', ['parent_email_scheduled', 'parent_email_sent'])
-    .eq('metadata->>recipientLinkId', parentLink.id)
-
-  if (communicationError) {
-    throw communicationError
-  }
-
-  const queueIds = evaluationIds.map((evaluationId) =>
-    createDevelopmentOutputQueueId(
-      createDevelopmentOutputKey(evaluationId, parentLink.id),
-    ))
-  const { data: queues, error: queueError } = await supabaseAdmin
-    .from('scheduled_email_queue')
-    .select('id, status, scheduled_at, last_error')
-    .in('id', queueIds)
-
-  if (queueError) {
-    throw queueError
-  }
-
-  return buildParentDevelopmentHistory({
-    communicationLogs: communicationLogs ?? [],
-    parentLink,
-    queues: queues ?? [],
-    reportRows: enrichedRows,
-  })
-}
 
 async function loadBrandingScope({ parentLink, report, supabaseAdmin }) {
   const unavailableMessage = 'This Development PDF is not available.'

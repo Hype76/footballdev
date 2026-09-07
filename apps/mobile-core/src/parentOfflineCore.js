@@ -16,7 +16,7 @@ function isoNow(now) {
 }
 
 export function sanitizeParentOfflineProfile(profile) {
-  const links = getParentPortalLinks(profile).map((link) => ({
+  const links = getParentPortalLinks(profile).filter((link) => !['fan', 'family'].includes(link.linkType)).map((link) => ({
     clubId: normalize(link.clubId),
     clubLogoUrl: normalize(link.clubLogoUrl),
     clubName: normalize(link.clubName),
@@ -85,9 +85,10 @@ export function setParentOfflineProfile(document, profile, { now = Date.now } = 
     ? normalize(document.selectedLinkId)
     : normalize(profile.selectedParentLinkId || links[0]?.id)
   const activeLinkIds = new Set(links.map((link) => normalize(link?.id)).filter(Boolean))
+  const privateFanIds = new Set((document.profile?.value?.parentPortalLinks || []).filter((link) => ['fan', 'family'].includes(link.linkType)).map((link) => normalize(link.id)))
   return {
     ...document,
-    journal: (document.journal || []).map((command) => (
+    journal: (document.journal || []).filter((command) => !privateFanIds.has(command.childScope)).map((command) => (
       activeLinkIds.has(command.childScope) || TERMINAL_COMMAND_STATES.has(command.status)
         ? command
         : {

@@ -352,7 +352,7 @@ export async function revokeFamilyPortalLink({ linkId }) {
   const normalizedLinkId = String(linkId ?? '').trim()
 
   if (!normalizedLinkId) {
-    throw new Error('Choose a Friends and Family link before removing access.')
+    throw new Error('Choose a Fans link before removing access.')
   }
 
   const { data, error } = await supabase.rpc('revoke_family_player_link', {
@@ -367,7 +367,7 @@ export async function revokeFamilyPortalLink({ linkId }) {
   const revokedRow = Array.isArray(data) ? data[0] : data
 
   if (!revokedRow?.id) {
-    throw new Error('Friends and Family access could not be removed.')
+    throw new Error('Fans access could not be removed.')
   }
 
   return normalizeParentLink(revokedRow)
