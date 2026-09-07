@@ -123,7 +123,6 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
     throw currentTeamError
   }
 
-  const previousTeamName = String(currentTeam.name ?? '').trim()
   const payload = {}
   const hasThemeUpdates =
     data.themeMode !== undefined ||
@@ -189,19 +188,7 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
   invalidateMemoryCacheByPrefix('user-profile:')
   invalidateMemoryCacheByPrefix('players:')
 
-  if (payload.name && payload.name !== previousTeamName) {
-    const linkedUpdateResults = await Promise.all([
-      supabase.from('players').update({ team: payload.name }).eq('team', previousTeamName).eq('club_id', updatedTeam.club_id),
-      supabase.from('evaluations').update({ team: payload.name }).eq('team', previousTeamName).eq('club_id', updatedTeam.club_id),
-      supabase.from('evaluations').update({ team: payload.name }).eq('team_id', teamId).eq('club_id', updatedTeam.club_id),
-    ])
-    const firstLinkedUpdateError = linkedUpdateResults.find((result) => result.error)?.error
-
-    if (firstLinkedUpdateError) {
-      console.error(firstLinkedUpdateError)
-      throw firstLinkedUpdateError
-    }
-  }
+  // The database trigger updates legacy player/evaluation labels atomically.
 
   return normalizeTeamRow(updatedTeam)
 }

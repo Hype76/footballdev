@@ -25,7 +25,7 @@ async function deleteExpiredVoiceNotes(nowIso) {
       .remove(audioPaths)
 
     if (storageError) {
-      console.error('Expired voice note files could not all be deleted', storageError)
+      throw storageError
     }
   }
 
@@ -83,7 +83,7 @@ async function deleteExpiredArchivedPlayers(nowIso) {
       .remove(playerAudioPaths)
 
     if (storageError) {
-      console.error('Archived player voice files could not all be deleted', storageError)
+      throw storageError
     }
   }
 
@@ -117,12 +117,17 @@ async function deleteExpiredArchivedPlayers(nowIso) {
       throw evaluationIdError
     }
 
-    if (playerName) {
+    const { data: sameNamePlayers, error: identityError } = await supabaseAdmin.from('players').select('id').eq('club_id', clubId).eq('player_name', playerName).limit(2)
+    if (identityError) throw identityError
+    const unambiguousLegacyName = playerName && sameNamePlayers?.length === 1 && sameNamePlayers[0].id === playerId
+
+    if (unambiguousLegacyName) {
       const { error: evaluationNameError } = await supabaseAdmin
         .from('evaluations')
         .delete()
         .eq('club_id', clubId)
         .eq('player_name', playerName)
+        .is('player_id', null)
 
       if (evaluationNameError) {
         throw evaluationNameError
@@ -138,12 +143,13 @@ async function deleteExpiredArchivedPlayers(nowIso) {
       throw sessionPlayerIdError
     }
 
-    if (sessionIds.length > 0 && playerName) {
+    if (sessionIds.length > 0 && unambiguousLegacyName) {
       const { error: sessionPlayerNameError } = await supabaseAdmin
         .from('assessment_session_players')
         .delete()
         .in('session_id', sessionIds)
         .eq('player_name', playerName)
+        .is('player_id', null)
 
       if (sessionPlayerNameError) {
         throw sessionPlayerNameError
@@ -155,6 +161,7 @@ async function deleteExpiredArchivedPlayers(nowIso) {
     .from('players')
     .delete()
     .eq('status', 'archived')
+    .lte('archived_delete_at', nowIso)
     .in('id', expiredPlayerIds)
 
   if (playerDeleteError) {
@@ -227,22 +234,25 @@ export async function handler() {
     const existingRetentionEnabled = String(process.env.RETENTION_CLEANUP_ENABLED ?? '').trim().toLowerCase() === 'true'
     const securityAuditRetentionEnabled = String(process.env.SECURITY_AUDIT_RETENTION_ENABLED ?? '').trim().toLowerCase() === 'true'
     const nowIso = new Date().toISOString()
-    const [voiceNotesDeleted, archivedPlayersDeleted, dataTransferFilesDeleted, securityAuditEventsDeleted] = await Promise.all([
+    const results = await Promise.allSettled([
       existingRetentionEnabled ? deleteExpiredVoiceNotes(nowIso) : 0,
       existingRetentionEnabled ? deleteExpiredArchivedPlayers(nowIso) : 0,
       deleteExpiredDataTransferFiles(nowIso),
       securityAuditRetentionEnabled ? deleteExpiredSecurityAuditEvents() : 0,
     ])
 
-    return json(200, {
-      success: true,
+    const taskNames = ['voiceNotesDeleted', 'archivedPlayersDeleted', 'dataTransferFilesDeleted', 'securityAuditEventsDeleted']
+    const counts = Object.fromEntries(results.map((result, index) => [taskNames[index], result.status === 'fulfilled' ? result.value : null]))
+    const failedTasks = results.flatMap((result, index) => result.status === 'rejected' ? [{ task: taskNames[index], message: result.reason?.message || 'Cleanup failed.' }] : [])
+    if (failedTasks.length) console.error('Retention cleanup partially failed', failedTasks)
+    return json(failedTasks.length ? 500 : 200, {
+
+      success: failedTasks.length === 0,
+      failedTasks,
       skipped: !existingRetentionEnabled,
       existingRetentionEnabled,
       securityAuditRetentionEnabled,
-      voiceNotesDeleted,
-      archivedPlayersDeleted,
-      dataTransferFilesDeleted,
-      securityAuditEventsDeleted,
+      ...counts,
     })
   } catch (error) {
     console.error(error)

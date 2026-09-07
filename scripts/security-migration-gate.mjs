@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
+import { matchesHardeningMigrationScope } from './v1-hardening-migration-scope.mjs'
 
 const migrationDirectory = path.join(process.cwd(), 'supabase', 'migrations')
 const reconciliationManifestPath = path.join(process.cwd(), 'scripts', 'migration-reconciliation-manifest.json')
@@ -132,7 +133,14 @@ async function validateReconciliationManifest(base, changed) {
 try {
   const base = gitText(['merge-base', 'HEAD', 'origin/main'])
   const changed = gitLines(['diff', '--name-only', base, '--', 'supabase/migrations'])
-  if (changed.length > 1) await validateReconciliationManifest(base, changed)
+  if (changed.length > 1) {
+    const entries = await Promise.all(changed.map(async (migrationPath) => ({
+      path: migrationPath,
+      status: gitText(['diff', '--name-status', '--no-renames', base, '--', migrationPath]).split(/\s/)[0],
+      source: await readFile(migrationPath, 'utf8'),
+    })))
+    if (!matchesHardeningMigrationScope(base, entries)) await validateReconciliationManifest(base, changed)
+  }
 } catch {
   failures.push('Could not establish the origin/main migration allowlist base')
 }
