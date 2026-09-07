@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
+import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -1757,7 +1758,7 @@ function ParentHome() {
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice({
         message: nextState.enabled
-          ? `Notifications are on with ${nextState.detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} content.`
+          ? 'Parent push alerts are enabled on this device.'
           : nextState.message || 'Notifications are off. The rest of the app is unchanged.',
         tone: nextState.enabled ? 'success' : 'warning',
       })
@@ -2868,7 +2869,7 @@ function SettingsScreen({
     <View onLayout={(event) => setSettingsRootY(event.nativeEvent.layout.y)} style={styles.screenStack}>
       <ScreenIntro copy="Account, security and app information." title="Settings" />
 
-      <InfoPanel title="Signed-in Parent">
+      <InfoPanel iconKey="settings.account" title="Signed-in Parent">
         <TextInput
           accessibilityLabel="Display name"
           autoCapitalize="words"
@@ -2889,7 +2890,7 @@ function SettingsScreen({
         <InfoRow label="Email" value={user.email || 'Email unavailable'} />
       </InfoPanel>
 
-      <InfoPanel title="Linked children">
+      <InfoPanel iconKey="more.team" title="Linked children">
         {links.length > 0 ? links.map((link) => (
           <View key={link.id} style={styles.linkSummary}>
             <View style={styles.identityRow}>
@@ -2904,7 +2905,7 @@ function SettingsScreen({
         )) : <Text style={styles.bodyText}>No active child links are available.</Text>}
       </InfoPanel>
 
-      <InfoPanel title="Display">
+      <InfoPanel iconKey="settings.appearance" title="Display">
         <Text style={styles.bodyText}>Choose the app appearance on this device.</Text>
         <View style={styles.notificationChoices}>
           {['dark', 'light'].map((theme) => {
@@ -2925,7 +2926,7 @@ function SettingsScreen({
         </View>
       </InfoPanel>
 
-      <InfoPanel title="Password security">
+      <InfoPanel iconKey="settings.security" title="Password security">
         <Text style={styles.bodyText}>Confirm your current password before choosing a new one.</Text>
         <TextInput
           accessibilityLabel="Current password"
@@ -2967,7 +2968,7 @@ function SettingsScreen({
       <View style={styles.card}>
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
-            <Text style={styles.cardTitle}>Biometric app lock</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><ParentIcon iconKey="settings.security" color={palette.accentText || palette.accent} size={26} /><Text style={styles.cardTitle}>Biometric app lock</Text></View>
             <Text style={styles.bodyText}>
               Uses biometrics already enrolled on this device. It protects local app access and does not change your Football Player password.
             </Text>
@@ -2989,7 +2990,7 @@ function SettingsScreen({
         {biometricStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <PrimaryAction label="Retry biometric check" onPress={onRetryBiometricState} secondary /> : null}
       </View>
 
-      <InfoPanel title="Communication choice">
+      <InfoPanel iconKey="more.chat" title="Communication choice">
         <Text style={styles.bodyText}>Choose how Football Player sends club updates and requests. Email and app notifications are delivered independently.</Text>
         <View style={styles.notificationChoices}>
           {[
@@ -3016,7 +3017,7 @@ function SettingsScreen({
         </View>
       </InfoPanel>
 
-      <InfoPanel onLayout={(event) => setNotificationSectionY(event.nativeEvent.layout.y)} title="Notifications">
+      <InfoPanel iconKey="settings.notifications" onLayout={(event) => setNotificationSectionY(event.nativeEvent.layout.y)} title="Notifications">
         <InfoRow
           label="Status"
           value={notificationStateKnown
@@ -3025,7 +3026,8 @@ function SettingsScreen({
         />
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>Notification status could not be read. No setting has been changed.</Text> : null}
-        <Text style={styles.bodyText}>Choose Off, Minimal or Detailed. Selecting Minimal or Detailed turns Parent messages, polls and Matchday alerts on for this device.</Text>
+        <Text style={styles.bodyText}>Choose which push alerts you receive. Your phone must also allow notifications.</Text>
+        {communicationPreference.communicationChannel === 'email' ? <Text style={styles.helperText}>Your communication choice is Email. Select App notifications or Both above to receive these push alerts.</Text> : null}
         <Text style={styles.helperText}>Permission is requested when needed. Full Player names, message text, assessments and Coach notes are never included.</Text>
         {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
           <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
@@ -3054,30 +3056,8 @@ function SettingsScreen({
         ) : null}
 
         {activeActionId === 'notifications' || notificationStateLoading ? <BrandLoader /> : null}
-        {notificationStateKnown ? <View style={styles.notificationChoices}>
-          {[
-            { copy: 'Do not send app notifications to this device.', iconKey: 'notifications-off', key: 'off', label: 'Off' },
-            { copy: 'General alerts with the least detail.', iconKey: 'notifications-none', key: 'minimal', label: 'Minimal' },
-            { copy: 'A little more context, without Player names.', iconKey: 'notifications-active', key: 'detailed', label: 'Detailed' },
-          ].map((choice) => {
-            const selectedMode = notificationState.enabled ? notificationState.detailLevel : 'off'
-            const selected = selectedMode === choice.key
-            return (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selected }}
-                disabled={activeActionId === 'notifications'}
-                key={choice.key}
-                onPress={() => onNotificationModeChange(choice.key)}
-                style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
-              >
-                <ParentIcon color={selected ? palette.accent : palette.textMuted} iconKey={choice.iconKey} size={28} />
-                <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{choice.label}</Text>
-                <Text style={styles.helperText}>{choice.copy}</Text>
-              </Pressable>
-            )
-          })}
-        </View> : null}
+        <NotificationCategorySettings key={user.id} app="parent" userId={user.id} palette={palette} Icon={ParentIcon} />
+        {notificationStateKnown ? <PrimaryAction secondary disabled={activeActionId === 'notifications'} label={notificationState.enabled ? 'Pause all push alerts on this device' : 'Enable push alerts on this device'} onPress={() => onNotificationModeChange(notificationState.enabled ? 'off' : 'minimal')} /> : null}
 
         {notificationState.enabled && !config.isProduction ? (
           <View style={styles.notificationTestActions}>
@@ -3089,25 +3069,25 @@ function SettingsScreen({
         ) : null}
       </InfoPanel>
 
-      <InfoPanel title="App information">
+      <InfoPanel iconKey="settings.app" title="App information">
         <InfoRow label="Build" value={getBuildClassification(config.buildProfile)} />
         <InfoRow label="Connection" value={config.isUsable ? config.isProduction ? 'Live service ready' : 'Test service ready' : 'Connection needs attention'} />
         <InfoRow label="Version" value={`${appVersion} (${buildNumber})`} />
         {lastUpdatedAt ? <InfoRow label="Last refreshed" value={formatDateTime(lastUpdatedAt)} /> : null}
         <Text style={styles.helperText}>
           {config.isProduction
-            ? 'This production-backed candidate uses the live Football Player service.'
+            ? 'Connected to Football Player.'
             : 'This test build cannot connect to the live Football Player service.'}
         </Text>
       </InfoPanel>
 
-      <InfoPanel title="Hidden items">
+      <InfoPanel iconKey="settings.hidden" title="Hidden items">
         <InfoRow label="Removed from lists" value={String(hiddenItemCount || 0)} />
         <Text style={styles.helperText}>Removing an item hides it on this device. Club records and audit history are not deleted.</Text>
         <PrimaryAction disabled={!hiddenItemCount} label="Restore hidden items" onPress={onRestoreDismissedItems} secondary />
       </InfoPanel>
 
-      <InfoPanel title="Offline and sync">
+      <InfoPanel iconKey="settings.sync" title="Offline and sync">
         <InfoRow label="Connection" value={isOffline ? 'Offline' : 'Online'} />
         <InfoRow label="Saved information" value={cacheState.source === 'cache' ? cacheState.stale ? 'Saved, may be out of date' : 'Saved on this device' : 'Up to date'} />
         <InfoRow label="Actions waiting" value={String(syncSummary.waiting)} />
@@ -3165,11 +3145,11 @@ function SummaryButton({ count = null, disabled = false, iconKey, label, onPress
   )
 }
 
-function InfoPanel({ children, onLayout, title }) {
-  const { styles } = useParentTheme()
+function InfoPanel({ children, iconKey, onLayout, title }) {
+  const { palette, styles } = useParentTheme()
   return (
     <View onLayout={onLayout} style={styles.card}>
-      <Text accessibilityRole="header" style={styles.cardTitle}>{title}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>{iconKey ? <ParentIcon iconKey={iconKey} color={palette.accentText || palette.accent} size={26} /> : null}<Text accessibilityRole="header" style={[styles.cardTitle, { flex: 1 }]}>{title}</Text></View>
       <View style={styles.infoStack}>{children}</View>
     </View>
   )

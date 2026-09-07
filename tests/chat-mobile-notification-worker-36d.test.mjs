@@ -162,6 +162,16 @@ test('processor uses injected provider sender and records deterministic intent o
   assert.equal(client.calls.filter((call) => call.operation === 'update' && call.value.status === 'sent').length, 2)
 })
 
+test('a disabled category completes a queued intent without reporting a send or retrying', async () => {
+  const client = createFakeClient({ staffIntents: [{ intent_id: 99, expo_push_token: 'ExpoPushToken[disabled]', detail_level: 'minimal' }] })
+  const result = await processChatMobileNotifications({ client, sendMessages: async () => ({ sent: 0, failed: 0, skipped: 1, invalidTokens: [] }) })
+  assert.deepEqual(result, { claimed: 1, failed: 0, sent: 0, skipped: 1 })
+  const completion = client.calls.find(call => call.operation === 'update')
+  assert.equal(completion.value.status, 'sent')
+  assert.equal(completion.value.safe_error_code, 'notification_category_disabled')
+  assert.equal(client.calls.some(call => call.operation === 'insert'), false)
+})
+
 test('processor delivers a large claimed batch with bounded concurrency', async () => {
   const staffIntents = Array.from({ length: 16 }, (_, index) => ({
     intent_id: index + 1,
