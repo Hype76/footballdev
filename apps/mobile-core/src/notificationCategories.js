@@ -4,7 +4,7 @@ export const DEFAULT_NOTIFICATION_CATEGORIES = Object.freeze({
 
 export const GAME_DAY_CHOICES = Object.freeze([
   { key: 'off', label: 'Off', iconKey: 'notification.status-off', copy: 'No Game Day push alerts.' },
-  { key: 'scores_cards', label: 'Score and cards only', iconKey: 'match.score', copy: 'Goals, score corrections, yellow cards and red cards.' },
+  { key: 'scores_cards', label: 'Score and cards only', iconKey: 'match.score', copy: 'Goals, score corrections, yellow and red cards, game started, first half ended, second half started and game finished.' },
   { key: 'full', label: 'Full Game Day notifications', iconKey: 'panel.live', copy: 'Every match update, including substitutions, kick-off, breaks and full-time.' },
 ])
 
@@ -34,5 +34,6 @@ export function allowsMobileNotification(preferences, data = {}) {
   if (category !== 'gameDay') return settings[category]
   if (settings.gameDay === 'off') return false
   if (settings.gameDay === 'full') return true
-  return ['goal', 'score_correction', 'yellow_card', 'red_card'].includes(String(data.type || '').toLowerCase())
+  // Existing match senders use live for kick-off; copy builders call it match_started.
+  return ['goal', 'score_correction', 'yellow_card', 'red_card', 'live', 'match_started', 'half_time', 'second_half', 'full_time'].includes(String(data.type || '').toLowerCase())
 }

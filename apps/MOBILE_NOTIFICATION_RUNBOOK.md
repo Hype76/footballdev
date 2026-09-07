@@ -4,7 +4,7 @@ Use this when testing native push notifications for the Coach and Parents apps.
 
 ## Notification category controls
 
-Coach and Parent Settings use Off, Score and cards only, and Full Game Day notifications. Score and cards only is the default for existing and new accounts: goals, score corrections, yellow cards and red cards. Full includes all supported match updates, including substitutions and timer phases. Game Day Off does not disable invitations, chats or resources.
+Coach and Parent Settings use Off, Score and cards only, and Full Game Day notifications. Score and cards only is the default for existing and new accounts: goals, score corrections, yellow cards, red cards, game started, first half ended, second half started and game finished. The four match milestones use `live` (or normalized `match_started`), `half_time`, `second_half` and `full_time`. Full includes all supported match updates, including substitutions and other timer phases. Game Day Off does not disable invitations, chats or resources.
 
 Invites, Chats and New resources are independent switches, enabled by default. Invites includes availability replies and calendar changes. Chats includes messages and polls. These are push controls; existing email communication choices and in-app content remain available. Device permission and any existing device-wide pause still apply.
 
