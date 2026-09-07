@@ -22,7 +22,7 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
   const active = useRef(0)
   const saving = useRef(false)
   const load = useCallback(async () => {
-    if (saving.current) return
+    if (!userId || saving.current) return
     const request = ++active.current
     setState(previous => ({ ...previous, loading: true, message: '' }))
     try {
