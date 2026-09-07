@@ -17,7 +17,7 @@ async function preferenceRequest(query) {
 
 export function NotificationCategorySettings({ app, userId, palette: themePalette, Icon: iconComponent, client = supabase }) {
   const Icon = iconComponent
-  const palette = { ...themePalette, text: themePalette.text || themePalette.textPrimary, textMuted: themePalette.textSecondary || themePalette.textMuted, accentMuted: themePalette.selectedSurface || themePalette.selected || themePalette.accentMuted }
+  const palette = { ...themePalette, accent: themePalette.accentText || themePalette.accent, text: themePalette.text || themePalette.textPrimary, textMuted: themePalette.textSecondary || themePalette.textMuted, accentMuted: themePalette.selectedSurface || themePalette.selected || themePalette.accentMuted }
   const [state, setState] = useState({ preferences: null, loading: true, saving: false, message: '' })
   const active = useRef(0)
   const saving = useRef(false)
