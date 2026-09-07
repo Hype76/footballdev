@@ -13,11 +13,17 @@ export async function assertRenderedTextContrast(page, context) {
     const luminance = color => color.slice(0, 3).map(value => value / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4).reduce((sum, value, i) => sum + value * [0.2126, 0.7152, 0.0722][i], 0)
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
     const failures = []
-    while (walker.nextNode()) {
-      const node = walker.currentNode, element = node.parentElement, text = node.textContent.trim()
+    const samples = []
+    while (walker.nextNode()) samples.push({ element: walker.currentNode.parentElement, text: walker.currentNode.textContent.trim() })
+    for (const element of document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=hidden]),textarea')) {
+      if (element.value || element.placeholder) samples.push({ element, text: element.value || element.placeholder, placeholder: !element.value })
+    }
+    for (const { element, text, placeholder } of samples) {
       if (!text || !element?.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[aria-disabled="true"],:disabled,script,style,svg')) continue
       if (/^[\s\uE000-\uF8FF]+$/.test(text)) continue // Icon font glyphs are checked by theme token tests.
-      let foreground = parse(getComputedStyle(element).color), background = [0, 0, 0, 0]
+      const textStyle = getComputedStyle(element, placeholder ? '::placeholder' : null)
+      let foreground = parse(textStyle.color), background = [0, 0, 0, 0]
+      if (placeholder) foreground[3] *= Number(textStyle.opacity)
       for (let current = element; current; current = current.parentElement) {
         const style = getComputedStyle(current), layer = parse(style.backgroundColor)
         foreground = over(foreground, layer); background = over(background, layer)

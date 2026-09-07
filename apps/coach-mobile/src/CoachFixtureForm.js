@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Keyboard, Pressable, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, Keyboard, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   calculateCoachArrivalTime,
   COACH_MATCH_ARRIVAL_OPTIONS,
@@ -36,7 +36,7 @@ function Chips({ onChange, options, styles, value }) {
 }
 
 function Field({ autoCapitalize = 'sentences', keyboardType = 'default', label, multiline = false, onChangeText, placeholder = '', styles, value }) {
-  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={label} autoCapitalize={autoCapitalize} keyboardType={keyboardType} multiline={multiline} onChangeText={onChangeText} placeholder={placeholder} style={[styles.input, multiline && styles.inputMultiline]} value={String(value ?? '')} /></View>
+  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={label} autoCapitalize={autoCapitalize} keyboardType={keyboardType} multiline={multiline} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={StyleSheet.flatten(styles.input).color} style={[styles.input, multiline && styles.inputMultiline]} value={String(value ?? '')} /></View>
 }
 
 function Toggle({ label, onValueChange, styles, value }) {
