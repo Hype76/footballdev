@@ -147,11 +147,6 @@ export function StaffChatPage() {
 
     setStatus('loading')
     setErrorMessage('')
-    setConversations([])
-    setMessages([])
-    setStaff([])
-    setTeams([])
-    setSelectedConversationId('')
 
     try {
       const [nextConversations, nextStaff, nextTeams] = await Promise.all([
@@ -240,37 +235,36 @@ export function StaffChatPage() {
 
   useEffect(() => {
     let isMounted = true
-
+    let inFlight = false
+    setMessages([])
     async function loadMessages() {
-      if (!selectedConversationId || !canOpenStaffChat) {
-        setMessages([])
-        return
-      }
-
-      setMessages([])
-
+      if (!selectedConversationId || !canOpenStaffChat || inFlight || navigator.onLine === false || document.visibilityState === 'hidden') return
+      inFlight = true
       try {
         const nextMessages = await getStaffChatMessages({ conversationId: selectedConversationId, user })
-
-        if (isMounted) {
-          setMessages(nextMessages)
-          await markStaffChatConversationRead({ conversationId: selectedConversationId, user })
-          setConversations((current) => current.map((conversation) => (
-            conversation.id === selectedConversationId ? { ...conversation, unreadCount: 0 } : conversation
-          )))
-        }
+        if (!isMounted) return
+        setMessages(nextMessages)
+        setErrorMessage('')
+        await markStaffChatConversationRead({ conversationId: selectedConversationId, user })
+        if (isMounted) setConversations((current) => current.map((conversation) => (
+          conversation.id === selectedConversationId ? { ...conversation, unreadCount: 0 } : conversation
+        )))
       } catch (error) {
-        console.error(error)
         if (isMounted) {
-          setErrorMessage(error.message || 'Messages could not be loaded.')
+          if (error.code === '42501' || /not available|not authorised|permission denied/i.test(error.message || '')) setMessages([])
+          setErrorMessage(error.message || 'Messages could not be refreshed. Reconnect to try again.')
         }
-      }
+      } finally { inFlight = false }
     }
-
     void loadMessages()
-
+    const timer = window.setInterval(loadMessages, 15000)
+    window.addEventListener('online', loadMessages)
+    document.addEventListener('visibilitychange', loadMessages)
     return () => {
       isMounted = false
+      window.clearInterval(timer)
+      window.removeEventListener('online', loadMessages)
+      document.removeEventListener('visibilitychange', loadMessages)
     }
   }, [canOpenStaffChat, selectedConversationId, user])
 

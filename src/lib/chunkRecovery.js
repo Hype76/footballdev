@@ -13,7 +13,7 @@ export function isDynamicImportError(error) {
 }
 
 export function recoverFromStaleChunk(error) {
-  if (!isDynamicImportError(error) || typeof window === 'undefined') {
+  if (!isDynamicImportError(error) || typeof window === 'undefined' || window.navigator?.onLine === false) {
     return false
   }
 

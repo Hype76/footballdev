@@ -236,7 +236,9 @@ test('staff live match console polls active match state without full page reload
   assert.match(refreshSource, /refreshState\.inFlight/)
   assert.match(refreshSource, /setLiveRefreshStatus\(detailRefreshFailed \? 'warning' : 'ok'\)/)
   assert.match(refreshSource, /setLiveRefreshStatus\('warning'\)/)
-  assert.match(refreshSource, /window\.setInterval\(\(\) => \{/)
+  assert.match(refreshSource, /const refresh = \(\) => \{ void refreshLiveMatches\(\) \}/)
+  assert.match(refreshSource, /window\.setInterval\(refresh, LIVE_MATCH_REFRESH_INTERVAL_MS\)/)
+  assert.match(refreshSource, /navigator\.onLine === false \|\| document\.visibilityState === 'hidden'/)
   assert.doesNotMatch(refreshSource, /window\.location|reload\(|loadData\(/)
 })
 
@@ -518,8 +520,10 @@ test('parent live score polling and scorer-only Game Mode remain in the parent p
   const loadSource = source.slice(loadStart, loadEnd)
 
   assert.match(loadSource, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\)/)
-  assert.match(loadSource, /setMatches\(nextMatches\)/)
-  assert.match(loadSource, /window\.setInterval\(\(\) => \{/)
+  assert.match(loadSource, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\), setMatches/)
+  assert.match(loadSource, /Promise\.allSettled\(groups\.map/)
+  assert.match(loadSource, /if \(isCurrent\) publish\(value\)/)
+  assert.match(loadSource, /window\.setInterval\(refresh, 60000\)/)
   assert.match(loadSource, /60000/)
   assert.doesNotMatch(source, /LiveMatchQuickActions/)
   assert.doesNotMatch(source, /Add event\/card/)

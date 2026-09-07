@@ -26,6 +26,8 @@ try {
     const page = await context.newPage()
     const errors = []
     const commands = []
+    let holdRead = false, releaseRead, notifyHeldRead
+    const heldReadStarted = new Promise((resolve) => { notifyHeldRead = resolve })
     page.on('pageerror', (error) => errors.push(error.message))
     let match = { id: 'fp-test-match', clubName: 'FP TEST Club', clubLogoUrl: `${base}/test-crest.svg`, themeAccent: '#1d4ed8', teamName: 'U17 Green', opponent: 'Westham', homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 10, clockMode: 'fixed', currentMatchPhase: 'second_half', status: 'second_half', timerStatus: 'paused', timerElapsedSeconds: 340, isToday: true, events: [], players: [{ name: 'Alex', shirtNumber: '9' }, { name: 'Clyde Bates', shirtNumber: '4' }] }
     await page.route('**/*', async (route) => {
@@ -33,6 +35,13 @@ try {
       if (url.endsWith('/test-crest.svg')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="54" height="54"><rect width="54" height="54" rx="8" fill="#1d4ed8"/><text x="8" y="34" font-size="23" fill="white">FP</text></svg>' })
       if (url.includes('/.netlify/functions/guest-match-day-scorer')) {
         const command = route.request().postDataJSON()
+        if (command.action === 'read' && holdRead) {
+          holdRead = false
+          const oldMatch = structuredClone(match)
+          notifyHeldRead()
+          await new Promise((resolve) => { releaseRead = resolve })
+          return route.fulfill({ json: { success: true, status: 'approved', name: 'FP TEST Guest', match: oldMatch } })
+        }
         if (command.action !== 'read') {
           commands.push(command)
           if (command.action === 'goal') {
@@ -53,6 +62,9 @@ try {
     await page.getByText('10 minute match, 5 minutes per half.', { exact: true }).waitFor()
     await page.getByText('5:40', { exact: true }).waitFor()
     for (const name of ['Yellow card', 'Red card', 'Substitution']) assert.equal(await page.getByRole('button', { name, exact: true }).count(), 1)
+    holdRead = true
+    await page.evaluate(() => window.dispatchEvent(new Event('online')))
+    await heldReadStarted
     await page.getByRole('button', { name: 'Add goal', exact: true }).click()
     const goal = page.getByRole('dialog', { name: 'Add goal', exact: true })
     await goal.getByLabel('Scorer selection', { exact: true }).selectOption('1')
@@ -68,6 +80,11 @@ try {
     assert.equal(commands.at(-1).details.teamSide, 'opponent')
     assert.equal(commands.at(-1).details.isOwnGoal, true)
     await page.getByText('1 : 0', { exact: true }).waitFor()
+    const lateResponse = page.waitForResponse((response) => response.url().includes('guest-match-day-scorer') && response.request().postDataJSON()?.action === 'read')
+    releaseRead()
+    await (await lateResponse).finished()
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    assert.equal(await page.getByText('1 : 0', { exact: true }).count(), 1, 'late poll must not overwrite the saved goal')
     for (const [eventType, label] of [['yellow_card', 'Yellow card'], ['red_card', 'Red card'], ['substitution', 'Substitution']]) {
       await page.getByRole('button', { name: label, exact: true }).click()
       const dialog = page.getByRole('dialog', { name: label, exact: true })

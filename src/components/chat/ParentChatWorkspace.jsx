@@ -10,6 +10,10 @@ import {
 } from '../../lib/supabase.js'
 import { orderParentPortalChatMessagesNewestFirst } from './parent-chat-order.js'
 
+function isChatAuthorityError(error) {
+  return error?.code === '42501' || [401, 403].includes(error?.status) || /not available|no longer available|not authori[sz]ed|permission denied/i.test(error?.message || '')
+}
+
 const groupOrder = [
   { key: PARENT_CHAT_ROOM_TYPES.parentStaff, label: 'Chat with Coaches' },
   { key: PARENT_CHAT_ROOM_TYPES.team, label: 'Team Chat' },
@@ -121,6 +125,7 @@ export function ParentChatWorkspace({
   const [realtimeStatus, setRealtimeStatus] = useState('')
   const roomRequestIdRef = useRef(0)
   const messageRequestIdRef = useRef(0)
+  const messageRefreshRef = useRef(null)
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null
   const totalUnread = rooms.reduce((total, room) => total + room.unreadCount, 0)
   const groupedRooms = useMemo(() => groupOrder.map((group) => ({
@@ -132,11 +137,13 @@ export function ParentChatWorkspace({
     [messages, variant],
   )
   const chatScope = useMemo(() => ({
+    accountId: user?.id || '',
+    clubId: user?.clubId || '',
     activeTeamId: variant === 'staff' ? user?.activeTeamId : '',
     childOnly,
     parentLinkId,
     variant,
-  }), [childOnly, parentLinkId, user?.activeTeamId, variant])
+  }), [childOnly, parentLinkId, user?.activeTeamId, user?.id, user?.clubId, variant])
 
   const loadRooms = useCallback(async ({ keepError = false } = {}) => {
     const requestId = roomRequestIdRef.current + 1
@@ -168,8 +175,7 @@ export function ParentChatWorkspace({
     } catch (loadError) {
       console.error(loadError)
       if (requestId === roomRequestIdRef.current) {
-        setRooms([])
-        setSelectedRoomId('')
+        if (isChatAuthorityError(loadError)) { setRooms([]); setSelectedRoomId(''); setMessages([]) }
         setError(loadError.message || 'Chat rooms could not be loaded.')
       }
       return []
@@ -186,8 +192,14 @@ export function ParentChatWorkspace({
       return
     }
 
+    if (messageRefreshRef.current?.roomId === roomId && messageRefreshRef.current?.scope === chatScope
+      && messageRefreshRef.current?.requestId === messageRequestIdRef.current) return
+    const refresh = { roomId, scope: chatScope }
+    messageRefreshRef.current = refresh
+
     const requestId = messageRequestIdRef.current + 1
     messageRequestIdRef.current = requestId
+    refresh.requestId = requestId
     setIsLoadingMessages(true)
     if (!keepError) {
       setError('')
@@ -228,11 +240,14 @@ export function ParentChatWorkspace({
     } catch (loadError) {
       console.error(loadError)
       if (requestId === messageRequestIdRef.current) {
-        setMessages([])
-        setError(loadError.message || 'This Chat room is no longer available.')
-        await loadRooms({ keepError: true })
+        if (isChatAuthorityError(loadError)) {
+          setMessages([])
+          await loadRooms({ keepError: true })
+        }
+        setError(loadError.message || 'Messages could not be refreshed. Reconnect to try again.')
       }
     } finally {
+      if (messageRefreshRef.current === refresh) messageRefreshRef.current = null
       if (requestId === messageRequestIdRef.current) {
         setIsLoadingMessages(false)
       }
@@ -250,6 +265,7 @@ export function ParentChatWorkspace({
   }, [chatScope, loadRooms])
 
   useEffect(() => {
+    messageRequestIdRef.current += 1
     if (!selectedRoomId) {
       setMessages([])
       return
@@ -267,14 +283,35 @@ export function ParentChatWorkspace({
       return undefined
     }
 
-    return subscribeToParentChatRoom({
-      roomId: selectedRoomId,
-      onChange: async () => {
+    let active = true
+    let refreshing = false
+    const refresh = async () => {
+      if (!active || refreshing || navigator.onLine === false || document.visibilityState === 'hidden') return
+      refreshing = true
+      try {
         await loadMessages(selectedRoomId, { keepError: true })
-        await loadRooms({ keepError: true })
+        if (active) await loadRooms({ keepError: true })
+      } finally { refreshing = false }
+    }
+    const unsubscribe = subscribeToParentChatRoom({
+      roomId: selectedRoomId,
+      onChange: refresh,
+      onStatusChange: (status) => {
+        if (!active) return
+        setRealtimeStatus(status)
+        if (status === 'SUBSCRIBED') void refresh()
       },
-      onStatusChange: setRealtimeStatus,
     })
+    const timer = window.setInterval(refresh, 30000)
+    window.addEventListener('online', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      active = false
+      unsubscribe()
+      window.clearInterval(timer)
+      window.removeEventListener('online', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [loadMessages, loadRooms, selectedRoomId])
 
   const handleSend = async (event) => {

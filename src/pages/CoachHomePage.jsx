@@ -531,12 +531,12 @@ export function CoachHomePage() {
         }
 
         const [sessionsResult, playersResult, evaluationsResult, voiceNotesResult, calendarEventsResult, matchDaysResult] = await Promise.allSettled([
-          withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.'),
-          withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
-          withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.'),
-          withRequestTimeout(() => getUnassignedStaffVoiceNotes({ user, limit: 5 }), 'Could not load voice notes.'),
-          withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.'),
-          withRequestTimeout(() => getMatchDays({ user }), 'Could not load fixtures.'),
+          withRequestTimeout(() => getAssessmentSessions({ user }), 'Could not load sessions.').then((value) => { if (isMounted) setSessions(value); return value }),
+          withRequestTimeout(() => getPlayers({ user }), 'Could not load players.').then((value) => { if (isMounted) setPlayers(value); return value }),
+          withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.').then((value) => { if (isMounted) setEvaluations(value); return value }),
+          withRequestTimeout(() => getUnassignedStaffVoiceNotes({ user, limit: 5 }), 'Could not load voice notes.').then((value) => { if (isMounted) setUnassignedVoiceNotes(value); return value }),
+          withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.').then((value) => { if (isMounted) setCalendarEvents(value); return value }),
+          withRequestTimeout(() => getMatchDays({ user }), 'Could not load fixtures.').then((value) => { if (isMounted) setMatchDays(value); return value }),
         ])
 
         if (!isMounted) {
@@ -553,6 +553,7 @@ export function CoachHomePage() {
           calendarEventsResult.status === 'fulfilled' ? calendarEventsResult.value : cachedValue?.calendarEvents || []
         const nextMatchDays = matchDaysResult.status === 'fulfilled' ? matchDaysResult.value : cachedValue?.matchDays || []
         const nextActiveSession = getActiveSession(nextSessions)
+        setIsLoading(false)
         const nextSessionPlayers = nextActiveSession?.id
           ? await withRequestTimeout(
               () => getAssessmentSessionPlayers({ user, sessionId: nextActiveSession.id }),

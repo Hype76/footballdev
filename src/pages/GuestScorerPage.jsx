@@ -93,6 +93,9 @@ export function GuestScorerPage() {
   const [confirm, setConfirm] = useState(null)
   const [pending, setPending] = useState(session?.command || null)
   const active = useRef(false)
+  const dataRevision = useRef(0)
+  const currentToken = useRef(session?.token)
+  currentToken.current = session?.token
   const mounted = useRef(true)
   const saveSession = (next) => { localStorage.setItem(storageKey, JSON.stringify(next)); setSession(next) }
   useEffect(() => {
@@ -111,40 +114,51 @@ export function GuestScorerPage() {
   useEffect(() => {
     if (!session?.claimed) return
     let current = true
+    let reading = false
     const read = async () => {
-      if (active.current) return
+      if (active.current || reading || navigator.onLine === false || document.visibilityState === 'hidden') return
+      reading = true
+      const revision = dataRevision.current
       try {
         const result = await requestGuestScorer({ token: session.token, action: 'read' })
-        if (current) setData(result)
-      } catch (failure) { if (current) setError(failure.message) }
+        if (current && revision === dataRevision.current && !active.current) { setData(result); setError('') }
+      } catch (failure) { if (current && revision === dataRevision.current) setError(failure.message) }
+      finally { reading = false }
     }
     void read()
     const timer = setInterval(read, 4000)
-    return () => { current = false; clearInterval(timer) }
+    window.addEventListener('online', read)
+    document.addEventListener('visibilitychange', read)
+    return () => { current = false; clearInterval(timer); window.removeEventListener('online', read); document.removeEventListener('visibilitychange', read) }
   }, [session?.claimed, session?.token])
   async function claim(event) {
     event.preventDefault()
     if (active.current) return
+    dataRevision.current += 1
+    const tokenAtStart = session.token
     active.current = true; setBusy(true); setError('')
     try {
       const result = await requestGuestScorer({ action: 'claim', token: session.invite, details: { name, sessionToken: session.token } })
+      if (!mounted.current || currentToken.current !== tokenAtStart) return
       saveSession({ ...session, claimed: true }); setData(result)
     } catch (failure) { setError(failure.message) }
     finally { active.current = false; setBusy(false) }
   }
   async function send(command) {
     if (active.current) return
+    dataRevision.current += 1
+    const tokenAtStart = session.token
     active.current = true; setBusy(true); setError(''); setConfirm(null)
     const savedCommand = { ...command, requestId: command.requestId || crypto.randomUUID() }
     setPending(savedCommand); saveSession({ ...session, command: savedCommand })
     try {
       const result = await requestGuestScorer({ ...savedCommand, token: session.token })
-      if (!mounted.current) return
+      if (!mounted.current || currentToken.current !== tokenAtStart) return
       setData(result); setGoal(null); setScore(null); setEventDraft(null)
       if (result.notificationWarning) { setError(result.notificationWarning) }
       else { setPending(null); saveSession({ ...session, command: null }) }
     } catch (failure) {
-      if (mounted.current) {
+      if (mounted.current && currentToken.current === tokenAtStart) {
         setError(failure.message)
         if (failure.rejected) { setPending(null); saveSession({ ...session, command: null }) }
       }

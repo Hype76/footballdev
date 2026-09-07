@@ -15,13 +15,14 @@ export default function OfflineDraftSync() {
 
   useEffect(() => {
     let isMounted = true
+    let syncInFlight = false
 
     const refreshDraftCount = () => {
       setPendingDraftCount(getPendingDraftCount(user))
     }
 
     const runSync = async () => {
-      if (!navigator.onLine || isSyncing) {
+      if (!navigator.onLine || document.visibilityState === 'hidden' || syncInFlight) {
         refreshDraftCount()
         return
       }
@@ -33,6 +34,7 @@ export default function OfflineDraftSync() {
         return
       }
 
+      syncInFlight = true
       setIsSyncing(true)
       setSyncMessage('Back online. Syncing drafts...')
 
@@ -44,8 +46,11 @@ export default function OfflineDraftSync() {
         }
 
         refreshDraftCount()
-        setSyncMessage(result.failed > 0 ? 'Some drafts are still saved locally' : 'All drafts synced')
+        setSyncMessage(result.failed > 0 || getPendingDraftCount(user) > 0 ? 'Some drafts are still saved locally' : 'All drafts synced')
+      } catch {
+        if (isMounted) setSyncMessage('Saved drafts could not sync. Reconnect and retry.')
       } finally {
+        syncInFlight = false
         if (isMounted) {
           setIsSyncing(false)
         }
@@ -78,7 +83,7 @@ export default function OfflineDraftSync() {
       window.removeEventListener('offline', handleOffline)
       window.removeEventListener('offline-drafts-changed', refreshDraftCount)
     }
-  }, [isSyncing, user])
+  }, [user])
 
   useEffect(() => {
     if (syncMessage !== 'All drafts synced') {
@@ -95,11 +100,11 @@ export default function OfflineDraftSync() {
   }
 
   const message = !isOnline
-    ? `Offline. Saving locally${pendingDraftCount ? ` (${pendingDraftCount})` : ''}`
+    ? pendingDraftCount ? `Offline. ${pendingDraftCount} saved draft${pendingDraftCount === 1 ? '' : 's'} waiting to sync.` : 'Offline. Some information and actions need a connection.'
     : syncMessage || `${pendingDraftCount} draft${pendingDraftCount === 1 ? '' : 's'} waiting to sync`
 
   return (
-    <div className="fixed bottom-[var(--mobile-floating-bottom-clearance)] left-4 z-50 max-w-sm rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-lg shadow-[#047857]/10 transition-[bottom] duration-150 motion-reduce:transition-none">
+    <div role="status" aria-live="polite" className="fixed bottom-[var(--mobile-floating-bottom-clearance)] left-4 z-50 max-w-sm rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-lg shadow-[#047857]/10 transition-[bottom] duration-150 motion-reduce:transition-none">
       {isSyncing ? 'Syncing drafts...' : message}
     </div>
   )
