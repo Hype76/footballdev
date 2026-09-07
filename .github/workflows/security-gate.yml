@@ -124,6 +124,18 @@ jobs:
           tests/parent-scorer-goal-details-db.test.mjs
       - name: Guest and mobile scorer rendering
         run: node tests/guest-scorer-browser.mjs && node tests/mobile-scorer-parity-browser.mjs
+      - name: V1 hardening and connection recovery
+        run: >-
+          node --test --test-concurrency=1
+          tests/v1-internal-audit-hardening.test.mjs
+          tests/adult-player-responses-pglite.test.mjs
+          tests/v1-team-label-transaction.test.mjs
+          tests/v1-hardening-migration-scope.test.mjs
+          tests/v1-offline-transactions.test.mjs
+          tests/v1-coach-refresh-cost.test.mjs
+          tests/v1-web-offline-queue.test.mjs
+          tests/v1-retention-failure.test.mjs
+          && node tests/v1-parent-reconnect-browser.mjs
       - name: Parent notification badge rendering
         run: node tests/mobile-notification-badges-browser.mjs
 

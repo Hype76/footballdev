@@ -130,11 +130,12 @@ test('Create Fixture removes the scorer-only input and keeps the complete volunt
 
 test('new scorer fixtures resolve approved wording through the existing template architecture', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
-  const confirmStart = source.indexOf('const handleConfirmCreateMatch = async () => {')
+  const confirmStart = source.indexOf('const handleConfirmCreateMatch = async (')
   const confirmEnd = source.indexOf('const getTimerActionForStatus', confirmStart)
+  assert.ok(confirmStart >= 0 && confirmEnd > confirmStart, 'fixture confirmation handler is present')
   const confirmHandler = source.slice(confirmStart, confirmEnd)
 
-  assert.match(confirmHandler, /scorerRequestMessage: form\.requestScorer \? volunteerRequestMessages\.scorer : ''/)
+  assert.match(confirmHandler, /scorerRequestMessage: submittedForm\.requestScorer \? volunteerRequestMessages\.scorer : ''/)
   assert.equal(MATCH_DAY_VOLUNTEER_TEMPLATE_SECTION, 'Match Day')
   assert.deepEqual(
     DEFAULT_MATCH_DAY_VOLUNTEER_REQUEST_TEMPLATES.map((template) => template.body),
@@ -237,8 +238,9 @@ test('checkbox selection performs no communication and deliberate send remains g
   const modalStart = source.indexOf('function FixtureSetupModal')
   const modalEnd = source.indexOf('function FixtureSquadSelectionModal', modalStart)
   const modal = source.slice(modalStart, modalEnd)
-  const confirmStart = source.indexOf('const handleConfirmCreateMatch = async () => {')
+  const confirmStart = source.indexOf('const handleConfirmCreateMatch = async (')
   const confirmEnd = source.indexOf('const getTimerActionForStatus', confirmStart)
+  assert.ok(confirmStart >= 0 && confirmEnd > confirmStart, 'fixture confirmation handler is present')
   const confirmHandler = source.slice(confirmStart, confirmEnd)
 
   assert.doesNotMatch(modal, /fetch\(|sendMatchDay|scheduled_email_queue|sendParentEmail/)

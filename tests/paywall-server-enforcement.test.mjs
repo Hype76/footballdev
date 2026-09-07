@@ -50,7 +50,7 @@ test('high-risk Netlify functions use authenticated plan profiles for user-token
   assert.doesNotMatch(parentEmail, /getClubPlanProfile\(body\.clubId\)/)
 
   assert.match(renderPdf, /getAuthenticatedPlanProfile\(event,\s*\{/)
-  assert.match(renderPdf, /assertPlanFeature\(planProfile,\s*'pdfReports'\)/)
+  assert.match(renderPdf, /assertPlanFeature\(planProfile,\s*'pdfReports',\s*\{\s*actionCategory: 'EXPORT'\s*\}\)/)
   assert.doesNotMatch(renderPdf, /getClubPlanProfile\(body\.clubId\)/)
 
   assert.match(parentInvite, /assertPlanFeature\(planProfile,\s*'parentInvitations'\)/)

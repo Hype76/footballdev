@@ -47,7 +47,7 @@ test('Parent directions use the native map provider for Calendar and Match Day l
 test('Parent home and Calendar cards expose directions through the existing safe link opener', () => {
   assert.match(parentApp, /getParentCalendarDirectionsUrl/)
   assert.match(parentApp, /<CalendarCard[\s\S]*event=\{event\}[\s\S]*key=\{event\.id\}[\s\S]*onOpenLink=\{onOpenLink\}/)
-  assert.match(parentApp, /label="Get directions" onPress=\{\(\) => onOpenLink\?\.\(directionsUrl, 'directions'\)\}/)
+  assert.match(parentApp, /accessibilityLabel="Get directions" accessibilityRole="button" onPress=\{\(\) => onOpenLink\?\.\(directionsUrl, 'directions'\)\}/)
   assert.match(parentScreens, /getParentCalendarDirectionsUrl\(event, Platform\.OS\)/)
   assert.match(parentScreens, /onOpenLink\?\.\(directionsUrl, 'directions'\)/)
 })
@@ -66,7 +66,7 @@ test('Parent Game Day provides live read-only parity and gates scorer controls w
 })
 
 test('Coach Game Day matches the canonical live controller while preserving confirmations and server checks', () => {
-  for (const copy of ['Game Day', 'Live controller', 'Manage fixture', 'Exit Game Mode', 'Keep screen awake', 'Goal', 'Yellow', 'Red', 'Sub', 'Pause', 'Hydration', 'HT', 'Match Timeline', 'Coach view']) {
+  for (const copy of ['Game Day', 'Live controller', 'Edit fixture', 'Exit Game Mode', 'Keep screen awake', 'Goal', 'Yellow', 'Red', 'Sub', 'Pause', 'Hydration', 'HT', 'Match Timeline', 'Coach view']) {
     assert.match(coachScreen, new RegExp(copy))
   }
   assert.match(coachScreen, /activateKeepAwakeAsync/)
