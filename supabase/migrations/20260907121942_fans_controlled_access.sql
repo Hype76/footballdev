@@ -86,6 +86,16 @@ returns boolean language sql stable security definer set search_path=pg_catalog,
 $$;
 revoke all on function app_private.fan_account_active(uuid,uuid) from public,anon,authenticated;
 
+create or replace function app_private.fan_scope_active(link_id uuid, child_id uuid, target_club uuid, owner_id uuid)
+returns boolean language sql stable security definer set search_path=pg_catalog,public as $$
+  select app_private.fan_parent_active(link_id) and exists(
+    select 1 from public.parent_player_links l join public.players p on p.id=l.player_id
+    where l.id=link_id and l.player_id=child_id and l.club_id=target_club and l.auth_user_id=owner_id
+      and (l.team_id is null or l.team_id=p.team_id)
+  );
+$$;
+revoke all on function app_private.fan_scope_active(uuid,uuid,uuid,uuid) from public,anon,authenticated;
+
 create or replace function public.create_fan_invitation(parent_link_id_value uuid, name_value text, email_value text, permissions_value jsonb, request_id_value uuid)
 returns public.fan_connections language plpgsql security definer set search_path = pg_catalog, public as $$
 declare parent_row public.parent_player_links%rowtype; result public.fan_connections%rowtype;
@@ -112,7 +122,7 @@ declare target public.fan_connections%rowtype; existing_id uuid;
 begin
   if auth.uid() is null then raise exception using errcode='42501',message='Sign in to accept this invitation.'; end if;
   select * into target from public.fan_connections where invite_token=token_value for update;
-  if target.id is null or target.relationship_type<>'fan' or target.email<>lower(coalesce(auth.jwt()->>'email','')) or not app_private.fan_parent_active(target.parent_link_id)
+  if target.id is null or target.relationship_type<>'fan' or target.email<>lower(coalesce(auth.jwt()->>'email','')) or not app_private.fan_scope_active(target.parent_link_id,target.player_id,target.club_id,target.invited_by)
     or not app_private.fan_account_active(auth.uid(),target.club_id)
     then raise exception using errcode='42501',message='This invitation is not available for this verified email address.'; end if;
   if target.status='active' and target.auth_user_id=auth.uid() then return target.id; end if;
@@ -140,7 +150,7 @@ begin
       update public.fan_connections set notifications_enabled=(action_value='notifications_on'),updated_at=now() where id=target.id;
     end if;
   else
-    if target.invited_by<>auth.uid() or not app_private.fan_parent_active(target.parent_link_id) then raise exception using errcode='42501',message='Only the inviting Parent can change this access.'; end if;
+    if target.invited_by<>auth.uid() or not app_private.fan_scope_active(target.parent_link_id,target.player_id,target.club_id,target.invited_by) then raise exception using errcode='42501',message='Only the inviting Parent can change this access.'; end if;
     if action_value='permissions' and target.status in ('active','pending') then
       update public.fan_connections set permissions=permissions_value,updated_at=now() where id=target.id;
     elsif action_value='revoke' and target.status in ('active','pending') then
@@ -163,7 +173,7 @@ returns jsonb language sql stable security definer set search_path=pg_catalog,pu
   ) order by f.created_at desc),'[]'::jsonb)
   from public.fan_connections f join public.players p on p.id=f.player_id join public.clubs c on c.id=f.club_id
   left join public.teams t on t.id=p.team_id
-  where auth.uid() is not null and app_private.fan_parent_active(f.parent_link_id)
+  where auth.uid() is not null and app_private.fan_scope_active(f.parent_link_id,f.player_id,f.club_id,f.invited_by)
     and (f.invited_by=auth.uid() or (f.auth_user_id=auth.uid() and f.status='active'))
     and not exists(select 1 from public.users u where u.id=auth.uid() and u.status='suspended' and (u.role='parent_portal' or u.club_id=f.club_id));
 $$;
@@ -174,11 +184,11 @@ declare result jsonb;
 begin
   if auth.uid() is null or not exists(select 1 from public.users where id=auth.uid() and role='super_admin' and status='active') then raise exception using errcode='42501',message='Platform Admin access is required.'; end if;
   select jsonb_build_object(
-    'uniqueFans',count(distinct auth_user_id) filter(where status='active' and relationship_type='fan' and app_private.fan_parent_active(parent_link_id) and app_private.fan_account_active(auth_user_id,club_id)),
-    'fanConnections',count(*) filter(where status='active' and relationship_type='fan' and app_private.fan_parent_active(parent_link_id) and app_private.fan_account_active(auth_user_id,club_id)),
-    'uniquePlayers',count(distinct auth_user_id) filter(where status='active' and relationship_type='player' and app_private.fan_parent_active(parent_link_id) and app_private.fan_account_active(auth_user_id,club_id)),
-    'playerConnections',count(*) filter(where status='active' and relationship_type='player' and app_private.fan_parent_active(parent_link_id) and app_private.fan_account_active(auth_user_id,club_id)),
-    'uniqueAccounts',count(distinct auth_user_id) filter(where status='active' and app_private.fan_parent_active(parent_link_id) and app_private.fan_account_active(auth_user_id,club_id)),
+    'uniqueFans',count(distinct auth_user_id) filter(where status='active' and relationship_type='fan' and app_private.fan_scope_active(parent_link_id,player_id,club_id,invited_by) and app_private.fan_account_active(auth_user_id,club_id)),
+    'fanConnections',count(*) filter(where status='active' and relationship_type='fan' and app_private.fan_scope_active(parent_link_id,player_id,club_id,invited_by) and app_private.fan_account_active(auth_user_id,club_id)),
+    'uniquePlayers',count(distinct auth_user_id) filter(where status='active' and relationship_type='player' and app_private.fan_scope_active(parent_link_id,player_id,club_id,invited_by) and app_private.fan_account_active(auth_user_id,club_id)),
+    'playerConnections',count(*) filter(where status='active' and relationship_type='player' and app_private.fan_scope_active(parent_link_id,player_id,club_id,invited_by) and app_private.fan_account_active(auth_user_id,club_id)),
+    'uniqueAccounts',count(distinct auth_user_id) filter(where status='active' and app_private.fan_scope_active(parent_link_id,player_id,club_id,invited_by) and app_private.fan_account_active(auth_user_id,club_id)),
     'pending',count(*) filter(where status='pending' and expires_at>now()),
     'expired',count(*) filter(where status='pending' and expires_at<=now()),
     'accepted',count(*) filter(where accepted_at is not null),
@@ -197,7 +207,7 @@ select distinct on (parent.id,lower(btrim(u.email))) f.id,parent.id,f.player_id,
   lower(btrim(u.email)),'{"schedule":true,"game_day":true,"development":true,"resources":true}'::jsonb,'active',coalesce(f.accepted_at,now())
 from public.parent_player_links f join public.parent_player_links parent on parent.id=f.parent_link_id
 join auth.users u on u.id=f.auth_user_id
-where f.link_type='family' and f.status='active' and app_private.fan_parent_active(parent.id)
+where f.link_type='family' and f.status='active' and parent.player_id=f.player_id and parent.club_id=f.club_id and app_private.fan_parent_active(parent.id)
   and u.email_confirmed_at is not null
   and u.email ~ '^[^[:space:]@<>]+@[^[:space:]@<>]+\.[^[:space:]@<>]+$'
 order by parent.id,lower(btrim(u.email)),f.accepted_at desc nulls last,f.id;
@@ -223,7 +233,7 @@ begin
   where auth.uid() is not null and f.invite_token=token_value and f.relationship_type='fan'
     and f.email=lower(coalesce(auth.jwt()->>'email',''))
     and ((f.status='pending' and f.expires_at>now()) or (f.status='active' and f.auth_user_id=auth.uid()))
-    and app_private.fan_parent_active(f.parent_link_id);
+    and app_private.fan_scope_active(f.parent_link_id,f.player_id,f.club_id,f.invited_by);
   if result is null then raise exception using errcode='42501',message='This invitation is not available for this email address, or has expired.'; end if;
   return result;
 end; $$;

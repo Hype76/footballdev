@@ -92,6 +92,11 @@ test('Parent revocation, expiry and ancestor removal end Fan access; stats separ
     stats=(await db.query('select get_platform_fan_stats() data')).rows[0].data
     assert.equal(stats.uniqueFans,0); assert.equal(stats.uniquePlayers,1); assert.equal(stats.uniqueAccounts,1)
     await db.query("update fan_connections set relationship_type='fan' where id=$1",[first.id])
+    await db.query('update parent_player_links set player_id=$1 where id=$2',[id(21),id(30)])
+    await actor(db,2,'fan@example.test')
+    assert.deepEqual((await db.query('select list_fan_connections() data')).rows[0].data,[])
+    await assert.rejects(db.query('select get_fan_invitation($1)',[first.invite_token]),/not available/)
+    await db.query('update parent_player_links set player_id=$1 where id=$2',[id(20),id(30)])
     await db.query("update parent_player_links set status='revoked' where id=$1",[id(30)])
     await actor(db,2,'fan@example.test')
     assert.deepEqual((await db.query('select list_fan_connections() data')).rows[0].data,[])
