@@ -177,13 +177,13 @@ test('legacy pilot Match Day direct writes and Match Day push side effects are r
   assert.doesNotMatch(source, /send-match-day-push/)
 })
 
-test('Match Day screen disables offline writes and requires plain-language confirmation', async () => {
+test('Match Day screen explains durable offline capture and requires plain-language confirmation', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
-  assert.match(source, /Showing encrypted cached Match Day data/)
-  assert.match(source, /Every change is disabled/)
+  assert.match(source, /Recording on this device/)
+  assert.match(source, /saved on this device/)
   assert.match(source, /Start this match\?/)
   assert.match(source, /Only start when both teams are ready for kick-off/)
-  assert.match(source, /This change will be checked and saved online/)
+  assert.match(source, /Match actions save on this device and sync when connected/)
   assert.doesNotMatch(source, /Canonical recipient action|production authority|concurrency before saving/)
 })
 
@@ -194,7 +194,7 @@ test('Coach Match Day exposes Start match on Overview and keeps confirmation in 
   assert.match(overview, /Not available to start today/)
   assert.match(overview, /edit the fixture date first/)
   assert.match(overview, /label="Start match"/)
-  assert.match(overview, /runCoachMatchDayTimerAction\(user, match, 'start'\)/)
+  assert.match(overview, /runTimer\('start'\)/)
   assert.match(source, /visible=\{Boolean\(pending\)\}/)
   assert.match(source, /accessibilityViewIsModal/)
 })
@@ -207,7 +207,7 @@ test('Match Day keeps the selected fixture stable while cached data refreshes', 
   ])
   assert.match(screen, /const selectedMatchId = useRef\(''\)/)
   assert.match(screen, /const selectionBeforeLoad = selectedMatchId\.current/)
-  assert.match(screen, /if \(!selectionBeforeLoad && cachedMatch\)/)
+  assert.match(screen, /if \(cachedMatch && !matchRef.current && \(!selectionBeforeLoad \|\| selectionBeforeLoad === cachedMatch.id\)\)/)
   assert.match(screen, /const activeSelectionId = selectedMatchId\.current/)
   assert.match(screen, /selectedMatchId\.current = summary\.id/)
   assert.doesNotMatch(screen, /\[cache, context, match\?\.id, user\]/)

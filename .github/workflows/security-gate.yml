@@ -122,6 +122,12 @@ jobs:
           tests/parent-matchday-availability-card-notifications-47.test.mjs
           tests/mobile-coach-matchday-31d.test.mjs
           tests/parent-scorer-goal-details-db.test.mjs
+          tests/matchday-offline-outbox.test.mjs
+          tests/matchday-offline-commands-db.test.mjs
+      - name: Install Coach browser test dependencies
+        run: npm ci --prefix apps/coach-mobile --include=optional
+      - name: Coach offline scoring and reconnect
+        run: node tests/coach-matchday-offline-browser.mjs
       - name: Guest and mobile scorer rendering
         run: node tests/guest-scorer-browser.mjs && node tests/mobile-scorer-parity-browser.mjs
       - name: V1 hardening and connection recovery

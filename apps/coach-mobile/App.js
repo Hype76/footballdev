@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Alert,
   Animated,
   AppState,
   BackHandler,
@@ -69,7 +70,8 @@ import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
 import { CoachQuickActions } from './src/CoachQuickActions'
 import { getCoachFriendlyError } from './src/coachFriendlyErrors'
 import { getCoachQuickActions } from './src/coachQuickActionsCore'
-import { coachOfflineProfileStore, inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
+import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
+import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
 import {
   addCoachPushTokenListener,
   enableCoachNotifications,
@@ -132,6 +134,18 @@ function LoginScreen() {
 
 function CoachHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
+  const signOutWithPendingCheck = async () => {
+    let count
+    try { count = await countPendingCoachMatchDayActions(user.id) }
+    catch { count = null }
+    if (count === 0) return signOut()
+    Alert.alert('Saved Match Day actions', count === null
+      ? 'Saved actions could not be checked. Signing out clears this device. Keep signed in if you have actions waiting to sync.'
+      : `${count} match actions are waiting to sync. Signing out will remove them from this device.`, [
+      { text: 'Keep signed in', style: 'cancel' },
+      { text: 'Sign out and discard', style: 'destructive', onPress: () => void signOut() },
+    ])
+  }
   const safeAreaInsets = useSafeAreaInsets()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeRoute, setActiveRoute] = useState('home')
@@ -186,6 +200,7 @@ function CoachHome() {
   const themeContext = useMemo(() => createCoachThemeContext(themeModel), [themeModel])
   const { palette, styles } = themeContext
   const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id)
+  useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   const coachHeaderHeight = contextResolution.contexts.length < 2 ? 76 : 164
   const collapsedCoachHeader = useMemo(
     () => Animated.diffClamp(headerScrollY, 0, coachHeaderHeight),
@@ -682,7 +697,7 @@ function CoachHome() {
     return (
       <AccessScreen
         message={authError || 'An active Coach, Team Admin, Manager, or Club Admin membership is required.'}
-        onSignOut={signOut}
+        onSignOut={signOutWithPendingCheck}
         title="Coach access unavailable"
       />
     )
@@ -692,7 +707,7 @@ function CoachHome() {
     return (
       <AccessScreen
         message={authError || 'An active operational Coach context is required.'}
-        onSignOut={signOut}
+        onSignOut={signOutWithPendingCheck}
         title="Coach access unavailable"
       />
     )
@@ -785,7 +800,7 @@ function CoachHome() {
               onRequestScrollTop={scrollContentToTop}
               onSelectContext={selectContext}
               onSelectMore={navigate}
-              onSignOut={signOut}
+              onSignOut={signOutWithPendingCheck}
               onToggleBiometrics={toggleBiometrics}
               onToggleAppBadge={toggleAppBadgeEnabled}
               onToggleTheme={toggleTheme}

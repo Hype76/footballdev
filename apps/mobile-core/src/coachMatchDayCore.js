@@ -179,7 +179,7 @@ export function captureCoachMatchDayAction(match, action, now = Date.now()) {
   })
 }
 
-export function getCoachMatchDayActions({ context, match, reconciling = false, stale = false } = {}) {
+export function getCoachMatchDayActions({ context, match, reconciling = false, stale = false, offlineReady = false } = {}) {
   const roleRank = Number(context?.roleRank || 0)
   const blockedReason = !match || typeof match !== 'object'
     ? 'Select a fixture before using Match Day actions.'
@@ -202,15 +202,16 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
     ? lifecycleTimerActions.filter((item) => item.action !== 'start')
     : lifecycleTimerActions
   const hasStarted = !['scheduled', 'scorer_request'].includes(match?.status) || normalize(match?.timerStatus) !== 'not_started'
+  const captureActions = stale && offlineReady && !reconciling ? getCoachMatchDayActions({ context, match }) : null
   return Object.freeze({
-    blockedReason,
+    blockedReason: captureActions ? captureActions.blockedReason : blockedReason,
     canMutate: !blockedReason,
-    canRecordEvents: !blockedReason && hasStarted,
+    canRecordEvents: captureActions ? captureActions.canRecordEvents : !blockedReason && hasStarted && !['not_started', 'full_time'].includes(match?.timerStatus) && match?.status !== 'full_time',
     canSaveFinalReport: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && isFinalMatchReportAvailable(match),
     canSetSquad: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
     canSelectVolunteers: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
     startBlockedReason: startBlockedByFixtureDate ? 'This match can only be started on its fixture date.' : '',
-    timerActions,
+    timerActions: captureActions ? captureActions.timerActions.filter(item => ['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time'].includes(item.action)) : timerActions,
   })
 }
 
