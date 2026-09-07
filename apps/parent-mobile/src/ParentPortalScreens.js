@@ -182,7 +182,7 @@ function usePortalStyles(themeTokens) {
       monthDot: { backgroundColor: colors.accentText, borderRadius: 999, height: 6, width: 6 },
       monthDotCancelled: { backgroundColor: colors.danger },
       monthDotEvent: { backgroundColor: colors.event },
-      monthDotMatch: { backgroundColor: colors.match },
+      monthDotMatch: { backgroundColor: colors.match, borderRadius: 0 },
       monthDotResponse: { backgroundColor: colors.warning },
       monthDotTraining: { backgroundColor: colors.success },
       monthLegend: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
@@ -469,7 +469,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
         <View accessibilityLabel="Calendar filters" style={styles.monthLegend}>
           {[['match', 'Match'], ['training', 'Training'], ['response', 'Needs response'], ['event', 'Other']].map(([tone, label]) => {
             const selected = markerTones.includes(tone)
-            return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={[styles.monthLegendItem, !selected && { borderBottomColor: colors.border, borderBottomWidth: 1 }]}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
+            return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={styles.monthLegendItem}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone], !selected && { backgroundColor: 'transparent', borderColor: colors.muted, borderWidth: 1 }]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
           })}
         </View>
         {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}

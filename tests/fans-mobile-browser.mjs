@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 import { readFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
@@ -89,14 +90,17 @@ try {
     await page.locator(`[data-mode="${mode}"]`).waitFor()
     const box = await button('Invite a Fan').boundingBox()
     assert.ok(box.height >= 54 && box.width > 300)
+    await assertRenderedTextContrast(page, `Fans ${mode}`)
     await page.screenshot({ path: `${out}/invite-${mode}.png`, fullPage: true })
   }
   for (const method of ['Email', 'QR code', 'Share link']) {
     await button('Invite a Fan').click()
     await page.getByLabel('Fan name', { exact: true }).fill(`${method} Fan`)
     await page.getByLabel('Fan email', { exact: true }).fill('test@example.test')
+    await assertRenderedTextContrast(page, `Fans invitation ${method}`)
     await button(method).click()
     await page.getByText(/to follow Second Child/).waitFor()
+    await assertRenderedTextContrast(page, `Fans confirmation ${method}`)
     await button('Confirm invitation').click()
     await page.getByText(`${method} Fan`, { exact: true }).waitFor()
     assert.equal(await page.getByRole('alert').count(), 0)
