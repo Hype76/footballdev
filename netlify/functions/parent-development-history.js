@@ -101,7 +101,7 @@ async function loadParentScope({ authUserId, parentLinkId, supabaseAdmin }) {
   return { parentLink, player }
 }
 
-async function loadHistory({ parentLink, supabaseAdmin }) {
+export async function loadHistory({ parentLink, supabaseAdmin }) {
   const { data: reportRows, error: reportError } = await supabaseAdmin
     .from('development_parent_reports')
     .select('evaluation_id, club_id, report_snapshot, finalized_at')

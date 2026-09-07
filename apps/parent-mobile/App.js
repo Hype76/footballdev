@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
@@ -364,7 +365,7 @@ function ParentHome() {
     requestAnimationFrame(() => scrollViewRef.current?.scrollTo({ animated: true, y: targetY }))
     setNotificationSettingsFocusRequest(null)
   }, [])
-  const parentLinks = useMemo(() => getParentPortalLinks(user), [user])
+  const parentLinks = useMemo(() => getParentPortalLinks(user).filter((link) => link.linkType !== 'fan'), [user])
   const selectedLink = useMemo(
     () => getSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLinkId),
     [parentLinks, selectedLinkId, user],
@@ -2093,6 +2094,7 @@ function ParentHome() {
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
             {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'more' && moreSection === 'fans' ? <FansScreen embedded themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'messages' ? (
@@ -3282,8 +3284,14 @@ function BackButton({ label, onPress }) {
 }
 
 function AppContent() {
+  const fanNotification = Notifications.useLastNotificationResponse()
+  const [showFanNotification, setShowFanNotification] = useState(false)
+  useEffect(() => {
+    if (fanNotification?.notification?.request?.content?.data?.route === 'fans') setShowFanNotification(true)
+  }, [fanNotification])
   const {
     authError,
+    user,
     isLocked,
     resetLocalAppData,
     retryStartup,
@@ -3316,6 +3324,8 @@ function AppContent() {
       />
     )
   }
+  if (user?.parentPortalLinks?.length && user.parentPortalLinks.every((link) => link.linkType === 'fan')) return <FansScreen />
+  if (showFanNotification) return <FansScreen onBack={() => setShowFanNotification(false)} />
   return <ParentHome />
 }
 
@@ -3373,6 +3383,7 @@ export default function App() {
           appRole="parent"
           offlineProfileStore={parentOfflineProfileStore}
           prepareStartup={prepareParentMobileStartup}
+          onBeforeSignOut={clearFanNotificationDevice}
           preserveNativePushOnSignOut
         >
           <AppContent />

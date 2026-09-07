@@ -82,26 +82,12 @@ test('legacy parent email mirror RPCs remain fail closed while approved email sy
   assert.match(cleanupMigration, /grant execute on function public\.mark_parent_portal_message_read\(uuid, uuid\) to authenticated;/i)
 })
 
-test('friends and family sharing creates one child scoped pending link and supports revocation', async () => {
-  const source = await readFile(friendsFamilyPageUrl, 'utf8')
-  const domainSource = await readFile(parentPortalDomainUrl, 'utf8')
-  const revokeMigration = await readFile(revokeFamilyMigrationUrl, 'utf8')
-  const cleanupMigration = await readFile(cleanupMigrationUrl, 'utf8')
-
-  assert.match(source, /createFamilyShareLink\(\{ parentLink: selectedLink \}\)/)
-  assert.match(source, /getFamilyLinksForParentLink\(\{ parentLinkId: selectedLink\.id \}\)/)
-  assert.match(source, /revokeFamilyPortalLink\(\{ linkId: familyLink\.id \}\)/)
-  assert.match(source, /The link opens the selected child and nothing else\./)
-  assert.match(source, /Family members cannot see Coach tools, club settings, or another child\./)
-
-  assert.match(domainSource, /supabase\.rpc\('create_own_family_share_link'/)
-  assert.match(domainSource, /target_parent_link_id: parentLink\.id/)
-  assert.doesNotMatch(domainSource, /club_id: parentLink\.clubId/)
-
-  assert.match(revokeMigration, /family_link\.link_type = 'family'/i)
-  assert.match(revokeMigration, /parent_link\.auth_user_id = auth\.uid\(\)/i)
-  assert.match(revokeMigration, /parent_link\.status = 'active'/i)
-  assert.match(revokeMigration, /parent_link\.player_id = family_link\.player_id/i)
-  assert.match(cleanupMigration, /revoke execute on function public\.revoke_family_player_link\(uuid\) from anon;/i)
-  assert.match(cleanupMigration, /grant execute on function public\.revoke_family_player_link\(uuid\) to authenticated;/i)
+test('legacy family route opens the controlled Fans experience', async () => {
+  const legacy = await readFile(friendsFamilyPageUrl, 'utf8')
+  const source = await readFile(new URL('../src/pages/FansPage.jsx', import.meta.url), 'utf8')
+  assert.match(legacy, /FansPage as FriendsFamilyPage/)
+  assert.match(source, /create_fan_invitation/)
+  assert.match(source, /validateFanInvite/)
+  assert.match(source, /Confirm Fan access/)
+  assert.match(source, /Remove my access/)
 })

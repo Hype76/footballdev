@@ -16,7 +16,7 @@ const parentPortalShellUrl = new URL('../src/components/parent-portal/ParentPort
 const parentChatPageUrl = new URL('../src/pages/ParentChatPage.jsx', import.meta.url)
 const parentChatWorkspaceUrl = new URL('../src/components/chat/ParentChatWorkspace.jsx', import.meta.url)
 const parentPollsPageUrl = new URL('../src/pages/ParentPollsPage.jsx', import.meta.url)
-const friendsFamilyPageUrl = new URL('../src/pages/FriendsFamilyPage.jsx', import.meta.url)
+const friendsFamilyPageUrl = new URL('../src/pages/FansPage.jsx', import.meta.url)
 const parentInvitePageUrl = new URL('../src/pages/ParentInvitePage.jsx', import.meta.url)
 const createParentAccountFunctionUrl = new URL('../netlify/functions/create-parent-account.js', import.meta.url)
 const parentLoginPageUrl = new URL('../src/pages/ParentLoginPage.jsx', import.meta.url)
@@ -210,7 +210,7 @@ test('parent portal shell keeps sign out visible on desktop and mobile', async (
   assert.match(source, /activeSection === 'settings'/)
   assert.match(messagesSource, /activeSection="chat"/)
   assert.match(pollsSource, /<ParentPortalRouteShell[\s\S]*activeSection="polls"/)
-  assert.match(familySource, /<ParentPortalRouteShell[\s\S]*activeSection="family"/)
+  assert.match(familySource, /<ParentPortalRouteShell[\s\S]*activeSection="fans"/)
 })
 
 test('parent settings expose safe profile, notification, and theme controls', async () => {
@@ -281,7 +281,7 @@ test('parent portal shell persists navigation on Chat, polls and family routes',
 
   assert.match(messagesSource, /activeSection="chat"/)
   assert.match(pollsSource, /<ParentPortalRouteShell[\s\S]*activeSection="polls"/)
-  assert.match(familySource, /<ParentPortalRouteShell[\s\S]*activeSection="family"/)
+  assert.match(familySource, /<ParentPortalRouteShell[\s\S]*activeSection="fans"/)
   assert.match(shellSource, /variant="desktop"/)
   assert.match(shellSource, /variant="mobile"/)
   assert.match(shellSource, /const parentPortalSections = \[/)

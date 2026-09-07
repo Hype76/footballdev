@@ -1,3 +1,4 @@
+import { PlatformFanStats } from '../components/platform/PlatformFanStats.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
@@ -1396,6 +1397,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <PlatformPlanMixSection planBreakdown={planBreakdown} />
+            <PlatformFanStats />
             <PlatformOperationalSummarySection
               analyticsReport={analyticsReport}
               openIssueCount={openIssueCount}

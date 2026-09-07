@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { sendFanMatchNotifications } from './lib/_fan-push.js'
 import webpush from 'web-push'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
@@ -472,7 +473,8 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
     })
     const mobileResult = await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
-  return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available }
+  const fans = await sendFanMatchNotifications({ client: supabaseAdmin, match, type, eventId, targetParentLinkIds })
+  return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available, ...fans }
 }
 
 export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {

@@ -119,10 +119,12 @@ export const parentOfflineProfileStore = {
   async read(userScope) {
     store.activate(userScope)
     const document = await readDocument(userScope)
-    return document?.profile?.value || null
+    if (!document?.profile?.value) return null
+    return (await ensureDocument(document.profile.value)).profile.value
   },
   async write(profile) {
-    return (await ensureDocument(profile)).profile.value
+    await ensureDocument(profile)
+    return profile
   },
 }
 

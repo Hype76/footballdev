@@ -1193,6 +1193,7 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
     ['updates', 'notifications', 'Notifications', unreadNotifications ? `${unreadNotifications} new` : 'Selection, scores and club news', unreadNotifications],
     ['invites', 'invite', 'Invites', unansweredInvites ? `${unansweredInvites} to answer` : 'Attendance and roles', unansweredInvites],
     ['results', 'result', 'Results', 'Completed fixtures', 0],
+    ['fans', 'fans', 'Fans', 'People and access', 0],
     ['development', 'development', 'Development', 'Shared reports', 0],
     ['resources', 'resource', 'Resources', 'Files and links', 0],
     ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls', unansweredPolls],

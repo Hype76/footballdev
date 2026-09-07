@@ -1,0 +1,86 @@
+import assert from 'node:assert/strict'
+import { mkdir } from 'node:fs/promises'
+import { chromium } from 'playwright'
+import { createServer } from 'vite'
+const port = 43127
+const origin = `http://127.0.0.1:${port}`
+Object.assign(process.env, { VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true', VITE_APP_URL: origin, VITE_PARENT_APP_URL: origin, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' })
+const server = await createServer({ server: { host: '127.0.0.1', port, strictPort: true }, mode: 'development' })
+await server.listen()
+const browser = await chromium.launch({ headless: true })
+const connections = []
+const creates = []
+let emailRequests = 0
+await mkdir('outputs/fans-local', { recursive: true })
+try {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  await context.addInitScript(() => {
+    sessionStorage.setItem('auth-access-browser-fixture-email', 'parent.fixture@footballplayer.test')
+    sessionStorage.setItem('selected-access-mode', 'parent')
+    sessionStorage.setItem('selected-access-mode-explicit', 'true')
+    localStorage.setItem('app-theme-mode', 'light')
+  })
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.hostname === 'fixture.supabase.test') {
+      const name = url.pathname.split('/').at(-1)
+      const args = route.request().postDataJSON() || {}
+      let result = []
+      if (name === 'list_fan_connections') result = connections
+      if (name === 'create_fan_invitation') {
+        creates.push(args)
+        const row = { id: `10000000-0000-4000-8000-${String(creates.length).padStart(12,'0')}`, name: args.name_value, email: args.email_value,
+          permissions: args.permissions_value, parent_link_id: args.parent_link_id_value, status: 'pending', is_owner: true, relationship_type: 'fan',
+          invite_token: `20000000-0000-4000-8000-${String(creates.length).padStart(12,'0')}`, expires_at: new Date(Date.now()+86400000).toISOString() }
+        connections.push(row); result = row
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) })
+    }
+    if (url.pathname === '/.netlify/functions/fans') {
+      assert.equal(route.request().postDataJSON().action,'send_invitation')
+      emailRequests++
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' })
+    }
+    if (url.pathname.startsWith('/.netlify/')) return route.fulfill({status:200,contentType:'application/json',body:'{}'})
+    if (url.origin !== origin && !url.protocol.startsWith('data')) return route.abort()
+    return route.continue()
+  })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.goto(`${origin}/fans`)
+  await page.getByRole('button',{name:'Invite a Fan',exact:true}).click()
+  await page.getByRole('button',{name:'QR code',exact:true}).click()
+  await page.getByRole('alert').filter({hasText:'Enter a name'}).waitFor()
+  assert.equal(creates.length,0)
+  await page.getByLabel('Name',{exact:true}).fill('Alex Relative')
+  await page.getByLabel('Email',{exact:true}).fill('alex@example.test')
+  await page.getByRole('checkbox',{name:/Game Day/}).uncheck()
+  await page.getByRole('checkbox',{name:/Schedule/}).check()
+  assert.equal(await page.getByRole('checkbox',{name:/Include resources/}).isDisabled(),true)
+  await page.getByRole('button',{name:'QR code',exact:true}).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText(/Alex Relative \(alex@example.test\)/).waitFor()
+  assert.equal(await dialog.getByRole('listitem').count(),1)
+  await page.screenshot({path:'outputs/fans-local/confirmation-desktop.png',fullPage:true})
+  await page.setViewportSize({width:390,height:844})
+  await page.screenshot({path:'outputs/fans-local/confirmation-phone.png',fullPage:true})
+  await dialog.getByRole('button',{name:'Confirm invitation',exact:true}).click()
+  await page.getByAltText('Invitation QR code for Alex Relative').waitFor()
+  assert.equal(creates.length,1)
+  assert.deepEqual(creates[0].permissions_value,{schedule:true,game_day:false,development:false,resources:false})
+  await page.getByRole('button',{name:'Invite a Fan',exact:true}).click()
+  await page.getByLabel('Name',{exact:true}).fill('Jamie Relative')
+  await page.getByLabel('Email',{exact:true}).fill('jamie@example.test')
+  await page.getByRole('button',{name:'Email',exact:true}).click()
+  await page.getByRole('dialog').getByRole('button',{name:'Confirm invitation',exact:true}).click()
+  await page.getByText('jamie@example.test',{exact:true}).waitFor()
+  assert.equal(connections.length,2)
+  assert.equal(connections[0].status,'pending')
+  assert.equal(emailRequests,1)
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
+  await page.screenshot({path:'outputs/fans-local/fans-phone.png',fullPage:true})
+  assert.deepEqual(errors,[])
+  console.log('PASS: required identity, exact confirmation, Schedule-only access, QR, two pending invitations, simulated email, phone layout and no browser errors.')
+  await context.close()
+} finally { await browser.close(); await server.close() }
