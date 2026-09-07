@@ -30,6 +30,7 @@ export async function sendExpoPushMessages(messages) {
   const results = await Promise.all(chunkMessages(validMessages).map(async (chunk) => {
     const response = await fetch(EXPO_PUSH_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(10000),
       headers: {
         Accept: 'application/json',
         'Accept-Encoding': 'gzip, deflate',
@@ -49,13 +50,14 @@ export async function sendExpoPushMessages(messages) {
     }
 
     const tickets = Array.isArray(result.data) ? result.data : []
-    const failed = tickets.filter((ticket) => ticket.status === 'error').length
+    const sent = chunk.filter((_, index) => tickets[index]?.status === 'ok').length
+    const failed = chunk.length - sent
     const invalidTokens = tickets
       .map((ticket, index) => ticket.details?.error === 'DeviceNotRegistered' ? chunk[index]?.to : '')
       .filter(Boolean)
 
     return {
-      sent: Math.max(chunk.length - failed, 0),
+      sent,
       failed,
       invalidTokens,
       result,

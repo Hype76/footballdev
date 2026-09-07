@@ -11,6 +11,7 @@ import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { assertCoachOperationalMutation, assertCoachOperationalRead, recordCoachOperationalAudit } from './coachOperationalData'
 import { getAccessToken, supabase } from './supabase'
 import { saveCoachTeamNotificationDisplayName } from './coachTeamNotificationData'
+import { mergeMatchDayCommandSnapshot } from './matchDayOutboxCore'
 
 const STANDARD_TIMER_ACTIONS = new Set(['pause', 'half_time', 'hydration', 'resume', 'full_time', 'conclude'])
 const EXTENDED_TIMER_ACTIONS = new Set(['normal_time_complete', 'start_extra_time', 'extra_time_half_time', 'start_extra_time_second_half', 'complete_extra_time', 'start_penalties'])
@@ -403,6 +404,27 @@ async function sendCoachMatchDayPush(match, type, eventId = '') {
 }
 
 export function createCoachMatchDayCommandId() { return requestId() }
+
+export async function syncCoachMatchDayCommand(user, command, baseMatch) {
+  await prepareMutation(user, baseMatch)
+  const result = await rpc('apply_coach_match_day_command', {
+    command_id_value: command.id, match_day_id_value: command.matchId,
+    kind_value: command.kind, payload_value: command.payload, captured_at_value: command.capturedAt,
+    expected_updated_at_value: command.expectedUpdatedAt, previous_command_id_value: command.previousCommandId,
+  })
+  const config = getMobileRuntimeConfig('coach')
+  const token = await getAccessToken()
+  if (config.apiBaseUrl && token) {
+    // The saved server command also has a scheduled retry if this immediate request is lost.
+    void fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-coach-match-day-command-notification'), {
+      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ commandId: command.id }),
+    }).catch(() => {})
+  }
+  const events = result.savedEvent
+    ? [...(baseMatch.events || []).filter(event => event.requestId !== command.id), result.savedEvent]
+    : baseMatch.events || []
+  return { ...normalizeCoachMatchDay({ ...mergeMatchDayCommandSnapshot(baseMatch, result), events }), isHydrated: baseMatch.isHydrated }
+}
 
 export async function runCoachMatchDayTimerAction(user, match, action) {
   await prepareMutation(user, match)

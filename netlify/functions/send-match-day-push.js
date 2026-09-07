@@ -9,6 +9,7 @@ import { filterParentLinksForAppNotifications } from './lib/_parent-communicatio
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 import { sendCoachMatchReviewPush } from './send-coach-mobile-push.js'
+import { buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -299,6 +300,7 @@ async function sendToSubscription(subscription, payload) {
         },
       },
       JSON.stringify(payload),
+      { timeout: 10000, urgency: 'high', TTL: 14400 },
     )
 
     return { sent: true }
@@ -367,11 +369,12 @@ export async function handler(event) {
     }
 
     const delivery = await deliverMatchDayNotification({ match, type, eventId, targetParentLinkIds })
-    await completePushOperation({ operationKey, succeeded: true })
+    const succeeded = delivery.mobileFailed === 0 && delivery.webFailed === 0
+    await completePushOperation({ operationKey, succeeded, errorMessage: succeeded ? '' : 'Some match notifications were not accepted. Retry delivery.' })
     claimedOperationKey = ''
 
-    return jsonResponse(200, {
-      success: true,
+    return jsonResponse(succeeded ? 200 : 503, {
+      success: succeeded,
       ...delivery,
       coachReviewSent: coachReview.sent,
       coachReviewFailed: coachReview.failed,
@@ -467,18 +470,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
       teamId: match.team_id,
       title: nativePayload.title,
     })
-    const mobileResult = await sendExpoPushMessages(mobileDevices.map((device) => ({
-      to: device.expo_push_token,
-      collapseId: notificationCopy.tag,
-      tag: notificationCopy.tag,
-      title: nativePayload.title,
-      body: device.detail_level === 'detailed' ? nativePayload.detailedBody : nativePayload.minimalBody,
-      data: {
-        ...nativePayload.data,
-        parentLinkId: device.parent_link_id,
-      },
-      sound: 'default',
-    })))
+    const mobileResult = await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
   return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available }
 }
