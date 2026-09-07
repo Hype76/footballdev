@@ -128,6 +128,8 @@ jobs:
           tests/matchday-offline-commands-db.test.mjs
       - name: Install Coach browser test dependencies
         run: npm ci --prefix apps/coach-mobile --include=optional
+      - name: Mobile brand contrast and rendered readability
+        run: node --test tests/mobile-theme-readability.test.mjs && node tests/mobile-settings-menu-browser.mjs && node tests/mobile-more-icon-badges-browser.mjs && node tests/fans-mobile-browser.mjs
       - name: Coach offline scoring and reconnect
         run: node tests/coach-matchday-offline-browser.mjs
       - name: Guest and mobile scorer rendering

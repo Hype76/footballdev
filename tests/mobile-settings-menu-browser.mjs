@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 import { readFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { parse } from '@babel/parser'
@@ -44,8 +45,8 @@ for (const app of ['parent', 'coach']) {
     ${app === 'coach' ? 'const formatDateTime=()=> "Today";' : ''}
     const ParentThemeContext=createContext(null), CoachThemeContext=createContext(null);
     ${selected}
-    export default function Preview({mode, ...props}) {
-      const theme=${app === 'parent' ? 'createParentMobileTheme({mode,selectedLink:{themeAccent:"#2ba7aa"}})' : 'createCoachTheme({mode,context:{clubAccent:"#2ba7aa"}})'};
+    export default function Preview({mode, accent, ...props}) {
+      const theme=${app === 'parent' ? 'createParentMobileTheme({mode,selectedLink:{themeAccent:accent}})' : 'createCoachTheme({mode,context:{clubAccent:accent}})'};
       const value=${app === 'parent' ? '{palette:createParentAppPalette(theme.tokens),styles:createParentAppStyles(theme.tokens)}' : 'createCoachThemeContext(theme)'};
       const Provider=${app === 'parent' ? 'ParentThemeContext' : 'CoachThemeContext'}.Provider;
       return <Provider value={value}><View style={{backgroundColor:theme.tokens.background,minHeight:'100%',padding:16}}><SettingsScreen {...props}/></View></Provider>;
@@ -62,8 +63,8 @@ BackHandler.addEventListener=(event,handler)=>{backHandler=handler;return {remov
 window.hardwareBack=()=>backHandler?.()||false;
 const record=name=>(...args)=>{window.calls.push({name,args});return Promise.resolve()};
 function App(){
-  const [app,setApp]=React.useState('parent'),[mode,setMode]=React.useState('dark'),[focus,setFocus]=React.useState(null),[overrides,setOverrides]=React.useState({});
-  window.showApp=value=>{setApp(value);setOverrides({});setFocus(null)};window.setMode=setMode;
+  const [app,setApp]=React.useState('parent'),[mode,setMode]=React.useState('dark'),[focus,setFocus]=React.useState(null),[overrides,setOverrides]=React.useState({}),[accent,setAccent]=React.useState('#2ba7aa');
+  window.showApp=value=>{setApp(value);setOverrides({});setFocus(null)};window.setMode=setMode;window.setAccent=setAccent;
   window.openBell=()=>setFocus({id:Date.now()});window.override=setOverrides;
   const props={user:{id:'synthetic',displayName:'Alex',email:'alex@example.invalid'},context:{roleLabel:'Coach',teamName:'U17',clubName:'Demo FC'},
     appBadgeEnabled:true,biometricAvailable:true,biometricEnabled:true,biometricStateStatus:'ready',notificationStateStatus:'ready',
@@ -76,7 +77,7 @@ function App(){
     onBiometricChange:record('biometric'),onToggleBiometrics:record('biometric'),onAppBadgeEnabledChange:record('badge'),onToggleAppBadge:record('badge'),
     onNotificationModeChange:record('push'),onCommunicationChannelChange:record('communication'),onRestoreDismissedItems:record('restore'),
     onRetryNotificationState:record('retry'),onRefreshNotificationState:record('retry'),onRetryBiometricState:record('retry'),onRefreshBiometricState:record('retry'),...overrides};
-  return <div data-app={app} data-mode={mode}>{app==='parent'?<Parent key={app} mode={mode} {...props}/>:<Coach key={app} mode={mode} {...props}/>}</div>;
+  return <div data-app={app} data-mode={mode}>{app==='parent'?<Parent key={app} mode={mode} accent={accent} {...props}/>:<Coach key={app} mode={mode} accent={accent} {...props}/>}</div>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
 `
@@ -135,6 +136,22 @@ try {
         }
       }
     }
+    for (const accent of ['#2ba7aa', '#000000', '#ffffff', '#777777', '#000080', '#ffff00', 'green', 'blue', 'red', 'purple', 'yellow']) {
+      await page.evaluate(accent => window.setAccent(accent), accent)
+      for (const mode of ['dark', 'light']) {
+        await page.evaluate(mode => window.setMode(mode), mode)
+        await page.locator(`[data-mode="${mode}"]`).waitFor()
+        await assertRenderedTextContrast(page, `${app} ${mode} ${accent} menu`)
+        for (const label of labels) {
+          await open(label)
+          await page.getByRole('button', { name: 'Back to Settings', exact: true }).waitFor()
+          if (label === 'Notifications') await page.getByRole('radio', { name: 'Off', exact: true }).waitFor()
+          await assertRenderedTextContrast(page, `${app} ${mode} ${accent} ${label}`)
+          await back()
+        }
+      }
+    }
+    await page.evaluate(() => window.setAccent('#2ba7aa'))
     await page.setViewportSize({ width: 390, height: 740 })
     await page.evaluate(() => window.setMode('dark'))
     const before = await page.evaluate(() => window.calls.length)

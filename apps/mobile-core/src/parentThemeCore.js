@@ -1,3 +1,5 @@
+import { contrastSafeColor, mixThemeColor, readableThemeTokens, themeContrastRatio, themeForeground } from './themeContrast.js'
+
 const THEME_ACCENTS = new Set(['yellow', 'blue', 'green', 'red', 'purple'])
 const HEX_ACCENT_PATTERN = /^#[0-9a-f]{6}$/
 
@@ -93,64 +95,7 @@ export function normalizeParentLogoUrl(value) {
   }
 }
 
-function hexToRgb(value) {
-  const normalized = value.slice(1)
-  return {
-    red: Number.parseInt(normalized.slice(0, 2), 16),
-    green: Number.parseInt(normalized.slice(2, 4), 16),
-    blue: Number.parseInt(normalized.slice(4, 6), 16),
-  }
-}
-
-function rgbToHex({ red, green, blue }) {
-  return `#${[red, green, blue]
-    .map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, '0'))
-    .join('')}`
-}
-
-function mixHex(source, target, targetWeight) {
-  const sourceRgb = hexToRgb(source)
-  const targetRgb = hexToRgb(target)
-  const weight = Math.max(0, Math.min(1, Number(targetWeight) || 0))
-  return rgbToHex({
-    red: sourceRgb.red + ((targetRgb.red - sourceRgb.red) * weight),
-    green: sourceRgb.green + ((targetRgb.green - sourceRgb.green) * weight),
-    blue: sourceRgb.blue + ((targetRgb.blue - sourceRgb.blue) * weight),
-  })
-}
-
-function relativeLuminance(value) {
-  const { red, green, blue } = hexToRgb(value)
-  const channels = [red, green, blue].map((channel) => {
-    const normalized = channel / 255
-    return normalized <= 0.04045
-      ? normalized / 12.92
-      : ((normalized + 0.055) / 1.055) ** 2.4
-  })
-  return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2])
-}
-
-export function getParentThemeContrastRatio(foreground, background) {
-  const values = [relativeLuminance(foreground), relativeLuminance(background)]
-    .sort((left, right) => right - left)
-  return (values[0] + 0.05) / (values[1] + 0.05)
-}
-
-function readableForeground(background) {
-  return ['#06110a', '#000000', '#ffffff']
-    .map((foreground) => ({ foreground, contrast: getParentThemeContrastRatio(foreground, background) }))
-    .sort((left, right) => right.contrast - left.contrast)[0].foreground
-}
-
-function readableAccent(accent, background, mode) {
-  if (getParentThemeContrastRatio(accent, background) >= 4.5) return accent
-  const target = mode === 'dark' ? '#ffffff' : '#06110a'
-  for (let step = 1; step <= 20; step += 1) {
-    const candidate = mixHex(accent, target, step / 20)
-    if (getParentThemeContrastRatio(candidate, background) >= 4.5) return candidate
-  }
-  return target
-}
+export const getParentThemeContrastRatio = themeContrastRatio
 
 function resolveAccentPalette(accent, mode) {
   if (HEX_ACCENT_PATTERN.test(accent)) return { accent, button: accent }
@@ -172,18 +117,21 @@ export function createParentMobileTheme({ mode = 'dark', selectedLink = null } =
   const branding = resolveParentMobileBranding(selectedLink)
   const base = BASE_TOKENS[resolvedMode]
   const branded = resolveAccentPalette(branding.accent, resolvedMode)
-  const accentForeground = readableForeground(branded.button)
-  const accentText = readableAccent(branded.accent, base.surface, resolvedMode)
-  const accentSoft = mixHex(branded.accent, base.surface, resolvedMode === 'dark' ? 0.72 : 0.86)
-  const accentMuted = mixHex(branded.accent, base.surface, resolvedMode === 'dark' ? 0.46 : 0.62)
+  const accentForeground = themeForeground(branded.button)
+  const accentSoft = mixThemeColor(branded.accent, base.surface, resolvedMode === 'dark' ? 0.84 : 0.92)
+  const accentMuted = mixThemeColor(branded.accent, base.surface, resolvedMode === 'dark' ? 0.46 : 0.62)
 
+  const surfaces = [base.background, base.surface, base.surfaceRaised, base.portalBackground, base.portalSurface, base.successSurface, base.warningSurface, base.dangerSurface, accentSoft]
+  const accentText = contrastSafeColor(branded.accent, surfaces, resolvedMode)
   const tokens = Object.freeze({
-    ...base,
+    ...readableThemeTokens(base, surfaces, resolvedMode),
     accent: branded.accent,
     accentForeground,
     accentMuted,
     accentSoft,
     accentText,
+    notificationFill: '#b91c1c',
+    notificationForeground: '#ffffff',
     buttonPrimary: branded.button,
     selectedSurface: accentSoft,
   })

@@ -77,21 +77,19 @@ test('dark surfaces remain stable while light mode receives complete semantic su
   assert.deepEqual(
     {
       background: dark.tokens.background,
-      border: dark.tokens.border,
       surface: dark.tokens.surface,
       surfaceRaised: dark.tokens.surfaceRaised,
       textPrimary: dark.tokens.textPrimary,
-      textSecondary: dark.tokens.textSecondary,
     },
     {
       background: '#030603',
-      border: '#1d3520',
       surface: '#0a160c',
       surfaceRaised: '#102415',
       textPrimary: '#f2faef',
-      textSecondary: '#a9b8a6',
     },
   )
+  assert.ok(getParentThemeContrastRatio(dark.tokens.textSecondary, dark.tokens.surfaceRaised) >= 7)
+  assert.ok(getParentThemeContrastRatio(dark.tokens.border, dark.tokens.surfaceRaised) >= 3)
   assert.equal(light.tokens.background, '#f3f7f6')
   assert.equal(light.tokens.surface, '#ffffff')
   assert.equal(light.tokens.textPrimary, '#132522')

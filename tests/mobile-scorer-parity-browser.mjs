@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 import { readFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
@@ -37,12 +38,12 @@ const parentCode = `${shared}
   const Crypto = { randomUUID: () => '70000000-0000-4000-8000-000000000001' }
   ${section(parent, 'function colorsFor(', 'function invitationResponsePresentation(')}
   ${section(parent, 'function GoalPlayerPicker(', 'export function MatchdayScreen(')}
-  function Preview({ mode }) {
-    const tokens = createParentMobileTheme({ mode }).tokens
+  function Preview({ mode, accent }) {
+    const tokens = createParentMobileTheme({ mode, selectedLink: { themeAccent: accent } }).tokens
     const { colors, styles } = usePortalStyles(tokens)
     return <View style={{ backgroundColor: colors.background, padding: 16, minHeight: 900 }}><ScorerControls activeActionId="" match={match} players={players} styles={styles} placeholderColor={colors.muted} onAction={async (action, value) => { window.calls.push({ action, value }); return true }} /></View>
   }
-  window.renderPreview = (mode) => root.render(<Preview key={mode} mode={mode} />)
+  window.renderPreview = (mode, accent) => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />)
 `
 const coachCode = `${shared}
   import { createCoachTheme } from './apps/coach-mobile/src/coachThemeCore.js'
@@ -52,14 +53,14 @@ const coachCode = `${shared}
   const LiveTimeline = () => null
   ${section(coach, 'function createStyles(', 'function MatchList(')}
   ${section(coach, 'function LivePanel(', 'function TimelinePanel(')}
-  function Preview({ mode }) {
+  function Preview({ mode, accent }) {
     const [eventForm, onEventForm] = useState(() => createCoachMatchDayEventForm('goal', match))
     const [scoreDraft, setScoreDraft] = useState({ home: '0', away: '0' })
-    const palette = createCoachTheme({ mode }).tokens
+    const palette = createCoachTheme({ mode, context: { clubAccent: accent } }).tokens
     const styles = createStyles(palette)
     return <View style={{ backgroundColor: palette.background, padding: 16, minHeight: 900 }}><LivePanel match={match} players={players} actions={{ canRecordEvents: true, timerActions: getParentScorerTimerActions(match) }} eventForm={eventForm} onEventForm={onEventForm} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} onTimer={async () => {}} onPrepare={() => {}} onScore={async () => { window.calls.push({ action: 'event', value: validateCoachMatchDayEventForm(eventForm) }); return true }} /></View>
   }
-  window.renderPreview = (mode) => root.render(<Preview key={mode} mode={mode} />)
+  window.renderPreview = (mode, accent) => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />)
 `
 await mkdir('output/playwright/mobile-scorer', { recursive: true })
 const browser = await chromium.launch({ headless: true })
@@ -71,8 +72,8 @@ try {
     page.on('pageerror', (error) => errors.push(error.message))
     await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}</style></head><body><div id="root"></div></body></html>')
     await page.addScriptTag({ content: result.outputFiles[0].text })
-    for (const mode of ['light', 'dark']) {
-      await page.evaluate((mode) => window.renderPreview(mode), mode)
+    for (const accent of ['#2ba7aa', '#000000', '#ffffff', '#777777', '#ffff00', '#000080']) for (const mode of ['light', 'dark']) {
+      await page.evaluate(({ mode, accent }) => window.renderPreview(mode, accent), { mode, accent })
       await page.getByRole('button', { name: 'Goal', exact: true }).click()
       if (app === 'parent') {
         await page.getByRole('button', { name: 'Choose scorer', exact: true }).click()
@@ -88,6 +89,7 @@ try {
       }
       await page.getByRole('switch', { name: 'Own goal', exact: true }).click()
       await page.getByText(/opponent receives the goal|goal counts for the opponent/).waitFor()
+      await assertRenderedTextContrast(page, `${app} ${mode} ${accent} scorer`)
       await page.screenshot({ path: `output/playwright/mobile-scorer/${app}-${mode}-own-goal.png` })
       await page.getByRole('button', { name: 'Record goal', exact: true }).click()
       let saved = await page.evaluate(() => window.calls.at(-1).value)
