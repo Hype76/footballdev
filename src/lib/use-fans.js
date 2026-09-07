@@ -43,6 +43,10 @@ export function useFans({ rpc, request }) {
     await rpc('manage_fan_connection', { connection_id_value: connectionId, action_value: action, permissions_value: permissions || null })
     await reload()
   }, [clearView, reload, rpc])
+  const deleteInvitation = useCallback(async (connectionId) => {
+    await rpc('delete_cancelled_fan_invitation', { connection_id_value: connectionId })
+    await reload()
+  }, [reload, rpc])
   useEffect(() => {
     if (!view) return
     let alive = true
@@ -55,5 +59,5 @@ export function useFans({ rpc, request }) {
     }, view.action === 'matches' ? 15000 : 30000)
     return () => { alive = false; clearInterval(timer) }
   }, [clearView, request, view])
-  return { connections, loading, error, setError, reload, view, content, clearView, open, manage }
+  return { connections, loading, error, setError, reload, view, content, clearView, open, manage, deleteInvitation }
 }

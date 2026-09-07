@@ -33,6 +33,7 @@ async function dbFixture({ legacy = false } = {}) {
     ('${id(61)}','${id(2)}','${id(20)}','${id(10)}','${id(11)}','family','active','${id(30)}',now()),
     ('${id(62)}',null,'${id(20)}','${id(10)}','${id(11)}','family','pending','${id(30)}',null);`)
   await db.exec(migration)
+  await db.exec(await readFile(new URL('../supabase/migrations/20260907161234_fans_cancelled_invitation_delete.sql', import.meta.url), 'utf8'))
   return db
 }
 async function actor(db, n, email) { await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.email',$2,false)",[id(n),email]) }
@@ -153,5 +154,47 @@ test('Pre-sign-in branding is token-bound and never reveals the child or recipie
     await db.exec('reset role')
     await db.query("update fan_connections set expires_at=now()-interval '1 minute' where id=$1",[first.id])
     assert.equal((await db.query('select get_fan_invitation_branding($1) data',[first.invite_token])).rows[0].data,null)
+  } finally { await db.close() }
+})
+
+
+test('Only the inviting active Parent can delete cancelled Fans; history and stats survive', async () => {
+  const db = await dbFixture()
+  try {
+    await actor(db, 1, 'parent@example.test')
+    const cancelled = await invite(db)
+    const pending = await invite(db, 41, 'other@example.test')
+    await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [pending.id]), /Only cancelled/)
+    await db.query("select manage_fan_connection($1,'revoke')", [cancelled.id])
+    await actor(db, 3, 'other@example.test')
+    await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [cancelled.id]), /Only the inviting Parent/)
+    await actor(db, 1, 'parent@example.test')
+    await db.query("update public.users set status='suspended' where id=$1", [id(1)])
+    await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [cancelled.id]), /Only the inviting Parent/)
+    await db.query("update public.users set status='active' where id=$1", [id(1)])
+    await db.exec('set role anon')
+    await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [cancelled.id]), /permission denied/)
+    await db.exec('reset role; set role authenticated')
+    await db.query('select delete_cancelled_fan_invitation($1)', [cancelled.id])
+    await db.query('select delete_cancelled_fan_invitation($1)', [cancelled.id])
+    const list = (await db.query('select list_fan_connections() data')).rows[0].data
+    assert.deepEqual(list.map(row => row.id), [pending.id])
+    await assert.rejects(db.query('update fan_connections set owner_deleted_at=null'), /permission denied/)
+    await db.exec('reset role')
+    const history = (await db.query('select status,owner_deleted_at from fan_connections where id=$1', [cancelled.id])).rows[0]
+    assert.equal(history.status, 'cancelled')
+    assert.ok(history.owner_deleted_at)
+    await actor(db, 4, 'admin@example.test')
+    assert.equal((await db.query('select get_platform_fan_stats() data')).rows[0].data.cancelled, 1)
+    await actor(db, 2, 'fan@example.test')
+    await assert.rejects(db.query('select accept_fan_invitation($1)', [cancelled.invite_token]), /expired or been cancelled/)
+    await actor(db, 3, 'other@example.test')
+    await db.query('select accept_fan_invitation($1)', [pending.invite_token])
+    await actor(db, 1, 'parent@example.test')
+    await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [pending.id]), /Only cancelled/)
+    await db.query("select manage_fan_connection($1,'revoke')", [pending.id])
+    await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [pending.id]), /Only cancelled/)
+    await db.query("update fan_connections set relationship_type='player' where id=$1", [cancelled.id])
+    await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [cancelled.id]), /Only cancelled/)
   } finally { await db.close() }
 })

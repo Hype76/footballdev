@@ -25,10 +25,10 @@ async function request(body) {
   const origin = getMobileRuntimeConfig('parent').apiBaseUrl.replace(/\/$/, '')
   return fetchFansJson(`${origin}/.netlify/functions/fans`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
 }
-function Action({ icon, label, onPress, disabled }) {
+function Action({ icon, label, onPress, disabled, primary = false }) {
   const tokens = useContext(FansTheme)
   const styles = useMemo(() => createStyles(tokens), [tokens])
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[styles.action, disabled && { opacity: 0.5 }]}>{icon ? <ParentIcon iconKey={icon} color={tokens.accentText} size={25} /> : null}<Text style={styles.actionLabel}>{label}</Text></Pressable>
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[styles.action, primary && styles.primaryAction, disabled && { opacity: 0.5 }]}>{icon ? <ParentIcon iconKey={icon} color={primary ? tokens.accentForeground : tokens.accentText} size={25} /> : null}<Text style={[styles.actionLabel, primary && styles.primaryActionLabel]}>{label}</Text></Pressable>
 }
 function ClubBrand({ source }) {
   const brand = fanBrandingLink(source)
@@ -52,7 +52,7 @@ export async function clearFanNotificationDevice() {
   await SecureStore.deleteItemAsync('fan-notification-device')
   if (token) await request({ action: 'unregister_device', token }).catch(() => {})
 }
-export function FansScreen({ embedded = false, themeTokens, themeMode, onBack }) {
+export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, selectedParentLinkId, onSelectedParentLinkChange }) {
   const [savedMode, setSavedMode] = useState('dark')
   useEffect(() => { let active = true; AsyncStorage.getItem('fp.parent.display-theme.v1').then((value) => { if (active && ['light', 'dark'].includes(value)) setSavedMode(value) }).catch(() => {}); return () => { active = false } }, [])
   const { user, signOut, refreshUserProfile } = useMobileAuth()
@@ -60,7 +60,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack })
   const { clearView, reload, open } = state
   const parents = (user?.parentPortalLinks || []).filter((p) => p.linkType !== 'fan' && p.linkType !== 'family')
   const [parentId, setParentId] = useState(user?.selectedParentLinkId || parents[0]?.id || '')
-  const parent = parents.find((p) => p.id === parentId) || parents[0]
+  const parent = parents.find((p) => p.id === (selectedParentLinkId ?? parentId)) || parents[0]
   const brandSource = state.connections.find((c) => c.id === state.view?.connectionId) || parent || state.connections.find((c) => !c.is_owner && c.status === 'active')
   const displayMode = themeMode || savedMode
   const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode).tokens : themeTokens || DEFAULT_PARENT_MOBILE_THEME.tokens, [brandSource, displayMode, themeTokens])
@@ -107,6 +107,9 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack })
   const remove = (connection, self) => Alert.alert(self ? 'Remove my access' : 'End Fan access', `Access to ${connection.player_name} and associated notifications will end. A new invitation will be needed to restore access.`, [
     { text: 'Go back', style: 'cancel' }, { text: 'Remove access', style: 'destructive', onPress: () => run(async () => { state.clearView(); setFormation(null); await state.manage(connection.id, self ? 'remove' : 'revoke'); await refreshUserProfile() }) },
   ])
+  const deleteInvitation = (connection) => Alert.alert('Delete cancelled invitation?', `Remove the cancelled invitation for ${connection.name} (${connection.email}) from your Fans list?`, [
+    { text: 'Go back', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => run(() => state.deleteInvitation(connection.id)) },
+  ])
   const enableDevice = () => run(async () => {
     const permission = await Notifications.requestPermissionsAsync()
     if (permission.status !== 'granted') throw new Error('Notifications are not enabled in your phone settings.')
@@ -131,8 +134,8 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack })
     {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
     {state.loading ? <Text style={{ color: tokens.textPrimary }}>Loading Fans...</Text> : null}
     {parents.length ? <>
-      <View style={styles.actions}>{parents.map((p) => <Action key={p.id} icon="child" label={`${p.playerName}${parent?.id === p.id ? ' (selected)' : ''}`} onPress={() => { setParentId(p.id); setForm(null); setReady(null) }} />)}</View>
-      <Action icon="fans" label="Invite a Fan" onPress={() => begin()} />
+      <View style={styles.actions}>{parents.map((p) => <Action key={p.id} icon="child" label={`${p.playerName}${parent?.id === p.id ? ' (selected)' : ''}`} disabled={busy} onPress={() => { setParentId(p.id); onSelectedParentLinkChange?.(p.id); setForm(null); setReady(null); state.clearView() }} />)}</View>
+      <Action primary icon="person-add" label="Invite a Fan" disabled={busy} onPress={() => begin()} />
       {form ? <View>
         <Text style={styles.label}>Name</Text><TextInput accessibilityLabel="Fan name" autoComplete="name" editable={!form.id} maxLength={120} value={form.name} onChangeText={(name) => setForm({ ...form, name })} style={styles.input} />
         <Text style={styles.label}>Email</Text><TextInput accessibilityLabel="Fan email" autoComplete="email" autoCapitalize="none" keyboardType="email-address" editable={!form.id} maxLength={254} value={form.email} onChangeText={(email) => setForm({ ...form, email })} style={styles.input} />
@@ -141,7 +144,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack })
       </View> : null}
       {ready ? <View><Text style={{ color: tokens.textPrimary }}>Invitation ready for {ready.name} ({ready.email}). Expires {new Date(ready.expires_at).toLocaleString()}.</Text>{ready.mode === 'qr' ? <Qr value={ready.url} /> : null}<View style={styles.actions}><Action icon="fan.share" label="Share invitation" onPress={() => Share.share({ message: ready.url })} /><Action icon="fan.email" label="Send email" onPress={() => run(() => request({ action: 'send_invitation', connectionId: ready.id }))} /></View></View> : null}
       <Text accessibilityRole="header" style={styles.heading}>Your child's Fans</Text>
-      {state.connections.filter((c) => c.is_owner && c.parent_link_id === parent?.id).map((c) => <View style={styles.person} key={c.id}><View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{c.name}</Text><Text style={{ color: tokens.textPrimary }}>{c.email}</Text><Text style={styles.helper}>{c.status} · {FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => p.label).join(', ')}</Text></View></View>{['active', 'pending'].includes(c.status) ? <View style={styles.actions}><Action label="Edit access" onPress={() => begin(c)} /><Action label={c.status === 'pending' ? 'Cancel invitation' : 'Revoke access'} onPress={() => remove(c, false)} /></View> : null}</View>)}
+      {state.connections.filter((c) => c.is_owner && c.parent_link_id === parent?.id).map((c) => <View style={styles.person} key={c.id}><View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{c.name}</Text><Text style={{ color: tokens.textPrimary }}>{c.email}</Text><Text style={styles.helper}>{c.status} · {FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => p.label).join(', ')}</Text></View></View>{['active', 'pending'].includes(c.status) ? <View style={styles.actions}><Action label="Edit access" onPress={() => begin(c)} /><Action label={c.status === 'pending' ? 'Cancel invitation' : 'Revoke access'} onPress={() => remove(c, false)} /></View> : null}{c.status === 'cancelled' ? <Action icon="delete-outline" label="Delete" disabled={busy} onPress={() => deleteInvitation(c)} /> : null}</View>)}
     </> : null}
     <Text accessibilityRole="header" style={styles.heading}>Children you follow</Text>
     {state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode).tokens}><View style={styles.person}><ClubBrand source={c} /><View style={styles.row}><ParentIcon iconKey="child" color={tokens.accentText} size={28} /><View style={styles.copy}><Text style={styles.label}>{c.player_name}</Text><Text style={styles.helper}>{c.club_name} · {c.team_name}</Text></View></View><View style={styles.actions}>{FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => <Action key={p.key} icon={p.icon} label={p.label} onPress={() => { setFormation(null); void state.open(c.id, p.key === 'game_day' ? 'matches' : p.key) }} />)}</View>{c.permissions.game_day ? <><View style={styles.row}><Text style={styles.copy}>Game Day notifications</Text><Switch accessibilityLabel={`Game Day notifications for ${c.player_name}`} value={c.notifications_enabled} onValueChange={(v) => run(() => state.manage(c.id, v ? 'notifications_on' : 'notifications_off'))} /></View><Action label="View notifications" onPress={() => state.open(c.id, 'notifications')} /></> : null}<Action icon="fan.remove" label="Remove my access" onPress={() => remove(c, true)} /></View></FansTheme.Provider>)}
@@ -165,6 +168,7 @@ function createStyles(tokens) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: tokens.portalSurface }, container: { padding: 18, gap: 12 }, title: { fontSize: 26, fontWeight: '800', color: tokens.textPrimary }, heading: { fontSize: 20, fontWeight: '700', marginTop: 16, color: tokens.textPrimary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, copy: { flex: 1 }, helper: { color: tokens.textSecondary, fontSize: 14, lineHeight: 20 }, label: { color: tokens.textPrimary, fontWeight: '700', fontSize: 16 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, action: { minHeight: 46, paddingVertical: 10, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }, actionLabel: { color: tokens.accentText, fontWeight: '700' },
+  primaryAction: { minHeight: 54, justifyContent: 'center', paddingHorizontal: 18, marginVertical: 8, borderRadius: 10, backgroundColor: tokens.buttonPrimary }, primaryActionLabel: { fontSize: 17, color: tokens.accentForeground },
   input: { minHeight: 48, borderWidth: 1, borderColor: tokens.border, borderRadius: 8, padding: 12, marginVertical: 8, color: tokens.textPrimary }, permission: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: tokens.border },
   person: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: tokens.border, gap: 6 }, error: { color: tokens.danger }, overlay: { flex: 1, backgroundColor: '#0008', justifyContent: 'center', padding: 20 }, modal: { backgroundColor: tokens.portalSurface, padding: 22, gap: 16, borderRadius: 12 }, permissionText: { fontWeight: '600', color: tokens.textPrimary },
 }) }
