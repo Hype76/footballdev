@@ -813,7 +813,7 @@ function ParentHome() {
     setSelectedMessageId('')
     setSelectedRoomId('')
     setPendingNotificationRoomId('')
-    setMoreSection('')
+    setMoreSection((section) => section === 'fans' ? section : '')
     setChatMessages({ error: '', items: [], loading: false })
     setPollDrafts({})
     setNotice(null)
@@ -1200,12 +1200,12 @@ function ParentHome() {
     setActiveTab(tab)
   }
 
-  function handleChildChange(linkId) {
+  function handleChildChange(linkId, { stayOnFans = false } = {}) {
     if (!parentLinks.some((link) => link.id === linkId)) return
     setSelectedLinkId(linkId)
     void saveParentOfflineSelection(selectedMobileUser, linkId).catch((error) => console.warn(error))
     setChildSwitcherOpen(false)
-    setActiveTab('home')
+    if (!stayOnFans) setActiveTab('home')
   }
 
   async function handleOpenMessage(message) {
@@ -2096,7 +2096,7 @@ function ParentHome() {
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
             {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {activeTab === 'more' && moreSection === 'fans' ? <FansScreen embedded themeMode={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'more' && moreSection === 'fans' ? <FansScreen embedded themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
             {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'more' && moreSection === 'messages' ? (
