@@ -16,7 +16,7 @@ import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {normalizeNotificationCategories} from './apps/mobile-core/src/notificationCategories.js';
 window.online=true;window.failSave=false;window.failRead=false;window.calls=[];
 const read=(app,user)=>JSON.parse(localStorage.getItem(app+user)||'null');
-const client={from(){let app,user;return {select(){return this},eq(key,value){if(key==='app')app=value;else user=value;return this},maybeSingle(){return {async abortSignal(){if(!window.online||window.failRead)throw Error('offline');const row=read(app,user);return {data:row?{...row,game_day:row.gameDay}:null}}}}}},
+const client={from(){let app,user=window.actor;return {select(){return this},eq(key,value){if(key==='app')app=value;else user=value;return this},maybeSingle(){return {async abortSignal(){if(!window.online||window.failRead)throw Error('offline');const row=read(app,user);return {data:row?{...row,game_day:row.gameDay}:null}}}}}},
 rpc(name,args){return {async abortSignal(){window.calls.push(args);await new Promise(r=>setTimeout(r,60));if(!window.online||window.failSave)throw Error('offline');const next={...normalizeNotificationCategories(read(args.app_value,window.actor)),[args.key_value]:args.value_json};localStorage.setItem(args.app_value+window.actor,JSON.stringify(next));return {data:next}}}}};
 function Icon({iconKey,name,...rest}){return <MaterialIcons name={name||getMobileIconName(iconKey)} {...rest}/>}
 function App(){const [app,setApp]=React.useState('coach'),[mode,setMode]=React.useState('dark'),[user,setUser]=React.useState('one');window.actor=user;window.showApp=setApp;window.setMode=setMode;window.switchUser=setUser;

@@ -26,8 +26,9 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
     const request = ++active.current
     setState(previous => ({ ...previous, loading: true, message: '' }))
     try {
+      // RLS selects the authenticated owner; older Coach profile IDs can differ.
       const { data, error } = await preferenceRequest(client.from('mobile_notification_preferences')
-        .select('game_day, invites, chats, resources').eq('auth_user_id', userId).eq('app', app).maybeSingle())
+        .select('game_day, invites, chats, resources').eq('app', app).maybeSingle())
       if (error) throw error
       if (active.current === request) setState({ preferences: normalizeNotificationCategories({ ...data, gameDay: data?.game_day }), loading: false, saving: false, message: '' })
     } catch {
