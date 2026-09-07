@@ -292,6 +292,8 @@ async function createDatabase() {
 
   await db.exec(migration)
   await db.exec(auditMigration)
+  const hardening = await readFile(new URL('../supabase/migrations/20260907093937_v1_internal_audit_permissions.sql', import.meta.url), 'utf8')
+  await db.exec(hardening.split('-- These eight')[0].split('revoke all on function public.record_player_chat_audit')[0] + hardening.match(/revoke all on function public.record_adult_player_response_audit_internal[^;]+;/)[0])
 
   await db.exec(`
     insert into public.clubs (id, name, contact_email)
