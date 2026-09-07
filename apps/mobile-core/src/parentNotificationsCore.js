@@ -160,7 +160,7 @@ export function getParentNotificationStatusLabel(value = {}) {
   const state = normalizeParentNotificationState(value)
   if (!state.permissionGranted && state.permissionStatus === 'denied') return 'Blocked in device settings'
   if (!state.enabled) return 'Off'
-  return state.detailLevel === 'detailed' ? 'On, Detailed' : 'On, Minimal'
+  return 'Push alerts enabled'
 }
 
 export function resolveParentNotificationOpen(data, available = {}) {

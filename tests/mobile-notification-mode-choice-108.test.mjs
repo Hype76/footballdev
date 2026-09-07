@@ -6,17 +6,14 @@ const coachApp = fs.readFileSync(new URL('../apps/coach-mobile/App.js', import.m
 const coachNotifications = fs.readFileSync(new URL('../apps/coach-mobile/src/notifications.js', import.meta.url), 'utf8')
 const parentApp = fs.readFileSync(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
 
-test('Parent and Coach notification settings use one Off, Minimal, or Detailed choice', () => {
+test('Parent and Coach settings share the category controls and retain device permission setup', () => {
+  const choices = fs.readFileSync(new URL('../apps/mobile-core/src/notificationCategories.js', import.meta.url), 'utf8')
   for (const source of [parentApp, coachApp]) {
-    assert.match(source, /key: 'off', label: 'Off'/)
-    assert.match(source, /key: 'minimal', label: 'Minimal'/)
-    assert.match(source, /key: 'detailed', label: 'Detailed'/)
-    assert.match(source, /accessibilityRole="radio"/)
+    assert.match(source, /<NotificationCategorySettings/)
+    assert.match(source, /Enable push alerts on this device/)
+    assert.doesNotMatch(source, /label: 'Minimal'|label: 'Detailed'/)
   }
-
-  const coachSettings = coachApp.slice(coachApp.indexOf('function SettingsScreen'), coachApp.indexOf('function CoachHeader'))
-  assert.doesNotMatch(coachSettings, /label="Enable notifications"|label="Disable notifications"/)
-  assert.match(coachSettings, /onNotificationModeChange\(choice\.key\)/)
+  for (const key of ['off', 'scores_cards', 'full']) assert.ok(choices.includes(`key: '${key}'`))
 })
 
 test('selecting a Coach notification detail mode before registration preserves that choice', () => {

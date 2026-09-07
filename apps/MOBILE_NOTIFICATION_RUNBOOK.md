@@ -2,6 +2,16 @@
 
 Use this when testing native push notifications for the Coach and Parents apps.
 
+## Notification category controls
+
+Coach and Parent Settings use Off, Score and cards only, and Full Game Day notifications. Score and cards only is the default for existing and new accounts: goals, score corrections, yellow cards and red cards. Full includes all supported match updates, including substitutions and timer phases. Game Day Off does not disable invitations, chats or resources.
+
+Invites, Chats and New resources are independent switches, enabled by default. Invites includes availability replies and calendar changes. Chats includes messages and polls. These are push controls; existing email communication choices and in-app content remain available. Device permission and any existing device-wide pause still apply.
+
+Preferences are stored per authenticated account and app in `mobile_notification_preferences`. Registration, token refresh, team changes and older Minimal/Detailed clients cannot reset them. Legacy detail levels remain internal to protect existing lock-screen privacy. All Coach and Parent Expo delivery paths recheck current preferences before sending, including queued notifications. Disabled categories complete queued work as skipped rather than retrying or claiming a provider send.
+
+Test both apps in light and dark mode: defaults, each independent switch, all Game Day levels, restart, switching accounts, failed saves, offline retry, device permission denial and paused push registration. Use only authorised test recipients for physical-device delivery checks. Changes to these controls require no new native dependencies or store build.
+
 Native push must be tested on real iOS and Android devices. Simulators, emulators, Expo Go, and web export are not enough for store release approval.
 
 ## Client Setup

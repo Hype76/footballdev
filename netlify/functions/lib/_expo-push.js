@@ -11,8 +11,15 @@ function chunkMessages(messages, size = 100) {
   return chunks
 }
 
-export async function sendExpoPushMessages(messages) {
-  const validMessages = messages
+export async function sendExpoPushMessages(messages, { client } = {}) {
+  let eligibleMessages = messages
+  if (messages.some(message => ['parent', 'coach'].includes(message.data?.app))) {
+    const { filterMobileNotificationMessages } = await import('./_mobile-notification-preferences.js')
+    const database = client || (await import('./_supabase.js')).supabaseAdmin
+    eligibleMessages = await filterMobileNotificationMessages(messages, database)
+  }
+  const skipped = messages.length - eligibleMessages.length
+  const validMessages = eligibleMessages
     .filter((message) => EXPO_PUSH_TOKEN_PATTERN.test(String(message.to || '')))
     .map((message) => ({
       ...message,
@@ -24,6 +31,7 @@ export async function sendExpoPushMessages(messages) {
       sent: 0,
       failed: 0,
       invalidTokens: [],
+      ...(skipped ? { skipped } : {}),
     }
   }
 
@@ -66,10 +74,11 @@ export async function sendExpoPushMessages(messages) {
 
   return results.reduce(
     (summary, result) => ({
+      ...(summary.skipped ? { skipped: summary.skipped } : {}),
       sent: summary.sent + result.sent,
       failed: summary.failed + result.failed,
       invalidTokens: [...summary.invalidTokens, ...(result.invalidTokens || [])],
     }),
-    { sent: 0, failed: 0, invalidTokens: [] },
+    { sent: 0, failed: 0, invalidTokens: [], ...(skipped ? { skipped } : {}) },
   )
 }
