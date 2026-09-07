@@ -20,7 +20,7 @@ export function normalizeNotificationCategories(value = {}) {
 export function notificationCategory(data = {}) {
   const type = String(data.type || data.intentType || '').toLowerCase()
   const route = String(data.route || '').toLowerCase()
-  if (route === 'invites' || /availability|assignment|scorer_request|scorer_volunteer|calendar|training|session|squad/.test(type) || ['calendar', 'sessions'].includes(route)) return 'invites'
+  if (route === 'invites' || /availability|assignment|scorer_|calendar|training|session|squad/.test(type) || ['calendar', 'sessions'].includes(route)) return 'invites'
   if (['chat', 'messages', 'polls'].includes(route) || /chat|message|poll|communication/.test(type)) return 'chats'
   if (route === 'resources' || /resource/.test(type)) return 'resources'
   if (route === 'matchday' || /matchday|match_day/.test(type)) return 'gameDay'

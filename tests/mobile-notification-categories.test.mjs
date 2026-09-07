@@ -18,6 +18,7 @@ test('requested defaults and every Game Day level have independent category beha
   }
   for (const [key, data] of [
     ['invites',{ route:'matchday',type:'scorer_request' }], ['invites',{route:'invites',type:'matchday_availability'}],
+    ['invites',{route:'matchday',type:'scorer_selected'}], ['invites',{route:'matchday',type:'scorer_volunteer'}],
     ['invites',{route:'calendar',type:'calendar_change'}], ['invites',{route:'sessions',type:'training_availability_response'}],
     ['chats',{route:'chat',type:'staff_chat'}], ['chats',{route:'messages',type:'parent_message'}],
     ['chats',{route:'polls',type:'poll_results'}], ['resources',{route:'resources',type:'resource_shared'}],
