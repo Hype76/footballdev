@@ -40,5 +40,5 @@ export function fanInviteUrl(origin, token) {
 
 export function normalizeFanProfileLink(row) {
   return { id: row.id, linkType: 'fan', relationshipType: row.relationship_type, playerId: row.player_id, playerName: row.player_name,
-    clubId: row.club_id, clubName: row.club_name, teamId: row.team_id, teamName: row.team_name, permissions: row.permissions }
+    clubId: row.club_id, clubName: row.club_name, clubLogoUrl: row.club_logo_url, themeAccent: row.theme_accent, themeButtonStyle: row.theme_button_style, teamId: row.team_id, teamName: row.team_name, permissions: row.permissions }
 }

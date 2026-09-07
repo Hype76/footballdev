@@ -1,14 +1,14 @@
 import { Buffer } from 'node:buffer'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
-import { fanAccessSummary, fanInviteUrl } from '../../src/lib/fans.js'
+import { fanInviteUrl } from '../../src/lib/fans.js'
+import { buildFanEmail } from './lib/_fan-email.js'
 import { loadFanInviteForOwner, loadFanScope } from './lib/_fan-access.js'
 import { loadFanMatches, loadFanSchedule } from './lib/_fan-schedule.js'
 import { loadHistory } from './lib/_parent-development-history.js'
 import { loadAuthorisedResource } from './parent-resource-access.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const escape = (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;')
 const json = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' }, body: JSON.stringify(body) })
 
 export async function handleFans(event, { createClient = createSupabaseAdminClient, deliverEmail = sendEmail } = {}) {
@@ -35,8 +35,7 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
       const fan = await loadFanInviteForOwner(client, actor, body.connectionId)
       if (fan.email_sent_at) return json(200, { success: true, alreadySent: true })
       const url = fanInviteUrl('https://parent.footballplayer.online', fan.invite_token)
-      await deliverEmail({ from: createFromAddress('Football Player'), to: [fan.email], subject: 'Your Football Player Fan invitation',
-        html: `<p>Hello ${escape(fan.name)},</p><p>You have been invited as a Fan on Football Player.</p><ul>${fanAccessSummary(fan.permissions).map((text) => `<li>${escape(text)}</li>`).join('')}</ul><p><a href="${escape(url)}">Review and accept invitation</a></p><p>Sign in with ${escape(fan.email)}. This invitation expires after 24 hours. You can remove your access at any time.</p>`,
+      await deliverEmail({ from: createFromAddress('Football Player'), to: [fan.email], ...buildFanEmail({ club: fan.club, fan, url })
       }, { idempotencyKey: `fan-invitation-${fan.id}`, context: { emailType: 'fan_invitation', actorUserId: actor, targetEntityType: 'fan_connection', targetEntityId: fan.id } })
       const sent = await client.from('fan_connections').update({ email_sent_at: new Date().toISOString() }).eq('id', fan.id)
       if (sent.error) throw sent.error

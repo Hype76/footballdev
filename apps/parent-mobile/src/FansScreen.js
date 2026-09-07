@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, AppState, Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, AppState, Image, Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Crypto from 'expo-crypto'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import Constants from 'expo-constants'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { fanBrandingLink, fanBrandTheme } from '../../../src/lib/fan-branding'
 import QRCode from 'qrcode/lib/core/qrcode'
 import { supabase, getAccessToken } from '../../mobile-core/src/supabase'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
@@ -28,6 +30,16 @@ function Action({ icon, label, onPress, disabled }) {
   const styles = useMemo(() => createStyles(tokens), [tokens])
   return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[styles.action, disabled && { opacity: 0.5 }]}>{icon ? <ParentIcon iconKey={icon} color={tokens.accentText} size={25} /> : null}<Text style={styles.actionLabel}>{label}</Text></Pressable>
 }
+function ClubBrand({ source }) {
+  const brand = fanBrandingLink(source)
+  const tokens = useContext(FansTheme)
+  const [failedUrl, setFailedUrl] = useState('')
+  if (!brand.clubName) return null
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: tokens.accent }}>
+    {brand.clubLogoUrl && failedUrl !== brand.clubLogoUrl ? <Image accessibilityLabel={`${brand.clubName} logo`} source={{ uri: brand.clubLogoUrl }} onError={() => setFailedUrl(brand.clubLogoUrl)} resizeMode="contain" style={{ width: 56, height: 56, backgroundColor: '#fff', borderRadius: 8 }} /> : <Text style={{ color: tokens.accentText, fontSize: 28, fontWeight: '800' }}>{brand.clubName.slice(0, 1)}</Text>}
+    <Text style={{ color: tokens.textPrimary, fontSize: 18, fontWeight: '800', flex: 1 }}>{brand.clubName}</Text>
+  </View>
+}
 function Qr({ value }) {
   const matrix = useMemo(() => QRCode.create(value, { errorCorrectionLevel: 'M' }).modules, [value])
   const size = 260 / (matrix.size + 8)
@@ -40,15 +52,19 @@ export async function clearFanNotificationDevice() {
   await SecureStore.deleteItemAsync('fan-notification-device')
   if (token) await request({ action: 'unregister_device', token }).catch(() => {})
 }
-export function FansScreen({ embedded = false, themeTokens, onBack }) {
-  const tokens = themeTokens || DEFAULT_PARENT_MOBILE_THEME.tokens
-  const styles = useMemo(() => createStyles(tokens), [tokens])
+export function FansScreen({ embedded = false, themeTokens, themeMode, onBack }) {
+  const [savedMode, setSavedMode] = useState('dark')
+  useEffect(() => { let active = true; AsyncStorage.getItem('fp.parent.display-theme.v1').then((value) => { if (active && ['light', 'dark'].includes(value)) setSavedMode(value) }).catch(() => {}); return () => { active = false } }, [])
   const { user, signOut, refreshUserProfile } = useMobileAuth()
   const state = useFans({ rpc, request })
   const { clearView, reload, open } = state
   const parents = (user?.parentPortalLinks || []).filter((p) => p.linkType !== 'fan' && p.linkType !== 'family')
-  const [parentId, setParentId] = useState(parents[0]?.id || '')
+  const [parentId, setParentId] = useState(user?.selectedParentLinkId || parents[0]?.id || '')
   const parent = parents.find((p) => p.id === parentId) || parents[0]
+  const brandSource = state.connections.find((c) => c.id === state.view?.connectionId) || parent || state.connections.find((c) => !c.is_owner && c.status === 'active')
+  const displayMode = themeMode || savedMode
+  const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode).tokens : themeTokens || DEFAULT_PARENT_MOBILE_THEME.tokens, [brandSource, displayMode, themeTokens])
+  const styles = useMemo(() => createStyles(tokens), [tokens])
   const [form, setForm] = useState(null)
   const [confirm, setConfirm] = useState(null)
   const [ready, setReady] = useState(null)
@@ -74,7 +90,7 @@ export function FansScreen({ embedded = false, themeTokens, onBack }) {
     }
   }, [lastNotification, open, state.connections])
   useEffect(() => { setFormation(null); setReport(null) }, [state.view])
-  const begin = (existing) => { requestId.current = Crypto.randomUUID(); setReady(null); setForm(existing ? { id: existing.id, name: existing.name, email: existing.email, permissions: existing.permissions } : { name: '', email: '', permissions: normalizeFanPermissions({ game_day: true }) }) }
+  const begin = (existing) => { clearView(); requestId.current = Crypto.randomUUID(); setReady(null); setForm(existing ? { id: existing.id, name: existing.name, email: existing.email, permissions: existing.permissions } : { name: '', email: '', permissions: normalizeFanPermissions({ game_day: true }) }) }
   const review = (mode) => { try { setConfirm({ ...validateFanInvite(form), id: form.id, mode, parentId: parent?.id, child: parent?.playerName }) } catch (e) { state.setError(e.message) } }
   const complete = () => run(async () => {
     const draft = confirm
@@ -108,7 +124,7 @@ export function FansScreen({ embedded = false, themeTokens, onBack }) {
     else if (/^https:\/\//.test(result.accessUrl || '')) await Linking.openURL(result.accessUrl)
     else throw new Error('This resource could not be opened.')
   })
-  const content = <FansTheme.Provider value={tokens}><View style={styles.container}>
+  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, { backgroundColor: tokens.portalSurface }]}><ClubBrand source={brandSource} />
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
     <View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={30} /><Text accessibilityRole="header" style={styles.title}>Fans</Text></View>
     <Text style={styles.helper}>Choose who follows your child and what they can see.</Text>
@@ -128,14 +144,14 @@ export function FansScreen({ embedded = false, themeTokens, onBack }) {
       {state.connections.filter((c) => c.is_owner && c.parent_link_id === parent?.id).map((c) => <View style={styles.person} key={c.id}><View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{c.name}</Text><Text style={{ color: tokens.textPrimary }}>{c.email}</Text><Text style={styles.helper}>{c.status} · {FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => p.label).join(', ')}</Text></View></View>{['active', 'pending'].includes(c.status) ? <View style={styles.actions}><Action label="Edit access" onPress={() => begin(c)} /><Action label={c.status === 'pending' ? 'Cancel invitation' : 'Revoke access'} onPress={() => remove(c, false)} /></View> : null}</View>)}
     </> : null}
     <Text accessibilityRole="header" style={styles.heading}>Children you follow</Text>
-    {state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <View key={c.id} style={styles.person}><View style={styles.row}><ParentIcon iconKey="child" color={tokens.accentText} size={28} /><View style={styles.copy}><Text style={styles.label}>{c.player_name}</Text><Text style={styles.helper}>{c.club_name} · {c.team_name}</Text></View></View><View style={styles.actions}>{FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => <Action key={p.key} icon={p.icon} label={p.label} onPress={() => { setFormation(null); void state.open(c.id, p.key === 'game_day' ? 'matches' : p.key) }} />)}</View>{c.permissions.game_day ? <><View style={styles.row}><Text style={styles.copy}>Game Day notifications</Text><Switch accessibilityLabel={`Game Day notifications for ${c.player_name}`} value={c.notifications_enabled} onValueChange={(v) => run(() => state.manage(c.id, v ? 'notifications_on' : 'notifications_off'))} /></View><Action label="View notifications" onPress={() => state.open(c.id, 'notifications')} /></> : null}<Action icon="fan.remove" label="Remove my access" onPress={() => remove(c, true)} /></View>)}
+    {state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode).tokens}><View style={styles.person}><ClubBrand source={c} /><View style={styles.row}><ParentIcon iconKey="child" color={tokens.accentText} size={28} /><View style={styles.copy}><Text style={styles.label}>{c.player_name}</Text><Text style={styles.helper}>{c.club_name} · {c.team_name}</Text></View></View><View style={styles.actions}>{FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => <Action key={p.key} icon={p.icon} label={p.label} onPress={() => { setFormation(null); void state.open(c.id, p.key === 'game_day' ? 'matches' : p.key) }} />)}</View>{c.permissions.game_day ? <><View style={styles.row}><Text style={styles.copy}>Game Day notifications</Text><Switch accessibilityLabel={`Game Day notifications for ${c.player_name}`} value={c.notifications_enabled} onValueChange={(v) => run(() => state.manage(c.id, v ? 'notifications_on' : 'notifications_off'))} /></View><Action label="View notifications" onPress={() => state.open(c.id, 'notifications')} /></> : null}<Action icon="fan.remove" label="Remove my access" onPress={() => remove(c, true)} /></View></FansTheme.Provider>)}
     {state.view ? <View><Action label="Close view" onPress={() => { state.clearView(); setFormation(null) }} />{!state.content ? <Text style={{ color: tokens.textPrimary }}>Loading...</Text> : <>
       {(state.content.matches || []).map((m) => <View key={m.id} style={styles.person}><Action icon="parent.match" label={`${m.opponent}: ${m.home_score} : ${m.away_score}`} onPress={() => state.open(state.view.connectionId, 'matches', { matchId: m.id })} /><Text style={{ color: tokens.textPrimary }}>{m.match_date} · {m.kickoff_time_tbc ? 'Time TBC' : m.kickoff_time} · {m.status}</Text></View>)}
       {(state.content.events || []).map((e) => <Text key={e.id}>{e.minute == null ? '' : `${e.minute} min · `}{e.event_type.replaceAll('_', ' ')} · {e.home_score} : {e.away_score}</Text>)}
       {(state.content.schedule || []).map((e) => <View style={styles.person} key={e.id}><View style={styles.row}><ParentIcon iconKey="action.calendar" color={tokens.accentText} size={26} /><Text style={styles.label}>{e.title}</Text></View><Text style={{ color: tokens.textPrimary }}>{e.starts_at ? new Date(e.starts_at).toLocaleString() : `${e.date} ${e.time || 'Time TBC'}`}</Text><Text style={styles.helper}>{e.location}</Text>{e.recurrence_frequency && e.recurrence_frequency !== 'none' ? <Text style={{ color: tokens.textPrimary }}>Repeats {e.recurrence_frequency}{e.recurrence_until ? ` until ${e.recurrence_until}` : ''}</Text> : null}</View>)}
       {(state.content.notifications || []).map((n) => <View key={n.id} style={styles.person}><Text style={styles.label}>{n.title}</Text><Text style={{ color: tokens.textPrimary }}>{n.body}</Text></View>)}
       {state.content.reports ? <View>{state.content.reports.map((r) => <View style={styles.person} key={r.id}><Action icon="development" label={`${r.form?.name || 'Development report'} · ${r.recordDate}`} onPress={() => setReport(report === r.id ? null : r.id)} />{report === r.id ? <View><Text style={{ color: tokens.textPrimary }}>Overall {r.overallScore ?? 'Not scored'}{r.overallScore == null ? '' : ` / ${r.overallMaxScore}`}</Text>{r.responseItems?.map((item, index) => <View key={index} style={styles.person}><Text style={styles.label}>{item.label}</Text><Text style={{ color: tokens.textPrimary }}>{item.displayValue}</Text></View>)}{r.sections?.map((s, index) => <View key={index} style={styles.person}><Text style={styles.label}>{s.title}</Text><Text style={{ color: tokens.textPrimary }}>{s.body}</Text>{s.chartPoints?.map((point, n) => <Text key={n} style={{ color: tokens.textPrimary }}>{point.label}: {point.value}</Text>)}</View>)}</View> : null}</View>)}</View> : null}
-      {state.content.resources ? formation && state.content.resources.some((r) => r.id === formation.resourceId) ? <ResourcesScreen resource={{ items: [], loading: false }} formationBoard={formation} onCloseFormation={() => setFormation(null)} themeTokens={themeTokens} /> : <View>{state.content.resources.map((r) => <View style={styles.person} key={r.id}><Action icon="resource" label={r.title} onPress={() => openResource(r)} /><Text style={styles.helper}>{r.description}</Text></View>)}</View> : null}
+      {state.content.resources ? formation && state.content.resources.some((r) => r.id === formation.resourceId) ? <ResourcesScreen resource={{ items: [], loading: false }} formationBoard={formation} onCloseFormation={() => setFormation(null)} themeTokens={tokens} /> : <View>{state.content.resources.map((r) => <View style={styles.person} key={r.id}><Action icon="resource" label={r.title} onPress={() => openResource(r)} /><Text style={styles.helper}>{r.description}</Text></View>)}</View> : null}
     </>}</View> : null}
     {state.connections.some((c) => !c.is_owner && c.status === 'active' && c.permissions.game_day) ? <Action label="Enable phone notifications" icon="notifications" onPress={enableDevice} /> : null}
     {!embedded ? <Action label="Sign out" onPress={() => run(async () => { state.clearView(); await signOut() })} /> : null}

@@ -164,7 +164,7 @@ create or replace function public.list_fan_connections()
 returns jsonb language sql stable security definer set search_path=pg_catalog,public as $$
   select coalesce(jsonb_agg(jsonb_build_object(
     'id',f.id,'parent_link_id',f.parent_link_id,'player_id',f.player_id,'club_id',f.club_id,
-    'player_name',p.player_name,'club_name',c.name,'team_id',p.team_id,'team_name',t.name,
+    'player_name',p.player_name,'club_name',c.name,'club_logo_url',c.logo_url,'theme_accent',c.theme_accent,'theme_button_style',c.theme_button_style,'team_id',p.team_id,'team_name',t.name,
     'name',f.name,'email',f.email,'relationship_type',f.relationship_type,'permissions',f.permissions,
     'status',case when f.status='pending' and f.expires_at<=now() then 'expired' else f.status end,
     'created_at',f.created_at,'expires_at',f.expires_at,'accepted_at',f.accepted_at,'updated_at',f.updated_at,
@@ -228,8 +228,8 @@ create or replace function public.get_fan_invitation(token_value uuid)
 returns jsonb language plpgsql stable security definer set search_path=pg_catalog,public as $$
 declare result jsonb;
 begin
-  select jsonb_build_object('name',f.name,'email',f.email,'player_name',p.player_name,'permissions',f.permissions,'expires_at',f.expires_at)
-  into result from public.fan_connections f join public.players p on p.id=f.player_id
+  select jsonb_build_object('name',f.name,'email',f.email,'player_name',p.player_name,'permissions',f.permissions,'expires_at',f.expires_at,'club_id',c.id,'club_name',c.name,'club_logo_url',c.logo_url,'theme_accent',c.theme_accent,'theme_button_style',c.theme_button_style)
+  into result from public.fan_connections f join public.players p on p.id=f.player_id join public.clubs c on c.id=f.club_id
   where auth.uid() is not null and f.invite_token=token_value and f.relationship_type='fan'
     and f.email=lower(coalesce(auth.jwt()->>'email',''))
     and ((f.status='pending' and f.expires_at>now()) or (f.status='active' and f.auth_user_id=auth.uid()))
@@ -253,3 +253,15 @@ end; $$;
 revoke all on function app_private.reject_legacy_family_access() from public,anon,authenticated;
 create trigger reject_legacy_family_access before insert or update on public.parent_player_links
 for each row execute function app_private.reject_legacy_family_access();
+
+-- A token holder can see club branding before sign-in, but no child or recipient data.
+create or replace function public.get_fan_invitation_branding(token_value uuid)
+returns jsonb language sql stable security definer set search_path=pg_catalog,public as $$
+  select jsonb_build_object('club_id',c.id,'club_name',c.name,'club_logo_url',c.logo_url,'theme_accent',c.theme_accent,'theme_button_style',c.theme_button_style)
+  from public.fan_connections f join public.clubs c on c.id=f.club_id
+  where f.invite_token=token_value and f.relationship_type='fan'
+    and ((f.status='pending' and f.expires_at>now()) or (f.status='active' and f.auth_user_id=auth.uid()))
+    and app_private.fan_scope_active(f.parent_link_id,f.player_id,f.club_id,f.invited_by);
+$$;
+revoke all on function public.get_fan_invitation_branding(uuid) from public;
+grant execute on function public.get_fan_invitation_branding(uuid) to anon,authenticated;

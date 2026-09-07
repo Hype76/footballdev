@@ -14,14 +14,14 @@ async function dbFixture({ legacy = false } = {}) {
     create function auth.jwt() returns jsonb language sql stable as $$ select jsonb_build_object('email',current_setting('request.jwt.claim.email',true)) $$;
     create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}');
     create table public.users(id uuid primary key,role text,status text,club_id uuid);
-    create table public.clubs(id uuid primary key,name text,status text);
+    create table public.clubs(id uuid primary key,name text,status text,logo_url text,theme_accent text,theme_button_style text);
     create table public.teams(id uuid primary key,name text);
     create table public.players(id uuid primary key,club_id uuid,team_id uuid,player_name text,status text,archived_at timestamptz);
     create table public.match_days(id uuid primary key);
     create table public.parent_player_links(id uuid primary key,auth_user_id uuid,player_id uuid,club_id uuid,team_id uuid,link_type text,status text,parent_link_id uuid,accepted_at timestamptz,updated_at timestamptz);
     insert into auth.users(id,email,email_confirmed_at) values('${id(1)}','parent@example.test',now()),('${id(2)}','fan@example.test',now()),('${id(3)}','other@example.test',now()),('${id(4)}','admin@example.test',now());
     insert into public.users values('${id(1)}','parent_portal','active','${id(10)}'),('${id(4)}','super_admin','active',null);
-    insert into public.clubs values('${id(10)}','Test club','active');
+    insert into public.clubs values('${id(10)}','Test club','active','https://example.test/club.png','#123abc','solid');
     insert into public.teams values('${id(11)}','Test team');
     insert into public.players values('${id(20)}','${id(10)}','${id(11)}','Test child','active',null),('${id(21)}','${id(10)}','${id(11)}','Other child','active',null);
     insert into public.parent_player_links(id,auth_user_id,player_id,club_id,team_id,link_type,status) values('${id(30)}','${id(1)}','${id(20)}','${id(10)}','${id(11)}','parent','active');
@@ -137,5 +137,21 @@ test('Legacy migration preserves one verified Fan per child and retires unaccept
     assert.equal((await db.query("select count(*)::int n from parent_player_links where link_type='family' and status='revoked'")).rows[0].n,3)
     await actor(db,1,'parent@example.test')
     await assert.rejects(db.query('select create_own_family_share_link($1)',[id(30)]),/use Fans/)
+  } finally { await db.close() }
+})
+test('Pre-sign-in branding is token-bound and never reveals the child or recipient', async () => {
+  const db=await dbFixture()
+  try {
+    await actor(db,1,'parent@example.test')
+    const first=await invite(db)
+    await db.exec('set role anon')
+    const brand=(await db.query('select get_fan_invitation_branding($1) data',[first.invite_token])).rows[0].data
+    assert.deepEqual(Object.keys(brand).sort(),['club_id','club_logo_url','club_name','theme_accent','theme_button_style'].sort())
+    assert.equal(brand.club_name,'Test club')
+    assert.equal(brand.theme_accent,'#123abc')
+    assert.equal((await db.query('select get_fan_invitation_branding($1) data',[id(90)])).rows[0].data,null)
+    await db.exec('reset role')
+    await db.query("update fan_connections set expires_at=now()-interval '1 minute' where id=$1",[first.id])
+    assert.equal((await db.query('select get_fan_invitation_branding($1) data',[first.invite_token])).rows[0].data,null)
   } finally { await db.close() }
 })
