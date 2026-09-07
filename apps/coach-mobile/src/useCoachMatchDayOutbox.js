@@ -3,7 +3,6 @@ import { createMatchDayOutbox, projectMatchDayOutbox } from '../../mobile-core/s
 import { createCoachMatchDayCommandId, syncCoachMatchDayCommand } from '../../mobile-core/src/coachMatchDayData'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { readCoachMatchDayOutbox, updateCoachMatchDayOutbox } from './offline'
-import NetInfo from '@react-native-community/netinfo'
 import { AppState } from 'react-native'
 
 export function useCoachMatchDayOutbox({ user, context, matchId }) {
@@ -23,10 +22,9 @@ export function useCoachMatchDayOutbox({ user, context, matchId }) {
     controller?.start()
     controller?.load().then(() => controller.sync()).catch(() => {})
     const sync = () => { if (AppState.currentState === 'active') void controller?.sync().catch(() => {}) }
-    const removeNetwork = NetInfo.addEventListener(state => { if (state.isConnected !== false && state.isInternetReachable !== false) sync() })
     const appState = AppState.addEventListener('change', state => { if (state === 'active') sync() })
     const interval = setInterval(sync, 15000)
-    return () => { controller?.stop(); removeNetwork(); appState.remove(); clearInterval(interval) }
+    return () => { controller?.stop(); appState.remove(); clearInterval(interval) }
   }, [controller])
   const enqueue = useCallback(async (kind, payload) => {
     if (!controller) throw new Error('Choose a fixture first.')

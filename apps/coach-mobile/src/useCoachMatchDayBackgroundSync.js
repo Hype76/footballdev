@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { AppState } from 'react-native'
-import NetInfo from '@react-native-community/netinfo'
 import { applyCoachContext } from '../../mobile-core/src/coachContextCore'
 import { createMatchDayOutbox } from '../../mobile-core/src/matchDayOutboxCore'
 import { syncCoachMatchDayCommand } from '../../mobile-core/src/coachMatchDayData'
@@ -35,9 +34,8 @@ export function useCoachMatchDayBackgroundSync({ user, contexts, enabled }) {
       finally { running = false }
     }
     void sync()
-    const removeNetwork = NetInfo.addEventListener(state => { if (state.isConnected !== false && state.isInternetReachable !== false) void sync() })
     const appState = AppState.addEventListener('change', state => { if (state === 'active') void sync() })
     const interval = setInterval(() => void sync(),15000)
-    return () => { stopped = true; controller?.stop(); removeNetwork(); appState.remove(); clearInterval(interval) }
+    return () => { stopped = true; controller?.stop(); appState.remove(); clearInterval(interval) }
   }, [user, contexts, enabled])
 }

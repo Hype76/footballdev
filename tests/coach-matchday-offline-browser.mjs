@@ -63,7 +63,6 @@ const mocks = [
   [/CoachSquadPanel$/, 'export const CoachSquadPanel=()=>null;'],
   [/^@expo\/vector-icons\/MaterialIcons$/, 'export default ()=>null;'],
   [/^expo-keep-awake$/, 'export const isAvailableAsync=async()=>false;export const activateKeepAwakeAsync=async()=>{};export const deactivateKeepAwake=async()=>{};'],
-  [/^@react-native-community\/netinfo$/, 'export default {addEventListener(fn){window.listeners.push(fn);return ()=>{window.listeners=window.listeners.filter(item=>item!==fn)}}};'],
   [/^react-native$/, `export * from 'rn-web';export const AppState={currentState:'active',addEventListener(){return {remove(){}}}};`],
 ]
 const result = await build({ stdin: { contents: entry, resolveDir: rootDir, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: {'.js':'jsx'},
