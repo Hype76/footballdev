@@ -18,7 +18,7 @@ export async function deliverCoachMatchDayCommands(commandId = null, actorUserId
       if (contextError) throw contextError
       if (!context) throw new Error('The match is no longer available.')
       const result = await deliver({ match: { ...command.match, teams: context.teams, clubs: context.clubs }, type: command.type, eventId: command.eventId || '', targetParentLinkIds: [...new Set(targets || [])] })
-      if (result.mobileFailed || result.webFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
+      if (result.mobileFailed || result.webFailed || result.fanFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
       completed += 1
     } catch (error) { failure = error.message || 'Match notification delivery failed.'; failed += 1 }
     const result = await client.rpc('complete_coach_match_day_command_notification', { command_id_value: command.id, error_value: failure })

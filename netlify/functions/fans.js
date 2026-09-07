@@ -4,7 +4,7 @@ import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { fanAccessSummary, fanInviteUrl } from '../../src/lib/fans.js'
 import { loadFanInviteForOwner, loadFanScope } from './lib/_fan-access.js'
 import { loadFanMatches, loadFanSchedule } from './lib/_fan-schedule.js'
-import { loadHistory } from './parent-development-history.js'
+import { loadHistory } from './lib/_parent-development-history.js'
 import { loadAuthorisedResource } from './parent-resource-access.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i

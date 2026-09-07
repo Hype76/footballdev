@@ -78,3 +78,20 @@ test('Game Day notifications stop after permission loss, opt-out or Fan self rem
   assert.equal(sends,0)
   assert.equal(tables.fan_notifications.length,0)
 })
+test('Visible Game Day delivers once with a scoped link; unsharing hides its saved notification',async()=>{
+  const {client,tables}=fixture()
+  tables.fan_connections[0].permissions.game_day=true
+  const match={id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString(),opponent:'Private match name'}
+  tables.match_days.push(match)
+  tables.fan_devices.push({token:'ExpoPushToken[synthetic]',auth_user_id:id(2)})
+  const delivered=[]
+  const send=()=>sendFanMatchNotifications({client,match,type:'goal',eventId:id(11),targetParentLinkIds:[id(4)],sendPush:async(messages)=>{delivered.push(...messages);return {sent:messages.length,failed:0}}})
+  assert.equal((await send()).fanSent,1)
+  assert.equal((await send()).fanSent,0)
+  assert.equal(delivered.length,1)
+  assert.equal(delivered[0].data.fanConnectionId,id(1))
+  assert.equal(JSON.stringify(delivered).includes('Private match name'),false)
+  match.parent_visible=false
+  const response=await handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action:'notifications',connectionId:id(1)})},{createClient:()=>client})
+  assert.deepEqual(JSON.parse(response.body).notifications,[])
+})

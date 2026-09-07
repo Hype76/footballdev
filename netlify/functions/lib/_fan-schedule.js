@@ -69,7 +69,7 @@ export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclus
     if (direct || shared) {
       const dates = buildCoachCalendarOccurrenceDates({ date: start.date, recurrenceFrequency: event.recurrence_frequency, recurrenceUntil: event.recurrence_until && event.recurrence_until < horizon ? event.recurrence_until : horizon })
       for (const date of dates) {
-        if (date < today || excluded(event.id, date)) continue
+        if (date < today || date > horizon || excluded(event.id, date)) continue
         const id = `${event.id}:${date}`
         result.set(id, { id, title: event.title, date, time: start.time, end_time: end.time, location: event.location })
       }

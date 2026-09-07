@@ -27,6 +27,12 @@ try {
       const args = route.request().postDataJSON() || {}
       let result = []
       if (name === 'list_fan_connections') result = connections
+      if (name === 'get_fan_invitation') result = {name:'Invited Fan',email:'parent.fixture@footballplayer.test',player_name:'Invitation child',permissions:{schedule:true,game_day:false,development:false,resources:false}}
+      if (name === 'accept_fan_invitation') result = '30000000-0000-4000-8000-000000000002'
+      if (name === 'manage_fan_connection') {
+        const row = connections.find((c) => c.id === args.connection_id_value)
+        assert.equal(args.action_value, 'remove'); row.status = 'removed'
+      }
       if (name === 'create_fan_invitation') {
         creates.push(args)
         const row = { id: `10000000-0000-4000-8000-${String(creates.length).padStart(12,'0')}`, name: args.name_value, email: args.email_value,
@@ -37,7 +43,9 @@ try {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) })
     }
     if (url.pathname === '/.netlify/functions/fans') {
-      assert.equal(route.request().postDataJSON().action,'send_invitation')
+      const action = route.request().postDataJSON().action
+      if (action === 'schedule') return route.fulfill({ status:200,contentType:'application/json',body:JSON.stringify({schedule:[{id:'training',title:'Shared Fan training',date:'2026-09-14',time:'18:00'}]}) })
+      assert.equal(action,'send_invitation')
       emailRequests++
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' })
     }
@@ -80,7 +88,23 @@ try {
   assert.equal(emailRequests,1)
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
   await page.screenshot({path:'outputs/fans-local/fans-phone.png',fullPage:true})
+  connections.push({id:'30000000-0000-4000-8000-000000000001',is_owner:false,status:'active',relationship_type:'fan',player_name:'Followed child',club_name:'Test club',team_name:'Test team',permissions:{schedule:true,game_day:false,development:false,resources:false}})
+  await page.reload()
+  await page.getByRole('button',{name:'Schedule',exact:true}).click()
+  await page.getByText('Shared Fan training',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Game Day',exact:true}).count(),0)
+  await page.getByRole('button',{name:'Remove my access',exact:true}).click()
+  await page.getByRole('dialog').getByRole('button',{name:'Remove access',exact:true}).click()
+  await page.getByText('Shared Fan training',{exact:true}).waitFor({state:'hidden'})
+  await page.getByText('Followed child',{exact:true}).waitFor({state:'hidden'})
+  await page.screenshot({path:'outputs/fans-local/fan-access-removed.png',fullPage:true})
+  await page.goto(`${origin}/fan-invite/20000000-0000-4000-8000-000000000099`)
+  await page.getByRole('heading',{name:'Follow Invitation child',exact:true}).waitFor()
+  assert.equal(await page.getByRole('listitem').count(),1)
+  await page.getByRole('button',{name:'Accept invitation',exact:true}).click()
+  await page.waitForURL('**/fans')
+  await page.getByRole('heading',{name:'Fans',exact:true}).waitFor()
   assert.deepEqual(errors,[])
-  console.log('PASS: required identity, exact confirmation, Schedule-only access, QR, two pending invitations, simulated email, phone layout and no browser errors.')
+  console.log('PASS: required identity, exact confirmation, Schedule-only access, QR, two pending invitations, simulated email, phone layout, permission-limited viewing, Fan self-removal clears content, recipient acceptance and no browser errors.')
   await context.close()
 } finally { await browser.close(); await server.close() }

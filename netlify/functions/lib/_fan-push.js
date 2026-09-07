@@ -30,7 +30,7 @@ export async function sendFanMatchNotifications({ client, match, type, eventId, 
       const current = await loadFanScope(client, fan.auth_user_id, fan.id, 'game_day')
       if (!current.fan.notifications_enabled) continue
       const tokens = (devices.data || []).map((d) => d.token).filter((token) => !seenTokens.has(token))
-      const delivery = await sendPush(tokens.map((to) => ({ to, title: 'Game Day update', body: 'Open Fans to view a game you follow.', sound: 'default',
+      const delivery = await sendPush(tokens.map((to) => ({ to, title: 'Game Day update', body: 'Open Fans to view a game you follow.', sound: 'default', priority: 'high', ttl: 14400,
         data: { app: 'parent', route: 'fans', fanConnectionId: fan.id, matchDayId: match.id } })))
       if (!delivery.failed) {
         tokens.forEach((token) => seenTokens.add(token))

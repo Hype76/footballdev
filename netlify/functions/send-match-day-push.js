@@ -370,7 +370,7 @@ export async function handler(event) {
     }
 
     const delivery = await deliverMatchDayNotification({ match, type, eventId, targetParentLinkIds })
-    const succeeded = delivery.mobileFailed === 0 && delivery.webFailed === 0
+    const succeeded = delivery.mobileFailed === 0 && delivery.webFailed === 0 && !delivery.fanFailed
     await completePushOperation({ operationKey, succeeded, errorMessage: succeeded ? '' : 'Some match notifications were not accepted. Retry delivery.' })
     claimedOperationKey = ''
 
@@ -498,7 +498,7 @@ export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
     if (requestError) throw requestError
     const targetParentLinkIds = [...new Set((targets || []).filter(Boolean))]
     const result = await deliverMatchDayNotification({ match, type, eventId: command.eventId || '', targetParentLinkIds })
-    if (result.mobileFailed > 0) throw new Error('Match notification failed.')
+    if (result.mobileFailed > 0 || result.fanFailed > 0) throw new Error('Match notification failed.')
   }
   const complete = await supabaseAdmin.rpc('claim_guest_match_notification', { ...claimArgs, completed: true })
   if (complete.error) throw complete.error

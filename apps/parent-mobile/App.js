@@ -3285,10 +3285,9 @@ function BackButton({ label, onPress }) {
 
 function AppContent() {
   const fanNotification = Notifications.useLastNotificationResponse()
-  const [showFanNotification, setShowFanNotification] = useState(false)
-  useEffect(() => {
-    if (fanNotification?.notification?.request?.content?.data?.route === 'fans') setShowFanNotification(true)
-  }, [fanNotification])
+  const [dismissedFanNotification, setDismissedFanNotification] = useState('')
+  const fanNotificationId = fanNotification?.notification?.request?.identifier || ''
+  const showFanNotification = fanNotification?.notification?.request?.content?.data?.route === 'fans' && fanNotificationId !== dismissedFanNotification
   const {
     authError,
     user,
@@ -3325,7 +3324,7 @@ function AppContent() {
     )
   }
   if (user?.parentPortalLinks?.length && user.parentPortalLinks.every((link) => link.linkType === 'fan')) return <FansScreen />
-  if (showFanNotification) return <FansScreen onBack={() => setShowFanNotification(false)} />
+  if (showFanNotification) return <FansScreen onBack={() => setDismissedFanNotification(fanNotificationId)} />
   return <ParentHome />
 }
 

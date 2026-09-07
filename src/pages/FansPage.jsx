@@ -37,7 +37,7 @@ function FansWorkspace({ user, signOut }) {
   }, [clearView])
   const run = async (action) => { setBusy(true); state.setError(''); try { await action() } catch (e) { state.setError(e.message) } finally { setBusy(false) } }
   const begin = (existing) => { setReady(null); setQr(''); requestId.current = crypto.randomUUID(); setForm(existing ? { id: existing.id, name: existing.name, email: existing.email, permissions: existing.permissions } : { name: '', email: '', permissions: normalizeFanPermissions({ game_day: true }) }) }
-  const confirm = (mode) => { try { const draft = validateFanInvite(form); setConfirmation({ ...draft, id: form.id, mode, parentId: selectedParent?.id, child: selectedParent?.playerName }) } catch (e) { state.setError(e.message) } }
+  const confirm = (mode) => { try { const draft = validateFanInvite(form); state.setError(''); setConfirmation({ ...draft, id: form.id, mode, parentId: selectedParent?.id, child: selectedParent?.playerName }) } catch (e) { state.setError(e.message) } }
   const complete = () => run(async () => {
     const draft = confirmation
     if (draft.id) await state.manage(draft.id, 'permissions', draft.permissions)
@@ -92,7 +92,7 @@ function FanContent({ state, run }) {
     {(data.events || []).map((e) => <p key={e.id}>{e.minute == null ? '' : `${e.minute} min · `}{e.event_type.replaceAll('_', ' ')} · {e.home_score} : {e.away_score}</p>)}
     {(data.schedule || []).map((e) => <div className="fans-person" key={e.id}><FanIcon name="schedule" /><div><strong>{e.title}</strong><small>{e.starts_at ? new Date(e.starts_at).toLocaleString() : `${e.date} ${e.time || 'Time TBC'}`}</small><small>{e.location}{e.recurrence_frequency && e.recurrence_frequency !== 'none' ? ` · Repeats ${e.recurrence_frequency}${e.recurrence_until ? ` until ${e.recurrence_until}` : ''}` : ''}</small></div></div>)}
     {(data.notifications || []).map((n) => <div key={n.id}><strong>{n.title}</strong><p>{n.body}</p></div>)}
-    {(data.reports || []).map((r) => <details key={r.id}><summary>{r.form?.name || 'Development report'} · {r.recordDate}</summary><p>{r.overallScore == null ? '' : `Overall ${r.overallScore} / ${r.overallMaxScore}`}</p>{r.responseItems?.map((item, i) => <p key={i}><strong>{item.label || item.question}</strong> {item.displayValue || item.value || item.answer || item.score}</p>)}{r.sections?.map((s, i) => <div key={i}><strong>{s.title}</strong><p>{s.body || s.text}</p></div>)}</details>)}
+    {(data.reports || []).map((r) => <details key={r.id}><summary>{r.form?.name || 'Development report'} · {r.recordDate}</summary><p>{r.overallScore == null ? '' : `Overall ${r.overallScore} / ${r.overallMaxScore}`}</p>{r.responseItems?.map((item, i) => <p key={i}><strong>{item.label || item.question}</strong> {item.displayValue || item.value || item.answer || item.score}</p>)}{r.sections?.map((s, i) => <div key={i}><strong>{s.title}</strong><p>{s.body || s.text}</p>{s.chartPoints?.map((point, n) => <p key={n}>{point.label}: {point.value}</p>)}</div>)}</details>)}
     {(data.resources || []).map((r) => <button className="fans-person" key={r.id} onClick={() => openResource(r)}><FanIcon name="resources" /><span>{r.title}</span></button>)}
     {resource && data.resources?.some((r) => r.id === resource.id) ? <div>
       <h3>{resource.title}</h3><button onClick={() => setResource(null)}>Close resource</button>

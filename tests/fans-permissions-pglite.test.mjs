@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite'
 const migration = await readFile(new URL('../supabase/migrations/20260907121942_fans_controlled_access.sql', import.meta.url), 'utf8')
 const id = (n) => `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const permissions = { schedule: false, game_day: true, development: false, resources: false }
-async function dbFixture() {
+async function dbFixture({ legacy = false } = {}) {
   const db = new PGlite()
   await db.exec(`
     create role anon; create role authenticated; create role service_role;
@@ -28,6 +28,10 @@ async function dbFixture() {
     grant usage on schema public,auth to authenticated;
     grant execute on function auth.uid(),auth.jwt() to authenticated;
   `)
+  if (legacy) await db.exec(`insert into parent_player_links(id,auth_user_id,player_id,club_id,team_id,link_type,status,parent_link_id,accepted_at) values
+    ('${id(60)}','${id(2)}','${id(20)}','${id(10)}','${id(11)}','family','active','${id(30)}',now()-interval '1 day'),
+    ('${id(61)}','${id(2)}','${id(20)}','${id(10)}','${id(11)}','family','active','${id(30)}',now()),
+    ('${id(62)}',null,'${id(20)}','${id(10)}','${id(11)}','family','pending','${id(30)}',null);`)
   await db.exec(migration)
   return db
 }
@@ -116,5 +120,17 @@ test('Suspension, hidden Player type and legacy authority cannot bypass Fan perm
     await db.query("select manage_fan_connection($1,'revoke')",[first.id])
     await actor(db,2,'fan@example.test')
     assert.deepEqual((await db.query('select list_fan_connections() data')).rows[0].data,[])
+  } finally { await db.close() }
+})
+test('Legacy migration preserves one verified Fan per child and retires unaccepted broad links', async () => {
+  const db = await dbFixture({legacy:true})
+  try {
+    const rows=(await db.query('select id,status,permissions from fan_connections')).rows
+    assert.equal(rows.length,1)
+    assert.equal(rows[0].id,id(61))
+    assert.deepEqual(rows[0].permissions,{schedule:true,game_day:true,development:true,resources:true})
+    assert.equal((await db.query("select count(*)::int n from parent_player_links where link_type='family' and status='revoked'")).rows[0].n,3)
+    await actor(db,1,'parent@example.test')
+    await assert.rejects(db.query('select create_own_family_share_link($1)',[id(30)]),/use Fans/)
   } finally { await db.close() }
 })
