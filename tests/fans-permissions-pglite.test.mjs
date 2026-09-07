@@ -33,7 +33,7 @@ async function dbFixture({ legacy = false } = {}) {
     ('${id(61)}','${id(2)}','${id(20)}','${id(10)}','${id(11)}','family','active','${id(30)}',now()),
     ('${id(62)}',null,'${id(20)}','${id(10)}','${id(11)}','family','pending','${id(30)}',null);`)
   await db.exec(migration)
-  await db.exec(await readFile(new URL('../supabase/migrations/20260907180000_fans_cancelled_invitation_delete.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20260907161234_fans_cancelled_invitation_delete.sql', import.meta.url), 'utf8'))
   return db
 }
 async function actor(db, n, email) { await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.email',$2,false)",[id(n),email]) }
