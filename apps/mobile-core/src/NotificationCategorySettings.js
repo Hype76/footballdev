@@ -8,6 +8,7 @@ const SWITCHES = [
   { key: 'chats', label: 'Chats', iconKey: 'more.chat', copy: 'Messages, team conversations and polls.' },
   { key: 'resources', label: 'New resources', iconKey: 'more.resources', copy: 'Alerts when a resource is shared with you.' },
 ]
+const SHORT_GAME_DAY_LABELS = { off: 'Off', scores_cards: 'Scores & cards', full: 'All updates' }
 
 async function preferenceRequest(query) {
   const controller = new AbortController()
@@ -59,24 +60,24 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
   const text = { color: palette.text }
   const muted = { color: palette.textMuted }
   return <View style={styles.stack}>
-    <Text style={[styles.title, text]} accessibilityRole="header">Choose your alerts</Text>
-    <Text style={[styles.copy, muted]}>These push choices apply to your {app === 'coach' ? 'Coach' : 'Parent'} account on every device. You can still find updates in the app.</Text>
+    <Text style={[styles.copy, muted]}>Applies across your {app === 'coach' ? 'Coach' : 'Parent'} devices.</Text>
     <Text style={[styles.title, text]} accessibilityRole="header">Game Day</Text>
+    <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel="Game Day alerts">
     {GAME_DAY_CHOICES.map(choice => {
       const selected = state.preferences?.gameDay === choice.key
       return <Pressable key={choice.key} accessibilityRole="radio" accessibilityLabel={choice.label}
         accessibilityState={{ checked: selected, disabled }} aria-checked={selected} aria-disabled={disabled} disabled={disabled} onPress={() => change('gameDay', choice.key)}
-        style={({ pressed }) => [styles.choice, { borderColor: selected ? palette.accent : palette.border, backgroundColor: selected ? palette.accentMuted : 'transparent' }, pressed && styles.pressed]}>
+        style={({ pressed }) => [styles.choice, { borderColor: selected ? palette.accent : 'transparent' }, pressed && styles.pressed]}>
         <Icon iconKey={choice.iconKey} color={selected ? palette.accent : palette.textMuted} size={28} />
-        <View style={styles.copyColumn}><Text style={[styles.label, text]}>{choice.label}</Text><Text style={[styles.copy, muted]}>{choice.copy}</Text></View>
-        <Icon name={selected ? 'radio-button-checked' : 'radio-button-unchecked'} iconKey={selected ? 'settings.selected' : 'settings.badge'} color={selected ? palette.accent : palette.textMuted} size={24} />
+        <Text style={[styles.choiceLabel, selected ? { color: palette.accent } : text]}>{SHORT_GAME_DAY_LABELS[choice.key]}</Text>
       </Pressable>
     })}
-    <Text style={[styles.copy, muted]}>Game Day Off only stops match alerts. Choose your other alerts below.</Text>
+    </View>
+    {state.preferences ? <Text style={[styles.copy, muted]}>{GAME_DAY_CHOICES.find(choice => choice.key === state.preferences.gameDay)?.copy}</Text> : null}
     {SWITCHES.map(choice => <View key={choice.key} style={[styles.switchRow, { borderColor: palette.border }]}>
       <Icon iconKey={choice.iconKey} color={palette.accent} size={28} />
-      <View style={styles.copyColumn}><Text style={[styles.label, text]}>{choice.label}</Text><Text style={[styles.copy, muted]}>{choice.copy}</Text></View>
-      <Switch accessibilityLabel={choice.label} disabled={disabled} value={state.preferences?.[choice.key] === true}
+      <View style={styles.copyColumn}><Text style={[styles.label, text]}>{choice.label}</Text></View>
+      <Switch accessibilityLabel={choice.label} accessibilityHint={choice.copy} disabled={disabled} value={state.preferences?.[choice.key] === true}
         onValueChange={value => change(choice.key, value)} trackColor={{ false: palette.borderStrong || palette.border, true: palette.accentMuted }}
         thumbColor={state.preferences?.[choice.key] ? palette.accent : palette.textMuted} />
     </View>)}
@@ -89,7 +90,9 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
 const styles = StyleSheet.create({
   stack: { gap: 14 }, title: { fontSize: 18, fontWeight: '700' }, label: { fontSize: 16, fontWeight: '700' },
   copy: { fontSize: 14, lineHeight: 21 }, copyColumn: { flex: 1, gap: 4, minWidth: 0 },
-  choice: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 14, minHeight: 78 },
+  choices: { flexDirection: 'row', alignItems: 'stretch' },
+  choice: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, borderBottomWidth: 2, paddingHorizontal: 4, paddingVertical: 12, minHeight: 88 },
+  choiceLabel: { fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, paddingVertical: 14 },
   retry: { minHeight: 44, justifyContent: 'center' }, pressed: { opacity: 0.75 },
 })
