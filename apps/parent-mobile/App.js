@@ -2975,7 +2975,7 @@ function SettingsScreen({
       <View style={styles.card}>
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><ParentIcon iconKey="settings.security" color={palette.accentText || palette.accentText} size={26} /><Text style={styles.cardTitle}>Biometric app lock</Text></View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><ParentIcon iconKey="settings.security" color={palette.accentText} size={26} /><Text style={styles.cardTitle}>Biometric app lock</Text></View>
             <Text style={styles.bodyText}>
               Use Face ID or your fingerprint to unlock this app.
             </Text>
@@ -3165,7 +3165,7 @@ function InfoPanel({ children, iconKey, onLayout, title }) {
   const { palette, styles } = useParentTheme()
   return (
     <View onLayout={onLayout} style={styles.card}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>{iconKey ? <ParentIcon iconKey={iconKey} color={palette.accentText || palette.accentText} size={26} /> : null}<Text accessibilityRole="header" style={[styles.cardTitle, { flex: 1 }]}>{title}</Text></View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>{iconKey ? <ParentIcon iconKey={iconKey} color={palette.accentText} size={26} /> : null}<Text accessibilityRole="header" style={[styles.cardTitle, { flex: 1 }]}>{title}</Text></View>
       <View style={styles.infoStack}>{children}</View>
     </View>
   )
