@@ -268,7 +268,7 @@ test('signed-in accounts with no active link receive the safe no-child state', (
 
 test('Settings contain local biometric explanation, identity, child summary and restrained test classification', () => {
   assert.match(appSource, /Biometric app lock/)
-  assert.match(appSource, /does not change your Football Player password/)
+  assert.match(appSource, /Use Face ID or your fingerprint to unlock this app/)
   assert.match(appSource, /Signed-in Parent/)
   assert.match(appSource, /Linked children/)
   assert.equal(getBuildClassification('internal'), 'Internal test build')

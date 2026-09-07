@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
+import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import * as Application from 'expo-application'
@@ -1042,30 +1043,32 @@ function SettingsScreen({
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const hasKnownNotificationState = Boolean(notificationState)
   const [cacheState, setCacheState] = useState(null)
-  const [notificationSectionY, setNotificationSectionY] = useState(null)
   useEffect(() => {
     let mounted = true
     void inspectCoachOfflineState(user.id).then((state) => { if (mounted) setCacheState(state) }).catch(() => { if (mounted) setCacheState({ hasDocument: false, status: 'unavailable' }) })
     return () => { mounted = false }
   }, [lastUpdatedAt, user.id])
-  useEffect(() => {
-    if (!notificationSettingsFocusRequest || notificationSectionY === null || !onNotificationSettingsFocus) return
-    const frame = requestAnimationFrame(() => onNotificationSettingsFocus(notificationSectionY))
-    return () => cancelAnimationFrame(frame)
-  }, [notificationSectionY, notificationSettingsFocusRequest, onNotificationSettingsFocus])
   return (
-    <ScreenIntro copy="Account, device security, notifications, sync, and app information." title="Settings">
+    <ScreenIntro title="Settings">
+      <IconSettings palette={palette} Icon={CoachIcon} focusRequest={notificationSettingsFocusRequest}
+        onNavigate={() => onNotificationSettingsFocus?.(0)}
+        footer={<SecondaryAction label="Log out" onPress={onSignOut} />}>
+      <SettingsSection id="account" label="Account" iconKey="settings.account">
       <Section compact iconKey="settings.account" title="Account">
         <InfoRow iconName="person-outline" label="Name" value={user.displayName || user.name} />
         <InfoRow iconName="mail-outline" label="Email" value={user.email} />
         <InfoRow iconName="shield" label="Role" value={context.roleLabel} />
         <InfoRow iconName="groups" label="Context" value={context.teamName || context.clubName} />
       </Section>
+      </SettingsSection>
+      <SettingsSection id="display" label="Display" iconKey="settings.appearance">
       <Section compact iconKey="settings.appearance" title="Appearance">
         <SettingRow copy="Choose a lighter appearance for this device." label={`Light mode ${themeMode === 'light' ? 'on' : 'off'}`}>
           <Switch accessibilityLabel="Toggle light mode" onValueChange={onToggleTheme} value={themeMode === 'light'} />
         </SettingRow>
       </Section>
+      </SettingsSection>
+      <SettingsSection id="security" label="Security" iconKey="settings.security">
       <Section compact iconKey="settings.security" title="Device security">
         <SettingRow
           copy={biometricStateLoading
@@ -1080,7 +1083,9 @@ function SettingsScreen({
           ) : <SecondaryAction label="Retry" onPress={onRefreshBiometricState} />}
         </SettingRow>
       </Section>
-      <Section compact iconKey="settings.notifications" onLayout={(event) => setNotificationSectionY(event.nativeEvent.layout.y)} title="Notifications">
+      </SettingsSection>
+      <SettingsSection id="notifications" label="Notifications" iconKey="settings.notifications">
+      <Section compact iconKey="settings.notifications" title="Notifications">
         <InfoRow
           label="Status"
           value={notificationStateLoading
@@ -1089,11 +1094,11 @@ function SettingsScreen({
             ? getCoachNotificationStatusLabel(notificationState)
             : 'Unable to verify'}
         />
-        <Text style={styles.bodyText}>{notificationStateLoading
+        {notificationStateLoading || !hasKnownNotificationState || !notificationState.registered ? <Text style={styles.bodyText}>{notificationStateLoading
           ? 'Restoring the saved notification setting for this device.'
           : hasKnownNotificationState
-          ? notificationState.registered ? 'Registered to this Coach installation. Your saved choice applies across authorised Coach contexts.' : notificationState.message || 'Not enabled on this device.'
-          : 'Notification status could not be read. No setting has been changed.'}</Text>
+          ? notificationState.message || 'Not enabled on this device.'
+          : 'Notification status could not be read. No setting has been changed.'}</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
         <NotificationCategorySettings key={user.id} app="coach" userId={user.id} palette={palette} Icon={CoachIcon} />
         {notificationStateLoading || !hasKnownNotificationState ? (
@@ -1101,7 +1106,7 @@ function SettingsScreen({
         ) : <SecondaryAction disabled={isRegisteringPush} label={notificationState.preferenceEnabled ? 'Pause all push alerts on this device' : 'Enable push alerts on this device'} onPress={() => onNotificationModeChange(notificationState.preferenceEnabled ? 'off' : 'minimal')} />}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <SecondaryAction disabled={isRegisteringPush} label="Refresh notification status" onPress={onRefreshNotificationState} /> : null}
         {hasKnownNotificationState && !notificationState.permissionGranted && (notificationState.permissionStatus === 'denied' || notificationState.canAskAgain === false) ? <SecondaryAction disabled={isRegisteringPush} label="Open device notification settings" onPress={() => Linking.openSettings()} /> : null}
-        <SettingRow copy="Show the authoritative unread count on this device." label="App icon badge">
+        <SettingRow copy="Show unread updates on the app icon." label="App icon badge">
           <Switch
             accessibilityLabel="App icon badge"
             disabled={isRegisteringPush}
@@ -1109,19 +1114,23 @@ function SettingsScreen({
             value={appBadgeEnabled}
           />
         </SettingRow>
-        <Text style={styles.helperText}>Your phone must allow notifications to receive push alerts. Lock-screen copy excludes Player names, Parent contacts, Chat bodies, and Development notes.</Text>
       </Section>
+      </SettingsSection>
+      <SettingsSection id="sync" label="Offline & sync" iconKey="settings.sync">
       <Section compact iconKey="settings.sync" title="Offline and sync">
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
         <InfoRow label="Saved information" value={cacheState?.hasDocument ? 'Saved securely on this device' : 'Open your team while online to prepare'} />
         <Text style={styles.helperText}>Open Game Day before losing signal. Saved goals, cards and substitutions wait on this device and sync when you reconnect.</Text>
       </Section>
+      </SettingsSection>
+      <SettingsSection id="app" label="App info" iconKey="settings.app">
       <Section compact iconKey="settings.app" title="About the app">
         <InfoRow label="Club" value={context.clubName} />
         <InfoRow label="Version" value={appVersion} />
         <InfoRow label="Build" value={String(build)} />
       </Section>
-      <SecondaryAction label="Log out" onPress={onSignOut} />
+      </SettingsSection>
+      </IconSettings>
     </ScreenIntro>
   )
 }
@@ -1221,7 +1230,7 @@ function ScreenIntro({ children, copy, title }) {
     <View style={styles.stack}>
       <View style={styles.screenIntro}>
         <Text accessibilityRole="header" style={styles.screenTitle}>{title}</Text>
-        <Text style={styles.bodyText}>{copy}</Text>
+        {copy ? <Text style={styles.bodyText}>{copy}</Text> : null}
       </View>
       {children}
     </View>

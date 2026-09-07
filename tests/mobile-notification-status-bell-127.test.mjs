@@ -58,11 +58,12 @@ test('Coach and Parent headers use the shared status bell and focus Notification
     assert.match(source, /getMobileNotificationIndicator\(notificationState, notificationStateStatus\)/)
     assert.match(source, /accessibilityHint="Opens the Notifications section in Settings"/)
     assert.match(source, /notificationStatusButton: \{ alignItems: 'center', height: 44, justifyContent: 'center', width: 44 \}/)
-    assert.match(source, /onLayout=\{\(event\) => setNotificationSectionY\(event\.nativeEvent\.layout\.y\)\}/)
+    assert.match(source, /<IconSettings[^>]*focusRequest=\{notificationSettingsFocusRequest\}/)
+    assert.match(source, /<SettingsSection id="notifications" label="Notifications"/)
   }
 
   assert.match(coachApp, /if \(navigate\('settings'\)\)/)
-  assert.match(coachApp, /onNotificationSettingsFocus\(notificationSectionY\)/)
+  assert.match(coachApp, /onNotificationSettingsFocus\?\.\(0\)/)
   assert.match(parentApp, /setMoreSection\('settings'\)[\s\S]*setActiveTab\('more'\)/)
-  assert.match(parentApp, /onNotificationSettingsFocus\(settingsRootY \+ notificationSectionY\)/)
+  assert.match(parentApp, /onNotificationSettingsFocus\?\.\(settingsRootY \|\| 0\)/)
 })

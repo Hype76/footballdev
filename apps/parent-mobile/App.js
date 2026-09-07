@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
+import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
@@ -2858,19 +2859,17 @@ function SettingsScreen({
   const biometricStateLoading = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const notificationStateKnown = [MOBILE_SETTING_LOAD_STATES.READY, MOBILE_SETTING_LOAD_STATES.STALE].includes(notificationStateStatus)
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
-  const [notificationSectionY, setNotificationSectionY] = useState(null)
   const [settingsRootY, setSettingsRootY] = useState(null)
 
-  useEffect(() => {
-    if (!notificationSettingsFocusRequest || notificationSectionY === null || settingsRootY === null || !onNotificationSettingsFocus) return
-    const frame = requestAnimationFrame(() => onNotificationSettingsFocus(settingsRootY + notificationSectionY))
-    return () => cancelAnimationFrame(frame)
-  }, [notificationSectionY, notificationSettingsFocusRequest, onNotificationSettingsFocus, settingsRootY])
 
   return (
     <View onLayout={(event) => setSettingsRootY(event.nativeEvent.layout.y)} style={styles.screenStack}>
-      <ScreenIntro copy="Account, security and app information." title="Settings" />
+      <ScreenIntro title="Settings" />
+      <IconSettings palette={palette} Icon={ParentIcon} focusRequest={notificationSettingsFocusRequest}
+        onNavigate={() => { setCurrentPassword(''); setNextPassword(''); onNotificationSettingsFocus?.(settingsRootY || 0) }}
+        footer={<PrimaryAction label="Sign out" onPress={onSignOut} secondary />}>
 
+      <SettingsSection id="account" label="Account" iconKey="settings.account">
       <InfoPanel iconKey="settings.account" title="Signed-in Parent">
         <TextInput
           accessibilityLabel="Display name"
@@ -2891,7 +2890,9 @@ function SettingsScreen({
         />
         <InfoRow label="Email" value={user.email || 'Email unavailable'} />
       </InfoPanel>
+      </SettingsSection>
 
+      <SettingsSection id="children" label="Children" iconKey="more.team">
       <InfoPanel iconKey="more.team" title="Linked children">
         {links.length > 0 ? links.map((link) => (
           <View key={link.id} style={styles.linkSummary}>
@@ -2906,7 +2907,9 @@ function SettingsScreen({
           </View>
         )) : <Text style={styles.bodyText}>No active child links are available.</Text>}
       </InfoPanel>
+      </SettingsSection>
 
+      <SettingsSection id="display" label="Display" iconKey="settings.appearance">
       <InfoPanel iconKey="settings.appearance" title="Display">
         <Text style={styles.bodyText}>Choose the app appearance on this device.</Text>
         <View style={styles.notificationChoices}>
@@ -2927,7 +2930,9 @@ function SettingsScreen({
           })}
         </View>
       </InfoPanel>
+      </SettingsSection>
 
+      <SettingsSection id="security" label="Security" iconKey="settings.security">
       <InfoPanel iconKey="settings.security" title="Password security">
         <Text style={styles.bodyText}>Confirm your current password before choosing a new one.</Text>
         <TextInput
@@ -2972,7 +2977,7 @@ function SettingsScreen({
           <View style={styles.settingCopy}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><ParentIcon iconKey="settings.security" color={palette.accentText || palette.accent} size={26} /><Text style={styles.cardTitle}>Biometric app lock</Text></View>
             <Text style={styles.bodyText}>
-              Uses biometrics already enrolled on this device. It protects local app access and does not change your Football Player password.
+              Use Face ID or your fingerprint to unlock this app.
             </Text>
             {biometricStateReady && !biometricAvailable ? <Text style={styles.helperText}>No enrolled biometric security is available on this device.</Text> : null}
             {biometricStateLoading ? <Text style={styles.helperText}>Checking this device...</Text> : null}
@@ -2992,6 +2997,9 @@ function SettingsScreen({
         {biometricStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <PrimaryAction label="Retry biometric check" onPress={onRetryBiometricState} secondary /> : null}
       </View>
 
+      </SettingsSection>
+
+      <SettingsSection id="communication" label="Email & app" iconKey="more.chat">
       <InfoPanel iconKey="more.chat" title="Communication choice">
         <Text style={styles.bodyText}>Choose how Football Player sends club updates and requests. Email and app notifications are delivered independently.</Text>
         <View style={styles.notificationChoices}>
@@ -3018,8 +3026,10 @@ function SettingsScreen({
           })}
         </View>
       </InfoPanel>
+      </SettingsSection>
 
-      <InfoPanel iconKey="settings.notifications" onLayout={(event) => setNotificationSectionY(event.nativeEvent.layout.y)} title="Notifications">
+      <SettingsSection id="notifications" label="Notifications" iconKey="settings.notifications">
+      <InfoPanel iconKey="settings.notifications" title="Notifications">
         <InfoRow
           label="Status"
           value={notificationStateKnown
@@ -3028,9 +3038,7 @@ function SettingsScreen({
         />
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>Notification status could not be read. No setting has been changed.</Text> : null}
-        <Text style={styles.bodyText}>Choose which push alerts you receive. Your phone must also allow notifications.</Text>
-        {communicationPreference.communicationChannel === 'email' ? <Text style={styles.helperText}>Your communication choice is Email. Select App notifications or Both above to receive these push alerts.</Text> : null}
-        <Text style={styles.helperText}>Permission is requested when needed. Full Player names, message text, assessments and Coach notes are never included.</Text>
+        {communicationPreference.communicationChannel === 'email' ? <Text style={styles.helperText}>Your communication choice is Email. Choose App notifications or Both in Email &amp; app to receive push alerts.</Text> : null}
         {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
           <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
         ) : null}
@@ -3040,7 +3048,7 @@ function SettingsScreen({
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
             <Text style={styles.cardTitle}>App icon badge</Text>
-            <Text style={styles.bodyText}>Show the authoritative unread count on this device.</Text>
+            <Text style={styles.bodyText}>Show unread updates on the app icon.</Text>
           </View>
           {activeActionId === 'app-icon-badge' ? <BrandLoader /> : (
             <Switch
@@ -3070,7 +3078,9 @@ function SettingsScreen({
           </View>
         ) : null}
       </InfoPanel>
+      </SettingsSection>
 
+      <SettingsSection id="app" label="App info" iconKey="settings.app">
       <InfoPanel iconKey="settings.app" title="App information">
         <InfoRow label="Build" value={getBuildClassification(config.buildProfile)} />
         <InfoRow label="Connection" value={config.isUsable ? config.isProduction ? 'Live service ready' : 'Test service ready' : 'Connection needs attention'} />
@@ -3082,13 +3092,17 @@ function SettingsScreen({
             : 'This test build cannot connect to the live Football Player service.'}
         </Text>
       </InfoPanel>
+      </SettingsSection>
 
+      <SettingsSection id="hidden" label="Hidden items" iconKey="settings.hidden">
       <InfoPanel iconKey="settings.hidden" title="Hidden items">
         <InfoRow label="Removed from lists" value={String(hiddenItemCount || 0)} />
         <Text style={styles.helperText}>Removing an item hides it on this device. Club records and audit history are not deleted.</Text>
         <PrimaryAction disabled={!hiddenItemCount} label="Restore hidden items" onPress={onRestoreDismissedItems} secondary />
       </InfoPanel>
+      </SettingsSection>
 
+      <SettingsSection id="sync" label="Offline & sync" iconKey="settings.sync">
       <InfoPanel iconKey="settings.sync" title="Offline and sync">
         <InfoRow label="Connection" value={isOffline ? 'Offline' : 'Online'} />
         <InfoRow label="Saved information" value={cacheState.source === 'cache' ? cacheState.stale ? 'Saved, may be out of date' : 'Saved on this device' : 'Up to date'} />
@@ -3099,9 +3113,9 @@ function SettingsScreen({
           <PrimaryAction label="Retry sync" loading={isSyncing} onPress={onRetrySync} secondary />
         ) : null}
       </InfoPanel>
+      </SettingsSection>
 
-      <PrimaryAction label="Sign out" onPress={onSignOut} secondary />
-      <Text style={styles.legalText}>Private family access.</Text>
+      </IconSettings>
     </View>
   )
 }
@@ -3111,7 +3125,7 @@ function ScreenIntro({ copy, title }) {
   return (
     <View style={styles.screenIntro}>
       <Text accessibilityRole="header" style={styles.screenTitle}>{title}</Text>
-      <Text style={styles.screenCopy}>{copy}</Text>
+      {copy ? <Text style={styles.screenCopy}>{copy}</Text> : null}
     </View>
   )
 }
