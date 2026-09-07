@@ -274,7 +274,13 @@ async function deliverIntent({ client, intent, kind, sendMessages }) {
       }
     }
 
-    const result = await sendMessages([payload])
+    const result = await sendMessages([payload], { client })
+    if (result.skipped === 1 && !result.failed) {
+      await updateIntent(client, table, intent.intent_id, {
+        status: 'sent', processed_at: new Date().toISOString(), safe_error_code: 'notification_category_disabled',
+      })
+      return 'skipped'
+    }
     await revokeInvalidInstallation(client, intent, result.invalidTokens)
     const sent = Number(result.sent || 0) === 1 && Number(result.failed || 0) === 0
     const status = sent ? 'sent' : 'failed'

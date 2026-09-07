@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
+import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import * as Application from 'expo-application'
 import Constants from 'expo-constants'
@@ -297,7 +298,7 @@ function CoachHome() {
       const resolved = preserveCoachNotificationRegistration(notificationStateRef.current, next)
       setNotificationState(resolved)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
-      if (!silent) setNotice(resolved.enabled ? `Coach notifications are on with ${resolved.detailLevel === 'detailed' ? 'Detailed' : 'Minimal'} content.` : resolved.message)
+      if (!silent) setNotice(resolved.enabled ? 'Coach push alerts are enabled on this device.' : resolved.message)
       return resolved
     } catch (error) {
       const message = getCoachPushSetupFailureMessage(error)
@@ -1031,7 +1032,7 @@ function SettingsScreen({
   themeMode,
   user,
 }) {
-  const { styles } = useCoachTheme()
+  const { palette, styles } = useCoachTheme()
   const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || 'development'
   const build = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || 'development'
@@ -1040,7 +1041,6 @@ function SettingsScreen({
   const biometricStateLoading = biometricStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const hasKnownNotificationState = Boolean(notificationState)
-  const selectedNotificationMode = notificationState?.preferenceEnabled ? notificationState.detailLevel : 'off'
   const [cacheState, setCacheState] = useState(null)
   const [notificationSectionY, setNotificationSectionY] = useState(null)
   useEffect(() => {
@@ -1062,7 +1062,7 @@ function SettingsScreen({
         <InfoRow iconName="groups" label="Context" value={context.teamName || context.clubName} />
       </Section>
       <Section compact iconKey="settings.appearance" title="Appearance">
-        <SettingRow copy="Use a complete semantic light or dark palette." label={`Light mode ${themeMode === 'light' ? 'on' : 'off'}`}>
+        <SettingRow copy="Choose a lighter appearance for this device." label={`Light mode ${themeMode === 'light' ? 'on' : 'off'}`}>
           <Switch accessibilityLabel="Toggle light mode" onValueChange={onToggleTheme} value={themeMode === 'light'} />
         </SettingRow>
       </Section>
@@ -1095,32 +1095,10 @@ function SettingsScreen({
           ? notificationState.registered ? 'Registered to this Coach installation. Your saved choice applies across authorised Coach contexts.' : notificationState.message || 'Not enabled on this device.'
           : 'Notification status could not be read. No setting has been changed.'}</Text>
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
+        <NotificationCategorySettings key={user.id} app="coach" userId={user.id} palette={palette} Icon={CoachIcon} />
         {notificationStateLoading || !hasKnownNotificationState ? (
           notificationStateLoading ? <BrandLoader /> : <PrimaryAction disabled={isRegisteringPush} label="Retry notification check" onPress={onRefreshNotificationState} />
-        ) : (
-          <View style={styles.notificationChoices}>
-            {[
-              { copy: 'Do not send Coach app notifications to this device.', key: 'off', label: 'Off' },
-              { copy: 'General alerts with the least detail.', key: 'minimal', label: 'Minimal' },
-              { copy: 'A little more context, without Player names.', key: 'detailed', label: 'Detailed' },
-            ].map((choice) => {
-              const selected = selectedNotificationMode === choice.key
-              return (
-                <Pressable
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: selected, disabled: isRegisteringPush }}
-                  disabled={isRegisteringPush}
-                  key={choice.key}
-                  onPress={() => onNotificationModeChange(choice.key)}
-                  style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{choice.label}</Text>
-                  <Text style={styles.helperText}>{choice.copy}</Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        )}
+        ) : <SecondaryAction disabled={isRegisteringPush} label={notificationState.preferenceEnabled ? 'Pause all push alerts on this device' : 'Enable push alerts on this device'} onPress={() => onNotificationModeChange(notificationState.preferenceEnabled ? 'off' : 'minimal')} />}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <SecondaryAction disabled={isRegisteringPush} label="Refresh notification status" onPress={onRefreshNotificationState} /> : null}
         {hasKnownNotificationState && !notificationState.permissionGranted && (notificationState.permissionStatus === 'denied' || notificationState.canAskAgain === false) ? <SecondaryAction disabled={isRegisteringPush} label="Open device notification settings" onPress={() => Linking.openSettings()} /> : null}
         <SettingRow copy="Show the authoritative unread count on this device." label="App icon badge">
@@ -1131,19 +1109,15 @@ function SettingsScreen({
             value={appBadgeEnabled}
           />
         </SettingRow>
-        <Text style={styles.helperText}>Minimal privacy is the conservative default. Selecting Minimal or Detailed requests device permission when needed. Lock-screen copy excludes Player names, Parent contacts, Chat bodies, and Development notes.</Text>
+        <Text style={styles.helperText}>Your phone must allow notifications to receive push alerts. Lock-screen copy excludes Player names, Parent contacts, Chat bodies, and Development notes.</Text>
       </Section>
-      <Section compact iconKey="settings.sync" title="Sync and environment">
+      <Section compact iconKey="settings.sync" title="Offline and sync">
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
-        <InfoRow label="Encrypted cache" value={cacheState?.hasDocument ? `Ready, schema ${cacheState.schemaVersion}` : cacheState?.status || 'Checking'} />
-        <InfoRow label="Cache ownership" value="Coach, user, environment, Club, Team, context, and resource isolated" />
-        <InfoRow label="Environment" value={config.isProduction ? 'Production' : 'Test only'} />
-        <InfoRow label="Production access" value={config.isProduction ? 'True' : 'False'} />
-        <InfoRow label="Offline changes" value="High-risk changes require an online authority check" />
+        <InfoRow label="Saved information" value={cacheState?.hasDocument ? 'Saved securely on this device' : 'Open your team while online to prepare'} />
+        <Text style={styles.helperText}>Open Game Day before losing signal. Saved goals, cards and substitutions wait on this device and sync when you reconnect.</Text>
       </Section>
-      <Section compact iconKey="settings.badge" title="App">
-        <InfoRow label="Branding" value={`${context.clubName}${context.teamName ? ` | ${context.teamName}` : ''}`} />
-        <InfoRow label="Accent source" value={context.teamAccent ? 'Team accent' : context.clubAccent ? 'Club accent' : 'Football Player fallback'} />
+      <Section compact iconKey="settings.app" title="About the app">
+        <InfoRow label="Club" value={context.clubName} />
         <InfoRow label="Version" value={appVersion} />
         <InfoRow label="Build" value={String(build)} />
       </Section>

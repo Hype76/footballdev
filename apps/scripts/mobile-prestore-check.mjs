@@ -873,7 +873,9 @@ assertIncludes(coachPhase31GDataSource, 'Promise.allSettled', 'Coach Phase 31G r
 assertIncludes(coachPhase31GCoreSource, 'COACH_PHASE_31G_BACKEND_INVENTORY', 'Coach Phase 31G production promotion inventory')
 assertIncludes(coachPhase31GParitySource, 'COACH_PHASE_31G_PARITY_MATRIX', 'Coach Phase 31G final parity matrix')
 assertIncludes(coachAppSource, 'Operational attention', 'Coach Phase 31G final Home')
-assertIncludes(coachAppSource, 'Encrypted cache', 'Coach Phase 31G final Settings')
+assertIncludes(coachAppSource, 'Saved securely on this device', 'Coach Settings offline information')
+assertIncludes(coachAppSource, '<NotificationCategorySettings', 'Coach notification category controls')
+assertIncludes(read('apps/parent-mobile/App.js'), '<NotificationCategorySettings', 'Parent notification category controls')
 assertNotIncludes(coachAppSource, 'Full feature parity is completed in the next domain phase', 'Coach Phase 31G removes active placeholder routes')
 
 if (existsSync(join(repoRoot, rootPackagePath))) {

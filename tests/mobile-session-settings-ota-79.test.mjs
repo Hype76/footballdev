@@ -101,7 +101,7 @@ test('Coach settings preserve known values and expose explicit retry states', as
   assert.match(source, /The last confirmed setting is shown and has not been changed\./)
   assert.match(source, /refreshNotificationRegistration\(\{ force: true, showLoading: true \}\)/)
   assert.match(source, /notificationStateRef\.current\?\.registered/)
-  assert.match(source, /notificationState\?\.preferenceEnabled \? notificationState\.detailLevel : 'off'/)
+  assert.match(source, /notificationState\.preferenceEnabled \? 'Pause all push alerts on this device'/)
   assert.doesNotMatch(source, /notificationState\?\.registered, refreshNotifications/)
   assert.doesNotMatch(notifications, /if \(error\.status !== 401\)/)
   assert.doesNotMatch(source, /setNotificationState\(\(current\) => \(\{ \.\.\.\(current \|\| \{\}\), enabled: false/)

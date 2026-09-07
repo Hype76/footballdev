@@ -112,7 +112,7 @@ test('restored Auth reloads notification state without duplicate focus registrat
   assert.doesNotMatch(appStateEffect, /enableParentNotifications/)
 })
 
-test('Off, Minimal and Detailed are the single Parent notification mode control', () => {
+test('legacy privacy remains compatible while Parent settings use independent notification categories', () => {
   assert.equal(normalizeParentNotificationDetail(undefined), 'minimal')
   assert.equal(normalizeParentNotificationDetail('detailed'), 'detailed')
   assert.equal(normalizeParentNotificationDetail('unexpected'), 'minimal')
@@ -125,12 +125,10 @@ test('Off, Minimal and Detailed are the single Parent notification mode control'
     permissionStatus: 'undetermined',
     registered: true,
   })
-  assert.equal(getParentNotificationStatusLabel({ enabled: true, registered: true }), 'On, Minimal')
-  assert.match(app, /key: 'off', label: 'Off'/)
-  assert.match(app, /key: 'minimal', label: 'Minimal'/)
-  assert.match(app, /key: 'detailed', label: 'Detailed'/)
-  assert.match(app, /const selectedMode = notificationState\.enabled \? notificationState\.detailLevel : 'off'/)
-  assert.match(app, /onNotificationModeChange\(choice\.key\)/)
+  assert.equal(getParentNotificationStatusLabel({ enabled: true, registered: true }), 'Push alerts enabled')
+  assert.match(app, /<NotificationCategorySettings/)
+  assert.match(app, /Enable push alerts on this device/)
+  assert.doesNotMatch(app, /label: 'Minimal'|label: 'Detailed'/)
   assert.doesNotMatch(app, /accessibilityLabel="Parent notifications"/)
   assert.doesNotMatch(app, /App notifications are selected, but they are not enabled on this device\./)
   assert.match(app, /mode === 'off'[\s\S]*enabled: false/)
