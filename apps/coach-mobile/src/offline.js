@@ -31,6 +31,8 @@ const cryptoProvider = {
 
 function unavailableStore() {
   return {
+    activate() {},
+    async update() { throw new Error('offline_storage_boundary_rejected') },
     async clear() {},
     async inspect() { return { hasDocument: false, status: 'blocked' } },
     async read() { return { document: null, status: 'blocked' } },
@@ -131,14 +133,15 @@ export const coachOfflineProfileStore = {
     await store.clear()
   },
   async read(userScope) {
+    store.activate(userScope)
     return getCoachOfflineProfile((await store.read(userScope)).document, userScope)
   },
   async write(profile) {
     const sanitized = sanitizeCoachProfile(profile)
     if (!sanitized.id) throw new Error('offline_profile_scope_mismatch')
-    const current = (await store.read(sanitized.id)).document || createCoachOfflineDocument({ userScope: sanitized.id })
-    const next = setCoachOfflineProfile(current, sanitized)
-    await store.write(sanitized.id, next)
+    const next = await store.update(sanitized.id, (current) => setCoachOfflineProfile(
+      current || createCoachOfflineDocument({ userScope: sanitized.id }), sanitized,
+    ))
     return getCoachOfflineProfile(next, sanitized.id)
   },
 }
@@ -163,13 +166,16 @@ export async function readCoachOfflineResources(userId, contextId) {
 }
 
 export async function saveCoachOfflineResources(userId, contextId, resources) {
-  const current = (await store.read(userId)).document || createCoachOfflineDocument({ userScope: userId })
-  const cached = getCoachOfflineResources(current, contextId)
-  const next = setCoachOfflineResources(current, contextId, {
-    ...(cached?.resources || {}),
-    ...(resources || {}),
+  const next = await store.update(userId, (current) => {
+    if (!current?.profile) throw new Error('offline_profile_scope_mismatch')
+    const key = typeof contextId === 'object' ? contextId.id || contextId.contextId : contextId
+    const authority = current.profile.value.coachContexts.find((context) => context.id === key)
+    if (!authority || (typeof contextId === 'object' && ['authorityId', 'authoritySource', 'clubId', 'role', 'teamId'].some((field) =>
+      normalize(contextId[field]) && normalize(contextId[field]) !== normalize(authority[field]),
+    ))) {
+      throw new Error('offline_context_scope_mismatch')
+    }
+    return setCoachOfflineResources(current, contextId, resources)
   })
-  if (JSON.stringify(next.contexts) === JSON.stringify(current.contexts)) return cached
-  await store.write(userId, next)
   return getCoachOfflineResources(next, contextId)
 }

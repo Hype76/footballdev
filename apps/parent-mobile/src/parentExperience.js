@@ -85,7 +85,7 @@ export function enrichParentMatchInvitations(invitations = [], matches = []) {
 }
 
 export function isParentDefinitelyOffline(networkState = {}) {
-  return networkState.isConnected === false
+  return networkState.isConnected === false || networkState.isInternetReachable === false
 }
 
 export function getParentScorerInterestInvitation(match, invitations = [], now = new Date()) {

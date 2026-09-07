@@ -76,8 +76,10 @@ test('Parent scorer interest is hidden until this parent has a current scorer in
   assert.equal(canParentRegisterScorerInterest({ ...match, hasInterest: true }, fixtureNow, invitations), false)
 })
 
-test('Parent network state trusts an active connection while reachability is still being checked', () => {
-  assert.equal(isParentDefinitelyOffline({ isConnected: true, isInternetReachable: false }), false)
+test('Parent network state distinguishes unknown reachability from confirmed no internet', () => {
+  assert.equal(isParentDefinitelyOffline({ isConnected: true, isInternetReachable: false }), true)
+  assert.equal(isParentDefinitelyOffline({ isConnected: true, isInternetReachable: null }), false)
+  assert.equal(isParentDefinitelyOffline({ isConnected: true, isInternetReachable: true }), false)
   assert.equal(isParentDefinitelyOffline({ isConnected: false, isInternetReachable: true }), true)
 })
 
