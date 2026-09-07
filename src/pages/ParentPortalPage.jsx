@@ -923,7 +923,9 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
   useEffect(() => {
     let isCurrent = true
 
+    let inFlight = false
     async function runLoad({ showLoading = false } = {}) {
+      if (inFlight || (!showLoading && (navigator.onLine === false || document.visibilityState === 'hidden'))) return
       if (!selectedLink?.id) {
         setMatches([])
         setParentInvitations([])
@@ -958,6 +960,7 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
         }))
       }
 
+      inFlight = true
       try {
         let activitySnapshot = activityByCategoryRef.current
 
@@ -969,25 +972,27 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
           }
         }
 
-        const [nextMatches, nextPlayers, nextParentInvitations, nextSharedCalendarEvents, nextPlayerResources] = await Promise.all([
-          getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
-          getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }),
-          getParentPortalInvitationState({ parentLinkId: selectedLink.id }),
-          getParentPortalSharedCalendarEvents({ parentLinkId: selectedLink.id }),
-          getParentPortalPlayerResources({ parentLinkId: selectedLink.id }),
-        ])
-
+        const groups = [
+          [() => getParentPortalMatchDays({ parentLinkId: selectedLink.id }), setMatches],
+          [() => getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }), setPlayers],
+          [() => getParentPortalInvitationState({ parentLinkId: selectedLink.id }), setParentInvitations],
+          [() => getParentPortalSharedCalendarEvents({ parentLinkId: selectedLink.id }), setSharedCalendarEvents],
+          [() => getParentPortalPlayerResources({ parentLinkId: selectedLink.id }), setPlayerResources],
+        ]
+        const results = await Promise.allSettled(groups.map(async ([read, publish]) => {
+          const value = await read()
+          if (isCurrent) publish(value)
+          return value
+        }))
         if (isCurrent) {
-          setMatches(nextMatches)
-          setPlayers(nextPlayers)
-          setParentInvitations(nextParentInvitations)
-          setSharedCalendarEvents(nextSharedCalendarEvents)
-          setPlayerResources(nextPlayerResources)
-          setSuccessfulCategoryLoad((currentLoad) => ({
-            activitySnapshot,
-            linkId: selectedLink.id,
-            revision: currentLoad.revision + 1,
-          }))
+          const failed = results.find((result) => result.status === 'rejected')
+          if (failed) {
+            setMatchErrorTitle(parentMatchDayLoadErrorTitle)
+            setMatchError(getParentMatchDayErrorMessage(failed.reason, parentMatchDayLoadErrorMessage))
+          } else {
+            setMatchError('')
+            setSuccessfulCategoryLoad((currentLoad) => ({ activitySnapshot, linkId: selectedLink.id, revision: currentLoad.revision + 1 }))
+          }
         }
       } catch (error) {
         console.error(error)
@@ -1004,20 +1009,23 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
           setMatchError(getParentMatchDayErrorMessage(error, parentMatchDayLoadErrorMessage))
         }
       } finally {
+        inFlight = false
         if (isCurrent && showLoading) {
           setIsLoadingMatches(false)
         }
       }
     }
 
+    const refresh = () => { void runLoad() }
     void runLoad({ showLoading: true })
-    const intervalId = window.setInterval(() => {
-      void runLoad()
-    }, 60000)
-
+    const intervalId = window.setInterval(refresh, 60000)
+    window.addEventListener('online', refresh)
+    document.addEventListener('visibilitychange', refresh)
     return () => {
       isCurrent = false
       window.clearInterval(intervalId)
+      window.removeEventListener('online', refresh)
+      document.removeEventListener('visibilitychange', refresh)
     }
   }, [captureActivityState, selectedLink?.id])
 

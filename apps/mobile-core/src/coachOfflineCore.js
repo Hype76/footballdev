@@ -51,6 +51,11 @@ export function setCoachOfflineProfile(document, profile, now = new Date().toISO
   const next = {
     ...document,
     cacheSchemaVersion: COACH_PHASE_31F_CACHE_SCHEMA_VERSION,
+    contexts: Object.fromEntries(Object.entries(document.contexts || {}).filter(([id, entry]) =>
+      (profile.coachContexts || []).some((context) => context.id === id && ['authorityId', 'authoritySource', 'clubId', 'role', 'teamId'].every((field) =>
+        !normalize(entry[field]) || normalize(entry[field]) === normalize(context[field]),
+      )),
+    )),
     profile: {
       retrievedAt: now,
       value: profile,

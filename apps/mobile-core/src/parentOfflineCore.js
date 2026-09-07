@@ -315,62 +315,55 @@ export function reconcileParentSyncAttention(document, { childScope = '', messag
   return changed ? { ...document, journal, updatedAt: isoNow(now) } : document
 }
 
-export function createParentSyncCoordinator({ execute, now = Date.now, random = Math.random, readDocument, writeDocument }) {
+export function createParentSyncCoordinator({ execute, now = Date.now, random = Math.random, readDocument, writeDocument, updateDocument }) {
   let active = null
+  const update = updateDocument || (async (scope, updater) => {
+    const next = await updater(await readDocument(scope))
+    if (next) await writeDocument(scope, next)
+    return next
+  })
 
   async function run({ explicitRetry = false, userScope }) {
-    let document = await readDocument(userScope)
+    let document = await update(userScope, (latest) => latest && ({
+      ...latest,
+      journal: (latest.journal || []).map((command) => command.status === 'syncing'
+        ? { ...command, status: 'pending' } : command),
+    }))
     if (!document) return { ...getParentSyncSummary(null), results: [] }
-
-    document = {
-      ...document,
-      journal: (document.journal || []).map((command) => command.status === 'syncing'
-        ? { ...command, status: 'pending' }
-        : command),
-    }
-    await writeDocument(userScope, document)
     const results = []
-
-    for (const original of [...document.journal].sort((left, right) => left.localSequence - right.localSequence)) {
-      const current = document.journal.find((command) => command.commandId === original.commandId)
-      if (!current || TERMINAL_COMMAND_STATES.has(current.status)) continue
-      if (!explicitRetry && current.status === 'retryable_failure' && current.attemptCount >= PARENT_OFFLINE_MAX_AUTOMATIC_ATTEMPTS) continue
-      if (!explicitRetry && current.nextAttemptAt && new Date(current.nextAttemptAt).getTime() > now()) continue
-
-      const syncing = {
-        ...current,
-        attemptCount: current.attemptCount + 1,
-        lastErrorCategory: '',
-        status: 'syncing',
-      }
-      document = replaceCommand(document, current.commandId, syncing, now)
-      await writeDocument(userScope, document)
-
+    const originals = [...document.journal].sort((left, right) => left.localSequence - right.localSequence)
+    for (const original of originals) {
+      let syncing = null
+      document = await update(userScope, (latest) => {
+        const current = latest?.journal.find((command) => command.commandId === original.commandId)
+        if (!current || TERMINAL_COMMAND_STATES.has(current.status)) return latest
+        if (!explicitRetry && current.status === 'retryable_failure' && current.attemptCount >= PARENT_OFFLINE_MAX_AUTOMATIC_ATTEMPTS) return latest
+        if (!explicitRetry && current.nextAttemptAt && new Date(current.nextAttemptAt).getTime() > now()) return latest
+        syncing = { ...current, attemptCount: current.attemptCount + 1, lastErrorCategory: '', status: 'syncing' }
+        return replaceCommand(latest, current.commandId, syncing, now)
+      })
+      if (!syncing) continue
+      let completed
       try {
         await execute(syncing)
-        const succeeded = { ...syncing, completedAt: isoNow(now), nextAttemptAt: '', status: 'succeeded' }
-        document = replaceCommand(document, current.commandId, succeeded, now)
-        results.push({ commandId: current.commandId, status: 'succeeded', type: current.type })
+        completed = { ...syncing, completedAt: isoNow(now), nextAttemptAt: '', status: 'succeeded' }
       } catch (error) {
         const category = classifyParentCommandError(error)
         const retryDelay = Math.min(15 * 60 * 1000, (2 ** Math.min(syncing.attemptCount, 8)) * 1000)
         const jitter = Math.floor(retryDelay * 0.25 * random())
-        const failed = {
-          ...syncing,
-          lastErrorCategory: category,
-          nextAttemptAt: category === 'retryable_failure'
-            ? new Date(now() + retryDelay + jitter).toISOString()
-            : '',
-          status: category,
-        }
-        document = replaceCommand(document, current.commandId, failed, now)
-        results.push({ commandId: current.commandId, status: category, type: current.type })
-        if (category === 'retryable_failure' && syncing.attemptCount >= PARENT_OFFLINE_MAX_AUTOMATIC_ATTEMPTS) break
+        completed = { ...syncing, lastErrorCategory: category,
+          nextAttemptAt: category === 'retryable_failure' ? new Date(now() + retryDelay + jitter).toISOString() : '',
+          status: category }
       }
-      await writeDocument(userScope, document)
+      document = await update(userScope, (latest) => {
+        const current = latest?.journal.find((command) => command.commandId === syncing.commandId)
+        // A profile refresh may have revoked authority while the request was in flight.
+        if (!current || current.status !== 'syncing') return latest
+        return replaceCommand(latest, syncing.commandId, completed, now)
+      })
+      results.push({ commandId: syncing.commandId, status: completed.status, type: syncing.type })
+      if (completed.status === 'retryable_failure' && syncing.attemptCount >= PARENT_OFFLINE_MAX_AUTOMATIC_ATTEMPTS) break
     }
-
-    await writeDocument(userScope, document)
     return { ...getParentSyncSummary(document), document, results }
   }
 

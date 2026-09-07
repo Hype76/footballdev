@@ -448,7 +448,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       title: normalize(title) || 'Formation Board',
     }
     let nextBoard = board
-    await saveOfflineFormation({ pendingSave }).catch(() => {})
+    let savedLocally = false
+    await saveOfflineFormation({ pendingSave }).then(() => { savedLocally = true }).catch(() => {})
     try {
       if (!nextBoard) {
         nextBoard = await reconcilePendingBoard(previousPendingSave).catch(() => null)
@@ -477,7 +478,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
           nextBoard = reconciled
         }
       }
-      throw new Error('Your Formation Board is saved safely on this device. Connect and retry. The app will check for the previous server save before creating anything again.')
+      throw new Error(savedLocally
+        ? 'Your Formation Board is saved safely on this device. Connect and retry. The app will check for the previous server save before creating anything again.'
+        : 'Your Formation Board could not be saved on this device or confirmed online. Keep this screen open and retry when connected.')
     }
   }
 

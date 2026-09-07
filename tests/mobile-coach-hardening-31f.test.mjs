@@ -116,7 +116,7 @@ test('oversized and corrupt cached data fail closed', () => {
   assert.match(offlineCore, /scope_mismatch/)
   assert.match(offlineCore, /offline_storage_corrupt/)
   assert.match(coachOffline, /AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY/)
-  assert.match(coachOffline, /JSON\.stringify\(next\.contexts\) === JSON\.stringify\(current\.contexts\)/)
+  assert.match(coachOffline, /store\.update\(userId/)
 })
 
 test('notification installation identity is random, Coach-scoped, environment-scoped, and token-private', () => {

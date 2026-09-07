@@ -5,6 +5,7 @@ export const MOBILE_OFFLINE_NONCE_BYTES = 24
 const GENERATIONS = ['a', 'b']
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 const queues = new Map()
+const scopes = new WeakMap()
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -213,8 +214,104 @@ export function createEncryptedOfflineStore({
     return { document: null, status: 'corrupt' }
   }
 
+  function scopeState() {
+    if (!scopes.has(storage)) scopes.set(storage, new Map())
+    const states = scopes.get(storage)
+    if (!states.has(namespace)) states.set(namespace, { epoch: 0, userScope: '', blocked: false })
+    return states.get(namespace)
+  }
+
+  function checkScope(userScope, epoch) {
+    const state = scopeState()
+    if (state.blocked || state.epoch !== epoch || (state.userScope && state.userScope !== normalize(userScope))) {
+      throw offlineError('offline_scope_invalidated')
+    }
+  }
+
+  async function writeInternal(userScope, value, epoch) {
+    checkScope(userScope, epoch)
+    const scope = normalize(userScope)
+    const document = {
+      ...value,
+      appRole: normalize(appRole).toLowerCase(),
+      environment: normalize(environment).toLowerCase(),
+      projectRef: normalize(projectRef).toLowerCase(),
+      schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
+      userScope: scope,
+    }
+    if (!validateDocument(document, scope)) throw offlineError('offline_document_invalid')
+
+    const pointer = parsePointer(await storage.getItem(pointerName))
+    if (!pointer.valid) throw offlineError('offline_storage_corrupt')
+    const target = pointer.active === 'a' ? 'b' : 'a'
+    const key = await getOrCreateKey()
+    const nonce = await cryptoProvider.randomBytes(MOBILE_OFFLINE_NONCE_BYTES)
+    const ciphertext = await cryptoProvider.seal({
+      aad,
+      key,
+      nonce,
+      plaintext: JSON.stringify(document),
+    })
+    const envelope = JSON.stringify({
+      algorithm: 'xchacha20-poly1305',
+      ciphertext: bytesToBase64(ciphertext),
+      generation: target,
+      nonce: bytesToBase64(nonce),
+      schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
+    })
+
+    await storage.setItem(generationName(target), envelope)
+    const verified = await readGeneration(target, key, scope)
+    if (!verified.valid || JSON.stringify(verified.document) !== JSON.stringify(document)) {
+      await storage.removeItem(generationName(target))
+      throw offlineError('offline_storage_readback_failed')
+    }
+
+    checkScope(userScope, epoch)
+    await storage.setItem(pointerName, JSON.stringify({
+      active: target,
+      previous: pointer.active || '',
+      schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
+    }))
+    const activated = await readInternal(scope)
+    if (!activated.document) throw offlineError('offline_storage_readback_failed')
+    checkScope(userScope, epoch)
+    await storage.setItem(pointerName, JSON.stringify({
+      active: target,
+      previous: '',
+      schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
+    }))
+    if (pointer.active) await storage.removeItem(generationName(pointer.active))
+    return activated.document
+  }
+
   return {
+    activate(userScope) {
+      const state = scopeState()
+      const scope = normalize(userScope)
+      if (!scope) throw offlineError('offline_profile_scope_mismatch')
+      if (state.blocked || state.userScope !== scope) {
+        state.epoch += 1
+        state.userScope = scope
+        state.blocked = false
+      }
+    },
+    async update(userScope, updater) {
+      const epoch = scopeState().epoch
+      return enqueue(namespace, async () => {
+        checkScope(userScope, epoch)
+        const current = (await readInternal(userScope)).document
+        const next = await updater(current)
+        checkScope(userScope, epoch)
+        if (!next || next === current) return current
+        return writeInternal(userScope, next, epoch)
+      })
+    },
     async clear() {
+      const state = scopeState()
+      state.epoch += 1
+      state.blocked = true
+
       return enqueue(namespace, async () => {
         await clearCiphertext()
         await keyStore.deleteItemAsync(keyName, keyStoreOptions)
@@ -223,7 +320,9 @@ export function createEncryptedOfflineStore({
 
     async inspect(userScope) {
       return enqueue(namespace, async () => {
-        const result = await readInternal(userScope)
+        const state = scopeState()
+        const result = state.blocked || (state.userScope && state.userScope !== normalize(userScope))
+          ? { document: null, status: 'scope_mismatch' } : await readInternal(userScope)
         return {
           appRole: normalize(appRole).toLowerCase(),
           environment: normalize(environment).toLowerCase(),
@@ -235,63 +334,18 @@ export function createEncryptedOfflineStore({
     },
 
     async read(userScope) {
-      return enqueue(namespace, () => readInternal(userScope))
+      return enqueue(namespace, () => {
+        const state = scopeState()
+        if (state.blocked || (state.userScope && state.userScope !== normalize(userScope))) {
+          return { document: null, status: 'scope_mismatch' }
+        }
+        return readInternal(userScope)
+      })
     },
 
     async write(userScope, value) {
-      return enqueue(namespace, async () => {
-        const scope = normalize(userScope)
-        const document = {
-          ...value,
-          appRole: normalize(appRole).toLowerCase(),
-          environment: normalize(environment).toLowerCase(),
-          projectRef: normalize(projectRef).toLowerCase(),
-          schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
-          userScope: scope,
-        }
-        if (!validateDocument(document, scope)) throw offlineError('offline_document_invalid')
-
-        const pointer = parsePointer(await storage.getItem(pointerName))
-        if (!pointer.valid) throw offlineError('offline_storage_corrupt')
-        const target = pointer.active === 'a' ? 'b' : 'a'
-        const key = await getOrCreateKey()
-        const nonce = await cryptoProvider.randomBytes(MOBILE_OFFLINE_NONCE_BYTES)
-        const ciphertext = await cryptoProvider.seal({
-          aad,
-          key,
-          nonce,
-          plaintext: JSON.stringify(document),
-        })
-        const envelope = JSON.stringify({
-          algorithm: 'xchacha20-poly1305',
-          ciphertext: bytesToBase64(ciphertext),
-          generation: target,
-          nonce: bytesToBase64(nonce),
-          schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
-        })
-
-        await storage.setItem(generationName(target), envelope)
-        const verified = await readGeneration(target, key, scope)
-        if (!verified.valid || JSON.stringify(verified.document) !== JSON.stringify(document)) {
-          await storage.removeItem(generationName(target))
-          throw offlineError('offline_storage_readback_failed')
-        }
-
-        await storage.setItem(pointerName, JSON.stringify({
-          active: target,
-          previous: pointer.active || '',
-          schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
-        }))
-        const activated = await readInternal(scope)
-        if (!activated.document) throw offlineError('offline_storage_readback_failed')
-        await storage.setItem(pointerName, JSON.stringify({
-          active: target,
-          previous: '',
-          schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
-        }))
-        if (pointer.active) await storage.removeItem(generationName(pointer.active))
-        return activated.document
-      })
+      const epoch = scopeState().epoch
+      return enqueue(namespace, () => writeInternal(userScope, value, epoch))
     },
   }
 }

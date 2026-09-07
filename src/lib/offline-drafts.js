@@ -1,4 +1,3 @@
-import { createEvaluation, updateEvaluation } from './supabase.js'
 import {
   canAccessDraftScope,
   createDraftScope,
@@ -152,6 +151,7 @@ function isDuplicateKeyError(error) {
 }
 
 async function syncDraft(draft) {
+  const { createEvaluation, updateEvaluation } = await import('./supabase.js')
   const operation = draft.operation || 'create'
 
   if (operation === 'update') {
@@ -173,7 +173,7 @@ async function syncDraft(draft) {
   }
 }
 
-export async function syncDrafts({ storage, user } = {}) {
+async function runDraftSync({ storage, user } = {}) {
   const drafts = getDrafts({ storage, user })
 
   if (!navigator.onLine) {
@@ -190,7 +190,13 @@ export async function syncDrafts({ storage, user } = {}) {
   for (const draft of pendingDrafts) {
     try {
       await syncDraft(draft)
-      removeDraft(draft.id, { storage, user })
+      // Only acknowledge the version sent. A newer edit remains pending.
+      const latest = readAllDrafts({ storage })
+      writeDrafts(latest.flatMap((current) => {
+        if (current.id !== draft.id || !canAccessDraftScope({ scope: current.scope, user })) return [current]
+        if (JSON.stringify(current) === JSON.stringify(draft)) return []
+        return [{ ...current, operation: 'update', evaluationId: draft.evaluationId || draft.data.id || draft.id }]
+      }), storage)
       synced += 1
     } catch (error) {
       console.error('Offline draft sync failed', error)
@@ -202,4 +208,13 @@ export async function syncDrafts({ storage, user } = {}) {
     synced,
     failed,
   }
+}
+
+const activeDraftSyncs = new Map()
+export function syncDrafts(options = {}) {
+  const key = String(options.user?.id || '')
+  if (activeDraftSyncs.has(key)) return activeDraftSyncs.get(key)
+  const request = runDraftSync(options).finally(() => activeDraftSyncs.delete(key))
+  activeDraftSyncs.set(key, request)
+  return request
 }

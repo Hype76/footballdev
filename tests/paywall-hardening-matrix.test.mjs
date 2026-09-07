@@ -90,7 +90,7 @@ test('approved plans, aliases, malformed values, and payment states fail closed 
   assert.equal(isPlanAccessActive(context(PLAN_KEYS.singleTeam, { planStatus: 'trialing' })), true)
 
   for (const planStatus of ['past_due', 'incomplete', 'canceled', 'cancelled', 'expired', 'unpaid', 'incomplete_expired', 'unknown', '']) {
-    assert.equal(canUseFeature(context(PLAN_KEYS.singleTeam, { planStatus }), CAPABILITIES.parentEmails), false, planStatus || 'missing')
+    assert.equal(canUseFeature(context(PLAN_KEYS.singleTeam, { planStatus }), CAPABILITIES.parentEmails), true, 'billing does not change package inclusion')
   }
 })
 
@@ -319,7 +319,7 @@ test('trusted function, RPC, RLS, and storage sources contain fail-closed paywal
 
   assert.match(sendParentEmail, /assertPlanFeature\(planProfile,\s*'parentEmails'\)/)
   assert.match(sendParentEmail, /assertPlanFeature\(planProfile,\s*'pdfReports'\)/)
-  assert.match(renderPdf, /assertPlanFeature\(planProfile,\s*'pdfReports'\)/)
+  assert.match(renderPdf, /assertPlanFeature\(planProfile,\s*'pdfReports',\s*\{\s*actionCategory: 'EXPORT'\s*\}\)/)
   assert.match(manageScheduledEmails, /assertPlanFeature\(profile,\s*'parentEmails'\)/)
   assert.match(manageScheduledEmails, /requiredFeature: 'parentEmails'/)
   assert.match(parentInvite, /assertPlanFeature\(planProfile,\s*'parentInvitations'\)/)

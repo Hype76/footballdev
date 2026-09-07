@@ -702,7 +702,7 @@ function ParentHome() {
         ))
         if (failed === 0) {
           reconciledSync = await reconcileParentOfflineAttention(selectedMobileUser, selectedLink.id, refreshedItems)
-          setSyncSummary(reconciledSync)
+          if (requestId === requestIdRef.current) setSyncSummary(reconciledSync)
         }
       } catch (error) {
         console.warn(error)
@@ -711,11 +711,19 @@ function ParentHome() {
     return { failed, items: refreshedItems, sync: reconciledSync }
   }, [isOffline, selectedLink?.id, selectedMobileUser])
 
+  const parentSyncScopeRef = useRef('')
+  parentSyncScopeRef.current = `${selectedMobileUser?.id || ''}:${selectedLink?.id || ''}`
+  useEffect(() => {
+    setIsSyncing(false)
+    setSyncSummary({ attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 })
+  }, [selectedMobileUser?.id, selectedLink?.id])
   const runParentSync = useCallback(async ({ explicitRetry = false } = {}) => {
     if (isOffline || !selectedMobileUser?.id) return null
+    const scope = parentSyncScopeRef.current
     setIsSyncing(true)
     try {
       const result = await syncParentOfflineCommands(selectedMobileUser, { explicitRetry })
+      if (scope !== parentSyncScopeRef.current) return null
       setSyncSummary({
         attentionItems: result.attentionItems || [],
         needsAttention: result.needsAttention,
@@ -727,7 +735,7 @@ function ParentHome() {
       console.warn(error)
       return null
     } finally {
-      setIsSyncing(false)
+      if (scope === parentSyncScopeRef.current) setIsSyncing(false)
     }
   }, [isOffline, selectedMobileUser])
 
@@ -760,18 +768,35 @@ function ParentHome() {
     }
   }, [selectedLink?.id, selectedLinkId])
 
+  const recoveryCallbacksRef = useRef(null)
+  const recoveryPromiseRef = useRef(null)
+  const previousOfflineRef = useRef(isOffline)
+  recoveryCallbacksRef.current = { isOffline, loadParentData, runParentSync, scope: `${selectedMobileUser?.id || ''}:${selectedLink?.id || ''}` }
+
+  const recoverParentConnection = useCallback(() => {
+    if (recoveryPromiseRef.current) return recoveryPromiseRef.current
+    const current = recoveryCallbacksRef.current
+    if (current.isOffline || AppState.currentState !== 'active') return Promise.resolve()
+    const recovery = current.runParentSync().then(() => {
+      const latest = recoveryCallbacksRef.current
+      if (!latest.isOffline && latest.scope === current.scope && AppState.currentState === 'active') {
+        return latest.loadParentData()
+      }
+    }).finally(() => { recoveryPromiseRef.current = null })
+    recoveryPromiseRef.current = recovery
+    return recovery
+  }, [])
+
   useEffect(() => {
-    const subscription = NetInfo.addEventListener((state) => {
-      const offline = isParentDefinitelyOffline(state)
-      setIsOffline((current) => {
-        if (current && !offline && selectedMobileUser?.id) {
-          void runParentSync().then(() => loadParentData())
-        }
-        return offline
-      })
-    })
+    const subscription = NetInfo.addEventListener((state) => setIsOffline(isParentDefinitelyOffline(state)))
     return () => subscription()
-  }, [loadParentData, runParentSync, selectedMobileUser?.id])
+  }, [])
+
+  useEffect(() => {
+    const wasOffline = previousOfflineRef.current
+    previousOfflineRef.current = isOffline
+    if (wasOffline && !isOffline && selectedMobileUser?.id) void recoverParentConnection()
+  }, [isOffline, recoverParentConnection, selectedMobileUser?.id])
 
   useEffect(() => {
     const authorityScope = JSON.stringify([
@@ -953,8 +978,7 @@ function ParentHome() {
         const roomIdAtResume = selectedRoomId
         resumeInteractionRef.current?.cancel?.()
         resumeInteractionRef.current = InteractionManager.runAfterInteractions(() => {
-          void runParentSync()
-            .then(() => loadParentData())
+          void recoverParentConnection()
             .then(() => roomIdAtResume && roomIdAtResume === selectedRoomId ? reloadSelectedChatRoomRef.current() : null)
             .catch(() => {})
             .finally(() => {
@@ -971,7 +995,7 @@ function ParentHome() {
       resumeInteractionRef.current = null
       resumeRefreshRef.current = false
     }
-  }, [loadParentData, refreshParentAppInstallationPresence, reloadParentNotificationState, runParentSync, selectedLink?.id, selectedRoomId])
+  }, [recoverParentConnection, loadParentData, refreshParentAppInstallationPresence, reloadParentNotificationState, runParentSync, selectedLink?.id, selectedRoomId])
 
   useEffect(() => {
     if (!notificationState.enabled || !selectedLink?.id) return undefined
@@ -2764,7 +2788,7 @@ function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNe
       : 'Offline. Connect to load information that has not been saved on this device.'
     tone = 'warning'
   } else if (isOffline || isSyncing) {
-    message = 'Syncing your saved actions.'
+    message = isOffline ? 'Your saved actions are waiting for a connection.' : 'Syncing your saved actions.'
   } else if (summary.needsAttention > 0) {
     message = `${summary.needsAttention} ${summary.needsAttention === 1 ? 'action needs' : 'actions need'} attention.`
     tone = 'warning'

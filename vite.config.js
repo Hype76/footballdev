@@ -107,10 +107,6 @@ export default defineConfig(({ mode }) => {
               return 'vendor'
             }
 
-            if (id.includes('/src/lib/domain/')) {
-              return 'domain'
-            }
-
             return undefined
           },
         },

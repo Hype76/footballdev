@@ -28,6 +28,8 @@ const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split(
 
 function unavailableStore() {
   return {
+    activate() {},
+    async update() { throw new Error('offline_storage_boundary_rejected') },
     async clear() {},
     async inspect() {
       return { hasDocument: false, status: 'blocked' }
@@ -91,23 +93,23 @@ async function readDocument(userScope) {
   return (await store.read(userScope)).document
 }
 
-async function writeDocument(userScope, document) {
-  return store.write(userScope, document)
+async function updateDocument(userScope, updater) {
+  return store.update(userScope, updater)
 }
 
 async function ensureDocument(profile) {
   const sanitized = sanitizeParentOfflineProfile(profile)
-  const userScope = sanitized.id
-  if (!userScope) throw new Error('offline_profile_scope_mismatch')
-  const existing = await readDocument(userScope)
-  const document = existing
+  if (!sanitized.id) throw new Error('offline_profile_scope_mismatch')
+  return updateDocument(sanitized.id, (existing) => existing
     ? setParentOfflineProfile(existing, sanitized)
-    : createParentOfflineDocument({
-        profile: sanitized,
-        selectedLinkId: sanitized.selectedParentLinkId,
-        userScope,
-      })
-  return writeDocument(userScope, document)
+    : createParentOfflineDocument({ profile: sanitized, selectedLinkId: sanitized.selectedParentLinkId, userScope: sanitized.id }))
+}
+
+function updateParentDocument(user, updater) {
+  return updateDocument(user.id, (document) => {
+    if (!document) throw new Error('offline_profile_scope_mismatch')
+    return updater(document)
+  })
 }
 
 export const parentOfflineProfileStore = {
@@ -115,6 +117,7 @@ export const parentOfflineProfileStore = {
     await store.clear()
   },
   async read(userScope) {
+    store.activate(userScope)
     const document = await readDocument(userScope)
     return document?.profile?.value || null
   },
@@ -176,74 +179,53 @@ export async function readParentOfflineView(userScope, linkId) {
 }
 
 export async function saveParentOfflineResources(user, linkId, resources) {
-  let document = await ensureDocument(user)
-  document = setParentOfflineSelection(document, linkId)
-  document = setParentOfflineResources(document, linkId, resources)
-  return writeDocument(user.id, document)
+  return updateParentDocument(user, (document) => setParentOfflineResources(document, linkId, resources))
 }
 
 export async function markParentOfflineNotificationRead(user, linkId, notificationIds, action = 'read', appliedAt = '') {
-  let document = await ensureDocument(user)
-  const cache = getParentOfflineResources(document, linkId)
-  const normalizedNotificationIds = new Set((Array.isArray(notificationIds) ? notificationIds : [notificationIds]).map(normalize).filter(Boolean))
-
-  if (!cache || normalizedNotificationIds.size === 0) return document
-
-  document = setParentOfflineSelection(document, linkId)
-  document = setParentOfflineResources(document, linkId, {
-    ...cache.resources,
-    notifications: applyParentNotificationAction(cache.resources.notifications || [], [...normalizedNotificationIds], action, appliedAt),
+  return updateParentDocument(user, (document) => {
+    const cache = getParentOfflineResources(document, linkId)
+    const ids = [...new Set((Array.isArray(notificationIds) ? notificationIds : [notificationIds]).map(normalize).filter(Boolean))]
+    if (!cache || ids.length === 0) return document
+    return setParentOfflineResources(document, linkId, {
+      notifications: applyParentNotificationAction(cache.resources.notifications || [], ids, action, appliedAt),
+    })
   })
-  return writeDocument(user.id, document)
 }
 
 export async function saveParentOfflineSelection(user, linkId) {
-  let document = await ensureDocument(user)
-  document = setParentOfflineSelection(document, linkId)
-  return writeDocument(user.id, document)
+  return updateParentDocument(user, (document) => setParentOfflineSelection(document, linkId))
 }
 
 export async function reconcileParentOfflineAttention(user, linkId, resources) {
-  const document = await readDocument(user.id)
-  if (!document) return { attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 }
-  const reconciled = reconcileParentSyncAttention(document, {
-    childScope: linkId,
-    messages: resources?.messages,
-    polls: resources?.polls,
+  const reconciled = await updateDocument(user.id, (document) => document && reconcileParentSyncAttention(document, {
+    childScope: linkId, messages: resources?.messages, polls: resources?.polls,
+  }))
+  return { ...getParentSyncSummary(reconciled, linkId), attentionItems: getParentSyncAttentionItems(reconciled, linkId) }
+}
+
+async function queueParentCommand(user, command) {
+  let queued
+  await updateParentDocument(user, (document) => {
+    queued = enqueueParentOfflineCommand(document, command, { commandId: Crypto.randomUUID() })
+    return queued.document
   })
-  if (reconciled !== document) await writeDocument(user.id, reconciled)
-  return {
-    ...getParentSyncSummary(reconciled, linkId),
-    attentionItems: getParentSyncAttentionItems(reconciled, linkId),
-  }
+  return queued.command
 }
 
 export async function queueParentMessageRead(user, linkId, message) {
-  let document = await ensureDocument(user)
-  const queued = enqueueParentOfflineCommand(document, {
-    actorScope: user.id,
-    childScope: linkId,
-    entityId: message.id,
-    expectedServerVersion: message.createdAt,
-    payload: {},
-    type: 'message_read',
-  }, { commandId: Crypto.randomUUID() })
-  await writeDocument(user.id, queued.document)
-  return queued.command
+  return queueParentCommand(user, {
+    actorScope: user.id, childScope: linkId, entityId: message.id,
+    expectedServerVersion: message.createdAt, payload: {}, type: 'message_read',
+  })
 }
 
 export async function queueParentPollVote(user, linkId, poll, optionId) {
-  let document = await ensureDocument(user)
-  const queued = enqueueParentOfflineCommand(document, {
-    actorScope: user.id,
-    childScope: linkId,
-    entityId: poll.id,
+  return queueParentCommand(user, {
+    actorScope: user.id, childScope: linkId, entityId: poll.id,
     expectedServerVersion: [poll.createdAt, poll.closesAt, poll.currentOptionIds?.join(',')].filter(Boolean).join(':'),
-    payload: { optionId: normalize(optionId) },
-    type: 'poll_vote',
-  }, { commandId: Crypto.randomUUID() })
-  await writeDocument(user.id, queued.document)
-  return queued.command
+    payload: { optionId: normalize(optionId) }, type: 'poll_vote',
+  })
 }
 
 async function executeParentCommand(user, command) {
@@ -259,16 +241,16 @@ async function executeParentCommand(user, command) {
   throw new Error('offline_command_invalid')
 }
 
-let activeSync = null
+const activeSyncs = new Map()
 
 export function syncParentOfflineCommands(user, { explicitRetry = false } = {}) {
-  if (activeSync) return activeSync
+  if (activeSyncs.has(user.id)) return activeSyncs.get(user.id)
   const coordinator = createParentSyncCoordinator({
     execute: (command) => executeParentCommand(user, command),
     readDocument,
-    writeDocument,
+    updateDocument,
   })
-  activeSync = coordinator.sync({ explicitRetry, userScope: user.id })
+  const activeSync = coordinator.sync({ explicitRetry, userScope: user.id })
     .then((result) => {
       const scopedSummary = getParentSyncSummary(result.document, user.selectedParentLinkId)
       return {
@@ -278,7 +260,8 @@ export function syncParentOfflineCommands(user, { explicitRetry = false } = {}) 
       }
     })
     .finally(() => {
-      activeSync = null
+      activeSyncs.delete(user.id)
     })
+  activeSyncs.set(user.id, activeSync)
   return activeSync
 }

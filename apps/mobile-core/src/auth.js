@@ -1,4 +1,4 @@
-import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } from './biometrics'
 import { getMobileRuntimeConfig } from './config'
@@ -61,6 +61,7 @@ export function AuthProvider({
   const [startupDiagnosticCode, setStartupDiagnosticCode] = useState('')
   const [startupState, setStartupState] = useState(MOBILE_STARTUP_STATES.BOOTING)
   const [user, setUser] = useState(null)
+  const profileGenerationRef = useRef(0)
 
   useEffect(() => {
     const updateAutoRefresh = (state) => {
@@ -81,6 +82,8 @@ export function AuthProvider({
   }, [])
 
   const loadProfile = useCallback(async (nextSession) => {
+    const generation = ++profileGenerationRef.current
+    const isCurrent = () => generation === profileGenerationRef.current
     if (!nextSession?.user) {
       setUser(null)
       return
@@ -94,6 +97,7 @@ export function AuthProvider({
     if (offlineProfileStore?.read) {
       try {
         cachedProfile = await offlineProfileStore.read(nextSession.user.id)
+        if (!isCurrent()) return null
         if (cachedProfile) setUser({ ...cachedProfile, isOfflineProfile: true })
       } catch (error) {
         console.warn(error)
@@ -103,6 +107,7 @@ export function AuthProvider({
     const refreshProfile = async () => {
       try {
         const profile = await fetchMobileProfile(nextSession.user, appRole)
+        if (!isCurrent()) return null
         let persistedProfile = profile
         if (offlineProfileStore?.write) {
           try {
@@ -111,9 +116,11 @@ export function AuthProvider({
             console.warn(error)
           }
         }
+        if (!isCurrent()) return null
         setUser(persistedProfile)
         return persistedProfile
       } catch (error) {
+        if (!isCurrent()) return null
         if (cachedProfile && !isAuthoritativeProfileFailure(error)) {
           console.warn(error)
           return cachedProfile
@@ -125,6 +132,7 @@ export function AuthProvider({
             console.warn(clearError)
           }
         }
+        if (!isCurrent()) return null
         setUser(null)
         setAuthError(error.message || 'Account details could not be loaded.')
         throw error
@@ -139,14 +147,14 @@ export function AuthProvider({
         `${diagnosticPrefix}_PROFILE_REFRESH_TIMEOUT`,
       ).catch((error) => {
         if (error?.code !== `${diagnosticPrefix}_PROFILE_REFRESH_TIMEOUT`) console.warn(error)
-      }).finally(() => setIsProfileLoading(false))
+      }).finally(() => { if (isCurrent()) setIsProfileLoading(false) })
       return cachedProfile
     }
 
     try {
       return await refreshProfile()
     } finally {
-      setIsProfileLoading(false)
+      if (isCurrent()) setIsProfileLoading(false)
     }
   }, [appRole, offlineProfileStore])
 
@@ -209,6 +217,8 @@ export function AuthProvider({
 
       if (!nextSession?.user) {
         if (!['SIGNED_OUT', 'USER_DELETED'].includes(event)) return
+        profileGenerationRef.current += 1
+        void offlineProfileStore?.clear?.().catch(console.warn)
         mobileResourceCache.clear()
         setSession(null)
         setUser(null)
@@ -235,7 +245,7 @@ export function AuthProvider({
       isMounted = false
       data.subscription.unsubscribe()
     }
-  }, [appRole, bootstrapAttempt, loadProfile, prepareStartup])
+  }, [appRole, bootstrapAttempt, loadProfile, offlineProfileStore, prepareStartup])
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -277,6 +287,7 @@ export function AuthProvider({
   }, [])
 
   const resetLocalAppData = useCallback(async () => {
+    profileGenerationRef.current += 1
     mobileResourceCache.clear()
     setStartupState(MOBILE_STARTUP_STATES.BOOTING)
     setStartupDiagnosticCode('')
@@ -303,6 +314,7 @@ export function AuthProvider({
   }, [appRole, offlineProfileStore, onResetLocalData])
 
   const signOut = useCallback(async () => {
+    profileGenerationRef.current += 1
     mobileResourceCache.clear()
     setIsLocked(false)
     setUser(null)

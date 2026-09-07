@@ -558,13 +558,15 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
 
   const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(userRef.current.id, contextRef.current, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [])
   const load = useCallback(async () => {
-    if (loadInFlight.current || busyRef.current) return
+    if (loadInFlight.current || busyRef.current || appState.current !== 'active') return
     loadInFlight.current = true
     setError(''); setNotice(''); setLoading(true)
     const currentUser = userRef.current
     const currentContext = contextRef.current
+    const isCurrentScope = () => currentUser.id === userRef.current.id && currentUser.activeTeamId === userRef.current.activeTeamId && currentContext.id === contextRef.current.id
     const selectionBeforeLoad = selectedMatchId.current
     const saved = await readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
+    if (!isCurrentScope()) { loadInFlight.current = false; return }
     const hasCachedMatches = Array.isArray(saved?.resources?.matchDayList)
     const cachedMatch = saved?.resources?.matchDayDetail && typeof saved.resources.matchDayDetail === 'object'
       ? normalizeCoachMatchDay(saved.resources.matchDayDetail)
@@ -585,6 +587,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
         withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)),
         withMobileAsyncTimeout(() => getCoachPlayerList(currentUser)),
       ])
+      if (!isCurrentScope()) return
       if (matchesResult.status === 'rejected') throw matchesResult.reason
       const nextMatches = matchesResult.value
       const nextPlayers = playersResult.status === 'fulfilled'
@@ -596,7 +599,9 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       if (activeSelectionId) {
         try {
           nextMatch = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(currentUser, activeSelectionId))
+          if (!isCurrentScope()) return
         } catch (detailError) {
+          if (!isCurrentScope()) return
           const exactCachedMatch = cachedMatch?.id === activeSelectionId ? cachedMatch : null
           if (exactCachedMatch) {
             matchRef.current = exactCachedMatch
@@ -617,12 +622,15 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
         setScoreDraft({ away: String(nextMatch.awayScore), home: String(nextMatch.homeScore) })
       }
       setStale(false)
-      await cache(nextMatches, nextMatch || matchRef.current, nextPlayers)
+      await cache(nextMatches, nextMatch || matchRef.current, nextPlayers).catch(() => {
+        if (isCurrentScope()) setNotice('Match Day is up to date. Offline storage could not be refreshed.')
+      })
     } catch (loadError) {
-      if (!hasCachedMatches) setError(errorMessage(loadError, 'Match Day could not be loaded.'))
+      if (isCurrentScope()) setStale(true)
+      if (isCurrentScope() && !hasCachedMatches) setError(errorMessage(loadError, 'Match Day could not be loaded.'))
     } finally {
       loadInFlight.current = false
-      setLoading(false)
+      if (isCurrentScope()) setLoading(false)
     }
   }, [cache])
   useEffect(() => { void load() }, [load])
@@ -651,10 +659,10 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     return () => subscription.remove()
   }, [load])
   useEffect(() => {
-    if (!selectedMatchIsLive || stale || reconciling) return undefined
-    const refreshId = setInterval(() => { if (!busyRef.current) void load() }, 15000)
+    if (!selectedMatchIsLive || reconciling) return undefined
+    const refreshId = setInterval(() => { if (!busyRef.current && appState.current === 'active') void load() }, 15000)
     return () => clearInterval(refreshId)
-  }, [load, match?.id, reconciling, selectedMatchIsLive, stale])
+  }, [load, match?.id, reconciling, selectedMatchIsLive])
 
   const open = async (summary) => {
     selectedMatchId.current = summary.id

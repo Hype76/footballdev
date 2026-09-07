@@ -2667,6 +2667,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     }
 
     async function refreshLiveMatches() {
+      if (navigator.onLine === false || document.visibilityState === 'hidden') return
       const refreshState = liveRefreshStateRef.current
 
       if (refreshState.scopeKey !== scopeKey) {
@@ -2717,13 +2718,15 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       }
     }
 
-    const intervalId = window.setInterval(() => {
-      void refreshLiveMatches()
-    }, LIVE_MATCH_REFRESH_INTERVAL_MS)
-
+    const refresh = () => { void refreshLiveMatches() }
+    const intervalId = window.setInterval(refresh, LIVE_MATCH_REFRESH_INTERVAL_MS)
+    window.addEventListener('online', refresh)
+    document.addEventListener('visibilitychange', refresh)
     return () => {
       isCurrent = false
       window.clearInterval(intervalId)
+      window.removeEventListener('online', refresh)
+      document.removeEventListener('visibilitychange', refresh)
     }
   }, [getMatchDay, getMatchDays, isDemoExperience, isLoading, user])
 

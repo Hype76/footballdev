@@ -1,3 +1,4 @@
+import { isBillingActionAllowed, BILLING_ACTION_CATEGORIES } from '../src/lib/billing-access.js'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
@@ -105,7 +106,7 @@ test('central access separates Free preview from the real Parent Portal', () => 
   assert.equal(singleTeamParentPortal, true)
 })
 
-test('payment states preserve active and trialing while invalid states fail closed', () => {
+test('package entitlement remains independent from billing action restrictions', () => {
   const validStatuses = ['active', 'trialing']
   const invalidStatuses = ['past_due', 'incomplete', 'canceled', 'cancelled', 'expired', '', 'unknown']
 
@@ -118,11 +119,13 @@ test('payment states preserve active and trialing while invalid states fail clos
   }
 
   for (const planStatus of invalidStatuses) {
-    assert.equal(
-      canUseFeature(context(PLAN_KEYS.singleTeam, { planStatus }), CAPABILITIES.parentEmails),
-      false,
-      planStatus || 'missing',
-    )
+    const staff = context(PLAN_KEYS.singleTeam, { planStatus, subscriptionStatus: planStatus, billingArrangement: 'immediate', isPlanComped: false })
+    assert.equal(canUseFeature(staff, CAPABILITIES.parentEmails), true, 'sold capability remains included')
+    assert.equal(isBillingActionAllowed(staff, BILLING_ACTION_CATEGORIES.staffMutation), false, planStatus || 'missing')
+    assert.equal(isBillingActionAllowed(staff, BILLING_ACTION_CATEGORIES.read), true)
+    assert.equal(isBillingActionAllowed(staff, BILLING_ACTION_CATEGORIES.export), true)
+    assert.equal(isBillingActionAllowed(staff, BILLING_ACTION_CATEGORIES.accountSecurity), true)
+    assert.equal(isBillingActionAllowed({ ...staff, role: 'parent_portal', roleRank: 0 }, BILLING_ACTION_CATEGORIES.parentOperation), true)
   }
 
   assert.equal(canUseFeature(context('future_enterprise_plus'), CAPABILITIES.parentEmails), false)
