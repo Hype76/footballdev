@@ -132,9 +132,11 @@ test('database sync preserves offline times, command identity, authority and con
     assert.equal(started.status,'live')
     assert.equal(Date.parse(started.timer_started_at),Date.parse(at(5)))
     assert.deepEqual((await start()).rows[0].value,started)
-    const legacyId = randomUUID()
-    await db.query("insert into public.match_days(id,club_id,team_id,status,timer_status,phase_started_at,current_match_phase,updated_at) values($1,$2,$3,'live','running',$4,'first_half',$4)", [legacyId,club,team,at(0)])
-    const legacy = (await db.query("select public.apply_coach_match_day_command($1,$2,'timer','{\"action\":\"pause\"}',$3,$4,null) as value", [randomUUID(),legacyId,at(10),at(0)])).rows[0].value
-    assert.equal(legacy.timer_elapsed_seconds,600)
+    for (const timerStatus of ['running','not_started']) {
+      const legacyId = randomUUID()
+      await db.query("insert into public.match_days(id,club_id,team_id,status,timer_status,phase_started_at,current_match_phase,updated_at) values($1,$2,$3,'live',$5,$4,'first_half',$4)", [legacyId,club,team,at(0),timerStatus])
+      const legacy = (await db.query("select public.apply_coach_match_day_command($1,$2,'timer','{\"action\":\"pause\"}',$3,$4,null) as value", [randomUUID(),legacyId,at(10),at(0)])).rows[0].value
+      assert.equal(legacy.timer_elapsed_seconds,600)
+    }
   } finally { await db.close() }
 })

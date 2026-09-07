@@ -104,7 +104,7 @@ begin
     shift := now() - capture_time;
     -- Shift only inside this locked transaction so canonical timer calculations use the recorded time.
     -- No intermediate state is visible to another reader or scorer.
-    if m.timer_status = 'running' then
+    if m.timer_status = 'running' or (coalesce(m.timer_status,'not_started') = 'not_started' and m.status in ('live','second_half','extra_time','penalties')) then
       shifted_start := coalesce(m.timer_started_at,m.phase_started_at,capture_time) + shift;
       perform pg_catalog.set_config('app.match_day_lifecycle_authorized','true',true);
       update public.match_days set timer_started_at = shifted_start where id = m.id;
