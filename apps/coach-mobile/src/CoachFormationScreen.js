@@ -14,7 +14,7 @@ function createStyles(palette) {
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 8, padding: 14 },
     error: { color: palette.danger, fontSize: 14, fontWeight: '800', lineHeight: 21 },
     heading: { color: palette.textPrimary, fontSize: 29, fontWeight: '900', letterSpacing: -0.5 },
-    kicker: { color: palette.accent, fontSize: 12, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase' },
+    kicker: { color: palette.accentText, fontSize: 12, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase' },
     secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 13, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14, paddingVertical: 10 },
     secondaryText: { color: palette.textPrimary, fontSize: 13, fontWeight: '900' },
     stack: { gap: 12 },

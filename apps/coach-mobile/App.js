@@ -1166,7 +1166,7 @@ function NotificationStatusButton({ notificationState, notificationStateStatus, 
       onPress={onPress}
       style={({ pressed }) => [styles.notificationStatusButton, pressed && styles.pressed]}
     >
-      <CoachIcon color={indicator.enabled ? palette.accent : palette.textMuted} iconKey={indicator.iconKey} size={27} />
+      <CoachIcon color={indicator.enabled ? palette.accentText : palette.textMuted} iconKey={indicator.iconKey} size={27} />
     </Pressable>
   )
 }
@@ -1239,7 +1239,7 @@ function ScreenIntro({ children, copy, title }) {
 
 function CoachIcon({ color = '', iconKey = '', name = '', size = 24 }) {
   const { palette } = useCoachTheme()
-  return <MaterialIcons color={color || palette.accent} name={name || getMobileIconName(iconKey)} size={size} />
+  return <MaterialIcons color={color || palette.accentText} name={name || getMobileIconName(iconKey)} size={size} />
 }
 
 function HomeNextRow({ iconKey, label, meta = '', onPress, value }) {
@@ -1503,13 +1503,13 @@ function createCoachStyles(palette) {
     contextOption: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 14, borderWidth: 1, minHeight: 54, minWidth: 142, paddingHorizontal: 13, paddingVertical: 8 },
     contextOptionMeta: { color: palette.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 },
     contextOptionMetaSelected: { color: palette.selectedForeground },
-    contextOptionSelected: { backgroundColor: palette.selected, borderColor: palette.accent },
+    contextOptionSelected: { backgroundColor: palette.selected, borderColor: palette.accentText },
     contextOptionTitle: { color: palette.textPrimary, fontSize: 14, fontWeight: '900' },
     contextOptionTitleSelected: { color: palette.selectedForeground },
     contextShell: { backgroundColor: palette.background, borderBottomColor: palette.border, borderBottomWidth: 1, paddingTop: 6 },
     diagnostic: { color: palette.textMuted, fontFamily: 'monospace', fontSize: 12 },
     disabled: { opacity: 0.48 },
-    eyebrow: { color: palette.accent, fontSize: 12, fontWeight: '900', letterSpacing: 0.9, textTransform: 'uppercase' },
+    eyebrow: { color: palette.accentText, fontSize: 12, fontWeight: '900', letterSpacing: 0.9, textTransform: 'uppercase' },
     header: { alignItems: 'center', backgroundColor: palette.surface, borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 72, paddingHorizontal: 16, paddingVertical: 10 },
     headerCopy: { flex: 1, minWidth: 0 },
     headerMeta: { color: palette.textSecondary, fontSize: 12, fontWeight: '700', marginTop: 2 },
@@ -1529,7 +1529,7 @@ function createCoachStyles(palette) {
     iconStat: { alignItems: 'center', borderRightColor: palette.border, borderRightWidth: 1, flex: 1, gap: 3, justifyContent: 'center', minHeight: 98, minWidth: 70, paddingHorizontal: 3, paddingVertical: 8 },
     iconStatGrid: { flexDirection: 'row', justifyContent: 'space-between' },
     iconStatLabel: { color: palette.textSecondary, fontSize: 10, fontWeight: '800', lineHeight: 13, minHeight: 26, textAlign: 'center' },
-    iconStatValue: { color: palette.accent, fontSize: 24, fontWeight: '900', lineHeight: 28 },
+    iconStatValue: { color: palette.accentText, fontSize: 24, fontWeight: '900', lineHeight: 28 },
     homeNextCopy: { flex: 1, gap: 1, minWidth: 0 },
     homeNextRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 78, paddingHorizontal: 2, paddingVertical: 10 },
     homeNextValue: { color: palette.textPrimary, fontSize: 17, fontWeight: '800', lineHeight: 21 },
@@ -1538,18 +1538,18 @@ function createCoachStyles(palette) {
     menuCopy: { flex: 1, gap: 1, minWidth: 0 },
     menuRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 58, paddingHorizontal: 4, paddingVertical: 7 },
     menuText: { color: palette.textPrimary, fontSize: 15, fontWeight: '900' },
-    notice: { alignItems: 'center', backgroundColor: palette.selected, borderBottomColor: palette.accent, borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
+    notice: { alignItems: 'center', backgroundColor: palette.selected, borderBottomColor: palette.accentText, borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
     noticeDismiss: { minHeight: 36, paddingHorizontal: 6, justifyContent: 'center' },
-    noticeDismissText: { color: palette.accent, fontSize: 12, fontWeight: '900' },
+    noticeDismissText: { color: palette.accentText, fontSize: 12, fontWeight: '900' },
     noticeText: { color: palette.textPrimary, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
     notificationChoice: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, gap: 4, minHeight: 66, paddingHorizontal: 14, paddingVertical: 11 },
-    notificationChoiceSelected: { backgroundColor: palette.selected, borderColor: palette.accent, borderWidth: 2 },
+    notificationChoiceSelected: { backgroundColor: palette.selected, borderColor: palette.accentText, borderWidth: 2 },
     notificationChoices: { gap: 9 },
     notificationChoiceTitle: { color: palette.textPrimary, fontSize: 15, fontWeight: '900' },
     notificationChoiceTitleSelected: { color: palette.selectedForeground },
     notificationStatusButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
     pressed: { opacity: 0.76 },
-    primaryAction: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accent, borderRadius: 14, borderWidth: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 15, paddingVertical: 12 },
+    primaryAction: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accentText, borderRadius: 14, borderWidth: 1, justifyContent: 'center', minHeight: 50, paddingHorizontal: 15, paddingVertical: 12 },
     primaryActionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900' },
     quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
     screenIntro: { gap: 5 },
@@ -1569,13 +1569,13 @@ function createCoachStyles(palette) {
     statCard: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, flex: 1, gap: 4, minHeight: 104, minWidth: 138, padding: 15 },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     statLabel: { color: palette.textSecondary, fontSize: 13, fontWeight: '800' },
-    statValue: { color: palette.accent, fontSize: 30, fontWeight: '900' },
+    statValue: { color: palette.accentText, fontSize: 30, fontWeight: '900' },
     stateDanger: { borderColor: palette.danger },
     statePanel: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 9, marginHorizontal: 16, marginTop: 12, padding: 16 },
     stateWarning: { borderColor: palette.warning },
     tab: { alignItems: 'center', borderColor: 'transparent', borderRadius: 12, borderWidth: 1, flex: 1, gap: 2, justifyContent: 'center', minHeight: 54, paddingHorizontal: 3, paddingVertical: 5 },
     tabBar: { backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: 8, paddingHorizontal: 8, paddingTop: 8 },
-    tabSelected: { backgroundColor: palette.selected, borderColor: palette.accent },
+    tabSelected: { backgroundColor: palette.selected, borderColor: palette.accentText },
     tabText: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
     tabTextSelected: { color: palette.selectedForeground },
     testBadge: { backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },

@@ -37,11 +37,11 @@ function createStyles(palette, bottomInset) {
     actionText: { color: palette.textPrimary, fontSize: 15, fontWeight: '900' },
     backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.58)' },
     close: { alignItems: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-    closeText: { color: palette.accent, fontSize: 14, fontWeight: '900' },
+    closeText: { color: palette.accentText, fontSize: 14, fontWeight: '900' },
     fab: {
       alignItems: 'center',
       backgroundColor: palette.accent,
-      borderColor: palette.accent,
+      borderColor: palette.accentText,
       borderRadius: 30,
       borderWidth: 1,
       elevation: 8,
@@ -56,7 +56,7 @@ function createStyles(palette, bottomInset) {
     fabDragging: { opacity: 0.82, transform: [{ scale: 1.05 }] },
     floating: { left: 0, position: 'absolute', top: 0, zIndex: 80 },
     header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-    kicker: { color: palette.accent, fontSize: 12, fontWeight: '900', letterSpacing: 1.4, textTransform: 'uppercase' },
+    kicker: { color: palette.accentText, fontSize: 12, fontWeight: '900', letterSpacing: 1.4, textTransform: 'uppercase' },
     menu: {
       backgroundColor: palette.surface,
       borderColor: palette.border,
@@ -189,9 +189,9 @@ export function CoachQuickActions({ actions, bottomInset = 0, onAction, palette,
                   onPress={() => { setOpen(false); onAction(action) }}
                   style={({ pressed }) => [styles.action, pressed && { opacity: 0.76 }]}
                 >
-                  <MaterialIcons color={palette.accent} name={getMobileIconName(getCoachQuickActionIconKey(action.id))} size={28} />
+                  <MaterialIcons color={palette.accentText} name={getMobileIconName(getCoachQuickActionIconKey(action.id))} size={28} />
                   <View style={styles.actionCopy}><Text style={styles.actionText}>{action.label}</Text></View>
-                  <MaterialIcons color={palette.accent} name="add" size={20} />
+                  <MaterialIcons color={palette.accentText} name="add" size={20} />
                 </Pressable>
               ))}
             </ScrollView>

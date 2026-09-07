@@ -79,8 +79,9 @@ function colorsFor(themeTokens) {
     border: tokens.border,
     card: tokens.portalSurface,
     danger: tokens.danger,
-    event: tokens.accent || tokens.buttonPrimary,
-    match: tokens.accentMuted,
+    dangerForeground: tokens.dangerForeground,
+    event: tokens.accentText,
+    match: tokens.accentText,
     muted: tokens.textSecondary,
     pitch: tokens.pitch,
     pitchLine: tokens.pitchLine,
@@ -94,31 +95,32 @@ function usePortalStyles(themeTokens) {
   return useMemo(() => {
     const colors = colorsFor(themeTokens)
     return { colors, styles: StyleSheet.create({
-      action: { alignItems: 'center', backgroundColor: colors.accent, borderRadius: 12, minHeight: 46, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10 },
+      action: { alignItems: 'center', backgroundColor: colors.accent, borderColor: colors.accentText, borderWidth: 1, borderRadius: 12, minHeight: 46, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10 },
       actionDanger: { backgroundColor: colors.danger },
       actionDisabled: { opacity: 0.45 },
       actionOutline: { backgroundColor: 'transparent', borderColor: colors.border, borderWidth: 1 },
-      actionSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accent, borderWidth: 2 },
+      actionSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accentText, borderWidth: 2 },
       actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
       actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
       actionGridItem: { flexBasis: '47%', flexGrow: 1 },
       actionText: { color: colors.accentForeground, fontSize: 14, fontWeight: '800' },
+      actionTextDanger: { color: colors.dangerForeground },
       actionTextOutline: { color: colors.text },
       actionTextSelected: { color: colors.accentText },
       body: { color: colors.text, fontSize: 15, lineHeight: 22 },
       card: { backgroundColor: 'transparent', borderBottomColor: colors.border, borderBottomWidth: 1, gap: 8, paddingHorizontal: 0, paddingVertical: 12 },
-      controllerCard: { backgroundColor: 'transparent', borderBottomColor: colors.accent, borderBottomWidth: 2, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
-      capturedPill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderColor: colors.accent, borderRadius: 999, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
-      developmentScoreCard: { borderColor: colors.border, borderRadius: 12, borderTopColor: colors.accent, borderTopWidth: 3, borderWidth: 1, gap: 8, padding: 12 },
+      controllerCard: { backgroundColor: 'transparent', borderBottomColor: colors.accentText, borderBottomWidth: 2, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
+      capturedPill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderColor: colors.accentText, borderRadius: 999, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
+      developmentScoreCard: { borderColor: colors.border, borderRadius: 12, borderTopColor: colors.accentText, borderTopWidth: 3, borderWidth: 1, gap: 8, padding: 12 },
       developmentScoreNumber: { color: colors.accentText, fontSize: 22, fontWeight: '900' },
       developmentScoreTrack: { backgroundColor: colors.accentSoft, borderRadius: 999, height: 7, overflow: 'hidden' },
-      developmentScoreTrackFill: { backgroundColor: colors.accent, borderRadius: 999, height: '100%' },
+      developmentScoreTrackFill: { backgroundColor: colors.accentText, borderRadius: 999, height: '100%' },
       volunteerCard: { borderBottomColor: colors.warning },
       volunteerRole: { color: colors.warning, fontSize: 22, fontWeight: '900' },
       formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
       formationPitch: { aspectRatio: 0.68, backgroundColor: colors.pitch, borderColor: colors.pitchLine, borderRadius: 18, borderWidth: 2, overflow: 'hidden', position: 'relative', width: '100%' },
       formationEmpty: { alignSelf: 'center', backgroundColor: colors.card, borderRadius: 12, color: colors.text, fontSize: 13, fontWeight: '700', marginHorizontal: 18, marginTop: '55%', padding: 12, textAlign: 'center' },
-      formationPlayer: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 18, borderWidth: 2, maxWidth: 100, minWidth: 66, paddingHorizontal: 6, paddingVertical: 7, position: 'absolute', transform: [{ translateX: -33 }, { translateY: -16 }] },
+      formationPlayer: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.accentText, borderRadius: 18, borderWidth: 2, maxWidth: 100, minWidth: 66, paddingHorizontal: 6, paddingVertical: 7, position: 'absolute', transform: [{ translateX: -33 }, { translateY: -16 }] },
       formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
       cardLink: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
@@ -128,14 +130,14 @@ function usePortalStyles(themeTokens) {
       carpoolIcon: { alignItems: 'center', borderRadius: 999, height: 38, justifyContent: 'center', width: 38 },
       compactCopy: { flex: 1, gap: 3, minWidth: 0 },
       compactRow: { alignItems: 'center', flexDirection: 'row', gap: 11, minHeight: 58 },
-      gameDayHero: { borderBottomColor: colors.accent, borderBottomWidth: 1, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
+      gameDayHero: { borderBottomColor: colors.accentText, borderBottomWidth: 1, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
       gameDayHeroLive: { borderBottomWidth: 2 },
       gameDayScore: { color: colors.text, fontSize: 42, fontVariant: ['tabular-nums'], fontWeight: '900', textAlign: 'center' },
       gameDayStat: { borderLeftColor: colors.border, borderLeftWidth: 1, flex: 1, gap: 4, minWidth: 88, paddingHorizontal: 10, paddingVertical: 4 },
       gameDayStatLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
       gameDayStatValue: { color: colors.text, fontSize: 18, fontVariant: ['tabular-nums'], fontWeight: '900' },
       gameDayStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-      liveSync: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.accent, borderRadius: 9, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 7 },
+      liveSync: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.accentText, borderRadius: 9, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 7 },
       timelineItem: { borderTopColor: colors.border, borderTopWidth: 1, gap: 3, paddingTop: 10 },
       timelineMinute: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
       empty: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: 'center' },
@@ -168,16 +170,16 @@ function usePortalStyles(themeTokens) {
       meta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
       moreGrid: { borderBottomColor: colors.border, borderBottomWidth: 1, borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 5 },
       moreIconBadge: { alignItems: 'center', backgroundColor: colors.danger, borderColor: colors.card, borderRadius: 999, borderWidth: 2, justifyContent: 'center', minHeight: 19, minWidth: 19, paddingHorizontal: 4, position: 'absolute', right: 0, top: -4 },
-      moreIconBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '900', lineHeight: 13 },
+      moreIconBadgeText: { color: colors.dangerForeground, fontSize: 10, fontWeight: '900', lineHeight: 13 },
       moreIconWrap: { alignItems: 'center', height: 36, justifyContent: 'center', position: 'relative', width: 48 },
       moreItem: { alignItems: 'center', gap: 4, justifyContent: 'center', minHeight: 88, paddingHorizontal: 5, width: '33.333%' },
       moreItemCopy: { color: colors.muted, fontSize: 10, lineHeight: 14, textAlign: 'center' },
       moreItemTitle: { color: colors.text, fontSize: 12, fontWeight: '900', textAlign: 'center' },
       monthCell: { borderColor: colors.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 4, minHeight: 54, padding: 6 },
-      monthCellActive: { borderColor: colors.accent, borderWidth: 2 },
-      monthCellMuted: { opacity: 0.42 },
+      monthCellActive: { borderColor: colors.accentText, borderWidth: 2 },
+      monthCellMuted: { backgroundColor: colors.background },
       monthDay: { color: colors.text, fontSize: 13, fontWeight: '800' },
-      monthDot: { backgroundColor: colors.accent, borderRadius: 999, height: 6, width: 6 },
+      monthDot: { backgroundColor: colors.accentText, borderRadius: 999, height: 6, width: 6 },
       monthDotCancelled: { backgroundColor: colors.danger },
       monthDotEvent: { backgroundColor: colors.event },
       monthDotMatch: { backgroundColor: colors.match },
@@ -210,7 +212,7 @@ function usePortalStyles(themeTokens) {
       composer: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 8, padding: 8 },
       composerField: { flex: 1, maxHeight: 110, minHeight: 46 },
       messageBubble: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, gap: 4, maxWidth: '86%', paddingHorizontal: 12, paddingVertical: 9 },
-      messageBubbleOwn: { alignSelf: 'flex-end', backgroundColor: colors.accentSoft, borderColor: colors.accent },
+      messageBubbleOwn: { alignSelf: 'flex-end', backgroundColor: colors.accentSoft, borderColor: colors.accentText },
       messageDelete: { alignSelf: 'flex-end', paddingHorizontal: 4, paddingTop: 3 },
       messageDeleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
       messageSender: { color: colors.accentText, fontSize: 12, fontWeight: '900' },
@@ -227,7 +229,7 @@ function Button({ danger = false, disabled = false, expanded, label, onPress, ou
       onPress={onPress}
       style={({ pressed }) => [styles.action, outline && styles.actionOutline, selected && styles.actionSelected, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.78 }]}
     >
-      <Text style={[styles.actionText, outline && styles.actionTextOutline, selected && styles.actionTextSelected]}>{label}</Text>
+      <Text style={[styles.actionText, outline && styles.actionTextOutline, selected && styles.actionTextSelected, danger && styles.actionTextDanger]}>{label}</Text>
     </Pressable>
   )
 }
@@ -252,7 +254,7 @@ function volunteerIconKey(invitation = {}) {
 function IconAction({ accessibilityLabel, colors, disabled = false, iconKey, onPress, styles }) {
   return (
     <Pressable accessibilityLabel={accessibilityLabel} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.iconAction, disabled && styles.actionDisabled, pressed && { opacity: 0.72 }]}>
-      <ParentIcon color={colors.accent} iconKey={iconKey} size={22} />
+      <ParentIcon color={colors.accentText} iconKey={iconKey} size={22} />
     </Pressable>
   )
 }
@@ -318,7 +320,7 @@ function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, o
   const status = needsLift ? 'Needs a lift' : offeringLift ? `Offering ${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered)} seat${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered) === 1 ? '' : 's'}` : invitation?.transportRespondedAt ? 'Not needed' : 'Optional'
   return (
     <View style={styles.inviteSection}>
-      <Pressable accessibilityLabel={`Carpool, ${status}`} accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((current) => !current)} style={styles.inviteSectionHeader}><ParentIcon color={needsLift ? colors.danger : offeringLift ? colors.success : colors.muted} iconKey="carpool.offer" size={23} /><View style={styles.inviteSectionCopy}><Text style={styles.cardTitle}>Carpool</Text><Text style={styles.meta}>{status}</Text></View><ParentIcon color={colors.accent} iconKey={open ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
+      <Pressable accessibilityLabel={`Carpool, ${status}`} accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((current) => !current)} style={styles.inviteSectionHeader}><ParentIcon color={needsLift ? colors.danger : offeringLift ? colors.success : colors.muted} iconKey="carpool.offer" size={23} /><View style={styles.inviteSectionCopy}><Text style={styles.cardTitle}>Carpool</Text><Text style={styles.meta}>{status}</Text></View><ParentIcon color={colors.accentText} iconKey={open ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
       {open ? <View style={styles.iconChoiceRow}>
         <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.need" label="Need a lift" onPress={() => onTransport?.(invitation, 'needs_lift', 0)} selected={needsLift} styles={styles} tone="danger" />
         <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.offer" label="Offer a lift" onPress={() => onTransport?.(invitation, 'offering_lift', seatsOffered)} selected={offeringLift} styles={styles} tone="success" />
@@ -359,7 +361,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
           <Text style={styles.cardTitle}>{event.title}</Text>
           <Text numberOfLines={1} style={styles.meta}>{[event.teamName, isMatch && arrivalTime ? `Arrive ${formatParentProductTime(arrivalTime)}` : '', event.responseState ? labelize(event.responseState) : ''].filter(Boolean).join(' | ')}</Text>
         </View>
-        {invitation ? <ParentIcon color={colors.accent} iconKey="action.open" size={22} /> : null}
+        {invitation ? <ParentIcon color={colors.accentText} iconKey="action.open" size={22} /> : null}
       </Pressable>
       {actionable ? (
         <View style={[styles.inviteSection, styles.iconChoiceRow]}>
@@ -372,7 +374,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
           })}
         </View>
       ) : null}
-      {Array.isArray(event.resources) && event.resources.length > 0 ? <View style={styles.inviteSection}>{event.resources.map((resource) => <Pressable accessibilityLabel={`Open ${resource.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={resource.id} onPress={() => onOpenResource?.(event, resource)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accent} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resource.title}</Text><ParentIcon color={colors.accent} iconKey="action.open" size={21} /></Pressable>)}</View> : null}
+      {Array.isArray(event.resources) && event.resources.length > 0 ? <View style={styles.inviteSection}>{event.resources.map((resource) => <Pressable accessibilityLabel={`Open ${resource.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={resource.id} onPress={() => onOpenResource?.(event, resource)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accentText} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resource.title}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={21} /></Pressable>)}</View> : null}
       <View style={styles.inviteSection}>
         <View style={styles.row}>
           {event.location ? <View style={[styles.inviteMetadataItem, styles.inviteSectionCopy]}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={1} style={styles.meta}>{event.location}</Text></View> : <View />}
@@ -467,7 +469,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
         <View accessibilityLabel="Calendar filters" style={styles.monthLegend}>
           {[['match', 'Match'], ['training', 'Training'], ['response', 'Needs response'], ['event', 'Other']].map(([tone, label]) => {
             const selected = markerTones.includes(tone)
-            return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={[styles.monthLegendItem, !selected && { opacity: 0.42 }]}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
+            return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={[styles.monthLegendItem, !selected && { borderBottomColor: colors.border, borderBottomWidth: 1 }]}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone]]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
           })}
         </View>
         {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
@@ -536,9 +538,9 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
               <View style={styles.inviteHeaderCopy}><Text style={styles.cardTitle}>{group.eventTitle}</Text>{primary?.teamName ? <Text style={styles.meta}>{primary.teamName}</Text> : null}</View>
             </View>
             <View style={styles.inviteMetadata}>
-              {isMatch ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.accent} iconKey="shirt" size={20} /><Text style={styles.meta}>{getMatchDayShirtChoiceLabel(primary?.shirtChoice)}</Text></View> : null}
+              {isMatch ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.accentText} iconKey="shirt" size={20} /><Text style={styles.meta}>{getMatchDayShirtChoiceLabel(primary?.shirtChoice)}</Text></View> : null}
               {isMatch && primary?.arrivalTime ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.danger} iconKey="time.arrival" size={20} /><Text style={styles.meta}>Arrive {formatParentProductTime(primary.arrivalTime)}</Text></View> : null}
-              {isMatch ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.success} iconKey="time.kickoff" size={20} /><Text style={styles.meta}>Kick-off {primary?.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}</Text></View> : primary?.eventStart ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.accent} iconKey="time.arrival" size={20} /><Text style={styles.meta}>{formatParentProductTime(primary.eventStart)}</Text></View> : null}
+              {isMatch ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.success} iconKey="time.kickoff" size={20} /><Text style={styles.meta}>Kick-off {primary?.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(kickoffTime)}</Text></View> : primary?.eventStart ? <View style={styles.inviteMetadataItem}><ParentIcon color={colors.accentText} iconKey="time.arrival" size={20} /><Text style={styles.meta}>{formatParentProductTime(primary.eventStart)}</Text></View> : null}
             </View>
             {matchAttendance ? <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={matchAttendance} isOffline={isOffline} label="Attendance" onRespond={respond} styles={styles} /> : null}
             {volunteerOffers.length ? <View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="invite" size={20} /><Text style={[styles.inviteSectionTitle, styles.inviteSectionCopy]}>Volunteer roles</Text><IconAction accessibilityLabel="About Volunteer offers" colors={colors} iconKey="info-outline" onPress={() => setVolunteerHelpOpen((open) => !open)} styles={styles} /></View> : null}
@@ -547,7 +549,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
             {otherInvitations.map((invitation) => <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} key={invitation.invitationId} label={invitation.invitationType === 'training_attendance' ? 'Training attendance' : 'Attendance'} onRespond={respond} styles={styles} />)}
             {resources.length ? (
               <View style={styles.inviteSection}>
-                {resources.map(({ invitation, resourceItem }) => <Pressable accessibilityLabel={`Open ${resourceItem.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={`${resourceItem.id}:${resourceItem.occurrenceDate}:${invitation.invitationId}`} onPress={() => onOpenResource?.(invitation, resourceItem)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accent} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resourceItem.title}</Text><ParentIcon color={colors.accent} iconKey="action.open" size={21} /></Pressable>)}
+                {resources.map(({ invitation, resourceItem }) => <Pressable accessibilityLabel={`Open ${resourceItem.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={`${resourceItem.id}:${resourceItem.occurrenceDate}:${invitation.invitationId}`} onPress={() => onOpenResource?.(invitation, resourceItem)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accentText} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resourceItem.title}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={21} /></Pressable>)}
               </View>
             ) : null}
             {primary?.eventLocation ? <View style={styles.inviteSection}><View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={2} style={[styles.meta, styles.inviteSectionCopy]}>{primary.eventLocation}</Text>{(primary.eventDate || primary.eventStart) ? <IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /> : null}</View></View> : (primary?.eventDate || primary?.eventStart) ? <View style={styles.inviteSection}><View style={styles.row}><Text style={styles.meta}>Add this event to Google Calendar</Text><IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /></View></View> : null}
@@ -569,7 +571,7 @@ function MatchCard({ colors, match, onOpen, styles }) {
       <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
         <ParentIcon color={colors.text} iconKey="football" size={34} />
         <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
-        {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accent} iconKey="action.open" size={22} />}
+        {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />}
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
     </View>
@@ -992,7 +994,7 @@ function ParentMatchReportCard({ colors, match, styles }) {
   const activeEvents = getParentMatchTimeline(match)
   return (
     <View style={styles.card}>
-      <Pressable accessibilityLabel={expanded ? 'Hide match report' : 'View match report'} accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.compactRow}><ParentIcon color={colors.text} iconKey="football" size={34} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text></View><Text style={styles.score}>{report.result.finalScore}</Text><ParentIcon color={colors.accent} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
+      <Pressable accessibilityLabel={expanded ? 'Hide match report' : 'View match report'} accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.compactRow}><ParentIcon color={colors.text} iconKey="football" size={34} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text></View><Text style={styles.score}>{report.result.finalScore}</Text><ParentIcon color={colors.accentText} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
       {report.result.shootoutScore ? <Text style={styles.meta}>Shootout: {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
       {expanded ? (
         <View style={styles.section}>
@@ -1073,7 +1075,7 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, them
       <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history previously shared with this Parent link.</Text></View>
       {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Sharing a PDF needs a connection.</Text> : null}
       <ResourceState emptyCopy="No delivered Development reports are available for this child." {...resource} styles={styles} />
-      {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accent} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accent} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text><IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /></View></View>)}
+      {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text><IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /></View></View>)}
     </View>
   )
 }
@@ -1107,7 +1109,7 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
       <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected child.</Text></View>
       {isOffline ? <Text style={styles.warning}>Resource details are saved for reading. Opening the item needs a connection.</Text> : null}
       <ResourceState emptyCopy="No resources are shared with this child." {...resource} styles={styles} />
-      {resource.items.map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accent} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text></View><ParentIcon color={colors.accent} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text><IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /></View></View>)}
+      {resource.items.map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text><IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /></View></View>)}
     </View>
   )
 }
@@ -1165,9 +1167,9 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
         renderItem={({ item: room }) => (
           <View style={styles.card}>
             <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)} style={styles.compactRow}>
-              <ParentIcon color={room.unreadCount ? colors.accent : colors.muted} iconKey="message" size={30} />
+              <ParentIcon color={room.unreadCount ? colors.accentText : colors.muted} iconKey="message" size={30} />
               <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text numberOfLines={1} style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text></View>
-              <ParentIcon color={colors.accent} iconKey="action.open" size={22} />
+              <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />
             </Pressable>
             <View style={styles.row}>
               <View><Text style={styles.body}>Do not disturb</Text><Text style={styles.meta}>{room.notificationsMuted ? 'Notifications muted for this room' : 'Notifications on for this room'}</Text></View>
@@ -1199,7 +1201,7 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
     ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls', unansweredPolls],
     ['settings', 'settings', 'Settings', 'Account and alerts', 0],
   ]
-  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accent} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
+  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
 }
 
 export async function openExternalParentUrl(url) {

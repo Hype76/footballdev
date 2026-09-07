@@ -1,3 +1,5 @@
+import { contrastSafeColor, mixThemeColor, readableThemeTokens, themeContrastRatio, themeForeground } from '../../mobile-core/src/themeContrast.js'
+
 const ACCENTS = new Set(['yellow', 'blue', 'green', 'red', 'purple'])
 const HEX_PATTERN = /^#[0-9a-f]{6}$/
 
@@ -31,28 +33,7 @@ function normalizeAccent(value, fallback = 'green') {
   return ACCENTS.has(fallback) ? fallback : 'green'
 }
 
-function channel(hex, offset) {
-  return Number.parseInt(hex.slice(offset, offset + 2), 16)
-}
-
-function luminance(hex) {
-  const values = [1, 3, 5].map((offset) => {
-    const value = channel(hex, offset) / 255
-    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
-  })
-  return (0.2126 * values[0]) + (0.7152 * values[1]) + (0.0722 * values[2])
-}
-
-export function getCoachContrastRatio(left, right) {
-  const values = [luminance(left), luminance(right)].sort((a, b) => b - a)
-  return (values[0] + 0.05) / (values[1] + 0.05)
-}
-
-function readableForeground(background) {
-  return ['#06110a', '#ffffff'].sort((left, right) => (
-    getCoachContrastRatio(right, background) - getCoachContrastRatio(left, background)
-  ))[0]
-}
+export const getCoachContrastRatio = themeContrastRatio
 
 export function normalizeCoachLogoUrl(value) {
   try {
@@ -81,13 +62,16 @@ export function createCoachTheme({ context = null, mode = 'dark' } = {}) {
   const branding = resolveCoachBranding(context)
   const base = BASE[resolvedMode]
   const accent = HEX_PATTERN.test(branding.accent) ? branding.accent : PALETTES[resolvedMode][branding.accent]
-  const selected = resolvedMode === 'dark' ? `${accent}2e` : `${accent}1f`
+  const selected = mixThemeColor(accent, base.surface, resolvedMode === 'dark' ? 0.84 : 0.92)
+  const surfaces = [base.background, base.surface, base.surfaceRaised, selected]
+  const accentText = contrastSafeColor(accent, surfaces, resolvedMode)
   const tokens = Object.freeze({
-    ...base,
+    ...readableThemeTokens(base, surfaces, resolvedMode),
     accent,
-    accentForeground: readableForeground(accent),
+    accentText,
+    accentForeground: themeForeground(accent),
     selected,
-    selectedForeground: accent,
+    selectedForeground: accentText,
   })
   return Object.freeze({ branding, mode: resolvedMode, tokens })
 }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
@@ -50,12 +51,13 @@ try {
       const button = page.getByRole('button', { name, exact: true })
       await button.waitFor()
       const badge = button.getByLabel(`${count} new`, { exact: true })
-      assert.equal(await badge.evaluate((element) => getComputedStyle(element).backgroundColor), 'rgb(180, 35, 24)')
+      await assertRenderedTextContrast(page, `More badge ${name}`)
       assert.equal(await badge.getByText(count, { exact: true }).count(), 1)
     }
     assert.equal(await page.getByRole('button', { name: /Results/ }).getByLabel(/new/).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
     assert.deepEqual(errors, [])
+    await assertRenderedTextContrast(page, `More ${width}`)
     await page.screenshot({ path: path.join(output, `${width}.png`), fullPage: true })
     await page.close()
   }
