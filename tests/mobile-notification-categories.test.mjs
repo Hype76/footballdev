@@ -37,6 +37,7 @@ function database(preferences = []) {
     ],
     coach_mobile_push_installations: [{auth_user_id:'one',expo_push_token:'ExpoPushToken[coach]',enabled:true,status:'active',detail_level:'minimal'}],
     mobile_notification_preferences: preferences,
+    fan_devices: [{auth_user_id:'fan',token:'ExpoPushToken[fan]'}],
   }
   return { from(table) { let selected = rows[table]; return {
     select(){return this}, eq(key,value){ selected=selected.filter(row=>row[key]===value);return this },
@@ -68,6 +69,18 @@ test('delivery rechecks account and app choices, including queued alerts, withou
     await assert.rejects(sendExpoPushMessages([message('two')],{client:broken}),/unavailable/)
     assert.equal(sent.length,0)
   } finally { globalThis.fetch=originalFetch }
+})
+
+test('Fan-only devices receive permitted Game Day alerts and respect account preferences', async () => {
+  const preferences = []
+  const client = database(preferences)
+  const message = (type, token = 'fan') => ({to:`ExpoPushToken[${token}]`,data:{app:'parent',route:'fans',type}})
+  assert.deepEqual(await filterMobileNotificationMessages([message('goal'),message('half_time'),message('goal','missing')],client),[message('goal')])
+  preferences.push({auth_user_id:'fan',app:'parent',game_day:'full'})
+  assert.equal((await filterMobileNotificationMessages([message('half_time')],client)).length,1)
+  preferences[0].game_day='off'
+  assert.equal((await filterMobileNotificationMessages([message('goal')],client)).length,0)
+  assert.equal((await filterMobileNotificationMessages([message('goal','three')],client)).length,0)
 })
 
 test('database enforces account isolation, atomic field updates, defaults and strict inputs', async () => {

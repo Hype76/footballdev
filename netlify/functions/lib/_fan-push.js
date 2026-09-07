@@ -2,7 +2,7 @@ import { loadFanScope } from './_fan-access.js'
 import { loadFanMatches } from './_fan-schedule.js'
 import { sendExpoPushMessages } from './_expo-push.js'
 const TYPES = new Set(['match_started','goal','half_time','second_half','extra_time','penalties','full_time','yellow_card','red_card','substitution','score_correction','paused','resumed'])
-export async function sendFanMatchNotifications({ client, match, type, eventId, targetParentLinkIds, sendPush = sendExpoPushMessages }) {
+export async function sendFanMatchNotifications({ client, match, type, eventId, targetParentLinkIds, sendPush = (messages) => sendExpoPushMessages(messages, { client }) }) {
   if (!TYPES.has(type) || !targetParentLinkIds.length) return { fanSent: 0, fanFailed: 0 }
   const result = await client.from('fan_connections').select('id,auth_user_id')
     .eq('club_id', match.club_id).eq('status', 'active').eq('relationship_type', 'fan').eq('notifications_enabled', true)
@@ -31,7 +31,7 @@ export async function sendFanMatchNotifications({ client, match, type, eventId, 
       if (!current.fan.notifications_enabled) continue
       const tokens = (devices.data || []).map((d) => d.token).filter((token) => !seenTokens.has(token))
       const delivery = await sendPush(tokens.map((to) => ({ to, title: 'Game Day update', body: 'Open Fans to view a game you follow.', sound: 'default', priority: 'high', ttl: 14400,
-        data: { app: 'parent', route: 'fans', fanConnectionId: fan.id, matchDayId: match.id } })))
+        data: { app: 'parent', route: 'fans', type, fanConnectionId: fan.id, matchDayId: match.id } })))
       if (!delivery.failed) {
         tokens.forEach((token) => seenTokens.add(token))
         const marked = await client.from('fan_notifications').update({ push_sent_at: new Date().toISOString() }).eq('id', record.data.id)
