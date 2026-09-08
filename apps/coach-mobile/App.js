@@ -813,7 +813,7 @@ function CoachHome() {
             />
           </Animated.ScrollView>
           <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
-          <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} />
+          {!(activeRoute === 'more' && moreRoute === 'invites') ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </CoachThemeContext.Provider>
