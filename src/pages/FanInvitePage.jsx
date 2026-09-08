@@ -14,6 +14,11 @@ export function FanInvitePage() {
   const { token } = useParams()
   const navigate = useNavigate()
   const { session } = useAuth()
+  const [confirmationToken, setConfirmationToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('fan_confirmation') || '')
+  const [emailConfirmed, setEmailConfirmed] = useState(false)
+  useEffect(() => {
+    if (confirmationToken) window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+  }, [confirmationToken])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState(null)
@@ -41,6 +46,13 @@ export function FanInvitePage() {
   }, [session?.user, token])
   const run = async (action) => { if (busyRef.current) return; busyRef.current = true; setBusy(true); setMessage(''); try { await action() } catch (e) { setMessage(e.message || 'Account setup could not finish. Please try again.') } finally { busyRef.current = false; setBusy(false) } }
   const chooseMode = (nextMode) => { setMode(nextMode); setPassword(''); setMessage(''); if (nextMode === 'create') setVerificationEmail('') }
+  const confirmEmail = async () => {
+    const { error } = await supabase.auth.verifyOtp({ token_hash: confirmationToken, type: 'email' })
+    if (error) throw new Error('This confirmation link has expired or has already been used. If you already confirmed your email, choose Sign in below to accept this invitation. Otherwise contact support for help confirming your account.')
+    setConfirmationToken('')
+    setEmailConfirmed(true)
+    setMode('signin')
+  }
   const submit = async () => {
     if (mode === 'create') {
       assertPasswordPolicy(password)
@@ -59,9 +71,11 @@ export function FanInvitePage() {
   }
   return <FanBrandScope source={invite || branding}><main className="fans"><FanClubBrand source={invite || branding} /><header className="fans-heading"><FanIcon /><h1>Your Fan invitation</h1></header><p>Use the email address the Parent invited. You will only receive the access they selected.</p>
     {message ? <p ref={messageRef} role="alert">{message}</p> : null}
+    {confirmationToken ? <section aria-label="Confirm Fan email"><h2>Confirm your Fan email</h2><p>Confirm your email to continue with this invitation. Access starts only after you accept the invitation.</p><button className="fans-invite" disabled={busy} onClick={() => run(confirmEmail)}>{busy ? 'Confirming...' : 'Confirm email'}</button></section> : null}
+    {emailConfirmed ? <p role="status">Email confirmed. Accept the invitation below to activate your Fan access.</p> : null}
     {!session?.user ? <>
-      {!mode ? <><p>New to Football Player? Create an account, confirm your email, then accept this invitation.</p><button className="fans-invite" onClick={() => chooseMode('create')}>Create account</button><p>Already have an account?</p><button onClick={() => chooseMode('signin')}>Sign in</button></> : <>
-        {verificationEmail ? <section ref={confirmationRef} tabIndex={-1} aria-label="Email confirmation"><h2>Check your email</h2><p>We sent a confirmation email to {verificationEmail}. Check your spam folder too.</p><p>Open Confirm email, then return here to sign in and accept the invitation. Your Fan access is not active yet.</p></section> : null}
+      {!mode ? <>{!confirmationToken ? <><p>New to Football Player? Create an account, confirm your email, then accept this invitation.</p><button className="fans-invite" onClick={() => chooseMode('create')}>Create account</button></> : null}<p>{confirmationToken ? 'Already confirmed your email?' : 'Already have an account?'}</p><button onClick={() => chooseMode('signin')}>Sign in</button></> : <>
+        {verificationEmail ? <section ref={confirmationRef} tabIndex={-1} aria-label="Email confirmation"><h2>Check your email</h2><p>We sent a confirmation email to {verificationEmail}. Check your spam folder too.</p><p>Open the email link, confirm your email, then accept the invitation on that page. Your Fan access is not active yet.</p></section> : null}
         <h2>{mode === 'create' ? 'Create your Fan account' : 'Sign in to accept'}</h2>
         <form aria-busy={busy} onInvalid={(e) => setMessage(e.target.validationMessage)} onSubmit={(e) => { e.preventDefault(); void run(submit) }}>
           <label>Email<input required type="email" autoComplete="email" disabled={busy} value={email} onChange={(e) => setEmail(e.target.value)} /></label>
