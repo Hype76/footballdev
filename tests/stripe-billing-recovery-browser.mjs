@@ -246,6 +246,17 @@ async function prepareContext(browser, { couponFailure = false, viewport }) {
       return
     }
 
+    // Sign-in briefly opens Platform Admin, whose background reads can finish before Billing opens.
+    if (pathname.endsWith('/platform-analytics') && request.method() === 'GET') {
+      await fulfillJson(route, 200, { success: true, report: null })
+      return
+    }
+
+    if (pathname.endsWith('/platform-feedback-reports') && request.method() === 'GET') {
+      await fulfillJson(route, 200, { success: true, reports: [] })
+      return
+    }
+
     requestCounts.unexpectedFunctions.push(`${request.method()} ${pathname}`)
     await fulfillJson(route, 404, {
       success: false,
