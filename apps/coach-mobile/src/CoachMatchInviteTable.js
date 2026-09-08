@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { getCoachInviteDeliveryProgress, getCoachInviteStatusLabel } from '../../mobile-core/src/coachPhase31ECore'
@@ -28,6 +28,10 @@ export function CoachMatchInviteTable({ invites, players = [], palette, selected
     const comparison = sort.key === 'response' ? response(a).label.localeCompare(response(b).label) : a.playerName.localeCompare(b.playerName)
     return comparison * sort.direction || a.playerName.localeCompare(b.playerName)
   })
+  useEffect(() => {
+    const hiddenSelection = selectedPlayerIds.some(id => !invites.some(invite => invite.playerId === id && (filter === 'all' || responseKey(invite.status) === filter)))
+    if (hiddenSelection) onFilterChange?.()
+  }, [filter, invites, onFilterChange, selectedPlayerIds])
   const details = invites.find(invite => invite.id === detailsId)
   const selectFilter = key => { setFilter(filter === key ? 'all' : key); onFilterChange?.() }
   const changeSort = key => setSort(current => ({ key, direction: current.key === key ? -current.direction : 1 }))

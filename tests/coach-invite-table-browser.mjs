@@ -32,6 +32,7 @@ try{
  assert.equal(await page.getByText('98',{exact:true}).count(),1,'Saved shirt numbers are displayed')
  await page.getByRole('button',{name:'Filter Available, 14 players'}).waitFor()
  await page.getByRole('button',{name:'Filter Awaiting, 3 players'}).click();assert.equal(await boxes().count(),3)
+ await boxes().first().click();await page.getByText('1 Player selected.',{exact:true}).waitFor();await page.evaluate(()=>window.invites(window.rows.map(r=>r.playerId==='player-9'?{...r,status:'available'}:r)));await page.getByText('1 Player selected.',{exact:true}).waitFor({state:'hidden'});assert.equal(await boxes().count(),2,'An incoming response cannot leave a hidden player selected');await page.evaluate(()=>window.invites(window.rows));await page.getByRole('button',{name:'Filter Awaiting, 3 players'}).waitFor()
  await boxes().first().click();await page.getByText('1 Player selected.',{exact:true}).waitFor()
  await page.getByRole('button',{name:'Filter Available, 14 players'}).click();assert.equal(await boxes().count(),14)
  assert.equal(await page.getByText('1 Player selected.',{exact:true}).count(),0,'Filter changes clear hidden selections')
