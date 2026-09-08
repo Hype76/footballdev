@@ -1,3 +1,4 @@
+import { PasswordInput } from '../components/ui/PasswordInput.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
@@ -2154,8 +2155,7 @@ function ParentSettingsPanel({
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-xs font-black text-[#4b5f55]">New password</span>
-                <input
-                  type="password"
+                <PasswordInput label="New password"
                   value={passwordData.password}
                   onChange={(event) => setPasswordData((current) => ({ ...current, password: event.target.value }))}
                   minLength={PASSWORD_MIN_LENGTH}
@@ -2165,8 +2165,7 @@ function ParentSettingsPanel({
               </label>
               <label className="block">
                 <span className="mb-1 block text-xs font-black text-[#4b5f55]">Confirm password</span>
-                <input
-                  type="password"
+                <PasswordInput label="Confirm password"
                   value={passwordData.confirmPassword}
                   onChange={(event) => setPasswordData((current) => ({ ...current, confirmPassword: event.target.value }))}
                   minLength={PASSWORD_MIN_LENGTH}

@@ -1,3 +1,4 @@
+import { PasswordInput } from '../ui/PasswordInput.jsx'
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../../lib/password-policy.js'
@@ -48,8 +49,7 @@ export function PlatformAdminStaffSection({
           </label>
           <label className="block">
             <span className={labelClass}>Temporary password</span>
-            <input
-              type="password"
+            <PasswordInput label="Temporary password"
               value={form.password}
               onChange={(event) => onChange('password', event.target.value)}
               required

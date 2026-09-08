@@ -62,6 +62,9 @@ export function AuthProvider({
   const [startupState, setStartupState] = useState(MOBILE_STARTUP_STATES.BOOTING)
   const [user, setUser] = useState(null)
   const profileGenerationRef = useRef(0)
+  const sessionUserIdRef = useRef('')
+  const currentUserRef = useRef(null)
+  currentUserRef.current = user
 
   useEffect(() => {
     const updateAutoRefresh = (state) => {
@@ -96,7 +99,7 @@ export function AuthProvider({
 
     if (offlineProfileStore?.read) {
       try {
-        cachedProfile = await offlineProfileStore.read(nextSession.user.id)
+        cachedProfile = await withStartupTimeout(() => offlineProfileStore.read(nextSession.user.id), 1500, 'PROFILE_CACHE_READ_TIMEOUT')
         if (!isCurrent()) return null
         if (cachedProfile) setUser({ ...cachedProfile, isOfflineProfile: true })
       } catch (error) {
@@ -106,12 +109,12 @@ export function AuthProvider({
 
     const refreshProfile = async () => {
       try {
-        const profile = await fetchMobileProfile(nextSession.user, appRole)
+        const profile = await withStartupTimeout(() => fetchMobileProfile(nextSession.user, appRole), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_TIMEOUT`)
         if (!isCurrent()) return null
         let persistedProfile = profile
         if (offlineProfileStore?.write) {
           try {
-            persistedProfile = await offlineProfileStore.write(profile) || profile
+            persistedProfile = await withStartupTimeout(() => offlineProfileStore.write(profile), 1500, 'PROFILE_CACHE_WRITE_TIMEOUT') || profile
           } catch (error) {
             console.warn(error)
           }
@@ -134,7 +137,9 @@ export function AuthProvider({
         }
         if (!isCurrent()) return null
         setUser(null)
-        setAuthError(error.message || 'Account details could not be loaded.')
+        setAuthError(String(error?.code || '').endsWith('_TIMEOUT')
+          ? 'Your account details are taking too long to load. Check your connection and try again.'
+          : error.message || 'Account details could not be loaded.')
         throw error
       }
     }
@@ -160,8 +165,12 @@ export function AuthProvider({
 
   useEffect(() => {
     let isMounted = true
+    let authEventGeneration = 0
+    let profileTimer = null
 
     async function bootstrap() {
+      const bootstrapGeneration = authEventGeneration
+      const isBootstrapCurrent = () => isMounted && bootstrapGeneration === authEventGeneration
       setAuthError('')
       setStartupDiagnosticCode('')
 
@@ -169,6 +178,7 @@ export function AuthProvider({
       const result = await runMobileStartup({
         appRole,
         clearInvalidSession: async () => {
+          if (!isBootstrapCurrent()) return
           await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
           await clearMobileSessionStorage()
           setUser(null)
@@ -179,15 +189,18 @@ export function AuthProvider({
         },
         getBiometricEnabled: () => getBiometricEnabled(appRole),
         getSession: () => supabase.auth.getSession(),
-        loadProfile,
+        loadProfile: (nextSession) => isBootstrapCurrent() ? loadProfile(nextSession) : null,
         onLock: (locked) => {
-          if (isMounted) setIsLocked(locked)
+          if (isBootstrapCurrent()) setIsLocked(locked)
         },
         onSession: (nextSession) => {
-          if (isMounted) setSession(nextSession)
+          if (isBootstrapCurrent()) {
+            sessionUserIdRef.current = nextSession?.user?.id || ''
+            setSession(nextSession)
+          }
         },
         onTransition: (nextState) => {
-          if (isMounted) setStartupState(nextState)
+          if (isMounted && bootstrapGeneration === authEventGeneration) setStartupState(nextState)
         },
         prepare: () => prepareStartup?.(config),
         resolvingProfileState: appRole === 'coach'
@@ -195,7 +208,7 @@ export function AuthProvider({
           : MOBILE_STARTUP_STATES.RESTORING_SESSION,
       })
 
-      if (!isMounted) return
+      if (!isMounted || bootstrapGeneration !== authEventGeneration) return
       setStartupState(result.state)
       setStartupDiagnosticCode(result.diagnosticCode || '')
       if (result.state === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR) {
@@ -217,6 +230,9 @@ export function AuthProvider({
 
       if (!nextSession?.user) {
         if (!['SIGNED_OUT', 'USER_DELETED'].includes(event)) return
+        authEventGeneration += 1
+        clearTimeout(profileTimer)
+        sessionUserIdRef.current = ''
         profileGenerationRef.current += 1
         void offlineProfileStore?.clear?.().catch(console.warn)
         mobileResourceCache.clear()
@@ -227,22 +243,39 @@ export function AuthProvider({
         return
       }
 
+      const sameAccount = sessionUserIdRef.current === nextSession.user.id
+      sessionUserIdRef.current = nextSession.user.id
       setSession(nextSession)
+      // Token renewal must not unmount the app or restart all screen requests.
+      if (sameAccount && (event === 'TOKEN_REFRESHED' || (event === 'SIGNED_IN' && currentUserRef.current?.id === nextSession.user.id))) return
 
-      setStartupState(appRole === 'coach'
+      const eventGeneration = ++authEventGeneration
+      clearTimeout(profileTimer)
+      if (!sameAccount) { profileGenerationRef.current += 1; setUser(null) }
+      const hasProfile = sameAccount && currentUserRef.current?.id === nextSession.user.id
+      if (!hasProfile) setStartupState(appRole === 'coach'
         ? MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT
         : MOBILE_STARTUP_STATES.RESTORING_SESSION)
-      void loadProfile(nextSession).then(() => {
-        if (isMounted) setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_IN)
-      }).catch((error) => {
-        if (!isMounted) return
-        setStartupDiagnosticCode(error?.code || `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_FAILED`)
-        setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
-      })
+      // Leave the auth callback before making calls that acquire its session lock.
+      profileTimer = setTimeout(() => {
+        void withStartupTimeout(() => loadProfile(nextSession), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS + 3000,
+          `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_TIMEOUT`).then(() => {
+          if (isMounted && eventGeneration === authEventGeneration) setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_IN)
+        }).catch((error) => {
+          if (!isMounted || eventGeneration !== authEventGeneration) return
+          profileGenerationRef.current += 1
+          setIsProfileLoading(false)
+          setStartupDiagnosticCode(error?.code || `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_FAILED`)
+          setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+        })
+      }, 0)
     })
 
     return () => {
       isMounted = false
+      authEventGeneration += 1
+      clearTimeout(profileTimer)
+      profileGenerationRef.current += 1
       data.subscription.unsubscribe()
     }
   }, [appRole, bootstrapAttempt, loadProfile, offlineProfileStore, prepareStartup])
@@ -270,9 +303,14 @@ export function AuthProvider({
   const signIn = useCallback(async (email, password) => {
     setAuthError('')
     setIsLocked(false)
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await withStartupTimeout(() => supabase.auth.signInWithPassword({
       email: String(email || '').trim(),
       password,
+    }), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, 'LOGIN_CONNECTION_TIMEOUT').catch((error) => {
+      const failure = error?.code === 'LOGIN_CONNECTION_TIMEOUT'
+        ? new Error('Sign-in is taking too long. Check your connection and try again.') : error
+      setAuthError(failure.message || 'Login failed.')
+      throw failure
     })
 
     if (error) {

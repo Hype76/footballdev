@@ -56,21 +56,24 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
       testID="brand-loader"
     >
       <Animated.View
+        collapsable={false}
+        renderToHardwareTextureAndroid
         pointerEvents="none"
-        style={[styles.disc, {
+        style={{
           width: diameter,
           height: diameter,
-          borderRadius: diameter / 2,
           transform: [{ perspective: 600 }, { rotateY: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
-        }]}
+        }}
         testID="brand-loader-disc"
       >
+        <View collapsable={false} style={[styles.disc, { width: diameter, height: diameter, borderRadius: diameter / 2 }]}>
         <Image
           accessible={false}
           source={logoSource}
           resizeMode="contain"
           style={{ position: 'absolute', width: emblem.sourceSize * scale, height: emblem.sourceSize * scale, left: -emblem.left * scale, top: -emblem.top * scale }}
         />
+        </View>
       </Animated.View>
     </View>
   )

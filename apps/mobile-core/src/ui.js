@@ -324,10 +324,12 @@ export function TextField({
   textContentType,
   value,
 }) {
+  const [showPassword, setShowPassword] = useState(false)
+  const actionLabel = secureTextEntry ? (showPassword ? 'Hide' : 'Show') : rightActionLabel
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <View style={rightActionLabel ? styles.inputRow : null}>
+      <View style={actionLabel ? styles.inputRow : null}>
         <TextInput
           autoComplete={autoComplete}
           autoCapitalize={autoCapitalize}
@@ -339,18 +341,19 @@ export function TextField({
           placeholder={placeholder}
           placeholderTextColor={colors.muted}
           returnKeyType={returnKeyType}
-          secureTextEntry={secureTextEntry}
+          secureTextEntry={secureTextEntry && !showPassword}
           style={[
             styles.input,
-            rightActionLabel ? styles.inputWithAction : null,
+            actionLabel ? styles.inputWithAction : null,
             multiline ? styles.multilineInput : null,
           ]}
           textContentType={textContentType}
           value={value}
         />
-        {rightActionLabel ? (
-          <Pressable onPress={onRightActionPress} style={styles.inputAction}>
-            <Text style={styles.inputActionText}>{rightActionLabel}</Text>
+        {actionLabel ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={secureTextEntry ? `${actionLabel} ${label || 'password'}` : actionLabel}
+            onPress={secureTextEntry ? () => setShowPassword((value) => !value) : onRightActionPress} style={styles.inputAction}>
+            <Text style={styles.inputActionText}>{actionLabel}</Text>
           </Pressable>
         ) : null}
       </View>

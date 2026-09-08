@@ -1,3 +1,4 @@
+import { PasswordInput } from '../mobile-core/src/PasswordInput'
 import 'react-native-url-polyfill/auto'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
@@ -2935,7 +2936,7 @@ function SettingsScreen({
       <SettingsSection id="security" label="Security" iconKey="settings.security">
       <InfoPanel iconKey="settings.security" title="Password security">
         <Text style={styles.bodyText}>Confirm your current password before choosing a new one.</Text>
-        <TextInput
+        <PasswordInput
           accessibilityLabel="Current password"
           autoCapitalize="none"
           autoComplete="current-password"
@@ -2943,11 +2944,10 @@ function SettingsScreen({
           onChangeText={setCurrentPassword}
           placeholder="Current password"
           placeholderTextColor={palette.textMuted}
-          secureTextEntry
           style={styles.settingsInput}
           value={currentPassword}
         />
-        <TextInput
+        <PasswordInput
           accessibilityLabel="New password"
           autoCapitalize="none"
           autoComplete="new-password"
@@ -2955,7 +2955,6 @@ function SettingsScreen({
           onChangeText={setNextPassword}
           placeholder="New password, at least 8 characters"
           placeholderTextColor={palette.textMuted}
-          secureTextEntry
           style={styles.settingsInput}
           value={nextPassword}
         />

@@ -1,3 +1,4 @@
+import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
@@ -133,9 +134,9 @@ function phaseStyles(palette) {
     availabilityMaybe: { color: palette.warning },
     availabilityAwaiting: { color: palette.textMuted },
     availabilityDelivery: { color: palette.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'right' },
-    availabilityDeliveryActive: { color: palette.success },
+    availabilityDeliveryActive: { color: palette.textSecondary },
     availabilityDeliveryItem: { color: palette.textMuted, fontSize: 10, fontWeight: '900' },
-    availabilityDeliveryTicks: { flexDirection: 'row', gap: 7, justifyContent: 'flex-end', marginTop: 2 },
+    availabilityDeliveryTicks: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, justifyContent: 'flex-end', marginTop: 2 },
     label: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
     status: { color: palette.accentText, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
     input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 16, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
@@ -152,13 +153,7 @@ function phaseStyles(palette) {
   })
 }
 
-function availabilityStatusStyle(status, styles) {
-  const normalized = String(status || '').trim().toLowerCase()
-  if (normalized === 'available') return styles.availabilityAvailable
-  if (normalized === 'unavailable') return styles.availabilityUnavailable
-  if (normalized === 'maybe') return styles.availabilityMaybe
-  return styles.availabilityAwaiting
-}
+
 
 function InviteDeliveryTicks({ invite, styles }) {
   const progress = getCoachInviteDeliveryProgress(invite)
@@ -169,7 +164,7 @@ function InviteDeliveryTicks({ invite, styles }) {
       ['Sent', progress.sent],
       ['Delivered', progress.delivered],
       ['Seen', progress.seen],
-    ].map(([name, active]) => <Text key={name} style={[styles.availabilityDeliveryItem, active && styles.availabilityDeliveryActive]}>✓ {name}</Text>)}
+    ].map(([name, active]) => <Text key={name} style={[styles.availabilityDeliveryItem, active && styles.availabilityDeliveryActive]}>{active ? '✓' : '·'} {name}</Text>)}
   </View>
 }
 
@@ -1027,7 +1022,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
             const selected = selectedPlayerIds.includes(invite.playerId)
             return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
               <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-              <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
+              <View><InviteStatusBadge status={invite.status} kind={invite.kind} Icon={MaterialIcons} /><InviteDeliveryTicks invite={invite} styles={styles} /></View>
             </Pressable>
           })}
           {renderSelectedInviteActions()}
@@ -1054,7 +1049,7 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
             const selected = selectedPlayerIds.includes(invite.playerId)
             return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
               <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-              <View><Text style={[styles.availabilityStatus, availabilityStatusStyle(invite.status, styles)]}>{getCoachInviteStatusLabel(invite.status, invite.kind)}</Text><InviteDeliveryTicks invite={invite} styles={styles} /></View>
+              <View><InviteStatusBadge status={invite.status} kind={invite.kind} Icon={MaterialIcons} /><InviteDeliveryTicks invite={invite} styles={styles} /></View>
             </Pressable>
           }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
           {selectedMatchInvites.length ? <Text style={styles.helper}>Sent and Delivered show provider progress. Seen turns green only after a Parent or Player response is recorded.</Text> : null}
