@@ -34,6 +34,7 @@ async function dbFixture({ legacy = false } = {}) {
     ('${id(62)}',null,'${id(20)}','${id(10)}','${id(11)}','family','pending','${id(30)}',null);`)
   await db.exec(migration)
   await db.exec(await readFile(new URL('../supabase/migrations/20260907161234_fans_cancelled_invitation_delete.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20260908060952_platform_fan_signup_stats.sql', import.meta.url), 'utf8'))
   return db
 }
 async function actor(db, n, email) { await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.email',$2,false)",[id(n),email]) }
@@ -41,6 +42,96 @@ async function invite(db, n = 40, email = 'fan@example.test', p = permissions) {
   const result = await db.query('select (public.create_fan_invitation($1,$2,$3,$4,$5)).*', [id(30), 'Test Fan', email, JSON.stringify(p), id(n)])
   return result.rows[0]
 }
+
+test('Platform Fan signup counts track account creation, confirmation, acceptance and expiry separately', async () => {
+  const db = await dbFixture()
+  try {
+    await actor(db,1,'parent@example.test')
+    const ready = await invite(db)
+    const missing = await invite(db,41,'missing@example.test')
+    await invite(db,42,'other@example.test')
+    await db.query('update auth.users set email_confirmed_at=null where id=$1',[id(3)])
+    const expired = await invite(db,43,'expired@example.test')
+    await db.query("update fan_connections set expires_at=now()-interval '1 second' where id=$1",[expired.id])
+    const cancelled = await invite(db,44,'cancelled@example.test')
+    await db.query("select manage_fan_connection($1,'revoke')",[cancelled.id])
+    await db.query('select delete_cancelled_fan_invitation($1)',[cancelled.id])
+    await actor(db,4,'admin@example.test')
+    const readStats = async () => (await db.query('select get_platform_fan_stats() data')).rows[0].data
+    let stats = await readStats()
+    assert.deepEqual(stats.fanSignup,{noAccount:1,emailUnconfirmed:1,readyToAccept:1,unavailable:0})
+    assert.equal(stats.fanInvitations.pending,3)
+    assert.equal(stats.fanInvitations.total,5)
+    assert.equal(stats.fanInvitations.expired,1)
+    assert.equal(stats.fanInvitations.cancelled,1)
+    assert.doesNotMatch(JSON.stringify(stats), /example\.test|Test child|invite_token|Test Fan/)
+    await db.query('insert into auth.users(id,email) values($1,$2)',[id(5),'MISSING@example.test'])
+    stats = await readStats()
+    assert.equal(stats.fanSignup.noAccount,0)
+    assert.equal(stats.fanSignup.emailUnconfirmed,2)
+    await db.query('update auth.users set email_confirmed_at=now() where id=$1',[id(5)])
+    assert.equal((await readStats()).fanSignup.readyToAccept,2)
+    await actor(db,2,'fan@example.test')
+    await db.query('select accept_fan_invitation($1)',[ready.invite_token])
+    await actor(db,4,'admin@example.test')
+    stats = await readStats()
+    assert.equal(stats.fanInvitations.pending,2)
+    assert.equal(stats.fanInvitations.accepted,1)
+    assert.equal(stats.uniqueFans,1)
+    await db.query('insert into public.users values($1,$2,$3,$4)',[id(5),'parent_portal','suspended',id(10)])
+    stats = await readStats()
+    assert.deepEqual(stats.fanSignup,{noAccount:0,emailUnconfirmed:1,readyToAccept:0,unavailable:1})
+    await db.query("update fan_connections set expires_at=now()-interval '1 second' where id=$1",[missing.id])
+    assert.equal((await readStats()).fanSignup.unavailable,0)
+    await db.query("update parent_player_links set status='revoked' where id=$1",[id(30)])
+    stats = await readStats()
+    assert.equal(stats.fanSignup.unavailable,1)
+    assert.equal(stats.uniqueFans,0)
+    assert.equal(stats.fanInvitations.accepted,1)
+  } finally { await db.close() }
+})
+
+test('Platform Fan statistics deduplicate accounts and devices, separate Players, and deny other roles', async () => {
+  const db = await dbFixture()
+  try {
+    await actor(db,1,'parent@example.test')
+    const first = await invite(db)
+    await invite(db,41)
+    await actor(db,2,'fan@example.test')
+    await db.query('select accept_fan_invitation($1)',[first.invite_token])
+    await db.exec(`
+      insert into parent_player_links(id,auth_user_id,player_id,club_id,team_id,link_type,status) values('${id(31)}','${id(1)}','${id(21)}','${id(10)}','${id(11)}','parent','active');
+      insert into fan_connections(parent_link_id,player_id,club_id,invited_by,auth_user_id,name,email,status,accepted_at)
+      values('${id(31)}','${id(21)}','${id(10)}','${id(1)}','${id(2)}','Test Fan','fan@example.test','active',now());
+      insert into fan_connections(parent_link_id,player_id,club_id,invited_by,auth_user_id,name,email,status,accepted_at,relationship_type)
+      values('${id(31)}','${id(21)}','${id(10)}','${id(1)}','${id(2)}','Test Player','fan@example.test','active',now(),'player');
+      insert into fan_devices(token,auth_user_id) values('ExpoPushToken[synthetic1]','${id(2)}'),('ExpoPushToken[synthetic2]','${id(2)}');
+    `)
+    await actor(db,4,'admin@example.test')
+    await db.exec('set role authenticated')
+    let stats = (await db.query('select get_platform_fan_stats() data')).rows[0].data
+    assert.equal(stats.uniqueFans,1)
+    assert.equal(stats.fanConnections,2)
+    assert.equal(stats.uniquePlayers,1)
+    assert.equal(stats.uniqueAccounts,1)
+    assert.equal(stats.fanInvitations.total,3)
+    assert.equal(stats.fanInvitations.accepted,2)
+    assert.equal(stats.fanSignup.unavailable,1)
+    assert.deepEqual(stats.fanNotifications,{enabledAccounts:1,registeredAccounts:1})
+    await db.exec('reset role')
+    await db.exec("update fan_connections set notifications_enabled=false where relationship_type='fan'")
+    stats = (await db.query('select get_platform_fan_stats() data')).rows[0].data
+    assert.deepEqual(stats.fanNotifications,{enabledAccounts:0,registeredAccounts:0})
+    for (const role of ['parent_portal','coach','super_admin']) {
+      await db.query('update public.users set role=$1,status=$2 where id=$3',[role,role==='super_admin'?'suspended':'active',id(4)])
+      await assert.rejects(db.query('select get_platform_fan_stats()'),/Platform Admin/)
+    }
+    await db.query("select set_config('request.jwt.claim.sub','',false)")
+    await assert.rejects(db.query('select get_platform_fan_stats()'),/Platform Admin/)
+    const grants = (await db.query("select has_function_privilege('anon','public.get_platform_fan_stats()','execute') anon,has_table_privilege('authenticated','auth.users','select') auth_read")).rows[0]
+    assert.deepEqual(grants,{anon:false,auth_read:false})
+  } finally { await db.close() }
+})
 test('Fans have independent expiry, exact permissions and idempotent requests', async () => {
   const db = await dbFixture()
   try {

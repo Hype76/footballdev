@@ -1455,6 +1455,52 @@ try {
     await context.close()
   })
 
+  await runScenario('Platform Fans show signup stages, unique accounts and recoverable refresh at phone width', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+    const { page } = await preparePage(context)
+    const pageErrors = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    let fail = false
+    let report = {
+      uniqueFans: 2, fanConnections: 4, uniquePlayers: 1, playerConnections: 2, uniqueAccounts: 2,
+      fanInvitations: { total: 20, pending: 8, accepted: 7, expired: 3, cancelled: 2, revoked: 1, removed: 1 },
+      fanSignup: { noAccount: 4, emailUnconfirmed: 2, readyToAccept: 1, unavailable: 1 },
+      fanNotifications: { enabledAccounts: 2, registeredAccounts: 1 },
+    }
+    await context.route('**/rest/v1/rpc/get_platform_fan_stats', (route) => route.fulfill({ status: fail ? 403 : 200, contentType: 'application/json', body: JSON.stringify(fail ? { message: 'Platform Admin access is required.' } : report) }))
+    await signIn(page, 'platform.fixture@footballplayer.test')
+    await page.waitForURL('**/platform-admin')
+    const section = page.getByRole('region', { name: 'Fans and Player accounts' })
+    const value = (label) => section.getByText(label, { exact: true }).locator('..').locator('dd')
+    await value('No account yet').getByText('4', { exact: true }).waitFor()
+    assert.equal(await value('Email awaiting confirmation').innerText(), '2')
+    assert.equal(await value('Ready to accept').innerText(), '1')
+    await section.getByText('Fan phone notifications', { exact: true }).click()
+    assert.equal(await value('Of these, registered for phone alerts').innerText(), '1')
+    await section.getByText('Player accounts', { exact: true }).click()
+    assert.equal(await value('Unique active Player accounts').innerText(), '1')
+    assert.equal(await value('Unique accounts across Fans and Players').innerText(), '2')
+    await mkdir('output/playwright/platform-fans', { recursive: true })
+    await section.screenshot({ path: 'output/playwright/platform-fans/desktop.png' })
+    await page.setViewportSize({ width: 390, height: 844 })
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    await section.screenshot({ path: 'output/playwright/platform-fans/phone.png' })
+    report = { ...report, uniqueFans: 3 }
+    await page.getByRole('button', { name: 'Refresh platform stats', exact: true }).click()
+    await value('Unique active Fans').getByText('3', { exact: true }).waitFor()
+    fail = true
+    await section.getByRole('button', { name: 'Refresh Fans', exact: true }).click()
+    await section.getByRole('alert').waitFor()
+    assert.equal(await section.locator('dd').count(), 0, 'An error does not display stale totals as current')
+    fail = false
+    report = { uniqueFans: 0, fanConnections: 0, uniquePlayers: 0, playerConnections: 0, uniqueAccounts: 0 }
+    await section.getByRole('button', { name: 'Refresh Fans', exact: true }).click()
+    await value('Unique active Fans').getByText('0', { exact: true }).waitFor()
+    assert.equal(await value('No account yet').innerText(), 'Unavailable', 'Missing rollout fields are not false zeroes')
+    assert.deepEqual(pageErrors, [])
+    await context.close()
+  })
+
   await runScenario('mobile platform analytics stays usable without page overflow', async () => {
     const context = await browser.newContext({ isMobile: true, viewport: { width: 390, height: 844 } })
     const { page } = await preparePage(context)
