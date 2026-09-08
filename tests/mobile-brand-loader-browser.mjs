@@ -60,7 +60,7 @@ try {
   await page.waitForFunction(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0))
   assert.equal(await discs.count(), 4)
   const bounds = await discs.first().evaluate((element) => {
-    const s = getComputedStyle(element)
+    const s = getComputedStyle(element.firstElementChild)
     return { width: s.width, height: s.height, radius: s.borderRadius, overflow: s.overflow, background: s.backgroundColor }
   })
   assert.deepEqual(bounds, { width: '56px', height: '56px', radius: '28px', overflow: 'hidden', background: 'rgb(0, 0, 0)' })

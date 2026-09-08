@@ -29,6 +29,7 @@ for (const app of ['parent', 'coach']) {
     import MaterialIcons from '@expo/vector-icons/MaterialIcons';
     import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
     import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
+    import {PasswordInput} from './apps/mobile-core/src/PasswordInput.js';
     import {IconSettings, SettingsSection} from './apps/mobile-core/src/IconSettings.js';
     import {NotificationCategorySettings} from './apps/mobile-core/src/NotificationCategorySettings.js';
     import {MOBILE_SETTING_LOAD_STATES} from './apps/mobile-core/src/deviceSettingsCore.js';
@@ -177,6 +178,13 @@ try {
       await open('Security')
       await page.getByLabel('Current password', { exact: true }).fill('sample-current')
       await page.getByLabel('New password', { exact: true }).fill('sample-next-password')
+      await open('Show current password')
+      assert.equal(await page.getByLabel('Current password', { exact: true }).evaluate(el => el.type), 'text')
+      assert.equal(await page.getByLabel('New password', { exact: true }).evaluate(el => el.type), 'password')
+      await open('Hide current password')
+      await open('Show new password')
+      assert.equal(await page.getByLabel('New password', { exact: true }).evaluate(el => el.type), 'text')
+      await open('Hide new password')
       await open('Update password')
       assert.deepEqual(await page.evaluate(() => window.calls.find(call => call.name === 'password').args), ['sample-current', 'sample-next-password'])
       await page.getByLabel('Current password', { exact: true }).fill('draft-must-clear')
