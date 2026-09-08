@@ -993,6 +993,9 @@ function buildMatchDaySnapshot(row) {
     requestLinesman: row.request_linesman === true,
     requestReferee: row.request_referee === true,
     autoSelectAvailablePlayers: row.auto_select_available_players === true,
+    enableMotmPoll: row.enable_motm_poll !== false,
+    motmPollExpiryHours: Number(row.motm_poll_expiry_hours ?? 2),
+    motmNotifyResultsOnClose: row.motm_notify_results_on_close === true,
     parentVisible: row.parent_visible === true,
     parentAudience: normalizeText(row.parent_audience),
     status: normalizeText(row.status),
@@ -1027,6 +1030,9 @@ function buildMatchDaySnapshotFromMatch(match) {
     requestLinesman: match.requestLinesman === true,
     requestReferee: match.requestReferee === true,
     autoSelectAvailablePlayers: match.autoSelectAvailablePlayers === true,
+    enableMotmPoll: match.enableMotmPoll !== false,
+    motmPollExpiryHours: Number(match.motmPollExpiryHours ?? 2),
+    motmNotifyResultsOnClose: match.motmNotifyResultsOnClose === true,
     parentVisible: match.parentVisible === true,
     parentAudience: normalizeText(match.parentAudience),
     status: normalizeText(match.status),
@@ -1069,7 +1075,7 @@ async function getMatchDayEventLogSnapshot({ user, matchId }) {
 
   let query = supabase
     .from('match_days')
-    .select('opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, match_clock_mode, match_duration_minutes, venue_name, venue_address, pitch_type, notes, scorer_request_message, request_scorer, request_linesman, request_referee, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
+    .select('opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, match_clock_mode, match_duration_minutes, venue_name, venue_address, pitch_type, notes, scorer_request_message, request_scorer, request_linesman, request_referee, enable_motm_poll, motm_poll_expiry_hours, motm_notify_results_on_close, parent_visible, parent_audience, status, concluded_at, home_score, away_score')
     .eq('id', normalizedMatchId)
     .eq('club_id', user.clubId)
     .is('deleted_at', null)
@@ -1568,6 +1574,14 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.requestLinesman !== undefined) payload.request_linesman = normalizeBoolean(updates.requestLinesman)
   if (updates.requestReferee !== undefined) payload.request_referee = normalizeBoolean(updates.requestReferee)
   if (updates.autoSelectAvailablePlayers !== undefined) payload.auto_select_available_players = normalizeBoolean(updates.autoSelectAvailablePlayers)
+  if (updates.enableMotmPoll !== undefined) payload.enable_motm_poll = normalizeBoolean(updates.enableMotmPoll)
+  if (updates.motmPollExpiryHours !== undefined) {
+    const expiryHours = Number(updates.motmPollExpiryHours)
+    if (!Number.isFinite(expiryHours) || expiryHours < 1) throw new Error('Vote expiry must be at least one hour.')
+    payload.motm_poll_expiry_hours = expiryHours
+  }
+  if (updates.motmNotifyResultsOnClose !== undefined) payload.motm_notify_results_on_close = normalizeBoolean(updates.motmNotifyResultsOnClose)
+  if (payload.enable_motm_poll === false) payload.motm_notify_results_on_close = false
   if (updates.parentVisible !== undefined) {
     payload.parent_visible = updates.parentVisible !== false
     if (updates.parentVisible === false) {

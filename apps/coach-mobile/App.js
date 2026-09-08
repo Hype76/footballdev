@@ -48,6 +48,7 @@ import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot,
 import { buildCoachChatSummary } from '../mobile-core/src/coachPhase31GCore'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
+import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import {
   getCoachBackTarget,
@@ -56,7 +57,7 @@ import {
   getCoachRouteState,
   resolveCoachRoute,
 } from './src/coachNavigationCore'
-import { createCoachTheme, DEFAULT_COACH_THEME } from './src/coachThemeCore'
+import { createMatchInvitesTheme, createCoachTheme, DEFAULT_COACH_THEME } from './src/coachThemeCore'
 import {
   clearCoachAllLocalState,
   readCoachContextMarker,
@@ -195,9 +196,10 @@ function CoachHome() {
   )
   const navigation = useMemo(() => getCoachNavigationModel(activeContext), [activeContext])
   const quickActions = useMemo(() => getCoachQuickActions(activeContext), [activeContext])
+  const isMatchInvitesRoute = activeRoute === 'more' && moreRoute === 'invites'
   const themeModel = useMemo(
-    () => createCoachTheme({ context: activeContext, mode: displayTheme }),
-    [activeContext, displayTheme],
+    () => isMatchInvitesRoute ? createMatchInvitesTheme(activeContext) : createCoachTheme({ context: activeContext, mode: displayTheme }),
+    [activeContext, displayTheme, isMatchInvitesRoute],
   )
   const themeContext = useMemo(() => createCoachThemeContext(themeModel), [themeModel])
   const { palette, styles } = themeContext
@@ -602,9 +604,12 @@ function CoachHome() {
     if (!activeContext?.id || !contextOwnedByCurrentUser) return undefined
     void refreshNotificationRegistration()
     const subscription = addCoachPushTokenListener(() => {
-      if (notificationStateRef.current?.registered) void enableNotifications({ silent: true })
+      if (notificationStateRef.current?.registered) void enableNotifications({ silent: true, force: true })
     })
-    return () => subscription.remove()
+    const resumeSubscription = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') void refreshNotificationRegistration()
+    })
+    return () => { subscription.remove(); resumeSubscription.remove() }
   }, [activeContext?.id, contextOwnedByCurrentUser, enableNotifications, refreshNotificationRegistration])
 
   useEffect(() => {
@@ -724,7 +729,7 @@ function CoachHome() {
           enabled={Platform.OS === 'ios' || Platform.OS === 'android'}
           style={styles.keyboardShell}
         >
-          <Animated.View style={[styles.collapsibleHeader, coachHeaderStyle]}>
+          {!isMatchInvitesRoute ? <Animated.View style={[styles.collapsibleHeader, coachHeaderStyle]}>
             <CoachHeader
               context={activeContext}
               notificationState={notificationState}
@@ -737,7 +742,7 @@ function CoachHome() {
               onSelect={selectContext}
               selectedContextId={activeContext.id}
             />
-          </Animated.View>
+          </Animated.View> : null}
           {activeContext.paymentAccess.state === 'payment_required' ? (
             <StatePanel
               message="Viewing remains available, but operational changes are blocked until plan access is restored."
@@ -749,7 +754,7 @@ function CoachHome() {
           <Animated.ScrollView
             automaticallyAdjustKeyboardInsets={false}
             bounces={false}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[styles.content, isMatchInvitesRoute && { paddingHorizontal: 8, paddingTop: 4 }]}
             contentInsetAdjustmentBehavior="never"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="always"
@@ -1466,7 +1471,7 @@ async function clearCoachBeforeSignOut() {
 
 export default function App() {
   // Secure-session integration contract: <AuthProvider appRole="coach">
-  useMobileAutomaticUpdates()
+  const mobileUpdate = useMobileAutomaticUpdates()
   return (
     <SafeAreaProvider>
       <CoachRootErrorBoundary>
@@ -1479,6 +1484,7 @@ export default function App() {
           preserveNativePushOnSignOut
         >
           <AppContent />
+          <MobileUpdateNotice update={mobileUpdate} />
         </AuthProvider>
       </CoachRootErrorBoundary>
     </SafeAreaProvider>

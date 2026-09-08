@@ -23,6 +23,7 @@ export async function sendExpoPushMessages(messages, { client } = {}) {
     .filter((message) => EXPO_PUSH_TOKEN_PATTERN.test(String(message.to || '')))
     .map((message) => ({
       ...message,
+      priority: message.priority || (message.title || message.body ? 'high' : 'normal'),
       badge: Number.isFinite(Number(message.badge)) ? Math.max(0, Math.floor(Number(message.badge))) : 1,
     }))
 

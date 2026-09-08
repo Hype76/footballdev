@@ -8,9 +8,11 @@ const INITIAL_CHECK_DELAY_MS = 20 * 1000
 export function useMobileAutomaticUpdates() {
   const [state, setState] = useState({ readyOnRestart: false, status: 'idle' })
   const checkingRef = useRef(false)
+  const downloadedRef = useRef(false)
   const lastCheckedAtRef = useRef(0)
 
   const check = useCallback(async ({ force = false } = {}) => {
+    if (downloadedRef.current) return true
     if (process.env.NODE_ENV === 'development' || !Updates.isEnabled || checkingRef.current) return false
     if (!force && Date.now() - lastCheckedAtRef.current < MINIMUM_CHECK_INTERVAL_MS) return false
     checkingRef.current = true
@@ -23,6 +25,7 @@ export function useMobileAutomaticUpdates() {
         return false
       }
       await Updates.fetchUpdateAsync()
+      downloadedRef.current = true
       setState({ readyOnRestart: true, status: 'ready' })
       return true
     } catch {
@@ -46,5 +49,5 @@ export function useMobileAutomaticUpdates() {
     }
   }, [check])
 
-  return state
+  return { ...state, restart: () => Updates.reloadAsync() }
 }

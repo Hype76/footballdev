@@ -2322,6 +2322,15 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const [isDemoResetPromptOpen, setIsDemoResetPromptOpen] = useState(false)
   const liveRefreshStateRef = useRef({ inFlight: false, scopeKey: '' })
   const deepLinkHydrationRef = useRef('')
+  const selectedWorkspaceRef = useRef(null)
+  useEffect(() => {
+    if (!expandedMatchId) return
+    const frame = requestAnimationFrame(() => {
+      selectedWorkspaceRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+      selectedWorkspaceRef.current?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [expandedMatchId])
   const liveClockNow = useServerSyncedClock({
     syncIntervalMs: LIVE_MATCH_REFRESH_INTERVAL_MS,
     tickIntervalMs: LIVE_MATCH_CLOCK_INTERVAL_MS,
@@ -2831,10 +2840,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
     if (hydratedMatch) {
       setExpandedMatchId(match.id)
-      setWorkspaceSection('roles')
+      setWorkspaceSection('overview')
       const nextParams = new URLSearchParams(searchParams)
       nextParams.set('fixture', String(match.id))
-      nextParams.set('section', 'roles')
+      nextParams.set('section', 'overview')
       setSearchParams(nextParams)
     }
   }
@@ -4687,7 +4696,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   }
 
   const renderSelectedMatchWorkspace = (match) => (
-    <div className="min-w-0 space-y-2 xl:basis-[32rem] xl:flex-grow-[2]" data-testid="game-day-selected-workspace">
+    <div ref={selectedWorkspaceRef} tabIndex={-1} aria-label="Selected fixture management" className="min-w-0 scroll-mt-4 space-y-2 outline-none xl:basis-[32rem] xl:flex-grow-[2]" data-testid="game-day-selected-workspace">
       <div className="xl:hidden">
         <button
           type="button"
@@ -4722,6 +4731,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         onGameModeStart={handleGameModeOpen}
         onHydrate={hydrateMatchDay}
         onAvailabilityInvitationAction={handleAvailabilityInvitationAction}
+        onEditFixture={(selectedMatch) => navigate(`/calendar?action=edit&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)}
         onManageInvitedPlayers={(selectedMatch) => {
           navigate(`/calendar?action=manage-players&source=match-day&eventId=${encodeURIComponent(selectedMatch.id)}`)
         }}
@@ -5340,6 +5350,7 @@ function MatchDayCard({
   onHydrate,
   onAvailabilityInvitationAction,
   onManageInvitedPlayers,
+  onEditFixture,
   onOpenEventModal,
   onOpenGoalModal,
   onRetryLiveRefresh,
@@ -5562,6 +5573,11 @@ function MatchDayCard({
                 className={`${primaryButtonClass} w-full sm:w-auto`}
               >
                 {isBusy ? 'Saving...' : primaryLiveAction.label}
+              </button>
+            ) : null}
+            {allowFixtureManagement && !isGameMode && ['scheduled', 'scorer_request'].includes(match.status) ? (
+              <button type="button" onClick={() => onEditFixture(match)} disabled={isBusy} className={`${primaryButtonClass} w-full sm:w-auto`}>
+                Edit event
               </button>
             ) : null}
             {allowFixtureManagement && !isGameMode && ['scheduled', 'scorer_request'].includes(match.status) ? (
