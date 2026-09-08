@@ -510,7 +510,14 @@ async function openSelectedFixture(page, opponent = 'Academy United') {
     console.error(JSON.stringify({ url: page.url(), body: await page.locator('body').innerText() }))
     throw error
   }
-  await page.getByRole('tab', { name: 'Scorer and roles' }).waitFor({ state: 'visible' })
+  await page.getByRole('tab', { name: 'Match details' }).waitFor({ state: 'visible' })
+  assert.equal(await page.getByRole('tab', { name: 'Match details' }).getAttribute('aria-selected'), 'true')
+  assert.match(page.url(), /section=overview/)
+  await page.waitForFunction(() => document.activeElement?.getAttribute('data-testid') === 'game-day-selected-workspace')
+  const position = await page.getByTestId('game-day-selected-workspace').boundingBox()
+  assert.ok(position.y >= 0 && position.y < 180, `Selected workspace starts at ${position.y}`)
+  if (opponent === 'City Juniors') await page.getByRole('button', { name: 'Edit event', exact: true }).waitFor()
+  await page.getByRole('tab', { name: 'Scorer and roles' }).click()
 }
 
 function assertCleanRun(run) {
@@ -753,11 +760,11 @@ async function runDesktop(browser) {
     await page.getByRole('tab', { name: 'Match details' }).click()
     await page.getByLabel(/^Home \(/).fill('3')
     await page.getByTestId('game-day-fixture-summary').filter({ hasText: 'City Juniors' }).getByRole('button', { name: /Manage/ }).click()
-    await page.waitForURL(`**/match-day?fixture=${upcomingMatchId}&section=roles`)
+    await page.waitForURL(`**/match-day?fixture=${upcomingMatchId}&section=overview`)
     await page.getByRole('tab', { name: 'Match details' }).click()
     assert.equal(await page.getByLabel(/^Home \(/).inputValue(), '0')
     await page.getByTestId('game-day-fixture-summary').filter({ hasText: 'Academy United' }).getByRole('button', { name: /Manage/ }).click()
-    await page.waitForURL(`**/match-day?fixture=${liveMatchId}&section=roles`)
+    await page.waitForURL(`**/match-day?fixture=${liveMatchId}&section=overview`)
     await page.getByRole('tab', { name: 'Match details' }).click()
     assert.equal(await page.getByLabel(/^Home \(/).inputValue(), '3')
 

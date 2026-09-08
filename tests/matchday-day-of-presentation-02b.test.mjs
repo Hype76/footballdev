@@ -117,3 +117,15 @@ test('02B reminder processor revalidates current authority immediately before de
   assert.match(processor, /discardSkippedScheduledEmail\(lockedRow, scorerReminderValidation\.reason\)/)
   assert.match(processor, /markMatchDayScorerReminderSent\(lockedRow\)/)
 })
+
+test('TBC fixture times still sort by event date instead of creation order or IDs', () => {
+  const rows = [
+    { id: 'a-october', matchDate: '2026-10-17', kickoffTimeTbc: true },
+    { id: 'b-september', matchDate: '2026-09-26', kickoffTimeTbc: true },
+    { id: 'c-first', matchDate: '2026-09-12', kickoffTimeTbc: true },
+    { id: 'unknown' },
+    { id: 'd-timed', matchDate: '2026-09-12', kickoffTime: '10:00' },
+  ]
+  assert.deepEqual(sortMatchDayPresentation(rows).map(row => row.id), ['d-timed', 'c-first', 'b-september', 'a-october', 'unknown'])
+  assert.equal(rows[0].id, 'a-october')
+})

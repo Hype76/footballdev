@@ -5,8 +5,13 @@ export function sortMatchDayPresentation(matches) {
       return priorityDifference
     }
 
-    const leftKickoff = left?.scheduledKickoffAt ? new Date(left.scheduledKickoffAt).getTime() : Number.MAX_SAFE_INTEGER
-    const rightKickoff = right?.scheduledKickoffAt ? new Date(right.scheduledKickoffAt).getTime() : Number.MAX_SAFE_INTEGER
+    const kickoffValue = match => {
+      const value = match?.scheduledKickoffAt || (match?.matchDate ? `${match.matchDate}T${match.kickoffTime || '23:59:59'}` : '')
+      const timestamp = value ? new Date(value).getTime() : NaN
+      return Number.isFinite(timestamp) ? timestamp : Number.MAX_SAFE_INTEGER
+    }
+    const leftKickoff = kickoffValue(left)
+    const rightKickoff = kickoffValue(right)
     if (leftKickoff !== rightKickoff) {
       return leftKickoff - rightKickoff
     }

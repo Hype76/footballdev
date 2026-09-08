@@ -367,6 +367,9 @@ function getDefaultCalendarForm(date = '') {
   return {
     arrivalTime: '',
     autoSelectAvailablePlayers: true,
+    enableMotmPoll: true,
+    motmPollExpiryHours: 2,
+    motmNotifyResultsOnClose: false,
     date: eventDate,
     endTime: '',
     eventType: 'training',
@@ -890,6 +893,9 @@ function getFormFromCalendarEvent(event, invites = []) {
       ...getDefaultCalendarForm(source.matchDate || event.date),
       arrivalTime: source.kickoffTimeTbc ? '' : formatTimeInput(source.arrivalTime),
       autoSelectAvailablePlayers: source.autoSelectAvailablePlayers === true,
+      enableMotmPoll: source.enableMotmPoll !== false,
+      motmPollExpiryHours: source.motmPollExpiryHours ?? 2,
+      motmNotifyResultsOnClose: source.motmNotifyResultsOnClose === true,
       date: formatDateInput(source.matchDate || event.date),
       endTime: source.kickoffTimeTbc ? '' : addMinutesToTime(source.kickoffTime, 120),
       eventType: 'match',
@@ -1745,7 +1751,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const requestKey = `${requestedAction}:${requestedSource}:${requestedEventId}`
 
     if (
-      !['manage-players', 'view-responses', 'view'].includes(requestedAction)
+      !['manage-players', 'view-responses', 'view', 'edit'].includes(requestedAction)
       || !requestedEventId
       || isLoading
       || calendarDeepLinkRequestRef.current === requestKey
@@ -1819,7 +1825,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         setCalendarPlayerCommunicationMode(EVENT_PLAYER_COMMUNICATION_MODES.none)
         setCalendarPlayerReview(null)
         setCalendarModal({
-          mode: requestedAction === 'manage-players' ? 'manage-players' : 'view',
+          mode: requestedAction === 'manage-players' ? 'manage-players' : requestedAction === 'edit' ? 'edit' : 'view',
           event,
           openResponseManager: requestedAction === 'view-responses',
           responseManagerRequestId: requestedAction === 'view-responses'
@@ -3544,6 +3550,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           const payload = {
             arrivalTime: calendarForm.arrivalTime,
             autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers === true,
+            enableMotmPoll: calendarForm.enableMotmPoll === true,
+            motmPollExpiryHours: Number(calendarForm.motmPollExpiryHours),
+            motmNotifyResultsOnClose: calendarForm.enableMotmPoll === true && calendarForm.motmNotifyResultsOnClose === true,
             fixtureType: calendarForm.fixtureType,
             conclusionRule: calendarForm.conclusionRule,
             extraTimeHalfMinutes: calendarForm.extraTimeHalfMinutes,
@@ -6637,6 +6646,24 @@ function CalendarEventModal({
               </div>
             ) : (
             <>
+            {isMatchFixture && event?.sourceType === 'match-day' ? (
+              <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" data-calendar-field="enableMotmPoll">
+                <label className="flex min-h-12 items-center gap-3 text-sm font-black text-[#101828]">
+                  <input type="checkbox" name="enableMotmPoll" checked={form.enableMotmPoll === true} onChange={onChange} disabled={isBusy} className="h-5 w-5 accent-[#047857]" />
+                  Create Player of the Match vote at full time
+                </label>
+                {form.enableMotmPoll ? <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <label className="block text-sm font-bold text-[#101828]">Vote expiry (hours)
+                    <input type="number" name="motmPollExpiryHours" min="1" step="any" required value={form.motmPollExpiryHours} onChange={onChange} disabled={isBusy} className="mt-2 block min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-[#101828]" />
+                  </label>
+                  <label className="flex min-h-12 items-center gap-3 text-sm font-bold text-[#101828]">
+                    <input type="checkbox" name="motmNotifyResultsOnClose" checked={form.motmNotifyResultsOnClose === true} onChange={onChange} disabled={isBusy} className="h-5 w-5 accent-[#047857]" />
+                    Send vote results when voting closes
+                  </label>
+                </div> : null}
+              </div>
+            ) : null}
+
             {isMatchFixture && event?.sourceType === 'match-day' ? (
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" data-calendar-field="volunteerRequests">
                 <p className="text-sm font-black text-[#101828]">Parent volunteer requests</p>
