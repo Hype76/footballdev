@@ -22,7 +22,7 @@ export function PlatformFanStats({ refreshKey = 0 }) {
     return () => { active = false }
   }, [refreshKey, retryKey])
   return <section aria-labelledby="platform-fans-title" className="min-w-0 p-4 text-[var(--text-primary)]">
-    <header className="flex items-center justify-between gap-3"><h2 id="platform-fans-title" className="flex items-center gap-2 text-lg font-black"><FanIcon />Fans and Player accounts</h2><button type="button" className="min-h-11 font-bold text-[var(--accent)]" onClick={() => setRetryKey((value) => value + 1)}>Refresh Fans</button></header>
+    <div className="flex items-center justify-between gap-3"><h2 id="platform-fans-title" className="flex items-center gap-2 text-lg font-black"><FanIcon />Fans and Player accounts</h2><button type="button" className="min-h-11 font-bold text-[var(--accent)]" onClick={() => setRetryKey((value) => value + 1)}>Refresh Fans</button></div>
     <p className="my-2 text-sm text-[var(--text-muted)]">Platform-wide totals, including demo and test clubs. Each active account is counted once per relationship type.</p>
     {error ? <p role="alert">{error}</p> : !stats ? <p role="status">Loading Fan statistics...</p> : <div className="space-y-4 text-sm">
       <Counts values={stats} fields={{ uniqueFans: 'Unique active Fans', fanConnections: 'Active Fan connections' }} />
