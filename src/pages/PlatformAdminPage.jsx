@@ -1397,7 +1397,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
 
           <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
             <PlatformPlanMixSection planBreakdown={planBreakdown} />
-            <PlatformFanStats />
+            <PlatformFanStats refreshKey={refreshKey} />
             <PlatformOperationalSummarySection
               analyticsReport={analyticsReport}
               openIssueCount={openIssueCount}
