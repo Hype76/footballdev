@@ -4,11 +4,11 @@ import {
   buildFinalMatchReportSummary,
 } from '../../lib/matchday-final-report.js'
 
-const reportSectionButtonClass = 'flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-[#ecfdf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f9f6e]'
+const reportSectionButtonClass = 'flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-[var(--panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0f9f6e]'
 
 function CompletedReportSection({ children, countLabel, id, isOpen, onToggle, title }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
+    <section className="overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] shadow-sm shadow-[#047857]/10">
       <h6>
         <button
           type="button"
@@ -17,14 +17,14 @@ function CompletedReportSection({ children, countLabel, id, isOpen, onToggle, ti
           aria-expanded={isOpen}
           onClick={onToggle}
         >
-          <span className="text-sm font-black text-[#101828]">{title}</span>
-          <span className="flex shrink-0 items-center gap-2 text-xs font-black text-[#047857]">
+          <span className="text-sm font-black text-[var(--text-primary)]">{title}</span>
+          <span className="flex shrink-0 items-center gap-2 text-xs font-black text-[var(--text-muted)]">
             {countLabel ? <span>{countLabel}</span> : null}
             <span aria-hidden="true">{isOpen ? '−' : '+'}</span>
           </span>
         </button>
       </h6>
-      <div id={id} hidden={!isOpen} className="border-t border-[#d7e5dc] bg-[#f8fffb] p-4">
+      <div id={id} hidden={!isOpen} className="border-t border-[var(--border-color)] bg-[var(--panel-alt)] p-4">
         {children}
       </div>
     </section>
@@ -33,22 +33,22 @@ function CompletedReportSection({ children, countLabel, id, isOpen, onToggle, ti
 
 function CompletedEventList({ emptyLabel, events, includeEventNotes, match, title }) {
   return (
-    <section className="border-t border-[#d7e5dc] pt-4">
+    <section className="border-t border-[var(--border-color)] pt-4">
       <div className="flex items-center justify-between gap-3">
-        <h6 className="text-sm font-black text-[#101828]">{title}</h6>
-        <span className="text-xs font-black text-[#047857]">{events.length}</span>
+        <h6 className="text-sm font-black text-[var(--text-primary)]">{title}</h6>
+        <span className="text-xs font-black text-[var(--text-muted)]">{events.length}</span>
       </div>
       {events.length > 0 ? (
-        <ul className="mt-2 divide-y divide-[#d7e5dc]">
+        <ul className="mt-2 divide-y divide-[var(--border-color)]">
           {events.map((event) => {
             const presentation = buildCompletedMatchEventPresentation(event, match, { includeNotes: includeEventNotes })
 
             return (
-              <li key={event.id} className="py-3 text-sm font-semibold text-[#4b5f55]">
+              <li key={event.id} className="py-3 text-sm font-semibold text-[var(--text-muted)]">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">{presentation.team.name}</p>
-                    <p className="mt-1 font-black text-[#101828]">{presentation.title}</p>
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">{presentation.team.name}</p>
+                    <p className="mt-1 font-black text-[var(--text-primary)]">{presentation.title}</p>
                   </div>
                   <span>{presentation.minuteLabel}</span>
                 </div>
@@ -59,7 +59,7 @@ function CompletedEventList({ emptyLabel, events, includeEventNotes, match, titl
           })}
         </ul>
       ) : (
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">{emptyLabel}</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">{emptyLabel}</p>
       )}
     </section>
   )
@@ -69,11 +69,11 @@ function CompletedTimeline({ events, includeEventNotes, match }) {
   return (
     <section>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h6 className="text-sm font-black text-[#101828]">Timeline events</h6>
-        <span className="text-xs font-black text-[#047857]">{events.length} events</span>
+        <h6 className="text-sm font-black text-[var(--text-primary)]">Timeline events</h6>
+        <span className="text-xs font-black text-[var(--text-muted)]">{events.length} events</span>
       </div>
       {events.length > 0 ? (
-        <ol className="mt-3 divide-y divide-[#d7e5dc] border-y border-[#d7e5dc]">
+        <ol className="mt-3 divide-y divide-[var(--border-color)] border-y border-[var(--border-color)]">
           {events.map((event) => {
             const presentation = buildCompletedMatchEventPresentation(event, match, { includeNotes: includeEventNotes })
 
@@ -81,25 +81,25 @@ function CompletedTimeline({ events, includeEventNotes, match }) {
               <li key={event.id} className="py-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">{presentation.team.name}</p>
-                    <p className="mt-1 text-sm font-black text-[#101828]">{presentation.title}</p>
-                    {presentation.detail ? <p className="mt-1 text-xs font-semibold text-[#4b5f55]">{presentation.detail}</p> : null}
-                    {presentation.notes ? <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Note: {presentation.notes}</p> : null}
-                    <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Score after event: {presentation.scoreLabel}</p>
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">{presentation.team.name}</p>
+                    <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{presentation.title}</p>
+                    {presentation.detail ? <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{presentation.detail}</p> : null}
+                    {presentation.notes ? <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Note: {presentation.notes}</p> : null}
+                    <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Score after event: {presentation.scoreLabel}</p>
                   </div>
-                  <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55]">
+                  <span className="inline-flex w-fit rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-black text-[var(--text-muted)]">
                     {presentation.status === 'voided' ? `Voided, ${presentation.minuteLabel}` : presentation.minuteLabel}
                   </span>
                 </div>
                 {presentation.status === 'voided' ? (
-                  <p className="mt-2 text-xs font-semibold leading-5 text-[#475569]">{event.correctionReason || 'Event voided'}</p>
+                  <p className="mt-2 text-xs font-semibold leading-5 text-[var(--text-muted)]">{event.correctionReason || 'Event voided'}</p>
                 ) : null}
               </li>
             )
           })}
         </ol>
       ) : (
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">No timeline events were recorded for this game.</p>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">No timeline events were recorded for this game.</p>
       )}
     </section>
   )
@@ -107,50 +107,50 @@ function CompletedTimeline({ events, includeEventNotes, match }) {
 
 function CompletedMatchResult({ match, result }) {
   return (
-    <section className="mb-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" aria-label="Completed match result">
+    <section className="mb-5 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-4" aria-label="Completed match result">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Half time</p>
-          <p className="mt-1 text-xl font-black text-[#101828]">{result.halfTimeScore}</p>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Half time</p>
+          <p className="mt-1 text-xl font-black text-[var(--text-primary)]">{result.halfTimeScore}</p>
         </div>
         {result.hasExtraTime ? (
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Normal time</p>
-            <p className="mt-1 text-xl font-black text-[#101828]">{result.regulationScore}</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Normal time</p>
+            <p className="mt-1 text-xl font-black text-[var(--text-primary)]">{result.regulationScore}</p>
           </div>
         ) : null}
         {result.extraTimeScore ? (
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">After extra time</p>
-            <p className="mt-1 text-xl font-black text-[#101828]">{result.extraTimeScore}</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">After extra time</p>
+            <p className="mt-1 text-xl font-black text-[var(--text-primary)]">{result.extraTimeScore}</p>
           </div>
         ) : null}
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Full time</p>
-          <p className="mt-1 text-xl font-black text-[#101828]">{result.fullTimeScore}</p>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Full time</p>
+          <p className="mt-1 text-xl font-black text-[var(--text-primary)]">{result.fullTimeScore}</p>
         </div>
         {result.shootoutScore ? (
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Penalty shootout</p>
-            <p className="mt-1 text-xl font-black text-[#101828]">{result.shootoutScore}</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Penalty shootout</p>
+            <p className="mt-1 text-xl font-black text-[var(--text-primary)]">{result.shootoutScore}</p>
           </div>
         ) : null}
         {result.shootoutWinner ? (
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Shootout winner</p>
-            <p className="mt-1 text-sm font-black text-[#101828]">{result.shootoutWinner}</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Shootout winner</p>
+            <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{result.shootoutWinner}</p>
           </div>
         ) : null}
       </div>
       {result.shootoutEvents.length > 0 ? (
-        <ol className="mt-4 divide-y divide-[#d7e5dc] border-y border-[#d7e5dc]">
+        <ol className="mt-4 divide-y divide-[var(--border-color)] border-y border-[var(--border-color)]">
           {result.shootoutEvents.map((kick) => (
-            <li key={kick.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm font-semibold text-[#4b5f55]">
+            <li key={kick.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm font-semibold text-[var(--text-muted)]">
               <span>
                 {kick.teamSide === 'opponent' ? (match.opponent || 'Opponent') : (match.teamName || 'Our team')}
                 {kick.playerName ? `, ${kick.playerName}` : ''}
               </span>
-              <span className="font-black text-[#101828]">
+              <span className="font-black text-[var(--text-primary)]">
                 Kick {kick.kickNumber}: {kick.eventStatus === 'voided' ? `voided, ${kick.voidReason || 'corrected'}` : kick.outcome}
               </span>
             </li>
@@ -186,20 +186,20 @@ export function CompletedMatchEventReport({ includeEventNotes = false, match }) 
           <CompletedMatchResult match={match} result={summary.result} />
           <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <dt className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Goals</dt>
-              <dd className="mt-1 text-lg font-black text-[#101828]">{summary.activeGoals.length}</dd>
+              <dt className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Goals</dt>
+              <dd className="mt-1 text-lg font-black text-[var(--text-primary)]">{summary.activeGoals.length}</dd>
             </div>
             <div>
-              <dt className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Cards</dt>
-              <dd className="mt-1 text-lg font-black text-[#101828]">{yellowCardCount} yellow, {redCardCount} red</dd>
+              <dt className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Cards</dt>
+              <dd className="mt-1 text-lg font-black text-[var(--text-primary)]">{yellowCardCount} yellow, {redCardCount} red</dd>
             </div>
             <div>
-              <dt className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Player changes</dt>
-              <dd className="mt-1 text-lg font-black text-[#101828]">{playerChangeCount}</dd>
+              <dt className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Player changes</dt>
+              <dd className="mt-1 text-lg font-black text-[var(--text-primary)]">{playerChangeCount}</dd>
             </div>
             <div>
-              <dt className="text-xs font-black uppercase tracking-[0.12em] text-[#4b5f55]">Voided events</dt>
-              <dd className="mt-1 text-lg font-black text-[#101828]">{summary.voidedEvents.length}</dd>
+              <dt className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Voided events</dt>
+              <dd className="mt-1 text-lg font-black text-[var(--text-primary)]">{summary.voidedEvents.length}</dd>
             </div>
           </dl>
         </CompletedReportSection>
@@ -213,12 +213,12 @@ export function CompletedMatchEventReport({ includeEventNotes = false, match }) 
         >
           <div className="grid gap-x-6 gap-y-4 lg:grid-cols-2">
             <CompletedEventList emptyLabel="No active goals were recorded." events={summary.activeGoals} includeEventNotes={includeEventNotes} match={match} title="Goals summary" />
-            <section className="border-t border-[#d7e5dc] pt-4">
+            <section className="border-t border-[var(--border-color)] pt-4">
               <div className="flex items-center justify-between gap-3">
-                <h6 className="text-sm font-black text-[#101828]">Cards summary</h6>
-                <span className="text-xs font-black text-[#047857]">{summary.activeCards.length}</span>
+                <h6 className="text-sm font-black text-[var(--text-primary)]">Cards summary</h6>
+                <span className="text-xs font-black text-[var(--text-muted)]">{summary.activeCards.length}</span>
               </div>
-              <p className="mt-2 text-sm font-semibold text-[#4b5f55]">{yellowCardCount} yellow, {redCardCount} red</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">{yellowCardCount} yellow, {redCardCount} red</p>
               <CompletedEventList emptyLabel="No active cards were recorded." events={summary.activeCards} includeEventNotes={includeEventNotes} match={match} title="Card events" />
             </section>
           </div>

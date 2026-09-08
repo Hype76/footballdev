@@ -4,7 +4,7 @@ import {
   downloadCompletedReportPdf,
 } from '../../lib/matchday-report-export.js'
 
-const buttonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#047857] bg-white px-4 py-2 text-sm font-black text-[#047857] shadow-sm shadow-[#047857]/10 transition hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#047857] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
+const buttonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-black text-[var(--text-primary)] shadow-sm shadow-[#047857]/10 transition hover:bg-[var(--panel-bg)] focus:outline-none focus:ring-2 focus:ring-[#047857] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
 
 export function CompletedMatchReportExportActions({ audience = 'parent', match }) {
   const [errorMessage, setErrorMessage] = useState('')
@@ -25,11 +25,11 @@ export function CompletedMatchReportExportActions({ audience = 'parent', match }
   }
 
   return (
-    <section className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3" aria-label="Completed report exports">
+    <section className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-alt)] p-3" aria-label="Completed report exports">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-black text-[#101828]">Export this completed report</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
+          <p className="text-sm font-black text-[var(--text-primary)]">Export this completed report</p>
+          <p className="mt-1 text-xs font-semibold leading-5 text-[var(--text-muted)]">
             Downloads use the same permission-filtered report shown here.
           </p>
         </div>
@@ -42,7 +42,7 @@ export function CompletedMatchReportExportActions({ audience = 'parent', match }
           </button>
         </div>
       </div>
-      {errorMessage ? <p role="alert" className="mt-3 text-sm font-bold text-[#b42318]">{errorMessage}</p> : null}
+      {errorMessage ? <p role="alert" className="mt-3 text-sm font-bold text-[var(--danger-text)]">{errorMessage}</p> : null}
     </section>
   )
 }

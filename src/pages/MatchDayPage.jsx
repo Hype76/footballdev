@@ -5216,19 +5216,19 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
   const hasChanges = staffNotes.trim() !== (report?.staffNotes || '')
 
   return (
-    <section className="border-t border-[#047857] bg-[#f8fffb] px-4 py-5 sm:px-5" aria-label="Final Match Report">
+    <section className="border-t border-[var(--border-color)] bg-[var(--panel-alt)] px-4 py-5 sm:px-5" aria-label="Final Match Report">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h5 className="text-lg font-black text-[#101828]">Final Match Report</h5>
-            <span className="inline-flex rounded-lg border border-[#d7e5dc] bg-white px-3 py-1 text-xs font-black text-[#4b5f55]">Coach notes included</span>
+            <h5 className="text-lg font-black text-[var(--text-primary)]">Final Match Report</h5>
+            <span className="inline-flex rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-1 text-xs font-black text-[var(--text-muted)]">Coach notes included</span>
           </div>
-          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getMatchDayDisplayName(match)}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">{getMatchDayDisplayName(match)}</p>
         </div>
         <button type="button" onClick={onClose} className={secondaryButtonClass}>Close report</button>
       </div>
 
-      <dl className="mt-5 grid gap-4 border-y border-[#d7e5dc] py-4 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="mt-5 grid gap-4 border-y border-[var(--border-color)] py-4 sm:grid-cols-2 lg:grid-cols-4">
         <DetailItem label="Team" value={match.teamName || 'Our team'} />
         <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
         <DetailItem label="Home or away" value={getHomeAwayLabel(match.homeAway)} />
@@ -5246,7 +5246,7 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
         <CompletedMatchReportExportActions audience="staff" match={reportMatch} />
       </div>
 
-      <section className="mt-5 border-t border-[#d7e5dc] pt-4">
+      <section className="mt-5 border-t border-[var(--border-color)] pt-4">
         <label className="block">
           <span className={smallLabelClass}>Coach notes</span>
           <textarea
@@ -5259,10 +5259,10 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
           />
         </label>
         {!report?.staffNotes && !staffNotes ? (
-          <p className="mt-2 text-sm font-semibold text-[#4b5f55]">No match summary has been saved yet.</p>
+          <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">No match summary has been saved yet.</p>
         ) : null}
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-semibold text-[#4b5f55]">{staffNotes.length} / {MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH}</p>
+          <p className="text-xs font-semibold text-[var(--text-muted)]">{staffNotes.length} / {MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH}</p>
           <button
             type="button"
             onClick={() => onSave(match, staffNotes)}
@@ -5273,12 +5273,12 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
           </button>
         </div>
         {status ? (
-          <p role={status.tone === 'error' ? 'alert' : 'status'} className={`mt-3 text-sm font-bold ${status.tone === 'error' ? 'text-red-700' : status.tone === 'loading' ? 'text-[#92400e]' : 'text-[#047857]'}`}>
+          <p role={status.tone === 'error' ? 'alert' : 'status'} className={`mt-3 text-sm font-bold ${status.tone === 'error' ? 'text-[var(--danger-text)]' : status.tone === 'loading' ? 'text-[#92400e]' : 'text-[#047857]'}`}>
             {status.message}
           </p>
         ) : null}
         {report ? (
-          <dl className="mt-4 grid gap-3 border-t border-[#d7e5dc] pt-4 sm:grid-cols-2">
+          <dl className="mt-4 grid gap-3 border-t border-[var(--border-color)] pt-4 sm:grid-cols-2">
             <DetailItem label="Created" value={`${formatResponseDateTime(report.createdAt)}${report.createdByName ? ` by ${report.createdByName}` : ''}`} />
             <DetailItem label="Updated" value={`${formatResponseDateTime(report.updatedAt)}${report.updatedByName ? ` by ${report.updatedByName}` : ''}`} />
           </dl>
