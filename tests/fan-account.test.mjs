@@ -20,7 +20,7 @@ function setup({ signupError, missingLink = false, missingUser = false, inviteRo
     },
     auth: { admin: { generateLink: async (args) => {
       calls.signup.push(args)
-      return { error: signupError, data: { user: missingUser ? null : { id: 'fan-user' }, properties: { action_link: missingLink ? null : 'https://auth.example.test/confirm' } } }
+      return { error: signupError, data: { user: missingUser ? null : { id: 'fan-user' }, properties: { hashed_token: missingLink ? null : 'synthetic-confirmation-hash', action_link: 'https://auth.example.test/verify?redirect_to=https://footballplayer.online' } } }
     } } },
   }
   const handler = createFanAccountHandler({
@@ -44,6 +44,8 @@ test('signup binds the invited identity, sends confirmation and does not activat
   assert.deepEqual(calls.queries[0].filters, [['invite_token', token], ['email', invite.email], ['status', 'pending'], ['relationship_type', 'fan']])
   assert.equal(calls.emails.length, 1)
   assert.match(calls.emails[0][0].html, /Confirm email/)
+  assert.ok(calls.emails[0][0].html.includes(`https://parent.footballplayer.online/fan-invite/${token}#fan_confirmation=synthetic-confirmation-hash`))
+  assert.ok(!calls.emails[0][0].html.includes('https://auth.example.test'))
   assert.deepEqual(calls.emails[0][0].to, [invite.email])
 })
 

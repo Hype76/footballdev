@@ -33,9 +33,12 @@ export function createFanAccountHandler({ createClient, sendEmail, createFromAdd
         if (signupError.status === 429) return json(429, { code: 'signup_rate_limited', message: 'Account creation is temporarily limited. Wait a few minutes, then try Create account again.' })
         throw signupError
       }
-      if (!data?.properties?.action_link || !data?.user?.id) throw new Error('missing_signup_confirmation')
+      if (!data?.properties?.hashed_token || !data?.user?.id) throw new Error('missing_signup_confirmation')
+      // Keep the invitation in the email URL instead of relying on Auth redirect configuration.
+      // The fragment is not sent to web servers or included in referrer headers.
+      const confirmationUrl = `https://parent.footballplayer.online/fan-invite/${body.token}#fan_confirmation=${encodeURIComponent(data.properties.hashed_token)}`
       try {
-        await sendEmail({ from: createFromAddress('Football Player'), to: [invite.email], ...buildFanEmail({ club, fan: invite, url: data.properties.action_link, verification: true }) },
+        await sendEmail({ from: createFromAddress('Football Player'), to: [invite.email], ...buildFanEmail({ club, fan: invite, url: confirmationUrl, verification: true }) },
           { idempotencyKey: `fan-account-${invite.id}`, context: { emailType: 'fan_account_confirmation', targetEntityType: 'fan_connection', targetEntityId: invite.id } })
       } catch (error) {
         reportFailure('confirmation_email', error)

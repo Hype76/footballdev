@@ -4,6 +4,7 @@ import { readFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
+import { themeContrastRatio } from '../apps/mobile-core/src/themeContrast.js'
 
 // Exercise the real Fans screen and hook; replace device services and network only.
 const root = process.cwd()
@@ -31,7 +32,7 @@ const entry = `
 import React,{useState,useEffect} from 'react'; import {createRoot} from 'react-dom/client';
 import {Alert,AppState,Share} from 'react-native';
 import {FansScreen} from './apps/parent-mobile/src/FansScreen.js';
-window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'First Child',clubName:'Demo FC',themeAccent:'#2ba7aa'},{id:'second',playerName:'Second Child',clubName:'Demo FC',themeAccent:'#2ba7aa'}]};
+window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'First Child',clubName:'Demo FC',themeAccent:'#414b92'},{id:'second',playerName:'Second Child',clubName:'Demo FC',themeAccent:'#414b92'}]};
 window.calls=[];window.rows=[];window.saved='';window.alert=null;
 window.rpc=async(name,args)=>{
   window.calls.push({name,args});
@@ -98,6 +99,31 @@ try {
     await page.getByLabel('Fan name', { exact: true }).fill(`${method} Fan`)
     await page.getByLabel('Fan email', { exact: true }).fill('test@example.test')
     await assertRenderedTextContrast(page, `Fans invitation ${method}`)
+    for (const mode of ['light', 'dark']) {
+      await page.evaluate(mode => window.mode(mode), mode)
+      await page.locator(`[data-mode="${mode}"]`).waitFor()
+      const gameDay = page.getByRole('switch', { name: 'Game Day', exact: true })
+      await gameDay.waitFor()
+      assert.equal(await gameDay.isChecked(), true)
+      const assertSwitchContrast = async () => {
+        await page.waitForFunction(() => Array.from(document.querySelector('[role="switch"][aria-label="Game Day"]').parentElement.children).slice(0, 2).every(el => getComputedStyle(el).backgroundColor === el.style.backgroundColor))
+        const colors = await gameDay.evaluate(input => Array.from(input.parentElement.children).slice(0, 2).map(el => getComputedStyle(el).backgroundColor))
+        const hex = rgb => '#' + rgb.match(/\d+/g).slice(0, 3).map(n => Number(n).toString(16).padStart(2, '0')).join('')
+        assert.ok(themeContrastRatio(hex(colors[0]), hex(colors[1])) >= 4.5, 'Switch thumb contrasts with its track')
+        assert.ok(themeContrastRatio(hex(colors[0]), mode === 'light' ? '#ffffff' : '#10231f') >= 3, `Switch track contrasts with the page: ${mode} ${colors}`)
+      }
+      await assertSwitchContrast()
+      await gameDay.uncheck()
+      assert.equal(await gameDay.isChecked(), false)
+      await assertSwitchContrast()
+      await gameDay.check()
+      assert.equal(await page.getByRole('switch', { name: 'Include resources' }).isDisabled(), true)
+      await page.getByText('Unavailable', {exact:true}).waitFor()
+      await page.getByText('On', {exact:true}).first().waitFor()
+      await page.getByText('Off', {exact:true}).first().waitFor()
+      await assertRenderedTextContrast(page, `Fan switches ${mode}`)
+      await page.screenshot({path: `${out}/switches-${mode}.png`,fullPage:true})
+    }
     await button(method).click()
     await page.getByText(/to follow Second Child/).waitFor()
     await assertRenderedTextContrast(page, `Fans confirmation ${method}`)
