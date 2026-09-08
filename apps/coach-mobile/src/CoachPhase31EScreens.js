@@ -1,3 +1,4 @@
+import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
@@ -252,7 +253,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
   }, [domain, load])
 
-  const common = { chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
+  const common = { palette, chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
       {domain !== 'chat' ? <View style={styles.panel}>
@@ -795,7 +796,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   )
 }
 
-function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, styles, user }) {
+function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice, stale, styles, user }) {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
   const [requestPanelOpen, setRequestPanelOpen] = useState(false)
   const [bulkAction, setBulkAction] = useState('')
@@ -862,14 +863,14 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
     try { await refreshAfterBulkAction(); setNotice(resultNotice) } catch (error) { setNotice(`${failedPlayerIds.length ? `${successful.length} of ${invites.length} Invitations were resent. ` : 'Invitations were resent. '}The latest availability could not be refreshed: ${getCoachFriendlyError(error)}`) }
     finally { setBulkAction('') }
   }
-  const resend = () => {
-    const invites = [...selectedInvites]
+  const resendInvites = (invites) => {
     if (!config.isProduction) return void recordSelectedResends(invites)
     Alert.alert(`Resend ${invites.length} Invitation${invites.length === 1 ? '' : 's'}?`, 'This queues the approved Invitations to each Player\'s server-resolved eligible contacts. Existing response identity and any saved response are preserved.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Resend', onPress: () => void recordSelectedResends(invites) },
     ])
   }
+  const resend = () => resendInvites([...selectedInvites])
   const commitSelectedRemovals = async (invites, confirmInProgress) => {
     setBulkAction('remove')
     const results = await Promise.allSettled(invites.map((invite) => removeCoachInviteFromEvent(user, invite, { confirmInProgress })))
@@ -1036,23 +1037,17 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
     const matchSummary = summarizeCoachInvites(matchInvites)
     const expanded = match.id === matchId
     return (
-      <View key={`match:${match.id}`} style={[styles.panel, expanded && styles.panelSelected]}>
-        <Pressable accessibilityRole="button" onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
-          <Text style={styles.heading}>{match.opponent || 'Opponent to be confirmed'}</Text>
-          <Text style={styles.body}>{match.matchDate || 'Date to be confirmed'} | Available {matchSummary.available} | Awaiting {matchSummary.awaiting}</Text>
-          <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
-        </Pressable>
+      <View key={`match:${match.id}`} style={[styles.panel, expanded && styles.panelSelected, expanded && { padding: 8 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 }}>
+            <MaterialIcons name="event" size={28} color={palette.textSecondary} />
+            <View style={{ flex: 1, gap: 4 }}><Text style={styles.heading}>Match Day vs {match.opponent || 'Opponent to be confirmed'}</Text><Text style={styles.helper}>{match.matchDate || 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>Available {matchSummary.available} · Awaiting {matchSummary.awaiting}</Text> : null}</View>
+          </Pressable>
+          {expanded ? <Pressable accessibilityRole="button" accessibilityLabel="Notify awaiting players" accessibilityHint="Review a resend to players who have not responded" disabled={selectionDisabled || Number(user.roleRank || 0) < 50 || !selectedMatchInvites.some(invite => invite.status === 'awaiting')} onPress={() => resendInvites(selectedMatchInvites.filter(invite => invite.status === 'awaiting'))} style={[styles.secondary, { minHeight: 40, paddingHorizontal: 8 }, (selectionDisabled || Number(user.roleRank || 0) < 50 || !selectedMatchInvites.some(invite => invite.status === 'awaiting')) && styles.disabled]}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><MaterialIcons name="notifications-none" size={18} color={palette.textSecondary} /><Text style={styles.helper}>Notify</Text></View></Pressable> : null}
+        </View>
         {expanded ? <>
-          <Text style={styles.label}>Available {matchSummary.available} | Not available {matchSummary.unavailable} | Maybe {matchSummary.maybe} | Awaiting {matchSummary.awaiting}</Text>
-          <Text style={styles.body}>{matchRequestPlayerCount} Player{matchRequestPlayerCount === 1 ? '' : 's'} shown below already {matchRequestPlayerCount === 1 ? 'has' : 'have'} an availability request. {availablePlayers.length} current Team Player{availablePlayers.length === 1 ? '' : 's'} {availablePlayers.length === 1 ? 'has' : 'have'} no request.</Text>
-          {selectedMatchInvites.length ? selectedMatchInvites.map((invite) => {
-            const selected = selectedPlayerIds.includes(invite.playerId)
-            return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
-              <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-              <View><InviteStatusBadge status={invite.status} kind={invite.kind} Icon={MaterialIcons} /><InviteDeliveryTicks invite={invite} styles={styles} /></View>
-            </Pressable>
-          }) : <Text style={styles.body}>No availability requests have been sent for this fixture.</Text>}
-          {selectedMatchInvites.length ? <Text style={styles.helper}>Sent and Delivered show provider progress. Seen turns green only after a Parent or Player response is recorded.</Text> : null}
+          <CoachMatchInviteTable key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          <Text style={styles.helper}>{matchRequestPlayerCount} Players have a request. {availablePlayers.length} current Team Players have no request.</Text>
           {renderSelectedInviteActions()}
           {availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Choose ${availablePlayers.length} Team Players with no request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : <Text style={styles.body}>Every current Team Player already has an availability request for this fixture.</Text>}
           {requestPanelOpen ? <View style={styles.stack}>
@@ -1072,9 +1067,9 @@ function InvitesDomain({ data, load, onNavigate, reloadHome, setNotice, stale, s
   }
   return (
     <View style={styles.stack}>
-      <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text>
+      {matchId ? <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={() => { setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40 }}><MaterialIcons name="arrow-back" size={20} color={palette.accentText} /><Text style={styles.label}>All events</Text></Pressable> : <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text>}
       {availabilityTimeline.length
-        ? availabilityTimeline.map((entry) => entry.kind === 'training'
+        ? availabilityTimeline.filter((entry) => !matchId || (entry.kind === 'match' && entry.item.id === matchId)).map((entry) => entry.kind === 'training'
             ? renderTrainingAvailability(entry.item)
             : renderMatchAvailability(entry.item))
         : <Empty copy="No upcoming Match or Training availability request is available." styles={styles} />}
