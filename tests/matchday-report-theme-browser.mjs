@@ -11,7 +11,14 @@ const entry = `
   import { createRoot } from 'react-dom/client';
   import { FinalMatchReportPanel } from '/src/pages/MatchDayPage.jsx';
   import { normalizeMatchDay } from '/src/lib/domain/match-day.js';
+  import { applyThemeColorVariables } from '/src/lib/theme.js';
   import '/src/index.css';
+  window.setReportTheme = mode => {
+    document.documentElement.className = 'theme-' + mode;
+    document.body.className = 'theme-' + mode;
+    document.getElementById('root').className = 'app-theme-scope';
+    applyThemeColorVariables(document.getElementById('root'), 'blue', mode);
+  };
   const match = normalizeMatchDay({
     id:'theme-fixture',club_id:'test-club',team_id:'test-team',team_name:'U14 Test Team',
     opponent:'Test Opponent',home_away:'home',status:'concluded',match_date:'2026-09-05',
@@ -68,10 +75,7 @@ try {
   const report = page.getByRole('region', { name: 'Final Match Report' })
   await report.waitFor({ timeout: 120000 })
   for (const mode of ['dark', 'light']) {
-    await page.evaluate(mode => {
-      document.documentElement.className = `theme-${mode}`
-      document.body.className = `theme-${mode} app-theme-scope`
-    }, mode)
+    await page.evaluate(mode => window.setReportTheme(mode), mode)
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 })
       const buttons = report.getByLabel('Completed match report sections').getByRole('button')
