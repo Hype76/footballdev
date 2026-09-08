@@ -40,9 +40,7 @@ import {
   buildCoachChatRoomSections,
   canResendSelectedCoachInvites,
   collapseCoachInvitesByPlayer,
-  getCoachInviteDeliveryLabel,
   getCoachInviteDeliveryProgress,
-  getCoachInviteStatusLabel,
   getCoachChatModalTopInset,
   getCoachPlayersWithoutAvailabilityRequest,
   getSelectedCoachInvites,
@@ -1008,27 +1006,18 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
     </View>
   ) : null
   const renderTrainingAvailability = (group) => {
-    const trainingInvites = collapseCoachInvitesByPlayer(group.invites)
-    const trainingSummary = summarizeCoachInvites(trainingInvites)
+    const trainingSummary = summarizeCoachInvites(collapseCoachInvitesByPlayer(group.invites))
     const expanded = group.key === trainingKey
     return (
-      <View key={`training:${group.key}`} style={[styles.panel, expanded && styles.panelSelected]}>
-        <Pressable accessibilityRole="button" onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }}>
-          <Text style={styles.heading}>{group.title || 'Training'}</Text>
-          <Text style={styles.body}>Training | {group.occurrenceDate || 'Date to be confirmed'} | Attending {trainingSummary.attending} | Awaiting response {trainingSummary.awaitingResponse}</Text>
-          <Text style={styles.body}>{expanded ? 'Hide availability' : 'Open availability'}</Text>
+      <View key={`training:${group.key}`} style={[styles.panel, expanded && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${group.title || 'Training'}`} onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]); setShowEventActions(false) }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 12, backgroundColor: palette.surface }}>
+          <MaterialIcons name="event" size={28} color={palette.textSecondary} />
+          <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{group.title || 'Training'}</Text><Text style={styles.helper}>{group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}</Text>{!expanded ? <Text style={styles.helper}>Attending {trainingSummary.attending} · Awaiting {trainingSummary.awaitingResponse}</Text> : null}</View>
         </Pressable>
         {expanded ? <>
-          <Text style={styles.label}>Attending {trainingSummary.attending} | Maybe {trainingSummary.maybe} | Awaiting response {trainingSummary.awaitingResponse} | Not attending {trainingSummary.notAttending} | Invitation not sent {trainingSummary.invitationNotSent} | Delivery issue {trainingSummary.deliveryIssue}</Text>
-          {selectedTrainingInvites.map((invite) => {
-            const selected = selectedPlayerIds.includes(invite.playerId)
-            return <Pressable accessibilityLabel={`${invite.playerName}, ${getCoachInviteStatusLabel(invite.status, invite.kind)}, send ${getCoachInviteDeliveryLabel(invite.deliveryStatus)}`} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} key={invite.id} onPress={() => toggleSelection(invite.playerId)} style={[styles.availabilityRow, selected && styles.formChoiceSelected]}>
-              <View style={styles.availabilityPlayer}><View style={styles.availabilityPlayerName}><Text style={styles.body}>{invite.playerName}</Text><InviteCarpoolIcon invite={invite} styles={styles} /></View>{selected ? <Text style={styles.availabilitySelected}>Selected</Text> : null}</View>
-              <View><InviteStatusBadge status={invite.status} kind={invite.kind} Icon={MaterialIcons} /><InviteDeliveryTicks invite={invite} styles={styles} /></View>
-            </Pressable>
-          })}
+          <CoachMatchInviteTable key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
           {renderSelectedInviteActions()}
-          <Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} />
+          {showEventActions ? <Button label="Open Calendar" onPress={() => onNavigate('calendar', { sourceId: group.eventId, sourceType: 'calendar_event', occurrenceDate: group.occurrenceDate })} secondary styles={styles} /> : null}
         </> : null}
       </View>
     )
@@ -1042,9 +1031,8 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 8, backgroundColor: palette.surface }}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 }}>
             <MaterialIcons name="event" size={28} color={palette.textSecondary} />
-            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>Match Day vs {match.opponent || 'Opponent to be confirmed'}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>Available {matchSummary.available} · Awaiting {matchSummary.awaiting}</Text> : null}</View>
+            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>Match Day vs {match.opponent || 'Opponent to be confirmed'}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>Available {matchSummary.available} · Awaiting {matchSummary.awaiting}</Text> : null}</View>
           </Pressable>
-          {expanded ? <Pressable accessibilityRole="button" accessibilityLabel="Notify awaiting players" accessibilityHint="Review a resend to players who have not responded" disabled={selectionDisabled || Number(user.roleRank || 0) < 50 || !selectedMatchInvites.some(invite => invite.status === 'awaiting')} onPress={() => resendInvites(selectedMatchInvites.filter(invite => invite.status === 'awaiting'))} style={[styles.secondary, { minHeight: 36, paddingHorizontal: 10, borderRadius: 24 }, (selectionDisabled || Number(user.roleRank || 0) < 50 || !selectedMatchInvites.some(invite => invite.status === 'awaiting')) && styles.disabled]}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><MaterialIcons name="notifications-none" size={18} color={palette.textSecondary} /><Text style={styles.helper}>Notify</Text></View></Pressable> : null}
         </View>
         {expanded ? <>
           <CoachMatchInviteTable key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
@@ -1069,13 +1057,13 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
   return (
     <View style={styles.stack}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={() => { if (!matchId) onNavigate('more'); setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]); setShowEventActions(false) }} style={{ minHeight: 44, width: 32, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="chevron-left" size={28} color={palette.textPrimary} /></Pressable>
-        <Text accessibilityRole="header" style={{ flex: 1, color: palette.textPrimary, fontSize: 23, fontWeight: '800' }}>Match Invites</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={() => { if (!matchId && !trainingKey) onNavigate('more'); setMatchId(''); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]); setShowEventActions(false) }} style={{ minHeight: 44, width: 32, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="chevron-left" size={28} color={palette.textPrimary} /></Pressable>
+        <Text accessibilityRole="header" style={{ flex: 1, color: palette.textPrimary, fontSize: 23, fontWeight: '800' }}>{trainingKey ? 'Training Invites' : 'Match Invites'}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Invitation actions" accessibilityState={{ expanded: showEventActions }} onPress={() => setShowEventActions(value => !value)} style={{ minHeight: 44, width: 40, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="more-horiz" size={24} color={palette.textPrimary} /></Pressable>
       </View>
-      {!matchId ? <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text> : null}
+      {!matchId && !trainingKey ? <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text> : null}
       {availabilityTimeline.length
-        ? availabilityTimeline.filter((entry) => !matchId || (entry.kind === 'match' && entry.item.id === matchId)).map((entry) => entry.kind === 'training'
+        ? availabilityTimeline.filter((entry) => matchId ? entry.kind === 'match' && entry.item.id === matchId : trainingKey ? entry.kind === 'training' && entry.item.key === trainingKey : true).map((entry) => entry.kind === 'training'
             ? renderTrainingAvailability(entry.item)
             : renderMatchAvailability(entry.item))
         : <Empty copy="No upcoming Match or Training availability request is available." styles={styles} />}

@@ -1,6 +1,6 @@
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
@@ -236,7 +236,7 @@ function formatResourceCategory(value) {
   return String(value || 'general').trim().replaceAll('_', ' ').replaceAll('-', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActionHandled, onSelectContext, palette, quickAction, user }) {
+export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavigate, onQuickActionHandled, onSelectContext, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [attachmentCategory, setAttachmentCategory] = useState('all')
   const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false)
@@ -251,6 +251,8 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   const [saving, setSaving] = useState(false)
   const [selected, setSelected] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
+  const [focusedEventId, setFocusedEventId] = useState('')
+  const handledTarget = useRef(null)
   const [saveConfirmation, setSaveConfirmation] = useState('')
   const [stale, setStale] = useState(false)
   const [teamNotificationName, setTeamNotificationName] = useState(
@@ -314,10 +316,24 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   const selectedDay = calendarMonth.days.find((day) => day.date === selectedDate)
   const savedLocations = useMemo(() => getSavedLocationOptions(events), [events])
   const attachmentCategories = useMemo(() => [...new Set(resources.map((resource) => String(resource.category || 'general').trim().toLowerCase()).filter(Boolean))].sort(), [resources])
-  const visibleEvents = selectedDate
+  const visibleEvents = focusedEventId ? events.filter(event => event.id === focusedEventId) : selectedDate
     ? events.filter((event) => event.calendarDate === selectedDate)
     : filterCoachCalendarEvents(events, filter)
   const groups = groupCoachCalendarEvents(visibleEvents)
+  useEffect(() => {
+    if (!calendarTarget || handledTarget.current === calendarTarget) return
+    const event = events.find(item => (calendarTarget.eventId ? item.id === calendarTarget.eventId : item.sourceId === calendarTarget.sourceId)
+      && (!calendarTarget.sourceType || item.sourceType === calendarTarget.sourceType)
+      && (!calendarTarget.occurrenceDate || (item.occurrenceDate || item.calendarDate) === calendarTarget.occurrenceDate))
+    if (!event) return
+    handledTarget.current = calendarTarget
+    setSelected(event)
+    setFocusedEventId(event.id)
+    setSelectedDate(event.calendarDate)
+    setVisibleMonth(event.calendarDate.slice(0, 7))
+    setForm(null)
+  }, [calendarTarget, events])
+
   const openForm = (event = null) => {
     setFormError('')
     setSaveConfirmation('')
@@ -336,6 +352,7 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   }
   useEffect(() => {
     if (quickAction?.route !== 'calendar') return
+    setFocusedEventId('')
     setSelected(null)
     setFormError('')
     setSaveConfirmation('')
@@ -447,7 +464,8 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
   return (
     <View style={styles.stack}>
       <DomainHeader copy="Calendar events, Match Day fixtures, Sessions, recurrence, and training availability in Europe/London time." styles={styles} title="Calendar" />
-      <View accessibilityLabel={`${calendarMonth.title} Calendar`} style={styles.calendar}>
+      {focusedEventId ? <Button label="Back to Calendar" onPress={() => { setFocusedEventId(''); setSelected(null) }} secondary styles={styles} /> : null}
+      {!focusedEventId ? <><View accessibilityLabel={`${calendarMonth.title} Calendar`} style={styles.calendar}>
         <View style={styles.calendarHeader}>
           <Pressable accessibilityRole="button" onPress={() => setVisibleMonth(shiftCoachCalendarMonth(visibleMonth, -1))} style={styles.calendarNav}>
             <Text style={styles.calendarNavText}>Previous</Text>
@@ -516,11 +534,12 @@ export function CoachCalendarScreen({ context, contexts, onNavigate, onQuickActi
             <Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} />
           </View>
         ) : null}
-      </View>
+      </View></> : null}
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
+      {calendarTarget && handledTarget.current !== calendarTarget && !loading && !stale ? <Text accessibilityRole="alert" style={styles.warningText}>This event is no longer available in this Calendar. Refresh the Calendar to check again.</Text> : null}
       {saveConfirmation ? <View style={styles.card}><Text style={styles.cardTitle}>{saveConfirmation}</Text></View> : null}
       {!selectedDate ? <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'History', value: 'history' }, { label: 'Cancelled', value: 'cancelled' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} /> : null}
-      {policy.canCreate && !stale && !form ? <Button label="Create event" onPress={() => openForm()} styles={styles} /> : null}
+      {policy.canCreate && !stale && !form && !focusedEventId ? <Button label="Create event" onPress={() => openForm()} styles={styles} /> : null}
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{selected ? 'Edit event' : 'Create event'}</Text>

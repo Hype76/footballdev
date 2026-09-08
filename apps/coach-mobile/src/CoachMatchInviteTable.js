@@ -6,7 +6,7 @@ import { contrastSafeColor, themeForeground } from '../../mobile-core/src/themeC
 
 const responseKey = status => ['pending', 'responded', '', undefined].includes(status) ? 'awaiting' : status
 
-export function CoachMatchInviteTable({ invites, players = [], palette, selectedPlayerIds, selectionDisabled, onToggleSelection, onFilterChange }) {
+export function CoachMatchInviteTable({ invites, players = [], kind = 'match', palette, selectedPlayerIds, selectionDisabled, onToggleSelection, onFilterChange }) {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'player', direction: 1 })
   const [detailsId, setDetailsId] = useState(null)
@@ -15,12 +15,12 @@ export function CoachMatchInviteTable({ invites, players = [], palette, selected
   const mode = themeForeground(palette.background) === '#000000' ? 'light' : 'dark'
   const awaitingColor = contrastSafeColor('#38a3ff', [palette.surface, palette.surfaceRaised, palette.selected], mode, 4.5)
   const responses = {
-    available: { label: 'Available', icon: 'check-circle', color: palette.success },
+    available: { label: kind === 'training' ? 'Attending' : 'Available', icon: 'check-circle', color: palette.success },
     awaiting: { label: 'Awaiting', icon: 'schedule', color: awaitingColor },
-    unavailable: { label: 'Unavailable', icon: 'cancel', color: palette.danger },
+    unavailable: { label: kind === 'training' ? 'Not attending' : 'Unavailable', icon: 'cancel', color: palette.danger },
     maybe: { label: 'Maybe', icon: 'help-outline', color: palette.warning },
   }
-  const response = invite => responses[responseKey(invite.status)] || { label: getCoachInviteStatusLabel(invite.status, 'match'), icon: 'info-outline', color: palette.textSecondary }
+  const response = invite => responses[responseKey(invite.status)] || { label: getCoachInviteStatusLabel(invite.status, kind), icon: 'info-outline', color: palette.textSecondary }
   const counts = invites.reduce((value, invite) => { const key = responseKey(invite.status); value[key] = (value[key] || 0) + 1; return value }, {})
   const filterKeys = [...new Set(['available', 'awaiting', 'unavailable', ...Object.keys(counts)])]
   const playerById = new Map(players.map(player => [player.id, player]))
@@ -68,7 +68,7 @@ export function CoachMatchInviteTable({ invites, players = [], palette, selected
           <Pressable accessibilityRole="button" accessibilityLabel={`${invite.playerName} invitation details`} onPress={() => setDetailsId(invite.id)} style={styles.info}><MaterialIcons name="info-outline" size={19} color={palette.textSecondary} /></Pressable>
         </View>
       })}
-      {!visible.length ? <Text style={styles.empty}>{invites.length ? 'No players match this filter.' : 'No availability requests have been sent for this fixture.'}</Text> : null}
+      {!visible.length ? <Text style={styles.empty}>{invites.length ? 'No players match this filter.' : `No availability requests have been sent for this ${kind === 'training' ? 'session' : 'fixture'}.`}</Text> : null}
       <View style={styles.legend}>{['Sent', 'Delivered', 'Seen'].map(label => <View key={label} style={styles.legendItem}><MaterialIcons name="check" size={16} color={palette.success} /><Text style={styles.caption}>{label}</Text></View>)}<View style={styles.legendItem}><MaterialIcons name="radio-button-unchecked" size={15} color={palette.textMuted} /><Text style={styles.caption}>Not yet</Text></View></View>
     </View>
     <Modal visible={Boolean(details) || detailsId === 'legend'} transparent animationType="fade" onRequestClose={() => setDetailsId(null)}>

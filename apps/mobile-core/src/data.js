@@ -3,6 +3,7 @@ import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getParentPortalLinks, getSelectedParentLink } from './parentLinks'
 import { getAccessToken, supabase } from './supabase'
 import { normalizeMatchDayShirtChoice } from '../../../src/lib/matchday-model.js'
+import { normalizePitchType } from '../../../src/lib/pitch-type.js'
 import { normalizePersonName } from '../../../src/lib/person-name.js'
 
 function normalizeText(value) {
@@ -110,6 +111,7 @@ export function normalizeMatchDay(row) {
     teamName: normalizeText(team?.name ?? row.team_name ?? row.teamName) || 'Our team',
     updatedAt: row.updated_at ?? row.updatedAt ?? '',
     venueAddress: normalizeText(row.venue_address ?? row.venueAddress),
+    pitchType: normalizePitchType(row.pitch_type ?? row.pitchType),
     venueName: normalizeText(row.venue_name ?? row.venueName),
     volunteerLinesmanResponse: normalizeText(row.volunteer_linesman_response ?? row.volunteerLinesmanResponse) || 'no_response',
     volunteerRefereeResponse: normalizeText(row.volunteer_referee_response ?? row.volunteerRefereeResponse) || 'no_response',

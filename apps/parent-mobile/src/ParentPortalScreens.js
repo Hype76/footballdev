@@ -18,6 +18,7 @@ import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCo
 import { getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
 import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
 import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
+import { getPitchTypeLabel } from '../../../src/lib/pitch-type.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import ParentIcon from './ParentIcon'
@@ -915,6 +916,7 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
           {selectedMatch.arrivalTime ? <Text style={styles.body}>Arrival: {formatParentProductTime(selectedMatch.arrivalTime)}</Text> : null}
           <Text style={styles.body}>Kick-off: {selectedMatch.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(selectedMatch.kickoffTime)}</Text>
           <Text style={styles.body}>{[selectedMatch.venueName, selectedMatch.venueAddress].filter(Boolean).join(', ') || 'Location not shared'}</Text>
+          <Text style={styles.body}>Surface: {getPitchTypeLabel(selectedMatch.pitchType) || 'Not specified'}</Text>
           <Text style={styles.liveSync}>{selectedMatchIsLive ? 'Live sync on' : 'Fixture details'}</Text>
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>Score</Text>

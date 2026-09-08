@@ -127,6 +127,7 @@ jobs:
           tests/parent-matchday-availability-card-notifications-47.test.mjs
           tests/mobile-coach-matchday-31d.test.mjs
           tests/parent-scorer-goal-details-db.test.mjs
+          tests/parent-pitch-surface-db.test.mjs
           tests/matchday-offline-outbox.test.mjs
           tests/matchday-offline-commands-db.test.mjs
       - name: Install Coach browser test dependencies
@@ -134,7 +135,7 @@ jobs:
       - name: Mobile brand contrast and rendered readability
         run: node --test tests/mobile-theme-readability.test.mjs && node tests/mobile-settings-menu-browser.mjs && node tests/mobile-more-icon-badges-browser.mjs && node tests/fans-mobile-browser.mjs
       - name: Fan signup and mobile session recovery
-        run: node --test tests/fan-account.test.mjs && node tests/fan-confirmation-browser.mjs && node tests/mobile-auth-refresh-browser.mjs && node tests/mobile-feedback-visual-browser.mjs && node tests/coach-invite-table-browser.mjs && node tests/mobile-brand-loader-browser.mjs
+        run: node --test tests/fan-account.test.mjs && node tests/fan-confirmation-browser.mjs && node tests/mobile-auth-refresh-browser.mjs && node tests/mobile-feedback-visual-browser.mjs && node tests/coach-invite-table-browser.mjs && node tests/mobile-event-details-browser.mjs && node tests/mobile-brand-loader-browser.mjs
       - name: Final match report theme contrast
         run: node --test tests/matchday-final-report.test.mjs tests/matchday-final-report-accuracy.test.mjs tests/matchday-report-export.test.mjs && node tests/matchday-report-theme-browser.mjs && node tests/calendar-vote-edit-browser.mjs
       - name: Compile Coach and Parent mobile apps
