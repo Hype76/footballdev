@@ -137,7 +137,9 @@ export function AuthProvider({
         }
         if (!isCurrent()) return null
         setUser(null)
-        setAuthError(error.message || 'Account details could not be loaded.')
+        setAuthError(String(error?.code || '').endsWith('_TIMEOUT')
+          ? 'Your account details are taking too long to load. Check your connection and try again.'
+          : error.message || 'Account details could not be loaded.')
         throw error
       }
     }
@@ -168,6 +170,7 @@ export function AuthProvider({
 
     async function bootstrap() {
       const bootstrapGeneration = authEventGeneration
+      const isBootstrapCurrent = () => isMounted && bootstrapGeneration === authEventGeneration
       setAuthError('')
       setStartupDiagnosticCode('')
 
@@ -175,6 +178,7 @@ export function AuthProvider({
       const result = await runMobileStartup({
         appRole,
         clearInvalidSession: async () => {
+          if (!isBootstrapCurrent()) return
           await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
           await clearMobileSessionStorage()
           setUser(null)
@@ -185,12 +189,12 @@ export function AuthProvider({
         },
         getBiometricEnabled: () => getBiometricEnabled(appRole),
         getSession: () => supabase.auth.getSession(),
-        loadProfile,
+        loadProfile: (nextSession) => isBootstrapCurrent() ? loadProfile(nextSession) : null,
         onLock: (locked) => {
-          if (isMounted) setIsLocked(locked)
+          if (isBootstrapCurrent()) setIsLocked(locked)
         },
         onSession: (nextSession) => {
-          if (isMounted) {
+          if (isBootstrapCurrent()) {
             sessionUserIdRef.current = nextSession?.user?.id || ''
             setSession(nextSession)
           }
@@ -302,7 +306,12 @@ export function AuthProvider({
     const { error } = await withStartupTimeout(() => supabase.auth.signInWithPassword({
       email: String(email || '').trim(),
       password,
-    }), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, 'LOGIN_CONNECTION_TIMEOUT')
+    }), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, 'LOGIN_CONNECTION_TIMEOUT').catch((error) => {
+      const failure = error?.code === 'LOGIN_CONNECTION_TIMEOUT'
+        ? new Error('Sign-in is taking too long. Check your connection and try again.') : error
+      setAuthError(failure.message || 'Login failed.')
+      throw failure
+    })
 
     if (error) {
       setAuthError(error.message || 'Login failed.')

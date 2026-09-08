@@ -63,5 +63,30 @@ try {
   await page.waitForFunction(() => window.authState?.startupState === 'READY_SIGNED_OUT')
   await page.waitForTimeout(100)
   assert.equal(await page.evaluate(() => window.authState.user), null, 'Late refresh cannot restore a signed-out profile')
+  await page.evaluate(() => {
+    window.mockAuth.signInWithPassword = () => new Promise(() => {})
+    window.authState.signIn('synthetic@example.test', 'synthetic').catch(error => { window.loginFailure = error.message })
+  })
+  await page.waitForFunction(() => window.loginFailure)
+  assert.match(await page.evaluate(() => window.loginFailure), /Check your connection and try again/)
+
+  const race = await browser.newPage()
+  await race.setContent('<div id="root"></div>')
+  await race.evaluate(() => {
+    window.profileCalls = 0; window.historyStates = []
+    window.mockAuth = {
+      startAutoRefresh() {}, stopAutoRefresh() {},
+      getSession: () => new Promise(resolve => { window.resolveInitial = resolve }),
+      onAuthStateChange(fn) { window.authEvent = fn; return { data: { subscription: { unsubscribe() {} } } } },
+    }
+  })
+  await race.addScriptTag({ content: result.outputFiles[0].text })
+  await race.waitForFunction(() => window.resolveInitial && window.authEvent)
+  await race.evaluate(() => window.authEvent('SIGNED_IN', { user: { id: 'new-account' } }))
+  await race.waitForFunction(() => window.authState?.user?.id === 'new-account')
+  await race.evaluate(() => window.resolveInitial({ data: { session: { user: { id: 'old-account' } } } }))
+  await race.waitForTimeout(100)
+  assert.equal(await race.evaluate(() => window.authState.session.user.id), 'new-account')
+  assert.equal(await race.evaluate(() => window.authState.user.id), 'new-account', 'Late bootstrap cannot replace the current account')
   console.log('PASS: actual AuthProvider handles login, token refresh, repeated sign-in, hung profile, account switching, recovery and sign-out without auth-lock calls.')
 } finally { await browser.close() }
