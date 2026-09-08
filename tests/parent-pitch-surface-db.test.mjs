@@ -42,7 +42,7 @@ test('parent pitch surface follows canonical fixture access and preserves clock 
         ('20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003'),
         ('20000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000002');
     `)
-    await db.exec(await readFile(new URL('../supabase/migrations/20260908160000_parent_match_pitch_surface.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20260908155703_parent_match_pitch_surface.sql', import.meta.url), 'utf8'))
     await db.exec("set role authenticated; select set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000001',false)")
     const query = "select match_day_id,pitch_type,match_duration_minutes,match_clock_mode from public.get_parent_portal_match_day_extended_state('20000000-0000-4000-8000-000000000001')"
     assert.deepEqual((await db.query(query)).rows, [{match_day_id:'10000000-0000-4000-8000-000000000001',pitch_type:'3g',match_duration_minutes:80,match_clock_mode:'fixed'}])
