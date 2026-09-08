@@ -14,7 +14,9 @@ const result = await build({
     contents: `
       import React from 'react'
       import { createRoot } from 'react-dom/client'
+      import { Platform } from 'react-native'
       import { BrandLoader } from './apps/mobile-core/src/BrandLoader.js'
+      Platform.OS = new URLSearchParams(location.search).get('platform') || 'ios'
       const root = createRoot(document.getElementById('root'))
       window.unmountLoaders = () => root.unmount()
       root.render(<main>
@@ -52,9 +54,10 @@ await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
 const browser = await chromium.launch({ headless: true })
 const errors = []
 try {
+  for (const platform of ['ios', 'android']) {
   const page = await browser.newPage({ viewport: { width: 660, height: 470 }, reducedMotion: 'reduce' })
   page.on('pageerror', (error) => errors.push(error.message))
-  await page.goto(`http://127.0.0.1:${server.address().port}`)
+  await page.goto(`http://127.0.0.1:${server.address().port}?platform=${platform}`)
   const discs = page.getByTestId('brand-loader-disc')
   await discs.first().waitFor()
   await page.waitForFunction(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0))
@@ -68,10 +71,24 @@ try {
   const still = await transform()
   await page.waitForTimeout(160)
   assert.equal(await transform(), still, 'Reduce Motion must show a still logo')
-  await page.screenshot({ path: path.join(output, 'circular-loaders.png') })
+  await page.screenshot({ path: path.join(output, `circular-loaders-${platform}.png`) })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.waitForFunction((previous) => getComputedStyle(document.querySelector('[data-testid="brand-loader-disc"]')).transform !== previous, still)
-  assert.match(await transform(), /^matrix3d\(/, 'The logo must turn in 3D around its vertical axis')
+  if (platform === 'android') {
+    assert.match(await transform(), /^matrix\(/, 'Android must stay on the 2D rendering path')
+    for (let frame = 0; frame < 12; frame += 1) {
+      await page.waitForTimeout(140)
+      const visible = await discs.first().evaluate((element) => {
+        const matrix = new DOMMatrix(getComputedStyle(element).transform)
+        const bounds = element.getBoundingClientRect()
+        return { areaScale: matrix.a * matrix.d - matrix.b * matrix.c, width: bounds.width, height: bounds.height }
+      })
+      assert.ok(Math.abs(visible.areaScale - 1) < 0.001, 'The Android disc must retain its visible area throughout a full spin')
+      assert.ok(visible.width >= 55 && visible.height >= 55, 'The Android logo must never turn edge-on')
+    }
+  } else {
+    assert.match(await transform(), /^matrix3d\(/, 'iPhone keeps its existing horizontal flip')
+  }
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
     document.dispatchEvent(new Event('visibilitychange'))
@@ -92,15 +109,17 @@ try {
   assert.equal(await transform(), reduced, 'Changing Reduce Motion while loading must stop the animation')
   await page.setViewportSize({ width: 320, height: 480 })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
-  await page.screenshot({ path: path.join(output, 'circular-loaders-320.png') })
+  await page.screenshot({ path: path.join(output, `circular-loaders-${platform}-320.png`) })
   await page.evaluate(() => window.unmountLoaders())
   assert.equal(await discs.count(), 0)
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   assert.deepEqual(errors, [])
+  await page.close()
+  }
   for (const file of ['apps/mobile-core/src/ui.js', 'apps/parent-mobile/App.js', 'apps/coach-mobile/App.js', 'apps/coach-mobile/src/CoachFormationBoard.js', 'apps/coach-mobile/src/CoachFormationScreen.js', 'apps/coach-mobile/src/CoachMatchDayScreen.js', 'apps/coach-mobile/src/CoachOperationalScreens.js']) {
     assert.equal((await readFile(path.join(root, file), 'utf8')).includes('ActivityIndicator'), false, `${file} must use the branded loader`)
   }
-  console.log('PASS: circular crop, two sizes in four placements, 3D rotation, reduced motion, background pause/resume, unmount cleanup, 320px layout and spinner replacement coverage.')
+  console.log('PASS: Android 2D spin retains visible area for a full rotation; iPhone 3D flip preserved; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
 } catch (error) {
   if (errors.length) console.error('Browser errors:', errors)
   throw error

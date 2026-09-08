@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AccessibilityInfo, Animated, AppState, Easing, Image, StyleSheet, View } from 'react-native'
+import { AccessibilityInfo, Animated, AppState, Easing, Image, Platform, StyleSheet, View } from 'react-native'
 
 const logoSource = require('../assets/football-player-logo.png')
 // Frame just the round FP emblem within the existing 512px app artwork.
@@ -13,6 +13,10 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
   const [rotation] = useState(() => new Animated.Value(0))
   const [reduceMotion, setReduceMotion] = useState(true)
   const [appState, setAppState] = useState(AppState.currentState || 'active')
+  // Keep Android on a 2D transform so its clipped image does not depend on a 3D hardware layer.
+  const transform = Platform.OS === 'android'
+    ? [{ rotate: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }]
+    : [{ perspective: 600 }, { rotateY: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }]
 
   useEffect(() => {
     let mounted = true
@@ -57,12 +61,11 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
     >
       <Animated.View
         collapsable={false}
-        renderToHardwareTextureAndroid
         pointerEvents="none"
         style={{
           width: diameter,
           height: diameter,
-          transform: [{ perspective: 600 }, { rotateY: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+          transform,
         }}
         testID="brand-loader-disc"
       >
@@ -70,6 +73,7 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
         <Image
           accessible={false}
           source={logoSource}
+          fadeDuration={0}
           resizeMode="contain"
           style={{ position: 'absolute', width: emblem.sourceSize * scale, height: emblem.sourceSize * scale, left: -emblem.left * scale, top: -emblem.top * scale }}
         />
