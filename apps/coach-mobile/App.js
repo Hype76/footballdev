@@ -161,6 +161,7 @@ function CoachHome() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [matchDayTarget, setMatchDayTarget] = useState(null)
+  const [calendarTarget, setCalendarTarget] = useState(null)
   const [moreRoute, setMoreRoute] = useState('')
   const [notice, setNotice] = useState('')
   const [notificationState, setNotificationState] = useState(null)
@@ -457,6 +458,7 @@ function CoachHome() {
     }
     const routeTarget = getCoachRouteState(resolved)
     setNotice('')
+    setCalendarTarget(resolved === 'calendar' && (navigationTarget?.eventId || navigationTarget?.sourceId) ? { ...navigationTarget, requestId: `${Date.now()}` } : null)
     setMatchDayTarget(resolved === 'matchday' && navigationTarget?.fixtureId
       ? { fixtureId: normalizeText(navigationTarget.fixtureId), requestId: `${Date.now()}:${normalizeText(navigationTarget.fixtureId)}` }
       : null)
@@ -790,6 +792,7 @@ function CoachHome() {
               isRegisteringPush={isRegisteringPush}
               isUpdatingBiometrics={isUpdatingBiometrics}
               lastUpdatedAt={lastUpdatedAt}
+              calendarTarget={calendarTarget}
               matchDayTarget={matchDayTarget}
               moreRoute={moreRoute}
               navigation={navigation}
@@ -880,7 +883,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
           iconKey="route.calendar"
           label="Next Calendar item"
           meta={nextCalendar?.title || ''}
-          onPress={() => onNavigate('calendar')}
+          onPress={() => onNavigate('calendar', nextCalendar ? { eventId: nextCalendar.id, sourceId: nextCalendar.sourceId, sourceType: nextCalendar.sourceType, occurrenceDate: nextCalendar.occurrenceDate || nextCalendar.calendarDate } : null)}
           value={nextCalendar ? formatDateTime(nextCalendar.startsAt) : 'No upcoming Calendar item'}
         />
         {context.teamId ? (
