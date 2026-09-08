@@ -17,7 +17,7 @@ const mocks = {
 const result = await build({
   stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import {AuthProvider,useMobileAuth} from './apps/mobile-core/src/auth.js';
     function State(){const a=useMobileAuth(); window.authState=a; window.historyStates.push(a.startupState); return <p>{a.startupState}</p>}
-    createRoot(document.getElementById('root')).render(<AuthProvider appRole="parent"><State/></AuthProvider>)`, resolveDir: root, loader: 'jsx' },
+    createRoot(document.getElementById('root')).render(<AuthProvider appRole="parent" offlineProfileStore={window.offlineStore}><State/></AuthProvider>)`, resolveDir: root, loader: 'jsx' },
   bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx' },
   alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' },
@@ -74,6 +74,7 @@ try {
   await race.setContent('<div id="root"></div>')
   await race.evaluate(() => {
     window.profileCalls = 0; window.historyStates = []
+    window.offlineStore = { read: async () => null, write: async profile => ({ ...profile, persisted: true }) }
     window.mockAuth = {
       startAutoRefresh() {}, stopAutoRefresh() {},
       getSession: () => new Promise(resolve => { window.resolveInitial = resolve }),
@@ -88,5 +89,6 @@ try {
   await race.waitForTimeout(100)
   assert.equal(await race.evaluate(() => window.authState.session.user.id), 'new-account')
   assert.equal(await race.evaluate(() => window.authState.user.id), 'new-account', 'Late bootstrap cannot replace the current account')
+  assert.equal(await race.evaluate(() => window.authState.user.persisted), true, 'Use the canonical profile returned by the offline store')
   console.log('PASS: actual AuthProvider handles login, token refresh, repeated sign-in, hung profile, account switching, recovery and sign-out without auth-lock calls.')
 } finally { await browser.close() }

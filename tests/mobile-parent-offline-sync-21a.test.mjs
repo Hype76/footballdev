@@ -375,7 +375,7 @@ test('runtime integration uses one offline service, network awareness and logout
   assert.match(app, /syncParentOfflineCommands/)
   assert.match(app, /offlineProfileStore=\{parentOfflineProfileStore\}/)
   assert.match(auth, /await offlineProfileStore\.clear\(\)/)
-  assert.match(auth, /persistedProfile = await offlineProfileStore\.write\(profile\) \|\| profile/)
+  assert.match(auth, /persistedProfile = await withStartupTimeout\(\(\) => offlineProfileStore\.write\(profile\), 1500, 'PROFILE_CACHE_WRITE_TIMEOUT'\) \|\| profile/)
   assert.match(auth, /setUser\(persistedProfile\)/)
   assert.match(adapter, /xchacha20poly1305/)
   assert.match(adapter, /AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY/)
