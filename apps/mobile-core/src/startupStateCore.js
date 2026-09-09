@@ -57,6 +57,7 @@ export async function runMobileStartup({
   config,
   getBiometricEnabled,
   getSession,
+  getSavedSession,
   loadProfile,
   onLock,
   onSession,
@@ -85,7 +86,12 @@ export async function runMobileStartup({
       timeoutMs,
       startupTimeoutCode,
     ).then((value) => ({ value }), (error) => ({ error }))
-    const result = await withStartupTimeout(() => getSession(), timeoutMs, startupTimeoutCode)
+    const savedSession = getSavedSession
+      ? await withStartupTimeout(getSavedSession, timeoutMs, startupTimeoutCode)
+      : null
+    const result = savedSession
+      ? { data: { session: savedSession } }
+      : await withStartupTimeout(() => getSession(), timeoutMs, startupTimeoutCode)
     if (result?.error) throw result.error
     const session = result?.data?.session || null
 

@@ -3,6 +3,7 @@ import { getCoachChatRooms, getCoachDevelopmentSummary, getCoachInvitesAndAvaila
 import { readMobileResource } from './mobileResourceCache'
 import { buildCoachHomeOperationalSnapshot, mergeCoachHomeOperationalSnapshots } from './coachPhase31GCore'
 import { getCoachHomeSummary, getCoachMatchDays, getCoachSessions } from './data'
+import { withMobileAsyncTimeout } from './http'
 
 function sourceError(name, result) {
   return result.status === 'rejected' ? `${name}:${String(result.reason?.message || 'unavailable')}` : ''
@@ -20,14 +21,19 @@ export function mergeCoachPhase31GHomeSnapshots(primary, attention) {
   return mergeCoachHomeOperationalSnapshots(primary, attention)
 }
 
-export async function getCoachPhase31GPrimaryHomeSnapshot(user) {
+export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress) {
   const names = ['summary', 'matches', 'sessions', 'calendar']
+  const partial = {}
   const results = await Promise.allSettled([
-    getCoachHomeSummary(user),
-    getCoachMatchDays(user),
-    getCoachSessions(user),
-    getCoachCalendarResources(user, { includeDetails: false }),
-  ])
+    () => getCoachHomeSummary(user),
+    () => getCoachMatchDays(user),
+    () => getCoachSessions(user),
+    () => getCoachCalendarResources(user, { includeDetails: false }),
+  ].map((loader, index) => withMobileAsyncTimeout(loader).then(value => {
+    partial[names[index]] = value
+    onProgress?.(buildCoachHomeOperationalSnapshot(partial))
+    return value
+  })))
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)
   if (!values.summary && !values.matches && !values.sessions) throw new Error('Coach operational summary could not be loaded.')

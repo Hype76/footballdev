@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto'
+import { sameDevelopmentSave } from './developmentOfflineCore'
 import { wakeChatMobileNotificationProcessor } from '../../../src/lib/chat-notification-wake'
 import { CAPABILITIES, getPlanLimit } from '../../../src/lib/paywall-access.js'
 import { getMobileRuntimeConfig } from './config'
@@ -160,13 +161,13 @@ export async function getCoachDevelopmentWorkspace(user) {
     forms: Object.freeze(forms),
     drafts: Object.freeze(draftsResult.error ? [] : (draftsResult.data || []).map((draft) => Object.freeze({
       id: draft.id, playerId: normalize(draft.player_id), formId: normalize(draft.draft_data?.selectedFeedbackFormId || draft.draft_data?.draftContext?.formId),
-      values: draft.draft_data?.responseValues || {}, clientSaveVersion: Number(draft.client_save_version || draft.draft_data?.draftMeta?.clientSaveVersion || 0),
+      values: draft.draft_data?.responseValues || {}, notes: draft.draft_data?.notes || '', clientSaveVersion: Number(draft.client_save_version || draft.draft_data?.draftMeta?.clientSaveVersion || 0),
       lastSavedAt: draft.last_saved_at || '', status: draft.status,
     }))),
   })
 }
 
-export async function saveCoachDevelopmentDraft(user, { draftId = '', form, player, values = {}, clientSaveVersion = 0 } = {}) {
+export async function saveCoachDevelopmentDraft(user, { draftId = '', form, player, values = {}, notes = '', clientSaveVersion = 0, offlineDraft = false } = {}) {
   assertCanonicalMutation(user, { requiresTeam: true })
   assertCoachCapability(user, CAPABILITIES.assessments)
   assertTeamEntity(user, player, 'Player')
@@ -185,6 +186,7 @@ export async function saveCoachDevelopmentDraft(user, { draftId = '', form, play
     draft_data: {
       draftContext: { clubId: user.clubId, createdByUserId: user.id, formId: form.id, formType: 'development_record', playerId: player.id, playerName: player.playerName, teamId: user.activeTeamId, teamName: user.activeTeamName },
       responseValues: validation.values,
+      notes,
       selectedFeedbackFormId: form.id,
       visibility: splitCoachDevelopmentVisibility(form, validation.values),
       draftMeta: { clientSaveVersion: nextVersion, clientSavedAt: now },
@@ -194,15 +196,47 @@ export async function saveCoachDevelopmentDraft(user, { draftId = '', form, play
     last_saved_at: now,
     updated_at: now,
   }
+  // A stable device-generated ID and exact version comparison allow an
+  // interrupted save to be retried without duplicating or overwriting work.
+  const readExisting = () => supabase.from('evaluation_drafts').select('*').eq('id', draftId)
+    .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by_user_id', user.id).maybeSingle()
+  const matchesAttempt = existing => sameDevelopmentSave(existing, { playerId: player.id, formId: form.id,
+    values: validation.values, notes, version: nextVersion })
+  const resultFor = data => Object.freeze({ id: data.id, clientSaveVersion: Number(data.client_save_version || nextVersion), lastSavedAt: data.last_saved_at, values: data.draft_data?.responseValues || {} })
+  let existing = null
+  if (offlineDraft) {
+    if (!draftId) throw new Error('A saved draft identifier is required.')
+    const result = await readExisting()
+    if (result.error) throw result.error
+    existing = result.data
+    if (matchesAttempt(existing)) return resultFor(existing)
+    if (existing && (existing.status !== 'draft' || Number(existing.client_save_version) !== Number(clientSaveVersion))) {
+      throw new Error('This draft changed on another device. Your saved work is kept on this phone for review.')
+    }
+    if (!existing && clientSaveVersion > 0) throw new Error('This draft is no longer available. Your saved work is kept on this phone.')
+  }
   let query
+  if (offlineDraft && !existing) {
+    query = supabase.from('evaluation_drafts').insert({ ...row, id: draftId, created_at: now })
+  } else if (offlineDraft) {
+    query = supabase.from('evaluation_drafts').update(row).eq('id', draftId).eq('created_by_user_id', user.id)
+      .eq('status', 'draft').eq('client_save_version', clientSaveVersion)
+  } else
   if (draftId) {
     query = supabase.from('evaluation_drafts').update(row).eq('id', draftId).eq('created_by_user_id', user.id).eq('status', 'draft').lt('client_save_version', nextVersion)
   } else {
     query = supabase.from('evaluation_drafts').insert({ ...row, created_at: now })
   }
   const { data, error } = await query.select('*').single()
-  if (error) throw error
-  return Object.freeze({ id: data.id, clientSaveVersion: Number(data.client_save_version || nextVersion), lastSavedAt: data.last_saved_at, values: data.draft_data?.responseValues || {} })
+  if (error) {
+    if (offlineDraft && error.code === '23505') {
+      const retry = await readExisting()
+      if (!retry.error && matchesAttempt(retry.data)) return resultFor(retry.data)
+      throw new Error('A draft for this Player and form already exists. Your saved work is kept on this phone for review.')
+    }
+    throw error
+  }
+  return resultFor(data)
 }
 
 export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form, player, sessionId = '', values = {}, notes = '', shareWithParent = false } = {}) {

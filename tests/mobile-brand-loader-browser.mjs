@@ -58,16 +58,30 @@ try {
   const page = await browser.newPage({ viewport: { width: 660, height: 470 }, reducedMotion: 'reduce' })
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto(`http://127.0.0.1:${server.address().port}?platform=${platform}`)
-  const discs = page.getByTestId('brand-loader-disc')
+  const discs = page.getByTestId(platform === 'android' ? 'brand-loader-android' : 'brand-loader-disc')
   await discs.first().waitFor()
   await page.waitForFunction(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0))
   assert.equal(await discs.count(), 4)
+  if (platform === 'ios') {
   const bounds = await discs.first().evaluate((element) => {
     const s = getComputedStyle(element.firstElementChild)
     return { width: s.width, height: s.height, radius: s.borderRadius, overflow: s.overflow, background: s.backgroundColor }
   })
   assert.deepEqual(bounds, { width: '56px', height: '56px', radius: '28px', overflow: 'hidden', background: 'rgb(0, 0, 0)' })
+  }
   const transform = () => discs.first().evaluate((element) => getComputedStyle(element).transform)
+  if (platform === 'android') {
+    assert.equal(await page.getByRole('progressbar').count(), 4)
+    await page.screenshot({path:path.join(output,'native-indicator-android.png')})
+    await page.emulateMedia({reducedMotion:'no-preference'})
+    await page.waitForFunction(()=>document.querySelectorAll('[data-testid="brand-loader-android"] [role="progressbar"]').length===4)
+    await page.emulateMedia({reducedMotion:'reduce'})
+    await page.waitForFunction(()=>document.querySelectorAll('[data-testid="brand-loader-android"] [role="progressbar"]').length===0)
+    assert.ok(await discs.first().evaluate(el=>el.getBoundingClientRect().width>=56))
+    await page.evaluate(()=>window.unmountLoaders())
+    await page.close()
+    continue
+  }
   const still = await transform()
   await page.waitForTimeout(160)
   assert.equal(await transform(), still, 'Reduce Motion must show a still logo')
@@ -119,7 +133,7 @@ try {
   for (const file of ['apps/mobile-core/src/ui.js', 'apps/parent-mobile/App.js', 'apps/coach-mobile/App.js', 'apps/coach-mobile/src/CoachFormationBoard.js', 'apps/coach-mobile/src/CoachFormationScreen.js', 'apps/coach-mobile/src/CoachMatchDayScreen.js', 'apps/coach-mobile/src/CoachOperationalScreens.js']) {
     assert.equal((await readFile(path.join(root, file), 'utf8')).includes('ActivityIndicator'), false, `${file} must use the branded loader`)
   }
-  console.log('PASS: Android 2D spin retains visible area for a full rotation; iPhone 3D flip preserved; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
+  console.log('PASS: Android static logo remains visible with native indicator and reduced-motion fallback; iPhone 3D flip preserved; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
 } catch (error) {
   if (errors.length) console.error('Browser errors:', errors)
   throw error

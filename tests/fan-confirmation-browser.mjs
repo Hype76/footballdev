@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
+const fansCss = await readFile('src/pages/fans.css', 'utf8')
 const origin = 'https://parent.footballplayer.test'
 const invitation = '/fan-invite/20000000-0000-4000-8000-000000000099'
 const result = await build({
@@ -25,7 +26,7 @@ try{
     const user={id:'10000000-0000-4000-8000-000000000099',email:'newfan@example.test',aud:'authenticated',role:'authenticated',email_confirmed_at:new Date().toISOString()}
     await context.route('**/*',async route=>{
       const url=new URL(route.request().url())
-      if(url.origin===origin)return route.fulfill({contentType:'text/html',body:'<div id="root"></div><script>'+result.outputFiles[0].text+'</script>'})
+      if(url.origin===origin)return route.fulfill({contentType:'text/html',body:'<meta name="viewport" content="width=device-width, initial-scale=1"><style>'+fansCss+'</style><div id="root"></div><script>'+result.outputFiles[0].text+'</script>'})
       if(url.pathname==='/auth/v1/verify'){
         verifies++
         assert.deepEqual(route.request().postDataJSON(),{token_hash:'synthetic-confirmation-hash',type:'email',gotrue_meta_security:{}})
@@ -58,6 +59,11 @@ try{
       await page.getByRole('status').getByText(/Email confirmed/).waitFor()
       assert.equal(accepts,0,'Confirmation alone grants no Fan access')
       assert.ok(page.url().includes(invitation))
+      const acceptButton=page.getByRole('button',{name:'Accept invitation',exact:true})
+      const appearance=await acceptButton.evaluate(el=>({height:el.getBoundingClientRect().height,background:getComputedStyle(el).backgroundColor,width:el.getBoundingClientRect().width}))
+      assert.ok(appearance.height>=54)
+      assert.ok(appearance.width>=300)
+      assert.notEqual(appearance.background,'rgba(0, 0, 0, 0)')
       await page.screenshot({path:'output/playwright/fan-confirmation/confirmed-phone.png',fullPage:true})
       await page.getByRole('button',{name:'Accept invitation',exact:true}).click()
       await page.getByRole('heading',{name:'Accepted Fan access'}).waitFor()

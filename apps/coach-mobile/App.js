@@ -76,6 +76,9 @@ import { getCoachFriendlyError } from './src/coachFriendlyErrors'
 import { getCoachQuickActions } from './src/coachQuickActionsCore'
 import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
 import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
+import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
+import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
+import { countPendingCoachDevelopmentDrafts } from './src/offline'
 import {
   addCoachPushTokenListener,
   enableCoachNotifications,
@@ -140,12 +143,12 @@ function CoachHome() {
   const { authError, isProfileLoading, signOut, user } = useMobileAuth()
   const signOutWithPendingCheck = async () => {
     let count
-    try { count = await countPendingCoachMatchDayActions(user.id) }
+    try { count = (await countPendingCoachMatchDayActions(user.id)) + (await countPendingCoachDevelopmentDrafts(user.id)) }
     catch { count = null }
     if (count === 0) return signOut()
-    Alert.alert('Saved Match Day actions', count === null
+    Alert.alert('Saved work on this phone', count === null
       ? 'Saved actions could not be checked. Signing out clears this device. Keep signed in if you have actions waiting to sync.'
-      : `${count} match actions are waiting to sync. Signing out will remove them from this device.`, [
+      : `${count} saved items are waiting to sync. Signing out will remove them from this device.`, [
       { text: 'Keep signed in', style: 'cancel' },
       { text: 'Sign out and discard', style: 'destructive', onPress: () => void signOut() },
     ])
@@ -207,6 +210,7 @@ function CoachHome() {
   const { palette, styles } = themeContext
   const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id)
   useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
+  useCoachDevelopmentSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser })
   const coachHeaderHeight = contextResolution.contexts.length < 2 ? 76 : 164
   const collapsedCoachHeader = useMemo(
     () => Animated.diffClamp(headerScrollY, 0, coachHeaderHeight),
@@ -405,13 +409,17 @@ function CoachHome() {
       setLastUpdatedAt(savedHome.savedAt || cached.savedAt)
     }
 
-    const attentionResultPromise = getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh })
-      .then((value) => ({ value }))
-      .catch((error) => ({ error }))
+    if (selectedMobileUser.isOfflineProfile) {
+      if (!savedHome) setHomeState(current => ({ ...current, loading: false, error: 'Connect once to download your Coach overview.' }))
+      setIsRefreshing(false)
+      return
+    }
 
     try {
       const primary = await readMobileResource(selectedMobileUser, 'coach:home-primary',
-        () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser), { force: refresh })
+        () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
+          if (requestId === requestIdRef.current && !savedHome) setHomeState(current => ({ ...current, ...partial, loading: false }))
+        }), { force: refresh })
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
       const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
@@ -420,7 +428,8 @@ function CoachHome() {
       lastHomeRefreshAtRef.current = Date.now()
       void saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
 
-      const attentionResult = await attentionResultPromise
+      const attentionResult = await getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh })
+        .then(value => ({ value }), error => ({ error }))
       if (requestId !== requestIdRef.current) return
       if (attentionResult.error) {
         setHomeState((current) => ({ ...current, partial: true }))
@@ -534,7 +543,7 @@ function CoachHome() {
 
   useEffect(() => {
     let mounted = true
-    const authorityScope = JSON.stringify([user?.id, user?.role, user?.roleRank, user?.clubId, user?.hasActivePlanAccess, user?.coachContexts])
+    const authorityScope = JSON.stringify([user?.id, user?.role, user?.roleRank, user?.clubId, user?.hasActivePlanAccess, user?.coachContexts?.map(context => ['id', 'authorityId', 'authoritySource', 'clubId', 'teamId', 'role', 'roleRank', 'clubStatus', 'teamStatus', 'archivedAt', 'hasActivePlanAccess', 'planKey', 'planStatus'].map(field => String(context[field] ?? '')))])
     if (bootstrappedAuthorityRef.current === authorityScope) return undefined
     setContextReady(false)
     resetContextDomainState()
@@ -702,7 +711,7 @@ function CoachHome() {
     }
   }, [displayTheme])
 
-  if (isProfileLoading) return <LoadingScreen message="Resolving Coach access..." />
+  if (isProfileLoading && !user?.id) return <LoadingScreen message="Resolving Coach access..." />
   if (!user) {
     return (
       <AccessScreen
@@ -855,7 +864,7 @@ function CoachNotificationsScreen(props) {
   return <CoachNotificationHistoryScreen {...props} palette={palette} styles={styles} />
 }
 
-function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
+function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
   const { styles } = useCoachTheme()
   const nextMatch = homeState.nextMatch || homeState.matches[0]
   const nextSession = homeState.nextSession || homeState.sessions[0]
@@ -864,6 +873,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
   return (
     <View style={styles.stack}>
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
+      <CoachOfflineReadiness key={`${user.id}:${context.id}`} user={user} context={context} styles={styles} />
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <StatePanel actionLabel="Refresh" message="The main overview is available, but one or more supporting summaries could not be refreshed." onAction={() => reloadHome({ refresh: true })} title="Some summaries are unavailable" tone="warning" /> : null}
       <View style={styles.iconList}>

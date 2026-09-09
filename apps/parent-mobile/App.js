@@ -610,14 +610,12 @@ function ParentHome() {
       resources: () => getParentResources(selectedMobileUser),
     }
     const calendarDependencies = ['calendar', 'invitations', 'matches']
-    let calendarPublished = false
     const resultByName = await runPrioritizedMobileLoads(loaders, {
       priority: [...calendarDependencies, 'notifications', 'chatRooms', 'messages', 'polls'],
       concurrency: 4,
       onSettled(name, result, settled) {
         if (requestId !== requestIdRef.current) return
-        const publishCalendar = !calendarPublished && calendarDependencies.every((dependency) => settled[dependency])
-        if (publishCalendar) calendarPublished = true
+        const publishCalendar = calendarDependencies.includes(name)
         setResources((current) => {
           const next = { ...current }
           if (name !== 'calendar') next[name] = {
@@ -627,8 +625,8 @@ function ParentHome() {
             loading: false,
           }
           if (publishCalendar) {
-            const dependencyFailed = calendarDependencies.some((dependency) => settled[dependency].status === 'rejected')
-            const calendarValue = (dependency) => settled[dependency].status === 'fulfilled'
+            const dependencyFailed = calendarDependencies.some((dependency) => settled[dependency]?.status === 'rejected')
+            const calendarValue = (dependency) => settled[dependency]?.status === 'fulfilled'
               ? prepareResourceItems(dependency, settled[dependency].value)
               : cachedView?.cache?.resources[dependency] || []
             next.calendar = {
@@ -1940,7 +1938,7 @@ function ParentHome() {
     void syncMobileAppBadge({ appRole: 'parent', count: badgeCount }).catch(() => {})
   }, [parentChatRooms, resources.chatRooms.loading, resources.invitations.loading, resources.messages.loading, resources.notifications.items, resources.notifications.loading, resources.polls.loading, user])
 
-  if (isProfileLoading) {
+  if (isProfileLoading && !user?.id) {
     return <LoadingScreen message="Opening your family account..." />
   }
 
