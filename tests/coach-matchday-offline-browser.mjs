@@ -48,6 +48,7 @@ const dataMock = `
   ${names.filter(name=>!implemented.has(name)).map(name=>`export async function ${name}(){throw new Error('Unexpected call: ${name}')}`).join('\n')}
 `
 const mocks = [
+  [/coachSquadTemplateData$/, 'export const createCoachSquadTemplateStore=()=>async()=>[];'],
   [/coachMatchDayData(?:\.js)?$/, dataMock],
   [/coachPlayersData$/, 'export async function getCoachPlayerList(){return []}'],
   [/\/offline$/, `export async function readCoachOfflineResources(){return JSON.parse(localStorage.getItem('resources')||'null')}

@@ -301,6 +301,7 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     shirtChoice: isMatchDay ? normalizeMatchDayShirtChoice(row.shirt_choice ?? row.shirtChoice) : '',
     location: normalize(row.location || row.venue_address || row.venueAddress || row.venue_name || row.venueName),
     notes: normalize(row.notes),
+    notesPinned: row.notes_pinned === true || row.notesPinned === true,
     parentAudience: normalizeKey(row.parent_audience ?? row.parentAudience) || 'none',
     parentVisible: row.parent_visible === true || row.parentVisible === true,
     recurrenceFrequency: normalizeKey(row.recurrence_frequency ?? row.recurrenceFrequency) || 'none',
@@ -487,6 +488,7 @@ export function buildCoachCalendarPayload({ context, form }) {
     event_type: eventType,
     location: normalize(form?.location),
     notes: normalize(form?.notes),
+    notes_pinned: Boolean(normalize(form?.notes)) && form?.notesPinned === true,
     parent_audience: parentVisible ? parentAudience : 'none',
     parent_visible: parentVisible,
     recurrence_frequency: recurrenceFrequency,
@@ -507,6 +509,7 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
     involvedPlayerIds: Array.isArray(event?.involvedPlayerIds) ? event.involvedPlayerIds : [],
     location: normalize(event?.location),
     notes: normalize(event?.notes),
+    notesPinned: event?.notesPinned === true,
     notifyParents: event?.notifyParents === true,
     notificationTeamName: resolveTeamNotificationDisplayName(
       { notificationDisplayName: event?.teamNotificationDisplayName },

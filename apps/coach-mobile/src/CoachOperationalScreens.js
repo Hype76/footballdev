@@ -1,3 +1,5 @@
+import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
+import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -557,6 +559,8 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
           <CoachDateTimeField label="End time" mode="time" onChange={(value) => setForm({ ...form, endTime: value })} styles={styles} value={form.endTime} />
           <LocationField locations={savedLocations} onChange={(value) => setForm({ ...form, location: value })} styles={styles} value={form.location} />
           <Field label="Notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
+          <View style={styles.row}><Text style={styles.fieldLabel}>Pin shared notes</Text><Switch accessibilityLabel="Pin shared notes" disabled={!form.notes?.trim()} onValueChange={(value) => setForm({ ...form, notesPinned: value })} value={Boolean(form.notesPinned && form.notes?.trim())} /></View>
+          <Text style={styles.meta}>Pinned notes appear first in event details for everyone who can see this event. Repeating dates share the same notes and pin setting.</Text>
           {contextModel.isTeamScope && Number(user.roleRank || 0) >= 50 ? (
             <View style={styles.stack}>
               <Text style={styles.fieldLabel}>Event attachments</Text>
@@ -608,12 +612,13 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
           {group.events.map((event) => (
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
               <Text style={styles.cardTitle}>{event.title}</Text>
+              {selected?.id === event.id ? <PinnedEventNotes notes={event.notes} pinned={event.notesPinned} styles={styles} colors={palette} /> : null}
               <Text style={styles.meta}>{formatCoachCalendarEventDateTime(event)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
               {event.sourceType === 'match_day' ? <Text style={styles.meta}>{event.homeAway === 'away' ? 'Away' : 'Home'} fixture | {getMatchDayShirtChoiceLabel(event.shirtChoice)}</Text> : null}
               {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Attending {event.availabilitySummary.attending} | Maybe {event.availabilitySummary.maybe} | Awaiting response {event.availabilitySummary.awaitingResponse} | Not attending {event.availabilitySummary.notAttending} | Invitation not sent {event.availabilitySummary.invitationNotSent} | Delivery issue {event.availabilitySummary.deliveryIssue}</Text> : null}
-              {selected?.id === event.id ? <><Text style={styles.body}>{event.notes || 'No notes.'}</Text>{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate).map((resourceId) => {
+              {selected?.id === event.id ? <>{!event.notesPinned ? <Text style={styles.body}>{event.notes || 'No notes.'}</Text> : null}<VenueMapPreview key={event.location} location={event.location} offline={stale} colors={palette} styles={styles} />{event.location ? <Button label="Get directions" onPress={() => void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`).catch(() => setError('Directions could not be opened.'))} secondary styles={styles} /> : null}{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate).map((resourceId) => {
                 const resource = resources.find((item) => item.id === resourceId)
                 return resource ? <Button key={resource.id} label={`Open ${resource.title}`} onPress={() => void openEventResource(resource)} secondary styles={styles} /> : null
               })}{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}

@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { buildCoachMatchDaySquad } from '../../mobile-core/src/coachMatchDayCore'
+import { CoachSquadTemplates } from './CoachSquadTemplates'
 
 const layout = StyleSheet.create({
   row: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 8, minHeight: 88, paddingVertical: 9 },
@@ -16,7 +17,7 @@ const layout = StyleSheet.create({
   send: { alignItems: 'center', borderRadius: 10, justifyContent: 'center', minHeight: 48, marginVertical: 8, padding: 10 },
 })
 
-export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify, onPendingChange, palette, players, styles }) {
+export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify, onPendingChange, palette, players, styles, templateStore }) {
   const savedSquad = buildCoachMatchDaySquad(players, match)
   const [drafts, setDrafts] = useState({})
   const pendingCount = Object.keys(drafts).length
@@ -94,6 +95,16 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
     <Text style={styles.body}>{squad.summary.selected} selected · {squad.summary.notSelected} not selected · {squad.summary.undecided + squad.summary.waiting} to choose</Text>
     <Text style={styles.meta}>Choose your players, then save your selections together. Saving ticks Notify for eligible players. Send notifications when you are ready.</Text>
     {!actions.canSetSquad ? <Text style={styles.body}>{actions.blockedReason || 'Squad decisions are locked after kick-off.'}</Text> : null}
+    {templateStore ? <CoachSquadTemplates store={templateStore} rows={rows} locked={locked} palette={palette} styles={styles} onApply={(template) => {
+      if (locked || decidingRef.current) return
+      const selected = new Set(template.playerIds)
+      const missing = template.playerIds.filter(id => !savedSquad.rows.some(row => row.id === id)).length
+      setDrafts(current => Object.fromEntries(savedSquad.rows.flatMap(player => {
+        const decision = selected.has(player.id) ? 'selected' : 'not_selected'
+        return decision === player.decision ? [] : [[player.id, { player: current[player.id]?.player || player, decision }]]
+      })))
+      setSummary(missing ? `${missing} template players are no longer in this squad and were skipped. Review current availability before saving.` : 'Review current availability before saving your template selections.')
+    }} /> : null}
     <View style={layout.toolbar}>
       <Pressable accessibilityRole="button" disabled={locked || available.length === 0} onPress={() => { setChosen(Object.fromEntries(available.map((player) => [player.id, player.decisionRevision]))); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !available.length ? 0.4 : 1 }]}>Tick all unsent</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={locked || chosenPlayers.length === 0} onPress={() => { setChosen({}); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !chosenPlayers.length ? 0.4 : 1 }]}>Clear</Text></Pressable>

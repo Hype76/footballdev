@@ -574,6 +574,7 @@ function ParentHome() {
         return calendarEvents.map((event) => ({
           ...event,
           notes: detailsById.get(normalizeText(event.id))?.notes || event.notes,
+          notesPinned: detailsById.get(normalizeText(event.id))?.notesPinned === true,
           occurrenceDate: getParentProductDateTimeParts(event.startsAt).date,
           resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(event.id, event.startsAt)) || [],
         }))
@@ -590,6 +591,7 @@ function ParentHome() {
         return invitations.map((invitation) => ({
           ...invitation,
           notes: detailsById.get(normalizeText(invitation.eventId))?.notes || invitation.notes || '',
+          notesPinned: detailsById.get(normalizeText(invitation.eventId))?.notesPinned === true,
           occurrenceDate: getParentProductDateTimeParts(invitation.eventStart || invitation.eventDate).date,
           resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(invitation.eventId, invitation.eventStart || invitation.eventDate)) || [],
         }))

@@ -502,7 +502,7 @@ export async function getParentCalendarEventResources(user) {
 
 export async function getParentCalendarEventDetails(user) {
   const link = requireSelectedLink(user)
-  const { data, error } = await supabase.rpc('get_parent_portal_calendar_event_details', {
+  const { data, error } = await supabase.rpc('get_parent_portal_calendar_event_details_v2', {
     parent_link_id_value: link.id,
   })
 
@@ -511,6 +511,7 @@ export async function getParentCalendarEventDetails(user) {
   return (Array.isArray(data) ? data : []).map((event) => ({
     id: normalizeText(event.id),
     notes: normalizeText(event.notes),
+    notesPinned: event.notes_pinned === true,
   })).filter((event) => event.id)
 }
 

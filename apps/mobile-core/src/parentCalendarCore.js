@@ -134,6 +134,7 @@ function normalizeInvitationEvent(invitation) {
     kickoffTimeTbc: Boolean(invitation.kickoffTimeTbc),
     location: invitation.eventLocation || '',
     notes: normalizeText(invitation.notes),
+    notesPinned: invitation.notesPinned === true,
     occurrenceDate: calendarDate,
     resources: Array.isArray(invitation.resources) ? invitation.resources : [],
     responseState: state,

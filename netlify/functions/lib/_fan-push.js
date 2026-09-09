@@ -2,8 +2,10 @@ import { loadFanScope } from './_fan-access.js'
 import { loadFanMatches } from './_fan-schedule.js'
 import { sendExpoPushMessages } from './_expo-push.js'
 const TYPES = new Set(['match_started','goal','half_time','second_half','extra_time','penalties','full_time','yellow_card','red_card','substitution','score_correction','paused','resumed'])
+// Fans receive game updates only. Poll invitations and results, including Player of the Match, are excluded.
+export const isFanMatchNotificationType = (type) => TYPES.has(type)
 export async function sendFanMatchNotifications({ client, match, type, eventId, targetParentLinkIds, sendPush = (messages) => sendExpoPushMessages(messages, { client }) }) {
-  if (!TYPES.has(type) || !targetParentLinkIds.length) return { fanSent: 0, fanFailed: 0 }
+  if (!isFanMatchNotificationType(type) || !targetParentLinkIds.length) return { fanSent: 0, fanFailed: 0 }
   const result = await client.from('fan_connections').select('id,auth_user_id')
     .eq('club_id', match.club_id).eq('status', 'active').eq('relationship_type', 'fan').eq('notifications_enabled', true)
     .contains('permissions', { game_day: true }).in('parent_link_id', targetParentLinkIds)
