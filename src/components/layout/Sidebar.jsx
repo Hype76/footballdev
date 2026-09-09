@@ -498,7 +498,7 @@ export function Sidebar({ isOpen, onClose }) {
     if (isParentPortal) {
       return [
         { label: 'Calendar', path: '/parent-portal', helper: 'Events and match day' },
-        { label: 'Chat', path: '/parent-chat', helper: 'Child, team and match chat' },
+        { label: 'Chat', path: '/parent-chat', helper: 'Player, team and match chat' },
         { label: 'Polls', path: '/parent-polls', helper: 'Reply requests' },
       ].filter((item) => isRecoveryPathVisible(item.path, { user: displayUser }))
     }

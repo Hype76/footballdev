@@ -1378,7 +1378,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           <PlatformHeroSection
             eyebrow="Live platform overview"
             title="Clean operational numbers across clubs, teams, users, and player feedback."
-            description="This dashboard shows platform level health without exposing child names or player personal details."
+            description="This dashboard shows platform level health without exposing player names or player personal details."
             status={isDashboardLoading ? 'Refreshing verified stats' : 'Verified stats loaded'}
             detail={analyticsReport?.generatedAt
               ? `Last refresh: ${formatPlatformDate(analyticsReport.generatedAt)}`
@@ -1455,7 +1455,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           <PlatformHeroSection
             eyebrow="Club control centre"
             title="Manage club access, plans, teams, and adult Coach accounts from one place."
-            description="This area avoids showing child personal details and focuses only on club level operations."
+            description="This area avoids showing player personal details and focuses only on club level operations."
             status={isLoading ? 'Refreshing club data' : 'Club data loaded'}
             detail="Filter by club, review billing state, suspend access, or remove unused workspaces."
           />

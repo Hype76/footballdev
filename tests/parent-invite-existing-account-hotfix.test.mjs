@@ -79,7 +79,7 @@ test('parent portal selects the accepted child and shows a clear success state',
   assert.match(source, /links\.find\(\(link\) => link\.id === selectedLinkId\)/)
   assert.match(source, /links\.some\(\(link\) => link\.id === requestedParentLinkId\)/)
   assert.match(source, /searchParams\.get\('linked'\) === '1'/)
-  assert.match(source, /title="Child linked"/)
+  assert.match(source, /title="Player linked"/)
   assert.match(source, /is now available in your family portal/)
 })
 

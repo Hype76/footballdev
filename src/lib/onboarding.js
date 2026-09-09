@@ -656,7 +656,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
     const manualState = getManualState(user, scope)
 
     return {
-      description: 'Confirm the child link, contact route, and the places parents must check each week.',
+      description: 'Confirm the player link, contact route, and the places parents must check each week.',
       firstAction: '/parent-portal',
       scope,
       title: 'Parent first run',
@@ -664,9 +664,9 @@ export function buildOnboardingPlan(user, snapshot = {}) {
       steps: [
         makeStep({
           id: 'child-link',
-          title: 'Check child link',
+          title: 'Check player link',
           rule: 'Parent accounts only see linked players. Coach notes stay private unless shared.',
-          detail: 'Open the portal and check the child shown is correct.',
+          detail: 'Open the portal and check the player shown is correct.',
           href: '/parent-portal',
           actionLabel: 'Open portal',
           complete: (user.parentPortalLinks ?? []).length > 0 || hasCompletedStep(user, scope, 'child-link'),
@@ -683,7 +683,7 @@ export function buildOnboardingPlan(user, snapshot = {}) {
         makeStep({
           id: 'polls-and-match-day',
           title: 'Check polls and match day',
-          rule: 'Availability, votes, and match details are child-specific.',
+          rule: 'Availability, votes, and match details are specific to each player.',
           detail: 'Use Polls and Match Day before training or fixtures.',
           href: '/parent-polls',
           actionLabel: 'Open polls',

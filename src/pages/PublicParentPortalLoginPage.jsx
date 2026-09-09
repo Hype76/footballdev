@@ -21,11 +21,11 @@ export function PublicParentPortalLoginPage() {
             Log in to your family portal.
           </h1>
           <p className="mt-5 text-base font-semibold leading-7 text-[#4b5f55] sm:mt-6 sm:text-lg sm:leading-8">
-            Open the account you confirmed by email to view your linked child, match cards, and club-shared updates.
+            Open the account you confirmed by email to view your linked player, match cards, and club-shared updates.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
-              ['Messages', 'Read club updates shared for your child.'],
+              ['Messages', 'Read club updates shared for your player.'],
               ['Match day', 'Follow live cards when Coaches share them.'],
               ['Shared updates', 'See the information the club chooses to release.'],
             ].map(([title, copy]) => (

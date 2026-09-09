@@ -126,7 +126,7 @@ export function buildCalendarNotificationHtml({
   const resolvedClubName = cleanEmailCopy(clubName, 'Your club')
   const resolvedTeamName = cleanEmailCopy(teamName, 'Club event')
   const resolvedParentName = cleanEmailCopy(parentName, 'Parent or guardian')
-  const resolvedPlayerName = cleanEmailCopy(playerName, 'your child')
+  const resolvedPlayerName = cleanEmailCopy(playerName, 'your player')
   const resolvedTitle = cleanEmailCopy(eventTitle, 'Club event')
   const resolvedType = cleanEmailCopy(eventType, 'Event')
   const isTraining = normalizeText(eventType).toLowerCase() === 'training'
@@ -203,7 +203,7 @@ export async function buildAuthoritativeCalendarNotificationEmail({
   trialInvitation = false,
 } = {}) {
   const resolvedClubName = cleanEmailCopy(clubName, 'Your club')
-  const resolvedPlayerName = cleanEmailCopy(playerName, 'your child')
+  const resolvedPlayerName = cleanEmailCopy(playerName, 'your player')
   const resolvedTitle = cleanEmailCopy(eventTitle, 'Club event')
   const resolvedLogo = await resolveReachableEmailLogo({
     clubLogoUrl,

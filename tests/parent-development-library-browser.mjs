@@ -443,7 +443,7 @@ async function verifyDevelopmentJourney(session, viewportName) {
   session.setDelaySecondChild(true)
   const childSelector = viewportName === 'desktop'
     ? page.locator('#parent-portal-shell-child')
-    : page.getByLabel('Choose child')
+    : page.getByLabel('Choose player')
   await childSelector.selectOption(secondLinkId)
   await page.waitForURL(`**parentLinkId=${secondLinkId}`)
   await page.getByText('Loading Development history...', { exact: true }).waitFor({ state: 'visible' })
@@ -457,7 +457,7 @@ async function verifyDevelopmentJourney(session, viewportName) {
     `${baseUrl}/parent-portal?section=development&parentLinkId=${secondLinkId}&reportId=${firstReportId}`,
     { waitUntil: 'domcontentloaded' },
   )
-  await page.getByText('This report is not available for the selected child.', { exact: true })
+  await page.getByText('This report is not available for the selected player.', { exact: true })
     .waitFor({ state: 'visible' })
   assert.equal(await page.getByText('Great first-child feedback.', { exact: true }).count(), 0)
   assert.equal(await page.getByText('Second-child-only feedback.', { exact: true }).count(), 0)

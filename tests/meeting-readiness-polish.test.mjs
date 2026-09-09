@@ -95,7 +95,7 @@ test('direct poll routes stay role-gated and parent route stays parent-safe', as
   assert.match(section, /return <FeatureUnavailableState capability=\{CAPABILITIES\.teamPolls\} user=\{user\} \/>/)
   assert.match(section, /return <Outlet \/>/)
   assert.match(parentPollsSource, /Parent polls/)
-  assert.match(parentPollsSource, /No parent polls are open for this child right now/)
+  assert.match(parentPollsSource, /No parent polls are open for this player right now/)
   assert.doesNotMatch(parentPollsSource, /Create Poll|Create poll|Staff poll|Poll management/)
 })
 

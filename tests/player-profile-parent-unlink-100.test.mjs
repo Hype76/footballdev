@@ -19,7 +19,7 @@ test('Player profile waits for confirmation, removes the saved link immediately,
   const source = await readFile(playerProfileUrl, 'utf8')
 
   assert.match(source, /title="Remove Parent access"/)
-  assert.match(source, /does not delete the Parent account or affect access to any other children/)
+  assert.match(source, /does not delete the Parent account or affect access to any other players/)
   assert.match(source, /await revokeParentPortalLink\(\{[\s\S]*linkId: revokeTarget\.id,[\s\S]*playerId: revokeTarget\.playerId/)
   assert.match(source, /setParentPortalLinksByPlayerId\([\s\S]*\.filter\(\(link\) => String\(link\?\.id\) !== String\(revokeTarget\.id\)\)/)
   assert.match(source, /await refreshParentPortalLinksForPlayer\(revokeTarget\.playerId\)[\s\S]*catch \(refreshError\)/)

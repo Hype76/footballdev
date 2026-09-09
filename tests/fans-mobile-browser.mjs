@@ -175,9 +175,31 @@ try {
     window.remount();
   });
   await page.getByText('Followed Child',{exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Players',exact:true}).waitFor();
+  await button('Join club').click();
+  await page.getByLabel('Invitation link',{exact:true}).fill('https://unrelated.example/fan-invite/test');
+  assert.equal(await button('Open invitation').isDisabled(),true);
+  await page.getByLabel('Invitation link',{exact:true}).fill('https://parent.footballplayer.online/fan-invite/test-token');
+  assert.equal(await button('Open invitation').isEnabled(),true);
+  await button('Cancel').click();
+  await button('Open invitation').waitFor({state:'hidden'});
+  assert.equal(await button('Remove my access').count(),0,'Access removal is inside the options menu');
+  await button('More actions: Followed Child').click();
+  await button('Remove my access').waitFor();
+  await button('More actions: Followed Child').click();
+  for(const width of [320,390,512]) {
+    await page.setViewportSize({width,height:850});
+    for(const mode of ['light','dark']) {
+      await page.evaluate(mode=>window.mode(mode),mode);
+      await page.screenshot({path:`${out}/players-cards-${mode}-${width}.png`,fullPage:true});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      await assertRenderedTextContrast(page,`Player cards ${mode} ${width}`);
+    }
+  }
+  await page.setViewportSize({width:390,height:844});
   for(const mode of ['light','dark']) {
     await page.evaluate(mode=>window.mode(mode),mode);
-    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Matchday','Under 17 v Away Club'],['Development records','Development','Shared report'],['Include resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
+    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Matchday','Under 17 v Away Club'],['Development records','Development','Shared report'],['Resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
       await button(label).click();
       await page.getByRole('heading',{name:title,exact:true}).waitFor();
       await page.getByText(expected,{exact:expected!=='Shared report'}).waitFor();
@@ -197,14 +219,14 @@ try {
   }
   await page.evaluate(()=>{window.responses.schedule={schedule:[]}});
   await button('Schedule').click();
-  await page.getByText('There are no shared calendar events for this child.').waitFor();
+  await page.getByText('There are no shared calendar events for this player.').waitFor();
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.failRead=true});
   await button('Schedule').click();
   await page.getByRole('alert').getByText('Could not load shared items. Try again.').waitFor();
   await page.evaluate(()=>{window.failRead=false});
   await button('Try again').click();
-  await page.getByText('There are no shared calendar events for this child.').waitFor();
+  await page.getByText('There are no shared calendar events for this player.').waitFor();
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=true});
   await button('Schedule').click();
@@ -213,10 +235,25 @@ try {
   await page.evaluate(()=>{window.delayRead=false;window.finishRead()});
   await button('Game Day').click();
   await page.getByText('Under 17 v Away Club',{exact:true}).waitFor();
-  assert.equal(await page.getByText('There are no shared calendar events for this child.').count(),0);
+  assert.equal(await page.getByText('There are no shared calendar events for this player.').count(),0);
   await page.evaluate(()=>{window.rows[0].permissions.game_day=false;window.background()});
   await button('Back to Fans').waitFor({state:'hidden'});
   await button('Game Day').waitFor({state:'hidden'});
+  await page.evaluate(()=>{
+    window.rows=[
+      {id:'sample-a',is_owner:false,status:'active',player_name:'Jenson Bailey',club_name:'Cambourne Town FC',team_name:'U14 JPL 26/27',theme_accent:'#0645a6',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:false}},
+      {id:'sample-b',is_owner:false,status:'active',player_name:'John Barnes',club_name:'Football Player Demo FC',team_name:'U17 Green',theme_accent:'#0645a6',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:true}},
+    ];window.mode('light');window.remount();
+  });
+  await page.getByText('Jenson Bailey',{exact:true}).waitFor();
+  assert.equal(await button('Resources').count(),1,'Each card retains its own permission set');
+  await button('More actions: Jenson Bailey').click();
+  await button('Remove my access').waitFor();
+  await page.setViewportSize({width:512,height:850});
+  await page.screenshot({path:`${out}/players-reference-layout.png`,fullPage:true});
+  await assertRenderedTextContrast(page,'Players reference layout');
+  await button('Remove my access').click();
+  assert.equal(await page.evaluate(()=>window.alert.title),'Remove my access');
   assert.deepEqual(errors, [])
   console.log('PASS: native Fans child/header sync, persisted selection, email/QR/share remount, prominent branded action, confirmed cancelled-only deletion, retry after failure, normal child navigation.')
 } finally { await browser.close() }

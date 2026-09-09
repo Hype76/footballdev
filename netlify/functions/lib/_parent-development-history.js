@@ -232,7 +232,7 @@ export function validateParentDevelopmentScope({
   parentLink,
   player,
 } = {}) {
-  const unavailableMessage = 'Development history is not available for the selected child.'
+  const unavailableMessage = 'Development history is not available for the selected player.'
 
   if (
     !normalizeText(authUserId)
@@ -314,7 +314,7 @@ export function getParentDevelopmentReport(history, reportId) {
 
   if (!report) {
     throw new ParentDevelopmentHistoryError(
-      'This Development report is not available for the selected child.',
+      'This Development report is not available for the selected player.',
       404,
       'PARENT_DEVELOPMENT_REPORT_NOT_FOUND',
     )

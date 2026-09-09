@@ -677,7 +677,7 @@ export function PollsPage() {
                     onChange={(event) => updateForm({ allowOwnChildVotes: event.target.checked })}
                     className="h-4 w-4 accent-[#047857]"
                   />
-                  Allow vote for own child
+                  Allow vote for own player
                 </label>
                 <label className="flex min-h-11 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10">
                   <input
@@ -906,7 +906,7 @@ function PollCard({ activePollId, canDelete, onDeletePoll, onStatusChange, onVot
             ) : null}
             {!isStaffPoll && poll.allowOwnChildVotes === false ? (
               <span className={chipClass}>
-                Own child blocked
+                Own player blocked
               </span>
             ) : null}
             {poll.allowVoteChanges === false ? (

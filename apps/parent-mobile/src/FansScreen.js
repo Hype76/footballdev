@@ -18,17 +18,18 @@ import ParentIcon from './ParentIcon'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
 const FansTheme = createContext(DEFAULT_PARENT_MOBILE_THEME.tokens)
 import { FanContent } from './FanContent'
+import { FanPlayerCard } from './FanPlayerCard'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 import { themeForeground } from '../../mobile-core/src/themeContrast'
 
-function FanSwitch({ value, disabled = false, accessibilityLabel, onValueChange }) {
+function FanSwitch({ value, disabled = false, accessibilityLabel, onValueChange, inline = false }) {
   const tokens = useContext(FansTheme)
   const track = value ? tokens.accentText : tokens.borderStrong
-  return <View style={{ alignItems: 'center', gap: 4 }}>
-    <Switch accessibilityLabel={accessibilityLabel} accessibilityHint={disabled ? 'Enable Development records first' : undefined} disabled={disabled} value={value} onValueChange={onValueChange}
+  return <View style={{ alignItems: 'center', gap: inline ? 8 : 4, flexDirection: inline ? 'row' : 'column' }}>
+    <Switch accessibilityLabel={accessibilityLabel} accessibilityHint={disabled && !inline ? 'Enable Development records first' : undefined} disabled={disabled} value={value} onValueChange={onValueChange}
       trackColor={{ false: tokens.borderStrong, true: tokens.accentText }} ios_backgroundColor={tokens.borderStrong} thumbColor={themeForeground(track)}
       {...(Platform.OS === 'web' ? { activeThumbColor: themeForeground(track) } : {})} />
-    <Text style={{ color: tokens.textPrimary, fontSize: 13, fontWeight: '700' }}>{disabled ? 'Unavailable' : value ? 'On' : 'Off'}</Text>
+    <Text style={{ color: tokens.textPrimary, fontSize: 13, fontWeight: '700' }}>{disabled && !inline ? 'Unavailable' : value ? 'On' : 'Off'}</Text>
   </View>
 }
 
@@ -83,6 +84,8 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const [ready, setReady] = useState(null)
   const [busy, setBusy] = useState(false)
   const [formation, setFormation] = useState(null)
+  const [joining, setJoining] = useState(false)
+  const [invitationLink, setInvitationLink] = useState('')
   const localScrollRef = useRef(null)
   useEffect(() => {
     (scrollViewRef || localScrollRef).current?.scrollTo({ y: 0, animated: false })
@@ -133,7 +136,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data
     await request({ action: 'register_device', token })
     await SecureStore.setItemAsync('fan-notification-device', token)
-    Alert.alert('Notifications enabled', 'You can change alerts separately for each child you follow.')
+    Alert.alert('Notifications enabled', 'You can change alerts separately for each player you follow.')
   })
   const openResource = (resource) => run(async () => {
     const currentView = state.view
@@ -145,7 +148,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   })
   const viewTitle = { schedule: 'Schedule', matches: 'Game Day', development: 'Development records', resources: 'Resources', notifications: 'Notifications' }[state.view?.action] || 'Shared items'
   const closeContent = () => { state.clearView(); setFormation(null) }
-  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, { backgroundColor: tokens.portalSurface }]}><ClubBrand source={brandSource} />
+  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, { backgroundColor: state.view ? tokens.portalSurface : displayMode === 'light' ? '#f7f8fa' : tokens.portalBackground }]}>{state.view ? <ClubBrand source={brandSource} /> : null}
     {state.view ? <>
       <Action label="Back to Fans" icon="action.back" onPress={closeContent} />
       <Text style={styles.label}>{brandSource?.player_name}</Text>
@@ -153,8 +156,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
       {state.contentError ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <Text accessibilityLiveRegion="polite" style={{ color: tokens.textPrimary }}>Loading {viewTitle.toLowerCase()}...</Text> : <FanContent key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
     </> : <>
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
-    <View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={30} /><Text accessibilityRole="header" style={styles.title}>Fans</Text></View>
-    <Text style={styles.helper}>Choose who follows your child and what they can see.</Text>
+    <View style={[styles.row, { marginBottom: 14, alignItems: 'flex-start' }]}><View style={styles.copy}><Text accessibilityRole="header" style={[styles.title, { fontSize: 32, marginBottom: 5 }]}>Players</Text><Text style={styles.helper}>Access and manage your football clubs</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Join club" onPress={() => { setJoining(true); setInvitationLink('') }} style={{ alignItems: 'center', gap: 5 }}><View style={{ borderRadius: 30, width: 56, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.buttonPrimary }}><ParentIcon iconKey="add" color={tokens.accentForeground} size={34} /></View><Text style={{ color: tokens.textPrimary, fontSize: 12 }}>Join club</Text></Pressable></View>
     {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
     {state.loading ? <Text style={{ color: tokens.textPrimary }}>Loading Fans...</Text> : null}
     {parents.length ? <>
@@ -167,17 +169,18 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
         <View style={styles.actions}>{form.id ? <Action label="Review changes" onPress={() => review('edit')} /> : <><Action icon="fan.email" label="Email" onPress={() => review('email')} disabled={busy} /><Action icon="fan.qr" label="QR code" onPress={() => review('qr')} disabled={busy} /><Action icon="fan.share" label="Share link" onPress={() => review('share')} disabled={busy} /></>}<Action label="Cancel" onPress={() => setForm(null)} /></View>
       </View> : null}
       {ready ? <View><Text style={{ color: tokens.textPrimary }}>Invitation ready for {ready.name} ({ready.email}). Expires {formatParentProductDateTime(ready.expires_at, { year: 'numeric' })}.</Text>{ready.mode === 'qr' ? <Qr value={ready.url} /> : null}<View style={styles.actions}><Action icon="fan.share" label="Share invitation" onPress={() => Share.share({ message: ready.url })} /><Action icon="fan.email" label="Send email" onPress={() => run(() => request({ action: 'send_invitation', connectionId: ready.id }))} /></View></View> : null}
-      <Text accessibilityRole="header" style={styles.heading}>Your child's Fans</Text>
+      <Text accessibilityRole="header" style={styles.heading}>Your player's Fans</Text>
       {state.connections.filter((c) => c.is_owner && c.parent_link_id === parent?.id).map((c) => <View style={styles.person} key={c.id}><View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{c.name}</Text><Text style={{ color: tokens.textPrimary }}>{c.email}</Text><Text style={styles.helper}>{c.status} · {FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => p.label).join(', ')}</Text></View></View>{['active', 'pending'].includes(c.status) ? <View style={styles.actions}><Action label="Edit access" onPress={() => begin(c)} /><Action label={c.status === 'pending' ? 'Cancel invitation' : 'Revoke access'} onPress={() => remove(c, false)} /></View> : null}{c.status === 'cancelled' ? <Action icon="delete-outline" label="Delete" disabled={busy} onPress={() => deleteInvitation(c)} /> : null}</View>)}
     </> : null}
-    <Text accessibilityRole="header" style={styles.heading}>Children you follow</Text>
-    {state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode).tokens}><View style={styles.person}><ClubBrand source={c} /><View style={styles.row}><ParentIcon iconKey="child" color={tokens.accentText} size={28} /><View style={styles.copy}><Text style={styles.label}>{c.player_name}</Text><Text style={styles.helper}>{c.club_name} · {c.team_name}</Text></View></View><View style={styles.actions}>{FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => <Action key={p.key} icon={p.icon} label={p.label} onPress={() => { setFormation(null); void state.open(c.id, p.key === 'game_day' ? 'matches' : p.key) }} />)}</View>{c.permissions.game_day ? <><View style={styles.row}><Text style={[styles.copy, styles.label]}>Game Day notifications</Text><FanSwitch accessibilityLabel={`Game Day notifications for ${c.player_name}`} value={c.notifications_enabled} onValueChange={(v) => run(() => state.manage(c.id, v ? 'notifications_on' : 'notifications_off'))} /></View><Action label="View notifications" onPress={() => state.open(c.id, 'notifications')} /></> : null}<Action icon="fan.remove" label="Remove my access" onPress={() => remove(c, true)} /></View></FansTheme.Provider>)}
+    <View accessibilityLabel="Players you follow">{state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode).tokens}><FanPlayerCard connection={c} mode={displayMode} busy={busy} SwitchControl={FanSwitch} onEnableNotifications={enableDevice} onOpen={(action) => { setFormation(null); void state.open(c.id, action) }} onNotifications={(value) => run(() => state.manage(c.id, value ? 'notifications_on' : 'notifications_off'))} onRemove={() => remove(c, true)} /></FansTheme.Provider>)}</View>
+    {!state.loading && !state.connections.some(c => !c.is_owner && c.status === 'active') ? <Text style={styles.helper}>You are not following any players yet. Open a Fan invitation to get started.</Text> : null}
 
-    {state.connections.some((c) => !c.is_owner && c.status === 'active' && c.permissions.game_day) ? <Action label="Enable phone notifications" icon="notifications" onPress={enableDevice} /> : null}
+
     {!embedded ? <Action label="Sign out" onPress={() => run(async () => { state.clearView(); await signOut() })} /> : null}
     </>}
+    <Modal visible={joining} transparent animationType="fade" onRequestClose={() => setJoining(false)}><View style={styles.overlay}><View style={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Join club</Text><Text style={styles.helper}>To follow a player, open the Fan invitation link or scan the QR code shared with you. You can paste the invitation link below.</Text><TextInput accessibilityLabel="Invitation link" autoCapitalize="none" autoCorrect={false} value={invitationLink} onChangeText={setInvitationLink} placeholder="https://parent.footballplayer.online/fan-invite/..." placeholderTextColor={tokens.textSecondary} style={styles.input} /><Action label="Open invitation" disabled={!/^https:\/\/parent\.footballplayer\.online\/fan-invite\/[A-Za-z0-9_-]+\/?$/.test(invitationLink.trim())} onPress={() => run(async () => { await Linking.openURL(invitationLink.trim()); setJoining(false) })} /><Action label="Cancel" onPress={() => setJoining(false)} /></View></View></Modal>
     <Modal visible={Boolean(confirm)} transparent animationType="fade" onRequestClose={() => { if (!busy) setConfirm(null) }}>
-      <View style={styles.overlay}><ScrollView contentContainerStyle={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Confirm Fan access</Text>{confirm ? <><Text style={{ color: tokens.textPrimary }}>{confirm.id ? 'You are updating access for' : 'You are inviting'} {confirm.name} ({confirm.email}) to follow {confirm.child}.</Text>{fanAccessSummary(confirm.permissions).map((line) => <Text style={styles.permissionText} key={line}>{line}</Text>)}<Text style={{ color: tokens.textPrimary }}>This person cannot invite others, use parent chat, respond to attendance or change your child's information. Either of you can end this access.</Text></> : null}<View style={styles.actions}><Action label="Go back" disabled={busy} onPress={() => setConfirm(null)} /><Action label={confirm?.id ? 'Confirm changes' : 'Confirm invitation'} disabled={busy} onPress={complete} /></View></ScrollView></View>
+      <View style={styles.overlay}><ScrollView contentContainerStyle={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Confirm Fan access</Text>{confirm ? <><Text style={{ color: tokens.textPrimary }}>{confirm.id ? 'You are updating access for' : 'You are inviting'} {confirm.name} ({confirm.email}) to follow {confirm.child}.</Text>{fanAccessSummary(confirm.permissions).map((line) => <Text style={styles.permissionText} key={line}>{line}</Text>)}<Text style={{ color: tokens.textPrimary }}>This person cannot invite others, use parent chat, respond to attendance or change your player's information. Either of you can end this access.</Text></> : null}<View style={styles.actions}><Action label="Go back" disabled={busy} onPress={() => setConfirm(null)} /><Action label={confirm?.id ? 'Confirm changes' : 'Confirm invitation'} disabled={busy} onPress={complete} /></View></ScrollView></View>
     </Modal>
   </View></FansTheme.Provider>
   return embedded ? content : <SafeAreaView style={styles.safe}><ScrollView ref={localScrollRef} keyboardShouldPersistTaps="handled">{content}</ScrollView></SafeAreaView>

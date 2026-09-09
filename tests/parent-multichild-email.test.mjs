@@ -66,7 +66,7 @@ test('existing confirmed parent auth user is reused through sign-in instead of d
   assert.match(source, /user\.email_confirmed_at \|\| user\.confirmed_at/)
   assert.match(source, /existingAccount: true/)
   assert.match(source, /needsEmailVerification: false/)
-  assert.match(source, /Sign in to open this child link\./)
+  assert.match(source, /Sign in to open this player link\./)
 })
 
 test('parent invite flow sends existing parent accounts to sign in with the child invite token', async () => {
@@ -126,7 +126,7 @@ test('parent portal selector continues to expose every linked child for one pare
   assert.match(source, /resolveParentPortalShellContext\(\{[\s\S]*links[\s\S]*selectedLink[\s\S]*selectedParentLinkId/)
   assert.match(source, /allowedLinks\.map\(\(link\) => \(/)
   assert.match(source, /onChange=\{\(event\) => onParentLinkSelect\?\.\(event\.target\.value\)\}/)
-  assert.doesNotMatch(source, /Other linked children/)
+  assert.doesNotMatch(source, /Other linked players/)
   assert.doesNotMatch(source, /otherLinks\.map\(\(link\) => \(/)
 })
 

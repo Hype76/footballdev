@@ -1,8 +1,8 @@
 export const FAN_ACCESS = Object.freeze([
-  { key: 'schedule', label: 'Schedule', description: 'View fixtures, training and events shared for this child', icon: 'action.calendar' },
+  { key: 'schedule', label: 'Schedule', description: 'View fixtures, training and events shared for this player', icon: 'action.calendar' },
   { key: 'game_day', label: 'Game Day', description: 'View Game Day and receive Game Day notifications', icon: 'parent.match' },
-  { key: 'development', label: 'Development records', description: 'View development records shared for this child', icon: 'development' },
-  { key: 'resources', label: 'Include resources', description: 'View resources shared for this child', icon: 'resource' },
+  { key: 'development', label: 'Development records', description: 'View development records shared for this player', icon: 'development' },
+  { key: 'resources', label: 'Include resources', description: 'View resources shared for this player', icon: 'resource' },
 ])
 
 export const FAN_RELATIONSHIP_TYPES = Object.freeze(['fan', 'player'])

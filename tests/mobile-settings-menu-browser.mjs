@@ -110,7 +110,7 @@ try {
   for (const app of ['parent', 'coach']) {
     await page.evaluate(app => window.showApp(app), app)
     await page.locator(`[data-app="${app}"]`).waitFor()
-    const labels = app === 'parent' ? ['Account', 'Children', 'Display', 'Security', 'Email & app', 'Notifications', 'App info', 'Hidden items', 'Offline & sync'] : ['Account', 'Display', 'Security', 'Notifications', 'Offline & sync', 'App info']
+    const labels = app === 'parent' ? ['Account', 'Players', 'Display', 'Security', 'Email & app', 'Notifications', 'App info', 'Hidden items', 'Offline & sync'] : ['Account', 'Display', 'Security', 'Notifications', 'Offline & sync', 'App info']
     await page.getByRole('button', { name: 'Account', exact: true }).waitFor()
     assert.equal(await page.locator('input').count(), 0, 'No editable controls on the menu')
     const readsBeforeNavigation = await page.evaluate(() => window.reads)

@@ -138,6 +138,8 @@ jobs:
         run: node --test tests/fan-account.test.mjs && node tests/fan-confirmation-browser.mjs && node tests/mobile-auth-refresh-browser.mjs && node tests/mobile-feedback-visual-browser.mjs && node tests/coach-invite-table-browser.mjs && node tests/mobile-event-details-browser.mjs && node tests/mobile-brand-loader-browser.mjs
       - name: Final match report theme contrast
         run: node --test tests/matchday-final-report.test.mjs tests/matchday-final-report-accuracy.test.mjs tests/matchday-report-export.test.mjs && node tests/matchday-report-theme-browser.mjs && node tests/calendar-vote-edit-browser.mjs
+      - name: Mobile selection and event detail feedback
+        run: node tests/coach-squad-multiselect-browser.mjs && node tests/coach-more-menu-browser.mjs && node tests/parent-event-details-browser.mjs && node tests/mobile-login-keyboard-browser.mjs --coach
       - name: Compile Coach and Parent mobile apps
         run: npm run mobile:export:web
       - name: Coach offline scoring and reconnect

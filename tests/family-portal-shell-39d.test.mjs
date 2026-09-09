@@ -83,7 +83,7 @@ test('missing club branding uses the generic platform fallback only when unavail
   assert.equal(context.activeLink, null)
   assert.equal(context.clubName, 'Football Player')
   assert.equal(context.clubLogoUrl, '')
-  assert.equal(context.childName, 'No linked child yet')
+  assert.equal(context.childName, 'No linked player yet')
 })
 
 test('parent-only users cannot return to staff while team-capable users can', () => {
@@ -110,7 +110,7 @@ test('desktop and mobile shells preserve safe context, actions, navigation, and 
   assert.match(shellSource, /clubLogoUrl \|\| fallbackLogo/)
   assert.match(shellSource, /Family Portal context/)
   assert.match(shellSource, /parent-portal-shell-child/)
-  assert.match(shellSource, /Choose child/)
+  assert.match(shellSource, /Choose player/)
   assert.match(shellSource, /PARENT_PORTAL_STAFF_RETURN_LABEL/)
   assert.match(shellSource, /selectAccessMode\('team', \{ deferCommit: true \}\)/)
   assert.match(shellSource, /TEAM_WORKSPACE_HOME_PATH/)

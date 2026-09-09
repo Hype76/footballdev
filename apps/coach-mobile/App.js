@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
-import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
+import { IconMenu, IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import * as Application from 'expo-application'
@@ -1008,12 +1008,11 @@ function FoundationRoute({ context, route, ...props }) {
 }
 
 function MoreScreen({ navigation, onSelectMore }) {
-  const { styles } = useCoachTheme()
+  const { palette } = useCoachTheme()
   return (
     <ScreenIntro copy="Open the Coach tools available for this role and context." title="More">
-      <View style={styles.stackTight}>
-        {navigation.more.map((route) => <MenuRow description={route.description} iconKey={getCoachRouteIconKey(route.key)} key={route.key} label={route.label} onPress={() => onSelectMore(route.key)} />)}
-      </View>
+      <IconMenu accessibilityLabel="More tools" Icon={CoachIcon} palette={palette} onSelect={onSelectMore}
+        items={navigation.more.map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}` }))} />
     </ScreenIntro>
   )
 }

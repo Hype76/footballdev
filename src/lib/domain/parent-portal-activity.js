@@ -40,7 +40,7 @@ export async function markParentPortalCategoryViewed({
   const normalizedObservedActivityAt = normalizeText(observedActivityAt)
 
   if (!normalizedParentLinkId) {
-    throw new Error('Choose a linked child before updating Parent Portal activity.')
+    throw new Error('Choose a linked player before updating Parent Portal activity.')
   }
 
   if (!isParentPortalActivityCategory(normalizedCategoryKey)) {
@@ -81,7 +81,7 @@ export async function markParentPortalChatViewed({
   const normalizedRoomId = normalizeText(roomId)
 
   if (!normalizedParentLinkId || !normalizedRoomId) {
-    throw new Error('Open a Chat room for the selected child before clearing New.')
+    throw new Error('Open a Chat room for the selected player before clearing New.')
   }
 
   if (!normalizedObservedActivityAt) {

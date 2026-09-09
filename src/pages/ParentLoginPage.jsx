@@ -271,15 +271,15 @@ export function ParentLoginPage() {
           <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#d7e5dc] bg-white object-contain p-1 shadow-sm shadow-[#047857]/10" />
           <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Family portal</p>
           <h1 className="mt-3 max-w-3xl text-3xl font-black leading-[1.04] tracking-tight text-[#101828] sm:text-4xl">
-            Open the football updates linked to your child.
+            Open the football updates linked to your player.
           </h1>
           <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-[#4b5f55]">
-            Use the parent account confirmed by email. This view only shows club-shared updates, match cards, and child information the club has chosen to share.
+            Use the parent account confirmed by email. This view only shows club-shared updates, match cards, and player information the club has chosen to share.
           </p>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {[
-              ['Linked child first', 'Your account opens the children the club has linked to this email.'],
+              ['Linked player first', 'Your account opens the players the club has linked to this email.'],
               ['Club controlled', 'Coaches decide what is shared and when parent actions are available.'],
               ['Match ready', 'Use this on the device you want for live match day notifications.'],
             ].map(([title, copy]) => (
@@ -319,7 +319,7 @@ export function ParentLoginPage() {
               {isProfileLoading && !user
                 ? 'Checking the current browser session before opening parent access.'
                 : existingSessionIsParentWithoutLink
-                  ? 'This signed-in parent account is not linked to a child yet. Ask the club to send or refresh your parent invite, or sign out and continue with the linked parent account.'
+                  ? 'This signed-in parent account is not linked to a player yet. Ask the club to send or refresh your parent invite, or sign out and continue with the linked parent account.'
                   : `You are currently signed in${signedInEmail ? ` as ${signedInEmail}` : ''}. To use the Parent Portal, sign out and continue with a parent account.`}
             </p>
             <div className="mt-4 grid gap-3">

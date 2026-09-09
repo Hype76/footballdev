@@ -382,7 +382,7 @@ async function deliverPreparation(preparation, currentSource) {
       location: presentation.location,
       notes: presentation.notes,
       parentName: parent?.display_name || parent?.name || 'Parent or guardian',
-      playerName: player?.player_name || 'your child',
+      playerName: player?.player_name || 'your player',
       portalUrl: CALENDAR_NOTIFICATION_PARENT_PORTAL_URL,
       startsAt: presentation.startsAt,
       teamName: notificationTeamName || club.name,

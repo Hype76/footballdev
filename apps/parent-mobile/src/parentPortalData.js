@@ -21,7 +21,7 @@ function normalizeBoolean(value) {
 
 function requireSelectedLink(user) {
   const link = getSelectedParentLink(user)
-  if (!link?.id) throw new Error('Choose a linked child before continuing.')
+  if (!link?.id) throw new Error('Choose a linked player before continuing.')
   return link
 }
 
@@ -84,7 +84,7 @@ export function normalizeParentInvitation(row = {}) {
     canChangeResponse: normalizeBoolean(row.can_change_response ?? row.canChangeResponse),
     canRespond: normalizeBoolean(row.can_respond ?? row.canRespond),
     childId: row.child_id ?? row.childId ?? '',
-    childName: normalizePersonName(row.child_name ?? row.childName) || 'Linked child',
+    childName: normalizePersonName(row.child_name ?? row.childName) || 'Linked player',
     eventDate: normalizeText(row.event_date ?? row.eventDate),
     eventEnd: row.event_end ?? row.eventEnd ?? '',
     eventId: row.event_id ?? row.eventId ?? '',

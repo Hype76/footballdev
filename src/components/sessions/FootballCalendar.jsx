@@ -195,7 +195,7 @@ function getEventAccessibleName(event) {
 
   return [
     event?.title,
-    event?.childName ? `Child: ${event.childName}` : '',
+    event?.childName ? `Player: ${event.childName}` : '',
     event?.date,
     event?.time ? `Time: ${event.time}` : '',
     getEventContextLabel(event),

@@ -26,7 +26,7 @@ function getFriendlySignupError(error) {
   const normalizedMessage = rawMessage.toLowerCase()
 
   if (normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists')) {
-    return 'An account already exists for this email. Use sign in to open the child link.'
+    return 'An account already exists for this email. Use sign in to open the player link.'
   }
 
   if (normalizedMessage.includes('rate limit')) {
@@ -336,7 +336,7 @@ export function ParentInvitePage() {
       <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Guardian access</p>
       <h1 className="mt-3 text-2xl font-black tracking-tight">Create your family portal login</h1>
       <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-        Use this login only for the child shown below. Family accounts do not open Coach tools or other club records.
+        Use this login only for the player shown below. Family accounts do not open Coach tools or other club records.
       </p>
 
       {isConfirmationState ? (
@@ -363,7 +363,7 @@ export function ParentInvitePage() {
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Player access</p>
-            <p className="text-sm font-bold text-[#101828]">{invite.playerName || 'Child access'}</p>
+            <p className="text-sm font-bold text-[#101828]">{invite.playerName || 'Player access'}</p>
             <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Team: {invite.teamName || 'Team'}, Club: {invite.clubName || 'Club'}</p>
           </div>
 

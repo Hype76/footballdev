@@ -247,7 +247,7 @@ export function ClubAccessManagement({ accessToken, club }) {
       <div>
         <p className="text-base font-black text-[#101828]">Club access</p>
         <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
-          Manage existing adult access without exposing authentication identifiers, invitation secrets, or child data.
+          Manage existing adult access without exposing authentication identifiers, invitation secrets, or player data.
         </p>
       </div>
 

@@ -1936,7 +1936,7 @@ try {
     await context.close()
   })
 
-  await runScenario('multi-role Parent Chat filters rooms by selected child and clears only loaded child New', async () => {
+  await runScenario('multi-role Parent Chat filters rooms by selected player and clears only loaded child New', async () => {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const {
       getChatRequests,
@@ -1950,7 +1950,7 @@ try {
     await page.waitForURL('**/parent-portal', { timeout: 15000 })
     await gotoAfterAuthRedirects(page, `${mainBaseUrl}/parent-chat?parentLinkId=parent-link-fixture`)
 
-    const childOnlySwitch = page.getByRole('switch', { name: 'Your child only' })
+    const childOnlySwitch = page.getByRole('switch', { name: 'Your player only' })
     await childOnlySwitch.waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await childOnlySwitch.getAttribute('aria-checked'), 'false')
     await page.getByText('First child preview', { exact: true }).waitFor({ state: 'visible' })
@@ -2029,7 +2029,7 @@ try {
       timeout: 60000,
     })
     await parentPage.getByRole('heading', { name: 'Chat', exact: true }).waitFor({ state: 'visible' })
-    assert.equal(await parentPage.getByRole('switch', { name: 'Your child only' }).count(), 0)
+    assert.equal(await parentPage.getByRole('switch', { name: 'Your player only' }).count(), 0)
     await parentContext.close()
 
     const staffContext = await browser.newContext()
@@ -2041,7 +2041,7 @@ try {
     })
     await staffPage.getByRole('heading', { name: 'Parent Chat', exact: true })
       .waitFor({ state: 'visible' })
-    assert.equal(await staffPage.getByRole('switch', { name: 'Your child only' }).count(), 0)
+    assert.equal(await staffPage.getByRole('switch', { name: 'Your player only' }).count(), 0)
     await staffContext.close()
   })
 
@@ -2561,7 +2561,7 @@ try {
     assert.equal(await desktopChildSelector.locator('option').count(), 2)
     await desktopChildSelector.selectOption('parent-link-fixture-second')
     await desktopContextPanel.getByRole('paragraph').filter({ hasText: 'Second Fixture Child' }).waitFor({ state: 'visible' })
-    await desktopPage.getByText('Private family view. You only see information the club has shared for this child.', { exact: true }).waitFor({ state: 'visible' })
+    await desktopPage.getByText('Private family view. You only see information the club has shared for this player.', { exact: true }).waitFor({ state: 'visible' })
     assert.equal(await desktopPage.getByText('Child being viewed', { exact: true }).count(), 0)
     assert.equal(await desktopPage.getByRole('button', { name: 'Return to Coach platform' }).count(), 0)
     const desktopShellAudit = await desktopPage.evaluate(() => {

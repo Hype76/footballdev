@@ -49,7 +49,7 @@ export function LoginAuthPanel({
     signup: {
       title: parentInviteMode ? 'Create your parent account' : signupCopy.title,
       body: parentInviteMode
-        ? 'Create a parent account to accept your child link.'
+        ? 'Create a parent account to accept your player link.'
         : signupCopy.body,
       submitLabel: 'Create account',
     },
@@ -71,7 +71,7 @@ export function LoginAuthPanel({
               {parentInviteMode ? 'Sign in to parent access' : currentCopy.title}
             </h2>
             <p className="mt-1 text-sm font-semibold leading-5 text-white/68">
-              {parentInviteMode ? 'Log in or create a parent account to accept your child link.' : currentCopy.body}
+              {parentInviteMode ? 'Log in or create a parent account to accept your player link.' : currentCopy.body}
             </p>
           </div>
         </div>

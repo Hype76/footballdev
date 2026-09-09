@@ -88,12 +88,12 @@ export function buildParentPortalInviteHtml({
   teamLogoUrl,
 }) {
   const resolvedClub = normalizeText(clubName) || 'Your club'
-  const resolvedPlayer = normalizeText(playerName) || 'your child'
+  const resolvedPlayer = normalizeText(playerName) || 'your player'
   const resolvedTeam = normalizeText(teamName) || 'their team'
   const actionUrl = existingParentPortalUser ? buildParentPortalSignInUrl(inviteUrl) : inviteUrl
   const actionLabel = existingParentPortalUser ? 'Sign in to parent portal' : 'Create parent access'
   const actionCopy = existingParentPortalUser
-    ? 'Open the link below and sign in with your existing parent portal account. After sign-in, Football Player will attach this child or team context to your parent portal safely.'
+    ? 'Open the link below and sign in with your existing parent portal account. After sign-in, Football Player will attach this player or team context to your parent portal safely.'
     : 'Open the link below, create your parent password, then confirm your email address. After confirmation, you will return to the parent login page.'
   const logoMarkup = buildEmailLogoMarkup({
     altText: `${resolvedClub} logo`,
@@ -130,7 +130,7 @@ export async function buildAuthoritativeParentInviteEmail({
   const player = getRelatedRow(inviteLink?.players)
   const team = getRelatedRow(inviteLink?.teams)
   const clubName = cleanEmailCopy(club?.name, 'Club')
-  const playerName = cleanEmailCopy(player?.player_name, 'your child')
+  const playerName = cleanEmailCopy(player?.player_name, 'your player')
   const teamName = cleanEmailCopy(team?.name, 'Team')
   const inviteUrl = buildTrustedParentInviteUrl(inviteLink?.invite_token, { parentOrigin })
   const resolvedLogo = await resolveReachableEmailLogo({

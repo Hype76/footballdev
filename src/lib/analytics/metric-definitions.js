@@ -50,7 +50,7 @@ export const PLATFORM_ANALYTICS_METRIC_DEFINITIONS = Object.freeze({
   }),
   activeChildLinks: definition({
     key: 'active_child_links',
-    displayName: 'Active child links',
+    displayName: 'Active player links',
     description: 'Current valid parent-player access relationships.',
     source: 'parent_player_links, players, users, teams, clubs',
     identityBasis: 'Distinct parent_player_links.id',

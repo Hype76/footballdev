@@ -110,7 +110,7 @@ const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rou
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const fieldClass = 'min-h-10 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const emptyClass = 'rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
-const noChildMessage = 'No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
+const noChildMessage = 'No player is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.'
 const parentPortalSectionIds = new Set(['overview', 'calendar', 'invites', 'matches', 'results', 'development', 'resources', 'settings'])
 const PARENT_DEMO_GAME_DAY_OPEN_KEY = 'footballplayer.online:parent-demo-game-day:open:v1'
 const parentSettingsAreas = [
@@ -264,7 +264,7 @@ function getParentMatchActionModalCopy(action) {
   if (action.type === 'enableNotifications') {
     return {
       title: 'Enable Match Day notifications',
-      message: 'Allow this device to receive Match Day updates for the selected child.',
+      message: 'Allow this device to receive Match Day updates for the selected player.',
       confirmLabel: 'Enable notifications',
       items: [],
     }
@@ -273,7 +273,7 @@ function getParentMatchActionModalCopy(action) {
   if (action.type === 'disableNotifications') {
     return {
       title: 'Disable Match Day notifications',
-      message: 'This device will stop receiving Match Day updates for the selected child.',
+      message: 'This device will stop receiving Match Day updates for the selected player.',
       confirmLabel: 'Disable notifications',
       items: [],
     }
@@ -367,7 +367,7 @@ function getParentMatchActionModalCopy(action) {
 }
 
 function formatParentChildTeamLabel(link) {
-  const childName = String(link?.playerName ?? '').trim() || 'Linked child'
+  const childName = String(link?.playerName ?? '').trim() || 'Linked player'
   const teamName = String(link?.teamName ?? '').trim() || 'Team not available'
   return `${childName} - ${teamName}`
 }
@@ -910,7 +910,7 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
       showToast({
         title: invitation.invitationType === 'match_attendance' ? 'Availability submitted' : 'Response updated',
         message: invitation.invitationType === 'match_attendance' && responseState === 'available'
-          ? 'Your child is marked as available. The coaching team will confirm the final squad.'
+          ? 'Your player is marked as available. The coaching team will confirm the final squad.'
           : 'Calendar and Invites now show the latest response.',
       })
     } catch (error) {
@@ -1582,14 +1582,14 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
               </p>
             </div>
             <p className="inline-flex max-w-xl items-center rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-xs font-semibold leading-5 text-[#4b5f55]">
-              Private family view. You only see information the club has shared for this child.
+              Private family view. You only see information the club has shared for this player.
             </p>
           </header>
 
       {searchParams.get('linked') === '1' && requestedParentLinkId && selectedLink?.id === requestedParentLinkId ? (
         <NoticeBanner
-          title="Child linked"
-          message={`${selectedLink.playerName || 'Your child'} is now available in your family portal.`}
+          title="Player linked"
+          message={`${selectedLink.playerName || 'Your player'} is now available in your family portal.`}
         />
       ) : null}
       {signOutError ? <NoticeBanner title="Sign out failed" message={signOutError} /> : null}
@@ -1930,7 +1930,7 @@ function ParentMatchDayHero({ matches, onOpenGameMode, selectedLink }) {
                 <div><dt className="font-black text-[var(--text-primary)]">Home or away</dt><dd>{match.homeAway || 'To be confirmed'}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Kits</dt><dd>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Venue</dt><dd>{venue || 'To be confirmed'}</dd></div>
-                <div><dt className="font-black text-[var(--text-primary)]">Child</dt><dd>{selectedLink?.playerName || 'Linked child'}</dd></div>
+                <div><dt className="font-black text-[var(--text-primary)]">Player</dt><dd>{selectedLink?.playerName || 'Linked player'}</dd></div>
               </dl>
               {match.isScorer ? (
                 <button
@@ -2097,7 +2097,7 @@ function ParentSettingsPanel({
               <p className={eyebrowClass}>Settings</p>
               <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Parent settings</h3>
               <p className={`mt-3 ${bodyTextClass}`}>
-                Manage your family portal account, linked children, notifications, and display preference.
+                Manage your family portal account, linked players, notifications, and display preference.
               </p>
             </div>
             <ParentPortalSignOutButton
@@ -2140,10 +2140,10 @@ function ParentSettingsPanel({
             />
 
             <div className={panelClass}>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Linked children</p>
-              <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink ? selectedLink.playerName : 'No child selected'}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Linked players</p>
+              <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink ? selectedLink.playerName : 'No player selected'}</p>
               <p className={`mt-2 ${bodyTextClass}`}>
-                This account can view {selectedLink ? `${selectedLink.playerName} at ${selectedLink.clubName || 'the club'}` : 'linked child records once the club shares access'}.
+                This account can view {selectedLink ? `${selectedLink.playerName} at ${selectedLink.clubName || 'the club'}` : 'linked player records once the club shares access'}.
               </p>
             </div>
           </>
@@ -2227,7 +2227,7 @@ function ParentSettingsPanel({
                 })}
               </div>
               <p className={`mt-3 ${bodyTextClass}`}>
-                System, Light, and Dark only change this device preference. Club colours still come from the linked child workspace.
+                System, Light, and Dark only change this device preference. Club colours still come from the linked player workspace.
               </p>
               </div>
               <PushNotificationPanel
@@ -2364,7 +2364,7 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
         location: event.location,
         teamName: event.teamName || invitationGroup?.teamName || '',
         childId: invitationGroup?.childId || '',
-        childName: invitationGroup?.childName || childName || 'Linked child',
+        childName: invitationGroup?.childName || childName || 'Linked player',
         invitations: invitationGroup?.invitations || [],
         editable: false,
         data: event,
@@ -2389,7 +2389,7 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
       location: group.eventLocation,
       teamName: group.teamName || '',
       childId: group.childId || '',
-      childName: group.childName || childName || 'Linked child',
+      childName: group.childName || childName || 'Linked player',
       invitations: group.invitations,
       editable: false,
       data: group,
@@ -2417,7 +2417,7 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
         location: getMatchCalendarLocation(match),
         teamName: match.teamName || invitationGroup?.teamName || '',
         childId: invitationGroup?.childId || '',
-        childName: invitationGroup?.childName || childName || 'Linked child',
+        childName: invitationGroup?.childName || childName || 'Linked player',
         invitations: invitationGroup?.invitations || [],
         editable: false,
         data: match,
@@ -2613,7 +2613,7 @@ function attachParentCalendarContext(event, link) {
     ...event,
     id: `${link.id}:${event.id}`,
     contextLabel,
-    childName: String(link?.playerName ?? '').trim() || 'Linked child',
+    childName: String(link?.playerName ?? '').trim() || 'Linked player',
     teamName: event.teamName || String(link?.teamName ?? '').trim() || '',
   }
 }
@@ -2715,7 +2715,7 @@ function ParentOverviewPanel({
       label: 'Resources',
       count: playerResources.length,
       title: playerResources.length > 0 ? `${playerResources.length} resource${playerResources.length === 1 ? '' : 's'} shared` : 'No shared resources yet',
-      detail: playerResources.length > 0 ? 'Open resources to view links shared for this child.' : 'Coach-only resources stay hidden until the club shares them.',
+      detail: playerResources.length > 0 ? 'Open resources to view links shared for this player.' : 'Coach-only resources stay hidden until the club shares them.',
     },
   ]
   const visibleOverviewItems = isLoading ? overviewItems : overviewItems.filter((item) => item.count > 0)
@@ -2824,8 +2824,8 @@ function ParentCalendarPanel({
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Calendar view</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {[
-            { id: 'selected', label: 'Selected child/team only' },
-            { id: 'all', label: 'All linked children' },
+            { id: 'selected', label: 'Selected player/team only' },
+            { id: 'all', label: 'All linked players' },
           ].map((option) => (
             <button
               key={option.id}
@@ -2846,14 +2846,14 @@ function ParentCalendarPanel({
         </div>
         <p className={`mt-3 ${bodyTextClass}`}>
           {calendarScope === 'all'
-            ? 'Showing parent-visible calendar items across every linked child/team context.'
+            ? 'Showing parent-visible calendar items across every linked player/team context.'
             : `Showing parent-visible calendar items for ${formatParentChildTeamLabel(selectedLink)}.`}
         </p>
       </div>
       <FootballCalendar
         cursor={calendarCursor}
         description={calendarScope === 'all'
-          ? 'Sessions, match days, response deadlines, and shared development updates for all linked children.'
+          ? 'Sessions, match days, response deadlines, and shared development updates for all linked players.'
           : 'Sessions, match days, response deadlines, and shared development updates.'}
         events={calendarEvents}
         isLoading={isLoading}
@@ -2866,8 +2866,8 @@ function ParentCalendarPanel({
       {!isLoading && calendarEvents.length === 0 ? (
         <p className={emptyClass}>
           {calendarScope === 'all'
-            ? 'No shared calendar activity is available for linked children yet. When the club shares parent-visible dates, they will appear here.'
-            : 'No shared calendar activity is available for this child yet. When the club shares a parent-visible date, it will appear here.'}
+            ? 'No shared calendar activity is available for linked players yet. When the club shares parent-visible dates, they will appear here.'
+            : 'No shared calendar activity is available for this player yet. When the club shares a parent-visible date, it will appear here.'}
         </p>
       ) : null}
     </section>
@@ -3020,7 +3020,7 @@ function ParentMatchCardsPanel({
       ) : (
         <div className="grid gap-3">
           <p className={emptyClass}>
-            No match cards are shared for this child right now. When Coaches open a match card for parents, it will appear here.
+            No match cards are shared for this player right now. When Coaches open a match card for parents, it will appear here.
           </p>
           {previousMatches.length > 0 ? (
             <button type="button" onClick={() => onOpenSection('results')} className={secondaryButtonClass}>
@@ -3071,7 +3071,7 @@ function ParentMatchPrioritySummary({ match, onOpenGameMode, onSelectMatch, sele
             {needsResponse ? 'Response needs attention' : match.isToday ? "Today's Game Day" : 'Next relevant match'}
           </p>
           <h4 id="parent-match-priority-title" className="mt-1 text-lg font-black text-[var(--text-primary)]">{getMatchDayDisplayName(match)}</h4>
-          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">{formatMatchDate(match)} | {selectedLink?.playerName || 'Linked child'}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">{formatMatchDate(match)} | {selectedLink?.playerName || 'Linked player'}</p>
           {!match.isScorer ? (
             <p className="mt-2 text-sm font-semibold text-[var(--text-muted)]">Fixture information only. Live scoring controls are available only to the selected scorer.</p>
           ) : null}
@@ -3263,7 +3263,7 @@ function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
           </div>
         ) : (
           <p className={emptyClass}>
-            No resources have been shared for this child yet. Coach-only resources do not appear here.
+            No resources have been shared for this player yet. Coach-only resources do not appear here.
           </p>
         )}
       </div>
@@ -3303,7 +3303,7 @@ function ParentInvitationResponseBlock({ activeInvitationId, invitation, onRespo
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black text-[#101828]">{getParentInvitationTypeLabel(invitation)}</p>
-          <p className="mt-1 text-xs font-semibold text-[#60756a]">Child: {invitation.childName}</p>
+          <p className="mt-1 text-xs font-semibold text-[#60756a]">Player: {invitation.childName}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="w-fit rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#047857]">
@@ -3406,7 +3406,7 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
               </p>
             ) : null}
             <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
-              Child: {event.childName || invitations[0]?.childName || 'Linked child'}
+              Player: {event.childName || invitations[0]?.childName || 'Linked player'}
             </p>
           </div>
 
@@ -3595,8 +3595,8 @@ function ParentUpcomingEvents({ calendarEvents, invitations, isLoading, onOpenEv
             {activeTab === PARENT_INVITATION_VIEWS.pending
               ? "You're all caught up. There are no invitations waiting for your response."
               : activeTab === PARENT_INVITATION_VIEWS.upcoming
-                ? 'No answered or upcoming invitations are available for this child.'
-                : 'No invitation history is available for this child.'}
+                ? 'No answered or upcoming invitations are available for this player.'
+                : 'No invitation history is available for this player.'}
           </p>
         )}
       </div>

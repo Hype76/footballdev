@@ -100,7 +100,7 @@ export function normalizeParentInvitation(row = {}) {
     teamName: normalizeText(row.team_name ?? row.teamName),
     kickoffTimeTbc: normalizeBoolean(row.kickoff_time_tbc ?? row.kickoffTimeTbc),
     childId,
-    childName: normalizeText(row.child_name ?? row.childName) || 'Linked child',
+    childName: normalizeText(row.child_name ?? row.childName) || 'Linked player',
     parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
     roleType: normalizeText(row.role_type ?? row.roleType).toLowerCase(),
     invitationState: normalizeText(row.invitation_state ?? row.invitationState).toLowerCase() || 'active',
@@ -248,7 +248,7 @@ export function getParentSquadDecisionStatus(invitation = {}) {
   if (state === 'selected') {
     return {
       label: 'Selected',
-      detail: 'The coaching team has selected your child for this match squad.',
+      detail: 'The coaching team has selected your player for this match squad.',
       tone: 'selected',
     }
   }
@@ -256,7 +256,7 @@ export function getParentSquadDecisionStatus(invitation = {}) {
   if (state === 'waiting') {
     return {
       label: 'Waiting for squad decision',
-      detail: 'Your child is waiting while the coaching team finalises the squad.',
+      detail: 'Your player is waiting while the coaching team finalises the squad.',
       tone: 'waiting',
     }
   }
@@ -264,7 +264,7 @@ export function getParentSquadDecisionStatus(invitation = {}) {
   if (['not_selected', 'selected_elsewhere'].includes(state)) {
     return {
       label: 'Not selected',
-      detail: 'Your child is not currently selected for this match squad.',
+      detail: 'Your player is not currently selected for this match squad.',
       tone: 'closed',
     }
   }

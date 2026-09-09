@@ -52,7 +52,7 @@ test('notification failures preserve accurate production-facing categories', () 
   assert.equal(getParentPushSetupFailureCode(noAuthority, 'api'), 'PARENT_PUSH_API_PARENT_AUTHORITY')
   assert.equal(getParentPushSetupFailureCode(service, 'api'), 'PARENT_PUSH_API_SERVICE')
   assert.equal(getParentFriendlyError({ code: 'PARENT_PUSH_API_SIGNED_OUT' }), 'Your session has expired. Sign in again before changing notifications.')
-  assert.equal(getParentFriendlyError({ code: 'PARENT_PUSH_API_PARENT_AUTHORITY' }), 'Choose a linked child before changing notifications.')
+  assert.equal(getParentFriendlyError({ code: 'PARENT_PUSH_API_PARENT_AUTHORITY' }), 'Choose a linked player before changing notifications.')
   assert.equal(getParentFriendlyError({ code: 'PARENT_PUSH_API_NETWORK' }), 'No connection. Notification settings were not changed.')
 })
 

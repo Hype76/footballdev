@@ -2177,7 +2177,7 @@ export function PlayerProfile() {
         isBusy={Boolean(parentPortalRevokingLinkId)}
         errorMessage={parentPortalRevokeError}
         title="Remove Parent access"
-        message="This removes access to this player only. It does not delete the Parent account or affect access to any other children."
+        message="This removes access to this player only. It does not delete the Parent account or affect access to any other players."
         items={[
           `Parent: ${parentPortalRevokeTarget?.email || 'Selected Parent'}`,
           `Player: ${parentPortalRevokeTarget?.playerName || 'Selected player'}`,

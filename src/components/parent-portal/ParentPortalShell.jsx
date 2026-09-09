@@ -34,7 +34,7 @@ const parentPortalSections = [
   { id: 'results', label: 'Results', description: 'Previous games', to: '/parent-portal?section=results' },
   { id: 'development', label: 'Development', description: 'Shared reports', to: '/parent-portal?section=development' },
   { id: 'resources', label: 'Resources', description: 'Shared links', to: '/parent-portal?section=resources' },
-  { id: 'chat', label: 'Chat', description: 'Child, team and match chat', to: '/parent-chat', recoveryPath: '/parent-chat' },
+  { id: 'chat', label: 'Chat', description: 'Player, team and match chat', to: '/parent-chat', recoveryPath: '/parent-chat' },
   { id: 'polls', label: 'Polls', description: 'Questions to answer', to: '/parent-polls', recoveryPath: '/parent-polls' },
   { id: 'fans', label: 'Fans', description: 'People and access', to: '/fans' },
   { id: 'settings', label: 'Settings', description: 'Profile and preferences', to: '/parent-portal?section=settings' },
@@ -106,7 +106,7 @@ function ParentPortalContext({
         <div className="mt-3 grid gap-2">
           <label className="grid gap-1" htmlFor="parent-portal-shell-child">
             <span className="text-[11px] font-black uppercase tracking-[0.16em] text-[#4b5f55]">
-              Child
+              Player
             </span>
             <select
               id="parent-portal-shell-child"
@@ -117,9 +117,9 @@ function ParentPortalContext({
             >
               {allowedLinks.length > 0 ? allowedLinks.map((link) => (
                 <option key={link.id} value={link.id}>
-                  {link.playerName || 'Linked child'}
+                  {link.playerName || 'Linked player'}
                 </option>
-              )) : <option value="">No linked child</option>}
+              )) : <option value="">No linked player</option>}
             </select>
           </label>
           <div className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2">
@@ -129,17 +129,17 @@ function ParentPortalContext({
         </div>
       ) : allowedLinks.length > 1 ? (
         <label className="shrink-0" htmlFor="parent-portal-shell-child-mobile">
-          <span className="sr-only">Child</span>
+          <span className="sr-only">Player</span>
           <select
             id="parent-portal-shell-child-mobile"
             value={activeLink?.id || ''}
             onChange={(event) => onParentLinkSelect?.(event.target.value)}
-            aria-label="Choose child"
+            aria-label="Choose player"
             className="min-h-11 max-w-[8.5rem] rounded-lg border border-[#d7e5dc] bg-white px-2 py-2 text-xs font-black text-[#101828] outline-none focus:border-[#047857] focus:ring-2 focus:ring-[#bbf7d0]"
           >
             {allowedLinks.map((link) => (
               <option key={link.id} value={link.id}>
-                {link.playerName || 'Linked child'}
+                {link.playerName || 'Linked player'}
               </option>
             ))}
           </select>

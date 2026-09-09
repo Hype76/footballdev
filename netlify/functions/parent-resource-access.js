@@ -66,7 +66,7 @@ export function validateParentResourceAccess({
     || !parentLink
     || normalizeText(parentLink.auth_user_id) !== normalizedAuthUserId
     || normalizeText(parentLink.status) !== 'active') {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (!player
@@ -74,11 +74,11 @@ export function validateParentResourceAccess({
     || normalizeText(player.club_id) !== normalizeText(parentLink.club_id)
     || normalizeText(player.status || 'active') === 'archived'
     || player.archived_at) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (parentLink.team_id && normalizeText(parentLink.team_id) !== normalizeText(player.team_id)) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (!resourceLink
@@ -88,7 +88,7 @@ export function validateParentResourceAccess({
     || normalizeText(resourceLink.linked_id) !== normalizeText(player.id)
     || resourceLink.parent_visible !== true
     || resourceLink.removed_at) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (!resource
@@ -96,7 +96,7 @@ export function validateParentResourceAccess({
     || normalizeText(resource.club_id) !== normalizeText(resourceLink.club_id)
     || normalizeText(resource.team_id) !== normalizeText(resourceLink.team_id)
     || resource.archived_at) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   const externalUrl = normalizeExternalUrl(externalLink?.external_url)
@@ -105,7 +105,7 @@ export function validateParentResourceAccess({
     || normalizeText(externalLink.resource_id) !== normalizeText(resource.id)
     || normalizeText(externalLink.club_id) !== normalizeText(resource.club_id)
     || normalizeText(externalLink.team_id) !== normalizeText(resource.team_id))) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (externalUrl) {
@@ -118,7 +118,7 @@ export function validateParentResourceAccess({
 
   if (normalizeText(resource.storage_bucket) !== RESOURCE_LIBRARY_BUCKET
     || !isScopedResourceStoragePath(resource.storage_path, resource.club_id, resource.team_id)) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   return {
@@ -149,7 +149,7 @@ export function validateParentCalendarEventResourceAccess({
     || !parentLink
     || normalizeText(parentLink.auth_user_id) !== normalizedAuthUserId
     || normalizeText(parentLink.status) !== 'active') {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (!player
@@ -157,7 +157,7 @@ export function validateParentCalendarEventResourceAccess({
     || normalizeText(player.club_id) !== normalizeText(parentLink.club_id)
     || normalizeText(player.status || 'active') === 'archived'
     || player.archived_at) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   const eventIsVisible = calendarEvent
@@ -180,7 +180,7 @@ export function validateParentCalendarEventResourceAccess({
     )
 
   if (!eventIsVisible || !eventTeamId) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (!resourceLink
@@ -190,7 +190,7 @@ export function validateParentCalendarEventResourceAccess({
     || normalizeText(resourceLink.linked_id) !== normalizeText(calendarEvent.id)
     || normalizeText(resourceLink.calendar_occurrence_date) !== normalizeText(calendarOccurrenceDate)
     || resourceLink.removed_at) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (!resource
@@ -198,7 +198,7 @@ export function validateParentCalendarEventResourceAccess({
     || normalizeText(resource.club_id) !== normalizeText(resourceLink.club_id)
     || normalizeText(resource.team_id) !== normalizeText(resourceLink.team_id)
     || resource.archived_at) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   const externalUrl = normalizeExternalUrl(externalLink?.external_url)
@@ -207,7 +207,7 @@ export function validateParentCalendarEventResourceAccess({
     || normalizeText(externalLink.resource_id) !== normalizeText(resource.id)
     || normalizeText(externalLink.club_id) !== normalizeText(resource.club_id)
     || normalizeText(externalLink.team_id) !== normalizeText(resource.team_id))) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   if (externalUrl) {
@@ -220,7 +220,7 @@ export function validateParentCalendarEventResourceAccess({
 
   if (normalizeText(resource.storage_bucket) !== RESOURCE_LIBRARY_BUCKET
     || !isScopedResourceStoragePath(resource.storage_path, resource.club_id, resource.team_id)) {
-    throw new ParentResourceAccessError('This resource is not available for the selected child.')
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
   }
 
   return {
@@ -245,7 +245,7 @@ async function maybeSingle(query, errorMessage) {
 }
 
 async function loadActiveParentContext({ authUserId, parentLinkId, supabaseAdmin }) {
-  const unavailableMessage = 'This resource is not available for the selected child.'
+  const unavailableMessage = 'This resource is not available for the selected player.'
   const parentLink = await maybeSingle(
     supabaseAdmin
       .from('parent_player_links')
@@ -401,7 +401,7 @@ async function listAuthorisedCalendarEventResources({ authUserId, parentLinkId, 
 }
 
 export async function loadAuthorisedResource({ authUserId, calendarEventId = '', calendarOccurrenceDate = '', parentLinkId, resourceId, supabaseAdmin }) {
-  const unavailableMessage = 'This resource is not available for the selected child.'
+  const unavailableMessage = 'This resource is not available for the selected player.'
   const { parentLink, player } = await loadActiveParentContext({ authUserId, parentLinkId, supabaseAdmin })
   const calendarEvent = calendarEventId
     ? await maybeSingle(
@@ -609,7 +609,7 @@ export default async (request) => {
       success: false,
       message: status >= 500
         ? 'Resource access could not be prepared.'
-        : error.message || 'This resource is not available for the selected child.',
+        : error.message || 'This resource is not available for the selected player.',
     })
   }
 }

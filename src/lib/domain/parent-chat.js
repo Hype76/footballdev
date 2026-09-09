@@ -73,7 +73,7 @@ function normalizeParentPortalChatScope({
   const isParentPortal = variant === 'parent'
 
   if (isParentPortal && !normalizedParentLinkId) {
-    throw new Error('Choose a linked child before opening Parent Chat.')
+    throw new Error('Choose a linked player before opening Parent Chat.')
   }
 
   if (!isParentPortal && !normalizedActiveTeamId) {
@@ -91,7 +91,7 @@ function normalizeParentPortalChatScope({
 export async function getParentPortalChatContext({ parentLinkId } = {}) {
   const normalizedParentLinkId = normalizeText(parentLinkId)
   if (!normalizedParentLinkId) {
-    throw new Error('Choose a linked child before opening Parent Chat.')
+    throw new Error('Choose a linked player before opening Parent Chat.')
   }
 
   const { data, error } = await supabase.rpc('get_parent_portal_chat_context', {

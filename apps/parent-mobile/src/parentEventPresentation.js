@@ -24,3 +24,7 @@ export function getParentEventDateTimeLabel(event = {}) {
   if (event.kickoffTimeTbc || (isMatch && !time)) return `${dateLabel} · Time TBC`
   return time ? `${dateLabel} at ${time}` : dateLabel
 }
+
+export function getParentEventKey(event = {}) {
+  return `${event.id || event.eventId || ''}:${event.startsAt || event.eventStart || event.calendarDate || event.eventDate || ''}`
+}

@@ -51,7 +51,7 @@ export function buildExistingParentAccountResponse({ email }) {
     existingAccount: true,
     needsEmailVerification: false,
     email,
-    message: 'An account already exists for this email. Sign in to open this child link.',
+    message: 'An account already exists for this email. Sign in to open this player link.',
   }
 }
 
@@ -82,7 +82,7 @@ export function buildConfirmationEmailHtml({
   invite,
   resolvedLogo,
 }) {
-  const childName = invite.playerName || 'your child'
+  const childName = invite.playerName || 'your player'
   const teamCopy = [invite.teamName, invite.clubName].filter(Boolean).join(' | ') || 'Football Player'
   const logoMarkup = buildEmailLogoMarkup({
     altText: `${invite.clubName || 'Football Player'} logo`,
@@ -264,7 +264,7 @@ export async function handler(event) {
       } else if (isConfirmedAuthUser(existingAuthUser)) {
         return jsonResponse(200, buildExistingParentAccountResponse({ email }))
       } else {
-        return failureResponse(409, 'An account already exists for this email. Sign in to open this child link.')
+        return failureResponse(409, 'An account already exists for this email. Sign in to open this player link.')
       }
     }
 

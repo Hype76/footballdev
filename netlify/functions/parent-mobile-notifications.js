@@ -45,7 +45,7 @@ async function getAuthorisedParentLink(event, requestedParentLinkId) {
     .maybeSingle()
 
   if (linkError || !link) {
-    throw Object.assign(new Error('This notification list is not available for the selected child.'), { statusCode: 403 })
+    throw Object.assign(new Error('This notification list is not available for the selected player.'), { statusCode: 403 })
   }
 
   return { authUser: authData.user, link }
@@ -204,7 +204,7 @@ export async function handler(event) {
   try {
     const body = event.httpMethod === 'POST' ? JSON.parse(event.body || '{}') : {}
     const parentLinkId = normalizeText(body.parentLinkId || event.queryStringParameters?.parentLinkId)
-    if (!parentLinkId) return response(400, { success: false, message: 'Choose a child before opening notifications.' })
+    if (!parentLinkId) return response(400, { success: false, message: 'Choose a player before opening notifications.' })
 
     const { authUser, link } = await getAuthorisedParentLink(event, parentLinkId)
 
