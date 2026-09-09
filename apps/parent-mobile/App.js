@@ -87,7 +87,7 @@ import {
   rankParentPollResults,
 } from './src/parentExperience'
 import { getParentInvitationCounts } from './src/parentPresentationCore'
-import { getParentEventDateTimeLabel, getParentEventPresentation } from './src/parentEventPresentation'
+import { getParentEventDateTimeLabel, getParentEventKey, getParentEventPresentation } from './src/parentEventPresentation'
 import {
   addParentScorerGoal,
   addParentScorerEvent,
@@ -127,6 +127,7 @@ import {
 import { getParentAnnouncementMessages, isParentStaffAnnouncement, prepareParentChatRooms } from './src/parentPresentationCore'
 import {
   CalendarScreen,
+  CalendarEventDetail,
   ChatScreen,
   DevelopmentScreen,
   InvitationsScreen,
@@ -288,7 +289,7 @@ function LoginScreen() {
       meta="Private family access. Password sign-in only."
       requestPasswordReset={requestPasswordReset}
       signIn={handleSignIn}
-      title="Everything for your child, in one place."
+      title="Everything for your player, in one place."
     />
   )
 }
@@ -2039,6 +2040,8 @@ function ParentHome() {
 
             {activeTab === 'home' ? (
               <HomeScreen
+                onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })}
+                themeTokens={themeModel.tokens}
                 activeActionId={activeActionId}
                 calendar={resources.calendar}
                 homeModel={homeModel}
@@ -2060,7 +2063,7 @@ function ParentHome() {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {activeTab === 'calendar' ? <CalendarScreen onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })} activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {activeTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
@@ -2219,8 +2222,8 @@ function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, chi
       {childCount > 0 ? (
         <>
           <Pressable
-            accessibilityHint={childCount > 1 ? 'Shows your linked children' : 'Shows the active child'}
-            accessibilityLabel={`Active child ${selectedLink?.playerName || 'not selected'}`}
+            accessibilityHint={childCount > 1 ? 'Shows your linked players' : 'Shows the active player'}
+            accessibilityLabel={`Active player ${selectedLink?.playerName || 'not selected'}`}
             accessibilityRole="button"
             disabled={childCount <= 1}
             onPress={onToggleChildSwitcher}
@@ -2228,15 +2231,15 @@ function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, chi
           >
             <ParentIcon color={palette.accentText} iconKey="child" size={30} />
             <View style={styles.childButtonCopy}>
-              <Text style={[styles.childButtonEyebrow, isLight && styles.textMutedLight]}>Active child</Text>
-              <Text numberOfLines={1} style={[styles.childButtonName, isLight && styles.textLight]}>{selectedLink?.playerName || 'Choose a child'}</Text>
+              <Text style={[styles.childButtonEyebrow, isLight && styles.textMutedLight]}>Active player</Text>
+              <Text numberOfLines={1} style={[styles.childButtonName, isLight && styles.textLight]}>{selectedLink?.playerName || 'Choose a player'}</Text>
               <Text numberOfLines={1} style={[styles.childButtonTeam, isLight && styles.textMutedLight]}>{selectedLink?.teamName || 'No Team assigned'}</Text>
             </View>
             {childCount > 1 ? <Text style={styles.childButtonAction}>{childSwitcherOpen ? 'Close' : 'Switch'}</Text> : null}
           </Pressable>
           {childSwitcherOpen ? (
             <ScrollView
-              accessibilityLabel="Linked children"
+              accessibilityLabel="Linked players"
               contentContainerStyle={styles.childOptions}
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -2376,8 +2379,12 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch }) {
+function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch, themeTokens, onOpenEventDetails }) {
   const { palette, styles } = useParentTheme()
+  const [selectedEventKey, setSelectedEventKey] = useState('')
+  const [detailPlayerId, setDetailPlayerId] = useState(link?.id)
+  if (detailPlayerId !== link?.id) { setDetailPlayerId(link?.id); setSelectedEventKey('') }
+  const selectedEvent = [homeModel.nextActivity?.type === 'calendar' ? homeModel.nextActivity.item : null, ...homeModel.upcomingCalendarEvents].find(event => event && getParentEventKey(event) === selectedEventKey)
   const unreadNotifications = prepareParentUpdates(notifications.items).filter((notification) => !notification.isRead)
     .map((notification) => ({ ...notification, ...getParentNotificationPresentation(notification, matches.items) }))
   const homeFixtures = getParentHomeFixtureCards(homeModel)
@@ -2385,11 +2392,13 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOf
   if (!link?.id) {
     return (
       <EmptyPanel
-        message="Your account is signed in, but no active child link is available. Ask your club to check the family link."
-        title="No child linked"
+        message="Your account is signed in, but no active player link is available. Ask your club to check the family link."
+        title="No player linked"
       />
     )
   }
+
+  if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} backLabel="Back to Home" event={selectedEvent} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} themeTokens={themeTokens} />
 
   if (selectedMatch) {
     return <MatchDetail match={selectedMatch} onBack={() => onOpenMatch({ id: '' })} />
@@ -2429,7 +2438,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOf
           {homeModel.nextActivity?.type === 'match' ? (
             <MatchPreviewCard match={homeModel.nextActivity.item} onPress={onOpenMatch} prominent />
           ) : homeModel.nextActivity?.type === 'calendar' ? (
-            <CalendarCard activeActionId={activeActionId} event={homeModel.nextActivity.item} isOffline={isOffline} onOpenLink={onOpenLink} onOpenResource={onOpenResource} prominent />
+            <CalendarCard onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={homeModel.nextActivity.item} isOffline={isOffline} onOpenLink={onOpenLink} onOpenResource={onOpenResource} prominent />
           ) : (
             <EmptyPanel message="There are no upcoming fixtures or shared calendar events right now." title="Nothing scheduled" />
           )}
@@ -2481,7 +2490,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOf
         <View style={styles.sectionStack}>
           <SectionHeading copy="Training, meetings and club events shared with your family." title="Calendar" />
           {homeModel.upcomingCalendarEvents.slice(0, 4).map((event) => (
-            <CalendarCard activeActionId={activeActionId} event={event} isOffline={isOffline} key={event.id} onOpenLink={onOpenLink} onOpenResource={onOpenResource} />
+            <CalendarCard onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={event} isOffline={isOffline} key={event.id} onOpenLink={onOpenLink} onOpenResource={onOpenResource} />
           ))}
         </View>
       ) : null}
@@ -2579,13 +2588,12 @@ function MatchDetail({ match, onBack }) {
   )
 }
 
-function CalendarCard({ event, onOpenLink, prominent = false }) {
+function CalendarCard({ event, onPress, prominent = false }) {
   const { palette, styles } = useParentTheme()
   const presentation = getParentEventPresentation(event)
   const eventColor = palette[presentation.tone]
-  const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
   return (
-    <View style={[styles.card, styles.homeCard, prominent && styles.cardProminent]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={event.title} accessibilityHint="Opens event details" onPress={() => onPress(event)} style={({ pressed }) => [styles.card, styles.homeCard, prominent && styles.cardProminent, pressed && styles.pressed]}>
       <View style={styles.compactRow}>
         <ParentIcon color={eventColor} iconKey={presentation.iconKey} size={31} />
         <View style={styles.compactCopy}>
@@ -2593,15 +2601,15 @@ function CalendarCard({ event, onOpenLink, prominent = false }) {
           <Text style={styles.cardTitle}>{event.title}</Text>
           {event.location ? <Text numberOfLines={1} style={styles.cardMeta}>{event.location}</Text> : null}
         </View>
-        {directionsUrl ? <Pressable accessibilityLabel="Get directions" accessibilityRole="button" onPress={() => onOpenLink?.(directionsUrl, 'directions')} style={({ pressed }) => [styles.homeInlineAction, pressed && styles.pressed]}><ParentIcon color={palette.accentText} iconKey="parent.directions" size={22} /></Pressable> : null}
+        <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />
       </View>
-    </View>
+    </Pressable>
   )
 }
 
 function MessagesScreen({ activeActionId, development = { items: [] }, isOffline, link, onBack, onOpen, onOpenDevelopment, onOpenLink, onRetry, resource, selectedMessage }) {
   const { palette, styles } = useParentTheme()
-  if (!link?.id) return <EmptyPanel message="No active child link is available for announcements." title="Club announcements unavailable" />
+  if (!link?.id) return <EmptyPanel message="No active player link is available for announcements." title="Club announcements unavailable" />
   if (selectedMessage) {
     const linkedReport = development.items.find((report) => String(report.id) === String(selectedMessage.evaluationId)) || null
     const developmentPdfAvailable = linkedReport?.canDownloadPdf === true
@@ -2653,7 +2661,7 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
       <ResourceError onRetry={onRetry} resource={resource} title="Club announcements unavailable" />
       {resource.loading && resource.items.length === 0 ? <LoadingPanel message="Loading Club announcements" /> : null}
       {!resource.loading && !resource.error && resource.items.length === 0 ? (
-        <EmptyPanel message="Your club has not shared any announcements for this child yet." title="No announcements" />
+        <EmptyPanel message="Your club has not shared any announcements for this player yet." title="No announcements" />
       ) : null}
       {resource.items.map((message) => (
         <Pressable
@@ -2674,7 +2682,7 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
 function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, onRetry, onSubmit, resource, targetPollId = '' }) {
   const { styles } = useParentTheme()
   const [viewMode, setViewMode] = useState('open')
-  if (!link?.id) return <EmptyPanel message="No active child link is available for polls." title="Polls unavailable" />
+  if (!link?.id) return <EmptyPanel message="No active player link is available for polls." title="Polls unavailable" />
   const targetPoll = targetPollId ? resource.items.find((poll) => poll.id === targetPollId) : null
   const isOpenPoll = (poll) => poll.status === 'open' && !poll.isExpired
   const openPolls = resource.items.filter(isOpenPoll)
@@ -2738,7 +2746,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                 const optionDisabled = !canSubmitParentPoll(poll, option.id) || busy || ownChildOption || atChoiceLimit
                 return (
                   <Pressable
-                    accessibilityHint={ownChildOption ? 'Your own child is not available for this poll' : poll.allowMultiple ? 'Adds or removes this saved response' : 'Selects this response'}
+                    accessibilityHint={ownChildOption ? 'Your own player is not available for this poll' : poll.allowMultiple ? 'Adds or removes this saved response' : 'Selects this response'}
                     accessibilityRole={poll.allowMultiple ? 'checkbox' : 'radio'}
                     accessibilityState={{ checked: selected, disabled: optionDisabled }}
                     disabled={optionDisabled}
@@ -2895,8 +2903,8 @@ function SettingsScreen({
       </InfoPanel>
       </SettingsSection>
 
-      <SettingsSection id="children" label="Children" iconKey="more.team">
-      <InfoPanel iconKey="more.team" title="Linked children">
+      <SettingsSection id="children" label="Players" iconKey="more.team">
+      <InfoPanel iconKey="more.team" title="Linked players">
         {links.length > 0 ? links.map((link) => (
           <View key={link.id} style={styles.linkSummary}>
             <View style={styles.identityRow}>
@@ -2908,7 +2916,7 @@ function SettingsScreen({
               <Text style={styles.identityValue}>{link.teamName || 'No Team assigned'}</Text>
             </View>
           </View>
-        )) : <Text style={styles.bodyText}>No active child links are available.</Text>}
+        )) : <Text style={styles.bodyText}>No active player links are available.</Text>}
       </InfoPanel>
       </SettingsSection>
 

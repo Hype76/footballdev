@@ -91,7 +91,7 @@ function getRoomContext(room) {
 
 function getRoomEmptyCopy(room) {
   if (room.type === PARENT_CHAT_ROOM_TYPES.parentStaff) {
-    return 'No messages yet. Use this room for practical questions about your child and team.'
+    return 'No messages yet. Use this room for practical questions about your player and team.'
   }
 
   if (room.type === PARENT_CHAT_ROOM_TYPES.team) {
@@ -376,8 +376,8 @@ export function ParentChatWorkspace({
         </h1>
         <p className={`mt-2 max-w-3xl ${bodyClass}`}>
           {variant === 'staff'
-            ? 'Use the controlled child, team and selected squad rooms available for your current Coach assignment.'
-            : 'Keep child, team and selected match conversations inside footballplayer.online.'}
+            ? 'Use the controlled player, team and selected squad rooms available for your current Coach assignment.'
+            : 'Keep player, team and selected match conversations inside footballplayer.online.'}
         </p>
         {variant === 'parent' && childFilterAvailable ? (
           <div className="mt-5 max-w-sm rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
@@ -391,7 +391,7 @@ export function ParentChatWorkspace({
               onClick={() => onChildOnlyChange?.(!childOnly)}
               className="flex min-h-11 w-full items-center justify-between gap-4 rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-left text-sm font-black text-[#101828] transition hover:border-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bbf7d0]"
             >
-              <span>Your child only</span>
+              <span>Your player only</span>
               <span
                 aria-hidden="true"
                 className={`relative h-7 w-12 shrink-0 rounded-full transition ${childOnly ? 'bg-[#047857]' : 'bg-[#98a2b3]'}`}
@@ -435,7 +435,7 @@ export function ParentChatWorkspace({
             <div className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
               <p className="text-sm font-black text-[#101828]">No Chat rooms available</p>
               <p className={`mt-2 ${bodyClass}`}>
-                Rooms appear automatically from active child, team, Coaches and selected squad relationships.
+                Rooms appear automatically from active player, team, Coaches and selected squad relationships.
               </p>
             </div>
           ) : (
@@ -474,7 +474,7 @@ export function ParentChatWorkspace({
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6" aria-live="polite">
                 {selectedRoom.type === PARENT_CHAT_ROOM_TYPES.parentStaff ? (
                   <div className="mb-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold leading-6 text-[#285143]">
-                    This conversation is visible to you, your child's linked guardians and authorised Coaches for this team.
+                    This conversation is visible to you, your player's linked guardians and authorised Coaches for this team.
                   </div>
                 ) : null}
 
@@ -512,7 +512,7 @@ export function ParentChatWorkspace({
             <div className="grid flex-1 place-items-center p-6 text-center">
               <div>
                 <p className="text-lg font-black text-[#101828]">Choose a Chat room</p>
-                <p className={`mt-2 ${bodyClass}`}>Select a child, team or match conversation to view its messages.</p>
+                <p className={`mt-2 ${bodyClass}`}>Select a player, team or match conversation to view its messages.</p>
               </div>
             </div>
           )}
@@ -584,7 +584,7 @@ function RoomHeader({ onBack, realtimeStatus, room }) {
               <RoomFact label="Meet time" value={formatClock(room.meetTime)} />
               <RoomFact label="Venue" value={room.venueName || 'Not set'} />
               <RoomFact label="Status" value={room.fixtureStatus || 'Scheduled'} />
-              <RoomFact label="Selected child" value={room.childNames.join(', ') || 'Selected squad'} />
+              <RoomFact label="Selected player" value={room.childNames.join(', ') || 'Selected squad'} />
             </dl>
           ) : null}
           {realtimeStatus && realtimeStatus !== 'SUBSCRIBED' ? (

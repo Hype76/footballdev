@@ -57,7 +57,7 @@ export const ANALYTICS_EVENT_REGISTRY = Object.freeze({
   'workspace.switch': eventDefinition('An authorized workspace was selected.', 'workspace', {
     metadata: ['uiSurface'],
   }),
-  'child.switch': eventDefinition('An authorized child context was selected.', 'workspace', {
+  'child.switch': eventDefinition('An authorized player context was selected.', 'workspace', {
     metadata: ['uiSurface'],
   }),
   'team.switch': eventDefinition('An authorized team context was selected.', 'workspace', {

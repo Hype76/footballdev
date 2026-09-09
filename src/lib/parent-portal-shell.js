@@ -24,7 +24,7 @@ export function resolveParentPortalShellContext({
   return {
     activeLink,
     allowedLinks,
-    childName: normalizeText(activeLink?.playerName) || 'No linked child yet',
+    childName: normalizeText(activeLink?.playerName) || 'No linked player yet',
     clubLogoUrl: normalizeText(activeLink?.clubLogoUrl),
     clubName: normalizeText(activeLink?.clubName) || 'Football Player',
     teamName: normalizeText(activeLink?.teamName) || 'No team assigned',

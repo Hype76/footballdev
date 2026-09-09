@@ -64,7 +64,7 @@ export function PlatformAccountManagementSection({
   return (
     <SectionCard
       title="Account management"
-      description="Manage clubs, teams, and adult user access. Player names and child contact details are intentionally excluded."
+      description="Manage clubs, teams, and adult user access. Player names and player contact details are intentionally excluded."
     >
       <div className="mb-5 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3 shadow-sm shadow-[#047857]/10">
         <div className="flex flex-col gap-2 sm:flex-row" aria-label="Workspace record view">

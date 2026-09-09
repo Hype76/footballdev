@@ -27,7 +27,7 @@ const parentGets = [
 const clubControls = [
   ['Coach tools', 'Parents never need access to coach or admin areas.'],
   ['Player records', 'The club keeps control of the full player history.'],
-  ['Team access', 'Access stays linked to the children and teams the club connects.'],
+  ['Team access', 'Access stays linked to the players and teams the club connects.'],
   ['What gets shared', 'Coaches choose the updates parents receive.'],
 ]
 
@@ -41,7 +41,7 @@ const steps = [
     copy: 'Coaches decide which updates are useful and appropriate to send.',
   },
   {
-    title: 'Parents get a clear update linked to their child.',
+    title: 'Parents get a clear update linked to their player.',
     copy: 'Families see the information they need without entering Coach tools.',
   },
   {

@@ -31,11 +31,11 @@ test('parent dashboard explains no linked child state in plain English', async (
   ])
   const combinedSource = `${source}\n${shellSource}`
 
-  assert.match(source, /No child is linked to this parent account yet/)
+  assert.match(source, /No player is linked to this parent account yet/)
   assert.match(source, /Ask your club or team contact to send a parent invite/)
   assert.match(source, /Parent portal/)
-  assert.match(combinedSource, /No linked child/)
-  assert.doesNotMatch(source, /No child links are active for this parent account\./)
+  assert.match(combinedSource, /No linked player/)
+  assert.doesNotMatch(source, /No player links are active for this parent account\./)
 })
 
 test('parent dashboard explains linked child and multiple child selection', async () => {
@@ -50,8 +50,8 @@ test('parent dashboard explains linked child and multiple child selection', asyn
   assert.match(shellSource, /allowedLinks\.map/)
   assert.match(source, /formatParentChildTeamLabel\(link\)/)
   assert.match(source, /Team not available/)
-  assert.doesNotMatch(source, /Other linked children/)
-  assert.match(source, /You only see information the club has shared for this child/)
+  assert.doesNotMatch(source, /Other linked players/)
+  assert.match(source, /You only see information the club has shared for this player/)
   assert.match(source, /Dates, invites, match cards, resources, and results appear here when the club shares them/)
 })
 
@@ -126,14 +126,14 @@ test('parent dashboard no data states are helpful and not errors', async () => {
 
   assert.match(source, /Nothing has been shared yet/)
   assert.match(source, /When the club shares dates, invites, match cards, resources, messages, or results, they'll appear here/)
-  assert.match(source, /No shared calendar activity is available for this child yet/)
+  assert.match(source, /No shared calendar activity is available for this player yet/)
   assert.match(source, /When the club shares a parent-visible date, it will appear here/)
   assert.match(source, /You're all caught up\. There are no invitations waiting for your response\./)
-  assert.match(source, /No answered or upcoming invitations are available for this child/)
-  assert.match(source, /No match cards are shared for this child right now/)
+  assert.match(source, /No answered or upcoming invitations are available for this player/)
+  assert.match(source, /No match cards are shared for this player right now/)
   assert.match(source, /Previous shared results will appear here/)
-  assert.doesNotMatch(source, /No Match Day updates are available for this child right now/)
-  assert.doesNotMatch(source, /Follow the selected child/)
+  assert.doesNotMatch(source, /No Match Day updates are available for this player right now/)
+  assert.doesNotMatch(source, /Follow the selected player/)
   assert.doesNotMatch(source, /What you can see/)
   assert.match(source, /todayMatches\.length > 0 && !scorerGameModeMatchId/)
   assert.match(source, /<ParentMatchDayHero/)
@@ -231,7 +231,7 @@ test('parent settings expose safe profile, notification, and theme controls', as
   assert.doesNotMatch(source, /Change email/)
   assert.match(source, /Update password/)
   assert.match(source, /Send reset email/)
-  assert.match(source, /Linked children/)
+  assert.match(source, /Linked players/)
   assert.match(source, /Theme preference/)
   assert.match(source, /const themeOptions = \['system', 'light', 'dark'\]/)
   assert.doesNotMatch(source, /updateParentPortalDisplayName/)
@@ -305,8 +305,8 @@ test('parent Chat keeps room unread detail while navigation uses synchronised Ne
   assert.match(chatSource, /onRoomLoadSuccess=\{handleRoomLoadSuccess\}/)
   assert.match(workspaceSource, /const totalUnread = rooms\.reduce/)
   assert.match(workspaceSource, /onUnreadCountChange\?\.\(totalUnread\)/)
-  assert.doesNotMatch(chatSource, /label: 'Linked children'/)
-  assert.match(settingsSource, /Linked children/)
+  assert.doesNotMatch(chatSource, /label: 'Linked players'/)
+  assert.match(settingsSource, /Linked players/)
 })
 
 test('Chat and polls nav badges use server-synchronised New state without numeric counts', async () => {

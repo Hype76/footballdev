@@ -67,9 +67,9 @@ export function ParentPollsPage() {
   const answeredPollCount = polls.filter((poll) => getSelectedOptionIds(poll).length > 0).length
   const pollSummary = [
     {
-      label: 'Linked children',
+      label: 'Linked players',
       value: links.length,
-      caption: 'Children this parent account can view.',
+      caption: 'Players this parent account can view.',
     },
     {
       label: 'Open polls',
@@ -225,7 +225,7 @@ export function ParentPollsPage() {
             <p className={eyebrowClass}>Parent polls</p>
             <h2 className="mt-2 text-3xl font-black tracking-tight text-[#101828]">Answer club questions</h2>
             <p className={`mt-2 ${bodyTextClass}`}>
-              Select the right child, read the voting rule, then answer only the polls that are open for that link.
+              Select the right player, read the voting rule, then answer only the polls that are open for that link.
             </p>
           </div>
 
@@ -259,7 +259,7 @@ export function ParentPollsPage() {
               </div>
             ) : (
               <p className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-5 text-sm font-semibold text-[#4b5f55]">
-                No parent polls are open for this child right now.
+                No parent polls are open for this player right now.
               </p>
             )}
           </div>
@@ -280,7 +280,7 @@ function ParentPollsHero({ answeredPollCount, isLoading, polls, selectedLink, su
           <div className="max-w-5xl">
             <p className={eyebrowClass}>Family decisions</p>
             <h1 className="mt-3 text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-              Polls for {selectedLink?.playerName || 'your child'}.
+              Polls for {selectedLink?.playerName || 'your player'}.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
               Answer club questions without searching through chat threads. Each poll shows the voting constraint before you choose.
@@ -300,7 +300,7 @@ function ParentPollsHero({ answeredPollCount, isLoading, polls, selectedLink, su
               {nextPoll ? nextPoll.title : 'No open poll'}
             </p>
             <p className={bodyTextClass}>
-              {nextPoll ? `${answeredPollCount} answered from ${polls.length} shared polls.` : 'The club has not shared a poll for this child yet.'}
+              {nextPoll ? `${answeredPollCount} answered from ${polls.length} shared polls.` : 'The club has not shared a poll for this player yet.'}
             </p>
           </div>
           <div className="mt-5 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 shadow-sm shadow-[#047857]/10">
@@ -349,7 +349,7 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
           ) : null}
           {poll.allowOwnChildVotes === false ? (
             <span className={chipClass}>
-              Own child not available
+              Own player not available
             </span>
           ) : null}
           {poll.allowVoteChanges === false ? (
@@ -388,7 +388,7 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-[#101828]">{option.label}</p>
                   {isOwnChildOption ? (
-                    <p className="mt-1 text-xs font-bold text-[#4b5f55]">Own child not available for this poll</p>
+                    <p className="mt-1 text-xs font-bold text-[#4b5f55]">Own player not available for this poll</p>
                   ) : null}
                   {shouldShowVotes ? <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Votes: {count}, Share: {percent}%</p> : null}
                 </div>

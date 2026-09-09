@@ -71,7 +71,7 @@ async function maybeSingle(query, message) {
 }
 
 async function loadParentScope({ authUserId, parentLinkId, supabaseAdmin }) {
-  const message = 'Development history is not available for the selected child.'
+  const message = 'Development history is not available for the selected player.'
   const parentLink = await maybeSingle(
     supabaseAdmin
       .from('parent_player_links')
@@ -405,7 +405,7 @@ export default async (request) => {
 
     if (!UUID_PATTERN.test(parentLinkId)) {
       throw new ParentDevelopmentHistoryError(
-        'Choose a valid linked child.',
+        'Choose a valid linked player.',
         400,
         'PARENT_DEVELOPMENT_LINK_REQUIRED',
       )
@@ -515,7 +515,7 @@ export default async (request) => {
       code: normalizeText(error?.code || 'PARENT_DEVELOPMENT_FAILED'),
       message: status >= 500
         ? 'Development history could not be prepared.'
-        : error.message || 'Development history is not available for the selected child.',
+        : error.message || 'Development history is not available for the selected player.',
     })
   }
 }

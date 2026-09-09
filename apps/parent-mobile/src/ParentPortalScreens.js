@@ -6,7 +6,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
 import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
@@ -24,7 +24,7 @@ import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirme
 import ParentIcon from './ParentIcon'
 import { formatMatchAddedTimeClock, getMatchEventTime, getMatchClockDescription } from '../../../src/lib/matchday-event-time.js'
 import { captureParentScorerAction, getParentMatchTimeline, getParentScorerActionLabel, getParentScorerMatches } from './parentScorerCore'
-import { getParentEventPresentation } from './parentEventPresentation'
+import { getParentEventDateTimeLabel, getParentEventKey, getParentEventPresentation } from './parentEventPresentation'
 import {
   getParentScorerInterestInvitation,
   getParentCalendarDirectionsUrl,
@@ -125,6 +125,7 @@ function usePortalStyles(themeTokens) {
       formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
       cardLink: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
+      eventDetailCard: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 16, gap: 14 },
       calendarEventCard: { backgroundColor: 'transparent', borderBottomColor: colors.border, borderBottomWidth: 1, gap: 0, marginBottom: 8, paddingHorizontal: 0, paddingVertical: 12 },
       eventLabel: { fontSize: 12, fontWeight: '800' },
       carpoolChoice: { alignItems: 'center', flexDirection: 'row', gap: 9 },
@@ -337,7 +338,30 @@ function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, o
   )
 }
 
-function CalendarEventCard({ activeActionId, colors, event, invitation, isOffline, onAddToCalendar, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, styles }) {
+export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calendar', event, isOffline, onBack, onOpenLink, onOpenResource, themeTokens }) {
+  const { styles } = usePortalStyles(themeTokens)
+  const presentation = getParentEventPresentation(event)
+  const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { onBack(); return true })
+    return () => subscription.remove()
+  }, [onBack])
+  return <View style={styles.stack}>
+    <Button label={backLabel} onPress={onBack} outline styles={styles} />
+    <View style={styles.eventDetailCard}>
+      <Text accessibilityRole="header" style={styles.header}>{event.title}</Text>
+      <Text style={styles.meta}>{[getParentEventDateTimeLabel(event), presentation.label, event.teamName, labelize(event.status)].filter(Boolean).join(' | ')}</Text>
+      {event.endsAt ? <Text style={styles.body}>Ends {formatParentProductDateTime(event.endsAt)}</Text> : null}
+      {event.arrivalTime ? <Text style={styles.body}>Arrive {formatParentProductTime(event.arrivalTime)}</Text> : null}
+      {event.location ? <View style={styles.section}><Text style={styles.cardTitle}>Location</Text><Text style={styles.body}>{event.location}</Text>{directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}</View> : null}
+      {event.description ? <Text style={styles.body}>{event.description}</Text> : null}
+      {event.notes && event.notes !== event.description ? <View style={styles.section}><Text style={styles.cardTitle}>Shared notes</Text><Text style={styles.body}>{event.notes}</Text></View> : null}
+      {event.resources?.length ? <View style={styles.section}><Text style={styles.cardTitle}>Attachments</Text>{event.resources.map(resource => <Button disabled={isOffline || Boolean(activeActionId)} key={resource.id} label={`Open ${resource.title}`} onPress={() => onOpenResource?.(event, resource)} outline styles={styles} />)}</View> : null}
+    </View>
+  </View>
+}
+
+function CalendarEventCard({ activeActionId, colors, event, invitation, isOffline, onAddToCalendar, onOpenEvent, onOpenLink, onOpenResource, onRespond, onTransport, styles }) {
   const presentation = getParentEventPresentation(event)
   const eventColor = colors[presentation.tone]
   const actionable = invitation && isParentInvitationActionable(invitation)
@@ -349,11 +373,10 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
   return (
     <View style={styles.calendarEventCard}>
       <Pressable
-        accessibilityHint={invitation ? 'Opens this request so you can respond' : 'Opens this Calendar item'}
+        accessibilityHint="Opens event details"
         accessibilityLabel={`${event.title}${actionable ? ', response needed' : ''}`}
         accessibilityRole="button"
-        disabled={!invitation}
-        onPress={() => invitation && onOpenInvitation?.(invitation)}
+        onPress={() => onOpenEvent(event)}
         style={styles.compactRow}
       >
         <ParentIcon color={eventColor} iconKey={presentation.iconKey} size={32} />
@@ -362,7 +385,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
           <Text style={styles.cardTitle}>{event.title}</Text>
           <Text numberOfLines={1} style={styles.meta}>{[event.teamName, isMatch && arrivalTime ? `Arrive ${formatParentProductTime(arrivalTime)}` : '', event.responseState ? labelize(event.responseState) : ''].filter(Boolean).join(' | ')}</Text>
         </View>
-        {invitation ? <ParentIcon color={colors.accentText} iconKey="action.open" size={22} /> : null}
+        <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />
       </Pressable>
       {actionable ? (
         <View style={[styles.inviteSection, styles.iconChoiceRow]}>
@@ -387,8 +410,11 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
   )
 }
 
-export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, resource, themeTokens, upcomingOnly = false }) {
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, resource, themeTokens, onOpenEventDetails, upcomingOnly = false }) {
   const { colors, styles } = usePortalStyles(themeTokens)
+  const [selectedEventKey, setSelectedEventKey] = useState('')
+  const [detailPlayerId, setDetailPlayerId] = useState(link?.id)
+  if (detailPlayerId !== link?.id) { setDetailPlayerId(link?.id); setSelectedEventKey('') }
   const [viewMode, setViewMode] = useState('agenda')
   const [windowKey, setWindowKey] = useState(upcomingOnly ? 'upcoming' : 'needs-response')
   const [monthCursor, setMonthCursor] = useState(() => new Date())
@@ -440,9 +466,11 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
       ? current.filter((item) => item !== tone)
       : [...current, tone])
   }
+  const selectedEvent = resource.items.find(event => getParentEventKey(event) === selectedEventKey)
+  if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} event={selectedEvent} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} themeTokens={themeTokens} />
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your child'}.</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your player'}.</Text></View>
       <View accessibilityLabel="Calendar view" style={styles.actionRow}>
         <Button label="Agenda" onPress={() => chooseView('agenda')} outline={viewMode !== 'agenda'} styles={styles} />
         <Button label="Month" onPress={() => chooseView('month')} outline={viewMode !== 'month'} styles={styles} />
@@ -459,7 +487,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
           <Button key={option.key} label={option.label} onPress={() => setWindowKey(option.key)} outline={windowKey !== option.key} styles={styles} />
         ))}
       </View> : null}
-      <ResourceState emptyCopy="There are no shared calendar events for this child." {...resource} items={activeEvents} styles={styles} />
+      <ResourceState emptyCopy="There are no shared calendar events for this player." {...resource} items={activeEvents} styles={styles} />
       {viewMode === 'month' ? <View style={styles.stack}>
         <View style={styles.row}><Button label="Previous" onPress={() => moveMonth(-1)} outline styles={styles} /><Text style={styles.cardTitle}>{monthLabel}</Text><Button label="Next" onPress={() => moveMonth(1)} outline styles={styles} /></View>
         <Button label="Today" onPress={() => { setMonthCursor(new Date()); setSelectedDate('') }} outline styles={styles} />
@@ -473,13 +501,13 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
             return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={styles.monthLegendItem}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone], !selected && { backgroundColor: 'transparent', borderColor: colors.muted, borderWidth: 1 }]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
           })}
         </View>
-        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
+        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard onOpenEvent={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
       </View> : null}
       {viewMode === 'agenda' && !resource.loading && activeEvents.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
       {viewMode === 'agenda' ? groups.map((group) => (
         <View key={group.date} style={styles.section}>
           <Text accessibilityRole="header" style={styles.dateHeading}>{group.date === 'date-tbc' ? 'Date to be confirmed' : formatCalendarDay(group.date)}</Text>
-          {group.events.map((event) => <CalendarEventCard activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />)}
+          {group.events.map((event) => <CalendarEventCard onOpenEvent={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />)}
         </View>
       )) : null}
     </View>
@@ -512,7 +540,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
   return (
     <View style={styles.stack}>
       {targetedInvitation && onBackTarget ? <Button label="Back to all requests" onPress={onBackTarget} outline styles={styles} /> : null}
-      <View><Text accessibilityRole="header" style={styles.header}>{targetedInvitation ? 'Respond to request' : 'Invites'}</Text><Text style={styles.helper}>{targetedInvitation ? 'Choose the icons that match your answer.' : `Compact attendance and volunteer responses for ${link?.playerName || 'your child'}.`}</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>{targetedInvitation ? 'Respond to request' : 'Invites'}</Text><Text style={styles.helper}>{targetedInvitation ? 'Choose the icons that match your answer.' : `Compact attendance and volunteer responses for ${link?.playerName || 'your player'}.`}</Text></View>
       {isOffline ? <Text style={styles.warning}>Responses need a connection. Saved invitations remain available to read.</Text> : null}
       {!targetedInvitation ? <View style={styles.actionRow}>{[
         ['needsResponse', 'Needs response'],
@@ -520,7 +548,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
         ['responded', 'Responded'],
         ['history', 'History'],
       ].map(([key, label]) => <Button key={key} label={`${label}${counts[key] ? ` (${counts[key]})` : ''}`} onPress={() => setSectionKey(key)} outline={activeSectionKey !== key} styles={styles} />)}</View> : null}
-      <ResourceState emptyCopy="There are no invitations for this child." {...resource} styles={styles} />
+      <ResourceState emptyCopy="There are no invitations for this player." {...resource} styles={styles} />
       {!resource.loading && resource.items.length > 0 && visibleGroups.length === 0 ? <Text style={styles.empty}>Nothing is in this section.</Text> : null}
       {visibleGroups.map((group) => {
         const matchAttendance = group.invitations.find((invitation) => invitation.invitationType === 'match_attendance') || null
@@ -545,7 +573,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
             </View>
             {matchAttendance ? <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={matchAttendance} isOffline={isOffline} label="Attendance" onRespond={respond} styles={styles} /> : null}
             {volunteerOffers.length ? <View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="invite" size={20} /><Text style={[styles.inviteSectionTitle, styles.inviteSectionCopy]}>Volunteer roles</Text><IconAction accessibilityLabel="About Volunteer offers" colors={colors} iconKey="info-outline" onPress={() => setVolunteerHelpOpen((open) => !open)} styles={styles} /></View> : null}
-            {volunteerHelpOpen ? <Text style={styles.helper}>This is a Parent or guardian volunteer role. It does not select your child for the squad.</Text> : null}
+            {volunteerHelpOpen ? <Text style={styles.helper}>This is a Parent or guardian volunteer role. It does not select your player for the squad.</Text> : null}
             {volunteerOffers.map((invitation) => <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} key={invitation.invitationId} label={getParentVolunteerRoleLabel(invitation)} onRespond={respond} styles={styles} />)}
             {otherInvitations.map((invitation) => <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} key={invitation.invitationId} label={invitation.invitationType === 'training_attendance' ? 'Training attendance' : 'Attendance'} onRespond={respond} styles={styles} />)}
             {resources.length ? (
@@ -968,10 +996,10 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
   }
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Matchday</Text><Text style={styles.helper}>Shared fixtures and Game Day for {link?.playerName || 'your child'}.</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>Matchday</Text><Text style={styles.helper}>Shared fixtures and Game Day for {link?.playerName || 'your player'}.</Text></View>
       {getParentScorerMatches(resource.items).map((match) => <View key={`scoring:${match.id}`} style={styles.section}><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Button label={getParentScorerActionLabel(match)} onPress={() => onOpen(match)} styles={styles} /></View>)}
       <View style={styles.actionRow}><Button label={`Coming up (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button label={`History (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
-      <ResourceState emptyCopy="There are no Parent-visible match cards for this child." {...resource} styles={styles} />
+      <ResourceState emptyCopy="There are no Parent-visible match cards for this player." {...resource} styles={styles} />
       {!resource.loading && resource.items.length > 0 && visibleMatches.length === 0 ? <Text style={styles.empty}>No matches are in this section.</Text> : null}
       {visibleMatches.map((match) => <MatchCard colors={colors} key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} styles={styles} />)}
     </View>
@@ -983,8 +1011,8 @@ export function ResultsScreen({ link, resource, themeTokens }) {
   const results = getParentMatchGroups(resource.items).recent.filter((match) => match.status === 'full_time')
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Results</Text><Text style={styles.helper}>Completed Parent-visible fixtures for {link?.playerName || 'your child'}.</Text></View>
-      <ResourceState emptyCopy="There are no completed results for this child." error={resource.error} items={results} loading={resource.loading} styles={styles} />
+      <View><Text accessibilityRole="header" style={styles.header}>Results</Text><Text style={styles.helper}>Completed Parent-visible fixtures for {link?.playerName || 'your player'}.</Text></View>
+      <ResourceState emptyCopy="There are no completed results for this player." error={resource.error} items={results} loading={resource.loading} styles={styles} />
       {results.map((match) => <ParentMatchReportCard colors={colors} key={match.id} match={match} styles={styles} />)}
     </View>
   )
@@ -1074,9 +1102,9 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, them
 
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history shared for the selected child.</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history shared for the selected player.</Text></View>
       {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Sharing a PDF needs a connection.</Text> : null}
-      <ResourceState emptyCopy="No delivered Development reports are available for this child." {...resource} styles={styles} />
+      <ResourceState emptyCopy="No delivered Development reports are available for this player." {...resource} styles={styles} />
       {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text>{onDismiss ? <IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /> : null}</View></View>)}
     </View>
   )
@@ -1108,9 +1136,9 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
   }
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected child.</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected player.</Text></View>
       {isOffline ? <Text style={styles.warning}>Resource details are saved for reading. Opening the item needs a connection.</Text> : null}
-      <ResourceState emptyCopy="No resources are shared with this child." {...resource} styles={styles} />
+      <ResourceState emptyCopy="No resources are shared with this player." {...resource} styles={styles} />
       {resource.items.map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text>{onDismiss ? <IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /> : null}</View></View>)}
     </View>
   )
@@ -1160,8 +1188,8 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
   }
   return (
     <View style={styles.chatScreen}>
-      <View style={styles.chatHeader}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your child'}.</Text>{isOffline ? <Text style={styles.warning}>Saved conversations remain readable. Sending and deleting need a connection.</Text> : null}</View>
-      <ResourceState emptyCopy="No Parent Chat rooms are available for this child." error={rooms.error} items={sortedRooms} loading={rooms.loading} styles={styles} />
+      <View style={styles.chatHeader}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your player'}.</Text>{isOffline ? <Text style={styles.warning}>Saved conversations remain readable. Sending and deleting need a connection.</Text> : null}</View>
+      <ResourceState emptyCopy="No Parent Chat rooms are available for this player." error={rooms.error} items={sortedRooms} loading={rooms.loading} styles={styles} />
       <FlatList
         contentContainerStyle={styles.chatRoomContent}
         data={sortedRooms}

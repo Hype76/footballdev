@@ -5,12 +5,26 @@ export function SettingsSection({ children }) {
   return <View style={styles.section}>{children}</View>
 }
 
+export function IconMenu({ items, palette, Icon: iconComponent, onSelect, accessibilityLabel }) {
+  const Icon = iconComponent
+  const { width, fontScale } = useWindowDimensions()
+  const columns = width < 360 || fontScale > 1.3 ? 2 : 3
+  const text = palette.textPrimary || palette.text
+  const accent = palette.accentText || palette.accent
+  return <View style={styles.menu} accessibilityLabel={accessibilityLabel}>
+    {items.map(item => <Pressable key={item.key} accessibilityRole="button" accessibilityLabel={item.label}
+      accessibilityHint={item.hint || `Opens ${item.label}`} onPress={() => onSelect(item.key)}
+      style={({ pressed }) => [styles.item, { width: `${100 / columns}%` }, pressed && styles.pressed]}>
+      <Icon iconKey={item.iconKey} color={accent} size={32} />
+      <Text style={[styles.label, { color: text }]}>{item.label}</Text>
+    </Pressable>)}
+  </View>
+}
+
 export function IconSettings({ children, footer, palette, Icon: iconComponent, focusRequest, onNavigate }) {
   const Icon = iconComponent
   const sections = Children.toArray(children).filter(Boolean)
   const [activeKey, setActiveKey] = useState(null)
-  const { width, fontScale } = useWindowDimensions()
-  const columns = width < 360 || fontScale > 1.3 ? 2 : 3
   const onNavigateRef = useRef(onNavigate)
   useEffect(() => { onNavigateRef.current = onNavigate }, [onNavigate])
   useEffect(() => {
@@ -31,7 +45,6 @@ export function IconSettings({ children, footer, palette, Icon: iconComponent, f
     return () => subscription.remove()
   }, [activeKey])
   const open = (key) => { setActiveKey(key); onNavigateRef.current?.() }
-  const text = palette.textPrimary || palette.text
   const accent = palette.accentText || palette.accent
   const active = sections.find(section => section.props.id === activeKey)
   return <View style={styles.section}>
@@ -43,14 +56,8 @@ export function IconSettings({ children, footer, palette, Icon: iconComponent, f
       </Pressable>
       {active}
     </> : <>
-      <View style={styles.menu} accessibilityLabel="Settings categories">
-        {sections.map(section => <Pressable key={section.props.id} accessibilityRole="button" accessibilityLabel={section.props.label}
-          accessibilityHint={`Opens ${section.props.label} settings`} onPress={() => open(section.props.id)}
-          style={({ pressed }) => [styles.item, { width: `${100 / columns}%` }, pressed && styles.pressed]}>
-          <Icon iconKey={section.props.iconKey} color={accent} size={32} />
-          <Text style={[styles.label, { color: text }]}>{section.props.label}</Text>
-        </Pressable>)}
-      </View>
+      <IconMenu accessibilityLabel="Settings categories" Icon={Icon} palette={palette} onSelect={open}
+        items={sections.map(section => ({ key: section.props.id, label: section.props.label, iconKey: section.props.iconKey, hint: `Opens ${section.props.label} settings` }))} />
       {footer}
     </>}
   </View>

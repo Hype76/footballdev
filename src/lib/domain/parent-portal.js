@@ -528,7 +528,7 @@ export async function createParentPortalInvitesForPlayers({ user, players }) {
 
 export async function createFamilyShareLink({ parentLink }) {
   if (!parentLink?.id) {
-    throw new Error('Choose a child before creating a family link.')
+    throw new Error('Choose a player before creating a family link.')
   }
 
   const { data, error } = await supabase.rpc('create_own_family_share_link', {

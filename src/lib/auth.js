@@ -124,7 +124,7 @@ function applyContextualTeamRole(profile, team) {
 const PARENT_ACCESS_OPTION = {
   id: 'parent',
   label: 'Parent',
-  meta: 'Open linked child access only',
+  meta: 'Open linked player access only',
 }
 
 function loadAuthDataModule() {

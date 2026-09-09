@@ -103,7 +103,7 @@ export function LoginPage() {
     if (nextParentInviteToken) {
       setParentInviteToken(nextParentInviteToken)
       setMode('parent-login')
-      setLocalMessage('Log in or create a parent account to accept your child link.')
+      setLocalMessage('Log in or create a parent account to accept your player link.')
 
       if (session?.user && !parentInviteRedirectStartedRef.current) {
         parentInviteRedirectStartedRef.current = true

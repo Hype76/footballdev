@@ -1,7 +1,7 @@
 export const unsafeExistingEmailMessage = 'That email is already used by another parent account. Please ask the club to confirm the correct family link.'
 export const upToDateMessage = 'Email already up to date.'
-export const linkedExistingParentMessage = 'Family access has been linked to that parent email. Sign in with that email to view all linked children.'
-export const existingParentAlreadyLinkedMessage = 'Family access is already available through that parent email. Sign in with that email to view all linked children.'
+export const linkedExistingParentMessage = 'Family access has been linked to that parent email. Sign in with that email to view all linked players.'
+export const existingParentAlreadyLinkedMessage = 'Family access is already available through that parent email. Sign in with that email to view all linked players.'
 export const pendingEmailChangeMessage = 'Check your inbox to confirm this email change. Your family access will stay on the current email until confirmation is complete.'
 export const genericEmailChangeErrorMessage = 'Email could not be updated. Please try again in a moment.'
 

@@ -95,15 +95,12 @@ test('opening a grouped Chat card marks every child-scoped event in that room re
   assert.match(offline, /applyParentNotificationAction\(cache\.resources\.notifications/)
 })
 
-test('Calendar cards open the exact invitation response screen', async () => {
-  const [app, screen] = await Promise.all([
-    read('../apps/parent-mobile/App.js'),
-    read('../apps/parent-mobile/src/ParentPortalScreens.js'),
-  ])
-  assert.match(screen, /accessibilityHint=\{invitation \? 'Opens this request so you can respond'/)
-  assert.match(screen, /onPress=\{\(\) => invitation && onOpenInvitation\?\.\(invitation\)\}/)
-  assert.match(app, /setSelectedInvitationId\(invitation\.invitationId\)/)
-  assert.match(app, /setMoreSection\('invites'\)/)
+test('Calendar cards open read-only details regardless of invitation availability', async () => {
+  const screen = await read('../apps/parent-mobile/src/ParentPortalScreens.js')
+  assert.match(screen, /accessibilityHint="Opens event details"/)
+  assert.match(screen, /onPress=\{\(\) => onOpenEvent\(event\)\}/)
+  assert.match(screen, /if \(selectedEvent\) return <CalendarEventDetail/)
+  assert.doesNotMatch(screen, /disabled=\{!invitation\}/)
 })
 
 test('Parent Formation Board uses published display names and ratio coordinates', () => {

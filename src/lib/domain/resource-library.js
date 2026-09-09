@@ -764,7 +764,7 @@ export async function getParentPortalResourceAccessUrl({ parentLinkId, resourceI
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(payload.message || 'This resource is not available for the selected child.')
+    throw new Error(payload.message || 'This resource is not available for the selected player.')
   }
 
   const accessUrl = normalizeExternalResourceUrl(payload.accessUrl)

@@ -13,7 +13,7 @@ test('parent child selector labels include child name and team name', async () =
   const contextSection = source.slice(contextStart, contextEnd)
 
   assert.match(contextSection, /allowedLinks\.map\(\(link\) => \(/)
-  assert.match(contextSection, /\{link\.playerName \|\| 'Linked child'\}/)
+  assert.match(contextSection, /\{link\.playerName \|\| 'Linked player'\}/)
   assert.match(contextSection, /\{childName\} \| \{teamName\}/)
   assert.match(contextSection, /\{teamName\}/)
 })
@@ -27,7 +27,7 @@ test('parent child context removes duplicate other linked children list and keep
   assert.match(navSection, /<ParentPortalAccountActions/)
   assert.match(navSection, /<ParentPortalContext/)
   assert.match(navSection, /selectedLink=\{selectedLink\}/)
-  assert.doesNotMatch(navSection, /Other linked children/)
+  assert.doesNotMatch(navSection, /Other linked players/)
   assert.doesNotMatch(navSection, /otherLinks/)
 })
 
@@ -39,8 +39,8 @@ test('parent calendar defaults to selected child mode and can switch to all link
 
   assert.match(source, /const \[calendarScope, setCalendarScope\] = useState\('selected'\)/)
   assert.match(source, /visibleCalendarEvents = calendarScope === 'all' \? allLinkedParentCalendarEvents : parentCalendarEvents/)
-  assert.match(panelSection, /Selected child\/team only/)
-  assert.match(panelSection, /All linked children/)
+  assert.match(panelSection, /Selected player\/team only/)
+  assert.match(panelSection, /All linked players/)
   assert.match(panelSection, /onClick=\{\(\) => onScopeChange\(option\.id\)\}/)
   assert.match(panelSection, /disabled=\{option\.id === 'all' && links\.length < 2\}/)
 })

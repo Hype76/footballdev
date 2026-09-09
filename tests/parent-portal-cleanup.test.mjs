@@ -130,6 +130,6 @@ test('parent-facing copy does not promise current-phase report surfaces', async 
 
   assert.doesNotMatch(parentLogin, /development reports/i)
   assert.doesNotMatch(publicLogin, /\breports\b/i)
-  assert.match(parentLogin, /club-shared updates, match cards, and child information the club has chosen to share/i)
-  assert.match(publicLogin, /linked child, match cards, and club-shared updates/i)
+  assert.match(parentLogin, /club-shared updates, match cards, and player information the club has chosen to share/i)
+  assert.match(publicLogin, /linked player, match cards, and club-shared updates/i)
 })

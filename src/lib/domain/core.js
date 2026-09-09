@@ -641,7 +641,7 @@ export async function fetchUserProfile(authUser, options = {}) {
           requiresAccessModeSelection: true,
           accessModeOptions: [
             { id: 'platform_admin', label: 'Platform Admin', meta: 'Open platform administration tools' },
-            { id: 'parent', label: 'Parent / Fans', meta: 'Open linked child access only' },
+            { id: 'parent', label: 'Parent / Fans', meta: 'Open linked player access only' },
           ],
         }
       }
@@ -691,7 +691,7 @@ export async function fetchUserProfile(authUser, options = {}) {
             requiresAccessModeSelection: true,
             accessModeOptions: [
               { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
-              { id: 'parent', label: 'Parent', meta: 'Open linked child access only' },
+              { id: 'parent', label: 'Parent', meta: 'Open linked player access only' },
             ],
           }
         }
@@ -777,7 +777,7 @@ export async function fetchUserProfile(authUser, options = {}) {
         requiresAccessModeSelection: true,
         accessModeOptions: [
           { id: 'team', label: 'Team / Coach', meta: 'Open coaching and club tools' },
-          { id: 'parent', label: 'Parent', meta: 'Open linked child access only' },
+          { id: 'parent', label: 'Parent', meta: 'Open linked player access only' },
         ],
       }
     }

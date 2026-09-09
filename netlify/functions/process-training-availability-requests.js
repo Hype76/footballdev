@@ -263,7 +263,7 @@ export function buildAvailabilityEmail({ appOrigin, event, includeRecurringSched
       <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
         ${logoMarkup}
         <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Training availability</p>
-        <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Can ${escapeHtml(player.player_name || 'your child')} attend?</h1>
+        <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Can ${escapeHtml(player.player_name || 'your player')} attend?</h1>
         <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;">
           Please confirm availability for this training session.
         </p>

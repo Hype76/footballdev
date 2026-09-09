@@ -278,7 +278,7 @@ export function ParentLinkingPage() {
             <div className="px-5 py-6 sm:px-6 lg:px-8">
               <p className={eyebrowClass}>Guardian access</p>
               <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">
-                Give every parent the right child record.
+                Give every parent the right player record.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
                 Invite saved parent emails, keep access tied to Trial and Squad players, and remove links when a family should no longer see a player.

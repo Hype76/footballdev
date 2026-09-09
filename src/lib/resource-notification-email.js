@@ -45,7 +45,7 @@ export function buildResourceNotificationHtml({
 }) {
   const resolvedClubName = normalizeText(clubName) || 'Your club'
   const resolvedTeamName = normalizeText(teamName) || 'Your team'
-  const resolvedPlayerName = normalizeText(playerName) || 'your child'
+  const resolvedPlayerName = normalizeText(playerName) || 'your player'
   const resolvedResourceTitle = normalizeText(resourceTitle) || 'Shared resource'
   const resolvedDescription = normalizeText(resourceDescription)
   const logoMarkup = buildEmailLogoMarkup({
@@ -90,7 +90,7 @@ export async function buildAuthoritativeResourceNotificationEmail({
 } = {}) {
   const resolvedClubName = cleanEmailCopy(clubName, 'Your club')
   const resolvedTeamName = cleanEmailCopy(teamName, 'Your team')
-  const resolvedPlayerName = cleanEmailCopy(playerName, 'your child')
+  const resolvedPlayerName = cleanEmailCopy(playerName, 'your player')
   const resolvedResourceTitle = cleanEmailCopy(resourceTitle, 'Shared resource')
   const resolvedDescription = normalizeText(resourceDescription)
   const resolvedLogo = await resolveReachableEmailLogo({

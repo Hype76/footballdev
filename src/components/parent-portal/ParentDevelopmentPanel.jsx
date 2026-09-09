@@ -216,7 +216,7 @@ export function ParentDevelopmentPanel({
         <NoticeBanner
           tone="error"
           title="Development report not available"
-          message="This report is not available for the selected child."
+          message="This report is not available for the selected player."
         />
         <button type="button" onClick={onShowHistory} className={`${secondaryButtonClass} mt-4`}>
           View Development history
@@ -243,7 +243,7 @@ export function ParentDevelopmentPanel({
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Development</p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Shared Development history</h3>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-            Final reports the club shared for this child. Coach-only records never appear here.
+            Final reports the club shared for this player. Coach-only records never appear here.
           </p>
         </div>
         <p className="text-sm font-black text-[#4b5f55]">{reports.length} shared</p>
@@ -258,7 +258,7 @@ export function ParentDevelopmentPanel({
       <div className="mt-4">
         {!selectedLink ? (
           <p className={emptyClass}>
-            No child is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.
+            No player is linked to this parent account yet. Ask your club or team contact to send a parent invite to the email you use for this portal.
           </p>
         ) : isLoading ? (
           <p className={emptyClass}>Loading Development history...</p>
@@ -302,7 +302,7 @@ export function ParentDevelopmentPanel({
           </div>
         ) : (
           <p className={emptyClass}>
-            No Development reports have been shared for this child yet.
+            No Development reports have been shared for this player yet.
           </p>
         )}
       </div>

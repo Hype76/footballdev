@@ -263,14 +263,14 @@ test('friendly errors fail closed without rendering raw exceptions', () => {
 test('signed-in accounts with no active link receive the safe no-child state', () => {
   assert.doesNotMatch(profileSource, /links\.length === 0[\s\S]{0,100}throw new Error/)
   assert.match(profileSource, /hasParentAccess: Boolean\(selectedLink\?\.id\)/)
-  assert.match(appSource, /No child linked/)
+  assert.match(appSource, /No player linked/)
 })
 
 test('Settings contain local biometric explanation, identity, child summary and restrained test classification', () => {
   assert.match(appSource, /Biometric app lock/)
   assert.match(appSource, /Use Face ID or your fingerprint to unlock this app/)
   assert.match(appSource, /Signed-in Parent/)
-  assert.match(appSource, /Linked children/)
+  assert.match(appSource, /Linked players/)
   assert.equal(getBuildClassification('internal'), 'Internal test build')
   assert.equal(getBuildClassification('store-test'), 'TestFlight test build')
   assert.match(appSource, /Application\.nativeApplicationVersion/)

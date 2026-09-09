@@ -24,7 +24,7 @@ const ACCOUNT_ESTATE_CARDS = [
   ['staffAssignments', 'Coach assignments', 'Current team-role assignments. One Coach account can have several assignments.', 'staffAssignments'],
   ['usersWithParentAccess', 'Users with Parent access', 'Distinct active authenticated users with an accepted active Parent relationship.', 'parentAccess'],
   ['parentContacts', 'Parent and guardian contacts', 'Distinct current, non-revoked contact relationships. Authentication is not required.', 'parentContacts'],
-  ['activeParentChildLinks', 'Active Parent-child links', 'Distinct accepted authenticated Parent-to-player relationships.', 'activeParentChildLinks'],
+  ['activeParentChildLinks', 'Active Parent-player links', 'Distinct accepted authenticated Parent-to-player relationships.', 'activeParentChildLinks'],
   ['developmentRecords', 'Development records', 'Saved customer Development history, including records whose player lifecycle later changed.', 'developmentRecords'],
 ]
 
@@ -346,7 +346,7 @@ export function PlatformAnalyticsSection({
           <p className="text-xs font-black uppercase tracking-[0.14em] text-teal-700">Privacy-safe aggregate reporting</p>
           <h2 id="platform-analytics-title" className="mt-1 text-2xl font-black text-slate-950">Platform analytics</h2>
           <p className="mt-1 max-w-3xl text-sm font-semibold text-slate-600">
-            Review authenticated usage, adoption, and operational patterns. Reports exclude child names, messages, notes, search text, and free-text metadata.
+            Review authenticated usage, adoption, and operational patterns. Reports exclude player names, messages, notes, search text, and free-text metadata.
           </p>
         </div>
         <button

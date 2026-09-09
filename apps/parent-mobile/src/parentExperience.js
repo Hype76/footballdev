@@ -273,11 +273,11 @@ export function getParentFriendlyError(error, fallback = 'This information could
   }
 
   if (code.includes('parent_push_api_parent_authority') || message.includes('parent_push_api_parent_authority')) {
-    return 'Choose a linked child before changing notifications.'
+    return 'Choose a linked player before changing notifications.'
   }
 
   if (code.includes('parent_push_api_forbidden') || message.includes('parent_push_api_forbidden')) {
-    return 'This Parent account cannot register notifications for the selected child.'
+    return 'This Parent account cannot register notifications for the selected player.'
   }
 
   if (code.includes('parent_push_api_network') || message.includes('parent_push_api_network')) {
