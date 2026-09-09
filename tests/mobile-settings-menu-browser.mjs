@@ -147,7 +147,11 @@ try {
         for (const label of labels) {
           await open(label)
           await page.getByRole('button', { name: 'Back to Settings', exact: true }).waitFor()
-          if (label === 'Notifications') await page.getByRole('radio', { name: 'Off', exact: true }).waitFor()
+          if (label === 'Notifications') {
+            await page.getByRole('switch', { name: 'Invites', exact: true }).waitFor()
+            assert.equal(await page.getByRole('radiogroup', { name: 'Game Day alerts' }).count(), app === 'parent' ? 1 : 0)
+            if (app === 'coach') assert.equal(await page.getByText('Game Day', { exact: true }).count(), 0)
+          }
           await assertRenderedTextContrast(page, `${app} ${mode} ${accent} ${label}`)
           await back()
         }
@@ -167,13 +171,20 @@ try {
     }
     assert.equal(await page.evaluate(() => window.calls.length), before, 'Navigation never mutates settings')
     await page.evaluate(() => window.openBell())
-    await page.getByRole('radio', { name: 'Score and cards only', exact: true }).waitFor()
-    await page.getByRole('radio', { name: 'Off', exact: true }).click()
+    await page.getByRole('switch', { name: 'Invites', exact: true }).waitFor()
+    if (app === 'parent') {
+      await page.getByRole('radio', { name: 'Score and cards only', exact: true }).waitFor()
+      await page.getByRole('radio', { name: 'Off', exact: true }).click()
+    } else {
+      assert.equal(await page.getByRole('radio').count(), 0, 'Coach has no Game Day notification setting')
+      await page.getByRole('switch', { name: 'Invites', exact: true }).click()
+    }
     await page.getByText('Saved.', { exact: true }).waitFor()
     assert.equal(await page.getByRole('switch', { name: 'Chats', exact: true }).isChecked(), true)
     await back()
     await page.evaluate(() => window.openBell())
-    await page.getByRole('radio', { name: 'Off', exact: true }).waitFor()
+    await page.getByRole('switch', { name: 'Invites', exact: true }).waitFor()
+    if (app === 'coach') assert.equal(await page.evaluate(() => window.calls.filter(call => call.name === 'categories' && call.args.app_value === 'coach' && call.args.key_value === 'gameDay').length), 0)
     await back()
     if (app === 'parent') {
       await open('Security')

@@ -12,6 +12,7 @@ import {
   createParentSyncCoordinator,
   enqueueParentOfflineCommand,
   getParentOfflineResources,
+  getParentOfflineProfile,
   getParentSyncAttentionItems,
   getParentSyncSummary,
   reconcileParentSyncAttention,
@@ -113,14 +114,15 @@ function updateParentDocument(user, updater) {
 }
 
 export const parentOfflineProfileStore = {
+  // Android may take longer to decrypt a populated cache after a cold start.
+  readTimeoutMs: 6000,
   async clear() {
     await store.clear()
   },
   async read(userScope) {
     store.activate(userScope)
     const document = await readDocument(userScope)
-    if (!document?.profile?.value) return null
-    return (await ensureDocument(document.profile.value)).profile.value
+    return getParentOfflineProfile(document, userScope)
   },
   async write(profile) {
     await ensureDocument(profile)

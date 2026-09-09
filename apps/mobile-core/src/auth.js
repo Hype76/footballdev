@@ -102,7 +102,7 @@ export function AuthProvider({
 
     if (offlineProfileStore?.read) {
       try {
-        cachedProfile = await withStartupTimeout(() => offlineProfileStore.read(nextSession.user.id), 1500, 'PROFILE_CACHE_READ_TIMEOUT')
+        cachedProfile = await withStartupTimeout(() => offlineProfileStore.read(nextSession.user.id), offlineProfileStore.readTimeoutMs || 1500, 'PROFILE_CACHE_READ_TIMEOUT')
         if (!isCurrent()) return null
         if (cachedProfile && currentUserRef.current?.id !== cachedProfile.id) setUser({ ...cachedProfile, isOfflineProfile: true })
       } catch (error) {

@@ -61,6 +61,7 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
   const muted = { color: palette.textMuted }
   return <View style={styles.stack}>
     <Text style={[styles.copy, muted]}>Applies across your {app === 'coach' ? 'Coach' : 'Parent'} devices.</Text>
+    {app === 'parent' ? <>
     <Text style={[styles.title, text]} accessibilityRole="header">Game Day</Text>
     <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel="Game Day alerts">
     {GAME_DAY_CHOICES.map(choice => {
@@ -74,6 +75,7 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
     })}
     </View>
     {state.preferences ? <Text style={[styles.copy, muted]}>{GAME_DAY_CHOICES.find(choice => choice.key === state.preferences.gameDay)?.copy}</Text> : null}
+    </> : null}
     {SWITCHES.map(choice => <View key={choice.key} style={[styles.switchRow, { borderColor: palette.border }]}>
       <Icon iconKey={choice.iconKey} color={palette.accent} size={28} />
       <View style={styles.copyColumn}><Text style={[styles.label, text]}>{choice.label}</Text></View>

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { AccessibilityInfo, Animated, AppState, Easing, Image, Platform, StyleSheet, View } from 'react-native'
 
 const logoSource = require('../assets/football-player-logo.png')
+// Keep the exact PNG bytes in the Android bundle. Expo can otherwise resolve an
+// identical embedded asset using a resource name from a different module path.
+const androidLogoSource = require('../assets/football-player-logo.android-source.json')
 // Frame just the round FP emblem within the existing 512px app artwork.
 const emblem = { diameter: 276, left: 118, top: 66, sourceSize: 512 }
 
@@ -38,7 +41,7 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
 
   useEffect(() => {
     rotation.setValue(0)
-    if (Platform.OS === 'android' || reduceMotion || appState !== 'active') return undefined
+    if (reduceMotion || appState !== 'active') return undefined
     const animation = Animated.loop(Animated.timing(rotation, {
       toValue: 1,
       duration: 1600,
@@ -59,9 +62,11 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
       style={[styles.frame, style, { width: diameter, height: diameter }]}
       testID="brand-loader"
     >
-      {Platform.OS === 'android' ? <View collapsable={false} testID="brand-loader-android" style={[styles.disc, { width: diameter, height: diameter, borderRadius: diameter / 2 }]}>
-        <Image accessible={false} source={logoSource} fadeDuration={0} resizeMethod="scale" resizeMode="stretch" style={{ position: 'absolute', width: emblem.sourceSize * scale, height: emblem.sourceSize * scale, left: -emblem.left * scale, top: -emblem.top * scale }} />
-      </View> : <Animated.View
+      {Platform.OS === 'android' ? <Animated.View collapsable={false} pointerEvents="none" testID="brand-loader-android" style={{ width: diameter, height: diameter, transform }}>
+        <View collapsable={false} style={[styles.disc, { width: diameter, height: diameter, borderRadius: diameter / 2 }]}>
+          <Image accessible={false} source={androidLogoSource} fadeDuration={0} resizeMethod="scale" resizeMode="stretch" style={{ position: 'absolute', width: emblem.sourceSize * scale, height: emblem.sourceSize * scale, left: -emblem.left * scale, top: -emblem.top * scale }} />
+        </View>
+      </Animated.View> : <Animated.View
         collapsable={false}
         pointerEvents="none"
         style={{
