@@ -42,10 +42,11 @@ test('Coach Resources can assign one Resource to every unassigned active Player 
 
 test('Coach scrolling clamps an invalid offset after Poll content becomes shorter', async () => {
   const app = await read('../apps/coach-mobile/App.js')
+  const bounds = await read('../apps/coach-mobile/src/coachScrollBounds.js')
 
-  assert.match(app, /const maximumOffset = Math\.max\(0, contentHeightRef\.current - viewportHeightRef\.current\)/)
-  assert.match(app, /contentScrollRef\.current\?\.scrollTo\(\{ animated: false, y: maximumOffset \}\)/)
-  assert.match(app, /onContentSizeChange=/)
+  assert.match(bounds, /const maximumOffset = Math\.max\(0, contentHeight - viewportHeight\)/)
+  assert.match(bounds, /scrollTo\(\{ animated: false, y: maximumOffset \}\)/)
+  assert.match(app, /\.\.\.scrollBounds\.handlers/)
   assert.match(app, /bounces=\{false\}/)
   assert.match(app, /overScrollMode="never"/)
 })
