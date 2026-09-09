@@ -17,12 +17,13 @@ export async function findVenuePlaces(location, signal) {
   const cached = places.get(query)
   if (cached && Date.now() - cached.time < 86400000) return cached.items
   const postcode = query.match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/i)?.[0]
-  if (postcode) {
+  // Great Britain postcode coordinates are open data. Use OSM search for Northern Ireland.
+  if (postcode && !/^BT/i.test(postcode)) {
     try {
       const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`, { signal, headers: { Accept: 'application/json' } })
       const data = response.ok ? (await response.json()).result : null
       if (Number.isFinite(data?.latitude) && Number.isFinite(data?.longitude)) {
-        const items = [{ latitude: data.latitude, longitude: data.longitude, label: `${data.postcode} postcode area` }]
+        const items = [{ latitude: data.latitude, longitude: data.longitude, label: `${data.postcode} postcode area`, postcodeArea: true }]
         if (places.size >= 64) places.delete(places.keys().next().value)
         places.set(query, { time: Date.now(), items })
         return items

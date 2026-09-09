@@ -26,7 +26,7 @@ export function CoachSquadTemplates({ store, rows, locked, onApply, palette, sty
       const items = await store(kind, targetName, kind === 'save' ? selectedIds : [])
       if (current !== request.current) return
       setTemplates(items); setRemove('')
-      setMessage(kind === 'save' ? 'Template saved to your Coach account. Fixture selections and notifications have not been sent.' : kind === 'delete' ? 'Template deleted.' : 'Templates refreshed.')
+      setMessage(kind === 'save' ? 'Template saved to your Coach account.' : kind === 'delete' ? 'Template deleted.' : 'Templates refreshed.')
     } catch { if (current === request.current) setMessage('Templates could not be confirmed. Check your connection and refresh before trying again.') }
     finally { saving.current = false; if (current === request.current) setBusy(false) }
   }

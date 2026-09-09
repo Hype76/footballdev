@@ -7,6 +7,7 @@ export function VenueMapPreview({ location, offline = false, colors = {}, styles
   const [zoom, setZoom] = useState(15)
   const [width, setWidth] = useState(280)
   const [tileError, setTileError] = useState(false)
+  const [creditsOpen, setCreditsOpen] = useState(false)
   const request = useRef(null)
   useEffect(() => () => request.current?.abort(), [])
   const search = async () => {
@@ -31,6 +32,7 @@ export function VenueMapPreview({ location, offline = false, colors = {}, styles
     {state.places.length > 1 ? <View><Text style={[styles.body, { color: textColor }]}>Choose the matching venue:</Text>{state.places.map((place, index) => <View key={index}>{button(place.label, () => { setTileError(false); setState(current => ({ ...current, selected: place })) })}</View>)}</View> : null}
     {state.selected ? <View style={{ gap: 6 }}>
       <Text style={[styles.meta, { color: textColor }]}>Approximate map location: {state.selected.label}. Check the event address before travelling.</Text>
+      {state.selected.postcodeArea ? <View>{button('Postcode data credits', () => setCreditsOpen(value => !value))}{creditsOpen ? <View><Text style={[styles.meta, { color: textColor }]}>Contains Ordnance Survey data © Crown copyright and database right 2025. Contains Royal Mail data © Royal Mail copyright and database right 2025. Contains National Statistics data © Crown copyright and database right 2025. Contains NRS data © Crown copyright and database right 2025.</Text>{button('Postcodes.io licences', () => void Linking.openURL('https://postcodes.io/docs/licences/').catch(() => {}))}</View> : null}</View> : null}
       <View accessibilityLabel="Venue map preview" onLayout={event => setWidth(Math.max(1, event.nativeEvent.layout.width))} style={{ height: 220, overflow: 'hidden', borderRadius: 12, backgroundColor: '#e6eadf' }}>
         {!offline && !tileError ? venueMapTiles(state.selected, zoom, width).map(tile => <Image key={tile.key} accessible={false} onError={() => setTileError(true)} source={{ uri: tile.url, ...(Platform.OS === 'web' ? {} : { headers: { 'User-Agent': MAP_USER_AGENT }, cache: 'default' }) }} style={{ position: 'absolute', width: 256, height: 256, left: tile.left, top: tile.top }} />) : null}
         {tileError || offline ? <Text style={{ padding: 20, color: '#172d2d' }}>Map tiles unavailable. Use Get directions.</Text> : <View pointerEvents="none" style={{ position: 'absolute', left: '50%', top: '50%', marginLeft: -9, marginTop: -9, width: 18, height: 18, backgroundColor: '#c62626', borderColor: 'white', borderWidth: 3, borderRadius: 9 }} />}

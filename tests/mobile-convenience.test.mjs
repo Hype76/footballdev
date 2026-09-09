@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { normalizeVenuePlaces, venueMapTiles } from '../apps/mobile-core/src/venueMapCore.js'
+import { findVenuePlaces, normalizeVenuePlaces, venueMapTiles } from '../apps/mobile-core/src/venueMapCore.js'
 import { isFanMatchNotificationType, sendFanMatchNotifications } from '../netlify/functions/lib/_fan-push.js'
 import { buildCoachCalendarPayload, coachCalendarFormFromEvent, normalizeCoachCalendarEvent } from '../apps/mobile-core/src/coachCalendarCore.js'
 
@@ -33,4 +33,17 @@ test('pinned note choice survives event form round trip and clears for empty not
   const context={clubId:'club',activeTeamId:'team',role:'coach'}
   assert.equal(buildCoachCalendarPayload({form,context}).notes_pinned,true)
   assert.equal(buildCoachCalendarPayload({form:{...form,notes:''},context}).notes_pinned,false)
+})
+
+test('GB postcode preview uses the postcode area, caches results and keeps NI on OSM search', async () => {
+  const previous=globalThis.fetch,urls=[]
+  globalThis.fetch=async url=>{urls.push(url);return {ok:true,json:async()=>({result:{postcode:'CB23 6FY',latitude:52.22,longitude:-0.065},features:[]})}}
+  try {
+    const [place]=await findVenuePlaces('Test pitch CB23 6FY')
+    assert.equal(place.postcodeArea,true)
+    assert.equal(place.label,'CB23 6FY postcode area')
+    await findVenuePlaces('Test pitch CB23 6FY');assert.equal(urls.length,1)
+    assert.match(urls[0],/^https:\/\/api.postcodes.io\/postcodes\//)
+    await findVenuePlaces('Test pitch BT1 1AA');assert.match(urls[1],/^https:\/\/photon.komoot.io\//)
+  } finally {globalThis.fetch=previous}
 })
