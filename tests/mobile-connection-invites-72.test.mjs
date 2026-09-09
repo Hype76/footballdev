@@ -25,8 +25,10 @@ test('mobile connection warnings wait for a confirmed 30 second outage', async (
   assert.match(parentApp, /useConfirmedConnectionIssue\(isOffline\)/)
   assert.match(parentScreens, /useConfirmedConnectionMessage\(messages\.error\)/)
   assert.match(coachApp, /contentInsetAdjustmentBehavior="never"/)
-  assert.match(coachApp, /onMomentumScrollEnd=\{clampContentScroll\}/)
-  assert.match(coachApp, /onScrollEndDrag=\{clampContentScroll\}/)
+  const bounds = await readFile(new URL('apps/coach-mobile/src/coachScrollBounds.js', root), 'utf8')
+  assert.match(coachApp, /\.\.\.scrollBounds\.handlers/)
+  assert.match(bounds, /onMomentumScrollEnd\(event\)/)
+  assert.match(bounds, /onScrollEndDrag\(event\)/)
 })
 
 test('Coach invites include upcoming Training availability and canonical request identity', async () => {

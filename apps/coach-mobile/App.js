@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import { CoachNotificationHistoryScreen } from './src/CoachNotificationHistoryScreen'
+import { createCoachScrollBounds } from './src/coachScrollBounds'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { IconMenu, IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
@@ -11,7 +12,6 @@ import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
-  Animated,
   AppState,
   BackHandler,
   Image,
@@ -175,13 +175,12 @@ function CoachHome() {
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
   const contentScrollRef = useRef(null)
-  const contentHeightRef = useRef(0)
-  const scrollOffsetRef = useRef(0)
-  const viewportHeightRef = useRef(0)
+  const contentOriginRef = useRef(0)
+  const scrollBounds = useMemo(() => createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options)), [])
+  useEffect(() => () => scrollBounds.dispose(), [scrollBounds])
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
   const lastHomeRefreshAtRef = useRef(0)
-  const headerScrollY = useRef(new Animated.Value(0)).current
   const requestIdRef = useRef(0)
   const chatRefreshIdRef = useRef(0)
   const bootstrappedAuthorityRef = useRef('')
@@ -211,36 +210,13 @@ function CoachHome() {
   const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id)
   useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   useCoachDevelopmentSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser })
-  const coachHeaderHeight = contextResolution.contexts.length < 2 ? 76 : 164
-  const collapsedCoachHeader = useMemo(
-    () => Animated.diffClamp(headerScrollY, 0, coachHeaderHeight),
-    [coachHeaderHeight, headerScrollY],
-  )
-  const coachHeaderStyle = useMemo(() => ({
-    maxHeight: collapsedCoachHeader.interpolate({ inputRange: [0, coachHeaderHeight], outputRange: [coachHeaderHeight, 0], extrapolate: 'clamp' }),
-    opacity: collapsedCoachHeader.interpolate({ inputRange: [0, coachHeaderHeight * 0.7, coachHeaderHeight], outputRange: [1, 0.35, 0], extrapolate: 'clamp' }),
-  }), [coachHeaderHeight, collapsedCoachHeader])
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
   const scrollContentToTop = useCallback(() => {
-    scrollOffsetRef.current = 0
-    headerScrollY.setValue(0)
+    scrollBounds.resetOffset()
     requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: 0 }))
-  }, [headerScrollY])
-
-  const clampContentScroll = useCallback(() => {
-    const maximumOffset = Math.max(0, contentHeightRef.current - viewportHeightRef.current)
-    if (scrollOffsetRef.current > maximumOffset + 2) {
-      scrollOffsetRef.current = maximumOffset
-      requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: maximumOffset }))
-      return
-    }
-    if (scrollOffsetRef.current < -2) {
-      scrollOffsetRef.current = 0
-      requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: 0 }))
-    }
-  }, [])
+  }, [scrollBounds])
 
   useEffect(() => {
     scrollContentToTop()
@@ -485,11 +461,11 @@ function CoachHome() {
 
   const focusNotificationSettings = useCallback((sectionY) => {
     const numericY = Number(sectionY)
-    const targetY = Number.isFinite(numericY) ? Math.max(0, numericY - 12) : 0
-    scrollOffsetRef.current = targetY
+    const targetY = Number.isFinite(numericY) ? Math.max(0, contentOriginRef.current + numericY - 12) : 0
+    scrollBounds.resetOffset(targetY)
     requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: true, y: targetY }))
     setNotificationSettingsFocusRequest(null)
-  }, [])
+  }, [scrollBounds])
 
   const launchQuickAction = useCallback((action) => {
     setQuickActionRequest(action.intent ? { ...action, requestId: `${Date.now()}:${action.id}` } : null)
@@ -741,20 +717,6 @@ function CoachHome() {
           enabled={Platform.OS === 'ios' || Platform.OS === 'android'}
           style={styles.keyboardShell}
         >
-          {!isMatchInvitesRoute ? <Animated.View style={[styles.collapsibleHeader, coachHeaderStyle]}>
-            <CoachHeader
-              context={activeContext}
-              notificationState={notificationState}
-              notificationStateStatus={notificationStateStatus}
-              onOpenNotificationSettings={openNotificationSettings}
-              user={selectedMobileUser}
-            />
-            <ContextSwitcher
-              contexts={contextResolution.contexts}
-              onSelect={selectContext}
-              selectedContextId={activeContext.id}
-            />
-          </Animated.View> : null}
           {activeContext.paymentAccess.state === 'payment_required' ? (
             <StatePanel
               message="Viewing remains available, but operational changes are blocked until plan access is restored."
@@ -763,18 +725,15 @@ function CoachHome() {
             />
           ) : null}
           {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
-          <Animated.ScrollView
+          <ScrollView
+            {...scrollBounds.handlers}
+            testID="coach-content-scroll"
+            style={{ flex: 1 }}
             automaticallyAdjustKeyboardInsets={false}
             bounces={false}
-            contentContainerStyle={[styles.content, isMatchInvitesRoute && { paddingHorizontal: 8, paddingTop: 4 }]}
             contentInsetAdjustmentBehavior="never"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="always"
-            onContentSizeChange={(_width, height) => { contentHeightRef.current = height; clampContentScroll() }}
-            onLayout={(event) => { viewportHeightRef.current = event.nativeEvent.layout.height; clampContentScroll() }}
-            onMomentumScrollEnd={clampContentScroll}
-            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: headerScrollY } } }], { listener: (event) => { scrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y) }, useNativeDriver: false })}
-            onScrollEndDrag={clampContentScroll}
             overScrollMode="never"
             scrollEventThrottle={16}
             refreshControl={(
@@ -788,6 +747,21 @@ function CoachHome() {
             )}
             ref={contentScrollRef}
           >
+            {!isMatchInvitesRoute ? <View testID="coach-scroll-header">
+              <CoachHeader
+                context={activeContext}
+                notificationState={notificationState}
+                notificationStateStatus={notificationStateStatus}
+                onOpenNotificationSettings={openNotificationSettings}
+                user={selectedMobileUser}
+              />
+              <ContextSwitcher
+                contexts={contextResolution.contexts}
+                onSelect={selectContext}
+                selectedContextId={activeContext.id}
+              />
+            </View> : null}
+            <View onLayout={(event) => { contentOriginRef.current = event.nativeEvent.layout.y }} style={[styles.content, isMatchInvitesRoute && { paddingHorizontal: 8, paddingTop: 4 }]}>
             {isRefreshing ? <View style={{ alignItems: 'center', paddingVertical: 8 }}><BrandLoader accessibilityLabel="Refreshing" /></View> : null}
             <CoachRoute
               activeRoute={activeRoute}
@@ -830,7 +804,8 @@ function CoachHome() {
               themeMode={displayTheme}
               user={selectedMobileUser}
             />
-          </Animated.ScrollView>
+            </View>
+          </ScrollView>
           <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
           {!(activeRoute === 'more' && moreRoute === 'invites') ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
         </KeyboardAvoidingView>
@@ -1502,7 +1477,6 @@ function createCoachStyles(palette) {
     bodyText: { color: palette.textSecondary, fontSize: 15, lineHeight: 22 },
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
     cardTitle: { color: palette.textPrimary, fontSize: 16, fontWeight: '900', lineHeight: 21 },
-    collapsibleHeader: { overflow: 'hidden' },
     content: { alignSelf: 'center', maxWidth: 720, paddingBottom: 28, paddingHorizontal: 16, paddingTop: 16, width: '100%' },
     contextLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: 0.6, paddingHorizontal: 16, textTransform: 'uppercase' },
     contextList: { gap: 8, paddingHorizontal: 16, paddingVertical: 9 },
