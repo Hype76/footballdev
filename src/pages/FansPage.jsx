@@ -92,7 +92,7 @@ function FanContent({ state, run }) {
     if (active.current) setResource({ ...result, title: item.title, id: item.id })
   })
   const board = resource?.formationBoard
-  return <section className="fans-content"><button onClick={state.clearView}>Close view</button>{!data ? <p role="status">Loading...</p> : <>
+  return <section className="fans-content"><button onClick={state.clearView}>Close view</button>{state.contentError ? <div><p role="alert">{state.contentError}</p><button onClick={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})}>Try again</button></div> : !data ? <p role="status">Loading...</p> : <>
     {(data.matches || []).map((m) => <button className="fans-person" key={m.id} onClick={() => state.open(state.view.connectionId, 'matches', { matchId: m.id })}><FanIcon name="game_day" /><span><strong>{m.opponent}: {m.home_score} : {m.away_score}</strong><small>{m.match_date} · {m.kickoff_time_tbc ? 'Time TBC' : m.kickoff_time} · {m.status}</small></span></button>)}
     {(data.events || []).map((e) => <p key={e.id}>{e.minute == null ? '' : `${e.minute} min · `}{e.event_type.replaceAll('_', ' ')} · {e.home_score} : {e.away_score}</p>)}
     {(data.schedule || []).map((e) => <div className="fans-person" key={e.id}><FanIcon name="schedule" /><div><strong>{e.title}</strong><small>{e.starts_at ? new Date(e.starts_at).toLocaleString() : `${e.date} ${e.time || 'Time TBC'}`}</small><small>{e.location}{e.recurrence_frequency && e.recurrence_frequency !== 'none' ? ` · Repeats ${e.recurrence_frequency}${e.recurrence_until ? ` until ${e.recurrence_until}` : ''}` : ''}</small></div></div>)}

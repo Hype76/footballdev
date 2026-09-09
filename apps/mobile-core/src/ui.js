@@ -1,5 +1,5 @@
 import { BrandLoader } from './BrandLoader'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Image, Platform, Pressable, SafeAreaView, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
 import { colors, screen } from './theme'
 
@@ -220,6 +220,7 @@ export function MobileLoginScreen({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecovering, setIsRecovering] = useState(false)
   const [recoveryMessage, setRecoveryMessage] = useState('')
+  const passwordInputRef = useRef(null)
   const canSubmit = Boolean(email.trim() && password)
 
   async function handleLogin() {
@@ -262,7 +263,12 @@ export function MobileLoginScreen({
   return (
     <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
       <NativeStatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.loginScroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.loginScroll}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.loginShell}>
           <Image source={logoSource} style={styles.logo} resizeMode="contain" />
           <Text style={styles.kicker}>{kicker}</Text>
@@ -277,11 +283,14 @@ export function MobileLoginScreen({
               onChangeText={setEmail}
               placeholder={emailPlaceholder}
               returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
               textContentType="username"
               value={email}
             />
             <TextField
               autoComplete="current-password"
+              inputRef={passwordInputRef}
               label="Password"
               onChangeText={setPassword}
               onSubmitEditing={handleLogin}
@@ -311,6 +320,7 @@ export function TextField({
   autoComplete,
   autoCapitalize = 'none',
   blurOnSubmit,
+  inputRef,
   keyboardType = 'default',
   label,
   multiline = false,
@@ -331,6 +341,7 @@ export function TextField({
       <Text style={styles.label}>{label}</Text>
       <View style={actionLabel ? styles.inputRow : null}>
         <TextInput
+          ref={inputRef}
           autoComplete={autoComplete}
           autoCapitalize={autoCapitalize}
           blurOnSubmit={blurOnSubmit}
