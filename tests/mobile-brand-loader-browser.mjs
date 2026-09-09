@@ -40,6 +40,15 @@ const result = await build({
     'react-dom': path.join(appModules, 'react-dom'),
   },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' },
+  plugins: [{ name: 'android-build-44-resource-regression', setup(builder) {
+    builder.onLoad({ filter: /football-player-logo\.png$/ }, async ({path: assetPath}) => {
+      const uri = 'data:image/png;base64,' + (await readFile(assetPath)).toString('base64')
+      // Build 44 embeds assets_footballplayerlogo, while the shared module resolves
+      // _mobilecore_assets_footballplayerlogo. Do not let a web data-url transform
+      // silently make that broken Android require() work in this regression test.
+      return {contents: `module.exports={uri:location.search.includes('android')?'missing-android-resource.png':${JSON.stringify(uri)}}`,loader:'js'}
+    })
+  }}],
 })
 const script = result.outputFiles[0].text
 const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
@@ -58,7 +67,8 @@ try {
   const page = await browser.newPage({ viewport: { width: 660, height: 470 }, reducedMotion: 'reduce' })
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto(`http://127.0.0.1:${server.address().port}?platform=${platform}`)
-  const discs = page.getByTestId(platform === 'android' ? 'brand-loader-android' : 'brand-loader-disc')
+  const discId = platform === 'android' ? 'brand-loader-android' : 'brand-loader-disc'
+  const discs = page.getByTestId(discId)
   await discs.first().waitFor()
   await page.waitForFunction(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0))
   assert.equal(await discs.count(), 4)
@@ -70,24 +80,12 @@ try {
   assert.deepEqual(bounds, { width: '56px', height: '56px', radius: '28px', overflow: 'hidden', background: 'rgb(0, 0, 0)' })
   }
   const transform = () => discs.first().evaluate((element) => getComputedStyle(element).transform)
-  if (platform === 'android') {
-    assert.equal(await page.getByRole('progressbar').count(), 4)
-    await page.screenshot({path:path.join(output,'fp-emblem-android.png')})
-    await page.emulateMedia({reducedMotion:'no-preference'})
-    await page.waitForFunction(()=>document.querySelectorAll('[data-testid="brand-loader-android"] [role="progressbar"]').length===0)
-    await page.emulateMedia({reducedMotion:'reduce'})
-    await page.waitForFunction(()=>document.querySelectorAll('[data-testid="brand-loader-android"] [role="progressbar"]').length===0)
-    assert.ok(await discs.first().evaluate(el=>el.getBoundingClientRect().width>=56))
-    await page.evaluate(()=>window.unmountLoaders())
-    await page.close()
-    continue
-  }
   const still = await transform()
   await page.waitForTimeout(160)
   assert.equal(await transform(), still, 'Reduce Motion must show a still logo')
   await page.screenshot({ path: path.join(output, `circular-loaders-${platform}.png`) })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
-  await page.waitForFunction((previous) => getComputedStyle(document.querySelector('[data-testid="brand-loader-disc"]')).transform !== previous, still)
+  await page.waitForFunction(({previous,id}) => getComputedStyle(document.querySelector('[data-testid="'+id+'"]')).transform !== previous, {previous:still,id:discId})
   if (platform === 'android') {
     assert.match(await transform(), /^matrix\(/, 'Android must stay on the 2D rendering path')
     for (let frame = 0; frame < 12; frame += 1) {
@@ -115,7 +113,7 @@ try {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
     document.dispatchEvent(new Event('visibilitychange'))
   })
-  await page.waitForFunction((previous) => getComputedStyle(document.querySelector('[data-testid="brand-loader-disc"]')).transform !== previous, paused)
+  await page.waitForFunction(({previous,id}) => getComputedStyle(document.querySelector('[data-testid="'+id+'"]')).transform !== previous, {previous:paused,id:discId})
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.waitForTimeout(80)
   const reduced = await transform()
@@ -133,7 +131,7 @@ try {
   for (const file of ['apps/mobile-core/src/ui.js', 'apps/parent-mobile/App.js', 'apps/coach-mobile/App.js', 'apps/coach-mobile/src/CoachFormationBoard.js', 'apps/coach-mobile/src/CoachFormationScreen.js', 'apps/coach-mobile/src/CoachMatchDayScreen.js', 'apps/coach-mobile/src/CoachOperationalScreens.js']) {
     assert.equal((await readFile(path.join(root, file), 'utf8')).includes('ActivityIndicator'), false, `${file} must use the branded loader`)
   }
-  console.log('PASS: Android shows the full-size FP emblem without a native ring; iPhone 3D flip preserved; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
+  console.log('PASS: Android uses embedded FP PNG bytes and a 2D spin; iPhone 3D flip preserved; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
 } catch (error) {
   if (errors.length) console.error('Browser errors:', errors)
   throw error

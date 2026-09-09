@@ -78,6 +78,17 @@ export function createParentOfflineDocument({ now = Date.now, profile, selectedL
   }
 }
 
+export function getParentOfflineProfile(document, userScope) {
+  const scope = normalize(userScope)
+  if (!scope || normalize(document?.userScope) !== scope || normalize(document?.profile?.value?.id) !== scope) return null
+  // Opening a saved profile must not depend on rewriting the encrypted cache.
+  // Sanitize in memory so older caches still exclude private Fan/Family links.
+  return sanitizeParentOfflineProfile({
+    ...document.profile.value,
+    selectedParentLinkId: document.selectedLinkId || document.profile.value.selectedParentLinkId,
+  })
+}
+
 export function setParentOfflineProfile(document, profile, { now = Date.now } = {}) {
   if (normalize(profile?.id) !== normalize(document?.userScope)) throw new Error('offline_profile_scope_mismatch')
   const links = Array.isArray(profile.parentPortalLinks) ? profile.parentPortalLinks : []
