@@ -5,13 +5,14 @@ export function useFans({ rpc, request }) {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState(null)
   const [content, setContent] = useState(null)
+  const [contentError, setContentError] = useState('')
   const sequence = useRef(0)
   const reload = useCallback(async () => {
     const result = await rpc('list_fan_connections')
     setConnections(Array.isArray(result) ? result : [])
     return Array.isArray(result) ? result : []
   }, [rpc])
-  const clearView = useCallback(() => { ++sequence.current; setView(null); setContent(null) }, [])
+  const clearView = useCallback(() => { ++sequence.current; setView(null); setContent(null); setContentError('') }, [])
   useEffect(() => {
     let alive = true
     const generation = sequence
@@ -32,12 +33,12 @@ export function useFans({ rpc, request }) {
   const open = useCallback(async (connectionId, action, extra = {}) => {
     const current = ++sequence.current
     const next = { connectionId, action, ...extra }
-    setView(next); setContent(null); setError('')
+    setView(next); setContent(null); setContentError(''); setError('')
     try {
       const result = await request(next)
       if (sequence.current === current) setContent(result)
-    } catch (e) { if (sequence.current === current) { clearView(); setError(e.message) } }
-  }, [clearView, request])
+    } catch (e) { if (sequence.current === current) setContentError(e.message) }
+  }, [request])
   const manage = useCallback(async (connectionId, action, permissions) => {
     clearView()
     await rpc('manage_fan_connection', { connection_id_value: connectionId, action_value: action, permissions_value: permissions || null })
@@ -54,10 +55,10 @@ export function useFans({ rpc, request }) {
       const generation = ++sequence.current
       try {
         const result = await request(view)
-        if (alive && sequence.current === generation) setContent(result)
-      } catch (e) { if (alive) { clearView(); setError(e.message) } }
+        if (alive && sequence.current === generation) { setContent(result); setContentError('') }
+      } catch (e) { if (alive && sequence.current === generation) { setContent(null); setContentError(e.message) } }
     }, view.action === 'matches' ? 15000 : 30000)
     return () => { alive = false; clearInterval(timer) }
   }, [clearView, request, view])
-  return { connections, loading, error, setError, reload, view, content, clearView, open, manage, deleteInvitation }
+  return { connections, loading, error, setError, reload, view, content, contentError, clearView, open, manage, deleteInvitation }
 }

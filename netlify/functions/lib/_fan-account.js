@@ -1,4 +1,4 @@
-import { assertPasswordPolicy, PASSWORD_POLICY_SUMMARY } from '../../../src/lib/password-policy.js'
+import { assertPasswordPolicy } from '../../../src/lib/password-policy.js'
 import { buildFanEmail } from './_fan-email.js'
 import { loadFanInvitingParent } from './_fan-access.js'
 
@@ -8,6 +8,23 @@ const reportFailure = (phase, error) => console.error('fan_account_failed', {
   code: /^[a-z_]{1,80}$/.test(error?.code || '') ? error.code : 'unknown',
   status: Number.isInteger(error?.status) ? error.status : null,
 })
+
+function passwordRejectionMessage(error) {
+  const reasons = Array.isArray(error.reasons) ? error.reasons : []
+  const messages = []
+  if (reasons.includes('pwned')) {
+    messages.push('This password has appeared in a known data breach. Choose a different, unique password.')
+  }
+  if (reasons.includes('length')) {
+    // Extract only the provider's numeric minimum, never return its raw message.
+    const minimum = typeof error.message === 'string' ? error.message.match(/Password should be at least ([1-9][0-9]?) characters\./)?.[1] : null
+    messages.push(minimum ? `Password must be at least ${minimum} characters.` : 'This password is too short. Choose a longer password.')
+  }
+  if (reasons.includes('characters')) {
+    messages.push('Password must include an uppercase letter, a lowercase letter, a number, and a symbol such as ! or @.')
+  }
+  return messages.join(' ') || 'The sign-in service rejected this password without giving a specific reason. Choose a different password and try again.'
+}
 
 export function createFanAccountHandler({ createClient, sendEmail, createFromAddress }) {
   return async (event) => {
@@ -29,7 +46,7 @@ export function createFanAccountHandler({ createClient, sendEmail, createFromAdd
       if (signupError) {
         reportFailure('signup', signupError)
         if (['email_exists', 'user_already_exists'].includes(signupError.code)) return json(409, { code: 'account_exists', message: 'An account is already registered with this email. Confirm your email if you have not done so, then choose Sign in. You can use Forgot password if needed.' })
-        if (signupError.code === 'weak_password') return json(400, { code: 'weak_password', message: `Choose a stronger password. ${PASSWORD_POLICY_SUMMARY}` })
+        if (signupError.code === 'weak_password') return json(400, { code: 'weak_password', message: passwordRejectionMessage(signupError) })
         if (signupError.status === 429) return json(429, { code: 'signup_rate_limited', message: 'Account creation is temporarily limited. Wait a few minutes, then try Create account again.' })
         throw signupError
       }

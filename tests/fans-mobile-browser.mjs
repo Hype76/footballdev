@@ -45,7 +45,13 @@ window.rpc=async(name,args)=>{
     const row=window.rows.find(r=>r.id===args.connection_id_value);if(row.status!=='cancelled')throw Error('Only cancelled');row.deleted=true;
   }
 };
-window.emailRequests=0;window.fetch=async()=>{window.emailRequests++;return {ok:true,status:200,json:async()=>({success:true})}};
+window.readRequests=[];window.responses={};window.failRead=false;window.delayRead=false;
+window.emailRequests=0;window.fetch=async(_url,options)=>{
+ const body=JSON.parse(options.body);if(body.action==='send_invitation'){window.emailRequests++;return {ok:true,status:200,json:async()=>({success:true})}}
+ window.readRequests.push(body);const payload=window.responses[body.action]||{};const fail=window.failRead;
+ if(window.delayRead)await new Promise(resolve=>{window.finishRead=resolve});
+ return {ok:!fail,status:fail?503:200,json:async()=>fail?{message:'Could not load shared items. Try again.'}:payload};
+};
 Alert.alert=(title,message,buttons)=>{window.alert={title,message,buttons}};
 let appListener;AppState.addEventListener=(_event,fn)=>{appListener=fn;return {remove(){appListener=null}}};window.background=()=>{appListener?.('background');appListener?.('active')};
 Share.share=async()=>{window.background();return {action:'sharedAction'}};
@@ -159,6 +165,49 @@ try {
   await page.locator('[data-tab="home"]').waitFor()
   await page.evaluate(() => window.navigate())
   await button('First Child (selected)').waitFor()
+  await page.evaluate(() => {
+    window.user={id:'fan-test',parentPortalLinks:[]};
+    window.rows=[{id:'followed-child',is_owner:false,status:'active',player_name:'Followed Child',club_name:'Demo FC',team_name:'Under 17',permissions:{schedule:true,game_day:true,development:true,resources:true}}];
+    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:'2026-09-14',time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:'2026-09-15',status:'scheduled'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
+    window.remount();
+  });
+  await page.getByText('Followed Child',{exact:true}).waitFor();
+  for(const mode of ['light','dark']) {
+    await page.evaluate(mode=>window.mode(mode),mode);
+    for(const [label,title,expected] of [['Schedule','Schedule','Shared training'],['Game Day','Game Day','Away Club: 0 : 0'],['Development records','Development records','Shared report'],['Include resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
+      await button(label).click();
+      await page.getByRole('heading',{name:title,exact:true}).waitFor();
+      await page.getByText(expected,{exact:expected!=='Shared report'}).waitFor();
+      await page.waitForFunction(title=>[...document.querySelectorAll('[role=heading]')].some(el=>el.textContent===title&&el.getBoundingClientRect().y>=0&&el.getBoundingClientRect().y<220),title);
+      const heading=await page.getByRole('heading',{name:title,exact:true}).boundingBox();
+      assert.ok(heading.y>=0&&heading.y<220,'Opened section heading is visible immediately');
+      await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
+      await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
+      await button('Back to Fans').click();
+    }
+  }
+  await page.evaluate(()=>{window.responses.schedule={schedule:[]}});
+  await button('Schedule').click();
+  await page.getByText('No shared schedule items are available for this child.').waitFor();
+  await button('Back to Fans').click();
+  await page.evaluate(()=>{window.failRead=true});
+  await button('Schedule').click();
+  await page.getByRole('alert').getByText('Could not load shared items. Try again.').waitFor();
+  await page.evaluate(()=>{window.failRead=false});
+  await button('Try again').click();
+  await page.getByText('No shared schedule items are available for this child.').waitFor();
+  await button('Back to Fans').click();
+  await page.evaluate(()=>{window.delayRead=true});
+  await button('Schedule').click();
+  await page.getByText('Loading schedule...').waitFor();
+  await button('Back to Fans').click();
+  await page.evaluate(()=>{window.delayRead=false;window.finishRead()});
+  await button('Game Day').click();
+  await page.getByText('Away Club: 0 : 0',{exact:true}).waitFor();
+  assert.equal(await page.getByText('No shared schedule items are available for this child.').count(),0);
+  await page.evaluate(()=>{window.rows[0].permissions.game_day=false;window.background()});
+  await button('Back to Fans').waitFor({state:'hidden'});
+  await button('Game Day').waitFor({state:'hidden'});
   assert.deepEqual(errors, [])
   console.log('PASS: native Fans child/header sync, persisted selection, email/QR/share remount, prominent branded action, confirmed cancelled-only deletion, retry after failure, normal child navigation.')
 } finally { await browser.close() }
