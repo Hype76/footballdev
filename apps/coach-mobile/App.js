@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import { CoachNotificationHistoryScreen } from './src/CoachNotificationHistoryScreen'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { IconMenu, IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
@@ -804,6 +805,7 @@ function CoachHome() {
               onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
               onMatchDayTargetHandled={handleMatchDayTargetHandled}
               onNavigate={navigate}
+              onOpenNotification={openCoachTarget}
               onNotificationModeChange={updateNotificationMode}
               onNotificationSettingsFocus={focusNotificationSettings}
               onQuickActionHandled={handleQuickActionHandled}
@@ -832,7 +834,7 @@ function CoachRoute(props) {
   const { activeRoute, moreRoute } = props
   const { palette } = useCoachTheme()
   if (activeRoute === 'home') return <HomeScreen {...props} />
-  if (activeRoute === 'notifications') return <CoachNotificationsScreen {...props} />
+  if (activeRoute === 'notifications') return <CoachNotificationsScreen {...props} key={props.context.id} />
   if (activeRoute === 'calendar') return <CoachCalendarScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'players') return <CoachPlayersScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'formation') return <CoachFormationScreen {...props} key={props.context.id} palette={palette} />
@@ -848,23 +850,9 @@ function CoachRoute(props) {
   return <FoundationRoute route={activeRoute} {...props} />
 }
 
-function CoachNotificationsScreen({ homeState, onNavigate }) {
-  const unreadChat = Number(homeState.unreadChat || 0)
-  const hasNotifications = unreadChat > 0
-
-  return (
-    <ScreenIntro copy="Unread Chat messages for this Coach context." title="Notifications">
-      {!hasNotifications ? <EmptyPanel message="There are no unread Coach notifications." title="You are up to date" /> : null}
-      {unreadChat > 0 ? (
-        <PreviewCard
-          actionLabel="Open Chat"
-          detail={`${unreadChat} unread Chat ${unreadChat === 1 ? 'message' : 'messages'}.`}
-          onAction={() => onNavigate('chat')}
-          title="Chat"
-        />
-      ) : null}
-    </ScreenIntro>
-  )
+function CoachNotificationsScreen(props) {
+  const { palette, styles } = useCoachTheme()
+  return <CoachNotificationHistoryScreen {...props} palette={palette} styles={styles} />
 }
 
 function HomeScreen({ context, homeState, onNavigate, reloadHome }) {

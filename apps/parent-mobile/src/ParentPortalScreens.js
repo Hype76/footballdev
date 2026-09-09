@@ -1,3 +1,5 @@
+import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
+import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import * as Crypto from 'expo-crypto'
 import { oppositeMatchSide } from '../../../src/lib/matchday-goal-credit.js'
 import { SCORER_EVENT_LABELS, validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event.js'
@@ -339,7 +341,7 @@ function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, o
 }
 
 export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calendar', event, isOffline, onBack, onOpenLink, onOpenResource, themeTokens }) {
-  const { styles } = usePortalStyles(themeTokens)
+  const { colors, styles } = usePortalStyles(themeTokens)
   const presentation = getParentEventPresentation(event)
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
   useEffect(() => {
@@ -350,12 +352,13 @@ export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calen
     <Button label={backLabel} onPress={onBack} outline styles={styles} />
     <View style={styles.eventDetailCard}>
       <Text accessibilityRole="header" style={styles.header}>{event.title}</Text>
+      <PinnedEventNotes notes={event.notes} pinned={event.notesPinned} styles={styles} colors={colors} />
       <Text style={styles.meta}>{[getParentEventDateTimeLabel(event), presentation.label, event.teamName, labelize(event.status)].filter(Boolean).join(' | ')}</Text>
       {event.endsAt ? <Text style={styles.body}>Ends {formatParentProductDateTime(event.endsAt)}</Text> : null}
       {event.arrivalTime ? <Text style={styles.body}>Arrive {formatParentProductTime(event.arrivalTime)}</Text> : null}
-      {event.location ? <View style={styles.section}><Text style={styles.cardTitle}>Location</Text><Text style={styles.body}>{event.location}</Text>{directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}</View> : null}
-      {event.description ? <Text style={styles.body}>{event.description}</Text> : null}
-      {event.notes && event.notes !== event.description ? <View style={styles.section}><Text style={styles.cardTitle}>Shared notes</Text><Text style={styles.body}>{event.notes}</Text></View> : null}
+      {event.location ? <View style={styles.section}><Text style={styles.cardTitle}>Location</Text><Text style={styles.body}>{event.location}</Text><VenueMapPreview key={event.location} location={event.location} offline={isOffline} colors={colors} styles={styles} />{directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}</View> : null}
+      {event.description && (!event.notesPinned || event.description !== event.notes) ? <Text style={styles.body}>{event.description}</Text> : null}
+      {!event.notesPinned && event.notes && event.notes !== event.description ? <View style={styles.section}><Text style={styles.cardTitle}>Shared notes</Text><Text style={styles.body}>{event.notes}</Text></View> : null}
       {event.resources?.length ? <View style={styles.section}><Text style={styles.cardTitle}>Attachments</Text>{event.resources.map(resource => <Button disabled={isOffline || Boolean(activeActionId)} key={resource.id} label={`Open ${resource.title}`} onPress={() => onOpenResource?.(event, resource)} outline styles={styles} />)}</View> : null}
     </View>
   </View>
