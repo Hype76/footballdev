@@ -593,6 +593,11 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       if (!matchRef.current) setStale(true)
       setLoading(false)
     }
+    if (currentUser.isOfflineProfile) {
+      setStale(true); setLoading(false); loadInFlight.current = false
+      if (!hasCachedMatches) setError('Connect and download fixtures on Home before recording on this phone.')
+      return
+    }
     try {
       const [matchesResult, playersResult] = await Promise.allSettled([
         withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)),
@@ -644,7 +649,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       if (isCurrentScope()) setLoading(false)
     }
   }, [cache])
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load() }, [load, user.isOfflineProfile])
   useEffect(() => {
     if (!requestedFixtureId || loading || match?.id !== requestedFixtureId) return
     setPanel(isLiveMatch(match) ? 'live' : 'overview')
@@ -678,19 +683,36 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const open = async (summary) => {
     selectedMatchId.current = summary.id
     setBusy(true); setError('')
-    try { const detail = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id)); matchRef.current = detail; setMatch(detail); setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) }); setEventForm(createCoachMatchDayEventForm('goal', detail)); setPanel(isLiveMatch(detail) ? 'live' : 'overview'); setStale(false); await cache(matches, detail, players) }
-    catch (openError) {
-      const savedJournal = await readCoachMatchDayOutbox(user.id, context, summary.id).catch(() => null)
-      const savedResources = await readCoachOfflineResources(user.id, context).catch(() => null)
-      const cached = savedJournal?.baseMatch || (savedResources?.resources?.matchDayDetail?.id === summary.id ? savedResources.resources.matchDayDetail : null)
-      if (cached) {
-        const detail = normalizeCoachMatchDay(cached)
-        matchRef.current = detail; setMatch(detail); setStale(true)
-        setPanel(isLiveMatch(detail) ? 'live' : 'overview')
-      }
-      setError(errorMessage(openError, 'Fixture details could not be loaded.'))
+    const currentScope = context.id
+    const isCurrent = () => contextRef.current.id === currentScope && selectedMatchId.current === summary.id
+    const savedJournal = await readCoachMatchDayOutbox(user.id, context, summary.id).catch(() => null)
+    const savedResources = savedJournal ? null : await readCoachOfflineResources(user.id, context).catch(() => null)
+    const cached = savedJournal?.baseMatch || (savedResources?.resources?.matchDayDetail?.id === summary.id ? savedResources.resources.matchDayDetail : null)
+    if (!isCurrent()) return
+    if (cached) {
+      const detail = normalizeCoachMatchDay(cached)
+      matchRef.current = detail; setMatch(detail); setStale(true); setBusy(false)
+      setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) })
+      setEventForm(createCoachMatchDayEventForm('goal', detail))
+      setPanel(isLiveMatch(detail) ? 'live' : 'overview')
     }
-    finally { setBusy(false) }
+    if (userRef.current.isOfflineProfile) {
+      if (!cached) setError('This fixture has not been downloaded. Connect and open it once before recording.')
+      setBusy(false)
+      return
+    }
+    try {
+      const detail = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id))
+      if (!isCurrent()) return
+      matchRef.current = detail; setMatch(detail); setStale(false)
+      if (!cached) {
+        setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) })
+        setEventForm(createCoachMatchDayEventForm('goal', detail)); setPanel(isLiveMatch(detail) ? 'live' : 'overview')
+      }
+      await cache(matches, detail, players)
+    } catch (openError) {
+      if (isCurrent() && !cached) setError(errorMessage(openError, 'Fixture details could not be loaded.'))
+    } finally { if (isCurrent()) setBusy(false) }
   }
   const replace = async (operation, verify) => {
     setBusy(true); setError(''); setNotice(''); setReconciling(false)

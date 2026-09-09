@@ -18,6 +18,7 @@ import {
   isSupabaseConfigured,
   mobileConfigError,
   mobileSessionStorageError,
+  readSavedMobileSession,
   supabase,
 } from './supabase'
 
@@ -30,6 +31,8 @@ function isAuthoritativeProfileFailure(error) {
   return status === 401
     || status === 403
     || code === '42501'
+    || ['staff_account_inactive', 'active_staff_membership_required', 'platform_admin_operational_membership_required', 'staff_profile_required'].includes(code)
+    || code.endsWith('_operational_staff_required')
     || message.includes('not linked to a coach account')
     || message.includes('not authorised')
     || message.includes('not authorized')
@@ -101,7 +104,7 @@ export function AuthProvider({
       try {
         cachedProfile = await withStartupTimeout(() => offlineProfileStore.read(nextSession.user.id), 1500, 'PROFILE_CACHE_READ_TIMEOUT')
         if (!isCurrent()) return null
-        if (cachedProfile) setUser({ ...cachedProfile, isOfflineProfile: true })
+        if (cachedProfile && currentUserRef.current?.id !== cachedProfile.id) setUser({ ...cachedProfile, isOfflineProfile: true })
       } catch (error) {
         console.warn(error)
       }
@@ -164,6 +167,20 @@ export function AuthProvider({
   }, [appRole, offlineProfileStore])
 
   useEffect(() => {
+    if (!user?.isOfflineProfile || !session?.user) return undefined
+    let running = false
+    const retry = async () => {
+      if (running || AppState.currentState !== 'active') return
+      running = true
+      try { await loadProfile(session) } catch { /* Existing recovery UI handles confirmed access failures. */ }
+      finally { running = false }
+    }
+    const timer = setInterval(() => void retry(), 15000)
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void retry() })
+    return () => { clearInterval(timer); subscription.remove() }
+  }, [loadProfile, session, user?.isOfflineProfile])
+
+  useEffect(() => {
     let isMounted = true
     let authEventGeneration = 0
     let profileTimer = null
@@ -189,6 +206,7 @@ export function AuthProvider({
         },
         getBiometricEnabled: () => getBiometricEnabled(appRole),
         getSession: () => supabase.auth.getSession(),
+        getSavedSession: readSavedMobileSession,
         loadProfile: (nextSession) => isBootstrapCurrent() ? loadProfile(nextSession) : null,
         onLock: (locked) => {
           if (isBootstrapCurrent()) setIsLocked(locked)
@@ -247,7 +265,7 @@ export function AuthProvider({
       sessionUserIdRef.current = nextSession.user.id
       setSession(nextSession)
       // Token renewal must not unmount the app or restart all screen requests.
-      if (sameAccount && (event === 'TOKEN_REFRESHED' || (event === 'SIGNED_IN' && currentUserRef.current?.id === nextSession.user.id))) return
+      if (sameAccount && !currentUserRef.current?.isOfflineProfile && (event === 'TOKEN_REFRESHED' || (event === 'SIGNED_IN' && currentUserRef.current?.id === nextSession.user.id))) return
 
       const eventGeneration = ++authEventGeneration
       clearTimeout(profileTimer)

@@ -14,6 +14,7 @@ import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { APPROVED_MOBILE_PRODUCTION, APPROVED_MOBILE_TEST } from '../../mobile-core/src/environmentBoundary'
 import { createEncryptedOfflineStore } from '../../mobile-core/src/offlineStorageCore'
 import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../../mobile-core/src/coachPhase31FCore'
+import { developmentDraftKey, editLocalDevelopmentDraft } from '../../mobile-core/src/developmentOfflineCore'
 
 const config = getMobileRuntimeConfig('coach')
 const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split('.')[0] : ''
@@ -222,10 +223,62 @@ export async function updateCoachMatchDayOutbox(userId, context, matchId, change
     if (previous && previous.authority !== outboxAuthority(context)) throw new Error('Your access to this saved fixture changed. The saved actions need review.')
     journal = { ...change(previous), authority: outboxAuthority(context) }
     if (journal?.baseMatch?.id !== matchId || journal.baseMatch.clubId !== context.clubId || journal.baseMatch.teamId !== context.teamId) throw new Error('The saved fixture does not match this workspace.')
-    const contextJournals = Object.entries(outboxes[context.id] || {}).filter(([id, value]) => id === matchId || value.pending?.length)
+    const entries = Object.entries(outboxes[context.id] || {})
+    const recentIds = new Set(entries.filter(([, value]) => !value.pending?.length)
+      .sort((a, b) => Date.parse(b[1].verifiedAt) - Date.parse(a[1].verifiedAt)).slice(0, 7).map(([id]) => id))
+    const contextJournals = entries.filter(([id, value]) => id === matchId || value.pending?.length || recentIds.has(id))
     const next = { ...document, matchDayOutboxes: { ...outboxes, [context.id]: { ...Object.fromEntries(contextJournals), [matchId]: journal } } }
     if (getCoachCacheByteLength(next) > COACH_PHASE_31F_MAX_CACHE_BYTES) throw new Error('There is not enough offline storage. This action was not saved. Reconnect and sync first.')
     return next
   })
   return journal
+}
+
+export async function readCoachDevelopmentDrafts(userId, context) {
+  const { document } = await store.read(userId)
+  assertOutboxContext(document, userId, context)
+  const entry = document.developmentDrafts?.[context.id]
+  if (entry && entry.authority !== outboxAuthority(context)) throw new Error('Your access to these saved Development drafts changed.')
+  return entry?.items || {}
+}
+
+export async function updateCoachDevelopmentDraft(userId, context, key, change) {
+  let result
+  await store.update(userId, document => {
+    assertOutboxContext(document, userId, context)
+    const previous = document.developmentDrafts?.[context.id]
+    if (previous && previous.authority !== outboxAuthority(context)) throw new Error('Your access to these saved Development drafts changed.')
+    const items = { ...previous?.items }
+    result = change(items[key] || null)
+    if (result) items[key] = result
+    else delete items[key]
+    const next = { ...document, developmentDrafts: { ...document.developmentDrafts,
+      [context.id]: { authority: outboxAuthority(context), items } } }
+    if (getCoachCacheByteLength(next) > COACH_PHASE_31F_MAX_CACHE_BYTES) throw new Error('This change could not be saved on this phone. Reconnect and sync to free space.')
+    return next
+  })
+  return result
+}
+
+export function saveLocalCoachDevelopmentDraft(userId, context, input) {
+  return updateCoachDevelopmentDraft(userId, context, developmentDraftKey(input.playerId, input.formId),
+    previous => editLocalDevelopmentDraft(previous, { ...input, id: previous?.id || Crypto.randomUUID() }))
+}
+
+export async function countPendingCoachDevelopmentDrafts(userId) {
+  const { document } = await store.read(userId)
+  return Object.values(document?.developmentDrafts || {}).flatMap(entry => Object.values(entry.items || {}))
+    .filter(draft => draft.status !== 'synced').length
+}
+
+export async function readCoachOfflineReadiness(userId, context) {
+  const { document } = await store.read(userId)
+  assertOutboxContext(document, userId, context)
+  const saved = getCoachOfflineResources(document, context)
+  return {
+    resources: saved?.resources || {},
+    journals: Object.values(document.matchDayOutboxes?.[context.id] || {}).filter(journal => journal.authority === outboxAuthority(context)),
+    pending: Object.values(document.matchDayOutboxes || {}).flatMap(entries => Object.values(entries)).reduce((total, journal) => total + (journal.pending?.length || 0), 0)
+      + Object.values(document.developmentDrafts || {}).flatMap(entry => Object.values(entry.items || {})).filter(draft => draft.status !== 'synced').length,
+  }
 }

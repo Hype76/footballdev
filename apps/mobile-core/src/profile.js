@@ -263,11 +263,11 @@ function normalizeParentProfile(authUser, links) {
 
 async function fetchStaffProfile(authUser) {
   const email = normalizeEmail(authUser.email)
-  const { data, error } = await supabase
+  const [{ data, error }, coachContexts] = await Promise.all([supabase
     .from('users')
     .select('id, email, username, name, display_name, role, role_label, role_rank, club_id, status, clubs:club_id (name, logo_url, status, plan_key, plan_status, is_plan_comped, tester_access_expires_at, theme_accent, theme_button_style)')
     .or(`id.eq.${authUser.id},email.eq.${email}`)
-    .maybeSingle()
+    .maybeSingle(), fetchStaffContexts(authUser.id)])
 
   if (error) {
     throw error
@@ -275,7 +275,6 @@ async function fetchStaffProfile(authUser) {
 
   if (data) {
     const profile = normalizeStaffProfile(data)
-    const coachContexts = await fetchStaffContexts(authUser.id)
     const contextResult = resolveCoachStaffContext({
       profile: {
         ...profile,
@@ -311,19 +310,18 @@ async function fetchStaffProfile(authUser) {
 }
 
 async function fetchParentProfile(authUser) {
-  const { data, error } = await supabase
+  const [{ data, error }, fans] = await Promise.all([supabase
     .from('parent_player_links')
     .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, theme_accent, theme_button_style)')
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: true }), supabase.rpc('list_fan_connections')])
 
   if (error) {
     throw error
   }
 
   const links = (data || []).map(normalizeParentLink)
-  const fans = await supabase.rpc('list_fan_connections')
   if (fans.error) throw fans.error
   links.push(...(fans.data || []).filter((row) => !row.is_owner && row.status === 'active' && row.relationship_type === 'fan').map(normalizeFanProfileLink))
 

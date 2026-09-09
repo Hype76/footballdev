@@ -1,3 +1,4 @@
+import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -11,7 +12,6 @@ import {
   createCoachMatchAvailabilityRequests,
   createCoachPoll,
   deleteCoachPoll,
-  finalizeCoachDevelopmentRecord,
   getCoachChatMessages,
   getCoachChatRooms,
   getCoachDevelopmentWorkspace,
@@ -25,7 +25,6 @@ import {
   recordCoachInviteIntent,
   removeCoachInviteFromEvent,
   removeCoachResourceSharing,
-  saveCoachDevelopmentDraft,
   sendCoachChatMessage,
   setCoachResourceSharing,
   setCoachPollStatus,
@@ -63,6 +62,7 @@ import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { expiryDurationToIso } from '../../../src/lib/expiry-duration.js'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
+import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 
 function formatCoachChatDateTime(value) {
   return formatParentProductDateTime(value, {
@@ -195,6 +195,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [stale, setStale] = useState(false)
+  const dataRef = useRef(null)
+  dataRef.current = data
   const confirmedStale = useConfirmedConnectionIssue(stale)
   const visibleError = useConfirmedConnectionMessage(error)
   const offlinePolicy = getCoachPhase31EOfflinePolicy(domain)
@@ -209,7 +211,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       return
     }
     if (!silent) {
-      setLoading(true)
+      setLoading(!dataRef.current)
       setError('')
       setNotice('')
       if (domain === 'chat') setData(null)
@@ -223,8 +225,13 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       setStale(true)
       setLoading(false)
     }
+    if (user.isOfflineProfile) {
+      setStale(true); setLoading(false)
+      if (!hasCachedValue) setError('Connect and choose Download for offline on Home to save this section on your phone.')
+      return
+    }
     try {
-      const next = await readMobileResource(user, memoryKey, () => loader(user), { force: !reuseFresh })
+      const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user)), { force: !reuseFresh })
       setData(next)
       setStale(false)
       const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
@@ -251,13 +258,13 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
   }, [domain, load])
 
-  const common = { palette, chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
+  const common = { context, palette, chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
       {!['chat', 'invites'].includes(domain) ? <View style={styles.panel}>
         <Text accessibilityRole="header" style={styles.title}>{TITLES[domain]}</Text>
         <Text style={styles.body}>{context.teamName || context.clubName} | {context.roleLabel}</Text>
-        {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Offline and read-only</Text> : null}
+        {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'development' ? 'Saved information. Private drafts work offline.' : 'Offline and read-only'}</Text> : null}
         {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
       </View> : notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
       {loading ? <View style={styles.panel}><BrandLoader size="large" /><Text style={styles.body}>{`Loading ${TITLES[domain]}...`}</Text></View> : null}
@@ -273,12 +280,9 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   )
 }
 
-function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
+function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user }) {
   const [playerId, setPlayerId] = useState(data.players?.[0]?.id || '')
   const [formId, setFormId] = useState(data.forms?.[0]?.id || '')
-  const [values, setValues] = useState({})
-  const [notes, setNotes] = useState('')
-  const [draft, setDraft] = useState(null)
   const player = data.players?.find((item) => item.id === playerId) || data.players?.[0]
   const activePlayerId = player?.id || ''
   const form = resolveCoachDevelopmentForm(data.forms, formId)
@@ -288,32 +292,8 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
   const selectDevelopmentForm = (nextForm) => {
     if (!nextForm?.id || nextForm.id === activeFormId) return
     setFormId(nextForm.id)
-    setValues({})
-    setNotes('')
-    setDraft(null)
     setNotice(`${nextForm.name} selected. The form fields have been updated.`)
   }
-
-  const saveDraft = async () => {
-    try {
-      const result = await saveCoachDevelopmentDraft(user, { draftId: draft?.id, form, player, values, clientSaveVersion: draft?.clientSaveVersion || 0 })
-      setDraft(result)
-      setNotice('Private Development draft saved with server version control.')
-    } catch (error) { setNotice(getCoachFriendlyError(error)) }
-  }
-  const finalise = () => Alert.alert('Finalise and share this Development record?', 'The final record will be available to authorised linked Parents. It cannot be edited from this mobile workflow.', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Finalise and share', onPress: async () => {
-      try {
-        const result = await finalizeCoachDevelopmentRecord(user, { draftId: draft?.id, form, player, values, notes, shareWithParent: true })
-        setNotice(`Development record finalised and shared with ${result.sharedRecipientCount} authorised Parent${result.sharedRecipientCount === 1 ? '' : 's'}.`)
-        setValues({})
-        setNotes('')
-        setDraft(null)
-        await load()
-      } catch (error) { setNotice(getCoachFriendlyError(error)) }
-    } },
-  ])
 
   if (!data.players?.length || !data.forms?.length) return <Empty copy="No active Player and dynamic Development form combination is available in this Team." styles={styles} />
   return (
@@ -343,25 +323,7 @@ function DevelopmentDomain({ data, load, setNotice, stale, styles, user }) {
           )
         })}</View>
       </View>
-      <View style={styles.panel}>
-        <Text style={styles.heading}>{form?.name}</Text>
-        <Text style={styles.body}>{form?.ageGroup ? `Configured age group: ${form.ageGroup}.` : 'Uses the current canonical Team form configuration.'}</Text>
-        {(form?.fields || []).filter((field) => Number(user.roleRank || 0) >= field.roleRank).map((field) => (
-          <View key={field.id} style={styles.stack}>
-            <Text style={styles.label}>{field.label}{field.required ? ' (required)' : ''}{field.staffPrivate ? ' | Coach private' : field.parentVisible ? ' | Parent-shareable' : ''}</Text>
-            {field.type === 'boolean' || field.type === 'checkbox' ? (
-              <Button label={values[field.id] ? 'Yes' : 'No'} onPress={() => setValues((current) => ({ ...current, [field.id]: !current[field.id] }))} secondary styles={styles} />
-            ) : field.options.length ? (
-              <View style={styles.row}>{field.options.map((option) => <Button key={option.id} label={option.label} onPress={() => setValues((current) => ({ ...current, [field.id]: option.value }))} secondary={values[field.id] !== option.value} styles={styles} />)}</View>
-            ) : (
-              <TextInput accessibilityLabel={field.label} keyboardType={['number', 'numeric', 'rating', 'score', 'score_1_5', 'score_1_10'].includes(field.type) ? 'numeric' : 'default'} multiline={field.type === 'textarea'} onChangeText={(value) => setValues((current) => ({ ...current, [field.id]: value }))} style={[styles.input, field.type === 'textarea' && styles.inputMultiline]} value={String(values[field.id] ?? '')} />
-            )}
-          </View>
-        ))}
-        <Text style={styles.label}>Coach summary note</Text>
-        <TextInput accessibilityLabel="Coach summary note" multiline onChangeText={setNotes} style={[styles.input, styles.inputMultiline]} value={notes} />
-        <View style={styles.row}><Button disabled={stale} label="Save private draft" onPress={saveDraft} secondary styles={styles} /><Button disabled={stale} label="Finalise and share" onPress={finalise} styles={styles} /></View>
-      </View>
+      <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId)} stale={stale} styles={styles} user={user} onFinalised={() => { setNotice('Development record finalised and shared.'); void load({ silent: true }) }} />
       <View style={styles.panel}>
         <Text style={styles.heading}>Development history</Text>
         {records.length ? records.slice(0, 10).map((record) => <Text key={record.id} style={styles.body}>{record.date || 'No date'} | {record.status} | {record.formName || 'Development record'} | {record.averageScore ?? 'No score'}</Text>) : <Text style={styles.body}>No Development history for this Player.</Text>}
