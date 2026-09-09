@@ -1,5 +1,6 @@
 import { buildCoachCalendarOccurrenceDates } from '../../../apps/mobile-core/src/coachCalendarCore.js'
 import { getParentProductDateTimeParts } from '../../../apps/mobile-core/src/parentDateTimeCore.js'
+import { upcomingFanSchedule } from '../../../src/lib/fan-schedule.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -34,7 +35,7 @@ export async function loadFanMatches(client, scope, matchId = '') {
   }
   return allowed
 }
-export async function loadFanSchedule(client, scope) {
+export async function loadFanSchedule(client, scope, now = new Date()) {
   const [matches, invitations, shared, training, exclusions] = await Promise.all([
     loadFanMatches(client, scope),
     rows(client.from('calendar_event_invites').select('calendar_event_id, assessment_session_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')),
@@ -46,14 +47,14 @@ export async function loadFanSchedule(client, scope) {
   const requestIds = [...new Set(training.map((item) => item.request_id))]
   const occurrences = requestIds.length ? await rows(client.from('training_availability_requests').select('calendar_event_id,occurrence_date,occurrence_starts_at,occurrence_ends_at').in('id', requestIds).neq('status', 'cancelled')) : []
   const invitedIds = new Set(invitations.map((row) => row.calendar_event_id).filter(Boolean))
-  const schedule = buildFanScheduleEvents({ events: shared, invitedIds, occurrences, exclusions, parent: scope.parent })
+  const schedule = buildFanScheduleEvents({ events: shared, invitedIds, occurrences, exclusions, parent: scope.parent, now })
   const assessmentIds = [...new Set(invitations.map((row) => row.assessment_session_id).filter(Boolean))]
   if (assessmentIds.length) {
     const sessions = await rows(client.from('assessment_sessions').select('id,title,session_date,start_time,end_time,location,status').in('id', assessmentIds).eq('club_id', scope.fan.club_id).neq('status', 'cancelled'))
-    schedule.push(...sessions.map((session) => ({ id: session.id, title: session.title || 'Assessment', date: session.session_date, time: session.start_time, end_time: session.end_time, location: session.location })))
+    schedule.push(...sessions.map((session) => ({ id: session.id, title: session.title || 'Assessment', date: session.session_date, time: session.start_time, end_time: session.end_time, location: session.location, event_type: 'assessment', status: session.status })))
   }
-  schedule.push(...matches.map((match) => ({ id: match.id, title: `Fixture: ${match.opponent}`, date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name })))
-  return schedule.sort((a, b) => String(a.starts_at || a.date).localeCompare(String(b.starts_at || b.date)))
+  schedule.push(...matches.map((match) => ({ id: match.id, title: `Fixture: ${match.opponent}`, date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name, event_type: 'match_day', status: match.status })))
+  return upcomingFanSchedule(schedule, now)
 }
 
 export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclusions, parent, now = new Date() }) {
@@ -71,14 +72,14 @@ export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclus
       for (const date of dates) {
         if (date < today || date > horizon || excluded(event.id, date)) continue
         const id = `${event.id}:${date}`
-        result.set(id, { id, title: event.title, date, time: start.time, end_time: end.time, location: event.location })
+        result.set(id, { id, title: event.title, date, time: start.time, end_time: end.time, location: event.location, event_type: event.event_type })
       }
     }
     for (const occurrence of occurrences.filter((o) => o.calendar_event_id === event.id)) {
       const date = occurrence.occurrence_date
       if (date < today || date > horizon || excluded(event.id, date)) continue
       const id = `${event.id}:${date}`
-      result.set(id, { id, title: event.title, starts_at: occurrence.occurrence_starts_at, ends_at: occurrence.occurrence_ends_at, location: event.location })
+      result.set(id, { id, title: event.title, starts_at: occurrence.occurrence_starts_at, ends_at: occurrence.occurrence_ends_at, location: event.location, event_type: event.event_type })
     }
   }
   return [...result.values()]

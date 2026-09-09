@@ -254,7 +254,7 @@ function normalizeParentMatchEvent(row = {}) {
   }
 }
 
-function normalizeParentMatchDay(row = {}) {
+export function normalizeParentMatchDay(row = {}) {
   const match = normalizeMatchDay(row)
   return {
     ...match,
