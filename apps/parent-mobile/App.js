@@ -4,7 +4,7 @@ import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
-import { getPitchTypeLabel } from '../../src/lib/pitch-type.js'
+import { PitchTypeIcon } from './src/PitchTypeIcon'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -2559,7 +2559,7 @@ function MatchDetail({ match, onBack }) {
         <InfoRow label="Team" value={match.teamName || 'Team not set'} />
         <InfoRow label="Kits" value={getMatchDayShirtChoiceLabel(match.shirtChoice)} />
         <InfoRow label="Location" value={[match.venueName, match.venueAddress].filter(Boolean).join(', ') || 'Location not shared'} />
-        <InfoRow label="Surface" value={getPitchTypeLabel(match.pitchType) || 'Not specified'} />
+        <PitchTypeIcon pitchType={match.pitchType} textStyle={styles.bodyText} />
         <InfoRow label="Availability" value={labelize(match.availabilityStatus) || 'No response requested'} />
         <InfoRow label="Selection" value={selectionLabel} />
       </InfoPanel>

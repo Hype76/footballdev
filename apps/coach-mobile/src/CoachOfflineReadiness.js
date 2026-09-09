@@ -54,8 +54,8 @@ export function CoachOfflineReadiness({ user, context, styles }) {
     finally { await inspect().catch(() => {}); setBusy(false) }
   }
   if (!context.teamId) return null
-  return <View style={styles.card}>
-    <Text style={styles.cardTitle}>Offline readiness</Text>
+  return <View style={{ gap: 12, paddingVertical: 8 }}>
+    <Text style={styles.cardTitle}>Offline downloads</Text>
     <Text accessibilityLiveRegion="polite" style={styles.bodyText}>{summary}</Text>
     {message ? <Text accessibilityLiveRegion="polite" style={styles.bodyText}>{message}</Text> : null}
     {busy ? <BrandLoader /> : null}

@@ -72,9 +72,9 @@ try {
   const transform = () => discs.first().evaluate((element) => getComputedStyle(element).transform)
   if (platform === 'android') {
     assert.equal(await page.getByRole('progressbar').count(), 4)
-    await page.screenshot({path:path.join(output,'native-indicator-android.png')})
+    await page.screenshot({path:path.join(output,'fp-emblem-android.png')})
     await page.emulateMedia({reducedMotion:'no-preference'})
-    await page.waitForFunction(()=>document.querySelectorAll('[data-testid="brand-loader-android"] [role="progressbar"]').length===4)
+    await page.waitForFunction(()=>document.querySelectorAll('[data-testid="brand-loader-android"] [role="progressbar"]').length===0)
     await page.emulateMedia({reducedMotion:'reduce'})
     await page.waitForFunction(()=>document.querySelectorAll('[data-testid="brand-loader-android"] [role="progressbar"]').length===0)
     assert.ok(await discs.first().evaluate(el=>el.getBoundingClientRect().width>=56))
@@ -133,7 +133,7 @@ try {
   for (const file of ['apps/mobile-core/src/ui.js', 'apps/parent-mobile/App.js', 'apps/coach-mobile/App.js', 'apps/coach-mobile/src/CoachFormationBoard.js', 'apps/coach-mobile/src/CoachFormationScreen.js', 'apps/coach-mobile/src/CoachMatchDayScreen.js', 'apps/coach-mobile/src/CoachOperationalScreens.js']) {
     assert.equal((await readFile(path.join(root, file), 'utf8')).includes('ActivityIndicator'), false, `${file} must use the branded loader`)
   }
-  console.log('PASS: Android static logo remains visible with native indicator and reduced-motion fallback; iPhone 3D flip preserved; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
+  console.log('PASS: Android shows the full-size FP emblem without a native ring; iPhone 3D flip preserved; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
 } catch (error) {
   if (errors.length) console.error('Browser errors:', errors)
   throw error

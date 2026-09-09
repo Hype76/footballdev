@@ -43,6 +43,7 @@ for (const app of ['parent', 'coach']) {
     const getBuildClassification=()=> 'Production build';
     const inspectCoachOfflineState=async()=>({hasDocument:true});
     const BrandLoader=()=> <Text>Loading...</Text>;
+    const CoachOfflineReadiness=({styles})=> <Text style={styles.cardTitle}>Offline downloads</Text>;
     ${app === 'coach' ? 'const formatDateTime=()=> "Today";' : ''}
     const ParentThemeContext=createContext(null), CoachThemeContext=createContext(null);
     ${selected}
