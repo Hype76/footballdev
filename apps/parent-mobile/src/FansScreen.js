@@ -149,6 +149,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     {state.view ? <>
       <Action label="Back to Fans" icon="action.back" onPress={closeContent} />
       <Text style={styles.label}>{brandSource?.player_name}</Text>
+      {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
       {state.contentError ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <Text accessibilityLiveRegion="polite" style={{ color: tokens.textPrimary }}>Loading {viewTitle.toLowerCase()}...</Text> : <FanContent key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
     </> : <>
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}

@@ -191,6 +191,7 @@ try {
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
       if(title==='Matchday'){await page.getByText('Under 17 v Away Club',{exact:true}).click();await page.getByRole('heading',{name:'Under 17 v Away Club',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:/See squad|Register interest|Start match/}).count(),0);await page.getByText('15 Sept 2026',{exact:true}).waitFor();}
       if(title==='Development'){await button('View Development report').click();await button('Back to Development').waitFor();assert.equal(await button('Share PDF').count(),0);await page.getByText(/1 Sept 2026/).waitFor();}
+      if(title==='Resources'){await page.evaluate(()=>{window.failRead=true});await page.getByText('Shared practice',{exact:true}).click();await page.getByRole('alert').getByText('Could not load shared items. Try again.').waitFor();await page.evaluate(()=>{window.failRead=false});}
       await button('Back to Fans').click();
     }
   }
