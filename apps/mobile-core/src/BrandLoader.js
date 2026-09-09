@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AccessibilityInfo, ActivityIndicator, Animated, AppState, Easing, Image, Platform, StyleSheet, View } from 'react-native'
+import { AccessibilityInfo, Animated, AppState, Easing, Image, Platform, StyleSheet, View } from 'react-native'
 
 const logoSource = require('../assets/football-player-logo.png')
 // Frame just the round FP emblem within the existing 512px app artwork.
@@ -59,9 +59,8 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
       style={[styles.frame, style, { width: diameter, height: diameter }]}
       testID="brand-loader"
     >
-      {Platform.OS === 'android' ? <View testID="brand-loader-android" style={{ width: diameter, height: diameter, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000', borderRadius: diameter / 2, borderWidth: 2, borderColor: '#b5ef20' }}>
-        <Image accessible={false} source={logoSource} fadeDuration={0} resizeMode="contain" style={{ width: diameter * 0.7, height: diameter * 0.7 }} />
-        {!reduceMotion && appState === 'active' ? <ActivityIndicator accessible={false} color="#b5ef20" size={diameter} style={StyleSheet.absoluteFillObject} /> : null}
+      {Platform.OS === 'android' ? <View collapsable={false} testID="brand-loader-android" style={[styles.disc, { width: diameter, height: diameter, borderRadius: diameter / 2 }]}>
+        <Image accessible={false} source={logoSource} fadeDuration={0} resizeMethod="scale" resizeMode="stretch" style={{ position: 'absolute', width: emblem.sourceSize * scale, height: emblem.sourceSize * scale, left: -emblem.left * scale, top: -emblem.top * scale }} />
       </View> : <Animated.View
         collapsable={false}
         pointerEvents="none"

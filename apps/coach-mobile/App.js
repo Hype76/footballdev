@@ -864,7 +864,7 @@ function CoachNotificationsScreen(props) {
   return <CoachNotificationHistoryScreen {...props} palette={palette} styles={styles} />
 }
 
-function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
+function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
   const { styles } = useCoachTheme()
   const nextMatch = homeState.nextMatch || homeState.matches[0]
   const nextSession = homeState.nextSession || homeState.sessions[0]
@@ -873,7 +873,6 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
   return (
     <View style={styles.stack}>
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
-      <CoachOfflineReadiness key={`${user.id}:${context.id}`} user={user} context={context} styles={styles} />
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <StatePanel actionLabel="Refresh" message="The main overview is available, but one or more supporting summaries could not be refreshed." onAction={() => reloadHome({ refresh: true })} title="Some summaries are unavailable" tone="warning" /> : null}
       <View style={styles.iconList}>
@@ -1126,6 +1125,7 @@ function SettingsScreen({
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
         <InfoRow label="Saved information" value={cacheState?.hasDocument ? 'Saved securely on this device' : 'Open your team while online to prepare'} />
         <Text style={styles.helperText}>Open Game Day before losing signal. Saved goals, cards and substitutions wait on this device and sync when you reconnect.</Text>
+        <CoachOfflineReadiness key={`${user.id}:${context.id}`} user={user} context={context} styles={styles} />
       </Section>
       </SettingsSection>
       <SettingsSection id="app" label="App info" iconKey="settings.app">
@@ -1342,7 +1342,7 @@ function SettingRow({ children, copy, label }) {
 
 function LoadingPanel({ message }) {
   const { styles } = useCoachTheme()
-  return <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.statePanel}><BrandLoader accessible={false} size="large" /><Text style={styles.bodyText}>{message}</Text></View>
+  return <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={{ alignItems: 'center', flexDirection: 'row', gap: 12, paddingVertical: 12 }}><BrandLoader accessible={false} size={36} /><Text style={[styles.bodyText, { flex: 1 }]}>{message}</Text></View>
 }
 
 function EmptyPanel({ message, title }) {
