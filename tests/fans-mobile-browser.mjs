@@ -24,9 +24,11 @@ const mocks = {
   'expo-notifications': `export const useLastNotificationResponse=()=>null; export const requestPermissionsAsync=async()=>({status:'denied'}); export const getExpoPushTokenAsync=async()=>({data:'synthetic'});`,
   'expo-secure-store': `export const getItemAsync=async()=>null; export const deleteItemAsync=async()=>{}; export const setItemAsync=async()=>{};`,
   'expo-constants': `export default {};`,
-  '@react-native-async-storage/async-storage': `export default {getItem:async()=>null};`,
-  ParentPortalScreens: `export const ResourcesScreen=()=>null;`,
-  'react-native-safe-area-context': `export {View as SafeAreaView} from 'react-native';`,
+  '@react-native-async-storage/async-storage': `export default {getItem:async()=>null,setItem:async()=>{}};`,
+  'expo-keep-awake': `export const activateKeepAwakeAsync=async()=>{},deactivateKeepAwake=()=>{},isAvailableAsync=async()=>false;`,
+  'expo-file-system/legacy': `export const cacheDirectory='',downloadAsync=async()=>({}),deleteAsync=async()=>{};`,
+  'expo-sharing': `export const isAvailableAsync=async()=>false,shareAsync=async()=>{};`,
+  'react-native-safe-area-context': `import React from 'react';import {View} from 'react-native';export const SafeAreaView=({children,style})=><View style={[style,{paddingTop:59,height:844}]}>{children}</View>;`,
 }
 const entry = `
 import React,{useState,useEffect} from 'react'; import {createRoot} from 'react-dom/client';
@@ -62,12 +64,12 @@ function App(){
  ${handler}
  useEffect(()=>{${sectionReset}},[selectedLinkId]);
  window.remount=()=>setKey(k=>k+1);window.mode=setMode;window.navigate=()=>{setMoreSection('fans');setActiveTab('more')};window.normalSwitch=id=>handleChildChange(id);
- return <div data-mode={mode} data-tab={activeTab} data-section={moreSection}><div data-testid="header">{parentLinks.find(p=>p.id===selectedLinkId)?.playerName}</div>{activeTab==='more'&&moreSection==='fans'?<FansScreen key={key} embedded themeMode={mode} selectedParentLinkId={selectedLinkId} onSelectedParentLinkChange={id=>handleChildChange(id,{stayOnFans:true})}/>:null}</div>;
+ return <div data-mode={mode} data-tab={activeTab} data-section={moreSection}><div data-testid="header">{parentLinks.find(p=>p.id===selectedLinkId)?.playerName}</div>{activeTab==='more'&&moreSection==='fans'?<FansScreen key={key} embedded={!window.standalone} themeMode={mode} selectedParentLinkId={selectedLinkId} onSelectedParentLinkChange={id=>handleChildChange(id,{stayOnFans:true})}/>:null}</div>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
 `
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic',
-  loader: { '.js': 'jsx', '.ttf': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'],
+  loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'],
   resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], nodePaths: [modules],
   alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' },
@@ -86,6 +88,7 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   await page.route('http://localhost:9877/**', route => route.fulfill({ contentType: 'text/html', body: '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;font-family:system-ui,sans-serif"><div id="root"></div></body></html>' }))
   await page.goto('http://localhost:9877')
+  await page.clock.install({time:new Date('2026-09-09T10:00:00Z')});
   await page.addScriptTag({ content: result.outputFiles[0].text })
   const button = name => page.getByRole('button', { name, exact: true })
   await button('Second Child').click()
@@ -166,7 +169,7 @@ try {
   await page.evaluate(() => window.navigate())
   await button('First Child (selected)').waitFor()
   await page.evaluate(() => {
-    window.user={id:'fan-test',parentPortalLinks:[]};
+    window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};
     window.rows=[{id:'followed-child',is_owner:false,status:'active',player_name:'Followed Child',club_name:'Demo FC',team_name:'Under 17',permissions:{schedule:true,game_day:true,development:true,resources:true}}];
     window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:'2026-09-14',time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:'2026-09-15',status:'scheduled'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
     window.remount();
@@ -174,28 +177,34 @@ try {
   await page.getByText('Followed Child',{exact:true}).waitFor();
   for(const mode of ['light','dark']) {
     await page.evaluate(mode=>window.mode(mode),mode);
-    for(const [label,title,expected] of [['Schedule','Schedule','Shared training'],['Game Day','Game Day','Away Club: 0 : 0'],['Development records','Development records','Shared report'],['Include resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
+    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Matchday','Under 17 v Away Club'],['Development records','Development','Shared report'],['Include resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
       await button(label).click();
       await page.getByRole('heading',{name:title,exact:true}).waitFor();
       await page.getByText(expected,{exact:expected!=='Shared report'}).waitFor();
-      await page.waitForFunction(title=>[...document.querySelectorAll('[role=heading]')].some(el=>el.textContent===title&&el.getBoundingClientRect().y>=0&&el.getBoundingClientRect().y<220),title);
+      await page.waitForFunction(title=>[...document.querySelectorAll('[role=heading]')].some(el=>el.textContent===title&&el.getBoundingClientRect().y>=0&&el.getBoundingClientRect().y<330),title);
       const heading=await page.getByRole('heading',{name:title,exact:true}).boundingBox();
-      assert.ok(heading.y>=0&&heading.y<220,'Opened section heading is visible immediately');
+      assert.ok(heading.y>=59&&heading.y<330,'Opened section heading is visible immediately');
+      const backBox=await button('Back to Fans').boundingBox();assert.ok(backBox.y>=59&&backBox.height>=44,'Back is below the iPhone status area and has a usable touch target');
+      assert.equal(await button('Hide Development report').count(),0);assert.equal(await button('Hide resource').count(),0);
+      if(title==='Calendar'){assert.equal(await button('History').count(),0);assert.equal(await button('Needs response').count(),0);await page.getByText(/14 Sep/).waitFor();}
       await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
+      if(title==='Matchday'){await page.getByText('Under 17 v Away Club',{exact:true}).click();await page.getByRole('heading',{name:'Under 17 v Away Club',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:/See squad|Register interest|Start match/}).count(),0);await page.getByText('15 Sept 2026',{exact:true}).waitFor();}
+      if(title==='Development'){await button('View Development report').click();await button('Back to Development').waitFor();assert.equal(await button('Share PDF').count(),0);await page.getByText(/1 Sept 2026/).waitFor();}
+      if(title==='Resources'){await page.evaluate(()=>{window.failRead=true});await page.getByText('Shared practice',{exact:true}).click();await page.getByRole('alert').getByText('Could not load shared items. Try again.').waitFor();await page.evaluate(()=>{window.failRead=false});}
       await button('Back to Fans').click();
     }
   }
   await page.evaluate(()=>{window.responses.schedule={schedule:[]}});
   await button('Schedule').click();
-  await page.getByText('No shared schedule items are available for this child.').waitFor();
+  await page.getByText('There are no shared calendar events for this child.').waitFor();
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.failRead=true});
   await button('Schedule').click();
   await page.getByRole('alert').getByText('Could not load shared items. Try again.').waitFor();
   await page.evaluate(()=>{window.failRead=false});
   await button('Try again').click();
-  await page.getByText('No shared schedule items are available for this child.').waitFor();
+  await page.getByText('There are no shared calendar events for this child.').waitFor();
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=true});
   await button('Schedule').click();
@@ -203,8 +212,8 @@ try {
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=false;window.finishRead()});
   await button('Game Day').click();
-  await page.getByText('Away Club: 0 : 0',{exact:true}).waitFor();
-  assert.equal(await page.getByText('No shared schedule items are available for this child.').count(),0);
+  await page.getByText('Under 17 v Away Club',{exact:true}).waitFor();
+  assert.equal(await page.getByText('There are no shared calendar events for this child.').count(),0);
   await page.evaluate(()=>{window.rows[0].permissions.game_day=false;window.background()});
   await button('Back to Fans').waitFor({state:'hidden'});
   await button('Game Day').waitFor({state:'hidden'});

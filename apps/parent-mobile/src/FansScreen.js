@@ -17,7 +17,8 @@ import { fetchFansJson } from '../../../src/lib/fans-fetch'
 import ParentIcon from './ParentIcon'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
 const FansTheme = createContext(DEFAULT_PARENT_MOBILE_THEME.tokens)
-import { ResourcesScreen } from './ParentPortalScreens'
+import { FanContent } from './FanContent'
+import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 import { themeForeground } from '../../mobile-core/src/themeContrast'
 
 function FanSwitch({ value, disabled = false, accessibilityLabel, onValueChange }) {
@@ -64,7 +65,7 @@ export async function clearFanNotificationDevice() {
   await SecureStore.deleteItemAsync('fan-notification-device')
   if (token) await request({ action: 'unregister_device', token }).catch(() => {})
 }
-export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, selectedParentLinkId, onSelectedParentLinkChange }) {
+export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, selectedParentLinkId, onSelectedParentLinkChange, scrollViewRef }) {
   const [savedMode, setSavedMode] = useState('dark')
   useEffect(() => { let active = true; AsyncStorage.getItem('fp.parent.display-theme.v1').then((value) => { if (active && ['light', 'dark'].includes(value)) setSavedMode(value) }).catch(() => {}); return () => { active = false } }, [])
   const { user, signOut, refreshUserProfile } = useMobileAuth()
@@ -82,7 +83,10 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const [ready, setReady] = useState(null)
   const [busy, setBusy] = useState(false)
   const [formation, setFormation] = useState(null)
-  const [report, setReport] = useState(null)
+  const localScrollRef = useRef(null)
+  useEffect(() => {
+    (scrollViewRef || localScrollRef).current?.scrollTo({ y: 0, animated: false })
+  }, [state.view, scrollViewRef])
   const requestId = useRef('')
   const viewRef = useRef(null)
   viewRef.current = state.view
@@ -101,7 +105,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
       void open(data.fanConnectionId, 'matches', data.matchDayId ? { matchId: data.matchDayId } : {})
     }
   }, [lastNotification, open, state.connections])
-  useEffect(() => { setFormation(null); setReport(null) }, [state.view])
+  useEffect(() => { setFormation(null) }, [state.view])
   const begin = (existing) => { clearView(); requestId.current = Crypto.randomUUID(); setReady(null); setForm(existing ? { id: existing.id, name: existing.name, email: existing.email, permissions: existing.permissions } : { name: '', email: '', permissions: normalizeFanPermissions({ game_day: true }) }) }
   const review = (mode) => { try { setConfirm({ ...validateFanInvite(form), id: form.id, mode, parentId: parent?.id, child: parent?.playerName }) } catch (e) { state.setError(e.message) } }
   const complete = () => run(async () => {
@@ -140,8 +144,14 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     else throw new Error('This resource could not be opened.')
   })
   const viewTitle = { schedule: 'Schedule', matches: 'Game Day', development: 'Development records', resources: 'Resources', notifications: 'Notifications' }[state.view?.action] || 'Shared items'
-  const closeContent = () => { state.clearView(); setFormation(null); setReport(null) }
+  const closeContent = () => { state.clearView(); setFormation(null) }
   const content = <FansTheme.Provider value={tokens}><View style={[styles.container, { backgroundColor: tokens.portalSurface }]}><ClubBrand source={brandSource} />
+    {state.view ? <>
+      <Action label="Back to Fans" icon="action.back" onPress={closeContent} />
+      <Text style={styles.label}>{brandSource?.player_name}</Text>
+      {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
+      {state.contentError ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <Text accessibilityLiveRegion="polite" style={{ color: tokens.textPrimary }}>Loading {viewTitle.toLowerCase()}...</Text> : <FanContent key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
+    </> : <>
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
     <View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={30} /><Text accessibilityRole="header" style={styles.title}>Fans</Text></View>
     <Text style={styles.helper}>Choose who follows your child and what they can see.</Text>
@@ -156,39 +166,24 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
         <Text style={styles.label}>Choose access</Text>{FAN_ACCESS.map((item) => <View style={styles.permission} key={item.key}><ParentIcon iconKey={item.icon} color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{item.label}</Text><Text style={styles.helper}>{item.description}</Text></View><FanSwitch accessibilityLabel={item.label} disabled={item.key === 'resources' && !form.permissions.development} value={form.permissions[item.key]} onValueChange={(value) => setForm({ ...form, permissions: normalizeFanPermissions({ ...form.permissions, [item.key]: value }) })} /></View>)}
         <View style={styles.actions}>{form.id ? <Action label="Review changes" onPress={() => review('edit')} /> : <><Action icon="fan.email" label="Email" onPress={() => review('email')} disabled={busy} /><Action icon="fan.qr" label="QR code" onPress={() => review('qr')} disabled={busy} /><Action icon="fan.share" label="Share link" onPress={() => review('share')} disabled={busy} /></>}<Action label="Cancel" onPress={() => setForm(null)} /></View>
       </View> : null}
-      {ready ? <View><Text style={{ color: tokens.textPrimary }}>Invitation ready for {ready.name} ({ready.email}). Expires {new Date(ready.expires_at).toLocaleString()}.</Text>{ready.mode === 'qr' ? <Qr value={ready.url} /> : null}<View style={styles.actions}><Action icon="fan.share" label="Share invitation" onPress={() => Share.share({ message: ready.url })} /><Action icon="fan.email" label="Send email" onPress={() => run(() => request({ action: 'send_invitation', connectionId: ready.id }))} /></View></View> : null}
+      {ready ? <View><Text style={{ color: tokens.textPrimary }}>Invitation ready for {ready.name} ({ready.email}). Expires {formatParentProductDateTime(ready.expires_at, { year: 'numeric' })}.</Text>{ready.mode === 'qr' ? <Qr value={ready.url} /> : null}<View style={styles.actions}><Action icon="fan.share" label="Share invitation" onPress={() => Share.share({ message: ready.url })} /><Action icon="fan.email" label="Send email" onPress={() => run(() => request({ action: 'send_invitation', connectionId: ready.id }))} /></View></View> : null}
       <Text accessibilityRole="header" style={styles.heading}>Your child's Fans</Text>
       {state.connections.filter((c) => c.is_owner && c.parent_link_id === parent?.id).map((c) => <View style={styles.person} key={c.id}><View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{c.name}</Text><Text style={{ color: tokens.textPrimary }}>{c.email}</Text><Text style={styles.helper}>{c.status} · {FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => p.label).join(', ')}</Text></View></View>{['active', 'pending'].includes(c.status) ? <View style={styles.actions}><Action label="Edit access" onPress={() => begin(c)} /><Action label={c.status === 'pending' ? 'Cancel invitation' : 'Revoke access'} onPress={() => remove(c, false)} /></View> : null}{c.status === 'cancelled' ? <Action icon="delete-outline" label="Delete" disabled={busy} onPress={() => deleteInvitation(c)} /> : null}</View>)}
     </> : null}
     <Text accessibilityRole="header" style={styles.heading}>Children you follow</Text>
     {state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode).tokens}><View style={styles.person}><ClubBrand source={c} /><View style={styles.row}><ParentIcon iconKey="child" color={tokens.accentText} size={28} /><View style={styles.copy}><Text style={styles.label}>{c.player_name}</Text><Text style={styles.helper}>{c.club_name} · {c.team_name}</Text></View></View><View style={styles.actions}>{FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => <Action key={p.key} icon={p.icon} label={p.label} onPress={() => { setFormation(null); void state.open(c.id, p.key === 'game_day' ? 'matches' : p.key) }} />)}</View>{c.permissions.game_day ? <><View style={styles.row}><Text style={[styles.copy, styles.label]}>Game Day notifications</Text><FanSwitch accessibilityLabel={`Game Day notifications for ${c.player_name}`} value={c.notifications_enabled} onValueChange={(v) => run(() => state.manage(c.id, v ? 'notifications_on' : 'notifications_off'))} /></View><Action label="View notifications" onPress={() => state.open(c.id, 'notifications')} /></> : null}<Action icon="fan.remove" label="Remove my access" onPress={() => remove(c, true)} /></View></FansTheme.Provider>)}
-    <Modal visible={Boolean(state.view)} animationType="slide" presentationStyle="fullScreen" onRequestClose={closeContent}>
-      {state.view ? <SafeAreaView style={styles.safe}><View style={styles.contentHeader}>
-        <Action label="Back to Fans" icon="action.back" onPress={closeContent} />
-        <Text accessibilityRole="header" style={styles.title}>{viewTitle}</Text>
-        <Text style={styles.helper}>{brandSource?.player_name}</Text>
-      </View><ScrollView key={`${state.view.connectionId}:${state.view.action}:${state.view.matchId || ''}`} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      {state.contentError ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={{ color: tokens.textPrimary }}>Loading {viewTitle.toLowerCase()}...</Text> : <>
-      {(state.content.matches || []).map((m) => <View key={m.id} style={styles.person}><Action icon="parent.match" label={`${m.opponent}: ${m.home_score} : ${m.away_score}`} onPress={() => state.open(state.view.connectionId, 'matches', { matchId: m.id })} /><Text style={{ color: tokens.textPrimary }}>{m.match_date} · {m.kickoff_time_tbc ? 'Time TBC' : m.kickoff_time} · {m.status}</Text></View>)}
-      {(state.content.events || []).map((e) => <Text key={e.id} style={{ color: tokens.textPrimary }}>{e.minute == null ? '' : `${e.minute} min · `}{e.event_type.replaceAll('_', ' ')} · {e.home_score} : {e.away_score}</Text>)}
-      {(state.content.schedule || []).map((e) => <View style={styles.person} key={e.id}><View style={styles.row}><ParentIcon iconKey="action.calendar" color={tokens.accentText} size={26} /><Text style={styles.label}>{e.title}</Text></View><Text style={{ color: tokens.textPrimary }}>{e.starts_at ? new Date(e.starts_at).toLocaleString() : `${e.date} ${e.time || 'Time TBC'}`}</Text><Text style={styles.helper}>{e.location}</Text>{e.recurrence_frequency && e.recurrence_frequency !== 'none' ? <Text style={{ color: tokens.textPrimary }}>Repeats {e.recurrence_frequency}{e.recurrence_until ? ` until ${e.recurrence_until}` : ''}</Text> : null}</View>)}
-      {(state.content.notifications || []).map((n) => <View key={n.id} style={styles.person}><Text style={styles.label}>{n.title}</Text><Text style={{ color: tokens.textPrimary }}>{n.body}</Text></View>)}
-      {state.content.reports ? <View>{state.content.reports.map((r) => <View style={styles.person} key={r.id}><Action icon="development" label={`${r.form?.name || 'Development report'} · ${r.recordDate}`} onPress={() => setReport(report === r.id ? null : r.id)} />{report === r.id ? <View><Text style={{ color: tokens.textPrimary }}>Overall {r.overallScore ?? 'Not scored'}{r.overallScore == null ? '' : ` / ${r.overallMaxScore}`}</Text>{r.responseItems?.map((item, index) => <View key={index} style={styles.person}><Text style={styles.label}>{item.label}</Text><Text style={{ color: tokens.textPrimary }}>{item.displayValue}</Text></View>)}{r.sections?.map((s, index) => <View key={index} style={styles.person}><Text style={styles.label}>{s.title}</Text><Text style={{ color: tokens.textPrimary }}>{s.body}</Text>{s.chartPoints?.map((point, n) => <Text key={n} style={{ color: tokens.textPrimary }}>{point.label}: {point.value}</Text>)}</View>)}</View> : null}</View>)}</View> : null}
-      {state.content.resources ? formation && state.content.resources.some((r) => r.id === formation.resourceId) ? <ResourcesScreen resource={{ items: [], loading: false }} formationBoard={formation} onCloseFormation={() => setFormation(null)} themeTokens={tokens} /> : <View>{state.content.resources.map((r) => <View style={styles.person} key={r.id}><Action icon="resource" label={r.title} onPress={() => openResource(r)} /><Text style={styles.helper}>{r.description}</Text></View>)}</View> : null}
-      {!Object.values(state.content).some((value) => Array.isArray(value) && value.length) ? <Text style={styles.helper}>No shared {viewTitle.toLowerCase()} items are available for this child.</Text> : null}
-    </>}</ScrollView></SafeAreaView> : null}
-    </Modal>
+
     {state.connections.some((c) => !c.is_owner && c.status === 'active' && c.permissions.game_day) ? <Action label="Enable phone notifications" icon="notifications" onPress={enableDevice} /> : null}
     {!embedded ? <Action label="Sign out" onPress={() => run(async () => { state.clearView(); await signOut() })} /> : null}
+    </>}
     <Modal visible={Boolean(confirm)} transparent animationType="fade" onRequestClose={() => { if (!busy) setConfirm(null) }}>
       <View style={styles.overlay}><ScrollView contentContainerStyle={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Confirm Fan access</Text>{confirm ? <><Text style={{ color: tokens.textPrimary }}>{confirm.id ? 'You are updating access for' : 'You are inviting'} {confirm.name} ({confirm.email}) to follow {confirm.child}.</Text>{fanAccessSummary(confirm.permissions).map((line) => <Text style={styles.permissionText} key={line}>{line}</Text>)}<Text style={{ color: tokens.textPrimary }}>This person cannot invite others, use parent chat, respond to attendance or change your child's information. Either of you can end this access.</Text></> : null}<View style={styles.actions}><Action label="Go back" disabled={busy} onPress={() => setConfirm(null)} /><Action label={confirm?.id ? 'Confirm changes' : 'Confirm invitation'} disabled={busy} onPress={complete} /></View></ScrollView></View>
     </Modal>
   </View></FansTheme.Provider>
-  return embedded ? content : <SafeAreaView style={styles.safe}><ScrollView keyboardShouldPersistTaps="handled">{content}</ScrollView></SafeAreaView>
+  return embedded ? content : <SafeAreaView style={styles.safe}><ScrollView ref={localScrollRef} keyboardShouldPersistTaps="handled">{content}</ScrollView></SafeAreaView>
 }
 function createStyles(tokens) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: tokens.portalSurface }, container: { backgroundColor: tokens.portalBackground, padding: 18, gap: 12 }, title: { fontSize: 26, fontWeight: '800', color: tokens.textPrimary }, heading: { fontSize: 20, fontWeight: '700', marginTop: 16, color: tokens.textPrimary },
-  contentHeader: { padding: 18, gap: 6, borderBottomWidth: 1, borderBottomColor: tokens.border },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, copy: { flex: 1 }, helper: { color: tokens.textSecondary, fontSize: 14, lineHeight: 20 }, label: { color: tokens.textPrimary, fontWeight: '700', fontSize: 16 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, action: { minHeight: 46, paddingVertical: 10, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }, actionLabel: { color: tokens.accentText, fontWeight: '700' },
   primaryAction: { minHeight: 54, justifyContent: 'center', paddingHorizontal: 18, marginVertical: 8, borderRadius: 10, backgroundColor: tokens.buttonPrimary }, primaryActionLabel: { fontSize: 17, color: tokens.accentForeground },

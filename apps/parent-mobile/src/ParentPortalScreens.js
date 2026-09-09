@@ -387,10 +387,10 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
   )
 }
 
-export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, resource, themeTokens }) {
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, resource, themeTokens, upcomingOnly = false }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [viewMode, setViewMode] = useState('agenda')
-  const [windowKey, setWindowKey] = useState('needs-response')
+  const [windowKey, setWindowKey] = useState(upcomingOnly ? 'upcoming' : 'needs-response')
   const [monthCursor, setMonthCursor] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState('')
   const [markerTones, setMarkerTones] = useState(['match', 'training', 'response', 'event'])
@@ -455,7 +455,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
           { key: 'upcoming', label: 'All upcoming' },
           { key: 'history', label: 'History' },
           { key: 'date-tbc', label: 'Date TBC' },
-        ].map((option) => (
+        ].filter((option) => !upcomingOnly || ['next-30', 'upcoming'].includes(option.key)).map((option) => (
           <Button key={option.key} label={option.label} onPress={() => setWindowKey(option.key)} outline={windowKey !== option.key} styles={styles} />
         ))}
       </View> : null}
@@ -906,7 +906,7 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           <View style={styles.actionRow}>
             <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text>
-            <Text style={styles.pill}>{presentation?.phaseLabel || 'Pre-match'}</Text>
+            {!selectedMatch.isFanView ? <Text style={styles.pill}>{presentation?.phaseLabel || 'Pre-match'}</Text> : null}
             {selectedMatch.homeAway ? <Text style={styles.pill}>{labelize(selectedMatch.homeAway)}</Text> : null}
             <Text style={styles.pill}>{getMatchDayShirtChoiceLabel(selectedMatch.shirtChoice)}</Text>
             {selectedMatch.fixtureType ? <Text style={styles.pill}>{labelize(selectedMatch.fixtureType)}</Text> : null}
@@ -921,22 +921,22 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>Score</Text>
             <Text accessibilityLiveRegion="polite" style={styles.gameDayScore}>{presentation?.displayScore || `${selectedMatch.homeScore || 0} - ${selectedMatch.awayScore || 0}`}</Text>
-            <View style={styles.gameDayStats}>
+            {!selectedMatch.isFanView ? <View style={styles.gameDayStats}>
               <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Match timer</Text><Text accessibilityLiveRegion="polite" style={styles.gameDayStatValue}>{formatMatchAddedTimeClock(selectedMatch, now)}</Text></View>
               <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Period</Text><Text style={styles.gameDayStatValue}>{presentation?.phaseLabel || 'Pre-match'}</Text></View>
-            </View>
+            </View> : null}
           </View>
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
-          <Text style={styles.meta}>Availability: {labelize(selectedMatch.availabilityStatus) || 'No response requested'}</Text>
-          <Text style={styles.meta}>Squad: {labelize(selectedMatch.squadDecisionState) || 'Not decided'}</Text>
+          {!selectedMatch.isFanView ? <><Text style={styles.meta}>Availability: {labelize(selectedMatch.availabilityStatus) || 'No response requested'}</Text>
+          <Text style={styles.meta}>Squad: {labelize(selectedMatch.squadDecisionState) || 'Not decided'}</Text></> : null}
           <View style={styles.actionRow}>
-            <Button
+            {!selectedMatch.isFanView ? <Button
               expanded={squadOpenMatchId === selectedMatch.id}
               label={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`}
               onPress={() => setSquadOpenMatchId((current) => current === selectedMatch.id ? '' : selectedMatch.id)}
               outline
               styles={styles}
-            />
+            /> : null}
             {selectedMatch.matchDate ? <Button label="Add to Google Calendar" onPress={() => onAddToCalendar?.(selectedMatch)} outline styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <Button label="Get directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} outline styles={styles} /> : null}
           </View>
@@ -953,10 +953,10 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
         {scorerInvitation ? (
           <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Coaches are looking for a Parent scorer.'}</Text><Button disabled={isOffline || Boolean(activeActionId)} label={activeActionId === `invite:${scorerInvitation.invitationId}` ? 'Saving...' : 'Register interest'} onPress={() => onVolunteer(scorerInvitation, 'yes')} styles={styles} /></View>
         ) : null}
-        {!selectedMatch.isScorer ? <View style={styles.card}><Text style={styles.cardTitle}>Parent view</Text><Text style={styles.body}>Live match updates from the club appear here. Only the assigned scorer can make Game Day changes.</Text></View> : null}
+        {!selectedMatch.isScorer ? <View style={styles.card}><Text style={styles.cardTitle}>{selectedMatch.isFanView ? 'Fan view' : 'Parent view'}</Text><Text style={styles.body}>Live match updates from the club appear here. Only the assigned scorer can make Game Day changes.</Text></View> : null}
 
         <View style={styles.card}>
-          <View style={styles.row}><Text style={styles.cardTitle}>Match Timeline</Text><Text style={styles.pill}>{selectedMatch.isScorer ? 'Scorer view' : 'Parent view'}</Text></View>
+          <View style={styles.row}><Text style={styles.cardTitle}>Match Timeline</Text><Text style={styles.pill}>{selectedMatch.isScorer ? 'Scorer view' : selectedMatch.isFanView ? 'Fan view' : 'Parent view'}</Text></View>
           {timeline.length === 0 ? <Text style={styles.helper}>No match events yet. Goals, cards and substitutions will appear here once recorded.</Text> : null}
           {timeline.map((event) => {
             const eventPresentation = buildCompletedMatchEventPresentation(event, selectedMatch, { includeNotes: false })
@@ -968,7 +968,7 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
   }
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Matchday</Text><Text style={styles.helper}>Real Parent-visible fixtures and Game Day for {link?.playerName || 'your child'}.</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>Matchday</Text><Text style={styles.helper}>Shared fixtures and Game Day for {link?.playerName || 'your child'}.</Text></View>
       {getParentScorerMatches(resource.items).map((match) => <View key={`scoring:${match.id}`} style={styles.section}><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Button label={getParentScorerActionLabel(match)} onPress={() => onOpen(match)} styles={styles} /></View>)}
       <View style={styles.actionRow}><Button label={`Coming up (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button label={`History (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
       <ResourceState emptyCopy="There are no Parent-visible match cards for this child." {...resource} styles={styles} />
@@ -1067,17 +1067,17 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, them
           </View>
         ))}
         {!selectedReport.responseItems?.length && !selectedReport.sections?.length ? <Text style={styles.helper}>No detailed Development responses were shared with this report.</Text> : null}
-        <Button disabled={isOffline || !selectedReport.canDownloadPdf} label={isOffline ? 'Share PDF when online' : 'Share PDF'} onPress={() => onOpen(selectedReport)} styles={styles} />
+        {onOpen ? <Button disabled={isOffline || !selectedReport.canDownloadPdf} label={isOffline ? 'Share PDF when online' : 'Share PDF'} onPress={() => onOpen(selectedReport)} styles={styles} /> : null}
       </View>
     )
   }
 
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history previously shared with this Parent link.</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history shared for the selected child.</Text></View>
       {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Sharing a PDF needs a connection.</Text> : null}
       <ResourceState emptyCopy="No delivered Development reports are available for this child." {...resource} styles={styles} />
-      {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text><IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /></View></View>)}
+      {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text>{onDismiss ? <IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /> : null}</View></View>)}
     </View>
   )
 }
@@ -1111,7 +1111,7 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
       <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected child.</Text></View>
       {isOffline ? <Text style={styles.warning}>Resource details are saved for reading. Opening the item needs a connection.</Text> : null}
       <ResourceState emptyCopy="No resources are shared with this child." {...resource} styles={styles} />
-      {resource.items.map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text><IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /></View></View>)}
+      {resource.items.map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text>{onDismiss ? <IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /> : null}</View></View>)}
     </View>
   )
 }

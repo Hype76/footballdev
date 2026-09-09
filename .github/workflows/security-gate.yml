@@ -95,7 +95,7 @@ jobs:
           tests/security-m2-club-logo-validation.test.mjs
           tests/netlify-deploy-safety.test.mjs
       - name: Fans permission and invitation regression
-        run: node --test tests/fan-branding.test.mjs tests/fans.test.mjs tests/fans-endpoint.test.mjs tests/fans-permissions-pglite.test.mjs && node tests/fans-browser.mjs
+        run: node --test tests/fan-branding.test.mjs tests/fans.test.mjs tests/fan-schedule-upcoming.test.mjs tests/fans-endpoint.test.mjs tests/fans-permissions-pglite.test.mjs && node tests/fans-browser.mjs
       - name: V1 regression firewall
         run: npm run test:v1-stabilise
       - name: Install Parent encryption test dependencies
