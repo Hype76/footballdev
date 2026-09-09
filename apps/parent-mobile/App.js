@@ -65,6 +65,7 @@ import { applyParentNotificationAction, countUnreadGeneralNotifications, countUn
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
+import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
 import { useConfirmedConnectionIssue } from '../mobile-core/src/useConfirmedConnectionIssue'
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import { getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
@@ -3377,7 +3378,7 @@ class ParentRootErrorBoundary extends Component {
 }
 
 export default function App() {
-  useMobileAutomaticUpdates()
+  const mobileUpdate = useMobileAutomaticUpdates()
   return (
     <SafeAreaProvider>
       <ParentRootErrorBoundary>
@@ -3391,6 +3392,7 @@ export default function App() {
           <AppContent />
         </AuthProvider>
       </ParentRootErrorBoundary>
+      <MobileUpdateNotice compact update={mobileUpdate} />
     </SafeAreaProvider>
   )
 }

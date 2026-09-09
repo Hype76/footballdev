@@ -16,10 +16,7 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
   const [rotation] = useState(() => new Animated.Value(0))
   const [reduceMotion, setReduceMotion] = useState(true)
   const [appState, setAppState] = useState(AppState.currentState || 'active')
-  // Keep Android on a 2D transform so its clipped image does not depend on a 3D hardware layer.
-  const transform = Platform.OS === 'android'
-    ? [{ rotate: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }]
-    : [{ perspective: 600 }, { rotateY: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }]
+  const transform = [{ perspective: 600 }, { rotateY: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }]
 
   useEffect(() => {
     let mounted = true
@@ -62,7 +59,7 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
       style={[styles.frame, style, { width: diameter, height: diameter }]}
       testID="brand-loader"
     >
-      {Platform.OS === 'android' ? <Animated.View collapsable={false} pointerEvents="none" testID="brand-loader-android" style={{ width: diameter, height: diameter, transform }}>
+      {Platform.OS === 'android' ? <Animated.View collapsable={false} pointerEvents="none" renderToHardwareTextureAndroid testID="brand-loader-android" style={{ width: diameter, height: diameter, transform }}>
         <View collapsable={false} style={[styles.disc, { width: diameter, height: diameter, borderRadius: diameter / 2 }]}>
           <Image accessible={false} source={androidLogoSource} fadeDuration={0} resizeMethod="scale" resizeMode="stretch" style={{ position: 'absolute', width: emblem.sourceSize * scale, height: emblem.sourceSize * scale, left: -emblem.left * scale, top: -emblem.top * scale }} />
         </View>
