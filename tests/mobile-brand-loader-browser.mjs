@@ -86,21 +86,18 @@ try {
   await page.screenshot({ path: path.join(output, `circular-loaders-${platform}.png`) })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.waitForFunction(({previous,id}) => getComputedStyle(document.querySelector('[data-testid="'+id+'"]')).transform !== previous, {previous:still,id:discId})
-  if (platform === 'android') {
-    assert.match(await transform(), /^matrix\(/, 'Android must stay on the 2D rendering path')
-    for (let frame = 0; frame < 12; frame += 1) {
-      await page.waitForTimeout(140)
-      const visible = await discs.first().evaluate((element) => {
-        const matrix = new DOMMatrix(getComputedStyle(element).transform)
-        const bounds = element.getBoundingClientRect()
-        return { areaScale: matrix.a * matrix.d - matrix.b * matrix.c, width: bounds.width, height: bounds.height }
-      })
-      assert.ok(Math.abs(visible.areaScale - 1) < 0.001, 'The Android disc must retain its visible area throughout a full spin')
-      assert.ok(visible.width >= 55 && visible.height >= 55, 'The Android logo must never turn edge-on')
-    }
-  } else {
-    assert.match(await transform(), /^matrix3d\(/, 'iPhone keeps its existing horizontal flip')
+  assert.match(await transform(), /^matrix3d\(/, platform + ' uses the horizontal flip')
+  const frames = []
+  for (let frame = 0; frame < 12; frame += 1) {
+    await page.waitForTimeout(140)
+    frames.push(await discs.first().evaluate(element => {
+      const matrix = new DOMMatrix(getComputedStyle(element).transform)
+      return { vertical: matrix.m22, clockX: matrix.m12, clockY: matrix.m21, depth: matrix.m13, face: matrix.m11 }
+    }))
   }
+  assert.ok(frames.every(frame => Math.abs(frame.vertical - 1) < 0.001 && Math.abs(frame.clockX) < 0.001 && Math.abs(frame.clockY) < 0.001), 'Logo turns around its vertical axis rather than rotating like clock hands')
+  assert.ok(frames.some(frame => frame.depth > 0.5) && frames.some(frame => frame.depth < -0.5), 'Horizontal flip completes both sides of its rotation')
+  assert.ok(frames.some(frame => frame.face > 0.5) && frames.some(frame => frame.face < -0.5), 'Front and reverse faces are reached')
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
     document.dispatchEvent(new Event('visibilitychange'))
@@ -131,7 +128,7 @@ try {
   for (const file of ['apps/mobile-core/src/ui.js', 'apps/parent-mobile/App.js', 'apps/coach-mobile/App.js', 'apps/coach-mobile/src/CoachFormationBoard.js', 'apps/coach-mobile/src/CoachFormationScreen.js', 'apps/coach-mobile/src/CoachMatchDayScreen.js', 'apps/coach-mobile/src/CoachOperationalScreens.js']) {
     assert.equal((await readFile(path.join(root, file), 'utf8')).includes('ActivityIndicator'), false, `${file} must use the branded loader`)
   }
-  console.log('PASS: Android uses embedded FP PNG bytes and a 2D spin; iPhone 3D flip preserved; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
+  console.log('PASS: Android keeps embedded FP PNG bytes and matches the iPhone horizontal flip; both platform branches pass crop, two sizes, four placements, reduced motion, background pause/resume, cleanup and 320px layout. Browser coverage does not prove native Android rendering.')
 } catch (error) {
   if (errors.length) console.error('Browser errors:', errors)
   throw error
