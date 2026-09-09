@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createFanAccountHandler } from '../netlify/functions/lib/_fan-account.js'
+import { fetchFansJson } from '../src/lib/fans-fetch.js'
 
 const token = '20000000-0000-4000-8000-000000000099'
 const invite = { id: 'fan-invite', name: 'Test Fan', email: 'fan@example.test', expires_at: new Date(Date.now() + 86400000).toISOString() }
@@ -75,6 +76,48 @@ test('weak passwords are rejected before any auth or email call', async () => {
 test('provider password rejection and throttling give an appropriate next step', async () => {
   assert.equal((await setup({ signupError: { code: 'weak_password' } }).run()).status, 400)
   assert.equal((await setup({ signupError: { status: 429 } }).run()).code, 'signup_rate_limited')
+})
+
+test('a valid eight-character password reaches signup without a twelve-character requirement', async () => {
+  const { run, calls } = setup()
+  const result = await run({ ...body, password: 'N7!vQ2az' })
+  assert.equal(result.status, 200)
+  assert.equal(calls.signup.length, 1)
+  assert.equal(calls.signup[0].password.length, 8)
+})
+
+for (const [reasons, message, expected] of [
+  [['pwned'], 'private provider details', /known data breach/],
+  [['length'], 'Password should be at least 8 characters.', /at least 8 characters/],
+  [['length'], 'private provider details', /too short/],
+  [['characters'], 'private provider details', /uppercase letter, a lowercase letter, a number, and a symbol/],
+  [['pwned', 'length', 'characters'], 'Password should be at least 8 characters.', /known data breach.*at least 8 characters.*uppercase letter/],
+  [[], 'private provider details', /without giving a specific reason/],
+  [['future_reason'], 'private provider details', /without giving a specific reason/],
+  ['pwned', 'private provider details', /without giving a specific reason/],
+]) {
+  test(`password rejection explains ${JSON.stringify(reasons)} and reaches the Fan client`, async () => {
+    const { run, calls } = setup({ signupError: { code: 'weak_password', reasons, message } })
+    const result = await run()
+    assert.equal(result.status, 400)
+    assert.equal(result.code, 'weak_password')
+    assert.match(result.message, expected)
+    assert.doesNotMatch(result.message, /private provider details/)
+    assert.equal(result.needsEmailVerification, undefined)
+    assert.equal(calls.emails.length, 0)
+    await assert.rejects(fetchFansJson('/signup', {}, async () => ({ ok: false, status: 400, json: async () => result })), expected)
+  })
+}
+
+test('password rejection never returns or logs provider messages, passwords or tokens', async (t) => {
+  const logged = []
+  t.mock.method(console, 'error', (...args) => logged.push(args))
+  const secret = 'synthetic-private-token'
+  const result = await setup({ signupError: { code: 'weak_password', reasons: ['pwned', secret], message: `${body.password} ${secret}`, status: 422 } }).run()
+  const output = JSON.stringify({ result, logged })
+  assert.equal(output.includes(body.password), false)
+  assert.equal(output.includes(secret), false)
+  assert.equal(logged.length, 1)
 })
 test('expired, missing and malformed invitations never create accounts', async () => {
   for (const inviteRow of [null, { ...invite, expires_at: 'invalid' }, { ...invite, expires_at: '2020-01-01' }]) {
