@@ -149,7 +149,9 @@ async function getMessagePayload({ id, profile }) {
           ? 'Calendar information has been updated.'
           : 'Matchday information has been updated.',
     minimalBody: 'You have a new update in Football Player Parents.',
-    parentLinkQuery: (query) => query.eq('player_id', log.player_id),
+    parentLinkQuery: (query) => metadata.type === 'availability_follow_up' && metadata.recipientLinkId
+      ? query.eq('player_id', log.player_id).eq('id', metadata.recipientLinkId).eq('team_id', metadata.teamId)
+      : query.eq('player_id', log.player_id),
     teamId: null,
     title: 'Football Player Parents',
     type: 'parent_message',

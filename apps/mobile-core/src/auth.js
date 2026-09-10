@@ -472,9 +472,9 @@ export function AuthProvider({
 
   const unlockWithBiometrics = useCallback(async () => {
     setAuthError('')
-    await authenticateWithBiometrics()
+    await authenticateWithBiometrics(appRole)
     setIsLocked(false)
-  }, [])
+  }, [appRole])
 
   const refreshUserProfile = useCallback(async (nextAuthUser = null) => {
     const currentSession = session

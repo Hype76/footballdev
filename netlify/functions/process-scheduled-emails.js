@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { prepareScheduledAvailabilityFollowUpRow } from './lib/_availability-follow-up.js'
 import process from 'node:process'
 import { authorizeProcessorRequest } from './lib/_processor-auth.js'
 import { markEmailLogFailed } from './lib/_email-log-store.js'
@@ -592,6 +593,11 @@ export async function sendScheduledEmail(row, { retryFailed = false } = {}) {
       playerId: String(lockedRow.payload?.parentPortalInvite?.playerId ?? '').trim(),
     }
     assertTrustedSystemPlanFeature(planProfile, 'parentEmails')
+    const followUpPreparation = await prepareScheduledAvailabilityFollowUpRow(lockedRow, supabaseAdmin)
+    if (followUpPreparation.skipped) {
+      await discardSkippedScheduledEmail(lockedRow, followUpPreparation.skipReason)
+      return 'skipped'
+    }
     const trainingInvitationPreparation = await prepareScheduledTrainingInvitationRow(
       lockedRow,
       {

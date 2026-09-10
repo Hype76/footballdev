@@ -9,6 +9,7 @@ import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platfo
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   createCoachExternalResource,
+  createCoachFollowUpKey,
   createCoachMatchAvailabilityRequests,
   createCoachPoll,
   deleteCoachPoll,
@@ -38,6 +39,7 @@ import {
   buildCoachAvailabilityTimeline,
   buildCoachChatRoomSections,
   canResendSelectedCoachInvites,
+  canFollowUpSelectedCoachInvites,
   collapseCoachInvitesByPlayer,
   getCoachInviteDeliveryProgress,
   getCoachChatModalTopInset,
@@ -227,15 +229,20 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
     if (user.isOfflineProfile) {
       setStale(true); setLoading(false)
-      if (!hasCachedValue) setError('Connect and choose Download for offline on Home to save this section on your phone.')
+      if (!hasCachedValue) setError('This section has not been saved on this phone yet. Connect to load it; Coach saves information automatically.')
       return
     }
     try {
       const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user)), { force: !reuseFresh })
       setData(next)
       setStale(false)
-      const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
-      await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
+      setError('')
+      try {
+        const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
+        await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
+      } catch {
+        setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
+      }
     } catch (loadError) {
       if (!silent && !hasCachedValue) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
     } finally {
@@ -803,6 +810,31 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
   const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
   const matchRequestPlayerCount = selectedMatchInvites.length
   const selectedCanBeResent = canResendSelectedCoachInvites(selectedInvites)
+  const [followUp, setFollowUp] = useState(null)
+  const [followUpMessage, setFollowUpMessage] = useState('Please could you confirm whether you can attend? Thank you.')
+  const [followUpNotice, setFollowUpNotice] = useState('')
+  const followUpAttempt = useRef(null)
+  const sendFollowUp = async () => {
+    if (bulkAction || stale || !followUp?.length || !followUpMessage.trim()) return
+    setBulkAction('follow_up')
+    setFollowUpNotice('')
+    const signature = followUpMessage.trim()
+    if (followUpAttempt.current?.signature !== signature) followUpAttempt.current = { signature, keys: {} }
+    const results = await Promise.allSettled(followUp.map(invite => {
+      const target = JSON.stringify([invite.eventId, invite.occurrenceDate, invite.playerId])
+      followUpAttempt.current.keys[target] ||= createCoachFollowUpKey()
+      return recordCoachInviteIntent(user, invite, 'follow_up', { message: followUpMessage, idempotencyKey: followUpAttempt.current.keys[target] })
+    }))
+    const failed = results.flatMap((result, index) => result.status === 'rejected' ? [followUp[index].playerId] : [])
+    const queued = results.filter(result => result.status === 'fulfilled').length
+    setSelectedPlayerIds(failed)
+    setBulkAction('')
+    if (!failed.length) { setFollowUp(null); followUpAttempt.current = null }
+    else setFollowUp(followUp.filter(invite => failed.includes(invite.playerId)))
+    const message = failed.length ? `${queued} of ${followUp.length} follow-ups queued. ${getCoachFriendlyError(results.find(result => result.status === 'rejected').reason)}` : `Follow-up queued for ${queued} Player${queued === 1 ? '' : 's'}. Existing responses have not changed.`
+    setFollowUpNotice(message)
+    setNotice(message)
+  }
   const selectionDisabled = stale || Boolean(bulkAction)
   const toggleSelection = (playerId) => setSelectedPlayerIds((current) => toggleCoachInvitePlayerSelection(current, playerId))
   const refreshAfterBulkAction = async () => {
@@ -963,6 +995,17 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
         <Button destructive disabled={selectionDisabled || selectedAvailabilityInvite.status === 'unavailable' || Number(user.roleRank || 0) < 20} label={bulkAction === 'unavailable' ? 'Recording Unavailable...' : 'Mark unavailable'} onPress={() => confirmAvailabilityOnBehalf('unavailable')} styles={styles} />
       </View> : <Text style={styles.body}>Select one Player to record availability on their behalf.</Text>}
       <Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} />
+      <Button disabled={!canFollowUpSelectedCoachInvites(selectedInvites) || selectionDisabled || Number(user.roleRank || 0) < 20} label="Send follow-up message" onPress={() => { setFollowUp([...selectedInvites]); setFollowUpNotice(''); followUpAttempt.current = null }} secondary styles={styles} />
+      <Modal visible={Boolean(followUp)} transparent animationType="fade" onRequestClose={() => { if (!bulkAction) setFollowUp(null) }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: palette.background }}>
+          <Text accessibilityRole="header" style={styles.title}>Follow-up message</Text>
+          <Text style={styles.body}>To the eligible contacts for {followUp?.length || 0} selected Players. Their current responses stay unchanged.</Text>
+          <TextInput accessibilityLabel="Follow-up message" multiline maxLength={500} value={followUpMessage} onChangeText={setFollowUpMessage} editable={!bulkAction} style={[styles.input, { minHeight: 120, textAlignVertical: 'top' }]} placeholderTextColor={palette.textSecondary} />
+          <Button label={bulkAction === 'follow_up' ? 'Sending...' : 'Send message'} disabled={Boolean(bulkAction) || stale || !followUpMessage.trim()} onPress={() => void sendFollowUp()} styles={styles} />
+          <Button label="Cancel" disabled={Boolean(bulkAction)} onPress={() => setFollowUp(null)} secondary styles={styles} />
+          {followUpNotice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{followUpNotice}</Text> : null}
+        </KeyboardAvoidingView>
+      </Modal>
       <Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={openRemovalConfirmation} styles={styles} />
       {!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}
     </View>

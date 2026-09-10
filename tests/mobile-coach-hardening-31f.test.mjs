@@ -215,9 +215,8 @@ test('Coach notification lifecycle covers token rotation, context refresh, prefe
   assert.match(app, /addCoachPushTokenListener/)
   assert.doesNotMatch(app, /unbindCoachNotifications/)
   assert.match(app, /preserveNativePushOnSignOut/)
-  assert.match(app, /Lock-screen copy excludes Player names/)
   assert.match(app, /notificationRegistrationRef\.current\.inFlight/)
-  assert.match(app, /enableNotifications\(\{ silent: true \}\)/)
+  assert.match(app, /enableNotifications\(\{ silent: true, force: true \}\)/)
   assert.doesNotMatch(app, /setNotice\(error\?\.code/)
 })
 

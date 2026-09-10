@@ -6,6 +6,12 @@ import { allowsMobileNotification, normalizeNotificationCategories } from '../ap
 import { filterMobileNotificationMessages } from '../netlify/functions/lib/_mobile-notification-preferences.js'
 import { sendExpoPushMessages } from '../netlify/functions/lib/_expo-push.js'
 
+test('Coach suppresses resource announcements while Parent choices remain independent', () => {
+  assert.equal(allowsMobileNotification({ resources: true }, { app: 'coach', route: 'resources', type: 'resource_shared' }), false)
+  assert.equal(allowsMobileNotification({ resources: true }, { app: 'parent', route: 'resources', type: 'resource_shared' }), true)
+  assert.equal(allowsMobileNotification({ invites: true }, { app: 'coach', route: 'calendar', type: 'calendar_change' }), true)
+})
+
 test('requested defaults and every Game Day level have independent category behaviour', () => {
   assert.deepEqual(normalizeNotificationCategories(), { gameDay: 'scores_cards', invites: true, chats: true, resources: true })
   const scoreTypes = ['goal','score_correction','yellow_card','red_card','live','match_started','half_time','second_half','full_time']

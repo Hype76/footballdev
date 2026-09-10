@@ -10,15 +10,22 @@ export function getBiometricPreferenceKey(appRole = 'parent') {
 }
 
 export async function getBiometricAvailability() {
-  const hasHardware = await LocalAuthentication.hasHardwareAsync()
-  const isEnrolled = hasHardware ? await LocalAuthentication.isEnrolledAsync() : false
-  const supportedTypes = hasHardware ? await LocalAuthentication.supportedAuthenticationTypesAsync() : []
+  const [hasHardware, isEnrolled, supportedTypes] = await Promise.all([
+    LocalAuthentication.hasHardwareAsync(),
+    LocalAuthentication.isEnrolledAsync(),
+    LocalAuthentication.supportedAuthenticationTypesAsync().catch(() => []),
+  ])
 
   return {
     available: Boolean(hasHardware && isEnrolled),
     hasHardware,
     isEnrolled,
     supportedTypes,
+    message: hasHardware && isEnrolled
+      ? 'Use Face ID or fingerprint, with your device passcode as a fallback.'
+      : hasHardware
+        ? 'Set up or allow Face ID or fingerprint in device settings. You can also use your device passcode.'
+        : 'Face ID or fingerprint is not currently available. Retry or use your device passcode.',
   }
 }
 
@@ -41,10 +48,9 @@ export async function clearBiometricPreference(appRole = 'parent') {
 
 export async function setBiometricEnabled(enabled, appRole = 'parent') {
   if (enabled) {
-    const availability = await getBiometricAvailability()
-
-    if (!availability.available) {
-      throw new Error('Biometric unlock is not available on this device.')
+    if (appRole !== 'coach') {
+      const availability = await getBiometricAvailability()
+      if (!availability.available) throw new Error('Biometric unlock is not available on this device.')
     }
 
     const result = await LocalAuthentication.authenticateAsync({
@@ -54,7 +60,7 @@ export async function setBiometricEnabled(enabled, appRole = 'parent') {
     })
 
     if (!result.success) {
-      throw new Error('Biometric authentication was cancelled.')
+      throw new Error(getBiometricFailureMessage(result.error))
     }
   }
 
@@ -62,11 +68,10 @@ export async function setBiometricEnabled(enabled, appRole = 'parent') {
   return enabled
 }
 
-export async function authenticateWithBiometrics() {
-  const availability = await getBiometricAvailability()
-
-  if (!availability.available) {
-    throw new Error('Biometric unlock is not available on this device.')
+export async function authenticateWithBiometrics(appRole = 'parent') {
+  if (appRole !== 'coach') {
+    const availability = await getBiometricAvailability()
+    if (!availability.available) throw new Error('Biometric unlock is not available on this device.')
   }
 
   const result = await LocalAuthentication.authenticateAsync({
@@ -76,8 +81,17 @@ export async function authenticateWithBiometrics() {
   })
 
   if (!result.success) {
-    throw new Error('Biometric authentication was not completed.')
+    throw new Error(getBiometricFailureMessage(result.error))
   }
 
   return true
+}
+
+export function getBiometricFailureMessage(code) {
+  if (['user_cancel', 'app_cancel', 'system_cancel'].includes(code)) return 'Device authentication was cancelled. Your setting has not changed.'
+  if (code === 'passcode_not_set') return 'Set a device passcode in your phone settings, then try again.'
+  if (code === 'not_enrolled') return 'Set up Face ID or a fingerprint in your phone settings, then try again.'
+  if (code === 'lockout') return 'Unlock your phone with its passcode, then try again.'
+  if (code === 'not_available') return 'Allow Face ID or fingerprint for this app in device settings, then try again.'
+  return 'Device authentication was not completed. Please try again.'
 }

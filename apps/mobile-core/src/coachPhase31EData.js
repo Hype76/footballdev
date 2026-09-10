@@ -705,14 +705,18 @@ export async function createCoachMatchAvailabilityRequests(user, match, playerId
   })
 }
 
-export async function recordCoachInviteIntent(user, invite, action) {
-  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
+export function createCoachFollowUpKey() { return requestId('coach-follow-up') }
+
+export async function recordCoachInviteIntent(user, invite, action, options = {}) {
+  assertCanonicalMutation(user, { minimumRank: action === 'follow_up' ? 20 : 50, requiresTeam: true })
   assertTeamEntity(user, invite, 'Invitation')
-  if (!['create', 'resend', 'cancel', 'close'].includes(action)) throw new Error('Choose a supported Invitation action.')
+  if (!['create', 'resend', 'follow_up', 'cancel', 'close'].includes(action)) throw new Error('Choose a supported Invitation action.')
   if (invite?.stale || invite?.cancelled) throw new Error('This Invitation target is stale or cancelled.')
+  const followUpMessage = normalize(options.message)
+  if (action === 'follow_up' && (!followUpMessage || followUpMessage.length > 500)) throw new Error('Enter a follow-up message of 1 to 500 characters.')
 
   if (config.isProduction) {
-    if (action !== 'resend') throw new Error('Use the authoritative web workflow to close or cancel an Invitation.')
+    if (!['resend', 'follow_up'].includes(action)) throw new Error('Use the authoritative web workflow to close or cancel an Invitation.')
     const accessToken = await getAccessToken()
     if (!accessToken) throw new Error('Sign in again before resending an Invitation.')
     const sourceType = invite.kind === 'match' ? 'match-day' : 'calendar'
@@ -722,7 +726,8 @@ export async function recordCoachInviteIntent(user, invite, action) {
       body: JSON.stringify({
         action: 'resend',
         eventId: invite.eventId,
-        idempotencyKey: requestId('coach-invite-resend'),
+        idempotencyKey: options.idempotencyKey || requestId('coach-invite-resend'),
+        ...(action === 'follow_up' ? { followUpMessage } : {}),
         occurrenceDate: invite.occurrenceDate || '',
         playerId: invite.playerId,
         preview: false,
@@ -733,7 +738,7 @@ export async function recordCoachInviteIntent(user, invite, action) {
       throw Object.assign(new Error(normalize(result?.message) || 'The Invitation could not be resent.'), { status: response.status })
     }
     return Object.freeze({
-      action: 'resend',
+      action,
       communicationDelivery: 'canonical_production_queue',
       duplicate: result?.duplicate === true,
       recorded: true,

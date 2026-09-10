@@ -43,7 +43,7 @@ for (const app of ['parent', 'coach']) {
     const getBuildClassification=()=> 'Production build';
     const inspectCoachOfflineState=async()=>({hasDocument:true});
     const BrandLoader=()=> <Text>Loading...</Text>;
-    const CoachOfflineReadiness=({styles})=> <Text style={styles.cardTitle}>Offline downloads</Text>;
+    const CoachOfflineReadiness=({styles})=> <Text style={styles.cardTitle}>Saved automatically</Text>;
     ${app === 'coach' ? 'const formatDateTime=()=> "Today";' : ''}
     const ParentThemeContext=createContext(null), CoachThemeContext=createContext(null);
     ${selected}
@@ -148,7 +148,7 @@ try {
           await open(label)
           await page.getByRole('button', { name: 'Back to Settings', exact: true }).waitFor()
           if (label === 'Notifications') {
-            await page.getByRole('switch', { name: 'Invites', exact: true }).waitFor()
+            await page.getByRole('switch', { name: app === 'coach' ? 'Availability & event updates' : 'Invites', exact: true }).waitFor()
             assert.equal(await page.getByRole('radiogroup', { name: 'Game Day alerts' }).count(), app === 'parent' ? 1 : 0)
             if (app === 'coach') assert.equal(await page.getByText('Game Day', { exact: true }).count(), 0)
           }
@@ -171,19 +171,19 @@ try {
     }
     assert.equal(await page.evaluate(() => window.calls.length), before, 'Navigation never mutates settings')
     await page.evaluate(() => window.openBell())
-    await page.getByRole('switch', { name: 'Invites', exact: true }).waitFor()
+    await page.getByRole('switch', { name: app === 'coach' ? 'Availability & event updates' : 'Invites', exact: true }).waitFor()
     if (app === 'parent') {
       await page.getByRole('radio', { name: 'Score and cards only', exact: true }).waitFor()
       await page.getByRole('radio', { name: 'Off', exact: true }).click()
     } else {
       assert.equal(await page.getByRole('radio').count(), 0, 'Coach has no Game Day notification setting')
-      await page.getByRole('switch', { name: 'Invites', exact: true }).click()
+      await page.getByRole('switch', { name: app === 'coach' ? 'Availability & event updates' : 'Invites', exact: true }).click()
     }
     await page.getByText('Saved.', { exact: true }).waitFor()
-    assert.equal(await page.getByRole('switch', { name: 'Chats', exact: true }).isChecked(), true)
+    assert.equal(await page.getByRole('switch', { name: app === 'coach' ? 'Chats & messages' : 'Chats', exact: true }).isChecked(), true)
     await back()
     await page.evaluate(() => window.openBell())
-    await page.getByRole('switch', { name: 'Invites', exact: true }).waitFor()
+    await page.getByRole('switch', { name: app === 'coach' ? 'Availability & event updates' : 'Invites', exact: true }).waitFor()
     if (app === 'coach') assert.equal(await page.evaluate(() => window.calls.filter(call => call.name === 'categories' && call.args.app_value === 'coach' && call.args.key_value === 'gameDay').length), 0)
     await back()
     if (app === 'parent') {
@@ -206,6 +206,15 @@ try {
       await page.getByLabel('Display name', { exact: true }).fill('Updated Parent')
       await open('Update display name')
       assert.deepEqual(await page.evaluate(() => window.calls.find(call => call.name === 'name').args), ['Updated Parent'])
+      await back()
+    }
+    if (app === 'coach') {
+      await page.evaluate(() => window.override({ biometricAvailable: false, biometricEnabled: false }))
+      await open('Security')
+      assert.equal(await page.getByRole('switch', { name: 'Biometric lock', exact: true }).isDisabled(), false)
+      await page.getByRole('button', { name: 'Check device authentication again', exact: true }).waitFor()
+      await page.getByRole('switch', { name: 'Biometric lock', exact: true }).click()
+      assert.ok(await page.evaluate(() => window.calls.some(call => call.name === 'biometric')))
       await back()
     }
     await page.evaluate(() => window.override({ notificationStateStatus: 'error' }))
