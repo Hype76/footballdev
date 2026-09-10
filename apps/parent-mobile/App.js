@@ -1,5 +1,4 @@
 import { openVenueDirections } from '../mobile-core/src/venueDirections'
-import { shareCalendarEvent } from '../mobile-core/src/calendarExport'
 import { PasswordInput } from '../mobile-core/src/PasswordInput'
 import 'react-native-url-polyfill/auto'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
@@ -1332,12 +1331,11 @@ function ParentHome() {
     }
   }
 
-  async function handleAddToCalendar(item, calendar = 'google') {
+  async function handleAddToCalendar(item) {
     if (isOffline || activeActionId || !item) return
     setActiveActionId(`calendar-google:${item.id || item.invitationId || item.eventId || 'event'}`)
     setNotice(null)
     try {
-      if (calendar === 'apple') { await shareCalendarEvent(item); return }
       const url = getParentGoogleCalendarUrl(item)
       if (!url) throw new Error('This event needs a confirmed date before it can be added to Google Calendar.')
       await openExternalParentUrl(url)

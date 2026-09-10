@@ -38,6 +38,7 @@ import {
   syncMobileAppBadge,
   writeMobileAppBadgeEnabled,
 } from '../mobile-core/src/appBadge'
+import { useCoachAppBadge } from '../mobile-core/src/useCoachAppBadge'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, preserveCoachNotificationRegistration, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
@@ -554,10 +555,9 @@ function CoachHome() {
   }, [activeContext, contextOwnedByCurrentUser, loadHome, user?.id])
 
   useEffect(() => {
-    const badgeCount = getCoachAppBadgeCount({ unreadChat: homeState.unreadChat })
-    latestBadgeCountRef.current = badgeCount
-    void syncMobileAppBadge({ appRole: 'coach', count: badgeCount }).catch(() => {})
+    latestBadgeCountRef.current = getCoachAppBadgeCount({ unreadChat: homeState.unreadChat })
   }, [homeState.unreadChat])
+  useCoachAppBadge({ homeState, activeRoute, contextId: activeContext?.id })
 
   useEffect(() => {
     void initializeCoachNotifications().catch(() => {})
@@ -571,7 +571,7 @@ function CoachHome() {
     // Refresh from the current context, never from untrusted notification counts.
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification?.request?.content?.data || {}
-      if (data.app === 'coach' && (data.route === 'chat' || ['staff_chat', 'parent_chat'].includes(data.type))) refreshChat()
+      if (data.app === 'coach') refreshChat()
     })
     const timer = activeRoute === 'home' ? setInterval(refreshChat, HOME_REFRESH_MIN_INTERVAL_MS) : null
     return () => {
