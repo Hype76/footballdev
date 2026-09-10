@@ -132,7 +132,7 @@ test('event map links are generated only for usable locations', () => {
 
   const links = getEventMapLinks('Back Lane, Cambourne')
 
-  assert.equal(links.length, 2)
+  assert.equal(links.length, 3)
   assert.equal(links[0].label, 'Open in Google Maps')
   assert.equal(links[0].href, 'https://www.google.com/maps/search/?api=1&query=Back%20Lane%2C%20Cambourne')
   assert.equal(links[1].label, 'Open in Apple Maps')

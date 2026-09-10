@@ -1,3 +1,5 @@
+import { VenueDirectionsLinks } from '../components/club-settings/VenueDirectionsLinks.jsx'
+import { ClubKitDisplay } from '../components/club-settings/ClubKitDisplay.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
@@ -5242,7 +5244,8 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
         <DetailItem label="Team" value={match.teamName || 'Our team'} />
         <DetailItem label="Opponent" value={match.opponent || 'Opponent'} />
         <DetailItem label="Home or away" value={getHomeAwayLabel(match.homeAway)} />
-        <DetailItem label="Kits" value={getShirtChoiceLabel(match.shirtChoice)} />
+        <DetailItem label="Kits" value={<ClubKitDisplay clubId={match.clubId} shirtChoice={match.shirtChoice} />} />
+        <VenueDirectionsLinks match={match} />
         <DetailItem label="Clock" value={isContinuousMatchClock(match) ? 'Continuous clock' : `Fixed, ${match.matchDurationMinutes} minutes`} />
         <DetailItem label="Final score" value={getMatchDayDisplayScore(match)} />
         <DetailItem label="Match status" value={getMatchLifecycleLabel(match)} />
@@ -5685,7 +5688,8 @@ function MatchDayCard({
                 <DetailItem label="Date and time" value={formatMatchDate(match)} />
                 <DetailItem label="Venue" value={locationSummary.displayLabel || getHomeAwayLabel(match.homeAway)} />
                 {match.pitchType ? <DetailItem label="Pitch type" value={getPitchTypeLabel(match.pitchType)} /> : null}
-                <DetailItem label="Kits" value={getShirtChoiceLabel(match.shirtChoice)} />
+                <DetailItem label="Kits" value={<ClubKitDisplay clubId={match.clubId} shirtChoice={match.shirtChoice} />} />
+        <VenueDirectionsLinks match={match} />
                 <DetailItem label="Arrival" value={match.arrivalTime || 'Not set'} />
                 <DetailItem label="Status" value={getMatchLifecycleLabel(match)} />
               </dl>

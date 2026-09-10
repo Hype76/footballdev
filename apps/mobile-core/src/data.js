@@ -82,6 +82,7 @@ export function normalizeMatchDay(row) {
     : []
 
   return {
+    clubId: row.club_id ?? row.clubId ?? '',
     arrivalTime: row.arrival_time ?? row.arrivalTime ?? '',
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     availabilityRespondedAt: row.availability_responded_at ?? row.availabilityRespondedAt ?? '',

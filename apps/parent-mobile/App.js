@@ -1,3 +1,5 @@
+import { openVenueDirections } from '../mobile-core/src/venueDirections'
+import { shareCalendarEvent } from '../mobile-core/src/calendarExport'
 import { PasswordInput } from '../mobile-core/src/PasswordInput'
 import 'react-native-url-polyfill/auto'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
@@ -1330,16 +1332,17 @@ function ParentHome() {
     }
   }
 
-  async function handleAddToCalendar(item) {
+  async function handleAddToCalendar(item, calendar = 'google') {
     if (isOffline || activeActionId || !item) return
     setActiveActionId(`calendar-google:${item.id || item.invitationId || item.eventId || 'event'}`)
     setNotice(null)
     try {
+      if (calendar === 'apple') { await shareCalendarEvent(item); return }
       const url = getParentGoogleCalendarUrl(item)
       if (!url) throw new Error('This event needs a confirmed date before it can be added to Google Calendar.')
       await openExternalParentUrl(url)
     } catch (error) {
-      setNotice({ message: getParentFriendlyError(error, 'Google Calendar could not be opened.'), tone: 'warning' })
+      setNotice({ message: getParentFriendlyError(error, 'The calendar could not be opened.'), tone: 'warning' })
     } finally {
       setActiveActionId('')
     }
@@ -1442,7 +1445,8 @@ function ParentHome() {
     setActiveActionId(`match-${destination}`)
     setNotice(null)
     try {
-      await openExternalParentUrl(url)
+      if (destination === 'directions') await openVenueDirections(url)
+      else await openExternalParentUrl(url)
     } catch (error) {
       setNotice({
         message: getParentFriendlyError(error, destination === 'calendar' ? 'The Calendar could not be opened.' : 'Directions could not be opened.'),

@@ -117,15 +117,17 @@ export function getParentMatchStatusLabel(match = {}) {
 }
 
 function getParentCalendarTemplate(item = {}) {
-  const matchDate = normalizeText(item.matchDate ?? item.calendarDate ?? item.eventDate).slice(0, 10)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(matchDate)) return ''
+  const startParts = getParentProductDateTimeParts(item.startsAt ?? item.eventStart)
+  const matchDate = normalizeText(item.matchDate ?? item.calendarDate ?? item.eventDate ?? startParts.date).slice(0, 10)
+  if (!getParentProductDateTimeParts(matchDate).isValid) return ''
   const rawTime = normalizeText(item.kickoffTime ?? item.calendarTime).slice(0, 5)
   const eventStart = compactCalendarDateTime(item.startsAt ?? item.eventStart)
   const timed = item.kickoffTimeTbc !== true && (/^\d{2}:\d{2}$/.test(rawTime) || eventStart.includes('T'))
   const start = timed
     ? (/^\d{2}:\d{2}$/.test(rawTime) ? `${matchDate.replaceAll('-', '')}T${rawTime.replace(':', '')}00` : eventStart)
     : matchDate.replaceAll('-', '')
-  const end = timed
+  const suppliedEnd = compactCalendarDateTime(item.endsAt ?? item.eventEnd)
+  const end = timed && suppliedEnd.includes('T') && suppliedEnd > start ? suppliedEnd : timed
     ? addWallTimeMinutes(
         matchDate,
         /^\d{2}:\d{2}$/.test(rawTime) ? rawTime : `${eventStart.slice(9, 11)}:${eventStart.slice(11, 13)}`,
@@ -164,24 +166,22 @@ export function getParentMatchCalendarUrl(match) {
 function escapeCalendarText(value) {
   return normalizeText(value)
     .replaceAll('\\', '\\\\')
-    .replaceAll('\n', '\\n')
+    .replace(/\r\n|\r|\n/g, '\\n')
     .replaceAll(',', '\\,')
     .replaceAll(';', '\\;')
 }
 
 function compactCalendarDateTime(value) {
-  const normalized = normalizeText(value)
-  if (!normalized) return ''
-  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/)
-  if (!match) return ''
-  return `${match[1]}${match[2]}${match[3]}${match[4] ? `T${match[4]}${match[5]}${match[6] || '00'}` : ''}`
+  const parts = getParentProductDateTimeParts(value)
+  if (!parts.isValid || !parts.date) return ''
+  return `${parts.date.replaceAll('-', '')}${parts.hasTime ? `T${parts.time.replace(':', '')}00` : ''}`
 }
 
 export function buildParentCalendarIcs(item = {}) {
   const event = getParentCalendarTemplate(item)
   if (!event) return ''
   const matchDate = normalizeText(item.matchDate ?? item.calendarDate ?? item.eventDate).slice(0, 10)
-  const uid = `${normalizeText(item.id ?? item.eventId ?? item.sourceRecordId) || `${matchDate}-${event.title}`}@footballplayer.online`
+  const uid = `${normalizeText(item.id ?? item.eventId ?? item.sourceRecordId) || event.title}-${event.start || matchDate}@footballplayer.online`
   const startLine = event.timed ? `DTSTART;TZID=Europe/London:${event.start}` : `DTSTART;VALUE=DATE:${event.start}`
   const endLine = event.timed ? `DTEND;TZID=Europe/London:${event.end}` : `DTEND;VALUE=DATE:${event.end}`
   return [
@@ -190,6 +190,21 @@ export function buildParentCalendarIcs(item = {}) {
     'PRODID:-//Football Player//Parent Calendar//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/London',
+    'BEGIN:DAYLIGHT',
+    'TZOFFSETFROM:+0000',
+    'TZOFFSETTO:+0100',
+    'DTSTART:19700329T010000',
+    'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    'END:DAYLIGHT',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0100',
+    'TZOFFSETTO:+0000',
+    'DTSTART:19701025T020000',
+    'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    'END:STANDARD',
+    'END:VTIMEZONE',
     'BEGIN:VEVENT',
     `UID:${escapeCalendarText(uid)}`,
     `DTSTAMP:${new Date().toISOString().replaceAll('-', '').replaceAll(':', '').replace(/\.\d{3}Z$/, 'Z')}`,
@@ -201,7 +216,17 @@ export function buildParentCalendarIcs(item = {}) {
     'END:VEVENT',
     'END:VCALENDAR',
     '',
-  ].join('\r\n')
+  ].map(line => {
+    let folded = '', bytes = 0
+    for (const character of line) {
+      const point = character.codePointAt(0)
+      const length = point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4
+      if (bytes + length > 75) { folded += '\r\n '; bytes = 1 }
+      folded += character
+      bytes += length
+    }
+    return folded
+  }).join('\r\n')
 }
 
 export function getParentMatchDirectionsUrl(match, platform = 'android') {

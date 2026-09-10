@@ -1,3 +1,4 @@
+import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../../../src/lib/resource-date-presentation.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
 import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
@@ -416,6 +417,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
           <View style={styles.actionRow}>{event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <IconAction accessibilityLabel="Add to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(event)} styles={styles} /> : null}{directionsUrl ? <IconAction accessibilityLabel="Get directions" colors={colors} iconKey="parent.directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} styles={styles} /> : null}</View>
         </View>
       </View>
+      {(event.calendarDate || event.eventDate || event.startsAt || event.eventStart) && Platform.OS === 'ios' ? <Button label="Apple Calendar" disabled={Boolean(activeActionId)} onPress={() => onAddToCalendar?.(event, 'apple')} outline styles={styles} /> : null}
       {isMatch && invitation?.invitationType === 'match_attendance' ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
     </View>
   )
@@ -593,6 +595,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
               </View>
             ) : null}
             {primary?.eventLocation ? <View style={styles.inviteSection}><View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={2} style={[styles.meta, styles.inviteSectionCopy]}>{primary.eventLocation}</Text>{(primary.eventDate || primary.eventStart) ? <IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /> : null}</View></View> : (primary?.eventDate || primary?.eventStart) ? <View style={styles.inviteSection}><View style={styles.row}><Text style={styles.meta}>Add this event to Google Calendar</Text><IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /></View></View> : null}
+            {(primary?.eventDate || primary?.eventStart) && Platform.OS === 'ios' ? <Button label="Add to Apple Calendar" disabled={Boolean(activeActionId)} onPress={() => onAddToCalendar?.(primary, 'apple')} outline styles={styles} /> : null}
             {matchAttendance ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={matchAttendance} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
           </View>
         )
@@ -946,7 +949,7 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
           <View style={styles.actionRow}>
             <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text>
             {!selectedMatch.isFanView ? <Text style={styles.pill}>{presentation?.phaseLabel || 'Pre-match'}</Text> : null}
-            <Text style={styles.pill}>{getMatchDayShirtChoiceLabel(selectedMatch.shirtChoice)}</Text>
+
           </View>
           <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || getMatchDayDisplayName(selectedMatch)}</Text>
           <Text style={styles.body}>{formatDateOnly(selectedMatch.matchDate)}</Text>
@@ -955,6 +958,7 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
           <Text style={styles.body}>{[selectedMatch.venueName, selectedMatch.venueAddress].filter(Boolean).join(', ') || 'Location not shared'}</Text>
           <MatchTypeIcon fixtureType={selectedMatch.fixtureType} textStyle={styles.body} />
           <HomeAwayIcon homeAway={selectedMatch.homeAway} textStyle={styles.body} />
+          <ClubKitDisplay clubId={link?.clubId || selectedMatch.clubId} shirtChoice={selectedMatch.shirtChoice} textStyle={styles.body} />
           <PitchTypeIcon pitchType={selectedMatch.pitchType} textStyle={styles.body} />
           <Text style={styles.liveSync}>{selectedMatchIsLive ? 'Live sync on' : 'Fixture details'}</Text>
           <View style={styles.card}>
@@ -977,6 +981,7 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
               styles={styles}
             /> : null}
             {selectedMatch.matchDate ? <Button label="Add to Google Calendar" onPress={() => onAddToCalendar?.(selectedMatch)} outline styles={styles} /> : null}
+            {selectedMatch.matchDate && Platform.OS === 'ios' ? <Button label="Add to Apple Calendar" onPress={() => onAddToCalendar?.(selectedMatch, 'apple')} outline styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <Button label="Get directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} outline styles={styles} /> : null}
           </View>
         </View>

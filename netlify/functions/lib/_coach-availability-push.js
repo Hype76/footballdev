@@ -26,3 +26,10 @@ export function buildCoachAvailabilityResponsePayload({ clubName = '', contextLa
     type: 'coach_update',
   }
 }
+
+export function buildCoachAvailabilityHistoryPayload(options = {}) {
+  const payload = buildCoachAvailabilityResponsePayload({ ...options, detailLevel: 'detailed' })
+  const responseLabel = { available: 'Attending', unavailable: 'Not attending', maybe: 'Maybe' }[normalizeText(options.status).toLowerCase()] || 'Response updated'
+  const playerName = normalizeText(options.playerName) || 'Player'
+  return { ...payload, title: `${playerName} · ${responseLabel}`, body: normalizeText(options.contextLabel) || 'Open the event to view this response.', data: { ...payload.data, playerName, responseStatus: normalizeText(options.status).toLowerCase(), eventTitle: normalizeText(options.contextLabel) } }
+}
