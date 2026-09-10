@@ -3,16 +3,21 @@ import { createCoachContextMarker, parseCoachContextMarker } from '../../mobile-
 import { clearNativeNotificationLocalState } from '../../mobile-core/src/notifications'
 import { getCoachLocalStateKeys } from './coachLocalStateCore'
 import { clearCoachOfflineState } from './offline'
+import { createCoachThemePreference } from './coachThemePreferenceCore'
+
+const themePreference = createCoachThemePreference({
+  read: () => AsyncStorage.getItem(getCoachLocalStateKeys().theme),
+  write: value => AsyncStorage.setItem(getCoachLocalStateKeys().theme, value),
+})
+
+export const peekCoachThemeMode = themePreference.peek
 
 export async function readCoachThemeMode() {
-  const value = await AsyncStorage.getItem(getCoachLocalStateKeys().theme)
-  return value === 'light' ? 'light' : 'dark'
+  return themePreference.read()
 }
 
 export async function writeCoachThemeMode(mode) {
-  const value = mode === 'light' ? 'light' : 'dark'
-  await AsyncStorage.setItem(getCoachLocalStateKeys().theme, value)
-  return value
+  return themePreference.write(mode)
 }
 
 export async function readCoachContextMarker(userId) {
@@ -32,6 +37,7 @@ export async function clearCoachUserLocalState(userId) {
 }
 
 export async function clearCoachAllLocalState(userId = '') {
+  themePreference.reset()
   if (String(userId || '').trim()) {
     const keys = getCoachLocalStateKeys(userId)
     await Promise.all([

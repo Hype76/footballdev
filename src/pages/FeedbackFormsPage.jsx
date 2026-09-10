@@ -1,3 +1,4 @@
+import { formatUkDateTime } from '../lib/date-format.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -154,7 +155,7 @@ function FormList({ forms, isSaving, onArchive, onDuplicate, onEdit }) {
                 {form.isArchived ? 'Archived' : 'Active'} | {form.fields.length} field{form.fields.length === 1 ? '' : 's'} | Version {form.version}
               </p>
               <p className="mt-1 text-xs font-semibold text-[#66756c]">
-                Last updated {form.updatedAt ? new Date(form.updatedAt).toLocaleString('en-GB') : 'Unknown'}
+                Last updated {form.updatedAt ? formatUkDateTime(new Date(form.updatedAt)) : 'Unknown'}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">

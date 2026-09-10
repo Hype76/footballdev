@@ -1,3 +1,4 @@
+import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../../../src/lib/resource-date-presentation.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
 import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import * as Crypto from 'expo-crypto'
@@ -10,7 +11,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'e
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
-import { getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
+import { getParentCalendarAttendanceInvitation, getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
 import {
   formatParentProductDateTime,
@@ -266,7 +267,7 @@ function IconAction({ accessibilityLabel, colors, disabled = false, iconKey, onP
 function IconChoice({ accessibilityLabel, colors, disabled = false, iconKey, label, onPress, selected = false, styles, tone = 'muted' }) {
   const color = selected ? invitationToneColor(colors, tone) : colors.muted
   return (
-    <Pressable accessibilityLabel={accessibilityLabel || label} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.iconChoice, selected && { backgroundColor: colors.accentSoft, borderBottomColor: color }, disabled && !selected && styles.iconChoiceDisabled, pressed && { opacity: 0.72 }]}>
+    <Pressable accessibilityLabel={accessibilityLabel || label} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled }} aria-checked={selected} aria-disabled={disabled} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.iconChoice, selected && { backgroundColor: colors.accentSoft, borderBottomColor: color }, disabled && !selected && styles.iconChoiceDisabled, pressed && { opacity: 0.72 }]}>
       <ParentIcon color={color} iconKey={iconKey} size={26} />
       <Text style={[styles.iconChoiceLabel, selected && { color }]}>{label}</Text>
     </Pressable>
@@ -340,8 +341,9 @@ function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, o
   )
 }
 
-export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calendar', event, isOffline, onBack, onOpenLink, onOpenResource, themeTokens }) {
+export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calendar', event, invitations = [], isOffline, onBack, onOpenLink, onOpenResource, onRespond, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
+  const invitation = getParentCalendarAttendanceInvitation(event, invitations)
   const presentation = getParentEventPresentation(event)
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
   useEffect(() => {
@@ -356,10 +358,14 @@ export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calen
       <Text style={styles.meta}>{[getParentEventDateTimeLabel(event), presentation.label, event.teamName, labelize(event.status)].filter(Boolean).join(' | ')}</Text>
       {event.endsAt ? <Text style={styles.body}>Ends {formatParentProductDateTime(event.endsAt)}</Text> : null}
       {event.arrivalTime ? <Text style={styles.body}>Arrive {formatParentProductTime(event.arrivalTime)}</Text> : null}
+      {invitation && onRespond ? <View style={styles.section}>
+        <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline || isParentCalendarEventCancelled(event)} label="Attendance" onRespond={onRespond} styles={styles} />
+        {isOffline ? <Text style={styles.helper}>Connect to change attendance.</Text> : null}
+      </View> : null}
       {event.location ? <View style={styles.section}><Text style={styles.cardTitle}>Location</Text><Text style={styles.body}>{event.location}</Text><VenueMapPreview key={event.location} location={event.location} offline={isOffline} colors={colors} styles={styles} />{directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}</View> : null}
       {event.description && (!event.notesPinned || event.description !== event.notes) ? <Text style={styles.body}>{event.description}</Text> : null}
       {!event.notesPinned && event.notes && event.notes !== event.description ? <View style={styles.section}><Text style={styles.cardTitle}>Shared notes</Text><Text style={styles.body}>{event.notes}</Text></View> : null}
-      {event.resources?.length ? <View style={styles.section}><Text style={styles.cardTitle}>Attachments</Text>{event.resources.map(resource => <Button disabled={isOffline || Boolean(activeActionId)} key={resource.id} label={`Open ${resource.title}`} onPress={() => onOpenResource?.(event, resource)} outline styles={styles} />)}</View> : null}
+      {event.resources?.length ? <View style={styles.section}><Text style={styles.cardTitle}>Attachments</Text>{event.resources.map(resource => <Button disabled={isOffline || Boolean(activeActionId)} key={resource.id} label={`Open ${getResourceDisplayTitle(resource)}`} onPress={() => onOpenResource?.(event, resource)} outline styles={styles} />)}</View> : null}
     </View>
   </View>
 }
@@ -401,7 +407,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
           })}
         </View>
       ) : null}
-      {Array.isArray(event.resources) && event.resources.length > 0 ? <View style={styles.inviteSection}>{event.resources.map((resource) => <Pressable accessibilityLabel={`Open ${resource.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={resource.id} onPress={() => onOpenResource?.(event, resource)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accentText} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resource.title}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={21} /></Pressable>)}</View> : null}
+      {Array.isArray(event.resources) && event.resources.length > 0 ? <View style={styles.inviteSection}>{event.resources.map((resource) => <Pressable accessibilityLabel={`Open ${getResourceDisplayTitle(resource)}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={resource.id} onPress={() => onOpenResource?.(event, resource)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accentText} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{getResourceDisplayTitle(resource)}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={21} /></Pressable>)}</View> : null}
       <View style={styles.inviteSection}>
         <View style={styles.row}>
           {event.location ? <View style={[styles.inviteMetadataItem, styles.inviteSectionCopy]}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={1} style={styles.meta}>{event.location}</Text></View> : <View />}
@@ -470,7 +476,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
       : [...current, tone])
   }
   const selectedEvent = resource.items.find(event => getParentEventKey(event) === selectedEventKey)
-  if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} event={selectedEvent} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} themeTokens={themeTokens} />
+  if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} event={selectedEvent} invitations={invitations} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} themeTokens={themeTokens} />
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your player'}.</Text></View>
@@ -581,7 +587,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
             {otherInvitations.map((invitation) => <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} key={invitation.invitationId} label={invitation.invitationType === 'training_attendance' ? 'Training attendance' : 'Attendance'} onRespond={respond} styles={styles} />)}
             {resources.length ? (
               <View style={styles.inviteSection}>
-                {resources.map(({ invitation, resourceItem }) => <Pressable accessibilityLabel={`Open ${resourceItem.title}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={`${resourceItem.id}:${resourceItem.occurrenceDate}:${invitation.invitationId}`} onPress={() => onOpenResource?.(invitation, resourceItem)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accentText} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{resourceItem.title}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={21} /></Pressable>)}
+                {resources.map(({ invitation, resourceItem }) => <Pressable accessibilityLabel={`Open ${getResourceDisplayTitle(resourceItem)}`} accessibilityRole="button" disabled={isOffline || Boolean(activeActionId)} key={`${resourceItem.id}:${resourceItem.occurrenceDate}:${invitation.invitationId}`} onPress={() => onOpenResource?.(invitation, resourceItem)} style={styles.inviteSectionHeader}><ParentIcon color={colors.accentText} iconKey="resource" size={22} /><Text style={[styles.body, styles.inviteSectionCopy]}>{getResourceDisplayTitle(resourceItem)}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={21} /></Pressable>)}
               </View>
             ) : null}
             {primary?.eventLocation ? <View style={styles.inviteSection}><View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={2} style={[styles.meta, styles.inviteSectionCopy]}>{primary.eventLocation}</Text>{(primary.eventDate || primary.eventStart) ? <IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /> : null}</View></View> : (primary?.eventDate || primary?.eventStart) ? <View style={styles.inviteSection}><View style={styles.row}><Text style={styles.meta}>Add this event to Google Calendar</Text><IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /></View></View> : null}
@@ -1142,12 +1148,24 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
       <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected player.</Text></View>
       {isOffline ? <Text style={styles.warning}>Resource details are saved for reading. Opening the item needs a connection.</Text> : null}
       <ResourceState emptyCopy="No resources are shared with this player." {...resource} styles={styles} />
-      {resource.items.map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{item.title}</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text>{onDismiss ? <IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /> : null}</View></View>)}
+      {sortResourcesNewestFirst(resource.items).map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{getResourceDisplayTitle(item)}</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text>{onDismiss ? <IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /> : null}</View></View>)}
     </View>
   )
 }
 
-export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onSend, onToggleRoomNotifications, rooms, selectedRoom, themeTokens }) {
+function CoachReminderAttendance({ activeActionId, colors, invitations, isOffline, message, onRespond, styles }) {
+  const invitation = getParentCalendarAttendanceInvitation({ sourceId: message.calendarEventId || message.matchDayId, startsAt: message.eventStartsAt || message.occurrenceDate }, invitations)
+  const eventTitle = message.eventTitle || invitation?.eventTitle || 'Team event'
+  const date = message.eventDateLabel || formatParentProductDateTime(invitation?.eventStart || message.eventStartsAt || message.occurrenceDate, { fallback: 'Date to be confirmed' })
+  return <View style={styles.section}>
+    <Text style={styles.cardTitle}>{eventTitle}</Text>
+    <Text style={styles.meta}>{date}</Text>
+    {invitation && onRespond ? <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} label="Attendance" onRespond={onRespond} styles={styles} /> : <Text style={styles.helper}>Attendance is no longer available for this event.</Text>}
+    {isOffline ? <Text style={styles.helper}>Connect to change attendance.</Text> : null}
+  </View>
+}
+
+export function ChatScreen({ activeActionId, invitations = [], isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onRespond, onSend, onToggleRoomNotifications, rooms, selectedRoom, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [draft, setDraft] = useState('')
   const composerRef = useRef(null)
@@ -1180,7 +1198,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
           ListEmptyComponent={!messages.loading ? <Text style={styles.empty}>No messages in this conversation yet.</Text> : null}
           onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: false })}
           ref={messageListRef}
-          renderItem={({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View><Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Pressable accessibilityLabel="Delete message" accessibilityRole="button" disabled={isOffline || activeActionId === `chat-delete:${message.id}`} onPress={() => onDelete(message)} style={styles.messageDelete}><Text style={styles.messageDeleteText}>{activeActionId === `chat-delete:${message.id}` ? 'Deleting...' : 'Delete'}</Text></Pressable> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>}
+          renderItem={({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View>{message.roomId === 'coach-reminders' ? <CoachReminderAttendance activeActionId={activeActionId} colors={colors} invitations={invitations} isOffline={isOffline} message={message} onRespond={onRespond} styles={styles} /> : null}<Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Pressable accessibilityLabel="Delete message" accessibilityRole="button" disabled={isOffline || activeActionId === `chat-delete:${message.id}`} onPress={() => onDelete(message)} style={styles.messageDelete}><Text style={styles.messageDeleteText}>{activeActionId === `chat-delete:${message.id}` ? 'Deleting...' : 'Delete'}</Text></Pressable> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>}
           style={styles.chatList}
         />
         {messages.loading ? <View style={{ alignItems: 'center', paddingVertical: 12 }}><BrandLoader accessibilityLabel="Loading messages" /><Text style={styles.helper}>Loading messages...</Text></View> : null}
@@ -1204,7 +1222,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
               <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text numberOfLines={1} style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text></View>
               <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />
             </Pressable>
-            <View style={styles.row}>
+            {!['announcement', 'coach_reminder'].includes(room.type) ? <View style={styles.row}>
               <View><Text style={styles.body}>Do not disturb</Text><Text style={styles.meta}>{room.notificationsMuted ? 'Notifications muted for this room' : 'Notifications on for this room'}</Text></View>
               <Switch
                 accessibilityLabel={`Do not disturb for ${room.title}`}
@@ -1213,7 +1231,7 @@ export function ChatScreen({ activeActionId, isOffline, link, messages, onBack, 
                 trackColor={{ false: colors.border, true: colors.accent }}
                 value={room.notificationsMuted === true}
               />
-            </View>
+            </View> : null}
           </View>
         )}
         style={styles.chatList}

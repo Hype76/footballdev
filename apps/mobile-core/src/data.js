@@ -173,6 +173,13 @@ function normalizeMessage(row) {
 
   return {
     authorType: normalizeText(metadata.authorType).toLowerCase(),
+    messageType: normalizeText(metadata.type).toLowerCase(),
+    calendarEventId: normalizeText(metadata.calendarEventId),
+    matchDayId: normalizeText(metadata.matchDayId),
+    occurrenceDate: normalizeText(metadata.occurrenceDate),
+    eventTitle: normalizeText(metadata.eventTitle),
+    eventStartsAt: normalizeText(metadata.eventStartsAt),
+    eventDateLabel: normalizeText(metadata.eventDateLabel),
     body: normalizeText(metadata.body),
     createdAt: row.created_at || '',
     evaluationId: normalizeText(

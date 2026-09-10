@@ -125,7 +125,7 @@ import {
   voidParentScorerGoal,
   voidParentScorerShootoutKick,
 } from './src/parentPortalData'
-import { getParentAnnouncementMessages, isParentStaffAnnouncement, prepareParentChatRooms } from './src/parentPresentationCore'
+import { getParentAnnouncementMessages, getParentStaffMessageRoomId, isParentStaffMessageRoom, isParentStaffAnnouncement, prepareParentChatRooms } from './src/parentPresentationCore'
 import {
   CalendarScreen,
   CalendarEventDetail,
@@ -1077,7 +1077,7 @@ function ParentHome() {
         if (destination.tab === 'messages') {
           const legacyMessage = (result?.items?.messages || []).find((message) => message.id === destination.targetId)
           if (normalizeText(legacyMessage?.body)) {
-            destination = { tab: 'chat', targetId: 'club-announcements' }
+            destination = { tab: 'chat', targetId: getParentStaffMessageRoomId(legacyMessage) }
           } else if (legacyMessage?.evaluationId) {
             destination = { tab: 'development', targetId: legacyMessage.evaluationId }
           } else {
@@ -1091,8 +1091,8 @@ function ParentHome() {
           const room = prepareParentChatRooms(result?.items?.chatRooms || [], result?.items?.messages || [], result?.items?.matches || [])
             .find((candidate) => candidate.id === destination.targetId)
           if (room) {
-            if (room.id === 'club-announcements') {
-              setChatMessages({ error: '', items: getParentAnnouncementMessages(result?.items?.messages || []), loading: false })
+            if (isParentStaffMessageRoom(room.id)) {
+              setChatMessages({ error: '', items: getParentAnnouncementMessages(result?.items?.messages || [], room.id), loading: false })
             } else {
               setChatMessages({ error: '', items: [], loading: true })
               try {
@@ -1427,7 +1427,8 @@ function ParentHome() {
       return
     }
     if (item.type === 'message_read') {
-      const room = parentChatRooms.find((candidate) => candidate.id === 'club-announcements')
+      const message = visibleMessages.find(message => message.id === item.entityId || message.id === item.messageId)
+      const room = parentChatRooms.find((candidate) => candidate.id === getParentStaffMessageRoomId(message))
       setActiveTab('chat')
       if (room) void handleOpenChatRoom(room)
       return
@@ -1455,10 +1456,10 @@ function ParentHome() {
   async function handleOpenChatRoom(room) {
     setPendingNotificationRoomId('')
     setSelectedRoomId(room.id)
-    if (room.id === 'club-announcements') {
-      const items = getParentAnnouncementMessages(visibleMessages)
+    if (isParentStaffMessageRoom(room.id)) {
+      const items = getParentAnnouncementMessages(visibleMessages, room.id)
       setChatMessages({ error: '', items, loading: false })
-      const unreadMessages = visibleMessages.filter((message) => normalizeText(message.body) && !message.readAt)
+      const unreadMessages = visibleMessages.filter((message) => items.some(item => item.legacyMessageId === message.id) && !message.readAt)
       if (unreadMessages.length) {
         const readAt = new Date().toISOString()
         try {
@@ -1503,7 +1504,7 @@ function ParentHome() {
   }
 
   async function handleToggleChatRoomNotifications(room, notificationsMuted) {
-    if (isOffline || activeActionId || !room?.id) return
+    if (isOffline || activeActionId || !room?.id || isParentStaffMessageRoom(room.id)) return
     setActiveActionId(`chat-dnd:${room.id}`)
     try {
       await setParentChatRoomNotifications(selectedMobileUser, room.id, notificationsMuted)
@@ -1525,8 +1526,8 @@ function ParentHome() {
 
   async function reloadSelectedChatRoom() {
     if (!selectedRoomId) return
-    if (selectedRoomId === 'club-announcements') {
-      setChatMessages({ error: '', items: getParentAnnouncementMessages(visibleMessages), loading: false })
+    if (isParentStaffMessageRoom(selectedRoomId)) {
+      setChatMessages({ error: '', items: getParentAnnouncementMessages(visibleMessages, selectedRoomId), loading: false })
       return
     }
     const items = await getParentChatMessages(selectedMobileUser, selectedRoomId)
@@ -1556,7 +1557,7 @@ function ParentHome() {
   reloadSelectedChatRoomRef.current = reloadSelectedChatRoom
 
   useEffect(() => {
-    if (activeTab !== 'chat' || !selectedRoomId || selectedRoomId === 'club-announcements' || isOffline || !selectedLink?.id) return undefined
+    if (activeTab !== 'chat' || !selectedRoomId || isParentStaffMessageRoom(selectedRoomId) || isOffline || !selectedLink?.id) return undefined
     const refreshOpenRoom = () => {
       if (AppState.currentState !== 'active') return
       void reloadSelectedChatRoomRef.current().catch(() => {})
@@ -1590,7 +1591,7 @@ function ParentHome() {
   }
 
   async function handleSendChatMessage(body) {
-    if (isOffline || activeActionId || !selectedRoomId || selectedRoomId === 'club-announcements') return
+    if (isOffline || activeActionId || !selectedRoomId || isParentStaffMessageRoom(selectedRoomId)) return
     setActiveActionId('chat-send')
     setNotice(null)
     try {
@@ -1905,7 +1906,7 @@ function ParentHome() {
     }
     if (destination.tab === 'messages') {
       const legacyMessage = resources.messages.items.find((message) => message.id === destination.targetId)
-      if (normalizeText(legacyMessage?.body)) destination = { tab: 'chat', targetId: 'club-announcements' }
+      if (normalizeText(legacyMessage?.body)) destination = { tab: 'chat', targetId: getParentStaffMessageRoomId(legacyMessage) }
       else if (legacyMessage?.evaluationId) destination = { tab: 'development', targetId: legacyMessage.evaluationId }
     }
     applyParentNotificationDestination(destination)
@@ -2000,6 +2001,8 @@ function ParentHome() {
               isOffline={isOffline}
               link={selectedLink}
               messages={chatMessages}
+              invitations={visibleInvitationsWithMatchTimes}
+              onRespond={handleInvitationResponse}
               onBack={() => { setSelectedRoomId(''); setPendingNotificationRoomId('') }}
               onDelete={handleDeleteChatMessage}
               onDismissAnnouncement={(message) => handleDismissParentItem('messages', message.legacyMessageId, 'announcement')}
@@ -2046,6 +2049,8 @@ function ParentHome() {
                 activeActionId={activeActionId}
                 calendar={resources.calendar}
                 homeModel={homeModel}
+                invitations={visibleInvitationsWithMatchTimes}
+                onRespond={handleInvitationResponse}
                 link={selectedLink}
                 inviteCount={unansweredInvites}
                 matches={{ ...resources.matches, items: visibleMatches }}
@@ -2380,7 +2385,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch, themeTokens, onOpenEventDetails }) {
+function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch, themeTokens, onOpenEventDetails }) {
   const { palette, styles } = useParentTheme()
   const [selectedEventKey, setSelectedEventKey] = useState('')
   const [detailPlayerId, setDetailPlayerId] = useState(link?.id)
@@ -2399,7 +2404,7 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, isOf
     )
   }
 
-  if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} backLabel="Back to Home" event={selectedEvent} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} themeTokens={themeTokens} />
+  if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} backLabel="Back to Home" event={selectedEvent} invitations={invitations} onRespond={onRespond} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} themeTokens={themeTokens} />
 
   if (selectedMatch) {
     return <MatchDetail match={selectedMatch} onBack={() => onOpenMatch({ id: '' })} />

@@ -1,4 +1,7 @@
 import 'react-native-url-polyfill/auto'
+import { formatFixtureDateTime } from '../../src/lib/calendar-datetime-integrity.js'
+import { formatParentProductDateTime } from '../mobile-core/src/parentDateTimeCore.js'
+import 'react-native-url-polyfill/auto'
 import { CoachNotificationHistoryScreen } from './src/CoachNotificationHistoryScreen'
 import { createCoachScrollBounds } from './src/coachScrollBounds'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
@@ -62,6 +65,7 @@ import { createMatchInvitesTheme, createCoachTheme, DEFAULT_COACH_THEME } from '
 import {
   clearCoachAllLocalState,
   readCoachContextMarker,
+  peekCoachThemeMode,
   readCoachThemeMode,
   writeCoachContextMarker,
   writeCoachThemeMode,
@@ -102,17 +106,7 @@ function normalizeText(value) {
 }
 
 function formatDateTime(value, fallback = 'To be confirmed') {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleString([], {
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'short',
-    timeZone: 'Europe/London',
-    weekday: 'short',
-  })
+  return formatParentProductDateTime(value, { fallback, weekday: 'short' })
 }
 
 function LoginScreen() {
@@ -161,7 +155,7 @@ function CoachHome() {
   const [chatNotificationTarget, setChatNotificationTarget] = useState(null)
   const [contextReady, setContextReady] = useState(false)
   const [contextOwnerUserId, setContextOwnerUserId] = useState('')
-  const [displayTheme, setDisplayTheme] = useState('dark')
+  const [displayTheme, setDisplayTheme] = useState(peekCoachThemeMode)
   const [homeState, setHomeState] = useState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
@@ -203,7 +197,7 @@ function CoachHome() {
   const quickActions = useMemo(() => getCoachQuickActions(activeContext), [activeContext])
   const isMatchInvitesRoute = activeRoute === 'more' && moreRoute === 'invites'
   const themeModel = useMemo(
-    () => isMatchInvitesRoute ? createMatchInvitesTheme(activeContext) : createCoachTheme({ context: activeContext, mode: displayTheme }),
+    () => isMatchInvitesRoute ? createMatchInvitesTheme(activeContext, displayTheme) : createCoachTheme({ context: activeContext, mode: displayTheme }),
     [activeContext, displayTheme, isMatchInvitesRoute],
   )
   const themeContext = useMemo(() => createCoachThemeContext(themeModel), [themeModel])
@@ -522,16 +516,20 @@ function CoachHome() {
 
   useEffect(() => {
     let mounted = true
+    void readCoachThemeMode().then(() => { if (mounted) setDisplayTheme(peekCoachThemeMode()) }).catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
     const authorityScope = JSON.stringify([user?.id, user?.role, user?.roleRank, user?.clubId, user?.hasActivePlanAccess, user?.coachContexts?.map(context => ['id', 'authorityId', 'authoritySource', 'clubId', 'teamId', 'role', 'roleRank', 'clubStatus', 'teamStatus', 'archivedAt', 'hasActivePlanAccess', 'planKey', 'planStatus'].map(field => String(context[field] ?? '')))])
     if (bootstrappedAuthorityRef.current === authorityScope) return undefined
     setContextReady(false)
     resetContextDomainState()
     void Promise.all([
-      readCoachThemeMode(),
       user?.id ? readCoachContextMarker(user.id) : Promise.resolve(null),
-    ]).then(([mode, marker]) => {
+    ]).then(([marker]) => {
       if (!mounted) return
-      setDisplayTheme(mode)
       const available = Array.isArray(user?.coachContexts) ? user.coachContexts : []
       const nextContextId = available.some((context) => context.id === marker?.contextId)
         ? marker.contextId
@@ -680,15 +678,15 @@ function CoachHome() {
     setSelectedContextId(nextContext.id)
   }, [activeContext, activeRoute, contextResolution.contexts, moreRoute, resetContextDomainState])
 
-  const toggleTheme = useCallback(async () => {
-    const next = displayTheme === 'dark' ? 'light' : 'dark'
+  const toggleTheme = useCallback(async (enabled) => {
+    const next = enabled ? 'light' : 'dark'
     setDisplayTheme(next)
     try {
       await writeCoachThemeMode(next)
     } catch {
       setNotice('Theme preference could not be saved on this device.')
     }
-  }, [displayTheme])
+  }, [])
 
   if (isProfileLoading && !user?.id) return <LoadingScreen message="Resolving Coach access..." />
   if (!user) {
@@ -845,15 +843,15 @@ function CoachNotificationsScreen(props) {
 
 function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
   const { styles } = useCoachTheme()
-  const nextMatch = homeState.nextMatch || homeState.matches[0]
-  const nextSession = homeState.nextSession || homeState.sessions[0]
+  const nextMatch = homeState.nextMatch
+  const nextSession = homeState.nextSession
   const nextCalendar = homeState.nextCalendar
 
   return (
     <View style={styles.stack}>
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
-      {homeState.partial && !homeState.stale ? <StatePanel actionLabel="Refresh" message="The main overview is available, but one or more supporting summaries could not be refreshed." onAction={() => reloadHome({ refresh: true })} title="Some summaries are unavailable" tone="warning" /> : null}
+      {homeState.partial && !homeState.stale ? <Pressable accessibilityRole="button" accessibilityLabel="Retry unavailable overview information" onPress={() => reloadHome({ refresh: true })} style={{ paddingVertical: 8 }}><Text style={styles.helperText}>Some overview information could not refresh. Tap to retry.</Text></Pressable> : null}
       <View style={styles.iconList}>
         <HomeNextRow
           iconKey="route.calendar"
@@ -869,24 +867,24 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
               label="Next match"
               meta={nextMatch?.opponent || ''}
               onPress={() => onNavigate('matchday')}
-              value={nextMatch ? formatDateTime(nextMatch.matchDate || nextMatch.match_date) : 'No upcoming match'}
+              value={nextMatch ? formatFixtureDateTime(nextMatch) : 'No upcoming match'}
             />
             <HomeNextRow
               iconKey="coach.session"
               label="Next session"
               meta={nextSession?.title || nextSession?.type || ''}
               onPress={() => onNavigate('sessions')}
-              value={nextSession ? formatDateTime(nextSession.startsAt || nextSession.sessionDate || nextSession.session_date) : 'No upcoming session'}
+              value={nextSession ? formatDateTime(nextSession.startsAt || `${nextSession.sessionDate || nextSession.session_date}${nextSession.startTime || nextSession.start_time ? `T${nextSession.startTime || nextSession.start_time}` : ''}`) : 'No upcoming session'}
             />
           </>
         ) : <EmptyPanel message="Choose a Team context to see Team fixtures, Players, and Sessions." title="Club overview" />}
       </View>
       <IconSection iconKey="coach.attention" title="Operational attention">
         <View style={styles.iconStatGrid}>
-          <IconStat iconKey="coach.availability" label="Availability pending" onPress={() => onNavigate('invites')} value={homeState.pendingAvailability || 0} />
-          <IconStat iconKey="coach.polls" label="Active Polls" onPress={() => onNavigate('polls')} value={homeState.activePolls || 0} />
-          <IconStat iconKey="coach.chat" label="Unread Chat" onPress={() => onNavigate('chat')} value={homeState.unreadChat || 0} />
-          <IconStat iconKey="coach.development" label="Development records" onPress={() => onNavigate('development')} value={homeState.developmentRecords || 0} />
+          <IconStat iconKey="coach.availability" label="Availability pending" onPress={() => onNavigate('invites')} value={homeState.errors?.some(error => error.startsWith('invites:')) ? 'Unavailable' : homeState.pendingAvailability || 0} />
+          <IconStat iconKey="coach.polls" label="Active Polls" onPress={() => onNavigate('polls')} value={homeState.errors?.some(error => error.startsWith('polls:')) ? 'Unavailable' : homeState.activePolls || 0} />
+          <IconStat iconKey="coach.chat" label="Unread Chat" onPress={() => onNavigate('chat')} value={homeState.errors?.some(error => error.startsWith('chatRooms:')) ? 'Unavailable' : homeState.unreadChat || 0} />
+          <IconStat iconKey="coach.development" label="Development records" onPress={() => onNavigate('development')} value={homeState.errors?.some(error => error.startsWith('development:')) ? 'Unavailable' : homeState.developmentRecords || 0} />
         </View>
         <View style={styles.iconActionGrid}>
           <IconAction iconKey="coach.availability" label="Availability" onPress={() => onNavigate('invites')} />
@@ -1255,7 +1253,7 @@ function IconStat({ iconKey, label, onPress, value }) {
   return (
     <Pressable accessibilityLabel={`${label}: ${value}`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.iconStat, pressed && styles.pressed]}>
       <CoachIcon iconKey={iconKey} size={29} />
-      <Text style={styles.iconStatValue}>{value}</Text>
+      <Text style={[styles.iconStatValue, typeof value === 'string' && styles.iconStatLabel]}>{value}</Text>
       <Text numberOfLines={2} style={styles.iconStatLabel}>{label}</Text>
     </Pressable>
   )

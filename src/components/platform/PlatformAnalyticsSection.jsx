@@ -1,3 +1,4 @@
+import { formatUkDateTime, formatUkDate } from '../../lib/date-format.js'
 import { useEffect, useMemo, useState } from 'react'
 import { SectionCard } from '../ui/SectionCard.jsx'
 
@@ -61,7 +62,7 @@ function formatMetricValue(value) {
 
 function displayCellValue(key, value) {
   if (value === null || value === undefined || value === '') return 'Not observed'
-  if (key.toLowerCase().endsWith('at') && !Number.isNaN(new Date(value).getTime())) return new Date(value).toLocaleString('en-GB')
+  if (key.toLowerCase().endsWith('at') && !Number.isNaN(new Date(value).getTime())) return formatUkDateTime(new Date(value))
   if (typeof value === 'number') return value.toLocaleString()
   return labelValue(value)
 }
@@ -118,7 +119,7 @@ function OverviewCard({ focusKey = '', label, value, detail = '', definition = '
       <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]" title={definition}>{label}{definition ? ' [?]' : ''}</p>
       <p className="mt-2 text-3xl font-black text-[var(--text-primary)]">{formatMetricValue(value)}</p>
       {detail ? <p className="mt-1 text-xs font-bold text-[var(--text-muted)]">{detail}</p> : null}
-      {refreshedAt ? <p className="mt-2 text-xs font-semibold text-[var(--text-muted)]">Refreshed {new Date(refreshedAt).toLocaleString('en-GB')}</p> : null}
+      {refreshedAt ? <p className="mt-2 text-xs font-semibold text-[var(--text-muted)]">Refreshed {formatUkDateTime(new Date(refreshedAt))}</p> : null}
       {Array.isArray(drilldown) ? <details className="mt-2 text-xs"><summary className="min-h-9 cursor-pointer py-2 font-black text-[var(--accent)]">View human-readable breakdown</summary><HumanBreakdown label={label} rows={drilldown} total={value} /></details> : null}
     </article>
   )
@@ -145,7 +146,7 @@ function TrendChart({ title, description, rows = [], series = [] }) {
   return (
     <article className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
       <h3 className="text-lg font-black text-[var(--text-primary)]">{title}</h3><p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">{description}</p>
-      {rows.length ? <><div className="mt-3 flex flex-wrap gap-3 text-xs font-bold text-[var(--text-muted)]">{series.map((item) => <span key={item.key} className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />{item.label}</span>)}</div><div className="mt-3 overflow-x-auto"><svg className="h-48 min-w-[40rem] w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}. ${description}`}><line x1="0" y1={height} x2={width} y2={height} stroke="var(--border-color)" />{series.map((item) => <polyline key={item.key} fill="none" stroke={item.color} strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={pointsFor(item.key)} />)}</svg></div><details className="mt-2 text-xs"><summary className="min-h-9 cursor-pointer py-2 font-black text-[var(--accent)]">View daily values</summary><div className="overflow-x-auto"><table className="w-full min-w-[36rem] text-left"><thead><tr><th className="py-2 font-black">Date</th>{series.map((item) => <th key={item.key} className="py-2 text-right font-black">{item.label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.date} className="border-t border-[var(--border-color)]"><th className="py-2 font-bold">{new Date(`${row.date}T12:00:00Z`).toLocaleDateString('en-GB')}</th>{series.map((item) => <td key={item.key} className="py-2 text-right font-semibold">{Number(row[item.key] ?? 0).toLocaleString()}</td>)}</tr>)}</tbody></table></div></details></> : <p className="mt-3 text-sm font-semibold text-[var(--text-muted)]">No trend data matches these filters.</p>}
+      {rows.length ? <><div className="mt-3 flex flex-wrap gap-3 text-xs font-bold text-[var(--text-muted)]">{series.map((item) => <span key={item.key} className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />{item.label}</span>)}</div><div className="mt-3 overflow-x-auto"><svg className="h-48 min-w-[40rem] w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}. ${description}`}><line x1="0" y1={height} x2={width} y2={height} stroke="var(--border-color)" />{series.map((item) => <polyline key={item.key} fill="none" stroke={item.color} strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={pointsFor(item.key)} />)}</svg></div><details className="mt-2 text-xs"><summary className="min-h-9 cursor-pointer py-2 font-black text-[var(--accent)]">View daily values</summary><div className="overflow-x-auto"><table className="w-full min-w-[36rem] text-left"><thead><tr><th className="py-2 font-black">Date</th>{series.map((item) => <th key={item.key} className="py-2 text-right font-black">{item.label}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.date} className="border-t border-[var(--border-color)]"><th className="py-2 font-bold">{formatUkDate(new Date(`${row.date}T12:00:00Z`))}</th>{series.map((item) => <td key={item.key} className="py-2 text-right font-semibold">{Number(row[item.key] ?? 0).toLocaleString()}</td>)}</tr>)}</tbody></table></div></details></> : <p className="mt-3 text-sm font-semibold text-[var(--text-muted)]">No trend data matches these filters.</p>}
     </article>
   )
 }
@@ -408,8 +409,8 @@ export function PlatformAnalyticsSection({
               <OverviewCard label="Successful logins in period" value={authentication.successfulLoginsSelected ?? overview.selectedSuccessfulLogins?.current} definition="Successful authentication events in the selected period." refreshedAt={report.generatedAt} drilldown={authentication.drilldown} />
               <OverviewCard label="Distinct users logging in" value={authentication.distinctUsersLoggingIn ?? overview.distinctUsersLoggingIn} definition="Distinct authenticated actors with a successful login event in the selected period." refreshedAt={report.generatedAt} drilldown={authentication.drilldown} />
               <OverviewCard label="Failed logins" value={authentication.failedLoginsAvailable ? authentication.failedLogins : null} detail={authentication.failedLoginsAvailable ? 'Privacy-safe failure count' : 'Failure telemetry is unavailable'} definition="Failed authentication attempts where privacy-safe telemetry is available." refreshedAt={report.generatedAt} />
-              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First Parent Portal login telemetry</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstParentLoginAt ? new Date(authentication.firstParentLoginAt).toLocaleString('en-GB') : 'No Parent Portal login telemetry captured'}</p></article>
-              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First successful Coach login</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstStaffLoginAt ? new Date(authentication.firstStaffLoginAt).toLocaleString('en-GB') : 'Not observed'}</p></article>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First Parent Portal login telemetry</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstParentLoginAt ? formatUkDateTime(new Date(authentication.firstParentLoginAt)) : 'No Parent Portal login telemetry captured'}</p></article>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">First successful Coach login</p><p className="mt-2 text-sm font-black text-slate-950">{authentication.firstStaffLoginAt ? formatUkDateTime(new Date(authentication.firstStaffLoginAt)) : 'Not observed'}</p></article>
             </div>
             <div className="mt-5">
               <TrendChart
@@ -588,9 +589,9 @@ export function PlatformAnalyticsSection({
               <OverviewCard label="FP TEST events" value={dataQuality.fpTestEvents} definition="Selected events classified to the controlled FP TEST scope." refreshedAt={report.generatedAt} />
             </div>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-              <div><dt className="font-black text-slate-700">Last event received</dt><dd className="font-semibold text-slate-600">{processor.lastEventReceivedAt ? new Date(processor.lastEventReceivedAt).toLocaleString('en-GB') : 'Not observed'}</dd></div>
-              <div><dt className="font-black text-slate-700">Last processor success</dt><dd className="font-semibold text-slate-600">{processor.lastProcessorSuccessAt ? new Date(processor.lastProcessorSuccessAt).toLocaleString('en-GB') : 'Not observed'}</dd></div>
-              <div><dt className="font-black text-slate-700">Last aggregate refresh</dt><dd className="font-semibold text-slate-600">{processor.lastAggregateRefreshAt ? new Date(processor.lastAggregateRefreshAt).toLocaleString('en-GB') : 'Not observed'}</dd></div>
+              <div><dt className="font-black text-slate-700">Last event received</dt><dd className="font-semibold text-slate-600">{processor.lastEventReceivedAt ? formatUkDateTime(new Date(processor.lastEventReceivedAt)) : 'Not observed'}</dd></div>
+              <div><dt className="font-black text-slate-700">Last processor success</dt><dd className="font-semibold text-slate-600">{processor.lastProcessorSuccessAt ? formatUkDateTime(new Date(processor.lastProcessorSuccessAt)) : 'Not observed'}</dd></div>
+              <div><dt className="font-black text-slate-700">Last aggregate refresh</dt><dd className="font-semibold text-slate-600">{processor.lastAggregateRefreshAt ? formatUkDateTime(new Date(processor.lastAggregateRefreshAt)) : 'Not observed'}</dd></div>
               <div><dt className="font-black text-slate-700">Processing lag</dt><dd className="font-semibold text-slate-600">{formatMetricValue(processor.processingLagSeconds)} seconds</dd></div>
               <div><dt className="font-black text-slate-700">Duplicate suppression</dt><dd className="font-semibold text-slate-600">{dataQuality.duplicateEventsState || 'Unavailable'}</dd></div>
               <div><dt className="font-black text-slate-700">Capture began</dt><dd className="font-semibold text-slate-600">{dataQuality.historicalCoverageStart || report.identityCaptureStartDate || 'Not observed'}</dd></div>

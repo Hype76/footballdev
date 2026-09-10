@@ -1,3 +1,5 @@
+import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../lib/resource-date-presentation.js'
+import { formatUkDateTime } from '../lib/date-format.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -136,7 +138,7 @@ function FormationResourcePreview({ resource }) {
   return (
     <div className="w-full overflow-hidden rounded-lg border border-[#d7e5dc] bg-[#edf7f0] lg:w-56">
       {thumbnailUrl ? (
-        <img src={thumbnailUrl} alt={`${resource.title} Formation Board preview`} className="aspect-[4/3] w-full object-cover" loading="lazy" />
+        <img src={thumbnailUrl} alt={`${getResourceDisplayTitle(resource)} Formation Board preview`} className="aspect-[4/3] w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex aspect-[4/3] items-center justify-center bg-[#237a45] p-5 text-center text-sm font-black text-white">Formation Board preview</div>
       )}
@@ -155,30 +157,30 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
 
   return (
     <div className="space-y-3">
-      {resources.map((resource) => (
+      {sortResourcesNewestFirst(resources).map((resource) => (
         <article key={resource.id} className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <FormationResourcePreview resource={resource} />
             <div className="min-w-0 flex-1">
-              <p className="text-lg font-black text-[#101828]">{resource.title}</p>
+              <p className="text-lg font-black text-[#101828]">{getResourceDisplayTitle(resource)}</p>
               <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getResourceMeta(resource)}</p>
               <p className="mt-1 break-words text-xs font-semibold text-[#66756c]">{resource.externalUrl || resource.originalFilename}</p>
               {resource.description ? (
                 <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{resource.description}</p>
               ) : null}
               <p className="mt-3 text-xs font-semibold text-[#66756c]">
-                {resource.links.length} assignment{resource.links.length === 1 ? '' : 's'} | Uploaded {resource.createdAt ? new Date(resource.createdAt).toLocaleString('en-GB') : 'Unknown'}
+                {resource.links.length} assignment{resource.links.length === 1 ? '' : 's'} | Uploaded {resource.createdAt ? formatUkDateTime(new Date(resource.createdAt)) : 'Unknown'}
               </p>
               {resource.currentFormationBoardPublication ? (
                 <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-3">
                   <p className="text-sm font-black text-[#101828]">{resource.currentFormationBoardPublication.gameFormat} | {resource.currentFormationBoardPublication.formation.split('-').slice(1).join('-') || resource.currentFormationBoardPublication.formation} | Version {resource.currentFormationBoardPublication.versionNumber}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#66756c]">Published by {resource.currentFormationBoardPublication.publishedByName || 'Team Coaches'} on {resource.currentFormationBoardPublication.publishedAt ? new Date(resource.currentFormationBoardPublication.publishedAt).toLocaleString('en-GB') : 'Unknown'}.</p>
+                  <p className="mt-1 text-xs font-semibold text-[#66756c]">Published by {resource.currentFormationBoardPublication.publishedByName || 'Team Coaches'} on {resource.currentFormationBoardPublication.publishedAt ? formatUkDateTime(new Date(resource.currentFormationBoardPublication.publishedAt)) : 'Unknown'}.</p>
                   <details className="mt-2">
                     <summary className="cursor-pointer text-xs font-black text-[#047857]">Version history ({resource.formationBoardPublications.length})</summary>
                     <div className="mt-2 space-y-1">
                       {resource.formationBoardPublications.map((publication) => (
                         <div key={publication.id} className="flex flex-col gap-1 rounded-md border border-[#d7e5dc] bg-white p-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p className="text-xs font-semibold text-[#66756c]">Version {publication.versionNumber} | {publication.formation.split('-').slice(1).join('-') || publication.formation} | {publication.publishedByName || 'Team Coaches'} | {publication.publishedAt ? new Date(publication.publishedAt).toLocaleString('en-GB') : 'Unknown'}</p>
+                          <p className="text-xs font-semibold text-[#66756c]">Version {publication.versionNumber} | {publication.formation.split('-').slice(1).join('-') || publication.formation} | {publication.publishedByName || 'Team Coaches'} | {publication.publishedAt ? formatUkDateTime(new Date(publication.publishedAt)) : 'Unknown'}</p>
                           <Link to={`/resources/formation-boards?board=${publication.boardId}&version=${publication.boardVersionId}`} className="text-xs font-black text-[#047857]">Open version</Link>
                         </div>
                       ))}
@@ -396,8 +398,8 @@ export function ResourceLibraryPage() {
         })
         setUploadDraft(createUploadDraft())
         await refreshResources()
-        setSuccessMessage(`${resource.title} saved.`)
-        showToast({ title: 'Resource saved', message: `${resource.title} is available to authorised Coaches.` })
+        setSuccessMessage(`${getResourceDisplayTitle(resource)} saved.`)
+        showToast({ title: 'Resource saved', message: `${getResourceDisplayTitle(resource)} is available to authorised Coaches.` })
         return
       }
 
@@ -571,7 +573,7 @@ export function ResourceLibraryPage() {
     try {
       await archiveResourceLibraryItem({ resourceId: resource.id, user })
       await refreshResources()
-      setSuccessMessage(`${resource.title} archived.`)
+      setSuccessMessage(`${getResourceDisplayTitle(resource)} archived.`)
       showToast({ title: 'Resource archived', message: 'Existing assignments are no longer shown.' })
     } catch (error) {
       console.error(error)
@@ -868,7 +870,7 @@ export function ResourceLibraryPage() {
                 >
                   <option value="">Choose resource</option>
                   {resources.filter((resource) => !resource.currentFormationBoardPublication).map((resource) => (
-                    <option key={resource.id} value={resource.id}>{resource.title}</option>
+                    <option key={resource.id} value={resource.id}>{getResourceDisplayTitle(resource)}</option>
                   ))}
                 </select>
               </label>

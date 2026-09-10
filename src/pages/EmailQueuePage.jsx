@@ -31,7 +31,7 @@ function formatDateTime(value) {
     return 'No date set'
   }
 
-  return date.toLocaleString([], {
+  return date.toLocaleString('en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
   })

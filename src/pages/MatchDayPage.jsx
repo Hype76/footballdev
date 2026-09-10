@@ -567,7 +567,7 @@ function formatResponseDateTime(value) {
     return value
   }
 
-  return date.toLocaleString([], {
+  return date.toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -1093,7 +1093,7 @@ function formatMatchEventTimestamp(value) {
     return value
   }
 
-  return date.toLocaleString([], {
+  return date.toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -1410,7 +1410,7 @@ function formatEventLogTimestamp(value) {
     return value
   }
 
-  return date.toLocaleString([], {
+  return date.toLocaleString('en-GB', {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

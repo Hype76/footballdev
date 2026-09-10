@@ -32,7 +32,7 @@ function formatPreviousMatchDate(match) {
     return match.matchDate || resolvedDate.value
   }
 
-  return date.toLocaleString([], {
+  return date.toLocaleString('en-GB', {
     weekday: 'short',
     day: '2-digit',
     month: 'short',

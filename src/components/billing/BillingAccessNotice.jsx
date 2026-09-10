@@ -1,3 +1,4 @@
+import { formatUkDate } from '../../lib/date-format.js'
 import { Link } from 'react-router-dom'
 import { BILLING_ACCESS_STATES, resolveBillingAccess } from '../../lib/billing-access.js'
 
@@ -18,7 +19,7 @@ export function BillingAccessNotice({ user }) {
           <p className="mt-1 text-sm font-semibold leading-6">
             {paymentRequired
               ? 'Coach editing and management are paused. Your information remains available to view and export.'
-              : `Coach access remains active until ${new Date(decision.billingStartAt).toLocaleDateString('en-GB')}.`}
+              : `Coach access remains active until ${formatUkDate(new Date(decision.billingStartAt))}.`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -12,7 +12,7 @@ function formatReportDate(value) {
     return value || 'Date not recorded'
   }
 
-  return parsedDate.toLocaleDateString([], {
+  return parsedDate.toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

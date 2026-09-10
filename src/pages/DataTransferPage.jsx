@@ -1,3 +1,4 @@
+import { formatUkDateTime } from '../lib/date-format.js'
 import { useEffect, useMemo, useState } from 'react'
 import { isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
@@ -34,7 +35,7 @@ const successPanelClass = 'rounded-lg border border-[var(--accent)] bg-[var(--ac
 function formatDate(value) {
   if (!value) return 'Not completed'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('en-GB')
+  return Number.isNaN(date.getTime()) ? String(value) : formatUkDateTime(date)
 }
 
 function formatCounts(counts = {}) {

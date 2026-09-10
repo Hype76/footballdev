@@ -94,6 +94,20 @@ function invitationStatus(invitation) {
   return normalizeText(invitation?.responseState).toLowerCase() || 'awaiting_response'
 }
 
+export function getParentCalendarAttendanceInvitation(event, invitations = []) {
+  if (!event) return null
+  const eventId = normalizeText(event.sourceId || event.eventId || event.id)
+  const eventDate = dateOnly(event.startsAt || event.calendarDate || event.occurrenceDate)
+  return invitations.find((invitation) => {
+    if (!['training_attendance', 'calendar_attendance', 'match_attendance'].includes(invitation.invitationType)) return false
+    const sameEvent = Boolean(event.invitationId && invitation.invitationId === event.invitationId)
+      || [invitation.eventId, invitation.sourceRecordId].some(id => normalizeText(id) && normalizeText(id) === eventId)
+    if (!sameEvent) return false
+    const inviteDate = dateOnly(invitation.eventStart || invitation.eventDate)
+    return !eventDate || !inviteDate || eventDate === inviteDate
+  }) || null
+}
+
 function normalizeSharedEvent(event, invitation) {
   const calendarDate = dateOnly(event.startsAt)
   const calendarTime = timeOnly(event.startsAt)
@@ -192,8 +206,8 @@ export function buildParentCalendarEvents({ calendarEvents = [], invitations = [
   const sharedIds = new Set(calendarEvents.map((event) => normalizeText(event?.id)).filter(Boolean))
   const matchIds = new Set(matches.map((match) => normalizeText(match?.id)).filter(Boolean))
   const events = [
-    ...calendarEvents.map((event) => normalizeSharedEvent(event, invitationByEvent.get(normalizeText(event?.id)))),
-    ...matches.map((match) => normalizeMatchEvent(match, invitationByEvent.get(normalizeText(match?.id)))),
+    ...calendarEvents.map((event) => normalizeSharedEvent(event, getParentCalendarAttendanceInvitation(event, invitations))),
+    ...matches.map((match) => normalizeMatchEvent(match, getParentCalendarAttendanceInvitation({ ...match, startsAt: match.matchDate }, invitations) || invitationByEvent.get(normalizeText(match?.id)))),
     ...invitations
       .filter((invitation) => {
         const key = invitationKey(invitation)

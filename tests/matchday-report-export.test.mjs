@@ -210,8 +210,8 @@ test('completed report branding embeds a JPEG club badge and uses the Club colou
 
 test('completed report filenames and spreadsheet formula protection are stable', () => {
   const match = completedMatch()
-  assert.equal(getCompletedReportFilename(match, 'pdf'), '2026-07-22-atletico-test-v-st-john-s-united-completed-report.pdf')
-  assert.equal(getCompletedReportFilename(match, 'csv'), '2026-07-22-atletico-test-v-st-john-s-united-completed-report.csv')
+  assert.equal(getCompletedReportFilename(match, 'pdf'), '22-07-2026-atletico-test-v-st-john-s-united-completed-report.pdf')
+  assert.equal(getCompletedReportFilename(match, 'csv'), '22-07-2026-atletico-test-v-st-john-s-united-completed-report.csv')
   assert.equal(protectSpreadsheetFormulaValue(' =2+2'), "' =2+2")
   assert.equal(protectSpreadsheetFormulaValue('@SUM(A1:A2)'), "'@SUM(A1:A2)")
   assert.equal(protectSpreadsheetFormulaValue('Ordinary text'), 'Ordinary text')

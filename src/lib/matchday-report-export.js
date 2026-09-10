@@ -1,3 +1,4 @@
+import { formatUkDate } from './date-format.js'
 import {
   buildCompletedMatchEventPresentation,
   buildFinalMatchReportSummary,
@@ -113,7 +114,7 @@ function makeEventCsvRow(event, match, displayOrder, options) {
   return {
     Club: getClubName(match),
     Fixture: getFixtureName(match),
-    'Match date': getMatchDate(match),
+    'Match date': formatUkDate(getMatchDate(match)),
     'Half-time score': options.result.halfTimeScore,
     'Full-time score': options.result.fullTimeScore,
     'Match phase': getMatchPhase(event),
@@ -144,7 +145,7 @@ function makeShootoutCsvRow(kick, match, displayOrder, result = buildFinalMatchR
   return {
     Club: getClubName(match),
     Fixture: getFixtureName(match),
-    'Match date': getMatchDate(match),
+    'Match date': formatUkDate(getMatchDate(match)),
     'Half-time score': result.halfTimeScore,
     'Full-time score': result.fullTimeScore,
     'Match phase': 'Penalty shootout',
@@ -168,7 +169,7 @@ export function buildCompletedReportCsvRows(match = {}, { audience = 'parent' } 
   const summaryRow = {
     Club: getClubName(match),
     Fixture: getFixtureName(match),
-    'Match date': getMatchDate(match),
+    'Match date': formatUkDate(getMatchDate(match)),
     'Half-time score': result.halfTimeScore,
     'Full-time score': result.fullTimeScore,
     'Match phase': 'Full time',
@@ -973,7 +974,8 @@ function slugify(value) {
 }
 
 export function getCompletedReportFilename(match = {}, extension = 'pdf') {
-  const date = getMatchDate(match).match(/^\d{4}-\d{2}-\d{2}/)?.[0] || 'match'
+  const isoDate = getMatchDate(match).match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+  const date = isoDate ? formatUkDate(isoDate).replaceAll(':', '-') : 'match'
   const fixture = slugify(getFixtureName(match)) || 'completed-report'
   return `${date}-${fixture}-completed-report.${extension}`
 }
