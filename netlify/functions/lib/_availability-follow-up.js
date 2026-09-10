@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { resolveEligibleEventInvitationContacts } from './_match-day-actionable-invitation.js'
 import { loadActiveAuthorityProfile } from './_authority-profile.js'
 import { buildOccurrences } from './_training-calendar.js'
+import { formatUkDate } from '../../../src/lib/date-format.js'
 
 const text = value => String(value ?? '').trim()
 const escape = value => text(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
@@ -14,7 +15,7 @@ export function normalizeAvailabilityFollowUp(value) {
 async function followUpScope(client, scope) {
   const isMatch = scope.sourceType === 'match-day'
   const eventResult = await client.from(isMatch ? 'match_days' : 'calendar_events')
-    .select(isMatch ? 'id,club_id,team_id,status,deleted_at,match_date,opponent' : 'id,club_id,team_id,event_type,title,starts_at,ends_at,recurrence_frequency,recurrence_until,cancelled_at')
+    .select(isMatch ? 'id,club_id,team_id,status,deleted_at,match_date,kickoff_time,kickoff_time_tbc,opponent' : 'id,club_id,team_id,event_type,title,starts_at,ends_at,recurrence_frequency,recurrence_until,cancelled_at')
     .eq('id', scope.eventId).eq('club_id', scope.clubId).eq('team_id', scope.teamId).maybeSingle()
   if (eventResult.error) throw eventResult.error
   const event = eventResult.data
@@ -43,11 +44,21 @@ export async function queueAvailabilityFollowUp({ client, profile, scopedEvent, 
   const { event, contacts } = await followUpScope(client, scope)
   if (!contacts.length) throw Object.assign(new Error('No eligible recipient is linked to this Player.'), { statusCode: 409 })
   const subject = `Availability follow-up: ${text(event.title || event.opponent) || 'Team event'}`
+  const eventTitle = text(event.title || event.opponent) || 'Team event'
+  const eventStartsAt = sourceType === 'match-day'
+    ? `${event.match_date}${!event.kickoff_time_tbc && event.kickoff_time ? `T${event.kickoff_time}` : ''}`
+    : buildOccurrences(event).find(item => item.occurrenceDate === occurrenceDate)?.occurrenceStartsAt.toISOString() || ''
+  const eventDateLabel = sourceType === 'match-day'
+    ? `${formatUkDate(event.match_date)}${!event.kickoff_time_tbc && event.kickoff_time ? ` at ${event.kickoff_time.slice(0, 5)}` : ' | Time to be confirmed'}`
+    : new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(eventStartsAt))
+  const emailBody = `${eventTitle}\n${eventDateLabel}\n\n${message}\n\nOpen Football Player Parents to choose Attending, Not attending or Maybe. Your existing availability response has not changed.`
   const rows = contacts.map(contact => {
     const hash = createHash('sha256').update(`${idempotencyKey}:${contact.email}:${contact.parentLinkId || ''}`).digest('hex')
     const id = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`
     const metadata = {
+      // Keep the transport category readable by installed app versions; type controls reminder presentation.
       source: 'club_announcement', authorType: 'club_staff', type: 'availability_follow_up', body: message, subject,
+      eventTitle, eventStartsAt, eventDateLabel,
       recipientLinkId: contact.parentLinkId || '', parentLinkId: contact.parentLinkId || '', teamId: scope.teamId,
       ...(sourceType === 'match-day' ? { matchDayId: scope.eventId } : { calendarEventId: scope.eventId, occurrenceDate }),
     }
@@ -58,7 +69,7 @@ export async function queueAvailabilityFollowUp({ client, profile, scopedEvent, 
         requiredFeature: 'parentEmails', displayName: 'Football Player', clubId: scope.clubId, teamId: scope.teamId,
         actorId: profile.id, actorRole: profile.role, parentLinkId: contact.parentLinkId || '',
         availabilityFollowUp: { ...scope, recipientEmail: contact.email, parentLinkId: contact.parentLinkId || '', actorId: profile.id },
-        resendPayload: { to: [contact.email], subject, text: message, html: `<p>${escape(message).replace(/\n/g, '<br>')}</p><p>Your existing availability response has not changed. Open Football Player Parents to review it.</p>` },
+        resendPayload: { to: [contact.email], subject, text: emailBody, html: `<h2>${escape(eventTitle)}</h2><p>${escape(eventDateLabel)}</p><p>${escape(message).replace(/\n/g, '<br>')}</p><p>Your existing availability response has not changed. Open Football Player Parents to choose Attending, Not attending or Maybe.</p>` },
         communicationLog: { clubId: scope.clubId, playerId, userId: profile.id, userName: text(profile.display_name || profile.name), userEmail: profile.email, recipientEmail: contact.email, metadata },
       },
     }

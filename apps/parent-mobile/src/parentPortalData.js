@@ -214,6 +214,8 @@ export function normalizeParentChatMessage(row = {}, user = {}) {
 export function normalizeParentResource(row = {}) {
   return {
     assignedAt: row.assigned_at ?? row.assignedAt ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+    eventDate: row.event_date ?? row.eventDate ?? row.match_date ?? row.matchDate ?? '',
     category: normalizeText(row.category) || 'Shared resource',
     description: normalizeText(row.description),
     externalUrl: normalizeText(row.external_url ?? row.externalUrl),

@@ -1,3 +1,4 @@
+import { getResourceDisplayTitle } from '../../lib/resource-date-presentation.js'
 import { useEffect, useState } from 'react'
 import { canManageResourceLibrary, canUseResourceLibrary } from '../../lib/auth.js'
 import {
@@ -133,7 +134,7 @@ export function PlayerAssignedResources({ primaryPlayer, user }) {
             <article key={resource.link?.id || resource.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-base font-black text-[#101828]">{resource.title}</p>
+                  <p className="text-base font-black text-[#101828]">{getResourceDisplayTitle(resource)}</p>
                   <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
                     {getResourceFileLabel(resource)}
                   </p>

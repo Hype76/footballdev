@@ -1,3 +1,4 @@
+import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore.js'
 import { getDateInTimeZone } from '../../mobile-core/src/parentCalendarCore.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
@@ -194,26 +195,42 @@ export function getParentAnnouncementSummary(message = {}) {
 }
 
 export function isParentStaffAnnouncement(message = {}) {
-  return normalizeText(message.source).toLowerCase() === 'club_announcement'
+  return ['club_announcement', 'coach_reminder'].includes(normalizeText(message.source).toLowerCase())
     && normalizeText(message.authorType).toLowerCase() === 'club_staff'
     && Boolean(normalizeText(message.body))
 }
 
-export function getParentAnnouncementMessages(messages = []) {
+export function getParentStaffMessageRoomId(message = {}) {
+  return message.messageType === 'availability_follow_up' || message.source === 'coach_reminder' ? 'coach-reminders' : 'club-announcements'
+}
+
+export function isParentStaffMessageRoom(roomId) {
+  return ['club-announcements', 'coach-reminders'].includes(roomId)
+}
+
+export function getParentAnnouncementMessages(messages = [], roomId = 'club-announcements') {
   return (Array.isArray(messages) ? messages : [])
     .filter(isParentStaffAnnouncement)
+    .filter(message => getParentStaffMessageRoomId(message) === roomId)
     .map((message) => ({
-      body: getParentAnnouncementSummary(message),
+      body: roomId === 'coach-reminders' ? normalizeText(message.body) : getParentAnnouncementSummary(message),
+      messageType: message.messageType,
+      calendarEventId: message.calendarEventId,
+      matchDayId: message.matchDayId,
+      occurrenceDate: message.occurrenceDate,
+      eventTitle: message.eventTitle || (roomId === 'coach-reminders' ? normalizeText(message.subject).replace(/^Availability follow-up:\s*/i, '') : ''),
+      eventStartsAt: message.eventStartsAt,
+      eventDateLabel: message.eventDateLabel,
       canDelete: false,
       createdAt: message.createdAt || '',
       deletedAt: '',
       id: `announcement:${message.id}`,
       legacyMessageId: message.id,
       readAt: message.readAt || '',
-      roomId: 'club-announcements',
-      senderKind: 'club',
-      senderName: message.senderName || 'Your club',
-      senderRole: 'club',
+      roomId,
+      senderKind: roomId === 'coach-reminders' ? 'coach' : 'club',
+      senderName: message.senderName || (roomId === 'coach-reminders' ? 'Your coach' : 'Your club'),
+      senderRole: roomId === 'coach-reminders' ? 'coach' : 'club',
       updatedAt: message.createdAt || '',
     }))
     .sort((left, right) => String(left.createdAt).localeCompare(String(right.createdAt)))
@@ -231,29 +248,31 @@ export function prepareParentChatRooms(rooms = [], messages = [], matches = []) 
       unreadCount: Number(room.unreadCount || 0),
     }
   })
-  const announcements = getParentAnnouncementMessages(messages)
-  if (announcements.length) {
-    const latest = announcements.at(-1)
-    normalizedRooms.push({
-      canPost: false,
-      childNames: [],
-      clubName: latest.senderName,
-      fixtureStatus: '',
-      id: 'club-announcements',
-      kickoffTime: '',
-      kickoffTimeTbc: false,
-      latestMessage: latest.body,
-      latestMessageAt: latest.createdAt,
-      matchDate: '',
-      matchDayId: '',
-      opponent: '',
-      playerName: '',
-      status: 'active',
-      teamName: '',
-      title: 'Club Announcements',
-      type: 'announcement',
-      unreadCount: announcements.filter((message) => !message.readAt).length,
-    })
+  for (const roomId of ['club-announcements', 'coach-reminders']) {
+    const announcements = getParentAnnouncementMessages(messages, roomId)
+    if (announcements.length) {
+      const latest = announcements.at(-1)
+      normalizedRooms.push({
+        canPost: false,
+        childNames: [],
+        clubName: latest.senderName,
+        fixtureStatus: '',
+        id: roomId,
+        kickoffTime: '',
+        kickoffTimeTbc: false,
+        latestMessage: roomId === 'coach-reminders' ? [latest.eventTitle, latest.eventDateLabel || formatParentProductDateTime(latest.eventStartsAt || latest.occurrenceDate, { fallback: '' }), latest.body].filter(Boolean).join(' | ') : latest.body,
+        latestMessageAt: latest.createdAt,
+        matchDate: '',
+        matchDayId: '',
+        opponent: '',
+        playerName: '',
+        status: 'active',
+        teamName: '',
+        title: roomId === 'coach-reminders' ? 'Coach reminders' : 'Club Announcements',
+        type: roomId === 'coach-reminders' ? 'coach_reminder' : 'announcement',
+        unreadCount: announcements.filter((message) => !message.readAt).length,
+      })
+    }
   }
   return normalizedRooms.sort((left, right) => (
     String(right.latestMessageAt || '').localeCompare(String(left.latestMessageAt || ''))

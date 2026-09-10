@@ -1,3 +1,4 @@
+import { formatUkDate } from '../lib/date-format.js'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { getParentScorerTimerActions } from '../lib/matchday-lifecycle.js'
@@ -183,7 +184,7 @@ export function GuestScorerPage() {
       <div className="gs-score"><strong>{match.homeScore} : {match.awayScore}</strong><span>{formatMatchAddedTimeClock(match, now)}</span><small>{match.currentMatchPhase.replaceAll('_', ' ')}</small></div>
       <p className="gs-clock-setting">{getMatchClockDescription(match)} {match.timerStatus === 'not_started' ? 'Ask the coach to change this before starting if it is incorrect.' : ''}</p>
       <div className="gs-grid">{getParentScorerTimerActions(match).filter((item) => item.action !== 'conclude').map((item) => <button key={item.action} disabled={disabled || item.action === 'start' && !match.isToday} onClick={() => setConfirm({ label: item.label + '?', ...getGuestTimerRequest(item.action) })}>{item.label}</button>)}</div>
-      {!match.isToday && match.timerStatus === 'not_started' ? <p>The match can be started on {match.matchDate}.</p> : null}
+      {!match.isToday && match.timerStatus === 'not_started' ? <p>The match can be started on {formatUkDate(match.matchDate)}.</p> : null}
       {match.timerStatus !== 'not_started' ? <>
         <div className="gs-grid"><button className="gs-primary" disabled={disabled} onClick={() => setGoal({ teamSide: 'club', scorerName: '', scorerShirtNumber: '', assistName: '', assistShirtNumber: '', notes: '', ...captureMatchEventTime(match) })}>Add goal</button><button disabled={disabled} onClick={() => setScore({ homeScore: match.homeScore, awayScore: match.awayScore, reason: '' })}>Correct score</button></div>
         <div className="gs-grid">{['yellow_card', 'red_card', 'substitution'].map((eventType) => <button key={eventType} disabled={disabled} onClick={() => setEventDraft({ eventType, teamSide: 'club', playerName: '', playerShirtNumber: '', playerOnName: '', playerOnShirtNumber: '', notes: '', ...captureMatchEventTime(match) })}>{eventLabels[eventType]}</button>)}</div>

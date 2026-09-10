@@ -1,3 +1,4 @@
+import { formatUkDate } from '../../../src/lib/date-format.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
 import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
@@ -607,7 +608,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       ) : null}
       {!loading && groups.length === 0 ? <Text style={styles.body}>No Calendar items match this filter.</Text> : null}
       {groups.map((group) => (
-        <View key={group.date} style={styles.stack}>
+        <View key={formatUkDate(group.date, 'Date to be confirmed')} style={styles.stack}>
           <Text style={styles.label}>{group.date}</Text>
           {group.events.map((event) => (
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
@@ -711,7 +712,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
           <Text style={styles.cardTitle}>Custom fields</Text>
           <Text style={styles.body}>{detail.fields.map((field) => field.label).join(', ') || 'No enabled fields.'}</Text>
           <Text style={styles.cardTitle}>Session history</Text>
-          {detail.sessions.length ? detail.sessions.map((session) => <Text key={session.id} style={styles.body}>{session.sessionDate} | {session.title} | {session.status}</Text>) : <Text style={styles.body}>No Session history.</Text>}
+          {detail.sessions.length ? detail.sessions.map((session) => <Text key={session.id} style={styles.body}>{formatUkDate(session.sessionDate)} | {session.title} | {session.status}</Text>) : <Text style={styles.body}>No Session history.</Text>}
           {policy.canEdit ? <Button label="Edit Player" onPress={() => setForm(coachPlayerFormFromPlayer(detail.player))} styles={styles} /> : null}
           <View style={styles.filterRow}><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /><Button label="Open Resources" onPress={() => onNavigate('resources')} secondary styles={styles} /></View>
           <View style={styles.card}>
@@ -896,7 +897,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
       {detail && !form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{detail.session.title}</Text>
-          <Text style={styles.meta}>{detail.session.sessionDate} | {detail.session.startTime || 'Time not set'} | {detail.session.location || 'Location not set'} | {detail.session.status}</Text>
+          <Text style={styles.meta}>{formatUkDate(detail.session.sessionDate)} | {detail.session.startTime || 'Time not set'} | {detail.session.location || 'Location not set'} | {detail.session.status}</Text>
           <Text style={styles.body}>{detail.session.notes || 'No Session notes.'}</Text>
           <Text style={styles.cardTitle}>Session Players</Text>
           {detail.players.length ? detail.players.map((sessionPlayer) => <SessionPlayerNotes disabled={saving || !policy.canUpdatePlayerNotes} key={sessionPlayer.id} onSave={(notes) => saveNotes(sessionPlayer, notes)} sessionPlayer={sessionPlayer} styles={styles} />) : <Text style={styles.body}>No Players added yet.</Text>}
@@ -909,7 +910,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
         </View>
       ) : null}
       {!loading && visible.length === 0 ? <Text style={styles.body}>No Sessions match this filter.</Text> : null}
-      {visible.map((session) => <Pressable accessibilityRole="button" key={session.id} onPress={() => openSession(session)} style={styles.card}><Text style={styles.cardTitle}>{session.title}</Text><Text style={styles.meta}>{session.sessionDate} | {session.startTime || 'Time not set'} | {session.sessionType} | {session.status}</Text></Pressable>)}
+      {visible.map((session) => <Pressable accessibilityRole="button" key={session.id} onPress={() => openSession(session)} style={styles.card}><Text style={styles.cardTitle}>{session.title}</Text><Text style={styles.meta}>{formatUkDate(session.sessionDate)} | {session.startTime || 'Time not set'} | {session.sessionType} | {session.status}</Text></Pressable>)}
     </View>
   )
 }

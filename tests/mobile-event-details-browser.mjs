@@ -14,7 +14,9 @@ const homeScreen=home.slice(home.indexOf('function HomeScreen('),home.indexOf('f
 const normalizer=data.slice(data.indexOf('function normalizeText('),data.indexOf('\n}',data.indexOf('export function normalizeMatchDay('))+2)
 const parentStyles=parent.slice(parent.indexOf('function colorsFor('),parent.indexOf('\nfunction ',parent.indexOf('function usePortalStyles(')+10))
 const hero=parent.slice(parent.indexOf('        <View style={[styles.gameDayHero,'),parent.indexOf('          {selectedMatch.notes ?'))+'</View>'
-const entry=`import {PitchTypeIcon} from './apps/parent-mobile/src/PitchTypeIcon.js';
+const entry=`import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
+import {formatUkDate} from './src/lib/date-format.js';
+import {PitchTypeIcon} from './apps/parent-mobile/src/PitchTypeIcon.js';
 import {VenueMapPreview} from './apps/mobile-core/src/VenueMapPreview.js';
 import {PinnedEventNotes} from './apps/mobile-core/src/PinnedEventNotes.js';
 import React,{useState,useMemo,useEffect,useCallback,useRef} from 'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,TextInput,Switch}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';

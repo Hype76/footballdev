@@ -1,3 +1,4 @@
+import { formatUkDateTime, formatUkDate } from '../lib/date-format.js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useBlocker, useLocation, useNavigate } from 'react-router-dom'
 import { FormationBoardPitch } from '../components/formation-board/FormationBoardPitch.jsx'
@@ -84,11 +85,11 @@ const panelClass = 'rounded-lg border border-[var(--border-color)] bg-[var(--pan
 function formatDateTime(value) {
   if (!value) return 'Unknown'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString('en-GB')
+  return Number.isNaN(date.getTime()) ? 'Unknown' : formatUkDateTime(date)
 }
 
 function formatMatchOption(match) {
-  const date = match?.matchDate ? new Date(`${match.matchDate}T00:00:00`).toLocaleDateString('en-GB') : 'Date TBC'
+  const date = match?.matchDate ? formatUkDate(new Date(`${match.matchDate}T00:00:00`)) : 'Date TBC'
   const time = match?.kickoffTimeTbc ? 'Time TBC' : String(match?.kickoffTime || '').slice(0, 5) || 'Time TBC'
   return `${date} ${time} v ${match?.opponent || 'Opponent TBC'}`
 }

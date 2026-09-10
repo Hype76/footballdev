@@ -17,7 +17,8 @@ const selected = names.map(name => {
   assert.ok(node, name)
   return source.slice(node.start, node.end)
 }).join('\n')
-const entry = `import React from 'react';import {createRoot} from 'react-dom/client';
+const entry = `import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
+import React from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
@@ -29,7 +30,7 @@ ${selected}
 function App(){const[mode,setMode]=React.useState('dark'),[loading,setLoading]=React.useState(false);window.mode=setMode;window.loading=setLoading;
 const palette=createCoachTheme({mode,context:{clubAccent:'#2ba7aa'}}).tokens;theme={palette,styles:createCoachStyles(palette)};
 return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:16}}>
-<HomeScreen context={{teamId:'synthetic-team'}} onNavigate={route=>window.route=route} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{opponent:'Visitors FC',matchDate:'Sun 20 Sept, 11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View>}
+<HomeScreen context={{teamId:'synthetic-team'}} onNavigate={route=>window.route=route} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
 const browser = await chromium.launch({ headless: true })

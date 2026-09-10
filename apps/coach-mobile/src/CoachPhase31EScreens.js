@@ -1,3 +1,6 @@
+import { formatFixtureDateTime } from '../../../src/lib/calendar-datetime-integrity.js'
+import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../../../src/lib/resource-date-presentation.js'
+import { formatUkDateTime } from '../../../src/lib/date-format.js'
 import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
@@ -409,7 +412,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   }
   return (
     <View style={styles.stack}>
-      {data.length ? data.map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{resource.title}</Text><Text style={styles.body}>{user.activeTeamName || resource.teamName || 'Active Team'} only | {resource.category} | {resource.type}</Text><Text style={styles.body}>{resource.description || 'No description'}</Text><Button label="Open Resource" onPress={() => void open(resource)} styles={styles} /></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
+      {data.length ? sortResourcesNewestFirst(data).map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{getResourceDisplayTitle(resource)}</Text><Text style={styles.body}>{user.activeTeamName || resource.teamName || 'Active Team'} only | {resource.category} | {resource.type}</Text><Text style={styles.body}>{resource.description || 'No description'}</Text><Button label="Open Resource" onPress={() => void open(resource)} styles={styles} /></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
       {selected ? <View style={styles.panel}>
         <Text style={styles.heading}>Assign selected Resource</Text>
         {selected.isFormationBoard ? <Text style={styles.body}>This Formation Board is already a Team Resource. Choose individual Players to share it with their families.</Text> : <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />}
@@ -753,7 +756,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
                 const lockedSingleChoice = !poll.allowMultiple && currentOptionIds.length > 0 && poll.allowVoteChanges !== true
                 return <View key={option.id} style={styles.row}><Text style={styles.body}>{option.rank}. {option.label}: {option.count}</Text>{poll.audience === 'staff' && poll.status === 'open' ? <Button disabled={stale || Boolean(votingOptionId) || atLimit || lockedChoice || lockedSingleChoice} label={votingOptionId === `${poll.id}:${option.id}` ? 'Saving...' : chosen ? lockedChoice ? 'Saved' : 'Remove my answer' : 'Choose'} onPress={() => void vote(poll, option.id)} secondary={!chosen} styles={styles} /> : null}</View>
               })}
-              {poll.closesAt ? <Text style={styles.body}>Deadline: {new Date(poll.closesAt).toLocaleString()}</Text> : null}
+              {poll.closesAt ? <Text style={styles.body}>Deadline: {formatUkDateTime(new Date(poll.closesAt))}</Text> : null}
               <View style={styles.row}><Button disabled={stale || poll.status === 'closed' || Number(user.roleRank || 0) < 50} label="Archive Poll" onPress={close} secondary styles={styles} /><Button disabled={stale || poll.status !== 'closed' || Number(user.roleRank || 0) < 50} label="Restore Poll" onPress={() => void reopen()} secondary styles={styles} />{poll.status === 'closed' && totalVotes === 0 ? <Button disabled={stale || Number(user.roleRank || 0) < 50} label="Delete Poll" onPress={remove} secondary styles={styles} /> : null}</View>
             </> : null}
           </View>
@@ -999,7 +1002,10 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
       <Modal visible={Boolean(followUp)} transparent animationType="fade" onRequestClose={() => { if (!bulkAction) setFollowUp(null) }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: palette.background }}>
           <Text accessibilityRole="header" style={styles.title}>Follow-up message</Text>
+          <Text style={styles.cardTitle}>{followUp?.[0]?.title || selectedMatch?.opponent || 'Team event'}</Text>
+          <Text style={styles.body}>{followUp?.[0]?.kind === 'match' && selectedMatch ? formatFixtureDateTime(selectedMatch) : formatParentProductDateTime(followUp?.[0]?.eventAt || followUp?.[0]?.eventDate || followUp?.[0]?.occurrenceDate)}</Text>
           <Text style={styles.body}>To the eligible contacts for {followUp?.length || 0} selected Players. Their current responses stay unchanged.</Text>
+          <Text style={styles.body}>Parents can answer Attending, Not attending or Maybe directly from this reminder.</Text>
           <TextInput accessibilityLabel="Follow-up message" multiline maxLength={500} value={followUpMessage} onChangeText={setFollowUpMessage} editable={!bulkAction} style={[styles.input, { minHeight: 120, textAlignVertical: 'top' }]} placeholderTextColor={palette.textSecondary} />
           <Button label={bulkAction === 'follow_up' ? 'Sending...' : 'Send message'} disabled={Boolean(bulkAction) || stale || !followUpMessage.trim()} onPress={() => void sendFollowUp()} styles={styles} />
           <Button label="Cancel" disabled={Boolean(bulkAction)} onPress={() => setFollowUp(null)} secondary styles={styles} />

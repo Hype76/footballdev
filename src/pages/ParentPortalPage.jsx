@@ -1,3 +1,5 @@
+import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../lib/resource-date-presentation.js'
+import { formatUkDateTime } from '../lib/date-format.js'
 import { PasswordInput } from '../components/ui/PasswordInput.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -133,7 +135,7 @@ function formatMatchDate(match) {
 
 function formatPublishedDateTime(value) {
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? 'recently' : date.toLocaleString('en-GB')
+  return Number.isNaN(date.getTime()) ? 'recently' : formatUkDateTime(date)
 }
 
 function formatParentEventDate(invite) {
@@ -156,7 +158,7 @@ function formatParentEventDate(invite) {
     return startsAt
   }
 
-  return date.toLocaleString([], {
+  return date.toLocaleString('en-GB', {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
@@ -3239,12 +3241,12 @@ function ParentResourcesPanel({ isLoading, resources, selectedLink }) {
           </p>
         ) : resources.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
-            {resources.map((resource) => (
+            {sortResourcesNewestFirst(resources).map((resource) => (
               <article key={resource.link?.id || resource.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
                   {resource.category.replace(/_/g, ' ')}
                 </p>
-                <h4 className="mt-2 text-lg font-black text-[#101828]">{resource.title}</h4>
+                <h4 className="mt-2 text-lg font-black text-[#101828]">{getResourceDisplayTitle(resource)}</h4>
                 {resource.link?.shareDescription ? <p className="mt-2 text-sm font-semibold leading-6 text-[#101828]">{resource.link.shareDescription}</p> : null}
                 <button
                   type="button"
@@ -3281,7 +3283,7 @@ function formatParentInvitationDeadline(invitation) {
     return ''
   }
 
-  return deadline.toLocaleString([], {
+  return deadline.toLocaleString('en-GB', {
     weekday: 'short',
     day: '2-digit',
     month: 'short',

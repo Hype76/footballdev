@@ -78,7 +78,8 @@ export function createCoachTheme({ context = null, mode = 'dark' } = {}) {
 
 export const DEFAULT_COACH_THEME = createCoachTheme()
 
-export function createMatchInvitesTheme(context) {
-  const theme = createCoachTheme({ context, mode: 'dark' })
+export function createMatchInvitesTheme(context, mode = 'dark') {
+  const theme = createCoachTheme({ context, mode })
+  if (theme.mode === 'light') return theme
   return { ...theme, tokens: { ...theme.tokens, background: '#031208', surface: '#061b0d', surfaceRaised: '#0c2515', border: '#24432c', success: '#81e56f', danger: '#ff565c', textPrimary: '#edf5ed', textSecondary: '#adbcad', textMuted: '#91a491' } }
 }

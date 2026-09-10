@@ -13,7 +13,8 @@ const domain=source.slice(source.indexOf('function InvitesDomain('))
 const core=source.match(/import \{\s+COACH_PHASE_31E_BACKEND_DELTAS,[\s\S]*?from '..\/..\/mobile-core\/src\/coachPhase31ECore'/)[0].replace('../../mobile-core/src/coachPhase31ECore','./apps/mobile-core/src/coachPhase31ECore.js')
 const names=['Brendan Templeton','Ethan Clarke','Finn Saunders','Freddie Norman','Freddy Davison','Jenson Bailey','Josh Allen','Joshua Mcgrory','Kaylan Thorley','Kyle De Dominicis','Lewis Gibbs','Louis Burton','Marcell Danner','Mason Wright','Salvador','Stanley Mcgaw','Thadeous Knight']
 const entry=`import React,{useState,useEffect,useMemo,useRef}from'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,Modal,Alert,KeyboardAvoidingView,TextInput,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';import{CoachMatchInviteTable}from'./apps/coach-mobile/src/CoachMatchInviteTable.js';import{InviteStatusBadge}from'./apps/mobile-core/src/InviteStatusBadge.js';import{createMatchInvitesTheme}from'./apps/coach-mobile/src/coachThemeCore.js';${core}
-const config={isProduction:true};const getCoachFriendlyError=e=>e.message;window.sends=[];window.followups=[];let followUpKey=0;const createCoachFollowUpKey=()=>String(++followUpKey);const recordCoachInviteIntent=async(user,invite,action,options)=>{if(action==='follow_up')window.followups.push({playerId:invite.playerId,...options});else window.sends.push(invite.playerId);return{recipientCount:1}};Alert.alert=(title,message,buttons)=>window.alert={title,message,buttons};
+import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
+import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';const config={isProduction:true};const getCoachFriendlyError=e=>e.message;window.sends=[];window.followups=[];let followUpKey=0;const createCoachFollowUpKey=()=>String(++followUpKey);const recordCoachInviteIntent=async(user,invite,action,options)=>{if(action==='follow_up')window.followups.push({playerId:invite.playerId,...options});else window.sends.push(invite.playerId);return{recipientCount:1}};Alert.alert=(title,message,buttons)=>window.alert={title,message,buttons};
 ${helpers}\n${domain}
 const names=${JSON.stringify(names)};const match={id:'fixture-one',teamId:'team',status:'scheduled',matchDate:'2099-09-06',opponent:'St Neots',kickoffTime:'10:45',venueName:'St Neots'};
 const rows=names.map((playerName,i)=>({id:'invite-'+i,playerId:'player-'+i,playerName,kind:'match',eventId:match.id,status:[9,14,15].includes(i)?'awaiting':'available',deliveryState:'delivered',deliveryStatus:'delivered',sentAt:'2099-09-01',respondedAt:[9,14,15].includes(i)?'':'2099-09-02'}));
@@ -63,6 +64,7 @@ try{
  await page.getByRole('button',{name:'Filter Maybe, 1 players'}).click();assert.equal(await boxes().count(),1)
  await boxes().first().click();assert.equal(await page.getByRole('button',{name:'Resend 1 invite',exact:true}).getAttribute('aria-disabled'),'true')
  await page.getByRole('button',{name:'Send follow-up message',exact:true}).click()
+ assert.ok((await page.locator('body').innerText()).includes('06 Sept'));assert.ok((await page.locator('body').innerText()).includes('10:45'));
  await page.getByRole('textbox',{name:'Follow-up message'}).fill('Please confirm for Saturday.')
  await page.getByRole('button',{name:'Send message',exact:true}).click()
  await page.waitForFunction(()=>window.followups.length===1)

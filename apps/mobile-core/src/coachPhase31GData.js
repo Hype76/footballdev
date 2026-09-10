@@ -2,7 +2,7 @@ import { getCoachCalendarResources } from './coachCalendarData'
 import { getCoachChatRooms, getCoachDevelopmentSummary, getCoachInvitesAndAvailability, getCoachPolls } from './coachPhase31EData'
 import { readMobileResource } from './mobileResourceCache'
 import { buildCoachHomeOperationalSnapshot, mergeCoachHomeOperationalSnapshots } from './coachPhase31GCore'
-import { getCoachHomeSummary, getCoachMatchDays, getCoachSessions } from './data'
+import { getCoachMatchDays, getCoachSessions } from './data'
 import { withMobileAsyncTimeout } from './http'
 
 function sourceError(name, result) {
@@ -22,10 +22,9 @@ export function mergeCoachPhase31GHomeSnapshots(primary, attention) {
 }
 
 export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress) {
-  const names = ['summary', 'matches', 'sessions', 'calendar']
+  const names = ['matches', 'sessions', 'calendar']
   const partial = {}
   const results = await Promise.allSettled([
-    () => getCoachHomeSummary(user),
     () => getCoachMatchDays(user),
     () => getCoachSessions(user),
     () => getCoachCalendarResources(user, { includeDetails: false }),
@@ -36,7 +35,7 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress) {
   })))
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)
-  if (!values.summary && !values.matches && !values.sessions) throw new Error('Coach operational summary could not be loaded.')
+  if (!values.matches && !values.sessions && !values.calendar) throw new Error('Coach operational summary could not be loaded.')
   return buildCoachHomeOperationalSnapshot({ ...values, errors })
 }
 
