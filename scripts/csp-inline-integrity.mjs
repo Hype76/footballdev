@@ -50,7 +50,7 @@ export function assertBrowserCompatibleInlineCsp({ expectedScriptCount = 2, html
   }
 
   const scriptSource = extractCspScriptSource(netlifyConfig)
-  if (/unsafe-inline|unsafe-eval|(?:^|\s)\*(?:\s|$)/.test(scriptSource)) {
+  if (/'unsafe-inline'|'unsafe-eval'|(?:^|\s)\*(?:\s|$)/.test(scriptSource)) {
     throw new Error('CSP script-src contains a permissive source')
   }
 

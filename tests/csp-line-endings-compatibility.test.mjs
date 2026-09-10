@@ -65,7 +65,7 @@ test('candidate HTML and CSP contain exactly two browser-compatible inline scrip
   const result = assertBrowserCompatibleInlineCsp({ html, netlifyConfig })
   assert.equal(result.browserHashes.length, 2)
   assert.deepEqual(result.browserHashes, result.configuredHashes)
-  assert.doesNotMatch(result.scriptSource, /unsafe-inline|unsafe-eval|(?:^|\s)\*(?:\s|$)/)
+  assert.doesNotMatch(result.scriptSource, /'unsafe-inline'|'unsafe-eval'|(?:^|\s)\*(?:\s|$)/)
   assert.match(netlifyConfig, /\[build\.processing\.html\][\s\S]*?pretty_urls\s*=\s*false/)
   assert.match(
     netlifyConfig,

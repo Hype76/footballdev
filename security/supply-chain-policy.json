@@ -10,9 +10,18 @@
     "esbuild",
     "fsevents",
     "netlify-cli",
+    "protobufjs",
     "sharp",
     "unix-dgram"
   ],
+  "reviewedLifecycleScripts": {
+    "protobufjs": {
+      "version": "7.6.6",
+      "path": "scripts/postinstall.js",
+      "sha256": "5af8463b97ee8e309b4a2111f9479bacdf0c180de0ca0155527679b1fc6d9e6c",
+      "reason": "ONNX Runtime dependency. Reviewed script only reads package metadata and prints version advice; no file writes, network calls or process spawning."
+    }
+  },
   "prohibitedLicenseMarkers": [
     "AGPL",
     "BUSL",

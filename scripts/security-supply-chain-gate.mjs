@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
@@ -39,6 +40,13 @@ for (const [packagePath, entry] of Object.entries(lock.packages || {})) {
     lifecycle.push({ name, version: entry.version, development: Boolean(entry.dev), optional: Boolean(entry.optional) })
     if (!policy.allowedLifecyclePackages.includes(name)) {
       failures.push(`Unapproved install lifecycle package: ${name}`)
+    }
+    const review = policy.reviewedLifecycleScripts?.[name]
+    if (review) {
+      const source = await readFile(path.join(root, packagePath, review.path)).catch(() => null)
+      if (entry.version !== review.version || !source || createHash('sha256').update(source).digest('hex') !== review.sha256) {
+        failures.push(`Install lifecycle review no longer matches: ${name}`)
+      }
     }
   }
 
