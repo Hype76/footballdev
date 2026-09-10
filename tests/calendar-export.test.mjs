@@ -26,38 +26,6 @@ test('calendar text is escaped and folded by UTF-8 octets', () => {
   assert.ok(!ics.includes('\rATTENDEE:'))
 })
 
-test('OTA export uses existing sharing modules, explains Apple import, supports cancellation, and cleans up', async () => {
-  const result = await build({ entryPoints: ['apps/mobile-core/src/calendarExport.js'], bundle: true, write: false, platform: 'node', format: 'cjs', plugins: [{ name: 'native-test', setup(api) {
-    api.onResolve({ filter: /^(react-native|expo-file-system\/legacy|expo-sharing)$/ }, args => ({ path: args.path, namespace: 'native-test' }))
-    api.onLoad({ filter: /.*/, namespace: 'native-test' }, args => ({ contents: args.path === 'react-native'
-      ? 'export const Platform={OS:"ios"};export const Alert={alert:(...args)=>globalThis.calendarTest.alert(...args)}'
-      : args.path.includes('file-system')
-        ? 'export const cacheDirectory="file:///cache/",EncodingType={UTF8:"utf8"};export const makeDirectoryAsync=async()=>{};export const writeAsStringAsync=async(uri,text)=>globalThis.calendarTest.writes.push({uri,text});export const deleteAsync=async(uri)=>globalThis.calendarTest.deleted.push(uri)'
-        : 'export const isAvailableAsync=async()=>true;export const shareAsync=async(uri,options)=>{globalThis.calendarTest.shared.push({uri,options});if(globalThis.calendarTest.fail)throw new Error("share failed")}' }))
-  } }] })
-  const module = { exports: {} }
-  new Function('module', 'exports', result.outputFiles[0].text)(module, module.exports)
-  const state = { writes: [], deleted: [], shared: [], proceed: false, alert(title, message, buttons) {
-    assert.equal(title, 'Add to Apple Calendar')
-    assert.match(message, /Apple Mail/)
-    buttons[this.proceed ? 1 : 0].onPress()
-  } }
-  globalThis.calendarTest = state
-  try {
-    const item = { matchDate: '2026-09-10', title: 'FP TEST' }
-    await module.exports.shareCalendarEvent(item)
-    assert.equal(state.writes.length, 0)
-    state.proceed = true
-    await module.exports.shareCalendarEvent(item)
-    assert.match(state.writes[0].text, /SUMMARY:FP TEST/)
-    assert.equal(state.shared[0].options.UTI, 'com.apple.ical.ics')
-    assert.equal(state.deleted.length, 1)
-    state.fail = true
-    await assert.rejects(module.exports.shareCalendarEvent(item), /share failed/)
-    assert.equal(state.deleted.length, 2)
-  } finally { delete globalThis.calendarTest }
-})
-
 test('directions chooser opens Waze for the selected venue and handles cancellation and failure', async () => {
   const result = await build({ entryPoints: ['apps/mobile-core/src/venueDirections.js'], bundle: true, write: false, platform: 'node', format: 'cjs', plugins: [{ name: 'maps-test', setup(api) {
     api.onResolve({ filter: /^react-native$/ }, () => ({ path: 'native', namespace: 'maps-test' }))

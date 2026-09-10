@@ -417,7 +417,6 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
           <View style={styles.actionRow}>{event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <IconAction accessibilityLabel="Add to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(event)} styles={styles} /> : null}{directionsUrl ? <IconAction accessibilityLabel="Get directions" colors={colors} iconKey="parent.directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} styles={styles} /> : null}</View>
         </View>
       </View>
-      {(event.calendarDate || event.eventDate || event.startsAt || event.eventStart) && Platform.OS === 'ios' ? <Button label="Apple Calendar" disabled={Boolean(activeActionId)} onPress={() => onAddToCalendar?.(event, 'apple')} outline styles={styles} /> : null}
       {isMatch && invitation?.invitationType === 'match_attendance' ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
     </View>
   )
@@ -595,7 +594,6 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
               </View>
             ) : null}
             {primary?.eventLocation ? <View style={styles.inviteSection}><View style={styles.inviteSectionHeader}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={2} style={[styles.meta, styles.inviteSectionCopy]}>{primary.eventLocation}</Text>{(primary.eventDate || primary.eventStart) ? <IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /> : null}</View></View> : (primary?.eventDate || primary?.eventStart) ? <View style={styles.inviteSection}><View style={styles.row}><Text style={styles.meta}>Add this event to Google Calendar</Text><IconAction accessibilityLabel="Add invite to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(primary)} styles={styles} /></View></View> : null}
-            {(primary?.eventDate || primary?.eventStart) && Platform.OS === 'ios' ? <Button label="Add to Apple Calendar" disabled={Boolean(activeActionId)} onPress={() => onAddToCalendar?.(primary, 'apple')} outline styles={styles} /> : null}
             {matchAttendance ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={matchAttendance} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
           </View>
         )
@@ -981,7 +979,6 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
               styles={styles}
             /> : null}
             {selectedMatch.matchDate ? <Button label="Add to Google Calendar" onPress={() => onAddToCalendar?.(selectedMatch)} outline styles={styles} /> : null}
-            {selectedMatch.matchDate && Platform.OS === 'ios' ? <Button label="Add to Apple Calendar" onPress={() => onAddToCalendar?.(selectedMatch, 'apple')} outline styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <Button label="Get directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} outline styles={styles} /> : null}
           </View>
         </View>
@@ -1179,13 +1176,15 @@ export function ChatScreen({ activeActionId, invitations = [], isOffline, link, 
   const messageListRef = useRef(null)
   const sortedRooms = useMemo(() => prepareParentChatRooms(rooms.items), [rooms.items])
   const sortedMessages = useMemo(() => prepareParentChatMessages(messages.items), [messages.items])
+  const isReminderRoom = selectedRoom?.id === 'coach-reminders'
+  const renderMessage = ({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View>{message.roomId === 'coach-reminders' ? <CoachReminderAttendance activeActionId={activeActionId} colors={colors} invitations={invitations} isOffline={isOffline} message={message} onRespond={onRespond} styles={styles} /> : null}<Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Pressable accessibilityLabel="Delete message" accessibilityRole="button" disabled={isOffline || activeActionId === `chat-delete:${message.id}`} onPress={() => onDelete(message)} style={styles.messageDelete}><Text style={styles.messageDeleteText}>{activeActionId === `chat-delete:${message.id}` ? 'Deleting...' : 'Delete'}</Text></Pressable> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>
   const visibleMessageError = useConfirmedConnectionMessage(messages.error)
   const displayedSelectedRoom = useMemo(() => selectedRoom ? prepareParentChatRooms([selectedRoom])[0] : null, [selectedRoom])
   useEffect(() => {
-    if (!selectedRoom) return undefined
+    if (!selectedRoom || isReminderRoom) return undefined
     const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
     return () => clearTimeout(handle)
-  }, [selectedRoom, sortedMessages.length])
+  }, [isReminderRoom, selectedRoom, sortedMessages.length])
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'background') composerRef.current?.blur()
@@ -1196,7 +1195,10 @@ export function ChatScreen({ activeActionId, invitations = [], isOffline, link, 
     return (
       <View style={styles.chatScreen}>
         <View style={styles.chatHeader}><Button label="Back to Chat rooms" onPress={onBack} outline styles={styles} /><Text accessibilityRole="header" style={styles.cardTitle}>{displayedSelectedRoom.title}</Text><Text style={styles.helper}>{getParentChatRoomContext(displayedSelectedRoom)}</Text></View>
-        <FlatList
+        {isReminderRoom ? <ScrollView key={selectedRoom.id} style={styles.chatList} contentContainerStyle={{ gap: 12, paddingVertical: 12 }}>
+          {sortedMessages.map(message => <View key={String(message.id)}>{renderMessage({ item: message })}</View>)}
+          {!messages.loading && !sortedMessages.length ? <Text style={styles.empty}>No reminders in this conversation yet.</Text> : null}
+        </ScrollView> : <FlatList
           contentContainerStyle={styles.chatListContent}
           data={sortedMessages}
           keyExtractor={(message) => String(message.id)}
@@ -1205,9 +1207,9 @@ export function ChatScreen({ activeActionId, invitations = [], isOffline, link, 
           ListEmptyComponent={!messages.loading ? <Text style={styles.empty}>No messages in this conversation yet.</Text> : null}
           onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: false })}
           ref={messageListRef}
-          renderItem={({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View>{message.roomId === 'coach-reminders' ? <CoachReminderAttendance activeActionId={activeActionId} colors={colors} invitations={invitations} isOffline={isOffline} message={message} onRespond={onRespond} styles={styles} /> : null}<Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Pressable accessibilityLabel="Delete message" accessibilityRole="button" disabled={isOffline || activeActionId === `chat-delete:${message.id}`} onPress={() => onDelete(message)} style={styles.messageDelete}><Text style={styles.messageDeleteText}>{activeActionId === `chat-delete:${message.id}` ? 'Deleting...' : 'Delete'}</Text></Pressable> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>}
+          renderItem={renderMessage}
           style={styles.chatList}
-        />
+        />}
         {messages.loading ? <View style={{ alignItems: 'center', paddingVertical: 12 }}><BrandLoader accessibilityLabel="Loading messages" /><Text style={styles.helper}>Loading messages...</Text></View> : null}
         {visibleMessageError ? <Text style={styles.error}>{visibleMessageError}</Text> : null}
         {selectedRoom.canPost ? <View style={styles.composer}><TextInput accessibilityLabel="Parent Chat message" editable={!isOffline} multiline onChangeText={setDraft} placeholder="Message" placeholderTextColor={colors.muted} ref={composerRef} style={[styles.field, styles.composerField]} value={draft} /><Button disabled={isOffline || !normalizeText(draft) || draft.length > 2000 || activeActionId === 'chat-send'} label={activeActionId === 'chat-send' ? 'Sending...' : 'Send'} onPress={() => { void onSend(draft).then(() => setDraft('')).catch(() => {}) }} styles={styles} /></View> : null}

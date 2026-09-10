@@ -4,9 +4,16 @@ import { canManageClubSettings } from '../../lib/auth-permissions.js'
 import { blockDemoMutation } from '../../lib/domain/demo-guards.js'
 import { KIT_TYPES, kitLabel, normalizeClubKit, readClubKits } from '../../lib/club-kits.js'
 import { KitArtwork } from './ClubKitDisplay.jsx'
+import { removeKitBackground } from '../../lib/kit-background-removal.js'
 
 const inputClass = 'rounded border border-[var(--border-color,#b8c7c0)] bg-transparent p-2'
 const buttonClass = 'min-h-11 rounded border border-[var(--border-color,#b8c7c0)] px-3 py-2 font-bold disabled:opacity-50'
+const transparencyStyle = { backgroundColor: '#fff', backgroundImage: 'conic-gradient(#d1d5db 25%, #fff 0 50%, #d1d5db 0 75%, #fff 0)', backgroundSize: '20px 20px' }
+function KitImagePreview({ image, label }) {
+  const ref = useRef(null)
+  useEffect(() => { if (ref.current) paintKitImage(ref.current, image, { zoom: 1, x: 0, y: 0 }) }, [image])
+  return <figure className="min-w-0"><figcaption className="mb-2 font-bold">{label}</figcaption><canvas ref={ref} width={512} height={512} aria-label={label} style={{ ...transparencyStyle, width: '100%' }} /></figure>
+}
 async function loadImage(file) {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file?.type)) throw new Error('Choose a PNG, JPG or WebP image.')
   if (file.size > 10 * 1024 * 1024) throw new Error('Choose an image smaller than 10MB.')
@@ -47,6 +54,10 @@ export function KitEditor({ user, type, savedKit, onSaved }) {
   const [kit, setKit] = useState(savedKit || normalizeClubKit())
   const [picker, setPicker] = useState(false)
   const [pending, setPending] = useState(null)
+  const [original, setOriginal] = useState(null)
+  const [background, setBackground] = useState(null)
+  const [backgroundApplied, setBackgroundApplied] = useState(false)
+  const backgroundJob = useRef(null)
   const [reference, setReference] = useState(null)
   const [transform, setTransform] = useState({ zoom: 1, x: 0, y: 0 })
   const [busy, setBusy] = useState(false)
@@ -54,22 +65,45 @@ export function KitEditor({ user, type, savedKit, onSaved }) {
   const [error, setError] = useState('')
   const canvas = useRef(null), sampleCanvas = useRef(null), upload = useRef(null)
   const label = kitLabel(type), hasImage = Boolean(pending || kit.imagePath)
+  const imageLocked = busy || Boolean(background)
+  useEffect(() => () => { backgroundJob.current?.cancel(); backgroundJob.current = null }, [])
   useEffect(() => { if (pending && canvas.current) paintKitImage(canvas.current, pending, transform) }, [pending, transform])
   useEffect(() => { if (reference && sampleCanvas.current) paintKitImage(sampleCanvas.current, reference, { zoom: 1, x: 0, y: 0 }) }, [reference])
   const chooseFile = async (file, sample = false) => {
-    if (!file || busy) return
+    if (!file || imageLocked) return
     setError(''); setMessage('')
     try {
       const image = await loadImage(file)
       if (sample) setReference(image)
-      else { setPending(image); setTransform({ zoom: 1, x: 0, y: 0 }); setPicker(false) }
+      else { setPending(image); setOriginal(image); setBackgroundApplied(false); setTransform({ zoom: 1, x: 0, y: 0 }); setPicker(false) }
     } catch (failure) { setError(failure.message) }
+  }
+  const cancelBackground = () => {
+    backgroundJob.current?.cancel(); backgroundJob.current = null; setBackground(null)
+  }
+  const startBackgroundRemoval = async () => {
+    if (!pending || imageLocked) return
+    setError(''); setMessage(''); setBackground({ status: 'Preparing background remover...' })
+    let job
+    try {
+      const source = original || pending
+      job = removeKitBackground(source, status => { if (backgroundJob.current === job) setBackground({ status }) })
+      backgroundJob.current = job
+      const result = await loadImage(await job.promise)
+      if (backgroundJob.current === job) setBackground({ source, result })
+    } catch (failure) {
+      if (!job || backgroundJob.current === job) {
+        setBackground(null)
+        if (failure.name !== 'AbortError') setError(failure.message || 'Background removal failed. Your original is unchanged.')
+      }
+    }
   }
   const eyedropper = async () => {
     try { const result = await new window.EyeDropper().open(); setKit(value => ({ ...value, colour: result.sRGBHex })) }
     catch (failure) { if (failure.name !== 'AbortError') setError('The screen colour picker could not open. Use the colour picker or sample an uploaded image.') }
   }
   const save = async () => {
+    if (imageLocked) return
     setBusy(true); setError(''); setMessage('')
     let uploadedPath = ''
     try {
@@ -96,7 +130,7 @@ export function KitEditor({ user, type, savedKit, onSaved }) {
   }
   return <div className="space-y-3" aria-label={`${label} editor`}>
     <h3 className="text-lg font-bold">{label}</h3>
-    <button type="button" className={buttonClass} disabled={busy} aria-label={hasImage ? `Replace ${label} image` : `Choose ${label} colour`} aria-expanded={!hasImage && picker} onClick={() => hasImage ? upload.current.click() : setPicker(value => !value)}>
+    <button type="button" className={buttonClass} disabled={imageLocked} aria-label={hasImage ? `Replace ${label} image` : `Choose ${label} colour`} aria-expanded={!hasImage && picker} onClick={() => hasImage ? upload.current.click() : setPicker(value => !value)}>
       {pending ? <span>New image ready below</span> : <KitArtwork kit={kit} label={label} size={96} />}
     </button>
     {!hasImage && picker ? <div className="space-y-3">
@@ -112,12 +146,24 @@ export function KitEditor({ user, type, savedKit, onSaved }) {
       }} /></> : null}
     </div> : null}
     <div className="space-y-2 border border-dashed border-[var(--border-color,#b8c7c0)] p-3" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); void chooseFile(event.dataTransfer.files?.[0]) }}>
-      <label className="block font-semibold">{hasImage ? 'Replace kit image' : 'Upload kit image'}<input ref={upload} className="block max-w-full font-normal" disabled={busy} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { void chooseFile(event.target.files?.[0]); event.target.value = '' }} /></label>
+      <label className="block font-semibold">{hasImage ? 'Replace kit image' : 'Upload kit image'}<input ref={upload} className="block max-w-full font-normal" disabled={imageLocked} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { void chooseFile(event.target.files?.[0]); event.target.value = '' }} /></label>
       <p className="text-sm">Or drag and drop a PNG, JPG or WebP here. Up to 10MB.</p>
     </div>
-    {pending ? <div className="space-y-2"><canvas ref={canvas} width={512} height={512} aria-label={`${label} image preview`} style={{ width: '100%', maxWidth: 256, border: '1px solid #b8c7c0' }} />{[['zoom', 'Zoom', 1, 4, 0.05], ['x', 'Horizontal position', -1, 1, 0.01], ['y', 'Vertical position', -1, 1, 0.01]].map(([key, text, min, max, step]) => <label className="flex items-center gap-2" key={key}>{text}<input aria-label={`${label} ${text}`} className="min-w-0 flex-1" type="range" min={min} max={max} step={step} value={transform[key]} onChange={event => setTransform(value => ({ ...value, [key]: Number(event.target.value) }))} /></label>)}</div> : null}
-    {hasImage ? <><p className="text-sm">Your image keeps its original colours. Kit colours do not change it.</p><button type="button" className={buttonClass} disabled={busy} onClick={() => { setPending(null); setKit(value => ({ ...value, imagePath: null })); setPicker(true) }}>Remove image</button></> : null}
-    <button type="button" className={buttonClass} disabled={busy || !/^#[0-9a-f]{6}$/i.test(kit.colour)} onClick={() => void save()}>{busy ? 'Saving...' : `Save ${label}`}</button>
+    {pending ? <div className="space-y-2"><canvas ref={canvas} width={512} height={512} aria-label={`${label} image preview`} style={{ ...transparencyStyle, width: '100%', maxWidth: 256, border: '1px solid #b8c7c0' }} />{[['zoom', 'Zoom', 1, 4, 0.05], ['x', 'Horizontal position', -1, 1, 0.01], ['y', 'Vertical position', -1, 1, 0.01]].map(([key, text, min, max, step]) => <label className="flex items-center gap-2" key={key}>{text}<input aria-label={`${label} ${text}`} className="min-w-0 flex-1" disabled={imageLocked} type="range" min={min} max={max} step={step} value={transform[key]} onChange={event => setTransform(value => ({ ...value, [key]: Number(event.target.value) }))} /></label>)}</div> : null}
+    {pending && !background ? <button type="button" className={buttonClass} disabled={busy} onClick={() => void startBackgroundRemoval()}>Remove background</button> : null}
+    {background ? <section aria-label={`${label} background removal preview`} className="space-y-3">
+      {background.result ? <>
+        <p>Check the kit edges and details. Nothing changes until you apply this preview.</p>
+        <div className="grid grid-cols-2 gap-3"><KitImagePreview image={background.source} label="Original" /><KitImagePreview image={background.result} label="Background removed" /></div>
+      </> : <p role="status">{background.status} You can cancel while it processes.</p>}
+      <div className="flex flex-wrap gap-2">
+        {background.result ? <button type="button" className={buttonClass} onClick={() => { setPending(background.result); setBackgroundApplied(true); backgroundJob.current = null; setBackground(null) }}>Apply</button> : null}
+        <button type="button" className={buttonClass} onClick={cancelBackground}>Cancel</button>
+      </div>
+    </section> : null}
+    {original && backgroundApplied ? <button type="button" className={buttonClass} disabled={imageLocked} onClick={() => { setPending(original); setBackgroundApplied(false); setMessage('Original restored. Save the kit to keep this version.') }}>Restore original</button> : null}
+    {hasImage ? <><p className="text-sm">Your image keeps its original colours. Kit colours do not change it.</p><button type="button" className={buttonClass} disabled={imageLocked} onClick={() => { setPending(null); setOriginal(null); setKit(value => ({ ...value, imagePath: null })); setPicker(true) }}>Remove image</button></> : null}
+    <button type="button" className={buttonClass} disabled={imageLocked || !/^#[0-9a-f]{6}$/i.test(kit.colour)} onClick={() => void save()}>{busy ? 'Saving...' : `Save ${label}`}</button>
     {error ? <p role="alert">{error}</p> : null}{message ? <p role="status">{message}</p> : null}
   </div>
 }
