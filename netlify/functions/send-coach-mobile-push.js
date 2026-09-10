@@ -3,7 +3,7 @@ import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
-import { buildCoachAvailabilityResponsePayload } from './lib/_coach-availability-push.js'
+import { buildCoachAvailabilityResponsePayload, buildCoachAvailabilityHistoryPayload } from './lib/_coach-availability-push.js'
 import { buildScopedNotificationTitle, hydrateNotificationScopeNames } from './lib/_notification-scope.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 import { buildCoachMatchReviewPayload } from './lib/_coach-match-review-push.js'
@@ -304,15 +304,15 @@ async function logNotificationEvents({ client = supabaseAdmin, deliveries, match
 
   const now = new Date().toISOString()
   const { error } = await client.from('coach_mobile_notification_events').insert(
-    deliveries.map(({ device, payload }) => ({
+    deliveries.map(({ device, payload, historyPayload }) => ({
       installation_id: device.installation_id,
       auth_user_id: device.auth_user_id,
       user_profile_id: device.user_profile_id,
       club_id: match.club_id,
-      data: payload.data,
+      data: (historyPayload || payload).data,
       intent_type: payload.type,
-      title: payload.title,
-      body: payload.body,
+      title: (historyPayload || payload).title,
+      body: (historyPayload || payload).body,
       sent_at: status === 'sent' ? now : null,
       status,
       team_id: match.team_id || null,
@@ -382,6 +382,7 @@ export async function sendCoachAvailabilityResponsePush({
   const deliveries = devices.map((device) => ({
     device,
     payload: buildCoachAvailabilityResponsePayload({ clubName: scope?.club_name, contextLabel, detailLevel: device.detail_level, playerName, route, status: normalizedStatus, targetId, teamId, teamName: scope?.team_name, type }),
+    historyPayload: buildCoachAvailabilityHistoryPayload({ clubName: scope?.club_name, contextLabel, playerName, route, status: normalizedStatus, targetId, teamId, teamName: scope?.team_name, type }),
   }))
   const pushResult = await sendExpoPushMessages(deliveries.map(({ device, payload }) => ({
     body: payload.body,

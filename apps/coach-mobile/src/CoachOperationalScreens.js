@@ -1,3 +1,5 @@
+import { shareCalendarEvent } from '../../mobile-core/src/calendarExport'
+import { openVenueDirections } from '../../mobile-core/src/venueDirections'
 import { formatUkDate } from '../../../src/lib/date-format.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
 import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
@@ -5,7 +7,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
-import { Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, Keyboard, Linking, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
@@ -619,7 +621,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
               {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Attending {event.availabilitySummary.attending} | Maybe {event.availabilitySummary.maybe} | Awaiting response {event.availabilitySummary.awaitingResponse} | Not attending {event.availabilitySummary.notAttending} | Invitation not sent {event.availabilitySummary.invitationNotSent} | Delivery issue {event.availabilitySummary.deliveryIssue}</Text> : null}
-              {selected?.id === event.id ? <>{!event.notesPinned ? <Text style={styles.body}>{event.notes || 'No notes.'}</Text> : null}<VenueMapPreview key={event.location} location={event.location} offline={stale} colors={palette} styles={styles} />{event.location ? <Button label="Get directions" onPress={() => void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`).catch(() => setError('Directions could not be opened.'))} secondary styles={styles} /> : null}{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate).map((resourceId) => {
+              {selected?.id === event.id ? <>{!event.notesPinned ? <Text style={styles.body}>{event.notes || 'No notes.'}</Text> : null}{Platform.OS === 'ios' ? <Button label="Add to Apple Calendar" onPress={() => void shareCalendarEvent(event).catch(error => setError(error.message))} secondary styles={styles} /> : null}<VenueMapPreview key={event.location} location={event.location} offline={stale} colors={palette} styles={styles} />{event.location ? <Button label="Get directions" onPress={() => void openVenueDirections(event.location).catch(() => setError('Directions could not be opened.'))} secondary styles={styles} /> : null}{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate).map((resourceId) => {
                 const resource = resources.find((item) => item.id === resourceId)
                 return resource ? <Button key={resource.id} label={`Open ${resource.title}`} onPress={() => void openEventResource(resource)} secondary styles={styles} /> : null
               })}{event.sourceType === 'match_day' ? <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} /> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : event.sourceType !== 'calendar_event' ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}

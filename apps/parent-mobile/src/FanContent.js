@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native'
+import { Alert, Text, View } from 'react-native'
+import { shareCalendarEvent } from '../../mobile-core/src/calendarExport'
 import { buildParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
 import { upcomingFanSchedule } from '../../../src/lib/fan-schedule'
 import { normalizeParentMatchDay } from './parentPortalData'
@@ -8,7 +9,9 @@ import { getParentGoogleCalendarUrl } from './parentExperience'
 export function FanContent({ connection, view, content, formation, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
   const link = { playerName: connection?.player_name, teamName: connection?.team_name }
   const resource = (items) => ({ items, loading: false, error: '' })
-  const addToCalendar = (item) => onOpenLink(getParentGoogleCalendarUrl(item))
+  const addToCalendar = (item, calendar) => calendar === 'apple'
+    ? shareCalendarEvent(item).catch(error => Alert.alert('Calendar', error.message))
+    : onOpenLink(getParentGoogleCalendarUrl(item))
   if (view.action === 'schedule') {
     const calendarEvents = upcomingFanSchedule(content.schedule || []).map((item) => ({
       id: item.id, title: item.title, eventType: item.event_type || 'event', status: item.status,

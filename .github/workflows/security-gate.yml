@@ -140,6 +140,8 @@ jobs:
         run: node --test tests/mobile-brand-loader-asset.test.mjs tests/coach-scroll-bounds.test.mjs tests/coach-cache-memory.test.mjs tests/coach-offline-preparation.test.mjs tests/mobile-biometric-recovery.test.mjs tests/coach-availability-follow-up.test.mjs && node tests/mobile-parent-airplane-browser.mjs && node tests/mobile-parent-update-notice-browser.mjs && node tests/coach-smooth-scroll-browser.mjs
       - name: UK dates, resource ordering and Home attendance
         run: node --test tests/platform-uk-dates.test.mjs tests/mobile-home-attendance-theme.test.mjs
+      - name: Club kit permissions and editor
+        run: node --test tests/club-kits-notification-history.test.mjs tests/calendar-export.test.mjs && node tests/club-kits-browser.mjs
       - name: Final match report theme contrast
         run: node --test tests/matchday-final-report.test.mjs tests/matchday-final-report-accuracy.test.mjs tests/matchday-report-export.test.mjs && node tests/matchday-report-theme-browser.mjs && node tests/calendar-vote-edit-browser.mjs
       - name: Mobile selection and event detail feedback

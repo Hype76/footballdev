@@ -1,3 +1,5 @@
+import { VenueDirectionsLinks } from '../components/club-settings/VenueDirectionsLinks.jsx'
+import { ClubKitDisplay } from '../components/club-settings/ClubKitDisplay.jsx'
 import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../lib/resource-date-presentation.js'
 import { formatUkDateTime } from '../lib/date-format.js'
 import { PasswordInput } from '../components/ui/PasswordInput.jsx'
@@ -1930,7 +1932,7 @@ function ParentMatchDayHero({ matches, onOpenGameMode, selectedLink }) {
               <dl className="mt-3 grid gap-2 text-sm font-semibold text-[var(--text-muted)] sm:grid-cols-2">
                 <div><dt className="font-black text-[var(--text-primary)]">Kick-off</dt><dd>{getFixtureKickoffLabel(match)}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Home or away</dt><dd>{match.homeAway || 'To be confirmed'}</dd></div>
-                <div><dt className="font-black text-[var(--text-primary)]">Kits</dt><dd>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</dd></div>
+                <div><dt className="font-black text-[var(--text-primary)]">Kits</dt><dd><ClubKitDisplay clubId={selectedLink?.clubId || match.clubId} shirtChoice={match.shirtChoice} /><VenueDirectionsLinks match={match} /></dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Venue</dt><dd>{venue || 'To be confirmed'}</dd></div>
                 <div><dt className="font-black text-[var(--text-primary)]">Player</dt><dd>{selectedLink?.playerName || 'Linked player'}</dd></div>
               </dl>
@@ -3115,7 +3117,7 @@ function ParentMatchListItem({ isSelected, match, onSelect }) {
       <span className="mt-2 flex flex-wrap gap-2 text-xs font-black text-[#4b5f55]">
         <span>{getParentAvailabilityStatusLabel(match.availabilityStatus)}</span>
         <span>{String(match.status || 'scheduled').replace(/_/g, ' ')}</span>
-        <span>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</span>
+        <ClubKitDisplay clubId={match.clubId} shirtChoice={match.shirtChoice} />
       </span>
     </button>
   )
@@ -3728,7 +3730,7 @@ function ParentMatchCard({
           </div>
           <h4 className="mt-3 text-lg font-black text-[#101828]">{getMatchDayDisplayName(match)}</h4>
           <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{formatMatchDate(match)}</p>
-          <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{getMatchDayShirtChoiceLabel(match.shirtChoice)}</p>
+          <div className="mt-1 text-sm font-semibold text-[#4b5f55]"><ClubKitDisplay clubId={match.clubId} shirtChoice={match.shirtChoice} /></div>
           {match.venueName ? <p className="mt-1 text-sm font-semibold text-[#4b5f55]">{match.venueName}</p> : null}
           {match.notes ? (
             <div className="mt-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-3">

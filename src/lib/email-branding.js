@@ -265,6 +265,7 @@ export function getEventMapLinks(locationText) {
       href: `https://maps.apple.com/?q=${encodedQuery}`,
       label: 'Open in Apple Maps',
     },
+    { href: `https://waze.com/ul?q=${encodedQuery}&navigate=yes&utm_source=footballplayer`, label: 'Open in Waze' },
   ]
 }
 
