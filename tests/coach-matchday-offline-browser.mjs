@@ -48,6 +48,8 @@ const dataMock = `
   ${names.filter(name=>!implemented.has(name)).map(name=>`export async function ${name}(){throw new Error('Unexpected call: ${name}')}`).join('\n')}
 `
 const mocks = [
+  // Kit rendering and permissions have their own browser and database checks.
+  [/ClubKitDisplay(?:\.js)?$/, 'export const ClubKitDisplay=()=>null;'],
   [/coachSquadTemplateData$/, 'export const createCoachSquadTemplateStore=()=>async()=>[];'],
   [/coachMatchDayData(?:\.js)?$/, dataMock],
   [/coachPlayersData$/, 'export async function getCoachPlayerList(){return []}'],
