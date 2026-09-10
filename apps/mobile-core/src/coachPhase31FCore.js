@@ -112,7 +112,18 @@ export function getCoachCacheFingerprint(value) {
 
 export function getCoachCacheByteLength(value) {
   const input = JSON.stringify(value ?? null)
-  return encodeURIComponent(input).replace(/%[0-9A-F]{2}|./gi, 'x').length
+  // Count UTF-8 bytes without allocating a regexp result for every character.
+  let bytes = 0
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index)
+    if (code < 0x80) bytes += 1
+    else if (code < 0x800) bytes += 2
+    else if (code >= 0xd800 && code <= 0xdbff && input.charCodeAt(index + 1) >= 0xdc00 && input.charCodeAt(index + 1) <= 0xdfff) {
+      bytes += 4
+      index += 1
+    } else bytes += 3
+  }
+  return bytes
 }
 
 export function evaluateCoachCachedScope({ context, entry, environment = 'test', userId }) {

@@ -234,8 +234,13 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user)), { force: !reuseFresh })
       setData(next)
       setStale(false)
-      const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
-      await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
+      setError('')
+      try {
+        const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
+        await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
+      } catch {
+        setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
+      }
     } catch (loadError) {
       if (!silent && !hasCachedValue) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
     } finally {
