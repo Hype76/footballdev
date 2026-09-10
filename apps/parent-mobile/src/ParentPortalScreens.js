@@ -23,6 +23,7 @@ import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../..
 import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 import { PitchTypeIcon } from './PitchTypeIcon'
 import { MatchTypeIcon } from './MatchTypeIcon'
+import { HomeAwayIcon } from './HomeAwayIcon'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import ParentIcon from './ParentIcon'
@@ -945,7 +946,6 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
           <View style={styles.actionRow}>
             <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text>
             {!selectedMatch.isFanView ? <Text style={styles.pill}>{presentation?.phaseLabel || 'Pre-match'}</Text> : null}
-            {selectedMatch.homeAway ? <Text style={styles.pill}>{labelize(selectedMatch.homeAway)}</Text> : null}
             <Text style={styles.pill}>{getMatchDayShirtChoiceLabel(selectedMatch.shirtChoice)}</Text>
           </View>
           <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || getMatchDayDisplayName(selectedMatch)}</Text>
@@ -954,6 +954,7 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
           <Text style={styles.body}>Kick-off: {selectedMatch.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(selectedMatch.kickoffTime)}</Text>
           <Text style={styles.body}>{[selectedMatch.venueName, selectedMatch.venueAddress].filter(Boolean).join(', ') || 'Location not shared'}</Text>
           <MatchTypeIcon fixtureType={selectedMatch.fixtureType} textStyle={styles.body} />
+          <HomeAwayIcon homeAway={selectedMatch.homeAway} textStyle={styles.body} />
           <PitchTypeIcon pitchType={selectedMatch.pitchType} textStyle={styles.body} />
           <Text style={styles.liveSync}>{selectedMatchIsLive ? 'Live sync on' : 'Fixture details'}</Text>
           <View style={styles.card}>
