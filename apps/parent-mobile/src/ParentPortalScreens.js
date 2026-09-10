@@ -414,9 +414,10 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
       <View style={styles.inviteSection}>
         <View style={styles.row}>
           {event.location ? <View style={[styles.inviteMetadataItem, styles.inviteSectionCopy]}><ParentIcon color={colors.warning} iconKey="location" size={21} /><Text numberOfLines={1} style={styles.meta}>{event.location}</Text></View> : <View />}
-          <View style={styles.actionRow}>{event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <><IconAction accessibilityLabel="Add to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(event)} styles={styles} />{Platform.OS === 'ios' ? <Button label="Apple Calendar" disabled={Boolean(activeActionId)} onPress={() => onAddToCalendar?.(event, 'apple')} outline styles={styles} /> : null}</> : null}{directionsUrl ? <IconAction accessibilityLabel="Get directions" colors={colors} iconKey="parent.directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} styles={styles} /> : null}</View>
+          <View style={styles.actionRow}>{event.calendarDate || event.eventDate || event.startsAt || event.eventStart ? <IconAction accessibilityLabel="Add to Google Calendar" colors={colors} disabled={Boolean(activeActionId)} iconKey="action.calendar" onPress={() => onAddToCalendar?.(event)} styles={styles} /> : null}{directionsUrl ? <IconAction accessibilityLabel="Get directions" colors={colors} iconKey="parent.directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} styles={styles} /> : null}</View>
         </View>
       </View>
+      {(event.calendarDate || event.eventDate || event.startsAt || event.eventStart) && Platform.OS === 'ios' ? <Button label="Apple Calendar" disabled={Boolean(activeActionId)} onPress={() => onAddToCalendar?.(event, 'apple')} outline styles={styles} /> : null}
       {isMatch && invitation?.invitationType === 'match_attendance' ? <ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /> : null}
     </View>
   )
