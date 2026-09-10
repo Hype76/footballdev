@@ -493,7 +493,7 @@ test('Invite TEST intent remains audit-only while production resend uses the can
   assert.match(source, /communicationDelivery: 'disabled'/)
   assert.match(source, /schedules: 'disabled'/)
   assert.match(source, /send-event-player-invitation/)
-  assert.match(source, /idempotencyKey: requestId\('coach-invite-resend'\)/)
+  assert.match(source, /idempotencyKey: options\.idempotencyKey \|\| requestId\('coach-invite-resend'\)/)
   assert.doesNotMatch(source, /sendEmail|sendSms|exp\.host\/--\/api\/v2\/push\/send/i)
 })
 
@@ -536,7 +536,8 @@ test('native screen exposes required accessible and confirmation patterns', asyn
   assert.match(screen, /accessibilityRole="header"/)
   assert.match(screen, /accessibilityLabel=/)
   assert.match(screen, /accessibilityLiveRegion=/)
-  assert.match(screen, /Alert\.alert\('Finalise and share this Development record\?'/)
+  const editor = await readFile(new URL('../apps/coach-mobile/src/DevelopmentOfflineEditor.js', import.meta.url), 'utf8')
+  assert.match(editor, /Alert\.alert\('Finalise and share this Development record\?'/)
   assert.match(screen, /Alert\.alert\('Archive this Poll\?'/)
 })
 
@@ -546,7 +547,7 @@ test('native Development renders a single-choice form picker and isolates draft 
   assert.match(screen, /accessibilityRole="radio"/)
   assert.match(screen, /accessibilityState=\{\{ selected \}\}/)
   assert.match(screen, /onPress=\{\(\) => selectDevelopmentForm\(item\)\}/)
-  assert.match(screen, /setFormId\(nextForm\.id\)[\s\S]*setValues\(\{\}\)[\s\S]*setNotes\(''\)[\s\S]*setDraft\(null\)/)
+  assert.match(screen, /DevelopmentOfflineEditor key=\{`\$\{user\.id\}:\$\{context\.id\}:\$\{activePlayerId\}:\$\{activeFormId\}`\}/)
 })
 
 test('Parent feature source is not imported into the Coach Phase 31E UI', async () => {

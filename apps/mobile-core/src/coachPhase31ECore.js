@@ -678,6 +678,11 @@ export function canResendSelectedCoachInvites(invites = []) {
   return selected.length > 0 && selected.every((invite) => ['awaiting', 'pending'].includes(normalize(invite?.status).toLowerCase()) && !invite?.stale && !invite?.cancelled)
 }
 
+export function canFollowUpSelectedCoachInvites(invites = []) {
+  return Array.isArray(invites) && invites.length > 0 && invites.every(invite =>
+    ['match', 'training'].includes(invite.kind) && ['maybe', 'awaiting', 'pending'].includes(normalize(invite.status).toLowerCase()) && !invite.stale && !invite.cancelled)
+}
+
 export function isCoachMatchAvailabilityRequestCreationApplied(data, matchDayId, playerIds = []) {
   const expectedMatch = normalize(matchDayId)
   const expectedPlayers = new Set((playerIds || []).map(normalize).filter(Boolean))

@@ -30,6 +30,7 @@ export function notificationCategory(data = {}) {
 export function allowsMobileNotification(preferences, data = {}) {
   const settings = normalizeNotificationCategories(preferences)
   const category = notificationCategory(data)
+  if (data.app === 'coach' && category === 'resources') return false
   if (!category) return true
   if (category !== 'gameDay') return settings[category]
   if (settings.gameDay === 'off') return false

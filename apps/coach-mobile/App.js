@@ -78,6 +78,7 @@ import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoac
 import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
+import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
 import { countPendingCoachDevelopmentDrafts } from './src/offline'
 import {
   addCoachPushTokenListener,
@@ -210,6 +211,7 @@ function CoachHome() {
   const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id)
   useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   useCoachDevelopmentSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser })
+  useCoachOfflinePreparation({ user: selectedMobileUser, context: activeContext, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
@@ -224,6 +226,7 @@ function CoachHome() {
 
   const {
     biometricAvailable,
+    biometricMessage,
     biometricEnabled,
     biometricStateStatus,
     isUpdatingBiometrics,
@@ -767,6 +770,7 @@ function CoachHome() {
               activeRoute={activeRoute}
               appBadgeEnabled={appBadgeEnabled}
               biometricAvailable={biometricAvailable}
+              biometricMessage={biometricMessage}
               biometricEnabled={biometricEnabled}
               biometricStateStatus={biometricStateStatus}
               context={activeContext}
@@ -992,6 +996,7 @@ function MoreScreen({ navigation, onSelectMore }) {
 function SettingsScreen({
   appBadgeEnabled,
   biometricAvailable,
+  biometricMessage,
   biometricEnabled,
   biometricStateStatus,
   context,
@@ -1054,13 +1059,17 @@ function SettingsScreen({
             ? 'Checking the saved biometric setting on this device.'
             : biometricStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR
               ? 'The saved biometric setting could not be read. It has not been changed.'
-              : biometricAvailable ? 'Require local device authentication after backgrounding.' : 'Biometric authentication is unavailable on this device.'}
+              : biometricMessage || 'Use Face ID or fingerprint, with your device passcode as a fallback.'}
           label="Biometric lock"
         >
           {biometricStateLoading || isUpdatingBiometrics ? <BrandLoader /> : biometricStateReady ? (
-            <Switch disabled={!biometricAvailable} onValueChange={onToggleBiometrics} value={biometricEnabled} />
+            <Switch accessibilityLabel="Biometric lock" onValueChange={onToggleBiometrics} value={biometricEnabled} />
           ) : <SecondaryAction label="Retry" onPress={onRefreshBiometricState} />}
         </SettingRow>
+        {biometricStateReady && !biometricAvailable ? <View style={styles.stack}>
+          <SecondaryAction label="Check device authentication again" onPress={onRefreshBiometricState} />
+          <SecondaryAction label="Open device settings" onPress={() => Linking.openSettings()} />
+        </View> : null}
       </Section>
       </SettingsSection>
       <SettingsSection id="notifications" label="Notifications" iconKey="settings.notifications">
@@ -1099,7 +1108,7 @@ function SettingsScreen({
       <Section compact iconKey="settings.sync" title="Offline and sync">
         <InfoRow label="Last refreshed" value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : 'Not yet refreshed'} />
         <InfoRow label="Saved information" value={cacheState?.hasDocument ? 'Saved securely on this device' : 'Open your team while online to prepare'} />
-        <Text style={styles.helperText}>Open Game Day before losing signal. Saved goals, cards and substitutions wait on this device and sync when you reconnect.</Text>
+        <Text style={styles.helperText}>Your selected team and upcoming fixtures save automatically while you use Coach. Saved goals, cards and substitutions sync when you reconnect.</Text>
         <CoachOfflineReadiness key={`${user.id}:${context.id}`} user={user} context={context} styles={styles} />
       </Section>
       </SettingsSection>

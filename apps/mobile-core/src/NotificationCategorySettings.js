@@ -9,6 +9,10 @@ const SWITCHES = [
   { key: 'resources', label: 'New resources', iconKey: 'more.resources', copy: 'Alerts when a resource is shared with you.' },
 ]
 const SHORT_GAME_DAY_LABELS = { off: 'Off', scores_cards: 'Scores & cards', full: 'All updates' }
+const COACH_SWITCHES = [
+  { key: 'invites', label: 'Availability & event updates', iconKey: 'more.invites', copy: 'Availability replies, invitations and changes to team events.' },
+  { key: 'chats', label: 'Chats & messages', iconKey: 'more.chat', copy: 'Messages, team conversations and polls.' },
+]
 
 async function preferenceRequest(query) {
   const controller = new AbortController()
@@ -76,7 +80,7 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
     </View>
     {state.preferences ? <Text style={[styles.copy, muted]}>{GAME_DAY_CHOICES.find(choice => choice.key === state.preferences.gameDay)?.copy}</Text> : null}
     </> : null}
-    {SWITCHES.map(choice => <View key={choice.key} style={[styles.switchRow, { borderColor: palette.border }]}>
+    {(app === 'coach' ? COACH_SWITCHES : SWITCHES).map(choice => <View key={choice.key} style={[styles.switchRow, { borderColor: palette.border }]}>
       <Icon iconKey={choice.iconKey} color={palette.accent} size={28} />
       <View style={styles.copyColumn}><Text style={[styles.label, text]}>{choice.label}</Text></View>
       <Switch accessibilityLabel={choice.label} accessibilityHint={choice.copy} disabled={disabled} value={state.preferences?.[choice.key] === true}

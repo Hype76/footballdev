@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AppState } from 'react-native'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from './biometrics'
 import { MOBILE_SETTING_LOAD_STATES } from './deviceSettingsCore'
 import { getNativeNotificationDeviceState, initializeMobileNotifications, registerNativePushDevice, revokeNativePushDevice } from './notifications'
@@ -13,6 +14,7 @@ async function readBiometricControlState(appRole = '') {
   return {
     biometricAvailable: availability.available,
     biometricEnabled: enabled,
+    biometricMessage: availability.message,
   }
 }
 
@@ -29,6 +31,8 @@ export function useMobileDeviceControls({
 }) {
   const [biometricEnabled, setBiometricEnabledState] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricMessage, setBiometricMessage] = useState('')
+  const biometricGeneration = useRef(0)
   const [biometricStateStatus, setBiometricStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
   const [isUpdatingBiometrics, setIsUpdatingBiometrics] = useState(false)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
@@ -41,15 +45,18 @@ export function useMobileDeviceControls({
   }, [onStatusMessage])
 
   const refreshBiometricState = useCallback(async () => {
+    const generation = ++biometricGeneration.current
     setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
     try {
       const nextBiometricState = await readBiometricControlState(appRole)
+      if (generation !== biometricGeneration.current) return nextBiometricState
       setBiometricAvailable(nextBiometricState.biometricAvailable)
       setBiometricEnabledState(nextBiometricState.biometricEnabled)
+      setBiometricMessage(nextBiometricState.biometricMessage)
       setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       return nextBiometricState
     } catch (error) {
-      setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
+      if (generation === biometricGeneration.current) setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.ERROR)
       throw error
     }
   }, [appRole])
@@ -83,6 +90,13 @@ export function useMobileDeviceControls({
       })
     }
   }, [manageNotifications, refreshBiometricState, refreshNotificationState])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void refreshBiometricState().catch(() => {})
+    })
+    return () => { biometricGeneration.current += 1; subscription.remove() }
+  }, [refreshBiometricState])
 
   const enableNotifications = useCallback(async () => {
     if (!manageNotifications) return
@@ -137,6 +151,7 @@ export function useMobileDeviceControls({
 
     try {
       const nextEnabled = await setBiometricEnabled(!biometricEnabled, appRole)
+      biometricGeneration.current += 1
       setBiometricEnabledState(nextEnabled)
       setBiometricStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setMessage(nextEnabled ? 'Biometric unlock is enabled.' : 'Biometric unlock is disabled.')
@@ -150,6 +165,7 @@ export function useMobileDeviceControls({
 
   return {
     biometricAvailable,
+    biometricMessage,
     biometricEnabled,
     biometricStateStatus,
     disableNotifications,

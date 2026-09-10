@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
+import { normalizeAvailabilityFollowUp, queueAvailabilityFollowUp } from './lib/_availability-follow-up.js'
 import {
   resolveEligibleEventInvitationContacts,
 } from './lib/_match-day-actionable-invitation.js'
@@ -127,6 +129,7 @@ async function loadRequestAuthority({ adminSupabase, event, sourceType, supabase
 
 async function loadRecipientPreview({
   action,
+  followUpMessage = '',
   adminSupabase,
   occurrenceDate,
   playerId,
@@ -236,7 +239,7 @@ async function loadRecipientPreview({
     const hasCurrentResponse = currentResponse?.id
       && ['available', 'maybe', 'unavailable'].includes(normalizeText(currentResponse.status).toLowerCase())
 
-    if (hasCurrentResponse) {
+    if (hasCurrentResponse && !followUpMessage) {
       throw Object.assign(new Error('This Player already has a valid availability response. The reusable response link remains available without another email.'), { statusCode: 409 })
     }
 
@@ -269,6 +272,7 @@ async function loadRecipientPreview({
 }
 
 async function beginAction({
+  followUpFingerprint = '',
   action,
   adminSupabase,
   eventId,
@@ -286,6 +290,7 @@ async function beginAction({
       club_id: scopedEvent.club_id,
       event_id: eventId,
       idempotency_key: idempotencyKey,
+      result: followUpFingerprint ? { followUpFingerprint } : {},
       player_id: playerId,
       source_type: sourceType,
       status: 'processing',
@@ -313,11 +318,20 @@ async function beginAction({
       || previous?.source_type !== sourceType
       || previous?.event_id !== eventId
       || previous?.player_id !== playerId
+      || (previous?.result?.followUpFingerprint || '') !== followUpFingerprint
     ) {
       throw Object.assign(new Error('This idempotency key is already assigned to a different invitation action.'), { statusCode: 409 })
     }
 
     if (previous?.status === 'failed') {
+      if (followUpFingerprint) {
+        const resumed = await adminSupabase.from('event_player_invitation_actions')
+          .update({ status: 'processing', failure_detail: '', completed_at: null })
+          .eq('id', previous.id).eq('status', 'failed').select('id').maybeSingle()
+        if (resumed.error) throw resumed.error
+        if (!resumed.data) throw Object.assign(new Error('This follow-up is already being retried.'), { statusCode: 409 })
+        return { duplicate: false, id: resumed.data.id, result: {} }
+      }
       throw Object.assign(
         new Error(previous.failure_detail || 'This invitation action previously failed. Start a new retry action.'),
         { statusCode: 409 },
@@ -713,6 +727,9 @@ export async function handler(event) {
     const playerId = normalizeText(body.playerId)
     const preview = body.preview === true
     const sourceType = normalizeText(body.sourceType).toLowerCase()
+    const followUpMessage = body.followUpMessage === undefined ? '' : normalizeAvailabilityFollowUp(body.followUpMessage)
+    const followUpFingerprint = followUpMessage ? createHash('sha256').update(JSON.stringify([occurrenceDate, followUpMessage])).digest('hex') : ''
+    if (followUpMessage && action !== 'resend') throw Object.assign(new Error('Follow-up messages require an existing invitation.'), { statusCode: 400 })
 
     if (!ACTIONS.has(action) || !SOURCE_TYPES.has(sourceType)) {
       throw Object.assign(new Error('Choose a supported one-player invitation action.'), { statusCode: 400 })
@@ -734,6 +751,7 @@ export async function handler(event) {
     })
     const recipientPreview = await loadRecipientPreview({
       action,
+      followUpMessage,
       adminSupabase,
       occurrenceDate,
       playerId,
@@ -752,6 +770,7 @@ export async function handler(event) {
     await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
 
     const actionCommand = await beginAction({
+      followUpFingerprint,
       action,
       adminSupabase,
       eventId,
@@ -773,7 +792,9 @@ export async function handler(event) {
 
     let result
 
-    if (sourceType === 'match-day') {
+    if (followUpMessage) {
+      result = await queueAvailabilityFollowUp({ client: adminSupabase, profile, scopedEvent, sourceType, occurrenceDate, playerId, message: followUpMessage, idempotencyKey })
+    } else if (sourceType === 'match-day') {
       const delegatedResponse = await sendMatchDayAvailabilityRequests({
         ...event,
         body: JSON.stringify({
@@ -839,6 +860,7 @@ export async function handler(event) {
       })
     }
 
+    if (followUpFingerprint) result.followUpFingerprint = followUpFingerprint
     await finishAction(adminSupabase, actionId, result)
     return json(200, {
       ...result,
