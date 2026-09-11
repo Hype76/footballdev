@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { assertPasswordPolicy } from '../../../src/lib/password-policy.js'
 import { buildFanEmail } from './_fan-email.js'
 import { loadFanInvitingParent } from './_fan-access.js'
@@ -55,8 +56,12 @@ export function createFanAccountHandler({ createClient, sendEmail, createFromAdd
       // The fragment is not sent to web servers or included in referrer headers.
       const confirmationUrl = `https://parent.footballplayer.online/fan-invite/${body.token}#fan_confirmation=${encodeURIComponent(data.properties.hashed_token)}`
       try {
-        await sendEmail({ from: createFromAddress('Football Player'), to: [invite.email], ...buildFanEmail({ club, fan: invite, url: confirmationUrl, verification: true }) },
-          { idempotencyKey: `fan-account-${invite.id}`, context: { emailType: 'fan_account_confirmation', targetEntityType: 'fan_connection', targetEntityId: invite.id } })
+        const emailPayload = { from: createFromAddress('Football Player'), to: [invite.email], ...buildFanEmail({ club, fan: invite, url: confirmationUrl, verification: true }) }
+        // A new confirmation link changes the email. Only deduplicate identical payloads.
+        // Hash the payload so confirmation tokens never appear in provider request keys.
+        const payloadHash = createHash('sha256').update(JSON.stringify(emailPayload)).digest('hex')
+        await sendEmail(emailPayload,
+          { idempotencyKey: `fan-account-${invite.id}-${payloadHash}`, context: { emailType: 'fan_account_confirmation', targetEntityType: 'fan_connection', targetEntityId: invite.id } })
       } catch (error) {
         reportFailure('confirmation_email', error)
         return json(502, { code: 'confirmation_email_failed', message: 'Account setup started, but the confirmation email could not be sent. Please contact support before trying to sign in.' })

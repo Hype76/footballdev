@@ -6,7 +6,7 @@ import { fetchFansJson } from '../src/lib/fans-fetch.js'
 const token = '20000000-0000-4000-8000-000000000099'
 const invite = { id: 'fan-invite', name: 'Test Fan', email: 'fan@example.test', expires_at: new Date(Date.now() + 86400000).toISOString() }
 const body = { token, email: 'FAN@example.test ', password: 'Test-River-729!' }
-function setup({ signupError, missingLink = false, missingUser = false, inviteRow = invite, emailError = false, suspended = false } = {}) {
+function setup({ signupError, missingLink = false, missingUser = false, inviteRow = invite, emailError = false, suspended = false, confirmationHashes = ['synthetic-confirmation-hash'], sendEmailOverride = null, clubRow = { name: 'Test Club' } } = {}) {
   const calls = { queries: [], signup: [], emails: [] }
   const client = {
     from(table) {
@@ -15,19 +15,19 @@ function setup({ signupError, missingLink = false, missingUser = false, inviteRo
       return {
         select() { return this },
         eq(...args) { query.filters.push(args); return this },
-        maybeSingle: async () => ({ data: table === 'fan_connections' ? inviteRow : table === 'clubs' ? { name: 'Test Club' } : { id: 'parent', status: 'active' } }),
+        maybeSingle: async () => ({ data: table === 'fan_connections' ? inviteRow : table === 'clubs' ? clubRow : { id: 'parent', status: 'active' } }),
         then(resolve) { resolve({ data: suspended ? [{ role: 'parent_portal' }] : [] }) },
       }
     },
     auth: { admin: { generateLink: async (args) => {
       calls.signup.push(args)
-      return { error: signupError, data: { user: missingUser ? null : { id: 'fan-user' }, properties: { hashed_token: missingLink ? null : 'synthetic-confirmation-hash', action_link: 'https://auth.example.test/verify?redirect_to=https://footballplayer.online' } } }
+      return { error: signupError, data: { user: missingUser ? null : { id: 'fan-user' }, properties: { hashed_token: missingLink ? null : confirmationHashes[Math.min(calls.signup.length - 1, confirmationHashes.length - 1)], action_link: 'https://auth.example.test/verify?redirect_to=https://footballplayer.online' } } }
     } } },
   }
   const handler = createFanAccountHandler({
     createClient: () => client,
     createFromAddress: () => 'Football Player <test@example.test>',
-    sendEmail: async (...args) => { calls.emails.push(args); if (emailError) throw new Error('private provider failure') },
+    sendEmail: async (...args) => { calls.emails.push(args); if (emailError) throw new Error('private provider failure'); return sendEmailOverride?.(...args) },
   })
   return { calls, run: async (payload = body) => {
     const result = await handler({ httpMethod: 'POST', body: JSON.stringify(payload) })
@@ -48,6 +48,65 @@ test('signup binds the invited identity, sends confirmation and does not activat
   assert.ok(calls.emails[0][0].html.includes(`https://parent.footballplayer.online/fan-invite/${token}#fan_confirmation=synthetic-confirmation-hash`))
   assert.ok(!calls.emails[0][0].html.includes('https://auth.example.test'))
   assert.deepEqual(calls.emails[0][0].to, [invite.email])
+})
+
+function idempotentProvider() {
+  const accepted = new Map()
+  return { accepted, sendEmailOverride: async (payload, { idempotencyKey }) => {
+    const serialized = JSON.stringify(payload)
+    if (accepted.has(idempotencyKey) && accepted.get(idempotencyKey) !== serialized) {
+      throw Object.assign(new Error('Same idempotency key used with a different request payload.'), { code: 'invalid_idempotent_request', status: 409 })
+    }
+    accepted.set(idempotencyKey, serialized)
+    return { id: `message-${accepted.size}` }
+  } }
+}
+
+test('repeating signup with fresh confirmation links sends each new email without a provider conflict', async () => {
+  const provider = idempotentProvider()
+  const hashes = ['first-private-confirmation', 'second-private-confirmation', 'third-private-confirmation']
+  const { run, calls } = setup({ ...provider, confirmationHashes: hashes })
+  for (let index = 0; index < hashes.length; index++) {
+    assert.equal((await run()).needsEmailVerification, true)
+    assert.ok(calls.emails[index][0].html.includes(hashes[index]))
+    const key = calls.emails[index][1].idempotencyKey
+    assert.match(key, /^fan-account-fan-invite-[a-f0-9]{64}$/)
+    assert.equal(key.includes(hashes[index]), false)
+    assert.equal(key.includes(body.password), false)
+  }
+  assert.equal(provider.accepted.size, 3)
+})
+
+test('identical confirmation email retries retain the same provider key', async () => {
+  const provider = idempotentProvider()
+  const { run, calls } = setup(provider)
+  assert.equal((await run()).needsEmailVerification, true)
+  assert.equal((await run()).needsEmailVerification, true)
+  assert.equal(calls.emails[0][1].idempotencyKey, calls.emails[1][1].idempotencyKey)
+  assert.equal(provider.accepted.size, 1)
+})
+
+test('changed club branding does not reuse a key for different confirmation content', async () => {
+  const provider = idempotentProvider()
+  const clubRow = { name: 'Test Club' }
+  const { run } = setup({ ...provider, clubRow })
+  assert.equal((await run()).needsEmailVerification, true)
+  clubRow.name = 'Updated Test Club'
+  assert.equal((await run()).needsEmailVerification, true)
+  assert.equal(provider.accepted.size, 2)
+})
+
+test('a retry recovers after the provider accepted an email but its response was lost', async () => {
+  const provider = idempotentProvider()
+  let firstRequest = true
+  const { run } = setup({ confirmationHashes: ['first-confirmation', 'retry-confirmation'], sendEmailOverride: async (...args) => {
+    const response = await provider.sendEmailOverride(...args)
+    if (firstRequest) { firstRequest = false; throw new Error('Connection closed after acceptance') }
+    return response
+  } })
+  assert.equal((await run()).code, 'confirmation_email_failed')
+  assert.equal((await run()).needsEmailVerification, true)
+  assert.equal(provider.accepted.size, 2)
 })
 
 for (const signupError of [{ code: 'unexpected_failure', message: 'private auth error' }, { status: 503 }]) {
