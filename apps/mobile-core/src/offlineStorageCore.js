@@ -34,11 +34,12 @@ export function bytesToBase64(bytes) {
 
 export function base64ToBytes(value) {
   const input = normalize(value)
-  if (!input || input.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(input)) {
+  if (!input || input.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(input)) {
     throw offlineError('offline_storage_corrupt')
   }
 
   const padding = input.endsWith('==') ? 2 : input.endsWith('=') ? 1 : 0
+  if (input.slice(0, input.length - padding).includes('=')) throw offlineError('offline_storage_corrupt')
   const output = new Uint8Array(input.length / 4 * 3 - padding)
   let offset = 0
   for (let index = 0; index < input.length; index += 4) {
