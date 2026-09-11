@@ -381,7 +381,7 @@ export async function sendCoachAvailabilityResponsePush({
   const [scope] = await hydrateNotificationScopeNames(adminClient, [match])
   const deliveries = devices.map((device) => ({
     device,
-    payload: buildCoachAvailabilityResponsePayload({ clubName: scope?.club_name, contextLabel, detailLevel: device.detail_level, playerName, route, status: normalizedStatus, targetId, teamId, teamName: scope?.team_name, type }),
+    payload: buildCoachAvailabilityResponsePayload({ clubName: scope?.club_name, contextLabel, playerName, route, status: normalizedStatus, targetId, teamId, teamName: scope?.team_name, type }),
     historyPayload: buildCoachAvailabilityHistoryPayload({ clubName: scope?.club_name, contextLabel, playerName, route, status: normalizedStatus, targetId, teamId, teamName: scope?.team_name, type }),
   }))
   const pushResult = await sendExpoPushMessages(deliveries.map(({ device, payload }) => ({

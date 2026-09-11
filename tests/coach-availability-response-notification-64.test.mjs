@@ -15,7 +15,7 @@ test('Coach availability notifications deep-link to the exact Match Day item', (
     teamId: 'team-1',
     type: 'match_availability_response',
   })
-  assert.equal(payload.body, 'Jack Hughes is available for the match against Wrexham.')
+  assert.equal(payload.body, 'Jack Hughes is attending for the match against Wrexham.')
   assert.deepEqual(payload.data, {
     app: 'coach',
     clubName: '',
@@ -27,18 +27,31 @@ test('Coach availability notifications deep-link to the exact Match Day item', (
   })
 })
 
-test('minimal Coach availability notifications do not include Player details', () => {
+test('default Coach availability notifications identify the player, response and training session', () => {
   const payload = buildCoachAvailabilityResponsePayload({
     detailLevel: 'minimal',
     playerName: 'Jack Hughes',
+    contextLabel: 'U14 training',
     route: 'sessions',
     status: 'unavailable',
     targetId: 'training-1',
     teamId: 'team-1',
     type: 'training_availability_response',
   })
-  assert.equal(payload.body, 'A player availability response has been updated.')
-  assert.doesNotMatch(payload.body, /Jack/)
+  assert.equal(payload.body, 'Jack Hughes is not attending for U14 training.')
+  assert.equal(payload.data.route, 'sessions')
+  assert.equal(payload.data.targetId, 'training-1')
+})
+
+test('availability alerts keep useful copy across existing detail preferences and response values', () => {
+  for (const detailLevel of [undefined, 'minimal', 'detailed']) {
+    for (const [status, responseText] of [['available', 'is attending'], ['unavailable', 'is not attending'], ['maybe', 'responded Maybe']]) {
+      const payload = buildCoachAvailabilityResponsePayload({ clubName: 'FP TEST Club', teamName: 'U14', detailLevel, playerName: 'Alex Taylor', status, contextLabel: 'Saturday training' })
+      assert.equal(payload.body, `Alex Taylor ${responseText} for Saturday training.`)
+      assert.equal(payload.title, 'FP TEST Club | U14 | Availability updated')
+    }
+  }
+  assert.equal(buildCoachAvailabilityResponsePayload({}).body, 'A player updated their availability.')
 })
 
 test('public availability responders trigger non-blocking Coach push delivery', async () => {

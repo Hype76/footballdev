@@ -12,7 +12,7 @@ test('kit choices and image precedence retain the saved icon colour', async () =
   assert.equal(normalizeClubKit({colour:'bad'}).colour, '#1d4ed8')
   assert.deepEqual(await readClubKits(null,''), {})
 })
-test('signed-in history retains player and response while minimal push reveals neither', () => {
+test('availability push identifies the player while signed-in history retains the response and event', () => {
   for(const [status,label] of [['available','Attending'],['unavailable','Not attending'],['maybe','Maybe']]) {
     const options={playerName:'FP TEST Player',contextLabel:'Training 10:09:2026',status,targetId:'event',teamId:'team',detailLevel:'minimal'}
     const push=buildCoachAvailabilityResponsePayload(options), history=buildCoachAvailabilityHistoryPayload(options)
@@ -20,7 +20,8 @@ test('signed-in history retains player and response while minimal push reveals n
     assert.equal(history.body, options.contextLabel)
     assert.equal(history.data.targetId,'event')
     assert.equal(history.data.responseStatus,status)
-    assert.ok(!JSON.stringify(push).includes('FP TEST Player'))
+    assert.ok(push.body.includes('FP TEST Player'))
+    assert.ok(push.body.includes(options.contextLabel))
   }
 })
 test('actual kit table and storage policies enforce club-admin writes and scoped reads', async () => {
