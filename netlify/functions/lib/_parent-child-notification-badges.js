@@ -1,3 +1,5 @@
+import { countUnreadGeneralNotifications } from '../../../apps/mobile-core/src/parentNotificationInboxCore.js'
+
 // Called only when the child switcher opens. It never marks another child's alerts read.
 export async function getParentChildNotificationBadges({ admin, authUserId, collapse, filterAvailable }) {
   const { data: links, error } = await admin.from('parent_player_links')
@@ -16,7 +18,7 @@ export async function getParentChildNotificationBadges({ admin, authUserId, coll
         .order('sent_at', { ascending: false }).limit(500)
       if (readError) throw readError
       const notifications = await filterAvailable(collapse(rows || []), link)
-      unreadByParentLink[link.id] = notifications.filter((item) => !item.isRead && item.isBadgeEligible !== false).length
+      unreadByParentLink[link.id] = countUnreadGeneralNotifications(notifications)
     }))
   }
   return unreadByParentLink
