@@ -5,7 +5,7 @@ import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
+import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
@@ -635,6 +635,9 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
 export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [players, setPlayers] = useState([])
+  const [openingPlayerId, setOpeningPlayerId] = useState('')
+  const playerRequest = useRef(0)
+  useEffect(() => () => { playerRequest.current += 1 }, [user])
   const [detail, setDetail] = useState(null)
   const [developmentOpen, setDevelopmentOpen] = useState(false)
   const [error, setError] = useState('')
@@ -669,15 +672,25 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   }, [onQuickActionHandled, quickAction])
   const visible = filterCoachPlayers(players, { query, section, status: 'active' })
   const openPlayer = async (player) => {
+    const request = ++playerRequest.current
+    setOpeningPlayerId(player.id)
     setError('')
+    setDetail(null)
     setDevelopmentOpen(false)
-    try { setDetail(await getCoachPlayerDetail(user, player.id)) }
-    catch (detailError) { setError(message(detailError, 'Player details could not be loaded.')) }
+    try {
+      const next = await readMobileResource(user, `coach:player-detail:${player.id}`, () => getCoachPlayerDetail(user, player.id))
+      if (request === playerRequest.current) setDetail(next)
+    } catch (detailError) {
+      if (request === playerRequest.current) setError(message(detailError, 'Player details could not be loaded.'))
+    } finally {
+      if (request === playerRequest.current) setOpeningPlayerId('')
+    }
   }
   const save = async () => {
     setSaving(true); setError('')
     try {
       await saveCoachPlayer(user, form, detail?.player || null)
+      if (detail?.player?.id) invalidateMobileResource(user, `coach:player-detail:${detail.player.id}`)
       setForm(null); setDetail(null); await load()
     } catch (saveError) { setError(message(saveError, 'Player could not be saved.')) }
     finally { setSaving(false) }
@@ -725,12 +738,13 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
               {developmentOpen && detail.evaluations.length > 5 ? <Text style={styles.meta}>Showing the 5 most recent records. Open Development for the full history.</Text> : null}
             </> : <Text style={styles.body}>No Development records.</Text>}
           </View>
-          <Button label="Close" onPress={() => { setDetail(null); setDevelopmentOpen(false) }} secondary styles={styles} />
+          <Button label="Close" onPress={() => { playerRequest.current += 1; setOpeningPlayerId(''); setDetail(null); setDevelopmentOpen(false) }} secondary styles={styles} />
           <Text style={styles.meta}>Archive, restore, hard delete, and Team transfer remain in the governed web workflow.</Text>
         </View>
       ) : null}
       {!loading && visible.length === 0 ? <Text style={styles.body}>No active Players match this view.</Text> : null}
-      {visible.map((player) => <Pressable accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.playerCard}><MaterialIcons name="person-outline" size={28} style={styles.secondaryText} /><View style={styles.playerCopy}><Text numberOfLines={1} style={styles.cardTitle}>{player.playerName}</Text><Text numberOfLines={1} style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentAppInstallationStatus player={player} styles={styles} /></View><MaterialIcons name="chevron-right" size={22} style={styles.secondaryText} /></Pressable>)}
+      {openingPlayerId ? <Text accessibilityLiveRegion="polite" style={styles.meta}>Opening Player...</Text> : null}
+      {visible.map((player) => <Pressable accessibilityState={{ busy: openingPlayerId === player.id }} accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.playerCard}><MaterialIcons name="person-outline" size={28} style={styles.secondaryText} /><View style={styles.playerCopy}><Text numberOfLines={1} style={styles.cardTitle}>{player.playerName}</Text><Text numberOfLines={1} style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentAppInstallationStatus player={player} styles={styles} /></View><MaterialIcons name="chevron-right" size={22} style={styles.secondaryText} /></Pressable>)}
     </View>
   )
 }

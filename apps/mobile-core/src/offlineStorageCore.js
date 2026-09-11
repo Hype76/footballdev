@@ -38,17 +38,22 @@ export function base64ToBytes(value) {
     throw offlineError('offline_storage_corrupt')
   }
 
-  const output = []
+  const padding = input.endsWith('==') ? 2 : input.endsWith('=') ? 1 : 0
+  if (input.slice(0, input.length - padding).includes('=')) throw offlineError('offline_storage_corrupt')
+  const output = new Uint8Array(input.length / 4 * 3 - padding)
+  let offset = 0
   for (let index = 0; index < input.length; index += 4) {
-    const chars = input.slice(index, index + 4)
-    const values = [...chars].map((character) => character === '=' ? 0 : BASE64_ALPHABET.indexOf(character))
-    if (values.some((entry) => entry < 0)) throw offlineError('offline_storage_corrupt')
-    const packed = (values[0] << 18) | (values[1] << 12) | (values[2] << 6) | values[3]
-    output.push((packed >> 16) & 255)
-    if (chars[2] !== '=') output.push((packed >> 8) & 255)
-    if (chars[3] !== '=') output.push(packed & 255)
+    const a = BASE64_ALPHABET.indexOf(input[index])
+    const b = BASE64_ALPHABET.indexOf(input[index + 1])
+    const c = input[index + 2] === '=' ? 0 : BASE64_ALPHABET.indexOf(input[index + 2])
+    const d = input[index + 3] === '=' ? 0 : BASE64_ALPHABET.indexOf(input[index + 3])
+    if (a < 0 || b < 0 || c < 0 || d < 0 || (index < input.length - 4 && input.slice(index, index + 4).includes('='))) throw offlineError('offline_storage_corrupt')
+    const packed = (a << 18) | (b << 12) | (c << 6) | d
+    output[offset++] = (packed >> 16) & 255
+    if (offset < output.length) output[offset++] = (packed >> 8) & 255
+    if (offset < output.length) output[offset++] = packed & 255
   }
-  return Uint8Array.from(output)
+  return output
 }
 
 function parseJson(value) {
@@ -101,6 +106,15 @@ export function createEncryptedOfflineStore({
   const aad = `${namespace}.authenticated-envelope`
   const keyName = `${namespace}.key`
   const pointerName = `${namespace}.active`
+  const verifiedGenerations = new Map()
+  let snapshot = null
+  const copy = value => value == null ? value : JSON.parse(JSON.stringify(value))
+
+  function remember(result, userScope, epoch) {
+    checkScope(userScope, epoch)
+    snapshot = result.document ? { document: copy(result.document), userScope: normalize(userScope), epoch } : null
+    return result
+  }
 
   if (!storage?.getItem || !storage?.setItem || !storage?.removeItem) throw offlineError('offline_storage_unavailable')
   if (!keyStore?.getItemAsync || !keyStore?.setItemAsync || !keyStore?.deleteItemAsync) throw offlineError('offline_key_store_unavailable')
@@ -111,6 +125,8 @@ export function createEncryptedOfflineStore({
   }
 
   async function clearCiphertext() {
+    snapshot = null
+    verifiedGenerations.clear()
     await storage.removeItem(pointerName)
     await Promise.all(GENERATIONS.map((generation) => storage.removeItem(generationName(generation))))
   }
@@ -151,7 +167,15 @@ export function createEncryptedOfflineStore({
   }
 
   async function readGeneration(generation, key, userScope) {
-    const envelope = parseJson(await storage.getItem(generationName(generation)))
+    const raw = await storage.getItem(generationName(generation))
+    const cached = verifiedGenerations.get(generation)
+    // Still read and compare the actual ciphertext and key. Tampering, missing
+    // storage and key rotation must never be hidden by the decoded cache.
+    if (cached?.raw === raw && cached.key === bytesToBase64(key) && validateDocument(cached.document, userScope)) {
+      return { document: copy(cached.document), status: 'ready', valid: true }
+    }
+    verifiedGenerations.delete(generation)
+    const envelope = parseJson(raw)
     if (
       envelope?.schemaVersion !== MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION
       || envelope?.generation !== generation
@@ -169,6 +193,7 @@ export function createEncryptedOfflineStore({
       if (!validateDocument(document, userScope)) {
         return { document: null, status: 'scope_mismatch', valid: false }
       }
+      verifiedGenerations.set(generation, { raw, key: bytesToBase64(key), document: copy(document) })
       return { document, status: 'ready', valid: true }
     } catch {
       return { document: null, status: 'corrupt', valid: false }
@@ -281,7 +306,11 @@ export function createEncryptedOfflineStore({
       previous: '',
       schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
     }))
-    if (pointer.active) await storage.removeItem(generationName(pointer.active))
+    if (pointer.active) {
+      await storage.removeItem(generationName(pointer.active))
+      verifiedGenerations.delete(pointer.active)
+    }
+    remember(activated, scope, epoch)
     return activated.document
   }
 
@@ -291,6 +320,8 @@ export function createEncryptedOfflineStore({
       const scope = normalize(userScope)
       if (!scope) throw offlineError('offline_profile_scope_mismatch')
       if (state.blocked || state.userScope !== scope) {
+        snapshot = null
+        verifiedGenerations.clear()
         state.epoch += 1
         state.userScope = scope
         state.blocked = false
@@ -311,6 +342,8 @@ export function createEncryptedOfflineStore({
       const state = scopeState()
       state.epoch += 1
       state.blocked = true
+      snapshot = null
+      verifiedGenerations.clear()
 
       return enqueue(namespace, async () => {
         await clearCiphertext()
@@ -334,13 +367,23 @@ export function createEncryptedOfflineStore({
     },
 
     async read(userScope) {
-      return enqueue(namespace, () => {
+      return enqueue(namespace, async () => {
         const state = scopeState()
         if (state.blocked || (state.userScope && state.userScope !== normalize(userScope))) {
           return { document: null, status: 'scope_mismatch' }
         }
-        return readInternal(userScope)
+        const epoch = state.epoch
+        return remember(await readInternal(userScope), userScope, epoch)
       })
+    },
+
+    // Display the last committed snapshot without waiting for a background
+    // write. Commands and reconciliation continue to use read/update above.
+    async readSnapshot(userScope) {
+      const state = scopeState()
+      if (state.blocked || (state.userScope && state.userScope !== normalize(userScope))) return { document: null, status: 'scope_mismatch' }
+      if (snapshot?.epoch === state.epoch && snapshot.userScope === normalize(userScope)) return { document: copy(snapshot.document), status: 'ready' }
+      return this.read(userScope)
     },
 
     async write(userScope, value) {

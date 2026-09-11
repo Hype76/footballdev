@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react'
 import { Image, StyleSheet, Text, View } from 'react-native'
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
 import { supabase } from './supabase'
-import { kitImageUrl, kitLabel, readClubKits } from '../../../src/lib/club-kits.js'
+import { kitImageUrl, kitLabel } from '../../../src/lib/club-kits.js'
+import { loadMobileClubKits, peekMobileClubKits } from './mobileKitCache'
 
 export function ClubKitDisplay({ clubId, shirtChoice, textStyle }) {
-  const [value, setValue] = useState({ clubId: '', kits: {} })
+  const [value, setValue] = useState(() => ({ clubId, kits: peekMobileClubKits(clubId) || {} }))
   const [failedImage, setFailedImage] = useState('')
   useEffect(() => {
     let active = true
-    readClubKits(supabase, clubId).then(kits => { if (active) setValue({ clubId, kits }) }).catch(() => {})
+    const publish = kits => { if (active) setValue({ clubId, kits }) }
+    loadMobileClubKits(clubId, publish).then(publish).catch(() => {})
     return () => { active = false }
   }, [clubId])
   const kit = value.clubId === clubId ? value.kits[shirtChoice] : null

@@ -21,6 +21,7 @@ create role anon;
 create role authenticated;
 create role service_role;
 
+create table public.users (id uuid primary key);
 create schema auth;
 create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
 
@@ -102,6 +103,9 @@ test('DD:HH:MM expiry migration compiles and preserves minute precision', async 
     await db.exec(schemaSql)
     await db.exec(migration)
     await db.exec(migration)
+    const minimumMigration = await readFile(new URL('../supabase/migrations/20260911094912_motm_two_minute_minimum.sql', import.meta.url), 'utf8')
+    await db.exec(minimumMigration)
+    await db.exec(minimumMigration)
 
     const column = await db.query(`
       select data_type, numeric_scale
@@ -117,7 +121,7 @@ test('DD:HH:MM expiry migration compiles and preserves minute precision', async 
       `insert into public.match_days(
          id, club_id, team_id, status, opponent, motm_poll_expiry_hours,
          motm_notify_results_on_close
-       ) values ($1, $2, $3, 'full_time', 'FP TEST Opponent', 0.5, true)`,
+       ) values ($1, $2, $3, 'full_time', 'FP TEST Opponent', (2.0 / 60.0), true)`,
       [ids.match, ids.club, ids.team],
     )
     await assert.rejects(
@@ -126,8 +130,9 @@ test('DD:HH:MM expiry migration compiles and preserves minute precision', async 
          values (gen_random_uuid(), $1, $2, 'scheduled', 0)`,
         [ids.club, ids.team],
       ),
-      /match_days_motm_poll_expiry_hours_check/,
+      /at least two minutes/,
     )
+    await assert.rejects(db.query('update public.match_days set motm_poll_expiry_hours = (1.0 / 60.0) where id = $1', [ids.match]), /at least two minutes/)
     await db.query(
       `insert into public.players(id, club_id, team_id, player_name, shirt_number)
        values ($1, $2, $3, 'FP TEST Player', '10')`,
@@ -157,9 +162,10 @@ test('DD:HH:MM expiry migration compiles and preserves minute precision', async 
     )
 
     const secondsRemaining = Number(proof.rows[0].seconds_remaining)
-    assert.ok(secondsRemaining > 1790 && secondsRemaining <= 1800)
-    assert.equal(proof.rows[0].expiry_minutes, '30')
+    assert.ok(secondsRemaining > 110 && secondsRemaining <= 120)
+    assert.equal(proof.rows[0].expiry_minutes, '2')
   } finally {
     await db.close()
   }
 })
+

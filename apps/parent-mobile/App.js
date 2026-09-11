@@ -1,6 +1,7 @@
+import 'react-native-url-polyfill/auto'
+import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
 import { openVenueDirections } from '../mobile-core/src/venueDirections'
 import { PasswordInput } from '../mobile-core/src/PasswordInput'
-import 'react-native-url-polyfill/auto'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
@@ -499,6 +500,12 @@ function ParentHome() {
     setMoreSection(nestedSection)
     setActiveTab(nestedSection ? 'more' : destination.tab)
   }, [])
+
+  useEffect(() => {
+    if (!selectedLink?.clubId || isOffline) return
+    const work = InteractionManager.runAfterInteractions(() => { void loadMobileClubKits(selectedLink.clubId).catch(() => {}) })
+    return () => work.cancel()
+  }, [isOffline, selectedLink?.clubId])
 
   const loadParentData = useCallback(async ({ reset = false } = {}) => {
     const requestId = ++requestIdRef.current
@@ -2232,6 +2239,7 @@ function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, chi
           <Pressable
             accessibilityHint={childCount > 1 ? 'Shows your linked players' : 'Shows the active player'}
             accessibilityLabel={`Active player ${selectedLink?.playerName || 'not selected'}`}
+            accessibilityState={{ expanded: childSwitcherOpen }}
             accessibilityRole="button"
             disabled={childCount <= 1}
             onPress={onToggleChildSwitcher}
@@ -2243,14 +2251,15 @@ function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, chi
               <Text numberOfLines={1} style={[styles.childButtonName, isLight && styles.textLight]}>{selectedLink?.playerName || 'Choose a player'}</Text>
               <Text numberOfLines={1} style={[styles.childButtonTeam, isLight && styles.textMutedLight]}>{selectedLink?.teamName || 'No Team assigned'}</Text>
             </View>
-            {childCount > 1 ? <Text style={styles.childButtonAction}>{childSwitcherOpen ? 'Close' : 'Switch'}</Text> : null}
+            {childCount > 1 ? <Text style={styles.childButtonAction}>{childSwitcherOpen ? 'Close' : 'Change'}</Text> : null}
           </Pressable>
           {childSwitcherOpen ? (
             <ScrollView
-              accessibilityLabel="Linked players"
-              contentContainerStyle={styles.childOptions}
-              horizontal
-              showsHorizontalScrollIndicator={false}
+              accessibilityLabel="Choose player and team"
+              contentContainerStyle={{ gap: 8 }}
+              style={{ maxHeight: 300 }}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
             >
               {links.map((link) => {
                 const active = link.id === selectedLink?.id

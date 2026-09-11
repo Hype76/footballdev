@@ -398,3 +398,31 @@ test('existing server RPCs remain authoritative and identical replays converge i
   assert.match(dataSource, /supabase\.rpc\('mark_parent_portal_message_read'/)
   assert.match(dataSource, /supabase\.rpc\('submit_parent_portal_poll_vote'/)
 })
+
+
+test('display snapshots stay responsive during writes, are isolated copies, and clear immediately on logout', async () => {
+  const { store, storage } = createStoreHarness()
+  store.activate('parent-a')
+  await store.write('parent-a', documentFor())
+  let release
+  let started
+  const pending = new Promise(resolve => { started = resolve })
+  const gate = new Promise(resolve => { release = resolve })
+  const setItem = storage.setItem.bind(storage)
+  storage.setItem = async (key, value) => {
+    if (key.endsWith('.g.b')) { started(); await gate }
+    return setItem(key, value)
+  }
+  const writing = store.write('parent-a', setParentOfflineSelection(documentFor(), 'link-b'))
+  await pending
+  const result = await Promise.race([store.readSnapshot('parent-a'), new Promise((_, reject) => setTimeout(() => reject(new Error('snapshot waited behind write')), 100))])
+  assert.equal(result.document.selectedLinkId, 'link-a')
+  result.document.selectedLinkId = 'mutated'
+  assert.equal((await store.readSnapshot('parent-a')).document.selectedLinkId, 'link-a')
+  release()
+  await writing
+  assert.equal((await store.readSnapshot('parent-a')).document.selectedLinkId, 'link-b')
+  const clearing = store.clear()
+  assert.equal((await store.readSnapshot('parent-a')).document, null)
+  await clearing
+})

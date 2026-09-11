@@ -1,7 +1,9 @@
 import 'react-native-url-polyfill/auto'
+import { sanitizeCoachChatOfflineValue } from '../mobile-core/src/coachPhase31ECore'
+import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
+import { loadCoachNotificationHistory } from './src/coachNotificationCache'
 import { formatFixtureDateTime } from '../../src/lib/calendar-datetime-integrity.js'
 import { formatParentProductDateTime } from '../mobile-core/src/parentDateTimeCore.js'
-import 'react-native-url-polyfill/auto'
 import { CoachNotificationHistoryScreen } from './src/CoachNotificationHistoryScreen'
 import { createCoachScrollBounds } from './src/coachScrollBounds'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
@@ -402,6 +404,11 @@ function CoachHome() {
       lastHomeRefreshAtRef.current = Date.now()
       void saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
 
+      InteractionManager.runAfterInteractions(() => {
+        if (requestId !== requestIdRef.current) return
+        void readMobileResource(selectedMobileUser, 'coach:calendar', () => getCoachCalendarResources(selectedMobileUser)).catch(() => {})
+        if (selectedMobileUser.activeTeamId) void readMobileResource(selectedMobileUser, 'coach:players', () => getCoachPlayerList(selectedMobileUser)).catch(() => {})
+      })
       const attentionResult = await getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh })
         .then(value => ({ value }), error => ({ error }))
       if (requestId !== requestIdRef.current) return
@@ -416,14 +423,12 @@ function CoachHome() {
       setHomeState((current) => chatRefreshId === chatRefreshIdRef.current
         ? completeSnapshot
         : { ...completeSnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat })
-      void saveCoachOfflineResources(user.id, activeContext, { home: completeSnapshot }).catch(() => {})
-      InteractionManager.runAfterInteractions(() => {
-        if (requestId !== requestIdRef.current) return
-        void readMobileResource(selectedMobileUser, 'coach:calendar', () => getCoachCalendarResources(selectedMobileUser)).catch(() => {})
-        if (selectedMobileUser.activeTeamId) {
-          void readMobileResource(selectedMobileUser, 'coach:players', () => getCoachPlayerList(selectedMobileUser)).catch(() => {})
-        }
-      })
+      const savedSections = { home: completeSnapshot }
+      for (const domain of ['chat', 'polls', 'invites']) {
+        const value = peekMobileResource(selectedMobileUser, `coach:phase31e:${domain}`)
+        if (value !== undefined) savedSections[`phase31e:${domain}`] = domain === 'chat' ? sanitizeCoachChatOfflineValue(value) : value
+      }
+      void saveCoachOfflineResources(user.id, activeContext, savedSections).catch(() => {})
     } catch (error) {
       if (requestId !== requestIdRef.current) return
       if (!savedHome) setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false }))
@@ -558,6 +563,21 @@ function CoachHome() {
     latestBadgeCountRef.current = getCoachAppBadgeCount({ unreadChat: homeState.unreadChat })
   }, [homeState.unreadChat])
   useCoachAppBadge({ homeState, activeRoute, contextId: activeContext?.id })
+  useEffect(() => {
+    if (!contextOwnedByCurrentUser || !selectedMobileUser?.id || !activeContext?.id) return undefined
+    const warm = ({ force = false } = {}) => {
+      if (AppState.currentState !== 'active') return
+      void loadCoachNotificationHistory(selectedMobileUser, activeContext, { force }).catch(() => {})
+      if (!selectedMobileUser.isOfflineProfile) void loadMobileClubKits(activeContext.clubId).catch(() => {})
+    }
+    const work = InteractionManager.runAfterInteractions(warm)
+    const received = Notifications.addNotificationReceivedListener(notification => {
+      if (notification?.request?.content?.data?.app === 'coach') warm({ force: true })
+    })
+    const resumed = AppState.addEventListener('change', state => { if (state === 'active') warm() })
+    return () => { work.cancel(); received.remove(); resumed.remove() }
+  }, [activeContext, contextOwnedByCurrentUser, selectedMobileUser])
+
 
   useEffect(() => {
     void initializeCoachNotifications().catch(() => {})

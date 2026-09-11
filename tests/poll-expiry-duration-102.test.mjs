@@ -4,6 +4,8 @@ import test from 'node:test'
 
 import {
   expiryDurationToHours,
+  motmExpiryDurationToHours,
+  validateMotmExpiryHours,
   expiryDurationToIso,
   formatExpiryDurationFromHours,
   parseExpiryDuration,
@@ -47,4 +49,11 @@ test('web and Coach app use the same DD:HH:MM expiry contract', async () => {
   assert.match(coachPolls, /Poll expiry \(DD:HH:MM\), optional/)
   assert.match(migration, /motm_poll_expiry_hours type numeric\(8, 4\)/)
   assert.match(migration, /make_interval\([\s\S]*mins =>/)
+})
+
+test('Player of the Match accepts two minutes, including stored numeric precision, and rejects one minute', () => {
+  assert.equal(motmExpiryDurationToHours('00:00:02'), 2 / 60)
+  assert.equal(validateMotmExpiryHours(0.0333), 2 / 60)
+  assert.throws(() => motmExpiryDurationToHours('00:00:01'), /at least two minutes/)
+  assert.equal(motmExpiryDurationToHours('30:00:00'), 720)
 })

@@ -24,6 +24,10 @@ export const COACH_OFFLINE_READ_POLICIES = Object.freeze({
   invites: Object.freeze({ cache: true, maxItems: 180, sensitivity: 'child-data', staleLabel: 'Offline availability summary' }),
   context: Object.freeze({ cache: true, maxItems: 30, sensitivity: 'authority-metadata', staleLabel: 'Last authorised context' }),
   branding: Object.freeze({ cache: true, maxItems: 20, sensitivity: 'public-branding', staleLabel: 'Saved branding' }),
+  notifications: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'private-communication', staleLabel: 'Saved notifications' }),
+  trainingEvents: Object.freeze({ cache: true, maxItems: 180, sensitivity: 'operational', staleLabel: 'Saved Training events' }),
+  trainingLocations: Object.freeze({ cache: true, maxItems: 80, sensitivity: 'operational', staleLabel: 'Saved Training locations' }),
+  calendarResourceOptions: Object.freeze({ cache: true, maxItems: 150, sensitivity: 'authorised-resource-metadata', staleLabel: 'Saved Calendar resources' }),
 })
 
 const ONLINE_ONLY_MUTATIONS = [

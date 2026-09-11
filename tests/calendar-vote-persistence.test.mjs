@@ -1,3 +1,4 @@
+import { validateMotmExpiryHours } from '../src/lib/expiry-duration.js'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import test from 'node:test'
@@ -8,7 +9,7 @@ test('Match Day vote settings reach the scoped saved record and omitted fields r
   const start=source.indexOf('export async function updateMatchDay('),end=source.indexOf('function normalizeMatchDayTimerResult',start)
   let written,filters=[]
   const query={update:payload=>{written=payload;return query},eq:(...args)=>{filters.push(args);return query},is:()=>query,select:()=>query,single:async()=>({data:{id:'fixture',...written},error:null})}
-  const context=vm.createContext({Date,Number,Boolean,Object,Error,console,
+  const context=vm.createContext({Date,Number,Boolean,Object,Error,console,validateMotmExpiryHours,
     blockDemoMutation:async()=>{},assertStaffMatchDayAccess:()=>{},getMatchDayEventLogSnapshot:async()=>({id:'fixture',status:'scheduled'}),
     normalizeBoolean:value=>value===true,applyScorerRequestMessageUpdate:()=>{},supabase:{from:table=>{assert.equal(table,'match_days');return query}},scopeMatchDayQueryToActiveTeam:q=>q,
     buildMatchSelect:()=>'*',invalidateMemoryCacheByPrefix:()=>{},normalizeMatchDay:x=>x,buildMatchDaySnapshotFromMatch:x=>x,buildChangedSnapshot:()=>({previousValue:{},newValue:{}}),createMatchDayEventLogEntry:async()=>{},getMatchDay:async()=>written})
@@ -19,8 +20,11 @@ test('Match Day vote settings reach the scoped saved record and omitted fields r
   assert.deepEqual(filters,[['id','fixture'],['club_id','club']])
   await run({enableMotmPoll:false,motmNotifyResultsOnClose:true})
   assert.equal(written.enable_motm_poll,false);assert.equal(written.motm_notify_results_on_close,false)
+  await run({motmPollExpiryHours:2 / 60})
+  assert.equal(written.motm_poll_expiry_hours,2 / 60)
+  await assert.rejects(run({motmPollExpiryHours:1 / 60}),/at least two minutes/)
   await run({})
   assert.equal('enable_motm_poll' in written,false);assert.equal('motm_poll_expiry_hours' in written,false)
-  await assert.rejects(run({motmPollExpiryHours:0}),/at least one hour/)
-  await assert.rejects(run({motmPollExpiryHours:NaN}),/at least one hour/)
+  await assert.rejects(run({motmPollExpiryHours:0}),/at least two minutes/)
+  await assert.rejects(run({motmPollExpiryHours:NaN}),/at least two minutes/)
 })

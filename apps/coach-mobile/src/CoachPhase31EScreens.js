@@ -444,24 +444,32 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
   const activeRoomIdRef = useRef('')
   const messagesRef = useRef([])
   const roomRefreshRef = useRef(false)
+  const openRequest = useRef(0)
+  const sendInFlight = useRef(false)
+  useEffect(() => () => { openRequest.current += 1; activeRoomIdRef.current = '' }, [user])
   const activeRoomId = rooms.some((item) => item.id === roomId) ? roomId : ''
   const room = rooms.find((item) => item.id === activeRoomId)
   activeRoomIdRef.current = activeRoomId
   messagesRef.current = messages
   const unreadRooms = rooms.filter((item) => Number(item.unreadCount || 0) > 0)
   const open = useCallback(async (nextRoom) => {
-    setMessages([])
+    const request = ++openRequest.current
+    const isCurrent = () => request === openRequest.current && activeRoomIdRef.current === nextRoom.id
+    const memoryKey = `coach:chat-room:${nextRoom.kind}:${nextRoom.id}`
+    setMessages(peekMobileResource(user, memoryKey) || [])
     setBody('')
     setRoomId(nextRoom.id)
     activeRoomIdRef.current = nextRoom.id
     setNotice('Loading current room history...')
     try {
-      const next = await getCoachChatMessages(user, nextRoom)
+      const next = await readMobileResource(user, memoryKey, () => getCoachChatMessages(user, nextRoom), { force: true })
+      if (!isCurrent()) return
       setMessages(next)
-      await markCoachChatRead(user, nextRoom)
-      await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
       setNotice('')
-    } catch (error) { setMessages([]); setNotice(getCoachFriendlyError(error)) }
+      await markCoachChatRead(user, nextRoom)
+      if (!isCurrent()) return
+      await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
+    } catch (error) { if (isCurrent()) setNotice(getCoachFriendlyError(error)) }
   }, [load, reloadHome, setNotice, user])
   useEffect(() => {
     const targetId = String(chatNotificationTarget?.id || '').trim()
@@ -514,9 +522,17 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
     }
   }, [load, reloadHome, room, user])
   const send = async () => {
+    if (sendInFlight.current || !room || !body.trim() || stale) return
+    sendInFlight.current = true
+    const request = openRequest.current
+    const targetRoomId = room.id
     setSending(true)
-    try { setMessages(await sendCoachChatMessage(user, room, body)); setBody(''); setNotice('') } catch (error) { setNotice(getCoachFriendlyError(error)) }
-    finally { setSending(false) }
+    try {
+      const next = await sendCoachChatMessage(user, room, body)
+      if (request === openRequest.current && activeRoomIdRef.current === targetRoomId) { setMessages(next); setBody(''); setNotice('') }
+    } catch (error) {
+      if (request === openRequest.current && activeRoomIdRef.current === targetRoomId) setNotice(getCoachFriendlyError(error))
+    } finally { sendInFlight.current = false; setSending(false) }
   }
   const markAllRead = async () => {
     if (!unreadRooms.length || markingAllRead) return

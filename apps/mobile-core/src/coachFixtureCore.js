@@ -3,7 +3,7 @@ import { assertValidMatchDayFixtureType, MATCH_DAY_FIXTURE_TYPE_OPTIONS } from '
 import { assertMatchDayShirtChoice, assertNewMatchHomeAway, assertValidMatchClockMode, assertValidMatchDurationMinutes, isContinuousMatchClock, MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS, MATCH_DAY_SHIRT_CHOICE_OPTIONS } from '../../../src/lib/matchday-model.js'
 import { getDateInTimeZone } from './parentCalendarCore.js'
 import { formatCoachCalendarFormDate, normalizeCoachCalendarFormDate } from './coachCalendarCore.js'
-import { DEFAULT_EXPIRY_DURATION, expiryDurationToHours } from '../../../src/lib/expiry-duration.js'
+import { DEFAULT_EXPIRY_DURATION, motmExpiryDurationToHours } from '../../../src/lib/expiry-duration.js'
 
 export const COACH_MATCH_DURATION_OPTIONS = Object.freeze([60, 70, 80, 90])
 export const COACH_MATCH_ARRIVAL_OPTIONS = Object.freeze([
@@ -128,7 +128,7 @@ export function validateCoachFixtureForm(form = {}, { requireSelectedPlayers = t
   const arrivalTime = kickoffTimeTbc ? '' : normalize(form.arrivalTime)
   if (!kickoffTimeTbc && arrivalTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(arrivalTime)) throw new Error('Choose a valid arrival time.')
   const motmPollExpiryHours = form.enableMotmPoll === true
-    ? expiryDurationToHours(form.motmPollExpiryDuration)
+    ? motmExpiryDurationToHours(form.motmPollExpiryDuration)
     : 2
   return Object.freeze({
     arrivalTime,

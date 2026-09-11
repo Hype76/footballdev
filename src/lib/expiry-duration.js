@@ -36,6 +36,18 @@ export function expiryDurationToHours(value) {
   return parseExpiryDuration(value).totalHours
 }
 
+export function validateMotmExpiryHours(value) {
+  const minutes = Math.round(Number(value) * 60)
+  if (!Number.isFinite(minutes) || minutes < 2 || minutes > MAX_EXPIRY_DAYS * 24 * 60) {
+    throw new Error('Vote expiry must be at least two minutes (00:00:02) and at most 30 days (30:00:00).')
+  }
+  return minutes / 60
+}
+
+export function motmExpiryDurationToHours(value) {
+  return validateMotmExpiryHours(expiryDurationToHours(value))
+}
+
 export function expiryDurationToIso(value, { allowBlank = false, now = Date.now() } = {}) {
   const duration = parseExpiryDuration(value, { allowBlank })
   if (!duration) return ''
