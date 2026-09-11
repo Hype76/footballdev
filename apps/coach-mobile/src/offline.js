@@ -163,7 +163,7 @@ export async function inspectCoachOfflineState(userId) {
 }
 
 export async function readCoachOfflineResources(userId, contextId) {
-  const result = await store.read(userId)
+  const result = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
   return getCoachOfflineResources(result.document, contextId)
 }
 

@@ -4,7 +4,8 @@ export async function prepareCoachOfflineData({ user, context, dependencies, isC
   const { readResources, readOutbox, saveResources, getPlayers, getDevelopment, getCalendar, getMatches, getMatch, updateOutbox } = dependencies
   const saved = await readResources(user.id, context)
   const keys = ['players', 'phase31e:development', 'calendar', 'matchDayList']
-  const fresh = keys.every(key => saved?.resources?.[key] !== undefined && now() - Date.parse(saved?.resourceMetadata?.[key]?.savedAt) < COACH_PREPARATION_REFRESH_MS)
+  const isFresh = key => saved?.resources?.[key] !== undefined && now() - Date.parse(saved?.resourceMetadata?.[key]?.checkedAt || saved?.resourceMetadata?.[key]?.savedAt) < COACH_PREPARATION_REFRESH_MS
+  const fresh = keys.every(isFresh)
   if (!isCurrent()) return { cancelled: true }
   if (fresh) {
     const today = new Date(now()).toISOString().slice(0, 10)
@@ -13,22 +14,24 @@ export async function prepareCoachOfflineData({ user, context, dependencies, isC
     if (journals.every(journal => journal?.baseMatch && (journal.pending?.length || now() - Date.parse(journal.verifiedAt) < COACH_PREPARATION_REFRESH_MS))) return { skipped: true }
   }
   const save = async resources => { if (isCurrent()) await saveResources(user.id, context, resources) }
-  const players = await getPlayers(user)
+  const players = isFresh('players') ? saved.resources.players : await getPlayers(user)
   if (!isCurrent()) return { cancelled: true }
-  await save({ players, calendarPlayers: players, matchDayPlayers: players })
-  const development = await getDevelopment(user)
+  if (!isFresh('players')) await save({ players, calendarPlayers: players, matchDayPlayers: players })
+  const development = isFresh('phase31e:development') ? saved.resources['phase31e:development'] : await getDevelopment(user)
   if (!isCurrent()) return { cancelled: true }
-  await save({ 'phase31e:development': development })
-  const calendar = await getCalendar(user)
+  if (!isFresh('phase31e:development')) await save({ 'phase31e:development': development })
+  const calendar = isFresh('calendar') ? saved.resources.calendar : await getCalendar(user)
   if (!isCurrent()) return { cancelled: true }
-  await save({ calendar })
-  const matches = await getMatches(user)
+  if (!isFresh('calendar')) await save({ calendar })
+  const matches = isFresh('matchDayList') ? saved.resources.matchDayList : await getMatches(user)
   if (!isCurrent()) return { cancelled: true }
   const today = new Date(now()).toISOString().slice(0, 10)
   const upcoming = matches.filter(match => !['completed', 'cancelled', 'deleted'].includes(match.status) && match.matchDate >= today)
     .sort((a, b) => a.matchDate.localeCompare(b.matchDate)).slice(0, 8)
   for (const match of upcoming) {
     if (!isCurrent()) return { cancelled: true }
+    const journal = await readOutbox(user.id, context, match.id)
+    if (journal?.baseMatch && (journal.pending?.length || now() - Date.parse(journal.verifiedAt) < COACH_PREPARATION_REFRESH_MS)) continue
     const detail = await getMatch(user, match.id)
     if (!isCurrent()) return { cancelled: true }
     await updateOutbox(user.id, context, detail.id, previous => {
@@ -37,7 +40,7 @@ export async function prepareCoachOfflineData({ user, context, dependencies, isC
     })
   }
   // Only mark preparation fresh after all fixtures succeed. Partial runs retry.
-  await save({ matchDayList: matches })
+  if (!isFresh('matchDayList')) await save({ matchDayList: matches })
   return { saved: isCurrent(), fixtures: upcoming.length }
 }
 

@@ -135,7 +135,7 @@ export async function inspectParentOfflineStorage(userScope) {
 }
 
 export async function readParentOfflineView(userScope, linkId) {
-  const document = await readDocument(userScope)
+  const document = (await (store.readSnapshot ? store.readSnapshot(userScope) : store.read(userScope))).document
   const cache = getParentOfflineResources(document, linkId)
   const activeCommands = (document?.journal || []).filter((command) => (
     command.childScope === normalize(linkId)

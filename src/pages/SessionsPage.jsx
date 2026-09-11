@@ -1,3 +1,4 @@
+import { DEFAULT_EXPIRY_DURATION, formatExpiryDurationFromHours, motmExpiryDurationToHours } from '../lib/expiry-duration.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
@@ -368,7 +369,7 @@ function getDefaultCalendarForm(date = '') {
     arrivalTime: '',
     autoSelectAvailablePlayers: true,
     enableMotmPoll: true,
-    motmPollExpiryHours: 2,
+    motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION,
     motmNotifyResultsOnClose: false,
     date: eventDate,
     endTime: '',
@@ -894,7 +895,7 @@ function getFormFromCalendarEvent(event, invites = []) {
       arrivalTime: source.kickoffTimeTbc ? '' : formatTimeInput(source.arrivalTime),
       autoSelectAvailablePlayers: source.autoSelectAvailablePlayers === true,
       enableMotmPoll: source.enableMotmPoll !== false,
-      motmPollExpiryHours: source.motmPollExpiryHours ?? 2,
+      motmPollExpiryDuration: formatExpiryDurationFromHours(source.motmPollExpiryHours ?? 2),
       motmNotifyResultsOnClose: source.motmNotifyResultsOnClose === true,
       date: formatDateInput(source.matchDate || event.date),
       endTime: source.kickoffTimeTbc ? '' : addMinutesToTime(source.kickoffTime, 120),
@@ -3551,7 +3552,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             arrivalTime: calendarForm.arrivalTime,
             autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers === true,
             enableMotmPoll: calendarForm.enableMotmPoll === true,
-            motmPollExpiryHours: Number(calendarForm.motmPollExpiryHours),
+            motmPollExpiryHours: motmExpiryDurationToHours(calendarForm.motmPollExpiryDuration),
             motmNotifyResultsOnClose: calendarForm.enableMotmPoll === true && calendarForm.motmNotifyResultsOnClose === true,
             fixtureType: calendarForm.fixtureType,
             conclusionRule: calendarForm.conclusionRule,
@@ -6653,8 +6654,8 @@ function CalendarEventModal({
                   Create Player of the Match vote at full time
                 </label>
                 {form.enableMotmPoll ? <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <label className="block text-sm font-bold text-[#101828]">Vote expiry (hours)
-                    <input type="number" name="motmPollExpiryHours" min="1" step="any" required value={form.motmPollExpiryHours} onChange={onChange} disabled={isBusy} className="mt-2 block min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-[#101828]" />
+                  <label className="block text-sm font-bold text-[#101828]">Vote expiry (DD:HH:MM)
+                    <input type="text" name="motmPollExpiryDuration" placeholder="00:00:02" pattern="[0-9]{1,2}:[0-9]{2}:[0-9]{2}" title="Days, hours, minutes. Minimum 00:00:02." required value={form.motmPollExpiryDuration} onChange={onChange} disabled={isBusy} className="mt-2 block min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-[#101828]" />
                   </label>
                   <label className="flex min-h-12 items-center gap-3 text-sm font-bold text-[#101828]">
                     <input type="checkbox" name="motmNotifyResultsOnClose" checked={form.motmNotifyResultsOnClose === true} onChange={onChange} disabled={isBusy} className="h-5 w-5 accent-[#047857]" />

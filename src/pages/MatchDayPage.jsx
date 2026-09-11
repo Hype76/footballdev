@@ -162,7 +162,7 @@ import {
 import { MATCH_DAY_LIVE_EVENT_ACTIONS } from '../lib/matchday-capability-manifest.js'
 import {
   DEFAULT_EXPIRY_DURATION,
-  expiryDurationToHours,
+  motmExpiryDurationToHours,
   parseExpiryDuration,
 } from '../lib/expiry-duration.js'
 
@@ -1067,7 +1067,7 @@ function getFixtureSetupValidationMessage({ availablePlayerIds, form }) {
 
   if (form.enableMotmPoll) {
     try {
-      parseExpiryDuration(form.motmPollExpiryDuration)
+      motmExpiryDurationToHours(form.motmPollExpiryDuration)
     } catch (error) {
       return error.message
     }
@@ -3115,7 +3115,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         user,
         match: {
           ...submittedForm,
-          motmPollExpiryHours: expiryDurationToHours(submittedForm.motmPollExpiryDuration),
+          motmPollExpiryHours: motmExpiryDurationToHours(submittedForm.motmPollExpiryDuration),
           scorerRequestMessage: submittedForm.requestScorer ? volunteerRequestMessages.scorer : '',
         },
       })

@@ -7,6 +7,7 @@ import { CoachFormationBoard } from './CoachFormationBoard'
 import { getLinkableCoachFormationMatches } from './coachFormationEntryCore'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 
 function createStyles(palette) {
   return StyleSheet.create({
@@ -36,7 +37,7 @@ export function CoachFormationScreen({ context, onQuickActionHandled, palette, q
   const [players, setPlayers] = useState([])
   const [stale, setStale] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ refresh = false } = {}) => {
     setLoading(true)
     setError('')
     const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
@@ -50,7 +51,10 @@ export function CoachFormationScreen({ context, onQuickActionHandled, palette, q
       setLoading(false)
     }
     try {
-      const [nextMatches, nextPlayers] = await Promise.all([getCoachMatchDayList(user), getCoachPlayerList(user)])
+      const [nextMatches, nextPlayers] = await Promise.all([
+        readMobileResource(user, 'coach:match-list', () => getCoachMatchDayList(user), { force: refresh }),
+        readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), { force: refresh }),
+      ])
       const ordered = getLinkableCoachFormationMatches(nextMatches, { teamId: user.activeTeamId })
       setMatches(ordered)
       setPlayers(nextPlayers)

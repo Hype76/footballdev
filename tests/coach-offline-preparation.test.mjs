@@ -70,3 +70,18 @@ test('runner prevents overlapping requests, backs off failures, pauses when inac
   await failure.refresh(); await failure.refresh(); assert.equal(calls, 2)
   currentTime += 30_000; await failure.refresh(); assert.equal(calls, 3)
 })
+
+
+test('repairing one missing fixture does not download or redate already fresh resources', async () => {
+  const { state, options, dependencies } = fixture()
+  await prepareCoachOfflineData(options)
+  const writes = state.writes
+  const reads = state.reads
+  state.journals.delete('match7')
+  let details = 0
+  dependencies.getMatch = async (_user, id) => { details++; return { id } }
+  await prepareCoachOfflineData(options)
+  assert.equal(details, 1)
+  assert.equal(state.reads, reads)
+  assert.equal(state.writes, writes)
+})

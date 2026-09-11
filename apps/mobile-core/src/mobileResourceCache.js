@@ -5,6 +5,7 @@ export function createMobileResourceCache({ now = Date.now, maxEntries = 80 } = 
   let generation = 0
   return {
     clear() { generation += 1; entries.clear() },
+    invalidate(key) { entries.delete(key) },
     peek(key, maxAgeMs = DEFAULT_MAX_AGE_MS) {
       const entry = entries.get(key)
       return entry?.hasValue && now() - entry.savedAt < maxAgeMs ? entry.value : undefined
@@ -52,9 +53,17 @@ export function mobileResourceKey(user, resource) {
 
 export function readMobileResource(user, resource, loader, options = {}) {
   if (!user?.id) return Promise.resolve().then(loader)
-  return mobileResourceCache.read(mobileResourceKey(user, resource), loader, options)
+  return mobileResourceCache.read(mobileResourceKey(user, resource), loader, { maxAgeMs: resourceMaxAge(resource), ...options })
 }
 
 export function peekMobileResource(user, resource) {
-  return mobileResourceCache.peek(mobileResourceKey(user, resource))
+  return mobileResourceCache.peek(mobileResourceKey(user, resource), resourceMaxAge(resource))
+}
+
+export function invalidateMobileResource(user, resource) {
+  mobileResourceCache.invalidate(mobileResourceKey(user, resource))
+}
+
+function resourceMaxAge(resource) {
+  return /players|resources|development|player-detail/.test(resource) ? 120_000 : DEFAULT_MAX_AGE_MS
 }

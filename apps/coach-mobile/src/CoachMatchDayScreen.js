@@ -1,3 +1,4 @@
+import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { getGoalScorerSide, setGoalOwnGoal } from '../../../src/lib/matchday-goal-credit.js'
 import { getMatchClockDescription } from '../../../src/lib/matchday-event-time.js'
@@ -601,8 +602,8 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     }
     try {
       const [matchesResult, playersResult] = await Promise.allSettled([
-        withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)),
-        withMobileAsyncTimeout(() => getCoachPlayerList(currentUser)),
+        readMobileResource(currentUser, 'coach:match-list', () => withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)), { force: true }),
+        readMobileResource(currentUser, 'coach:players', () => withMobileAsyncTimeout(() => getCoachPlayerList(currentUser))),
       ])
       if (!isCurrentScope()) return
       if (matchesResult.status === 'rejected') throw matchesResult.reason

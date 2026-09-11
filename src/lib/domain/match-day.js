@@ -1,3 +1,4 @@
+import { validateMotmExpiryHours } from '../expiry-duration.js'
 import { supabase } from '../supabase-client.js'
 import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
@@ -1461,7 +1462,7 @@ export async function createMatchDay({ user, match }) {
       status: normalizeStatus(match?.status || (requestScorer ? 'scorer_request' : 'scheduled')),
       enable_motm_poll: Boolean(match?.enableMotmPoll ?? true),
       motm_notify_results_on_close: Boolean(match?.enableMotmPoll && match?.motmNotifyResultsOnClose),
-      motm_poll_expiry_hours: Math.max(Number(match?.motmPollExpiryHours ?? 2), 1),
+      motm_poll_expiry_hours: validateMotmExpiryHours(match?.motmPollExpiryHours ?? 2),
       created_by: getEntryUserId(user),
       created_by_name: getEntryUserName(user),
     })
@@ -1576,8 +1577,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
   if (updates.autoSelectAvailablePlayers !== undefined) payload.auto_select_available_players = normalizeBoolean(updates.autoSelectAvailablePlayers)
   if (updates.enableMotmPoll !== undefined) payload.enable_motm_poll = normalizeBoolean(updates.enableMotmPoll)
   if (updates.motmPollExpiryHours !== undefined) {
-    const expiryHours = Number(updates.motmPollExpiryHours)
-    if (!Number.isFinite(expiryHours) || expiryHours < 1) throw new Error('Vote expiry must be at least one hour.')
+    const expiryHours = validateMotmExpiryHours(updates.motmPollExpiryHours)
     payload.motm_poll_expiry_hours = expiryHours
   }
   if (updates.motmNotifyResultsOnClose !== undefined) payload.motm_notify_results_on_close = normalizeBoolean(updates.motmNotifyResultsOnClose)
