@@ -103,7 +103,7 @@ test('DD:HH:MM expiry migration compiles and preserves minute precision', async 
     await db.exec(schemaSql)
     await db.exec(migration)
     await db.exec(migration)
-    const minimumMigration = await readFile(new URL('../supabase/migrations/20260911160000_motm_two_minute_minimum.sql', import.meta.url), 'utf8')
+    const minimumMigration = await readFile(new URL('../supabase/migrations/20260911094912_motm_two_minute_minimum.sql', import.meta.url), 'utf8')
     await db.exec(minimumMigration)
     await db.exec(minimumMigration)
 
@@ -168,3 +168,4 @@ test('DD:HH:MM expiry migration compiles and preserves minute precision', async 
     await db.close()
   }
 })
+
