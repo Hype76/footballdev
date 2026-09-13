@@ -46,6 +46,14 @@ function normalize(value) {
   return String(value ?? '').trim()
 }
 
+export function getCoachAvailabilityMatches(matches = [], teamId, today = new Date().toISOString().slice(0, 10)) {
+  return matches
+    .filter((match) => match.teamId === teamId && ['scheduled', 'scorer_request'].includes(match.status))
+    .filter((match) => !match.matchDate || String(match.matchDate).slice(0, 10) >= today)
+    .sort((left, right) => String(left.matchDate || '9999').localeCompare(String(right.matchDate || '9999')))
+    .slice(0, 20)
+}
+
 export function buildCoachAvailabilityTimeline({ trainingGroups = [], matches = [] } = {}) {
   return [
     ...(Array.isArray(trainingGroups) ? trainingGroups : []).map((item) => ({

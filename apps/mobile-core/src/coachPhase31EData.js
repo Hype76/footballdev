@@ -14,6 +14,7 @@ import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getAccessToken, supabase } from './supabase'
 import { subscribeToMobileChatRoom } from './chatRealtime'
 import { getCoachMatchDayList } from './coachMatchDayData'
+import { readCoachMatchAvailability } from './coachAvailabilityData.js'
 import { getCoachPlayerList } from './coachPlayersData'
 import {
   assertSyntheticCoachCommunicationTarget,
@@ -593,15 +594,18 @@ export async function submitCoachPollVote(user, poll, optionId) {
 
 export async function getCoachInvitesAndAvailability(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [calendarResult, trainingResult, trainingResponseResult, matchResult, matchAvailabilityResult, matches, players] = await Promise.all([
+  const matchReads = getCoachMatchDayList(user).then(async (matches) => ({
+    matches,
+    ...await readCoachMatchAvailability(supabase, user, matches),
+  }))
+  const [calendarResult, trainingResult, trainingResponseResult, matchData, players] = await Promise.all([
     supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at,recurrence_frequency)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*),scheduled_email_queue:email_queue_id(delivery_state,provider_accepted_at,provider_delivered_at,status)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_responses').select('request_id,player_id,status,note,responded_at,responded_by_name,response_source').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('responded_at', { ascending: false }).limit(250),
-    supabase.from('match_day_availability_requests').select('*,match_days:match_day_id(opponent,team_id,status,deleted_at,match_date)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
-    supabase.from('match_day_player_availability').select('match_day_id,player_id,status,selected_at,updated_at').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).limit(250),
-    getCoachMatchDayList(user),
+    matchReads,
     getCoachPlayerList(user),
   ])
+  const { matchResult, matchAvailabilityResult, matches } = matchData
   const hardError = calendarResult.error || trainingResult.error || trainingResponseResult.error || matchResult.error || matchAvailabilityResult.error
   if (hardError) throw hardError
   const trainingRows = trainingResult.data || []

@@ -40,6 +40,7 @@ import { getMobileChatMessagesFingerprint } from '../../mobile-core/src/mobileCh
 import {
   COACH_PHASE_31E_BACKEND_DELTAS,
   buildCoachAvailabilityTimeline,
+  getCoachAvailabilityMatches,
   buildCoachChatRoomSections,
   canResendSelectedCoachInvites,
   canFollowUpSelectedCoachInvites,
@@ -801,11 +802,7 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
     }, new Map()).values()]
     .sort((left, right) => String(left.occurrenceDate || '9999').localeCompare(String(right.occurrenceDate || '9999')))
     .slice(0, 20)
-  const openMatches = (data.matches || [])
-    .filter((match) => match.teamId === user.activeTeamId && ['scheduled', 'scorer_request'].includes(match.status))
-    .filter((match) => !match.matchDate || String(match.matchDate).slice(0, 10) >= today)
-    .sort((left, right) => String(left.matchDate || '9999').localeCompare(String(right.matchDate || '9999')))
-    .slice(0, 20)
+  const openMatches = getCoachAvailabilityMatches(data.matches || [], user.activeTeamId, today)
   const availabilityTimeline = buildCoachAvailabilityTimeline({
     matches: openMatches,
     trainingGroups,
