@@ -27,14 +27,14 @@ export function getDateInTimeZone(value = new Date(), timeZone = 'Europe/London'
   return `${values.year}-${values.month}-${values.day}`
 }
 
-export function isCurrentMatchNotificationReference(row = {}, parentLinkId = '', now = Date.now(), today = '') {
+export function isCurrentMatchNotificationReference(row = {}, parentLinkId = '', now = Date.now(), today = '', { allowAnswered = false } = {}) {
   const match = relation(row.match_days)
   const status = normalizeText(row.status).toLowerCase()
   const matchStatus = normalizeText(match?.status).toLowerCase()
   const matchDate = normalizeText(match?.match_date).slice(0, 10)
 
   return normalizeText(row.parent_link_id) === normalizeText(parentLinkId)
-    && status === 'pending'
+    && (status === 'pending' || allowAnswered && ['available', 'unavailable', 'maybe'].includes(status))
     && !row.token_revoked_at
     && isFuture(row.expires_at, now)
     && Boolean(match)

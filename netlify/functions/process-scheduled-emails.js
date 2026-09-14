@@ -459,6 +459,7 @@ async function sendScheduledParentPush(row, communicationLog) {
           roleRank: 100,
         },
         type: 'matchday_availability',
+        matchInvitationUpdate: row?.payload?.matchDayActionableInvitation?.prepared === true,
       })
       return Number(pushResult?.inbox || 0) > 0 || Number(pushResult?.sent || 0) > 0
     } catch (error) {

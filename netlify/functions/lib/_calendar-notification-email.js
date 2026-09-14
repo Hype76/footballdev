@@ -5,6 +5,46 @@ import {
   CALENDAR_NOTIFICATION_PLATFORM_ORIGIN,
 } from '../../../src/lib/calendar-notification-email.js'
 import { resolveMatchDayNotificationTeamName, resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
+import { resolveEligibleEventInvitationContacts } from './_match-day-actionable-invitation.js'
+import { getDateInTimeZone } from './_parent-notification-validity.js'
+
+async function validatePreparedMatchInvitation(client, row) {
+  const reference = row.payload.matchDayAvailability || {}
+  const preparation = row.payload.matchDayActionableInvitation
+  const invalid = { handled: true, row, skipped: true, skipReason: 'match_invitation_scope_invalid' }
+  const request = await loadMaybeSingle(client.from('match_day_availability_requests')
+    .select('id, club_id, team_id, match_day_id, player_id, parent_link_id, recipient_email, recipient_type, status, expires_at, token_hash, token_revoked_at')
+    .eq('id', reference.requestId).eq('club_id', row.club_id).eq('team_id', row.team_id), 'Match invitation')
+  if (!request || request.match_day_id !== reference.matchDayId || request.player_id !== reference.playerId
+    || normalizeText(request.parent_link_id) !== normalizeText(reference.parentLinkId)
+    || normalizeEmail(request.recipient_email) !== normalizeEmail(row.to_email)
+    || !['pending', 'available', 'unavailable', 'maybe'].includes(request.status)
+    || request.token_revoked_at || !(Date.parse(request.expires_at) > Date.now())
+    || !reference.rawToken || hashToken(reference.rawToken) !== request.token_hash) return invalid
+  const [match, command, invite, contacts] = await Promise.all([
+    loadMaybeSingle(client.from('match_days').select('id, club_id, team_id, status, deleted_at, parent_visible, match_date')
+      .eq('id', request.match_day_id).eq('club_id', row.club_id).eq('team_id', row.team_id), 'Match'),
+    loadMaybeSingle(client.from('calendar_event_notification_commands').select('id, requested_by, player_ids')
+      .eq('id', preparation.notificationCommandId).eq('match_day_id', request.match_day_id)
+      .eq('club_id', row.club_id).eq('team_id', row.team_id), 'Notification command'),
+    loadMaybeSingle(client.from('calendar_event_invites').select('id, invite_status, cancelled_at')
+      .eq('match_day_id', request.match_day_id).eq('player_id', request.player_id)
+      .eq('club_id', row.club_id).eq('team_id', row.team_id), 'Player invitation'),
+    resolveEligibleEventInvitationContacts(client, { clubId: row.club_id, teamId: row.team_id, playerIds: [request.player_id] }),
+  ])
+  const contact = contacts.find(item => item.playerId === request.player_id
+    && normalizeEmail(item.email) === normalizeEmail(row.to_email)
+    && normalizeText(item.parentLinkId) === normalizeText(request.parent_link_id)
+    && item.type === request.recipient_type)
+  if (!match || match.deleted_at || !match.parent_visible
+    || ['cancelled', 'completed', 'full_time', 'postponed'].includes(match.status)
+    || match.match_date < getDateInTimeZone()
+    || !command || command.requested_by !== row.created_by || !command.player_ids?.includes(request.player_id)
+    || !invite || invite.cancelled_at || invite.invite_status === 'cancelled' || !contact) return invalid
+  // The response invitation already has its own authoritative recipient and token.
+  // Preserve its response links instead of replacing it with a generic Calendar email.
+  return { handled: true, row, skipped: false }
+}
 
 const CALENDAR_NOTIFICATION_SOURCES = new Set([
   'calendar_event_notification',
@@ -402,6 +442,10 @@ export async function prepareScheduledCalendarNotificationRow(row, {
       row,
       skipped: false,
     }
+  }
+
+  if (row.payload?.matchDayActionableInvitation?.prepared === true) {
+    return validatePreparedMatchInvitation(supabaseClient, row)
   }
 
   const context = await loadAuthoritativeCalendarNotificationContext(supabaseClient, row)
