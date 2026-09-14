@@ -123,7 +123,7 @@ test('short fixture durations save through constraints and authorised RPCs with 
     `)
     await db.exec(await readFile(new URL('../supabase/migrations/20260901151224_shared_fixture_defaults.sql', import.meta.url), 'utf8'))
     await db.exec(await readFile(new URL('../supabase/migrations/20260902133512_match_duration_minimum_two_minutes.sql', import.meta.url), 'utf8'))
-    await db.exec(await readFile(new URL('../supabase/migrations/20260914065429_coach_fixture_pitch_type.sql', import.meta.url), 'utf8'))
+    await db.exec((await readFile(new URL('../supabase/migrations/20260914065046_coach_pitch_and_event_participant_removal.sql', import.meta.url), 'utf8')).split('-- Coach fixture pitch type')[1])
     const payload = {
       opponent: 'FP TEST Visitors', fixtureType: 'friendly', homeAway: 'away', shirtChoice: 'home',
       matchDate: '2099-09-06', kickoffTimeTbc: true, conclusionRule: 'normal_time',

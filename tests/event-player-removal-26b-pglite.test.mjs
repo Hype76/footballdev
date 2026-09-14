@@ -244,7 +244,7 @@ async function createDatabase() {
 
   await db.exec(migration)
   await db.exec(trainingParticipationMigration)
-  await db.exec(await readFile(new URL('../supabase/migrations/20260914065046_coach_pitch_and_event_participant_removal.sql', import.meta.url), 'utf8'))
+  await db.exec((await readFile(new URL('../supabase/migrations/20260914065046_coach_pitch_and_event_participant_removal.sql', import.meta.url), 'utf8')).split('-- Coach fixture pitch type')[0])
   await db.query(`insert into public.clubs (id) values ($1), ($2)`, [IDS.club, IDS.otherClub])
   await db.query(`insert into public.teams (id, club_id) values ($1, $2), ($3, $2)`, [IDS.team, IDS.club, IDS.otherTeam])
   await db.query(`
