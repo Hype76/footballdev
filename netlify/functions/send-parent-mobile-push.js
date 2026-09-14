@@ -235,7 +235,7 @@ async function getResourcePayload({ id, profile }) {
   }
 }
 
-async function getMatchDayAvailabilityPayload({ id, profile }) {
+async function getMatchDayAvailabilityPayload({ id, profile, matchInvitationUpdate = false }) {
   const { data: request, error } = await supabaseAdmin
     .from('match_day_availability_requests')
     .select('id, club_id, team_id, match_day_id, parent_link_id, status, expires_at, token_revoked_at')
@@ -258,7 +258,7 @@ async function getMatchDayAvailabilityPayload({ id, profile }) {
     throw Object.assign(new Error('Availability request match could not be found.'), { statusCode: 404 })
   }
 
-  if (!isCurrentMatchNotificationReference({ ...request, match_days: match }, request.parent_link_id, Date.now(), getDateInTimeZone())) {
+  if (!isCurrentMatchNotificationReference({ ...request, match_days: match }, request.parent_link_id, Date.now(), getDateInTimeZone(), { allowAnswered: matchInvitationUpdate })) {
     throw Object.assign(new Error('Availability request is no longer active.'), { statusCode: 404 })
   }
 
@@ -266,6 +266,7 @@ async function getMatchDayAvailabilityPayload({ id, profile }) {
     ? new Date(`${match.match_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
     : 'the upcoming match'
   const opponent = normalizeText(match.opponent) || 'the opposition'
+  const answeredUpdate = matchInvitationUpdate && request.status !== 'pending'
 
   return {
     clubId: request.club_id,
@@ -275,15 +276,19 @@ async function getMatchDayAvailabilityPayload({ id, profile }) {
       invitationId: `match_attendance:${request.id}`,
       matchDayId: request.match_day_id,
       parentLinkId: request.parent_link_id,
-      route: 'invites',
-      type: 'matchday_availability',
+      route: answeredUpdate ? 'matchday' : 'invites',
+      type: answeredUpdate ? 'calendar_change' : 'matchday_availability',
     },
-    categoryId: 'parent-response',
-    detailedBody: `Match v ${opponent}, ${matchDate}. Open the invitation to answer attendance and any volunteer requests together.`,
-    minimalBody: `Match v ${opponent}, ${matchDate}. Your event invitation is ready to answer.`,
+    categoryId: answeredUpdate ? null : 'parent-response',
+    detailedBody: answeredUpdate
+      ? `Match v ${opponent}, ${matchDate} has been updated. Your existing response is unchanged.`
+      : `Match v ${opponent}, ${matchDate}. Open the invitation to answer attendance and any volunteer requests together.`,
+    minimalBody: answeredUpdate
+      ? `Match v ${opponent}, ${matchDate} has been updated. Your existing response is unchanged.`
+      : `Match v ${opponent}, ${matchDate}. Your event invitation is ready to answer.`,
     parentLinkQuery: (query) => query.eq('id', request.parent_link_id),
     teamId: request.team_id || null,
-    title: 'Match invitation',
+    title: matchInvitationUpdate ? 'Match invitation updated' : 'Match invitation',
     type: 'matchday_update',
   }
 }
@@ -449,13 +454,13 @@ async function revokeMobileDeviceTokens(deviceTokens) {
   }
 }
 
-export async function sendParentMobilePushById({ id, profile, type }) {
+export async function sendParentMobilePushById({ id, profile, type, matchInvitationUpdate = false }) {
   const basePayload = type === 'parent_message'
     ? await getMessagePayload({ id, profile })
     : type === 'resource_shared'
       ? await getResourcePayload({ id, profile })
     : type === 'matchday_availability'
-      ? await getMatchDayAvailabilityPayload({ id, profile })
+      ? await getMatchDayAvailabilityPayload({ id, profile, matchInvitationUpdate })
       : type === 'training_availability'
         ? await getTrainingAvailabilityPayload({ id, profile })
       : await getPollPayload({ id, profile })
