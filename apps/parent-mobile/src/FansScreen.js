@@ -91,6 +91,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     (scrollViewRef || localScrollRef).current?.scrollTo({ y: 0, animated: false })
   }, [state.view, scrollViewRef])
   const requestId = useRef('')
+  const renewalRequests = useRef(new Map())
   const viewRef = useRef(null)
   viewRef.current = state.view
   const handledNotification = useRef('')
@@ -123,6 +124,26 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     }
     setForm(null); setConfirm(null); await state.reload()
   })
+  const reopenInvitation = (connection, mode) => {
+    if (mode === 'qr' && connection.status === 'pending' && connection.invite_token) {
+      setReady({ ...connection, url: fanInviteUrl('https://parent.footballplayer.online', connection.invite_token), mode })
+      ;(scrollViewRef || localScrollRef).current?.scrollTo({ y: 0, animated: false })
+      return
+    }
+    Alert.alert(mode === 'email' ? 'Resend Fan invitation?' : 'Renew Fan invitation?', `Create a fresh invitation for ${connection.name}? The previous link will stop working. Access permissions stay the same.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: mode === 'email' ? 'Resend link' : 'Show QR code', onPress: () => run(async () => {
+        const renewalId = renewalRequests.current.get(connection.id) || Crypto.randomUUID()
+        renewalRequests.current.set(connection.id, renewalId)
+        const result = await rpc('renew_fan_invitation', { connection_id_value: connection.id, request_id_value: renewalId })
+        setReady({ ...result, url: fanInviteUrl('https://parent.footballplayer.online', result.invite_token), mode })
+        await state.reload()
+        ;(scrollViewRef || localScrollRef).current?.scrollTo({ y: 0, animated: false })
+        if (mode === 'email') await request({ action: 'send_invitation', connectionId: result.id })
+        renewalRequests.current.delete(connection.id)
+      }) },
+    ])
+  }
   const remove = (connection, self) => Alert.alert(self ? 'Remove my access' : 'End Fan access', `Access to ${connection.player_name} and associated notifications will end. A new invitation will be needed to restore access.`, [
     { text: 'Go back', style: 'cancel' }, { text: 'Remove access', style: 'destructive', onPress: () => run(async () => { state.clearView(); setFormation(null); await state.manage(connection.id, self ? 'remove' : 'revoke'); await refreshUserProfile() }) },
   ])
@@ -170,7 +191,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
       </View> : null}
       {ready ? <View><Text style={{ color: tokens.textPrimary }}>Invitation ready for {ready.name} ({ready.email}). Expires {formatParentProductDateTime(ready.expires_at, { year: 'numeric' })}.</Text>{ready.mode === 'qr' ? <Qr value={ready.url} /> : null}<View style={styles.actions}><Action icon="fan.share" label="Share invitation" onPress={() => Share.share({ message: ready.url })} /><Action icon="fan.email" label="Send email" onPress={() => run(() => request({ action: 'send_invitation', connectionId: ready.id }))} /></View></View> : null}
       <Text accessibilityRole="header" style={styles.heading}>Your player's Fans</Text>
-      {state.connections.filter((c) => c.is_owner && c.parent_link_id === parent?.id).map((c) => <View style={styles.person} key={c.id}><View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{c.name}</Text><Text style={{ color: tokens.textPrimary }}>{c.email}</Text><Text style={styles.helper}>{c.status} · {FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => p.label).join(', ')}</Text></View></View>{['active', 'pending'].includes(c.status) ? <View style={styles.actions}><Action label="Edit access" onPress={() => begin(c)} /><Action label={c.status === 'pending' ? 'Cancel invitation' : 'Revoke access'} onPress={() => remove(c, false)} /></View> : null}{c.status === 'cancelled' ? <Action icon="delete-outline" label="Delete" disabled={busy} onPress={() => deleteInvitation(c)} /> : null}</View>)}
+      {state.connections.filter((c) => c.is_owner && c.parent_link_id === parent?.id).map((c) => <View style={styles.person} key={c.id}><View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{c.name}</Text><Text style={{ color: tokens.textPrimary }}>{c.email}</Text><Text style={styles.helper}>{c.status} · {FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => p.label).join(', ')}</Text></View></View>{['active', 'pending'].includes(c.status) ? <View style={styles.actions}><Action label="Edit access" onPress={() => begin(c)} /><Action label={c.status === 'pending' ? 'Cancel invitation' : 'Revoke access'} onPress={() => remove(c, false)} /></View> : null}{['pending', 'expired'].includes(c.status) ? <View style={styles.actions}><Action icon="fan.email" label="Resend link" disabled={busy} onPress={() => reopenInvitation(c, 'email')} /><Action icon="fan.qr" label="Show QR code" disabled={busy} onPress={() => reopenInvitation(c, 'qr')} /></View> : null}{c.status === 'cancelled' ? <Action icon="delete-outline" label="Delete" disabled={busy} onPress={() => deleteInvitation(c)} /> : null}</View>)}
     </> : null}
     <View accessibilityLabel="Players you follow">{state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode).tokens}><FanPlayerCard connection={c} mode={displayMode} busy={busy} SwitchControl={FanSwitch} onEnableNotifications={enableDevice} onOpen={(action) => { setFormation(null); void state.open(c.id, action) }} onNotifications={(value) => run(() => state.manage(c.id, value ? 'notifications_on' : 'notifications_off'))} onRemove={() => remove(c, true)} /></FansTheme.Provider>)}</View>
     {!state.loading && !state.connections.some(c => !c.is_owner && c.status === 'active') ? <Text style={styles.helper}>You are not following any players yet. Open a Fan invitation to get started.</Text> : null}
