@@ -15,7 +15,7 @@ import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { PartnersBanner, PartnersScreen } from '../parent-mobile/src/PartnersScreen'
+import { PartnersBanner, PartnersScreen } from '../mobile-core/src/PartnersScreen'
 import {
   Alert,
   AppState,
