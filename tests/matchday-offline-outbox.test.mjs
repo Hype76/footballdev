@@ -179,3 +179,42 @@ test('missing provider tickets cannot be counted as successful delivery', async 
     assert.equal(result.failed, 1)
   } finally { globalThis.fetch = original }
 })
+
+test('review after a confirmed conflict preserves command identity and uses the latest match version', async () => {
+  let conflict = true
+  const h = harness(async (command, base) => {
+    if (conflict) throw Object.assign(new Error('Changed on another device'), { code: '40001' })
+    assert.equal(command.id, 'goal-review')
+    assert.equal(command.expectedUpdatedAt, iso(10))
+    return { ...base, awayScore: 3, updatedAt: iso(11) }
+  })
+  await h.controller.enqueue(goal('goal-review'))
+  const original = structuredClone(h.get().pending[0])
+  await assert.rejects(h.controller.reviewAgainstLatest({ ...match, updatedAt: iso(10) }), /Sync saved/)
+  await h.controller.sync()
+  await assert.rejects(h.controller.reviewAgainstLatest({ ...match, id: 'other', updatedAt: iso(10) }), /Refresh/)
+  await assert.rejects(h.controller.reviewAgainstLatest({ ...match, status: 'full_time', updatedAt: iso(10) }), /Refresh/)
+  await h.controller.reviewAgainstLatest({ ...match, awayScore: 2, updatedAt: iso(10) })
+  assert.deepEqual(h.get().pending[0].payload, original.payload)
+  assert.equal(h.get().pending[0].capturedAt, original.capturedAt)
+  assert.equal(h.get().pending[0].id, original.id)
+  conflict = false
+  await h.controller.sync()
+  assert.equal(h.get().pending.length, 0)
+  assert.equal(h.get().baseMatch.awayScore, 3)
+})
+
+test('an uncertain timeout cannot rebase a command that might already have been accepted', async () => {
+  const h = harness(async () => { throw new Error('Request timed out') })
+  await h.controller.enqueue(goal('uncertain'))
+  await h.controller.sync()
+  await assert.rejects(h.controller.reviewAgainstLatest({ ...match, updatedAt: iso(10) }), /Sync saved/)
+  assert.equal(h.get().pending[0].expectedUpdatedAt, match.updatedAt)
+})
+
+test('Coach can conclude a parent-scored full time match only after saved actions are resolved', () => {
+  const context = { role: 'coach', roleRank: 30, paymentAccess: { canMutate: true } }
+  const finished = { ...match, status: 'full_time', timerStatus: 'full_time', currentMatchPhase: 'full_time', isScorer: false }
+  assert.ok(getCoachMatchDayActions({ context, match: finished }).timerActions.some(item => item.action === 'conclude'))
+  assert.ok(!getCoachMatchDayActions({ context, match: finished, stale: true, offlineReady: true }).timerActions.some(item => item.action === 'conclude'))
+})

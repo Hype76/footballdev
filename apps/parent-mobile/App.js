@@ -320,6 +320,11 @@ function ParentHome() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [offlineCacheState, setOfflineCacheState] = useState({ source: '', stale: false })
   const [notice, setNotice] = useState(null)
+  useEffect(() => {
+    if (notice?.tone !== 'success') return undefined
+    const timer = setTimeout(() => setNotice(current => current === notice ? null : current), 2000)
+    return () => clearTimeout(timer)
+  }, [notice])
   const [notificationState, setNotificationState] = useState({
     canAskAgain: true,
     detailLevel: 'minimal',
@@ -1639,6 +1644,13 @@ function ParentHome() {
     let notificationType = ''
     let notificationEventId = ''
     try {
+      if (action === 'request-review') {
+        if (match.status !== 'full_time' || match.concludedAt) throw new Error('Finish the match before sending it to the Coach for review.')
+        const result = await sendParentScorerMatchDayPush(selectedMobileUser, match.id, 'full_time')
+        if (!result) throw new Error('The Coach notification could not be confirmed. Please try again.')
+        setNotice({ message: 'The match has been sent to the Coach for review and conclusion.', tone: 'success' })
+        return true
+      }
       if (action === 'start') {
         await startParentScorerMatch(match.id)
         notificationType = 'live'

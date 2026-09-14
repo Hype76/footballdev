@@ -865,6 +865,19 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
     if (['complete_extra_time', 'extra_time_half_time', 'normal_time_complete', 'start_extra_time', 'start_extra_time_second_half', 'start_penalties'].includes(action)) return onAction('extended', action)
     return onAction('timer', action)
   }
+  const chooseTimerAction = (action) => {
+    if (['start', 'full_time', 'conclude', 'normal_time_complete', 'complete_extra_time'].includes(action)) {
+      setActionError('')
+      setActionSheet({ kind: 'confirm-timer', action, title: action === 'start' ? 'Start this match?' : action === 'conclude' ? 'Conclude this match?' : action === 'full_time' ? 'Finish this match?' : 'Finish this period of play?' })
+      return
+    }
+    void runTimerAction(action)
+  }
+  const confirmTimerAction = async () => {
+    const result = await runTimerAction(actionSheet.action)
+    if (result !== false && result?.saved !== false) setActionSheet(null)
+    else setActionError(result?.message || 'This change was not saved. Please try again.')
+  }
   const submitAndClose = async (action, value) => {
     const saved = await onAction(action, value)
     if (saved !== false && saved?.saved !== false) {
@@ -897,13 +910,21 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
         <View style={styles.actionGrid}>
           {canRecordEvents ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Goal" onPress={() => openAction('goal', 'Add goal')} styles={styles} /></View> : null}
           {canRecordEvents ? Object.entries(SCORER_EVENT_LABELS).map(([kind, label]) => <View key={kind} style={styles.actionGridItem}><Button disabled={disabled} label={label} onPress={() => openAction(kind, label)} outline styles={styles} /></View>) : null}
-          {timerActions.map((item) => <View key={item.action} style={styles.actionGridItem}><Button danger={['conclude', 'full_time'].includes(item.action)} disabled={disabled} label={item.label} onPress={() => { void runTimerAction(item.action) }} outline={!['conclude', 'full_time'].includes(item.action)} styles={styles} /></View>)}
+          {timerActions.map((item) => <View key={item.action} style={styles.actionGridItem}><Button danger={['conclude', 'full_time'].includes(item.action)} disabled={disabled} label={item.label} onPress={() => chooseTimerAction(item.action)} outline={!['conclude', 'full_time'].includes(item.action)} styles={styles} /></View>)}
+          {match.status === 'full_time' && !match.concludedAt ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Send to Coach to conclude" onPress={() => onAction('request-review')} styles={styles} /></View> : null}
           <View style={styles.actionGridItem}><Button disabled={disabled || !canRecordEvents} label="Correct score" onPress={() => openAction('score', 'Correct score')} outline styles={styles} /></View>
           {activeGoals.length ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Correct goal" onPress={() => openAction('correct-goal', 'Correct or remove a goal')} outline styles={styles} /></View> : null}
           {match.currentMatchPhase === 'penalties' ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Penalty shootout" onPress={() => openAction('shootout', 'Penalty shootout')} outline styles={styles} /></View> : null}
         </View>
         {busy ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Saving Game Day change...</Text> : null}
       </View>
+      {actionSheet?.kind === 'confirm-timer' ? <ParentMatchDayActionSheet busy={busy} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
+        <Text style={styles.body}>{actionSheet.action === 'start' ? 'Start the match clock and publish the live match?' : actionSheet.action === 'conclude' ? 'Confirm the final score and close this match. You can send it to the Coach for review instead.' : 'Confirm the score before stopping play. At full time, the Coach can review and conclude the match.'}</Text>
+        <Text style={styles.cardTitle}>{match.homeScore} - {match.awayScore}</Text>
+        {actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}
+        <Button disabled={disabled} label={actionSheet.action === 'start' ? 'Confirm start' : actionSheet.action === 'conclude' ? 'Confirm conclusion' : 'Confirm finish'} onPress={() => { void confirmTimerAction() }} styles={styles} />
+        <Button disabled={busy} label="Cancel" onPress={() => setActionSheet(null)} outline styles={styles} />
+      </ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Add goal"><Text style={styles.body}>The match time was captured when you pressed Goal. Add the details without rushing.</Text>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<GoalForm disabled={disabled} initialMinute={actionSheet.capturedMinute} initialStoppageMinute={actionSheet.capturedStoppageMinute} onAdd={(goal) => submitAndClose('goal', goal)} placeholderColor={placeholderColor} players={players} styles={styles} /></ParentMatchDayActionSheet> : null}
       {actionSheet && SCORER_EVENT_LABELS[actionSheet.kind] ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<ScorerEventForm disabled={disabled} capture={actionSheet} onAdd={(event) => submitAndClose('event', event)} players={players} styles={styles} placeholderColor={placeholderColor} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'score' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct score"><Text style={styles.body}>Use this only when the displayed score is wrong. The correction remains in the Match Day history.</Text><View style={styles.actionRow}><TextInput accessibilityLabel="Home score" editable={!disabled} keyboardType="number-pad" onChangeText={setHomeScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={homeScore} /><TextInput accessibilityLabel="Away score" editable={!disabled} keyboardType="number-pad" onChangeText={setAwayScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={awayScore} /></View><Text style={styles.fieldLabel}>Reason, optional</Text><TextInput accessibilityLabel="Score correction reason" editable={!disabled} maxLength={240} multiline onChangeText={setScoreReason} placeholder="Why are you correcting the score?" placeholderTextColor={placeholderColor} style={[styles.field, { minHeight: 88, textAlignVertical: 'top' }]} value={scoreReason} /><Button disabled={disabled} label={busy ? 'Saving...' : 'Save score correction'} onPress={() => submitAndClose('score', { awayScore, homeScore, reason: scoreReason })} styles={styles} /></ParentMatchDayActionSheet> : null}

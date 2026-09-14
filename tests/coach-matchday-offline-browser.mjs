@@ -23,10 +23,10 @@ const entry = `
   window.readJournal=()=>JSON.parse(localStorage.getItem('journal')||'null');
   const user={id:'user',activeTeamId:'team'},context={id:'context',clubId:'club',teamId:'team',role:'coach',roleRank:30,paymentAccess:{canMutate:true}};
   const contexts=[context];
-  function App(){const [show,setShow]=React.useState(true);window.leaveMatch=()=>setShow(false);
+  function App(){const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState({fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
     useCoachMatchDayBackgroundSync({user,contexts,enabled:!show});
     return show?<CoachMatchDayScreen user={user} context={context} palette={createCoachTheme({mode:'dark'}).tokens}
-      matchDayTarget={{fixtureId:'fixture',requestId:'one'}} onMatchDayTargetHandled={()=>{}} onNavigate={()=>{}}/>:<div>Home</div>;}
+      matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={()=>{}}/>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
 const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand'])
@@ -38,7 +38,7 @@ const dataMock = `
   export async function getCoachMatchDayList(){requireSignal();return [window.server]}
   export async function getCoachMatchDayDetail(){requireSignal();return window.server}
   export async function syncCoachMatchDayCommand(user,command){
-    requireSignal();window.calls.push(command.id);
+    requireSignal();window.calls.push(command.id); if(localStorage.getItem('conflict')==='1') throw Object.assign(new Error('Match changed on another device'),{code:'40001'});
     const accepted=JSON.parse(localStorage.getItem('accepted')||'{}');
     if(!accepted[command.id]){window.server=projectMatchDayCommand(window.server,command);window.server.updatedAt=new Date().toISOString();accepted[command.id]=window.server;
       localStorage.setItem('accepted',JSON.stringify(accepted));localStorage.setItem('server',JSON.stringify(window.server));}
@@ -111,6 +111,27 @@ try {
   await page.waitForFunction(()=>window.readJournal()?.pending.length===0)
   assert.equal(await page.evaluate(()=>window.server.awayScore),2)
   assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('accepted'))).length),2)
+
+  await page.evaluate(()=>{
+    const journal=window.readJournal();
+    const capturedAt=new Date().toISOString();
+    journal.pending=[{id:'conflicting-action',matchId:'fixture',kind:'event',payload:{eventType:'substitution',minute:30,scorerName:'FP TEST'},capturedAt,expectedUpdatedAt:journal.baseMatch.updatedAt,previousCommandId:null}];
+    localStorage.setItem('journal',JSON.stringify(journal));
+    localStorage.setItem('server',JSON.stringify({...window.server,status:'full_time',timerStatus:'full_time',currentMatchPhase:'full_time',homeScore:2,awayScore:0,updatedAt:capturedAt}));
+    localStorage.setItem('conflict','1');
+  })
+  await mount()
+  await page.getByText('1 action saved on this device',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Review and conclude',exact:true}).click()
+  await page.getByText('Final result',{exact:true}).waitFor({timeout:5000}).catch(async error=>{console.error(errors,await page.locator('body').innerText());throw error})
+  assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isEnabled(),false)
+  await page.getByRole('button',{name:'Discard saved actions',exact:true}).click()
+  await page.getByRole('button',{name:'Cancel',exact:true}).click()
+  assert.equal(await page.evaluate(()=>window.readJournal().pending.length),1)
+  await page.getByRole('button',{name:'Discard saved actions',exact:true}).click()
+  await page.getByRole('button',{name:'Confirm',exact:true}).click()
+  await page.waitForFunction(()=>window.readJournal().pending.length===0)
+  assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isEnabled(),true)
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
 } finally {await browser.close()}
