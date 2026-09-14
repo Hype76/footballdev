@@ -1,3 +1,4 @@
+import { normalizeFixtureTime } from './fixtureTime.js'
 import { MATCH_DAY_CONCLUSION_RULE_OPTIONS, MATCH_DAY_EXTRA_TIME_PERIOD_COUNT_OPTIONS, matchUsesExtraTime, normalizeExtraTimeHalfMinutes, normalizeExtraTimePeriodCount, normalizeMatchDayConclusionRule } from '../../../src/lib/matchday-extended-ops.js'
 import { assertValidMatchDayFixtureType, MATCH_DAY_FIXTURE_TYPE_OPTIONS } from '../../../src/lib/matchday-fixture-type.js'
 import { assertMatchDayShirtChoice, assertNewMatchHomeAway, assertValidMatchClockMode, assertValidMatchDurationMinutes, isContinuousMatchClock, MATCH_CLOCK_MODE_OPTIONS, MATCH_DAY_HOME_AWAY_OPTIONS, MATCH_DAY_SHIRT_CHOICE_OPTIONS } from '../../../src/lib/matchday-model.js'
@@ -24,7 +25,7 @@ function normalize(value) {
 }
 
 export function calculateCoachArrivalTime(kickoffTime, minutesBefore = '30') {
-  const match = normalize(kickoffTime).match(/^(\d{2}):(\d{2})$/)
+  const match = normalizeFixtureTime(kickoffTime).match(/^(\d{2}):(\d{2})$/)
   const lead = Number(minutesBefore)
   if (!match || !Number.isFinite(lead)) return ''
   const totalMinutes = ((Number(match[1]) * 60) + Number(match[2]) - lead + 1440) % 1440
@@ -47,7 +48,7 @@ export function getCoachMatchLocationOptions(matches = []) {
 
 export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArrivalTime = '', defaultDuration = 90, defaultLocation = null, defaultMotmPollExpiryDuration = DEFAULT_EXPIRY_DURATION, match = null, notificationTeamName = '' } = {}) {
   const duration = assertValidMatchDurationMinutes(defaultDuration)
-  const kickoffTime = normalize(match?.kickoffTime) || '10:00'
+  const kickoffTime = normalizeFixtureTime(match?.kickoffTime) || '10:00'
   const arrivalPreset = match?.id
     ? 'custom'
     : COACH_MATCH_ARRIVAL_OPTIONS.some((option) => option.value === String(defaultArrivalPreset))
@@ -55,8 +56,8 @@ export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArr
       : '30'
   return {
     arrivalPreset,
-    arrivalTime: normalize(match?.arrivalTime)
-      || (arrivalPreset === 'custom' ? normalize(defaultArrivalTime) : calculateCoachArrivalTime(kickoffTime, arrivalPreset)),
+    arrivalTime: normalizeFixtureTime(match?.arrivalTime)
+      || (arrivalPreset === 'custom' ? normalizeFixtureTime(defaultArrivalTime) : calculateCoachArrivalTime(kickoffTime, arrivalPreset)),
     autoSelectAvailablePlayers: true,
     clockMode: normalize(match?.clockMode) || 'fixed',
     conclusionRule: normalizeMatchDayConclusionRule(match?.conclusionRule),
@@ -120,8 +121,8 @@ export function validateCoachFixtureForm(form = {}, { requireSelectedPlayers = t
   if (!matchDate) throw new Error('Choose a valid match date.')
   if (matchDate < getDateInTimeZone()) throw new Error('Choose today or a future match date.')
   const kickoffTimeTbc = form.kickoffTimeTbc === true
-  const kickoffTime = kickoffTimeTbc ? '' : normalize(form.kickoffTime)
-  if (!kickoffTimeTbc && !/^([01]\d|2[0-3]):[0-5]\d$/.test(kickoffTime)) throw new Error('Choose a valid kick-off time.')
+  const kickoffTime = kickoffTimeTbc ? '' : normalizeFixtureTime(form.kickoffTime)
+  if (!kickoffTimeTbc && !/^([01]\d|2[0-3]):[0-5]\d$/.test(kickoffTime)) throw new Error('Choose a kick-off time in HH:mm format, for example 10:45.')
   const parentVisible = form.parentVisible === true
   const parentAudience = parentVisible ? normalize(form.parentAudience) : 'none'
   if (parentVisible && !['involved_players', 'all_team_parents'].includes(parentAudience)) throw new Error('Choose which team parents can see this fixture.')
@@ -129,7 +130,7 @@ export function validateCoachFixtureForm(form = {}, { requireSelectedPlayers = t
   if (parentVisible && requireSelectedPlayers && selectedPlayerIds.length === 0) throw new Error('Choose at least one Player to receive the fixture invitation.')
   const clockMode = assertValidMatchClockMode(form.clockMode)
   const matchDurationMinutes = assertValidMatchDurationMinutes(form.matchDurationMinutes)
-  const arrivalTime = kickoffTimeTbc ? '' : normalize(form.arrivalTime)
+  const arrivalTime = kickoffTimeTbc ? '' : normalizeFixtureTime(form.arrivalTime)
   if (!kickoffTimeTbc && arrivalTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(arrivalTime)) throw new Error('Choose a valid arrival time.')
   const motmPollExpiryHours = form.enableMotmPoll === true
     ? motmExpiryDurationToHours(form.motmPollExpiryDuration)

@@ -20,7 +20,7 @@ export function PitchTypeIcon({ pitchType, textStyle, compact = false }) {
     <View accessible accessibilityLabel={`Surface: ${icon?.label || 'Not specified'}`} style={{ flexDirection: compact ? 'column' : 'row', alignItems: 'center', gap: compact ? 4 : 12, paddingVertical: 6, ...(compact ? { flex: 1, minWidth: 0 } : {}) }}>
       {icon ? <View style={compact ? { height: 40, justifyContent: 'center' } : undefined}><View testID={`pitch-type-${normalizePitchType(pitchType)}`} style={{ width, height: 213 * scale, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
         <Image accessible={false} source={source} fadeDuration={0} resizeMode="stretch" style={{ position: 'absolute', width: 1272 * scale, height: 831 * scale, left: -icon.left * scale, top: -icon.top * scale }} />
-      </View></View> : compact ? <View style={{ height: 40, justifyContent: 'center' }}><Text style={textStyle}>?</Text></View> : null}
+      </View></View> : <Image accessible={false} source={require('../../mobile-core/assets/pitch-tbc.png')} resizeMode="contain" style={{ width: compact ? 40 : 56, height: compact ? 40 : 56 }} />}
       <Text style={[textStyle, { flexShrink: 1 }, compact && { fontSize: 12, textAlign: 'center' }]}>{compact ? (icon?.label || 'Surface TBC') : `Surface: ${icon?.label || 'Not specified'}`}</Text>
     </View>
   )

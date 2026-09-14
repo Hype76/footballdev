@@ -1,6 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { useMemo, useState } from 'react'
-import { Platform, Pressable, Text, TextInput, View } from 'react-native'
+import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { normalizeFixtureTime } from '../../mobile-core/src/fixtureTime.js'
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -20,7 +21,7 @@ function parseDateValue(value) {
 }
 
 function parseTimeValue(value) {
-  const match = normalize(value).match(/^(\d{2}):(\d{2})$/)
+  const match = normalizeFixtureTime(value).match(/^(\d{2}):(\d{2})$/)
   const date = new Date()
   date.setSeconds(0, 0)
   if (!match) return date
@@ -49,6 +50,7 @@ export function CoachDateTimeField({
   value,
 }) {
   const [showPicker, setShowPicker] = useState(false)
+  const displayValue = mode === 'time' ? normalizeFixtureTime(value) : normalize(value)
   const [draft, setDraft] = useState(() => mode === 'time' ? parseTimeValue(value) : parseDateValue(value))
   const pickerValue = useMemo(
     () => mode === 'time' ? parseTimeValue(value) : parseDateValue(value),
@@ -64,7 +66,7 @@ export function CoachDateTimeField({
           accessibilityLabel={label}
           onChangeText={onChange}
           style={styles.input}
-          value={normalize(value)}
+          value={displayValue}
         />
       </View>
     )
@@ -75,22 +77,25 @@ export function CoachDateTimeField({
       <Text style={styles.fieldLabel}>{label}</Text>
       <Pressable
         accessibilityHint={`Opens the native ${mode} picker`}
-        accessibilityLabel={`${label}, ${normalize(value) || 'not selected'}`}
+        accessibilityLabel={`${label}, ${displayValue || 'not selected'}`}
         accessibilityRole="button"
         onPress={() => {
+          Keyboard.dismiss()
           setDraft(pickerValue)
           setShowPicker(true)
         }}
         style={({ pressed }) => [styles.input, { justifyContent: 'center' }, pressed && { opacity: 0.75 }]}
       >
-        <Text style={styles.inputText}>{normalize(value) || `Choose ${mode}`}</Text>
+        <Text style={styles.inputText}>{displayValue || `Choose ${mode}`}</Text>
       </Pressable>
       {showPicker ? (
         <View style={styles.pickerPanel}>
           <DateTimePicker
+            textColor={StyleSheet.flatten(styles.inputText)?.color || '#10251f'}
+            is24Hour
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             minimumDate={minimumDate}
-            minuteInterval={5}
+            minuteInterval={1}
             mode={mode}
             onChange={(event, nextDate) => {
               if (event.type === 'dismissed') {

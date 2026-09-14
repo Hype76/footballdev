@@ -13,7 +13,7 @@ async function extract(file, names) {
 }
 const portal = await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'MatchdayAction', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'labelize', 'normalizeText'])
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
-const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay'])
+const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replace('../assets/kit-tbc.png', './apps/mobile-core/assets/kit-tbc.png'))
 const entry = `
 import React,{useState,useMemo,useEffect} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform,Image} from 'react-native';

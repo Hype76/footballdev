@@ -148,6 +148,8 @@ jobs:
         run: node --test tests/platform-uk-dates.test.mjs tests/mobile-home-attendance-theme.test.mjs
       - name: Home availability refresh and saved Parent sections
         run: node --test tests/mobile-home-refresh-layout.test.mjs tests/mobile-expired-attention-counters-90.test.mjs && node tests/parent-home-sections-browser.mjs && node tests/mobile-home-polish-browser.mjs
+      - name: Mobile time, result artwork and Partners navigation
+        run: node --test tests/mobile-time-result.test.mjs && node tests/mobile-feedback-art-browser.mjs
       - name: Parent compact Matchday and Agenda
         run: node --test tests/mobile-gameday-polls-directions-93.test.mjs && node tests/parent-compact-matchday-browser.mjs
       - name: Club kit permissions and editor

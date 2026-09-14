@@ -1,3 +1,4 @@
+import { PartnersBanner } from './PartnersScreen'
 import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../../../src/lib/resource-date-presentation.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
@@ -1259,7 +1260,7 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
     ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls', unansweredPolls],
     ['settings', 'settings', 'Settings', 'Account and alerts', 0],
   ]
-  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
+  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View><PartnersBanner onPress={() => onOpen('partners')} /></View>
 }
 
 export async function openExternalParentUrl(url) {
