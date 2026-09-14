@@ -1,4 +1,4 @@
-import { Image, Pressable, Text, View } from 'react-native'
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { MaterialIcons } from '@expo/vector-icons'
 import { getAccessToken } from '../../mobile-core/src/supabase'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
@@ -13,7 +13,7 @@ export function CoachGuestScorer({ match, styles, buttonComponent, disabled = fa
   if (['full_time', 'cancelled', 'postponed'].includes(match.status) || match.concludedAt) return null
   if (!['offered', 'pending', 'approved'].includes(guest?.status)) return <View>
     <Pressable accessibilityRole="button" accessibilityLabel="Add guest scorer" accessibilityState={{ disabled: busy || disabled }} disabled={busy || disabled} onPress={() => run('create')} style={{ alignSelf: 'flex-end', minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: busy || disabled ? 0.45 : 1 }}>
-      <MaterialIcons name="person-add-alt-1" size={26} style={styles.inputText} />
+      <MaterialIcons name="person-add-alt-1" size={26} color={StyleSheet.flatten(styles.inputText)?.color || '#1b4079'} />
     </Pressable>
     {error ? <Text accessibilityRole="alert" style={styles.dangerText}>{error}</Text> : null}
   </View>
