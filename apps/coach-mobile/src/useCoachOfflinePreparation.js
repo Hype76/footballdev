@@ -8,6 +8,9 @@ import { getCoachMatchDayList, getCoachMatchDayDetail } from '../../mobile-core/
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { readCoachOfflineResources, readCoachMatchDayOutbox, saveCoachOfflineResources, updateCoachMatchDayOutbox } from './offline'
 import { createCoachPreparationRunner, prepareCoachOfflineData } from './coachOfflinePreparation'
+import { createMatchDayOutbox } from '../../mobile-core/src/matchDayOutboxCore'
+import { syncCoachMatchDayCommand } from '../../mobile-core/src/coachMatchDayData'
+import { getPendingCoachMatchDays, readCoachOfflineReadiness } from './offline'
 
 const timed = loader => (...args) => withMobileAsyncTimeout(() => loader(...args))
 const shared = (key, loader) => user => readMobileResource(user, key, () => withMobileAsyncTimeout(() => loader(user)))
@@ -35,4 +38,25 @@ export function useCoachOfflinePreparation({ user, context, enabled }) {
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') void runner.refresh() })
     return () => { runner.stop(); clearTimeout(initial); clearInterval(interval); subscription.remove() }
   }, [user, context, enabled])
+}
+
+export async function syncCoachOfflineNow(user, context) {
+  if (!user?.id || user.isOfflineProfile || !context?.teamId) throw new Error('Connect and choose your team before syncing.')
+  const pending = await getPendingCoachMatchDays(user.id)
+  for (const { contextId, matchId } of pending) {
+    if (contextId !== context.id) continue
+    const controller = createMatchDayOutbox({ key: `${user.id}:${contextId}:${matchId}`,
+      read: () => readCoachMatchDayOutbox(user.id, context, matchId),
+      update: change => updateCoachMatchDayOutbox(user.id, context, matchId, change),
+      send: (command, baseMatch) => withMobileAsyncTimeout(() => syncCoachMatchDayCommand(user, command, baseMatch), { timeoutMs: 35000 }),
+    })
+    await controller.sync()
+  }
+  await prepareCoachOfflineData({ user, context, force: true, dependencies: { ...dependencies,
+    getPlayers: timed(getCoachPlayerList), getDevelopment: timed(getCoachDevelopmentWorkspace),
+    getCalendar: timed(getCoachCalendarResources), getMatches: timed(getCoachMatchDayList),
+  } })
+  const state = await readCoachOfflineReadiness(user.id, context)
+  if (state.pending) throw new Error(`${state.pending} saved changes still need attention. Open the affected match to review and sync them.`)
+  return state
 }

@@ -27,6 +27,7 @@ import {
   saveCoachOwnTeamFixturePreferences,
 } from '../../mobile-core/src/coachTeamNotificationData'
 import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
+import { getCoachCarpoolDefault, setCoachCarpoolDefault } from '../../mobile-core/src/coachCarpoolData'
 
 function Button({ disabled = false, label, onPress, secondary = false, styles }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={secondary ? styles.secondaryText : styles.actionText}>{label}</Text></Pressable>
@@ -49,7 +50,33 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [carpoolReady, setCarpoolReady] = useState(false)
+  const [carpoolSaving, setCarpoolSaving] = useState(false)
+  const [carpoolEnabled, setCarpoolEnabled] = useState(false)
   const isEditing = Boolean(match?.id)
+
+  useEffect(() => {
+    let active = true
+    setCarpoolReady(false)
+    getCoachCarpoolDefault(user).then(value => {
+      if (!active) return
+      setCarpoolEnabled(isEditing ? match.carpoolEnabled !== false : value)
+      setCarpoolReady(true)
+    }).catch(() => { if (active) setError('The saved Car pool preference could not be loaded. Reopen setup while connected before saving.') })
+    return () => { active = false }
+  }, [user, match, isEditing])
+
+  async function changeCarpool(enabled) {
+    if (carpoolSaving || !carpoolReady) return
+    setCarpoolSaving(true)
+    setError('')
+    try { setCarpoolEnabled(await setCoachCarpoolDefault(user, enabled)) }
+    catch {
+      try { setCarpoolEnabled(await getCoachCarpoolDefault(user)); setError('The last confirmed Car pool setting has been restored. Please check it before saving.') }
+      catch { setCarpoolReady(false); setError('The Car pool preference could not be confirmed. Reopen setup while connected before saving.') }
+    }
+    finally { setCarpoolSaving(false) }
+  }
 
   useEffect(() => {
     let active = true
@@ -102,6 +129,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
   if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
 
   const save = async ({ calendarTarget = '' } = {}) => {
+    if (!carpoolReady || carpoolSaving) return
     Keyboard.dismiss()
     setBusy(true)
     setError('')
@@ -110,6 +138,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
       .map((player) => player.id)
     const submittedForm = {
       ...form,
+      carpoolEnabled,
       selectedPlayerIds: calendarTarget === 'squad'
         ? squadCalendarPlayerIds
         : [...form.selectedPlayerIds],
@@ -229,6 +258,8 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
 
       {!isEditing ? <View style={styles.card}>
         <Text style={styles.cardTitle}>Optional match requests</Text>
+        <View style={styles.row}><Text style={styles.fieldLabel}>Car pool</Text><Switch accessibilityLabel="Car pool" disabled={!carpoolReady || carpoolSaving} value={carpoolEnabled} onValueChange={changeCarpool} /></View>
+        <Text style={styles.meta}>{carpoolSaving ? 'Saving team preference...' : 'Saved for this team. New matches use this setting until you change it again.'}</Text>
         <Toggle label="Request scorer" onValueChange={(value) => setForm({ ...form, requestScorer: value })} styles={styles} value={form.requestScorer} />
         <Toggle label="Request linesman" onValueChange={(value) => setForm({ ...form, requestLinesman: value })} styles={styles} value={form.requestLinesman} />
         <Toggle label="Request referee" onValueChange={(value) => setForm({ ...form, requestReferee: value })} styles={styles} value={form.requestReferee} />
@@ -236,10 +267,11 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
         {form.enableMotmPoll ? <><Field autoCapitalize="none" label="Poll expiry (DD:HH:MM)" onChangeText={(value) => setForm({ ...form, motmPollExpiryDuration: value })} placeholder="00:02:00" styles={styles} value={form.motmPollExpiryDuration} /><Text style={styles.meta}>Days, hours, minutes. Minimum: 00:00:02. Example: 02:06:30.</Text><Toggle label="Save this vote expiry as my default" onValueChange={(value) => setForm({ ...form, saveMotmExpiryAsDefault: value })} styles={styles} value={form.saveMotmExpiryAsDefault} /><Toggle label="Send vote results" onValueChange={(value) => setForm({ ...form, motmNotifyResultsOnClose: value })} styles={styles} value={form.motmNotifyResultsOnClose} /><Text style={styles.meta}>Eligible parents are notified when the vote closes, expires, or everyone has replied.</Text></> : null}
         <Field label="Match notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
       </View> : <View style={styles.card}><Field label="Match notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} /><Text style={styles.meta}>Editing fixture details does not send a new availability request.</Text></View>}
+      {isEditing ? <View style={styles.card}><View style={styles.row}><Text style={styles.fieldLabel}>Car pool</Text><Switch accessibilityLabel="Car pool" disabled={!carpoolReady || carpoolSaving} value={carpoolEnabled} onValueChange={changeCarpool} /></View><Text style={styles.meta}>Saved as the team default for future matches. Save fixture changes to apply it to this match.</Text></View> : null}
       {error ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.dangerText}>{error}</Text></View> : null}
-      <Button disabled={busy} label={busy ? (isEditing ? 'Saving fixture...' : 'Creating fixture...') : (isEditing ? 'Save fixture changes' : 'Create fixture and request availability')} onPress={save} styles={styles} />
-      {!isEditing ? <Button disabled={busy} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
-      {!isEditing ? <Button disabled={busy || !hasSquadPlayers} label="Add to squad calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
+      <Button disabled={busy || !carpoolReady || carpoolSaving} label={busy ? (isEditing ? 'Saving fixture...' : 'Creating fixture...') : (isEditing ? 'Save fixture changes' : 'Create fixture and request availability')} onPress={save} styles={styles} />
+      {!isEditing ? <Button disabled={busy || !carpoolReady || carpoolSaving} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
+      {!isEditing ? <Button disabled={busy || !carpoolReady || carpoolSaving || !hasSquadPlayers} label="Add to squad calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
       <Button disabled={busy} label="Cancel" onPress={onCancel} secondary styles={styles} />
     </View>
   )

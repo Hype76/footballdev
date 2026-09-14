@@ -4,7 +4,7 @@ import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { fanInviteUrl } from '../../src/lib/fans.js'
 import { buildFanEmail } from './lib/_fan-email.js'
 import { loadFanInviteForOwner, loadFanScope } from './lib/_fan-access.js'
-import { loadFanMatches, loadFanSchedule } from './lib/_fan-schedule.js'
+import { loadFanMatches, loadFanSchedule, loadPlayerAttendance } from './lib/_fan-schedule.js'
 import { loadHistory } from './lib/_parent-development-history.js'
 import { loadAuthorisedResource } from './parent-resource-access.js'
 import { readClubKits } from '../../src/lib/club-kits.js'
@@ -42,9 +42,13 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
       if (sent.error) throw sent.error
       return json(200, { success: true })
     }
-    const permission = { schedule: 'schedule', matches: 'game_day', notifications: 'game_day', development: 'development', resources: 'resources', open_resource: 'resources' }[body.action]
+    const permission = { schedule: 'schedule', attendance: 'schedule', matches: 'game_day', notifications: 'game_day', development: 'development', resources: 'resources', open_resource: 'resources' }[body.action]
     if (!permission) return json(400, { message: 'Choose a valid Fan action.' })
     const scope = await loadFanScope(client, actor, body.connectionId, permission)
+    if (body.action === 'attendance') {
+      if (scope.fan.relationship_type !== 'player') return json(403, { message: 'Player account access is required.' })
+      return json(200, { attendance: await loadPlayerAttendance(client, scope) })
+    }
     if (body.action === 'development') return json(200, { reports: await loadHistory({ parentLink: scope.parent, supabaseAdmin: client }) })
     if (body.action === 'schedule') return json(200, { schedule: await loadFanSchedule(client, scope) })
     if (body.action === 'notifications') {

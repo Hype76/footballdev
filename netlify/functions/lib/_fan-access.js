@@ -7,7 +7,7 @@ async function one(query) {
 }
 export async function loadFanScope(client, authUserId, connectionId, permission) {
   const fan = await one(client.from('fan_connections').select('*').eq('id', connectionId).eq('auth_user_id', authUserId).eq('status', 'active'))
-  if (fan.relationship_type !== 'fan' || (permission && fan.permissions?.[permission] !== true)) throw fanDenied()
+  if (!['fan', 'player'].includes(fan.relationship_type) || (permission && fan.permissions?.[permission] !== true)) throw fanDenied()
   const parent = await one(client.from('parent_player_links').select('id, auth_user_id, player_id, club_id, team_id, status, link_type')
     .eq('id', fan.parent_link_id).eq('status', 'active').eq('link_type', 'parent').eq('auth_user_id', fan.invited_by).eq('player_id', fan.player_id).eq('club_id', fan.club_id))
   const player = await one(client.from('players').select('id, player_name, club_id, team_id, status, archived_at').eq('id', fan.player_id).eq('club_id', fan.club_id))

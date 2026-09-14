@@ -114,6 +114,7 @@ export function normalizeParentInvitation(row = {}) {
     transportNeedsLift: normalizeBoolean(row.transport_needs_lift ?? row.transportNeedsLift),
     transportRespondedAt: row.transport_responded_at ?? row.transportRespondedAt ?? '',
     transportSeatsOffered: Math.max(0, Number(row.transport_seats_offered ?? row.transportSeatsOffered ?? 0)),
+    carpoolEnabled: (row.carpool_enabled ?? row.carpoolEnabled) === true,
   }
 }
 
@@ -334,7 +335,7 @@ export async function getParentInvitations(user) {
   const [invitationResult, shirtResult, transportResult] = await Promise.all([
     supabase.rpc('get_parent_portal_invitation_summary', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
-    supabase.rpc('get_parent_portal_match_transport_states', { parent_link_id_value: link.id }),
+    supabase.rpc('get_parent_portal_match_transport_states_v2', { parent_link_id_value: link.id }),
   ])
   if (invitationResult.error) throw invitationResult.error
   if (shirtResult.error) throw shirtResult.error

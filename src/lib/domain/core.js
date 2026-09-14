@@ -243,7 +243,7 @@ async function getParentPortalMemberships(authUser) {
 
   const fans = await supabase.rpc('list_fan_connections')
   if (fans.error) throw fans.error
-  links.push(...(fans.data || []).filter((row) => !row.is_owner && row.status === 'active' && row.relationship_type === 'fan').map(normalizeFanProfileLink))
+  links.push(...(fans.data || []).filter((row) => !row.is_owner && row.status === 'active' && ['fan', 'player'].includes(row.relationship_type)).map(normalizeFanProfileLink))
   return { links, lookupFailed: false }
 }
 

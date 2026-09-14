@@ -12,9 +12,9 @@ const mocks = [
   [/coachCalendarData$/, 'export const getCoachCalendarResources=async()=>[{id:"event"}];'],
   [/coachPlayersData$/, 'export const getCoachPlayerList=async()=>[{id:"player"}];'],
   [/coachPhase31EData$/, 'export const getCoachDevelopmentWorkspace=async()=>({forms:[{id:"form"}]});'],
-  [/coachMatchDayData$/, `export const getCoachMatchDayList=async()=>Array.from({length:10},(_,i)=>({id:'match'+i,matchDate:'2099-10-'+String(i+1).padStart(2,'0'),status:'scheduled'}));
+  [/coachMatchDayData$/, `export const syncCoachMatchDayCommand=async()=>({}); export const getCoachMatchDayList=async()=>Array.from({length:10},(_,i)=>({id:'match'+i,matchDate:'2099-10-'+String(i+1).padStart(2,'0'),status:'scheduled'}));
     export const getCoachMatchDayDetail=async(u,id)=>{if(window.fail)throw Error('Connection interrupted');window.fetches.push(id);return{id,clubId:'club',teamId:'team'}};`],
-  [/\/offline$/, `export const readCoachOfflineReadiness=async()=>window.saved; export const readCoachOfflineResources=async()=>window.saved;export const readCoachMatchDayOutbox=async(u,c,id)=>window.saved.journals.find(j=>j.baseMatch.id===id);
+  [/\/offline$/, `export const getPendingCoachMatchDays=async()=>[]; export const readCoachOfflineReadiness=async()=>window.saved; export const readCoachOfflineResources=async()=>window.saved;export const readCoachMatchDayOutbox=async(u,c,id)=>window.saved.journals.find(j=>j.baseMatch.id===id);
     export const saveCoachOfflineResources=async(u,c,r)=>{window.saved.resources={...window.saved.resources,...r}};
     export const updateCoachMatchDayOutbox=async(u,c,id,change)=>{const next=change(null);window.saved.journals=window.saved.journals.filter(j=>j.baseMatch.id!==id).concat(next);return next;};`],
 ]
@@ -25,14 +25,14 @@ try {
   page.on('pageerror',error=>errors.push(error.message))
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>')
   await page.addScriptTag({content:result.outputFiles[0].text})
-  assert.equal(await page.getByRole('button').count(),0)
+  assert.equal(await page.getByRole('button',{name:'Sync now'}).count(),1)
   await page.waitForFunction(()=>window.fetches.length===8)
   assert.equal(await page.evaluate(()=>window.saved.journals.length),8)
   await page.getByText(/1 Players and 8 fixtures/).waitFor()
   await page.getByText(/2 saved changes will sync/).waitFor()
   await page.evaluate(()=>window.offline(true))
-  assert.equal(await page.getByRole('button').count(),0)
+  assert.equal(await page.getByRole('button',{name:'Sync now'}).count(),1)
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
   assert.deepEqual(errors,[])
-  console.log('PASS actual automatic-saving hook and status: no manual controls, eight fixtures saved without user action, retained pending changes, phone width and offline state.')
+  console.log('PASS actual automatic-saving hook and status: manual sync available, eight fixtures saved without user action, retained pending changes, phone width and offline state.')
 } finally { await browser.close() }

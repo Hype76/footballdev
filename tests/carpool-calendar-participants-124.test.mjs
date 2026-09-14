@@ -102,7 +102,7 @@ test('Parent views show calendar and carpool actions without changing attendance
   assert.match(screens, /function ParentCarpoolControl/)
   assert.match(screens, /label="Need a lift"/)
   assert.match(screens, /label="Offer a lift"/)
-  assert.match(screens, /label="Add to Google Calendar"/)
+  assert.match(screens, /label="Add to calendar"/)
   assert.match(screens, /accessibilityLabel="Add to Google Calendar"/)
   assert.match(data, /get_parent_portal_match_transport_states/)
   assert.match(data, /set_parent_portal_match_transport/)

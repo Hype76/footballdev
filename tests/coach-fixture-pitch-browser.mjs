@@ -13,12 +13,14 @@ const entry = `
   window.saved=null;
   function App(){const [version,setVersion]=React.useState(0);const [match,setMatch]=React.useState(null);
     window.reopen=()=>{setMatch({...window.saved,kickoffTime:'10:45:00',arrivalTime:'10:00:00'});setVersion(value=>value+1)};
+    window.newFixture=()=>{setMatch(null);setVersion(value=>value+1)};
     return <CoachFixtureForm key={version} match={match} matches={[]} players={[]} styles={styles} user={user}
       onCreated={result=>{window.saved=result}} onUpdated={result=>{window.saved=result}} onCancel={()=>{}}/>;
   }
   createRoot(document.getElementById('root')).render(<App/>);
 `
 const mocks = [
+  [/coachCarpoolData$/, `let enabled=true; export const getCoachCarpoolDefault=async()=>enabled; export const setCoachCarpoolDefault=async(user,value)=>{enabled=value;return value};`],
   [/coachMatchDayData(?:\.js)?$/, `
     import {validateCoachFixtureForm} from './apps/mobile-core/src/coachFixtureCore.js';
     export const getCoachMatchLocations=async()=>[];
@@ -65,6 +67,16 @@ try {
   await page.getByRole('button',{name:'Not specified',exact:true}).click()
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='')
+  await page.getByRole('switch',{name:'Car pool',exact:true}).uncheck();
+  await page.getByRole('button',{name:'Save fixture changes',exact:true}).click();
+  await page.waitForFunction(()=>window.saved?.carpoolEnabled===false);
+  await page.evaluate(()=>window.newFixture());
+  await page.getByText('Create match',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('switch',{name:'Car pool',exact:true}).isChecked(),false);
+  await page.getByRole('switch',{name:'Car pool',exact:true}).check();
+  await page.evaluate(()=>window.newFixture());
+  await page.getByRole('switch',{name:'Car pool',exact:true}).waitFor();
+  await page.waitForFunction(()=>document.querySelector('[role="switch"][aria-label="Car pool"]')?.checked===true);
   assert.deepEqual(errors,[])
   console.log('PASS: Coach fixture pitch create, reopen, edit, and clear at 390px')
 } finally {

@@ -1,10 +1,10 @@
 export const COACH_PREPARATION_REFRESH_MS = 5 * 60 * 1000
 
-export async function prepareCoachOfflineData({ user, context, dependencies, isCurrent = () => true, now = Date.now }) {
+export async function prepareCoachOfflineData({ user, context, dependencies, isCurrent = () => true, now = Date.now, force = false }) {
   const { readResources, readOutbox, saveResources, getPlayers, getDevelopment, getCalendar, getMatches, getMatch, updateOutbox } = dependencies
   const saved = await readResources(user.id, context)
   const keys = ['players', 'phase31e:development', 'calendar', 'matchDayList']
-  const isFresh = key => saved?.resources?.[key] !== undefined && now() - Date.parse(saved?.resourceMetadata?.[key]?.checkedAt || saved?.resourceMetadata?.[key]?.savedAt) < COACH_PREPARATION_REFRESH_MS
+  const isFresh = key => !force && saved?.resources?.[key] !== undefined && now() - Date.parse(saved?.resourceMetadata?.[key]?.checkedAt || saved?.resourceMetadata?.[key]?.savedAt) < COACH_PREPARATION_REFRESH_MS
   const fresh = keys.every(isFresh)
   if (!isCurrent()) return { cancelled: true }
   if (fresh) {
@@ -31,7 +31,7 @@ export async function prepareCoachOfflineData({ user, context, dependencies, isC
   for (const match of upcoming) {
     if (!isCurrent()) return { cancelled: true }
     const journal = await readOutbox(user.id, context, match.id)
-    if (journal?.baseMatch && (journal.pending?.length || now() - Date.parse(journal.verifiedAt) < COACH_PREPARATION_REFRESH_MS)) continue
+    if (journal?.baseMatch && (journal.pending?.length || !force && now() - Date.parse(journal.verifiedAt) < COACH_PREPARATION_REFRESH_MS)) continue
     const detail = await getMatch(user, match.id)
     if (!isCurrent()) return { cancelled: true }
     await updateOutbox(user.id, context, detail.id, previous => {

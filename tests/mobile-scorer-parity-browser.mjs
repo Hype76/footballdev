@@ -28,6 +28,7 @@ const shared = `
   const players = [{ id: 'alex', playerName: 'Alex', shirtNumber: '9', teamId: 'team' }, { id: 'clyde', playerName: 'Clyde Bates', shirtNumber: '4', teamId: 'team' }]
   const match = { id: 'test-match', teamId: 'team', teamName: 'FP TEST Team', opponent: 'Visitors', homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 10, clockMode: 'fixed', currentMatchPhase: 'second_half', status: 'second_half', timerStatus: 'running', timerStartedAt: '2026-09-03T12:00:00Z', timerElapsedSeconds: 340, events: [], squadDecisions: players.map((player) => ({ playerId: player.id, status: 'selected' })) }
   Date.now = () => Date.parse('2026-09-03T12:00:00Z')
+  window.preMatch = () => {match.status='scheduled';match.timerStatus='not_started';match.currentMatchPhase='pre_match'}
   window.calls = []
   const root = createRoot(document.getElementById('root'))
 `
@@ -113,6 +114,13 @@ try {
         assert.equal(Number(saved.minute), 6)
       }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+    }
+    if(app==='coach'){
+      await page.evaluate(()=>{window.preMatch();window.renderPreview('light','#123456')})
+      await page.getByText('Live controller',{exact:true}).waitFor()
+      await page.getByText('Score',{exact:true}).waitFor({state:'hidden'})
+      assert.equal(await page.getByText('Score',{exact:true}).count(),0)
+      assert.equal(await page.getByText('Match timer',{exact:true}).count(),0)
     }
     assert.deepEqual(errors, [])
     await page.close()

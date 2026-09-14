@@ -39,6 +39,28 @@ async function dbFixture({ legacy = false } = {}) {
   return db
 }
 async function actor(db, n, email) { await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.email',$2,false)",[id(n),email]) }
+
+test('Only the inviting Parent converts an accepted Fan into a read-only Player account', async () => {
+  const db = await dbFixture()
+  try {
+    await db.exec((await readFile('supabase/migrations/20260914154000_team_carpool_defaults.sql', 'utf8')).split('-- Player account conversion')[1])
+    await actor(db, 1, 'parent@example.test')
+    const connection = await invite(db)
+    await assert.rejects(db.query('select set_fan_player_account($1,true)', [connection.id]), /accepted account/)
+    await actor(db, 2, 'fan@example.test')
+    await db.query('select accept_fan_invitation($1)', [connection.invite_token])
+    await assert.rejects(db.query('select set_fan_player_account($1,true)', [connection.id]), /inviting Parent/)
+    await actor(db, 1, 'parent@example.test')
+    await db.query('select set_fan_player_account($1,true)', [connection.id])
+    await db.query('select set_fan_player_account($1,true)', [connection.id])
+    const saved = (await db.query('select relationship_type,permissions from fan_connections where id=$1', [connection.id])).rows[0]
+    assert.equal(saved.relationship_type, 'player')
+    assert.deepEqual(saved.permissions, { ...permissions, schedule: true })
+    assert.equal((await db.query('select count(*)::int as count from parent_player_links where auth_user_id=$1', [id(2)])).rows[0].count, 0)
+    await db.query("update parent_player_links set status='revoked' where id=$1", [id(30)])
+    await assert.rejects(db.query('select set_fan_player_account($1,false)', [connection.id]), /inviting Parent/)
+  } finally { await db.close() }
+})
 async function invite(db, n = 40, email = 'fan@example.test', p = permissions) {
   const result = await db.query('select (public.create_fan_invitation($1,$2,$3,$4,$5)).*', [id(30), 'Test Fan', email, JSON.stringify(p), id(n)])
   return result.rows[0]

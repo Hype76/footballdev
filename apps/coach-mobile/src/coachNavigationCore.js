@@ -19,6 +19,7 @@ const MORE_ROUTES = Object.freeze([
   Object.freeze({ key: 'club', label: 'Club', clubAdminOnly: true }),
   Object.freeze({ key: 'payment', label: 'Plan access', payerOnly: true }),
   Object.freeze({ key: 'settings', label: 'Settings', minimumRank: 20 }),
+  Object.freeze({ key: 'partners', label: 'Partners and Special Offers', minimumRank: 20 }),
 ])
 
 const QUICK_ROUTES = Object.freeze([
@@ -47,6 +48,7 @@ const ROUTE_ALIASES = Object.freeze({
   alerts: 'notifications',
   players: 'players',
   polls: 'polls',
+  partners: 'partners',
   resources: 'resources',
   sessions: 'sessions',
   settings: 'settings',

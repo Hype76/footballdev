@@ -7,7 +7,7 @@ export const isFanMatchNotificationType = (type) => TYPES.has(type)
 export async function sendFanMatchNotifications({ client, match, type, eventId, targetParentLinkIds, sendPush = (messages) => sendExpoPushMessages(messages, { client }) }) {
   if (!isFanMatchNotificationType(type) || !targetParentLinkIds.length) return { fanSent: 0, fanFailed: 0 }
   const result = await client.from('fan_connections').select('id,auth_user_id')
-    .eq('club_id', match.club_id).eq('status', 'active').eq('relationship_type', 'fan').eq('notifications_enabled', true)
+    .eq('club_id', match.club_id).eq('status', 'active').in('relationship_type', ['fan', 'player']).eq('notifications_enabled', true)
     .contains('permissions', { game_day: true }).in('parent_link_id', targetParentLinkIds)
   if (result.error) throw result.error
   let fanSent = 0
