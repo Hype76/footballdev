@@ -610,10 +610,10 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       {!loading && groups.length === 0 ? <Text style={styles.body}>No Calendar items match this filter.</Text> : null}
       {groups.map((group) => (
         <View key={formatUkDate(group.date, 'Date to be confirmed')} style={styles.stack}>
-          <Text style={styles.label}>{group.date}</Text>
+          <Text style={styles.label}>{formatUkDate(group.date)}</Text>
           {group.events.map((event) => (
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
-              <Text style={styles.cardTitle}>{event.title}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><MaterialIcons accessibilityLabel={event.sourceType === 'match_day' || event.eventType === 'match' ? 'Match' : event.eventType === 'training' ? 'Training' : event.sourceType === 'assessment_session' || event.eventType === 'development' ? 'Development' : 'Calendar event'} name={event.sourceType === 'match_day' || event.eventType === 'match' ? 'sports-soccer' : event.eventType === 'training' ? 'fitness-center' : event.sourceType === 'assessment_session' || event.eventType === 'development' ? 'trending-up' : 'event'} size={26} color={palette.accentText} /><Text style={[styles.cardTitle, { flex: 1 }]}>{event.title}</Text></View>
               {selected?.id === event.id ? <PinnedEventNotes notes={event.notes} pinned={event.notesPinned} styles={styles} colors={palette} /> : null}
               <Text style={styles.meta}>{formatCoachCalendarEventDateTime(event)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
               {event.sourceType === 'match_day' ? <Text style={styles.meta}>{event.homeAway === 'away' ? 'Away' : 'Home'} fixture | {getMatchDayShirtChoiceLabel(event.shirtChoice)}</Text> : null}

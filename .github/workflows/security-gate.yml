@@ -147,7 +147,7 @@ jobs:
       - name: UK dates, resource ordering and Home attendance
         run: node --test tests/platform-uk-dates.test.mjs tests/mobile-home-attendance-theme.test.mjs
       - name: Home availability refresh and saved Parent sections
-        run: node --test tests/mobile-home-refresh-layout.test.mjs tests/mobile-expired-attention-counters-90.test.mjs && node tests/parent-home-sections-browser.mjs && node tests/mobile-home-polish-browser.mjs
+        run: node --test tests/mobile-home-refresh-layout.test.mjs tests/mobile-expired-attention-counters-90.test.mjs tests/coach-feedback-september.test.mjs && node tests/parent-home-sections-browser.mjs && node tests/mobile-home-polish-browser.mjs && node tests/coach-feedback-browser.mjs
       - name: Lint mobile application hosts
         run: npx eslint apps/parent-mobile/App.js apps/coach-mobile/src/CoachDateTimeField.js apps/coach-mobile/src/CoachGuestScorer.js
       - name: Mobile time, result artwork and Partners navigation

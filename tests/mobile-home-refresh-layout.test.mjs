@@ -21,7 +21,7 @@ const callback = find(ast, node => node.type === 'VariableDeclarator' && node.id
 const effect = find(ast, node => node.type === 'CallExpression' && node.callee.name === 'useEffect' && source.slice(node.arguments[0].start, node.arguments[0].end).includes('const returnedHome')).arguments[0]
 const evaluate = (node, dependencies) => new Function(...Object.keys(dependencies), `return (${source.slice(node.start, node.end)})`)(...Object.values(dependencies))
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve } }
-const invite = (id, extra = {}) => ({ id, kind: 'match', eventId: 'match', playerId: id, status: 'awaiting', sentAt: '2026-01-01', eventDate: '2099-01-01', ...extra })
+const invite = (id, extra = {}) => ({ id, kind: 'match', eventId: 'match', playerId: id, status: 'awaiting', sentAt: '2026-01-01', eventAt: new Date(Date.now() + 86400000).toISOString(), ...extra })
 function harness() {
   let state = { pendingAvailability: 107, unreadChat: 2, errors: ['polls:unavailable'] }
   const reads = []

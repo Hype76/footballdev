@@ -48,7 +48,7 @@ function collapseCoachInvitesByRequest(rows = []) {
   return [...requestGroups.values()].flatMap(collapseCoachInvitesByPlayer)
 }
 
-export function countPendingCoachAvailability(rows = [], now = new Date()) {
+export function countPendingCoachAvailability(rows = [], now = new Date(), withinDays = null) {
   const nowTime = now instanceof Date ? now.getTime() : timestamp(now) ?? Date.now()
   const invites = asArray(rows).filter((invite) => !invite?.participationRemoved && ['match', 'training'].includes(normalize(invite?.kind).toLowerCase()))
   const sentPlayerKeys = new Set(invites
@@ -64,6 +64,7 @@ export function countPendingCoachAvailability(rows = [], now = new Date()) {
       && sentPlayerKeys.has(getInvitePlayerKey(invite))
       && (expiresAt === null || expiresAt > nowTime)
       && (eventAt === null || eventAt >= nowTime)
+      && (withinDays === null || (eventAt !== null && eventAt < nowTime + withinDays * 86400000))
   }).length
 }
 
@@ -99,7 +100,7 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
   const developmentRecords = asArray(input.development?.records)
   const now = input.now || new Date()
   const nowTime = now instanceof Date ? now.getTime() : timestamp(now) ?? Date.now()
-  const pendingAvailability = countPendingCoachAvailability(inviteRows, now)
+  const pendingAvailability = countPendingCoachAvailability(inviteRows, now, 7)
   const activePolls = polls.filter((poll) => {
     const closesAt = timestamp(poll?.closesAt ?? poll?.closes_at)
     return normalize(poll?.status).toLowerCase() === 'open'

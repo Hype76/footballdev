@@ -1,3 +1,4 @@
+import { getMatchDayLifecycleState } from '../../../src/lib/matchday-lifecycle.js'
 import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { getGoalScorerSide, setGoalOwnGoal } from '../../../src/lib/matchday-goal-credit.js'
@@ -266,14 +267,14 @@ function FixtureHero({ match, now, styles }) {
     </View>
     <Text accessibilityRole="header" style={styles.fixtureTitle}>{view.displayName}</Text>
     <Text style={styles.body}>{formatFixtureDate(match.matchDate)}, {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'} at {match.venueName || 'Venue TBC'}</Text>
-    <View style={styles.card}>
+    {getMatchDayLifecycleState(match) !== 'not_started' ? <View style={styles.card}>
       <View style={styles.gameStatHeading}><MaterialIcons name={getMobileIconName('match.score')} size={20} style={styles.secondaryText} /><Text style={styles.gameStatLabel}>Score</Text></View>
       <Text accessibilityLiveRegion="polite" style={styles.score}>{view.displayScore}</Text>
       <View style={styles.gameStats}>
         <View style={styles.gameStat}><View style={styles.gameStatHeading}><MaterialIcons name={getMobileIconName('match.timer')} size={18} style={styles.secondaryText} /><Text style={styles.gameStatLabel}>Match timer</Text></View><Text accessibilityLiveRegion="polite" style={styles.gameStatValue}>{view.clock}</Text></View>
         <View style={styles.gameStat}><View style={styles.gameStatHeading}><MaterialIcons name={getMobileIconName('match.period')} size={18} style={styles.secondaryText} /><Text style={styles.gameStatLabel}>Period</Text></View><Text style={styles.gameStatValue}>{view.phaseLabel}</Text></View>
       </View>
-    </View>
+    </View> : null}
   </View>
 }
 

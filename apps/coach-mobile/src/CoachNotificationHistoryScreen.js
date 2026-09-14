@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { loadCoachNotificationHistory } from './coachNotificationCache'
 import { formatUkDateTime } from '../../../src/lib/date-format.js'
+import { groupCoachNotifications } from '../../mobile-core/src/coachNotificationGroups'
 
 export function CoachNotificationHistoryScreen({ user, context, homeState, onNavigate, onOpenNotification, palette, styles }) {
   const [state, setState] = useState({ items: [], loading: true, error: '' })
+  const [expanded, setExpanded] = useState({ recent: true })
   const request = useRef(0)
   const cancelLoad = useCallback(() => { request.current++ }, [])
   const load = useCallback(async ({ force = false } = {}) => {
@@ -31,8 +33,10 @@ export function CoachNotificationHistoryScreen({ user, context, homeState, onNav
     {Number(homeState?.unreadChat) > 0 ? <Pressable accessibilityRole="button" onPress={() => onNavigate('chat')} style={styles.card}><Text style={styles.cardTitle}>Unread Chat</Text><Text style={styles.bodyText}>{homeState.unreadChat} unread messages. Open Chat.</Text></Pressable> : null}
     {state.error ? <Text accessibilityRole="alert" style={styles.bodyText}>{state.error}</Text> : null}
     {!state.loading && !state.error && !items.length ? <Text style={styles.bodyText}>No notification history is available for this Coach context yet.</Text> : null}
-    {items.map(item => <Pressable accessibilityRole="button" accessibilityLabel={`Open notification: ${item.title}`} key={String(item.id)} onPress={() => onOpenNotification?.({ ...item.data, targetId: item.data?.targetId || item.data?.matchDayId || '' })} style={{ gap: 6, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: palette.border }}>
+    {groupCoachNotifications(items).map(group => <View key={group.id}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: Boolean(expanded[group.id]) }} onPress={() => setExpanded(value => ({ ...value, [group.id]: !value[group.id] }))} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={styles.cardTitle}>{expanded[group.id] ? '▾' : '▸'} {group.title} ({group.items.length})</Text></Pressable>
+    {expanded[group.id] ? group.items.map(item => <Pressable accessibilityRole="button" accessibilityLabel={`Open notification: ${item.title}`} key={String(item.id)} onPress={() => onOpenNotification?.({ ...item.data, targetId: item.data?.targetId || item.data?.matchDayId || '' })} style={{ gap: 6, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: palette.border }}>
       <Text style={styles.cardTitle}>{item.title}</Text><Text style={styles.bodyText}>{item.body}</Text><Text style={styles.helperText}>{formatUkDateTime(item.created_at)}</Text>
-    </Pressable>)}
+    </Pressable>) : null}</View>)}
   </View>
 }

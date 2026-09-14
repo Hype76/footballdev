@@ -75,8 +75,8 @@ test('Home operational snapshot uses canonical domain results without inventing 
     chatRooms: [{ id: 'r1', unreadCount: 2 }],
     development: { records: [{ id: 'd1' }, { id: 'd2' }] },
     invites: { all: [
-      { eventId: 'm1', id: 'i1', kind: 'match', playerId: 'p1', sentAt: '2026-08-23T09:00:00Z', status: 'pending' },
-      { eventId: 'm1', id: 'i2', kind: 'match', playerId: 'p2', sentAt: '2026-08-23T09:00:00Z', status: 'available' },
+      { eventDate: '2026-08-30', eventId: 'm1', id: 'i1', kind: 'match', playerId: 'p1', sentAt: '2026-08-23T09:00:00Z', status: 'pending' },
+      { eventDate: '2026-08-30', eventId: 'm1', id: 'i2', kind: 'match', playerId: 'p2', sentAt: '2026-08-23T09:00:00Z', status: 'available' },
     ] },
     matches: [{ id: 'm1', kickoffTime: '10:00:00', matchDate: '2026-08-30', status: 'scheduled' }],
     messages: [{ id: 'x1', readAt: '' }, { id: 'x2', readAt: 'now' }],
@@ -138,7 +138,7 @@ test('Home data composes current authoritative adapters with partial failure con
   assert.match(homeData, /Promise\.allSettled/)
   assert.match(homeData, /buildCoachHomeOperationalSnapshot/)
   assert.match(app, /Operational attention/)
-  assert.match(app, /Unread totals come from the current Chat room read state/)
+  assert.match(app, /Availability covers the next 7 days/)
   assert.doesNotMatch(app, /unread communication updates|Open Messages/)
   assert.match(phase31EScreens, /helper: \{ color: palette\.textSecondary/)
 })
