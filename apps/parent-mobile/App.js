@@ -465,7 +465,7 @@ function ParentHome() {
     palette: createParentAppPalette(themeModel.tokens),
     styles: createParentAppStyles(themeModel.tokens),
   }), [themeModel])
-  const { styles } = themeContext
+  const { palette, styles } = themeContext
 
   const notificationResponseHistoryKey = useMemo(
     () => selectedMobileUser?.id ? `${PARENT_NOTIFICATION_RESPONSE_HISTORY_PREFIX}.${selectedMobileUser.id}` : '',
