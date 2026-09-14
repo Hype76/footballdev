@@ -230,7 +230,7 @@ function MatchList({ filter, matches, onOpen, selectedId, setFilter, styles }) {
   return <View style={styles.stack}>
     <Chips onChange={setFilter} options={[{ iconKey: getMatchDayFilterIconKey('current'), label: 'Today and live', value: 'current' }, { iconKey: getMatchDayFilterIconKey('upcoming'), label: 'Upcoming', value: 'upcoming' }, { iconKey: getMatchDayFilterIconKey('previous'), label: 'Previous', value: 'previous' }, { iconKey: getMatchDayFilterIconKey('all'), label: 'All', value: 'all' }]} styles={styles} value={filter} />
     {visible.length === 0 ? <View style={styles.emptyState}><MaterialIcons name="sports-soccer" size={40} style={styles.secondaryText} /><Text style={styles.cardTitle}>No fixtures match this view.</Text><Text style={styles.meta}>Select a filter above to view fixtures.</Text></View> : null}
-    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{match.matchDate || 'Date TBC'} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'} | {label(match.status, 'scheduled')}</Text><Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text></Pressable> })}
+    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{match.matchDate || 'Date TBC'} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'} | {label(match.status, 'scheduled')}</Text>{getMatchDayLifecycleState(match) !== 'not_started' ? <Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text> : null}</Pressable> })}
   </View>
 }
 
@@ -393,11 +393,11 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
       <Text style={styles.gameModeEyebrow}>Game mode</Text>
       <Text style={styles.cardTitle}>Live controller</Text>
       <Button iconKey="panel.overview" label="Exit Game Mode" onPress={onExit} secondary styles={styles} />
-      <View style={styles.gameStats}>
+      {getMatchDayLifecycleState(match) !== 'not_started' ? <View style={styles.gameStats}>
         <View style={styles.gameStat}><View style={styles.gameStatHeading}><MaterialIcons name={getMobileIconName('match.score')} size={18} style={styles.secondaryText} /><Text style={styles.gameStatLabel}>Score</Text></View><Text style={styles.gameStatValue}>{view.displayScore}</Text></View>
         <View style={styles.gameStat}><View style={styles.gameStatHeading}><MaterialIcons name={getMobileIconName('match.timer')} size={18} style={styles.secondaryText} /><Text style={styles.gameStatLabel}>Match timer</Text></View><Text style={styles.gameStatValue}>{view.clock}</Text></View>
         <View style={styles.gameStat}><View style={styles.gameStatHeading}><MaterialIcons name={getMobileIconName('match.period')} size={18} style={styles.secondaryText} /><Text style={styles.gameStatLabel}>Period</Text></View><Text style={styles.gameStatValue}>{view.phaseLabel}</Text></View>
-      </View>
+      </View> : null}
       <View style={styles.card}>
         <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.cardTitle}>Keep screen awake</Text><Text style={styles.meta}>{keepAwakeAvailable ? 'Optional for this Game Day session. No match data is changed.' : 'Unavailable on this device.'}</Text></View><Switch accessibilityLabel="Keep screen awake" disabled={!keepAwakeAvailable} onValueChange={toggleKeepAwake} value={keepAwake} /></View>
       </View>
@@ -475,6 +475,7 @@ function TimelinePanel({ busy, match, onCorrectGoal, onPrepare, onUndo, styles }
 
 function ShootoutPanel({ busy, match, onKick, onPrepare, onVoid, styles }) {
   const [kick, setKick] = useState({ notes: '', outcome: 'scored', playerName: '', teamSide: 'club' })
+  if (getMatchDayLifecycleState(match) === 'not_started') return <Text style={styles.body}>The match has not started.</Text>
   return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Penalty shootout</Text><Text style={styles.score}>{match.homeShootoutScore} - {match.awayShootoutScore}</Text><Chips onChange={(value) => setKick({ ...kick, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={kick.teamSide} /><Chips onChange={(value) => setKick({ ...kick, outcome: value })} options={[{ label: 'Scored', value: 'scored' }, { label: 'Missed', value: 'missed' }]} styles={styles} value={kick.outcome} /><Field label="Player" onChangeText={(value) => setKick({ ...kick, playerName: value })} styles={styles} value={kick.playerName} /><Field label="Notes" onChangeText={(value) => setKick({ ...kick, notes: value })} styles={styles} value={kick.notes} /><Button disabled={busy || match.currentMatchPhase !== 'penalties'} label="Review penalty" onPress={() => onPrepare({ kind: 'kick', label: 'Record penalty', run: () => onKick(kick) })} styles={styles} /></View>{(match.shootoutEvents || []).map((item) => <View key={item.id} style={styles.card}><Text style={styles.cardTitle}>{item.kickNumber}. {item.teamSide} {item.outcome}</Text><Text style={styles.body}>{item.playerName || 'Player not recorded'}</Text>{item.eventStatus !== 'voided' ? <Button disabled={busy} label="Void penalty" onPress={() => onPrepare({ kind: 'void-kick', label: 'Void penalty kick', run: () => onVoid(item.id) })} secondary styles={styles} /> : null}</View>)}</View>
 }
 
@@ -482,6 +483,7 @@ function ReportPanel({ busy, canConclude, canSave, match, onConclude, onSave, st
   const report = buildCoachFinalMatchReport(match)
   const activeEvents = report.activeEvents.slice().reverse()
   const [notes, setNotes] = useState(match.finalReport?.staffNotes || '')
+  if (getMatchDayLifecycleState(match) === 'not_started') return <Text style={styles.body}>The match report will be available after kick-off.</Text>
   return <View style={styles.stack}>
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Final result</Text>
