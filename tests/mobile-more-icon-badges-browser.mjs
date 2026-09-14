@@ -16,6 +16,7 @@ const result = await build({
     import { createRoot } from 'react-dom/client'
     import { Pressable, StyleSheet, Text, View } from 'react-native'
     import { createParentMobileTheme } from './apps/mobile-core/src/parentThemeCore.js'
+    import { PartnersBanner } from './apps/parent-mobile/src/PartnersScreen.js'
     const ParentIcon = ({ color, iconKey, size }) => <View accessibilityLabel={iconKey + ' icon'} style={{ backgroundColor: color, borderRadius: 999, height: size, width: size }} />
     ${section('function colorsFor(', 'function Button(')}
     ${section('export function MoreScreen(', 'export async function openExternalParentUrl(')}
@@ -28,7 +29,7 @@ const result = await build({
   write: false,
   bundle: true,
   jsx: 'automatic',
-  loader: { '.js': 'jsx' },
+  loader: { '.js': 'jsx', '.png': 'dataurl' },
   alias: {
     'react-native': path.join(parentModules, 'react-native-web'),
     react: path.join(rootModules, 'react'),

@@ -1,3 +1,6 @@
+import { MatchResultIcon } from './src/MatchResultIcon'
+import { getParentMatchResult } from './src/matchResult'
+import { PartnersScreen } from './src/PartnersScreen'
 import 'react-native-url-polyfill/auto'
 import { useParentHomeSections } from './src/useParentHomeSections'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
@@ -1194,7 +1197,7 @@ function ParentHome() {
         ? { message: 'Could not refresh. Showing saved information.', tone: 'warning', compact: true }
         : Number(result.sync?.needsAttention || 0) > 0
         ? null
-        : { message: 'You are up to date.', tone: 'success' })
+        : null)
     } finally {
       setIsRefreshing(false)
     }
@@ -2111,6 +2114,7 @@ function ParentHome() {
               />
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
+            {activeTab === 'more' && moreSection === 'partners' ? <PartnersScreen headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
             {activeTab === 'more' && moreSection === 'updates' ? <NotificationsScreen busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
@@ -2523,7 +2527,7 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
       style={({ pressed }) => [styles.card, styles.homeCard, prominent && styles.cardProminent, pressed && styles.pressed]}
     >
       <View style={styles.compactRow}>
-        <ParentIcon color={palette.text} iconKey="football" size={35} />
+        {getParentMatchResult(match) ? <MatchResultIcon match={match} textStyle={styles.cardMeta} /> : <ParentIcon color={palette.text} iconKey="football" size={35} />}
         <View style={styles.compactCopy}><View style={styles.cardTopRow}><Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /><Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {score ? <Text style={styles.score}>{score}</Text> : <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />}
       </View>
