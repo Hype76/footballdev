@@ -912,7 +912,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   )
 }
 
-export function MatchdayScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -956,7 +956,7 @@ export function MatchdayScreen({ activeActionId, invitations = [], isOffline, li
           <Text style={styles.body}>{[selectedMatch.venueName, selectedMatch.venueAddress].filter(Boolean).join(', ') || 'Location not shared'}</Text>
           <MatchTypeIcon fixtureType={selectedMatch.fixtureType} textStyle={styles.body} />
           <HomeAwayIcon homeAway={selectedMatch.homeAway} textStyle={styles.body} />
-          <ClubKitDisplay clubId={link?.clubId || selectedMatch.clubId} shirtChoice={selectedMatch.shirtChoice} textStyle={styles.body} />
+          <ClubKitDisplay clubId={link?.clubId || selectedMatch.clubId} clubKits={clubKits} shirtChoice={selectedMatch.shirtChoice} textStyle={styles.body} />
           <PitchTypeIcon pitchType={selectedMatch.pitchType} textStyle={styles.body} />
           <Text style={styles.liveSync}>{selectedMatchIsLive ? 'Live sync on' : 'Fixture details'}</Text>
           <View style={styles.card}>

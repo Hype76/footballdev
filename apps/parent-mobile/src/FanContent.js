@@ -19,7 +19,7 @@ export function FanContent({ connection, view, content, formation, onCloseFormat
   }
   if (view.action === 'matches') {
     const matches = (content.matches || []).map((item) => ({ ...normalizeParentMatchDay({ ...item, team_name: connection?.team_name, events: view.matchId === item.id ? content.events || [] : [], is_scorer: false, isScorer: false, request_scorer: false }), isFanView: true }))
-    return <MatchdayScreen link={link} resource={resource(matches)} selectedMatch={matches.find((item) => item.id === view.matchId)} onOpen={(item) => onOpen('matches', { matchId: item.id })} onBack={() => onOpen('matches')} onOpenLink={onOpenLink} onAddToCalendar={addToCalendar} themeTokens={themeTokens} />
+    return <MatchdayScreen link={link} clubKits={content.clubKits || {}} resource={resource(matches)} selectedMatch={matches.find((item) => item.id === view.matchId)} onOpen={(item) => onOpen('matches', { matchId: item.id })} onBack={() => onOpen('matches')} onOpenLink={onOpenLink} onAddToCalendar={addToCalendar} themeTokens={themeTokens} />
   }
   if (view.action === 'development') return <DevelopmentScreen resource={resource(content.reports || [])} themeTokens={themeTokens} />
   if (view.action === 'resources') return <ResourcesScreen resource={resource(content.resources || [])} formationBoard={formation && content.resources?.some((item) => item.id === formation.resourceId) ? formation : null} onCloseFormation={onCloseFormation} onOpen={onOpenResource} themeTokens={themeTokens} />

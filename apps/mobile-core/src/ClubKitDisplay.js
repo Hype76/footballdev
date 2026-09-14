@@ -5,16 +5,17 @@ import { supabase } from './supabase'
 import { kitImageUrl, kitLabel } from '../../../src/lib/club-kits.js'
 import { loadMobileClubKits, peekMobileClubKits } from './mobileKitCache'
 
-export function ClubKitDisplay({ clubId, shirtChoice, textStyle }) {
+export function ClubKitDisplay({ clubId, shirtChoice, textStyle, clubKits }) {
   const [value, setValue] = useState(() => ({ clubId, kits: peekMobileClubKits(clubId) || {} }))
   const [failedImage, setFailedImage] = useState('')
   useEffect(() => {
+    if (clubKits !== undefined) return
     let active = true
     const publish = kits => { if (active) setValue({ clubId, kits }) }
     loadMobileClubKits(clubId, publish).then(publish).catch(() => {})
     return () => { active = false }
-  }, [clubId])
-  const kit = value.clubId === clubId ? value.kits[shirtChoice] : null
+  }, [clubId, clubKits])
+  const kit = clubKits !== undefined ? clubKits?.[shirtChoice] : value.clubId === clubId ? value.kits[shirtChoice] : null
   const uri = kitImageUrl(supabase, kit), label = kitLabel(shirtChoice)
   return <View accessible accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 }}>
     {['home', 'away'].includes(shirtChoice) ? uri && failedImage !== uri

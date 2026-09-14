@@ -18,7 +18,7 @@ assert.ok(sectionReset, 'Authority refresh preserves the Fans route')
 assert.match(app, /selectedParentLinkId=\{selectedLink\?\.id\} onSelectedParentLinkChange=\{\(linkId\) => handleChildChange\(linkId, \{ stayOnFans: true \}\)\}/)
 const mocks = {
   auth: `export const useMobileAuth=()=>({user:window.user,refreshUserProfile:async()=>window.remount(),signOut:async()=>{}});`,
-  supabase: `export const getAccessToken=async()=> 'synthetic'; export const supabase={rpc:async(name,args)=>({data:await window.rpc(name,args)})};`,
+  supabase: `export const getAccessToken=async()=> 'synthetic'; export const supabase={rpc:async(name,args)=>({data:await window.rpc(name,args)}),from:()=>{window.directKitReads=(window.directKitReads||0)+1;throw Error('Fan has no direct club access')},storage:{from:()=>({getPublicUrl:key=>({data:{publicUrl:'http://localhost:9877/kits/'+key}})})}};`,
   config: `export const getMobileRuntimeConfig=()=>({apiBaseUrl:'http://localhost:9877'});`,
   'expo-crypto': `export const randomUUID=()=>crypto.randomUUID();`,
   'expo-notifications': `export const useLastNotificationResponse=()=>null; export const requestPermissionsAsync=async()=>({status:'denied'}); export const getExpoPushTokenAsync=async()=>({data:'synthetic'});`,
@@ -211,7 +211,24 @@ try {
       if(title==='Calendar'){assert.equal(await button('History').count(),0);assert.equal(await button('Needs response').count(),0);await page.getByText(/14 Sep/).waitFor();}
       await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
-      if(title==='Matchday'){await page.getByText('Under 17 v Away Club',{exact:true}).click();await page.getByRole('heading',{name:'Under 17 v Away Club',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:/See squad|Register interest|Start match/}).count(),0);await page.getByText('15 Sept 2026',{exact:true}).waitFor();}
+      if(title==='Matchday'){
+        await page.route('http://localhost:9877/kits/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><path fill="#af2555" d="M16 5h24l12 12-8 8-5-5v31H17V20l-5 5-8-8z"/></svg>'}));
+        for(const choice of ['home','away','tbc']) {
+          await page.evaluate(choice=>{window.responses.matches.matches[0].shirt_choice=choice;window.responses.matches.clubKits={home:{colour:'#123456',imagePath:'club/home/custom.png'},away:{colour:'#af2555',imagePath:'club/away/custom.png'}}},choice);
+          await page.getByText('Under 17 v Away Club',{exact:true}).click();
+          await page.getByRole('heading',{name:'Under 17 v Away Club',exact:true}).waitFor();
+          assert.equal(await page.getByRole('button',{name:/See squad|Register interest|Start match/}).count(),0);
+          await page.getByText('15 Sept 2026',{exact:true}).waitFor();
+          const label=choice==='tbc'?'Kit to be confirmed':choice==='home'?'Home kit':'Away kit';
+          await page.getByText(label,{exact:true}).waitFor();
+          if(choice!=='tbc') {
+            await page.waitForFunction(choice=>[...document.querySelectorAll('img')].some(img=>img.src.endsWith('/'+choice+'/custom.png')&&img.complete&&img.naturalWidth>0),choice);
+            await page.screenshot({path:`${out}/custom-kit-${mode}-${choice}.png`});
+          } else assert.equal(await page.locator('img[src*="/kits/"]').count(),0);
+          assert.equal(await page.evaluate(()=>window.directKitReads||0),0);
+          await button('Back to Matchday').click();
+        }
+      }
       if(title==='Development'){await button('View Development report').click();await button('Back to Development').waitFor();assert.equal(await button('Share PDF').count(),0);await page.getByText(/1 Sept 2026/).waitFor();}
       if(title==='Resources'){await page.evaluate(()=>{window.failRead=true});await page.getByText('Shared practice',{exact:true}).click();await page.getByRole('alert').getByText('Could not load shared items. Try again.').waitFor();await page.evaluate(()=>{window.failRead=false});}
       await button('Back to Fans').click();
