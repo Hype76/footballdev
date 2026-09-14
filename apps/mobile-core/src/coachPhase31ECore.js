@@ -526,6 +526,7 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
     transportSeatsOffered: Number(row.transport_seats_offered ?? row.transportSeatsOffered ?? 0) || 0,
     deliveryState, deliveryStatus, lastError, note: normalize(row.note), respondedByName: normalize(row.responded_by_name ?? row.respondedByName), responseSource,
     recurrenceFrequency, recurring: recurrenceFrequency !== 'none',
+    participationRemoved: normalize(row.token_revoked_reason) === 'event_participation_removed',
     stale: deleted || status === 'stale', cancelled,
   })
 }
