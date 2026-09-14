@@ -35,6 +35,7 @@ async function dbFixture({ legacy = false } = {}) {
   await db.exec(migration)
   await db.exec(await readFile(new URL('../supabase/migrations/20260907161234_fans_cancelled_invitation_delete.sql', import.meta.url), 'utf8'))
   await db.exec(await readFile(new URL('../supabase/migrations/20260908060952_platform_fan_signup_stats.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20260914135913_fan_invitation_renewal.sql', import.meta.url), 'utf8'))
   return db
 }
 async function actor(db, n, email) { await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.email',$2,false)",[id(n),email]) }
@@ -287,5 +288,34 @@ test('Only the inviting active Parent can delete cancelled Fans; history and sta
     await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [pending.id]), /Only cancelled/)
     await db.query("update fan_connections set relationship_type='player' where id=$1", [cancelled.id])
     await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [cancelled.id]), /Only cancelled/)
+  } finally { await db.close() }
+})
+
+
+test('Fan renewal rotates expired links once, preserves access, and denies other actors and closed connections', async () => {
+  const db = await dbFixture()
+  try {
+    await actor(db,1,'parent@example.test')
+    const first = await invite(db)
+    await db.query("update fan_connections set expires_at=now()-interval '1 hour',email_sent_at=now()-interval '2 hours' where id=$1",[first.id])
+    const renew = async requestId => (await db.query('select (renew_fan_invitation($1,$2)).*',[first.id,requestId])).rows[0]
+    const next = await renew(id(90))
+    assert.notEqual(next.invite_token,first.invite_token)
+    assert.deepEqual(next.permissions,first.permissions)
+    assert.equal(next.email_sent_at,null)
+    assert.equal(next.id,first.id)
+    assert.equal((await renew(id(90))).invite_token,next.invite_token)
+    await assert.rejects(renew(id(91)),/one minute/)
+    await actor(db,2,'fan@example.test')
+    await assert.rejects(renew(id(90)),/cannot be renewed/)
+    await assert.rejects(db.query('select accept_fan_invitation($1)',[first.invite_token]))
+    await db.query('select accept_fan_invitation($1)',[next.invite_token])
+    await actor(db,1,'parent@example.test')
+    await assert.rejects(renew(id(90)),/cannot be renewed/)
+    const pending = await invite(db,42,'other@example.test')
+    await db.query("select manage_fan_connection($1,'revoke')",[pending.id])
+    await assert.rejects(db.query('select renew_fan_invitation($1,$2)',[pending.id,id(93)]),/cannot be renewed/)
+    await db.exec('set role anon')
+    await assert.rejects(db.query('select renew_fan_invitation($1,$2)',[pending.id,id(93)]),/permission denied/)
   } finally { await db.close() }
 })

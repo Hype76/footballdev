@@ -1644,6 +1644,7 @@ function ParentHome() {
     let notificationType = ''
     let notificationEventId = ''
     try {
+      if (action === 'timer' && value === 'conclude') throw new Error('Send this match to the Coach or manager for conclusion.')
       if (action === 'request-review') {
         if (match.status !== 'full_time' || match.concludedAt) throw new Error('Finish the match before sending it to the Coach for review.')
         const result = await sendParentScorerMatchDayPush(selectedMobileUser, match.id, 'full_time')

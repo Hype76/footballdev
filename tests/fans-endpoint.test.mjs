@@ -128,3 +128,18 @@ test('Visible Game Day delivers once with a scoped link; unsharing hides its sav
   const response=await handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action:'notifications',connectionId:id(1)})},{createClient:()=>client})
   assert.deepEqual(JSON.parse(response.body).notifications,[])
 })
+
+test('renewed Fan email uses a new idempotency key and retries do not send again', async () => {
+  const {client,tables}=fixture()
+  client.auth.getUser=async()=>({data:{user:{id:id(3)}}})
+  Object.assign(tables.fan_connections[0],{status:'pending',email:'fan@example.test',name:'FP TEST Fan',invite_token:id(10),expires_at:new Date(Date.now()+86400000).toISOString(),email_sent_at:new Date().toISOString()})
+  const sent=[]
+  const send=()=>handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action:'send_invitation',connectionId:id(1)})},{createClient:()=>client,deliverEmail:async(_message,options)=>sent.push(options.idempotencyKey)})
+  assert.equal((await send()).statusCode,200)
+  assert.equal(sent.length,0)
+  Object.assign(tables.fan_connections[0],{invite_token:id(11),renewal_request_id:id(12),email_sent_at:null})
+  assert.equal((await send()).statusCode,200)
+  assert.deepEqual(sent,[`fan-invitation-${id(1)}-${id(12)}`])
+  assert.equal((await send()).statusCode,200)
+  assert.equal(sent.length,1)
+})
