@@ -39,6 +39,7 @@ window.calls=[];window.rows=[];window.saved='';window.alert=null;
 window.rpc=async(name,args)=>{
   window.calls.push({name,args});
   if(name==='list_fan_connections')return window.rows.filter(r=>!r.deleted);
+  if(name==='set_fan_player_account') {const row=window.rows.find(r=>r.id===args.connection_id_value);row.relationship_type='player';row.permissions.schedule=true;return null;}
   if(name==='create_fan_invitation'){
     const row={id:crypto.randomUUID(),name:args.name_value,email:args.email_value,parent_link_id:args.parent_link_id_value,is_owner:true,status:'pending',permissions:args.permissions_value,invite_token:crypto.randomUUID(),expires_at:new Date(Date.now()+86400000).toISOString()};window.rows.push(row);return row;
   }
@@ -293,6 +294,19 @@ try {
   await assertRenderedTextContrast(page,'Players reference layout');
   await button('Remove my access').click();
   assert.equal(await page.evaluate(()=>window.alert.title),'Remove my access');
+  await page.evaluate(()=>{
+    window.standalone=false;window.user={id:'parent-test',parentPortalLinks:[{id:'second',playerName:'FP TEST Player',clubName:'Demo FC'}]};
+    window.rows=[{id:'convert-player',is_owner:true,parent_link_id:'second',status:'active',relationship_type:'fan',name:'FP TEST Account',email:'player@example.test',player_name:'FP TEST Player',permissions:{schedule:false,game_day:true,development:false,resources:false}}];window.remount();
+  });
+  await button('Edit access').click();await button('Make this the Player account').click();
+  await page.getByText('Make this the Player account?',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='set_fan_player_account').length),0);
+  await button('Confirm Player account').click();
+  await page.waitForFunction(()=>window.rows[0].relationship_type==='player');
+  await page.evaluate(()=>{window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};window.rows[0].is_owner=false;window.responses.attendance={attendance:[{id:'event',title:'FP TEST Match',date:'2026-09-19',response:'available'}]};window.remount()});
+  await button('Attendance').click();await page.getByText('My attendance',{exact:true}).waitFor();
+  await page.getByText('Available',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:/^(Accept|Decline|Maybe)$/}).count(),0);
   assert.deepEqual(errors, [])
   console.log('PASS: native Fans child/header sync, persisted selection, email/QR/share remount, prominent branded action, confirmed cancelled-only deletion, retry after failure, normal child navigation.')
 } finally { await browser.close() }

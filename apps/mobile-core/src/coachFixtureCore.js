@@ -162,6 +162,7 @@ export function validateCoachFixtureForm(form = {}, { requireSelectedPlayers = t
     requestLinesman: form.requestLinesman === true,
     requestReferee: form.requestReferee === true,
     requestScorer: form.requestScorer === true,
+    carpoolEnabled: form.carpoolEnabled !== false,
     selectedPlayerIds,
     venueAddress: normalize(form.venueAddress),
     venueName: normalize(form.venueName),

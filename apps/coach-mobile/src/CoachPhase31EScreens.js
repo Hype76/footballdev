@@ -178,7 +178,7 @@ function InviteCarpoolIcon({ invite, styles }) {
   const needsLift = invite.transportNeedsLift === true
   const label = needsLift
     ? 'Needs a lift'
-    : `Offering ${Math.max(1, Number(invite.transportSeatsOffered) || 1)} carpool seat${Math.max(1, Number(invite.transportSeatsOffered) || 1) === 1 ? '' : 's'}`
+    : 'Offering a lift'
   return <MaterialIcons accessibilityLabel={label} name="directions-car" size={20} style={needsLift ? styles.carpoolNeed : styles.carpoolOffer} />
 }
 

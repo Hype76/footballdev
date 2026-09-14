@@ -27,8 +27,8 @@ export function useFans({ rpc, request }) {
   }, [clearView, reload])
   useEffect(() => {
     if (!view) return
-    const permission = { matches: 'game_day', notifications: 'game_day', schedule: 'schedule', development: 'development', resources: 'resources' }[view.action]
-    if (!connections.some((c) => c.id === view.connectionId && !c.is_owner && c.status === 'active' && c.permissions[permission])) clearView()
+    const permission = { matches: 'game_day', notifications: 'game_day', schedule: 'schedule', attendance: 'schedule', development: 'development', resources: 'resources' }[view.action]
+    if (!connections.some((c) => c.id === view.connectionId && !c.is_owner && c.status === 'active' && c.permissions[permission] && (view.action !== 'attendance' || c.relationship_type === 'player'))) clearView()
   }, [connections, clearView, view])
   const open = useCallback(async (connectionId, action, extra = {}) => {
     const current = ++sequence.current

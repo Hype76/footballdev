@@ -14,7 +14,7 @@ export function FanPlayerCard({ connection, mode, busy, onOpen, onNotifications,
   const compact = width < 360 || fontScale > 1.3
   const wide = width >= 480 && fontScale <= 1.3
   const border = mode === 'dark' ? tokens.border : '#e0e4e9'
-  const access = FAN_ACCESS.filter(item => connection.permissions[item.key])
+  const access = [...FAN_ACCESS.filter(item => connection.permissions[item.key]), ...(connection.relationship_type === 'player' && connection.permissions.schedule ? [{ key: 'attendance', label: 'Attendance', icon: 'action.calendar' }] : [])]
   const colours = mode === 'dark'
     ? { schedule: '#4ade80', game_day: '#dbe7ee', development: '#ffb24d', resources: '#c3a3ff' }
     : { schedule: '#078539', game_day: '#293d4b', development: '#db7900', resources: '#53109b' }
@@ -33,7 +33,7 @@ export function FanPlayerCard({ connection, mode, busy, onOpen, onNotifications,
     </Pressable>
     <View style={styles.shortcuts}>
       {access.map((item, index) => <Pressable key={item.key} accessibilityRole="button" accessibilityLabel={item.key === 'resources' ? 'Resources' : item.label} onPress={() => open(item)} style={[styles.shortcut, { width: compact ? '50%' : `${100 / access.length}%`, borderLeftWidth: !compact && index > 0 ? 1 : 0, borderLeftColor: border }]}>
-        <ParentIcon iconKey={item.icon} color={colours[item.key]} size={27} />
+        <ParentIcon iconKey={item.icon} color={colours[item.key] || tokens.accentText} size={27} />
         <Text style={[styles.shortcutLabel, { color: tokens.textPrimary }]}>{item.key === 'resources' ? 'Resources' : item.label}</Text>
       </Pressable>)}
     </View>

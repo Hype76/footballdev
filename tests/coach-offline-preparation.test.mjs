@@ -35,6 +35,17 @@ test('preparation saves without user action, bounds fixtures, keeps pending acti
   assert.ok(state.journals.has('match7'), 'A fresh match list cannot conceal missing fixture details')
 })
 
+test('manual sync forces a fresh download while retaining unsent actions', async () => {
+  const { state, options } = fixture()
+  await prepareCoachOfflineData(options)
+  const reads = state.reads
+  const pending = { baseMatch: { id: 'match0' }, pending: [{ id: 'unsent' }] }
+  state.journals.set('match0', pending)
+  await prepareCoachOfflineData({ ...options, force: true })
+  assert.equal(state.reads, reads + 1)
+  assert.equal(state.journals.get('match0'), pending)
+})
+
 test('switching account or context cancels writes from in-flight reads', async () => {
   const { state, options, dependencies } = fixture()
   dependencies.getPlayers = async () => { state.current = false; return [{ id: 'old-team-player' }] }

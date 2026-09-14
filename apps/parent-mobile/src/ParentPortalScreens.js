@@ -321,26 +321,20 @@ function ResourceState({ emptyCopy, error, items, loading, styles }) {
 }
 
 function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, onTransport, styles }) {
-  const [seatsOffered, setSeatsOffered] = useState(Math.max(1, Number(invitation?.transportSeatsOffered) || 1))
   const [open, setOpen] = useState(false)
   const busy = activeActionId === `transport:${invitation?.invitationId}`
   const needsLift = Boolean(invitation?.transportNeedsLift)
   const offeringLift = Boolean(invitation?.transportCanOfferLift)
-  const status = needsLift ? 'Needs a lift' : offeringLift ? `Offering ${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered)} seat${Math.max(1, Number(invitation?.transportSeatsOffered) || seatsOffered) === 1 ? '' : 's'}` : invitation?.transportRespondedAt ? 'Not needed' : 'Optional'
+  const status = needsLift ? 'Needs a lift' : offeringLift ? 'Offering a lift' : invitation?.transportRespondedAt ? 'Not needed' : 'Optional'
+  if (invitation?.carpoolEnabled !== true) return null
   return (
     <View style={styles.inviteSection}>
       <Pressable accessibilityLabel={`Carpool, ${status}`} accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((current) => !current)} style={styles.inviteSectionHeader}><ParentIcon color={needsLift ? colors.danger : offeringLift ? colors.success : colors.muted} iconKey="carpool.offer" size={23} /><View style={styles.inviteSectionCopy}><Text style={styles.cardTitle}>Carpool</Text><Text style={styles.meta}>{status}</Text></View><ParentIcon color={colors.accentText} iconKey={open ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
       {open ? <View style={styles.iconChoiceRow}>
         <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.need" label="Need a lift" onPress={() => onTransport?.(invitation, 'needs_lift', 0)} selected={needsLift} styles={styles} tone="danger" />
-        <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.offer" label="Offer a lift" onPress={() => onTransport?.(invitation, 'offering_lift', seatsOffered)} selected={offeringLift} styles={styles} tone="success" />
+        <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.offer" label="Offer a lift" onPress={() => onTransport?.(invitation, 'offering_lift', 0)} selected={offeringLift} styles={styles} tone="success" />
         <IconChoice colors={colors} disabled={isOffline || busy} iconKey="carpool.none" label="Not needed" onPress={() => onTransport?.(invitation, 'none', 0)} selected={!needsLift && !offeringLift && Boolean(invitation?.transportRespondedAt)} styles={styles} />
       </View> : null}
-      {open && offeringLift ? (
-        <View accessibilityLabel="Seats offered" style={styles.actionRow}>
-          <Text style={styles.meta}>Seats</Text>
-          {[1, 2, 3, 4].map((seats) => <Pressable accessibilityLabel={`${seats} seat${seats === 1 ? '' : 's'}`} accessibilityRole="radio" accessibilityState={{ checked: seatsOffered === seats }} disabled={isOffline || busy} key={seats} onPress={() => { setSeatsOffered(seats); onTransport?.(invitation, 'offering_lift', seats) }} style={styles.seatChoice}><Text style={[styles.seatChoiceText, seatsOffered === seats && { color: colors.success }]}>{seats}</Text></Pressable>)}
-        </View>
-      ) : null}
     </View>
   )
 }

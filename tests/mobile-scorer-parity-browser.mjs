@@ -118,6 +118,7 @@ try {
     if(app==='coach'){
       await page.evaluate(()=>{window.preMatch();window.renderPreview('light','#123456')})
       await page.getByText('Live controller',{exact:true}).waitFor()
+      await page.getByText('Score',{exact:true}).waitFor({state:'hidden'})
       assert.equal(await page.getByText('Score',{exact:true}).count(),0)
       assert.equal(await page.getByText('Match timer',{exact:true}).count(),0)
     }

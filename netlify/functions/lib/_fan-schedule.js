@@ -57,6 +57,25 @@ export async function loadFanSchedule(client, scope, now = new Date()) {
   return upcomingFanSchedule(schedule, now)
 }
 
+export async function loadPlayerAttendance(client, scope) {
+  const schedule = await loadFanSchedule(client, scope)
+  const [matches, training, invitations] = await Promise.all([
+    rows(client.from('match_day_player_availability').select('match_day_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id)),
+    rows(client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled').neq('status', 'expired')),
+    rows(client.from('calendar_event_invites').select('calendar_event_id,assessment_session_id,invite_status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')),
+  ])
+  const requestIds = [...new Set(training.map(item => item.request_id))]
+  const [occurrences, responses] = requestIds.length ? await Promise.all([
+    rows(client.from('training_availability_requests').select('id,calendar_event_id,occurrence_date').in('id', requestIds).neq('status', 'cancelled')),
+    rows(client.from('training_availability_responses').select('request_id,status').in('request_id', requestIds).eq('player_id', scope.player.id)),
+  ]) : [[], []]
+  const byId = new Map(matches.map(item => [item.match_day_id, item.status]))
+  for (const occurrence of occurrences) byId.set(`${occurrence.calendar_event_id}:${occurrence.occurrence_date}`, responses.find(item => item.request_id === occurrence.id)?.status || 'awaiting_response')
+  return schedule.map(item => ({ id: item.id, title: item.title, starts_at: item.starts_at, date: item.date,
+    response: byId.get(item.id) || invitations.find(invite => invite.calendar_event_id === item.id.split(':')[0] || invite.assessment_session_id === item.id)?.invite_status || 'awaiting_response',
+  }))
+}
+
 export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclusions, parent, now = new Date() }) {
   const today = getParentProductDateTimeParts(now).date
   const horizon = new Date(now.getTime() + 90 * 86400000).toISOString().slice(0, 10)

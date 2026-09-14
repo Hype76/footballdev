@@ -323,7 +323,7 @@ async function fetchParentProfile(authUser) {
 
   const links = (data || []).map(normalizeParentLink)
   if (fans.error) throw fans.error
-  links.push(...(fans.data || []).filter((row) => !row.is_owner && row.status === 'active' && row.relationship_type === 'fan').map(normalizeFanProfileLink))
+  links.push(...(fans.data || []).filter((row) => !row.is_owner && row.status === 'active' && ['fan', 'player'].includes(row.relationship_type)).map(normalizeFanProfileLink))
 
   return normalizeParentProfile(authUser, links)
 }

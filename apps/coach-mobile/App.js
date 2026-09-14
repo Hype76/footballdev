@@ -15,6 +15,7 @@ import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { PartnersBanner, PartnersScreen } from '../parent-mobile/src/PartnersScreen'
 import {
   Alert,
   AppState,
@@ -881,6 +882,7 @@ function CoachRoute(props) {
   if (activeRoute === 'matchday') return <CoachMatchDayScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'sessions') return <CoachSessionsScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'more') {
+    if (moreRoute === 'partners') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><PartnersScreen textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
     if (moreRoute === 'sessions') return <CoachSessionsScreen {...props} key={`${props.context.id}:sessions`} palette={palette} />
     if (['development', 'resources', 'chat', 'messages', 'polls', 'invites'].includes(moreRoute)) {
       return <CoachPhase31EScreen {...props} domain={moreRoute} key={`${props.context.id}:${moreRoute}`} palette={palette} />
@@ -1029,7 +1031,8 @@ function MoreScreen({ navigation, onSelectMore }) {
   return (
     <ScreenIntro copy="Open the Coach tools available for this role and context." title="More">
       <IconMenu accessibilityLabel="More tools" Icon={CoachIcon} palette={palette} onSelect={onSelectMore}
-        items={navigation.more.map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}` }))} />
+        items={navigation.more.filter(route => route.key !== 'partners').map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}` }))} />
+      <PartnersBanner onPress={() => onSelectMore('partners')} />
     </ScreenIntro>
   )
 }

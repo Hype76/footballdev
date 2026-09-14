@@ -79,6 +79,7 @@ export function normalizeCoachMatchDay(row = {}) {
     || Boolean(normalize(row.serverLocalDate))
   return {
     pitchType: normalize(row.pitch_type ?? row.pitchType),
+    carpoolEnabled: (row.carpool_enabled ?? row.carpoolEnabled) !== false,
     id: row.id ?? '', clubId: row.club_id ?? row.clubId ?? '', teamId: row.team_id ?? row.teamId ?? '', teamName: normalize(team?.name ?? row.team_name ?? row.teamName) || 'Our team', notificationTeamName: normalizeTeamNotificationDisplayName(row.notification_team_name ?? row.notificationTeamName), opponent: normalize(row.opponent) || 'Opponent',
     fixtureType: normalize(row.fixture_type ?? row.fixtureType) || 'league', conclusionRule: normalizeMatchDayConclusionRule(row.match_conclusion_rule ?? row.conclusionRule), currentMatchPhase: normalize(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match', extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(row.extra_time_half_minutes ?? row.extraTimeHalfMinutes), extraTimePeriodCount: normalizeExtraTimePeriodCount(row.extra_time_period_count ?? row.extraTimePeriodCount),
     matchDate: row.match_date ?? row.matchDate ?? '', kickoffTime: row.kickoff_time ?? row.kickoffTime ?? '', kickoffTimeTbc: row.kickoff_time_tbc === true || row.kickoffTimeTbc === true, arrivalTime: row.arrival_time ?? row.arrivalTime ?? '', homeAway: normalizeLegacyMatchHomeAway(row.home_away ?? row.homeAway), shirtChoice: normalizeMatchDayShirtChoice(row.shirt_choice ?? row.shirtChoice), clockMode: normalizeMatchClockMode(row.match_clock_mode ?? row.clockMode), matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes ?? row.matchDurationMinutes), venueName: normalize(row.venue_name ?? row.venueName), venueAddress: normalize(row.venue_address ?? row.venueAddress), notes: normalize(row.notes),
@@ -94,7 +95,7 @@ export function normalizeCoachMatchDay(row = {}) {
   }
 }
 
-const LIST_SELECT = `id,club_id,team_id,notification_team_name,opponent,fixture_type,pitch_type,match_conclusion_rule,current_match_phase,extra_time_half_minutes,extra_time_period_count,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,match_clock_mode,match_duration_minutes,venue_name,venue_address,notes,request_scorer,request_linesman,request_referee,parent_visible,parent_audience,status,home_score,away_score,normal_time_home_score,normal_time_away_score,extra_time_home_score,extra_time_away_score,home_shootout_score,away_shootout_score,shootout_winner,phase_started_at,timer_started_at,timer_paused_at,timer_elapsed_seconds,timer_status,full_time_resume_status,concluded_at,concluded_by,previous_hidden_at,created_at,updated_at,teams:team_id(name,notification_display_name)`
+const LIST_SELECT = `id,club_id,team_id,notification_team_name,opponent,fixture_type,pitch_type,carpool_enabled,match_conclusion_rule,current_match_phase,extra_time_half_minutes,extra_time_period_count,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,match_clock_mode,match_duration_minutes,venue_name,venue_address,notes,request_scorer,request_linesman,request_referee,parent_visible,parent_audience,status,home_score,away_score,normal_time_home_score,normal_time_away_score,extra_time_home_score,extra_time_away_score,home_shootout_score,away_shootout_score,shootout_winner,phase_started_at,timer_started_at,timer_paused_at,timer_elapsed_seconds,timer_status,full_time_resume_status,concluded_at,concluded_by,previous_hidden_at,created_at,updated_at,teams:team_id(name,notification_display_name)`
 
 function scoped(query, user) { return query.or(`team_id.is.null,team_id.eq.${user.activeTeamId}`) }
 function assertScope(user, match) { if (match?.teamId && match.teamId !== user?.activeTeamId) throw new Error('This match day is not linked to your active Team.') }
@@ -165,6 +166,7 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
     .insert({
       arrival_time: fixture.kickoffTimeTbc ? null : fixture.arrivalTime || null,
       auto_select_available_players: fixture.autoSelectAvailablePlayers,
+      carpool_enabled: fixture.carpoolEnabled,
       club_id: user.clubId,
       created_by: user.id,
       created_by_name: normalize(user.displayName || user.name || user.email),
@@ -315,6 +317,7 @@ export async function updateCoachMatchDayFixture(user, match, form) {
       extraTimePeriodCount: fixture.extraTimePeriodCount,
       fixtureType: fixture.fixtureType,
       pitchType: fixture.pitchType,
+      carpoolEnabled: fixture.carpoolEnabled,
       homeAway: assertNewMatchHomeAway(fixture.homeAway),
       kickoffTime: fixture.kickoffTime,
       kickoffTimeTbc: fixture.kickoffTimeTbc,
