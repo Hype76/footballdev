@@ -373,7 +373,7 @@ function CoachHome() {
           () => getCoachInvitesAndAvailability(selectedMobileUser), { force: true })
         if (isCurrent()) setHomeState(current => ({
           ...current,
-          pendingAvailability: countPendingCoachAvailability(invites.all),
+          pendingAvailability: countPendingCoachAvailability(invites.all, new Date(), 7),
           errors: (current.errors || []).filter(error => !error.startsWith('invites:')),
         }))
       } catch {
@@ -935,7 +935,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
       </View>
       <IconSection iconKey="coach.attention" title="Operational attention">
         <View style={styles.iconStatGrid}>
-          <IconStat iconKey="coach.availability" label="Availability pending" onPress={() => onNavigate('invites')} value={homeState.errors?.some(error => error.startsWith('invites:')) ? 'Unavailable' : homeState.pendingAvailability || 0} />
+          <IconStat iconKey="coach.availability" label="Availability next 7 days" onPress={() => onNavigate('invites')} value={homeState.errors?.some(error => error.startsWith('invites:')) ? 'Unavailable' : homeState.pendingAvailability || 0} />
           <IconStat iconKey="coach.polls" label="Active Polls" onPress={() => onNavigate('polls')} value={homeState.errors?.some(error => error.startsWith('polls:')) ? 'Unavailable' : homeState.activePolls || 0} />
           <IconStat iconKey="coach.chat" label="Unread Chat" onPress={() => onNavigate('chat')} value={homeState.errors?.some(error => error.startsWith('chatRooms:')) ? 'Unavailable' : homeState.unreadChat || 0} />
           <IconStat iconKey="coach.development" label="Development records" onPress={() => onNavigate('development')} value={homeState.errors?.some(error => error.startsWith('development:')) ? 'Unavailable' : homeState.developmentRecords || 0} />
@@ -946,20 +946,9 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
           <IconAction iconKey="coach.polls" label="Polls" onPress={() => onNavigate('polls')} />
           <IconAction iconKey="coach.development" label="Development" onPress={() => onNavigate('development')} />
         </View>
-        <Text style={styles.helperText}>Unread totals come from the current Chat room read state.</Text>
+        <Text style={styles.helperText}>Availability covers the next 7 days. Tap the count to see all outstanding requests.</Text>
       </IconSection>
-      <IconSection iconKey="coach.quick-access" title="Quick access">
-        <View style={styles.iconActionGrid}>
-          {[
-            { iconKey: 'route.calendar', label: 'Calendar', route: 'calendar' },
-            { iconKey: 'route.players', label: 'Players', route: 'players' },
-            { iconKey: 'route.matchday', label: 'Match Day', route: 'matchday' },
-            { iconKey: 'coach.development', label: 'Development', route: 'development' },
-          ].map((item) => (
-            <IconAction iconKey={item.iconKey} key={item.route} label={item.label} onPress={() => onNavigate(item.route)} />
-          ))}
-        </View>
-      </IconSection>
+
     </View>
   )
 }
