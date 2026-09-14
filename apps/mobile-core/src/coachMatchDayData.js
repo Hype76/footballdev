@@ -166,7 +166,6 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
     .insert({
       arrival_time: fixture.kickoffTimeTbc ? null : fixture.arrivalTime || null,
       auto_select_available_players: fixture.autoSelectAvailablePlayers,
-      carpool_enabled: fixture.carpoolEnabled,
       club_id: user.clubId,
       created_by: user.id,
       created_by_name: normalize(user.displayName || user.name || user.email),
