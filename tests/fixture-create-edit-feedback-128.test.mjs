@@ -12,6 +12,15 @@ import {
 
 const source = async (relativePath) => readFile(new URL(relativePath, import.meta.url), 'utf8')
 
+test('Coach pitch type is preserved on edit, validated, and can be cleared', () => {
+  const form = createCoachFixtureForm({ match: { id: 'fixture', pitchType: '3g', opponent: 'Visitors', fixtureType: 'league', matchDate: '2099-09-20' } })
+  assert.equal(form.pitchType, '3g')
+  assert.equal(validateCoachFixtureForm(form).pitchType, '3g')
+  assert.equal(validateCoachFixtureForm({ ...form, pitchType: '' }).pitchType, '')
+  assert.equal(validateCoachFixtureForm({ ...form, pitchType: ' 4G ' }).pitchType, '4g')
+  assert.throws(() => validateCoachFixtureForm({ ...form, pitchType: 'invalid' }), /valid pitch type/)
+})
+
 test('a fixture notification name overrides the saved Team notification name for that fixture', () => {
   assert.equal(resolveMatchDayNotificationTeamName({
     notification_team_name: 'U14 JPL',

@@ -53,13 +53,13 @@ test('Coach Match Day returns to visible content after creating or cancelling a 
   ])
 
   assert.match(form, /setForm\(\(current\) => initializeCoachFixtureForm\(current,/)
-  assert.match(form, /const submittedForm = \{[\s\S]*selectedPlayerIds: \[\.\.\.form\.selectedPlayerIds\]/)
+  assert.match(form, /const submittedForm = \{[\s\S]*selectedPlayerIds: calendarTarget === 'squad'\s*\? squadCalendarPlayerIds\s*: \[\.\.\.form\.selectedPlayerIds\]/)
   assert.match(form, /Your Team notification name/)
   assert.match(form, /getCoachTeamNotificationDisplayName/)
   assert.match(app, /ref=\{contentScrollRef\}/)
   assert.match(app, /scrollTo\(\{ animated: false, y: 0 \}\)/)
   assert.match(screen, /handleFixtureCreated[\s\S]*setFixtureFormOpen\(false\)[\s\S]*onRequestScrollTop\?\.\(\)/)
-  assert.match(screen, /onCancel=\{\(\) => \{ setFixtureFormOpen\(false\); onRequestScrollTop\?\.\(\) \}\}/)
+  assert.match(screen, /onCancel=\{\(\) => \{ setFixtureFormOpen\(false\); setFixtureFormMatch\(null\); onRequestScrollTop\?\.\(\) \}\}/)
 })
 
 test('Parent Chat uses Coach wording for the remaining parent_staff room labels', () => {
