@@ -1189,9 +1189,9 @@ function ParentHome() {
       await runParentSync({ explicitRetry: true })
       const result = await loadParentData()
       setNotice(isOffline
-        ? { message: result.cached ? 'Offline. Showing your last saved information.' : 'Offline. No saved information is available yet.', tone: 'warning' }
+        ? null
         : result.failed > 0
-        ? { message: 'Some information could not be refreshed. Your previous view is still available.', tone: 'warning' }
+        ? { message: 'Could not refresh. Showing saved information.', tone: 'warning', compact: true }
         : Number(result.sync?.needsAttention || 0) > 0
         ? null
         : { message: 'You are up to date.', tone: 'success' })
@@ -2005,7 +2005,7 @@ function ParentHome() {
         {activeTab === 'chat' ? (
           <View style={[styles.contentColumn, styles.chatRouteContent]}>
             {!focusedChatRoom ? <SyncStatus attentionIndex={attentionIndex} cacheState={offlineCacheState} isOffline={isOffline} isSyncing={isSyncing} onNextAttention={() => setAttentionIndex((current) => (current + 1) % Math.max(syncSummary.needsAttention, 1))} onOpenAttention={handleOpenAttentionItem} summary={syncSummary} /> : null}
-            {notice ? <Notice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
+            {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
             <ChatScreen
               activeActionId={activeActionId}
               isOffline={isOffline}
@@ -2050,7 +2050,7 @@ function ParentHome() {
               onOpenAttention={handleOpenAttentionItem}
               summary={syncSummary}
             />
-            {notice ? <Notice message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
+            {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
 
             {activeTab === 'home' ? (
               <HomeScreen
@@ -2069,7 +2069,6 @@ function ParentHome() {
                 notifications={resources.notifications}
                 isOffline={isOffline}
                 onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
-                onOpenCalendar={() => setActiveTab('calendar')}
                 onOpenMatch={(match) => { setSelectedMatchId(match.id); setActiveTab('matchday'); scrollViewRef.current?.scrollTo({ y: 0, animated: false }) }}
                 onOpenLink={handleOpenMatchLink}
                 onOpenUpdates={() => { setMoreSection('updates'); setActiveTab('more'); scrollViewRef.current?.scrollTo({ y: 0, animated: false }) }}
@@ -2397,7 +2396,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, selectedMatch, themeTokens, onOpenEventDetails }) {
+function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, selectedMatch, themeTokens, onOpenEventDetails }) {
   const { styles } = useParentTheme()
   const homeSections = useParentHomeSections(userId)
   const [selectedEventKey, setSelectedEventKey] = useState('')
@@ -2438,7 +2437,6 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
         <SummaryButton count={countUnreadGeneralNotifications(notifications.items)} iconKey="notifications" label="Notifications" onPress={onOpenUpdates} />
         <SummaryButton count={homeModel.unansweredPolls} iconKey="parent.polls" label="Polls" onPress={onOpenPolls} />
         <SummaryButton count={inviteCount} iconKey="parent.invites" label="Invites" onPress={onOpenInvites} />
-        <SummaryButton iconKey="parent.calendar" label="Calendar" onPress={onOpenCalendar} />
         <SummaryButton disabled={!nextDirectionsUrl} iconKey="parent.directions" label="Directions" onPress={() => onOpenLink?.(nextDirectionsUrl, 'directions')} />
       </View>
 
@@ -2473,7 +2471,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
       ) : null}
 
       {homeModel.upcomingCalendarEvents.length > 0 ? (
-        <HomeCollapsibleSection copy="Training, meetings and club events shared with your family." title="Calendar" expanded={homeSections.sections.calendar} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('calendar')}>
+        <HomeCollapsibleSection copy="Training, meetings and club events shared with your family." title="Agenda" expanded={homeSections.sections.calendar} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('calendar')}>
           {homeModel.upcomingCalendarEvents.slice(0, 4).map((event) => (
             <CalendarCard onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={event} isOffline={isOffline} key={event.id} onOpenLink={onOpenLink} onOpenResource={onOpenResource} />
           ))}
@@ -2810,8 +2808,6 @@ function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNe
     tone = 'warning'
   } else if (summary.waiting > 0) {
     message = `${summary.waiting} ${summary.waiting === 1 ? 'action is' : 'actions are'} waiting to sync.`
-  } else if (cacheState.source === 'cache') {
-    message = 'Showing saved information while the latest update is checked.'
   }
 
   const content = <>
@@ -3200,8 +3196,12 @@ function Badge({ label, tone = 'neutral' }) {
   )
 }
 
-function Notice({ message, onDismiss, tone = 'success' }) {
-  const { styles } = useParentTheme()
+function Notice({ message, onDismiss, tone = 'success', compact = false }) {
+  const { palette, styles } = useParentTheme()
+  if (compact) return <View accessibilityLiveRegion="polite" style={styles.syncStatus}>
+    <Text style={[styles.helperText, { flex: 1 }]}>{message}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel="Dismiss refresh status" onPress={onDismiss} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><ParentIcon iconKey="action.close" color={palette.accentText} size={20} /></Pressable>
+  </View>
   return (
     <View accessibilityLiveRegion="polite" style={[styles.notice, tone === 'error' && styles.noticeError, tone === 'warning' && styles.noticeWarning]}>
       <Text style={styles.noticeText}>{message}</Text>
