@@ -20,8 +20,9 @@ function fixture() {
     let single = false
     let operation = ''
     let values
+    let columns
     const query = {
-      select(){return query},eq(k,v){predicates.push(r=>r[k]===v);return query},neq(k,v){predicates.push(r=>r[k]!==v);return query},
+      select(value){columns=value;return query},eq(k,v){predicates.push(r=>r[k]===v);return query},neq(k,v){predicates.push(r=>r[k]!==v);return query},
       is(k,v){predicates.push(r=>(r[k]??null)===v);return query},in(k,v){predicates.push(r=>v.includes(r[k]));return query},gte(k,v){predicates.push(r=>r[k]>=v);return query},
       contains(k,v){predicates.push(r=>Object.entries(v).every(([key,value])=>r[k]?.[key]===value));return query},order(){return query},limit(){return query},
       maybeSingle(){single=true;return query},single(){single=true;return query},
@@ -31,6 +32,7 @@ function fixture() {
         if(operation==='upsert') { const record={id:id(90),...values};tables[table].push(record);result=[record] }
         if(operation==='update') result.forEach(r=>Object.assign(r,values))
         if(operation==='delete') tables[table]=tables[table].filter(r=>!result.includes(r))
+        if(table==='match_days' && columns && columns!=='*') result=result.map(row=>Object.fromEntries(columns.split(',').map(key=>key.trim()).map(key=>[key,row[key]])))
         return Promise.resolve({data:single ? result[0] || null : result,error:null}).then(resolve,reject)
       } catch(e){return Promise.reject(e).then(resolve,reject)} },
     }
@@ -46,6 +48,37 @@ test('Server binds Fan identity, exact permissions and active parent ancestry be
   tables.parent_player_links[0].auth_user_id=id(8)
   await assert.rejects(loadFanScope(client,id(2),id(1),'schedule'),/no longer/)
   assert.equal(read.includes('assessment_records'),false)
+})
+
+test('Fan match details retain the selected kit and return artwork only for the authorised club', async () => {
+  const {client,tables,read}=fixture()
+  tables.fan_connections[0].permissions.game_day=true
+  tables.match_days.push({id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),shirt_choice:'away'})
+  tables.club_kits=[
+    {club_id:id(6),kit_type:'home',colour:'#112233',image_path:`${id(6)}/home/custom.png`},
+    {club_id:id(6),kit_type:'away',colour:'#445566',image_path:`${id(6)}/away/custom.png`},
+    {club_id:id(8),kit_type:'away',colour:'#ffffff',image_path:`${id(8)}/away/private.png`},
+  ]
+  const call=(extra={})=>handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action:'matches',connectionId:id(1),matchId:id(9),clubId:id(8),...extra})},{createClient:()=>client})
+  for(const choice of ['home','away','tbc']) {
+    tables.match_days[0].shirt_choice=choice
+    const response=await call()
+    assert.equal(response.statusCode,200)
+    const data=JSON.parse(response.body)
+    assert.equal(data.matches[0].shirt_choice,choice)
+    assert.deepEqual(data.clubKits,{home:{colour:'#112233',imagePath:`${id(6)}/home/custom.png`},away:{colour:'#445566',imagePath:`${id(6)}/away/custom.png`}})
+    assert.equal(response.body.includes('private.png'),false)
+  }
+  tables.club_kits=[]
+  assert.deepEqual(JSON.parse((await call()).body).clubKits,{})
+  read.length=0
+  assert.equal((await call({matchId:id(10)})).statusCode,403)
+  assert.equal(read.includes('club_kits'),false)
+  for(const change of [()=>{tables.fan_connections[0].permissions.game_day=false},()=>{tables.fan_connections[0].permissions.game_day=true;tables.fan_connections[0].status='revoked'}]) {
+    change();read.length=0
+    assert.equal((await call()).statusCode,403)
+    assert.equal(read.includes('club_kits'),false)
+  }
 })
 test('Schedule-only endpoint denies every other view and exposes no scoring or attendance actions',async()=>{
   const {client,read}=fixture()

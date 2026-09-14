@@ -7,6 +7,7 @@ import { loadFanInviteForOwner, loadFanScope } from './lib/_fan-access.js'
 import { loadFanMatches, loadFanSchedule } from './lib/_fan-schedule.js'
 import { loadHistory } from './lib/_parent-development-history.js'
 import { loadAuthorisedResource } from './parent-resource-access.js'
+import { readClubKits } from '../../src/lib/club-kits.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const json = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' }, body: JSON.stringify(body) })
@@ -56,10 +57,11 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
       const matches = await loadFanMatches(client, scope)
       if (body.matchId) {
         if (!matches.some((match) => match.id === body.matchId)) return json(403, { message: 'This Game Day is unavailable.' })
+        const clubKits = await readClubKits(client, scope.fan.club_id)
         const events = await client.from('match_day_events').select('id, event_type, minute, home_score, away_score, created_at')
           .eq('match_day_id', body.matchId).eq('event_status', 'active').order('created_at', { ascending: true })
         if (events.error) throw events.error
-        return json(200, { matches: matches.filter((match) => match.id === body.matchId), events: events.data || [] })
+        return json(200, { matches: matches.filter((match) => match.id === body.matchId), events: events.data || [], clubKits })
       }
       return json(200, { matches })
     }
