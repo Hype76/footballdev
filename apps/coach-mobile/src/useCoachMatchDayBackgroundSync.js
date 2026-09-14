@@ -26,7 +26,7 @@ export function useCoachMatchDayBackgroundSync({ user, contexts, enabled }) {
           controller = createMatchDayOutbox({ key: `${user.id}:${contextId}:${matchId}`,
             read: () => readCoachMatchDayOutbox(user.id, context, matchId),
             update: change => updateCoachMatchDayOutbox(user.id, context, matchId, change),
-            send: (command, baseMatch) => withMobileAsyncTimeout(() => syncCoachMatchDayCommand(scopedUser, command, baseMatch)),
+            send: (command, baseMatch) => withMobileAsyncTimeout(() => syncCoachMatchDayCommand(scopedUser, command, baseMatch), { timeoutMs: 35000 }),
           })
           await controller.sync()
         }
