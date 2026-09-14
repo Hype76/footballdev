@@ -4,6 +4,7 @@ import {
   calculateCoachArrivalTime,
   COACH_MATCH_ARRIVAL_OPTIONS,
   COACH_MATCH_DURATION_OPTIONS,
+  COACH_PITCH_TYPE_OPTIONS,
   initializeCoachFixtureForm,
   isContinuousMatchClock,
   MATCH_CLOCK_MODE_OPTIONS,
@@ -210,6 +211,8 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Location</Text>
+        <Text style={styles.fieldLabel}>Pitch type</Text>
+        <Chips onChange={(value) => setForm({ ...form, pitchType: value })} options={COACH_PITCH_TYPE_OPTIONS} styles={styles} value={form.pitchType} />
         {locations.length ? <><Text style={styles.fieldLabel}>Saved locations</Text><Chips onChange={selectLocation} options={locations.map((location) => ({ label: location.label, value: location.id }))} styles={styles} value={locationValue} /></> : null}
         {locationValue ? <Button disabled={busy} label="Delete saved address" onPress={confirmDeleteLocation} secondary styles={styles} /> : null}
         <Field label="Venue" onChangeText={(value) => setForm({ ...form, venueName: value })} styles={styles} value={form.venueName} />

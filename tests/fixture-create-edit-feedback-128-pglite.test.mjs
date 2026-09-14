@@ -59,6 +59,7 @@ create table public.match_days (
   location_id uuid,
   opponent text not null default 'Opponent',
   fixture_type text,
+  pitch_type text not null default '',
   match_date date,
   kickoff_time time,
   kickoff_time_tbc boolean not null default false,
@@ -122,6 +123,7 @@ test('short fixture durations save through constraints and authorised RPCs with 
     `)
     await db.exec(await readFile(new URL('../supabase/migrations/20260901151224_shared_fixture_defaults.sql', import.meta.url), 'utf8'))
     await db.exec(await readFile(new URL('../supabase/migrations/20260902133512_match_duration_minimum_two_minutes.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20260914065429_coach_fixture_pitch_type.sql', import.meta.url), 'utf8'))
     const payload = {
       opponent: 'FP TEST Visitors', fixtureType: 'friendly', homeAway: 'away', shirtChoice: 'home',
       matchDate: '2099-09-06', kickoffTimeTbc: true, conclusionRule: 'normal_time',
@@ -139,6 +141,17 @@ test('short fixture durations save through constraints and authorised RPCs with 
       await assert.rejects(db.query('select public.update_match_day_fixture_for_team($1, $2, $3)', [IDS.match, IDS.team, { ...payload, matchDurationMinutes: duration }]), /match_day_fixture_invalid/)
       await assert.rejects(db.query("select public.set_own_team_fixture_preferences($1, false, '30', null, true, $2)", [IDS.team, duration]), /even number from 2 to 140/)
     }
+    const savePitch = (fields, teamId = IDS.team) => db.query('select public.update_match_day_fixture_for_team($1, $2, $3) as fixture', [IDS.match, teamId, { ...payload, matchDurationMinutes: 80, ...fields }])
+    for (const pitchType of ['grass', '3g', '4g', 'indoor', 'other', '']) {
+      assert.equal((await savePitch({ pitchType })).rows[0].fixture.pitch_type, pitchType)
+    }
+    assert.equal((await savePitch({ pitchType: ' 3G ' })).rows[0].fixture.pitch_type, '3g')
+    assert.equal((await savePitch({ notes: 'Older client edit' })).rows[0].fixture.pitch_type, '3g')
+    await assert.rejects(savePitch({ pitchType: 'invalid' }), /match_day_fixture_invalid/)
+    await assert.rejects(savePitch({ pitchType: 'grass' }, '40000000-0000-4000-8000-000000000099'), /match_day_fixture_not_permitted/)
+    await db.query("update public.match_days set status = 'live' where id = $1", [IDS.match])
+    await assert.rejects(savePitch({ pitchType: 'grass' }), /match_day_fixture_not_permitted/)
+    await db.query("update public.match_days set status = 'scheduled' where id = $1", [IDS.match])
     await db.exec('create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;')
     await assert.rejects(db.query('select public.update_match_day_fixture_for_team($1, $2, $3)', [IDS.match, IDS.team, { ...payload, matchDurationMinutes: 2 }]), /match_day_fixture_not_permitted/)
     await assert.rejects(db.query("select public.set_own_team_fixture_preferences($1, false, '30', null, true, 2)", [IDS.team]), /Authentication is required/)

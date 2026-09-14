@@ -4,6 +4,9 @@ import { assertMatchDayShirtChoice, assertNewMatchHomeAway, assertValidMatchCloc
 import { getDateInTimeZone } from './parentCalendarCore.js'
 import { formatCoachCalendarFormDate, normalizeCoachCalendarFormDate } from './coachCalendarCore.js'
 import { DEFAULT_EXPIRY_DURATION, motmExpiryDurationToHours } from '../../../src/lib/expiry-duration.js'
+import { assertValidPitchType, normalizePitchType, PITCH_TYPE_OPTIONS } from '../../../src/lib/pitch-type.js'
+
+export const COACH_PITCH_TYPE_OPTIONS = Object.freeze([{ value: '', label: 'Not specified' }, ...PITCH_TYPE_OPTIONS])
 
 export const COACH_MATCH_DURATION_OPTIONS = Object.freeze([60, 70, 80, 90])
 export const COACH_MATCH_ARRIVAL_OPTIONS = Object.freeze([
@@ -61,6 +64,7 @@ export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArr
     extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(match?.extraTimeHalfMinutes),
     extraTimePeriodCount: normalizeExtraTimePeriodCount(match?.extraTimePeriodCount),
     fixtureType: normalize(match?.fixtureType),
+    pitchType: normalizePitchType(match?.pitchType),
     homeAway: normalize(match?.homeAway) || 'home',
     shirtChoice: normalize(match?.shirtChoice) || 'home',
     kickoffTime,
@@ -139,6 +143,7 @@ export function validateCoachFixtureForm(form = {}, { requireSelectedPlayers = t
     extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(form.extraTimeHalfMinutes),
     extraTimePeriodCount: normalizeExtraTimePeriodCount(form.extraTimePeriodCount),
     fixtureType,
+    pitchType: assertValidPitchType(form.pitchType),
     homeAway: assertNewMatchHomeAway(form.homeAway),
     shirtChoice: assertMatchDayShirtChoice(form.shirtChoice),
     kickoffTime,

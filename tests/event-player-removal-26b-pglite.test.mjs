@@ -244,6 +244,7 @@ async function createDatabase() {
 
   await db.exec(migration)
   await db.exec(trainingParticipationMigration)
+  await db.exec(await readFile(new URL('../supabase/migrations/20260914065046_coach_pitch_and_event_participant_removal.sql', import.meta.url), 'utf8'))
   await db.query(`insert into public.clubs (id) values ($1), ($2)`, [IDS.club, IDS.otherClub])
   await db.query(`insert into public.teams (id, club_id) values ($1, $2), ($3, $2)`, [IDS.team, IDS.club, IDS.otherTeam])
   await db.query(`
@@ -502,6 +503,80 @@ test('standalone informational removal suppresses unsent generic communication w
       queue_state: 'cancelled',
       player_count: 1,
     })
+  } finally {
+    await db.close()
+  }
+})
+
+test('saved participants can leave an event after transfer, archive, or roster removal without player writes', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, IDS.manager)
+    for (const [teamId, status] of [[IDS.otherTeam, 'active'], [null, 'active'], [IDS.team, 'archived']]) {
+      await db.query('update public.players set team_id=$1, status=$2 where id=$3', [teamId, status, IDS.player])
+      // Reject even temporary player writes during removal, including writes later restored.
+      await db.exec(`create or replace function public.reject_player_write() returns trigger language plpgsql as $$ begin raise exception 'Unexpected player write'; end $$;
+        create trigger reject_player_write before update on public.players for each row execute function public.reject_player_write();`)
+      const result = await db.query("select public.remove_player_from_event('calendar', $1, $2, '2099-01-12', 'occurrence', gen_random_uuid(), false) as result", [IDS.event, IDS.player])
+      assert.equal(result.rows[0].result.teamMembershipUnchanged, true)
+      assert.equal(result.rows[0].result.historyPreserved, true)
+      assert.equal(result.rows[0].result.communicationSent, false)
+      assert.deepEqual((await db.query('select team_id, status from public.players where id=$1', [IDS.player])).rows, [{ team_id: teamId, status }])
+      const command = await db.query('select previous_state, new_state from public.event_player_removal_commands where id=$1', [result.rows[0].result.commandId])
+      assert.equal(command.rows[0].previous_state.teamMembership, 'not_current')
+      assert.equal(command.rows[0].new_state.teamMembership, 'not_current')
+      await db.exec('drop trigger reject_player_write on public.players')
+      await db.query('delete from public.event_player_occurrence_exclusions where calendar_event_id=$1', [IDS.event])
+    }
+    const otherEvent = await db.query("select invite_status from public.calendar_event_invites where calendar_event_id=$1 and player_id=$2", [IDS.otherEvent, IDS.player])
+    assert.equal(otherEvent.rows[0].invite_status, 'pending')
+    await assert.rejects(db.query("select public.preview_event_player_removal('calendar',$1,$2,'2099-01-12','occurrence')", [IDS.event, IDS.secondPlayer]), /not attached to this event/)
+    await db.query('update public.players set club_id=$1 where id=$2', [IDS.otherClub, IDS.player])
+    await assert.rejects(db.query("select public.preview_event_player_removal('calendar',$1,$2,'2099-01-12','occurrence')", [IDS.event, IDS.player]), /not attached to this event/)
+  } finally {
+    await db.close()
+  }
+})
+
+test('archived Training recipients without Calendar invites can be removed from the chosen session', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, IDS.manager)
+    await db.query("update public.players set team_id=null,status='archived' where id=$1", [IDS.secondPlayer])
+    await db.query(`insert into public.training_availability_request_players (request_id,club_id,team_id,player_id,status)
+      values ($1,$3,$4,$5,'available'),($2,$3,$4,$5,'available')`, [IDS.request, IDS.requestFuture, IDS.club, IDS.team, IDS.secondPlayer])
+    const result = await db.query("select public.remove_player_from_event('calendar',$1,$2,'2099-01-12','occurrence',gen_random_uuid(),false) as result", [IDS.event, IDS.secondPlayer])
+    assert.equal(result.rows[0].result.affectedOccurrenceCount, 1)
+    const recipients = await db.query('select request_id,status,token_revoked_at is not null as revoked from public.training_availability_request_players where player_id=$1 order by request_id', [IDS.secondPlayer])
+    assert.deepEqual(recipients.rows, [
+      { request_id: IDS.request, status: 'available', revoked: true },
+      { request_id: IDS.requestFuture, status: 'available', revoked: false },
+    ])
+  } finally {
+    await db.close()
+  }
+})
+
+test('Match participation without a Calendar invite is removable during live play with confirmation', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, IDS.manager)
+    await db.query("update public.players set team_id=$1,status='archived' where id=$2", [IDS.otherTeam, IDS.player])
+    await db.query(`insert into public.match_days(id,club_id,team_id,opponent,match_date,kickoff_time,status)
+      values ($1,$2,$3,'FP TEST Visitors',(now() at time zone 'Europe/London')::date - 1,'10:00','live')`, [IDS.match, IDS.club, IDS.team])
+    await db.query('insert into public.match_day_availability_requests(match_day_id,club_id,team_id,player_id) values ($1,$2,$3,$4)', [IDS.match, IDS.club, IDS.team, IDS.player])
+    const preview = await db.query("select public.preview_event_player_removal('match-day',$1,$2,null,'event') as result", [IDS.match, IDS.player])
+    assert.equal(preview.rows[0].result.affectedOccurrenceCount, 1)
+    assert.equal(preview.rows[0].result.requiresInProgressConfirmation, true)
+    await assert.rejects(db.query("select public.remove_player_from_event('match-day',$1,$2,null,'event',gen_random_uuid(),false)", [IDS.match, IDS.player]), /Confirm removal/)
+    const result = await db.query("select public.remove_player_from_event('match-day',$1,$2,null,'event',gen_random_uuid(),true) as result", [IDS.match, IDS.player])
+    assert.equal(result.rows[0].result.affectedOccurrenceCount, 1)
+    assert.equal(result.rows[0].result.revokedTokenCount, 1)
+    assert.equal((await db.query('select token_revoked_at is not null as revoked from public.match_day_availability_requests where player_id=$1', [IDS.player])).rows[0].revoked, true)
+    await db.query("update public.match_days set status='full_time' where id=$1", [IDS.match])
+    await assert.rejects(db.query("select public.preview_event_player_removal('match-day',$1,$2,null,'event')", [IDS.match, IDS.player]), /event was not found/)
+    await db.query("update public.match_days set status='scheduled' where id=$1", [IDS.match])
+    await assert.rejects(db.query("select public.preview_event_player_removal('match-day',$1,$2,null,'event')", [IDS.match, IDS.player]), /Completed event participation/)
   } finally {
     await db.close()
   }

@@ -136,6 +136,8 @@ jobs:
           tests/matchday-offline-commands-db.test.mjs
       - name: Install Coach browser test dependencies
         run: npm ci --prefix apps/coach-mobile --include=optional
+      - name: Coach fixture pitch and event participant removal
+        run: node --test tests/fixture-create-edit-feedback-128.test.mjs tests/fixture-create-edit-feedback-128-pglite.test.mjs tests/event-player-removal-26b-pglite.test.mjs tests/coach-fixture-create-crash-63.test.mjs tests/mobile-coach-invite-removal-modal-108.test.mjs && node tests/coach-fixture-pitch-browser.mjs
       - name: Mobile brand contrast and rendered readability
         run: node --test tests/mobile-theme-readability.test.mjs && node tests/mobile-settings-menu-browser.mjs && node tests/mobile-more-icon-badges-browser.mjs && node tests/fans-mobile-browser.mjs
       - name: Fan signup and mobile session recovery
