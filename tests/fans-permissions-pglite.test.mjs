@@ -43,7 +43,7 @@ async function actor(db, n, email) { await db.query("select set_config('request.
 test('Only the inviting Parent converts an accepted Fan into a read-only Player account', async () => {
   const db = await dbFixture()
   try {
-    await db.exec(await readFile('supabase/migrations/20260914154100_parent_player_account_conversion.sql', 'utf8'))
+    await db.exec((await readFile('supabase/migrations/20260914154000_team_carpool_defaults.sql', 'utf8')).split('-- Player account conversion')[1])
     await actor(db, 1, 'parent@example.test')
     const connection = await invite(db)
     await assert.rejects(db.query('select set_fan_player_account($1,true)', [connection.id]), /accepted account/)

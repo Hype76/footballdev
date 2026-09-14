@@ -22,7 +22,7 @@ test('Car pool defaults persist per team and new matches inherit both off and on
       insert into public.teams values('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000003',null);
       insert into public.teams values('10000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000003',null);
     `)
-    await db.exec(await readFile('supabase/migrations/20260914154000_team_carpool_defaults.sql', 'utf8'))
+    await db.exec((await readFile('supabase/migrations/20260914154000_team_carpool_defaults.sql', 'utf8')).split('-- Player account conversion')[0])
     const team = '10000000-0000-4000-8000-000000000002'
     await assert.rejects(db.query('select public.set_team_carpool_default($1,false)', [team]), /Coach access/)
     await db.exec("select set_config('test.actor','10000000-0000-4000-8000-000000000001',false)")
