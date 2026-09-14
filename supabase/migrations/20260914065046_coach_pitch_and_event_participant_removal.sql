@@ -116,7 +116,7 @@ begin
   end if;
 
   if normalized_source_type = 'match-day' then
-    select fixture.status in ('live', 'half_time') into match_in_progress
+    select fixture.status in ('live', 'half_time', 'second_half', 'extra_time', 'penalties') into match_in_progress
     from public.match_days fixture where fixture.id = event_id_value;
   end if;
 
@@ -1050,5 +1050,4 @@ begin
   return to_jsonb(updated_row);
 end;
 $function$;
-
 

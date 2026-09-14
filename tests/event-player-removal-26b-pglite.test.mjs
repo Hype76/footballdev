@@ -568,6 +568,12 @@ test('Match participation without a Calendar invite is removable during live pla
     const preview = await db.query("select public.preview_event_player_removal('match-day',$1,$2,null,'event') as result", [IDS.match, IDS.player])
     assert.equal(preview.rows[0].result.affectedOccurrenceCount, 1)
     assert.equal(preview.rows[0].result.requiresInProgressConfirmation, true)
+    for (const status of ['half_time', 'second_half', 'extra_time', 'penalties']) {
+      await db.query('update public.match_days set status=$1 where id=$2', [status, IDS.match])
+      const phasePreview = await db.query("select public.preview_event_player_removal('match-day',$1,$2,null,'event') as result", [IDS.match, IDS.player])
+      assert.equal(phasePreview.rows[0].result.requiresInProgressConfirmation, true)
+      assert.equal(phasePreview.rows[0].result.affectedOccurrenceCount, 1)
+    }
     await assert.rejects(db.query("select public.remove_player_from_event('match-day',$1,$2,null,'event',gen_random_uuid(),false)", [IDS.match, IDS.player]), /Confirm removal/)
     const result = await db.query("select public.remove_player_from_event('match-day',$1,$2,null,'event',gen_random_uuid(),true) as result", [IDS.match, IDS.player])
     assert.equal(result.rows[0].result.affectedOccurrenceCount, 1)
