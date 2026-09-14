@@ -47,12 +47,12 @@ import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { peekMobileResource, readMobileResource } from '../mobile-core/src/mobileResourceCache'
 import { getCoachCalendarResources } from '../mobile-core/src/coachCalendarData'
 import { getCoachPlayerList } from '../mobile-core/src/coachPlayersData'
-import { getCoachChatRooms } from '../mobile-core/src/coachPhase31EData'
+import { getCoachChatRooms, getCoachInvitesAndAvailability } from '../mobile-core/src/coachPhase31EData'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
-import { buildCoachChatSummary } from '../mobile-core/src/coachPhase31GCore'
+import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary } from '../mobile-core/src/coachPhase31GCore'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
@@ -181,6 +181,8 @@ function CoachHome() {
   const lastHomeRefreshAtRef = useRef(0)
   const requestIdRef = useRef(0)
   const chatRefreshIdRef = useRef(0)
+  const availabilityRefreshIdRef = useRef(0)
+  const previousHomeRouteRef = useRef('home')
   const bootstrappedAuthorityRef = useRef('')
   const notificationResponseIdRef = useRef('')
   const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
@@ -359,8 +361,29 @@ function CoachHome() {
     }
   }, [])
 
-  const loadHome = useCallback(async ({ refresh = false, chatOnly = false } = {}) => {
+  const loadHome = useCallback(async ({ refresh = false, chatOnly = false, availabilityOnly = false } = {}) => {
     if (!selectedMobileUser?.clubId) return
+    if (availabilityOnly) {
+      if (selectedMobileUser.isOfflineProfile || !selectedMobileUser.activeTeamId) return
+      const requestId = requestIdRef.current
+      const availabilityRefreshId = ++availabilityRefreshIdRef.current
+      const isCurrent = () => requestId === requestIdRef.current && availabilityRefreshId === availabilityRefreshIdRef.current
+      try {
+        const invites = await readMobileResource(selectedMobileUser, 'coach:phase31e:invites',
+          () => getCoachInvitesAndAvailability(selectedMobileUser), { force: true })
+        if (isCurrent()) setHomeState(current => ({
+          ...current,
+          pendingAvailability: countPendingCoachAvailability(invites.all),
+          errors: (current.errors || []).filter(error => !error.startsWith('invites:')),
+        }))
+      } catch {
+        if (isCurrent()) setHomeState(current => ({
+          ...current,
+          errors: [...(current.errors || []).filter(error => !error.startsWith('invites:')), 'invites:unavailable'],
+        }))
+      }
+      return
+    }
     if (chatOnly) {
       const requestId = requestIdRef.current
       const chatRefreshId = ++chatRefreshIdRef.current
@@ -373,6 +396,7 @@ function CoachHome() {
     }
     const requestId = ++requestIdRef.current
     const chatRefreshId = chatRefreshIdRef.current
+    const availabilityRefreshId = availabilityRefreshIdRef.current
     if (refresh) setIsRefreshing(true)
     setHomeState((current) => ({ ...current, error: '', loading: !refresh }))
 
@@ -394,12 +418,12 @@ function CoachHome() {
     try {
       const primary = await readMobileResource(selectedMobileUser, 'coach:home-primary',
         () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
-          if (requestId === requestIdRef.current && !savedHome) setHomeState(current => ({ ...current, ...partial, loading: false }))
+          if (requestId === requestIdRef.current && !savedHome) setHomeState(current => preserveCoachAvailabilitySummary({ ...current, ...partial, loading: false }, current))
         }), { force: refresh })
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
       const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
-      setHomeState((current) => ({ ...current, ...primarySnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat }))
+      setHomeState((current) => preserveCoachAvailabilitySummary({ ...current, ...primarySnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat }, current))
       setLastUpdatedAt(savedAt)
       lastHomeRefreshAtRef.current = Date.now()
       void saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
@@ -420,9 +444,12 @@ function CoachHome() {
         ...mergeCoachPhase31GHomeSnapshots(primarySnapshot, attentionResult.value),
         savedAt,
       }
-      setHomeState((current) => chatRefreshId === chatRefreshIdRef.current
-        ? completeSnapshot
-        : { ...completeSnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat })
+      setHomeState((current) => {
+        const next = chatRefreshId === chatRefreshIdRef.current
+          ? completeSnapshot
+          : { ...completeSnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat }
+        return availabilityRefreshId === availabilityRefreshIdRef.current ? next : preserveCoachAvailabilitySummary(next, current)
+      })
       const savedSections = { home: completeSnapshot }
       for (const domain of ['chat', 'polls', 'invites']) {
         const value = peekMobileResource(selectedMobileUser, `coach:phase31e:${domain}`)
@@ -584,16 +611,23 @@ function CoachHome() {
   }, [])
 
   useEffect(() => {
+    const returnedHome = activeRoute === 'home' && previousHomeRouteRef.current !== 'home'
+    previousHomeRouteRef.current = activeRoute
     if (!contextOwnedByCurrentUser || !selectedMobileUser?.activeTeamId) return undefined
     const refreshChat = () => {
       if (appStateRef.current === 'active') void loadHome({ chatOnly: true }).catch(() => {})
     }
+    const refreshAvailability = () => {
+      if (appStateRef.current === 'active') void loadHome({ availabilityOnly: true }).catch(() => {})
+    }
+    const refreshAttention = () => { refreshChat(); refreshAvailability() }
+    if (returnedHome) refreshAvailability()
     // Refresh from the current context, never from untrusted notification counts.
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification?.request?.content?.data || {}
-      if (data.app === 'coach') refreshChat()
+      if (data.app === 'coach') refreshAttention()
     })
-    const timer = activeRoute === 'home' ? setInterval(refreshChat, HOME_REFRESH_MIN_INTERVAL_MS) : null
+    const timer = activeRoute === 'home' ? setInterval(refreshAttention, HOME_REFRESH_MIN_INTERVAL_MS) : null
     return () => {
       subscription.remove()
       if (timer) clearInterval(timer)

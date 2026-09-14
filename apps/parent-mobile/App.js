@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import { useParentHomeSections } from './src/useParentHomeSections'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
 import { openVenueDirections } from '../mobile-core/src/venueDirections'
 import { PasswordInput } from '../mobile-core/src/PasswordInput'
@@ -2053,6 +2054,7 @@ function ParentHome() {
 
             {activeTab === 'home' ? (
               <HomeScreen
+                userId={selectedMobileUser?.id}
                 onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })}
                 themeTokens={themeModel.tokens}
                 activeActionId={activeActionId}
@@ -2071,7 +2073,6 @@ function ParentHome() {
                 onOpenMatch={(match) => { setSelectedMatchId(match.id); setActiveTab('matchday'); scrollViewRef.current?.scrollTo({ y: 0, animated: false }) }}
                 onOpenLink={handleOpenMatchLink}
                 onOpenUpdates={() => { setMoreSection('updates'); setActiveTab('more'); scrollViewRef.current?.scrollTo({ y: 0, animated: false }) }}
-                onOpenNotification={handleOpenNotification}
                 onOpenPolls={() => { setMoreSection('polls'); setActiveTab('more') }}
                 onOpenResource={handleOpenCalendarResource}
                 onRetry={handleRefresh}
@@ -2396,14 +2397,13 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenNotification, onOpenPolls, onOpenResource, onRetry, selectedMatch, themeTokens, onOpenEventDetails }) {
-  const { palette, styles } = useParentTheme()
+function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenCalendar, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, selectedMatch, themeTokens, onOpenEventDetails }) {
+  const { styles } = useParentTheme()
+  const homeSections = useParentHomeSections(userId)
   const [selectedEventKey, setSelectedEventKey] = useState('')
   const [detailPlayerId, setDetailPlayerId] = useState(link?.id)
   if (detailPlayerId !== link?.id) { setDetailPlayerId(link?.id); setSelectedEventKey('') }
   const selectedEvent = [homeModel.nextActivity?.type === 'calendar' ? homeModel.nextActivity.item : null, ...homeModel.upcomingCalendarEvents].find(event => event && getParentEventKey(event) === selectedEventKey)
-  const unreadNotifications = prepareParentUpdates(notifications.items).filter((notification) => !notification.isRead)
-    .map((notification) => ({ ...notification, ...getParentNotificationPresentation(notification, matches.items) }))
   const homeFixtures = getParentHomeFixtureCards(homeModel)
   const scorerMatches = getParentScorerMatches(matches.items)
   if (!link?.id) {
@@ -2462,64 +2462,48 @@ function HomeScreen({ activeActionId, calendar, homeModel, inviteCount = 0, invi
         </>
       ) : null}
 
-      {unreadNotifications.length > 0 ? (
-        <View style={styles.sectionStack}>
-          <SectionHeading copy="Tap a notification to open the details." title="Notifications" />
-          <PrimaryAction label="View all notifications" onPress={onOpenUpdates} secondary />
-          {unreadNotifications.map((notification) => (
-            <Pressable
-              accessibilityHint="Opens this update"
-              accessibilityLabel={`${getNotificationTypeLabel(notification.intentType)}: ${notification.title}`}
-              accessibilityRole="button"
-              key={notification.id}
-              onPress={() => onOpenNotification(notification)}
-              style={({ pressed }) => [styles.card, !notification.isRead && styles.cardProminent, pressed && styles.pressed]}
-            >
-              <View style={styles.notificationRow}>
-                <View style={styles.notificationIcon}>
-                  <ParentIcon color={palette.accentText} iconKey={getNotificationTypeIcon(notification.intentType)} size={23} />
-                </View>
-                <View style={styles.notificationContent}>
-                  <View style={styles.cardTopRow}>
-                    <Badge label={getNotificationTypeLabel(notification.intentType)} tone={notification.isRead ? 'neutral' : 'accent'} />
-                    <Text style={styles.cardDate}>{formatDateTime(notification.sentAt || notification.createdAt)}</Text>
-                  </View>
-                  <Text style={styles.cardTitle}>{notification.displayTitle}</Text>
-                  <Text numberOfLines={2} style={styles.bodyText}>{notification.displayBody}</Text>
-                  <Text style={styles.cardLink}>{notification.actionLabel}</Text>
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+      {homeSections.error ? <Text style={styles.helperText}>{homeSections.error}</Text> : null}
 
       {homeFixtures.length > 0 ? (
-        <View style={styles.sectionStack}>
-          <SectionHeading copy="Upcoming Parent-visible Matchday items." title="Fixtures" />
+        <HomeCollapsibleSection copy="Upcoming Parent-visible Matchday items." title="Fixtures" expanded={homeSections.sections.fixtures} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('fixtures')}>
           {homeFixtures.map((match) => (
             <MatchPreviewCard key={match.id} match={match} onPress={onOpenMatch} />
           ))}
-        </View>
+        </HomeCollapsibleSection>
       ) : null}
 
       {homeModel.upcomingCalendarEvents.length > 0 ? (
-        <View style={styles.sectionStack}>
-          <SectionHeading copy="Training, meetings and club events shared with your family." title="Calendar" />
+        <HomeCollapsibleSection copy="Training, meetings and club events shared with your family." title="Calendar" expanded={homeSections.sections.calendar} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('calendar')}>
           {homeModel.upcomingCalendarEvents.slice(0, 4).map((event) => (
             <CalendarCard onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={event} isOffline={isOffline} key={event.id} onOpenLink={onOpenLink} onOpenResource={onOpenResource} />
           ))}
-        </View>
+        </HomeCollapsibleSection>
       ) : null}
 
       {homeModel.recentMatches.length > 0 ? (
-        <View style={styles.sectionStack}>
-          <SectionHeading copy="Recent Parent-visible results." title="Recent Matchday" />
+        <HomeCollapsibleSection copy="Recent Parent-visible results." title="Recent Matchday" expanded={homeSections.sections.recentMatches} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('recentMatches')}>
           {homeModel.recentMatches.slice(0, 3).map((match) => (
             <MatchPreviewCard key={match.id} match={match} onPress={onOpenMatch} />
           ))}
-        </View>
+        </HomeCollapsibleSection>
       ) : null}
+    </View>
+  )
+}
+
+function HomeCollapsibleSection({ title, copy, expanded, disabled, onToggle, children }) {
+  const { palette, styles } = useParentTheme()
+  return (
+    <View style={styles.sectionStack}>
+      <Pressable accessibilityRole="button" accessibilityLabel={title}
+        aria-expanded={expanded}
+        accessibilityHint={expanded ? 'Collapse section' : 'Expand section'}
+        accessibilityState={{ expanded, disabled }} disabled={disabled} onPress={onToggle}
+        style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', minHeight: 48 }, pressed && styles.pressed]}>
+        <View style={{ flex: 1 }}><SectionHeading copy={copy} title={title} /></View>
+        <ParentIcon color={palette.accentText} iconKey={expanded ? 'section.collapse' : 'section.expand'} size={26} />
+      </Pressable>
+      {expanded ? children : null}
     </View>
   )
 }

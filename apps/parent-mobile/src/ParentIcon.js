@@ -22,6 +22,8 @@ const PARENT_ICONS = Object.freeze({
   'action.edit': 'edit',
   'action.hide': 'visibility-off',
   'action.open': 'chevron-right',
+  'section.collapse': 'expand-less',
+  'section.expand': 'expand-more',
   'attendance.available': 'check-circle-outline',
   'attendance.maybe': 'help-outline',
   'attendance.unavailable': 'cancel',

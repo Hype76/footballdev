@@ -50,7 +50,7 @@ function collapseCoachInvitesByRequest(rows = []) {
 
 export function countPendingCoachAvailability(rows = [], now = new Date()) {
   const nowTime = now instanceof Date ? now.getTime() : timestamp(now) ?? Date.now()
-  const invites = asArray(rows).filter((invite) => ['match', 'training'].includes(normalize(invite?.kind).toLowerCase()))
+  const invites = asArray(rows).filter((invite) => !invite?.participationRemoved && ['match', 'training'].includes(normalize(invite?.kind).toLowerCase()))
   const sentPlayerKeys = new Set(invites
     .filter((invite) => normalize(invite?.sentAt))
     .map(getInvitePlayerKey)
@@ -74,6 +74,18 @@ export function buildCoachChatSummary(groups) {
     return total + (Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0)
   }, 0)
   return { chatRooms, unreadChat }
+}
+
+// Primary data and slower full refreshes must not replace a newer availability read.
+export function preserveCoachAvailabilitySummary(next, current) {
+  return {
+    ...next,
+    pendingAvailability: current.pendingAvailability,
+    errors: [
+      ...(next.errors || []).filter(error => !error.startsWith('invites:')),
+      ...(current.errors || []).filter(error => error.startsWith('invites:')),
+    ],
+  }
 }
 
 export function buildCoachHomeOperationalSnapshot(input = {}) {
