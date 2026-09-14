@@ -1,6 +1,6 @@
 alter table public.teams add column if not exists carpool_enabled boolean not null default true;
-alter table public.match_days add column if not exists carpool_enabled boolean;
-update public.match_days set carpool_enabled = true where carpool_enabled is null;
+alter table public.match_days add column if not exists carpool_enabled boolean not null default true;
+alter table public.match_days alter column carpool_enabled drop default;
 
 create or replace function public.get_team_carpool_default(team_id_value uuid)
 returns boolean language plpgsql stable security definer set search_path = '' as $$
