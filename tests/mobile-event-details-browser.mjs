@@ -24,7 +24,7 @@ import {PinnedEventNotes} from './apps/mobile-core/src/PinnedEventNotes.js';
 import React,{useState,useMemo,useEffect,useCallback,useRef} from 'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,TextInput,Switch,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';
 import{createCoachTheme}from'./apps/coach-mobile/src/coachThemeCore.js';import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME}from'./apps/mobile-core/src/parentThemeCore.js';
 import{getPitchTypeLabel,normalizePitchType}from'./src/lib/pitch-type.js';import{getMatchDayShirtChoiceLabel,normalizeMatchDayShirtChoice}from'./src/lib/matchday-model.js';import{normalizePersonName}from'./src/lib/person-name.js';import{getMatchDayDisplayName}from'./src/lib/matchday-display.js';import{getParentMatchStatusLabel}from'./apps/parent-mobile/src/parentExperience.js';import{formatParentProductDateTime,formatParentProductTime}from'./apps/mobile-core/src/parentDateTimeCore.js';import{formatMatchAddedTimeClock}from'./src/lib/matchday-event-time.js';${calendarImport}
-const ClubKitDisplay=()=>null, link=null;
+const ClubKitDisplay=()=>null, link=null, clubKits=undefined;
 const CoachOfflineReadiness=()=>null; // Readiness download is covered by its dedicated browser journey.
 const BrandLoader=()=>null, useConfirmedConnectionIssue=v=>v,useConfirmedConnectionMessage=v=>v,getMobileIconName=()=> 'event';
 const deriveTeamNotificationDisplayName=v=>v,getCoachTeamNotificationDisplayName=async()=> 'FP TEST',message=e=>e.message;
