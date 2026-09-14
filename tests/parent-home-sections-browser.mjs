@@ -40,9 +40,10 @@ try {
   const boot = async () => { await page.goto('http://home.test/'); await page.addScriptTag({ content: result.outputFiles[0].text }); await page.getByRole('button', { name: 'Fixtures', exact: true, expanded: true }).waitFor({timeout:10000}).catch(async error=>{ console.error(await page.locator('body').innerText()); throw error }) }
   await boot()
   assert.equal(await page.getByText('Hidden notification card').count(), 0)
+  assert.equal(await page.getByRole('button', {name:'Calendar',exact:true}).count(),0)
   await page.getByRole('button', { name: '1 Notifications', exact: true }).click()
   assert.equal(await page.evaluate(() => window.destination), 'notifications')
-  for (const [title, row] of [['Fixtures', 'Upcoming fixture'], ['Calendar', 'Calendar session'], ['Recent Matchday', 'Recent result']]) {
+  for (const [title, row] of [['Fixtures', 'Upcoming fixture'], ['Agenda', 'Calendar session'], ['Recent Matchday', 'Recent result']]) {
     const control = page.getByRole('button', { name: title, exact: true, expanded: true })
     await control.click()
     await page.getByRole('button', { name: title, exact: true, expanded: false }).waitFor()
@@ -62,7 +63,7 @@ try {
   // Reload the entire JS runtime to prove persistence beyond the module cache.
   await page.reload()
   await page.addScriptTag({ content: result.outputFiles[0].text })
-  for (const title of ['Fixtures', 'Calendar', 'Recent Matchday']) await page.getByRole('button', { name: title, exact: true, expanded: false }).waitFor()
+  for (const title of ['Fixtures', 'Agenda', 'Recent Matchday']) await page.getByRole('button', { name: title, exact: true, expanded: false }).waitFor()
   await mkdir('output/playwright/parent-home-sections', { recursive: true })
   for (const mode of ['light', 'dark']) for (const width of [320, 390]) {
     await page.evaluate(mode => window.mode(mode), mode)

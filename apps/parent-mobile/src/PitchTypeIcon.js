@@ -12,15 +12,16 @@ const artwork = {
   other: { label: 'Other', left: 801, top: 424 },
 }
 
-export function PitchTypeIcon({ pitchType, textStyle }) {
+export function PitchTypeIcon({ pitchType, textStyle, compact = false }) {
   const icon = artwork[normalizePitchType(pitchType)]
-  const scale = 88 / 325
+  const width = compact ? 48 : 88
+  const scale = width / 325
   return (
-    <View accessible accessibilityLabel={`Surface: ${icon?.label || 'Not specified'}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 }}>
-      {icon ? <View testID={`pitch-type-${normalizePitchType(pitchType)}`} style={{ width: 88, height: 213 * scale, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+    <View accessible accessibilityLabel={`Surface: ${icon?.label || 'Not specified'}`} style={{ flexDirection: compact ? 'column' : 'row', alignItems: 'center', gap: compact ? 4 : 12, paddingVertical: 6, ...(compact ? { flex: 1, minWidth: 0 } : {}) }}>
+      {icon ? <View style={compact ? { height: 40, justifyContent: 'center' } : undefined}><View testID={`pitch-type-${normalizePitchType(pitchType)}`} style={{ width, height: 213 * scale, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
         <Image accessible={false} source={source} fadeDuration={0} resizeMode="stretch" style={{ position: 'absolute', width: 1272 * scale, height: 831 * scale, left: -icon.left * scale, top: -icon.top * scale }} />
-      </View> : null}
-      <Text style={[textStyle, { flexShrink: 1 }]}>{`Surface: ${icon?.label || 'Not specified'}`}</Text>
+      </View></View> : compact ? <View style={{ height: 40, justifyContent: 'center' }}><Text style={textStyle}>?</Text></View> : null}
+      <Text style={[textStyle, { flexShrink: 1 }, compact && { fontSize: 12, textAlign: 'center' }]}>{compact ? (icon?.label || 'Surface TBC') : `Surface: ${icon?.label || 'Not specified'}`}</Text>
     </View>
   )
 }

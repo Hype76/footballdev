@@ -47,18 +47,20 @@ test('Parent directions use the native map provider for Calendar and Match Day l
 test('Parent home and Calendar cards expose directions through the existing safe link opener', () => {
   assert.match(parentApp, /getParentCalendarDirectionsUrl/)
   assert.match(parentApp, /<CalendarCard[\s\S]*event=\{event\}[\s\S]*key=\{event\.id\}[\s\S]*onOpenLink=\{onOpenLink\}/)
-  assert.match(parentApp, /accessibilityLabel="Get directions" accessibilityRole="button" onPress=\{\(\) => onOpenLink\?\.\(directionsUrl, 'directions'\)\}/)
+  assert.match(parentApp, /onOpenLink=\{handleOpenMatchLink\}/)
   assert.match(parentScreens, /getParentCalendarDirectionsUrl\(event, Platform\.OS\)/)
   assert.match(parentScreens, /onOpenLink\?\.\(directionsUrl, 'directions'\)/)
 })
 
 test('Parent Game Day provides live read-only parity and gates scorer controls with existing authority', () => {
-  for (const copy of ['Live sync on', 'Match timer', 'Parent view', 'Match Timeline', 'No match events yet']) {
+  for (const copy of ['Live sync on', 'Match timer', 'Match Timeline']) {
     assert.match(parentScreens, new RegExp(copy))
   }
   assert.match(parentScreens, /getCoachMatchDayPresentation\(selectedMatch, now\)/)
   assert.match(parentScreens, /setInterval\(\(\) => onLiveRefresh\(\), 15000\)/)
-  assert.match(parentScreens, /!selectedMatch\.isScorer \? <View/)
+  assert.match(parentScreens, /timeline\.length > 0 \? <View/)
+  assert.match(parentScreens, /matchStarted \? <View/)
+  assert.doesNotMatch(parentScreens, /Live match updates from the club appear here/)
   assert.match(parentScreens, /selectedMatch\.isScorer \? <ScorerControls/)
   assert.match(parentScreens, /Accepted Parent scorer/)
   assert.match(parentApp, /onLiveRefresh=\{refreshParentMatchDay\}/)
