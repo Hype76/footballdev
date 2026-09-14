@@ -15,7 +15,7 @@ export function useCoachMatchDayOutbox({ user, context, matchId }) {
     key: `${user.id}:${stableContext.id}:${matchId}`,
     read: () => readCoachMatchDayOutbox(user.id, stableContext, matchId),
     update: change => updateCoachMatchDayOutbox(user.id, stableContext, matchId, change),
-    send: (command, baseMatch) => withMobileAsyncTimeout(() => syncCoachMatchDayCommand(user, command, baseMatch)),
+    send: (command, baseMatch) => withMobileAsyncTimeout(() => syncCoachMatchDayCommand(user, command, baseMatch), { timeoutMs: 35000 }),
     onChange: journal => setState({ scopeKey, journal }),
   }) : null, [stableContext, matchId, scopeKey, user])
   useEffect(() => {
@@ -39,5 +39,5 @@ export function useCoachMatchDayOutbox({ user, context, matchId }) {
     return journal
   }, [controller])
   const journal = state?.scopeKey === scopeKey ? state.journal : null
-  return { enqueue, refresh, discard: match => controller?.discardPending(match), retry: () => controller?.sync(), journal, projected: journal ? projectMatchDayOutbox(journal) : null }
+  return { enqueue, refresh, discard: match => controller?.discardPending(match), review: match => controller?.reviewAgainstLatest(match), retry: () => controller?.sync(), journal, projected: journal ? projectMatchDayOutbox(journal) : null }
 }

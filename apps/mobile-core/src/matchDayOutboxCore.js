@@ -90,7 +90,18 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
     },
     async discardPending(match) {
       if (syncing || key && activeSyncs.has(key)) throw new Error('A saved action is being checked. Wait for sync to finish before discarding.')
-      const journal = await update(current => ({ ...current, baseMatch: match || current.baseMatch, pending: [], error: '' }))
+      const journal = await update(current => ({ ...current, baseMatch: match || current.baseMatch, pending: [], error: '', errorCode: '' }))
+      publish(journal)
+      return journal
+    },
+    async reviewAgainstLatest(match) {
+      if (syncing || key && activeSyncs.has(key)) throw new Error('Wait for the current sync to finish before reviewing saved actions.')
+      const journal = await update(current => {
+        if (current?.errorCode !== '40001') throw new Error('Sync saved actions first so the server can confirm whether they were applied.')
+        if (!match?.updatedAt || match.id !== current.baseMatch?.id || match.concludedAt || ['full_time', 'cancelled', 'postponed'].includes(match.status)) throw new Error('Refresh the open match before reviewing saved actions.')
+        return { ...current, baseMatch: match, error: '', errorCode: '', verifiedAt: new Date().toISOString(),
+          pending: current.pending.map((command, index) => index === 0 ? { ...command, expectedUpdatedAt: match.updatedAt, previousCommandId: null } : command) }
+      })
       publish(journal)
       return journal
     },
@@ -108,12 +119,12 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
             if (stopped) return
             const next = await update(current => {
               if (current?.pending?.[0]?.id !== command.id) throw new Error('The saved action queue changed. Reopen this fixture.')
-              return { ...current, baseMatch: match, pending: current.pending.slice(1), error: '', verifiedAt: new Date().toISOString() }
+              return { ...current, baseMatch: match, pending: current.pending.slice(1), error: '', errorCode: '', verifiedAt: new Date().toISOString() }
             })
             publish(next)
           } catch (error) {
             if (stopped) return
-            const next = await update(current => ({ ...current, error: error?.message || 'Waiting for a connection. Your actions remain saved on this device.' }))
+            const next = await update(current => ({ ...current, errorCode: error?.code || '', error: error?.message || 'Waiting for a connection. Your actions remain saved on this device.' }))
             publish(next)
             return
           }

@@ -10,7 +10,7 @@ test('network timeout aborts the real request and honours caller cancellation', 
     if (signal.aborted) rejectAbort()
     else signal.addEventListener('abort', rejectAbort, { once: true })
   })
-  await assert.rejects(createBoundedMobileFetch(fetcher, 10)('synthetic'), /aborted/)
+  await assert.rejects(createBoundedMobileFetch(fetcher, 10)('synthetic'), /timed out/)
   const controller = new AbortController()
   controller.abort()
   await assert.rejects(createBoundedMobileFetch(fetcher)('synthetic', { signal: controller.signal }), /aborted/)
