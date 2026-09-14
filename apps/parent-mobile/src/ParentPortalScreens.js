@@ -839,7 +839,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   const [keepAwake, setKeepAwake] = useState(false)
   const [keepAwakeAvailable, setKeepAwakeAvailable] = useState(true)
   const disabled = isOffline || busy
-  const timerActions = getParentScorerTimerActions(match)
+  const timerActions = getParentScorerTimerActions(match).filter((item) => item.action !== 'conclude')
   const canRecordEvents = getMatchDayLifecycleState(match) === 'playing'
   const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt)
   useEffect(() => {
@@ -866,9 +866,9 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
     return onAction('timer', action)
   }
   const chooseTimerAction = (action) => {
-    if (['start', 'full_time', 'conclude', 'normal_time_complete', 'complete_extra_time'].includes(action)) {
+    if (['start', 'full_time', 'normal_time_complete', 'complete_extra_time'].includes(action)) {
       setActionError('')
-      setActionSheet({ kind: 'confirm-timer', action, title: action === 'start' ? 'Start this match?' : action === 'conclude' ? 'Conclude this match?' : action === 'full_time' ? 'Finish this match?' : 'Finish this period of play?' })
+      setActionSheet({ kind: 'confirm-timer', action, title: action === 'start' ? 'Start this match?' : action === 'full_time' ? 'Finish this match?' : 'Finish this period of play?' })
       return
     }
     void runTimerAction(action)
@@ -919,10 +919,10 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
         {busy ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Saving Game Day change...</Text> : null}
       </View>
       {actionSheet?.kind === 'confirm-timer' ? <ParentMatchDayActionSheet busy={busy} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
-        <Text style={styles.body}>{actionSheet.action === 'start' ? 'Start the match clock and publish the live match?' : actionSheet.action === 'conclude' ? 'Confirm the final score and close this match. You can send it to the Coach for review instead.' : 'Confirm the score before stopping play. At full time, the Coach can review and conclude the match.'}</Text>
+        <Text style={styles.body}>{actionSheet.action === 'start' ? 'Start the match clock and publish the live match?' : 'Confirm the score before stopping play. At full time, the Coach can review and conclude the match.'}</Text>
         <Text style={styles.cardTitle}>{match.homeScore} - {match.awayScore}</Text>
         {actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}
-        <Button disabled={disabled} label={actionSheet.action === 'start' ? 'Confirm start' : actionSheet.action === 'conclude' ? 'Confirm conclusion' : 'Confirm finish'} onPress={() => { void confirmTimerAction() }} styles={styles} />
+        <Button disabled={disabled} label={actionSheet.action === 'start' ? 'Confirm start' : 'Confirm finish'} onPress={() => { void confirmTimerAction() }} styles={styles} />
         <Button disabled={busy} label="Cancel" onPress={() => setActionSheet(null)} outline styles={styles} />
       </ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Add goal"><Text style={styles.body}>The match time was captured when you pressed Goal. Add the details without rushing.</Text>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<GoalForm disabled={disabled} initialMinute={actionSheet.capturedMinute} initialStoppageMinute={actionSheet.capturedStoppageMinute} onAdd={(goal) => submitAndClose('goal', goal)} placeholderColor={placeholderColor} players={players} styles={styles} /></ParentMatchDayActionSheet> : null}

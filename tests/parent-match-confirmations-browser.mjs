@@ -57,7 +57,6 @@ try {
     for (const [status, phase, button, confirm, expected] of [
       ['scheduled', 'pre_match', 'Start match', 'Confirm start', 'start'],
       ['second_half', 'second_half', 'Full time', 'Confirm finish', 'timer'],
-      ['full_time', 'full_time', 'Conclude match', 'Confirm conclusion', 'timer'],
     ]) {
       await page.evaluate(({mode,status,phase}) => { window.calls=[]; window.renderPreview(mode,'#1b437e',{status,currentMatchPhase:phase,timerStatus:status==='scheduled'?'not_started':status==='full_time'?'full_time':'running'}) }, {mode,status,phase})
       await page.getByRole('button', {name:button,exact:true}).click()
@@ -70,6 +69,9 @@ try {
       assert.equal(await page.evaluate(() => window.calls.length),1)
       assert.equal(await page.evaluate(() => window.calls[0].action),expected)
     }
+    await page.evaluate(mode => window.renderPreview(mode,'#1b437e',{status:'full_time',currentMatchPhase:'full_time',timerStatus:'full_time'}), mode)
+    await page.getByRole('button',{name:'Send to Coach to conclude',exact:true}).waitFor()
+    assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).count(),0)
     await page.getByRole('button',{name:'Send to Coach to conclude',exact:true}).click()
     assert.equal(await page.evaluate(() => window.calls.at(-1).action),'request-review')
   }
@@ -91,5 +93,5 @@ try {
   await noticePage.waitForTimeout(2200)
   assert.equal(await noticePage.getByText('Could not save',{exact:true}).count(),1)
   assert.deepEqual(errors,[])
-  console.log('Parent start, finish, conclusion confirmations and Coach handoff passed in both themes')
+  console.log('Parent start/finish confirmations, Coach-only conclusion and handoff passed in both themes')
 } finally { await browser.close() }

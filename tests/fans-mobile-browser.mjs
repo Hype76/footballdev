@@ -42,6 +42,9 @@ window.rpc=async(name,args)=>{
   if(name==='create_fan_invitation'){
     const row={id:crypto.randomUUID(),name:args.name_value,email:args.email_value,parent_link_id:args.parent_link_id_value,is_owner:true,status:'pending',permissions:args.permissions_value,invite_token:crypto.randomUUID(),expires_at:new Date(Date.now()+86400000).toISOString()};window.rows.push(row);return row;
   }
+  if(name==='renew_fan_invitation'){
+    const row=window.rows.find(r=>r.id===args.connection_id_value);row.status='pending';row.invite_token=crypto.randomUUID();row.expires_at=new Date(Date.now()+86400000).toISOString();return row;
+  }
   if(name==='delete_cancelled_fan_invitation'){
     if(window.failDelete)throw Error('Could not delete. Try again.');
     const row=window.rows.find(r=>r.id===args.connection_id_value);if(row.status!=='cancelled')throw Error('Only cancelled');row.deleted=true;
@@ -146,6 +149,25 @@ try {
   const creates = await page.evaluate(() => window.calls.filter(c => c.name === 'create_fan_invitation'))
   assert.equal(creates.length, 3)
   assert.equal(await page.evaluate(() => window.emailRequests), 1)
+  await button('Show QR code').first().click()
+  await page.getByLabel('Fan invitation QR code').waitFor()
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='renew_fan_invitation').length),0)
+  await button('Resend link').first().click()
+  assert.match(await page.evaluate(()=>window.alert.message),/previous link will stop working/)
+  await page.evaluate(()=>window.alert.buttons[0].onPress?.())
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='renew_fan_invitation').length),0)
+  await button('Resend link').first().click()
+  await page.evaluate(()=>window.alert.buttons[1].onPress())
+  await page.waitForFunction(()=>window.emailRequests===2)
+  assert.equal(await page.evaluate(()=>window.rows.length),3)
+  await page.evaluate(()=>{window.rows[1].expires_at=new Date(Date.now()-60000).toISOString();window.rows[1].status='expired';window.remount()})
+  await page.getByText(/expired/).waitFor()
+  await button('Show QR code').nth(1).click()
+  await page.evaluate(()=>window.alert.buttons[1].onPress())
+  await page.getByLabel('Fan invitation QR code').waitFor()
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='renew_fan_invitation').length),2)
+  await page.screenshot({path:`${out}/renewed-qr.png`,fullPage:true})
+
   assert.ok(creates.every(c => c.args.parent_link_id_value === 'second'))
   assert.equal(await button('Delete').count(), 0)
   await page.evaluate(() => { window.rows[0].status='cancelled'; window.rows[1].status='revoked'; window.remount() })
