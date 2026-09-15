@@ -22,6 +22,7 @@ import { useToast } from '../components/ui/toast-context.js'
 import { MatchDayPage } from './MatchDayPage.jsx'
 import { buildMainAppUrl } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
+import { getOwnParentPortalFanLinks, revokeOwnParentPlayerAccess } from '../lib/domain/parent-portal.js'
 import { recordAnalyticsEvent } from '../lib/domain/platform-analytics.js'
 import {
   getParentCommunicationPreference,
@@ -510,6 +511,7 @@ function orderPlayersWithRecentScorers(players, match) {
 }
 
 export function ParentPortalPage({ demoGameDay = false } = {}) {
+  const [accessRevision, setAccessRevision] = useState(0)
   const { authUser, session, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -545,19 +547,29 @@ export function ParentPortalPage({ demoGameDay = false } = {}) {
     )
   }
 
-  return <ParentPortalExperience onOpenDemoGameDay={() => {
+  return <ParentPortalExperience key={accessRevision} onAccessRemoved={() => setAccessRevision((revision) => revision + 1)} onOpenDemoGameDay={() => {
     window.sessionStorage.setItem(PARENT_DEMO_GAME_DAY_OPEN_KEY, 'true')
     setIsDemoGameDayOpen(true)
     navigate('/parent-portal?practice=match-scoring')
   }} />
 }
 
-function ParentPortalExperience({ onOpenDemoGameDay }) {
-  const { authUser, resetPassword, session, signOut, user } = useAuth()
+function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
+  const { authUser, resetPassword, session, signOut, updateCurrentUserDetails, user } = useAuth()
   const { showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const links = useMemo(() => (Array.isArray(user?.parentPortalLinks) ? user.parentPortalLinks : []), [user?.parentPortalLinks])
   const [selectedLinkId, setSelectedLinkId] = useState('')
+  const [removeAccessTarget, setRemoveAccessTarget] = useState(null)
+  const [removeAccessError, setRemoveAccessError] = useState('')
+  const [isRemovingAccess, setIsRemovingAccess] = useState(false)
+  const removingAccessRef = useRef(false)
+  const accessOwnerId = String(authUser?.id || session?.user?.id || '')
+  const accessOwnerRef = useRef(accessOwnerId)
+  accessOwnerRef.current = accessOwnerId
+  useEffect(() => () => { if (accessOwnerRef.current === accessOwnerId) accessOwnerRef.current = '' }, [accessOwnerId])
+  const accessLinksRef = useRef(links)
+  accessLinksRef.current = links
   const [calendarCursor, setCalendarCursor] = useState(() => new Date())
   const [calendarView, setCalendarView] = useState('month')
   const [selectedCalendarEventId, setSelectedCalendarEventId] = useState('')
@@ -1501,6 +1513,46 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
     openParentMatchActionModal({ type: 'timer', match, timerAction })
   }
 
+  const handleRemoveOwnAccess = async () => {
+    const requestOwnerId = accessOwnerRef.current
+    if (!removeAccessTarget?.playerId || removingAccessRef.current || !requestOwnerId) return
+    removingAccessRef.current = true
+    setIsRemovingAccess(true)
+    setRemoveAccessError('')
+    try {
+      await revokeOwnParentPlayerAccess({ playerId: removeAccessTarget.playerId })
+      if (accessOwnerRef.current !== requestOwnerId) return
+      let fanRefreshFailed = false
+      const hadFanLinks = accessLinksRef.current.some((link) => link.linkType === 'fan')
+      const fanLinks = hadFanLinks ? await getOwnParentPortalFanLinks().catch(() => { fanRefreshFailed = true; return [] }) : []
+      if (accessOwnerRef.current !== requestOwnerId) return
+      const remaining = [...accessLinksRef.current.filter((link) => link.linkType !== 'fan'
+        && !(link.playerId === removeAccessTarget.playerId && ['parent', 'family'].includes(link.linkType || 'parent'))), ...fanLinks]
+      const next = remaining.find((link) => link.id === selectedLink?.id) || remaining[0]
+      const applied = updateCurrentUserDetails({
+        parentPortalLinks: remaining,
+        selectedParentLinkId: next?.id || '', selectedPlayerId: next?.playerId || '',
+        selectedPlayerName: next?.playerName || '', selectedPlayerSection: next?.playerSection || '',
+        ...(user?.role === 'parent_portal' ? {
+          clubId: next?.clubId || '', clubName: next?.clubName || 'Family portal', clubLogoUrl: next?.clubLogoUrl || '',
+          activeTeamId: next?.teamId || '', activeTeamName: next?.teamName || '',
+        } : {}),
+      }, { invalidateProfileSync: true, expectedAuthUserId: requestOwnerId })
+      if (applied === false) return
+      const params = new URLSearchParams({ section: 'settings', settingsArea: 'account' })
+      if (next?.id) params.set('parentLinkId', next.id)
+      setSearchParams(params, { replace: true })
+      showToast({ title: 'Player access removed', message: `Your access to ${removeAccessTarget.playerName || 'this player'} has been removed.${fanRefreshFailed ? ' Refresh the page to reload your Fan connections.' : ''}`, tone: fanRefreshFailed ? 'warning' : 'success' })
+      // Remount the experience to cancel all in-flight player loads and clear every scoped view.
+      onAccessRemoved()
+    } catch (error) {
+      if (accessOwnerRef.current === requestOwnerId) setRemoveAccessError(error.message || 'Your access could not be removed. Please try again.')
+    } finally {
+      removingAccessRef.current = false
+      if (accessOwnerRef.current === requestOwnerId) setIsRemovingAccess(false)
+    }
+  }
+
   const handleAddGoal = (event, match) => {
     event.preventDefault()
     openParentMatchActionModal({ type: 'addGoal', match })
@@ -1724,6 +1776,8 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
 
           {activeSection === 'settings' ? (
             <ParentSettingsPanel
+              linkedPlayers={links}
+              onRemoveAccess={(link) => { setRemoveAccessTarget(link); setRemoveAccessError('') }}
               authUser={authUser}
               hasPushSubscription={hasPushSubscription}
               isUpdatingPush={isUpdatingPush}
@@ -1743,6 +1797,17 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
           </section>
         </div>
       </ParentPortalRouteShell>
+      <ConfirmModal
+        isOpen={Boolean(removeAccessTarget)}
+        title={`Remove my access to ${removeAccessTarget?.playerName || 'this player'}?`}
+        message="You will lose Parent portal access to this player. Your account and access to other players will stay. Your saved contact details remain with the club. Ask the club for a new invitation if you need access again."
+        confirmLabel="Remove my access"
+        cancelLabel="Keep my access"
+        isBusy={isRemovingAccess}
+        errorMessage={removeAccessError}
+        onConfirm={handleRemoveOwnAccess}
+        onCancel={() => { if (!isRemovingAccess) setRemoveAccessTarget(null) }}
+      />
       <PreviousGameDetailModal
         match={selectedPreviousMatch ? {
           ...selectedPreviousMatch,
@@ -1958,6 +2023,8 @@ function ParentMatchDayHero({ matches, onOpenGameMode, selectedLink }) {
 }
 
 function ParentSettingsPanel({
+  linkedPlayers = [],
+  onRemoveAccess,
   authUser,
   hasPushSubscription,
   isUpdatingPush,
@@ -2145,10 +2212,14 @@ function ParentSettingsPanel({
 
             <div className={panelClass}>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Linked players</p>
-              <p className="mt-2 text-lg font-black text-[#101828]">{selectedLink ? selectedLink.playerName : 'No player selected'}</p>
-              <p className={`mt-2 ${bodyTextClass}`}>
-                This account can view {selectedLink ? `${selectedLink.playerName} at ${selectedLink.clubName || 'the club'}` : 'linked player records once the club shares access'}.
-              </p>
+              {linkedPlayers.filter((link, index, list) => ['parent', 'family'].includes(link.linkType || 'parent') && list.findIndex((item) => item.playerId === link.playerId && ['parent', 'family'].includes(item.linkType || 'parent')) === index).map((link) => (
+                <div key={link.playerId} className="mt-3 rounded-lg border border-[#d7e5dc] p-4">
+                  <p className="text-lg font-black text-[#101828]">{link.playerName || 'Linked player'}</p>
+                  <p className={bodyTextClass}>{link.clubName} {link.teamName ? `| ${link.teamName}` : ''}</p>
+                  <button type="button" onClick={() => onRemoveAccess?.(link)} className={`${secondaryButtonClass} mt-3`} aria-label={`Remove my access to ${link.playerName || 'this player'}`}>Remove my access</button>
+                </div>
+              ))}
+              {!linkedPlayers.some((link) => ['parent', 'family'].includes(link.linkType || 'parent')) ? <p className={`mt-2 ${bodyTextClass}`}>No linked players. Your account is still available. Ask your club for an invitation to link a player.</p> : null}
             </div>
           </>
         ) : null}

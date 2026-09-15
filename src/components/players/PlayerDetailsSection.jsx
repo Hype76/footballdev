@@ -7,6 +7,7 @@ import { getDraftParentContacts } from '../../hooks/players/playerProfileUtils.j
 import { isInviteEmailTemplate } from '../../lib/email-templates.js'
 import {
   getParentPortalInviteActionForContact,
+  getUnlistedParentAccessLinks,
   normalizeParentPortalInviteEmail,
 } from '../../lib/parent-portal-invite-actions.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
@@ -337,6 +338,7 @@ function PlayerDetailsSummary({
       ? 'Enable a Direct Email template before sending email from here.'
       : undefined
   const promotionDisabledReason = isPromoting ? 'Please wait while this player is being updated.' : undefined
+  const unlistedAccess = getUnlistedParentAccessLinks({ contacts, links: parentPortalLinks })
 
   return (
     <div className="space-y-4">
@@ -428,6 +430,24 @@ function PlayerDetailsSummary({
             )}
           </div>
       </section>
+
+      {unlistedAccess.length > 0 ? (
+        <section aria-label="Additional Parent access" className="border-t border-[#d7e5dc] pt-4">
+          <h3 className="text-sm font-black text-[#101828]">Additional Parent access</h3>
+          <p className="mt-1 text-sm leading-6 text-[#4b5f55]">These accounts have access or an outstanding invitation but are not in the contact list. Removing a contact does not remove portal access.</p>
+          <div className="mt-3 grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
+            {unlistedAccess.map((link) => (
+              <div key={link.id} className="min-w-0 rounded-xl border border-[#d7e5dc] bg-white p-4">
+                <p className="text-sm font-bold [overflow-wrap:anywhere]">{link.email}</p>
+                <p className="mt-1 text-xs font-bold text-[#047857]">{link.status === 'active' ? 'Parent portal linked' : 'Invitation pending'}</p>
+                <button type="button" disabled={Boolean(parentPortalRevokingLinkId)} onClick={() => onRemoveParentPortalAccess(link)} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] disabled:opacity-60">
+                  {parentPortalRevokingLinkId === link.id ? 'Removing...' : 'Remove Parent access'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
         <div className="flex flex-wrap items-end gap-3">

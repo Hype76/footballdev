@@ -28,6 +28,7 @@ for (const app of ['parent', 'coach']) {
     import {View, Text, TextInput, Switch, Pressable, StyleSheet, Platform, Linking} from 'react-native';
     import MaterialIcons from '@expo/vector-icons/MaterialIcons';
     import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
+    import {ParentPlayerAccessControls} from './apps/parent-mobile/src/ParentPlayerAccessControls.js';
     import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
     import {PasswordInput} from './apps/mobile-core/src/PasswordInput.js';
     import {IconSettings, SettingsSection} from './apps/mobile-core/src/IconSettings.js';
@@ -72,9 +73,10 @@ function App(){
     appBadgeEnabled:true,biometricAvailable:true,biometricEnabled:true,biometricStateStatus:'ready',notificationStateStatus:'ready',
     cacheState:{source:'live'},syncSummary:{waiting:0,needsAttention:0},communicationPreference:{communicationChannel:'both'},
     notificationState:{enabled:true,registered:true,permissionGranted:true,preferenceEnabled:true,message:''},
-    links:[{id:'child-one',playerName:'Demo Player',teamName:'U17'}],displayTheme:mode,themeMode:mode,
+    links:[{id:'child-one',playerId:'player-one',playerName:'Demo Player',teamName:'U17',linkType:'parent'}],displayTheme:mode,themeMode:mode,
     notificationSettingsFocusRequest:focus,onNotificationSettingsFocus:()=>{setFocus(null);window.scrollTo(0,0)},
     onPasswordChange:record('password'),onDisplayNameChange:record('name'),onSignOut:record('signout'),
+    onRemoveOwnPlayerAccess:record('remove-access'),
     onDisplayThemeChange:setMode,onToggleTheme:()=>setMode(mode==='dark'?'light':'dark'),
     onBiometricChange:record('biometric'),onToggleBiometrics:record('biometric'),onAppBadgeEnabledChange:record('badge'),onToggleAppBadge:record('badge'),
     onNotificationModeChange:record('push'),onCommunicationChannelChange:record('communication'),onRestoreDismissedItems:record('restore'),

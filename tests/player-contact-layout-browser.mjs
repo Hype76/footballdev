@@ -6,14 +6,14 @@ const source = await readFile('src/components/players/PlayerDetailsSection.jsx',
 const constants = source.slice(source.indexOf('const fieldClass'), source.indexOf('export function'))
 const summary = source.slice(source.indexOf('function PlayerDetailsSummary('))
 const entry = `import React from 'react';import {createRoot} from 'react-dom/client';
-import {getParentPortalInviteActionForContact,normalizeParentPortalInviteEmail} from './src/lib/parent-portal-invite-actions.js';
+import {getParentPortalInviteActionForContact,getUnlistedParentAccessLinks,normalizeParentPortalInviteEmail} from './src/lib/parent-portal-invite-actions.js';
 import {isInviteEmailTemplate} from './src/lib/email-templates.js';
 const PLAYER_CONTACT_TYPES={self:'self'},PlayerStatePanel=()=>null;
 ${constants}
 ${summary}
 const contacts=[{name:'First Parent',email:'a.very.long.parent.email.address.for.layout@example.test'},{name:'Second Parent',email:'second@example.test'},{name:'Third Parent',email:'third@example.test'}];
-const noop=()=>{};window.calls=[];
-createRoot(document.getElementById('root')).render(<PlayerDetailsSummary contacts={contacts} player={{id:'player',section:'Squad',team:'FP TEST U14',shirtNumber:'22',positions:['Midfielder'],status:'active'}} parentPortalLinks={[{id:'active',email:contacts[0].email,status:'active'},{id:'pending',email:contacts[1].email,status:'pending',inviteSentAt:'2026-09-15'}]} directEmailTemplates={[{optionKey:'parent:update',label:'Team update',audience:'parent'}]} selectedDirectEmailTemplateKey="parent:update" onSendParentPortalInviteForContact={c=>window.calls.push(c.email)} onSendParentPasswordReset={noop} onRemoveParentPortalAccess={noop} onSendDirectEmail={noop} onStartEditingPlayer={noop} onMovePlayerToTrial={noop} onSelectedDirectEmailTemplateChange={noop}/>);`
+const noop=()=>{};window.calls=[];window.revoked=[];
+createRoot(document.getElementById('root')).render(<PlayerDetailsSummary contacts={contacts} player={{id:'player',section:'Squad',team:'FP TEST U14',shirtNumber:'22',positions:['Midfielder'],status:'active'}} parentPortalLinks={[{id:'active',email:contacts[0].email,status:'active'},{id:'pending',email:contacts[1].email,status:'pending',inviteSentAt:'2026-09-15'},{id:'unlisted',email:'former.parent@example.test',status:'active'}]} directEmailTemplates={[{optionKey:'parent:update',label:'Team update',audience:'parent'}]} selectedDirectEmailTemplateKey="parent:update" onSendParentPortalInviteForContact={c=>window.calls.push(c.email)} onSendParentPasswordReset={noop} onRemoveParentPortalAccess={link=>window.revoked.push(link.id)} onSendDirectEmail={noop} onStartEditingPlayer={noop} onMovePlayerToTrial={noop} onSelectedDirectEmailTemplateChange={noop}/>);`
 const built=await build({stdin:{contents:entry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'}})
 const assets=await readdir('dist/assets');const css=await Promise.all(assets.filter(name=>name.endsWith('.css')).map(name=>readFile('dist/assets/'+name,'utf8')))
 const browser=await chromium.launch({headless:true});await mkdir('output/playwright/player-contact-layout',{recursive:true})
@@ -32,5 +32,7 @@ try {
   await page.screenshot({path:'output/playwright/player-contact-layout/'+mode+'-'+width+'.png',fullPage:true})
  }
  await page.getByRole('button',{name:'Send parent portal invite',exact:true}).click();assert.deepEqual(await page.evaluate(()=>window.calls),['third@example.test'])
+ await page.getByRole('region',{name:'Additional Parent access'}).getByText('former.parent@example.test',{exact:true}).waitFor()
+ await page.getByRole('region',{name:'Additional Parent access'}).getByRole('button',{name:'Remove Parent access',exact:true}).click();assert.deepEqual(await page.evaluate(()=>window.revoked),['unlisted'])
  assert.deepEqual(errors,[]);console.log('PASS: actual contact summary, long emails, active/pending/new actions and full-width cards at 320/390/768/1100/1600px in light/dark themes.')
 }finally{await browser.close()}

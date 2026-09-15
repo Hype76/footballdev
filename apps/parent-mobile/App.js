@@ -8,6 +8,8 @@ import { openVenueDirections } from '../mobile-core/src/venueDirections'
 import { PasswordInput } from '../mobile-core/src/PasswordInput'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
+import { ParentPlayerAccessControls } from './src/ParentPlayerAccessControls'
+import { buildParentProfileAfterAccessRemoval } from '../mobile-core/src/parentAccessRemovalCore'
 import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import { PitchTypeIcon } from './src/PitchTypeIcon'
@@ -128,6 +130,7 @@ import {
   updateParentPassword,
   updateParentDisplayName,
   updateParentScorerScore,
+  revokeOwnParentPlayerAccess,
   voidParentScorerGoal,
   voidParentScorerShootoutKick,
 } from './src/parentPortalData'
@@ -150,6 +153,7 @@ import {
   queueParentMessageRead,
   queueParentPollVote,
   readParentOfflineView,
+  removeParentOfflineAccessScopes,
   reconcileParentOfflineAttention,
   saveParentOfflineResources,
   saveParentOfflineSelection,
@@ -302,7 +306,16 @@ function LoginScreen() {
 }
 
 function ParentHome() {
-  const { authError, isProfileLoading, refreshUserProfile, signOut, user } = useMobileAuth()
+  const [accessRevision, setAccessRevision] = useState(0)
+  const [accessNotice, setAccessNotice] = useState(null)
+  return <ParentHomeSession key={accessRevision} initialNotice={accessNotice} onAccessRemoved={(message) => {
+    setAccessNotice({ message, tone: 'warning' })
+    setAccessRevision(value => value + 1)
+  }} />
+}
+
+function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
+  const { authError, isProfileLoading, refreshUserProfile, replaceCurrentUserProfile, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('home')
   const [activeActionId, setActiveActionId] = useState('')
@@ -319,7 +332,7 @@ function ParentHome() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [offlineCacheState, setOfflineCacheState] = useState({ source: '', stale: false })
-  const [notice, setNotice] = useState(null)
+  const [notice, setNotice] = useState(initialNotice)
   useEffect(() => {
     if (notice?.tone !== 'success') return undefined
     const timer = setTimeout(() => setNotice(current => current === notice ? null : current), 2000)
@@ -360,6 +373,10 @@ function ParentHome() {
   const loadedAuthorityScopeRef = useRef('')
   const lastDataRefreshAtRef = useRef(0)
   const requestIdRef = useRef(0)
+  const removalInFlightRef = useRef(false)
+  const currentAccountRef = useRef(user?.id)
+  currentAccountRef.current = user?.id
+  useEffect(() => () => { requestIdRef.current += 1; currentAccountRef.current = null }, [])
   const resumeInteractionRef = useRef(null)
   const resumeRefreshRef = useRef(false)
   const scrollViewRef = useRef(null)
@@ -1228,6 +1245,43 @@ function ParentHome() {
     void saveParentOfflineSelection(selectedMobileUser, linkId).catch((error) => console.warn(error))
     setChildSwitcherOpen(false)
     if (!stayOnFans) setActiveTab('home')
+  }
+
+  async function handleRemoveOwnPlayerAccess(link) {
+    if (removalInFlightRef.current || activeActionId || isOffline || isSyncing) throw new Error('Connect and wait for current actions to finish, then try again.')
+    const accountId = user.id
+    const { profile, removedLinkIds } = buildParentProfileAfterAccessRemoval({ ...user, selectedParentLinkId: selectedLink?.id || user.selectedParentLinkId }, link.playerId)
+    removalInFlightRef.current = true
+    try {
+      await revokeOwnParentPlayerAccess(selectedMobileUser, link)
+      if (currentAccountRef.current !== accountId) return
+      requestIdRef.current += 1
+      parentSyncScopeRef.current = ''
+      hydratedScopeRef.current = ''
+      setResources(Object.fromEntries(resourceNames.map(name => [name, { error: '', items: [], loading: false }])))
+      setChatMessages({ error: '', items: [], loading: false })
+      setMatchDayPlayers([])
+      setSelectedResourcePreview(null)
+      let cleanupMessage = ''
+      try {
+        await replaceCurrentUserProfile(profile)
+        await removeParentOfflineAccessScopes(profile, removedLinkIds)
+        await AsyncStorage.multiRemove(removedLinkIds.map(id => `fp.parent.dismissed.v1.${accountId}.${id}`))
+      } catch {
+        // The server removal already succeeded. Do not report it as an unsent
+        // request or retain the old player's encrypted profile on this phone.
+        if (currentAccountRef.current !== accountId) return
+        try {
+          await parentOfflineProfileStore.clear()
+          cleanupMessage = ' Saved offline information was cleared; reconnect to download it again.'
+        } catch {
+          cleanupMessage = ' This phone could not clear its saved information. Sign out before using it offline.'
+        }
+      }
+      if (currentAccountRef.current !== accountId) return
+      onAccessRemoved(`Your access to ${link.playerName} has been removed.${cleanupMessage}`)
+      void refreshUserProfile().catch(() => {})
+    } finally { removalInFlightRef.current = false }
   }
 
   async function handleOpenMessage(message) {
@@ -2195,6 +2249,7 @@ function ParentHome() {
                 onDisplayNameChange={handleDisplayNameChange}
                 onPasswordChange={handlePasswordChange}
                 onRestoreDismissedItems={handleRestoreDismissedItems}
+                onRemoveOwnPlayerAccess={handleRemoveOwnPlayerAccess}
                 onSendTestNotification={handleTestNotification}
                 onRetrySync={async () => {
                   const result = await runParentSync({ explicitRetry: true })
@@ -2868,6 +2923,7 @@ function SettingsScreen({
   onRetryNotificationState,
   onPasswordChange,
   onRestoreDismissedItems,
+  onRemoveOwnPlayerAccess,
   onRetrySync,
   onSendTestNotification,
   onSignOut,
@@ -2921,18 +2977,7 @@ function SettingsScreen({
 
       <SettingsSection id="children" label="Players" iconKey="more.team">
       <InfoPanel iconKey="more.team" title="Linked players">
-        {links.length > 0 ? links.map((link) => (
-          <View key={link.id} style={styles.linkSummary}>
-            <View style={styles.identityRow}>
-              <Badge label="Player" tone="accent" />
-              <Text style={styles.identityValue}>{link.playerName}</Text>
-            </View>
-            <View style={styles.identityRow}>
-              <Badge label="Team" />
-              <Text style={styles.identityValue}>{link.teamName || 'No Team assigned'}</Text>
-            </View>
-          </View>
-        )) : <Text style={styles.bodyText}>No active player links are available.</Text>}
+        <ParentPlayerAccessControls links={links} disabled={isOffline || isSyncing || Boolean(activeActionId)} onRemove={onRemoveOwnPlayerAccess} palette={palette} />
       </InfoPanel>
       </SettingsSection>
 

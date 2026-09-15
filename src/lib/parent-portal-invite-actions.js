@@ -2,6 +2,15 @@ export function normalizeParentPortalInviteEmail(email) {
   return String(email ?? '').trim().toLowerCase()
 }
 
+export function getUnlistedParentAccessLinks({ contacts = [], links = [] } = {}) {
+  const contactEmails = new Set(contacts.map((contact) => normalizeParentPortalInviteEmail(contact.email)).filter(Boolean))
+  return links.filter((link) => (
+    String(link.linkType ?? link.link_type ?? 'parent') === 'parent'
+    && ['active', 'pending'].includes(link.status)
+    && !contactEmails.has(normalizeParentPortalInviteEmail(link.email))
+  ))
+}
+
 export function isParentPortalInviteEligiblePlayer(player) {
   const section = String(player?.section ?? '').trim().toLowerCase()
   const status = String(player?.status ?? 'active').trim().toLowerCase()

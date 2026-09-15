@@ -1379,17 +1379,21 @@ function RuntimeAuthProvider({ children }) {
     })
   }
 
-  const updateCurrentUserDetails = (profile) => {
+  const updateCurrentUserDetails = (profile, { invalidateProfileSync = false, expectedAuthUserId = '' } = {}) => {
+    const expectedId = String(expectedAuthUserId || '')
+    const currentId = String(userRef.current?.authUserId || userRef.current?.id || '')
+    if (expectedId && currentId !== expectedId) return false
+    if (invalidateProfileSync) {
+      activeSyncIdRef.current += 1
+      setIsProfileLoading(false)
+    }
     setUser((current) => {
-      if (!current) {
-        return profile
-      }
-
-      return {
-        ...current,
-        ...profile,
-      }
+      if (expectedId && String(current?.authUserId || current?.id || '') !== expectedId) return current
+      const next = current ? { ...current, ...profile } : profile
+      userRef.current = next
+      return next
     })
+    return true
   }
 
   const value = {

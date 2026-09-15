@@ -10,6 +10,17 @@ import { getSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { getAccessToken, supabase } from '../../mobile-core/src/supabase'
 import { subscribeToMobileChatRoom } from '../../mobile-core/src/chatRealtime'
 import { normalizePersonName } from '../../../src/lib/person-name.js'
+import { canRemoveOwnParentAccess, validateParentAccessRemovalResult } from '../../mobile-core/src/parentAccessRemovalCore'
+
+export async function revokeOwnParentPlayerAccess(user, link) {
+  if (!user?.id || user.isOfflineProfile || !canRemoveOwnParentAccess(link)
+    || !user.parentPortalLinks?.some(candidate => candidate.id === link.id && candidate.playerId === link.playerId && canRemoveOwnParentAccess(candidate))) {
+    throw new Error('Connect and choose a player linked to your Parent account.')
+  }
+  const { data, error } = await supabase.rpc('revoke_own_parent_player_access', { target_player_id: link.playerId })
+  if (error) throw error
+  return validateParentAccessRemovalResult(data, link.playerId)
+}
 
 function normalizeText(value) {
   return String(value ?? '').trim()
