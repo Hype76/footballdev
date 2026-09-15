@@ -3,7 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
-const fansCss = await readFile('src/pages/fans.css', 'utf8')
+const fansCss = await readFile('src/pages/fans.css', 'utf8') + await readFile('src/pages/fan-invite.css', 'utf8')
 const origin = 'https://parent.footballplayer.test'
 const invitation = '/fan-invite/20000000-0000-4000-8000-000000000099'
 const result = await build({
@@ -66,6 +66,10 @@ try{
       assert.notEqual(appearance.background,'rgba(0, 0, 0, 0)')
       await page.screenshot({path:'output/playwright/fan-confirmation/confirmed-phone.png',fullPage:true})
       await page.getByRole('button',{name:'Accept invitation',exact:true}).click()
+      await page.getByRole('heading',{name:'Your Fan access is ready'}).waitFor()
+      assert.ok(page.url().includes(invitation), 'Accepting does not force navigation to the app or website')
+      assert.equal(await page.getByRole('link',{name:'Open Parent app',exact:true}).getAttribute('href'),'footballplayerparents://fans')
+      await page.getByRole('button',{name:'Continue on website',exact:true}).click()
       await page.getByRole('heading',{name:'Accepted Fan access'}).waitFor()
       assert.equal(accepts,1)
     }

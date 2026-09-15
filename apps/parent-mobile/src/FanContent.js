@@ -7,7 +7,7 @@ import { getParentGoogleCalendarUrl } from './parentExperience'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 
 export function FanContent({ connection, view, content, formation, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
-  const link = { playerName: connection?.player_name, teamName: connection?.team_name }
+  const link = { playerName: connection?.player_name, teamName: connection?.team_name, clubName: connection?.club_name }
   const resource = (items) => ({ items, loading: false, error: '' })
   const addToCalendar = (item) => onOpenLink(getParentGoogleCalendarUrl(item))
   if (view.action === 'attendance') return <View style={{ gap: 16 }}><Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 26, fontWeight: '800' }}>My attendance</Text><Text style={{ color: themeTokens.textSecondary }}>Your current attendance responses. Your Parent manages replies to invitations.</Text>{(content.attendance || []).map(item => <View key={item.id} style={{ gap: 6, paddingVertical: 12 }}><Text style={{ color: themeTokens.textPrimary, fontWeight: '700' }}>{item.title}</Text><Text style={{ color: themeTokens.textSecondary }}>{formatParentProductDateTime(item.starts_at || item.date)}</Text><Text style={{ color: themeTokens.textPrimary }}>{({ available: 'Available', attending: 'Attending', accepted: 'Attending', unavailable: 'Unavailable', not_attending: 'Not attending', declined: 'Not attending', maybe: 'Maybe' })[item.response] || 'Awaiting response'}</Text></View>)}{!content.attendance?.length ? <Text style={{ color: themeTokens.textSecondary }}>No upcoming attendance requests.</Text> : null}</View>
@@ -20,7 +20,7 @@ export function FanContent({ connection, view, content, formation, onCloseFormat
     return <CalendarScreen upcomingOnly link={link} resource={resource(buildParentCalendarEvents({ calendarEvents }))} onAddToCalendar={addToCalendar} onOpenLink={onOpenLink} themeTokens={themeTokens} />
   }
   if (view.action === 'matches') {
-    const matches = (content.matches || []).map((item) => ({ ...normalizeParentMatchDay({ ...item, team_name: connection?.team_name, events: view.matchId === item.id ? content.events || [] : [], is_scorer: false, isScorer: false, request_scorer: false }), isFanView: true }))
+    const matches = (content.matches || []).map((item) => ({ ...normalizeParentMatchDay({ ...item, team_name: connection?.team_name, club_name: item.club_name || connection?.club_name, events: view.matchId === item.id ? content.events || [] : [], is_scorer: false, isScorer: false, request_scorer: false }), isFanView: true }))
     return <MatchdayScreen link={link} clubKits={content.clubKits || {}} resource={resource(matches)} selectedMatch={matches.find((item) => item.id === view.matchId)} onOpen={(item) => onOpen('matches', { matchId: item.id })} onBack={() => onOpen('matches')} onOpenLink={onOpenLink} onAddToCalendar={addToCalendar} themeTokens={themeTokens} />
   }
   if (view.action === 'development') return <DevelopmentScreen resource={resource(content.reports || [])} themeTokens={themeTokens} />

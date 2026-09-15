@@ -17,7 +17,7 @@ const sectionReset = app.match(/setMoreSection\(\(section\) => section === 'fans
 assert.ok(sectionReset, 'Authority refresh preserves the Fans route')
 assert.match(app, /selectedParentLinkId=\{selectedLink\?\.id\} onSelectedParentLinkChange=\{\(linkId\) => handleChildChange\(linkId, \{ stayOnFans: true \}\)\}/)
 const mocks = {
-  auth: `export const useMobileAuth=()=>({user:window.user,refreshUserProfile:async()=>window.remount(),signOut:async()=>{}});`,
+  auth: `export const useMobileAuth=()=>({user:window.user,refreshUserProfile:async()=>window.remount(),signOut:async()=>{if(window.failSignOut)throw Error('Could not sign out. Try again.');window.signedOut=(window.signedOut||0)+1}});`,
   supabase: `export const getAccessToken=async()=> 'synthetic'; export const supabase={rpc:async(name,args)=>({data:await window.rpc(name,args)}),from:()=>{window.directKitReads=(window.directKitReads||0)+1;throw Error('Fan has no direct club access')},storage:{from:()=>({getPublicUrl:key=>({data:{publicUrl:'http://localhost:9877/kits/'+key}})})}};`,
   config: `export const getMobileRuntimeConfig=()=>({apiBaseUrl:'http://localhost:9877'});`,
   'expo-crypto': `export const randomUUID=()=>crypto.randomUUID();`,
@@ -206,23 +206,47 @@ try {
   assert.equal(await button('Open invitation').isEnabled(),true);
   await button('Cancel').click();
   await button('Open invitation').waitFor({state:'hidden'});
-  assert.equal(await button('Remove my access').count(),0,'Access removal is inside the options menu');
-  await button('More actions: Followed Child').click();
-  await button('Remove my access').waitFor();
-  await button('More actions: Followed Child').click();
-  for(const width of [320,390,512]) {
+  assert.equal(await button('Remove my access to Followed Child').count(),0,'Removal is absent from the player card');
+  assert.equal(await page.getByRole('button',{name:/More actions|Player options/}).count(),0);
+  assert.equal(await button('Sign out').count(),0,'Sign out is absent from Home');
+  await page.getByRole('tab',{name:'More',exact:true}).click();
+  await button('Remove my access to Followed Child').waitFor();
+  await page.evaluate(()=>window.mode('light'));
+  await page.locator('[data-mode="light"]').waitFor();
+  await page.screenshot({path:`${out}/settings-light-390.png`,fullPage:true});
+  await button('Sign out').click();
+  await button('Stay signed in').waitFor();
+  await page.waitForFunction(()=>{let el=[...document.querySelectorAll('[role=heading]')].find(el=>el.textContent==='Sign out?'); if(!el)return false; while(el){if(Number(getComputedStyle(el).opacity)<0.99)return false;el=el.parentElement}return true});
+  await page.screenshot({path:`${out}/signout-confirmation-light-390.png`,fullPage:true});
+  await button('Stay signed in').click();
+  assert.equal(await page.evaluate(()=>window.signedOut||0),0);
+  await button('Sign out').click();
+  await page.evaluate(()=>{window.failSignOut=true});
+  await button('Confirm sign out').click();
+  await page.getByRole('alert').filter({hasText:'Could not sign out. Try again.'}).last().waitFor();
+  assert.equal(await page.evaluate(()=>window.signedOut||0),0);
+  await page.evaluate(()=>{window.failSignOut=false});
+  await button('Confirm sign out').click();
+  await page.waitForFunction(()=>window.signedOut===1);
+  await button('Confirm sign out').waitFor({state:'hidden'});
+  await page.getByRole('tab',{name:'Home',exact:true}).click();
+  for(const width of [320,390,430,512]) {
     await page.setViewportSize({width,height:850});
     for(const mode of ['light','dark']) {
       await page.evaluate(mode=>window.mode(mode),mode);
       await page.screenshot({path:`${out}/players-cards-${mode}-${width}.png`,fullPage:true});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await assertRenderedTextContrast(page,`Player cards ${mode} ${width}`);
+      const developmentBox=await button('Development records').boundingBox();
+      assert.ok(developmentBox.width >= 220 && developmentBox.height >= 56,'Feature rows retain readable width and touch targets');
+      const nav=await page.getByRole('tablist').boundingBox();
+      assert.ok(nav.y > 700 && nav.height >= 64,'Navigation stays at bottom of the viewport');
     }
   }
   await page.setViewportSize({width:390,height:844});
   for(const mode of ['light','dark']) {
     await page.evaluate(mode=>window.mode(mode),mode);
-    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Matchday','Under 17 v Away Club'],['Development records','Development','Shared report'],['Resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
+    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Matchday','Demo FC v Away Club'],['Development records','Development','Shared report'],['Resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
       await button(label).click();
       await page.getByRole('heading',{name:title,exact:true}).waitFor();
       await page.getByText(expected,{exact:expected!=='Shared report'}).waitFor();
@@ -238,8 +262,8 @@ try {
         await page.route('http://localhost:9877/kits/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><path fill="#af2555" d="M16 5h24l12 12-8 8-5-5v31H17V20l-5 5-8-8z"/></svg>'}));
         for(const choice of ['home','away','tbc']) {
           await page.evaluate(choice=>{window.responses.matches.matches[0].shirt_choice=choice;window.responses.matches.clubKits={home:{colour:'#123456',imagePath:'club/home/custom.png'},away:{colour:'#af2555',imagePath:'club/away/custom.png'}}},choice);
-          await page.getByText('Under 17 v Away Club',{exact:true}).click();
-          await page.getByRole('heading',{name:'Under 17 v Away Club',exact:true}).waitFor();
+          await page.getByText('Demo FC v Away Club',{exact:true}).click();
+          await page.getByRole('heading',{name:'Demo FC v Away Club',exact:true}).waitFor();
           assert.equal(await page.getByRole('button',{name:/See squad|Register interest|Start match/}).count(),0);
           const matchDate=new Date((await page.evaluate(()=>window.responses.matches.matches[0].match_date))+'T12:00:00Z');await page.getByText(new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/London'}).format(matchDate),{exact:true}).waitFor();
           const label=choice==='tbc'?'Kit to be confirmed':choice==='home'?'Home kit':'Away kit';
@@ -274,7 +298,7 @@ try {
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=false;window.finishRead()});
   await button('Game Day').click();
-  await page.getByText('Under 17 v Away Club',{exact:true}).waitFor();
+  await page.getByText('Demo FC v Away Club',{exact:true}).waitFor();
   assert.equal(await page.getByText('There are no shared calendar events for this player.').count(),0);
   await page.evaluate(()=>{window.rows[0].permissions.game_day=false;window.background()});
   await button('Back to Fans').waitFor({state:'hidden'});
@@ -287,12 +311,12 @@ try {
   });
   await page.getByText('Jenson Bailey',{exact:true}).waitFor();
   assert.equal(await button('Resources').count(),1,'Each card retains its own permission set');
-  await button('More actions: Jenson Bailey').click();
-  await button('Remove my access').waitFor();
+  await page.getByRole('tab',{name:'More',exact:true}).click();
+  await button('Remove my access to Jenson Bailey').waitFor();
   await page.setViewportSize({width:512,height:850});
   await page.screenshot({path:`${out}/players-reference-layout.png`,fullPage:true});
   await assertRenderedTextContrast(page,'Players reference layout');
-  await button('Remove my access').click();
+  await button('Remove my access to Jenson Bailey').click();
   assert.equal(await page.evaluate(()=>window.alert.title),'Remove my access');
   await page.evaluate(()=>{
     window.standalone=false;window.user={id:'parent-test',parentPortalLinks:[{id:'second',playerName:'FP TEST Player',clubName:'Demo FC'}]};

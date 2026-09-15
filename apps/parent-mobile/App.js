@@ -7,6 +7,8 @@ import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
 import { openVenueDirections } from '../mobile-core/src/venueDirections'
 import { PasswordInput } from '../mobile-core/src/PasswordInput'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
+import { FanInvitationScreen } from './src/FanInvitationScreen'
+import { useFanAppLink } from './src/useFanAppLink'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { ParentPlayerAccessControls } from './src/ParentPlayerAccessControls'
 import { buildParentProfileAfterAccessRemoval } from '../mobile-core/src/parentAccessRemovalCore'
@@ -3352,6 +3354,9 @@ function BackButton({ label, onPress }) {
 }
 
 function AppContent() {
+  const fanLink = useFanAppLink()
+  const [fanSignInRoute, setFanSignInRoute] = useState(null)
+  const signingInForFan = fanLink.route != null && fanSignInRoute === fanLink.route
   const fanNotification = Notifications.useLastNotificationResponse()
   const [dismissedFanNotification, setDismissedFanNotification] = useState('')
   const fanNotificationId = fanNotification?.notification?.request?.identifier || ''
@@ -3381,7 +3386,11 @@ function AppContent() {
       />
     )
   }
-  if (!session?.user) return <LoginScreen />
+  if (!session?.user) {
+    if (fanLink.route?.kind === 'invite' && !signingInForFan) return <FanInvitationScreen token={fanLink.route.token} session={session} onSignIn={() => setFanSignInRoute(fanLink.route)} onClose={fanLink.close} onAccepted={fanLink.accepted} />
+    if (fanLink.route?.kind === 'invite') return <View style={{ flex: 1 }}><Pressable accessibilityRole="button" accessibilityLabel="Back to Fan invitation" onPress={() => setFanSignInRoute(null)} style={{ minHeight: 48, padding: 14, backgroundColor: '#f3f7f5' }}><Text style={{ color: '#173f35', fontWeight: '700' }}>Back to Fan invitation</Text></Pressable><LoginScreen /></View>
+    return <LoginScreen />
+  }
   if (isLocked) {
     return (
       <LockedScreen
@@ -3391,6 +3400,8 @@ function AppContent() {
       />
     )
   }
+  if (fanLink.route?.kind === 'invite') return <FanInvitationScreen key={`${session.user.id}:${fanLink.route.token}`} token={fanLink.route.token} session={session} onSignIn={() => setFanSignInRoute(fanLink.route)} onClose={fanLink.close} onAccepted={fanLink.accepted} />
+  if (fanLink.route?.kind === 'fans') return <FansScreen onBack={fanLink.close} />
   if (user?.parentPortalLinks?.length && user.parentPortalLinks.every((link) => link.linkType === 'fan')) return <FansScreen />
   if (showFanNotification) return <FansScreen onBack={() => setDismissedFanNotification(fanNotificationId)} />
   return <ParentHome />

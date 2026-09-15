@@ -1,6 +1,7 @@
 import { buildCoachCalendarOccurrenceDates } from '../../../apps/mobile-core/src/coachCalendarCore.js'
 import { getParentProductDateTimeParts } from '../../../apps/mobile-core/src/parentDateTimeCore.js'
 import { upcomingFanSchedule } from '../../../src/lib/fan-schedule.js'
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -30,7 +31,7 @@ export async function loadFanMatches(client, scope, matchId = '') {
   for (const match of candidates) {
     if (canFanViewMatch(match, scope.parent, involved)) {
       const { parent_visible: _visible, parent_audience: _audience, deleted_at: _deleted, previous_hidden_at: _hidden, ...safe } = match
-      allowed.push(safe)
+      allowed.push({ ...safe, club_name: scope.club.name })
     }
   }
   return allowed
@@ -53,7 +54,7 @@ export async function loadFanSchedule(client, scope, now = new Date()) {
     const sessions = await rows(client.from('assessment_sessions').select('id,title,session_date,start_time,end_time,location,status').in('id', assessmentIds).eq('club_id', scope.fan.club_id).neq('status', 'cancelled'))
     schedule.push(...sessions.map((session) => ({ id: session.id, title: session.title || 'Assessment', date: session.session_date, time: session.start_time, end_time: session.end_time, location: session.location, event_type: 'assessment', status: session.status })))
   }
-  schedule.push(...matches.map((match) => ({ id: match.id, title: `Fixture: ${match.opponent}`, date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name, event_type: 'match_day', status: match.status })))
+  schedule.push(...matches.map((match) => ({ id: match.id, title: getMatchDayDisplayName(match), date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name, event_type: 'match_day', status: match.status })))
   return upcomingFanSchedule(schedule, now)
 }
 
