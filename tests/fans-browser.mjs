@@ -55,7 +55,7 @@ try {
     }
     if (url.pathname === '/.netlify/functions/fans') {
       const action = route.request().postDataJSON().action
-      if (action === 'schedule') return route.fulfill({ status:200,contentType:'application/json',body:JSON.stringify({schedule:[{id:'training',title:'Shared Fan training',date:'2026-09-14',time:'18:00'}]}) })
+      if (action === 'schedule') return route.fulfill({ status:200,contentType:'application/json',body:JSON.stringify({schedule:[{id:'training',title:'Shared Fan training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]}) })
       assert.equal(action,'send_invitation')
       emailRequests++
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' })
