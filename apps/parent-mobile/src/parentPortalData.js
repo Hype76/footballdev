@@ -272,6 +272,8 @@ export function normalizeParentMatchDay(row = {}) {
   const match = normalizeMatchDay(row)
   return {
     ...match,
+    scorerReviewRequestedAt: row.scorer_review_requested_at ?? row.scorerReviewRequestedAt ?? '',
+    isScorer: match.isScorer && !(row.scorer_review_requested_at ?? row.scorerReviewRequestedAt),
     clockMode: normalizeText(row.match_clock_mode ?? row.clockMode) || 'fixed',
     conclusionRule: normalizeText(row.match_conclusion_rule ?? row.conclusionRule) || 'normal_time',
     confirmedTeam: Array.isArray(row.selected_player_names ?? row.selectedPlayerNames)
@@ -301,18 +303,20 @@ export function normalizeParentMatchDay(row = {}) {
 
 export async function getParentPortalMatchDays(user) {
   const link = requireSelectedLink(user)
-  const [baseResult, extendedResult, teamResult, scorerResult, shirtResult] = await Promise.all([
+  const [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_scorer_game_mode_match_ids', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
+    supabase.rpc('get_parent_match_day_review_requests', { parent_link_id_value: link.id }),
   ])
-  for (const result of [baseResult, extendedResult, teamResult, scorerResult, shirtResult]) {
+  for (const result of [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult]) {
     if (result.error) throw result.error
   }
   const extendedById = new Map((extendedResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row]))
   const teamById = new Map((teamResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.selected_player_names ?? row.selectedPlayerNames ?? []]))
+  const reviewById = new Map((reviewResult.data || []).map((row) => [String(row.match_day_id), row.scorer_review_requested_at]))
   const scorerIds = new Set((scorerResult.data || []).map((row) => String(row.match_day_id ?? row.matchDayId)))
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
   return (baseResult.data || []).map((row) => {
@@ -323,6 +327,7 @@ export async function getParentPortalMatchDays(user) {
       ...extended,
       events: (row.events || []).map((event) => ({ ...event, ...(eventContext.get(String(event.id)) || {}) })),
       is_scorer: scorerIds.has(String(row.id)),
+      scorer_review_requested_at: reviewById.get(String(row.id)) || '',
       shirt_choice: shirtsById.get(String(row.id)),
       selected_player_names: teamById.get(String(row.id)) || [],
     })
@@ -733,6 +738,11 @@ export async function sendParentScorerMatchDayPush(user, matchDayId, type, event
     }
   }
   return null
+}
+
+export function requestParentScorerReview(user, matchId) {
+  const link = requireSelectedLink(user)
+  return scorerRpc('request_parent_match_day_review', { match_day_id_value: matchId, parent_link_id_value: link.id })
 }
 
 export function startParentScorerMatch(matchId) {

@@ -23,8 +23,13 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
     const { data, error } = await client.auth.getUser(token)
     if (error || !data?.user?.id) return json(401, { message: 'Sign in to continue.' })
     const actor = data.user.id
-    if (['register_device', 'unregister_device'].includes(body.action)) {
+    if (['register_device', 'unregister_device', 'device_status'].includes(body.action)) {
       if (!/^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]+\]$/.test(body.token || '')) return json(400, { message: 'Notification registration is invalid.' })
+      if (body.action === 'device_status') {
+        const result = await client.from('fan_devices').select('token').eq('token', body.token).eq('auth_user_id', actor).maybeSingle()
+        if (result.error) throw result.error
+        return json(200, { registered: Boolean(result.data) })
+      }
       const result = body.action === 'register_device'
         ? await client.from('fan_devices').upsert({ token: body.token, auth_user_id: actor, updated_at: new Date().toISOString() })
         : await client.from('fan_devices').delete().eq('token', body.token).eq('auth_user_id', actor)

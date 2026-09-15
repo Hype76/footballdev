@@ -22,14 +22,14 @@ import {
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
 import { getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
 import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
-import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
+import { getMatchDayShirtChoiceLabel, isContinuousMatchClock, normalizeMatchDurationMinutes } from '../../../src/lib/matchday-model.js'
 import { PitchTypeIcon } from './PitchTypeIcon'
 import { MatchTypeIcon } from './MatchTypeIcon'
 import { HomeAwayIcon } from './HomeAwayIcon'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import ParentIcon from './ParentIcon'
-import { formatMatchAddedTimeClock, getMatchEventTime, getMatchClockDescription } from '../../../src/lib/matchday-event-time.js'
+import { formatMatchAddedTimeClock, getMatchEventTime } from '../../../src/lib/matchday-event-time.js'
 import { captureParentScorerAction, getParentMatchTimeline, getParentScorerActionLabel, getParentScorerMatches } from './parentScorerCore'
 import { getParentEventDateTimeLabel, getParentEventKey, getParentEventPresentation } from './parentEventPresentation'
 import {
@@ -118,6 +118,13 @@ function usePortalStyles(themeTokens) {
       body: { color: colors.text, fontSize: 15, lineHeight: 22 },
       card: { backgroundColor: 'transparent', borderBottomColor: colors.border, borderBottomWidth: 1, gap: 8, paddingHorizontal: 0, paddingVertical: 12 },
       controllerCard: { backgroundColor: 'transparent', borderBottomColor: colors.accentText, borderBottomWidth: 2, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
+      scorerBoard: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, paddingBottom: 14, paddingTop: 6, gap: 4 },
+      scorerClock: { color: colors.text, fontSize: 86, lineHeight: 100, fontVariant: ['tabular-nums'], fontWeight: '900', textAlign: 'center', width: '100%' },
+      scorerPhase: { color: colors.muted, fontSize: 16, fontWeight: '700', textAlign: 'center' },
+      scorerScore: { color: colors.text, fontSize: 76, lineHeight: 90, fontVariant: ['tabular-nums'], fontWeight: '900', textAlign: 'center', width: '100%' },
+      scorerAction: { alignItems: 'center', flexDirection: 'row', gap: 9, minHeight: 58, paddingHorizontal: 10 },
+      scorerActionText: { flexShrink: 1, fontSize: 15, textAlign: 'center' },
+      scorerSecondary: { borderTopColor: colors.border, borderTopWidth: 1, gap: 12, paddingTop: 14 },
       capturedPill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderColor: colors.accentText, borderRadius: 999, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
       developmentScoreCard: { borderColor: colors.border, borderRadius: 12, borderTopColor: colors.accentText, borderTopWidth: 3, borderWidth: 1, gap: 8, padding: 12 },
       developmentScoreNumber: { color: colors.accentText, fontSize: 22, fontWeight: '900' },
@@ -649,7 +656,7 @@ function GoalPlayerPicker({ allowClear = false, disabled, label, onSelect, onSel
 }
 
 function getGoalDetailsError(side, scorerName, minute, isOwnGoal = false, stoppageMinute = '') {
-  if ((isOwnGoal ? side === 'opponent' : side === 'club') && !normalizeText(scorerName).replace(/^Other:\s*/i, '').trim()) return 'Choose a scorer or enter their name under Other.'
+  if ((isOwnGoal ? side === 'opponent' : side === 'club') && !normalizeText(scorerName).replace(/^Other:\s*/i, '').trim()) return 'Choose a scorer or type their name.'
   if (normalizeText(minute) && (!Number.isInteger(Number(minute)) || Number(minute) < 0)) return 'Enter a whole match minute of 0 or more.'
   if (normalizeText(stoppageMinute) && (!Number.isInteger(Number(stoppageMinute)) || Number(stoppageMinute) < 0 || Number(stoppageMinute) > 30)) return 'Enter added time from 0 to 30 minutes.'
   return ''
@@ -697,13 +704,9 @@ function GoalForm({ disabled, initialMinute = '', initialStoppageMinute = '', on
       <View style={styles.row}><Text style={styles.cardTitle}>Own goal</Text><Switch accessibilityLabel="Own goal" disabled={disabled} onValueChange={(value) => { if (value !== isOwnGoal) setSide(oppositeMatchSide(side)); setIsOwnGoal(value); setIsPenaltyGoal(false); setAssistName(''); setAssistShirtNumber(''); setValidationError('') }} value={isOwnGoal} /></View>
       {isOwnGoal ? <Text style={styles.helper}>{side === 'club' ? 'An opponent scored into their own goal. The goal counts for our team.' : 'One of our players scored into our goal. The goal counts for the opponent.'}</Text> : null}
       {(isOwnGoal ? side === 'opponent' : side === 'club') ? <>
-        <Text style={styles.fieldLabel}>Scorer type</Text>
-        <View style={styles.actionRow}>
-          {[['player', 'Player'], ['other', 'Other']].map(([value, label]) => <Button disabled={disabled} key={value} label={label} onPress={() => { if (scorerParticipantType === value) return; setScorerParticipantType(value); setScorerName(''); setScorerShirtNumber(''); setValidationError('') }} outline={scorerParticipantType !== value} selected={scorerParticipantType === value} styles={styles} />)}
-        </View>
-        {scorerParticipantType === 'player'
-          ? <GoalPlayerPicker disabled={disabled} label="Scorer" onSelect={(player) => { setScorerName(player?.playerName || ''); setScorerShirtNumber(player?.shirtNumber || '') }} players={players} styles={styles} value={scorerName} />
-          : <TextInput accessibilityLabel={'Other participant name'} editable={!disabled} onChangeText={setScorerName} placeholder={'Other participant name'} placeholderTextColor={placeholderColor} style={styles.field} value={scorerName} />}
+        <GoalPlayerPicker disabled={disabled} label="Scorer" onSelect={(player) => { setScorerParticipantType('player'); setScorerName(player?.playerName || ''); setScorerShirtNumber(player?.shirtNumber || ''); setValidationError('') }} players={players} styles={styles} value={scorerParticipantType === 'player' ? scorerName : ''} />
+        <Text style={styles.fieldLabel}>Or type the scorer's name</Text>
+        <TextInput accessibilityLabel="Scorer name" editable={!disabled} onChangeText={(value) => { setScorerParticipantType('other'); setScorerName(value); setScorerShirtNumber(''); setValidationError('') }} placeholder="Type scorer name" placeholderTextColor={placeholderColor} style={styles.field} value={scorerName} />
         {!isOwnGoal ? <GoalPlayerPicker allowClear disabled={disabled} label="Assist" onSelect={(player) => { setAssistParticipantType('player'); setAssistName(player?.playerName || ''); setAssistShirtNumber(player?.shirtNumber || '') }} onSelectOther={() => { if (assistParticipantType === 'other') return; setAssistParticipantType('other'); setAssistName(''); setAssistShirtNumber('') }} otherSelected={assistParticipantType === 'other'} players={players.filter((player) => player.playerName !== scorerName)} styles={styles} value={assistName} /> : null}
         {!isOwnGoal && assistParticipantType === 'other' ? <TextInput accessibilityLabel="Other assist name" editable={!disabled} onChangeText={setAssistName} placeholder="Other assist name" placeholderTextColor={placeholderColor} style={styles.field} value={assistName} /> : null}
       </> : <>
@@ -823,6 +826,24 @@ function ParentMatchDayActionSheet({ busy, capturedClock, children, onClose, sty
   </Modal>
 }
 
+function ScorerActionButton({ danger = false, disabled, icon, iconColor, label, onPress, primary = false, styles }) {
+  const textStyle = danger ? styles.actionTextDanger : primary ? styles.actionText : styles.actionTextOutline
+  return <View style={styles.actionGridItem}><Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress} style={[styles.action, !primary && !danger && styles.actionOutline, danger && styles.actionDanger, styles.scorerAction, disabled && styles.actionDisabled]}>
+    <MaterialIcons accessible={false} color={iconColor || StyleSheet.flatten(textStyle).color} name={icon} size={29} />
+    <Text style={[styles.actionText, textStyle, styles.scorerActionText]}>{label}</Text>
+  </Pressable></View>
+}
+
+function getScorerPeriodLabel(match) {
+  const phase = getCoachMatchDayPresentation(match).phaseLabel
+  if (isContinuousMatchClock(match)) return `${phase} (continuous clock)`
+  const minutes = String(match.currentMatchPhase || '').startsWith('extra_time')
+    ? Number(match.extraTimeHalfMinutes || 15)
+    : normalizeMatchDurationMinutes(match.matchDurationMinutes) / 2
+  const seconds = Math.round(minutes * 60)
+  return `${phase} (${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')})`
+}
+
 function ScorerControls({ activeActionId, isOffline, match, onAction, placeholderColor, players = [], styles }) {
   const busy = activeActionId.startsWith(`scorer:${match.id}:`)
   const [homeScore, setHomeScore] = useState(String(match.homeScore || 0))
@@ -832,7 +853,8 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   const [actionError, setActionError] = useState('')
   const [keepAwake, setKeepAwake] = useState(false)
   const [keepAwakeAvailable, setKeepAwakeAvailable] = useState(true)
-  const disabled = isOffline || busy
+  const handedOver = Boolean(match.scorerReviewRequestedAt || match.concludedAt)
+  const disabled = isOffline || busy || handedOver
   const timerActions = getParentScorerTimerActions(match).filter((item) => item.action !== 'conclude')
   const canRecordEvents = getMatchDayLifecycleState(match) === 'playing'
   const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt)
@@ -845,6 +867,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
     }
   }, [])
   const openAction = (kind, title) => {
+    if (disabled) return
     setActionError('')
     if (kind === 'score') {
       setScoreReason('')
@@ -891,26 +914,34 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
       setKeepAwakeAvailable(false)
     }
   }
+  const awakeControl = <View style={styles.row}><Text style={[styles.body, { flex: 1 }]}>{keepAwake ? 'Screen kept awake' : keepAwakeAvailable ? 'Keep screen awake' : 'Keep screen awake unavailable'}</Text><Switch accessibilityLabel="Keep screen awake" disabled={!keepAwakeAvailable} onValueChange={toggleKeepAwake} value={keepAwake} /></View>
+  if (handedOver) return <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View>
   return (
     <View style={styles.stack}>
-      <View style={styles.controllerCard}>
-        <Text style={styles.pill}>Accepted Parent scorer</Text>
-        <Text style={styles.cardTitle}>Match scoring</Text>
-        <Text style={styles.gameDayScore}>{formatMatchAddedTimeClock(match)}</Text>
-        <Text style={styles.helper}>{getMatchClockDescription(match)}</Text>
-        <Text style={styles.helper}>Use one action at a time. Goal details open separately so the main match screen stays clear.</Text>
+      <View accessibilityLabel="Match scoring" style={styles.stack}>
+        <View style={styles.scorerBoard}>
+          <Text accessibilityLabel={`Match timer ${formatMatchAddedTimeClock(match)}`} adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.scorerClock} testID="scorer-clock">{formatMatchAddedTimeClock(match)}</Text>
+          <Text style={styles.scorerPhase}>{getScorerPeriodLabel(match)}</Text>
+          <Text accessibilityLabel={`Score ${match.homeScore || 0} to ${match.awayScore || 0}`} accessibilityLiveRegion="polite" adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.scorerScore} testID="scorer-score">{match.homeScore || 0} - {match.awayScore || 0}</Text>
+        </View>
         {isOffline ? <Text style={styles.warning}>Controls are unavailable offline. Connect before changing the clock, score or events.</Text> : null}
-        <View style={styles.card}><View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.cardTitle}>Keep screen awake</Text><Text style={styles.meta}>{keepAwakeAvailable ? 'Optional for this live controller session. No match data is changed.' : 'Unavailable on this device.'}</Text></View><Switch accessibilityLabel="Keep screen awake" disabled={!keepAwakeAvailable} onValueChange={toggleKeepAwake} value={keepAwake} /></View></View>
-        <View style={styles.actionGrid}>
-          {canRecordEvents ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Goal" onPress={() => openAction('goal', 'Add goal')} styles={styles} /></View> : null}
-          {canRecordEvents ? Object.entries(SCORER_EVENT_LABELS).map(([kind, label]) => <View key={kind} style={styles.actionGridItem}><Button disabled={disabled} label={label} onPress={() => openAction(kind, label)} outline styles={styles} /></View>) : null}
-          {timerActions.map((item) => <View key={item.action} style={styles.actionGridItem}><Button danger={['conclude', 'full_time'].includes(item.action)} disabled={disabled} label={item.label} onPress={() => chooseTimerAction(item.action)} outline={!['conclude', 'full_time'].includes(item.action)} styles={styles} /></View>)}
+        {!keepAwake ? awakeControl : null}
+        <View style={styles.actionGrid} testID="scorer-primary-actions">
+          {canRecordEvents ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Goal" onPress={() => openAction('goal', 'Add goal')} primary styles={styles} /> : null}
+          {canRecordEvents ? Object.entries(SCORER_EVENT_LABELS).map(([kind, label]) => <ScorerActionButton disabled={disabled} icon={kind === 'substitution' ? 'swap-horiz' : 'style'} iconColor={kind === 'yellow_card' ? '#d79b00' : kind === 'red_card' ? '#e92736' : '#24ad60'} key={kind} label={label} onPress={() => openAction(kind, label)} styles={styles} />) : null}
+          {timerActions.filter((item) => item.action !== 'hydration').map((item) => <ScorerActionButton danger={item.action === 'full_time'} disabled={disabled} icon={item.action === 'pause' ? 'pause' : item.action === 'full_time' ? 'stop' : item.action.includes('half_time') ? 'timer' : 'play-arrow'} key={item.action} label={item.label} onPress={() => chooseTimerAction(item.action)} styles={styles} />)}
           {match.status === 'full_time' && !match.concludedAt ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Send to Coach to conclude" onPress={() => onAction('request-review')} styles={styles} /></View> : null}
-          <View style={styles.actionGridItem}><Button disabled={disabled || !canRecordEvents} label="Correct score" onPress={() => openAction('score', 'Correct score')} outline styles={styles} /></View>
-          {activeGoals.length ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Correct goal" onPress={() => openAction('correct-goal', 'Correct or remove a goal')} outline styles={styles} /></View> : null}
-          {match.currentMatchPhase === 'penalties' ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Penalty shootout" onPress={() => openAction('shootout', 'Penalty shootout')} outline styles={styles} /></View> : null}
+          <ScorerActionButton disabled={disabled || !canRecordEvents} icon="track-changes" label="Correct score" onPress={() => openAction('score', 'Correct score')} styles={styles} />
         </View>
         {busy ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Saving Game Day change...</Text> : null}
+        <View style={styles.scorerSecondary} testID="scorer-secondary-actions">
+          <View style={styles.actionGrid}>
+            {timerActions.some((item) => item.action === 'hydration') ? <ScorerActionButton disabled={disabled} icon="water-drop" label="Hydration break" onPress={() => chooseTimerAction('hydration')} styles={styles} /> : null}
+            {activeGoals.length ? <ScorerActionButton disabled={disabled} icon="edit" label="Correct goal" onPress={() => openAction('correct-goal', 'Correct or remove a goal')} styles={styles} /> : null}
+            {match.currentMatchPhase === 'penalties' ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Penalty shootout" onPress={() => openAction('shootout', 'Penalty shootout')} styles={styles} /> : null}
+          </View>
+          {keepAwake ? awakeControl : null}
+        </View>
       </View>
       {actionSheet?.kind === 'confirm-timer' ? <ParentMatchDayActionSheet busy={busy} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
         <Text style={styles.body}>{actionSheet.action === 'start' ? 'Start the match clock and publish the live match?' : 'Confirm the score before stopping play. At full time, the Coach can review and conclude the match.'}</Text>
@@ -966,8 +997,10 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
     const scorerPlayers = players.filter((player) => confirmedPlayerNames.has(player.playerName))
     return (
       <View style={styles.stack}>
-        <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back />
+        {!selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
+        {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
         {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} players={scorerPlayers} styles={styles} /> : null}
+        {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
           <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || getMatchDayDisplayName(selectedMatch)}</Text>

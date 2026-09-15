@@ -33,6 +33,6 @@ test('Schedule filters historic fixtures and assessments after combining every p
     for (const method of ['select', 'eq', 'neq', 'is', 'gte', 'order', 'limit', 'in']) query[method] = () => query
     return query
   } }
-  const result = await loadFanSchedule(client, { club: { name: 'Test club' }, fan: { club_id: 'club' }, parent: { club_id: 'club', team_id: 'team' }, player: { id: 'player', team_id: 'team' } }, new Date('2026-09-09T10:00:00Z'))
+  const result = await loadFanSchedule(client, { club: { name: 'Test club' }, fan: { club_id: 'club', permissions: { schedule: true } }, parent: { club_id: 'club', team_id: 'team' }, player: { id: 'player', team_id: 'team' } }, new Date('2026-09-09T10:00:00Z'))
   assert.deepEqual(result.map(item => item.id), ['future-match', 'future-assessment', 'training:2026-09-14', 'training:2026-09-21'])
 })

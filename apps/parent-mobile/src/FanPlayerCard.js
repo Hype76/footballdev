@@ -20,11 +20,10 @@ export function FanPlayerCard({ connection, mode, busy, onOpen, onNotifications,
       {brand.clubLogoUrl && failedLogo !== brand.clubLogoUrl ? <Image accessibilityLabel={`${brand.clubName} logo`} source={{ uri: brand.clubLogoUrl }} onError={() => setFailedLogo(brand.clubLogoUrl)} resizeMode="contain" style={styles.crest} /> : <ParentIcon iconKey="shield" color={tokens.accentText} size={52} />}
       <View style={styles.copy}><Text style={[styles.clubName, { color: tokens.textPrimary }]}>{brand.clubName}</Text><Text style={[styles.subtitle, { color: tokens.textSecondary }]}>Following player</Text></View>
     </View>
-    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${connection.player_name}`} disabled={!access.length} onPress={() => access[0] && open(access[0])} style={[styles.player, { borderBottomColor: border }]}>
+    <View style={[styles.player, { borderBottomColor: border }]}>
       <ParentIcon iconKey="child" color={tokens.accentText} size={42} />
       <View style={styles.copy}><Text style={[styles.playerName, { color: tokens.textPrimary }]}>{connection.player_name}</Text><Text style={[styles.subtitle, { color: tokens.textSecondary }]}>{connection.team_name}</Text></View>
-      <ParentIcon iconKey="action.open" color={tokens.textSecondary} size={25} />
-    </Pressable>
+    </View>
     <View style={styles.shortcuts}>
       {access.map((item) => <Pressable key={item.key} accessibilityRole="button" accessibilityLabel={item.key === 'resources' ? 'Resources' : item.label} onPress={() => open(item)} style={[styles.shortcut, { backgroundColor: tokens.portalBackground, borderColor: border }]}>
         <ParentIcon iconKey={item.icon} color={colours[item.key] || tokens.accentText} size={27} />

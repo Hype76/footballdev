@@ -2,7 +2,7 @@ import { captureMatchEventTime, formatMatchAddedTimeClock } from '../../../src/l
 import { sortCompletedMatchEvents } from '../../../src/lib/matchday-final-report.js'
 
 export function getParentScorerMatches(matches = []) {
-  return matches.filter((match) => match.isScorer && !match.concludedAt
+  return matches.filter((match) => match.isScorer && !match.scorerReviewRequestedAt && !match.concludedAt
     && !['cancelled', 'postponed'].includes(match.status))
     .sort((a, b) => Number(['scheduled', 'scorer_request'].includes(a.status)) - Number(['scheduled', 'scorer_request'].includes(b.status)))
 }

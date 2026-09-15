@@ -21,10 +21,12 @@ function fixture() {
     let operation = ''
     let values
     let columns
+    let maxRows = Infinity
+    let ordering
     const query = {
       select(value){columns=value;return query},eq(k,v){predicates.push(r=>r[k]===v);return query},neq(k,v){predicates.push(r=>r[k]!==v);return query},
       is(k,v){predicates.push(r=>(r[k]??null)===v);return query},in(k,v){predicates.push(r=>v.includes(r[k]));return query},gte(k,v){predicates.push(r=>r[k]>=v);return query},
-      contains(k,v){predicates.push(r=>Object.entries(v).every(([key,value])=>r[k]?.[key]===value));return query},order(){return query},limit(){return query},
+      contains(k,v){predicates.push(r=>Object.entries(v).every(([key,value])=>r[k]?.[key]===value));return query},order(key, options){ordering={key,...options};return query},limit(count){maxRows=count;return query},
       maybeSingle(){single=true;return query},single(){single=true;return query},
       upsert(v){operation='upsert';values=v;return query},update(v){operation='update';values=v;return query},delete(){operation='delete';return query},
       then(resolve,reject){try {
@@ -32,6 +34,8 @@ function fixture() {
         if(operation==='upsert') { const record={id:id(90),...values};tables[table].push(record);result=[record] }
         if(operation==='update') result.forEach(r=>Object.assign(r,values))
         if(operation==='delete') tables[table]=tables[table].filter(r=>!result.includes(r))
+        if(ordering)result.sort((a,b)=>String(a[ordering.key]??'').localeCompare(String(b[ordering.key]??''))*(ordering.ascending===false?-1:1))
+        result=result.slice(0,maxRows)
         if(table==='match_days' && columns && columns!=='*') result=result.map(row=>Object.fromEntries(columns.split(',').map(key=>key.trim()).map(key=>[key,row[key]])))
         return Promise.resolve({data:single ? result[0] || null : result,error:null}).then(resolve,reject)
       } catch(e){return Promise.reject(e).then(resolve,reject)} },
@@ -68,7 +72,7 @@ test('Server binds Fan identity, exact permissions and active parent ancestry be
 test('Fan match details retain the selected kit and return artwork only for the authorised club', async () => {
   const {client,tables,read}=fixture()
   tables.fan_connections[0].permissions.game_day=true
-  tables.match_days.push({id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),shirt_choice:'away'})
+  tables.match_days.push({id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),status:'live',shirt_choice:'away'})
   tables.club_kits=[
     {club_id:id(6),kit_type:'home',colour:'#112233',image_path:`${id(6)}/home/custom.png`},
     {club_id:id(6),kit_type:'away',colour:'#445566',image_path:`${id(6)}/away/custom.png`},
@@ -108,7 +112,7 @@ test('Game Day alone exposes shared matches without querying Schedule, then obey
   const { client, tables, read } = fixture()
   tables.fan_connections[0].permissions = { schedule: false, game_day: true, development: false, resources: false }
   tables.clubs[0].name = 'FP TEST Club'
-  tables.match_days.push({ id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: new Date().toISOString().slice(0, 10), home_away: 'away', opponent: 'Visitors' })
+  tables.match_days.push({ id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: new Date().toISOString().slice(0, 10), status: 'live', home_away: 'away', opponent: 'Visitors' })
   const call = action => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action, connectionId: id(1), permissions: { schedule: true, game_day: true }, clubName: 'Forged club' }) }, { createClient: () => client })
   const response = await call('matches')
   assert.equal(response.statusCode, 200)
@@ -164,7 +168,7 @@ test('Game Day notifications stop after permission loss, opt-out or Fan self rem
 test('Visible Game Day delivers once with a scoped link; unsharing hides its saved notification',async()=>{
   const {client,tables}=fixture()
   tables.fan_connections[0].permissions.game_day=true
-  const match={id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString(),opponent:'Private match name'}
+  const match={id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString(),status:'live',opponent:'Private match name'}
   tables.match_days.push(match)
   tables.fan_devices.push({token:'ExpoPushToken[synthetic]',auth_user_id:id(2)})
   const delivered=[]
@@ -192,4 +196,47 @@ test('renewed Fan email uses a new idempotency key and retries do not send again
   assert.deepEqual(sent,[`fan-invitation-${id(1)}-${id(12)}`])
   assert.equal((await send()).statusCode,200)
   assert.equal(sent.length,1)
+})
+
+test('Game Day never reveals unstarted fixtures, while Schedule is separately authorised', async () => {
+  const { client, tables, read } = fixture()
+  tables.fan_connections[0].permissions = { schedule: false, game_day: true }
+  const match = { club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: '2099-09-15' }
+  tables.match_days.push(...['scheduled', 'live', 'half_time', 'second_half', 'extra_time', 'penalties', 'full_time', 'postponed', 'cancelled'].map((status, index) => ({ ...match, id: id(20 + index), status, opponent: status + ' opponent' })))
+  tables.fan_notifications.push({ id: id(50), connection_id: id(1), match_id: id(20), title: 'Unstarted fixture notification' }, { id: id(51), connection_id: id(1), match_id: id(21), title: 'Live match notification' })
+  const call = (action, extra = {}) => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action, connectionId: id(1), ...extra }) }, { createClient: () => client })
+  assert.deepEqual(JSON.parse((await call('matches')).body).matches.map(item => item.status), ['live', 'half_time', 'second_half', 'extra_time', 'penalties', 'full_time'])
+  read.length = 0
+  assert.equal((await call('matches', { matchId: id(20), permissions: { schedule: true } })).statusCode, 403)
+  assert.equal(read.includes('match_day_events'), false)
+  assert.equal(read.includes('club_kits'), false)
+  assert.deepEqual(JSON.parse((await call('notifications')).body).notifications.map(item => item.id), [id(51)])
+  assert.equal((await call('schedule')).statusCode, 403)
+  tables.fan_connections[0].permissions.schedule = true
+  assert.ok(JSON.parse((await call('schedule')).body).schedule.some(item => item.id === id(20)))
+  assert.equal(JSON.parse((await call('matches')).body).matches.some(item => item.id === id(20)), false)
+})
+
+test('Device status is scoped to the signed-in account and errors never imply registration', async () => {
+  const { client, tables } = fixture()
+  const token = 'ExpoPushToken[device-test]'
+  const call = extra => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action: 'device_status', token, ...extra }) }, { createClient: () => client })
+  assert.deepEqual(JSON.parse((await call()).body), { registered: false })
+  tables.fan_devices.push({ token, auth_user_id: id(8) })
+  assert.deepEqual(JSON.parse((await call({ auth_user_id: id(8) })).body), { registered: false })
+  tables.fan_devices[0].auth_user_id = id(2)
+  assert.deepEqual(JSON.parse((await call()).body), { registered: true })
+  assert.equal((await call({ token: 'invalid' })).statusCode, 400)
+})
+
+
+test('Future fixture volume cannot displace live matches before the Game Day result limit', async () => {
+  const { client, tables } = fixture()
+  tables.fan_connections[0].permissions = { schedule: false, game_day: true }
+  const match = { club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents' }
+  tables.match_days.push(...Array.from({length: 110}, (_, index) => ({ ...match, id: id(100 + index), status: 'scheduled', match_date: '2099-12-31' })))
+  tables.match_days.push({ ...match, id: id(400), status: 'live', match_date: new Date().toISOString().slice(0,10) })
+  const response = await handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action: 'matches', connectionId: id(1) }) }, { createClient: () => client })
+  assert.equal(response.statusCode, 200)
+  assert.deepEqual(JSON.parse(response.body).matches.map(item => item.id), [id(400)])
 })

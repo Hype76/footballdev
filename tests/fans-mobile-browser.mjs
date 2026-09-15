@@ -21,8 +21,8 @@ const mocks = {
   supabase: `export const getAccessToken=async()=> 'synthetic'; export const supabase={rpc:async(name,args)=>({data:await window.rpc(name,args)}),from:()=>{window.directKitReads=(window.directKitReads||0)+1;throw Error('Fan has no direct club access')},storage:{from:()=>({getPublicUrl:key=>({data:{publicUrl:'http://localhost:9877/kits/'+key}})})}};`,
   config: `export const getMobileRuntimeConfig=()=>({apiBaseUrl:'http://localhost:9877'});`,
   'expo-crypto': `export const randomUUID=()=>crypto.randomUUID();`,
-  'expo-notifications': `export const useLastNotificationResponse=()=>null; export const requestPermissionsAsync=async()=>({status:'denied'}); export const getExpoPushTokenAsync=async()=>({data:'synthetic'});`,
-  'expo-secure-store': `export const getItemAsync=async()=>null; export const deleteItemAsync=async()=>{}; export const setItemAsync=async()=>{};`,
+  'expo-notifications': `export const useLastNotificationResponse=()=>null; export const getPermissionsAsync=async()=>window.phonePermission||{status:'denied'}; export const requestPermissionsAsync=getPermissionsAsync; export const getExpoPushTokenAsync=async()=>({data:'ExpoPushToken[synthetic]'});`,
+  'expo-secure-store': `export const getItemAsync=async()=>window.phoneToken||null; export const deleteItemAsync=async()=>{window.phoneToken=null}; export const setItemAsync=async(_key,value)=>{window.phoneToken=value};`,
   'expo-constants': `export default {};`,
   '@react-native-async-storage/async-storage': `export default {getItem:async()=>null,setItem:async()=>{}};`,
   'expo-keep-awake': `export const activateKeepAwakeAsync=async()=>{},deactivateKeepAwake=()=>{},isAvailableAsync=async()=>false;`,
@@ -32,13 +32,15 @@ const mocks = {
 }
 const entry = `
 import React,{useState,useEffect} from 'react'; import {createRoot} from 'react-dom/client';
-import {Alert,AppState,Share} from 'react-native';
+import {Alert,AppState,Share,Platform} from 'react-native';
+window.phonePlatform=value=>{Platform.OS=value};
 import {FansScreen} from './apps/parent-mobile/src/FansScreen.js';
 window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'First Child',clubName:'Demo FC',themeAccent:'#414b92'},{id:'second',playerName:'Second Child',clubName:'Demo FC',themeAccent:'#414b92'}]};
 window.calls=[];window.rows=[];window.saved='';window.alert=null;
 window.rpc=async(name,args)=>{
   window.calls.push({name,args});
   if(name==='list_fan_connections')return window.rows.filter(r=>!r.deleted);
+  if(name==='partner_feed')return {items:[],linkedAnalytics:null};
   if(name==='set_fan_player_account') {const row=window.rows.find(r=>r.id===args.connection_id_value);row.relationship_type='player';row.permissions.schedule=true;return null;}
   if(name==='create_fan_invitation'){
     const row={id:crypto.randomUUID(),name:args.name_value,email:args.email_value,parent_link_id:args.parent_link_id_value,is_owner:true,status:'pending',permissions:args.permissions_value,invite_token:crypto.randomUUID(),expires_at:new Date(Date.now()+86400000).toISOString()};window.rows.push(row);return row;
@@ -54,6 +56,8 @@ window.rpc=async(name,args)=>{
 window.readRequests=[];window.responses={};window.failRead=false;window.delayRead=false;
 window.emailRequests=0;window.fetch=async(_url,options)=>{
  const body=JSON.parse(options.body);if(body.action==='send_invitation'){window.emailRequests++;return {ok:true,status:200,json:async()=>({success:true})}}
+ if(body.action==='device_status')return {ok:true,status:200,json:async()=>({registered:window.phoneRegistered===true})};
+ if(body.action==='register_device'){if(window.failPhoneRegistration)return {ok:false,status:503,json:async()=>({message:'Phone registration failed. Try again.'})};window.phoneRegistered=true;return {ok:true,status:200,json:async()=>({success:true})}}
  window.readRequests.push(body);const payload=window.responses[body.action]||{};const fail=window.failRead;
  if(window.delayRead)await new Promise(resolve=>{window.finishRead=resolve});
  return {ok:!fail,status:fail?503:200,json:async()=>fail?{message:'Could not load shared items. Try again.'}:payload};
@@ -194,23 +198,56 @@ try {
   await page.evaluate(() => {
     window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};
     window.rows=[{id:'followed-child',is_owner:false,status:'active',player_name:'Followed Child',club_name:'Demo FC',team_name:'Under 17',permissions:{schedule:true,game_day:true,development:true,resources:true}}];
-    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:new Date(Date.now()+8*86400000).toISOString().slice(0,10),status:'scheduled'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
+    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:new Date(Date.now()+8*86400000).toISOString().slice(0,10),status:'live'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
     window.remount();
   });
   await page.getByText('Followed Child',{exact:true}).waitFor();
   await page.getByRole('heading',{name:'Players',exact:true}).waitFor();
-  await button('Join club').click();
+  assert.equal(await button('Join club').count(),0,'Join club is removed from Home');
+  assert.equal(await button('Open Followed Child').count(),0,'Player identity does not duplicate a content shortcut');
+  await page.getByRole('tab',{name:'More',exact:true}).click();
+  await button('Partners and Special Offers').click();
+  await page.getByRole('heading',{name:'Partners & Special Offers',exact:true}).waitFor();
+  await page.getByText('Our partners and their offers will appear here. Check back soon.').waitFor();
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='partner_feed').at(-1).args.p_app),'parent');
+  await button('Back to More').click();
+  await button('Settings').click();
+  await button('Open a Fan invitation').click();
   await page.getByLabel('Invitation link',{exact:true}).fill('https://unrelated.example/fan-invite/test');
   assert.equal(await button('Open invitation').isDisabled(),true);
   await page.getByLabel('Invitation link',{exact:true}).fill('https://parent.footballplayer.online/fan-invite/test-token');
   assert.equal(await button('Open invitation').isEnabled(),true);
   await button('Cancel').click();
   await button('Open invitation').waitFor({state:'hidden'});
+  await page.getByRole('tab',{name:'Home',exact:true}).click();
   assert.equal(await button('Remove my access to Followed Child').count(),0,'Removal is absent from the player card');
   assert.equal(await page.getByRole('button',{name:/More actions|Player options/}).count(),0);
   assert.equal(await button('Sign out').count(),0,'Sign out is absent from Home');
   await page.getByRole('tab',{name:'More',exact:true}).click();
+  await button('Settings').click();
   await button('Remove my access to Followed Child').waitFor();
+  await page.getByText('Phone notifications are available in the mobile app.').waitFor();
+  await page.evaluate(()=>{window.phonePlatform('ios');window.phonePermission={status:'granted',canAskAgain:true}});
+  await button('Back to More').click();await button('Settings').click();
+  await page.getByText('This device is not registered for phone notifications.').waitFor();
+  await button('Enable phone notifications').click();
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
+  assert.equal(await button('Enable phone notifications').count(),0,'Enabled registration replaces the enable action');
+  await page.screenshot({path:`${out}/phone-notifications-enabled.png`,fullPage:true});
+  await page.evaluate(()=>{window.phonePermission={status:'denied',canAskAgain:false}});
+  await button('Back to More').click();await button('Settings').click();
+  await page.getByText('Phone notifications are off on this device.').waitFor();
+  await button('Open phone settings').waitFor();
+  await page.evaluate(()=>{window.phonePermission={status:'granted'};window.phoneRegistered=false;window.failPhoneRegistration=true});
+  await button('Back to More').click();await button('Settings').click();
+  await button('Enable phone notifications').click();
+  await page.getByRole('alert').getByText('Phone registration failed. Try again.').waitFor();
+  assert.equal(await page.getByText('Phone notifications are enabled on this device.').count(),0,'Registration failure cannot show enabled');
+  await page.evaluate(()=>{window.failPhoneRegistration=false});
+  await button('Enable phone notifications').click();
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
+  await page.evaluate(()=>window.phonePlatform('web'));
+
   await page.evaluate(()=>window.mode('light'));
   await page.locator('[data-mode="light"]').waitFor();
   await page.screenshot({path:`${out}/settings-light-390.png`,fullPage:true});
@@ -246,7 +283,7 @@ try {
   await page.setViewportSize({width:390,height:844});
   for(const mode of ['light','dark']) {
     await page.evaluate(mode=>window.mode(mode),mode);
-    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Matchday','Demo FC v Away Club'],['Development records','Development','Shared report'],['Resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
+    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Game Day','Demo FC v Away Club'],['Development records','Development','Shared report'],['Resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
       await button(label).click();
       await page.getByRole('heading',{name:title,exact:true}).waitFor();
       await page.getByText(expected,{exact:expected!=='Shared report'}).waitFor();
@@ -258,7 +295,7 @@ try {
       if(title==='Calendar'){assert.equal(await button('History').count(),0);assert.equal(await button('Needs response').count(),0);const date=new Date((await page.evaluate(()=>window.responses.schedule.schedule[0].date))+'T12:00:00Z');const label=date.getUTCDate()+' '+new Intl.DateTimeFormat('en-GB',{month:'short',timeZone:'Europe/London'}).format(date).slice(0,3);await page.getByText(new RegExp(label)).waitFor();}
       await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
-      if(title==='Matchday'){
+      if(title==='Game Day'){
         await page.route('http://localhost:9877/kits/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><path fill="#af2555" d="M16 5h24l12 12-8 8-5-5v31H17V20l-5 5-8-8z"/></svg>'}));
         for(const choice of ['home','away','tbc']) {
           await page.evaluate(choice=>{window.responses.matches.matches[0].shirt_choice=choice;window.responses.matches.clubKits={home:{colour:'#123456',imagePath:'club/home/custom.png'},away:{colour:'#af2555',imagePath:'club/away/custom.png'}}},choice);
@@ -300,6 +337,17 @@ try {
   await button('Game Day').click();
   await page.getByText('Demo FC v Away Club',{exact:true}).waitFor();
   assert.equal(await page.getByText('There are no shared calendar events for this player.').count(),0);
+  await button('Back to Fans').click();
+  await page.evaluate(()=>{window.rows[0].permissions.schedule=false;window.responses.matches.matches.push({id:'future-private',status:'scheduled',opponent:'Hidden upcoming fixture',match_date:'2099-01-01'});window.remount()});
+  await button('Game Day').waitFor();
+  await button('Schedule').waitFor({state:'hidden'});
+  assert.equal(await button('Schedule').count(),0,'Schedule shortcut is absent without permission');
+  assert.equal(await button('Open Followed Child').count(),0,'Identity row never opens a fallback destination');
+  await button('Game Day').click();
+  await page.getByRole('heading',{name:'Live matches',exact:true}).waitFor();
+  await page.getByText('Demo FC v Away Club',{exact:true}).waitFor();
+  assert.equal(await page.getByText(/Hidden upcoming fixture/).count(),0,'Defensive client filter hides an unstarted match');
+  assert.equal(await page.getByRole('button',{name:/Coming up/}).count(),0,'Game Day has no schedule tab');
   await page.evaluate(()=>{window.rows[0].permissions.game_day=false;window.background()});
   await button('Back to Fans').waitFor({state:'hidden'});
   await button('Game Day').waitFor({state:'hidden'});
@@ -312,6 +360,7 @@ try {
   await page.getByText('Jenson Bailey',{exact:true}).waitFor();
   assert.equal(await button('Resources').count(),1,'Each card retains its own permission set');
   await page.getByRole('tab',{name:'More',exact:true}).click();
+  await button('Settings').click();
   await button('Remove my access to Jenson Bailey').waitFor();
   await page.setViewportSize({width:512,height:850});
   await page.screenshot({path:`${out}/players-reference-layout.png`,fullPage:true});

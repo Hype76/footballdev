@@ -120,6 +120,7 @@ import {
   markParentNotificationRead,
   openParentResource,
   recordParentScorerShootoutKick,
+  requestParentScorerReview,
   respondToParentInvitation,
   setParentMatchTransport,
   sendParentScorerMatchDayPush,
@@ -364,6 +365,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [selectedInvitationId, setSelectedInvitationId] = useState('')
   const [selectedMatchId, setSelectedMatchId] = useState('')
+  const scorerHandoversRef = useRef({})
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [selectedPollId, setSelectedPollId] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState('')
@@ -437,7 +439,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     [selectedLink?.id, selectedMobileUser?.id],
   )
   const visibleInvitations = resources.invitations.items
-  const visibleMatches = resources.matches.items
+  const visibleMatches = resources.matches.items.map((match) => scorerHandoversRef.current[match.id] ? { ...match, isScorer: false, scorerReviewRequestedAt: scorerHandoversRef.current[match.id] } : match)
   const visibleInvitationsWithMatchTimes = useMemo(
     () => enrichParentMatchInvitations(visibleInvitations, resources.matches.items),
     [resources.matches.items, visibleInvitations],
@@ -1695,7 +1697,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   async function handleScorerAction(match, action, value) {
-    if (isOffline || activeActionId || !match.isScorer) return false
+    if (isOffline || activeActionId || !match.isScorer || match.scorerReviewRequestedAt || scorerHandoversRef.current[match.id] || match.concludedAt) return false
     setActiveActionId(`scorer:${match.id}:${action}`)
     setNotice(null)
     let changeSaved = false
@@ -1705,9 +1707,17 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       if (action === 'timer' && value === 'conclude') throw new Error('Send this match to the Coach or manager for conclusion.')
       if (action === 'request-review') {
         if (match.status !== 'full_time' || match.concludedAt) throw new Error('Finish the match before sending it to the Coach for review.')
+        const handover = await requestParentScorerReview(selectedMobileUser, match.id)
+        if (!handover?.scorerReviewRequestedAt) throw new Error('The match handover could not be confirmed. Please refresh and try again.')
+        changeSaved = true
+        scorerHandoversRef.current[match.id] = handover.scorerReviewRequestedAt
+        // Remove controls as soon as the server saves, before notification or refresh can fail.
+        setResources((current) => ({ ...current, matches: { ...current.matches, items: current.matches.items.map((item) => item.id === match.id ? { ...item, isScorer: false, scorerReviewRequestedAt: handover.scorerReviewRequestedAt } : item) } }))
         const result = await sendParentScorerMatchDayPush(selectedMobileUser, match.id, 'full_time')
-        if (!result) throw new Error('The Coach notification could not be confirmed. Please try again.')
-        setNotice({ message: 'The match has been sent to the Coach for review and conclusion.', tone: 'success' })
+        await loadParentData()
+        setNotice(result
+          ? { message: 'The match has been sent to the Coach for review and conclusion. Your scoring access has ended.', tone: 'success' }
+          : { message: 'The match is with the Coach and your scoring access has ended, but the Coach notification could not be confirmed.', tone: 'warning' })
         return true
       }
       if (action === 'start') {
@@ -1750,7 +1760,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       return true
     } catch (error) {
       if (changeSaved) {
-        setNotice({ message: 'Your change was saved. Refresh Matchday to see the latest information.', tone: 'warning' })
+        setNotice({ message: action === 'request-review' ? 'The match is with the Coach and your scoring access has ended. Refresh Matchday to check the latest information.' : 'Your change was saved. Refresh Matchday to see the latest information.', tone: 'warning' })
         return true
       }
       const message = getParentFriendlyError(error, 'This Game Day change could not be saved. Please try again.')
@@ -2051,6 +2061,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     { count: unreadNotifications + homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
   ]
   const focusedChatRoom = activeTab === 'chat' && Boolean(selectedRoom)
+  const focusedScorer = activeTab === 'matchday' && selectedMatch?.isScorer && !selectedMatch?.scorerReviewRequestedAt && !selectedMatch?.concludedAt
 
   return (
     <ParentThemeContext.Provider value={themeContext}>
@@ -2061,7 +2072,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         enabled={Platform.OS === 'ios' || focusedChatRoom}
         style={styles.keyboardShell}
       >
-        {!focusedChatRoom ? <AppHeader
+        {!focusedChatRoom && !focusedScorer ? <AppHeader
           childCount={parentLinks.length}
           childSwitcherOpen={childSwitcherOpen}
           childNotificationBadges={childNotificationBadges}
