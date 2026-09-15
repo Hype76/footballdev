@@ -1,3 +1,4 @@
+import { partnerBrowserFixture } from './helpers/partner-browser-fixture.mjs'
 import assert from 'node:assert/strict'
 import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 import { mkdir, readFile } from 'node:fs/promises'
@@ -26,6 +27,7 @@ const result = await build({
       root.render(<View style={{ backgroundColor: tokens.portalBackground, minHeight: 500, padding: 16 }}><MoreScreen onOpen={() => {}} themeTokens={tokens} unansweredInvites={counts.invites} unansweredPolls={counts.polls} unreadNotifications={counts.notifications} /></View>)
     }
   ` },
+  plugins: [partnerBrowserFixture()],
   write: false,
   bundle: true,
   jsx: 'automatic',
