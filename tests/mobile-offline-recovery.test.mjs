@@ -2,7 +2,116 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { runMobileStartup } from '../apps/mobile-core/src/startupStateCore.js'
 import { editLocalDevelopmentDraft, prepareDevelopmentAttempt, acknowledgeDevelopmentAttempt, sameDevelopmentSave } from '../apps/mobile-core/src/developmentOfflineCore.js'
-import { createBoundedMobileFetch } from '../apps/mobile-core/src/mobileFetchCore.js'
+import { createBoundedMobileFetch, getMobileRequestTimeout, getMobileConnectionErrorMessage } from '../apps/mobile-core/src/mobileFetchCore.js'
+import { readFile } from 'node:fs/promises'
+
+test('a slow password response can complete after the normal read deadline', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let aborted = false
+  let complete
+  const response = { status: 200 }
+  const pending = createBoundedMobileFetch((_url, { signal }) => new Promise((resolve, reject) => {
+    complete = () => resolve(response)
+    signal.addEventListener('abort', () => { aborted = true; reject(new Error('aborted')) })
+  }))('https://example.test/auth/v1/token?grant_type=password', { method: 'POST' })
+  t.mock.timers.tick(10000)
+  assert.equal(aborted, false)
+  complete()
+  assert.equal(await pending, response)
+  assert.equal(getMobileRequestTimeout('https://example.test/auth/v1/token?grant_type=refresh_token', { method: 'POST' }), 8000)
+  assert.equal(getMobileRequestTimeout('https://example.test/rest/v1/profile'), 8000)
+})
+
+test('password requests still abort at a finite deadline without retrying a timeout', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let calls = 0
+  const pending = createBoundedMobileFetch((_url, { signal }) => new Promise((_resolve, reject) => {
+    calls++
+    signal.addEventListener('abort', () => reject(new Error('aborted')))
+  }))('https://example.test/auth/v1/token?grant_type=password', { method: 'POST' })
+  const rejected = assert.rejects(pending, { code: 'MOBILE_REQUEST_TIMEOUT' })
+  t.mock.timers.tick(20000)
+  await rejected
+  assert.equal(calls, 1)
+})
+
+test('an immediate password transport failure retries once and preserves the original request', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const calls = []
+  const body = JSON.stringify({ email: 'synthetic@example.test', password: 'synthetic' })
+  const pending = createBoundedMobileFetch(async (url, options) => {
+    calls.push({ url, options })
+    if (calls.length === 1) throw new TypeError('Network request failed')
+    return { status: 200 }
+  })('https://example.test/auth/v1/token?grant_type=password', { method: 'POST', body })
+  await Promise.resolve()
+  assert.equal(calls.length, 1)
+  t.mock.timers.tick(350)
+  assert.equal((await pending).status, 200)
+  assert.equal(calls.length, 2)
+  assert.equal(calls[1].options.body, body)
+  assert.equal(calls[1].options.signal, calls[0].options.signal)
+})
+
+test('password retry remains bounded and never retries credential failures, refresh tokens or match writes', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const passwordUrl = 'https://example.test/auth/v1/token?grant_type=password'
+  let calls = 0
+  assert.equal((await createBoundedMobileFetch(async () => { calls++; return { status: 401 } })(passwordUrl, { method: 'POST' })).status, 401)
+  assert.equal(calls, 1)
+  for (const url of ['https://example.test/auth/v1/token?grant_type=refresh_token', 'https://example.test/rest/v1/rpc/apply_coach_match_day_command']) {
+    calls = 0
+    await assert.rejects(createBoundedMobileFetch(async () => { calls++; throw new TypeError('Network request failed') })(url, { method: 'POST' }))
+    assert.equal(calls, 1)
+  }
+  calls = 0
+  const failed = createBoundedMobileFetch(async () => { calls++; throw new TypeError('Network request failed') })(passwordUrl, { method: 'POST' })
+  const rejection = assert.rejects(failed, /Network request failed/)
+  await Promise.resolve()
+  t.mock.timers.tick(350)
+  await rejection
+  assert.equal(calls, 2)
+  calls = 0
+  const controller = new AbortController()
+  const cancelled = createBoundedMobileFetch(async () => { calls++; throw new TypeError('Network request failed') })(passwordUrl, { method: 'POST', signal: controller.signal })
+  const cancellation = assert.rejects(cancelled, { name: 'AbortError' })
+  await Promise.resolve()
+  controller.abort()
+  await cancellation
+  t.mock.timers.tick(350)
+  assert.equal(calls, 1)
+})
+
+test('a password transport retry uses the remaining original deadline', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let calls = 0
+  const pending = createBoundedMobileFetch((_url, { signal }) => {
+    calls++
+    if (calls === 1) return Promise.reject(new TypeError('Network request failed'))
+    return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('aborted'))))
+  })('https://example.test/auth/v1/token?grant_type=password', { method: 'POST' })
+  const rejection = assert.rejects(pending, { code: 'MOBILE_REQUEST_TIMEOUT' })
+  await Promise.resolve()
+  t.mock.timers.tick(350)
+  await Promise.resolve()
+  assert.equal(calls, 2)
+  t.mock.timers.tick(19650)
+  await rejection
+  assert.equal(calls, 2)
+})
+
+test('Parent login preserves the shared auth error and distinguishes timeouts from credentials', async () => {
+  for (const error of [new Error('The request timed out.'), { code: 'LOGIN_CONNECTION_TIMEOUT' }]) {
+    const message = getMobileConnectionErrorMessage(error)
+    assert.match(message, /service is taking too long/)
+    assert.equal(getMobileConnectionErrorMessage(message), message)
+  }
+  assert.match(getMobileConnectionErrorMessage('Network request failed'), /Unable to reach Football Player/)
+  assert.equal(getMobileConnectionErrorMessage('Invalid login credentials'), '')
+  const app = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+  assert.match(app, /authError=\{authError\}/)
+  assert.doesNotMatch(app, /getParentFriendlyError\(authError, 'Email or password not recognised\.'/)
+})
 
 test('network timeout aborts the real request and honours caller cancellation', async () => {
   const fetcher = (_url, { signal }) => new Promise((_, reject) => {

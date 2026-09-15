@@ -288,7 +288,7 @@ function LoginScreen() {
 
   return (
     <MobileLoginScreen
-      authError={authError ? getParentFriendlyError(authError, 'Email or password not recognised.') : ''}
+      authError={authError}
       copy="Use the email and password linked to your family account."
       emailPlaceholder="parent@example.com"
       kicker="Parent access"

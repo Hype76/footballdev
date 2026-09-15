@@ -26,6 +26,7 @@ const result = await build({
       ? mocks[args.path] ? { path: args.path, namespace: 'auth-mock' } : undefined : undefined)
     b.onLoad({ filter: /.*/, namespace: 'auth-mock' }, args => ({ contents: mocks[args.path], loader: 'js' }))
     b.onLoad({ filter: /startupStateCore\.js$/ }, async args => ({ contents: (await readFile(args.path, 'utf8')).replace('= 12000', '= 80'), loader: 'js' }))
+    b.onLoad({ filter: /mobileFetchCore\.js$/ }, async args => ({ contents: (await readFile(args.path, 'utf8')).replace('= 20000', '= 80'), loader: 'js' }))
   } }],
 })
 const browser = await chromium.launch({ headless: true })
@@ -68,7 +69,8 @@ try {
     window.authState.signIn('synthetic@example.test', 'synthetic').catch(error => { window.loginFailure = error.message })
   })
   await page.waitForFunction(() => window.loginFailure)
-  assert.match(await page.evaluate(() => window.loginFailure), /Check your connection and try again/)
+  assert.equal(await page.evaluate(() => window.loginFailure), 'The service is taking too long to respond. Please try again.')
+  assert.doesNotMatch(await page.evaluate(() => window.authState.authError), /No connection|password not recognised/)
 
   const race = await browser.newPage()
   await race.setContent('<div id="root"></div>')
