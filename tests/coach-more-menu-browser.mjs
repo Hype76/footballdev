@@ -1,3 +1,4 @@
+import { partnerBrowserFixture } from './helpers/partner-browser-fixture.mjs'
 import assert from 'node:assert/strict'
 import { readFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
@@ -21,7 +22,7 @@ window.visits=[];
 function App(){const [mode,setMode]=useState('light');window.mode=setMode;const theme=createCoachTheme({mode,context:{clubAccent:'#1e477c'}});
 return <CoachThemeContext.Provider value={createCoachThemeContext(theme)}><View style={{backgroundColor:theme.tokens.background,padding:16}}><MoreScreen navigation={{more:routes}} onSelectMore={key=>window.visits.push(key)}/></View></CoachThemeContext.Provider>}
 createRoot(document.getElementById('root')).render(<App/>);`
-const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl','.png':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],nodePaths:[modules],alias:{'react-native':path.join(modules,'react-native-web'),react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
+const result=await build({plugins:[partnerBrowserFixture()],stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl','.png':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],nodePaths:[modules],alias:{'react-native':path.join(modules,'react-native-web'),react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
 const browser=await chromium.launch({headless:true})
 try {
 const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message))

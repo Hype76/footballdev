@@ -94,6 +94,8 @@ jobs:
           tests/security-account-browser-hardening.test.mjs
           tests/security-m2-club-logo-validation.test.mjs
           tests/netlify-deploy-safety.test.mjs
+          tests/partners.test.mjs
+          tests/partner-mobile-click.test.mjs
       - name: Fans permission and invitation regression
         run: node --test tests/fan-branding.test.mjs tests/fans.test.mjs tests/fan-schedule-upcoming.test.mjs tests/fans-endpoint.test.mjs tests/fans-permissions-pglite.test.mjs tests/team-carpool-defaults.test.mjs && node tests/fans-browser.mjs
       - name: V1 regression firewall

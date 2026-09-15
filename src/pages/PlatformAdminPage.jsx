@@ -1,3 +1,4 @@
+import { PlatformPartnersSection } from '../components/platform/PlatformPartnersSection.jsx'
 import { PlatformFanStats } from '../components/platform/PlatformFanStats.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -197,6 +198,10 @@ const PAGE_META = {
   analytics: {
     title: 'Platform Analytics',
     description: 'Review privacy-safe usage, adoption, page, role, club, day, and time reporting.',
+  },
+  partners: {
+    title: 'Partners and Offers',
+    description: 'Manage Parent and Coach partner layouts, publishing and performance.',
   },
   banners: {
     title: 'Platform Banners',
@@ -1418,6 +1423,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
           report={analyticsReport}
         />
       ) : null}
+
+      {section === 'partners' ? <PlatformPartnersSection /> : null}
 
       {showBanners ? (
         <PlatformBannerManagementSection
