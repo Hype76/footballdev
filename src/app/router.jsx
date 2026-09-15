@@ -1890,6 +1890,11 @@ export const router = createBrowserRouter([
                 },
               },
               {
+                path: 'platform-partners',
+                element: (<PageSuspense><PlatformAdminPage section="partners" /></PageSuspense>),
+                handle: { title: 'Partners and Offers' },
+              },
+              {
                 path: 'platform-banners',
                 element: (
                   <PageSuspense>

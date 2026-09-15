@@ -9,7 +9,7 @@ Record final store privacy answers in a private evidence copy under `apps/mobile
 ## Applies to both apps
 
 - Apps require login.
-- Apps do not include third-party advertising.
+- Apps include manually approved partner advertising on the Partners and Special Offers page.
 - Apps do not sell user data.
 - Apps do not include in-app purchases.
 - Apps do not include checkout, subscription management, or billing controls.
@@ -153,7 +153,7 @@ Use this as the source checklist when completing App Store Connect and Google Pl
 
 - Login required: yes.
 - In-app purchases: no.
-- Third-party advertising: no.
+- Third-party advertising: yes, manually approved partner images and external website links.
 - Third-party advertising tracking: no.
 - Precise location collected: no.
 - Camera, microphone, photos, contacts, calendar, health, and Bluetooth access: no.
@@ -166,7 +166,7 @@ Use this as the source checklist when completing App Store Connect and Google Pl
 App Store Connect notes:
 
 - Declare data linked to user identity for account email, account profile, club or parent access records, app activity needed for functionality, and push token when notifications are enabled.
-- Do not declare tracking unless a future analytics or advertising SDK is deliberately added and this questionnaire is revised.
+- Partner analytics are first-party only. Declare Usage Data / Product Interaction and optional user-linked User ID for Analytics. Google Play: App interactions and User IDs for Analytics, with account linking optional. No user-level data is shared with partners; aggregate exports exclude identifiers. Review any future cross-company measurement separately.
 
 Google Play notes:
 
@@ -181,3 +181,13 @@ Google Play notes:
 - Website and support URL: `https://footballplayer.online/`
 
 Confirm the public support route is monitored before submitting production builds.
+
+## Partner offers
+
+- Images are imported into managed storage; no third-party image requests from the apps.
+- Event data: offer ID/title, Parent or Coach app, iOS/Android/web, event type and server timestamp.
+- Signed-in account ID is stored only after an explicit optional consent choice. Withdrawal removes existing account links.
+- Event and report retention: 90 days, enforced by daily cleanup.
+- Only active Platform Admins can access account activity or manage layouts.
+- Inappropriate offer reporting is available on every image.
+- No new native library, permission, advertising ID, tracking SDK or ATT integration.

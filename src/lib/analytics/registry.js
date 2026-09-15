@@ -146,6 +146,7 @@ const ROUTE_DEFINITIONS = Object.freeze([
   route('/platform-admin', /^\/platform-admin$/i),
   route('/platform-admin/clubs', /^\/platform-clubs$/i),
   route('/platform-admin/analytics', /^\/platform-analytics$/i),
+  route('/platform-admin/partners', /^\/platform-partners$/i),
   route('/platform-admin/banners', /^\/platform-banners$/i),
   route('/platform-admin/staff', /^\/platform-staff$/i),
   route('/platform-admin/data-hygiene', /^\/platform-data-hygiene$/i),

@@ -2127,7 +2127,7 @@ function ParentHome() {
               />
             ) : null}
             {activeTab === 'more' && moreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
-            {activeTab === 'more' && moreSection === 'partners' ? <PartnersScreen headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
+            {activeTab === 'more' && moreSection === 'partners' ? <PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
             {activeTab === 'more' && moreSection === 'updates' ? <NotificationsScreen busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
             {activeTab === 'more' && moreSection === 'invites' ? (
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />

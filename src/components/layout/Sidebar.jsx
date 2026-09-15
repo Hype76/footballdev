@@ -875,6 +875,7 @@ function PlatformNav({ canAccessPlatformFeedback, onClose }) {
     { label: 'Platform Admin', path: '/platform-admin', helper: 'System overview' },
     { label: 'Club Management', path: '/platform-clubs', helper: 'Club records' },
     { label: 'Platform Analytics', path: '/platform-analytics', helper: 'Usage and adoption' },
+    { label: 'Partners and Offers', path: '/platform-partners', helper: 'App layouts and partner statistics' },
     { label: 'Platform Banners', path: '/platform-banners', helper: 'Audience announcements' },
     { label: 'Platform Admins', path: '/platform-staff', helper: 'Roles and admin accounts' },
     { label: 'Data Hygiene', path: '/platform-data-hygiene', helper: 'Record quality and archives' },

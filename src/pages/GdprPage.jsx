@@ -103,6 +103,19 @@ export function GdprPage() {
           </section>
 
           <section className={sectionClass}>
+            <h2 className="text-2xl font-black">Partner offers and analytics</h2>
+            <p className={paragraphClass}>
+              Football Player controls the processing of partner-offer analytics. The Parent and Coach apps may show partner advertisements and links to external websites. We use unlinked view and click counts to measure offer performance. If you choose to allow account-linked analytics on the Partners page, we also record your signed-in account ID, the offer, the app, the platform and the event time. This optional account-linked processing is based on your consent. It does not identify the active player displayed in the app.
+            </p>
+            <p className={paragraphClass}>
+              Only authorised Platform Admins can view account-linked partner activity. Partner exports contain totals without account details. We do not pass your account details to partners, use advertising identifiers, or match these events to activity on partner websites. Partner images are hosted in our own image storage. When you open an external website, that website applies its own privacy and cookie policies.
+            </p>
+            <p className={paragraphClass}>
+              You can choose unlinked activity at any time on the Partners page. This removes account links from existing partner events. Events are available for 90 days and deleted by the daily retention cleanup after that period. Reports of inappropriate offers include the reporting account, offer, reason and time and are also removed after 90 days. Contact us through the support route below to exercise your data rights.
+            </p>
+          </section>
+
+          <section className={sectionClass}>
             <h2 className="text-2xl font-black">Your rights</h2>
             <ul className="mt-4 grid gap-3">
               {rights.map((right) => (

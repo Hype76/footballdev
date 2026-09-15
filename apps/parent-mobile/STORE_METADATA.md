@@ -59,7 +59,7 @@ The app may process:
 - Parent poll answers and scorer volunteer actions.
 - Device push notification token when notifications are enabled.
 
-The app does not include third-party advertising or in-app purchases.
+The app includes a dedicated Partners and Special Offers page with manually approved partner advertising. It does not include in-app purchases. Partner views and clicks are recorded for first-party analytics; linking this activity to the signed-in account is optional and controlled on the Partners page. There is no cross-company advertising tracking or advertising SDK.
 
 ## Public URLs
 
