@@ -23,10 +23,11 @@ const entry = `
   window.readJournal=()=>JSON.parse(localStorage.getItem('journal')||'null');
   const user={id:'user',activeTeamId:'team'},context={id:'context',clubId:'club',teamId:'team',role:'coach',roleRank:30,paymentAccess:{canMutate:true}};
   const contexts=[context];
-  function App(){const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState({fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
+  window.navigations=[];
+  function App(){const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState(JSON.parse(localStorage.getItem('entryTarget')||'null')||{fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
     useCoachMatchDayBackgroundSync({user,contexts,enabled:!show});
     return show?<CoachMatchDayScreen user={user} context={context} palette={createCoachTheme({mode:'dark'}).tokens}
-      matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={()=>{}}/>:<div>Home</div>;}
+      matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
 const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand'])
@@ -36,7 +37,7 @@ const dataMock = `
   export const normalizeCoachMatchDay=value=>value;
   const requireSignal=()=>{if(!window.online){window.failedRefresh=(window.failedRefresh||0)+1;throw new Error('Waiting for a connection.');}};
   export async function getCoachMatchDayList(){requireSignal();return [window.server]}
-  export async function getCoachMatchDayDetail(){requireSignal();return window.server}
+  export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));return window.server}
   export async function syncCoachMatchDayCommand(user,command){
     requireSignal();window.calls.push(command.id); if(localStorage.getItem('conflict')==='1') throw Object.assign(new Error('Match changed on another device'),{code:'40001'});
     const accepted=JSON.parse(localStorage.getItem('accepted')||'{}');
@@ -61,7 +62,7 @@ const mocks = [
   [/\/config$/, 'export const getMobileRuntimeConfig=()=>({isProduction:true,isUsable:true});'],
   [/BrandLoader$/, 'export const BrandLoader=()=>null;'],
   [/CoachFormationBoard$/, 'export const CoachFormationBoard=()=>null;'],
-  [/CoachFixtureForm$/, 'export const CoachFixtureForm=()=>null;'],
+  [/CoachFixtureForm$/, `export const CoachFixtureForm=({match,onCancel,onUpdated})=><div><p>Editing fixture {match.id}</p><button onClick={onCancel}>Cancel fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20'})}>Save fixture edit</button></div>;`],
   [/CoachGuestScorer$/, 'export const CoachGuestScorer=()=>null;'],
   [/CoachSquadPanel$/, 'export const CoachSquadPanel=()=>null;'],
   [/^@expo\/vector-icons\/MaterialIcons$/, 'export default ()=>null;'],
@@ -132,6 +133,27 @@ try {
   await page.getByRole('button',{name:'Confirm',exact:true}).click()
   await page.waitForFunction(()=>window.readJournal().pending.length===0)
   assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isEnabled(),true)
+  for (const action of ['Cancel', 'Save']) {
+    await page.evaluate(() => {
+      localStorage.clear();
+      const fixture={id:'fixture',clubId:'club',teamId:'team',status:'scheduled',timerStatus:'not_started',matchDate:'2099-09-19',opponent:'Visitors',events:[],squadDecisions:[]};
+      localStorage.setItem('server',JSON.stringify(fixture));
+      localStorage.setItem('entryTarget',JSON.stringify({fixtureId:'fixture',requestId:'calendar-edit',intent:'edit-fixture',returnCalendarTarget:{sourceId:'fixture',sourceType:'match_day'}}));
+    })
+    await mount()
+    await page.getByText('Editing fixture fixture',{exact:true}).waitFor()
+    await page.getByRole('button',{name:action+' fixture edit',exact:true}).click()
+    await page.getByText('Home',{exact:true}).waitFor()
+    assert.deepEqual(await page.evaluate(()=>window.navigations[0]), {route:'calendar',target:{sourceId:'fixture',sourceType:'match_day',...(action==='Save'?{occurrenceDate:'2099-09-20'}:{})}})
+  }
+  await page.evaluate(() => {
+    const fixture=JSON.parse(localStorage.getItem('server'));
+    localStorage.setItem('resources',JSON.stringify({resources:{matchDayList:[fixture],matchDayDetail:fixture,matchDayPlayers:[]}}));
+    localStorage.setItem('server',JSON.stringify({...fixture,status:'live',timerStatus:'running'}));
+  })
+  await mount()
+  await page.getByText('This fixture cannot be edited in the current Team context or match state.',{exact:true}).waitFor()
+  assert.equal(await page.getByText('Editing fixture fixture',{exact:true}).count(),0,'A cached scheduled fixture must not open the editor after the server reports it live')
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
 } finally {await browser.close()}

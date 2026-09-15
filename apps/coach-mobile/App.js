@@ -477,7 +477,7 @@ function CoachHome() {
     setNotice('')
     setCalendarTarget(resolved === 'calendar' && (navigationTarget?.eventId || navigationTarget?.sourceId) ? { ...navigationTarget, requestId: `${Date.now()}` } : null)
     setMatchDayTarget(resolved === 'matchday' && navigationTarget?.fixtureId
-      ? { fixtureId: normalizeText(navigationTarget.fixtureId), requestId: `${Date.now()}:${normalizeText(navigationTarget.fixtureId)}` }
+      ? { fixtureId: normalizeText(navigationTarget.fixtureId), intent: navigationTarget.intent === 'edit-fixture' ? 'edit-fixture' : '', returnCalendarTarget: navigationTarget.returnCalendarTarget, requestId: `${Date.now()}:${normalizeText(navigationTarget.fixtureId)}` }
       : null)
     setActiveRoute(routeTarget.activeRoute)
     setMoreRoute(routeTarget.moreRoute)

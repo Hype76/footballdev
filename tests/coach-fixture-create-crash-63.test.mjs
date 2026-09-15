@@ -59,7 +59,11 @@ test('Coach Match Day returns to visible content after creating or cancelling a 
   assert.match(app, /ref=\{contentScrollRef\}/)
   assert.match(app, /scrollTo\(\{ animated: false, y: 0 \}\)/)
   assert.match(screen, /handleFixtureCreated[\s\S]*setFixtureFormOpen\(false\)[\s\S]*onRequestScrollTop\?\.\(\)/)
-  assert.match(screen, /onCancel=\{\(\) => \{ setFixtureFormOpen\(false\); setFixtureFormMatch\(null\); onRequestScrollTop\?\.\(\) \}\}/)
+  assert.match(screen, /onCancel=\{cancelFixtureEdit\}/)
+  const cancel = screen.slice(screen.indexOf('const cancelFixtureEdit ='), screen.indexOf('const closeFixture ='))
+  assert.match(cancel, /setFixtureFormOpen\(false\)/)
+  assert.match(cancel, /setFixtureFormMatch\(null\)/)
+  assert.match(cancel, /onRequestScrollTop\?\.\(\)/)
 })
 
 test('Parent Chat uses Coach wording for the remaining parent_staff room labels', () => {
