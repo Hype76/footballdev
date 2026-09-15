@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { canRemoveOwnParentAccess } from '../../mobile-core/src/parentAccessRemovalCore'
+import ParentIcon from './ParentIcon'
 
 export function ParentPlayerAccessControls({ links, disabled = false, onRemove, palette }) {
   const [target, setTarget] = useState(null)
@@ -25,10 +26,14 @@ export function ParentPlayerAccessControls({ links, disabled = false, onRemove, 
     finally { submitting.current = false; setBusy(false) }
   }
   return <View style={{ gap: 16 }}>
-    {links.length ? links.map(link => <View key={link.id} style={{ gap: 8, borderBottomWidth: 1, borderBottomColor: palette.border, paddingBottom: 16 }}>
+    {links.length ? links.map(link => <View key={link.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: palette.border, paddingBottom: 16 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
       <Text style={[textStyle, { fontSize: 17, fontWeight: '800' }]}>{link.playerName}</Text>
       <Text style={textStyle}>{[link.clubName, link.teamName].filter(Boolean).join(' | ') || 'No Team assigned'}</Text>
-      {canRemoveOwnParentAccess(link) ? button(`Remove my access to ${link.playerName}`, () => { setTarget(link); setError('') }, { danger: true, unavailable: disabled }) : null}
+      </View>
+      {canRemoveOwnParentAccess(link) ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove my access to ${link.playerName}`} accessibilityHint="Opens a confirmation. Your access is not removed yet." accessibilityState={{ disabled }} disabled={disabled} onPress={() => { setTarget(link); setError('') }} style={{ width: 44, height: 44, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 22, opacity: disabled ? 0.5 : 1 }}>
+        <ParentIcon iconKey="fan.remove" color={palette.danger} size={21} />
+      </Pressable> : null}
     </View>) : <Text style={textStyle}>No active player links are available.</Text>}
     {disabled ? <Text style={textStyle}>Connect and wait for any current action to finish before removing access.</Text> : null}
     {target ? <Modal animationType="fade" transparent visible onRequestClose={close}>

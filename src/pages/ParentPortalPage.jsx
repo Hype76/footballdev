@@ -1,4 +1,5 @@
 import { VenueDirectionsLinks } from '../components/club-settings/VenueDirectionsLinks.jsx'
+import { FanIcon } from '../components/parent-portal/FanIcon.jsx'
 import { ClubKitDisplay } from '../components/club-settings/ClubKitDisplay.jsx'
 import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../lib/resource-date-presentation.js'
 import { formatUkDateTime } from '../lib/date-format.js'
@@ -2213,10 +2214,12 @@ function ParentSettingsPanel({
             <div className={panelClass}>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Linked players</p>
               {linkedPlayers.filter((link, index, list) => ['parent', 'family'].includes(link.linkType || 'parent') && list.findIndex((item) => item.playerId === link.playerId && ['parent', 'family'].includes(item.linkType || 'parent')) === index).map((link) => (
-                <div key={link.playerId} className="mt-3 rounded-lg border border-[#d7e5dc] p-4">
+                <div key={link.playerId} className="mt-3 flex items-center gap-3 rounded-lg border border-[#d7e5dc] p-4">
+                  <div className="min-w-0 flex-1">
                   <p className="text-lg font-black text-[#101828]">{link.playerName || 'Linked player'}</p>
                   <p className={bodyTextClass}>{link.clubName} {link.teamName ? `| ${link.teamName}` : ''}</p>
-                  <button type="button" onClick={() => onRemoveAccess?.(link)} className={`${secondaryButtonClass} mt-3`} aria-label={`Remove my access to ${link.playerName || 'this player'}`}>Remove my access</button>
+                  </div>
+                  <button type="button" onClick={() => onRemoveAccess?.(link)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" title={`Remove my access to ${link.playerName || 'this player'}`} aria-label={`Remove my access to ${link.playerName || 'this player'}`}><FanIcon name="remove" /></button>
                 </div>
               ))}
               {!linkedPlayers.some((link) => ['parent', 'family'].includes(link.linkType || 'parent')) ? <p className={`mt-2 ${bodyTextClass}`}>No linked players. Your account is still available. Ask your club for an invitation to link a player.</p> : null}

@@ -103,6 +103,41 @@ test('Schedule-only endpoint denies every other view and exposes no scoring or a
   for(const action of ['respond','score','chat','invite']) assert.equal((await call(action)).statusCode,400)
   assert.equal(read.includes('resource_library_items'),false)
 })
+
+test('Game Day alone exposes shared matches without querying Schedule, then obeys current revocation and scope', async () => {
+  const { client, tables, read } = fixture()
+  tables.fan_connections[0].permissions = { schedule: false, game_day: true, development: false, resources: false }
+  tables.clubs[0].name = 'FP TEST Club'
+  tables.match_days.push({ id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: new Date().toISOString().slice(0, 10), home_away: 'away', opponent: 'Visitors' })
+  const call = action => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action, connectionId: id(1), permissions: { schedule: true, game_day: true }, clubName: 'Forged club' }) }, { createClient: () => client })
+  const response = await call('matches')
+  assert.equal(response.statusCode, 200)
+  assert.equal(JSON.parse(response.body).matches[0].club_name, 'FP TEST Club')
+  assert.equal((await call('notifications')).statusCode, 200)
+  for (const action of ['schedule', 'attendance', 'development', 'resources', 'open_resource']) assert.equal((await call(action)).statusCode, 403)
+  for (const table of ['calendar_events', 'training_availability_request_players', 'training_availability_requests', 'assessment_sessions', 'event_player_occurrence_exclusions']) assert.equal(read.includes(table), false, `Game Day must not read ${table}`)
+  const changes = [
+    () => { tables.fan_connections[0].permissions.game_day = false },
+    () => { tables.fan_connections[0].permissions.game_day = true; tables.fan_connections[0].status = 'removed' },
+    () => { tables.fan_connections[0].status = 'active'; tables.parent_player_links[0].status = 'revoked' },
+    () => { tables.parent_player_links[0].status = 'active'; tables.players[0].team_id = id(8) },
+  ]
+  for (const change of changes) {
+    change(); read.length = 0
+    assert.equal((await call('matches')).statusCode, 403)
+    assert.equal(read.includes('match_days'), false, 'Stale client permissions cannot authorise a new match read')
+  }
+})
+
+test('Fan calendar fixture titles use the authorised club name and home team first', async () => {
+  const { client, tables } = fixture()
+  tables.clubs[0].name = 'FP TEST Club'
+  tables.match_days.push({ id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10), opponent: 'Visitors', home_away: 'home' })
+  const call = () => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action: 'schedule', connectionId: id(1) }) }, { createClient: () => client })
+  assert.equal(JSON.parse((await call()).body).schedule[0].title, 'FP TEST Club v Visitors')
+  tables.match_days[0].home_away = 'away'
+  assert.equal(JSON.parse((await call()).body).schedule[0].title, 'Visitors v FP TEST Club')
+})
 test('Archived children and suspended inviting parents cannot send existing invitations',async()=>{
   const {client,tables}=fixture()
   Object.assign(tables.fan_connections[0],{status:'pending',expires_at:new Date(Date.now()+100000).toISOString()})

@@ -5,17 +5,20 @@ import { useAuth } from '../lib/auth.js'
 import { supabase } from '../lib/supabase-client.js'
 import { fanRpc } from '../lib/fans-client.js'
 import { fanAccessSummary } from '../lib/fans.js'
-import { FanIcon } from '../components/parent-portal/FanIcon.jsx'
 import { fetchFansJson } from '../lib/fans-fetch.js'
 import { assertPasswordPolicy, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 import { FanBrandScope, FanClubBrand } from '../components/parent-portal/FanBrand.jsx'
+import { FanAppChoice } from '../components/parent-portal/FanAppChoice.jsx'
 import './fans.css'
+import './fan-invite.css'
 export function FanInvitePage() {
   const { token } = useParams()
   const navigate = useNavigate()
   const { session } = useAuth()
   const [confirmationToken, setConfirmationToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('fan_confirmation') || '')
   const [emailConfirmed, setEmailConfirmed] = useState(false)
+  const [continueWeb, setContinueWeb] = useState(() => new URLSearchParams(window.location.search).get('continue') === 'web' || Boolean(new URLSearchParams(window.location.hash.slice(1)).get('fan_confirmation')))
+  const [accepted, setAccepted] = useState(false)
   useEffect(() => {
     if (confirmationToken) window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
   }, [confirmationToken])
@@ -41,6 +44,7 @@ export function FanInvitePage() {
   useEffect(() => {
     let active = true
     setInvite(null)
+    setAccepted(false)
     if (session?.user) fanRpc('get_fan_invitation', { token_value: token }).then((row) => { if (active) setInvite(row) }).catch((e) => { if (active) setMessage(e.message) })
     return () => { active = false }
   }, [session?.user, token])
@@ -69,8 +73,17 @@ export function FanInvitePage() {
     if (error) throw error
     setPassword('')
   }
-  return <FanBrandScope source={invite || branding}><main className="fans"><FanClubBrand source={invite || branding} /><header className="fans-heading"><FanIcon /><h1>Your Fan invitation</h1></header><p>Use the email address the Parent invited. You will only receive the access they selected.</p>
+  const chooseWebsite = () => {
+    if (accepted) { navigate('/fans', { replace: true }); window.location.reload(); return }
+    setContinueWeb(true)
+    const params = new URLSearchParams(window.location.search)
+    params.set('continue', 'web')
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}?${params}`)
+  }
+  return <FanBrandScope source={invite || branding}><main className="fans fan-invitation"><p className="fan-invitation-product">Football Player</p><FanClubBrand source={invite || branding} /><header className="fans-heading"><h1>Your Fan invitation</h1></header><p>Use the email address the Parent invited. You will only receive the access they selected.</p>
     {message ? <p ref={messageRef} role="alert">{message}</p> : null}
+    {!continueWeb || accepted ? <FanAppChoice token={token} accepted={accepted} playerName={invite?.player_name} onContinueWeb={chooseWebsite} /> : <>
+    {!confirmationToken ? <button type="button" disabled={busy} onClick={() => setContinueWeb(false)}>Back to app and download options</button> : null}
     {confirmationToken ? <section aria-label="Confirm Fan email"><h2>Confirm your Fan email</h2><p>Confirm your email to continue with this invitation. Access starts only after you accept the invitation.</p><button className="fans-invite" disabled={busy} onClick={() => run(confirmEmail)}>{busy ? 'Confirming...' : 'Confirm email'}</button></section> : null}
     {emailConfirmed ? <p role="status">Email confirmed. Accept the invitation below to activate your Fan access.</p> : null}
     {!session?.user ? <>
@@ -86,6 +99,7 @@ export function FanInvitePage() {
         </form>
       </>}
       <p>After accepting, sign in to the Football Player Parent app with the same email and password. Enable phone notifications in Fans for the Game Day alerts the Parent has shared.</p>
-    </> : <><p>Signed in as {session.user.email}</p><button disabled={busy} onClick={() => run(() => supabase.auth.signOut())}>Use a different account</button>{invite ? <><h2>Follow {invite.player_name}</h2><ul>{fanAccessSummary(invite.permissions).map((line) => <li key={line}>{line}</li>)}</ul><p>You cannot invite other people or change this player's information. You can remove your own access at any time.</p><p>After accepting, you can sign in to the Parent app with this same account and enable phone notifications in Fans.</p><button type="button" className="fans-invite" aria-busy={busy} disabled={busy} onClick={() => run(async () => { await fanRpc('accept_fan_invitation', { token_value: token }); navigate('/fans', { replace: true }); window.location.reload() })}>{busy ? 'Accepting invitation...' : 'Accept invitation'}</button></> : null}</>}
+    </> : <><p>Signed in as {session.user.email}</p><button disabled={busy} onClick={() => run(() => supabase.auth.signOut())}>Use a different account</button>{invite ? <><h2>Follow {invite.player_name}</h2><ul>{fanAccessSummary(invite.permissions).map((line) => <li key={line}>{line}</li>)}</ul><p>You cannot invite other people or change this player's information. You can remove your own access at any time.</p><p>After accepting, choose the Parent app or continue on this website.</p><button type="button" className="fans-invite" aria-busy={busy} disabled={busy} onClick={() => run(async () => { await fanRpc('accept_fan_invitation', { token_value: token }); setAccepted(true) })}>{busy ? 'Accepting invitation...' : 'Accept invitation'}</button></> : null}</>}
+    </>}
   </main></FanBrandScope>
 }

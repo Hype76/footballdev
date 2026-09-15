@@ -103,6 +103,16 @@ jobs:
         run: npm run test:v1-stabilise
       - name: Install Parent encryption test dependencies
         run: npm ci --prefix apps/parent-mobile --include=optional
+      - name: Fans layout and app invitation handoff
+        run: >-
+          node --test tests/fan-app-handoff.test.mjs tests/fan-app-link.test.mjs &&
+          node tests/fans-web-redesign-browser.mjs &&
+          node tests/fan-app-choice-browser.mjs &&
+          node tests/fan-confirmation-browser.mjs &&
+          node tests/fans-mobile-browser.mjs &&
+          node tests/fan-invitation-mobile-browser.mjs &&
+          node tests/fan-app-link-hook-browser.mjs &&
+          node tests/fan-app-content-browser.mjs
       - name: Mobile loading and read authority regression
         run: >-
           node --test

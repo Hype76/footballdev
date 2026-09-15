@@ -33,7 +33,7 @@ test('Invitation and verification emails use safe club branding and exact select
     assert.match(email.html,/#123abc/)
     assert.match(email.html,/Blue &lt;Club&gt;/)
     assert.doesNotMatch(email.html,/<Relative>/)
-    if(!verification) { assert.match(email.html,/View fixtures, training and events/); assert.doesNotMatch(email.html,/development records/) }
+    if(!verification) { assert.match(email.html,/View the calendar, including shared training, events and fixtures/); assert.doesNotMatch(email.html,/development records/) }
   }
   const safe=buildFanEmail({club:{name:'Club',logo_url:'javascript:bad',theme_accent:'red;display:none'},fan,url:'https://example.test'})
   assert.doesNotMatch(safe.html,/javascript:|display:none/)
