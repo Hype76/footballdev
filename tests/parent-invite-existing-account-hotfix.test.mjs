@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
+import { parse } from '@babel/parser'
 import {
   buildParentInviteAcceptancePath,
+  buildParentInviteLoginPath,
   buildParentInviteSuccessPath,
   getParentInviteToken,
   isParentInviteSignInIntent,
+  isParentInviteAccountMismatch,
 } from '../src/lib/parent-auth-intent.js'
 
 const loginPageUrl = new URL('../src/pages/LoginPage.jsx', import.meta.url)
@@ -41,14 +44,45 @@ test('unified sign-in gives parent invitation intent priority over default works
   assert.doesNotMatch(loginSource, /window\.location\.assign\(`\/parent-invite\/\$\{parentInviteToken\}`\)/)
 })
 
-test('authenticated invite landing keeps the session and delegates wrong-account rejection to the RPC', async () => {
+test('authenticated invite landing keeps the session until the user chooses account recovery', async () => {
   const source = await readFile(parentInvitePageUrl, 'utf8')
 
   assert.match(source, /continueExistingSession/)
   assert.match(source, /canRenderOnCurrentHost = isParentHost \|\| getMainAppOrigin\(\) === window\.location\.origin/)
   assert.match(source, /window\.location\.replace\(buildCurrentParentFlowUrl\(buildParentInviteAcceptancePath\(token\), isParentHost\)\)/)
-  assert.doesNotMatch(source, /await signOut\(\)/)
+  const page = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.find(node => node.declaration?.id?.name === 'ParentInvitePage').declaration
+  for (const statement of page.body.body) {
+    if (statement.expression?.callee?.name === 'useEffect') assert.doesNotMatch(source.slice(statement.start, statement.end), /signOut\(/)
+  }
   assert.doesNotMatch(source, /sessionEmail.*inviteEmail/s)
+})
+
+test('forwarded invitation recovery preserves the exact token on the current app host', () => {
+  const token = 'invite/token+value'
+  for (const parentHost of [false, true]) {
+    const url = new URL(buildParentInviteLoginPath(token, parentHost), 'https://example.com')
+    assert.equal(url.pathname, parentHost ? '/parent-login' : '/sign-in')
+    assert.equal(url.searchParams.get('parentInvite'), token)
+  }
+  assert.equal(isParentInviteAccountMismatch('This Parent app link is for a different email address.'), true)
+  assert.equal(isParentInviteAccountMismatch('This Parent app link is already connected to another account.'), true)
+  assert.equal(isParentInviteAccountMismatch('This invitation has expired.'), false)
+})
+
+test('explicit account recovery waits for sign-out, retains the invite and allows retry after failure', async () => {
+  const source = await readFile(parentInvitePageUrl, 'utf8')
+  const page = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.find(node => node.declaration?.id?.name === 'ParentInvitePage').declaration
+  const handler = page.body.body.flatMap(node => node.declarations || []).find(node => node.id.name === 'handleSwitchAccount').init
+  const createHandler = new Function('submitLockRef', 'setIsSubmitting', 'setSwitchAccountError', 'signOut', 'window', 'buildCurrentParentFlowUrl', 'buildParentInviteLoginPath', 'token', 'isParentHost', `return (${source.slice(handler.start, handler.end)})`)
+  for (const fail of [false, true]) {
+    const calls = []; const lock = { current: false }
+    const run = createHandler(lock, value => calls.push(['busy', value]), value => calls.push(['error', value]), async () => { calls.push(['signOut']); if (fail) throw new Error('offline') }, { location: { assign: url => calls.push(['navigate', url]) } }, path => path, buildParentInviteLoginPath, 'opaque-token', false)
+    assert.deepEqual(calls, [])
+    await run()
+    assert.equal(lock.current, false)
+    if (fail) { assert.ok(!calls.some(c => c[0] === 'navigate')); assert.ok(calls.some(c => c[0] === 'error' && c[1].includes('try again'))) }
+    else { assert.ok(calls.findIndex(c => c[0] === 'navigate') > calls.findIndex(c => c[0] === 'signOut')); assert.equal(new URL(calls.find(c => c[0] === 'navigate')[1], 'https://example.com').searchParams.get('parentInvite'), 'opaque-token') }
+  }
 })
 
 test('main-site login completes acceptance without moving the session to another origin', async () => {

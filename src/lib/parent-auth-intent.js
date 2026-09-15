@@ -42,6 +42,17 @@ export function buildParentInviteAcceptancePath(token = '') {
   return normalizedToken ? `/parent-invite/${encodeURIComponent(normalizedToken)}?accept=1` : ''
 }
 
+export function buildParentInviteLoginPath(token = '', isParentHost = false) {
+  const params = new URLSearchParams({ parentInvite: String(token ?? '').trim() })
+  if (!isParentHost) params.set('tab', 'parent')
+  return `${isParentHost ? '/parent-login' : '/sign-in'}?${params.toString()}`
+}
+
+export function isParentInviteAccountMismatch(message = '') {
+  const normalized = String(message ?? '').toLowerCase()
+  return normalized.includes('different email address') || normalized.includes('already connected to another account')
+}
+
 export function buildParentInviteSuccessPath(parentLinkId = '') {
   const normalizedParentLinkId = String(parentLinkId ?? '').trim()
   const params = new URLSearchParams({ linked: '1' })
