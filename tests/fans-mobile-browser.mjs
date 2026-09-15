@@ -231,7 +231,7 @@ try {
       assert.ok(heading.y>=59&&heading.y<330,'Opened section heading is visible immediately');
       const backBox=await button('Back to Fans').boundingBox();assert.ok(backBox.y>=59&&backBox.height>=44,'Back is below the iPhone status area and has a usable touch target');
       assert.equal(await button('Hide Development report').count(),0);assert.equal(await button('Hide resource').count(),0);
-      if(title==='Calendar'){assert.equal(await button('History').count(),0);assert.equal(await button('Needs response').count(),0);await page.getByText(/14 Sep/).waitFor();}
+      if(title==='Calendar'){assert.equal(await button('History').count(),0);assert.equal(await button('Needs response').count(),0);const date=new Date((await page.evaluate(()=>window.responses.schedule.schedule[0].date))+'T12:00:00Z');const label=date.getUTCDate()+' '+new Intl.DateTimeFormat('en-GB',{month:'short',timeZone:'Europe/London'}).format(date).slice(0,3);await page.getByText(new RegExp(label)).waitFor();}
       await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
       if(title==='Matchday'){
@@ -241,7 +241,7 @@ try {
           await page.getByText('Under 17 v Away Club',{exact:true}).click();
           await page.getByRole('heading',{name:'Under 17 v Away Club',exact:true}).waitFor();
           assert.equal(await page.getByRole('button',{name:/See squad|Register interest|Start match/}).count(),0);
-          await page.getByText('15 Sept 2026',{exact:true}).waitFor();
+          const matchDate=new Date((await page.evaluate(()=>window.responses.matches.matches[0].match_date))+'T12:00:00Z');await page.getByText(new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/London'}).format(matchDate),{exact:true}).waitFor();
           const label=choice==='tbc'?'Kit to be confirmed':choice==='home'?'Home kit':'Away kit';
           await page.getByText(label,{exact:true}).waitFor();
           if(choice!=='tbc') {
