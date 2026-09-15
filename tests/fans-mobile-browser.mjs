@@ -194,7 +194,7 @@ try {
   await page.evaluate(() => {
     window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};
     window.rows=[{id:'followed-child',is_owner:false,status:'active',player_name:'Followed Child',club_name:'Demo FC',team_name:'Under 17',permissions:{schedule:true,game_day:true,development:true,resources:true}}];
-    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:'2026-09-14',time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:'2026-09-15',status:'scheduled'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
+    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:new Date(Date.now()+8*86400000).toISOString().slice(0,10),status:'scheduled'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
     window.remount();
   });
   await page.getByText('Followed Child',{exact:true}).waitFor();
