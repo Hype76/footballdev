@@ -633,9 +633,10 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   )
 }
 
-export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, palette, quickAction, user }) {
+export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, onRequestScrollTop, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [players, setPlayers] = useState([])
+  const [focusedPlayer, setFocusedPlayer] = useState(null)
   const [openingPlayerId, setOpeningPlayerId] = useState('')
   const playerRequest = useRef(0)
   useEffect(() => () => { playerRequest.current += 1 }, [user])
@@ -667,6 +668,9 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
   useEffect(() => {
     if (quickAction?.intent !== 'create-player') return
+    playerRequest.current += 1
+    setOpeningPlayerId('')
+    setFocusedPlayer(null)
     setDetail(null)
     setForm(coachPlayerFormFromPlayer())
     onQuickActionHandled?.()
@@ -674,35 +678,54 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const visible = filterCoachPlayers(players, { query, section, status: 'active' })
   const openPlayer = async (player) => {
     const request = ++playerRequest.current
+    setFocusedPlayer(player)
+    setForm(null)
     setOpeningPlayerId(player.id)
+    onRequestScrollTop?.()
     setError('')
     setDetail(null)
     setDevelopmentOpen(false)
     try {
       const next = await readMobileResource(user, `coach:player-detail:${player.id}`, () => getCoachPlayerDetail(user, player.id))
-      if (request === playerRequest.current) setDetail(next)
+      if (request === playerRequest.current) {
+        if (next?.player?.id !== player.id) throw new Error('The selected player could not be loaded. Please try again.')
+        setDetail(next)
+      }
     } catch (detailError) {
       if (request === playerRequest.current) setError(message(detailError, 'Player details could not be loaded.'))
     } finally {
       if (request === playerRequest.current) setOpeningPlayerId('')
     }
   }
+  const closePlayer = () => {
+    playerRequest.current += 1
+    setOpeningPlayerId('')
+    setFocusedPlayer(null)
+    setDetail(null)
+    setDevelopmentOpen(false)
+    setForm(null)
+    setError('')
+    onRequestScrollTop?.()
+  }
   const save = async () => {
     setSaving(true); setError('')
     try {
       await saveCoachPlayer(user, form, detail?.player || null)
       if (detail?.player?.id) invalidateMobileResource(user, `coach:player-detail:${detail.player.id}`)
-      setForm(null); setDetail(null); await load()
+      closePlayer(); await load()
     } catch (saveError) { setError(message(saveError, 'Player could not be saved.')) }
     finally { setSaving(false) }
   }
   return (
     <View style={styles.stack}>
-      <DomainHeader copy="Team-scoped Player records, contact details, Development history, and canonical custom fields." styles={styles} title="Players" />
-      <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
+      {focusedPlayer && !form ? <Button label="Back to Players" onPress={closePlayer} secondary styles={styles} /> : null}
+      <DomainHeader copy={focusedPlayer ? "Player information, contacts and development history." : "Your squad and trial players."} styles={styles} title={focusedPlayer ? "Player profile" : "Players"} />
+      <DomainState error={error} loading={!focusedPlayer && loading} onRetry={focusedPlayer ? () => openPlayer(focusedPlayer) : load} stale={stale} styles={styles} />
+      {!focusedPlayer && !form ? <>
       <Field label="Search Players" onChangeText={setQuery} styles={styles} value={query} />
       <Chips onChange={setSection} options={[{ label: 'All', value: 'all' }, { label: 'Trial', value: 'Trial' }, { label: 'Squad', value: 'Squad' }]} styles={styles} value={section} />
       {policy.canCreate && !form ? <Button iconKey="action.add-player" label="Add Player" onPress={() => { setDetail(null); setForm(coachPlayerFormFromPlayer()) }} styles={styles} /> : null}
+      </> : null}
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{detail ? 'Edit Player' : 'Add Player'}</Text>
@@ -733,19 +756,18 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Development</Text>
             {detail.evaluations.length ? <>
-              <Text style={styles.meta}>{detail.evaluations.length} saved record{detail.evaluations.length === 1 ? '' : 's'}. Latest: {detail.evaluations[0]?.date || 'No date'} | Score {detail.evaluations[0]?.averageScore ?? 'not scored'}.</Text>
+              <Text style={styles.meta}>{detail.evaluations.length} saved record{detail.evaluations.length === 1 ? '' : 's'}. Latest: {formatUkDate(detail.evaluations[0]?.date, 'No date')} | Score {detail.evaluations[0]?.averageScore ?? 'not scored'}.</Text>
               <Button label={developmentOpen ? 'Hide recent records' : 'Show recent records'} onPress={() => setDevelopmentOpen((current) => !current)} secondary styles={styles} />
-              {developmentOpen ? detail.evaluations.slice(0, 5).map((evaluation) => <Text key={evaluation.id} style={styles.body}>{evaluation.date || 'No date'} | {evaluation.session || 'Evaluation'} | Score {evaluation.averageScore ?? 'not scored'} | {evaluation.comments || 'No comments'}</Text>) : null}
+              {developmentOpen ? detail.evaluations.slice(0, 5).map((evaluation) => <Text key={evaluation.id} style={styles.body}>{formatUkDate(evaluation.date, 'No date')} | {evaluation.session || 'Evaluation'} | Score {evaluation.averageScore ?? 'not scored'} | {evaluation.comments || 'No comments'}</Text>) : null}
               {developmentOpen && detail.evaluations.length > 5 ? <Text style={styles.meta}>Showing the 5 most recent records. Open Development for the full history.</Text> : null}
             </> : <Text style={styles.body}>No Development records.</Text>}
           </View>
-          <Button label="Close" onPress={() => { playerRequest.current += 1; setOpeningPlayerId(''); setDetail(null); setDevelopmentOpen(false) }} secondary styles={styles} />
-          <Text style={styles.meta}>Archive, restore, hard delete, and Team transfer remain in the governed web workflow.</Text>
+          <Text style={styles.meta}>Use the website to archive a player or transfer them to another team.</Text>
         </View>
       ) : null}
-      {!loading && visible.length === 0 ? <Text style={styles.body}>No active Players match this view.</Text> : null}
-      {openingPlayerId ? <Text accessibilityLiveRegion="polite" style={styles.meta}>Opening Player...</Text> : null}
-      {visible.map((player) => <Pressable accessibilityState={{ busy: openingPlayerId === player.id }} accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.playerCard}><MaterialIcons name="person-outline" size={28} style={styles.secondaryText} /><View style={styles.playerCopy}><Text numberOfLines={1} style={styles.cardTitle}>{player.playerName}</Text><Text numberOfLines={1} style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentAppInstallationStatus player={player} styles={styles} /></View><MaterialIcons name="chevron-right" size={22} style={styles.secondaryText} /></Pressable>)}
+      {!focusedPlayer && !form && !loading && visible.length === 0 ? <Text style={styles.body}>No active Players match this view.</Text> : null}
+      {openingPlayerId ? <Text accessibilityLiveRegion="polite" style={styles.meta}>Opening {focusedPlayer?.playerName || 'Player'}...</Text> : null}
+      {!focusedPlayer && !form ? visible.map((player) => <Pressable accessibilityState={{ busy: openingPlayerId === player.id }} accessibilityRole="button" key={player.id} onPress={() => openPlayer(player)} style={styles.playerCard}><MaterialIcons name="person-outline" size={28} style={styles.secondaryText} /><View style={styles.playerCopy}><Text numberOfLines={1} style={styles.cardTitle}>{player.playerName}</Text><Text numberOfLines={1} style={styles.meta}>{player.section} | {player.positions.join(', ') || 'No position'} | Shirt {player.shirtNumber || 'not set'}</Text><ParentAppInstallationStatus player={player} styles={styles} /></View><MaterialIcons name="chevron-right" size={22} style={styles.secondaryText} /></Pressable>) : null}
     </View>
   )
 }
