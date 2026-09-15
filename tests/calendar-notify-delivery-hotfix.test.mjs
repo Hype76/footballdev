@@ -128,6 +128,7 @@ test('Calendar queue payload reconstructs a valid sender and reaches the mocked 
   }, { clubId: 'club-1' })
   const calls = []
 
+  assert.equal(prepared.emailPayload.emailAppRole, 'parent')
   await sendEmail(prepared.emailPayload, {
     env: {
       RESEND_API_KEY: 're_test_key',

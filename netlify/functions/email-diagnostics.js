@@ -97,6 +97,7 @@ export async function handler(event) {
     }
 
     const response = await sendEmail({
+      emailAppRole: 'both',
       from: createFromAddress('Football Player Diagnostics'),
       to: [toEmail],
       subject: 'Football Player email diagnostic',

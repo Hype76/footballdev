@@ -280,6 +280,7 @@ async function sendOwnerInviteEmail({ baseUrl, billingArrangement, billingMode, 
   })
 
   return sendEmail({
+    emailAppRole: 'coach',
     from: createFromAddress('Football Player'),
     to: [ownerEmail],
     ...content,

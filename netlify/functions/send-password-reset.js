@@ -3,7 +3,7 @@ import process from 'node:process'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
-const ALLOWED_BODY_KEYS = new Set(['email'])
+const ALLOWED_BODY_KEYS = new Set(['email', 'appRole'])
 const APPROVED_PRODUCTION_ORIGINS = new Set([
   'https://footballplayer.online',
   'https://parent.footballplayer.online',
@@ -71,6 +71,7 @@ function parseBody(event) {
   if (Object.keys(body).some((key) => !ALLOWED_BODY_KEYS.has(key))) {
     return null
   }
+  if (body.appRole !== undefined && !['parent', 'coach'].includes(body.appRole)) return null
 
   return body
 }
@@ -114,6 +115,15 @@ export function resolveRecoveryRedirect({ isProduction = false, requestOrigin = 
   }
 
   return ''
+}
+
+// Presentation only. This never changes recovery authority, account lookup or redirect destinations.
+export function resolveRecoveryEmailAppRole({ appRole, requestOrigin = '', accountType = '' } = {}) {
+  if (['parent', 'coach'].includes(appRole)) return appRole
+  if (parseExactOrigin(requestOrigin) === 'https://parent.footballplayer.online') return 'parent'
+  if (['parent', 'fan', 'player', 'family'].includes(accountType)) return 'parent'
+  if (['coach', 'staff', 'coach_owner', 'team_admin', 'club_admin', 'workspace_user'].includes(accountType)) return 'coach'
+  return 'both'
 }
 
 function createPrivacyDigest(value, secret, purpose) {
@@ -229,6 +239,7 @@ export function createPasswordRecoveryHandler({
       if (!error && actionLink) {
         try {
           await sendRecoveryEmail({
+            emailAppRole: resolveRecoveryEmailAppRole({ appRole: body.appRole, requestOrigin, accountType: data?.user?.user_metadata?.account_type }),
             from: createFromAddress('Football Player'),
             to: [email],
             subject: 'Reset your Football Player password',

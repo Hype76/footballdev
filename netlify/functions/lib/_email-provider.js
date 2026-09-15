@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { Resend } from 'resend'
+import { addEmailAppAccess } from './_email-app-access.js'
 
 const DEFAULT_FROM_EMAIL = 'feedback@footballplayer.online'
 const DEFAULT_PUBLIC_FAILURE_MESSAGE = 'Email could not be sent. Please try again in a moment.'
@@ -214,7 +215,7 @@ export async function sendEmail(emailPayload, {
   telemetryClient = null,
 } = {}) {
   const config = assertEmailProviderConfig({ env, publicMessage })
-  const payload = normalizeResendPayload(emailPayload)
+  const payload = addEmailAppAccess(normalizeResendPayload(emailPayload))
   const from = parseFromAddress(payload.from)
 
   if (!from.email || !isValidEmail(from.email)) {

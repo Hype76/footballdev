@@ -490,6 +490,7 @@ export async function prepareScheduledCalendarNotificationRow(row, {
         playerName: email.playerName,
         resendPayload: {
           ...safeExistingResendPayload,
+          emailAppRole: 'parent',
           html: email.html,
           subject: email.subject,
           to: [context.recipientEmail],

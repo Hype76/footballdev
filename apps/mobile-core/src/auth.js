@@ -450,7 +450,7 @@ export function AuthProvider({
 
     try {
       const response = await fetch(`${config.apiBaseUrl}/.netlify/functions/send-password-reset`, {
-        body: JSON.stringify({ email: normalizedEmail }),
+        body: JSON.stringify({ email: normalizedEmail, appRole: config.appRole }),
         headers: {
           'Content-Type': 'application/json',
           Origin: config.apiBaseUrl,

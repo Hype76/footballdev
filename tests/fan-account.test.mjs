@@ -44,6 +44,7 @@ test('signup binds the invited identity, sends confirmation and does not activat
   assert.equal(calls.signup[0].options.redirectTo, `https://parent.footballplayer.online/fan-invite/${token}`)
   assert.deepEqual(calls.queries[0].filters, [['invite_token', token], ['email', invite.email], ['status', 'pending'], ['relationship_type', 'fan']])
   assert.equal(calls.emails.length, 1)
+  assert.equal(calls.emails[0][0].emailAppRole, 'parent')
   assert.match(calls.emails[0][0].html, /Confirm email/)
   assert.ok(calls.emails[0][0].html.includes(`https://parent.footballplayer.online/fan-invite/${token}#fan_confirmation=synthetic-confirmation-hash`))
   assert.ok(!calls.emails[0][0].html.includes('https://auth.example.test'))

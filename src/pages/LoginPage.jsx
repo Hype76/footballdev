@@ -271,7 +271,7 @@ export function LoginPage() {
     setLocalMessage('')
 
     try {
-      await resetPassword(formData.email)
+      await resetPassword(formData.email, 'coach')
       setLocalMessage('Password reset email sent if that account exists.')
     } catch (error) {
       console.error(error)

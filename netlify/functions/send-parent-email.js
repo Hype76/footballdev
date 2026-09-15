@@ -161,6 +161,7 @@ function buildEmailPayload({
   attachments,
 }) {
   const emailPayload = {
+    emailAppRole: 'parent',
     from: createFromAddress(fromName),
     to: recipients,
     replyTo: safeReplyTo || undefined,
@@ -169,6 +170,7 @@ function buildEmailPayload({
   }
 
   if (senderCopyEmails.length > 0) {
+    emailPayload.emailCcAppRole = 'coach'
     emailPayload.cc = senderCopyEmails
   }
 

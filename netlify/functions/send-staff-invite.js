@@ -192,6 +192,7 @@ export async function handler(event) {
 
     emailSubject = String(body.subject ?? '').trim() || `${clubName} Coach invite`
     const emailPayload = {
+      emailAppRole: 'coach',
       from: createFromAddress(fromName),
       to: [recipient],
       replyTo: safeReplyTo || undefined,

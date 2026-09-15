@@ -36,7 +36,7 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
       const fan = await loadFanInviteForOwner(client, actor, body.connectionId)
       if (fan.email_sent_at) return json(200, { success: true, alreadySent: true })
       const url = fanInviteUrl('https://parent.footballplayer.online', fan.invite_token)
-      await deliverEmail({ from: createFromAddress('Football Player'), to: [fan.email], ...buildFanEmail({ club: fan.club, fan, url })
+      await deliverEmail({ from: createFromAddress('Football Player'), to: [fan.email], ...buildFanEmail({ club: fan.club, fan, url }), emailAppRole: 'parent'
       }, { idempotencyKey: `fan-invitation-${fan.id}${fan.renewal_request_id ? `-${fan.renewal_request_id}` : ''}`, context: { emailType: 'fan_invitation', actorUserId: actor, targetEntityType: 'fan_connection', targetEntityId: fan.id } })
       const sent = await client.from('fan_connections').update({ email_sent_at: new Date().toISOString() }).eq('id', fan.id).eq('invite_token', fan.invite_token)
       if (sent.error) throw sent.error

@@ -120,6 +120,7 @@ export async function handler(event) {
     })
 
     const response = await sendEmail({
+      emailAppRole: 'both',
       from: createFromAddress('Football Player Demo'),
       to: [DEMO_REQUEST_RECIPIENT],
       reply_to: email,

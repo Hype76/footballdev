@@ -88,6 +88,7 @@ test('email uses the match club branding and cleans pending non-selected copy', 
   await deliverSquadDecisionNotifications([id], { admin, resolveLogo: async (args) => { logoArgs = args; return { source: 'club', url: args.clubLogoUrl } }, email: async (payload) => { sent = payload } })
   assert.match(selection, /clubs:club_id\(name,logo_url,theme_accent\)/)
   assert.deepEqual(logoArgs, { clubLogoUrl: 'https://example.com/crest.png' })
+  assert.equal(sent.emailAppRole, 'parent')
   assert.match(sent.html, /https:\/\/example.com\/crest.png/)
   assert.match(sent.html, /#123456/)
   assert.match(sent.html, /Not selected this time/)

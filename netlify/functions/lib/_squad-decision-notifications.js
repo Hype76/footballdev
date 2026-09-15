@@ -24,6 +24,7 @@ export async function deliverSquadDecisionNotifications(ids, { admin = supabaseA
         await email({
           from: createFromAddress(clubName), to: receipt.recipient_email,
           ...content,
+          emailAppRole: 'parent',
         }, {
           idempotencyKey: `squad-decision:${receipt.id}`,
           context: { emailType: 'squad_decision', clubId: match.club_id, teamId: match.team_id, actorId: receipt.notified_by, targetEntityType: 'match_day', targetEntityId: match.id },

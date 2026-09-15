@@ -443,6 +443,7 @@ async function prepareCalendarEditInvitations({
       ...(queue?.payload || {}),
       resendPayload: {
         ...((queue?.payload || {}).resendPayload || {}),
+        emailAppRole: 'parent',
         from: createFromAddress('Football Player'),
         to: [recipientEmail],
         subject: email.subject,
@@ -604,6 +605,7 @@ async function prepareCalendarEditInvitations({
             ...(queue.payload || {}),
             resendPayload: {
               ...((queue.payload || {}).resendPayload || {}),
+              emailAppRole: 'parent',
               to: [],
             },
             calendarActionableInvitationBlocked: true,
@@ -993,6 +995,7 @@ export async function handler(event) {
         const payload = {
           visibleInEmailQueue: false,
           resendPayload: {
+            emailAppRole: 'parent',
             from: createFromAddress('Football Player'),
             to: [contact.email],
             subject: email.subject,

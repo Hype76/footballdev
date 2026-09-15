@@ -105,7 +105,9 @@ export async function processFailedEmails() {
           storedPayload: lockedEmailLog.payload,
         },
       )
-      const resendPayload = authorizedPreparedEmail.emailPayload
+      const resendPayload = requiredFeature === 'parentEmails'
+        ? { ...authorizedPreparedEmail.emailPayload, emailAppRole: 'parent', emailCcAppRole: authorizedPreparedEmail.emailPayload.cc?.length ? 'coach' : undefined }
+        : authorizedPreparedEmail.emailPayload
       const response = await sendEmail(resendPayload, {
         idempotencyKey: `fp-retry-${lockedEmailLog.idempotency_key || lockedEmailLog.id}`,
         context: {

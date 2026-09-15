@@ -313,7 +313,7 @@ export function UserSettingsPage() {
     setErrorMessage('')
 
     try {
-      await resetPassword(user?.email || authUser?.email)
+      await resetPassword(user?.email || authUser?.email, 'coach')
       setSuccessMessage('Password reset email sent if that account exists.')
       showToast({ title: 'Reset email sent', message: 'Check your inbox for the password reset link.' })
     } catch (error) {

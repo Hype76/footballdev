@@ -33,6 +33,9 @@ export function buildPreparedScheduledEmail(row, planProfile, {
   const recipients = normalizeQueuedEmailRecipients(resendPayload.to || row?.to_email)
   const emailPayload = {
     ...resendPayload,
+    // This queue delivers Parent communications, including older rows without app metadata.
+    emailAppRole: 'parent',
+    emailCcAppRole: normalizeQueuedEmailRecipients(resendPayload.cc).length ? 'coach' : undefined,
     from: String(resendPayload.from ?? '').trim()
       || createFromAddress(getQueuedEmailFromName(payload, fromDisplayName)),
     to: recipients,

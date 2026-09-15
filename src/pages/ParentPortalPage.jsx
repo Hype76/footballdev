@@ -2117,7 +2117,7 @@ function ParentSettingsPanel({
     clearMessages()
 
     try {
-      await resetPassword(parentEmail || authUser?.email)
+      await resetPassword(parentEmail || authUser?.email, 'parent')
       setStatusMessage('Password reset email sent if that account exists.')
       showToast({ title: 'Reset email sent', message: 'Check your inbox for the password reset link.' })
     } catch (error) {

@@ -56,7 +56,7 @@ export function createFanAccountHandler({ createClient, sendEmail, createFromAdd
       // The fragment is not sent to web servers or included in referrer headers.
       const confirmationUrl = `https://parent.footballplayer.online/fan-invite/${body.token}#fan_confirmation=${encodeURIComponent(data.properties.hashed_token)}`
       try {
-        const emailPayload = { from: createFromAddress('Football Player'), to: [invite.email], ...buildFanEmail({ club, fan: invite, url: confirmationUrl, verification: true }) }
+        const emailPayload = { emailAppRole: 'parent', from: createFromAddress('Football Player'), to: [invite.email], ...buildFanEmail({ club, fan: invite, url: confirmationUrl, verification: true }) }
         // A new confirmation link changes the email. Only deduplicate identical payloads.
         // Hash the payload so confirmation tokens never appear in provider request keys.
         const payloadHash = createHash('sha256').update(JSON.stringify(emailPayload)).digest('hex')

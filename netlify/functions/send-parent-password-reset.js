@@ -216,6 +216,7 @@ export function createParentPasswordResetHandler({
       })
 
       await emailSender({
+        emailAppRole: 'parent',
         from: createFromAddress(`${normalizeText(club?.name) || 'Football Player'} via Football Player`),
         to: [accountEmail],
         replyTo: normalizeEmail(club?.contact_email) || undefined,

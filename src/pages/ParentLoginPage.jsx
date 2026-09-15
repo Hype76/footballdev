@@ -239,7 +239,7 @@ export function ParentLoginPage() {
     setMessage('')
 
     try {
-      await resetPassword(email)
+      await resetPassword(email, 'parent')
       setMessage('Password reset email sent if that account exists.')
     } catch (error) {
       console.error(error)

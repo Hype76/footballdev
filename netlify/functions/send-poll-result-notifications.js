@@ -156,6 +156,7 @@ async function deliverPollResult({ poll, ranked, votes }) {
       } else {
         try {
           const response = await sendEmail({
+            emailAppRole: 'parent',
             from: createFromAddress(emailPresentation.fromDisplayName),
             to: email,
             subject: emailPresentation.subject,

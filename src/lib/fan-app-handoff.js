@@ -1,5 +1,6 @@
-export const PARENT_APP_STORE_URL = 'https://apps.apple.com/app/football-player-parents/id6772061464'
-export const PARENT_PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.footballplayer.parents'
+import { APP_DOWNLOAD_LINKS } from './app-download-links.js'
+export const PARENT_APP_STORE_URL = APP_DOWNLOAD_LINKS.parent.apple
+export const PARENT_PLAY_STORE_URL = APP_DOWNLOAD_LINKS.parent.android
 
 export function fanAppHandoffLinks(token, { accepted = false } = {}) {
   const value = String(token || '').trim()
