@@ -5,6 +5,33 @@ import path from 'node:path'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
+async function assertControllerTypography(page, width) {
+  const readTypography = () => page.evaluate(() => ['scorer-clock', 'scorer-score'].map((id) => {
+    const element = document.querySelector(`[data-testid="${id}"]`)
+    if (!element) return { id, missing: true }
+    const style = getComputedStyle(element)
+    const bounds = element.getBoundingClientRect()
+    const rules = [...document.styleSheets].flatMap((sheet) => {
+      try { return [...sheet.cssRules].filter((rule) => rule.selectorText && element.matches(rule.selectorText)).map((rule) => rule.cssText) } catch { return [] }
+    })
+    return { id, text: element.textContent, fontSize: style.fontSize, lineHeight: style.lineHeight, fontFamily: style.fontFamily, className: element.className, inlineStyle: element.getAttribute('style'), width: bounds.width, height: bounds.height, rules }
+  }))
+  const initial = await readTypography()
+  try {
+    // React rendering and RNW stylesheet insertion must both be applied before
+    // inspecting the phone layout after a viewport and theme change.
+    await page.waitForFunction(() => {
+      const clock = document.querySelector('[data-testid="scorer-clock"]')
+      const score = document.querySelector('[data-testid="scorer-score"]')
+      return clock && score && Number.parseFloat(getComputedStyle(clock).fontSize) >= 80 && Number.parseFloat(getComputedStyle(score).fontSize) >= 70
+    }, null, { timeout: 5000 })
+  } catch (error) {
+    const settled = await readTypography()
+    await page.screenshot({ path: `output/playwright/mobile-scorer/parent-controller-${width}-failure.png`, fullPage: true })
+    assert.fail(`Controller clock must remain at least 80px and score at least 70px at ${width}px. ${JSON.stringify({ initial, settled })}. ${error.message}`)
+  }
+}
+
 const parent = await readFile('apps/parent-mobile/src/ParentPortalScreens.js', 'utf8')
 const coach = await readFile('apps/coach-mobile/src/CoachMatchDayScreen.js', 'utf8')
 const section = (source, start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)))
@@ -130,7 +157,7 @@ try {
         await page.getByText('First half (40:00)', { exact: true }).waitFor()
         assert.equal(await page.getByTestId('scorer-clock').innerText(), '2:55')
         assert.equal(await page.getByTestId('scorer-score').innerText(), '0 - 1')
-        assert.ok(Number.parseInt(await page.getByTestId('scorer-clock').evaluate((el) => getComputedStyle(el).fontSize)) >= 80)
+        await assertControllerTypography(page, width)
         const primary = page.getByTestId('scorer-primary-actions')
         assert.deepEqual(await primary.getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))), ['Goal', 'Yellow card', 'Red card', 'Substitution', 'Pause', 'Half time', 'Full time', 'Correct score'])
         const before = await page.getByRole('switch', { name: 'Keep screen awake' }).boundingBox()
