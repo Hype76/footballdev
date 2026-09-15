@@ -23,6 +23,7 @@ import {
 } from '../../mobile-core/src/parentOfflineCore'
 import { getParentPortalLinks, withSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { applyParentNotificationAction } from '../../mobile-core/src/parentNotificationInboxCore'
+import { pruneRemovedParentOfflineScopes } from '../../mobile-core/src/parentAccessRemovalCore'
 
 const config = getMobileRuntimeConfig('parent')
 const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split('.')[0] : ''
@@ -199,6 +200,10 @@ export async function markParentOfflineNotificationRead(user, linkId, notificati
 
 export async function saveParentOfflineSelection(user, linkId) {
   return updateParentDocument(user, (document) => setParentOfflineSelection(document, linkId))
+}
+
+export async function removeParentOfflineAccessScopes(user, removedLinkIds) {
+  return updateDocument(user.id, document => pruneRemovedParentOfflineScopes(document, removedLinkIds))
 }
 
 export async function reconcileParentOfflineAttention(user, linkId, resources) {

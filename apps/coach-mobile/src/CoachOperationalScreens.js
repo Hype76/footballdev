@@ -44,7 +44,7 @@ import {
 } from '../../mobile-core/src/coachPlayersCore'
 import { getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
 import { getCoachParentLinks, revokeCoachParentAccess, sendCoachParentInvite } from '../../mobile-core/src/coachParentContactsData'
-import { getParentPortalInviteActionForContact } from '../../../src/lib/parent-portal-invite-actions.js'
+import { getParentPortalInviteActionForContact, getUnlistedParentAccessLinks } from '../../../src/lib/parent-portal-invite-actions.js'
 import {
   coachSessionFormFromSession,
   filterCoachSessions,
@@ -895,6 +895,12 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
               {policy.canEdit && link ? <Button disabled={Boolean(contactBusy)} label="Remove Parent access" onPress={() => setRevokeTarget(link)} secondary styles={styles} /> : null}
             </View>
           }) : <Text style={styles.body}>No contacts added yet. Add a parent contact to invite them to the Parent app.</Text>}
+          {getUnlistedParentAccessLinks({ contacts: detail.player.parentContacts, links: detail.parentLinks || [] }).map((link) => <View key={link.id} style={styles.card}>
+            <Text style={styles.cardTitle}>Additional Parent access</Text>
+            <Text selectable style={styles.body}>{link.email}</Text>
+            <Text style={styles.meta}>{link.status === 'active' ? 'Parent app linked' : 'Invitation pending'}. This account is not in the contact list.</Text>
+            {policy.canEdit ? <Button disabled={Boolean(contactBusy)} label="Remove Parent access" onPress={() => setRevokeTarget(link)} secondary styles={styles} /> : null}
+          </View>)}
           {policy.canEdit ? <Button disabled={Boolean(contactBusy)} label="Manage contacts" onPress={editPlayer} secondary styles={styles} /> : null}
           {revokeTarget ? <View style={styles.card}>
             <Text style={styles.cardTitle}>Remove Parent access?</Text>

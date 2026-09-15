@@ -17,12 +17,12 @@ import {View,Text,StyleSheet,Pressable,TextInput} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {coachPlayerFormFromPlayer,filterCoachPlayers,formatCoachParentAppInstallationStatus,getCoachPlayerMutationPolicy} from './apps/mobile-core/src/coachPlayersCore.js';
-import {getParentPortalInviteActionForContact} from './src/lib/parent-portal-invite-actions.js';
+import {getParentPortalInviteActionForContact,getUnlistedParentAccessLinks} from './src/lib/parent-portal-invite-actions.js';
 import {formatUkDate} from './src/lib/date-format.js';
 const BrandLoader=()=>null,useConfirmedConnectionIssue=v=>v,useConfirmedConnectionMessage=v=>v,getMobileIconName=()=> 'person',message=e=>e.message;
 const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined,readMobileResource=async(u,k,fn)=>fn(),invalidateMobileResource=()=>{};
 const players=Array.from({length:16},(_,i)=>({id:'player-'+i,playerName:'FP TEST Player '+i,section:'Squad',positions:['Defender'],shirtNumber:String(i+1),status:'active',parentContacts:[{name:'FP TEST Parent',email:'parent@example.test',type:'parent'},{name:'Second Parent',email:'second@example.test',type:'parent'}],parentAppInstallationStatusAvailable:true,parentAppContactCount:2,parentAppInstalledContactCount:1}));
-const getCoachPlayerList=async()=>players.map(p=>({...p}));window.saved=[];window.inviteCalls=[];let parentLinks=[];const saveCoachPlayer=async(u,f,p)=>{window.saved.push(f);if(window.holdSave)await new Promise((resolve,reject)=>{window.resolveSave=resolve;window.rejectSave=()=>reject(new Error('Earlier save failed.'))});const saved={...(p||{id:'created-player',status:'active'}),...f,positions:f.positions?f.positions.split(','):[]};const i=players.findIndex(row=>row.id===saved.id);if(i>=0)players[i]=saved;else players.push(saved);return saved};const sendCoachParentInvite=async(u,id,c)=>{window.inviteCalls.push(c.email);parentLinks=[{id:'link',email:c.email,status:'pending',invite_sent_at:'2026-09-15'}];return{success:true}};const getCoachParentLinks=async()=>parentLinks;const revokeCoachParentAccess=async()=>{parentLinks=[]};
+const getCoachPlayerList=async()=>players.map(p=>({...p}));window.saved=[];window.inviteCalls=[];let parentLinks=[];window.setParentLinks=links=>{parentLinks=links};const saveCoachPlayer=async(u,f,p)=>{window.saved.push(f);if(window.holdSave)await new Promise((resolve,reject)=>{window.resolveSave=resolve;window.rejectSave=()=>reject(new Error('Earlier save failed.'))});const saved={...(p||{id:'created-player',status:'active'}),...f,positions:f.positions?f.positions.split(','):[]};const i=players.findIndex(row=>row.id===saved.id);if(i>=0)players[i]=saved;else players.push(saved);return saved};const sendCoachParentInvite=async(u,id,c)=>{window.inviteCalls.push(c.email);parentLinks=[{id:'link',email:c.email,status:'pending',invite_sent_at:'2026-09-15'}];return{success:true}};const getCoachParentLinks=async()=>parentLinks;const revokeCoachParentAccess=async()=>{parentLinks=[]};
 window.requests=[];window.scrollRequests=0;window.pending={};
 const getCoachPlayerDetail=async(user,id)=>{
  window.requests.push(id);
@@ -137,6 +137,16 @@ try {
   await page.getByText('Private profile for player-11',{exact:true}).waitFor()
   await page.evaluate(()=>window.pending['player-10']())
   assert.equal(await page.getByText('Private profile for player-10',{exact:true}).count(),0)
+  await page.evaluate(()=>window.setParentLinks([{id:'former-link',email:'former@example.test',status:'active'}]))
+  await page.getByRole('button',{name:'Refresh player details',exact:true}).click()
+  await page.getByText('Additional Parent access',{exact:true}).waitFor()
+  await page.getByText('former@example.test',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Remove Parent access',exact:true}).click()
+  await page.getByRole('button',{name:'Keep access',exact:true}).click()
+  await page.getByText('former@example.test',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Remove Parent access',exact:true}).click()
+  await page.getByRole('button',{name:'Confirm remove access',exact:true}).click()
+  await page.getByText('Additional Parent access',{exact:true}).waitFor({state:'hidden'})
   await page.evaluate(()=>window.readOnly(true))
   await page.getByRole('button',{name:'Edit Player',exact:true}).waitFor({state:'hidden'})
   await page.getByText('Private profile for player-11',{exact:true}).waitFor()

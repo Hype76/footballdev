@@ -486,6 +486,28 @@ export function AuthProvider({
     })
   }, [loadProfile, session])
 
+  const replaceCurrentUserProfile = useCallback(async (nextProfile) => {
+    if (!nextProfile?.id || nextProfile.id !== sessionUserIdRef.current || nextProfile.id !== currentUserRef.current?.id) {
+      throw new Error('The signed-in account changed. Sign in again to refresh your access.')
+    }
+    // A confirmed access change must invalidate older profile reads before they
+    // can put revoked authority back into the UI or encrypted offline profile.
+    profileGenerationRef.current += 1
+    mobileResourceCache.clear()
+    currentUserRef.current = nextProfile
+    setUser(nextProfile)
+    setIsProfileLoading(false)
+    setAuthError('')
+    try {
+      await offlineProfileStore?.write?.(nextProfile)
+    } catch (error) {
+      if (sessionUserIdRef.current !== nextProfile.id || currentUserRef.current?.id !== nextProfile.id) throw error
+      await offlineProfileStore?.clear?.()
+      throw error
+    }
+    return nextProfile
+  }, [offlineProfileStore])
+
   const value = useMemo(() => ({
     appRole,
     authError,
@@ -497,6 +519,7 @@ export function AuthProvider({
     isLocked,
     isProfileLoading,
     refreshUserProfile,
+    replaceCurrentUserProfile,
     requestPasswordReset,
     resetLocalAppData,
     retryStartup,
@@ -513,6 +536,7 @@ export function AuthProvider({
     isLocked,
     isProfileLoading,
     refreshUserProfile,
+    replaceCurrentUserProfile,
     requestPasswordReset,
     resetLocalAppData,
     retryStartup,

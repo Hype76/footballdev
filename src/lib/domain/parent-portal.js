@@ -5,6 +5,7 @@ import { CAPABILITIES } from '../paywall-access.js'
 import { assertClubFeature } from './plan-gates.js'
 import { normalizeLegacyThemeButtonStyle } from '../theme.js'
 import { normalizePersonName } from '../person-name.js'
+import { normalizeFanProfileLink } from '../fans.js'
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -72,10 +73,14 @@ function normalizeParentPortalMessage(row) {
 }
 
 export async function getParentPortalLinks() {
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  if (authError) throw authError
+  if (!authData?.user?.id) return []
   const { data, error } = await supabase
     .from('parent_player_links')
     .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, contact_email, theme_accent, theme_button_style)')
     .eq('status', 'active')
+    .eq('auth_user_id', authData.user.id)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -84,6 +89,24 @@ export async function getParentPortalLinks() {
   }
 
   return (data ?? []).map(normalizeParentLink)
+}
+
+export async function getOwnParentPortalFanLinks() {
+  const { data, error } = await supabase.rpc('list_fan_connections')
+  if (error) throw error
+  if (!Array.isArray(data)) throw new Error('Fan connections could not be refreshed.')
+  return data.filter((row) => !row.is_owner && row.status === 'active' && ['fan', 'player'].includes(row.relationship_type)).map(normalizeFanProfileLink)
+}
+
+export async function revokeOwnParentPlayerAccess({ playerId }) {
+  const targetPlayerId = String(playerId ?? '').trim()
+  if (!targetPlayerId) throw new Error('Choose the player whose access you want to remove.')
+  const { data, error } = await supabase.rpc('revoke_own_parent_player_access', { target_player_id: targetPlayerId })
+  if (error) throw error
+  if (data?.player_id !== targetPlayerId || !Number.isInteger(data?.revoked_count) || data.revoked_count < 0) {
+    throw new Error('Access removal could not be confirmed. Refresh your linked players before trying again.')
+  }
+  return { playerId: data.player_id, revokedCount: data.revoked_count }
 }
 
 export async function updateParentPortalDisplayName({ displayName }) {

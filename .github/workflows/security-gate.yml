@@ -171,6 +171,8 @@ jobs:
         run: node tests/coach-player-profile-browser.mjs
       - name: Coach contacts, invite history and Resources
         run: node --test tests/coach-parent-contacts.test.mjs tests/coach-invite-history.test.mjs tests/coach-calendar-all-source-resources.test.mjs tests/coach-calendar-resource-targets-pglite.test.mjs tests/parent-derived-event-resources.test.mjs tests/mobile-parent-calendar-attachments-108.test.mjs tests/resource-library-parent-access.test.mjs && node tests/coach-resources-browser.mjs
+      - name: Parent access removal and unlisted grants
+        run: node --test tests/parent-self-access-revocation-pglite.test.mjs tests/parent-self-access-removal.test.mjs tests/parent-own-access-web.test.mjs tests/parent-unlisted-access.test.mjs && node tests/parent-access-removal-browser.mjs && node tests/parent-own-access-web-browser.mjs
       - name: Coach offline scoring and reconnect
         run: node tests/coach-matchday-offline-browser.mjs
       - name: Guest and mobile scorer rendering
