@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { getParentScorerMatches } from '../apps/parent-mobile/src/parentScorerCore.js'
 
 const source = (file) => readFile(new URL(`../${file}`, import.meta.url), 'utf8')
-const migration = await source('supabase/migrations/20260915174901_parent_scorer_review_handover.sql')
+const migration = await source('supabase/migrations/20260915180549_parent_scorer_review_handover.sql')
 const fixture = '60000000-0000-4000-8000-000000000001'
 const club = '10000000-0000-4000-8000-000000000001'
 const team = '20000000-0000-4000-8000-000000000001'
