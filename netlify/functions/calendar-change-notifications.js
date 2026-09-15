@@ -388,7 +388,7 @@ async function deliverPreparation(preparation, currentSource) {
       teamName: notificationTeamName || club.name,
       themeAccent: club.theme_accent,
     })
-    return sendEmail({ from: createFromAddress(club.name), html, subject: `${club.name}: ${copy.label}`, to: [link.email] }, {
+    return sendEmail({ emailAppRole: 'parent', from: createFromAddress(club.name), html, subject: `${club.name}: ${copy.label}`, to: [link.email] }, {
       context: { actorId: preparation.actor_user_id, clubId: preparation.club_id, emailType: 'calendar_change', targetEntityId: preparation.source_id, targetEntityType: preparation.source_type, teamId: preparation.team_id },
       idempotencyKey: `calendar-change/${preparation.id}/${link.id}`,
     })

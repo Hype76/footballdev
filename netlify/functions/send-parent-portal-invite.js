@@ -101,6 +101,8 @@ function buildEmailPayload({
   emailHtml,
 }) {
   const emailPayload = {
+    emailAppRole: 'parent',
+    emailCcAppRole: 'coach',
     from: createFromAddress(fromName),
     to: [recipient],
     replyTo: safeReplyTo || undefined,

@@ -1141,6 +1141,7 @@ function RuntimeAuthProvider({ children }) {
         emailRedirectTo,
         data: {
           username: signupDisplayName,
+          account_type: 'coach',
           name: signupDisplayName,
           display_name: signupDisplayName,
           club_name: normalizedClubName,
@@ -1324,7 +1325,7 @@ function RuntimeAuthProvider({ children }) {
     }
   }
 
-  const resetPassword = async (email) => {
+  const resetPassword = async (email, appRole) => {
     const normalizedEmail = String(email ?? '').trim()
 
     if (!normalizedEmail) {
@@ -1338,6 +1339,7 @@ function RuntimeAuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: normalizedEmail,
+        ...(appRole === 'parent' || appRole === 'coach' ? { appRole } : {}),
       }),
     })
 

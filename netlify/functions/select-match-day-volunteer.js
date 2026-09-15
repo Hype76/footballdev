@@ -341,6 +341,7 @@ async function queueRoleNotification(adminSupabase, { appOrigin, match, profile,
   const payload = {
     visibleInEmailQueue: false,
     resendPayload: {
+      emailAppRole: 'parent',
       from: createFromAddress(`${normalizeText(match.clubs?.name) || 'Football Player'} via Football Player`),
       to: email.to,
       subject: email.subject,

@@ -545,6 +545,7 @@ export function buildTrainingInvitationQueuePayload({
     },
     requiredFeature: 'parentEmails',
     resendPayload: {
+      emailAppRole: 'parent',
       from: createFromAddress('Football Player'),
       to: [recipient.email],
       subject: email.subject,

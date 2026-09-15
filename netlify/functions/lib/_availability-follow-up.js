@@ -69,7 +69,7 @@ export async function queueAvailabilityFollowUp({ client, profile, scopedEvent, 
         requiredFeature: 'parentEmails', displayName: 'Football Player', clubId: scope.clubId, teamId: scope.teamId,
         actorId: profile.id, actorRole: profile.role, parentLinkId: contact.parentLinkId || '',
         availabilityFollowUp: { ...scope, recipientEmail: contact.email, parentLinkId: contact.parentLinkId || '', actorId: profile.id },
-        resendPayload: { to: [contact.email], subject, text: emailBody, html: `<h2>${escape(eventTitle)}</h2><p>${escape(eventDateLabel)}</p><p>${escape(message).replace(/\n/g, '<br>')}</p><p>Your existing availability response has not changed. Open Football Player Parents to choose Attending, Not attending or Maybe.</p>` },
+        resendPayload: { emailAppRole: 'parent', to: [contact.email], subject, text: emailBody, html: `<h2>${escape(eventTitle)}</h2><p>${escape(eventDateLabel)}</p><p>${escape(message).replace(/\n/g, '<br>')}</p><p>Your existing availability response has not changed. Open Football Player Parents to choose Attending, Not attending or Maybe.</p>` },
         communicationLog: { clubId: scope.clubId, playerId, userId: profile.id, userName: text(profile.display_name || profile.name), userEmail: profile.email, recipientEmail: contact.email, metadata },
       },
     }

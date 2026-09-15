@@ -211,6 +211,7 @@ async function createQueueItem({ body, profile }) {
     : null
   const payload = {
     resendPayload: {
+      emailAppRole: 'parent',
       to: recipients,
       subject,
       html,
@@ -279,6 +280,7 @@ async function updateQueueItem({ body, profile }) {
     ...(row.payload || {}),
     resendPayload: {
       ...((row.payload || {}).resendPayload || {}),
+      emailAppRole: 'parent',
       to: recipients,
       subject,
       html,

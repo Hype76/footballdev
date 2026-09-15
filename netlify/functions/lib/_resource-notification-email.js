@@ -210,6 +210,7 @@ export async function prepareScheduledResourceNotificationRow(row, {
         playerName: email.playerName,
         resendPayload: {
           ...safeExistingResendPayload,
+          emailAppRole: 'parent',
           html: email.html,
           subject: email.subject,
           to: [context.recipientEmail],

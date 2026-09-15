@@ -269,6 +269,7 @@ test('processor reloads exact authoritative notification context and replaces le
   )
   const providerCalls = []
 
+  assert.equal(prepared.emailPayload.emailAppRole, 'parent')
   await sendEmail(prepared.emailPayload, {
     env: {
       RESEND_API_KEY: 're_test_key',

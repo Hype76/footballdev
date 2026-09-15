@@ -118,6 +118,7 @@ export async function processBillingAccessReminders({ client = supabaseAdmin, no
     try {
       const content = reminderCopy(reminderType, workspace)
       const response = await sendEmailImpl({
+        emailAppRole: 'coach',
         from: createFromAddress('Football Player Billing'),
         to: [owner.email],
         subject: content.subject,

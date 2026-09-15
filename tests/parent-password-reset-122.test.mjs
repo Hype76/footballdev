@@ -85,6 +85,7 @@ test('staff Parent password reset uses authoritative account email, branding, ra
   })
   assert.equal(response.statusCode, 200)
   assert.equal(sent.length, 1)
+  assert.equal(sent[0].emailAppRole, 'parent')
   assert.deepEqual(sent[0].to, ['parent-account@example.test'])
   assert.equal(sent[0].replyTo, 'club@example.test')
   assert.match(sent[0].subject, /Example FC Parent app password reset/)

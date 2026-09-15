@@ -690,6 +690,7 @@ async function sendFeedbackNotification({
 
   try {
     await emailSender({
+      emailAppRole: 'both',
       from: createFromAddress('Football Player Feedback', env),
       html: buildFeedbackNotificationHtml({ attachmentMetadata, data, profile, report }),
       reply_to: isValidEmail(profile.email) ? profile.email : undefined,

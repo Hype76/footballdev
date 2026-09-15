@@ -286,6 +286,7 @@ export async function handler(event) {
       })
 
       await sendEmail({
+        emailAppRole: 'parent',
         from: createFromAddress('Football Player'),
         to: [email],
         subject: 'Confirm your family portal account',

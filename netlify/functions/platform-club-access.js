@@ -453,6 +453,7 @@ async function sendAccessInvite({ actor, club, invite, event, teamNames }) {
   `
 
   return sendEmail({
+    emailAppRole: 'coach',
     from: createFromAddress(`${safeHeader(club.name)} via Football Player`),
     to: [invite.recipient],
     subject: `${safeHeader(club.name)} ${safeHeader(roleLabel)} invitation`,

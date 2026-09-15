@@ -259,6 +259,7 @@ const emailEnv = {
 function createEmailSender({ shouldFail = false } = {}) {
   const calls = []
   const emailSender = async (payload, options) => {
+    assert.equal(payload.emailAppRole, 'both', 'Internal support mail must identify both apps, not guess the reporter audience.')
     calls.push({ payload, options })
 
     if (shouldFail) {
