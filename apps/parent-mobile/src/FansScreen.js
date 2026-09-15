@@ -19,6 +19,8 @@ import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCo
 const FansTheme = createContext(DEFAULT_PARENT_MOBILE_THEME.tokens)
 import { FanContent } from './FanContent'
 import { FanPlayerCard } from './FanPlayerCard'
+import { PartnersBanner, PartnersScreen } from './PartnersScreen'
+import { readFanDeviceNotifications, enableFanDeviceNotifications } from './fanDeviceNotifications'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 import { themeForeground } from '../../mobile-core/src/themeContrast'
 
@@ -89,6 +91,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const [signOutConfirm, setSignOutConfirm] = useState(false)
   const [joining, setJoining] = useState(false)
   const [invitationLink, setInvitationLink] = useState('')
+  const [deviceNotifications, setDeviceNotifications] = useState({ status: 'checking' })
   const localScrollRef = useRef(null)
   useEffect(() => {
     (scrollViewRef || localScrollRef).current?.scrollTo({ y: 0, animated: false })
@@ -153,14 +156,27 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const deleteInvitation = (connection) => Alert.alert('Delete cancelled invitation?', `Remove the cancelled invitation for ${connection.name} (${connection.email}) from your Fans list?`, [
     { text: 'Go back', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => run(() => state.deleteInvitation(connection.id)) },
   ])
+  useEffect(() => {
+    if (section !== 'settings') return undefined
+    let active = true
+    let generation = 0
+    const refresh = async () => {
+      const current = ++generation
+      if (Platform.OS === 'web') { setDeviceNotifications({ status: 'web' }); return }
+      setDeviceNotifications({ status: 'checking' })
+      try {
+        const next = await readFanDeviceNotifications({ notifications: Notifications, secureStore: SecureStore, request })
+        if (active && current === generation) setDeviceNotifications(next)
+      } catch { if (active && current === generation) setDeviceNotifications({ status: 'unknown' }) }
+    }
+    void refresh()
+    const listener = AppState.addEventListener('change', status => { if (status === 'active') void refresh() })
+    return () => { active = false; listener.remove() }
+  }, [section, busy, user?.id])
   const enableDevice = () => run(async () => {
-    const permission = await Notifications.requestPermissionsAsync()
-    if (permission.status !== 'granted') throw new Error('Notifications are not enabled in your phone settings.')
     const projectId = Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId
-    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data
-    await request({ action: 'register_device', token })
-    await SecureStore.setItemAsync('fan-notification-device', token)
-    Alert.alert('Notifications enabled', 'You can change alerts separately for each player you follow.')
+    const next = await enableFanDeviceNotifications({ notifications: Notifications, secureStore: SecureStore, request, projectId })
+    setDeviceNotifications(next)
   })
   const openResource = (resource) => run(async () => {
     const currentView = state.view
@@ -175,11 +191,26 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const followed = state.connections.filter(c => !c.is_owner && c.status === 'active')
   const showSection = next => { setSection(next); closeContent(); localScrollRef.current?.scrollTo({ y: 0, animated: false }) }
   const content = <FansTheme.Provider value={tokens}><View style={[styles.container, { backgroundColor: state.view ? tokens.portalSurface : displayMode === 'light' ? '#f7f8fa' : tokens.portalBackground }]}>{!embedded && brandSource ? <ClubBrand source={brandSource} /> : null}
-    {section === 'settings' && !state.view ? <>
+    {section === 'more' && !state.view ? <>
+      <Text accessibilityRole="header" style={styles.title}>More</Text>
+      <Action icon="settings" label="Settings" onPress={() => showSection('settings')} />
+      <PartnersBanner onPress={() => showSection('partners')} />
+      {embedded ? <Action label="Back to players" icon="action.back" onPress={() => showSection('home')} /> : null}
+    </> : section === 'partners' && !state.view ? <>
+      <Action label="Back to More" icon="action.back" onPress={() => showSection('more')} />
+      <PartnersScreen appRole="parent" headingStyle={styles.title} textStyle={styles.helper} />
+    </> : section === 'settings' && !state.view ? <>
+      <Action label="Back to More" icon="action.back" onPress={() => showSection('more')} />
       <Text accessibilityRole="header" style={styles.title}>Settings</Text>
       <Text style={styles.helper}>Manage notifications and your linked players.</Text>
       {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
-      {followed.some(c => c.permissions.game_day) ? <Action icon="notifications" label="Enable phone notifications" disabled={busy} onPress={enableDevice} /> : null}
+      {followed.some(c => c.permissions.game_day) ? <View style={{ gap: 8 }}>
+        <Text style={styles.label}>Phone notifications</Text>
+        <Text accessibilityLiveRegion="polite" style={styles.helper}>{({ checking: 'Checking phone notifications...', enabled: 'Phone notifications are enabled on this device.', off: 'Phone notifications are off on this device.', not_registered: 'This device is not registered for phone notifications.', unknown: 'Phone notification status could not be checked.', web: 'Phone notifications are available in the mobile app.' })[deviceNotifications.status]}</Text>
+        <Text style={styles.helper}>The Game Day switch on each player chooses which alerts you follow. Phone notifications also need permission and registration on this device.</Text>
+        {deviceNotifications.status === 'off' && deviceNotifications.canAskAgain === false ? <Action icon="settings" label="Open phone settings" disabled={busy} onPress={() => run(() => Linking.openSettings())} /> : ['off', 'not_registered', 'unknown'].includes(deviceNotifications.status) ? <Action icon="notifications" label={deviceNotifications.status === 'unknown' ? 'Retry phone notifications' : 'Enable phone notifications'} disabled={busy} onPress={enableDevice} /> : null}
+      </View> : null}
+      <Action icon="person-add" label="Open a Fan invitation" onPress={() => { setJoining(true); setInvitationLink('') }} />
       <Text accessibilityRole="header" style={styles.heading}>Linked players</Text>
       {followed.map(c => <View key={c.id} style={[styles.person, styles.row]}><View style={styles.copy}><Text style={styles.label}>{c.player_name}</Text><Text style={styles.helper}>{c.club_name} | {c.team_name}</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Remove my access to ${c.player_name}`} accessibilityHint="Opens a confirmation before removing your access" disabled={busy} onPress={() => remove(c, true)} style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: busy ? 0.5 : 1 }}><ParentIcon iconKey="fan.remove" color={tokens.danger} size={22} /></Pressable></View>)}
       {!embedded ? <View style={styles.account}><Text accessibilityRole="header" style={styles.heading}>Account</Text><Text style={styles.helper}>{user?.email}</Text><Action icon="logout" label="Sign out" disabled={busy} onPress={() => setSignOutConfirm(true)} /></View> : <Action label="Back to players" icon="action.back" onPress={() => showSection('home')} />}
@@ -190,7 +221,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
       {state.contentError ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <Text accessibilityLiveRegion="polite" style={{ color: tokens.textPrimary }}>Loading {viewTitle.toLowerCase()}...</Text> : <FanContent key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
     </> : <>
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
-    <View style={[styles.row, { marginBottom: 14, alignItems: 'flex-start' }]}><View style={styles.copy}><Text accessibilityRole="header" style={[styles.title, { fontSize: 28, marginBottom: 5 }]}>Players</Text><Text style={styles.helper}>Follow your players and view what has been shared with you.</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Join club" onPress={() => { setJoining(true); setInvitationLink('') }} style={{ alignItems: 'center', gap: 5 }}><View style={{ borderRadius: 30, width: 56, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.buttonPrimary }}><ParentIcon iconKey="add" color={tokens.accentForeground} size={34} /></View><Text style={{ color: tokens.textPrimary, fontSize: 12 }}>Join club</Text></Pressable></View>
+    <View style={{ marginBottom: 14 }}><Text accessibilityRole="header" style={[styles.title, { fontSize: 28, marginBottom: 5 }]}>Players</Text><Text style={styles.helper}>Follow your players and view what has been shared with you.</Text></View>
     {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
     {state.loading ? <Text style={{ color: tokens.textPrimary }}>Loading Fans...</Text> : null}
     {parents.length ? <>
@@ -215,12 +246,12 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     {embedded && followed.length ? <Action icon="settings" label="Fan settings" onPress={() => showSection('settings')} /> : null}
     </>}
     <Modal visible={signOutConfirm} transparent animationType="fade" onRequestClose={() => { if (!busy) setSignOutConfirm(false) }}><View style={styles.overlay}><ScrollView style={{ flexGrow: 0, maxHeight: "90%", width: "100%", maxWidth: 480, alignSelf: "center" }} contentContainerStyle={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Sign out?</Text><Text style={styles.helper}>You will need to sign in again to see your players.</Text>{state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}<Action label="Stay signed in" disabled={busy} onPress={() => setSignOutConfirm(false)} /><Action label="Confirm sign out" disabled={busy} onPress={() => run(async () => { state.clearView(); await signOut(); setSignOutConfirm(false) })} /></ScrollView></View></Modal>
-    <Modal visible={joining} transparent animationType="fade" onRequestClose={() => setJoining(false)}><View style={styles.overlay}><View style={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Join club</Text><Text style={styles.helper}>To follow a player, open the Fan invitation link or scan the QR code shared with you. You can paste the invitation link below.</Text><TextInput accessibilityLabel="Invitation link" autoCapitalize="none" autoCorrect={false} value={invitationLink} onChangeText={setInvitationLink} placeholder="https://parent.footballplayer.online/fan-invite/..." placeholderTextColor={tokens.textSecondary} style={styles.input} /><Action label="Open invitation" disabled={!/^https:\/\/parent\.footballplayer\.online\/fan-invite\/[A-Za-z0-9_-]+\/?$/.test(invitationLink.trim())} onPress={() => run(async () => { await Linking.openURL(invitationLink.trim()); setJoining(false) })} /><Action label="Cancel" onPress={() => setJoining(false)} /></View></View></Modal>
+    <Modal visible={joining} transparent animationType="fade" onRequestClose={() => setJoining(false)}><View style={styles.overlay}><View style={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Open a Fan invitation</Text><Text style={styles.helper}>To follow a player, open the Fan invitation link or scan the QR code shared with you. You can paste the invitation link below.</Text><TextInput accessibilityLabel="Invitation link" autoCapitalize="none" autoCorrect={false} value={invitationLink} onChangeText={setInvitationLink} placeholder="https://parent.footballplayer.online/fan-invite/..." placeholderTextColor={tokens.textSecondary} style={styles.input} /><Action label="Open invitation" disabled={!/^https:\/\/parent\.footballplayer\.online\/fan-invite\/[A-Za-z0-9_-]+\/?$/.test(invitationLink.trim())} onPress={() => run(async () => { await Linking.openURL(invitationLink.trim()); setJoining(false) })} /><Action label="Cancel" onPress={() => setJoining(false)} /></View></View></Modal>
     <Modal visible={Boolean(confirm)} transparent animationType="fade" onRequestClose={() => { if (!busy) setConfirm(null) }}>
       <View style={styles.overlay}><ScrollView contentContainerStyle={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Confirm Fan access</Text>{confirm ? <><Text style={{ color: tokens.textPrimary }}>{confirm.id ? 'You are updating access for' : 'You are inviting'} {confirm.name} ({confirm.email}) to follow {confirm.child}.</Text>{fanAccessSummary(confirm.permissions).map((line) => <Text style={styles.permissionText} key={line}>{line}</Text>)}<Text style={{ color: tokens.textPrimary }}>This person cannot invite others, use parent chat, respond to attendance or change your player's information. Either of you can end this access.</Text></> : null}<View style={styles.actions}><Action label="Go back" disabled={busy} onPress={() => setConfirm(null)} /><Action label={confirm?.id ? 'Confirm changes' : 'Confirm invitation'} disabled={busy} onPress={complete} /></View></ScrollView></View>
     </Modal>
   </View></FansTheme.Provider>
-  return embedded ? content : <SafeAreaView style={styles.safe}><ScrollView ref={localScrollRef} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">{content}</ScrollView><View accessibilityRole="tablist" style={styles.navigation}>{[{ key: 'home', label: 'Home', icon: 'home' }, { key: 'settings', label: 'More', icon: 'more-horiz' }].map(item => <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{ selected: section === item.key }} onPress={() => showSection(item.key)} style={styles.navItem}><ParentIcon iconKey={item.icon} color={section === item.key ? tokens.accentText : tokens.textSecondary} size={24} /><Text style={{ color: section === item.key ? tokens.accentText : tokens.textSecondary, fontSize: 12, fontWeight: '700' }}>{item.label}</Text></Pressable>)}</View></SafeAreaView>
+  return embedded ? content : <SafeAreaView style={styles.safe}><ScrollView ref={localScrollRef} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">{content}</ScrollView><View accessibilityRole="tablist" style={styles.navigation}>{[{ key: 'home', label: 'Home', icon: 'home' }, { key: 'more', label: 'More', icon: 'more-horiz' }].map(item => <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{ selected: item.key === 'more' ? section !== 'home' : section === 'home' }} onPress={() => showSection(item.key)} style={styles.navItem}><ParentIcon iconKey={item.icon} color={(item.key === 'more' ? section !== 'home' : section === 'home') ? tokens.accentText : tokens.textSecondary} size={24} /><Text style={{ color: (item.key === 'more' ? section !== 'home' : section === 'home') ? tokens.accentText : tokens.textSecondary, fontSize: 12, fontWeight: '700' }}>{item.label}</Text></Pressable>)}</View></SafeAreaView>
 }
 function createStyles(tokens) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: tokens.portalSurface }, navigation: { flexDirection: 'row', borderTopWidth: 1, borderColor: tokens.border, backgroundColor: tokens.portalSurface }, navItem: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4 }, account: { marginTop: 24, paddingTop: 8, borderTopWidth: 1, borderColor: tokens.border }, container: { flexGrow: 1, backgroundColor: tokens.portalBackground, padding: 18, gap: 12 }, title: { fontSize: 26, fontWeight: '800', color: tokens.textPrimary }, heading: { fontSize: 20, fontWeight: '700', marginTop: 16, color: tokens.textPrimary },

@@ -2,6 +2,7 @@ import { buildCoachCalendarOccurrenceDates } from '../../../apps/mobile-core/src
 import { getParentProductDateTimeParts } from '../../../apps/mobile-core/src/parentDateTimeCore.js'
 import { upcomingFanSchedule } from '../../../src/lib/fan-schedule.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
+import { FAN_GAME_DAY_STATUSES, isFanGameDayMatch } from '../../../src/lib/fan-game-day.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -15,10 +16,12 @@ export function canFanViewMatch(match, parent, involvedIds) {
       || (match.parent_audience === 'all_team_parents' && match.team_id === parent.team_id)
       || (match.parent_audience === 'involved_players' && involvedIds.has(match.id)))
 }
-export async function loadFanMatches(client, scope, matchId = '') {
+export async function loadFanMatches(client, scope, matchId = '', { includeScheduled = false } = {}) {
+  const scheduleAllowed = includeScheduled && scope.fan.permissions?.schedule === true
   let query = client.from('match_days').select('id, club_id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, venue_name, status, home_score, away_score, updated_at, parent_visible, parent_audience, deleted_at, previous_hidden_at')
     .eq('club_id', scope.fan.club_id).eq('parent_visible', true).is('deleted_at', null).is('previous_hidden_at', null)
     .gte('match_date', new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10)).order('match_date', { ascending: false }).limit(100)
+  if (!scheduleAllowed) query = query.in('status', FAN_GAME_DAY_STATUSES)
   if (matchId) query = query.eq('id', matchId)
   const candidates = await rows(query)
   const [requests, invitations, decisions] = await Promise.all([
@@ -29,7 +32,7 @@ export async function loadFanMatches(client, scope, matchId = '') {
   const involved = new Set([...requests, ...invitations, ...decisions.filter((d) => d.status === 'selected' || d.notified_at)].map((row) => row.match_day_id))
   const allowed = []
   for (const match of candidates) {
-    if (canFanViewMatch(match, scope.parent, involved)) {
+    if (canFanViewMatch(match, scope.parent, involved) && (scheduleAllowed || isFanGameDayMatch(match))) {
       const { parent_visible: _visible, parent_audience: _audience, deleted_at: _deleted, previous_hidden_at: _hidden, ...safe } = match
       allowed.push({ ...safe, club_name: scope.club.name })
     }
@@ -38,7 +41,7 @@ export async function loadFanMatches(client, scope, matchId = '') {
 }
 export async function loadFanSchedule(client, scope, now = new Date()) {
   const [matches, invitations, shared, training, exclusions] = await Promise.all([
-    loadFanMatches(client, scope),
+    loadFanMatches(client, scope, '', { includeScheduled: true }),
     rows(client.from('calendar_event_invites').select('calendar_event_id, assessment_session_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')),
     rows(client.from('calendar_events').select('id,title,starts_at,ends_at,location,event_type,parent_visible,parent_audience,team_id,recurrence_frequency,recurrence_until')
       .eq('club_id', scope.fan.club_id).is('cancelled_at', null)),

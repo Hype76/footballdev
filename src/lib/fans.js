@@ -1,6 +1,6 @@
 export const FAN_ACCESS = Object.freeze([
   { key: 'schedule', label: 'Schedule', description: 'View the calendar, including shared training, events and fixtures', icon: 'action.calendar' },
-  { key: 'game_day', label: 'Game Day', description: 'View upcoming matches, scores and Game Day alerts, even when Schedule is off', icon: 'parent.match' },
+  { key: 'game_day', label: 'Game Day', description: 'View live matches, results and Game Day alerts. Upcoming fixtures require Schedule access', icon: 'parent.match' },
   { key: 'development', label: 'Development records', description: 'View development records shared for this player', icon: 'development' },
   { key: 'resources', label: 'Include resources', description: 'View resources shared for this player', icon: 'resource' },
 ])
