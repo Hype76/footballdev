@@ -23,11 +23,11 @@ test('Coach Calendar resolves and toggles only the selected event Resource links
 test('Coach phone Calendar can attach existing Team Resources and open saved attachments', async () => {
   const [screen, data] = await Promise.all([readFile(screenUrl, 'utf8'), readFile(dataUrl, 'utf8')])
   assert.match(screen, /Event attachments/)
-  assert.match(screen, /getCoachCalendarEventResourceIds\(resources, event\.sourceId, event\.occurrenceDate \|\| event\.calendarDate\)/)
+  assert.match(screen, /getCoachCalendarEventResourceIds\(resources, event\.sourceId, event\.occurrenceDate \|\| event\.calendarDate, event\.sourceType\)/)
   assert.match(screen, /syncCoachCalendarEventResources\(user, savedEvent, form\?\.resourceIds \|\| \[\], attachmentOccurrenceDate\)/)
   assert.match(screen, /label=\{`Open \$\{resource\.title\}`\}/)
   assert.match(data, /assertCoachOperationalMutation\(user, \{ minimumRank: 50, requiresTeam: true \}\)/)
-  assert.match(data, /\.eq\('linked_type', 'calendar_event'\)/)
+  assert.match(data, /\.eq\('linked_type', sourceType\)/)
   assert.match(data, /\.eq\('linked_id', eventId\)/)
   assert.match(data, /calendar_occurrence_date/)
   assert.match(data, /resource_library_event_resources_synced/)

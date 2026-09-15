@@ -882,6 +882,7 @@ function CoachRoute(props) {
   if (activeRoute === 'matchday') return <CoachMatchDayScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'sessions') return <CoachSessionsScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'more') {
+    if (moreRoute === 'notifications') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><CoachNotificationsScreen {...props} key={props.context.id} /></ScreenIntro>
     if (moreRoute === 'partners') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><PartnersScreen appRole="coach" textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
     if (moreRoute === 'sessions') return <CoachSessionsScreen {...props} key={`${props.context.id}:sessions`} palette={palette} />
     if (['development', 'resources', 'chat', 'messages', 'polls', 'invites'].includes(moreRoute)) {

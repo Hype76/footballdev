@@ -239,7 +239,7 @@ test('Parent listing and access code keep raw resource locations out of Parent p
   assert.match(source, /pathSegments\.every\(\(segment\) => segment && segment !== '\.' && segment !== '\.\.'\)/)
   assert.match(source, /createSignedUrl\(resource\.storage_path, SIGNED_URL_EXPIRY_SECONDS\)/)
   assert.match(source, /action === 'list_calendar_event_resources'/)
-  assert.match(source, /linked_type', 'calendar_event'/)
+  assert.match(source, /in\('linked_type', \['calendar_event', 'match_day', 'assessment_session'\]\)/)
   assert.match(source, /calendarEventId/)
   assert.match(source, /calendar_event_invites/)
   assert.match(source, /invite_status', 'cancelled'/)

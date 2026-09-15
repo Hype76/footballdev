@@ -535,15 +535,19 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
   }
 }
 
-export function getCoachCalendarEventResourceIds(resources = [], eventId = '', occurrenceDate = '') {
+export function getCoachCalendarEventResourceIds(resources = [], eventId = '', occurrenceDate = '', sourceType = 'calendar_event') {
   const normalizedEventId = normalize(eventId)
+  const normalizedSourceType = normalizeKey(sourceType)
   const normalizedOccurrenceDate = normalizeCoachCalendarFormDate(occurrenceDate)
-  if (!normalizedEventId || !normalizedOccurrenceDate) return []
+  if (!normalizedEventId || !['calendar_event', 'match_day', 'assessment_session'].includes(normalizedSourceType)
+    || (normalizedSourceType === 'calendar_event' && !normalizedOccurrenceDate)) return []
   return [...new Set((Array.isArray(resources) ? resources : [])
     .filter((resource) => Array.isArray(resource?.links) && resource.links.some((link) => (
-      normalizeKey(link?.linkedType) === 'calendar_event'
+      normalizeKey(link?.linkedType) === normalizedSourceType
       && normalize(link?.linkedId) === normalizedEventId
-      && normalizeCoachCalendarFormDate(link?.calendarOccurrenceDate ?? link?.calendar_occurrence_date) === normalizedOccurrenceDate
+      && (normalizedSourceType === 'calendar_event'
+        ? normalizeCoachCalendarFormDate(link?.calendarOccurrenceDate ?? link?.calendar_occurrence_date) === normalizedOccurrenceDate
+        : !normalize(link?.calendarOccurrenceDate ?? link?.calendar_occurrence_date))
     )))
     .map((resource) => normalize(resource?.id))
     .filter(Boolean))]

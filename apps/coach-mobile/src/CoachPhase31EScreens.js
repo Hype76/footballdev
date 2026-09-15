@@ -1,6 +1,9 @@
 import { formatFixtureDateTime } from '../../../src/lib/calendar-datetime-integrity.js'
-import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../../../src/lib/resource-date-presentation.js'
+import { getResourceDisplayTitle } from '../../../src/lib/resource-date-presentation.js'
 import { formatUkDateTime } from '../../../src/lib/date-format.js'
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
+import { getCoachInviteHistory } from '../../mobile-core/src/coachInviteHistoryData'
+import { COACH_RESOURCE_CATEGORIES, groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
@@ -8,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
-import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   createCoachExternalResource,
@@ -344,88 +347,143 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
 }
 
 function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
-  const [assigning, setAssigning] = useState(false)
+  const [search, setSearch] = useState('')
+  const [expandedCategories, setExpandedCategories] = useState({})
+  const [playerSearch, setPlayerSearch] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [category, setCategory] = useState('general')
+  const [busy, setBusy] = useState('')
+  const [resourceNotice, setResourceNotice] = useState('')
   const [parentVisible, setParentVisible] = useState(true)
   const [players, setPlayers] = useState([])
-  const [title, setTitle] = useState(config.isProduction ? '' : 'FP TEST resource')
-  const [url, setUrl] = useState(config.isProduction ? '' : 'https://example.com/fp-test-resource')
-  const [selectedId, setSelectedId] = useState(data[0]?.id || '')
+  const [playersLoading, setPlayersLoading] = useState(false)
+  const [playerLoadAttempt, setPlayerLoadAttempt] = useState(0)
+  const [playerLoadError, setPlayerLoadError] = useState('')
+  const [title, setTitle] = useState('')
+  const [url, setUrl] = useState('')
+  const [selectedId, setSelectedId] = useState('')
+  const mutationInFlight = useRef(false)
+  const groups = useMemo(() => groupCoachResources(data, search), [data, search])
   const selected = data.find((resource) => resource.id === selectedId)
+  const links = selected?.links || []
+  const canManage = !stale && Number(user.roleRank || 0) >= 50
+  const visiblePlayers = players.filter(player => player.playerName.toLowerCase().includes(playerSearch.trim().toLowerCase()))
   useEffect(() => {
+    if (!selectedId) return undefined
     let active = true
     setPlayers([])
+    setPlayersLoading(true)
+    setPlayerLoadError('')
     getCoachPlayerList(user)
-      .then((rows) => { if (active) setPlayers(rows) })
-      .catch((error) => { if (active) setNotice(getCoachFriendlyError(error)) })
+      .then(rows => { if (active) setPlayers(rows) })
+      .catch(error => { if (active) setPlayerLoadError(getCoachFriendlyError(error)) })
+      .finally(() => { if (active) setPlayersLoading(false) })
     return () => { active = false }
-  }, [setNotice, user])
+  }, [selectedId, user, playerLoadAttempt])
+  const report = (message) => { setResourceNotice(message); setNotice(message) }
+  const mutate = async (label, action, success) => {
+    if (mutationInFlight.current || !canManage) return
+    mutationInFlight.current = true
+    setBusy(label)
+    setResourceNotice('')
+    try {
+      await action()
+      await load({ silent: true })
+      report(success)
+    } catch (error) { report(getCoachResourceErrorMessage(error)) }
+    finally { mutationInFlight.current = false; setBusy('') }
+  }
   const open = async (resource) => {
+    if (mutationInFlight.current) return
+    mutationInFlight.current = true
+    setBusy(`open:${resource.id}`)
     try {
       const accessUrl = await getCoachResourceAccessUrl(user, resource)
       if (!await Linking.canOpenURL(accessUrl)) throw new Error('This Resource link is not supported on this device.')
       await Linking.openURL(accessUrl)
-      setNotice('Resource opened.')
-    } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
+      report('Resource opened.')
+    } catch (error) { report(getCoachResourceErrorMessage(error)) }
+    finally { mutationInFlight.current = false; setBusy('') }
   }
-  const create = async () => {
-    try { await createCoachExternalResource(user, { title, externalUrl: url, category: 'general' }); setNotice(config.isProduction ? 'External Resource created.' : 'Synthetic external Resource created.'); await load() } catch (error) { setNotice(getCoachFriendlyError(error)) }
+  const create = () => mutate('Creating resource...', async () => {
+    await createCoachExternalResource(user, { title, externalUrl: url, category })
+    setCreateOpen(false)
+    setTitle('')
+    setUrl('')
+    setExpandedCategories(current => ({ ...current, [category]: true }))
+  }, 'External Resource created.')
+  const shareWithTeam = () => mutate('Sharing resource...', () => setCoachResourceSharing(user, selected, [{ linkedId: user.activeTeamId, linkedType: 'team', teamId: user.activeTeamId }], 'Shared from Football Player Coach'), 'Resource shared with the active Team.')
+  const removeSharing = linkId => mutate('Removing assignment...', () => removeCoachResourceSharing(user, selected, linkId), 'Resource assignment removed.')
+  const togglePlayerSharing = (player) => {
+    const existingLink = links.find(link => link.linkedType === 'player' && link.linkedId === player.id)
+    return mutate('Updating player access...', () => existingLink
+      ? removeCoachResourceSharing(user, selected, existingLink.id)
+      : setCoachResourceSharing(user, selected, [{ linkedId: player.id, linkedType: 'player', parentVisible, teamId: user.activeTeamId }], 'Shared from Football Player Coach'), `Resource ${existingLink ? 'removed from' : 'assigned to'} ${player.playerName}.`)
   }
-  const shareWithTeam = async () => {
-    try { await setCoachResourceSharing(user, selected, [{ linkedId: user.activeTeamId, linkedType: 'team', teamId: user.activeTeamId }], config.isProduction ? 'Shared from Football Player Coach' : 'Shared from Coach mobile FP TEST'); setNotice(config.isProduction ? 'Resource shared with the active Team.' : 'Resource shared with the active FP TEST Team.'); await load() } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
-  }
-  const removeSharing = async (linkId) => {
-    try { await removeCoachResourceSharing(user, selected, linkId); setNotice('Resource assignment removed.'); await load() } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
-  }
-  const togglePlayerSharing = async (player) => {
-    const existingLink = selected?.links.find((link) => link.linkedType === 'player' && link.linkedId === player.id)
-    setAssigning(true)
-    try {
-      if (existingLink) {
-        await removeCoachResourceSharing(user, selected, existingLink.id)
-        setNotice(`Resource removed from ${player.playerName}.`)
-      } else {
-        await setCoachResourceSharing(user, selected, [{ linkedId: player.id, linkedType: 'player', parentVisible, teamId: user.activeTeamId }], 'Shared from Football Player Coach')
-        setNotice(`Resource assigned to ${player.playerName}.`)
-      }
-      await load()
-    } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
-    finally { setAssigning(false) }
-  }
-  const assignAllPlayers = async () => {
-    const assignedPlayerIds = new Set(selected?.links.filter((link) => link.linkedType === 'player').map((link) => link.linkedId) || [])
-    const unassignedPlayers = players.filter((player) => !assignedPlayerIds.has(player.id))
-    if (!selected || unassignedPlayers.length === 0) {
-      setNotice('This Resource is already assigned to every active Player.')
-      return
-    }
-    setAssigning(true)
-    try {
-      await setCoachResourceSharing(user, selected, unassignedPlayers.map((player) => ({
-        linkedId: player.id,
-        linkedType: 'player',
-        parentVisible,
-        teamId: user.activeTeamId,
-      })), 'Shared from Football Player Coach')
-      setNotice(`Resource assigned to ${unassignedPlayers.length} Player${unassignedPlayers.length === 1 ? '' : 's'}.`)
-      await load()
-    } catch (error) { setNotice(getCoachResourceErrorMessage(error)) }
-    finally { setAssigning(false) }
-  }
+  const assignedPlayerIds = new Set(links.filter(link => link.linkedType === 'player').map(link => link.linkedId))
+  const unassignedPlayers = players.filter(player => !assignedPlayerIds.has(player.id))
+  const assignAllPlayers = () => mutate('Assigning Players...', () => setCoachResourceSharing(user, selected, unassignedPlayers.map(player => ({ linkedId: player.id, linkedType: 'player', parentVisible, teamId: user.activeTeamId })), 'Shared from Football Player Coach'), `Resource assigned to ${unassignedPlayers.length} Player${unassignedPlayers.length === 1 ? '' : 's'}.`)
+  const closeAccess = () => { if (!mutationInFlight.current) { setSelectedId(''); setResourceNotice('') } }
   return (
     <View style={styles.stack}>
-      {data.length ? sortResourcesNewestFirst(data).map((resource) => <Pressable accessibilityRole="button" accessibilityState={{ selected: resource.id === selectedId }} key={resource.id} onPress={() => setSelectedId(resource.id)} style={[styles.panel, resource.id === selectedId && styles.panelSelected]}><Text style={styles.heading}>{getResourceDisplayTitle(resource)}</Text><Text style={styles.body}>{user.activeTeamName || resource.teamName || 'Active Team'} only | {resource.category} | {resource.type}</Text><Text style={styles.body}>{resource.description || 'No description'}</Text><Button label="Open Resource" onPress={() => void open(resource)} styles={styles} /></Pressable>) : <Empty copy="No active Team Resources are available." styles={styles} />}
-      {selected ? <View style={styles.panel}>
-        <Text style={styles.heading}>Assign selected Resource</Text>
-        {selected.isFormationBoard ? <Text style={styles.body}>This Formation Board is already a Team Resource. Choose individual Players to share it with their families.</Text> : <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />}
-        <View style={styles.row}><Text style={styles.label}>Visible to the Player's family</Text><Switch accessibilityLabel="Visible to the Player's family" disabled={stale || assigning} onValueChange={setParentVisible} value={parentVisible} /></View>
-        {players.length ? <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50 || players.every((player) => selected.links.some((link) => link.linkedType === 'player' && link.linkedId === player.id))} label={assigning ? 'Assigning Players...' : 'Assign to all Players'} onPress={() => void assignAllPlayers()} secondary styles={styles} /> : null}
-        {players.length ? players.map((player) => {
-          const assigned = selected.links.some((link) => link.linkedType === 'player' && link.linkedId === player.id)
-          return <Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} key={player.id} label={`${assigned ? 'Remove from' : 'Assign to'} ${player.playerName}`} onPress={() => void togglePlayerSharing(player)} secondary={!assigned} styles={styles} />
-        }) : <Text style={styles.body}>No active Players are available in this Team.</Text>}
-        {selected.links.filter((link) => link.linkedType !== 'player').map((link) => <View key={link.id} style={styles.stack}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Coaches only'} | {link.shareDescription || 'No description'}</Text><Button disabled={stale || assigning || Number(user.roleRank || 0) < 50} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}
+      <TextInput accessibilityLabel="Search resources" placeholder="Search resources" placeholderTextColor={styles.helper.color} onChangeText={setSearch} style={styles.input} value={search} />
+      <Text accessibilityLiveRegion="polite" style={styles.helper}>{groups.reduce((count, group) => count + group.resources.length, 0)} of {data.length} resources</Text>
+      {groups.map(group => {
+        const expanded = Boolean(search.trim()) || expandedCategories[group.category] === true
+        return <View key={group.category} style={styles.panel}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${group.label} resources`} accessibilityState={{ expanded }} onPress={() => setExpandedCategories(current => ({ ...current, [group.category]: !expanded }))} disabled={Boolean(search.trim())} style={[styles.row, { minHeight: 44, alignItems: 'center' }]}>
+            <Text style={[styles.heading, { flex: 1 }]}>{group.label} ({group.resources.length})</Text><Text style={styles.body}>{search.trim() ? 'Matches' : expanded ? 'Hide' : 'Show'}</Text>
+          </Pressable>
+          {expanded ? group.resources.map(resource => <View key={resource.id} style={{ borderTopWidth: 1, borderTopColor: styles.divider.backgroundColor, paddingVertical: 10, gap: 6 }}>
+            <Text style={styles.heading}>{getResourceDisplayTitle(resource)}</Text>
+            {resource.description ? <Text numberOfLines={2} style={styles.body}>{resource.description}</Text> : null}
+            <View style={styles.row}>
+              <Button label={busy === `open:${resource.id}` ? 'Opening resource...' : 'Open Resource'} disabled={Boolean(busy)} onPress={() => void open(resource)} secondary styles={styles} />
+              <Button label="Manage access" disabled={Boolean(busy)} onPress={() => { setSelectedId(resource.id); setPlayerSearch(''); setResourceNotice('') }} secondary styles={styles} />
+            </View>
+          </View>) : null}
+        </View>
+      })}
+      {!groups.length ? <Empty copy={data.length ? 'No resources match your search.' : 'No active Team Resources are available.'} styles={styles} /> : null}
+      {selected ? <Modal animationType="slide" onRequestClose={closeAccess} visible>
+        <SafeAreaView style={styles.chatModal}>
+          <View style={styles.chatModalHeader}>
+            <Button disabled={Boolean(busy)} label="Back to Resources" onPress={closeAccess} secondary styles={styles} />
+            <Text style={styles.heading}>Manage resource access</Text>
+            <Text style={styles.body}>{getResourceDisplayTitle(selected)}</Text>
+            {busy ? <Text accessibilityLiveRegion="polite" style={styles.helper}>{busy}</Text> : null}
+            {resourceNotice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{resourceNotice}</Text> : null}
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 14, gap: 12 }}>
+            {!canManage ? <Text style={styles.body}>{stale ? 'Reconnect to change resource access.' : 'Your role can view resource access. A Team Admin can change it.'}</Text> : null}
+            {selected.isFormationBoard ? <Text style={styles.body}>This Formation Board is already a Team Resource. Choose individual Players to share it with their families.</Text> : <Button disabled={!canManage || Boolean(busy)} label="Share with active Team" onPress={shareWithTeam} secondary styles={styles} />}
+            <View style={styles.row}><Text style={[styles.label, { flex: 1 }]}>Visible to the Player's family</Text><Switch accessibilityLabel="Visible to the Player's family" disabled={!canManage || Boolean(busy)} onValueChange={setParentVisible} value={parentVisible} /></View>
+            <Text style={styles.helper}>Applies to new player assignments.</Text>
+            <TextInput accessibilityLabel="Search players to assign" placeholder="Search players" placeholderTextColor={styles.helper.color} onChangeText={setPlayerSearch} style={styles.input} value={playerSearch} />
+            {playersLoading ? <Text accessibilityLiveRegion="polite" style={styles.body}>Loading players...</Text> : null}
+            {playerLoadError ? <View style={styles.stack}><Text style={styles.body}>{playerLoadError}</Text><Button label="Retry loading players" onPress={() => setPlayerLoadAttempt(value => value + 1)} secondary styles={styles} /></View> : null}
+            {players.length ? <Button disabled={!canManage || Boolean(busy) || !unassignedPlayers.length} label="Assign to all Players" onPress={assignAllPlayers} secondary styles={styles} /> : null}
+            {visiblePlayers.map(player => {
+              const assigned = assignedPlayerIds.has(player.id)
+              return <View key={player.id} style={{ borderBottomWidth: 1, borderBottomColor: styles.divider.backgroundColor, paddingVertical: 8, gap: 6 }}>
+                <Text style={styles.heading}>{player.playerName}</Text>
+                <Button disabled={!canManage || Boolean(busy)} label={`${assigned ? 'Remove from' : 'Assign to'} ${player.playerName}`} onPress={() => void togglePlayerSharing(player)} secondary={!assigned} styles={styles} />
+              </View>
+            })}
+            {!playersLoading && !playerLoadError && !visiblePlayers.length ? <Text style={styles.body}>{players.length ? 'No players match your search.' : 'No active Players are available in this Team.'}</Text> : null}
+            {links.filter(link => link.linkedType !== 'player').map(link => <View key={link.id} style={styles.panel}><Text style={styles.body}>{link.linkedType} | {link.parentVisible ? 'Parent shared' : 'Coaches only'} | {link.shareDescription || 'No description'}</Text><Button disabled={!canManage || Boolean(busy)} label="Remove assignment" onPress={() => void removeSharing(link.id)} secondary styles={styles} /></View>)}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal> : null}
+      <Button disabled={Boolean(busy)} label={createOpen ? 'Close new resource' : 'Add secure external link'} onPress={() => setCreateOpen(!createOpen)} secondary styles={styles} />
+      {createOpen ? <View style={styles.panel}>
+        <Text style={styles.heading}>Add secure external link</Text>
+        <TextInput accessibilityLabel="Resource title" placeholder="Resource title" placeholderTextColor={styles.helper.color} onChangeText={setTitle} style={styles.input} value={title} />
+        <TextInput accessibilityLabel="HTTPS Resource URL" placeholder="https://" placeholderTextColor={styles.helper.color} autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} />
+        <Text style={styles.label}>Category</Text>
+        <View style={styles.row}>{COACH_RESOURCE_CATEGORIES.map(item => <Button disabled={Boolean(busy)} key={item.value} label={item.label} onPress={() => setCategory(item.value)} secondary={category !== item.value} styles={styles} />)}</View>
+        <Button disabled={!canManage || Boolean(busy) || !title.trim() || !url.trim()} label={busy === 'Creating resource...' ? busy : 'Create Resource'} onPress={create} styles={styles} />
       </View> : null}
-      <View style={styles.panel}><Text style={styles.heading}>Add secure external link</Text><TextInput accessibilityLabel="Resource title" onChangeText={setTitle} style={styles.input} value={title} /><TextInput accessibilityLabel="HTTPS Resource URL" autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} /><Button disabled={stale || Number(user.roleRank || 0) < 50} label={config.isProduction ? 'Create Resource' : 'Create FP TEST Resource'} onPress={create} styles={styles} /><Text style={styles.body}>File upload, bulk governance, archive, and retention stay in the web workflow.</Text></View>
     </View>
   )
 }
@@ -784,6 +842,10 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
 }
 
 function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice, stale, styles, user }) {
+  const loadInviteHistory = useCallback((invite) => getCoachInviteHistory(user, invite), [user])
+  const [availabilityConfirm, setAvailabilityConfirm] = useState(null)
+  const [availabilityError, setAvailabilityError] = useState('')
+  const availabilitySaving = useRef(false)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
   const [requestPanelOpen, setRequestPanelOpen] = useState(false)
   const [showEventActions, setShowEventActions] = useState(false)
@@ -973,11 +1035,14 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
     { text: 'Create requests', onPress: () => void createRequests() },
   ])
   const recordAvailabilityOnBehalf = async (availabilityStatus) => {
-    const invite = selectedAvailabilityInvite
-    if (!invite || bulkAction) return
+    const invite = availabilityConfirm?.invite
+    if (!invite || bulkAction || availabilitySaving.current || stale) return
+    availabilitySaving.current = true
+    setAvailabilityError('')
     setBulkAction(availabilityStatus)
     try {
       const result = await setCoachInviteAvailabilityOnBehalf(user, invite, availabilityStatus)
+      setAvailabilityConfirm(null)
       setSelectedPlayerIds([])
       await refreshAfterBulkAction()
       const label = availabilityStatus === 'available' ? 'Available' : 'Unavailable'
@@ -985,27 +1050,33 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
         ? `${invite.playerName} is now ${label}. This was recorded as you acting on behalf. Squad selection is unchanged.`
         : `${invite.playerName} is already ${label}. Squad selection is unchanged.`)
     } catch (error) {
+      setAvailabilityError(getCoachFriendlyError(error, 'The Player availability response could not be recorded.'))
       setNotice(getCoachFriendlyError(error, 'The Player availability response could not be recorded.'))
     } finally {
+      availabilitySaving.current = false
       setBulkAction('')
     }
   }
   const confirmAvailabilityOnBehalf = (availabilityStatus) => {
     const invite = selectedAvailabilityInvite
     if (!invite) return
-    const available = availabilityStatus === 'available'
-    Alert.alert(
-      available ? 'Accept on behalf of player?' : 'Mark player unavailable?',
-      `This records ${available ? 'Available' : 'Unavailable'} by you as authorised Team staff. It does not sign in as or impersonate the Parent or Player. Squad selection is unchanged.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: available ? 'Accept on behalf' : 'Mark unavailable', style: available ? 'default' : 'destructive', onPress: () => void recordAvailabilityOnBehalf(availabilityStatus) },
-      ],
-    )
+    setAvailabilityError('')
+    setAvailabilityConfirm({ invite, status: availabilityStatus })
   }
   const renderSelectedInviteActions = () => selectedInvites.length ? (
     <View style={styles.stack}>
       <Text style={styles.body}>{selectedInvites.length} Player{selectedInvites.length === 1 ? '' : 's'} selected.</Text>
+      <Modal visible={Boolean(availabilityConfirm)} transparent animationType="fade" onRequestClose={() => { if (!bulkAction) setAvailabilityConfirm(null) }}>
+        <View style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+          <View accessibilityViewIsModal style={[styles.card, { backgroundColor: palette.surface, gap: 16 }]}>
+            <Text accessibilityRole="header" style={styles.cardTitle}>{availabilityConfirm?.status === 'available' ? 'Accept on behalf of player?' : 'Mark player unavailable?'}</Text>
+            <Text style={styles.body}>{availabilityConfirm?.invite.playerName} will be marked {availabilityConfirm?.status === 'available' ? 'Available' : 'Unavailable'} for {availabilityConfirm?.invite.title}. This records a staff response. Squad selection stays the same.</Text>
+            {availabilityError ? <Text accessibilityLiveRegion="polite" style={styles.danger}>{availabilityError}</Text> : null}
+            <Button disabled={Boolean(bulkAction) || stale} destructive={availabilityConfirm?.status === 'unavailable'} label={bulkAction ? 'Saving response...' : 'Confirm response'} onPress={() => recordAvailabilityOnBehalf(availabilityConfirm.status)} styles={styles} />
+            <Button disabled={Boolean(bulkAction)} label="Cancel response change" onPress={() => setAvailabilityConfirm(null)} secondary styles={styles} />
+          </View>
+        </View>
+      </Modal>
       {selectedAvailabilityInvite ? <View style={styles.row}>
         <Button disabled={selectionDisabled || selectedAvailabilityInvite.status === 'available' || Number(user.roleRank || 0) < 20} label={bulkAction === 'available' ? 'Recording Available...' : 'Accept on behalf of player'} onPress={() => confirmAvailabilityOnBehalf('available')} styles={styles} />
         <Button destructive disabled={selectionDisabled || selectedAvailabilityInvite.status === 'unavailable' || Number(user.roleRank || 0) < 20} label={bulkAction === 'unavailable' ? 'Recording Unavailable...' : 'Mark unavailable'} onPress={() => confirmAvailabilityOnBehalf('unavailable')} styles={styles} />
@@ -1039,7 +1110,7 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
           <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{group.title || 'Training'}</Text><Text style={styles.helper}>{group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}</Text>{!expanded ? <Text style={styles.helper}>Attending {trainingSummary.attending} · Awaiting {trainingSummary.awaitingResponse}</Text> : null}</View>
         </Pressable>
         {expanded ? <>
-          <CoachMatchInviteTable key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
           {renderSelectedInviteActions()}
           {showEventActions ? <Button label="Open Calendar" onPress={() => onNavigate('calendar', { sourceId: group.eventId, sourceType: 'calendar_event', occurrenceDate: group.occurrenceDate })} secondary styles={styles} /> : null}
         </> : null}
@@ -1055,11 +1126,11 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 8, backgroundColor: palette.surface }}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 }}>
             <MaterialIcons name="event" size={28} color={palette.textSecondary} />
-            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>Match Day vs {match.opponent || 'Opponent to be confirmed'}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>Available {matchSummary.available} · Awaiting {matchSummary.awaiting}</Text> : null}</View>
+            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{getMatchDayDisplayName({ ...match, clubName: match.clubName || user.clubName })}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>Available {matchSummary.available} · Awaiting {matchSummary.awaiting}</Text> : null}</View>
           </Pressable>
         </View>
         {expanded ? <>
-          <CoachMatchInviteTable key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
           {showEventActions ? <Text style={styles.helper}>{matchRequestPlayerCount} Players have a request. {availablePlayers.length} current Team Players have no request.</Text> : null}
           {renderSelectedInviteActions()}
           {showEventActions && availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Choose ${availablePlayers.length} Team Players with no request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : null}

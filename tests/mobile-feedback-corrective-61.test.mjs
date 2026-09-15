@@ -46,7 +46,7 @@ test('Coach Resources supports Player targets including published Formation Boar
     readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8'),
     readFile(new URL('../supabase/migrations/20260817065446_mobile_feedback_corrective_61.sql', import.meta.url), 'utf8'),
   ])
-  assert.match(screen, /Assign selected Resource/)
+  assert.match(screen, /Manage resource access/)
   assert.match(screen, /linkedType: 'player'/)
   assert.match(screen, /Visible to the Player's family/)
   assert.match(migration, /new\.linked_type <> 'player'/)

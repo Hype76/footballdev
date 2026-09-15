@@ -214,19 +214,19 @@ function prepareResourceItems(name, items) {
     : normalizedItems
 }
 
-function getCalendarResourceOccurrenceKey(eventId, dateValue) {
+function getCalendarResourceOccurrenceKey(eventId, dateValue, sourceType = 'calendar_event') {
   const normalizedEventId = String(eventId || '').trim()
   const rawDate = String(dateValue || '').trim()
   const occurrenceDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
     ? rawDate
     : getParentProductDateTimeParts(rawDate).date
-  return normalizedEventId && occurrenceDate ? `${normalizedEventId}:${occurrenceDate}` : ''
+  return normalizedEventId && occurrenceDate ? `${sourceType || 'calendar_event'}:${normalizedEventId}:${occurrenceDate}` : ''
 }
 
 function buildCalendarResourcesByOccurrence(resources = []) {
   const byOccurrence = new Map()
   for (const resource of resources) {
-    const key = getCalendarResourceOccurrenceKey(resource.eventId, resource.occurrenceDate)
+    const key = getCalendarResourceOccurrenceKey(resource.eventId, resource.occurrenceDate, resource.sourceType)
     if (!key) continue
     const current = byOccurrence.get(key) || []
     current.push(resource)
@@ -611,16 +611,17 @@ function ParentHome() {
           notes: detailsById.get(normalizeText(invitation.eventId))?.notes || invitation.notes || '',
           notesPinned: detailsById.get(normalizeText(invitation.eventId))?.notesPinned === true,
           occurrenceDate: getParentProductDateTimeParts(invitation.eventStart || invitation.eventDate).date,
-          resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(invitation.eventId, invitation.eventStart || invitation.eventDate)) || [],
+          resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(invitation.eventId, invitation.eventStart || invitation.eventDate, invitation.sourceEventType || 'calendar_event')) || [],
         }))
       },
       matches: async () => {
-        const [matches, players] = await Promise.all([
+        const [matches, players, resourcesByOccurrence] = await Promise.all([
           getParentPortalMatchDays(selectedMobileUser),
           getParentPortalMatchDayPlayers(selectedMobileUser),
+          resourcesByOccurrencePromise,
         ])
         if (requestId === requestIdRef.current) setMatchDayPlayers(players)
-        return matches
+        return matches.map((match) => ({ ...match, resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(match.id, match.matchDate, 'match_day')) || [] }))
       },
       messages: () => getParentMessages(selectedMobileUser),
       notifications: () => getParentNotificationInbox(selectedMobileUser),
@@ -1390,6 +1391,7 @@ function ParentHome() {
 
     try {
       const result = await openParentResource(selectedMobileUser, resource.id, {
+        calendarSourceType: resource.sourceType || 'calendar_event',
         calendarEventId: event.sourceId || event.eventId || String(event.id || '').replace(/^calendar:/, ''),
         calendarOccurrenceDate: event.occurrenceDate || event.calendarDate || event.eventDate || getParentProductDateTimeParts(event.startsAt || event.eventStart).date,
       })

@@ -12,13 +12,14 @@ const helpers=source.slice(source.indexOf('function phaseStyles('),source.indexO
 const domain=source.slice(source.indexOf('function InvitesDomain('))
 const core=source.match(/import \{\s+COACH_PHASE_31E_BACKEND_DELTAS,[\s\S]*?from '..\/..\/mobile-core\/src\/coachPhase31ECore'/)[0].replace('../../mobile-core/src/coachPhase31ECore','./apps/mobile-core/src/coachPhase31ECore.js')
 const names=['Brendan Templeton','Ethan Clarke','Finn Saunders','Freddie Norman','Freddy Davison','Jenson Bailey','Josh Allen','Joshua Mcgrory','Kaylan Thorley','Kyle De Dominicis','Lewis Gibbs','Louis Burton','Marcell Danner','Mason Wright','Salvador','Stanley Mcgaw','Thadeous Knight']
-const entry=`import React,{useState,useEffect,useMemo,useRef}from'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,Modal,Alert,KeyboardAvoidingView,TextInput,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';import{CoachMatchInviteTable}from'./apps/coach-mobile/src/CoachMatchInviteTable.js';import{InviteStatusBadge}from'./apps/mobile-core/src/InviteStatusBadge.js';import{createMatchInvitesTheme}from'./apps/coach-mobile/src/coachThemeCore.js';${core}
+const entry=`import React,{useState,useEffect,useMemo,useRef,useCallback}from'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,Modal,Alert,KeyboardAvoidingView,TextInput,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';import{CoachMatchInviteTable}from'./apps/coach-mobile/src/CoachMatchInviteTable.js';import{InviteStatusBadge}from'./apps/mobile-core/src/InviteStatusBadge.js';import{createMatchInvitesTheme}from'./apps/coach-mobile/src/coachThemeCore.js';${core}
+import {getMatchDayDisplayName} from './src/lib/matchday-display.js';const getCoachInviteHistory=async()=>({emailSends:3,resendRequests:2,recentEmailSends:['2026-09-15T10:00:00Z'],recentResendRequests:[]});window.availabilityWrites=[];const setCoachInviteAvailabilityOnBehalf=async(u,invite,status)=>{if(window.failAvailability)throw new Error('Synthetic save failed');window.availabilityWrites.push({id:invite.playerId,status});return{changed:true}};
 import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
 import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';const config={isProduction:true};const getCoachFriendlyError=e=>e.message;window.sends=[];window.followups=[];let followUpKey=0;const createCoachFollowUpKey=()=>String(++followUpKey);const recordCoachInviteIntent=async(user,invite,action,options)=>{if(action==='follow_up')window.followups.push({playerId:invite.playerId,...options});else window.sends.push(invite.playerId);return{recipientCount:1}};Alert.alert=(title,message,buttons)=>window.alert={title,message,buttons};
 ${helpers}\n${domain}
-const names=${JSON.stringify(names)};const match={id:'fixture-one',teamId:'team',status:'scheduled',matchDate:'2099-09-06',opponent:'St Neots',kickoffTime:'10:45',venueName:'St Neots'};
+const names=${JSON.stringify(names)};const match={id:'fixture-one',teamId:'team',status:'scheduled',matchDate:'2099-09-06',clubName:'FP TEST Club',homeAway:'away',opponent:'St Neots',kickoffTime:'10:45',venueName:'St Neots'};
 const rows=names.map((playerName,i)=>({id:'invite-'+i,playerId:'player-'+i,playerName,kind:'match',eventId:match.id,status:[9,14,15].includes(i)?'awaiting':'available',deliveryState:'delivered',deliveryStatus:'delivered',sentAt:'2099-09-01',respondedAt:[9,14,15].includes(i)?'':'2099-09-02'}));
-function App(){const[mode,setMode]=useState('dark'),[invites,setInvites]=useState(rows),[stale,setStale]=useState(false),[rank,setRank]=useState(50),[key,setKey]=useState(0),[notice,setNotice]=useState('');window.mode=setMode;window.invites=setInvites;window.stale=setStale;window.rank=setRank;window.reset=()=>{setKey(k=>k+1);setInvites(rows)};window.rows=rows;
+function App(){const[mode,setMode]=useState('dark'),[invites,setInvites]=useState(rows),[stale,setStale]=useState(false),[rank,setRank]=useState(50),[key,setKey]=useState(0),[notice,setNotice]=useState('');window.notice=setNotice;window.mode=setMode;window.invites=setInvites;window.stale=setStale;window.rank=setRank;window.reset=()=>{setKey(k=>k+1);setInvites(rows)};window.rows=rows;
 const palette=createMatchInvitesTheme({clubAccent:'#1d3f78'}).tokens;return <View dataSet={{mode}} style={{backgroundColor:palette.background,padding:8,minHeight:'100vh'}}>{notice?<Text style={{color:palette.textPrimary}}>{notice}</Text>:null}<InvitesDomain key={key} data={{matches:[match,{...match,id:'fixture-two',opponent:'Second opponent'}],match:invites,players:names.map((playerName,i)=>({id:'player-'+i,playerName,shirtNumber:String([4,1,7,10,9,22,27,98,11,27,5,8,15,3,18,20,6][i])})),training:rows.map((r,i)=>({...r,id:'training-'+i,kind:'training',eventId:'training-one',occurrenceDate:'2099-09-14',title:'Monday Training',status:i===0?'maybe':i===1?'unavailable':r.status}))}} palette={palette} styles={phaseStyles(palette)} user={{id:'coach',activeTeamId:'team',roleRank:rank}} stale={stale} load={async()=>{}} reloadHome={async()=>{}} setNotice={setNotice} onNavigate={()=>{}}/></View>};createRoot(document.getElementById('root')).render(<App/>);`
 const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
 await writeFile(`${out}/app.js`,result.outputFiles[0].text)
@@ -29,8 +30,21 @@ try{
  await page.setContent('<body style="margin:0"><div id="root"></div>');await page.addScriptTag({content:result.outputFiles[0].text})
  const fixtureCard=page.getByRole('button',{name:'Open availability for St Neots'})
  assert.match(await fixtureCard.innerText(),/Available 14.*Awaiting 3/s,'Collapsed fixture totals agree with the expanded player table')
+ assert.match(await fixtureCard.innerText(),/St Neots v FP TEST Club/)
  await fixtureCard.click()
  const boxes=()=>page.getByRole('checkbox')
+ await boxes().first().click()
+ await page.getByRole('button',{name:'Mark unavailable',exact:true}).click()
+ await page.getByRole('heading',{name:'Mark player unavailable?',exact:true}).waitFor()
+ assert.deepEqual(await page.evaluate(()=>window.availabilityWrites),[])
+ await page.evaluate(()=>window.failAvailability=true)
+ await page.getByRole('button',{name:'Confirm response',exact:true}).click()
+ await page.getByText('Synthetic save failed',{exact:true}).last().waitFor()
+ await page.evaluate(()=>window.failAvailability=false)
+ await page.getByRole('button',{name:'Confirm response',exact:true}).click()
+ await page.getByRole('button',{name:'Confirm response',exact:true}).waitFor({state:'hidden'})
+ assert.deepEqual(await page.evaluate(()=>window.availabilityWrites),[{id:'player-0',status:'unavailable'}])
+ await page.evaluate(()=>window.notice(''))
  assert.equal(await boxes().count(),17)
  assert.equal(await page.getByText('98',{exact:true}).count(),1,'Saved shirt numbers are displayed')
  await page.getByRole('button',{name:'Filter Available, 14 players'}).waitFor()
@@ -51,7 +65,7 @@ try{
   const height=await boxes().first().boundingBox();assert.ok(height.height<70,'Rows remain compact'); if(width===390) {const last=await boxes().last().boundingBox();assert.ok(last.y+last.height<720,'All 17 players fit above the bottom navigation area')}
   await page.screenshot({path:`${out}/${mode}-${width}.png`,fullPage:true})
  }
- await page.getByRole('button',{name:'Kyle De Dominicis invitation details'}).click();await page.getByText('Seen: Not yet',{exact:true}).waitFor();await page.getByRole('button',{name:'Close invitation details'}).click()
+ await page.getByRole('button',{name:'Kyle De Dominicis invitation details'}).click();await page.getByText('Seen: Not yet',{exact:true}).waitFor();await page.getByText('Recorded email sends: 3',{exact:true}).waitFor();await page.getByText('Recorded resend requests: 2',{exact:true}).waitFor();await page.getByRole('button',{name:'Close invitation details'}).click()
  assert.equal(await page.getByRole('button',{name:'Notify awaiting players'}).count(),0,'Notify is removed from the header')
  await page.getByRole('button',{name:'Filter Awaiting, 3 players'}).click()
  for(const box of await boxes().all()) await box.click()
@@ -75,7 +89,7 @@ try{
  await page.getByText('Follow-up queued for 1 Player. Existing responses have not changed.',{exact:true}).waitFor()
  assert.equal(await boxes().count(),1)
 
- if(await page.getByRole('button',{name:'All 17',exact:true}).count())await page.getByRole('button',{name:'All 17',exact:true}).click();await page.getByRole('button',{name:'Ethan Clarke invitation details'}).click();await page.getByText('Seen: Not yet',{exact:true}).waitFor();await page.getByRole('button',{name:'Close invitation details'}).click()
+ if(await page.getByRole('button',{name:'All 17',exact:true}).count())await page.getByRole('button',{name:'All 17',exact:true}).click();await page.getByRole('button',{name:'Ethan Clarke invitation details'}).click();await page.getByText('Seen: Not yet',{exact:true}).waitFor();await page.getByText('Recorded email sends: 3',{exact:true}).waitFor();await page.getByText('Recorded resend requests: 2',{exact:true}).waitFor();await page.getByRole('button',{name:'Close invitation details'}).click()
  await page.getByRole('button',{name:'All events',exact:true}).click();await page.getByRole('button',{name:'Open availability for Second opponent'}).click();await page.getByText('No availability requests have been sent for this fixture.').waitFor();assert.equal(await boxes().count(),0)
  await page.getByRole('button',{name:'All events',exact:true}).click();await page.getByRole('button',{name:'Open availability for Monday Training'}).click()
  await page.getByRole('heading',{name:'Training Invites'}).waitFor();assert.equal(await boxes().count(),17)

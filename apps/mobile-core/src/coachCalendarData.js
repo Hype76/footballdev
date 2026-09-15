@@ -232,21 +232,40 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
 
 export async function syncCoachCalendarEventResources(user, event, resourceIds = [], occurrenceDate = '') {
   assertCoachOperationalMutation(user, { minimumRank: 50, requiresTeam: true })
+  if (!Number.isFinite(Number(user?.roleRank)) || Number(user.roleRank) < 50) throw new Error('Team Admin access is required to attach Resources.')
   const eventId = normalize(event?.sourceId || event?.id)
   const eventTeamId = normalize(event?.teamId)
-  const selectedOccurrenceDate = normalizeCoachCalendarFormDate(occurrenceDate || event?.occurrenceDate || event?.calendarDate)
+  const sourceType = normalize(event?.sourceType)
+  const isCalendarEvent = sourceType === 'calendar_event'
+  const selectedOccurrenceDate = isCalendarEvent
+    ? normalizeCoachCalendarFormDate(occurrenceDate || event?.occurrenceDate || event?.calendarDate)
+    : null
   const desiredResourceIds = [...new Set((Array.isArray(resourceIds) ? resourceIds : []).map(normalize).filter(Boolean))]
 
-  if (!eventId || event?.sourceType !== 'calendar_event' || !eventTeamId || eventTeamId !== normalize(user.activeTeamId)) {
+  if (!eventId || !['calendar_event', 'match_day', 'assessment_session'].includes(sourceType) || !eventTeamId || eventTeamId !== normalize(user.activeTeamId)) {
     throw new Error('Choose an editable event from the active Team before attaching Resources.')
   }
-  const validOccurrenceDates = buildCoachCalendarOccurrenceDates({
-    date: event?.calendarDate,
-    recurrenceFrequency: event?.recurrenceFrequency,
-    recurrenceUntil: event?.recurrenceUntil,
-  })
-  if (!selectedOccurrenceDate || !validOccurrenceDates.includes(selectedOccurrenceDate)) {
-    throw new Error('Choose a valid dated occurrence before attaching Resources.')
+  const sourceTable = { calendar_event: 'calendar_events', match_day: 'match_days', assessment_session: 'assessment_sessions' }[sourceType]
+  const sourceFields = isCalendarEvent
+    ? 'id,club_id,team_id,starts_at,ends_at,recurrence_frequency,recurrence_until,cancelled_at'
+    : sourceType === 'match_day' ? 'id,club_id,team_id,status,deleted_at' : 'id,club_id,team_id,status'
+  const { data: sourceRow, error: sourceError } = await supabase.from(sourceTable)
+    .select(sourceFields).eq('id', eventId).eq('club_id', user.clubId).eq('team_id', eventTeamId).single()
+  if (sourceError) throw sourceError
+  if (!sourceRow || sourceRow.club_id !== user.clubId || sourceRow.team_id !== eventTeamId
+    || sourceRow.cancelled_at || sourceRow.deleted_at || ['cancelled', 'deleted'].includes(normalize(sourceRow.status))) {
+    throw new Error('This event is no longer available for Resource attachments.')
+  }
+  const authoritativeEvent = isCalendarEvent ? normalizeCoachCalendarEvent(sourceRow) : null
+  if (isCalendarEvent) {
+    const validOccurrenceDates = buildCoachCalendarOccurrenceDates({
+      date: authoritativeEvent.calendarDate,
+      recurrenceFrequency: authoritativeEvent.recurrenceFrequency,
+      recurrenceUntil: authoritativeEvent.recurrenceUntil,
+    })
+    if (!selectedOccurrenceDate || !validOccurrenceDates.includes(selectedOccurrenceDate)) {
+      throw new Error('Choose a valid dated occurrence before attaching Resources.')
+    }
   }
 
   if (desiredResourceIds.length > 0) {
@@ -269,10 +288,12 @@ export async function syncCoachCalendarEventResources(user, event, resourceIds =
     .select('id, resource_id, team_id, calendar_occurrence_date')
     .eq('club_id', user.clubId)
     .eq('team_id', eventTeamId)
-    .eq('linked_type', 'calendar_event')
+    .eq('linked_type', sourceType)
     .eq('linked_id', eventId)
     .is('removed_at', null)
-  if (normalize(event?.recurrenceFrequency).toLowerCase() !== 'none') {
+  if (!isCalendarEvent) {
+    existingLinksQuery = existingLinksQuery.is('calendar_occurrence_date', null)
+  } else if (authoritativeEvent.recurrenceFrequency !== 'none') {
     existingLinksQuery = existingLinksQuery.eq('calendar_occurrence_date', selectedOccurrenceDate)
   }
   const { data: existingLinks, error: existingLinksError } = await existingLinksQuery
@@ -301,7 +322,7 @@ export async function syncCoachCalendarEventResources(user, event, resourceIds =
       calendar_occurrence_date: selectedOccurrenceDate,
       club_id: user.clubId,
       linked_id: eventId,
-      linked_type: 'calendar_event',
+      linked_type: sourceType,
       resource_id: resourceId,
       team_id: eventTeamId,
     })))
@@ -311,7 +332,7 @@ export async function syncCoachCalendarEventResources(user, event, resourceIds =
   await recordCoachOperationalAudit({
     action: 'resource_library_event_resources_synced',
     entityId: eventId,
-    entityType: 'calendar_event',
+    entityType: sourceType,
     metadata: { occurrenceDate: selectedOccurrenceDate, resourceCount: desiredResourceIds.length, teamId: eventTeamId },
     user,
   })
