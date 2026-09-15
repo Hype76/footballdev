@@ -8,7 +8,9 @@ function normalizeScore(value) {
 }
 
 export function getMatchDayDisplayParts(match = {}) {
-  const teamName = normalizeText(match.teamName ?? match.team_name) || 'Our team'
+  const teamName = normalizeText(match.clubName ?? match.club_name)
+    || normalizeText(match.teamName ?? match.team_name)
+    || 'Our team'
   const opponent = normalizeText(match.opponent) || 'Opponent'
   const homeAway = normalizeText(match.homeAway ?? match.home_away).toLowerCase()
   const homeScore = normalizeScore(match.homeScore ?? match.home_score)

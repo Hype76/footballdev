@@ -17,6 +17,7 @@ import{View,Text,Pressable,StyleSheet}from'react-native';import MaterialIcons fr
 import{getMobileIconName}from'./apps/mobile-core/src/mobileIconSystem.js';
 import{getCoachMatchDayPresentation,filterCoachMatchDays,buildCoachFinalMatchReport}from'./apps/mobile-core/src/coachMatchDayCore.js';
 import{getMatchDayLifecycleState}from'./src/lib/matchday-lifecycle.js';
+import{formatUkDate}from'./src/lib/date-format.js';
 import{createCoachTheme}from'./apps/coach-mobile/src/coachThemeCore.js';
 import{CoachNotificationHistoryScreen}from'./apps/coach-mobile/src/CoachNotificationHistoryScreen.js';
 const Chips=()=>null,getMatchDayFilterIconKey=()=> 'event';

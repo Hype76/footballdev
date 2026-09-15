@@ -563,6 +563,7 @@ export function normalizeMatchDay(row) {
     clubId: row.club_id ?? row.clubId ?? '',
     teamId: row.team_id ?? row.teamId ?? '',
     teamName: normalizeText(team?.name ?? row.team_name ?? row.teamName),
+    clubName: normalizeText(row.club_name ?? row.clubName),
     notificationTeamName: normalizeTeamNotificationDisplayName(
       row.notification_team_name ?? row.notificationTeamName,
     ),
@@ -1160,7 +1161,7 @@ export async function getMatchDays({ user } = {}) {
     throw error
   }
 
-  return attachMatchDayPresentationStates((data ?? []).map(normalizeMatchDay))
+  return attachMatchDayPresentationStates((data ?? []).map((row) => normalizeMatchDay({ ...row, clubName: user.clubName })))
 }
 
 export async function getMatchDay({ user, matchDayId, includeScorerEligibility = false, accessToken = '' } = {}) {
@@ -1187,7 +1188,7 @@ export async function getMatchDay({ user, matchDayId, includeScorerEligibility =
   }
 
   if (!includeScorerEligibility) {
-    const [match] = await attachMatchDayPresentationStates([normalizeMatchDay(data)])
+    const [match] = await attachMatchDayPresentationStates([normalizeMatchDay({ ...data, clubName: user.clubName })])
     return match
   }
 
@@ -1233,7 +1234,7 @@ export async function getMatchDay({ user, matchDayId, includeScorerEligibility =
       }
     }),
   }
-  const [match] = await attachMatchDayPresentationStates([normalizeMatchDay(matchWithEligibility)])
+  const [match] = await attachMatchDayPresentationStates([normalizeMatchDay({ ...matchWithEligibility, clubName: user.clubName })])
   return match
 }
 
@@ -1501,7 +1502,7 @@ export async function createMatchDay({ user, match }) {
     },
   })
 
-  return normalizeMatchDay(data)
+  return normalizeMatchDay({ ...data, clubName: user.clubName })
 }
 
 export function applyScorerRequestMessageUpdate(payload, updates) {
@@ -1629,7 +1630,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
   }
 
   invalidateMemoryCacheByPrefix('match-day:')
-  const normalizedMatch = normalizeMatchDay(data)
+  const normalizedMatch = normalizeMatchDay({ ...data, clubName: user.clubName })
   const nextSnapshot = buildMatchDaySnapshotFromMatch(normalizedMatch)
   const { previousValue, newValue } = buildChangedSnapshot(previousSnapshot, nextSnapshot)
   const updatedFields = Object.keys(newValue ?? {})
@@ -2039,7 +2040,7 @@ export async function saveMatchDayFinalReport({ user, match, staffNotes = '' } =
   return normalizeMatchDayFinalReport(data)
 }
 
-export async function getParentPortalMatchDays({ parentLinkId }) {
+export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
   const normalizedParentLinkId = normalizeText(parentLinkId)
 
   if (!normalizedParentLinkId) {
@@ -2130,6 +2131,7 @@ export async function getParentPortalMatchDays({ parentLinkId }) {
       ...normalizeParentPortalMatchDay({
       ...row,
       ...extended,
+      clubName,
       shirt_choice: shirtChoiceByMatchId.get(String(row.id)),
       is_scorer: scorerGameModeMatchIds.has(String(row.id)),
       selected_player_names: confirmedTeamByMatchId.get(row.id) ?? [],

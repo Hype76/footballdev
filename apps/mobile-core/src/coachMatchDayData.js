@@ -79,6 +79,7 @@ export function normalizeCoachMatchDay(row = {}) {
     || Boolean(normalize(row.serverLocalDate))
   return {
     pitchType: normalize(row.pitch_type ?? row.pitchType),
+    clubName: normalize(row.club_name ?? row.clubName),
     carpoolEnabled: (row.carpool_enabled ?? row.carpoolEnabled) !== false,
     id: row.id ?? '', clubId: row.club_id ?? row.clubId ?? '', teamId: row.team_id ?? row.teamId ?? '', teamName: normalize(team?.name ?? row.team_name ?? row.teamName) || 'Our team', notificationTeamName: normalizeTeamNotificationDisplayName(row.notification_team_name ?? row.notificationTeamName), opponent: normalize(row.opponent) || 'Opponent',
     fixtureType: normalize(row.fixture_type ?? row.fixtureType) || 'league', conclusionRule: normalizeMatchDayConclusionRule(row.match_conclusion_rule ?? row.conclusionRule), currentMatchPhase: normalize(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match', extraTimeHalfMinutes: normalizeExtraTimeHalfMinutes(row.extra_time_half_minutes ?? row.extraTimeHalfMinutes), extraTimePeriodCount: normalizeExtraTimePeriodCount(row.extra_time_period_count ?? row.extraTimePeriodCount),
@@ -110,7 +111,7 @@ export async function getCoachMatchDayList(user) {
   assertCoachMatchDayAccess(user)
   const { data, error } = await scoped(supabase.from('match_days').select(LIST_SELECT).eq('club_id', user.clubId).is('deleted_at', null).order('match_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(80), user)
   if (error) throw error
-  const matches = (data || []).map(normalizeCoachMatchDay)
+  const matches = (data || []).map((row) => normalizeCoachMatchDay({ ...row, clubName: user.clubName }))
   const ids = matches.map((match) => match.id)
   if (!ids.length) return matches
   const { data: states, error: stateError } = await supabase.rpc('get_match_day_presentation_states', { match_day_ids_value: ids })
@@ -202,7 +203,7 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
     .select(LIST_SELECT)
     .single()
   if (error) throw error
-  const match = normalizeCoachMatchDay(data)
+  const match = normalizeCoachMatchDay({ ...data, clubName: user.clubName })
   await Promise.all([
     recordCoachOperationalAudit({
       action: 'match_day_created',
@@ -334,7 +335,7 @@ export async function updateCoachMatchDayFixture(user, match, form) {
     p_team_id: user.activeTeamId,
   })
   if (error) throw error
-  return normalizeCoachMatchDay(data)
+  return normalizeCoachMatchDay({ ...data, clubName: user.clubName })
 }
 
 export async function getCoachMatchDayDetail(user, matchDayId, { includeVolunteerEligibility = true } = {}) {
@@ -373,7 +374,7 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
     if (stateError) throw stateError
     presentationState = (states || [])[0] || null
   }
-  return { ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}) }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
+  return { ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}), clubName: user.clubName }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
 }
 
 async function prepareMutation(user, match, minimumRank = 20) {

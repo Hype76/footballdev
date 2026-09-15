@@ -151,7 +151,7 @@ export async function getCoachCalendarResources(user, { includeDetails = true } 
       involvedPlayerIds: involvedPlayerIdsByEventId[normalize(row.id)] || [],
       isInheritedClubEvent: Boolean(user.activeTeamId && !row.team_id),
     })),
-    matches: matchesResult.data || [],
+    matches: (matchesResult.data || []).map((row) => ({ ...row, clubName: user.clubName })),
     sessions: sessionsResult.data || [],
   })
 }
