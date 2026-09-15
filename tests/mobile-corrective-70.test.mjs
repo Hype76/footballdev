@@ -27,7 +27,8 @@ test('Parent Calendar response buttons expose and render the saved selection', a
   const screen = await read('../apps/parent-mobile/src/ParentPortalScreens.js')
 
   assert.match(screen, /accessibilityState=\{\{ disabled, selected, \.\.\.\(typeof expanded === 'boolean' \? \{ expanded \} : \{\}\) \}\}/)
-  assert.match(screen, /selected=\{invitation\.responseState === option\.value\}/)
+  assert.match(screen, /const selected = isParentInvitationOptionSelected\(invitation, option\.value\)/)
+  assert.match(screen, /<IconChoice[^\n]*onRespond\(invitation, option\.value\)[^\n]*selected=\{selected\}/)
   assert.match(screen, /styles\.actionSelected/)
   assert.match(screen, /styles\.actionTextSelected/)
 })
@@ -35,9 +36,10 @@ test('Parent Calendar response buttons expose and render the saved selection', a
 test('Coach Resources can assign one Resource to every unassigned active Player in one request', async () => {
   const screen = await read('../apps/coach-mobile/src/CoachPhase31EScreens.js')
 
-  assert.match(screen, /const assignAllPlayers = async \(\) =>/)
+  assert.match(screen, /const assignAllPlayers = \(\) => mutate\('Assigning Players\.\.\.'/)
   assert.match(screen, /setCoachResourceSharing\(user, selected, unassignedPlayers\.map/)
-  assert.match(screen, /label=\{assigning \? 'Assigning Players\.\.\.' : 'Assign to all Players'\}/)
+  assert.match(screen, /label="Assign to all Players"/)
+  assert.match(screen, /mutationInFlight\.current \|\| !canManage/)
 })
 
 test('Coach scrolling clamps an invalid offset after Poll content becomes shorter', async () => {

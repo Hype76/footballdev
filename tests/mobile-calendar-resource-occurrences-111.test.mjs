@@ -87,7 +87,7 @@ test('Parent request and Calendar views use occurrence-scoped direct attachment 
   assert.match(screen, /Array\.isArray\(invitation\.resources\)/)
   assert.match(screen, /onOpenResource\?\.\(invitation, resourceItem\)/)
   assert.match(endpoint, /calendar_occurrence_date/)
-  assert.match(endpoint, /occurrenceDate: normalizeText\(link\.calendar_occurrence_date\)/)
+  assert.match(endpoint, /occurrenceDate: normalizeText\(event\.resourceSourceType \? event\.occurrenceDate : link\.calendar_occurrence_date\)/)
 })
 
 test('Parent invitation occurrence keeps only its own attachments', () => {

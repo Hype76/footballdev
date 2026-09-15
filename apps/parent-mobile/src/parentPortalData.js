@@ -494,6 +494,7 @@ export async function getParentCalendarEventResources(user) {
   return (Array.isArray(result.resources) ? result.resources : []).map((resource) => ({
     category: normalizeText(resource.category) || 'general',
     eventId: normalizeText(resource.eventId ?? resource.event_id),
+    sourceType: normalizeText(resource.sourceType ?? resource.source_type) || 'calendar_event',
     fileSizeBytes: Math.max(0, Number(resource.fileSizeBytes ?? resource.file_size_bytes ?? 0)),
     id: normalizeText(resource.id ?? resource.resourceId ?? resource.resource_id),
     originalFilename: normalizeText(resource.originalFilename ?? resource.original_filename),
@@ -552,12 +553,13 @@ export async function openParentDevelopmentReport(user, reportId) {
   return { shared: true }
 }
 
-export async function openParentResource(user, resourceId, { calendarEventId = '', calendarOccurrenceDate = '' } = {}) {
+export async function openParentResource(user, resourceId, { calendarEventId = '', calendarOccurrenceDate = '', calendarSourceType = 'calendar_event' } = {}) {
   const link = requireSelectedLink(user)
   const config = getMobileRuntimeConfig('parent')
   const resourcePath = getParentApiPaths(config).resource
   const result = await callParentApi(resourcePath, {
     calendarEventId: normalizeText(calendarEventId) || undefined,
+    calendarSourceType: normalizeText(calendarSourceType) || 'calendar_event',
     calendarOccurrenceDate: normalizeText(calendarOccurrenceDate) || undefined,
     parentLinkId: link.id,
     resourceId,

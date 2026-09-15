@@ -169,6 +169,8 @@ jobs:
         run: npm run mobile:export:web
       - name: Coach player profile navigation
         run: node tests/coach-player-profile-browser.mjs
+      - name: Coach contacts, invite history and Resources
+        run: node --test tests/coach-parent-contacts.test.mjs tests/coach-invite-history.test.mjs tests/coach-calendar-all-source-resources.test.mjs tests/coach-calendar-resource-targets-pglite.test.mjs tests/parent-derived-event-resources.test.mjs tests/mobile-parent-calendar-attachments-108.test.mjs tests/resource-library-parent-access.test.mjs && node tests/coach-resources-browser.mjs
       - name: Coach offline scoring and reconnect
         run: node tests/coach-matchday-offline-browser.mjs
       - name: Guest and mobile scorer rendering
@@ -208,6 +210,8 @@ jobs:
         run: npm run build:live
       - name: Verify build environment and artifact identity
         run: npm run verify:build-env && npm run security:artifact-manifest
+      - name: Verify responsive player contact layout
+        run: npx playwright install --with-deps chromium && node tests/player-contact-layout-browser.mjs
       - name: Upload build evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -14,6 +14,8 @@ import {
   recordCoachOperationalAudit,
 } from './coachOperationalData'
 import { supabase } from './supabase'
+import { getCoachParentLinks } from './coachParentContactsData'
+import { getCoachPlayerStats } from './coachPlayerStatsData'
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -120,10 +122,22 @@ export async function getCoachPlayerDetail(user, playerId) {
       })
     })
     .filter((session) => session.id)
+  const [linksResult, statsResult] = await Promise.all([
+    getCoachParentLinks(user, normalizedPlayerId)
+      .then((links) => ({ links, error: '' }))
+      .catch(() => ({ links: [], error: 'Parent access status could not be loaded. Refresh before sending an invite or changing contacts.' })),
+    getCoachPlayerStats(user, normalizedPlayerId)
+      .then((stats) => ({ stats, error: '' }))
+      .catch(() => ({ stats: null, error: 'Match stats could not be loaded. Please try again.' })),
+  ])
   return Object.freeze({
     evaluations: (evaluationsResult.data || []).map(normalizeCoachPlayerEvaluation),
     fields: (fieldsResult.data || []).map(normalizeCoachPlayerField),
     player: normalizePlayerForUser(playerResult.data, user),
+    parentLinks: linksResult.links,
+    parentLinksError: linksResult.error,
+    matchStats: statsResult.stats,
+    matchStatsError: statsResult.error,
     sessions,
   })
 }
@@ -137,12 +151,19 @@ export async function saveCoachPlayer(user, form, existingPlayer = null) {
   let query
   let action
   if (existingPlayer?.id) {
+    const links = await getCoachParentLinks(user, existingPlayer.id)
+    const nextEmails = new Set(payload.parent_contacts.map((contact) => contact.email))
+    const previousEmails = new Set((existingPlayer.parentContacts || []).map((contact) => contact.email))
+    if (links.some((link) => previousEmails.has(String(link.email).trim().toLowerCase()) && !nextEmails.has(String(link.email).trim().toLowerCase()))) {
+      throw new Error('Remove Parent access from the player profile before removing that contact or changing their email.')
+    }
     query = supabase
       .from('players')
       .update({ ...payload, ...identity, updated_by: user.id })
       .eq('id', existingPlayer.id)
       .eq('club_id', user.clubId)
       .eq('team_id', user.activeTeamId)
+    if (existingPlayer.updatedAt) query = query.eq('updated_at', existingPlayer.updatedAt)
     action = 'player_updated'
   } else {
     const { data: existingRows, error: existingError } = await supabase
@@ -158,9 +179,8 @@ export async function saveCoachPlayer(user, form, existingPlayer = null) {
     if (existing?.status === 'archived') {
       throw new Error('An archived Player already has this name. Restore that record in the governed web workflow.')
     }
-    query = existing?.id
-      ? supabase.from('players').update({ ...payload, status: existing.status, ...identity, updated_by: user.id }).eq('id', existing.id)
-      : supabase.from('players').insert({
+    if (existing?.id) throw new Error('A Player with this name already exists. Open their profile to edit their contacts.')
+    query = supabase.from('players').insert({
         ...payload,
         ...getCoachEntryIdentity(user),
         ...identity,
@@ -168,9 +188,11 @@ export async function saveCoachPlayer(user, form, existingPlayer = null) {
         status: 'active',
         updated_by: user.id,
       })
-    action = existing?.id ? 'player_updated' : 'player_created'
+    action = 'player_created'
   }
-  const { data, error } = await query.select('*').single()
+  // This editor submits every contact. The legacy native client marker merges
+  // omitted contacts back in to protect older single-contact app versions.
+  const { data, error } = await query.select('*').single().setHeader('x-client-info', 'footballplayer-coach-full-contact-editor/1')
   if (error) throw error
   await recordCoachOperationalAudit({
     action,

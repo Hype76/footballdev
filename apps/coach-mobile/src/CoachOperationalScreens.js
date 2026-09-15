@@ -43,6 +43,8 @@ import {
   getCoachPlayerMutationPolicy,
 } from '../../mobile-core/src/coachPlayersCore'
 import { getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
+import { getCoachParentLinks, revokeCoachParentAccess, sendCoachParentInvite } from '../../mobile-core/src/coachParentContactsData'
+import { getParentPortalInviteActionForContact } from '../../../src/lib/parent-portal-invite-actions.js'
 import {
   coachSessionFormFromSession,
   filterCoachSessions,
@@ -243,6 +245,11 @@ function formatResourceCategory(value) {
 
 export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavigate, onQuickActionHandled, onSelectContext, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
+  const [resourceEditor, setResourceEditor] = useState(null)
+  const [resourceQuery, setResourceQuery] = useState('')
+  const [resourceCategory, setResourceCategory] = useState('all')
+  const [resourceError, setResourceError] = useState('')
+  const resourceRequest = useRef(0)
   const [attachmentCategory, setAttachmentCategory] = useState('all')
   const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false)
   const [events, setEvents] = useState([])
@@ -346,7 +353,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
     setAttachmentCategory('all')
     setAttachmentPickerOpen(false)
     const nextForm = coachCalendarFormFromEvent(event
-      ? { ...event, resourceIds: getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate) }
+      ? { ...event, resourceIds: getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType) }
       : null, context)
     setForm({
       ...nextForm,
@@ -435,6 +442,52 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       setError(message(resourceError, 'This Resource could not be opened.'))
     }
   }
+  const canAddEventResource = (event) => !stale && !user.isOfflineProfile
+    && Number(user.roleRank || 0) >= 50 && Number(context?.roleRank || 0) >= 50
+    && context?.paymentAccess?.canMutate === true
+    && (event?.sourceType !== 'calendar_event' || getCoachCalendarMutationPolicy({ context, event }).canEdit)
+    && ['calendar_event', 'match_day', 'assessment_session'].includes(event?.sourceType) && event?.teamId === user.activeTeamId
+    && Boolean(event?.teamId) && !['cancelled', 'deleted'].includes(event?.status)
+
+  useEffect(() => () => { resourceRequest.current += 1 }, [user])
+
+  const openResourceEditor = async (event) => {
+    if (!canAddEventResource(event) || saving) return
+    const request = ++resourceRequest.current
+    setResourceQuery('')
+    setResourceCategory('all')
+    setResourceError('')
+    setResourceEditor({ event, loading: true, selectedIds: [], attachedIds: [], options: [] })
+    try {
+      const options = await getCoachResources(user)
+      if (request !== resourceRequest.current) return
+      const attachedIds = getCoachCalendarEventResourceIds(options, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType)
+      setResources(options)
+      setResourceEditor({ event, loading: false, selectedIds: [], attachedIds, options })
+    } catch (loadError) {
+      if (request !== resourceRequest.current) return
+      setResourceError(message(loadError, 'Resources could not be loaded. Try again.'))
+      setResourceEditor({ event, loading: false, failed: true, selectedIds: [], attachedIds: [], options: [] })
+    }
+  }
+  const saveEventResources = async () => {
+    if (!resourceEditor || resourceEditor.loading || resourceEditor.failed || saving || !canAddEventResource(resourceEditor.event)) return
+    setSaving(true)
+    setResourceError('')
+    try {
+      const event = resourceEditor.event
+      // Refresh the existing links so adding a Resource preserves current attachments.
+      const latest = await getCoachResources(user)
+      const attachedIds = getCoachCalendarEventResourceIds(latest, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType)
+      await syncCoachCalendarEventResources(user, event, [...new Set([...attachedIds, ...resourceEditor.selectedIds])], event.occurrenceDate || event.calendarDate)
+      invalidateMobileResource(user, 'coach:phase31e:resources')
+      setResourceEditor(null)
+      setSaveConfirmation('Resources added to this event.')
+      await load()
+    } catch (saveError) {
+      setResourceError(message(saveError, 'Resources could not be added. Try again.'))
+    } finally { setSaving(false) }
+  }
   const changeEventState = async (changeAction) => {
     if (!selected) return
     const actionLabel = changeAction === 'cancelled' ? 'cancelled' : 'deleted'
@@ -464,6 +517,35 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
     } finally {
       setSaving(false)
     }
+  }
+
+  if (resourceEditor) {
+    const options = resourceEditor.options.filter((resource) => (
+      (resourceCategory === 'all' || String(resource.category || 'general').trim().toLowerCase() === resourceCategory)
+      && `${resource.title || ''} ${resource.description || ''}`.toLowerCase().includes(resourceQuery.trim().toLowerCase())
+    ))
+    const categories = [...new Set(resourceEditor.options.map((resource) => String(resource.category || 'general').trim().toLowerCase()))].sort()
+    return (
+      <View style={styles.stack}>
+        <Button disabled={saving} label="Back to event" onPress={() => { resourceRequest.current += 1; setResourceEditor(null) }} secondary styles={styles} />
+        <DomainHeader copy={`${resourceEditor.event.title} | ${formatUkDate(resourceEditor.event.occurrenceDate || resourceEditor.event.calendarDate)}`} styles={styles} title="Add resource" />
+        {resourceEditor.loading ? <Text style={styles.body}>Loading Resources...</Text> : null}
+        {resourceError ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.danger}>{resourceError}</Text></View> : null}
+        {resourceEditor.failed ? <Button label="Retry Resources" onPress={() => void openResourceEditor(resourceEditor.event)} secondary styles={styles} /> : null}
+        {!resourceEditor.loading && !resourceEditor.failed ? <>
+          <Text style={styles.body}>Choose Resources for this event. Existing attachments will stay attached.</Text>
+          <TextInput accessibilityLabel="Search event Resources" placeholder="Search Resources" placeholderTextColor={palette.textMuted} onChangeText={setResourceQuery} style={styles.input} value={resourceQuery} />
+          <Chips onChange={setResourceCategory} options={[{ label: 'All categories', value: 'all' }, ...categories.map((value) => ({ label: value.replaceAll('_', ' '), value }))]} styles={styles} value={resourceCategory} />
+          {options.map((resource) => {
+            const attached = resourceEditor.attachedIds.includes(resource.id)
+            const checked = resourceEditor.selectedIds.includes(resource.id)
+            return <Button key={resource.id} disabled={attached || saving} label={`${attached ? 'Attached' : checked ? 'Selected' : 'Add'} ${resource.title}`} onPress={() => setResourceEditor((current) => ({ ...current, selectedIds: toggleCoachCalendarResourceId(current.selectedIds, resource.id) }))} secondary={!checked} styles={styles} />
+          })}
+          {!options.length ? <Text style={styles.body}>{resourceEditor.options.length ? 'No Resources match this search.' : 'No active Team Resources are available.'}</Text> : null}
+          <Button disabled={saving || stale || !resourceEditor.selectedIds.length} label={saving ? 'Saving Resources...' : `Add selected Resources (${resourceEditor.selectedIds.length})`} onPress={() => void saveEventResources()} styles={styles} />
+        </> : null}
+      </View>
+    )
   }
 
   return (
@@ -621,10 +703,10 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
               {event.dateTimeIssue === 'invalid_local_time' ? <Text style={styles.warningText}>Please update this event's time before editing it.</Text> : null}
               {event.location ? <Text style={styles.body}>{event.location}</Text> : null}
               {event.availabilitySummary ? <Text style={styles.meta}>Attending {event.availabilitySummary.attending} | Maybe {event.availabilitySummary.maybe} | Awaiting response {event.availabilitySummary.awaitingResponse} | Not attending {event.availabilitySummary.notAttending} | Invitation not sent {event.availabilitySummary.invitationNotSent} | Delivery issue {event.availabilitySummary.deliveryIssue}</Text> : null}
-              {selected?.id === event.id ? <>{!event.notesPinned ? <Text style={styles.body}>{event.notes || 'No notes.'}</Text> : null}<VenueMapPreview key={event.location} location={event.location} offline={stale} colors={palette} styles={styles} />{event.location ? <Button label="Get directions" onPress={() => void openVenueDirections(event.location).catch(() => setError('Directions could not be opened.'))} secondary styles={styles} /> : null}{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate).map((resourceId) => {
+              {selected?.id === event.id ? <>{!event.notesPinned ? <Text style={styles.body}>{event.notes || 'No notes.'}</Text> : null}<VenueMapPreview key={event.location} location={event.location} offline={stale} colors={palette} styles={styles} />{event.location ? <Button label="Get directions" onPress={() => void openVenueDirections(event.location).catch(() => setError('Directions could not be opened.'))} secondary styles={styles} /> : null}{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType).map((resourceId) => {
                 const resource = resources.find((item) => item.id === resourceId)
                 return resource ? <Button key={resource.id} label={`Open ${resource.title}`} onPress={() => void openEventResource(resource)} secondary styles={styles} /> : null
-              })}{event.sourceType === 'match_day' ? <><Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} />{canEditCoachFixture({ context, fixture: event, stale: stale || user.isOfflineProfile }) ? <Button label="Edit fixture" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId, intent: 'edit-fixture', returnCalendarTarget: { sourceId: event.sourceId, sourceType: 'match_day' } })} secondary styles={styles} /> : null}</> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : !['calendar_event', 'match_day'].includes(event.sourceType) ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
+              })}{canAddEventResource(event) ? <Button disabled={saving} label="Add resource" onPress={() => void openResourceEditor(event)} secondary styles={styles} /> : null}{event.sourceType === 'match_day' ? <><Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} />{canEditCoachFixture({ context, fixture: event, stale: stale || user.isOfflineProfile }) ? <Button label="Edit fixture" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId, intent: 'edit-fixture', returnCalendarTarget: { sourceId: event.sourceId, sourceType: 'match_day' } })} secondary styles={styles} /> : null}</> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : !['calendar_event', 'match_day'].includes(event.sourceType) ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
             </Pressable>
           ))}
         </View>
@@ -648,7 +730,12 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const [query, setQuery] = useState('')
   const [section, setSection] = useState('all')
   const [saving, setSaving] = useState(false)
+  const saveRequest = useRef(false)
   const [stale, setStale] = useState(false)
+  const [contactBusy, setContactBusy] = useState('')
+  const contactRequest = useRef(false)
+  const [contactNotice, setContactNotice] = useState('')
+  const [revokeTarget, setRevokeTarget] = useState(null)
   const policy = getCoachPlayerMutationPolicy({ context, player: detail?.player })
   const load = useCallback(async ({ reuseFresh = false } = {}) => {
     const recent = reuseFresh ? peekMobileResource(user, 'coach:players') : undefined
@@ -676,7 +763,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     onQuickActionHandled?.()
   }, [onQuickActionHandled, quickAction])
   const visible = filterCoachPlayers(players, { query, section, status: 'active' })
-  const openPlayer = async (player) => {
+  const openPlayer = async (player, { force = false } = {}) => {
     const request = ++playerRequest.current
     setFocusedPlayer(player)
     setForm(null)
@@ -685,8 +772,10 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setError('')
     setDetail(null)
     setDevelopmentOpen(false)
+    setContactNotice('')
+    setRevokeTarget(null)
     try {
-      const next = await readMobileResource(user, `coach:player-detail:${player.id}`, () => getCoachPlayerDetail(user, player.id))
+      const next = await readMobileResource(user, `coach:player-detail:${player.id}`, () => getCoachPlayerDetail(user, player.id), { force })
       if (request === playerRequest.current) {
         if (next?.player?.id !== player.id) throw new Error('The selected player could not be loaded. Please try again.')
         setDetail(next)
@@ -705,20 +794,58 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setDevelopmentOpen(false)
     setForm(null)
     setError('')
+    setContactNotice('')
+    setRevokeTarget(null)
     onRequestScrollTop?.()
   }
   const save = async () => {
+    if (saveRequest.current || !form) return
+    saveRequest.current = true
+    const request = playerRequest.current
     setSaving(true); setError('')
     try {
-      await saveCoachPlayer(user, form, detail?.player || null)
-      if (detail?.player?.id) invalidateMobileResource(user, `coach:player-detail:${detail.player.id}`)
-      closePlayer(); await load()
-    } catch (saveError) { setError(message(saveError, 'Player could not be saved.')) }
-    finally { setSaving(false) }
+      const saved = await saveCoachPlayer(user, form, detail?.player || null)
+      setPlayers((current) => (current.some((player) => player.id === saved.id)
+        ? current.map((player) => player.id === saved.id ? saved : player)
+        : [...current, saved]).sort((a, b) => a.playerName.localeCompare(b.playerName)))
+      invalidateMobileResource(user, `coach:player-detail:${saved.id}`)
+      invalidateMobileResource(user, 'coach:players')
+      if (request !== playerRequest.current) return
+      const openingRequest = playerRequest.current + 1
+      await openPlayer(saved)
+      if (openingRequest === playerRequest.current) setContactNotice('Player saved. Use the Parent invite button beside a contact to send their invitation.')
+    } catch (saveError) {
+      if (request === playerRequest.current) setError(message(saveError, 'Player could not be saved.'))
+    } finally { saveRequest.current = false; setSaving(false) }
+  }
+  const cancelForm = () => { setForm(null); setError(''); onRequestScrollTop?.() }
+  const editPlayer = () => { setForm(coachPlayerFormFromPlayer(detail.player)); setContactNotice(''); onRequestScrollTop?.() }
+  const updateContact = (index, changes) => setForm((current) => ({ ...current, parentContacts: current.parentContacts.map((contact, i) => i === index ? { ...contact, ...changes } : contact) }))
+  const manageParent = async (contact, revoke = false) => {
+    if (contactRequest.current || !detail || !policy.canEdit) return
+    contactRequest.current = true
+    const request = playerRequest.current
+    const playerId = detail.player.id
+    setContactBusy(contact.email || contact.id); setContactNotice(''); setError('')
+    try {
+      const result = revoke
+        ? await revokeCoachParentAccess(user, playerId, contact.id)
+        : await sendCoachParentInvite(user, playerId, contact)
+      invalidateMobileResource(user, `coach:player-detail:${playerId}`)
+      const links = await getCoachParentLinks(user, playerId)
+      if (request === playerRequest.current) {
+        setDetail((current) => ({ ...current, parentLinks: links, parentLinksError: '' }))
+        setRevokeTarget(null)
+        setContactNotice(revoke ? 'Parent access removed for this player. You can now edit or remove their contact details.' : result?.alreadyLinked ? 'This parent already has access.' : `Parent invite sent to ${contact.email}.`)
+      }
+    } catch (contactError) {
+      if (request === playerRequest.current) setError(message(contactError, 'Parent access could not be updated.'))
+    } finally { contactRequest.current = false; setContactBusy('') }
   }
   return (
     <View style={styles.stack}>
       {focusedPlayer && !form ? <Button label="Back to Players" onPress={closePlayer} secondary styles={styles} /> : null}
+      {form ? <Button disabled={saving} label={detail ? 'Back to player profile' : 'Back to Players'} onPress={cancelForm} secondary styles={styles} /> : null}
       <DomainHeader copy={focusedPlayer ? "Player information, contacts and development history." : "Your squad and trial players."} styles={styles} title={focusedPlayer ? "Player profile" : "Players"} />
       <DomainState error={error} loading={!focusedPlayer && loading} onRetry={focusedPlayer ? () => openPlayer(focusedPlayer) : load} stale={stale} styles={styles} />
       {!focusedPlayer && !form ? <>
@@ -734,24 +861,64 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
           <Field label="Shirt number" onChangeText={(value) => setForm({ ...form, shirtNumber: value })} styles={styles} value={form.shirtNumber} />
           <Field label="Positions, separated by commas" onChangeText={(value) => setForm({ ...form, positions: value })} styles={styles} value={form.positions} />
           <Chips onChange={(value) => setForm({ ...form, contactType: value })} options={[{ label: 'Parent contact', value: 'parent' }, { label: 'Adult Player', value: 'self' }]} styles={styles} value={form.contactType} />
-          <Field label="Contact name" onChangeText={(value) => setForm({ ...form, parentName: value, parentContacts: [{ email: form.parentContacts?.[0]?.email || '', name: value, type: form.contactType }] })} styles={styles} value={form.parentContacts?.[0]?.name || form.parentName} />
-          <Field label="Contact email" onChangeText={(value) => setForm({ ...form, parentEmail: value, parentContacts: [{ email: value, name: form.parentContacts?.[0]?.name || '', type: form.contactType }] })} styles={styles} value={form.parentContacts?.[0]?.email || form.parentEmail} />
+          <Text style={styles.cardTitle}>Contacts</Text>
+          {form.parentContacts.map((contact, index) => {
+            const linked = detail?.parentLinks?.some((link) => link.email.toLowerCase() === contact.email.toLowerCase())
+            return <View key={index} style={styles.card}>
+              <Field label={`Contact ${index + 1} name`} onChangeText={(name) => updateContact(index, { name })} styles={styles} value={contact.name} />
+              <Field label={`Contact ${index + 1} email`} onChangeText={(email) => updateContact(index, { email })} styles={styles} value={contact.email} />
+              {linked ? <Text style={styles.meta}>To change this email or remove the contact, go back and remove their Parent access first.</Text> : null}
+              <Button disabled={saving || linked} label={`Remove contact ${index + 1}`} onPress={() => setForm({ ...form, parentContacts: form.parentContacts.filter((_, i) => i !== index) })} secondary styles={styles} />
+            </View>
+          })}
+          <Button disabled={saving} label="Add another contact" onPress={() => setForm({ ...form, parentContacts: [...form.parentContacts, { name: '', email: '', type: form.contactType }] })} secondary styles={styles} />
           <Field label="Private notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
           <Button disabled={saving} label={saving ? 'Saving...' : 'Save Player'} onPress={save} styles={styles} />
-          <Button label="Cancel" onPress={() => setForm(null)} secondary styles={styles} />
+          <Button disabled={saving} label="Cancel" onPress={cancelForm} secondary styles={styles} />
         </View>
       ) : null}
       {detail && !form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{detail.player.playerName}</Text>
           <Text style={styles.meta}>{detail.player.section} | {detail.player.positions.join(', ') || 'No position'} | Shirt {detail.player.shirtNumber || 'not set'}</Text>
-          {detail.player.parentContacts.map((contact) => <Text key={`${contact.email}:${contact.name}`} selectable style={styles.body}>{contact.type}: {contact.name || 'Unnamed'} | {contact.email || 'No email'}</Text>)}
+          <Text style={styles.cardTitle}>Parent and player contacts</Text>
+          {contactNotice ? <Text accessibilityLiveRegion="polite" style={styles.meta}>{contactNotice}</Text> : null}
+          {detail.parentLinksError ? <Text style={styles.danger}>{detail.parentLinksError}</Text> : null}
+          {detail.player.parentContacts.length ? detail.player.parentContacts.map((contact, index) => {
+            const action = getParentPortalInviteActionForContact({ contact, links: detail.parentLinks || [], player: detail.player, isSending: Boolean(contactBusy) })
+            const link = detail.parentLinks?.find((item) => item.email.toLowerCase() === contact.email.toLowerCase())
+            return <View key={`${contact.email}:${index}`} style={styles.card}>
+              <Text style={styles.cardTitle}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text>
+              <Text selectable style={styles.body}>{contact.email || 'No email added'}</Text>
+              {action.statusLabel ? <Text style={styles.meta}>{action.statusLabel}</Text> : null}
+              {policy.canEdit && !detail.parentLinksError && action.label ? <Button disabled={Boolean(contactBusy)} label={contactBusy === contact.email ? 'Sending invite...' : action.label.replace('parent portal', 'Parent app')} onPress={() => manageParent(contact)} styles={styles} /> : null}
+              {policy.canEdit && link ? <Button disabled={Boolean(contactBusy)} label="Remove Parent access" onPress={() => setRevokeTarget(link)} secondary styles={styles} /> : null}
+            </View>
+          }) : <Text style={styles.body}>No contacts added yet. Add a parent contact to invite them to the Parent app.</Text>}
+          {policy.canEdit ? <Button disabled={Boolean(contactBusy)} label="Manage contacts" onPress={editPlayer} secondary styles={styles} /> : null}
+          {revokeTarget ? <View style={styles.card}>
+            <Text style={styles.cardTitle}>Remove Parent access?</Text>
+            <Text style={styles.body}>{revokeTarget.email} will lose Parent app access to this player. Their contact details stay until you edit them.</Text>
+            <Button disabled={Boolean(contactBusy)} label={contactBusy ? 'Removing access...' : 'Confirm remove access'} onPress={() => manageParent(revokeTarget, true)} styles={styles} />
+            <Button disabled={Boolean(contactBusy)} label="Keep access" onPress={() => setRevokeTarget(null)} secondary styles={styles} />
+          </View> : null}
           <Text style={styles.body}>{detail.player.notes || 'No private notes.'}</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Match stats</Text>
+            {detail.matchStats ? <>
+              <Text style={styles.meta}>Calendar year {detail.matchStats.year}</Text>
+              <View style={styles.filterRow}>
+                {[['Matchday squad', detail.matchStats.matchdaySquad], ['Goals', detail.matchStats.goals], ['Assists', detail.matchStats.assists]].map(([label, value]) => <View key={label} style={[styles.card, { flexGrow: 1, minWidth: 100 }]}><Text style={styles.cardTitle}>{value ?? 'Not available'}</Text><Text style={styles.meta}>{label}</Text></View>)}
+              </View>
+              <Text style={styles.body}>Matchday squad counts completed matches where this player was selected. Goals and assists come from saved scoring records.</Text>
+            </> : <Text style={styles.body}>{detail.matchStatsError || 'No match stats available yet.'}</Text>}
+          </View>
+          <Button disabled={Boolean(contactBusy)} label="Refresh player details" onPress={() => openPlayer(detail.player, { force: true })} secondary styles={styles} />
           <Text style={styles.cardTitle}>Custom fields</Text>
           <Text style={styles.body}>{detail.fields.map((field) => field.label).join(', ') || 'No enabled fields.'}</Text>
           <Text style={styles.cardTitle}>Session history</Text>
           {detail.sessions.length ? detail.sessions.map((session) => <Text key={session.id} style={styles.body}>{formatUkDate(session.sessionDate)} | {session.title} | {session.status}</Text>) : <Text style={styles.body}>No Session history.</Text>}
-          {policy.canEdit ? <Button label="Edit Player" onPress={() => setForm(coachPlayerFormFromPlayer(detail.player))} styles={styles} /> : null}
+          {policy.canEdit ? <Button disabled={Boolean(contactBusy)} label="Edit Player" onPress={editPlayer} styles={styles} /> : null}
           <View style={styles.filterRow}><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /><Button label="Open Resources" onPress={() => onNavigate('resources')} secondary styles={styles} /></View>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Development</Text>

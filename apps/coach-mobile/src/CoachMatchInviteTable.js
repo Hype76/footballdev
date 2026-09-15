@@ -3,13 +3,16 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensio
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { getCoachInviteDeliveryProgress, getCoachInviteStatusLabel } from '../../mobile-core/src/coachPhase31ECore'
 import { contrastSafeColor, themeForeground } from '../../mobile-core/src/themeContrast'
+import { formatUkDateTime } from '../../../src/lib/date-format.js'
 
 const responseKey = status => ['pending', 'responded', '', undefined].includes(status) ? 'awaiting' : status
 
-export function CoachMatchInviteTable({ invites, players = [], kind = 'match', palette, selectedPlayerIds, selectionDisabled, onToggleSelection, onFilterChange }) {
+export function CoachMatchInviteTable({ invites, players = [], kind = 'match', palette, selectedPlayerIds, selectionDisabled, onToggleSelection, onFilterChange, onLoadHistory }) {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'player', direction: 1 })
   const [detailsId, setDetailsId] = useState(null)
+  const [historyResult, setHistoryResult] = useState(null)
+  const [historyRetry, setHistoryRetry] = useState(0)
   const { width } = useWindowDimensions()
   const styles = useMemo(() => createStyles(palette), [palette])
   const mode = themeForeground(palette.background) === '#000000' ? 'light' : 'dark'
@@ -33,6 +36,16 @@ export function CoachMatchInviteTable({ invites, players = [], kind = 'match', p
     if (hiddenSelection) onFilterChange?.()
   }, [filter, invites, onFilterChange, selectedPlayerIds])
   const details = invites.find(invite => invite.id === detailsId)
+  const historyKey = `${detailsId}:${historyRetry}`
+  const history = historyResult?.key === historyKey ? historyResult.data : null
+  const historyError = historyResult?.key === historyKey ? historyResult.error : ''
+  useEffect(() => {
+    let current = true
+    if (details && onLoadHistory) Promise.resolve(onLoadHistory(details))
+      .then(value => { if (current) setHistoryResult({ key: historyKey, data: value }) })
+      .catch(() => { if (current) setHistoryResult({ key: historyKey, error: 'Invite history could not be loaded.' }) })
+    return () => { current = false }
+  }, [details, onLoadHistory, historyKey])
   const selectFilter = key => { setFilter(filter === key ? 'all' : key); onFilterChange?.() }
   const changeSort = key => setSort(current => ({ key, direction: current.key === key ? -current.direction : 1 }))
   const sortIcon = key => sort.key === key ? sort.direction === 1 ? 'arrow-drop-up' : 'arrow-drop-down' : 'unfold-more'
@@ -74,6 +87,17 @@ export function CoachMatchInviteTable({ invites, players = [], kind = 'match', p
     <Modal visible={Boolean(details) || detailsId === 'legend'} transparent animationType="fade" onRequestClose={() => setDetailsId(null)}>
       <View style={styles.modalBackdrop}><View accessibilityViewIsModal style={styles.modalCard}><ScrollView>
         <Text accessibilityRole="header" style={styles.detailTitle}>{details?.playerName || 'Message status key'}</Text>
+        {details && onLoadHistory ? <View>
+          <Text style={styles.detailTitle}>Invite history</Text>
+          {history ? <>
+            <Text style={styles.detailText}>Recorded email sends: {history.emailSends}</Text>
+            <Text style={styles.detailText}>Recorded resend requests: {history.resendRequests}</Text>
+            <Text style={styles.detailText}>Email sends count confirmed messages to individual contacts. Resend requests record the Coach action and may still be queued. App notifications are not included in the email count.</Text>
+            {history.recentEmailSends.map((at, index) => <Text key={`sent:${index}`} style={styles.detailText}>Email sent: {formatUkDateTime(at)}</Text>)}
+            {history.recentResendRequests.map((item, index) => <Text key={`request:${index}`} style={styles.detailText}>Resend requested: {formatUkDateTime(item.at)} | {item.queued} queued{item.failed ? ` | ${item.failed} failed` : ''}</Text>)}
+          </> : <Text accessibilityLiveRegion="polite" style={styles.detailText}>{historyError || 'Loading send history...'}</Text>}
+          {historyError ? <Pressable accessibilityRole="button" onPress={() => setHistoryRetry(value => value + 1)} style={styles.close}><Text style={styles.allText}>Retry invite history</Text></Pressable> : null}
+        </View> : null}
         {details ? <><Text style={styles.detailText}>Response: {response(details).label}</Text>{Object.entries(getCoachInviteDeliveryProgress(details)).map(([key, active]) => <Text key={key} style={styles.detailText}>{key === 'seen' ? 'Seen' : key === 'sent' ? 'Sent' : 'Delivered'}: {active ? 'Yes' : 'Not yet'}</Text>)}{details.lastError ? <Text style={styles.detailText}>Delivery issue: {details.lastError}</Text> : null}{details.note ? <Text style={styles.detailText}>Note: {details.note}</Text> : null}{details.transportNeedsLift ? <Text style={styles.detailText}>Needs a lift</Text> : details.transportCanOfferLift ? <Text style={styles.detailText}>Offering a lift</Text> : null}</> : null}
         <Text style={styles.detailText}>Message icons show Sent, Delivered and Seen, from left to right. An empty circle means that step is not confirmed yet.</Text><Text style={styles.detailText}>Sent and Delivered show provider progress. Seen is confirmed only after a Parent or Player response is recorded. A response entered by staff does not mark it Seen.</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Close invitation details" onPress={() => setDetailsId(null)} style={styles.close}><Text style={styles.allText}>Close</Text></Pressable>

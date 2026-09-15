@@ -230,6 +230,85 @@ export function validateParentCalendarEventResourceAccess({
   }
 }
 
+export function validateParentDerivedEventResourceAccess({ authUserId, calendarEvent, calendarOccurrenceDate, externalLink, parentLink, player, resource, resourceLink } = {}) {
+  const sourceType = normalizeText(calendarEvent?.resourceSourceType)
+  if (!['match_day', 'assessment_session'].includes(sourceType)
+    || calendarEvent?.authorised !== true
+    || normalizeText(calendarEvent.club_id) !== normalizeText(parentLink?.club_id)
+    || !normalizeText(calendarEvent.team_id)
+    || normalizeText(calendarEvent.team_id) !== normalizeText(player?.team_id)
+    || normalizeText(calendarEvent.team_id) !== normalizeText(parentLink?.team_id)
+    || normalizeText(calendarEvent.occurrenceDate) !== normalizeText(calendarOccurrenceDate)
+    || !resourceLink
+    || normalizeText(resourceLink.linked_type) !== sourceType
+    || normalizeText(resourceLink.linked_id) !== normalizeText(calendarEvent.id)
+    || resourceLink.calendar_occurrence_date != null) {
+    throw new ParentResourceAccessError('This resource is not available for the selected player.')
+  }
+  // Event visibility was resolved through the signed-in Parent's canonical read model.
+  // Keep file, external URL and current family ownership checks identical to player resources.
+  return validateParentResourceAccess({ authUserId, externalLink, parentLink, player, resource,
+    resourceLink: { ...resourceLink, linked_type: 'player', linked_id: player.id, parent_visible: true },
+  })
+}
+
+async function readAllRows(query) {
+  const rows = []
+  for (let offset = 0; offset < 10000; offset += 500) {
+    const { data, error } = await query().range(offset, offset + 499)
+    if (error) throw error
+    if (!Array.isArray(data)) throw new Error('Event visibility could not be verified.')
+    rows.push(...data)
+    if (data.length < 500) return rows
+  }
+  throw new Error('Too many events to verify resource visibility safely.')
+}
+
+export async function loadParentDerivedResourceEvents({ parentLink, player, parentClient, supabaseAdmin, cutoffDate = '', targetSourceType = '', targetEventId = '' }) {
+  if (!parentClient || !parentLink.team_id || normalizeText(parentLink.team_id) !== normalizeText(player.team_id)) return []
+  const [matches, invitations] = await Promise.all([
+    targetSourceType === 'assessment_session' ? Promise.resolve([]) : readAllRows(() => {
+      let query = parentClient.rpc('get_parent_portal_match_days', { parent_link_id_value: parentLink.id })
+        .select('id,club_id,team_id,match_date,status').order('id')
+      if (targetEventId) query = query.eq('id', targetEventId)
+      if (cutoffDate) query = query.gte('match_date', cutoffDate)
+      return query
+    }),
+    targetSourceType === 'match_day' ? Promise.resolve([]) : readAllRows(() => {
+      let query = parentClient.rpc('get_parent_portal_invitation_state', { parent_link_id_value: parentLink.id })
+        .select('invitation_id,event_id,source_event_type,child_id,parent_link_id,invitation_state,event_date')
+        .eq('source_event_type', 'assessment_session').eq('child_id', player.id).eq('parent_link_id', parentLink.id).order('event_id').order('invitation_id')
+      if (targetEventId) query = query.eq('event_id', targetEventId)
+      if (cutoffDate) query = query.gte('event_date', cutoffDate)
+      return query
+    }),
+  ])
+  const sources = matches.filter((row) => normalizeText(row.club_id) === normalizeText(parentLink.club_id)
+    && normalizeText(row.team_id) === normalizeText(player.team_id)
+    && (!targetEventId || row.id === targetEventId) && (!cutoffDate || row.match_date >= cutoffDate)
+    && !['cancelled', 'postponed'].includes(normalizeText(row.status)) && DATE_PATTERN.test(normalizeText(row.match_date)))
+    .map((row) => ({ ...row, resourceSourceType: 'match_day', occurrenceDate: row.match_date, authorised: true }))
+  const visibleInvitations = invitations.filter((row) => row.source_event_type === 'assessment_session'
+    && (!targetEventId || row.event_id === targetEventId) && (!cutoffDate || row.event_date >= cutoffDate)
+    && normalizeText(row.child_id) === normalizeText(player.id) && normalizeText(row.parent_link_id) === normalizeText(parentLink.id)
+    && ['active', 'closed', 'expired'].includes(normalizeText(row.invitation_state)))
+  const sessionIds = [...new Set(visibleInvitations.map((row) => row.event_id).filter(Boolean))]
+  for (let offset = 0; offset < sessionIds.length; offset += 100) {
+    const { data: sessions, error } = await supabaseAdmin.from('assessment_sessions')
+      .select('id,club_id,team_id,status,session_date').eq('club_id', parentLink.club_id).eq('team_id', player.team_id)
+      .in('id', sessionIds.slice(offset, offset + 100)).neq('status', 'cancelled')
+    if (error) throw error
+    for (const session of sessions || []) {
+      const invitation = visibleInvitations.find((row) => row.event_id === session.id)
+      if (normalizeText(session.club_id) !== normalizeText(parentLink.club_id) || normalizeText(session.team_id) !== normalizeText(player.team_id)
+        || session.status === 'cancelled' || !invitation || !DATE_PATTERN.test(normalizeText(invitation.event_date))
+        || normalizeText(session.session_date) !== normalizeText(invitation.event_date)) continue
+      sources.push({ ...session, resourceSourceType: 'assessment_session', occurrenceDate: invitation.event_date, authorised: true })
+    }
+  }
+  return sources
+}
+
 async function maybeSingle(query, errorMessage) {
   const { data, error } = await query.maybeSingle()
 
@@ -271,7 +350,7 @@ async function loadActiveParentContext({ authUserId, parentLinkId, supabaseAdmin
   return { parentLink, player }
 }
 
-async function listAuthorisedCalendarEventResources({ authUserId, parentLinkId, supabaseAdmin }) {
+export async function listAuthorisedCalendarEventResources({ authUserId, parentLinkId, supabaseAdmin, parentClient }) {
   const { parentLink, player } = await loadActiveParentContext({ authUserId, parentLinkId, supabaseAdmin })
   const cutoff = new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString()
   const cutoffDate = cutoff.slice(0, 10)
@@ -327,48 +406,50 @@ async function listAuthorisedCalendarEventResources({ authUserId, parentLinkId, 
       && normalizeText(event.team_id) === normalizeText(parentLink.team_id)
       && activeInviteEventIds.has(normalizeText(event.id)))
   ))
-  const eventById = new Map(visibleEvents.map((event) => [normalizeText(event.id), event]))
+  const derivedEvents = await loadParentDerivedResourceEvents({ parentLink, player, parentClient, supabaseAdmin, cutoffDate })
+  const eventKey = (type, id) => `${type || 'calendar_event'}:${normalizeText(id)}`
+  const eventById = new Map([...visibleEvents, ...derivedEvents].map((event) => [eventKey(event.resourceSourceType, event.id), event]))
 
   if (eventById.size === 0) return []
 
-  const { data: resourceLinks, error: resourceLinksError } = await supabaseAdmin
-    .from('resource_library_links')
-    .select('id, resource_id, club_id, team_id, linked_type, linked_id, calendar_occurrence_date, assigned_at, removed_at')
-    .eq('club_id', parentLink.club_id)
-    .eq('linked_type', 'calendar_event')
-    .in('linked_id', [...eventById.keys()])
-    .is('removed_at', null)
-    .order('assigned_at', { ascending: false })
-    .limit(500)
-
-  if (resourceLinksError) throw resourceLinksError
+  const sourceIds = [...new Set([...eventById.values()].map((event) => event.id))]
+  const resourceLinks = []
+  for (let offset = 0; offset < sourceIds.length; offset += 100) {
+    resourceLinks.push(...await readAllRows(() => supabaseAdmin
+      .from('resource_library_links')
+      .select('id, resource_id, club_id, team_id, linked_type, linked_id, calendar_occurrence_date, assigned_at, removed_at')
+      .eq('club_id', parentLink.club_id)
+      .in('linked_type', ['calendar_event', 'match_day', 'assessment_session'])
+      .in('linked_id', sourceIds.slice(offset, offset + 100))
+      .is('removed_at', null)
+      .order('assigned_at', { ascending: false }).order('id')))
+  }
 
   const inScopeLinks = (resourceLinks || []).filter((link) => {
-    const event = eventById.get(normalizeText(link.linked_id))
+    const event = eventById.get(eventKey(link.linked_type, link.linked_id))
     return event && normalizeText(link.team_id) === normalizeText(event.team_id)
+      && (!event.resourceSourceType || link.calendar_occurrence_date == null)
   })
   const resourceIds = [...new Set(inScopeLinks.map((link) => normalizeText(link.resource_id)).filter(Boolean))]
 
   if (resourceIds.length === 0) return []
 
-  const { data: resources, error: resourcesError } = await supabaseAdmin
-    .from('resource_library_items')
-    .select('id, club_id, team_id, title, category, original_filename, file_size_bytes, archived_at')
-    .eq('club_id', parentLink.club_id)
-    .in('id', resourceIds)
-    .is('archived_at', null)
-    .limit(500)
-
-  if (resourcesError) throw resourcesError
-
-  const { data: externalLinks, error: externalLinksError } = await supabaseAdmin
-    .from('resource_library_external_links')
-    .select('resource_id, club_id, team_id')
-    .eq('club_id', parentLink.club_id)
-    .in('resource_id', resourceIds)
-    .limit(500)
-
-  if (externalLinksError) throw externalLinksError
+  const resources = []
+  const externalLinks = []
+  for (let offset = 0; offset < resourceIds.length; offset += 100) {
+    const ids = resourceIds.slice(offset, offset + 100)
+    const [resourceResult, externalResult] = await Promise.all([
+      supabaseAdmin.from('resource_library_items')
+        .select('id, club_id, team_id, title, category, original_filename, file_size_bytes, archived_at')
+        .eq('club_id', parentLink.club_id).in('id', ids).is('archived_at', null),
+      supabaseAdmin.from('resource_library_external_links')
+        .select('resource_id, club_id, team_id').eq('club_id', parentLink.club_id).in('resource_id', ids),
+    ])
+    if (resourceResult.error || externalResult.error) throw resourceResult.error || externalResult.error
+    if (!Array.isArray(resourceResult.data) || !Array.isArray(externalResult.data)) throw new Error('Resource metadata could not be verified.')
+    resources.push(...resourceResult.data)
+    externalLinks.push(...externalResult.data)
+  }
 
   const resourceById = new Map((resources || []).map((resource) => [normalizeText(resource.id), resource]))
   const externalResourceIds = new Set((externalLinks || []).filter((link) => {
@@ -380,7 +461,7 @@ async function listAuthorisedCalendarEventResources({ authUserId, parentLinkId, 
 
   return inScopeLinks.map((link) => {
     const resource = resourceById.get(normalizeText(link.resource_id))
-    const event = eventById.get(normalizeText(link.linked_id))
+    const event = eventById.get(eventKey(link.linked_type, link.linked_id))
 
     if (!resource
       || normalizeText(resource.club_id) !== normalizeText(link.club_id)
@@ -389,7 +470,8 @@ async function listAuthorisedCalendarEventResources({ authUserId, parentLinkId, 
 
     return {
       eventId: normalizeText(event.id),
-      occurrenceDate: normalizeText(link.calendar_occurrence_date),
+      sourceType: event.resourceSourceType || 'calendar_event',
+      occurrenceDate: normalizeText(event.resourceSourceType ? event.occurrenceDate : link.calendar_occurrence_date),
       id: normalizeText(resource.id),
       title: normalizeText(resource.title) || normalizeText(resource.original_filename) || 'Event attachment',
       category: normalizeText(resource.category) || 'general',
@@ -400,10 +482,15 @@ async function listAuthorisedCalendarEventResources({ authUserId, parentLinkId, 
   }).filter(Boolean)
 }
 
-export async function loadAuthorisedResource({ authUserId, calendarEventId = '', calendarOccurrenceDate = '', parentLinkId, resourceId, supabaseAdmin }) {
+export async function loadAuthorisedResource({ authUserId, calendarEventId = '', calendarOccurrenceDate = '', calendarSourceType = 'calendar_event', parentLinkId, resourceId, supabaseAdmin, parentClient }) {
   const unavailableMessage = 'This resource is not available for the selected player.'
   const { parentLink, player } = await loadActiveParentContext({ authUserId, parentLinkId, supabaseAdmin })
-  const calendarEvent = calendarEventId
+  const derivedSource = calendarEventId && ['match_day', 'assessment_session'].includes(calendarSourceType)
+  const derivedEvents = derivedSource ? await loadParentDerivedResourceEvents({ parentLink, player, parentClient, supabaseAdmin, targetSourceType: calendarSourceType, targetEventId: calendarEventId }) : []
+  const derivedEvent = derivedEvents.find((event) => event.resourceSourceType === calendarSourceType && event.id === calendarEventId
+    && event.occurrenceDate === calendarOccurrenceDate)
+  if (derivedSource && !derivedEvent) throw new ParentResourceAccessError(unavailableMessage)
+  const calendarEvent = derivedEvent || (calendarEventId
     ? await maybeSingle(
         supabaseAdmin
           .from('calendar_events')
@@ -414,7 +501,7 @@ export async function loadAuthorisedResource({ authUserId, calendarEventId = '',
           .is('cancelled_at', null),
         unavailableMessage,
       )
-    : null
+    : null)
   const calendarInvite = calendarEvent?.parent_audience === 'involved_players'
     ? await maybeSingle(
         supabaseAdmin
@@ -435,11 +522,12 @@ export async function loadAuthorisedResource({ authUserId, calendarEventId = '',
     .eq('resource_id', resourceId)
     .eq('club_id', parentLink.club_id)
     .eq('team_id', calendarEvent ? calendarEvent.team_id : player.team_id)
-    .eq('linked_type', calendarEvent ? 'calendar_event' : 'player')
+    .eq('linked_type', calendarEvent ? calendarSourceType : 'player')
     .eq('linked_id', calendarEvent ? calendarEvent.id : player.id)
     .is('removed_at', null)
 
   if (!calendarEvent) resourceLinkQuery = resourceLinkQuery.eq('parent_visible', true)
+  else if (derivedEvent) resourceLinkQuery = resourceLinkQuery.is('calendar_occurrence_date', null)
   else resourceLinkQuery = resourceLinkQuery.eq('calendar_occurrence_date', calendarOccurrenceDate)
 
   const resourceLink = await maybeSingle(resourceLinkQuery, unavailableMessage)
@@ -463,7 +551,9 @@ export async function loadAuthorisedResource({ authUserId, calendarEventId = '',
     throw externalLinkError
   }
 
-  const access = calendarEvent
+  const access = derivedEvent
+    ? validateParentDerivedEventResourceAccess({ authUserId, calendarEvent, calendarOccurrenceDate, externalLink, parentLink, player, resource, resourceLink })
+    : calendarEvent
     ? validateParentCalendarEventResourceAccess({ authUserId, calendarEvent, calendarInvite, calendarOccurrenceDate, externalLink, parentLink, player, resource, resourceLink })
     : validateParentResourceAccess({ authUserId, externalLink, parentLink, player, resource, resourceLink })
 
@@ -529,6 +619,10 @@ export default async (request) => {
     const resourceId = normalizeText(body.resourceId)
     const calendarEventId = normalizeText(body.calendarEventId)
     const calendarOccurrenceDate = normalizeText(body.calendarOccurrenceDate)
+    const calendarSourceType = normalizeText(body.calendarSourceType) || 'calendar_event'
+    if (!['calendar_event', 'match_day', 'assessment_session'].includes(calendarSourceType)) {
+      throw new ParentResourceAccessError('Choose a valid shared resource.', 400)
+    }
 
     if (!UUID_PATTERN.test(parentLinkId)) {
       throw new ParentResourceAccessError('Choose a valid shared resource.', 400)
@@ -553,11 +647,17 @@ export default async (request) => {
       throw new ParentResourceAccessError('Sign in again before opening this resource.', 401)
     }
 
+    const parentClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    })
+
     if (action === 'list_calendar_event_resources') {
       const resources = await listAuthorisedCalendarEventResources({
         authUserId: authData.user.id,
         parentLinkId,
         supabaseAdmin,
+        parentClient,
       })
       return json(200, { success: true, resources })
     }
@@ -572,6 +672,8 @@ export default async (request) => {
       authUserId: authData.user.id,
       calendarEventId,
       calendarOccurrenceDate,
+      calendarSourceType,
+      parentClient,
       parentLinkId,
       resourceId,
       supabaseAdmin,

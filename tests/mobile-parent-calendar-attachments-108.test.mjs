@@ -31,15 +31,15 @@ test('Parent Home and Calendar show direct attachment actions and pass event ide
     readFile(screensUrl, 'utf8'),
   ])
 
-  assert.match(app, /<Text style=\{styles\.cardMeta\}>Attachments<\/Text>/)
-  assert.match(app, /`Open \$\{resource\.title\}`/)
+  assert.match(app, /<CalendarEventDetail[^\n]*onOpenResource=\{onOpenResource\}/)
+  assert.match(screens, /`Open \$\{getResourceDisplayTitle\(resource\)\}`/)
   assert.match(app, /onOpenResource=\{handleOpenCalendarResource\}/)
   assert.match(app, /calendarEventId: event\.sourceId \|\| event\.eventId/)
   assert.match(app, /calendarOccurrenceDate:/)
   assert.match(data, /calendarOccurrenceDate: normalizeText\(calendarOccurrenceDate\) \|\| undefined/)
-  assert.match(screens, /<Text style=\{styles\.meta\}>Attachments<\/Text>/)
+  assert.match(screens, /<Text style=\{styles\.cardTitle\}>Attachments<\/Text>/)
   assert.match(screens, /onOpenResource\?\.\(event, resource\)/)
-  assert.match(screens, /onOpenResource\?\.\(invitation, eventResource\)/)
+  assert.match(screens, /onOpenResource\?\.\(invitation, resourceItem\)/)
 })
 
 test('Parent calendar attachment access remains child, club, event, and resource scoped', async () => {

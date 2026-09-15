@@ -1,6 +1,5 @@
 const PRIMARY_ROUTES = Object.freeze([
   Object.freeze({ key: 'home', label: 'Home' }),
-  Object.freeze({ key: 'notifications', label: 'Notifications' }),
   Object.freeze({ key: 'calendar', label: 'Calendar' }),
   Object.freeze({ key: 'players', label: 'Players' }),
   Object.freeze({ key: 'matchday', label: 'Match Day' }),
@@ -8,6 +7,7 @@ const PRIMARY_ROUTES = Object.freeze([
 ])
 
 const MORE_ROUTES = Object.freeze([
+  Object.freeze({ key: 'notifications', label: 'Notifications', description: 'Player responses and updates', minimumRank: 20 }),
   Object.freeze({ key: 'formation', label: 'Formation Boards', description: 'Create and manage team plans', minimumRank: 20, requiresTeam: true }),
   Object.freeze({ key: 'sessions', label: 'Sessions', minimumRank: 20, requiresTeam: true }),
   Object.freeze({ key: 'development', label: 'Development', minimumRank: 20, requiresTeam: true }),

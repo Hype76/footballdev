@@ -199,7 +199,7 @@ test('Coach Resources expose direct open controls and hide invalid Formation Boa
     readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8'),
   ])
   assert.match(screens, /Linking\.canOpenURL/)
-  assert.match(screens, /data\.map\(\(resource\)[\s\S]*label="Open Resource"/)
+  assert.match(screens, /group\.resources\.map\(resource[\s\S]*'Open Resource'/)
   assert.match(screens, /selected\.isFormationBoard \? <Text/)
   assert.match(data, /\.filter\(\(item\) => item\.teamId === user\.activeTeamId\)/)
 })

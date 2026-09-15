@@ -17,11 +17,11 @@ function normalizeWords(value) {
 
 function normalizeContacts(value, fallbackName = '', fallbackEmail = '', contactType = 'parent') {
   const source = Array.isArray(value) ? value : []
-  const rows = source.length > 0 ? source : [{ name: fallbackName, email: fallbackEmail, type: contactType }]
+  const rows = Array.isArray(value) ? source : [{ name: fallbackName, email: fallbackEmail, type: contactType }]
   return rows
     .map((contact) => ({
-      email: normalize(contact?.email).toLowerCase(),
-      name: normalize(contact?.name),
+      email: normalize(contact?.email ?? contact?.parentEmail).toLowerCase(),
+      name: normalize(contact?.name ?? contact?.parentName),
       type: COACH_PLAYER_CONTACT_TYPES.includes(normalize(contact?.type).toLowerCase())
         ? normalize(contact.type).toLowerCase()
         : contactType,
@@ -69,7 +69,7 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
     ? normalize(row.contact_type ?? row.contactType).toLowerCase()
     : row.is_adult || row.isAdult ? 'self' : 'parent'
   const contacts = canViewContacts
-    ? normalizeContacts(row.parent_contacts ?? row.parentContacts, row.parent_name ?? row.parentName, row.parent_email ?? row.parentEmail, contactType)
+    ? normalizeContacts((row.parent_contacts ?? row.parentContacts)?.length ? (row.parent_contacts ?? row.parentContacts) : undefined, row.parent_name ?? row.parentName, row.parent_email ?? row.parentEmail, contactType)
     : []
   const parentAppInstallation = normalizeCoachParentAppInstallationStatus(row)
   return Object.freeze({
@@ -157,14 +157,20 @@ export function getCoachPlayerMutationPolicy({ context, player = null } = {}) {
 export function buildCoachPlayerPayload({ context, form }) {
   const playerName = normalizePersonName(form?.playerName)
   if (!playerName) throw new Error('Add the Player name.')
-  const teamId = normalize(context?.teamId || context?.activeTeamId)
-  const teamName = normalize(context?.teamName || context?.activeTeamName)
+  const teamId = normalize(context?.activeTeamId || context?.teamId)
+  const teamName = normalize(context?.activeTeamName || context?.teamName)
   if (!context?.clubId || !teamId) throw new Error('Choose an active Team context.')
   const section = COACH_PLAYER_SECTIONS.includes(form?.section) ? form.section : 'Trial'
   const contactType = COACH_PLAYER_CONTACT_TYPES.includes(normalize(form?.contactType).toLowerCase())
     ? normalize(form.contactType).toLowerCase()
     : 'parent'
   const contacts = normalizeContacts(form?.parentContacts, form?.parentName, form?.parentEmail, contactType)
+  const seenEmails = new Set()
+  for (const contact of contacts) {
+    if (contact.email && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(contact.email)) throw new Error('Enter a valid contact email address.')
+    if (contact.email && seenEmails.has(contact.email)) throw new Error('Each contact must have a different email address.')
+    if (contact.email) seenEmails.add(contact.email)
+  }
   const primaryContact = contacts[0] || { email: '', name: '' }
   return Object.freeze({
     club_id: context.clubId,
@@ -197,7 +203,7 @@ export function coachPlayerFormFromPlayer(player = null) {
 }
 
 export function getCoachPlayerSensitiveFieldPolicy(context) {
-  const operationalStaff = Number(context?.roleRank || 0) >= 20 && Boolean(context?.teamId)
+  const operationalStaff = Number(context?.roleRank || 0) >= 20 && Boolean(context?.activeTeamId || context?.teamId)
   return Object.freeze({
     canViewContactDetails: operationalStaff,
     canViewPrivateNotes: operationalStaff,

@@ -183,6 +183,7 @@ function normalizeMatchEvent(match, invitation) {
       : 'home',
     location: match.venueAddress || match.venueName || '',
     notes: match.notes || '',
+    resources: Array.isArray(match.resources) ? match.resources : [],
     responseState: invitation ? invitationStatus(invitation) : match.availabilityStatus || '',
     requiresResponse: Boolean(invitation?.isPending),
     sortKey: calendarSortKey(date, time),

@@ -340,13 +340,19 @@ function PlayerDetailsSummary({
 
   return (
     <div className="space-y-4">
-      <div className="grid flex-1 gap-3 md:grid-cols-2 2xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <PlayerDetailItem label="Section" value={player.section} />
         <PlayerDetailItem label="Team" value={player.team || 'No team entered'} />
         <PlayerDetailItem label="Shirt Number" value={player.shirtNumber || 'Not entered'} />
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Contacts</p>
-          <div className="mt-2 space-y-1">
+        <PlayerDetailItem
+          label="Positions"
+          value={player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
+        />
+        <PlayerDetailItem label="Status" value={player.status === 'archived' ? 'Archived' : 'Active'} />
+      </div>
+      <section aria-label="Player contacts" className="border-t border-[#d7e5dc] pt-4">
+          <h3 className="text-sm font-black text-[#101828]">Contacts</h3>
+          <div className="mt-3 grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))]">
             {contacts.length > 0 ? (
               contacts.map((contact, index) => {
                 const email = normalizeParentPortalInviteEmail(contact.email)
@@ -363,16 +369,16 @@ function PlayerDetailsSummary({
                 ))
 
                 return (
-                  <div key={index} className="rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 shadow-sm shadow-[#047857]/10">
+                  <div key={index} className="flex min-w-0 flex-col rounded-xl border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
                     <p className="break-words text-sm font-black text-[#101828]">
                       Contact: {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}
                     </p>
                     {contact.email ? (
-                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="break-all text-sm font-black text-[#101828]">Email: {contact.email}</span>
-                        <div className="flex flex-col gap-2 sm:items-end">
+                      <div className="mt-3 flex min-w-0 flex-1 flex-col gap-3">
+                        <span className="min-w-0 text-sm font-semibold leading-6 text-[#101828] [overflow-wrap:anywhere]">Email: {contact.email}</span>
+                        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[#d7e5dc] pt-3">
                           {inviteAction.statusLabel ? (
-                            <span className="text-xs font-black uppercase tracking-[0.12em] text-[#047857]">
+                            <span className="w-full text-xs font-bold leading-5 text-[#047857]">
                               {inviteAction.statusLabel}
                             </span>
                           ) : null}
@@ -382,7 +388,7 @@ function PlayerDetailsSummary({
                               disabled={!inviteAction.canSend}
                               title={inviteAction.title}
                               onClick={() => onSendParentPortalInviteForContact(contact)}
-                              className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#047857] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
+                              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#047857] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {parentPortalInviteSendingKey === sendingKey ? 'Sending...' : inviteAction.label}
                             </button>
@@ -394,7 +400,7 @@ function PlayerDetailsSummary({
                                 disabled={parentPasswordResetSendingLinkId === activeParentLink.id}
                                 title="Send a secure password reset email to this active Parent account."
                                 onClick={() => onSendParentPasswordReset(activeParentLink)}
-                                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#047857] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
+                                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#047857] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {parentPasswordResetSendingLinkId === activeParentLink.id ? 'Sending reset...' : 'Send password reset'}
                               </button>
@@ -403,7 +409,7 @@ function PlayerDetailsSummary({
                                 disabled={parentPortalRevokingLinkId === activeParentLink.id}
                                 title="Remove this Parent's access to this player only."
                                 onClick={() => onRemoveParentPortalAccess(activeParentLink)}
-                                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
+                                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#fecdca] bg-[#fff1f3] px-3 py-2 text-xs font-black text-[#b42318] transition hover:bg-[#ffe4e8] disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {parentPortalRevokingLinkId === activeParentLink.id ? 'Removing...' : 'Remove Parent access'}
                               </button>
@@ -421,18 +427,12 @@ function PlayerDetailsSummary({
               </p>
             )}
           </div>
-        </div>
-        <PlayerDetailItem
-          label="Positions"
-          value={player.positions?.length ? player.positions.join(', ') : 'No positions entered'}
-        />
-        <PlayerDetailItem label="Status" value={player.status === 'archived' ? 'Archived' : 'Active'} />
-      </div>
+      </section>
 
       <div className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(160px,0.45fr)_auto_auto_auto] lg:items-end">
+        <div className="flex flex-wrap items-end gap-3">
           {directEmailTemplates.length > 0 ? (
-            <label className="block">
+            <label className="block min-w-0 flex-[1_1_16rem]">
               <span className={labelClass}>Email template</span>
               <select
                 value={selectedDirectEmailTemplateKey}
@@ -456,7 +456,7 @@ function PlayerDetailsSummary({
             />
           )}
           {shouldShowInviteDate ? (
-            <label className="block">
+            <label className="block min-w-0 flex-[1_1_16rem]">
               <span className={labelClass}>Invite date</span>
               <input
                 type="date"
@@ -466,14 +466,14 @@ function PlayerDetailsSummary({
               />
             </label>
           ) : (
-            <div className="hidden lg:block" />
+            null
           )}
           <button
             type="button"
             onClick={onSendDirectEmail}
             disabled={directEmailSendingId === directEmailId || directEmailTemplates.length === 0}
             title={directEmailDisabledReason}
-            className={`${secondaryButtonClass} w-full lg:w-auto`}
+            className={`${secondaryButtonClass} w-full sm:w-auto`}
           >
             {directEmailSendingId === directEmailId ? 'Sending...' : 'Send Email'}
           </button>
@@ -483,7 +483,7 @@ function PlayerDetailsSummary({
               disabled={isPromoting}
               title={promotionDisabledReason}
               onClick={onMovePlayerToTrial}
-              className={`${secondaryButtonClass} w-full lg:w-auto`}
+              className={`${secondaryButtonClass} w-full sm:w-auto`}
             >
               {isPromoting ? 'Moving...' : 'Move to Trial'}
             </button>
@@ -501,7 +501,7 @@ function PlayerDetailsSummary({
           <button
             type="button"
             onClick={onStartEditingPlayer}
-            className={`${secondaryButtonClass} w-full lg:w-auto`}
+            className={`${secondaryButtonClass} w-full sm:w-auto`}
           >
             Edit Details
           </button>
@@ -513,9 +513,9 @@ function PlayerDetailsSummary({
 
 function PlayerDetailItem({ label, value }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">{label}</p>
-      <p className="mt-2 text-sm font-black text-[#101828]">{value}</p>
+      <p className="mt-2 break-words text-sm font-black text-[#101828]">{value}</p>
     </div>
   )
 }
