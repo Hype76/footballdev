@@ -1,4 +1,5 @@
 import { getMatchDayLifecycleState } from '../../../src/lib/matchday-lifecycle.js'
+import { formatUkDate } from '../../../src/lib/date-format.js'
 import { invalidateMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { canEditCoachFixture } from '../../mobile-core/src/coachFixtureEditCore'
 import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
@@ -231,7 +232,7 @@ function MatchList({ filter, matches, onOpen, selectedId, setFilter, styles }) {
   return <View style={styles.stack}>
     <Chips onChange={setFilter} options={[{ iconKey: getMatchDayFilterIconKey('current'), label: 'Today and live', value: 'current' }, { iconKey: getMatchDayFilterIconKey('upcoming'), label: 'Upcoming', value: 'upcoming' }, { iconKey: getMatchDayFilterIconKey('previous'), label: 'Previous', value: 'previous' }, { iconKey: getMatchDayFilterIconKey('all'), label: 'All', value: 'all' }]} styles={styles} value={filter} />
     {visible.length === 0 ? <View style={styles.emptyState}><MaterialIcons name="sports-soccer" size={40} style={styles.secondaryText} /><Text style={styles.cardTitle}>No fixtures match this view.</Text><Text style={styles.meta}>Select a filter above to view fixtures.</Text></View> : null}
-    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{match.matchDate || 'Date TBC'} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'} | {label(match.status, 'scheduled')}</Text>{getMatchDayLifecycleState(match) !== 'not_started' ? <Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text> : null}</Pressable> })}
+    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{formatUkDate(match.matchDate, 'Date TBC')} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'} | {label(match.status, 'scheduled')}</Text>{getMatchDayLifecycleState(match) !== 'not_started' ? <Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text> : null}</Pressable> })}
   </View>
 }
 

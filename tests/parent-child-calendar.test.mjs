@@ -56,7 +56,7 @@ test('all linked calendar loads only authorised parent link contexts and labels 
 
   assert.match(loaderSection, /calendarScope !== 'all'/)
   assert.match(loaderSection, /links\.map\(async \(link\) =>/)
-  assert.match(loaderSection, /getParentPortalMatchDays\(\{ parentLinkId: link\.id \}\)/)
+  assert.match(loaderSection, /getParentPortalMatchDays\(\{ parentLinkId: link\.id, clubName: link\.clubName \}\)/)
   assert.match(loaderSection, /getParentPortalInvitationState\(\{ parentLinkId: link\.id \}\)/)
   assert.match(loaderSection, /getParentPortalSharedCalendarEvents\(\{ parentLinkId: link\.id \}\)/)
   assert.doesNotMatch(loaderSection, /teamId/)

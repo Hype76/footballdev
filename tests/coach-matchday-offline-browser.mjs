@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
@@ -154,6 +154,19 @@ try {
   await mount()
   await page.getByText('This fixture cannot be edited in the current Team context or match state.',{exact:true}).waitFor()
   assert.equal(await page.getByText('Editing fixture fixture',{exact:true}).count(),0,'A cached scheduled fixture must not open the editor after the server reports it live')
+  await page.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem('server',JSON.stringify({id:'fixture',clubId:'club',clubName:'FP TEST Club',teamId:'team',teamName:'U14 JPL 26/27',opponent:'Visitors',homeAway:'away',status:'scheduled',timerStatus:'not_started',matchDate:'2099-09-19',kickoffTime:'10:45',events:[],squadDecisions:[]}));
+    localStorage.setItem('entryTarget',JSON.stringify({requestId:'list'}));
+  })
+  await mount()
+  await page.getByRole('button',{name:'Upcoming',exact:true}).click()
+  await page.getByText('Visitors v FP TEST Club',{exact:true}).waitFor()
+  await page.getByText('19:09:2099 | 10:45 | scheduled',{exact:true}).waitFor()
+  assert.equal(await page.getByText('Visitors v U14 JPL 26/27',{exact:true}).count(),0)
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+  await mkdir('output/playwright/club-match-name',{recursive:true})
+  await page.screenshot({path:'output/playwright/club-match-name/coach-upcoming.png',fullPage:true})
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
 } finally {await browser.close()}

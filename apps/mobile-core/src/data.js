@@ -83,6 +83,7 @@ export function normalizeMatchDay(row) {
 
   return {
     clubId: row.club_id ?? row.clubId ?? '',
+    clubName: normalizeText(row.club_name ?? row.clubName),
     arrivalTime: row.arrival_time ?? row.arrivalTime ?? '',
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     availabilityRespondedAt: row.availability_responded_at ?? row.availabilityRespondedAt ?? '',
@@ -332,7 +333,7 @@ export async function getCoachMatchDays(user) {
     throw error
   }
 
-  return (data || []).map(normalizeMatchDay)
+  return (data || []).map((row) => normalizeMatchDay({ ...row, clubName: user.clubName }))
 }
 
 export async function getCoachPlayers(user) {
@@ -406,6 +407,7 @@ export async function getParentMatchDays(user) {
   const shirtsByMatchId = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
   return (matchResult.data || []).map((row) => normalizeMatchDay({
     ...row,
+    clubName: selectedLink.clubName,
     shirt_choice: shirtsByMatchId.get(String(row.id)),
   }))
 }

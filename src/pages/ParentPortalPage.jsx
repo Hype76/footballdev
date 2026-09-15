@@ -864,7 +864,7 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
       return
     }
 
-    const nextMatches = await getParentPortalMatchDays({ parentLinkId: selectedLink.id })
+    const nextMatches = await getParentPortalMatchDays({ parentLinkId: selectedLink.id, clubName: selectedLink.clubName })
     setMatches(nextMatches)
   }
 
@@ -874,7 +874,7 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
     }
 
     const [nextMatches, nextParentInvitations] = await Promise.all([
-      getParentPortalMatchDays({ parentLinkId: selectedLink.id }),
+      getParentPortalMatchDays({ parentLinkId: selectedLink.id, clubName: selectedLink.clubName }),
       getParentPortalInvitationState({ parentLinkId: selectedLink.id }),
     ])
 
@@ -978,7 +978,7 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
         }
 
         const groups = [
-          [() => getParentPortalMatchDays({ parentLinkId: selectedLink.id }), setMatches],
+          [() => getParentPortalMatchDays({ parentLinkId: selectedLink.id, clubName: selectedLink.clubName }), setMatches],
           [() => getParentPortalMatchDayPlayers({ parentLinkId: selectedLink.id }), setPlayers],
           [() => getParentPortalInvitationState({ parentLinkId: selectedLink.id }), setParentInvitations],
           [() => getParentPortalSharedCalendarEvents({ parentLinkId: selectedLink.id }), setSharedCalendarEvents],
@@ -1032,7 +1032,7 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
       window.removeEventListener('online', refresh)
       document.removeEventListener('visibilitychange', refresh)
     }
-  }, [captureActivityState, selectedLink?.id])
+  }, [captureActivityState, selectedLink?.id, selectedLink?.clubName])
 
   useEffect(() => {
     let isCurrent = true
@@ -1116,7 +1116,7 @@ function ParentPortalExperience({ onOpenDemoGameDay }) {
         const entries = await Promise.all(
           links.map(async (link) => {
             const [nextMatches, nextParentInvitations, nextSharedCalendarEvents] = await Promise.all([
-              getParentPortalMatchDays({ parentLinkId: link.id }),
+              getParentPortalMatchDays({ parentLinkId: link.id, clubName: link.clubName }),
               getParentPortalInvitationState({ parentLinkId: link.id }),
               getParentPortalSharedCalendarEvents({ parentLinkId: link.id }),
             ])

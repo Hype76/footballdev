@@ -343,7 +343,7 @@ test('parent profile source loads active links for the signed-in auth user only'
 test('parent portal dashboard only loads current parent data sources', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
-  assert.match(source, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\)/)
+  assert.match(source, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id, clubName: selectedLink\.clubName \}\)/)
   assert.match(source, /getParentPortalMatchDayPlayers\(\{ parentLinkId: selectedLink\.id \}\)/)
   assert.match(source, /getParentPortalInvitationState\(\{ parentLinkId: selectedLink\.id \}\)/)
   assert.match(source, /getParentPortalSharedCalendarEvents\(\{ parentLinkId: selectedLink\.id \}\)/)
@@ -394,7 +394,7 @@ test('parent portal dashboard does not call staff-only match day actions', async
   assert.doesNotMatch(source, /\bselectMatchDayScorer\(/)
   assert.doesNotMatch(source, /\baddStaffMatchDayGoal\(/)
   assert.doesNotMatch(source, /send-match-day-availability-requests/)
-  assert.match(source, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\)/)
+  assert.match(source, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id, clubName: selectedLink\.clubName \}\)/)
   assert.match(source, /getParentPortalMatchDayPlayers\(\{ parentLinkId: selectedLink\.id \}\)/)
 })
 

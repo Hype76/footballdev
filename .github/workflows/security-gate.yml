@@ -134,6 +134,7 @@ jobs:
           tests/parent-matchday-availability-card-notifications-47.test.mjs
           tests/mobile-coach-matchday-31d.test.mjs
           tests/coach-calendar-fixture-edit.test.mjs
+          tests/matchday-club-name.test.mjs
           tests/parent-scorer-goal-details-db.test.mjs
           tests/parent-pitch-surface-db.test.mjs
           tests/matchday-offline-outbox.test.mjs

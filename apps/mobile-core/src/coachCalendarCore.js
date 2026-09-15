@@ -7,6 +7,7 @@ import {
 import { getDateInTimeZone } from './parentCalendarCore.js'
 import { normalizeLegacyMatchHomeAway, normalizeMatchDayShirtChoice } from '../../../src/lib/matchday-model.js'
 import { resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
 export const COACH_CALENDAR_EVENT_TYPES = Object.freeze([
   'general',
@@ -277,7 +278,7 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
       ? normalizeKey(row.session_type ?? row.sessionType) || 'training'
       : normalizeKey(row.event_type ?? row.eventType) || 'general'
   const title = isMatchDay
-    ? `${normalize(team?.name ?? row.team_name ?? row.teamName) || 'Team'} v ${normalize(row.opponent) || 'Opponent'}`
+    ? getMatchDayDisplayName({ ...row, teamName: normalize(team?.name ?? row.team_name ?? row.teamName) || 'Team' })
     : normalize(row.title) || (isSession ? 'Training session' : 'Calendar event')
   const dateParts = londonParts(startsAt)
   const sourceCalendarDate = isMatchDay ? matchDate : isSession ? sessionDate : ''

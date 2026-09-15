@@ -519,8 +519,8 @@ test('parent live score polling and scorer-only Game Mode remain in the parent p
   assert.notEqual(loadEnd, -1)
   const loadSource = source.slice(loadStart, loadEnd)
 
-  assert.match(loadSource, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\)/)
-  assert.match(loadSource, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id \}\), setMatches/)
+  assert.match(loadSource, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id, clubName: selectedLink\.clubName \}\)/)
+  assert.match(loadSource, /getParentPortalMatchDays\(\{ parentLinkId: selectedLink\.id, clubName: selectedLink\.clubName \}\), setMatches/)
   assert.match(loadSource, /Promise\.allSettled\(groups\.map/)
   assert.match(loadSource, /if \(isCurrent\) publish\(value\)/)
   assert.match(loadSource, /window\.setInterval\(refresh, 60000\)/)
