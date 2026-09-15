@@ -2,7 +2,51 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { runMobileStartup } from '../apps/mobile-core/src/startupStateCore.js'
 import { editLocalDevelopmentDraft, prepareDevelopmentAttempt, acknowledgeDevelopmentAttempt, sameDevelopmentSave } from '../apps/mobile-core/src/developmentOfflineCore.js'
-import { createBoundedMobileFetch } from '../apps/mobile-core/src/mobileFetchCore.js'
+import { createBoundedMobileFetch, getMobileRequestTimeout, getMobileConnectionErrorMessage } from '../apps/mobile-core/src/mobileFetchCore.js'
+import { readFile } from 'node:fs/promises'
+
+test('a slow password response can complete after the normal read deadline', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let aborted = false
+  let complete
+  const response = { status: 200 }
+  const pending = createBoundedMobileFetch((_url, { signal }) => new Promise((resolve, reject) => {
+    complete = () => resolve(response)
+    signal.addEventListener('abort', () => { aborted = true; reject(new Error('aborted')) })
+  }))('https://example.test/auth/v1/token?grant_type=password', { method: 'POST' })
+  t.mock.timers.tick(10000)
+  assert.equal(aborted, false)
+  complete()
+  assert.equal(await pending, response)
+  assert.equal(getMobileRequestTimeout('https://example.test/auth/v1/token?grant_type=refresh_token', { method: 'POST' }), 8000)
+  assert.equal(getMobileRequestTimeout('https://example.test/rest/v1/profile'), 8000)
+})
+
+test('password requests still abort at a finite deadline without an automatic retry', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let calls = 0
+  const pending = createBoundedMobileFetch((_url, { signal }) => new Promise((_resolve, reject) => {
+    calls++
+    signal.addEventListener('abort', () => reject(new Error('aborted')))
+  }))('https://example.test/auth/v1/token?grant_type=password', { method: 'POST' })
+  const rejected = assert.rejects(pending, { code: 'MOBILE_REQUEST_TIMEOUT' })
+  t.mock.timers.tick(20000)
+  await rejected
+  assert.equal(calls, 1)
+})
+
+test('Parent login preserves the shared auth error and distinguishes timeouts from credentials', async () => {
+  for (const error of [new Error('The request timed out.'), { code: 'LOGIN_CONNECTION_TIMEOUT' }]) {
+    const message = getMobileConnectionErrorMessage(error)
+    assert.match(message, /service is taking too long/)
+    assert.equal(getMobileConnectionErrorMessage(message), message)
+  }
+  assert.match(getMobileConnectionErrorMessage('Network request failed'), /Unable to reach Football Player/)
+  assert.equal(getMobileConnectionErrorMessage('Invalid login credentials'), '')
+  const app = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+  assert.match(app, /authError=\{authError\}/)
+  assert.doesNotMatch(app, /getParentFriendlyError\(authError, 'Email or password not recognised\.'/)
+})
 
 test('network timeout aborts the real request and honours caller cancellation', async () => {
   const fetcher = (_url, { signal }) => new Promise((_, reject) => {

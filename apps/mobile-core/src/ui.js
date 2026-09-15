@@ -232,6 +232,8 @@ export function MobileLoginScreen({
 
     try {
       await signIn(email.trim(), password)
+    } catch {
+      // The auth provider renders the sign-in error beside the form.
     } finally {
       setIsSubmitting(false)
     }

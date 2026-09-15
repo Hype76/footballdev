@@ -5,6 +5,7 @@ import { getMobileRuntimeConfig } from './config'
 import { revokeNativePushDevice } from './notifications'
 import { fetchMobileProfile } from './profile'
 import { mobileResourceCache } from './mobileResourceCache'
+import { getMobileConnectionErrorMessage, MOBILE_PASSWORD_REQUEST_TIMEOUT_MS } from './mobileFetchCore'
 import {
   DEFAULT_MOBILE_STARTUP_TIMEOUT_MS,
   getMobileStartupDiagnosticPrefix,
@@ -324,15 +325,15 @@ export function AuthProvider({
     const { error } = await withStartupTimeout(() => supabase.auth.signInWithPassword({
       email: String(email || '').trim(),
       password,
-    }), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, 'LOGIN_CONNECTION_TIMEOUT').catch((error) => {
-      const failure = error?.code === 'LOGIN_CONNECTION_TIMEOUT'
-        ? new Error('Sign-in is taking too long. Check your connection and try again.') : error
+    }), MOBILE_PASSWORD_REQUEST_TIMEOUT_MS + DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, 'LOGIN_CONNECTION_TIMEOUT').catch((error) => {
+      const message = getMobileConnectionErrorMessage(error)
+      const failure = message ? new Error(message) : error
       setAuthError(failure.message || 'Login failed.')
       throw failure
     })
 
     if (error) {
-      setAuthError(error.message || 'Login failed.')
+      setAuthError(getMobileConnectionErrorMessage(error) || error.message || 'Login failed.')
       throw error
     }
   }, [])
