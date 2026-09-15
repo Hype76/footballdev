@@ -468,7 +468,7 @@ export function ParentInvitePage() {
           <p className="text-sm leading-6">Invitation email: <strong className="break-all">{invite.email}</strong></p>
           {signedInEmail ? <p className="text-sm leading-6">Currently signed in as: <strong className="break-all">{signedInEmail}</strong></p> : null}
           <p className="text-sm leading-6 text-[#4b5f55]">If the email was forwarded to another inbox, use the invitation email above and the password you created. Switching accounts signs out this browser and keeps your player invitation ready.</p>
-          {switchAccountError ? <p role="alert" className="text-sm font-semibold text-[#9b1c1c]">{switchAccountError}</p> : null}
+          {switchAccountError ? <p role="alert" className="text-sm font-semibold text-[var(--danger-text)]">{switchAccountError}</p> : null}
           <button type="button" disabled={isSubmitting} onClick={handleSwitchAccount} className={primaryButtonClass}>
             {isSubmitting ? 'Signing out...' : 'Sign out and use invited account'}
           </button>
