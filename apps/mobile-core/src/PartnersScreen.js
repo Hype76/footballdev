@@ -85,7 +85,11 @@ export function PartnersScreen({ textStyle, headingStyle, appRole }) {
     const current=latest?.items?.find((offer)=>offer.id===item.id)
     const url=safePartnerUrl(current?.url)
     if (!url) {setNotice('This website address is unavailable.');return}
-    try {await Linking.openURL(url);void interaction(item,'click')}catch{setNotice('The website could not be opened. Please try again.')}
+    // Send the tap before leaving the app, while keeping a slow analytics call from blocking the website.
+    let timeout
+    await Promise.race([interaction(current,'click').catch(()=>null),new Promise((resolve)=>{timeout=setTimeout(resolve,1200)})])
+    clearTimeout(timeout)
+    try {await Linking.openURL(url)}catch{setNotice('The website could not be opened. Please try again.')}
   }
   async function preference(allow) {
     setBusy(true)
