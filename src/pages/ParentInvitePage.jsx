@@ -6,7 +6,9 @@ import { buildParentAppUrl, getMainAppOrigin, isParentInviteHost } from '../lib/
 import { useAuth } from '../lib/auth.js'
 import {
   buildParentInviteAcceptancePath,
+  buildParentInviteLoginPath,
   buildParentInviteSuccessPath,
+  isParentInviteAccountMismatch,
 } from '../lib/parent-auth-intent.js'
 import { acceptParentPortalInvite } from '../lib/supabase.js'
 import { supabase } from '../lib/supabase-client.js'
@@ -70,12 +72,14 @@ export function ParentInvitePage() {
   const { token } = useParams()
   const [searchParams] = useSearchParams()
   const shouldAcceptSignedInSession = searchParams.get('accept') === '1'
-  const { isLoading, selectAccessMode, session, signUpParentAccount } = useAuth()
+  const { isLoading, selectAccessMode, session, signOut, signUpParentAccount } = useAuth()
   const acceptAttemptedRef = useRef(false)
   const directSessionCheckedRef = useRef(false)
   const submitLockRef = useRef(false)
   const [acceptedLink, setAcceptedLink] = useState(null)
   const [directSessionReady, setDirectSessionReady] = useState(false)
+  const [directSessionEmail, setDirectSessionEmail] = useState('')
+  const [switchAccountError, setSwitchAccountError] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [invite, setInvite] = useState(null)
   const [isAccepting, setIsAccepting] = useState(false)
@@ -89,6 +93,7 @@ export function ParentInvitePage() {
   const isParentHost = isParentInviteHost()
   const canRenderOnCurrentHost = isParentHost || getMainAppOrigin() === window.location.origin
   const canAcceptSignedInSession = Boolean(session?.user || directSessionReady)
+  const signedInEmail = String(session?.user?.email || directSessionEmail || '').trim()
 
   useEffect(() => {
     if (canRenderOnCurrentHost) {
@@ -213,6 +218,7 @@ export function ParentInvitePage() {
 
         if (nextSession?.user) {
           window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')
+          setDirectSessionEmail(String(nextSession.user.email || '').trim())
           setDirectSessionReady(true)
           return
         }
@@ -284,6 +290,22 @@ export function ParentInvitePage() {
       isMounted = false
     }
   }, [canAcceptSignedInSession, canRenderOnCurrentHost, directSessionReady, invite, isInviteLoading, isParentHost, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
+
+  const handleSwitchAccount = async () => {
+    if (submitLockRef.current) return
+    submitLockRef.current = true
+    setIsSubmitting(true)
+    setSwitchAccountError('')
+    try {
+      await signOut()
+      window.location.assign(buildCurrentParentFlowUrl(buildParentInviteLoginPath(token, isParentHost), isParentHost))
+    } catch {
+      setSwitchAccountError('This browser could not sign out. Please try again.')
+    } finally {
+      submitLockRef.current = false
+      setIsSubmitting(false)
+    }
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -439,7 +461,19 @@ export function ParentInvitePage() {
         </form>
       ) : null}
 
-      {errorMessage && (!invite || session?.user) ? <div className="mt-5"><NoticeBanner title="Family access not opened" message={errorMessage} /></div> : null}
+      {errorMessage && (!invite || canAcceptSignedInSession) ? <div className="mt-5 space-y-4">
+        <NoticeBanner title="Family access not opened" message={errorMessage} />
+        {invite?.email && canAcceptSignedInSession && isParentInviteAccountMismatch(errorMessage) ? <div className="space-y-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+          <h2 className="text-lg font-black">Use the invited email address</h2>
+          <p className="text-sm leading-6">Invitation email: <strong className="break-all">{invite.email}</strong></p>
+          {signedInEmail ? <p className="text-sm leading-6">Currently signed in as: <strong className="break-all">{signedInEmail}</strong></p> : null}
+          <p className="text-sm leading-6 text-[#4b5f55]">If the email was forwarded to another inbox, use the invitation email above and the password you created. Switching accounts signs out this browser and keeps your player invitation ready.</p>
+          {switchAccountError ? <p role="alert" className="text-sm font-semibold text-[var(--danger-text)]">{switchAccountError}</p> : null}
+          <button type="button" disabled={isSubmitting} onClick={handleSwitchAccount} className={primaryButtonClass}>
+            {isSubmitting ? 'Signing out...' : 'Sign out and use invited account'}
+          </button>
+        </div> : null}
+      </div> : null}
 
       {acceptedLink ? (
         <div className="mt-5 space-y-4">
