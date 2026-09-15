@@ -1,5 +1,6 @@
 import { getMatchDayLifecycleState } from '../../../src/lib/matchday-lifecycle.js'
-import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
+import { invalidateMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
+import { canEditCoachFixture } from '../../mobile-core/src/coachFixtureEditCore'
 import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { getGoalScorerSide, setGoalOwnGoal } from '../../../src/lib/matchday-goal-credit.js'
 import { getMatchClockDescription } from '../../../src/lib/matchday-event-time.js'
@@ -521,6 +522,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const [filter, setFilter] = useState(matchDayTarget?.fixtureId ? 'all' : 'current')
   const [fixtureFormOpen, setFixtureFormOpen] = useState(false)
   const [fixtureFormMatch, setFixtureFormMatch] = useState(null)
+  const [fixtureReturnTarget, setFixtureReturnTarget] = useState(null)
   const [loading, setLoading] = useState(true)
   const [serverMatch, setMatch] = useState(null)
   const [matches, setMatches] = useState([])
@@ -657,9 +659,24 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   useEffect(() => { void load() }, [load, user.isOfflineProfile])
   useEffect(() => {
     if (!requestedFixtureId || loading || match?.id !== requestedFixtureId) return
+    if (matchDayTarget?.intent === 'edit-fixture') {
+      // Cached fixture details must not open an editor before the fresh read finishes.
+      if (loadInFlight.current) return
+      if (serverMatch?.id !== requestedFixtureId) return
+      if (canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling })) {
+        setFixtureFormMatch(serverMatch)
+        setFixtureFormOpen(true)
+        setFixtureReturnTarget(matchDayTarget.returnCalendarTarget || null)
+        setError('')
+        setNotice('')
+        onRequestScrollTop?.()
+      } else {
+        setError(stale ? 'Reconnect and refresh before editing this fixture.' : 'This fixture cannot be edited in the current Team context or match state.')
+      }
+    }
     setPanel(isLiveMatch(match) ? 'live' : 'overview')
     onMatchDayTargetHandled?.()
-  }, [loading, match, onMatchDayTargetHandled, requestedFixtureId])
+  }, [context, loading, match, matchDayTarget, onMatchDayTargetHandled, onRequestScrollTop, reconciling, requestedFixtureId, serverMatch, stale, user.isOfflineProfile])
   useEffect(() => {
     if (quickAction?.intent !== 'create-match') return
     setFixtureFormMatch(null)
@@ -827,6 +844,18 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     setPanel('overview')
     setNotice('Fixture details updated. No new availability request was sent.')
     await cache(matches.map((item) => item.id === summary.id ? summary : item), summary, players).catch(() => {})
+    invalidateMobileResource(user, 'coach:calendar')
+    invalidateMobileResource(user, 'coach:match-list')
+    if (fixtureReturnTarget) onNavigate('calendar', { ...fixtureReturnTarget, occurrenceDate: summary.matchDate })
+    setFixtureReturnTarget(null)
+  }
+
+  const cancelFixtureEdit = () => {
+    setFixtureFormOpen(false)
+    setFixtureFormMatch(null)
+    if (fixtureReturnTarget) onNavigate('calendar', fixtureReturnTarget)
+    setFixtureReturnTarget(null)
+    onRequestScrollTop?.()
   }
 
   const closeFixture = () => {
@@ -847,7 +876,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {!focusedLiveMode ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Live fixture control with server-authoritative squad, clock, events, volunteers, shootout, and corrections.</Text></> : null}
     {!match ? <View style={styles.tabs}><Button iconKey="coach.availability" label="Availability" onPress={() => onNavigate('invites')} secondary styles={styles} /><Button iconKey="coach.chat" label="Team Chat" onPress={() => onNavigate('chat')} secondary styles={styles} /><Button iconKey="route.calendar" label="Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /></View> : null}
     {!match && !fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
-    {fixtureFormOpen ? <CoachFixtureForm match={fixtureFormMatch} matches={matches} onCancel={() => { setFixtureFormOpen(false); setFixtureFormMatch(null); onRequestScrollTop?.() }} onCreated={handleFixtureCreated} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
+    {fixtureFormOpen ? <CoachFixtureForm match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCreated={handleFixtureCreated} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
     {match && !fixtureFormOpen && ['overview', 'volunteers'].includes(panel) ? <CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /> : null}
     {loading ? <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading authoritative Match Day data...</Text></View> : null}
     {reconciling ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
@@ -870,7 +899,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {!fixtureFormOpen && !match ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
     {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><Button iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} /><Chips iconResolver={getMatchDayPanelIconKey} onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} /></> : null}
       {reportMatch.status === 'full_time' && !reportMatch.concludedAt && panel !== 'report' ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for coach review</Text><Text style={styles.body}>Full time has been recorded. Review the result and conclude this match.</Text><Button disabled={busy || reconciling} label="Review and conclude" onPress={() => { setPanel('report'); onRequestScrollTop?.() }} styles={styles} /></View> : null}
-      {panel === 'overview' ? <View style={styles.stack}><FixtureHero match={match} styles={styles} /><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><Text style={styles.body}>{match.venueAddress || match.venueName || 'Venue TBC'}</Text><ClubKitDisplay clubId={context.clubId || user.clubId} shirtChoice={match.shirtChoice} textStyle={styles.body} />{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text>{['scheduled', 'scorer_request', 'postponed'].includes(match.status) ? <Button label="Edit fixture" onPress={() => { setFixtureFormMatch(match); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'start-match', label: 'Start match', run: async () => { const detail = await runTimer('start'); setPanel('live'); return detail } })} styles={styles} /></View> : actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
+      {panel === 'overview' ? <View style={styles.stack}><FixtureHero match={match} styles={styles} /><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><Text style={styles.body}>{match.venueAddress || match.venueName || 'Venue TBC'}</Text><ClubKitDisplay clubId={context.clubId || user.clubId} shirtChoice={match.shirtChoice} textStyle={styles.body} />{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text>{canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling }) ? <Button label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'start-match', label: 'Start match', run: async () => { const detail = await runTimer('start'); setPanel('live'); return detail } })} styles={styles} /></View> : actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
       <View style={panel === 'squad' ? undefined : { display: 'none' }}><CoachSquadPanel key={`${user.id}:${user.activeTeamId}:${match.id}`} templateStore={templateStore} actions={actions} busy={busy || reconciling} match={match} palette={palette} onPendingChange={setPendingSquadCount}
         onSetDecision={(player, decision) => replace(() => setCoachMatchDaySquadDecision(user, match, player.id, decision, player.decidedAt || null), (detail) => isCoachMatchDaySquadDecisionApplied(detail, player.id, decision))}
         onNotify={notifySquad}
