@@ -58,7 +58,8 @@ import {
   saveCoachSession,
   updateCoachSessionPlayerNotes,
 } from '../../mobile-core/src/coachSessionsData'
-import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { createCoachOfflineResourceSaver, readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { getCoachOfflineSaveWarning } from './coachOfflineErrors'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { CoachDateTimeField } from './CoachDateTimeField'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
@@ -974,6 +975,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
   }), [context, trainingLocations])
   const load = useCallback(async ({ reuseFresh = false } = {}) => {
     setError(''); setCacheWarning(''); setLoading(true)
+    const saveOfflineCopy = createCoachOfflineResourceSaver(user, context)
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
     const hasCachedSessions = Array.isArray(cached?.resources?.sessions)
     if (hasCachedSessions) {
@@ -1003,10 +1005,10 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
         : Array.isArray(cached?.resources?.trainingLocations) ? cached.resources.trainingLocations : []
       setSessions(rows); setPlayers(playerRows); setTrainingEvents(nextTrainingEvents); setTrainingLocations(nextTrainingLocations); setStale(false)
       try {
-        await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows, trainingEvents: nextTrainingEvents, trainingLocations: nextTrainingLocations })
-      } catch {
+        await saveOfflineCopy({ sessionPlayers: playerRows, sessions: rows, trainingEvents: nextTrainingEvents, trainingLocations: nextTrainingLocations })
+      } catch (cacheError) {
         // The live read succeeded. A rejected cache write must not report a load failure.
-        setCacheWarning('Sessions are up to date, but this phone could not save an offline copy. Keep an internet connection while using Sessions.')
+        setCacheWarning(getCoachOfflineSaveWarning(cacheError))
       }
     } catch (loadError) {
       const accessDenied = loadError?.code === '42501' || /permission denied|row.level security|not authori[sz]ed/i.test(String(loadError?.message || ''))

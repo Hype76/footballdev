@@ -120,6 +120,8 @@ jobs:
           node --test
           tests/mobile-resource-loading-performance.test.mjs
           tests/coach-sessions-load-cache-boundary.test.mjs
+          tests/parent-match-availability.test.mjs
+          tests/parent-match-squad-transport-pglite.test.mjs
           tests/mobile-chat-sessions-poll-60.test.mjs
           tests/mobile-read-path-performance-pglite.test.mjs
           tests/mobile-match-day-read-performance-pglite.test.mjs

@@ -315,6 +315,13 @@ export function createEncryptedOfflineStore({
   }
 
   return {
+    // Capture before a live request so its delayed response cannot recreate
+    // storage after sign-out, account replacement or an explicit local clear.
+    captureScopeGuard(userScope) {
+      const epoch = scopeState().epoch
+      checkScope(userScope, epoch)
+      return () => checkScope(userScope, epoch)
+    },
     activate(userScope) {
       const state = scopeState()
       const scope = normalize(userScope)

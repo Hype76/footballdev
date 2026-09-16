@@ -272,6 +272,12 @@ export function normalizeParentMatchDay(row = {}) {
   const match = normalizeMatchDay(row)
   return {
     ...match,
+    squadTransport: (Array.isArray(row.squad_transport ?? row.squadTransport) ? (row.squad_transport ?? row.squadTransport) : []).map(player => ({
+      playerId: player.player_id ?? player.playerId,
+      playerName: normalizePersonName(player.player_name ?? player.playerName),
+      needsLift: (player.needs_lift ?? player.needsLift) === true,
+      canOfferLift: (player.can_offer_lift ?? player.canOfferLift) === true,
+    })),
     scorerReviewRequestedAt: row.scorer_review_requested_at ?? row.scorerReviewRequestedAt ?? '',
     isScorer: match.isScorer && !(row.scorer_review_requested_at ?? row.scorerReviewRequestedAt),
     clockMode: normalizeText(row.match_clock_mode ?? row.clockMode) || 'fixed',
@@ -303,19 +309,21 @@ export function normalizeParentMatchDay(row = {}) {
 
 export async function getParentPortalMatchDays(user) {
   const link = requireSelectedLink(user)
-  const [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult] = await Promise.all([
+  const [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult, transportResult] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_scorer_game_mode_match_ids', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_match_day_review_requests', { parent_link_id_value: link.id }),
+    link.linkType === 'parent' ? supabase.rpc('get_parent_portal_match_squad_transport', { parent_link_id_value: link.id }) : Promise.resolve({ data: [] }),
   ])
-  for (const result of [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult]) {
+  for (const result of [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult, transportResult]) {
     if (result.error) throw result.error
   }
   const extendedById = new Map((extendedResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row]))
   const teamById = new Map((teamResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.selected_player_names ?? row.selectedPlayerNames ?? []]))
+  const transportById = new Map((transportResult.data || []).map(row => [String(row.match_day_id), row.squad_players || []]))
   const reviewById = new Map((reviewResult.data || []).map((row) => [String(row.match_day_id), row.scorer_review_requested_at]))
   const scorerIds = new Set((scorerResult.data || []).map((row) => String(row.match_day_id ?? row.matchDayId)))
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
@@ -330,6 +338,7 @@ export async function getParentPortalMatchDays(user) {
       scorer_review_requested_at: reviewById.get(String(row.id)) || '',
       shirt_choice: shirtsById.get(String(row.id)),
       selected_player_names: teamById.get(String(row.id)) || [],
+      squad_transport: transportById.get(String(row.id)) || [],
     })
   })
 }
@@ -369,6 +378,7 @@ export async function getParentInvitations(user) {
 
 export async function setParentMatchTransport(user, invitation, mode, seatsOffered = 0) {
   const link = requireSelectedLink(user)
+  if (link.linkType !== 'parent' || invitation?.parentLinkId !== link.id || invitation?.childId !== link.playerId) throw new Error('Choose the Parent account linked to this invitation.')
   if (invitation?.invitationType !== 'match_attendance' || !invitation?.sourceRecordId) {
     throw new Error('Choose a Match attendance request before changing carpool.')
   }
@@ -387,6 +397,7 @@ export async function respondToParentInvitation(user, invitation, responseState)
   const response = normalizeText(responseState).toLowerCase()
   if (!invitation?.sourceRecordId) throw new Error('This invitation could not be opened.')
   if (!isParentInvitationActionable(invitation)) throw new Error('This invitation is no longer available for response.')
+  if (invitation.invitationType === 'match_attendance' && (link.linkType !== 'parent' || invitation.parentLinkId !== link.id || invitation.childId !== link.playerId)) throw new Error('Choose the Parent account linked to this invitation.')
   if (invitation.invitationType === 'training_attendance') {
     const previousResponse = normalizeText(invitation.responseState).toLowerCase()
     const { data, error } = await supabase.rpc('respond_parent_portal_training_invitation', {
