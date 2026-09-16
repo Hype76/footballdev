@@ -165,3 +165,18 @@ test('profile saves recover reconstructible resources before enforcing the cache
   assert.equal(saved.profile.value.id, userScope)
   assert.ok(getCoachCacheByteLength(saved) <= COACH_PHASE_31F_MAX_CACHE_BYTES)
 })
+
+
+test('recently revalidated unchanged resources survive before stale copies', () => {
+  const recent = context('recent-check')
+  const stale = context('stale-check')
+  const target = context('fresh-target')
+  const document = { ...createCoachOfflineDocument({ userScope }), contexts: {
+    [recent.id]: cachedEntry(recent, '2026-09-01T10:00:00Z'),
+    [stale.id]: cachedEntry(stale, '2026-09-02T10:00:00Z'),
+  } }
+  document.contexts[recent.id].resourceMetadata.calendar.checkedAt = '2026-09-03T10:00:00Z'
+  const saved = setCoachOfflineResources(document, target, { sessions: [{ id: 'fresh-session' }] })
+  assert.ok(saved.contexts[recent.id].resources.calendar)
+  assert.equal(saved.contexts[stale.id].resources.calendar, undefined)
+})

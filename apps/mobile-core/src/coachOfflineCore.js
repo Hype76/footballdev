@@ -26,7 +26,7 @@ function normalizeContext(value) {
 }
 
 function resourceTimestamp(metadata = {}) {
-  const timestamp = Date.parse(metadata.savedAt || metadata.checkedAt || '')
+  const timestamp = Date.parse(metadata.checkedAt || metadata.savedAt || '')
   return Number.isFinite(timestamp) ? timestamp : 0
 }
 
