@@ -32,7 +32,7 @@ const mocks = {
   'react-native-safe-area-context': `import React from 'react';import {View} from 'react-native';export const SafeAreaView=({children,style})=><View style={[style,{paddingTop:59,height:844}]}>{children}</View>;`,
 }
 const entry = `
-import React,{useState,useEffect} from 'react'; import {createRoot} from 'react-dom/client';
+import React,{useState,useEffect,useRef} from 'react'; import {createRoot} from 'react-dom/client';
 import {Alert,AppState,Share,Platform} from 'react-native';
 window.phonePlatform=value=>{Platform.OS=value};
 import {FansScreen} from './apps/parent-mobile/src/FansScreen.js';
@@ -75,11 +75,14 @@ let appListener;AppState.addEventListener=(_event,fn)=>{appListener=fn;return {r
 Share.share=async()=>{window.background();return {action:'sharedAction'}};
 function App(){
  const [selectedLinkId,setSelectedLinkId]=useState('first'),[activeTab,setActiveTab]=useState('more'),[moreSection,setMoreSection]=useState('fans'),[key,setKey]=useState(0),[mode,setMode]=useState(ownerPreview?'light':'dark');
+ const [activeActionId,setActiveActionId]=useState('invite:stale'),[notice,setNotice]=useState({message:'stale notice'});
+ const parentSyncScopeRef=useRef('parent-test:first'),parentActionScopeRef=useRef(0),requestIdRef=useRef(0);
  const parentLinks=window.user.parentPortalLinks,selectedMobileUser=window.user;
  const saveParentOfflineSelection=async(_user,id)=>{window.saved=id};const setChildSwitcherOpen=()=>{};
  ${handler}
  useEffect(()=>{${sectionReset}},[selectedLinkId]);
  window.remount=()=>setKey(k=>k+1);window.mode=setMode;window.navigate=()=>{setMoreSection('fans');setActiveTab('more')};window.normalSwitch=id=>handleChildChange(id);
+ window.parentSwitchSnapshot=()=>({syncScope:parentSyncScopeRef.current,actionGeneration:parentActionScopeRef.current,requestId:requestIdRef.current,activeActionId,notice});
  return <div data-mode={mode} data-tab={activeTab} data-section={moreSection} style={window.ownerCompact?{padding:16,maxWidth:518,margin:'auto',background:mode==='light'?'#f4f8f7':'#071916'}:undefined}>{!window.ownerCompact?<div data-testid="header">{parentLinks.find(p=>p.id===selectedLinkId)?.playerName}</div>:null}{activeTab==='more'&&moreSection==='fans'?<FansScreen key={key} embedded={!window.standalone} themeMode={mode} selectedParentLinkId={selectedLinkId} onSelectedParentLinkChange={id=>handleChildChange(id,{stayOnFans:true})}/>:null}</div>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
@@ -113,6 +116,9 @@ try {
   await button('Second Child (selected)').waitFor()
   assert.equal(await page.getByTestId('header').innerText(), 'Second Child')
   assert.equal(await page.evaluate(() => window.saved), 'second')
+  assert.deepEqual(await page.evaluate(() => window.parentSwitchSnapshot()), {
+    syncScope: 'parent-test:second', actionGeneration: 1, requestId: 1, activeActionId: '', notice: null,
+  }, 'Child switching updates authority scope and invalidates prior requests and actions')
   for (const mode of ['dark', 'light']) {
     await page.evaluate(mode => window.mode(mode), mode)
     await page.locator(`[data-mode="${mode}"]`).waitFor()
