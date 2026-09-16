@@ -8,19 +8,23 @@ import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs
 const root=process.cwd(),modules=path.join(root,'apps/coach-mobile/node_modules'),out='output/playwright/compact-match-invites'
 await mkdir(out,{recursive:true})
 const source=await readFile('apps/coach-mobile/src/CoachPhase31EScreens.js','utf8')
+const appSource=(await readFile('apps/coach-mobile/App.js','utf8')).replace(/\r\n/g,'\n')
+const scrollLifecycle=appSource.slice(appSource.indexOf('  const scrollContentToTop ='),appSource.indexOf('  const {\n    biometricAvailable',appSource.indexOf('  const scrollContentToTop =')))
 const helpers=source.slice(source.indexOf('function phaseStyles('),source.indexOf('export function CoachPhase31EScreen'))
 const domain=source.slice(source.indexOf('function InvitesDomain('))
 const core=source.match(/import \{\s+COACH_PHASE_31E_BACKEND_DELTAS,[\s\S]*?from '..\/..\/mobile-core\/src\/coachPhase31ECore'/)[0].replace('../../mobile-core/src/coachPhase31ECore','./apps/mobile-core/src/coachPhase31ECore.js')
 const names=['Brendan Templeton','Ethan Clarke','Finn Saunders','Freddie Norman','Freddy Davison','Jenson Bailey','Josh Allen','Joshua Mcgrory','Kaylan Thorley','Kyle De Dominicis','Lewis Gibbs','Louis Burton','Marcell Danner','Mason Wright','Salvador','Stanley Mcgaw','Thadeous Knight']
-const entry=`import React,{useState,useEffect,useMemo,useRef,useCallback}from'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,Modal,Alert,KeyboardAvoidingView,TextInput,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';import{CoachMatchInviteTable}from'./apps/coach-mobile/src/CoachMatchInviteTable.js';import{InviteStatusBadge}from'./apps/mobile-core/src/InviteStatusBadge.js';import{createMatchInvitesTheme}from'./apps/coach-mobile/src/coachThemeCore.js';${core}
+const entry=`import React,{useState,useEffect,useMemo,useRef,useCallback}from'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,Modal,Alert,KeyboardAvoidingView,TextInput,Platform,ScrollView}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';import{CoachMatchInviteTable}from'./apps/coach-mobile/src/CoachMatchInviteTable.js';import{InviteStatusBadge}from'./apps/mobile-core/src/InviteStatusBadge.js';import{createMatchInvitesTheme}from'./apps/coach-mobile/src/coachThemeCore.js';import{createCoachScrollBounds}from'./apps/coach-mobile/src/coachScrollBounds.js';${core}
 import {getMatchDayDisplayName} from './src/lib/matchday-display.js';const getCoachInviteHistory=async()=>({emailSends:3,resendRequests:2,recentEmailSends:['2026-09-15T10:00:00Z'],recentResendRequests:[]});window.availabilityWrites=[];const setCoachInviteAvailabilityOnBehalf=async(u,invite,status)=>{if(window.failAvailability)throw new Error('Synthetic save failed');window.availabilityWrites.push({id:invite.playerId,status});return{changed:true}};
 import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
 import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';const config={isProduction:true};const getCoachFriendlyError=e=>e.message;window.sends=[];window.followups=[];let followUpKey=0;const createCoachFollowUpKey=()=>String(++followUpKey);const recordCoachInviteIntent=async(user,invite,action,options)=>{if(action==='follow_up')window.followups.push({playerId:invite.playerId,...options});else window.sends.push(invite.playerId);return{recipientCount:1}};Alert.alert=(title,message,buttons)=>window.alert={title,message,buttons};
 ${helpers}\n${domain}
 const names=${JSON.stringify(names)};const match={id:'fixture-one',teamId:'team',status:'scheduled',matchDate:'2099-09-06',clubName:'FP TEST Club',homeAway:'away',opponent:'St Neots',kickoffTime:'10:45',venueName:'St Neots'};
 const rows=names.map((playerName,i)=>({id:'invite-'+i,playerId:'player-'+i,playerName,kind:'match',eventId:match.id,status:[9,14,15].includes(i)?'awaiting':'available',deliveryState:'delivered',deliveryStatus:'delivered',sentAt:'2099-09-01',respondedAt:[9,14,15].includes(i)?'':'2099-09-02'}));
-function App(){const[mode,setMode]=useState('dark'),[invites,setInvites]=useState(rows),[stale,setStale]=useState(false),[rank,setRank]=useState(50),[key,setKey]=useState(0),[notice,setNotice]=useState('');window.notice=setNotice;window.mode=setMode;window.invites=setInvites;window.stale=setStale;window.rank=setRank;window.reset=()=>{setKey(k=>k+1);setInvites(rows)};window.rows=rows;
-const palette=createMatchInvitesTheme({clubAccent:'#1d3f78'}).tokens;return <View dataSet={{mode}} style={{backgroundColor:palette.background,padding:8,minHeight:'100vh'}}>{notice?<Text style={{color:palette.textPrimary}}>{notice}</Text>:null}<InvitesDomain key={key} data={{matches:[match,{...match,id:'fixture-two',opponent:'Second opponent'}],match:invites,players:names.map((playerName,i)=>({id:'player-'+i,playerName,shirtNumber:String([4,1,7,10,9,22,27,98,11,27,5,8,15,3,18,20,6][i])})),training:rows.map((r,i)=>({...r,id:'training-'+i,kind:'training',eventId:'training-one',occurrenceDate:'2099-09-14',title:'Monday Training',status:i===0?'maybe':i===1?'unavailable':r.status}))}} palette={palette} styles={phaseStyles(palette)} user={{id:'coach',activeTeamId:'team',roleRank:rank}} stale={stale} load={async()=>{}} reloadHome={async()=>{}} setNotice={setNotice} onNavigate={()=>{}}/></View>};createRoot(document.getElementById('root')).render(<App/>);`
+function App(){const[mode,setMode]=useState('dark'),[invites,setInvites]=useState(rows),[stale,setStale]=useState(false),[rank,setRank]=useState(50),[key,setKey]=useState(0),[notice,setNotice]=useState(''),[longList,setLongList]=useState(false),[activeRoute,setActiveRoute]=useState('more'),[contextId,setContextId]=useState('team-one');window.notice=setNotice;window.mode=setMode;window.invites=setInvites;window.stale=setStale;window.rank=setRank;window.reset=()=>{setKey(k=>k+1);setInvites(rows)};window.rows=rows;window.longList=setLongList;window.navigateAway=()=>setActiveRoute('home');window.returnToInvites=()=>setActiveRoute('more');window.switchContext=setContextId;
+const contentScrollRef=useRef(null),pendingScrollRestoreRef=useRef(null);const scrollBounds=useMemo(()=>createCoachScrollBounds(options=>contentScrollRef.current?.scrollTo(options)),[]);const activeContext={id:contextId},user={id:'coach',activeTeamId:'team',roleRank:rank};${scrollLifecycle}
+window.navigationCalls=window.navigationCalls||[];const extraMatches=longList?Array.from({length:18},(_,i)=>({...match,id:'earlier-'+i,opponent:'Earlier opponent '+i,matchDate:'2099-08-'+String(i+1).padStart(2,'0')})):[];
+const palette=createMatchInvitesTheme({clubAccent:'#1d3f78'},mode).tokens;return <ScrollView ref={contentScrollRef} {...scrollBounds.handlers} testID="coach-content-scroll" scrollEventThrottle={16} style={{height:'100vh'}}><View dataSet={{mode,rank,stale:String(stale)}} style={{backgroundColor:palette.background,padding:8,minHeight:'100vh'}}>{notice?<Text style={{color:palette.textPrimary}}>{notice}</Text>:null}{activeRoute==='more'?<InvitesDomain key={contextId+':'+key} data={{matches:[...extraMatches,match,{...match,id:'fixture-two',opponent:'Second opponent'}],match:invites,players:names.map((playerName,i)=>({id:'player-'+i,playerName,shirtNumber:String([4,1,7,10,9,22,27,98,11,27,5,8,15,3,18,20,6][i])})),training:rows.map((r,i)=>({...r,id:'training-'+i,kind:'training',eventId:'training-one',occurrenceDate:'2099-09-14',title:'Monday Training',status:i===0?'maybe':i===1?'unavailable':r.status}))}} palette={palette} styles={phaseStyles(palette)} user={user} stale={stale} load={async()=>{}} reloadHome={async()=>{}} setNotice={setNotice} onCaptureScrollPosition={scrollBounds.getOffset} onRestoreScrollPosition={restoreContentScrollPosition} onNavigate={(route,target)=>window.navigationCalls.push({route,target})}/>:<Text>Another tab</Text>}</View></ScrollView>};createRoot(document.getElementById('root')).render(<App/>);`
 const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
 await writeFile(`${out}/app.js`,result.outputFiles[0].text)
 await writeFile(`${out}/index.html`,'<meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0"><div id="root"></div><script src="app.js"></script>')
@@ -101,6 +105,78 @@ try{
  }
  for(const width of [390,320]) {await page.setViewportSize({width,height:844});await assertRenderedTextContrast(page,`Training ${width}`);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:`${out}/training-${width}.png`,fullPage:true})}
  await page.getByRole('button',{name:'All events',exact:true}).click();await page.getByRole('button',{name:'Open availability for St Neots'}).waitFor()
+ await page.setViewportSize({width:390,height:844})
+ await page.evaluate(()=>{window.rank(50);window.notice('');window.reset();window.longList(true)})
+ const scroll=page.getByTestId('coach-content-scroll')
+ await page.getByRole('button',{name:'Open availability for Earlier opponent 0',exact:true}).waitFor()
+ assert.equal(await page.getByRole('button',{name:'Invitation actions',exact:true}).count(),0,'No empty menu is offered before choosing an event')
+ await fixtureCard.scrollIntoViewIfNeeded()
+ await page.waitForFunction(()=>document.querySelector('[data-testid="coach-content-scroll"]').scrollTop>1000)
+ const previousOffset=await scroll.evaluate(element=>element.scrollTop)
+ const previousCardTop=(await fixtureCard.boundingBox()).y
+ await fixtureCard.click()
+ await page.getByRole('button',{name:'Filter Awaiting, 3 players'}).waitFor()
+ await page.waitForFunction(()=>document.querySelector('[data-testid="coach-content-scroll"]').scrollTop===0)
+ await page.getByRole('button',{name:'Filter Awaiting, 3 players'}).click()
+ await page.getByRole('button',{name:'Sort by player'}).click()
+ assert.match(await boxes().first().getAttribute('aria-label'),/^Stanley/)
+ await boxes().first().click()
+ await page.getByRole('button',{name:'Invitation actions',exact:true}).click()
+ const menu=page.getByLabel('Invitation actions menu',{exact:true})
+ await menu.waitFor()
+ const menuBox=await menu.boundingBox()
+ assert.ok(menuBox.y>=40&&menuBox.y+menuBox.height<600,'The menu opens within the visible viewport above the player table')
+ assert.equal(await boxes().count(),3,'Opening actions preserves the response filter')
+ assert.match(await boxes().first().getAttribute('aria-label'),/^Stanley/,'Opening actions preserves player sorting')
+ assert.equal(await page.getByText('1 Player selected.',{exact:true}).count(),1,'Opening actions preserves selection')
+ await menu.getByRole('button',{name:'Open Match Day',exact:true}).click()
+ assert.deepEqual(await page.evaluate(()=>window.navigationCalls.at(-1)),{route:'matchday',target:{fixtureId:'fixture-one'}})
+ await menu.getByRole('button',{name:'Open Calendar',exact:true}).click()
+ assert.deepEqual(await page.evaluate(()=>window.navigationCalls.at(-1)),{route:'calendar',target:{sourceId:'fixture-one',sourceType:'match_day',occurrenceDate:'2099-09-06'}})
+ await page.screenshot({path:`${out}/visible-invitation-menu.png`})
+ await menu.getByRole('button',{name:'Close actions',exact:true}).click()
+ await page.getByRole('button',{name:'All events',exact:true}).click()
+ await fixtureCard.waitFor()
+ await page.waitForFunction(expected=>Math.abs(document.querySelector('[data-testid="coach-content-scroll"]').scrollTop-expected)<2,previousOffset)
+ assert.ok(Math.abs((await fixtureCard.boundingBox()).y-previousCardTop)<2,'Back returns the chosen fixture to its previous position in the event list')
+ await page.screenshot({path:`${out}/restored-event-list.png`})
+ // Repeat the video journey to catch positions accidentally overwritten by detail scrolling.
+ await fixtureCard.click()
+ await page.getByRole('button',{name:'Invitation actions',exact:true}).click()
+ await page.getByRole('button',{name:'Close actions',exact:true}).click()
+ await page.getByRole('button',{name:'All events',exact:true}).click()
+ await page.waitForFunction(expected=>Math.abs(document.querySelector('[data-testid="coach-content-scroll"]').scrollTop-expected)<2,previousOffset)
+ await page.getByRole('button',{name:'Open availability for Second opponent',exact:true}).click()
+ await page.getByRole('button',{name:'Invitation actions',exact:true}).click()
+ await page.evaluate(()=>window.stale(true))
+ await page.locator('[data-stale="true"]').waitFor()
+ assert.equal(await page.getByRole('button',{name:'Choose 17 Team Players with no request',exact:true}).getAttribute('aria-disabled'),'true','Offline actions cannot create requests')
+ await page.evaluate(()=>{window.stale(false);window.rank(10)})
+ await page.locator('[data-rank="10"][data-stale="false"]').waitFor()
+ assert.equal(await page.getByRole('button',{name:'Choose 17 Team Players with no request',exact:true}).getAttribute('aria-disabled'),'true','Request creation retains the staff role gate')
+ await page.evaluate(()=>window.rank(50))
+ await page.getByRole('button',{name:'Choose 17 Team Players with no request',exact:true}).click()
+ const requestHeading=page.getByText('Create availability requests',{exact:true})
+ await requestHeading.waitFor()
+ assert.ok((await requestHeading.boundingBox()).y<400,'Request setup appears where the menu was opened, above the table')
+ await page.getByRole('button',{name:'All events',exact:true}).click()
+ await page.getByRole('button',{name:'Open availability for Monday Training',exact:true}).click()
+ await page.getByRole('button',{name:'Invitation actions',exact:true}).click()
+ await menu.waitFor()
+ assert.equal(await menu.getByRole('button',{name:'Open Match Day',exact:true}).count(),0)
+ await menu.getByRole('button',{name:'Open Calendar',exact:true}).click()
+ assert.deepEqual(await page.evaluate(()=>window.navigationCalls.at(-1)),{route:'calendar',target:{sourceId:'training-one',sourceType:'calendar_event',occurrenceDate:'2099-09-14'}})
+ await page.evaluate(()=>window.navigateAway())
+ await page.getByText('Another tab',{exact:true}).waitFor()
+ await page.evaluate(()=>window.returnToInvites())
+ await page.getByRole('button',{name:'Open availability for Earlier opponent 0',exact:true}).waitFor()
+ await page.waitForFunction(()=>document.querySelector('[data-testid="coach-content-scroll"]').scrollTop===0)
+ await fixtureCard.click()
+ await page.getByRole('button',{name:'Invitation actions',exact:true}).waitFor()
+ await page.evaluate(()=>window.switchContext('team-two'))
+ await page.getByRole('button',{name:'Open availability for Earlier opponent 0',exact:true}).waitFor()
+ await page.waitForFunction(()=>document.querySelector('[data-testid="coach-content-scroll"]').scrollTop===0)
+ assert.equal(await page.getByRole('button',{name:'Invitation actions',exact:true}).count(),0,'Context changes clear the selected event and previous list position')
  assert.deepEqual(errors,[])
- console.log('PASS: compact Match table filters/counts, empty state, sorting, selection clearing, shirt numbers, message details, staff Seen exclusion, selected resend confirmation/permissions, training filters and navigation, fixture reset, light/dark contrast, 320/390px and no console errors.')
+ console.log('PASS: compact Match table filters/counts, sorting and permissions; visible contextual actions, exact fixture/calendar targets, request setup, repeated Back scroll restoration, route/context resets, light/dark contrast, 320/390px and no console errors.')
 }finally{await browser.close()}

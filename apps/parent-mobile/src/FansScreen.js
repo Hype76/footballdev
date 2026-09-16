@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, AppState, Image, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, AppState, Image, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Crypto from 'expo-crypto'
 import * as Notifications from 'expo-notifications'
@@ -22,7 +22,7 @@ import { FanPlayerCard } from './FanPlayerCard'
 import { PartnersBanner, PartnersScreen } from './PartnersScreen'
 import { readFanDeviceNotifications, enableFanDeviceNotifications } from './fanDeviceNotifications'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
-import { themeForeground } from '../../mobile-core/src/themeContrast'
+import { mixThemeColor, themeForeground } from '../../mobile-core/src/themeContrast'
 
 function FanSwitch({ value, disabled = false, accessibilityLabel, onValueChange, inline = false }) {
   const tokens = useContext(FansTheme)
@@ -41,10 +41,41 @@ async function request(body) {
   const origin = getMobileRuntimeConfig('parent').apiBaseUrl.replace(/\/$/, '')
   return fetchFansJson(`${origin}/.netlify/functions/fans`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
 }
-function Action({ icon, label, onPress, disabled, primary = false }) {
+function Action({ icon, label, onPress, disabled, primary = false, compact = false }) {
   const tokens = useContext(FansTheme)
   const styles = useMemo(() => createStyles(tokens), [tokens])
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[styles.action, primary && styles.primaryAction, disabled && { opacity: 0.5 }]}>{icon ? <ParentIcon iconKey={icon} color={primary ? tokens.accentForeground : tokens.accentText} size={25} /> : null}<Text style={[styles.actionLabel, primary && styles.primaryActionLabel]}>{label}</Text></Pressable>
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[styles.action, primary && styles.primaryAction, compact && styles.compactAction, disabled && { opacity: 0.5 }]}>{icon ? <ParentIcon iconKey={icon} color={primary ? tokens.accentForeground : tokens.accentText} size={compact ? 22 : 25} /> : null}<Text style={[styles.actionLabel, primary && styles.primaryActionLabel, compact && { fontSize: 14 }]}>{label}</Text></Pressable>
+}
+function OwnedFanRow({ connection, busy, onEdit, onRemove, onRenew, onDelete }) {
+  const tokens = useContext(FansTheme)
+  const styles = useMemo(() => createStyles(tokens), [tokens])
+  const [expanded, setExpanded] = useState(false)
+  const { width } = useWindowDimensions()
+  const narrow = width < 360
+  const status = connection.status
+  const iconAction = (label, icon, onPress, destructive = false) => <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={`${label} for ${connection.name}`} disabled={busy} onPress={onPress} style={[styles.fanIconAction, busy && { opacity: 0.5 }]}><ParentIcon iconKey={icon} color={destructive ? tokens.danger : tokens.accentText} size={21} /></Pressable>
+  const detailLabel = `${expanded ? 'Hide' : 'Show'} access for ${connection.name}`
+  return <View testID={`owner-fan-${connection.id}`} style={styles.ownerFan}>
+    <View style={styles.ownerFanRow}>
+      <Pressable accessibilityRole="button" accessibilityLabel={detailLabel} accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={styles.fanIdentity}>
+        {!narrow ? <ParentIcon iconKey={connection.relationship_type === 'player' ? 'child' : 'fans'} color={tokens.accentText} size={24} /> : null}
+        <View style={styles.copy}><Text numberOfLines={1} style={styles.fanName}>{connection.name}</Text><Text numberOfLines={1} style={styles.fanEmail}>{connection.email}</Text></View>
+      </Pressable>
+      <View style={styles.fanStatus}><ParentIcon iconKey="fiber-manual-record" color={status === 'active' ? tokens.success : tokens.textSecondary} size={9} /><Text style={styles.fanStatusText}>{status.slice(0, 1).toUpperCase() + status.slice(1)}</Text></View>
+      <View style={styles.fanIconActions}>
+        {status === 'active' ? <>{iconAction('Edit access', 'action.edit', onEdit)}{iconAction('Revoke access', 'delete-outline', onRemove, true)}</> : null}
+        {['pending', 'expired'].includes(status) ? <>{iconAction('Resend link', 'fan.email', () => onRenew('email'))}{iconAction('Show QR code', 'fan.qr', () => onRenew('qr'))}</> : null}
+        {status === 'cancelled' ? iconAction('Delete', 'delete-outline', onDelete, true) : null}
+        <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${connection.name} details`} accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={styles.fanIconAction}><ParentIcon iconKey={expanded ? 'section.collapse' : 'action.open'} color={tokens.textSecondary} size={21} /></Pressable>
+      </View>
+    </View>
+    {expanded ? <View style={styles.fanDetails}>
+      <Text style={styles.label}>{connection.name}</Text><Text selectable style={styles.helper}>{connection.email}</Text>
+      <Text style={styles.helper}>{connection.relationship_type === 'player' ? 'Player account' : 'Fan account'} | {status.slice(0, 1).toUpperCase() + status.slice(1)}</Text>
+      <Text style={styles.helper}>{FAN_ACCESS.filter(item => connection.permissions[item.key]).map(item => item.label).join(', ') || 'No shared access'}</Text>
+      {status === 'pending' ? <View style={styles.actions}><Action icon="action.edit" label="Edit access" disabled={busy} onPress={onEdit} /><Action icon="delete-outline" label="Cancel invitation" disabled={busy} onPress={onRemove} /></View> : null}
+    </View> : null}
+  </View>
 }
 function ClubBrand({ source }) {
   const brand = fanBrandingLink(source)
@@ -189,8 +220,9 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const viewTitle = { schedule: 'Schedule', matches: 'Game Day', development: 'Development records', resources: 'Resources', notifications: 'Notifications' }[state.view?.action] || 'Shared items'
   const closeContent = () => { state.clearView(); setFormation(null) }
   const followed = state.connections.filter(c => !c.is_owner && c.status === 'active')
+  const ownedFans = state.connections.filter(c => c.is_owner && c.parent_link_id === parent?.id)
   const showSection = next => { setSection(next); closeContent(); localScrollRef.current?.scrollTo({ y: 0, animated: false }) }
-  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, { backgroundColor: state.view ? tokens.portalSurface : displayMode === 'light' ? '#f7f8fa' : tokens.portalBackground }]}>{!embedded && brandSource ? <ClubBrand source={brandSource} /> : null}
+  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, embedded && { padding: 0 }, { backgroundColor: state.view ? tokens.portalSurface : displayMode === 'light' ? '#f7f8fa' : tokens.portalBackground }]}>{!embedded && brandSource ? <ClubBrand source={brandSource} /> : null}
     {section === 'more' && !state.view ? <>
       <Text accessibilityRole="header" style={styles.title}>More</Text>
       <Action icon="settings" label="Settings" onPress={() => showSection('settings')} />
@@ -221,12 +253,11 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
       {state.contentError ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <Text accessibilityLiveRegion="polite" style={{ color: tokens.textPrimary }}>Loading {viewTitle.toLowerCase()}...</Text> : <FanContent key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
     </> : <>
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
-    <View style={{ marginBottom: 14 }}><Text accessibilityRole="header" style={[styles.title, { fontSize: 28, marginBottom: 5 }]}>Players</Text><Text style={styles.helper}>Follow your players and view what has been shared with you.</Text></View>
+    <View style={styles.playersHeading}><View style={styles.copy}><Text accessibilityRole="header" style={styles.title}>Players</Text><Text style={styles.helper}>{parents.length ? 'Players linked to this account.' : 'Follow your players and view what has been shared with you.'}</Text></View>{parents.length ? <Action compact primary icon="person-add" label="Invite a Fan" disabled={busy} onPress={() => begin()} /> : null}</View>
     {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
     {state.loading ? <Text style={{ color: tokens.textPrimary }}>Loading Fans...</Text> : null}
     {parents.length ? <>
-      <View style={styles.actions}>{parents.map((p) => <Action key={p.id} icon="child" label={`${p.playerName}${parent?.id === p.id ? ' (selected)' : ''}`} disabled={busy} onPress={() => { setParentId(p.id); onSelectedParentLinkChange?.(p.id); setForm(null); setReady(null); state.clearView() }} />)}</View>
-      <Action primary icon="person-add" label="Invite a Fan" disabled={busy} onPress={() => begin()} />
+      <View style={styles.ownerPlayerList}>{parents.map((p) => <Pressable key={p.id} accessibilityRole="button" accessibilityLabel={`${p.playerName}${parent?.id === p.id ? ' (selected)' : ''}`} accessibilityState={{ selected: parent?.id === p.id }} disabled={busy} onPress={() => { setParentId(p.id); onSelectedParentLinkChange?.(p.id); setForm(null); setReady(null); state.clearView() }} style={[styles.ownerPlayer, busy && { opacity: 0.5 }]}><ParentIcon iconKey="child" color={tokens.accentText} size={28} /><Text numberOfLines={1} style={styles.playerName}>{p.playerName}</Text>{parent?.id === p.id ? <Text style={styles.selectedBadge}>Selected</Text> : null}<View style={{ flex: 1 }} /><ParentIcon iconKey="action.open" color={tokens.textSecondary} size={21} /></Pressable>)}</View>
       {form ? <View>
         <Text style={styles.label}>Name</Text><TextInput accessibilityLabel="Fan name" autoComplete="name" editable={!form.id} maxLength={120} value={form.name} onChangeText={(name) => setForm({ ...form, name })} style={styles.input} />
         <Text style={styles.label}>Email</Text><TextInput accessibilityLabel="Fan email" autoComplete="email" autoCapitalize="none" keyboardType="email-address" editable={!form.id} maxLength={254} value={form.email} onChangeText={(email) => setForm({ ...form, email })} style={styles.input} />
@@ -235,11 +266,12 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
         <View style={styles.actions}>{form.id ? <Action label="Review changes" onPress={() => review('edit')} /> : <><Action icon="fan.email" label="Email" onPress={() => review('email')} disabled={busy} /><Action icon="fan.qr" label="QR code" onPress={() => review('qr')} disabled={busy} /><Action icon="fan.share" label="Share link" onPress={() => review('share')} disabled={busy} /></>}<Action label="Cancel" onPress={() => setForm(null)} /></View>
       </View> : null}
       {ready ? <View><Text style={{ color: tokens.textPrimary }}>Invitation ready for {ready.name} ({ready.email}). Expires {formatParentProductDateTime(ready.expires_at, { year: 'numeric' })}.</Text>{ready.mode === 'qr' ? <Qr value={ready.url} /> : null}<View style={styles.actions}><Action icon="fan.share" label="Share invitation" onPress={() => Share.share({ message: ready.url })} /><Action icon="fan.email" label="Send email" onPress={() => run(() => request({ action: 'send_invitation', connectionId: ready.id }))} /></View></View> : null}
-      <Text accessibilityRole="header" style={styles.heading}>Your player's Fans</Text>
-      {state.connections.filter((c) => c.is_owner && c.parent_link_id === parent?.id).map((c) => <View style={styles.person} key={c.id}><View style={styles.row}><ParentIcon iconKey="fans" color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{c.name}</Text><Text style={{ color: tokens.textPrimary }}>{c.email}</Text><Text style={styles.helper}>{c.status} · {c.relationship_type === 'player' ? 'Player account · ' : ''}{FAN_ACCESS.filter((p) => c.permissions[p.key]).map((p) => p.label).join(', ')}</Text></View></View>{['active', 'pending'].includes(c.status) ? <View style={styles.actions}><Action label="Edit access" onPress={() => begin(c)} /><Action label={c.status === 'pending' ? 'Cancel invitation' : 'Revoke access'} onPress={() => remove(c, false)} /></View> : null}{['pending', 'expired'].includes(c.status) ? <View style={styles.actions}><Action icon="fan.email" label="Resend link" disabled={busy} onPress={() => reopenInvitation(c, 'email')} /><Action icon="fan.qr" label="Show QR code" disabled={busy} onPress={() => reopenInvitation(c, 'qr')} /></View> : null}{c.status === 'cancelled' ? <Action icon="delete-outline" label="Delete" disabled={busy} onPress={() => deleteInvitation(c)} /> : null}</View>)}
+      <View style={styles.fansHeading}><View style={styles.row}><Text accessibilityRole="header" style={[styles.heading, { marginTop: 0, flex: 1, fontSize: 22, fontWeight: '800' }]}>Your player's Fans</Text><Text accessibilityLabel={`${ownedFans.length} accounts and invitations`} style={styles.fanCount}>{ownedFans.length}</Text></View><Text style={styles.helper}>Manage sharing for {parent?.playerName}.</Text></View>
+      <View style={styles.ownerFanList}>{ownedFans.map(c => <OwnedFanRow key={c.id} connection={c} busy={busy} onEdit={() => begin(c)} onRemove={() => remove(c, false)} onRenew={mode => reopenInvitation(c, mode)} onDelete={() => deleteInvitation(c)} />)}</View>
+      {!state.loading && !ownedFans.length ? <Text style={styles.helper}>No Fan accounts for this player yet.</Text> : null}
     </> : null}
     <View accessibilityLabel="Players you follow">{state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode).tokens}><FanPlayerCard connection={c} mode={displayMode} busy={busy} SwitchControl={FanSwitch} onOpen={(action) => { setFormation(null); void state.open(c.id, action) }} onNotifications={(value) => run(() => state.manage(c.id, value ? 'notifications_on' : 'notifications_off'))} /></FansTheme.Provider>)}</View>
-    {!state.loading && !state.connections.some(c => !c.is_owner && c.status === 'active') ? <Text style={styles.helper}>You are not following any players yet. Open a Fan invitation to get started.</Text> : null}
+    {!parents.length && !state.loading && !state.connections.some(c => !c.is_owner && c.status === 'active') ? <Text style={styles.helper}>You are not following any players yet. Open a Fan invitation to get started.</Text> : null}
 
 
     <Modal visible={Boolean(convertAccount)} transparent animationType="fade" onRequestClose={() => setConvertAccount(null)}><View style={styles.overlay}><View style={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Make this the Player account?</Text><Text style={styles.helper}>{convertAccount?.name} will be able to see this player's current attendance. They cannot accept or decline invitations. Existing shared access is retained.</Text><Action label="Confirm Player account" disabled={busy} onPress={() => run(async () => { await rpc('set_fan_player_account', { connection_id_value: convertAccount.id, player_account_value: true }); await state.reload(); setConvertAccount(null); setForm(null) })} /><Action label="Cancel" disabled={busy} onPress={() => setConvertAccount(null)} /></View></View></Modal>
@@ -258,6 +290,11 @@ function createStyles(tokens) { return StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, copy: { flex: 1, minWidth: 0 }, helper: { color: tokens.textSecondary, fontSize: 14, lineHeight: 20 }, label: { color: tokens.textPrimary, fontWeight: '700', fontSize: 16 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, action: { minHeight: 46, paddingVertical: 10, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }, actionLabel: { color: tokens.accentText, fontWeight: '700' },
   primaryAction: { minHeight: 54, justifyContent: 'center', paddingHorizontal: 18, marginVertical: 8, borderRadius: 10, backgroundColor: tokens.buttonPrimary }, primaryActionLabel: { fontSize: 17, color: tokens.accentForeground },
+  compactAction: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 8, marginVertical: 0, gap: 7, borderRadius: 9 },
+  playersHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  ownerPlayerList: { borderRadius: 6, overflow: 'hidden', backgroundColor: tokens.portalSurface }, ownerPlayer: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingVertical: 5, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: mixThemeColor(tokens.border, tokens.portalSurface, 0.65) }, playerName: { flexShrink: 1, color: tokens.textPrimary, fontSize: 14, fontWeight: '700' }, selectedBadge: { color: tokens.accentText, backgroundColor: tokens.accentSoft, fontSize: 12, fontWeight: '600', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4 },
+  fansHeading: { gap: 3, marginTop: 8 }, fanCount: { color: tokens.textPrimary, backgroundColor: mixThemeColor(tokens.border, tokens.portalSurface, 0.65), minWidth: 27, textAlign: 'center', borderRadius: 14, fontSize: 13, fontWeight: '700', paddingVertical: 4, paddingHorizontal: 8 },
+  ownerFanList: { backgroundColor: tokens.portalSurface }, ownerFan: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: mixThemeColor(tokens.border, tokens.portalSurface, 0.65) }, ownerFanRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingLeft: 8, gap: 4 }, fanIdentity: { flex: 1, minWidth: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9 }, fanName: { color: tokens.textPrimary, fontSize: 14, lineHeight: 18, fontWeight: '700' }, fanEmail: { color: tokens.textSecondary, fontSize: 12, lineHeight: 16 }, fanStatus: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 3 }, fanStatusText: { color: tokens.textSecondary, fontSize: 12, lineHeight: 16 }, fanIconActions: { flexDirection: 'row', alignItems: 'center' }, fanIconAction: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }, fanDetails: { gap: 6, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: tokens.surfaceRaised },
   input: { minHeight: 48, borderWidth: 1, borderColor: tokens.border, borderRadius: 8, padding: 12, marginVertical: 8, color: tokens.textPrimary }, permission: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: tokens.border },
   person: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: tokens.border, gap: 6 }, error: { color: tokens.danger }, overlay: { flex: 1, backgroundColor: '#0008', justifyContent: 'center', padding: 20 }, modal: { backgroundColor: tokens.portalSurface, padding: 22, gap: 16, borderRadius: 12 }, permissionText: { fontWeight: '600', color: tokens.textPrimary },
 }) }

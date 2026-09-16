@@ -951,6 +951,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
   const [players, setPlayers] = useState([])
   const [detail, setDetail] = useState(null)
   const [error, setError] = useState('')
+  const [cacheWarning, setCacheWarning] = useState('')
   const [filter, setFilter] = useState('upcoming')
   const [form, setForm] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -972,7 +973,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
     ...((trainingLocations[0] || '').trim() ? { location: trainingLocations[0] } : {}),
   }), [context, trainingLocations])
   const load = useCallback(async ({ reuseFresh = false } = {}) => {
-    setError(''); setLoading(true)
+    setError(''); setCacheWarning(''); setLoading(true)
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
     const hasCachedSessions = Array.isArray(cached?.resources?.sessions)
     if (hasCachedSessions) {
@@ -1001,9 +1002,20 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
         ? getSavedLocationOptions(calendarRows)
         : Array.isArray(cached?.resources?.trainingLocations) ? cached.resources.trainingLocations : []
       setSessions(rows); setPlayers(playerRows); setTrainingEvents(nextTrainingEvents); setTrainingLocations(nextTrainingLocations); setStale(false)
-      await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows, trainingEvents: nextTrainingEvents, trainingLocations: nextTrainingLocations })
+      try {
+        await saveCoachOfflineResources(user.id, context, { sessionPlayers: playerRows, sessions: rows, trainingEvents: nextTrainingEvents, trainingLocations: nextTrainingLocations })
+      } catch {
+        // The live read succeeded. A rejected cache write must not report a load failure.
+        setCacheWarning('Sessions are up to date, but this phone could not save an offline copy. Keep an internet connection while using Sessions.')
+      }
     } catch (loadError) {
-      if (!hasCachedSessions) setError(message(loadError, 'Sessions could not be loaded.'))
+      const accessDenied = loadError?.code === '42501' || /permission denied|row.level security|not authori[sz]ed/i.test(String(loadError?.message || ''))
+      if (accessDenied) {
+        setSessions([]); setPlayers([]); setTrainingEvents([]); setTrainingLocations([]); setStale(true)
+      }
+      setError(accessDenied
+        ? 'Your current access does not allow these Sessions to be loaded. Refresh your workspace or contact a club administrator.'
+        : message(loadError, hasCachedSessions ? 'Sessions could not be refreshed. Showing saved information.' : 'Sessions could not be loaded.'))
     } finally { setLoading(false) }
   }, [context, user])
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
@@ -1061,6 +1073,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
     <View style={styles.stack}>
       <DomainHeader copy="Create repeating training invitations for parents, or manage separate assessment Sessions and Player notes." styles={styles} title="Sessions" />
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
+      {cacheWarning && !error ? <View accessibilityLiveRegion="polite" style={styles.warning}><Text style={styles.body}>{cacheWarning}</Text><Button label="Try saving offline again" onPress={() => load()} secondary styles={styles} /></View> : null}
       {trainingNotice ? <View style={styles.card}><Text style={styles.cardTitle}>{trainingNotice}</Text></View> : null}
       {policy.canCreate && !trainingForm && !form ? <Button label="Create training session" onPress={() => { setDetail(null); setTrainingForm(createTrainingForm()) }} styles={styles} /> : null}
       {trainingForm ? (

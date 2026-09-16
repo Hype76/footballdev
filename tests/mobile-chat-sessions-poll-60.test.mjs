@@ -86,7 +86,9 @@ test('Parent Chat audit records an auth-only Parent without violating the staff 
 test('Coach More opens the canonical Sessions workspace instead of a placeholder route', async () => {
   const app = await readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8')
   const moreStart = app.indexOf("if (activeRoute === 'more')")
-  const moreBranch = app.slice(moreStart, moreStart + 900)
+  const moreEnd = app.indexOf("  return <FoundationRoute route={activeRoute}", moreStart)
+  assert.ok(moreStart >= 0 && moreEnd > moreStart)
+  const moreBranch = app.slice(moreStart, moreEnd)
 
   assert.match(moreBranch, /moreRoute === 'sessions'[\s\S]*<CoachSessionsScreen/)
   assert.ok(moreBranch.indexOf("moreRoute === 'sessions'") < moreBranch.indexOf('<FoundationRoute'))

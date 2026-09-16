@@ -59,7 +59,7 @@ const styles=theme.styles,palette=theme.palette;
 const contexts=[{id:'a',clubName:'FP TEST',teamName:'U17 Green',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}},{id:'b',clubName:'FP TEST',teamName:'Spain',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}}].slice(0,window.contextCount||2);
 const contextResolution={contexts},activeContext=contexts.find(c=>c.id===selected)||contexts[0],selectedMobileUser={roleLabel:'Team Admin'};
 const notificationState={},notificationStateStatus='ready',notice='',setNotice=()=>{},setNotificationSettingsFocusRequest=()=>{},navigation={primary:[{key:'home',label:'Home'},{key:'calendar',label:'Calendar'},{key:'matchday',label:'Match Day'},{key:'more',label:'More'}]};
-const contentScrollRef=useRef(null),contentOriginRef=useRef(0);
+const contentScrollRef=useRef(null),contentOriginRef=useRef(0),pendingScrollRestoreRef=useRef(null);
 const scrollBounds=useMemo(()=>createCoachScrollBounds(options=>{window.corrections.push(options);contentScrollRef.current?.scrollTo(options)}),[]);
 useEffect(()=>()=>scrollBounds.dispose(),[scrollBounds]);
 ${callbacks}

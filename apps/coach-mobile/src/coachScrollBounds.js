@@ -34,6 +34,7 @@ export function createCoachScrollBounds(scrollTo, clock = {
     if (Number.isFinite(y)) offset = Math.max(0, y)
   }
   return {
+    getOffset() { return offset },
     resetOffset(y = 0) {
       cancel()
       offset = Math.max(0, y)

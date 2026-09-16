@@ -174,6 +174,7 @@ function CoachHome() {
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
   const contentScrollRef = useRef(null)
+  const pendingScrollRestoreRef = useRef(null)
   const contentOriginRef = useRef(0)
   const scrollBounds = useMemo(() => createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options)), [])
   useEffect(() => () => scrollBounds.dispose(), [scrollBounds])
@@ -216,13 +217,29 @@ function CoachHome() {
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
   const scrollContentToTop = useCallback(() => {
+    if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
+    pendingScrollRestoreRef.current = null
     scrollBounds.resetOffset()
     requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: 0 }))
   }, [scrollBounds])
 
+  const restoreContentScrollPosition = useCallback((position) => {
+    const y = Math.max(0, Number(position) || 0)
+    if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
+    pendingScrollRestoreRef.current = requestAnimationFrame(() => {
+      pendingScrollRestoreRef.current = null
+      scrollBounds.resetOffset(y)
+      contentScrollRef.current?.scrollTo({ animated: false, y })
+    })
+  }, [scrollBounds])
+
   useEffect(() => {
     scrollContentToTop()
-  }, [activeRoute, scrollContentToTop])
+    return () => {
+      if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
+      pendingScrollRestoreRef.current = null
+    }
+  }, [activeRoute, activeContext?.id, user?.id, scrollContentToTop])
 
   const {
     biometricAvailable,
@@ -850,6 +867,8 @@ function CoachHome() {
               onNotificationSettingsFocus={focusNotificationSettings}
               onQuickActionHandled={handleQuickActionHandled}
               onRequestScrollTop={scrollContentToTop}
+              onCaptureScrollPosition={scrollBounds.getOffset}
+              onRestoreScrollPosition={restoreContentScrollPosition}
               onSelectContext={selectContext}
               onSelectMore={navigate}
               onSignOut={signOutWithPendingCheck}

@@ -197,7 +197,7 @@ function Empty({ copy, styles }) {
   return <View style={styles.panel}><Text style={styles.body}>{copy}</Text></View>
 }
 
-export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, palette, reloadHome, user }) {
+export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -272,7 +272,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
   }, [domain, load])
 
-  const common = { context, palette, chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
+  const common = { context, palette, chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
       {!['chat', 'invites'].includes(domain) ? <View style={styles.panel}>
@@ -841,7 +841,7 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   )
 }
 
-function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice, stale, styles, user }) {
+function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, setNotice, stale, styles, user }) {
   const loadInviteHistory = useCallback((invite) => getCoachInviteHistory(user, invite), [user])
   const [availabilityConfirm, setAvailabilityConfirm] = useState(null)
   const [availabilityError, setAvailabilityError] = useState('')
@@ -871,6 +871,30 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
   })
   const [matchId, setMatchId] = useState('')
   const [trainingKey, setTrainingKey] = useState('')
+  const eventListScrollPosition = useRef(0)
+  const pendingScrollPosition = useRef(null)
+  // The keyed list/detail container restores only after its new native layout
+  // is measured, so a longer list is not scrolled against the old detail height.
+  const restorePendingScrollPosition = () => {
+    if (pendingScrollPosition.current === null) return
+    onRestoreScrollPosition?.(pendingScrollPosition.current)
+    pendingScrollPosition.current = null
+  }
+  const showAvailability = (kind, id) => {
+    const closing = kind === 'match' ? matchId === id : trainingKey === id
+    if (!matchId && !trainingKey) eventListScrollPosition.current = onCaptureScrollPosition?.() || 0
+    pendingScrollPosition.current = closing ? eventListScrollPosition.current : 0
+    setMatchId(!closing && kind === 'match' ? id : '')
+    setTrainingKey(!closing && kind === 'training' ? id : '')
+    setSelectedPlayerIds([])
+    setRequestPanelOpen(false)
+    setPlayerIds([])
+    setShowEventActions(false)
+  }
+  const backToEvents = () => {
+    if (!matchId && !trainingKey) return onNavigate('more')
+    showAvailability(matchId ? 'match' : 'training', matchId || trainingKey)
+  }
   const [playerIds, setPlayerIds] = useState([])
   const [creating, setCreating] = useState(false)
   const [uncertainAttempt, setUncertainAttempt] = useState(null)
@@ -1105,14 +1129,13 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
     const expanded = group.key === trainingKey
     return (
       <View key={`training:${group.key}`} style={[styles.panel, expanded && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${group.title || 'Training'}`} onPress={() => { setTrainingKey(expanded ? '' : group.key); setMatchId(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]); setShowEventActions(false) }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 12, backgroundColor: palette.surface }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${group.title || 'Training'}`} onPress={() => showAvailability('training', group.key)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 12, backgroundColor: palette.surface }}>
           <MaterialIcons name="event" size={28} color={palette.textSecondary} />
           <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{group.title || 'Training'}</Text><Text style={styles.helper}>{group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}</Text>{!expanded ? <Text style={styles.helper}>Attending {trainingSummary.attending} · Awaiting {trainingSummary.awaitingResponse}</Text> : null}</View>
         </Pressable>
         {expanded ? <>
           <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
           {renderSelectedInviteActions()}
-          {showEventActions ? <Button label="Open Calendar" onPress={() => onNavigate('calendar', { sourceId: group.eventId, sourceType: 'calendar_event', occurrenceDate: group.occurrenceDate })} secondary styles={styles} /> : null}
         </> : null}
       </View>
     )
@@ -1124,16 +1147,12 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
     return (
       <View key={`match:${match.id}`} style={[styles.panel, expanded && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 8, backgroundColor: palette.surface }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => { setMatchId(expanded ? '' : match.id); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]) }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => showAvailability('match', match.id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 }}>
             <MaterialIcons name="event" size={28} color={palette.textSecondary} />
             <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{getMatchDayDisplayName({ ...match, clubName: match.clubName || user.clubName })}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>Available {matchSummary.available} · Awaiting {matchSummary.awaiting}</Text> : null}</View>
           </Pressable>
         </View>
         {expanded ? <>
-          <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
-          {showEventActions ? <Text style={styles.helper}>{matchRequestPlayerCount} Players have a request. {availablePlayers.length} current Team Players have no request.</Text> : null}
-          {renderSelectedInviteActions()}
-          {showEventActions && availablePlayers.length ? <Button label={requestPanelOpen ? 'Hide request setup' : `Choose ${availablePlayers.length} Team Players with no request`} onPress={() => setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next })} secondary styles={styles} /> : null}
           {requestPanelOpen ? <View style={styles.stack}>
             <Text style={styles.heading}>Create availability requests</Text>
             <Text style={styles.body}>{availablePlayers.length} Team Player{availablePlayers.length === 1 ? '' : 's'} currently {availablePlayers.length === 1 ? 'has' : 'have'} no request for this fixture. {playerIds.length} selected to receive one. Players who already have a request or response are excluded and cannot be resent from this action.</Text>
@@ -1144,18 +1163,28 @@ function InvitesDomain({ data, load, onNavigate, palette, reloadHome, setNotice,
             </> : <Text style={styles.body}>Every active Player already has a request.</Text>}
             {uncertainAttempt ? <Button disabled={creating || stale} label="Reconcile last request" onPress={() => void reconcile()} secondary styles={styles} /> : null}
           </View> : null}
-          {showEventActions ? <View style={styles.row}><Button label="Open Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /><Button label="Open Match Day" onPress={() => onNavigate('matchday')} secondary styles={styles} /></View> : null}
+          <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          {renderSelectedInviteActions()}
         </> : null}
       </View>
     )
   }
   return (
-    <View style={styles.stack}>
+    <View key={matchId || trainingKey || 'event-list'} onLayout={restorePendingScrollPosition} style={styles.stack}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={() => { if (!matchId && !trainingKey) onNavigate('more'); setMatchId(''); setTrainingKey(''); setSelectedPlayerIds([]); setRequestPanelOpen(false); setPlayerIds([]); setShowEventActions(false) }} style={{ minHeight: 44, width: 32, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="chevron-left" size={28} color={palette.textPrimary} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={backToEvents} style={{ minHeight: 44, width: 32, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="chevron-left" size={28} color={palette.textPrimary} /></Pressable>
         <Text accessibilityRole="header" style={{ flex: 1, color: palette.textPrimary, fontSize: 23, fontWeight: '800' }}>{trainingKey ? 'Training Invites' : 'Match Invites'}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Invitation actions" accessibilityState={{ expanded: showEventActions }} onPress={() => setShowEventActions(value => !value)} style={{ minHeight: 44, width: 40, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="more-horiz" size={24} color={palette.textPrimary} /></Pressable>
+        {matchId || trainingKey ? <Pressable accessibilityRole="button" accessibilityLabel="Invitation actions" accessibilityState={{ expanded: showEventActions }} onPress={() => setShowEventActions(value => !value)} style={{ minHeight: 44, width: 40, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="more-horiz" size={24} color={palette.textPrimary} /></Pressable> : null}
       </View>
+      {showEventActions && (selectedMatch || trainingKey) ? <View accessibilityLabel="Invitation actions menu" style={styles.panel}>
+        {selectedMatch ? <>
+          <Text style={styles.helper}>{matchRequestPlayerCount} Players have a request. {availablePlayers.length} current Team Players have no request.</Text>
+          {availablePlayers.length ? <Button disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={requestPanelOpen ? 'Hide request setup' : `Choose ${availablePlayers.length} Team Players with no request`} onPress={() => { setRequestPanelOpen((current) => { const next = !current; setPlayerIds(next ? availablePlayers.map((player) => player.id) : []); return next }); setShowEventActions(false) }} secondary styles={styles} /> : null}
+          <Button label="Open Calendar" onPress={() => onNavigate('calendar', { sourceId: selectedMatch.id, sourceType: 'match_day', occurrenceDate: selectedMatch.matchDate })} secondary styles={styles} />
+          <Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: selectedMatch.id })} secondary styles={styles} />
+        </> : <Button label="Open Calendar" onPress={() => { const group = trainingGroups.find((item) => item.key === trainingKey); if (group) onNavigate('calendar', { sourceId: group.eventId, sourceType: 'calendar_event', occurrenceDate: group.occurrenceDate }) }} secondary styles={styles} />}
+        <Button label="Close actions" onPress={() => setShowEventActions(false)} secondary styles={styles} />
+      </View> : null}
       {!matchId && !trainingKey ? <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text> : null}
       {availabilityTimeline.length
         ? availabilityTimeline.filter((entry) => matchId ? entry.kind === 'match' && entry.item.id === matchId : trainingKey ? entry.kind === 'training' && entry.item.key === trainingKey : true).map((entry) => entry.kind === 'training'
