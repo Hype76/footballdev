@@ -758,6 +758,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }, [isOffline, selectedLink?.id, selectedMobileUser])
 
   const parentSyncScopeRef = useRef('')
+  const parentActionScopeRef = useRef(0)
   parentSyncScopeRef.current = `${selectedMobileUser?.id || ''}:${selectedLink?.id || ''}`
   useEffect(() => {
     setIsSyncing(false)
@@ -851,6 +852,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     ])
     if (loadedAuthorityScopeRef.current === authorityScope) return
     loadedAuthorityScopeRef.current = authorityScope
+    parentActionScopeRef.current += 1
+    setActiveActionId('')
     setSelectedMatchId('')
     setSelectedInvitationId('')
     setSelectedMessageId('')
@@ -1245,6 +1248,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
   function handleChildChange(linkId, { stayOnFans = false } = {}) {
     if (!parentLinks.some((link) => link.id === linkId)) return
+    parentSyncScopeRef.current = `${selectedMobileUser?.id || ''}:${linkId}`
+    parentActionScopeRef.current += 1
+    requestIdRef.current += 1
+    setActiveActionId('')
+    setNotice(null)
     setSelectedLinkId(linkId)
     void saveParentOfflineSelection(selectedMobileUser, linkId).catch((error) => console.warn(error))
     setChildSwitcherOpen(false)
@@ -1378,31 +1386,41 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
   async function handleInvitationResponse(invitation, responseState) {
     if (isOffline || activeActionId) return
+    const actionScope = parentSyncScopeRef.current
+    const actionGeneration = parentActionScopeRef.current
     setActiveActionId(`invite:${invitation.invitationId}`)
     setNotice(null)
     try {
       await respondToParentInvitation(selectedMobileUser, invitation, responseState)
+      if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
       await loadParentData()
+      if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
       setNotice({ message: 'Your invitation response has been saved.', tone: 'success' })
     } catch (error) {
+      if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
       setNotice({ message: getParentFriendlyError(error, 'Your invitation response could not be saved.'), tone: 'error' })
     } finally {
-      setActiveActionId('')
+      if (actionScope === parentSyncScopeRef.current && actionGeneration === parentActionScopeRef.current) setActiveActionId('')
     }
   }
 
   async function handleMatchTransport(invitation, mode, seatsOffered = 0) {
     if (isOffline || activeActionId) return
+    const actionScope = parentSyncScopeRef.current
+    const actionGeneration = parentActionScopeRef.current
     setActiveActionId(`transport:${invitation.invitationId}`)
     setNotice(null)
     try {
       await setParentMatchTransport(selectedMobileUser, invitation, mode, seatsOffered)
+      if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
       await loadParentData()
+      if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
       setNotice({ message: 'Your carpool choice has been saved.', tone: 'success' })
     } catch (error) {
+      if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
       setNotice({ message: getParentFriendlyError(error, 'Your carpool choice could not be saved.'), tone: 'error' })
     } finally {
-      setActiveActionId('')
+      if (actionScope === parentSyncScopeRef.current && actionGeneration === parentActionScopeRef.current) setActiveActionId('')
     }
   }
 
@@ -2178,6 +2196,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 onOpenLink={handleOpenMatchLink}
                 onScorerAction={handleScorerAction}
                 onVolunteer={handleInvitationResponse}
+                onRespond={handleInvitationResponse}
+                onTransport={handleMatchTransport}
                 players={matchDayPlayers}
                 resource={{ ...resources.matches, items: visibleMatches }}
                 selectedMatch={selectedMatch}

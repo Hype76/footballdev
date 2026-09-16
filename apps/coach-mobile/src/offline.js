@@ -34,6 +34,7 @@ const cryptoProvider = {
 function unavailableStore() {
   return {
     activate() {},
+    captureScopeGuard() { throw new Error('offline_storage_boundary_rejected') },
     async update() { throw new Error('offline_storage_boundary_rejected') },
     async clear() {},
     async inspect() { return { hasDocument: false, status: 'blocked' } },
@@ -167,9 +168,32 @@ export async function readCoachOfflineResources(userId, contextId) {
   return getCoachOfflineResources(result.document, contextId)
 }
 
+export function createCoachOfflineResourceSaver(profile, context) {
+  // The caller captures this while starting a live read, before awaiting it.
+  // Only a server-loaded profile can repair a missing profile cache.
+  const liveProfile = profile?.isOfflineProfile ? null : sanitizeCoachProfile(profile)
+  const userId = normalize(profile?.id)
+  const capturedContext = typeof context === 'object' ? { ...context } : context
+  let guard
+  let scopeError
+  try { guard = store.captureScopeGuard(userId) } catch (error) { scopeError = error }
+  return async (resources) => {
+    if (scopeError) throw scopeError
+    guard()
+    return saveCoachOfflineResourcesWithProfile(userId, capturedContext, resources, liveProfile)
+  }
+}
+
 export async function saveCoachOfflineResources(userId, contextId, resources) {
+  return saveCoachOfflineResourcesWithProfile(userId, contextId, resources)
+}
+
+async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources, liveProfile = null) {
   const next = await store.update(userId, (current) => {
-    if (!current?.profile) throw new Error('offline_profile_scope_mismatch')
+    if (!current?.profile) {
+      if (!liveProfile || normalize(liveProfile.id) !== normalize(userId)) throw new Error('offline_profile_scope_mismatch')
+      current = setCoachOfflineProfile(current || createCoachOfflineDocument({ userScope: userId }), liveProfile)
+    }
     const key = typeof contextId === 'object' ? contextId.id || contextId.contextId : contextId
     const authority = current.profile.value.coachContexts.find((context) => context.id === key)
     if (!authority || (typeof contextId === 'object' && ['authorityId', 'authoritySource', 'clubId', 'role', 'teamId'].some((field) =>

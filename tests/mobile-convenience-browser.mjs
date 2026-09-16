@@ -28,7 +28,7 @@ try {
   let lookups=0,tiles=0
   await page.route('https://photon.komoot.io/**',route=>{lookups++;return route.fulfill({contentType:'application/json',body:JSON.stringify({features:[{geometry:{coordinates:[0.12,52.2]},properties:{name:'Synthetic Football Ground',city:'Cambridge'}}]})})})
   await page.route('https://tile.openstreetmap.org/**',route=>{tiles++;return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDeoAAAAASUVORK5CYII=','base64')})})
-  await page.goto('about:blank');await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div></body></html>');await page.addScriptTag({content:result.outputFiles[0].text})
+  await page.goto('about:blank');await page.clock.setFixedTime(new Date('2026-09-09T12:00:00Z'));await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div></body></html>');await page.addScriptTag({content:result.outputFiles[0].text})
   await page.getByRole('button',{name:'Selected: Alex',exact:true}).click()
   await page.getByRole('textbox',{name:'Template name'}).fill('Regular squad')
   await page.getByRole('button',{name:'Save selected players as template',exact:true}).click()

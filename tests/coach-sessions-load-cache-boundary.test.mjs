@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
 import { getCoachFriendlyError } from '../apps/coach-mobile/src/coachFriendlyErrors.js'
+import { getCoachOfflineSaveWarning } from '../apps/coach-mobile/src/coachOfflineErrors.js'
 import { normalizeCoachSession } from '../apps/mobile-core/src/coachSessionsCore.js'
 
 const source = await readFile(new URL('../apps/coach-mobile/src/CoachOperationalScreens.js', import.meta.url), 'utf8')
@@ -27,11 +28,12 @@ function controller({ cached = null, loadError = null, cacheError = null } = {})
     readMobileResource: (_user, _key, loader) => loader(),
     withMobileAsyncTimeout: loader => loader(),
     filterCoachCalendarEvents: rows => rows, getSavedLocationOptions: () => [],
-    saveCoachOfflineResources: async (_user, _context, resources) => {
+    createCoachOfflineResourceSaver: (_user, _context) => async resources => {
       calls.push('save cache')
       assert.equal(resources.sessions, liveSessions)
       if (config.cacheError) throw config.cacheError
     },
+    getCoachOfflineSaveWarning,
     message: getCoachFriendlyError,
   }
   for (const field of ['Error', 'CacheWarning', 'Loading', 'Sessions', 'Players', 'TrainingEvents', 'TrainingLocations', 'Stale']) {
@@ -121,4 +123,20 @@ test('network refresh failure keeps saved Sessions visibly stale and never calls
   assert.equal(run.state.Stale, true)
   assert.equal(run.state.CacheWarning, '')
   assert.deepEqual(run.calls, ['live read'])
+})
+
+test('offline save failures provide safe actionable categories without exposing raw native errors', () => {
+  for (const [error, category] of [
+    [new Error('offline_profile_scope_mismatch'), 'ACCESS'],
+    [new Error('offline_scope_invalidated'), 'ACCESS'],
+    [new Error('offline_cache_payload_too_large'), 'SPACE'],
+    [{ code: 'EUNSPECIFIED', message: 'SQLite database or disk is full' }, 'SPACE'],
+    [new Error('SecureStore private-native-details'), 'SECURE'],
+    [new Error('offline_storage_readback_failed'), 'DEVICE'],
+    [new Error('private-native-details'), 'SAVE'],
+  ]) {
+    const text = getCoachOfflineSaveWarning(error)
+    assert.ok(text.includes(`Reference: ${category}.`))
+    assert.doesNotMatch(text, /private-native|EUNSPECIFIED|offline_/)
+  }
 })
