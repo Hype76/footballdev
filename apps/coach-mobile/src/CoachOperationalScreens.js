@@ -107,6 +107,15 @@ function useDomainStyles(palette) {
     pickerButton: { alignItems: 'center', borderColor: palette.border, borderRadius: 10, borderWidth: 1, minHeight: 42, justifyContent: 'center', minWidth: 88, paddingHorizontal: 12 },
     pickerButtonText: { color: palette.accentText, fontSize: 14, fontWeight: '900' },
     pickerPanel: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, gap: 8, overflow: 'hidden', padding: 8 },
+    profileAction: { alignItems: 'center', flexDirection: 'row', gap: 5, justifyContent: 'center', minHeight: 44, minWidth: 44, paddingHorizontal: 6, paddingVertical: 7 },
+    profileActionText: { color: palette.accentText, fontSize: 12, fontWeight: '900' },
+    profileHeader: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12 },
+    profileIdentity: { alignItems: 'center', backgroundColor: palette.selected, borderRadius: 999, height: 42, justifyContent: 'center', width: 42 },
+    profileRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 10, minHeight: 62, paddingVertical: 10 },
+    profileSection: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 10, paddingBottom: 12 },
+    profileSectionButton: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', minHeight: 44 },
+    profileSectionTitle: { color: palette.textPrimary, flexShrink: 1, fontSize: 16, fontWeight: '900' },
+    profileStat: { alignItems: 'center', flex: 1, gap: 2, minWidth: 88, paddingVertical: 4 },
     playerCard: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 11, minHeight: 72, paddingHorizontal: 2, paddingVertical: 10 },
     playerCopy: { flex: 1, gap: 3, minWidth: 0 },
     readiness: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -725,6 +734,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   useEffect(() => () => { playerRequest.current += 1 }, [user])
   const [detail, setDetail] = useState(null)
   const [developmentOpen, setDevelopmentOpen] = useState(false)
+  const [profileSections, setProfileSections] = useState({ notes: false, stats: false, details: false })
   const [error, setError] = useState('')
   const [form, setForm] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -773,6 +783,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setError('')
     setDetail(null)
     setDevelopmentOpen(false)
+    setProfileSections({ notes: false, stats: false, details: false })
     setContactNotice('')
     setRevokeTarget(null)
     try {
@@ -793,6 +804,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setFocusedPlayer(null)
     setDetail(null)
     setDevelopmentOpen(false)
+    setProfileSections({ notes: false, stats: false, details: false })
     setForm(null)
     setError('')
     setContactNotice('')
@@ -821,6 +833,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   }
   const cancelForm = () => { setForm(null); setError(''); onRequestScrollTop?.() }
   const editPlayer = () => { setForm(coachPlayerFormFromPlayer(detail.player)); setContactNotice(''); onRequestScrollTop?.() }
+  const toggleProfileSection = (sectionName) => setProfileSections((current) => ({ ...current, [sectionName]: !current[sectionName] }))
   const updateContact = (index, changes) => setForm((current) => ({ ...current, parentContacts: current.parentContacts.map((contact, i) => i === index ? { ...contact, ...changes } : contact) }))
   const manageParent = async (contact, revoke = false) => {
     if (contactRequest.current || !detail || !policy.canEdit) return
@@ -845,7 +858,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   }
   return (
     <View style={styles.stack}>
-      {focusedPlayer && !form ? <Button label="Back to Players" onPress={closePlayer} secondary styles={styles} /> : null}
+      {focusedPlayer && !form ? <Pressable accessibilityLabel="Back to Players" accessibilityRole="button" onPress={closePlayer} style={[styles.profileAction, { alignSelf: 'flex-start' }]}><MaterialIcons color={palette.accentText} name="arrow-back" size={20} /><Text style={styles.profileActionText}>Players</Text></Pressable> : null}
       {form ? <Button disabled={saving} label={detail ? 'Back to player profile' : 'Back to Players'} onPress={cancelForm} secondary styles={styles} /> : null}
       <DomainHeader copy={focusedPlayer ? "Player information, contacts and development history." : "Your squad and trial players."} styles={styles} title={focusedPlayer ? "Player profile" : "Players"} />
       <DomainState error={error} loading={!focusedPlayer && loading} onRetry={focusedPlayer ? () => openPlayer(focusedPlayer) : load} stale={stale} styles={styles} />
@@ -879,59 +892,62 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
         </View>
       ) : null}
       {detail && !form ? (
-        <View style={styles.form}>
-          <Text style={styles.cardTitle}>{detail.player.playerName}</Text>
-          <Text style={styles.meta}>{detail.player.section} | {detail.player.positions.join(', ') || 'No position'} | Shirt {detail.player.shirtNumber || 'not set'}</Text>
-          <Text style={styles.cardTitle}>Parent and player contacts</Text>
+        <View style={styles.stack}>
+          <View style={styles.profileHeader}>
+            <View style={styles.profileIdentity}><MaterialIcons accessibilityLabel="Player" color={palette.accentText} name="person" size={27} /></View>
+            <View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.cardTitle}>{detail.player.playerName}</Text><Text style={styles.meta}>{detail.player.section} | {detail.player.positions.join(', ') || 'No position'} | Shirt {detail.player.shirtNumber || 'not set'}</Text></View>
+            {policy.canEdit ? <Pressable accessibilityLabel="Edit Player" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={editPlayer} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="edit" size={18} /><Text style={styles.profileActionText}>Edit</Text></Pressable> : null}
+          </View>
+          <View style={styles.profileSection}>
+            <View style={styles.row}><Text style={styles.profileSectionTitle}>Parent and player contacts</Text>{policy.canEdit ? <Pressable accessibilityLabel="Manage contacts" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={editPlayer} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="manage-accounts" size={18} /><Text style={styles.profileActionText}>Manage</Text></Pressable> : null}</View>
           {contactNotice ? <Text accessibilityLiveRegion="polite" style={styles.meta}>{contactNotice}</Text> : null}
           {detail.parentLinksError ? <Text style={styles.danger}>{detail.parentLinksError}</Text> : null}
           {detail.player.parentContacts.length ? detail.player.parentContacts.map((contact, index) => {
             const action = getParentPortalInviteActionForContact({ contact, links: detail.parentLinks || [], player: detail.player, isSending: Boolean(contactBusy) })
             const link = detail.parentLinks?.find((item) => item.email.toLowerCase() === contact.email.toLowerCase())
-            return <View key={`${contact.email}:${index}`} style={styles.card}>
-              <Text style={styles.cardTitle}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text>
-              <Text selectable style={styles.body}>{contact.email || 'No email added'}</Text>
-              {action.statusLabel ? <Text style={styles.meta}>{action.statusLabel}</Text> : null}
-              {policy.canEdit && !detail.parentLinksError && action.label ? <Button disabled={Boolean(contactBusy)} label={contactBusy === contact.email ? 'Sending invite...' : action.label.replace('parent portal', 'Parent app')} onPress={() => manageParent(contact)} styles={styles} /> : null}
-              {policy.canEdit && link ? <Button disabled={Boolean(contactBusy)} label="Remove Parent access" onPress={() => setRevokeTarget(link)} secondary styles={styles} /> : null}
+            return <View key={`${contact.email}:${index}`} style={styles.profileRow}>
+              <MaterialIcons color={palette.accentText} name={contact.type === 'self' ? 'person' : 'groups'} size={25} />
+              <View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text><Text selectable style={styles.body}>{contact.email || 'No email added'}</Text>{action.statusLabel ? <Text style={styles.meta}>{action.statusLabel}</Text> : null}</View>
+              {policy.canEdit && !detail.parentLinksError && action.label ? <Pressable accessibilityLabel={contactBusy === contact.email ? 'Sending Parent app invite' : action.label.replace('parent portal', 'Parent app')} accessibilityRole="button" accessibilityState={{ busy: Boolean(contactBusy), disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => manageParent(contact)} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="send" size={18} /></Pressable> : null}
+              {policy.canEdit && link ? <Pressable accessibilityLabel="Remove Parent access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(link)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /></Pressable> : null}
             </View>
           }) : <Text style={styles.body}>No contacts added yet. Add a parent contact to invite them to the Parent app.</Text>}
-          {getUnlistedParentAccessLinks({ contacts: detail.player.parentContacts, links: detail.parentLinks || [] }).map((link) => <View key={link.id} style={styles.card}>
-            <Text style={styles.cardTitle}>Additional Parent access</Text>
-            <Text selectable style={styles.body}>{link.email}</Text>
-            <Text style={styles.meta}>{link.status === 'active' ? 'Parent app linked' : 'Invitation pending'}. This account is not in the contact list.</Text>
-            {policy.canEdit ? <Button disabled={Boolean(contactBusy)} label="Remove Parent access" onPress={() => setRevokeTarget(link)} secondary styles={styles} /> : null}
+          {getUnlistedParentAccessLinks({ contacts: detail.player.parentContacts, links: detail.parentLinks || [] }).map((link) => <View key={link.id} style={styles.profileRow}>
+            <MaterialIcons color={palette.accentText} name="group-add" size={25} /><View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>Additional Parent access</Text><Text selectable style={styles.body}>{link.email}</Text><Text style={styles.meta}>{link.status === 'active' ? 'Parent app linked' : 'Invitation pending'}. This account is not in the contact list.</Text></View>
+            {policy.canEdit ? <Pressable accessibilityLabel="Remove Parent access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(link)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /></Pressable> : null}
           </View>)}
-          {policy.canEdit ? <Button disabled={Boolean(contactBusy)} label="Manage contacts" onPress={editPlayer} secondary styles={styles} /> : null}
-          {revokeTarget ? <View style={styles.card}>
+          {revokeTarget ? <View style={styles.profileSection}>
             <Text style={styles.cardTitle}>Remove Parent access?</Text>
             <Text style={styles.body}>{revokeTarget.email} will lose Parent app access to this player. Their contact details stay until you edit them.</Text>
-            <Button disabled={Boolean(contactBusy)} label={contactBusy ? 'Removing access...' : 'Confirm remove access'} onPress={() => manageParent(revokeTarget, true)} styles={styles} />
-            <Button disabled={Boolean(contactBusy)} label="Keep access" onPress={() => setRevokeTarget(null)} secondary styles={styles} />
+            <View style={styles.filterRow}><Pressable accessibilityLabel={contactBusy ? 'Removing access...' : 'Confirm remove access'} accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy), busy: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => manageParent(revokeTarget, true)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /><Text style={[styles.profileActionText, { color: palette.danger }]}>{contactBusy ? 'Removing access...' : 'Remove access'}</Text></Pressable><Pressable accessibilityLabel="Keep access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(null)} style={styles.profileAction}><Text style={styles.profileActionText}>Keep access</Text></Pressable></View>
           </View> : null}
-          <Text style={styles.body}>{detail.player.notes || 'No private notes.'}</Text>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Match stats</Text>
+          </View>
+          <View style={styles.profileSection}>
+            <Pressable accessibilityLabel={profileSections.notes ? 'Hide private notes' : 'Show private notes'} accessibilityRole="button" accessibilityState={{ expanded: profileSections.notes }} aria-expanded={profileSections.notes} onPress={() => toggleProfileSection('notes')} style={styles.profileSectionButton}><Text style={styles.profileSectionTitle}>Private notes</Text><MaterialIcons color={palette.textMuted} name={profileSections.notes ? 'expand-less' : 'expand-more'} size={24} /></Pressable>
+            {profileSections.notes ? <Text style={styles.body}>{detail.player.notes || 'No private notes.'}</Text> : null}
+          </View>
+          <View style={styles.profileSection}>
+            <Pressable accessibilityLabel={profileSections.stats ? 'Hide match stats' : 'Show match stats'} accessibilityRole="button" accessibilityState={{ expanded: profileSections.stats }} aria-expanded={profileSections.stats} onPress={() => toggleProfileSection('stats')} style={styles.profileSectionButton}><Text style={styles.profileSectionTitle}>Match stats</Text><MaterialIcons color={palette.textMuted} name={profileSections.stats ? 'expand-less' : 'expand-more'} size={24} /></Pressable>
+            {profileSections.stats ? <>
             {detail.matchStats ? <>
               <Text style={styles.meta}>Calendar year {detail.matchStats.year}</Text>
               <View style={styles.filterRow}>
-                {[['Matchday squad', detail.matchStats.matchdaySquad], ['Goals', detail.matchStats.goals], ['Assists', detail.matchStats.assists]].map(([label, value]) => <View key={label} style={[styles.card, { flexGrow: 1, minWidth: 100 }]}><Text style={styles.cardTitle}>{value ?? 'Not available'}</Text><Text style={styles.meta}>{label}</Text></View>)}
+                {[['Matchday squad', detail.matchStats.matchdaySquad], ['Goals', detail.matchStats.goals], ['Assists', detail.matchStats.assists]].map(([label, value]) => <View key={label} style={styles.profileStat}><Text style={styles.cardTitle}>{value ?? 'Not available'}</Text><Text style={styles.meta}>{label}</Text></View>)}
               </View>
               <Text style={styles.body}>Matchday squad counts completed matches where this player was selected. Goals and assists come from saved scoring records.</Text>
             </> : <Text style={styles.body}>{detail.matchStatsError || 'No match stats available yet.'}</Text>}
+            </> : null}
           </View>
-          <Button disabled={Boolean(contactBusy)} label="Refresh player details" onPress={() => openPlayer(detail.player, { force: true })} secondary styles={styles} />
-          <Text style={styles.cardTitle}>Custom fields</Text>
-          <Text style={styles.body}>{detail.fields.map((field) => field.label).join(', ') || 'No enabled fields.'}</Text>
-          <Text style={styles.cardTitle}>Session history</Text>
-          {detail.sessions.length ? detail.sessions.map((session) => <Text key={session.id} style={styles.body}>{formatUkDate(session.sessionDate)} | {session.title} | {session.status}</Text>) : <Text style={styles.body}>No Session history.</Text>}
-          {policy.canEdit ? <Button disabled={Boolean(contactBusy)} label="Edit Player" onPress={editPlayer} styles={styles} /> : null}
-          <View style={styles.filterRow}><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /><Button label="Open Resources" onPress={() => onNavigate('resources')} secondary styles={styles} /></View>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Development</Text>
+          <View style={styles.profileSection}>
+            <Pressable accessibilityLabel="Refresh player details" accessibilityRole="button" accessibilityState={{ busy: Boolean(openingPlayerId), disabled: Boolean(openingPlayerId) }} disabled={Boolean(openingPlayerId)} onPress={() => openPlayer(detail.player, { force: true })} style={styles.profileSectionButton}><Text style={styles.profileSectionTitle}>Player details</Text><MaterialIcons color={palette.accentText} name="refresh" size={22} /></Pressable>
+            <Pressable accessibilityLabel={profileSections.details ? 'Hide player details' : 'Show player details'} accessibilityRole="button" accessibilityState={{ expanded: profileSections.details }} aria-expanded={profileSections.details} onPress={() => toggleProfileSection('details')} style={styles.profileSectionButton}><Text style={styles.meta}>Custom fields and Session history</Text><MaterialIcons color={palette.textMuted} name={profileSections.details ? 'expand-less' : 'expand-more'} size={24} /></Pressable>
+            {profileSections.details ? <><Text style={styles.fieldLabel}>Custom fields</Text><Text style={styles.body}>{detail.fields.map((field) => field.label).join(', ') || 'No enabled fields.'}</Text><Text style={styles.fieldLabel}>Session history</Text>{detail.sessions.length ? detail.sessions.map((session) => <Text key={session.id} style={styles.body}>{formatUkDate(session.sessionDate)} | {session.title} | {session.status}</Text>) : <Text style={styles.body}>No Session history.</Text>}</> : null}
+          </View>
+          <View style={styles.profileSection}>
+            <View style={styles.row}><Text style={styles.profileSectionTitle}>Development</Text><View style={styles.filterRow}><Pressable accessibilityLabel="Open Development" accessibilityRole="button" onPress={() => onNavigate('development')} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="trending-up" size={18} /></Pressable><Pressable accessibilityLabel="Open Resources" accessibilityRole="button" onPress={() => onNavigate('resources')} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="folder-open" size={18} /></Pressable></View></View>
             {detail.evaluations.length ? <>
               <Text style={styles.meta}>{detail.evaluations.length} saved record{detail.evaluations.length === 1 ? '' : 's'}. Latest: {formatUkDate(detail.evaluations[0]?.date, 'No date')} | Score {detail.evaluations[0]?.averageScore ?? 'not scored'}.</Text>
-              <Button label={developmentOpen ? 'Hide recent records' : 'Show recent records'} onPress={() => setDevelopmentOpen((current) => !current)} secondary styles={styles} />
+              <Pressable accessibilityLabel={developmentOpen ? 'Hide recent records' : 'Show recent records'} accessibilityRole="button" accessibilityState={{ expanded: developmentOpen }} aria-expanded={developmentOpen} onPress={() => setDevelopmentOpen((current) => !current)} style={styles.profileSectionButton}><Text style={styles.profileActionText}>{developmentOpen ? 'Hide recent records' : 'Show recent records'}</Text><MaterialIcons color={palette.accentText} name={developmentOpen ? 'expand-less' : 'expand-more'} size={24} /></Pressable>
               {developmentOpen ? detail.evaluations.slice(0, 5).map((evaluation) => <Text key={evaluation.id} style={styles.body}>{formatUkDate(evaluation.date, 'No date')} | {evaluation.session || 'Evaluation'} | Score {evaluation.averageScore ?? 'not scored'} | {evaluation.comments || 'No comments'}</Text>) : null}
               {developmentOpen && detail.evaluations.length > 5 ? <Text style={styles.meta}>Showing the 5 most recent records. Open Development for the full history.</Text> : null}
             </> : <Text style={styles.body}>No Development records.</Text>}

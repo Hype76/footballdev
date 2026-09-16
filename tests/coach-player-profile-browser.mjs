@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
-import { mkdir, readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
+import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 
 const root = process.cwd()
 const modules = path.join(root, 'apps/coach-mobile/node_modules')
@@ -35,24 +36,40 @@ ${screen}
 const user={id:'coach',clubId:'club',activeTeamId:'team'};
 function App(){const [mode,setMode]=useState('light'),[readOnly,setReadOnly]=useState(false),[quickAction,setQuickAction]=useState(null);window.mode=setMode;window.readOnly=setReadOnly;window.quickAdd=()=>setQuickAction({intent:'create-player'});const handled=useCallback(()=>setQuickAction(null),[]);
  const context=useMemo(()=>({id:'team',clubId:'club',teamId:'team',roleRank:30,paymentAccess:{canMutate:!readOnly}}),[readOnly]);
- const palette=createCoachTheme({mode}).tokens;
+ const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;
  return <View style={{minHeight:'100vh',backgroundColor:palette.background,padding:12}}><CoachPlayersScreen context={context} user={user} palette={palette} quickAction={quickAction} onQuickActionHandled={handled} onNavigate={()=>{}} onRequestScrollTop={()=>{window.scrollRequests++;window.scrollTo(0,0)}}/></View>;
 }
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
 const browser = await chromium.launch({headless:true})
 await mkdir('output/playwright/coach-player-profile',{recursive:true})
+await writeFile('output/playwright/coach-player-profile/preview.js',result.outputFiles[0].text)
+await writeFile('output/playwright/coach-player-profile/index.html','<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Coach player profile preview</title></head><body style="margin:0;max-width:390px;margin-inline:auto"><div id="root"></div><script src="preview.js"></script></body></html>')
 try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
   const errors=[];page.on('pageerror',e=>errors.push(e.message))
+  const expectProfile = async (id) => {
+    await page.getByRole('button',{name:'Show private notes',exact:true}).or(page.getByRole('button',{name:'Hide private notes',exact:true})).waitFor()
+    if(await page.getByRole('button',{name:'Show private notes',exact:true}).count()) await page.getByRole('button',{name:'Show private notes',exact:true}).click()
+    await page.getByText('Private profile for '+id,{exact:true}).waitFor()
+  }
   await page.setContent('<body style="margin:0"><div id="root"></div></body>')
   await page.addScriptTag({content:result.outputFiles[0].text})
   await page.getByText('FP TEST Player 12',{exact:true}).click()
-  await page.getByText('Private profile for player-12',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Show private notes',exact:true}).waitFor()
+  assert.equal(await page.getByText('Private profile for player-12',{exact:true}).count(),0)
+  await page.screenshot({path:'output/playwright/coach-player-profile/compact-default-390.png',fullPage:true})
+  await expectProfile('player-12')
   assert.ok(await page.evaluate(()=>window.scrollRequests>0 && window.scrollY===0))
   assert.equal(await page.getByLabel('Search Players',{exact:true}).count(),0)
   assert.equal(await page.getByText('FP TEST Player 11',{exact:true}).count(),0)
+  await page.getByRole('button',{name:'Show match stats',exact:true}).click()
   await page.getByText('Matchday squad',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Show player details',exact:true}).click()
+  await page.getByText('No Session history.',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Hide player details',exact:true}).getAttribute('aria-expanded'),'true')
+  await page.getByRole('button',{name:'Hide player details',exact:true}).click()
+  assert.equal(await page.getByText('No Session history.',{exact:true}).count(),0)
   await page.getByRole('button',{name:'Send Parent app invite',exact:true}).first().click()
   await page.getByText('Parent invite sent to parent@example.test.',{exact:true}).waitFor()
   assert.deepEqual(await page.evaluate(()=>window.inviteCalls),['parent@example.test'])
@@ -63,6 +80,7 @@ try {
     await page.evaluate(mode=>window.mode(mode),mode);await page.setViewportSize({width,height:844})
     await page.getByRole('button',{name:'Back to Players',exact:true}).waitFor()
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+    await assertRenderedTextContrast(page, `compact Coach profile ${mode} ${width}`)
     await page.screenshot({path:'output/playwright/coach-player-profile/'+mode+'-'+width+'.png',fullPage:true})
   }
   await page.getByRole('button',{name:'Edit Player',exact:true}).click()
@@ -75,7 +93,7 @@ try {
   await page.getByRole('button',{name:'Remove contact 3',exact:true}).click()
   assert.equal(await page.getByLabel('Contact 3 name',{exact:true}).count(),0)
   await page.getByRole('button',{name:'Back to player profile',exact:true}).click()
-  await page.getByText('Private profile for player-12',{exact:true}).waitFor()
+  await expectProfile('player-12')
   await page.getByRole('button',{name:'Edit Player',exact:true}).click()
   await page.getByLabel('Player name',{exact:true}).fill('FP TEST Renamed Player')
   await page.getByRole('button',{name:'Save Player',exact:true}).click()
@@ -86,7 +104,7 @@ try {
   await page.getByRole('button',{name:/Add Player/}).click()
   await page.getByLabel('Player name',{exact:true}).fill('FP TEST Created Player')
   await page.getByRole('button',{name:'Save Player',exact:true}).click()
-  await page.getByText('Private profile for created-player',{exact:true}).waitFor()
+  await expectProfile('created-player')
   await page.getByRole('button',{name:'Back to Players',exact:true}).click()
   await page.getByText('FP TEST Created Player',{exact:true}).waitFor()
   await page.getByText('FP TEST Created Player',{exact:true}).click()
@@ -125,7 +143,7 @@ try {
   await page.getByText('FP TEST Player 14',{exact:true}).click()
   await page.getByText('Player details could not be loaded.',{exact:true}).waitFor()
   await page.getByRole('button',{name:'Try again',exact:true}).click()
-  await page.getByText('Private profile for player-14',{exact:true}).waitFor()
+  await expectProfile('player-14')
   assert.deepEqual(await page.evaluate(()=>window.requests.slice(-2)),['player-14','player-14'])
   await page.getByRole('button',{name:'Back to Players',exact:true}).click()
   assert.equal(await page.getByLabel('Search Players',{exact:true}).inputValue(),'Player 1')
@@ -134,7 +152,9 @@ try {
   await page.getByText('Opening FP TEST Player 10...',{exact:true}).waitFor()
   await page.getByRole('button',{name:'Back to Players',exact:true}).click()
   await page.getByText('FP TEST Player 11',{exact:true}).click()
-  await page.getByText('Private profile for player-11',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Show match stats',exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Show private notes',exact:true}).getAttribute('aria-expanded'),'false')
+  await expectProfile('player-11')
   await page.evaluate(()=>window.pending['player-10']())
   assert.equal(await page.getByText('Private profile for player-10',{exact:true}).count(),0)
   await page.evaluate(()=>window.setParentLinks([{id:'former-link',email:'former@example.test',status:'active'}]))
@@ -149,7 +169,7 @@ try {
   await page.getByText('Additional Parent access',{exact:true}).waitFor({state:'hidden'})
   await page.evaluate(()=>window.readOnly(true))
   await page.getByRole('button',{name:'Edit Player',exact:true}).waitFor({state:'hidden'})
-  await page.getByText('Private profile for player-11',{exact:true}).waitFor()
+  await expectProfile('player-11')
   assert.deepEqual(errors,[])
   console.log('PASS: Coach player profiles preserve contacts, reject duplicate saves, preserve newer Quick Add forms after delayed save success/error, retain filters, reject late detail responses, preserve permissions, and render at 320/390px in light/dark themes.')
 } finally {await browser.close()}

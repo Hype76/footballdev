@@ -79,6 +79,7 @@ function formatCalendarDay(value) {
 
 function colorsFor(themeTokens) {
   const tokens = themeTokens || DEFAULT_PARENT_MOBILE_THEME.tokens
+  const isDarkTheme = Number.parseInt(String(tokens.background || '#ffffff').slice(1, 3), 16) < 128
   return {
     accent: tokens.buttonPrimary,
     accentForeground: tokens.accentForeground,
@@ -95,6 +96,16 @@ function colorsFor(themeTokens) {
     pitch: tokens.pitch,
     pitchLine: tokens.pitchLine,
     success: tokens.success,
+    statusDanger: isDarkTheme ? '#fca5a5' : '#b91c1c',
+    statusDangerSurface: isDarkTheme ? '#7f1d1d' : '#fee2e2',
+    statusMuted: isDarkTheme ? '#d1d5db' : '#4b5563',
+    statusMutedSurface: isDarkTheme ? '#374151' : '#e5e7eb',
+    statusSelected: isDarkTheme ? '#bfdbfe' : '#1d4ed8',
+    statusSelectedSurface: isDarkTheme ? '#1e3a8a' : '#dbeafe',
+    statusSuccess: isDarkTheme ? '#86efac' : '#167000',
+    statusSuccessSurface: isDarkTheme ? '#14532d' : '#e1f3e1',
+    statusWarning: isDarkTheme ? '#fcd34d' : '#995900',
+    statusWarningSurface: isDarkTheme ? '#713f12' : '#fff0d0',
     text: tokens.textPrimary,
     warning: tokens.warning,
   }
@@ -610,8 +621,17 @@ function scoreVisible(match) {
 }
 
 function MatchStatusBadge({ colors, status, prefix, styles, compact = false }) {
-  const color = status.tone === 'accent' ? colors.accentText : colors[status.tone] || colors.muted
-  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: compact ? 6 : 8, paddingVertical: 6, backgroundColor: colors.card, borderWidth: 1, borderColor: color }}><ParentIcon color={color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color, fontWeight: '700', ...(compact ? { fontSize: 11, lineHeight: 16 } : {}) }]}>{status.label}</Text></View>
+  const tone = status.label === 'Selected' && status.tone === 'accent' ? 'selected' : status.tone
+  const badge = tone === 'success'
+    ? { backgroundColor: colors.statusSuccessSurface, color: colors.statusSuccess }
+    : tone === 'warning'
+      ? { backgroundColor: colors.statusWarningSurface, color: colors.statusWarning }
+      : tone === 'danger'
+        ? { backgroundColor: colors.statusDangerSurface, color: colors.statusDanger }
+        : tone === 'selected'
+          ? { backgroundColor: colors.statusSelectedSurface, color: colors.statusSelected }
+          : { backgroundColor: colors.statusMutedSurface, color: colors.statusMuted }
+  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: compact ? 9 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700', ...(compact ? { fontSize: 11, lineHeight: 16 } : {}) }]}>{status.label}</Text></View>
 }
 
 function MatchCard({ colors, invitations, link, match, onOpen, styles }) {
