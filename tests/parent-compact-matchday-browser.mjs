@@ -47,7 +47,7 @@ const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),k
 const kitImageUrl=()=> 'data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="blue"/></svg>').toString('base64')}';
 let theme;const useParentTheme=()=>theme;
 ${kit}\n${invitationCore}\n${portal}\n${app}
-const initial={id:'match',teamId:'team',clubId:'club',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[]};
+const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[]};
 const parentLink={id:'parent',clubId:'club',playerId:'child',linkType:'parent'};
 const initialInvitation={invitationId:'invitation',eventId:'match',childId:'child',parentLinkId:'parent',sourceRecordId:'request',invitationType:'match_attendance',invitationState:'active',canRespond:true,canChangeResponse:true,responseState:'available',carpoolEnabled:true};
 const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=async()=>{};
@@ -165,6 +165,40 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     const longBadges = await Promise.all(['Availability: Needs response', 'Match squad: Not announced yet'].map(label => page.getByLabel(label,{exact:true}).first().boundingBox()))
     assert.ok(Math.abs(longBadges[0].y-longBadges[1].y)<2, 'long status chips remain beside each other')
+    const expectedStatusColors = mode === 'dark'
+      ? {
+        'Availability: Available': ['rgb(134, 239, 172)', 'rgb(20, 83, 45)', 'Available'],
+        'Availability: Needs response': ['rgb(252, 211, 77)', 'rgb(113, 63, 18)', 'Needs response'],
+        'Availability: Not available': ['rgb(252, 165, 165)', 'rgb(127, 29, 29)', 'Not available'],
+        'Availability: Not responded': ['rgb(209, 213, 219)', 'rgb(55, 65, 81)', 'Not responded'],
+        'Match squad: Selected': ['rgb(191, 219, 254)', 'rgb(30, 58, 138)', 'Selected'],
+        'Match squad: Not announced yet': ['rgb(209, 213, 219)', 'rgb(55, 65, 81)', 'Not announced yet'],
+        'Match squad: Not selected': ['rgb(209, 213, 219)', 'rgb(55, 65, 81)', 'Not selected'],
+      }
+      : {
+        'Availability: Available': ['rgb(22, 112, 0)', 'rgb(225, 243, 225)', 'Available'],
+        'Availability: Needs response': ['rgb(153, 89, 0)', 'rgb(255, 240, 208)', 'Needs response'],
+        'Availability: Not available': ['rgb(185, 28, 28)', 'rgb(254, 226, 226)', 'Not available'],
+        'Availability: Not responded': ['rgb(75, 85, 99)', 'rgb(229, 231, 235)', 'Not responded'],
+        'Match squad: Selected': ['rgb(29, 78, 216)', 'rgb(219, 234, 254)', 'Selected'],
+        'Match squad: Not announced yet': ['rgb(75, 85, 99)', 'rgb(229, 231, 235)', 'Not announced yet'],
+        'Match squad: Not selected': ['rgb(75, 85, 99)', 'rgb(229, 231, 235)', 'Not selected'],
+      }
+    for (const [label, [foreground, background, text]] of Object.entries(expectedStatusColors)) {
+      const chip = page.getByLabel(label, { exact: true }).first()
+      await chip.waitFor()
+      const appearance = await chip.evaluate((element, text) => {
+        const label = [...element.querySelectorAll('*')].find(child => child.textContent.trim() === text)
+        const style = getComputedStyle(element)
+        return {
+          background: style.backgroundColor,
+          borderWidth: style.borderTopWidth,
+          foreground: label ? getComputedStyle(label).color : null,
+          radius: Number.parseFloat(style.borderTopLeftRadius),
+        }
+      }, text)
+      assert.deepEqual(appearance, { background, borderWidth: '0px', foreground, radius: 999 }, `${label} pill style`)
+    }
     await assertRenderedTextContrast(page, `match list ${mode} ${width}`)
     await page.screenshot({ path: `output/playwright/parent-compact/list-${mode}-${width}.png`, fullPage: true })
     await page.evaluate(() => {window.list(false);window.fixtures([]);window.match({confirmedTeam:['Needs Lift Player','Offering Lift Player'],squadTransport:[{playerId:'one',playerName:'Needs Lift Player',needsLift:true},{playerId:'two',playerName:'Offering Lift Player',canOfferLift:true}]})})

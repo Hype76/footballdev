@@ -1,5 +1,7 @@
 Never use em dashes or smilies. Not in chat, code, or copy.
 
+Coach and Parent mobile app design rule: do not introduce cards, boxed panels, or nested box layouts. Use compact rows, clear icons, thin separators, small actions, and expandable details where needed. Apply this to every new or changed app screen while preserving accessible touch targets, readable text, permissions, and existing functionality.
+
 User-facing dates must use UK day-first order across the platform. Numeric dates use DD:MM:YYYY. Never display YYYY-MM-DD or US month-first dates in screens, messages, reports or generated titles. Use DD-MM-YYYY in generated filenames because colons are not valid on Windows. Keep ISO formats for storage, APIs and native date-input values. Sort date-based lists using parsed dates, never formatted labels; upcoming events are soonest first and resource/report history is newest first.
 
 Mobile app releases are OTA-only by default. Do not create, submit, or promote a new App Store or Google Play build unless the user explicitly replaces this rule for a named release.

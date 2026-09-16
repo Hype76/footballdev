@@ -333,6 +333,7 @@ export async function getParentPortalMatchDays(user) {
     return normalizeParentMatchDay({
       ...row,
       ...extended,
+      club_name: String(extended.club_name ?? extended.clubName ?? row.club_name ?? row.clubName ?? '').trim() || link.clubName,
       events: (row.events || []).map((event) => ({ ...event, ...(eventContext.get(String(event.id)) || {}) })),
       is_scorer: scorerIds.has(String(row.id)),
       scorer_review_requested_at: reviewById.get(String(row.id)) || '',

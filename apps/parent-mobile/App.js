@@ -221,6 +221,20 @@ function prepareResourceItems(name, items) {
     : normalizedItems
 }
 
+function prepareParentResourceItems(name, items, selectedLink = null) {
+  const normalizedItems = Array.isArray(items) ? items : []
+  if (name === 'matches') {
+    const selectedClubId = String(selectedLink?.clubId || '').trim()
+    return normalizedItems.map((match) => {
+      const existingClubName = String(match?.clubName ?? match?.club_name ?? '').trim()
+      const matchClubId = String(match?.clubId ?? match?.club_id ?? '').trim()
+      const canUseSelectedClub = !matchClubId || (Boolean(selectedClubId) && matchClubId === selectedClubId)
+      return { ...match, clubName: existingClubName || (canUseSelectedClub ? selectedLink?.clubName : '') }
+    })
+  }
+  return prepareResourceItems(name, normalizedItems)
+}
+
 function getCalendarResourceOccurrenceKey(eventId, dateValue, sourceType = 'calendar_event') {
   const normalizedEventId = String(eventId || '').trim()
   const rawDate = String(dateValue || '').trim()
@@ -567,7 +581,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     if (cachedView?.cache && shouldHydrateCache) {
       setResources(Object.fromEntries(resourceNames.map((name) => [name, {
         error: '',
-        items: prepareResourceItems(name, cachedView.cache.resources[name]),
+        items: prepareParentResourceItems(name, cachedView.cache.resources[name], selectedLink),
         loading: !isOffline,
       }])))
       setLastUpdatedAt(cachedView.cache.retrievedAt)
@@ -661,14 +675,14 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           if (name !== 'calendar') next[name] = {
             error: result.status === 'rejected' && !cachedView?.cache
               ? getParentFriendlyError(result.reason, resourceFallbacks[name]) : '',
-            items: result.status === 'fulfilled' ? prepareResourceItems(name, result.value) : current[name].items,
+            items: result.status === 'fulfilled' ? prepareParentResourceItems(name, result.value, selectedLink) : current[name].items,
             loading: false,
           }
           if (publishCalendar) {
             const dependencyFailed = calendarDependencies.some((dependency) => settled[dependency]?.status === 'rejected')
             const calendarValue = (dependency) => settled[dependency]?.status === 'fulfilled'
-              ? prepareResourceItems(dependency, settled[dependency].value)
-              : cachedView?.cache?.resources[dependency] || []
+              ? prepareParentResourceItems(dependency, settled[dependency].value, selectedLink)
+              : prepareParentResourceItems(dependency, cachedView?.cache?.resources[dependency], selectedLink)
             next.calendar = {
               error: dependencyFailed && !cachedView?.cache ? 'Some Calendar items could not be refreshed.' : '',
               items: buildParentCalendarEvents({
@@ -687,8 +701,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
     const failed = results.filter((result) => result.status === 'rejected').length
     const valueFor = (name) => resultByName[name]?.status === 'fulfilled'
-      ? prepareResourceItems(name, resultByName[name].value)
-      : cachedView?.cache?.resources[name] || []
+      ? prepareParentResourceItems(name, resultByName[name].value, selectedLink)
+      : prepareParentResourceItems(name, cachedView?.cache?.resources[name], selectedLink)
     const combinedCalendar = buildParentCalendarEvents({
       calendarEvents: valueFor('calendar'),
       invitations: valueFor('invitations'),
