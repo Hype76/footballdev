@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
-import { readFile, mkdir } from 'node:fs/promises'
+import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
@@ -15,6 +15,7 @@ const app = await readFile('apps/parent-mobile/App.js', 'utf8')
 const handler = app.slice(app.indexOf('  function handleChildChange('), app.indexOf('  async function handleOpenMessage('))
 const sectionReset = app.match(/setMoreSection\(\(section\) => section === 'fans' \? section : ''\)/)?.[0]
 assert.ok(sectionReset, 'Authority refresh preserves the Fans route')
+assert.match(app, /moreSection && moreSection !== 'fans' \? <BackButton/, 'Embedded Fans uses the More tab instead of a duplicate Back row')
 assert.match(app, /selectedParentLinkId=\{selectedLink\?\.id\} onSelectedParentLinkChange=\{\(linkId\) => handleChildChange\(linkId, \{ stayOnFans: true \}\)\}/)
 const mocks = {
   auth: `export const useMobileAuth=()=>({user:window.user,refreshUserProfile:async()=>window.remount(),signOut:async()=>{if(window.failSignOut)throw Error('Could not sign out. Try again.');window.signedOut=(window.signedOut||0)+1}});`,
@@ -37,6 +38,13 @@ window.phonePlatform=value=>{Platform.OS=value};
 import {FansScreen} from './apps/parent-mobile/src/FansScreen.js';
 window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'First Child',clubName:'Demo FC',themeAccent:'#414b92'},{id:'second',playerName:'Second Child',clubName:'Demo FC',themeAccent:'#414b92'}]};
 window.calls=[];window.rows=[];window.saved='';window.alert=null;
+window.ownerFixture=()=>{
+ window.ownerCompact=true;window.standalone=false;
+ window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'Jenson Bailey',clubName:'Cambourne Town FC',themeAccent:'#073e83'},{id:'second',playerName:'Lucas Turner',clubName:'Football Player Demo FC',themeAccent:'#073e83'}]};
+ window.rows=['Jenson Bailey','Steve','Julie','Elyse','Grandad','Brian'].map((name,index)=>({id:'compact-'+index,parent_link_id:'first',is_owner:true,name,email:name.toLowerCase().replaceAll(' ','.')+'@example.test',relationship_type:index===0?'player':'fan',status:index===4?'expired':'active',permissions:{schedule:true,game_day:true,development:index===0,resources:false}}));
+};
+const ownerPreview=location.pathname.endsWith('/owner-preview.html');
+if(ownerPreview)window.ownerFixture();
 window.rpc=async(name,args)=>{
   window.calls.push({name,args});
   if(name==='list_fan_connections')return window.rows.filter(r=>!r.deleted);
@@ -66,13 +74,13 @@ Alert.alert=(title,message,buttons)=>{window.alert={title,message,buttons}};
 let appListener;AppState.addEventListener=(_event,fn)=>{appListener=fn;return {remove(){appListener=null}}};window.background=()=>{appListener?.('background');appListener?.('active')};
 Share.share=async()=>{window.background();return {action:'sharedAction'}};
 function App(){
- const [selectedLinkId,setSelectedLinkId]=useState('first'),[activeTab,setActiveTab]=useState('more'),[moreSection,setMoreSection]=useState('fans'),[key,setKey]=useState(0),[mode,setMode]=useState('dark');
+ const [selectedLinkId,setSelectedLinkId]=useState('first'),[activeTab,setActiveTab]=useState('more'),[moreSection,setMoreSection]=useState('fans'),[key,setKey]=useState(0),[mode,setMode]=useState(ownerPreview?'light':'dark');
  const parentLinks=window.user.parentPortalLinks,selectedMobileUser=window.user;
  const saveParentOfflineSelection=async(_user,id)=>{window.saved=id};const setChildSwitcherOpen=()=>{};
  ${handler}
  useEffect(()=>{${sectionReset}},[selectedLinkId]);
  window.remount=()=>setKey(k=>k+1);window.mode=setMode;window.navigate=()=>{setMoreSection('fans');setActiveTab('more')};window.normalSwitch=id=>handleChildChange(id);
- return <div data-mode={mode} data-tab={activeTab} data-section={moreSection}><div data-testid="header">{parentLinks.find(p=>p.id===selectedLinkId)?.playerName}</div>{activeTab==='more'&&moreSection==='fans'?<FansScreen key={key} embedded={!window.standalone} themeMode={mode} selectedParentLinkId={selectedLinkId} onSelectedParentLinkChange={id=>handleChildChange(id,{stayOnFans:true})}/>:null}</div>;
+ return <div data-mode={mode} data-tab={activeTab} data-section={moreSection} style={window.ownerCompact?{padding:16,maxWidth:518,margin:'auto',background:mode==='light'?'#f4f8f7':'#071916'}:undefined}>{!window.ownerCompact?<div data-testid="header">{parentLinks.find(p=>p.id===selectedLinkId)?.playerName}</div>:null}{activeTab==='more'&&moreSection==='fans'?<FansScreen key={key} embedded={!window.standalone} themeMode={mode} selectedParentLinkId={selectedLinkId} onSelectedParentLinkChange={id=>handleChildChange(id,{stayOnFans:true})}/>:null}</div>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
 `
@@ -89,6 +97,8 @@ const result = await build({ stdin: { contents: entry, resolveDir: root, loader:
     builder.onLoad({ filter: /.*/, namespace: 'mock' }, args => ({ contents: mocks[args.path], loader: 'jsx', resolveDir: root }))
   } }],
 })
+await writeFile(`${out}/owner-preview.js`, result.outputFiles[0].text)
+await writeFile(`${out}/owner-preview.html`, '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;font-family:system-ui,sans-serif"><div id="root"></div><script src="./owner-preview.js"></script></body></html>')
 const browser = await chromium.launch({ headless: true })
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
@@ -107,7 +117,7 @@ try {
     await page.evaluate(mode => window.mode(mode), mode)
     await page.locator(`[data-mode="${mode}"]`).waitFor()
     const box = await button('Invite a Fan').boundingBox()
-    assert.ok(box.height >= 54 && box.width > 300)
+    assert.ok(box.height >= 44 && box.width >= 120 && box.width < 200,'Invite action is compact beside Players')
     await assertRenderedTextContrast(page, `Fans ${mode}`)
     await page.screenshot({ path: `${out}/invite-${mode}.png`, fullPage: true })
   }
@@ -154,6 +164,15 @@ try {
   const creates = await page.evaluate(() => window.calls.filter(c => c.name === 'create_fan_invitation'))
   assert.equal(creates.length, 3)
   assert.equal(await page.evaluate(() => window.emailRequests), 1)
+  await button('Expand Email Fan details').click()
+  await button('Edit access').click()
+  await page.getByRole('textbox',{name:'Fan name',exact:true}).waitFor()
+  assert.equal(await page.getByRole('textbox',{name:'Fan name',exact:true}).inputValue(),'Email Fan')
+  await button('Cancel').click()
+  await button('Cancel invitation').click()
+  assert.equal(await page.evaluate(()=>window.alert.title),'End Fan access')
+  await page.evaluate(()=>window.alert.buttons[0].onPress?.())
+  await button('Collapse Email Fan details').click()
   await button('Show QR code').first().click()
   await page.getByLabel('Fan invitation QR code').waitFor()
   assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='renew_fan_invitation').length),0)
@@ -166,7 +185,7 @@ try {
   await page.waitForFunction(()=>window.emailRequests===2)
   assert.equal(await page.evaluate(()=>window.rows.length),3)
   await page.evaluate(()=>{window.rows[1].expires_at=new Date(Date.now()-60000).toISOString();window.rows[1].status='expired';window.remount()})
-  await page.getByText(/expired/).waitFor()
+  await page.getByText('Expired',{exact:true}).waitFor()
   await button('Show QR code').nth(1).click()
   await page.evaluate(()=>window.alert.buttons[1].onPress())
   await page.getByLabel('Fan invitation QR code').waitFor()
@@ -380,6 +399,52 @@ try {
   await button('Attendance').click();await page.getByText('My attendance',{exact:true}).waitFor();
   await page.getByText('Available',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:/^(Accept|Decline|Maybe)$/}).count(),0);
+  await page.evaluate(()=>{window.ownerFixture();window.mode('light');window.remount();window.normalSwitch('first');window.navigate()});
+  await button('Jenson Bailey (selected)').waitFor();
+  assert.equal(await page.getByTestId('owner-fan-compact-0').count(),1,'The real Player account is retained alongside Fans');
+  assert.equal(await page.getByLabel('6 accounts and invitations',{exact:true}).count(),1);
+  assert.equal(await page.getByText('You are not following any players yet. Open a Fan invitation to get started.').count(),0,'Parent owner view has no irrelevant follow invitation footer');
+  for(const width of [320,390,518]) {
+    await page.setViewportSize({width,height:850});
+    for(const mode of ['light','dark']) {
+      await page.evaluate(mode=>window.mode(mode),mode);
+      await page.locator('[data-mode="'+mode+'"]').waitFor();
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      await assertRenderedTextContrast(page,'Compact owner Fans '+mode+' '+width);
+      for(const label of ['Edit access','Revoke access','Show QR code','Resend link']) {
+        const box=await button(label).first().boundingBox();assert.ok(box.width>=44&&box.height>=44,'Icon actions retain 44px targets');
+      }
+      const first=await page.getByTestId('owner-fan-compact-0').boundingBox();
+      const last=await page.getByTestId('owner-fan-compact-5').boundingBox();
+      assert.ok(last.y+last.height-first.y<=324,'All six rows remain compact');
+      await page.screenshot({path:`${out}/owner-compact-${mode}-${width}.png`,fullPage:true});
+    }
+  }
+  await page.setViewportSize({width:390,height:844});
+  await button('Expand Jenson Bailey details').click();
+  await page.getByText('Player account | Active',{exact:true}).waitFor();
+  await page.getByText('jenson.bailey@example.test',{exact:true}).last().waitFor();
+  await button('Collapse Jenson Bailey details').click();
+  await button('Revoke access').nth(1).click();
+  assert.equal(await page.evaluate(()=>window.alert.title),'End Fan access');
+  await page.evaluate(()=>window.alert.buttons[0].onPress?.());
+  assert.equal(await page.getByTestId('owner-fan-compact-0').count(),1);
+  assert.equal(await page.getByTestId('owner-fan-compact-1').count(),1,'Cancelling revoke keeps the Fan');
+  await button('Show QR code').click();
+  assert.equal(await page.evaluate(()=>window.alert.title),'Renew Fan invitation?');
+  await page.evaluate(()=>window.alert.buttons[0].onPress?.());
+  await button('Edit access').first().click();
+  await page.getByRole('textbox',{name:'Fan name',exact:true}).waitFor();
+  assert.equal(await page.getByRole('textbox',{name:'Fan name',exact:true}).inputValue(),'Jenson Bailey');
+  assert.equal(await button('Make this the Player account').count(),0,'Existing Player account is preserved, not converted again');
+  await button('Cancel').click();
+  await button('Lucas Turner').click();
+  await button('Lucas Turner (selected)').waitFor();
+  await page.getByText('No Fan accounts for this player yet.').waitFor();
+  assert.equal(await page.getByTestId('owner-fan-compact-0').count(),0,'Changing child scopes the owner list');
+  await button('Jenson Bailey').click();
+  await button('Jenson Bailey (selected)').waitFor();
+  await page.getByTestId('owner-fan-compact-0').waitFor();
   assert.deepEqual(errors, [])
   console.log('PASS: native Fans child/header sync, persisted selection, email/QR/share remount, prominent branded action, confirmed cancelled-only deletion, retry after failure, normal child navigation.')
 } finally { await browser.close() }
