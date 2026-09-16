@@ -120,6 +120,7 @@ jobs:
           node --test
           tests/mobile-resource-loading-performance.test.mjs
           tests/coach-sessions-load-cache-boundary.test.mjs
+          tests/coach-offline-cache-recovery.test.mjs
           tests/parent-match-availability.test.mjs
           tests/parent-match-squad-transport-pglite.test.mjs
           tests/mobile-chat-sessions-poll-60.test.mjs
@@ -184,7 +185,7 @@ jobs:
       - name: Compile Coach and Parent mobile apps
         run: npm run mobile:export:web
       - name: Coach player profile navigation
-        run: node tests/coach-player-profile-browser.mjs
+        run: node tests/coach-player-profile-browser.mjs && node tests/coach-sessions-cache-warning-browser.mjs
       - name: Coach contacts, invite history and Resources
         run: node --test tests/coach-parent-contacts.test.mjs tests/coach-invite-history.test.mjs tests/coach-calendar-all-source-resources.test.mjs tests/coach-calendar-resource-targets-pglite.test.mjs tests/parent-derived-event-resources.test.mjs tests/mobile-parent-calendar-attachments-108.test.mjs tests/resource-library-parent-access.test.mjs && node tests/coach-resources-browser.mjs
       - name: Parent access removal and unlisted grants
