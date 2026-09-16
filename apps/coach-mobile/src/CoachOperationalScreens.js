@@ -1091,11 +1091,11 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
     <View style={styles.stack}>
       <DomainHeader copy="Create repeating training invitations for parents, or manage separate assessment Sessions and Player notes." styles={styles} title="Sessions" />
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
-      {cacheWarning && !error ? <View accessibilityLiveRegion="polite" style={styles.warning}><Text style={styles.body}>{cacheWarning}</Text><Button label="Try saving offline again" onPress={() => load()} secondary styles={styles} /></View> : null}
-      {trainingNotice ? <View style={styles.card}><Text style={styles.cardTitle}>{trainingNotice}</Text></View> : null}
+      {cacheWarning && !error ? <View accessibilityLiveRegion="polite" style={styles.profileSection}><View style={styles.row}><MaterialIcons name="cloud-off" size={20} color={palette.warning} /><Text style={[styles.body, { flex: 1 }]}>{cacheWarning}</Text></View><Pressable accessibilityRole="button" accessibilityState={{ disabled: loading }} disabled={loading} onPress={() => load()} style={styles.profileAction}><MaterialIcons name="refresh" size={20} color={palette.accentText} /><Text style={styles.profileActionText}>Try saving offline again</Text></Pressable></View> : null}
+      {trainingNotice ? <View style={styles.profileSection}><Text style={styles.cardTitle}>{trainingNotice}</Text></View> : null}
       {policy.canCreate && !trainingForm && !form ? <Button label="Create training session" onPress={() => { setDetail(null); setTrainingForm(createTrainingForm()) }} styles={styles} /> : null}
       {trainingForm ? (
-        <View style={styles.form}>
+        <View style={styles.profileSection}>
           <Text style={styles.cardTitle}>Create training session</Text>
           <Field label="Title" onChangeText={(value) => setTrainingForm({ ...trainingForm, title: value })} styles={styles} value={trainingForm.title} />
           <CoachDateTimeField label="Date" mode="date" onChange={(value) => setTrainingForm({ ...trainingForm, date: value })} styles={styles} value={trainingForm.date} />
@@ -1116,12 +1116,12 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
           <Button label="Cancel" onPress={() => setTrainingForm(null)} secondary styles={styles} />
         </View>
       ) : null}
-      {trainingEvents.length ? <View style={styles.card}><Text style={styles.cardTitle}>Upcoming training invitations</Text>{trainingEvents.slice(0, 8).map((event) => <Pressable accessibilityRole="button" key={event.id} onPress={() => onNavigate('calendar')} style={styles.stack}><Text style={styles.body}>{formatCoachCalendarEventDateTime(event)} | {event.title}</Text>{event.availabilitySummary ? <Text style={styles.meta}>Attending {event.availabilitySummary.attending} | Maybe {event.availabilitySummary.maybe} | Awaiting response {event.availabilitySummary.awaitingResponse} | Not attending {event.availabilitySummary.notAttending} | Invitation not sent {event.availabilitySummary.invitationNotSent} | Delivery issue {event.availabilitySummary.deliveryIssue}</Text> : null}</Pressable>)}</View> : null}
+      {trainingEvents.length ? <View style={styles.profileSection}><Text style={styles.cardTitle}>Upcoming training invitations</Text>{trainingEvents.slice(0, 8).map((event) => <Pressable accessibilityRole="button" key={event.id} onPress={() => onNavigate('calendar')} style={styles.stack}><Text style={styles.body}>{formatCoachCalendarEventDateTime(event)} | {event.title}</Text>{event.availabilitySummary ? <Text style={styles.meta}>Attending {event.availabilitySummary.attending} | Maybe {event.availabilitySummary.maybe} | Awaiting response {event.availabilitySummary.awaitingResponse} | Not attending {event.availabilitySummary.notAttending} | Invitation not sent {event.availabilitySummary.invitationNotSent} | Delivery issue {event.availabilitySummary.deliveryIssue}</Text> : null}</Pressable>)}</View> : null}
       <Text style={styles.cardTitle}>Assessment Sessions</Text>
       <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'Completed', value: 'completed' }, { label: 'History', value: 'history' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} />
       {getCoachSessionMutationPolicy({ context }).canCreate && !form && !trainingForm ? <Button label="Create assessment Session" onPress={() => { setDetail(null); setForm(coachSessionFormFromSession()) }} secondary styles={styles} /> : null}
       {form ? (
-        <View style={styles.form}>
+        <View style={styles.profileSection}>
           <Text style={styles.cardTitle}>{detail ? 'Edit Session' : 'Create Session'}</Text>
           <Chips onChange={(value) => setForm({ ...form, sessionType: value })} options={[{ label: 'Training', value: 'training' }, { label: 'Match', value: 'match' }]} styles={styles} value={form.sessionType} />
           <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />
@@ -1137,7 +1137,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
         </View>
       ) : null}
       {detail && !form ? (
-        <View style={styles.form}>
+        <View style={styles.profileSection}>
           <Text style={styles.cardTitle}>{detail.session.title}</Text>
           <Text style={styles.meta}>{formatUkDate(detail.session.sessionDate)} | {detail.session.startTime || 'Time not set'} | {detail.session.location || 'Location not set'} | {detail.session.status}</Text>
           <Text style={styles.body}>{detail.session.notes || 'No Session notes.'}</Text>
@@ -1152,7 +1152,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
         </View>
       ) : null}
       {!loading && visible.length === 0 ? <Text style={styles.body}>No Sessions match this filter.</Text> : null}
-      {visible.map((session) => <Pressable accessibilityRole="button" key={session.id} onPress={() => openSession(session)} style={styles.card}><Text style={styles.cardTitle}>{session.title}</Text><Text style={styles.meta}>{formatUkDate(session.sessionDate)} | {session.startTime || 'Time not set'} | {session.sessionType} | {session.status}</Text></Pressable>)}
+      {visible.map((session) => <Pressable accessibilityRole="button" key={session.id} onPress={() => openSession(session)} style={styles.profileSection}><Text style={styles.cardTitle}>{session.title}</Text><Text style={styles.meta}>{formatUkDate(session.sessionDate)} | {session.startTime || 'Time not set'} | {session.sessionType} | {session.status}</Text></Pressable>)}
     </View>
   )
 }
@@ -1160,7 +1160,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
 function SessionPlayerNotes({ disabled, onSave, sessionPlayer, styles }) {
   const [notes, setNotes] = useState(sessionPlayer.notes)
   return (
-    <View style={styles.card}>
+    <View style={styles.profileSection}>
       <Text style={styles.cardTitle}>{sessionPlayer.playerName}</Text>
       <Field label={`Notes for ${sessionPlayer.playerName}`} multiline onChangeText={setNotes} styles={styles} value={notes} />
       <Button disabled={disabled} label="Save Player notes" onPress={() => onSave(notes)} secondary styles={styles} />

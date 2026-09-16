@@ -129,7 +129,7 @@ test('offline save failures provide safe actionable categories without exposing 
   for (const [error, category] of [
     [new Error('offline_profile_scope_mismatch'), 'ACCESS'],
     [new Error('offline_scope_invalidated'), 'ACCESS'],
-    [new Error('offline_cache_payload_too_large'), 'SPACE'],
+    [new Error('offline_cache_payload_too_large'), 'CACHE'],
     [{ code: 'EUNSPECIFIED', message: 'SQLite database or disk is full' }, 'SPACE'],
     [new Error('SecureStore private-native-details'), 'SECURE'],
     [new Error('offline_storage_readback_failed'), 'DEVICE'],
@@ -139,4 +139,10 @@ test('offline save failures provide safe actionable categories without exposing 
     assert.ok(text.includes(`Reference: ${category}.`))
     assert.doesNotMatch(text, /private-native|EUNSPECIFIED|offline_/)
   }
+})
+
+test('cache budget failure does not claim the phone storage is full', () => {
+  const text = getCoachOfflineSaveWarning(new Error('offline_cache_payload_too_large'))
+  assert.match(text, /app cache limit/)
+  assert.doesNotMatch(text, /storage is full|Reference: SPACE/)
 })

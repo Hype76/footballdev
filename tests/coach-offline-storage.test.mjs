@@ -125,3 +125,22 @@ test('a delayed Sessions response cannot revive cleared storage or another login
     assert.equal(globalThis.offlineCiphertext.size, 0)
   }
 })
+
+test('encrypted Sessions cache recovers space without losing unsynced work', async () => {
+  await freshRecoveryAccount()
+  await storage.coachOfflineProfileStore.write(liveProfile)
+  await storage.saveCoachOfflineResources(liveProfile.id, recoveryContext, { chat: { messages: [{ body: 'Old server message '.repeat(55_000) }] } })
+  await storage.updateCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'match', () => ({ baseMatch: { id: 'match', clubId: recoveryContext.clubId, teamId: recoveryContext.teamId }, pending: [{ id: 'pending-goal', operation: 'goal' }], verifiedAt: new Date().toISOString() }))
+  await storage.saveLocalCoachDevelopmentDraft(liveProfile.id, recoveryContext, { playerId: 'player', formId: 'form', values: { score: 4 }, notes: 'Unsynced recovery work' })
+  const journal = await storage.readCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'match')
+  const drafts = await storage.readCoachDevelopmentDrafts(liveProfile.id, recoveryContext)
+  const fresh = { ...sessionResources, sessions: Array.from({ length: 180 }, (_, id) => ({ id: `session-${id}`, notes: 'New session plan '.repeat(240) })) }
+  await storage.createCoachOfflineResourceSaver(liveProfile, recoveryContext)(fresh)
+  const saved = await storage.readCoachOfflineResources(liveProfile.id, recoveryContext)
+  assert.deepEqual(saved.resources.sessions, fresh.sessions)
+  assert.equal(saved.resources.chat, undefined)
+  assert.deepEqual(await storage.readCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'match'), journal)
+  assert.deepEqual(await storage.readCoachDevelopmentDrafts(liveProfile.id, recoveryContext), drafts)
+  assert.ok(![...globalThis.offlineCiphertext.values()].join('').includes('Unsynced recovery work'))
+  assert.equal((await storage.inspectCoachOfflineState(liveProfile.id)).status, 'ready')
+})
