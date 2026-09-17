@@ -236,7 +236,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
         role="group"
         tabIndex={canEdit ? 0 : undefined}
       >
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.035)_0,rgba(255,255,255,0.035)_12.5%,rgba(0,0,0,0.035)_12.5%,rgba(0,0,0,0.035)_25%)]" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(180deg,rgba(255,255,255,0.035)_0,rgba(255,255,255,0.035)_12.5%,rgba(0,0,0,0.035)_12.5%,rgba(0,0,0,0.035)_25%)]" />
         <PitchLines />
         {fixedSlots.map((slot) => {
           if (occupiedSlotIds.has(slot.id)) return null
