@@ -12,6 +12,8 @@ import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 function createStyles(palette) {
   return StyleSheet.create({
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 21 },
+    back: { alignItems: 'center', alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44, paddingHorizontal: 4 },
+    backText: { color: palette.textPrimary, fontSize: 14, fontWeight: '700' },
     error: { color: palette.danger, fontSize: 14, fontWeight: '800', lineHeight: 21 },
     loading: { alignItems: 'center', gap: 8, paddingVertical: 20 },
     secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderRadius: 13, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14, paddingVertical: 10 },
@@ -100,12 +102,15 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
     if (quickAction?.route === 'formation') onQuickActionHandled?.()
   }, [onQuickActionHandled, quickAction])
 
+  const boardRendered = readyScope === authorityScope && !error
+
   return (
     <View style={styles.stack}>
+      {!boardRendered && onBack ? <Pressable accessibilityLabel="Back from Formation Board" accessibilityRole="button" onPress={onBack} style={styles.back}><Text style={styles.backText}>Back</Text></Pressable> : null}
       {readyScope === authorityScope && error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load()} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
       {readyScope === authorityScope && stale ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
       {readyScope !== authorityScope && loading ? <View style={styles.loading}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
-      {readyScope === authorityScope && !error ? <CoachFormationBoard context={context} matches={matches} onBack={onBack} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
+      {boardRendered ? <CoachFormationBoard context={context} matches={matches} onBack={onBack} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
     </View>
   )
 }

@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_SCREEN_SCENARIO) {
-  for (const scenario of ['stable', 'cache', 'scope']) {
+  for (const scenario of ['stable', 'cache', 'scope', 'pending', 'failure']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       encoding: 'utf8',
       env: { ...process.env, FORMATION_SCREEN_SCENARIO: scenario },
@@ -29,21 +29,23 @@ const entry = `
   import { CoachFormationScreen } from './apps/coach-mobile/src/CoachFormationScreen.js'
 
   const palette = new Proxy({}, { get: () => '#123456' })
-  window.__screenTest = { boardMounts: 0, boardUnmounts: 0, resolvers: {}, resourceCalls: 0 }
+  window.__screenTest = { backCount: 0, boardMounts: 0, boardUnmounts: 0, resolvers: {}, resourceCalls: 0 }
 
   function App() {
     const [revision, setRevision] = React.useState(0)
     const [scope, setScope] = React.useState('a')
+    const [visible, setVisible] = React.useState(true)
     const teamId = scope === 'a' ? 'team-a' : 'team-b'
     const userId = scope === 'a' ? 'coach-a' : 'coach-b'
     return <View>
       <button type="button" onClick={() => setRevision(value => value + 1)}>Equivalent refresh {revision}</button>
       <button type="button" onClick={() => setScope('b')}>Switch authority</button>
-      <CoachFormationScreen
+      {visible ? <CoachFormationScreen
         context={{ id: 'context-' + scope, authorityId: 'authority-' + scope, authoritySource: 'team_staff', clubId: 'club-1', teamId, role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
+        onBack={() => { window.__screenTest.backCount += 1; setVisible(false) }}
         palette={palette}
         user={{ id: userId, activeTeamId: teamId, clubId: 'club-1', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
-      />
+      /> : <span>Formation closed</span>}
     </View>
   }
 
@@ -74,6 +76,7 @@ const resourceMock = `
   export const readMobileResource = async (user, key) => {
     window.__screenTest.resourceCalls += 1
     if (scenario === 'stable') return response(user, key)
+    if (scenario === 'failure') throw new Error('Formation resources unavailable')
     return new Promise(resolve => { window.__screenTest.resolvers[user.id + ':' + key] = () => resolve(response(user, key)) })
   }
 `
@@ -147,7 +150,7 @@ try {
     await page.getByText('Live screen data', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Local board edit 0', exact: true }).isEnabled(), true)
     console.log('PASS: Screen cache is visible and read-only while live resources are deferred')
-  } else {
+  } else if (scenario === 'scope') {
     await page.waitForFunction(() => window.__screenTest.resourceCalls === 2)
     await page.getByRole('button', { name: 'Switch authority', exact: true }).click()
     await page.waitForFunction(() => window.__screenTest.resourceCalls === 4)
@@ -164,6 +167,18 @@ try {
     assert.equal(await page.getByText('Player coach-a', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Player coach-b', { exact: true }).count(), 1)
     console.log('PASS: Screen authority changes reload and stale resource results cannot leak')
+  } else if (scenario === 'pending') {
+    await page.getByText('Loading Formation Board...', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).click()
+    await page.getByText('Formation closed', { exact: true }).waitFor()
+    assert.equal(await page.evaluate(() => window.__screenTest.backCount), 1)
+    console.log('PASS: Screen can leave while the first Formation resource load is pending')
+  } else {
+    await page.getByText('Formation resources unavailable', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).click()
+    await page.getByText('Formation closed', { exact: true }).waitFor()
+    assert.equal(await page.evaluate(() => window.__screenTest.backCount), 1)
+    console.log('PASS: Screen can leave after the first Formation resource load fails')
   }
   assert.deepEqual(errors, [])
 } finally {

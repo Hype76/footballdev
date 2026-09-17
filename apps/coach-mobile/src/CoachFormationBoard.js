@@ -889,7 +889,18 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setSelectedPlayerId('')
   }
 
-  if (loading || draftScope !== routeScope) return <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View>
+  if (loading || draftScope !== routeScope) return (
+    <View style={styles.workspace}>
+      <View style={styles.planHeaderRow}>
+        <Pressable accessibilityLabel="Back from Formation Board" accessibilityRole="button" accessibilityState={{ disabled: !onBack }} disabled={!onBack} onPress={() => void handleBack()} style={[styles.topIcon, !onBack && { opacity: 0 }]}>
+          <MaterialIcons color={palette.textPrimary} name="arrow-back" size={27} />
+        </Pressable>
+        <Text accessibilityRole="header" numberOfLines={2} style={styles.planTitle}>{title || 'Formation Board'}</Text>
+        <View style={styles.topIcon} />
+      </View>
+      <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View>
+    </View>
+  )
 
   const publicationLabel = activePublication
     ? 'Shared with Parents'

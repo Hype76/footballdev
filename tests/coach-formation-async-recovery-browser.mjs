@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'stable', 'back', 'back-offline', 'retry', 'retry-no-storage', 'readonly', 'panels']) {
+  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'stable', 'loading-back', 'back', 'back-offline', 'retry', 'retry-no-storage', 'readonly', 'panels']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -110,7 +110,7 @@ const dataMock = `
 
   export const getCoachFormationBoards = async () => {
     const state = globalThis.__formationTest
-    if (state.mode === 'race' || state.mode === 'scope' || state.mode === 'cache' || state.mode === 'cache-missing') {
+    if (state.mode === 'race' || state.mode === 'scope' || state.mode === 'cache' || state.mode === 'cache-missing' || state.mode === 'loading-back') {
       const call = ++state.boardCalls
       return new Promise(resolve => { state.boardResolvers[call] = resolve })
     }
@@ -296,6 +296,13 @@ try {
     assert.equal(await page.evaluate(() => window.__formationTest.boardCalls), 1)
     assert.equal(await page.evaluate(() => window.__formationTest.presetCalls), 1)
     console.log('PASS: equivalent parent rerenders and local actions keep edits without refetching')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'loading-back') {
+    await page.waitForFunction(() => window.__formationTest.boardCalls === 1)
+    await page.getByText('Loading Formation Board...', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).click()
+    await page.waitForFunction(() => window.__formationTest.backCount === 1)
+    assert.equal(await page.getByText('Loading Formation Board...', { exact: true }).count(), 0)
+    console.log('PASS: Match Day Board can leave while its first board load is pending')
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'back' || process.env.FORMATION_ASYNC_SCENARIO === 'back-offline') {
     await page.getByLabel('Formation pitch', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).click()
