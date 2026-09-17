@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
+import { ResourceEditor } from '../components/resources/ResourceEditor.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canCreateFormationBoard, canManageResourceLibrary, canUseFormationBoards, canUseResourceLibrary, useAuth } from '../lib/auth.js'
 import { generateFormationBoardExport, shareFormationBoardExport } from '../lib/formation-board-export.js'
@@ -19,6 +20,7 @@ import {
   getResourceLibraryItems,
   getResourceLibraryPlayers,
   uploadResourceLibraryItem,
+  updateResourceLibraryItem,
   validateResourceLibraryFile,
 } from '../lib/supabase.js'
 
@@ -146,7 +148,7 @@ function FormationResourcePreview({ resource }) {
   )
 }
 
-function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSaving, onArchive, onDownload, onEditAssignment, onFormationExport, resources }) {
+function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSaving, onArchive, onDownload, onEditAssignment, onFormationExport, resources, editingId, editError, onEdit, onSaveEdit, onCancelEdit }) {
   if (resources.length === 0) {
     return (
       <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-6 text-sm font-semibold leading-6 text-[#4b5f55] shadow-sm shadow-[#047857]/10">
@@ -197,6 +199,7 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
               {resource.currentFormationBoardPublication && canExportFormationBoards ? <button type="button" onClick={() => onFormationExport(resource, 'pdf')} disabled={Boolean(downloadingId)} className={secondaryButtonClass}>PDF</button> : null}
               {canManage ? (
                 <>
+                  {!resource.currentFormationBoardPublication ? <button type="button" onClick={() => onEdit(resource)} disabled={isSaving} className={secondaryButtonClass}>Edit resource</button> : null}
                   {!resource.currentFormationBoardPublication ? (
                     <button type="button" onClick={() => onEditAssignment(resource)} disabled={isSaving} className={secondaryButtonClass}>
                       Edit player assignments
@@ -209,6 +212,7 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
               ) : null}
             </div>
           </div>
+          {canManage && editingId === resource.id ? <ResourceEditor key={resource.id} resource={resource} categories={RESOURCE_LIBRARY_CATEGORIES} fileAccept={resourceLibraryFileAccept} isSaving={isSaving} error={editError} onSave={onSaveEdit} onCancel={onCancelEdit} /> : null}
         </article>
       ))}
     </div>
@@ -236,6 +240,8 @@ export function ResourceLibraryPage() {
   const [downloadingId, setDownloadingId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [editingId, setEditingId] = useState('')
+  const [editError, setEditError] = useState('')
   const fileInputRef = useRef(null)
 
   const filteredPlayers = useMemo(() => {
@@ -314,6 +320,24 @@ export function ResourceLibraryPage() {
   const refreshResources = async () => {
     const nextResources = await getResourceLibraryItems({ user, ...filters, teamId: activeTeamId })
     setResources(nextResources)
+  }
+
+  const handleSaveEdit = async (resource, draft) => {
+    if (isSaving) return
+    setIsSaving(true)
+    setEditError('')
+    setSuccessMessage('')
+    try {
+      const saved = await updateResourceLibraryItem({ resource, ...draft, user })
+      setResources(current => current.map(item => item.id === saved.id ? saved : item))
+      setEditingId('')
+      setSuccessMessage('Resource updated. Existing assignments kept.')
+      showToast({ title: 'Resource updated', message: 'Your changes have been saved.' })
+    } catch (error) {
+      setEditError(error.message || 'Could not save this resource. Your edits are still here.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const openAssignmentEditor = (resource) => {
@@ -1013,6 +1037,11 @@ export function ResourceLibraryPage() {
           onEditAssignment={openAssignmentEditor}
           onFormationExport={(resource, format) => void handleFormationExport(resource, format)}
           resources={resources}
+          editingId={editingId}
+          editError={editError}
+          onEdit={resource => { setEditingId(resource.id); setEditError('') }}
+          onSaveEdit={handleSaveEdit}
+          onCancelEdit={() => { setEditingId(''); setEditError('') }}
         />
       </section>
     </div>
