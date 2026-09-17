@@ -37,7 +37,7 @@ const BrandLoader=()=>null
 const withMobileAsyncTimeout=loader=>loader()
 const getCoachSessionList=async()=>window.liveSessions
 const getCoachPlayerList=async()=>[]
-const getCoachCalendarResources=async()=>[{id:'training-1',sourceId:'training-1',sourceType:'calendar_event',eventType:'training',title:'Weekly training',occurrenceDate:'2099-09-17',date:'2099-09-17',calendarDate:'2099-09-17',startAt:'2099-09-17T15:00:00Z',startTime:'16:00',availabilitySummary:{attending:1,maybe:1,awaitingResponse:12,notAttending:0,invitationNotSent:0,deliveryIssue:7}}]
+const getCoachCalendarResources=async()=>[{id:'training-1',sourceId:'training-1',sourceType:'calendar_event',eventType:'training',title:'Weekly training',occurrenceDate:'2099-09-17',date:'2099-09-17',calendarDate:'2099-09-17',startsAt:'2099-09-17T15:00:00Z',startTime:'16:00',availabilitySummary:{attending:1,maybe:1,awaitingResponse:12,notAttending:0,invitationNotSent:0,deliveryIssue:7}}]
 const getCoachSessionDetail=async()=>({session:window.liveSessions[0],players:[]})
 const saveCoachSession=async()=>{}
 const saveCoachTrainingInvitation=async()=>({})
@@ -101,6 +101,7 @@ try {
   assert.equal(await page.evaluate(() => window.cacheSaves), 2)
   await page.getByRole('button',{name:'Open training session Weekly training',exact:true}).click()
   assert.deepEqual(await page.evaluate(()=>window.navigation),{route:'calendar',target:{sourceId:'training-1',sourceType:'calendar_event',occurrenceDate:'2099-09-17'}})
+  await page.getByText(/17 Sept.*16:00/).waitFor()
   for(const mode of ['light','dark']) {
     await page.evaluate(value=>window.setMode(value),mode)
     await page.screenshot({path:`output/playwright/coach-sessions-cache-warning/compact-${mode}.png`,fullPage:true})
