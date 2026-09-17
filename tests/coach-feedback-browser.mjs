@@ -7,7 +7,7 @@ import { chromium } from 'playwright'
 
 const source = await readFile('apps/coach-mobile/src/CoachMatchDayScreen.js', 'utf8')
 const functions = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.filter(n => n.type === 'FunctionDeclaration')
-const selected = ['FixtureHero', 'MatchList', 'ShootoutPanel', 'ReportPanel', 'createStyles', 'formatFixtureDate', 'isLiveMatch'].map(name => {
+const selected = ['FixtureDetailRow', 'FixtureHero', 'MatchList', 'ShootoutPanel', 'ReportPanel', 'createStyles', 'formatFixtureDate', 'isLiveMatch'].map(name => {
   const node = functions.find(n => n.id.name === name)
   return source.slice(node.start, node.end)
 }).join('\n')

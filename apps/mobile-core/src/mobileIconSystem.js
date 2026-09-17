@@ -3,6 +3,7 @@ const ICONS = Object.freeze({
   'action.add-match': 'sports-soccer',
   'action.add-player': 'person-add-alt',
   'action.add-session': 'event',
+  'action.edit': 'edit',
   'action.back': 'arrow-back',
   'action.create-poll': 'poll',
   'action.formation': 'grid-view',

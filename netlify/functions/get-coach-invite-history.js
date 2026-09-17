@@ -69,6 +69,7 @@ export async function readCoachInviteHistory({ db, profile, eventId, playerId, k
     .map((row) => [row.metadata?.idempotencyKey || row.id, row])).values()]
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
   return {
+    firstEmailSentAt: [...emails.values()].filter((at) => Number.isFinite(Date.parse(at))).sort((a, b) => Date.parse(a) - Date.parse(b))[0] || null,
     emailSends: emails.size,
     resendRequests: resends.length,
     recentEmailSends: [...emails.values()].filter((at) => Number.isFinite(Date.parse(at))).sort((a, b) => Date.parse(b) - Date.parse(a)).slice(0, 10),
