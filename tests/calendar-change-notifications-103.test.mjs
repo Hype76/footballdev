@@ -134,3 +134,18 @@ test('ordinary edits say updated; date or kick-off changes say rescheduled', asy
   assert.match(sender,/getChangeCopy\(changeAction, presentation\)/)
   assert.match(sender,/action: changeAction/)
 })
+
+
+test('confirmed notes and venue edits can notify without a schedule change', async () => {
+  const sender=await source('netlify/functions/calendar-change-notifications.js')
+  const slice=(name,next)=>sender.slice(sender.indexOf('function '+name+'('),sender.indexOf(next,sender.indexOf('function '+name+'(')))
+  const presentation=slice('getSourcePresentation','function getChangeCopy')
+  const schedule=slice('sourceScheduleKey','async function verifyChange')
+  const verify=sender.slice(sender.indexOf('async function verifyChange('),sender.indexOf('function getSourcePresentation('))
+  let current={match_date:'2026-10-03',kickoff_time_tbc:true,notes:'new notes',venue_name:'old pitch'}
+  const check=new Function('loadSource','normalizeText','buildCalendarNotificationLocalDateTime',schedule+presentation+verify+';return verifyChange;')(async()=>current,value=>String(value||''),(date,time)=>date+'T'+time)
+  const preparation={source_type:'match-day',source_id:'fixture',change_action:'rescheduled',source_snapshot:{...current,notes:'old notes'}}
+  assert.equal((await check(preparation)).changed,true)
+  current={...preparation.source_snapshot};assert.equal((await check(preparation)).changed,false)
+  current={...current,venue_name:'new pitch'};assert.equal((await check(preparation)).changed,true)
+})

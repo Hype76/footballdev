@@ -232,7 +232,8 @@ async function verifyChange(preparation) {
     return { changed: Boolean(data?.[0]), current: data?.[0] || current }
   }
   return {
-    changed: Boolean(current) && sourceScheduleKey(sourceType, current) !== sourceScheduleKey(sourceType, preparation.source_snapshot),
+    changed: Boolean(current) && (sourceScheduleKey(sourceType, current) !== sourceScheduleKey(sourceType, preparation.source_snapshot)
+      || JSON.stringify(getSourcePresentation(sourceType, current)) !== JSON.stringify(getSourcePresentation(sourceType, preparation.source_snapshot))),
     current,
   }
 }
