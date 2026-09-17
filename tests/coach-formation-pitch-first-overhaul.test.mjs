@@ -25,6 +25,19 @@ const preset433 = {
   slots: preset442.slots.map((slot, index) => ({ ...slot, id: `next-${index + 1}`, x: 0.15 + ((index % 3) * 0.35) })),
 }
 
+test('Formation panel roles are accepted by the installed Android native view manager', async () => {
+  const source = await readFile(new URL('../apps/coach-mobile/src/CoachFormationBoard.js', import.meta.url), 'utf8')
+  const native = await readFile(new URL('../apps/coach-mobile/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ReactAccessibilityDelegate.java', import.meta.url), 'utf8')
+  for (const [prop, enumName] of [['accessibilityRole', 'AccessibilityRole'], ['role', 'Role']]) {
+    const constants = native.split(`public enum ${enumName} {`)[1]?.split(';')[0]
+    assert.ok(constants, `Android ${enumName} contract is available`)
+    const supported = new Set(constants.split(',').map(value => value.trim().toLowerCase()))
+    for (const [, value] of source.matchAll(new RegExp(`\\b${prop}="([^"]+)"`, 'g'))) {
+      assert.ok(supported.has(value), `Android rejects ${prop}="${value}" when the panel mounts`)
+    }
+  }
+})
+
 test('Coach Formation Board is pitch-first with shirt assets and bottom editing sheets', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/src/CoachFormationBoard.js', import.meta.url), 'utf8')
   await Promise.all([

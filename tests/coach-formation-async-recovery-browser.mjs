@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'retry', 'retry-no-storage', 'readonly']) {
+  for (const scenario of ['race', 'retry', 'retry-no-storage', 'readonly', 'panels']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -202,6 +202,22 @@ try {
     assert.equal(await page.getByText('Board A', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Board B', { exact: true }).count(), 1)
     console.log('PASS: stale fixture load cannot overwrite the active match board')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'panels') {
+    await page.getByLabel('Formation pitch', { exact: true }).waitFor()
+    for (let repeat = 0; repeat < 2; repeat += 1) {
+      for (const label of ['Players', 'Formation', 'Share']) {
+        await page.getByRole('button', { name: label, exact: true }).click()
+        await page.getByRole('dialog', { name: `${label.toLowerCase()} options`, exact: true }).waitFor()
+        await page.getByRole('button', { name: 'Close options', exact: true }).click()
+        await page.waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0)
+      }
+      await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).click()
+      await page.getByRole('dialog', { name: 'Choose Player', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Close Player picker', exact: true }).click()
+      await page.waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0)
+    }
+    assert.equal(await page.evaluate(() => window.__formationTest.createCalls + window.__formationTest.saveCalls), 0)
+    console.log('PASS: Players, Formation, Share and empty positions repeatedly open and close without writes')
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'readonly') {
     await page.getByText('Viewing only', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).isEnabled(), false)

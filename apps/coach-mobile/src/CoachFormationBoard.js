@@ -879,7 +879,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={closeSheet} transparent visible={Boolean(activeSheet)}>
         <View style={styles.modalBackdrop}>
-          <View accessibilityLabel={`${activeSheet || 'Formation Board'} options`} accessibilityRole="dialog" style={styles.modalPanel}>
+          <View accessibilityLabel={`${activeSheet || 'Formation Board'} options`} role="dialog" style={styles.modalPanel}>
             <View style={styles.sheetHandle} />
             <View style={styles.rowBetween}>
               <Text style={styles.heading}>{activeSheet === 'formation' ? 'Formation' : activeSheet === 'players' ? 'Players' : activeSheet === 'share' ? 'Save and share' : 'Board options'}</Text>
@@ -934,7 +934,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={() => setActiveSlotId('')} transparent visible={Boolean(activeSlot)}>
         <View style={styles.modalBackdrop}>
-          <View accessibilityLabel="Choose Player" accessibilityRole="dialog" style={styles.modalPanel}>
+          <View accessibilityLabel="Choose Player" role="dialog" style={styles.modalPanel}>
             <View style={styles.sheetHandle} />
             <View style={styles.rowBetween}>
               <View><Text style={styles.eyebrow}>Choose Player</Text><Text style={styles.heading}>{getMobileFormationSlotLabel(activeSlot)}</Text></View>
