@@ -17,7 +17,7 @@ const layout = StyleSheet.create({
   send: { alignItems: 'center', borderRadius: 10, justifyContent: 'center', minHeight: 48, marginVertical: 8, padding: 10 },
 })
 
-export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify, onPendingChange, palette, players, styles, templateStore }) {
+export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify, onPendingChange, palette, players, styles, templateStore }) {
   const savedSquad = buildCoachMatchDaySquad(players, match)
   const [drafts, setDrafts] = useState({})
   const pendingCount = Object.keys(drafts).length
@@ -58,12 +58,15 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
     let savedCount = 0
     const savedRows = []
     try {
-      for (const { player, decision } of Object.values(drafts)) {
-        const detail = await onSetDecision(player, decision)
+      const choices = Object.values(drafts)
+      const detail = await onSetDecisions(choices)
+      const confirmed = buildCoachMatchDaySquad(players, detail).rows
+      if (choices.some(({ player, decision }) => confirmed.find(row => row.id === player.id)?.decision !== decision)) throw new Error('Squad save not confirmed')
+      for (const { player, decision } of choices) {
         const saved = buildCoachMatchDaySquad(players, detail).rows.find((row) => row.id === player.id)
         if (saved?.decision !== decision) throw new Error('Selection not confirmed')
         savedCount++
-        setSaveProgress({ saved: savedCount, total: pendingCount })
+
         if (saved.canNotify && saved.decisionRevision && !saved.notifiedAt && chosen[player.id] !== 'skip') savedRows.push(saved)
         setDrafts((current) => { const next = { ...current }; delete next[player.id]; return next })
         setChosen((current) => ({ ...current, [player.id]: chosen[player.id] !== 'skip' && saved.canNotify && saved.decisionRevision && !saved.notifiedAt ? saved.decisionRevision : '' }))
@@ -104,8 +107,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
   return <View>
     <Text style={styles.cardTitle}>Squad</Text>
     <Text style={styles.body}>{squad.summary.selected} selected · {squad.summary.notSelected} not selected · {squad.summary.undecided + squad.summary.waiting} to choose</Text>
-    <Text style={styles.meta}>Choose Selected or Not selected, then tick Notify. Save and send together, or save selections without sending.</Text>
-    <Text style={styles.meta}>Queued means the request is saved. Phone or email delivery runs in the background, using each parent's notification settings.</Text>
+    <Text style={styles.meta}>Choose your squad, tick Notify, then save and send.</Text>
     {!actions.canSetSquad ? <Text style={styles.body}>{actions.blockedReason || 'Squad decisions are locked after kick-off.'}</Text> : null}
     {templateStore ? <CoachSquadTemplates store={templateStore} rows={rows} locked={locked} palette={palette} styles={styles} onApply={(template) => {
       if (locked || decidingRef.current) return
@@ -121,7 +123,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
       <Pressable accessibilityRole="button" disabled={locked || available.length === 0} onPress={() => { setChosen(Object.fromEntries(available.map((player) => [player.id, player.decisionRevision]))); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !available.length ? 0.4 : 1 }]}>Tick all unsent</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={locked || chosenPlayers.length === 0} onPress={() => { setChosen({}); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !chosenPlayers.length ? 0.4 : 1 }]}>Clear</Text></Pressable>
     </View>
-    {saveProgress ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Saving {saveProgress.saved} of {saveProgress.total} selections...</Text></View> : sending ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Queuing parent notifications...</Text></View> : null}
+    {saveProgress ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Saving squad...</Text></View> : sending ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Queuing parent notifications...</Text></View> : null}
     {saveButtons}
     {!pendingCount ? sendButton : null}
     {summary ? <Text accessibilityLiveRegion="polite" style={styles.body}>{summary}</Text> : null}

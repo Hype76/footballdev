@@ -15,7 +15,8 @@ const base={id:'fixture',squadDecisions:[],squadNotificationContacts:players.map
 function App(){const [match,setMatch]=React.useState(base),[busy,setBusy]=React.useState(false),[allowed,setAllowed]=React.useState(true),[visible,setVisible]=React.useState(true);const server=React.useRef(base);
 window.refresh=()=>setMatch(m=>({...m}));window.allow=setAllowed;window.show=setVisible;
 return <div style={{padding:12,background:'#071108',color:'white'}}><div style={{display:visible?'block':'none'}}><CoachSquadPanel actions={{canSetSquad:allowed}} busy={busy} match={match} players={players} palette={createCoachTheme({mode:'dark'}).tokens} styles={{cardTitle:{color:"white",fontSize:20,fontWeight:"700"},body:{color:"white"},meta:{color:"#cbd5e1"}}}
-onSetDecision={async(player,decision)=>{window.calls.push({id:player.id,decision});setBusy(true);await new Promise(r=>setTimeout(r,window.delay));if(window.fail===player.id){setBusy(false);throw Error('Failed save')};const next={...server.current,squadDecisions:[...server.current.squadDecisions.filter(d=>d.playerId!==player.id),{playerId:player.id,status:decision,decisionRevision:player.id+'-'+decision,decidedAt:'now'}]};server.current=next;setMatch(next);setBusy(false);return next;}}
+onSetDecisions={async(choices)=>{window.calls.push(choices.map(({player,decision})=>({id:player.id,decision})));setBusy(true);await new Promise(r=>setTimeout(r,window.delay));if(choices.some(({player})=>window.fail===player.id)){setBusy(false);throw Error('Failed save')};const ids=new Set(choices.map(({player})=>player.id));const next={...server.current,squadDecisions:[...server.current.squadDecisions.filter(d=>!ids.has(d.playerId)),...choices.map(({player,decision})=>({playerId:player.id,status:decision,decisionRevision:player.id+'-'+decision,decidedAt:'now'}))]};server.current=next;setMatch(next);setBusy(false);return next;}}
+
 onNotify={async(rows)=>{window.notices.push(rows.map(r=>r.id));return rows.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}} /></div></div>}
 createRoot(document.getElementById('root')).render(<App/>);
 `
@@ -44,9 +45,9 @@ try {
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=320),true,'Mobile rows must fit the viewport')
   await page.evaluate(()=>window.delay=150)
   await save()
-  await page.getByText('Saving 0 of 3 selections...', {exact:true}).waitFor()
+  await page.getByText('Saving squad...', {exact:true}).waitFor()
   await page.getByText('3 selections saved. Send notifications when you are ready.',{exact:true}).waitFor()
-  assert.equal((await page.evaluate(()=>window.calls)).length,3)
+  assert.equal((await page.evaluate(()=>window.calls)).length,1)
   assert.deepEqual(await page.evaluate(()=>window.notices),[],'Saving must not send messages')
   await page.getByRole('button',{name:'Send notifications (2)',exact:true}).first().click()
   await page.getByText('Notifications queued for 2 players.',{exact:true}).waitFor()
@@ -59,12 +60,12 @@ try {
   assert.equal(await page.getByRole('button',{name:/^Save selections/}).count(),0)
   await mount();await choose(0);await choose(1);await choose(2)
   await page.evaluate(()=>window.fail='1');await save()
-  await page.getByText(/1 saved\. Remaining selections/).waitFor()
-  await page.getByText('2 unsaved changes',{exact:true}).first().waitFor()
-  assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.id)),['0','1'],'Stop after an uncertain save')
+  await page.getByText(/0 saved\. Remaining selections/).waitFor()
+  await page.getByText('3 unsaved changes',{exact:true}).first().waitFor()
+  assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.map(p=>p.id))),[['0','1','2']],'A failed batch must remain atomic')
   await page.evaluate(()=>window.fail='');await save()
-  await page.getByText('2 selections saved. Send notifications when you are ready.',{exact:true}).waitFor()
-  assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.id)),['0','1','1','2'],'Retry must not repeat confirmed saves')
+  await page.getByText('3 selections saved. Send notifications when you are ready.',{exact:true}).waitFor()
+  assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.map(p=>p.id))),[['0','1','2'],['0','1','2']],'Retry the unchanged complete batch')
   await choose(0,false)
   await page.evaluate(()=>window.allow(false))
   await page.getByText('Squad decisions are locked after kick-off.', { exact: true }).waitFor()
@@ -77,12 +78,12 @@ try {
   await page.getByRole('checkbox',{name:'Notify: Player 1',exact:true}).click()
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).first().click()
   await page.getByText('Notifications queued for 1 player.',{exact:true}).waitFor()
-  assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.id)),['0','1'])
+  assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.map(p=>p.id))),[['0','1']])
   assert.deepEqual(await page.evaluate(()=>window.notices),[['0']],'Unchecked draft must not be notified')
   await mount(); await choose(0); await choose(1)
   await page.evaluate(()=>window.fail='1')
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).first().click()
-  await page.getByText(/1 saved\. Remaining selections/).waitFor()
+  await page.getByText(/0 saved\. Remaining selections/).waitFor()
   assert.deepEqual(await page.evaluate(()=>window.notices),[],'An uncertain save must prevent the combined send')
   assert.deepEqual(errors,[])
   console.log('PASS: rapid selection, draft retention, mobile width, explicit save, separate notifications, undo, discard, partial failure, retry and role lock')

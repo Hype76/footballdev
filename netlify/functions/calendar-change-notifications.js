@@ -1,3 +1,4 @@
+import { hasCalendarSourceChanged, resolveCalendarChangeAction } from '../../src/lib/calendar-change-classification.js'
 import process from 'node:process'
 import webpush from 'web-push'
 import { randomUUID } from 'node:crypto'
@@ -231,7 +232,8 @@ async function verifyChange(preparation) {
     return { changed: Boolean(data?.[0]), current: data?.[0] || current }
   }
   return {
-    changed: Boolean(current) && sourceScheduleKey(sourceType, current) !== sourceScheduleKey(sourceType, preparation.source_snapshot),
+    changed: Boolean(current) && (sourceScheduleKey(sourceType, current) !== sourceScheduleKey(sourceType, preparation.source_snapshot)
+      || hasCalendarSourceChanged(preparation.source_snapshot, current)),
     current,
   }
 }
@@ -256,10 +258,10 @@ function getSourcePresentation(sourceType, source) {
 }
 
 function getChangeCopy(action, presentation) {
-  const label = action === 'rescheduled' ? 'Event rescheduled' : action === 'cancelled' ? 'Event cancelled' : 'Event removed'
+  const label = action === 'rescheduled' ? 'Event rescheduled' : action === 'cancelled' ? 'Event cancelled' : action === 'update' ? 'Event updated' : 'Event removed'
   const date = action === 'rescheduled' ? ` New time: ${formatCalendarNotificationDateTime(presentation.startsAt)}.` : ''
   return {
-    body: `${presentation.title} was ${action === 'deleted' ? 'removed' : action}.${date}`,
+    body: `${presentation.title} was ${action === 'deleted' ? 'removed' : action === 'update' ? 'updated' : action}.${date}`,
     label,
   }
 }
@@ -334,7 +336,9 @@ async function deliverPreparation(preparation, currentSource) {
 
   const source = currentSource || preparation.source_snapshot
   const presentation = getSourcePresentation(preparation.source_type, source)
-  const copy = getChangeCopy(preparation.change_action, presentation)
+  const changeAction = resolveCalendarChangeAction(preparation.change_action,
+    getSourcePresentation(preparation.source_type, preparation.source_snapshot), presentation)
+  const copy = getChangeCopy(changeAction, presentation)
   const notificationTeamName = preparation.source_type === 'match-day'
     ? resolveMatchDayNotificationTeamName({ ...source, teams: team }, team?.name || '')
     : resolveTeamNotificationDisplayName(team || {}, team?.name || '')
@@ -373,7 +377,7 @@ async function deliverPreparation(preparation, currentSource) {
     const parent = parentById.get(normalizeText(link.auth_user_id))
     const player = relation(link.players)
     const html = buildCalendarNotificationHtml({
-      action: preparation.change_action,
+      action: changeAction,
       clubLogoUrl: club.logo_url,
       clubName: club.name,
       endsAt: presentation.endsAt,

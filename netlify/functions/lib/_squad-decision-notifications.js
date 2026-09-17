@@ -39,7 +39,7 @@ export async function deliverSquadDecisionNotifications(ids, { admin = supabaseA
         emailSent += 1
       } else {
         const result = await deliver({
-        match, type: 'matchday_update', targetParentLinkIds: [receipt.parent_link_id], inboxAlreadySaved: true,
+        match, type: 'squad_selection', targetParentLinkIds: [receipt.parent_link_id], inboxAlreadySaved: true,
         notificationCopy: { matchTitle: receipt.title, detailedBody: cleanSquadNotificationCopy(receipt.body), minimalBody: "Your player's squad selection has been updated. Please open Matchday for details.", tag: 'match-day-' + match.id, renotify: false },
       })
         phoneCount = Number(result.mobileSent) || 0

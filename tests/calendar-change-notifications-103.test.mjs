@@ -117,3 +117,38 @@ test('Goal, Yellow, Red, and Substitution all use compact detailed copy and the 
   assert.match(page, /\['yellow_card', 'red_card', 'substitution'\]\.includes/)
   assert.match(coach, /type === 'goal' \|\| type === 'yellow_card' \|\| type === 'red_card' \|\| type === 'substitution'/)
 })
+
+
+test('ordinary edits say updated; date or kick-off changes say rescheduled', async () => {
+  const {resolveCalendarChangeAction: resolve} = await import('../src/lib/calendar-change-classification.js')
+  const before={startsAt:'2026-10-03T10:45:00+01:00',notes:'Before'}
+  assert.equal(resolve('rescheduled',before,{...before,notes:'After',location:'New pitch'}),'update')
+  assert.equal(resolve('rescheduled',before,{startsAt:'2026-10-03T09:45:00Z'}),'update')
+  assert.equal(resolve('rescheduled',before,{startsAt:'2026-10-03T11:00:00+01:00'}),'rescheduled')
+  assert.equal(resolve('rescheduled',before,{startsAt:'2026-10-04T10:45:00+01:00'}),'rescheduled')
+  assert.equal(resolve('rescheduled',{startsAt:'2026-10-03'},{startsAt:'2026-10-03'}),'update')
+  assert.equal(resolve('rescheduled',{startsAt:'2026-10-03'},{startsAt:'2026-10-03T00:00:00Z'}),'rescheduled')
+  assert.equal(resolve('cancelled',before,before),'cancelled')
+  assert.equal(resolve('deleted',before,before),'deleted')
+  const sender=await source('netlify/functions/calendar-change-notifications.js')
+  assert.match(sender,/getChangeCopy\(changeAction, presentation\)/)
+  assert.match(sender,/action: changeAction/)
+})
+
+
+test('confirmed notes and venue edits can notify without a schedule change', async () => {
+  const sender=await source('netlify/functions/calendar-change-notifications.js')
+  const slice=(name,next)=>sender.slice(sender.indexOf('function '+name+'('),sender.indexOf(next,sender.indexOf('function '+name+'(')))
+  const presentation=slice('getSourcePresentation','function getChangeCopy')
+  const schedule=slice('sourceScheduleKey','async function verifyChange')
+  const verify=sender.slice(sender.indexOf('async function verifyChange('),sender.indexOf('function getSourcePresentation('))
+  let current={match_date:'2026-10-03',kickoff_time_tbc:true,notes:'new notes',venue_name:'old pitch'}
+  const {hasCalendarSourceChanged} = await import('../src/lib/calendar-change-classification.js')
+  const check=new Function('loadSource','normalizeText','buildCalendarNotificationLocalDateTime','hasCalendarSourceChanged',schedule+presentation+verify+';return verifyChange;')(async()=>current,value=>String(value||''),(date,time)=>date+'T'+time,hasCalendarSourceChanged)
+  const preparation={source_type:'match-day',source_id:'fixture',change_action:'rescheduled',source_snapshot:{...current,notes:'old notes'}}
+  assert.equal((await check(preparation)).changed,true)
+  current={...preparation.source_snapshot};assert.equal((await check(preparation)).changed,false)
+  current={...current,venue_name:'new pitch'};assert.equal((await check(preparation)).changed,true)
+  for(const change of [{arrival_time:'10:00'},{kit_id:'new-kit'}]) {current={...preparation.source_snapshot,...change};assert.equal((await check(preparation)).changed,true)}
+  current={...preparation.source_snapshot,updated_at:'2026-09-17T12:00:00Z'};assert.equal((await check(preparation)).changed,false)
+})

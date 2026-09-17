@@ -1,7 +1,9 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, Text, TextInput, View } from 'react-native'
 
 export function CoachSquadTemplates({ store, rows, locked, onApply, palette, styles }) {
+  const [expanded, setExpanded] = useState(false)
   const [templates, setTemplates] = useState([])
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(true)
@@ -32,8 +34,11 @@ export function CoachSquadTemplates({ store, rows, locked, onApply, palette, sty
   }
   const button = (label, onPress, disabled = locked || busy) => <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={{ minHeight: 44, justifyContent: 'center', padding: 8, opacity: disabled ? 0.4 : 1 }}><Text style={[styles.body, { color: palette.accentText }]}>{label}</Text></Pressable>
   return <View style={{ gap: 6, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: palette.border }}>
-    <Text style={styles.cardTitle}>Squad templates</Text>
-    <Text style={styles.meta}>Your saved groups for this team, synced to your Coach account. Applying a template replaces the current choices. Review them, then Save selections.</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel="Squad templates" accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <MaterialIcons name="groups" size={22} color={palette.accentText} /><Text style={[styles.body, { flex: 1 }]}>Squad templates</Text><MaterialIcons name={expanded ? 'expand-less' : 'expand-more'} size={22} color={palette.accentText} />
+    </Pressable>
+    {expanded ? <View style={{ gap: 6 }}>
+    <Text style={styles.meta}>Apply a saved squad, review the choices, then save.</Text>
     <TextInput accessibilityLabel="Template name" placeholder="e.g. Regular match squad" placeholderTextColor={palette.textMuted} maxLength={60} editable={!locked && !busy} value={name} onChangeText={setName} style={{ color: palette.textPrimary, borderColor: palette.border, borderWidth: 1, borderRadius: 8, minHeight: 44, padding: 10 }} />
     {button(templates.some(item => item.name === name.trim()) ? 'Update named template' : 'Save selected players as template', () => void action('save'), locked || busy || !name.trim() || !selectedIds.length)}
     {templates.map(template => <View key={template.name} style={{ borderTopWidth: 1, borderTopColor: palette.border, paddingTop: 6 }}>
@@ -46,5 +51,6 @@ export function CoachSquadTemplates({ store, rows, locked, onApply, palette, sty
     </View>)}
     {button(busy ? 'Updating templates...' : 'Refresh templates', () => void action('list'), busy)}
     {message ? <Text accessibilityLiveRegion="polite" style={styles.body}>{message}</Text> : null}
+    </View> : null}
   </View>
 }

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 const source = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
 const start = source.indexOf('export async function setCoachMatchDaySquadDecision(')
 const end = source.indexOf('export async function notifyCoachMatchDaySquadDecision(', start)
-const body = source.slice(start, end).replace('export ', '')
+const body = source.slice(start, end).replaceAll('export ', '')
 function setup({ status = 'scheduled', fail = false } = {}) {
   const calls = []
   const decisions = [{ playerId: 'player', status: 'selected', decisionRevision: 'server-revision' }]
@@ -34,4 +34,18 @@ test('a decision conflict stops immediately without a refresh that could hide th
   const { save, calls } = setup({ fail: true })
   await assert.rejects(save({ activeTeamId: 'team' }, { id: 'fixture', status: 'scheduled' }, 'player', 'selected'), /Decision changed/)
   assert.equal(calls.length, 2)
+})
+
+const batchBody = source.slice(source.indexOf('export async function setCoachMatchDaySquadDecisions('), end).replace('export ', '')
+test('ten squad changes use one RPC and return authoritative revisions together', async () => {
+  const calls = []
+  const choices = Array.from({length:10}, (_, i) => ({player:{id:String(i),decidedAt:'old'},decision:'selected'}))
+  const save = new Function('prepareMutation','rpc','normalizeMatchDaySquadDecision','normalizeCoachMatchDay','getCoachMatchDayDetail', batchBody+';return setCoachMatchDaySquadDecisions;')(
+    async()=>{}, async(name,params)=>{calls.push({name,params});return {id:'fixture',status:'scheduled',squadDecisions:choices.map(({player})=>({playerId:player.id,decisionRevision:'new-'+player.id}))}},value=>value,value=>value,()=>assert.fail('No full refresh needed'))
+  const saved = await save({activeTeamId:'team'},{id:'fixture',status:'scheduled'},choices)
+  assert.equal(calls.length,1)
+  assert.equal(calls[0].name,'set_match_day_squad_decisions_batch')
+  assert.equal(calls[0].params.decisions_value.length,10)
+  assert.equal(calls[0].params.decisions_value[9].expectedDecidedAt,'old')
+  assert.equal(saved.squadDecisions.length,10)
 })

@@ -1,3 +1,4 @@
+import { allowsMobileNotification } from '../apps/mobile-core/src/notificationCategories.js'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildCoachMatchDaySquad, filterCoachMatchDays, isCoachMatchDaySquadNotificationApplied, reconcileCoachSquadNotificationResults } from '../apps/mobile-core/src/coachMatchDayCore.js'
@@ -54,6 +55,10 @@ test('receipt delivery only uses the saved recipient and never rewrites the alre
   const admin = { rpc: async () => ({ data: { id, match_day_id: 'fixture', parent_link_id: 'parent-a', title: 'Squad update', body: 'Alex is selected.' } }), from: (table) => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'fixture' } }) }) }), update: (value) => ({ eq: async () => { updates.push({ table, value }); return {} } }) }) }
   await deliverSquadDecisionNotifications([id], { admin, deliver: async (value) => { payload = value; return { mobileFailed: 0, webFailed: 0, mobileSent: 1 } } })
   assert.deepEqual(payload.targetParentLinkIds, ['parent-a']); assert.equal(payload.inboxAlreadySaved, true)
+      assert.equal(payload.type, 'squad_selection')
+      assert.equal(allowsMobileNotification(undefined, { app: 'parent', route: 'matchday', type: payload.type }), true)
+      assert.equal(allowsMobileNotification({gameDay:'off',invites:true}, { app: 'parent', route: 'matchday', type: payload.type }), true)
+      assert.equal(allowsMobileNotification({invites:false}, { app: 'parent', route: 'matchday', type: payload.type }), false)
   assert.equal(payload.notificationCopy.detailedBody, 'Alex is selected.'); assert.ok(updates[0].value.push_finished_at)
   assert.doesNotMatch(payload.notificationCopy.minimalBody, /Alex|selected/)
   assert.equal(payload.notificationCopy.tag, 'match-day-fixture')
@@ -74,6 +79,10 @@ for (const [name, delivery, expected] of [
     }
     const result = await deliverSquadDecisionNotifications([id], { admin, deliver: async payload => {
       assert.equal(payload.inboxAlreadySaved, true)
+      assert.equal(payload.type, 'squad_selection')
+      assert.equal(allowsMobileNotification(undefined, { app: 'parent', route: 'matchday', type: payload.type }), true)
+      assert.equal(allowsMobileNotification({gameDay:'off',invites:true}, { app: 'parent', route: 'matchday', type: payload.type }), true)
+      assert.equal(allowsMobileNotification({invites:false}, { app: 'parent', route: 'matchday', type: payload.type }), false)
       assert.deepEqual(payload.targetParentLinkIds, ['parent'])
       return delivery
     }, email: async () => { assert.fail('App preference must never trigger an email fallback') } })

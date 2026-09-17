@@ -466,6 +466,18 @@ export async function setCoachMatchDaySquadDecision(user, match, playerId, decis
   return { ...match, squadDecisions: latest.squadDecisions, updatedAt: latest.updatedAt }
 }
 
+export async function setCoachMatchDaySquadDecisions(user, match, choices) {
+  await prepareMutation(user, match)
+  const detail = await rpc('set_match_day_squad_decisions_batch', {
+    match_day_id_value: match.id, active_team_id_value: user.activeTeamId,
+    decisions_value: choices.map(({ player, decision }) => ({ playerId: player.id, decision: normalizeMatchDaySquadDecision(decision), expectedDecidedAt: player.decidedAt || null })),
+  })
+  if (!detail?.id || detail.id !== match.id) throw new Error('This match day is not linked to your active Team.')
+  const latest = normalizeCoachMatchDay(detail)
+  if (latest.status !== match.status) return getCoachMatchDayDetail(user, match.id)
+  return { ...match, squadDecisions: latest.squadDecisions, updatedAt: latest.updatedAt }
+}
+
 export async function notifyCoachMatchDaySquadDecision(user, match, playerId, revision) {
   await prepareMutation(user, match)
   const config = getMobileRuntimeConfig('coach')

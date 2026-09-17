@@ -18,7 +18,7 @@ const styles={stack:{gap:12},screenTitle:{color:palette.textPrimary,fontSize:29,
 const players=[{id:'0',playerName:'Alex'},{id:'1',playerName:'Jamie'},{id:'2',playerName:'Sam'}];
 const store=async(action='list',name='',playerIds=[])=>{if(window.fail)throw Error('offline');if(action==='save'){window.templates=[...window.templates.filter(t=>t.name!==name),{name,playerIds}]};if(action==='delete')window.templates=window.templates.filter(t=>t.name!==name);return [...window.templates]};
 function App(){const [tab,setTab]=React.useState('squad'),[key,setKey]=React.useState(0),[allowed,setAllowed]=React.useState(true),[offline,setOffline]=React.useState(false),[location,setLocation]=React.useState('Synthetic Football Ground');window.tab=setTab;window.remount=()=>setKey(k=>k+1);window.allow=setAllowed;window.offline=setOffline;window.locationText=setLocation;
-return <div style={{padding:16,background:palette.background,minHeight:'100vh'}}>{tab==='squad'?<CoachSquadPanel key={key} templateStore={store} actions={{canSetSquad:allowed}} match={{id:'match',squadDecisions:[]}} players={players} palette={palette} styles={styles} onSetDecision={async()=>{window.writes.push('save');throw Error('test stop')}} onNotify={async()=>{window.writes.push('notify');return []}}/>:tab==='map'?<VenueMapPreview key={location} location={location} offline={offline} colors={palette} styles={styles}/>:<CoachNotificationHistoryScreen key={key} user={{id:'coach'}} homeState={{unreadChat:0}} onNavigate={()=>{}} onOpenNotification={data=>window.opens.push(data)} palette={palette} styles={styles}/>}</div>}
+return <div style={{padding:16,background:palette.background,minHeight:'100vh'}}>{tab==='squad'?<CoachSquadPanel key={key} templateStore={store} actions={{canSetSquad:allowed}} match={{id:'match',squadDecisions:[]}} players={players} palette={palette} styles={styles} onSetDecisions={async()=>{window.writes.push('save');throw Error('test stop')}} onNotify={async()=>{window.writes.push('notify');return []}}/>:tab==='map'?<VenueMapPreview key={location} location={location} offline={offline} colors={palette} styles={styles}/>:<CoachNotificationHistoryScreen key={key} user={{id:'coach'}} homeState={{unreadChat:0}} onNavigate={()=>{}} onOpenNotification={data=>window.opens.push(data)} palette={palette} styles={styles}/>}</div>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result=await build({stdin:{contents:entry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},plugins:[{name:'fakes',setup(b){b.onResolve({filter:/\/offline$/},()=>({path:'offline',namespace:'fake'}));b.onResolve({filter:/coachNotificationHistory$/},()=>({path:'history',namespace:'fake'}));b.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'fake'}));b.onLoad({filter:/.*/,namespace:'fake'},args=>({loader:'jsx',contents:args.path==='icons'?'export default()=>null;':args.path==='offline'?'export const readCoachOfflineResources=async()=>null;export const saveCoachOfflineResources=async()=>{};':'export async function getCoachNotificationHistory(){if(window.fail)throw Error("offline");return window.historyItems}'}))}}]})
 const browser=await chromium.launch({headless:true})
@@ -30,16 +30,20 @@ try {
   await page.route('https://tile.openstreetmap.org/**',route=>{tiles++;return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDeoAAAAASUVORK5CYII=','base64')})})
   await page.goto('about:blank');await page.clock.setFixedTime(new Date('2026-09-09T12:00:00Z'));await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div></body></html>');await page.addScriptTag({content:result.outputFiles[0].text})
   await page.getByRole('button',{name:'Selected: Alex',exact:true}).click()
+  assert.equal(await page.getByRole('textbox',{name:'Template name'}).count(),0)
+  await page.getByRole('button',{name:'Squad templates',exact:true}).click()
   await page.getByRole('textbox',{name:'Template name'}).fill('Regular squad')
   await page.getByRole('button',{name:'Save selected players as template',exact:true}).click()
   await page.getByRole('button',{name:'Apply Regular squad',exact:true}).waitFor()
   assert.deepEqual(await page.evaluate(()=>window.writes),[])
   await page.evaluate(()=>window.remount())
+  await page.getByRole('button',{name:'Squad templates',exact:true}).click()
   await page.getByRole('button',{name:'Apply Regular squad',exact:true}).click()
   await page.getByText('3 unsaved changes',{exact:true}).waitFor()
   assert.deepEqual(await page.evaluate(()=>window.writes),[],'Applying templates cannot save selections or send notifications')
   await page.getByText('1 selected · 2 not selected · 0 to choose',{exact:true}).waitFor()
   await page.evaluate(()=>{window.templates=[{name:'Old squad',playerIds:['0','gone']}];window.remount()})
+  await page.getByRole('button',{name:'Squad templates',exact:true}).click()
   await page.getByRole('button',{name:'Apply Old squad',exact:true}).click()
   await page.getByText(/1 template players are no longer/).waitFor()
   await page.evaluate(()=>window.allow(false))

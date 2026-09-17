@@ -28,6 +28,8 @@ const browser=await chromium.launch({headless:true});let debugPage
 try{
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message))
  debugPage=page;page.setDefaultTimeout(8000);
+ // Keep the dated notification fixture in its intended recent group.
+ await page.clock.setFixedTime(new Date('2026-09-10T12:00:00Z'));
  await page.setContent('<body style="margin:0;font-family:Arial"><div id="root"></div>');await page.addStyleTag({content:css});await page.addScriptTag({content:result.outputFiles[0].text})
  await page.getByRole('button',{name:'Choose Home kit colour'}).click()
  await page.getByRole('textbox',{name:'Home kit colour code'}).fill('#abcdef')
