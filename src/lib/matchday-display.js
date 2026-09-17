@@ -38,6 +38,8 @@ export function getMatchDayDisplayParts(match = {}) {
 }
 
 export function getMatchDayDisplayName(match = {}) {
+  const title = normalizeText(match.title)
+  if (title && !/^match(?:\s+v(?:s\.?)?\b|$)/i.test(title)) return title
   const { firstTeam, secondTeam } = getMatchDayDisplayParts(match)
   return `${firstTeam} v ${secondTeam}`
 }

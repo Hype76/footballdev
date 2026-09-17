@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import {
   buildAuthoritativeCalendarNotificationEmail,
   CALENDAR_NOTIFICATION_PARENT_PORTAL_URL,
@@ -103,7 +104,7 @@ async function loadMatchDayContext(supabaseClient, { clubId, matchDayId }) {
   const fixture = await loadMaybeSingle(
     supabaseClient
       .from('match_days')
-      .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, status')
+      .select('id, club_id, team_id, title, home_away, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, status')
       .eq('id', matchDayId)
       .eq('club_id', clubId),
     'Match Day fixture',
@@ -130,7 +131,8 @@ async function loadMatchDayContext(supabaseClient, { clubId, matchDayId }) {
     parent_visible: fixture.parent_visible,
     starts_at: startsAt,
     team_id: fixture.team_id,
-    title: `Match vs ${normalizeText(fixture.opponent) || 'Opponent'}`,
+    title: fixture.title,
+    fixture,
   }
 }
 
@@ -299,7 +301,7 @@ async function loadParentNotificationContext(supabaseClient, row) {
     clubLogoUrl: normalizeText(brand.club.logo_url),
     clubName: normalizeText(brand.club.name),
     endsAt: event.ends_at,
-    eventTitle: event.title,
+    eventTitle: event.fixture ? getMatchDayDisplayName({ ...event.fixture, clubName: brand.club.name }) : event.title,
     eventType: event.event_type,
     location: event.location,
     notes: event.notes,
@@ -406,7 +408,7 @@ async function loadTrialNotificationContext(supabaseClient, row) {
     clubLogoUrl: normalizeText(brand.club.logo_url),
     clubName: normalizeText(brand.club.name),
     endsAt: event.ends_at,
-    eventTitle: event.title,
+    eventTitle: event.fixture ? getMatchDayDisplayName({ ...event.fixture, clubName: brand.club.name }) : event.title,
     eventType: event.event_type,
     location: event.location,
     notes: event.notes,

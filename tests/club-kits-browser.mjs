@@ -60,6 +60,13 @@ try{
  assert.equal(await page.evaluate(async()=>{const i=new Image();i.src=window.images[window.saved.at(-1).image_path];await i.decode();const c=document.createElement('canvas');c.width=c.height=512;c.getContext('2d').drawImage(i,0,0);return c.getContext('2d').getImageData(50,250,1,1).data[3]}),0,'Saved PNG preserves transparent background')
  assert.equal(await page.evaluate(()=>window.saved.at(-1).colour),'#246810');assert.ok(await page.evaluate(()=>window.saved.at(-1).image_path.startsWith('club/home/')))
  await page.evaluate(()=>window.screen('native'));await page.getByText('Home kit',{exact:true}).waitFor();assert.ok(await page.locator('img').count()>0)
+ await page.getByRole('button',{name:'Enlarge home kit image',exact:true}).click()
+ await page.getByRole('button',{name:'Close kit image',exact:true}).waitFor()
+ const enlarged=page.getByLabel('Home kit enlarged',{exact:true});await enlarged.waitFor()
+ const bounds=await enlarged.boundingBox();assert.ok(bounds.width>250&&bounds.height>300,'Kit opens larger than its thumbnail')
+ await page.screenshot({path:out+'/native-kit-enlarged.png',fullPage:true})
+ await page.getByRole('button',{name:'Close kit image',exact:true}).click()
+ await page.getByRole('button',{name:'Close kit image',exact:true}).waitFor({state:'hidden'})
  for(const mode of ['light','dark']){await page.evaluate(v=>window.mode(v),mode);await page.screenshot({path:out+'/native-'+mode+'.png',fullPage:true})}
  await page.evaluate(()=>window.screen('editor'));await page.getByRole('button',{name:'Remove image',exact:true}).click();await page.getByRole('button',{name:'Save Home kit',exact:true}).click();await page.getByText('Home kit saved.',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.kits.home.image_path),null);assert.equal(await page.evaluate(()=>window.removed.length),1)
  const data=await page.evaluateHandle(base64=>{const dt=new DataTransfer();dt.items.add(new File([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],'away.png',{type:'image/png'}));return dt},image)

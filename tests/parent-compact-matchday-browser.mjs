@@ -22,7 +22,7 @@ const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replace('../assets/kit-tbc.png', './apps/mobile-core/assets/kit-tbc.png'))
 const entry = `
 import React,{useState,useMemo,useEffect,useRef} from 'react';import {createRoot} from 'react-dom/client';
-import {View,Text,Pressable,StyleSheet,Platform,Image} from 'react-native';
+import {View,Text,Pressable,StyleSheet,Platform,Image,Modal,SafeAreaView} from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
 import {MatchTypeIcon} from './apps/parent-mobile/src/MatchTypeIcon.js';

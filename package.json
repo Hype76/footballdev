@@ -118,6 +118,7 @@
     "eslint-plugin-react-hooks": "7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "jsqr": "1.4.0",
     "netlify-cli": "^27.4.3",
     "playwright": "^1.60.0",
     "vite": "^7.3.6",

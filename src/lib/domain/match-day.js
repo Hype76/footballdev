@@ -568,6 +568,7 @@ export function normalizeMatchDay(row) {
       row.notification_team_name ?? row.notificationTeamName,
     ),
     opponent: normalizeText(row.opponent),
+    title: normalizeText(row.title),
     fixtureType: normalizeMatchDayFixtureType(row.fixture_type ?? row.fixtureType),
     conclusionRule: normalizeMatchDayConclusionRule(row.match_conclusion_rule ?? row.conclusionRule),
     currentMatchPhase: normalizeText(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match',
@@ -815,6 +816,7 @@ function buildMatchDayListSelect() {
     club_id,
     team_id,
     notification_team_name,
+    title,
     opponent,
     fixture_type,
     match_conclusion_rule,
@@ -976,6 +978,7 @@ function buildMatchDaySnapshot(row) {
   }
 
   return sanitizeEventLogObject({
+    title: normalizeText(row.title),
     opponent: normalizeText(row.opponent),
     fixtureType: normalizeMatchDayFixtureType(row.fixture_type ?? row.fixtureType),
     matchDate: row.match_date ?? null,
@@ -1013,6 +1016,7 @@ function buildMatchDaySnapshotFromMatch(match) {
   }
 
   return sanitizeEventLogObject({
+    title: normalizeText(match.title),
     opponent: normalizeText(match.opponent),
     fixtureType: normalizeMatchDayFixtureType(match.fixtureType),
     matchDate: match.matchDate || null,
@@ -1437,6 +1441,7 @@ export async function createMatchDay({ user, match }) {
       notification_team_name: notificationTeamName,
       location_id: locationId || null,
       opponent,
+      title: normalizeText(match?.title),
       fixture_type: fixtureType,
       match_date: fixtureDateTime.matchDate,
       kickoff_time: fixtureDateTime.kickoffTime || null,
@@ -1551,6 +1556,7 @@ export async function updateMatchDay({ user, matchId, updates }) {
     }
   }
 
+  if (updates.title !== undefined) payload.title = normalizeText(updates.title)
   if (updates.opponent !== undefined) payload.opponent = normalizeText(updates.opponent)
   if (updates.notificationTeamName !== undefined) {
     payload.notification_team_name = normalizeTeamNotificationDisplayName(updates.notificationTeamName)
