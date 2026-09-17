@@ -107,8 +107,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
   return <View>
     <Text style={styles.cardTitle}>Squad</Text>
     <Text style={styles.body}>{squad.summary.selected} selected · {squad.summary.notSelected} not selected · {squad.summary.undecided + squad.summary.waiting} to choose</Text>
-    <Text style={styles.meta}>Choose Selected or Not selected, then tick Notify. Save and send together, or save selections without sending.</Text>
-    <Text style={styles.meta}>Queued means the request is saved. Phone or email delivery runs in the background, using each parent's notification settings.</Text>
+    <Text style={styles.meta}>Choose your squad, tick Notify, then save and send.</Text>
     {!actions.canSetSquad ? <Text style={styles.body}>{actions.blockedReason || 'Squad decisions are locked after kick-off.'}</Text> : null}
     {templateStore ? <CoachSquadTemplates store={templateStore} rows={rows} locked={locked} palette={palette} styles={styles} onApply={(template) => {
       if (locked || decidingRef.current) return
