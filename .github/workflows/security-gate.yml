@@ -165,10 +165,13 @@ jobs:
           node --test tests/formation-board-creation-repair.test.mjs
           tests/formation-board-pitch-first-overhaul.test.mjs
           tests/coach-formation-pitch-first-overhaul.test.mjs
+          tests/coach-formation-fullscreen-workspace.test.mjs
           tests/coach-formation-metadata-repair.test.mjs
           tests/coach-formation-draft-repair.test.mjs
           tests/parent-formation-match-plan-repair.test.mjs &&
-          node tests/coach-formation-async-recovery-browser.mjs
+          node tests/coach-formation-async-recovery-browser.mjs &&
+          node tests/coach-formation-fullscreen-workspace-browser.mjs &&
+          node tests/coach-formation-screen-loading-browser.mjs
       - name: Coach fixture pitch and event participant removal
         run: node --test tests/fixture-create-edit-feedback-128.test.mjs tests/fixture-create-edit-feedback-128-pglite.test.mjs tests/event-player-removal-26b-pglite.test.mjs tests/coach-fixture-create-crash-63.test.mjs tests/mobile-coach-invite-removal-modal-108.test.mjs && node tests/coach-fixture-pitch-browser.mjs
       - name: Mobile brand contrast and rendered readability

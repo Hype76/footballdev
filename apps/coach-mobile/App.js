@@ -77,6 +77,7 @@ import {
 import { prepareCoachMobileStartup } from './src/startup'
 import { CoachCalendarScreen, CoachPlayersScreen, CoachSessionsScreen } from './src/CoachOperationalScreens'
 import { CoachFormationScreen } from './src/CoachFormationScreen'
+import { CoachFormationWorkspace } from './src/CoachFormationWorkspace'
 import { CoachMatchDayScreen } from './src/CoachMatchDayScreen'
 import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
 import { CoachQuickActions } from './src/CoachQuickActions'
@@ -190,6 +191,7 @@ function CoachHome() {
   const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
   const notificationStateRef = useRef(null)
   const latestBadgeCountRef = useRef(0)
+  const formationReturnRef = useRef({ activeRoute: 'home', moreRoute: '' })
 
   const contextResolution = useMemo(
     () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
@@ -491,6 +493,9 @@ function CoachHome() {
       return false
     }
     const routeTarget = getCoachRouteState(resolved)
+    if (routeTarget.activeRoute === 'formation' && activeRoute !== 'formation') {
+      formationReturnRef.current = { activeRoute, moreRoute }
+    }
     setNotice('')
     setCalendarTarget(resolved === 'calendar' && (navigationTarget?.eventId || navigationTarget?.sourceId) ? { ...navigationTarget, requestId: `${Date.now()}` } : null)
     setMatchDayTarget(resolved === 'matchday' && navigationTarget?.fixtureId
@@ -499,7 +504,12 @@ function CoachHome() {
     setActiveRoute(routeTarget.activeRoute)
     setMoreRoute(routeTarget.moreRoute)
     return true
-  }, [activeContext, scrollContentToTop])
+  }, [activeContext, activeRoute, moreRoute, scrollContentToTop])
+
+  const closeFormationWorkspace = useCallback(() => {
+    const target = formationReturnRef.current
+    navigate(target.moreRoute || target.activeRoute || 'home')
+  }, [navigate])
 
   const openNotificationSettings = useCallback(() => {
     if (navigate('settings')) {
@@ -860,6 +870,7 @@ function CoachHome() {
               onRefreshBiometricState={() => refreshBiometricState().catch(() => {})}
               onRefreshNotificationState={() => refreshNotificationRegistration({ force: true, showLoading: true })}
               onChatNotificationTargetHandled={handleChatNotificationTargetHandled}
+              onFormationBack={closeFormationWorkspace}
               onMatchDayTargetHandled={handleMatchDayTargetHandled}
               onNavigate={navigate}
               onOpenNotification={openCoachTarget}
@@ -897,7 +908,21 @@ function CoachRoute(props) {
   if (activeRoute === 'notifications') return <CoachNotificationsScreen {...props} key={props.context.id} />
   if (activeRoute === 'calendar') return <CoachCalendarScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'players') return <CoachPlayersScreen {...props} key={props.context.id} palette={palette} />
-  if (activeRoute === 'formation') return <CoachFormationScreen {...props} key={props.context.id} palette={palette} />
+  if (activeRoute === 'formation') return (
+    <CoachFormationWorkspace onBack={props.onFormationBack} palette={palette}>
+      {({ onMarkerGestureEnd, onMarkerGestureStart, registerBackHandler }) => (
+        <CoachFormationScreen
+          {...props}
+          key={props.context.id}
+          onBack={props.onFormationBack}
+          onMarkerGestureEnd={onMarkerGestureEnd}
+          onMarkerGestureStart={onMarkerGestureStart}
+          palette={palette}
+          registerBackHandler={registerBackHandler}
+        />
+      )}
+    </CoachFormationWorkspace>
+  )
   if (activeRoute === 'matchday') return <CoachMatchDayScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'sessions') return <CoachSessionsScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'more') {

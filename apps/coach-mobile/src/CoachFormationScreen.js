@@ -1,10 +1,10 @@
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { getCoachMatchDayList, normalizeCoachMatchDay } from '../../mobile-core/src/coachMatchDayData'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { CoachFormationBoard } from './CoachFormationBoard'
-import { getLinkableCoachFormationMatches } from './coachFormationEntryCore'
+import { getCoachFormationAuthorityScope, getLinkableCoachFormationMatches } from './coachFormationEntryCore'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
@@ -27,53 +27,85 @@ function normalizeCachedMatches(value) {
     .map(normalizeCoachMatchDay)
 }
 
-export function CoachFormationScreen({ context, onQuickActionHandled, palette, quickAction, user }) {
+export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMarkerGestureStart, onQuickActionHandled, palette, quickAction, registerBackHandler, user }) {
   const styles = useMemo(() => createStyles(palette), [palette])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [matches, setMatches] = useState([])
   const [players, setPlayers] = useState([])
+  const [readyScope, setReadyScope] = useState('')
   const [stale, setStale] = useState(false)
+  const authorityScope = getCoachFormationAuthorityScope(user, context)
+  const loadSequence = useRef(0)
+  const propsRef = useRef({ context, user })
+  useEffect(() => {
+    propsRef.current = { context, user }
+  }, [context, user])
 
   const load = useCallback(async ({ refresh = false } = {}) => {
+    const request = ++loadSequence.current
+    const isCurrent = () => request === loadSequence.current
+    const { context: currentContext, user: currentUser } = propsRef.current
+    await Promise.resolve()
+    if (!isCurrent()) return
     setLoading(true)
     setError('')
-    const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
+    setReadyScope('')
+    setStale(false)
+    const remoteResult = Promise.all([
+      readMobileResource(currentUser, 'coach:match-list', () => getCoachMatchDayList(currentUser), { force: refresh }),
+      readMobileResource(currentUser, 'coach:players', () => getCoachPlayerList(currentUser), { force: refresh }),
+    ]).then(value => ({ value }), error => ({ error }))
+    const saved = await readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
+    if (!isCurrent()) return
     const cachedMatches = normalizeCachedMatches(saved?.resources?.matchDayList)
     const cachedPlayers = Array.isArray(saved?.resources?.matchDayPlayers) ? saved.resources.matchDayPlayers : []
     const hasCachedData = Array.isArray(saved?.resources?.matchDayList) || Array.isArray(saved?.resources?.matchDayPlayers)
     if (hasCachedData) {
-      setMatches(getLinkableCoachFormationMatches(cachedMatches, { teamId: user.activeTeamId }))
+      setMatches(getLinkableCoachFormationMatches(cachedMatches, { teamId: currentUser.activeTeamId }))
       setPlayers(cachedPlayers)
+      setReadyScope(authorityScope)
       setStale(true)
       setLoading(false)
     }
-    try {
-      const [nextMatches, nextPlayers] = await Promise.all([
-        readMobileResource(user, 'coach:match-list', () => getCoachMatchDayList(user), { force: refresh }),
-        readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), { force: refresh }),
-      ])
-      const ordered = getLinkableCoachFormationMatches(nextMatches, { teamId: user.activeTeamId })
+    const result = await remoteResult
+    if (!isCurrent()) return
+    if (result.value) {
+      const [nextMatches, nextPlayers] = result.value
+      const ordered = getLinkableCoachFormationMatches(nextMatches, { teamId: currentUser.activeTeamId })
       setMatches(ordered)
       setPlayers(nextPlayers)
+      setReadyScope(authorityScope)
       setStale(false)
-      await saveCoachOfflineResources(user.id, context, { matchDayList: ordered, matchDayPlayers: nextPlayers })
-    } catch (loadError) {
-      if (!hasCachedData) setError(getCoachFriendlyError(loadError, 'The Formation Board workspace could not be loaded.'))
-    } finally { setLoading(false) }
-  }, [context, user])
+      setLoading(false)
+      await saveCoachOfflineResources(currentUser.id, currentContext, { matchDayList: ordered, matchDayPlayers: nextPlayers }).catch(() => {})
+    } else {
+      if (!hasCachedData) {
+        setReadyScope(authorityScope)
+        setError(getCoachFriendlyError(result.error, 'The Formation Board workspace could not be loaded.'))
+      }
+      setLoading(false)
+    }
+  }, [authorityScope])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const requests = loadSequence
+    const timer = setTimeout(() => void load(), 0)
+    return () => {
+      clearTimeout(timer)
+      ++requests.current
+    }
+  }, [load])
   useEffect(() => {
     if (quickAction?.route === 'formation') onQuickActionHandled?.()
   }, [onQuickActionHandled, quickAction])
 
   return (
     <View style={styles.stack}>
-      {error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load()} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
-      {stale ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
-      {loading ? <View style={styles.loading}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
-      {!loading && !error ? <CoachFormationBoard context={context} matches={matches} palette={palette} players={players} stale={stale} user={user} /> : null}
+      {readyScope === authorityScope && error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load()} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
+      {readyScope === authorityScope && stale ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
+      {readyScope !== authorityScope && loading ? <View style={styles.loading}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
+      {readyScope === authorityScope && !error ? <CoachFormationBoard context={context} matches={matches} onBack={onBack} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
     </View>
   )
 }

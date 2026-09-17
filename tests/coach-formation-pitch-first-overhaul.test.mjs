@@ -7,7 +7,7 @@ import {
   createMobileFormationDraft,
   setMobileFormationSquad,
 } from '../apps/mobile-core/src/coachFormationBoardCore.js'
-import { canEditCoachFormationBoard, getCoachFormationMarkerVisualPosition } from '../apps/coach-mobile/src/coachFormationEntryCore.js'
+import { canEditCoachFormationBoard, getCoachFormationAuthorityScope, getCoachFormationMarkerVisualPosition, getCoachFormationRouteScope } from '../apps/coach-mobile/src/coachFormationEntryCore.js'
 
 const players = Array.from({ length: 13 }, (_, index) => ({
   id: `player-${index + 1}`,
@@ -68,6 +68,16 @@ test('Coach Formation Board write authority matches the data layer and keeps ass
   assert.equal(canEditCoachFormationBoard({ ...base, roleRank: 30 }), true)
   assert.equal(canEditCoachFormationBoard({ ...base, hasActivePlanAccess: false, roleRank: 70 }), false)
   assert.equal(canEditCoachFormationBoard({ ...base, activeTeamId: '', roleRank: 70 }), false)
+})
+
+test('Formation loading scope ignores object identity but changes with route or authority', () => {
+  const user = { activeTeamId: 'team-1', clubId: 'club-1', hasActivePlanAccess: true, id: 'staff-1', role: 'coach', roleRank: 30 }
+  const context = { authorityId: 'staff-row-1', authoritySource: 'team_staff', clubId: 'club-1', hasActivePlanAccess: true, id: 'context-1', role: 'coach', roleRank: 30, teamId: 'team-1', teamStatus: 'active' }
+  assert.equal(getCoachFormationAuthorityScope(user, context), getCoachFormationAuthorityScope({ ...user }, { ...context }))
+  assert.equal(getCoachFormationRouteScope(user, context, 'match-1'), getCoachFormationRouteScope({ ...user }, { ...context }, 'match-1'))
+  assert.notEqual(getCoachFormationRouteScope(user, context, 'match-1'), getCoachFormationRouteScope(user, context, 'match-2'))
+  assert.notEqual(getCoachFormationAuthorityScope(user, context), getCoachFormationAuthorityScope({ ...user, activeTeamId: 'team-2' }, { ...context, teamId: 'team-2' }))
+  assert.notEqual(getCoachFormationAuthorityScope(user, context), getCoachFormationAuthorityScope({ ...user, hasActivePlanAccess: false }, { ...context, hasActivePlanAccess: false }))
 })
 
 test('Coach marker visuals stay fully inside narrow pitches without changing stored coordinates', () => {
