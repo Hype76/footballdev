@@ -114,6 +114,7 @@ try {
  await page.getByText('Resources added to this event.',{exact:true}).waitFor()
  assert.deepEqual(await page.evaluate(()=>window.resourceSaves.at(-1)),{eventId:'fixture',ids:['other'],date:'2099-09-19'})
  await page.getByRole('button',{name:'Edit fixture',exact:true}).click()
+ await page.waitForFunction(()=>window.calls.at(-1)?.target?.intent==='edit-fixture')
  assert.deepEqual(await page.evaluate(()=>window.calls.at(-1)),{route:'matchday',target:{fixtureId:'fixture',intent:'edit-fixture',returnCalendarTarget:{sourceId:'fixture',sourceType:'match_day'}}})
  assert.equal(await page.getByText('Edit this item from its Match Day screen.',{exact:true}).count(),0)
  for(const mode of ['light','dark']){await page.evaluate(mode=>window.mode(mode),mode);await page.screenshot({path:out+'/calendar-fixture-edit-'+mode+'.png',fullPage:true})}
