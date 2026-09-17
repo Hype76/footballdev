@@ -16,7 +16,7 @@ const extract = names => names.map(name => {
   assert.ok(node, name)
   return source.slice(node.start, node.end)
 }).join('\n')
-const helpers = extract(['useDomainStyles', 'Button', 'Field', 'Chips', 'getSavedLocationOptions', 'DomainHeader', 'DomainState'])
+const helpers = extract(['useDomainStyles', 'Button', 'Field', 'Chips', 'getSavedLocationOptions', 'DomainHeader', 'DomainState', 'TrainingSessionRow'])
 const screen = source.slice(source.indexOf('export function CoachSessionsScreen('), source.indexOf('function SessionPlayerNotes'))
 
 const entry = `
@@ -26,7 +26,7 @@ import {Keyboard,Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-na
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js'
 import {filterCoachSessions,getCoachSessionMutationPolicy} from './apps/mobile-core/src/coachSessionsCore.js'
-import {coachCalendarFormFromEvent,filterCoachCalendarEvents} from './apps/mobile-core/src/coachCalendarCore.js'
+import {coachCalendarFormFromEvent,filterCoachCalendarEvents,formatCoachCalendarEventDateTime} from './apps/mobile-core/src/coachCalendarCore.js'
 import {getCoachOfflineSaveWarning} from './apps/coach-mobile/src/coachOfflineErrors.js'
 import {formatUkDate} from './src/lib/date-format.js'
 const getCoachFriendlyError=error=>error?.message||'Unknown error'
@@ -34,11 +34,10 @@ const message=getCoachFriendlyError
 const useConfirmedConnectionIssue=value=>value
 const useConfirmedConnectionMessage=value=>value
 const BrandLoader=()=>null
-const formatCoachCalendarEventDateTime=event=>event.title+' | '+event.occurrenceDate
 const withMobileAsyncTimeout=loader=>loader()
 const getCoachSessionList=async()=>window.liveSessions
 const getCoachPlayerList=async()=>[]
-const getCoachCalendarResources=async()=>[]
+const getCoachCalendarResources=async()=>[{id:'training-1',sourceId:'training-1',sourceType:'calendar_event',eventType:'training',title:'Weekly training',occurrenceDate:'2099-09-17',date:'2099-09-17',calendarDate:'2099-09-17',startAt:'2099-09-17T15:00:00Z',startTime:'16:00',availabilitySummary:{attending:1,maybe:1,awaitingResponse:12,notAttending:0,invitationNotSent:0,deliveryIssue:7}}]
 const getCoachSessionDetail=async()=>({session:window.liveSessions[0],players:[]})
 const saveCoachSession=async()=>{}
 const saveCoachTrainingInvitation=async()=>({})
@@ -56,7 +55,7 @@ ${screen}
 const user={id:'FP TEST coach',clubId:'FP TEST club',activeTeamId:'FP TEST team'}
 window.liveSessions=[{id:'FP TEST session',title:'FP TEST Assessment Session',status:'open',sessionDate:'2099-09-16',sessionType:'training',startTime:'18:00',endTime:'19:00',location:'FP TEST pitch',notes:''}]
 window.cacheError=true
-function App(){const[mode,setMode]=useState('light');window.setMode=setMode;const context=useMemo(()=>({id:'FP TEST team',clubId:'FP TEST club',teamId:'FP TEST team',teamName:'FP TEST',roleRank:70,paymentAccess:{canMutate:true}}),[]);const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:12}}><CoachSessionsScreen context={context} onNavigate={()=>{}} onQuickActionHandled={()=>{}} palette={palette} quickAction={null} user={user}/></View>}
+function App(){const[mode,setMode]=useState('light');window.setMode=setMode;const context=useMemo(()=>({id:'FP TEST team',clubId:'FP TEST club',teamId:'FP TEST team',teamName:'FP TEST',roleRank:70,paymentAccess:{canMutate:true}}),[]);const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:12}}><CoachSessionsScreen context={context} onNavigate={(route,target)=>{window.navigation={route,target}}} onQuickActionHandled={()=>{}} palette={palette} quickAction={null} user={user}/></View>}
 createRoot(document.getElementById('root')).render(<App/>);`
 
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
@@ -100,6 +99,12 @@ try {
   await warningText.waitFor({ state: 'hidden' })
   assert.equal(await page.getByText('FP TEST Assessment Session', { exact: true }).count(), 1)
   assert.equal(await page.evaluate(() => window.cacheSaves), 2)
+  await page.getByRole('button',{name:'Open training session Weekly training',exact:true}).click()
+  assert.deepEqual(await page.evaluate(()=>window.navigation),{route:'calendar',target:{sourceId:'training-1',sourceType:'calendar_event',occurrenceDate:'2099-09-17'}})
+  for(const mode of ['light','dark']) {
+    await page.evaluate(value=>window.setMode(value),mode)
+    await page.screenshot({path:`output/playwright/coach-sessions-cache-warning/compact-${mode}.png`,fullPage:true})
+  }
   await page.getByText('Create training session', { exact: true }).click()
   await page.getByText('Save training session', { exact: true }).waitFor()
   await page.getByText('Cancel', { exact: true }).waitFor()
