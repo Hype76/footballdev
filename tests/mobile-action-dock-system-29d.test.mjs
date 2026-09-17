@@ -31,8 +31,8 @@ test('action-bar inventory migrates every live editor bar and classifies non-edi
     {
       route: '/resources/formation-boards',
       component: 'FormationBoardsPage',
-      actions: ['Players', 'Undo', 'Actions', 'Save'],
-      primary: 'Save',
+      actions: ['Formation', 'Players', 'Share'],
+      primary: 'Share',
       unsaved: 'snapshot comparison, local draft, before-leave blocker',
       error: 'Formation Board error summary and Retry',
       safeArea: 'safe-area-inset-bottom',
@@ -57,7 +57,7 @@ test('action-bar inventory migrates every live editor bar and classifies non-edi
   ]
 
   assert.equal(inventory.length, 2)
-  assert.deepEqual(inventory.map((item) => item.primary), ['Save', 'Save or Open item'])
+  assert.deepEqual(inventory.map((item) => item.primary), ['Share', 'Save or Open item'])
   assert.match(source.formation, /<MobileActionDock[\s\S]*testId="formation-mobile-action-dock"/)
   assert.doesNotMatch(source.formation, /fixed inset-x-0 bottom-0 z-40/)
   assert.equal((source.sessions.match(/testId="calendar-mobile-action-bar"/g) || []).length, 2)
@@ -152,15 +152,15 @@ test('floating actions, notifications, safe areas, and content padding share one
   }
 })
 
-test('Formation Board keeps action order, authority, drafts, pitch tools, and error recovery', () => {
+test('Formation Board keeps pitch-first action order, authority, drafts, pitch tools, and error recovery', () => {
   const dockStart = source.formation.indexOf('<MobileActionDock')
   const dockEnd = source.formation.indexOf('</MobileActionDock>', dockStart)
   const dock = source.formation.slice(dockStart, dockEnd)
 
-  assert.ok(dock.indexOf('>Players<') < dock.indexOf('>Undo<'))
-  assert.ok(dock.indexOf('>Undo<') < dock.indexOf('>Actions<'))
-  assert.ok(dock.indexOf('>Actions<') < dock.indexOf("'Save'"))
-  assert.match(dock, /disabled=\{!canEdit \|\| isSaving \|\| !hasUnsavedChanges \|\| pitchCapacity\.isOverCapacity\}/)
+  assert.ok(dock.indexOf('Formation') < dock.indexOf('Players'))
+  assert.ok(dock.indexOf('Players') < dock.indexOf('Share'))
+  assert.doesNotMatch(dock, /sr-only[^>]*>[\s\S]*Save/)
+  assert.match(source.formation, /title="Formation Board actions"[\s\S]*Save to Team/)
   assert.match(source.formation, /useBlocker\(\(\) => hasUnsavedChanges/)
   assert.match(source.formation, /serializeFormationDraft/)
   assert.match(source.formation, /MobileRosterSheet/)

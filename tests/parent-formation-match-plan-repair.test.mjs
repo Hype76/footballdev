@@ -46,6 +46,21 @@ test('Parent fixture formation normalizer keeps only shared pitch and Bench data
   assert.equal(plan.unselectedPlayers, undefined)
 })
 
+test('Parent plans retain only recognised published position groups for shirt colours', () => {
+  const plan = normalizeParentMatchFormationPlan({
+    publication_id: 'publication-roles',
+    placements: [
+      { player_id: 'keeper', display_name: 'Keeper', position_group: 'goalkeeper', notes: 'Private instruction' },
+      { player_id: 'outfield', display_name: 'Outfield', positionGroup: 'defender' },
+      { player_id: 'unknown', display_name: 'Unknown', positionGroup: 'Private instruction' },
+    ],
+  })
+  assert.equal(plan.placements[0].positionGroup, 'goalkeeper')
+  assert.equal(plan.placements[1].positionGroup, 'defender')
+  assert.equal(plan.placements[2].positionGroup, undefined)
+  assert.equal(plan.placements[0].notes, undefined)
+})
+
 test('Parent match loader uses the canonical published-plan RPC and clears unavailable plans', () => {
   assert.match(dataSource, /get_parent_portal_match_formation_plans/)
   assert.match(dataSource, /formationPlanResult\.error \? \[\]/)
@@ -60,8 +75,9 @@ test('Parent match screen renders the plan inline and excludes coach notes from 
   const end = screenSource.indexOf('export function MatchdayScreen', start)
   assert.ok(start >= 0 && end > start)
   const component = screenSource.slice(start, end)
-  assert.match(component, /formationPitch/)
-  assert.match(component, /formationPlanBench/)
+  assert.match(component, /FormationPresentation/)
+  assert.match(screenSource, /formationPitch/)
+  assert.match(screenSource, /formationSubs/)
   assert.match(component, /Match plan unavailable/)
   assert.doesNotMatch(component, /\.notes/)
 })

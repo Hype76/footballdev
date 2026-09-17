@@ -17,14 +17,29 @@ function formatPosition(value) {
 
 function PitchLines() {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-3 rounded-[1.4rem] border-2 border-white/80">
-      <div className="absolute left-0 right-0 top-1/2 border-t-2 border-white/80" />
-      <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/80" />
-      <div className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/80" />
-      <div className="absolute left-1/2 top-3 h-[13%] w-[52%] -translate-x-1/2 border-2 border-t-0 border-white/80" />
-      <div className="absolute bottom-3 left-1/2 h-[13%] w-[52%] -translate-x-1/2 border-2 border-b-0 border-white/80" />
-      <div className="absolute left-1/2 top-3 h-[5%] w-[24%] -translate-x-1/2 border-2 border-t-0 border-white/80" />
-      <div className="absolute bottom-3 left-1/2 h-[5%] w-[24%] -translate-x-1/2 border-2 border-b-0 border-white/80" />
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[1.1rem]">
+      <div className="absolute inset-x-0 top-1/2 border-t-2 border-white/90" />
+      <div className="absolute left-1/2 top-1/2 h-[86px] w-[86px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/90" />
+      <div className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/90" />
+
+      <div className="absolute left-1/2 top-0 h-[14%] w-[52%] -translate-x-1/2 border-2 border-t-0 border-white/90" />
+      <div className="absolute bottom-0 left-1/2 h-[14%] w-[52%] -translate-x-1/2 border-2 border-b-0 border-white/90" />
+      <div className="absolute left-1/2 top-0 h-[6%] w-[24%] -translate-x-1/2 border-2 border-t-0 border-white/90" />
+      <div className="absolute bottom-0 left-1/2 h-[6%] w-[24%] -translate-x-1/2 border-2 border-b-0 border-white/90" />
+
+      <div className="absolute left-1/2 top-[14%] h-[35px] w-[70px] -translate-x-1/2 overflow-hidden">
+        <div className="absolute -top-[35px] h-[70px] w-[70px] rounded-full border-2 border-white/90" />
+      </div>
+      <div className="absolute bottom-[14%] left-1/2 h-[35px] w-[70px] -translate-x-1/2 overflow-hidden">
+        <div className="absolute top-0 h-[70px] w-[70px] rounded-full border-2 border-white/90" />
+      </div>
+      <div className="absolute left-1/2 top-[9%] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/90" />
+      <div className="absolute bottom-[9%] left-1/2 h-2 w-2 -translate-x-1/2 translate-y-1/2 rounded-full bg-white/90" />
+
+      <div className="absolute -left-3.5 -top-3.5 h-7 w-7 rounded-full border-2 border-white/90" />
+      <div className="absolute -right-3.5 -top-3.5 h-7 w-7 rounded-full border-2 border-white/90" />
+      <div className="absolute -bottom-3.5 -left-3.5 h-7 w-7 rounded-full border-2 border-white/90" />
+      <div className="absolute -bottom-3.5 -right-3.5 h-7 w-7 rounded-full border-2 border-white/90" />
     </div>
   )
 }
@@ -169,9 +184,10 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect,
       role={canEdit ? undefined : 'img'}
       aria-pressed={canEdit ? isSelected : undefined}
       aria-label={`${marker.displayName}, ${marker.shirtNumber ? `displayed shirt number ${marker.shirtNumber}` : 'no displayed shirt number'}, ${formatPosition(marker.x)} across, ${formatPosition(marker.y)} down${selectionMode ? ', select to move to Bench' : ''}`}
+      data-formation-player-marker="true"
       data-dragging={isDragging ? 'true' : 'false'}
-      className={`absolute z-10 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center rounded-full border-[3px] text-center shadow-lg transition motion-reduce:transition-none focus:outline-none focus:ring-4 focus:ring-amber-300 ${isDragging ? 'scale-110 border-sky-200 bg-sky-50 ring-4 ring-sky-300/70' : isSelected ? 'border-amber-300 bg-[#101828]' : 'border-white bg-[#f7faf8]'}`}
-      style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
+      className={`absolute z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 touch-none flex-col items-center justify-center rounded-xl text-center transition motion-reduce:transition-none focus:outline-none focus:ring-4 focus:ring-amber-300 sm:h-[4.5rem] sm:w-[5.25rem] ${isDragging ? 'scale-110 ring-4 ring-sky-300/70' : isSelected ? 'bg-[#061b13]/50 ring-2 ring-amber-300' : ''}`}
+      style={{ left: `clamp(3.25rem, ${position.x * 100}%, calc(100% - 3.25rem))`, top: `clamp(3.25rem, ${position.y * 100}%, calc(100% - 3.25rem))` }}
       onClick={() => {
         if (!suppressClickRef.current) onSelect(marker.playerId)
       }}
@@ -181,8 +197,8 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect,
       onPointerMove={handlePointerMove}
       onPointerUp={finishPointer}
     >
-      <FormationPlayerMarkerVisual shirtNumber={marker.shirtNumber} className="border-0" />
-      <span className="pointer-events-none absolute left-1/2 top-full mt-1 max-w-24 -translate-x-1/2 truncate rounded bg-[#101828]/90 px-1.5 py-0.5 text-[0.65rem] font-black text-white" title={marker.displayName}>
+      <FormationPlayerMarkerVisual isGoalkeeper={marker.positionGroup === 'goalkeeper'} shirtNumber={marker.shirtNumber} />
+      <span className="pointer-events-none -mt-2 max-w-24 truncate rounded-md bg-[#03150e]/90 px-2 py-0.5 text-[0.66rem] font-black text-white shadow" title={marker.displayName}>
         {marker.displayName}
       </span>
     </MarkerElement>
@@ -211,9 +227,9 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
   const fixedSlots = useMemo(() => (Array.isArray(slots) ? slots.filter((slot) => slot?.id) : []), [slots])
 
   return (
-    <div className="mx-auto w-full max-w-[42rem]">
+    <div className="mx-auto w-full max-w-[43rem] lg:max-w-[min(43rem,max(22rem,calc(69dvh-13.11rem)))]">
       {fixedSlots.length > 0 && canEdit && !selectionMode ? (
-        <p className="mb-2 rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-center text-xs font-black text-[var(--text-primary)]">
+        <p className="sr-only">
           Tap a position to add or swap a Player.
         </p>
       ) : null}
@@ -223,7 +239,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
         aria-label={hasPlacementSource
           ? `Formation pitch. ${selectedPlayerName || 'Selected Player'} is ready to place. Press Enter to place at the centre, then use the Player marker arrow keys to adjust.`
           : 'Portrait Formation pitch'}
-        className="formation-board-pitch relative isolate aspect-[3/4] w-full overflow-hidden rounded-[1.6rem] border-4 border-white bg-[#237a45] shadow-xl shadow-[#101828]/20 focus:outline-none focus:ring-4 focus:ring-amber-300"
+        className="formation-board-pitch relative isolate aspect-[3/4] w-full overflow-hidden rounded-[1.35rem] border-[3px] border-white bg-[#0a6c2f] shadow-2xl shadow-black/30 focus:outline-none focus:ring-4 focus:ring-amber-300"
         onClick={(event) => {
           if (!canEdit || selectionMode || event.target !== event.currentTarget) return
           onPitchPress(coordinatesFromPointer(event.currentTarget, event.clientX, event.clientY))
@@ -236,7 +252,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
         role="group"
         tabIndex={canEdit ? 0 : undefined}
       >
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(180deg,rgba(255,255,255,0.035)_0,rgba(255,255,255,0.035)_12.5%,rgba(0,0,0,0.035)_12.5%,rgba(0,0,0,0.035)_25%)]" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(180deg,rgba(255,255,255,0.055)_0,rgba(255,255,255,0.055)_12.5%,rgba(0,0,0,0.075)_12.5%,rgba(0,0,0,0.075)_25%)]" />
         <PitchLines />
         {fixedSlots.map((slot) => {
           if (occupiedSlotIds.has(slot.id)) return null
@@ -253,7 +269,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
                 onSelectSlot(slot.id)
               }}
               className="absolute z-[5] flex min-h-12 min-w-12 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 border-dashed border-white bg-[#101828]/70 px-1.5 text-center text-white shadow-md transition hover:border-amber-300 hover:bg-[#101828] focus:outline-none focus:ring-4 focus:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
-              style={{ left: `${Number(slot.x) * 100}%`, top: `${Number(slot.y) * 100}%` }}
+              style={{ left: `clamp(3rem, ${Number(slot.x) * 100}%, calc(100% - 3rem))`, top: `clamp(3rem, ${Number(slot.y) * 100}%, calc(100% - 3rem))` }}
             >
               <span className="text-[0.7rem] font-black leading-none">Add</span>
               <span className="pointer-events-none absolute left-1/2 top-full mt-1 max-w-24 -translate-x-1/2 truncate rounded bg-[#101828]/90 px-1.5 py-0.5 text-[0.56rem] font-black text-white" title={label}>{label}</span>

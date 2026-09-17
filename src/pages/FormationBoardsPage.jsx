@@ -127,7 +127,7 @@ function BoardThumbnail({ board }) {
           className="absolute flex w-10 -translate-x-1/2 -translate-y-1/2 flex-col items-center"
           style={{ left: `${item.x * 100}%`, top: `${item.y * 100}%` }}
         >
-          <FormationPlayerMarkerVisual size="xs" shirtNumber={item.shirtNumber} className="border-white" />
+          <FormationPlayerMarkerVisual size="xs" isGoalkeeper={item.positionGroup === 'goalkeeper'} shirtNumber={item.shirtNumber} />
           <span className="mt-0.5 max-w-full truncate rounded bg-[#101828]/90 px-0.5 text-[0.32rem] font-black leading-tight text-white">{item.displayName}</span>
         </span>
       ))}
@@ -214,22 +214,21 @@ function FormationBoardList({ boards, canCreate, onArchive, onCreate, onDuplicat
   )
 }
 
-function BenchPlayersTray({ canEdit, onDragStart, onSelect, onPlaceLineup, players, selectedPlayerId }) {
+function BenchPlayersTray({ canEdit, isExpanded, onDragStart, onSelect, onPlaceLineup, onToggle, players, selectedPlayerId }) {
   return (
     <section className="mt-5 min-w-0 border-t border-[var(--border-color)] pt-4" aria-label="Bench">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-black">Bench</h3>
-          <p className="mt-1 text-xs font-semibold text-[var(--text-muted)]">Tap a Player then tap the pitch, or drag the Player onto the pitch.</p>
-        </div>
+        <button type="button" onClick={onToggle} aria-expanded={isExpanded} className="flex min-h-11 items-center gap-2 rounded-lg px-1 text-left text-[var(--text-primary)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
+          <span className="whitespace-nowrap text-base font-black">Subs ({players.length})</span>
+          <span className="text-xs font-black text-[var(--text-muted)]">{isExpanded ? 'Hide' : 'Show'}</span>
+        </button>
         <div className="flex items-center gap-2">
-          <span className="shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-black" aria-label={`${players.length} Players on the Bench`}>{players.length}</span>
-          {canEdit && players.length > 0 ? <button type="button" onClick={onPlaceLineup} className={secondaryButtonClass}>Place all</button> : null}
+          {canEdit && players.length > 0 ? <button type="button" onClick={onPlaceLineup} className="min-h-11 whitespace-nowrap rounded-lg px-2 text-xs font-bold text-[var(--accent)] hover:bg-[var(--accent-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">Fill empty positions</button> : null}
         </div>
       </div>
-      {players.length > 0 ? (
+      {isExpanded && players.length > 0 ? (
         <div className="max-w-full overflow-x-auto overscroll-x-contain pb-2" data-bench-tray="true">
-          <div className="flex w-max min-w-full gap-2 lg:w-auto lg:flex-wrap">
+          <div className="flex w-max min-w-full gap-1.5 lg:w-auto lg:flex-wrap">
             {players.map((player) => {
               const isSelected = selectedPlayerId === player.playerId
 
@@ -242,21 +241,19 @@ function BenchPlayersTray({ canEdit, onDragStart, onSelect, onPlaceLineup, playe
                   aria-label={`${player.displayName}, shirt ${player.shirtNumber || 'number missing'}, Bench`}
                   onClick={() => onSelect(player)}
                   onPointerDown={(event) => onDragStart(event, player, 'unplaced')}
-                  className={`flex min-h-14 min-w-36 max-w-44 touch-pan-x items-center gap-2 rounded-xl border-2 px-3 py-2 text-left shadow-sm focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 ${isSelected ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text-primary)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)] text-[var(--text-primary)]'}`}
+                  className={`flex min-h-20 w-20 min-w-20 touch-pan-x flex-col items-center justify-start gap-0.5 rounded-xl border-2 border-transparent px-1 py-1 text-center text-[var(--text-primary)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 ${isSelected ? 'ring-2 ring-[var(--accent)]' : ''}`}
                 >
-                  <FormationPlayerMarkerVisual size="sm" shirtNumber={player.shirtNumber} className={isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'} />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-black" title={player.displayName}>{player.displayName}</span>
-                    <span className="block text-[0.68rem] font-bold">{isSelected ? 'Selected, Bench' : 'Bench'}</span>
-                  </span>
+                  <FormationPlayerMarkerVisual shirtNumber={player.shirtNumber} />
+                  <span className="block w-full truncate rounded-md bg-[#03150e]/90 px-1.5 py-0.5 text-[0.65rem] font-black text-white" title={player.displayName}>{player.displayName}</span>
+                  <span className="sr-only">{isSelected ? 'Selected, Bench' : 'Bench'}</span>
                 </button>
               )
             })}
           </div>
         </div>
-      ) : (
+      ) : isExpanded ? (
         <p className="rounded-lg bg-[var(--panel-soft)] p-3 text-sm font-semibold text-[var(--text-muted)]">The Bench is empty. Use Players to add squad members.</p>
-      )}
+      ) : null}
     </section>
   )
 }
@@ -442,9 +439,14 @@ function PlayerRoster({
   )
 }
 
-function MobileRosterSheet({ children, isOpen, onClose }) {
+function MobileRosterSheet({ children, isOpen, onClose, title = 'Players and bench' }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -454,7 +456,7 @@ function MobileRosterSheet({ children, isOpen, onClose }) {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -477,15 +479,15 @@ function MobileRosterSheet({ children, isOpen, onClose }) {
       document.removeEventListener('keydown', handleKeyDown)
       previousFocus?.focus?.()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end bg-[#101828]/55 lg:hidden" onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section ref={panelRef} role="dialog" aria-modal="true" aria-label="Formation Board Players and bench" className="max-h-[82dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] shadow-2xl">
+    <div className="fixed inset-0 z-[80] flex items-end justify-end bg-[#101828]/55" onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section ref={panelRef} role="dialog" aria-modal="true" aria-label={title} className="max-h-[88dvh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-[var(--text-primary)] shadow-2xl lg:h-full lg:max-h-none lg:max-w-md lg:rounded-none lg:border-y-0 lg:border-r-0 lg:p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-black">Players and bench</h2>
+          <h2 className="text-lg font-black">{title}</h2>
           <button ref={closeRef} type="button" onClick={onClose} className={secondaryButtonClass}>Close</button>
         </div>
         {children}
@@ -497,6 +499,11 @@ function MobileRosterSheet({ children, isOpen, onClose }) {
 function FormationBoardDialog({ children, isOpen, onClose, title }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -506,7 +513,7 @@ function FormationBoardDialog({ children, isOpen, onClose, title }) {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -530,7 +537,7 @@ function FormationBoardDialog({ children, isOpen, onClose, title }) {
       document.removeEventListener('keydown', handleKeyDown)
       previousFocus?.focus?.()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -602,6 +609,9 @@ export function FormationBoardsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isRosterOpen, setIsRosterOpen] = useState(false)
+  const [isFormationOpen, setIsFormationOpen] = useState(false)
+  const [isSetupOpen, setIsSetupOpen] = useState(false)
+  const [isBenchExpanded, setIsBenchExpanded] = useState(true)
   const [isActionsOpen, setIsActionsOpen] = useState(false)
   const [isPublishOpen, setIsPublishOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -612,6 +622,7 @@ export function FormationBoardsPage() {
   const [publicationResourceId, setPublicationResourceId] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [saveState, setSaveState] = useState('saved')
+  const [localDraftState, setLocalDraftState] = useState('idle')
   const [draftCandidate, setDraftCandidate] = useState(null)
   const [pendingPreset, setPendingPreset] = useState(null)
   const [pendingPlayerRemoval, setPendingPlayerRemoval] = useState(null)
@@ -633,6 +644,13 @@ export function FormationBoardsPage() {
         ? canEditFormationBoard(user, currentBoard)
         : canCreate
   const hasUnsavedChanges = Boolean(snapshot && savedSnapshot && !snapshotsMatch(snapshot, savedSnapshot))
+  const visibilityStatusLabel = publishedSnapshotVersion
+    ? 'Published snapshot'
+    : snapshot?.visibility !== savedSnapshot?.visibility
+      ? 'Visibility change pending'
+      : savedSnapshot?.visibility === 'shared'
+        ? 'Shared with coaches'
+        : 'Not shared'
   const blocker = useBlocker(() => hasUnsavedChanges && !allowNavigationRef.current)
   const selectedMarker = snapshot?.placements.find((item) => item.playerId === selectedMarkerId) || null
   const selectedBoardPlayerId = selectedSource?.playerId || selectedMarkerId
@@ -672,13 +690,15 @@ export function FormationBoardsPage() {
     teamId: activeTeamId,
     userId: user?.id,
   }) : ''
-  const dockHasError = Boolean(errorMessage || conflict || saveState === 'failed' || saveState === 'conflict')
+  const dockHasError = Boolean(errorMessage || conflict || saveState === 'failed' || saveState === 'conflict' || localDraftState === 'failed')
   const dockAttentionKey = dockHasError
     ? `${saveState}:${errorMessage || conflict?.message || 'Formation Board action failed'}`
     : ''
   const focusFormationError = useCallback(() => {
-    errorSummaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    errorSummaryRef.current?.focus({ preventScroll: true })
+    const activeDialog = document.querySelector('[role="dialog"][aria-modal="true"]')
+    const target = activeDialog?.querySelector('[data-formation-dialog-error]') || errorSummaryRef.current
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target?.focus({ preventScroll: true })
   }, [])
 
   const refreshBoards = useCallback(async (includeArchived = true) => {
@@ -869,11 +889,25 @@ export function FormationBoardsPage() {
   }, [])
 
   useEffect(() => {
-    if (!draftKey || !hasUnsavedChanges || !snapshot) return undefined
+    if (!draftKey || !hasUnsavedChanges || !snapshot) {
+      setLocalDraftState('idle')
+      return undefined
+    }
+    setLocalDraftState('saving')
+    let isCurrent = true
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem(draftKey, serializeFormationDraft(snapshot, currentBoard?.id))
+      try {
+        window.localStorage.setItem(draftKey, serializeFormationDraft(snapshot, currentBoard?.id))
+        if (isCurrent) setLocalDraftState('saved')
+      } catch (error) {
+        console.error('Formation Board local draft could not be saved.', error)
+        if (isCurrent) setLocalDraftState('failed')
+      }
     }, 500)
-    return () => window.clearTimeout(timer)
+    return () => {
+      isCurrent = false
+      window.clearTimeout(timer)
+    }
   }, [currentBoard?.id, draftKey, hasUnsavedChanges, snapshot])
 
   useEffect(() => {
@@ -1423,15 +1457,22 @@ export function FormationBoardsPage() {
 
   return (
     <div className="formation-board-dock-safe-content space-y-5 pb-[var(--mobile-action-content-padding)] lg:pb-6">
-      <PageHeader
-        eyebrow="Team Resources"
-        title="Formation Boards"
-        description={`Plan shapes and Player positions for ${activeTeamName}. Boards remain inside the selected Team.`}
-      />
+      {!snapshot ? (
+        <PageHeader
+          eyebrow="Team Resources"
+          title="Formation Boards"
+          description={`Plan shapes and Player positions for ${activeTeamName}. Boards remain inside the selected Team.`}
+        />
+      ) : null}
 
       {errorMessage ? (
         <div ref={errorSummaryRef} tabIndex={-1} aria-live="assertive">
           <NoticeBanner title="Formation Board action failed" message={errorMessage} />
+        </div>
+      ) : null}
+      {snapshot && localDraftState === 'failed' ? (
+        <div tabIndex={-1} aria-live="assertive">
+          <NoticeBanner title="Draft was not saved on this device" message="Keep this page open and use Board details and options to save the board to the Team." />
         </div>
       ) : null}
 
@@ -1457,15 +1498,39 @@ export function FormationBoardsPage() {
         />
       ) : (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <button type="button" onClick={closeEditor} className={secondaryButtonClass}>Back to Formation Boards</button>
-            <div className="flex flex-wrap items-center gap-2 text-sm font-black">
-              <span className={`rounded-full px-3 py-1.5 ${saveState === 'failed' || saveState === 'conflict' ? 'bg-[var(--danger-soft)] text-[var(--danger-text)]' : saveState === 'saved' ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fff7ed] text-[#9a3412]'}`}>
-                {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : saveState === 'not_saved' ? 'Not saved' : saveState === 'failed' ? 'Save failed' : saveState === 'conflict' ? 'Conflict detected' : 'Unsaved changes'}
-              </span>
-              {!isNewBoard ? <span className="rounded-full border border-[var(--border-color)] px-3 py-1.5">Version {snapshot.baseVersionNumber}</span> : null}
+          <header className="mx-auto flex w-full max-w-[43rem] items-start justify-between gap-3 px-1">
+            <button type="button" onClick={closeEditor} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-2xl font-black text-[var(--text-primary)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]" aria-label="Back to Formation Boards">&lsaquo;</button>
+            <div className="min-w-0 flex-1 text-center">
+              <button type="button" onClick={() => setIsSetupOpen(true)} className="max-w-full rounded-lg px-2 py-1 text-xl font-black tracking-tight text-[var(--text-primary)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
+                <span className="block truncate">{snapshot.title.trim() || 'Untitled Formation Board'}</span>
+              </button>
+              <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-xs font-black">
+                <span className={saveState === 'failed' || saveState === 'conflict' ? 'text-[var(--danger-text)]' : saveState === 'saved' ? 'text-emerald-400' : 'text-[var(--text-muted)]'}>
+                  {saveState === 'saving'
+                    ? 'Saving to Team...'
+                    : saveState === 'saved'
+                      ? 'Saved to Team'
+                      : saveState === 'failed'
+                        ? 'Team save failed'
+                        : saveState === 'conflict'
+                          ? 'Conflict detected'
+                          : localDraftState === 'saving'
+                            ? 'Saving on this device...'
+                            : localDraftState === 'saved'
+                              ? 'Saved on this device'
+                              : localDraftState === 'failed'
+                                ? 'Not saved on this device'
+                                : 'Not saved yet'}
+                </span>
+                <span aria-hidden="true">•</span>
+                <span className="text-[var(--text-muted)]">{visibilityStatusLabel}</span>
+              </div>
+              <button type="button" onClick={() => setIsFormationOpen(true)} className="mt-3 rounded-lg px-3 py-1 text-2xl font-black text-[var(--text-primary)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
+                {currentPreset?.displayName || snapshot.presetKey || 'Choose formation'}
+              </button>
             </div>
-          </div>
+            <button type="button" onClick={() => setIsSetupOpen(true)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-2xl font-black tracking-[0.12em] text-[var(--text-primary)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]" aria-label="More Formation Board options">•••</button>
+          </header>
 
           {draftCandidate ? (
             <section className="rounded-lg border border-[#fedf89] bg-[#fffaeb] p-4 text-[#7a2e0e]">
@@ -1496,135 +1561,15 @@ export function FormationBoardsPage() {
             />
           ) : null}
 
-          <section className={panelClass}>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <label>
-                <span className="mb-2 block text-sm font-black">Board title</span>
-                <input value={snapshot.title} maxLength={120} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, title: event.target.value })} className={fieldClass} placeholder="Saturday match shape" />
-              </label>
-              <label>
-                <span className="mb-2 block text-sm font-black">Team visibility</span>
-                <select value={snapshot.visibility} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, visibility: event.target.value })} className={fieldClass}>
-                  <option value="draft">Draft, creator and manager oversight</option>
-                  <option value="shared">Shared with authorised Team Coaches</option>
-                </select>
-              </label>
-              <label className="lg:col-span-2">
-                <span className="mb-2 block text-sm font-black">Description</span>
-                <textarea value={snapshot.description} maxLength={1000} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, description: event.target.value })} className={`${fieldClass} min-h-20 resize-y`} placeholder="Optional Coach context" />
-              </label>
-            </div>
-          </section>
-
-          {!publishedSnapshotVersion && canEdit ? (
-            <section className={panelClass} aria-label="Parent match plan">
-              <div className="flex flex-col gap-4">
-                <div>
-                  <h2 className="text-lg font-black">Match plan</h2>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-[var(--text-muted)]">Link the private board to a match, then publish only the read-only pitch and Bench to parents. Coach notes, availability, and unselected squad members stay private.</p>
-                </div>
-                <label>
-                  <span className="mb-2 block text-sm font-black">Match</span>
-                  <select value={selectedMatchId} disabled={isPublishingMatchPlan} onChange={(event) => setSelectedMatchId(event.target.value)} className={fieldClass}>
-                    <option value="">Choose a match</option>
-                    {activeMatches.map((match) => <option key={match.id} value={match.id}>{formatMatchOption(match)}</option>)}
-                  </select>
-                </label>
-                {currentBoard?.linkedMatchDayId ? (
-                  <p className="text-xs font-semibold text-[var(--text-muted)]">Currently linked to {formatMatchOption(matches.find((match) => match.id === currentBoard.linkedMatchDayId))}.</p>
-                ) : null}
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" disabled={!selectedMatchId || isSaving || isPublishingMatchPlan || pitchCapacity.isOverCapacity} onClick={() => void saveAndLinkMatch()} className={secondaryButtonClass}>
-                    {isSaving ? 'Saving...' : 'Save and link to match'}
+          <main className="mx-auto w-full max-w-[43rem] min-w-0">
+            <section className="min-w-0" aria-label="Formation pitch workspace">
+              <div className="mb-3 flex items-center justify-end gap-2">
+                {canEdit && snapshot.placements.length > 0 ? (
+                  <button type="button" onClick={toggleLineupEditMode} className={isLineupEditMode ? primaryButtonClass : secondaryButtonClass} aria-pressed={isLineupEditMode}>
+                    {isLineupEditMode ? 'Cancel selection' : 'Edit lineup'}
                   </button>
-                  <button
-                    type="button"
-                    disabled={!selectedMatchId || isNewBoard || hasUnsavedChanges || currentBoard?.linkedMatchDayId !== selectedMatchId || isPublishingMatchPlan}
-                    onClick={() => void publishMatchPlan()}
-                    className={primaryButtonClass}
-                  >
-                    {isPublishingMatchPlan ? 'Working...' : latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? 'Publish update to parents' : 'Publish to parents'}
-                  </button>
-                  {latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? (
-                    <button type="button" disabled={isPublishingMatchPlan} onClick={() => void withdrawMatchPlan()} className={dangerButtonClass}>Withdraw parent plan</button>
-                  ) : null}
-                </div>
-                {latestSelectedMatchPublication ? (
-                  <p className="text-xs font-semibold text-[var(--text-muted)]">
-                    Publication {latestSelectedMatchPublication.publicationNumber} {latestSelectedMatchPublication.withdrawnAt ? `was withdrawn ${formatDateTime(latestSelectedMatchPublication.withdrawnAt)}` : `is visible to parents from ${formatDateTime(latestSelectedMatchPublication.publishedAt)}`}.
-                  </p>
                 ) : null}
-              </div>
-            </section>
-          ) : null}
-
-          {!isNewBoard ? (
-            <section className={panelClass} aria-label="Formation Board publication and exports">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-black">Publish and export</h2>
-                  <p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">
-                    {publishedSnapshotVersion
-                      ? 'Export this exact immutable resource snapshot.'
-                      : 'Publish the saved version to Team Resources, or create a secure PNG or PDF.'}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {!publishedSnapshotVersion && canCreate ? <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => setIsPublishOpen(true)} className={primaryButtonClass}>Publish to Team Resources</button> : null}
-                  {canCreate ? <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => void exportBoard('png')} className={secondaryButtonClass}>Export PNG</button> : null}
-                  {canCreate ? <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => void exportBoard('pdf')} className={secondaryButtonClass}>Export PDF</button> : null}
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-          <section className={panelClass}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label>
-                <span className="mb-2 block text-sm font-black">Game format</span>
-                <select
-                  value={snapshot.gameFormat}
-                  disabled={!canEdit}
-                  onChange={(event) => {
-                    const firstPreset = presets.find((preset) => preset.gameFormat === event.target.value && !preset.key.endsWith('-custom'))
-                    if (firstPreset) setPendingPreset(firstPreset)
-                  }}
-                  className={fieldClass}
-                >
-                  {FORMATION_BOARD_GAME_FORMATS.map((format) => <option key={format.value} value={format.value}>{format.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span className="mb-2 block text-sm font-black">Formation</span>
-                <select
-                  value={snapshot.presetKey}
-                  disabled={!canEdit}
-                  onChange={(event) => setPendingPreset(presets.find((preset) => preset.key === event.target.value) || null)}
-                  className={fieldClass}
-                >
-                  {presets.filter((preset) => preset.gameFormat === snapshot.gameFormat).map((preset) => <option key={preset.key} value={preset.key}>{preset.displayName}</option>)}
-                </select>
-              </label>
-            </div>
-            <p className="mt-3 text-xs font-semibold text-[var(--text-muted)]">Formation Boards use one portrait pitch. Changing formation keeps Player assignments where possible, keeps the goalkeeper in goal, and leaves unmatched Players on the Bench.</p>
-            {formationChangeMessage ? <div className="mt-3"><NoticeBanner tone="info" title="Formation updated" message={formationChangeMessage} /></div> : null}
-          </section>
-
-          <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start">
-            <section className={`${panelClass} min-w-0`}>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--text-secondary)]">{snapshot.gameFormat} | {currentPreset?.displayName || 'Custom'}</p>
-                  <h2 className="mt-1 text-xl font-black">Pitch</h2>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {canEdit && snapshot.placements.length > 0 ? (
-                    <button type="button" onClick={toggleLineupEditMode} className={isLineupEditMode ? primaryButtonClass : secondaryButtonClass} aria-pressed={isLineupEditMode}>
-                      {isLineupEditMode ? 'Cancel' : 'Take Players off lineup'}
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={undo} disabled={!canEdit || history.length === 0} className={secondaryButtonClass}>Undo</button>
-                </div>
+                <button type="button" onClick={undo} disabled={!canEdit || history.length === 0} className={secondaryButtonClass}>Undo</button>
               </div>
               {isLineupEditMode ? (
                 <section className="mb-4 rounded-xl border-2 border-[var(--accent)] bg-[var(--accent-soft)] p-4" aria-label="Take Players off current lineup">
@@ -1671,6 +1616,7 @@ export function FormationBoardsPage() {
               {selectedSource && !isLineupEditMode ? <p className="mt-4 rounded-lg bg-[var(--accent-soft)] px-4 py-3 text-sm font-black">Selected: {selectedBoardPlayer?.displayName || selectedMarker?.displayName}. Tap the pitch to position.</p> : null}
               <BenchPlayersTray
                 canEdit={canEdit}
+                isExpanded={isBenchExpanded}
                 onDragStart={handlePlayerDragStart}
                 onSelect={(player) => handleBoardPlayerSelect(player, 'unplaced')}
                 onPlaceLineup={() => {
@@ -1679,60 +1625,161 @@ export function FormationBoardsPage() {
                   setSelectedSource(null)
                   setSelectedMarkerId('')
                 }}
+                onToggle={() => setIsBenchExpanded((current) => !current)}
                 players={[...snapshot.unplaced, ...snapshot.bench]}
                 selectedPlayerId={selectedSource?.type === 'unplaced' ? selectedSource.playerId : ''}
               />
             </section>
-            <aside className={`${panelClass} hidden lg:sticky lg:top-4 lg:block lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:overscroll-contain`} aria-label="Player assignment controls">{roster}</aside>
-          </div>
-
-          <section className={panelClass}>
-            <label>
-              <span className="mb-2 block text-sm font-black">Coach notes</span>
-              <textarea value={snapshot.notes} maxLength={2000} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, notes: event.target.value })} className={`${fieldClass} min-h-24 resize-y`} placeholder="Optional Team Coach notes" />
-            </label>
-          </section>
-
-          {!isNewBoard ? (
-            <VersionHistory
-              canEdit={canEdit}
-              currentVersionNumber={snapshot.baseVersionNumber}
-              isBusy={isSaving}
-              onRestoreVersion={async (version) => {
-                try {
-                  const restored = await restoreFormationBoardVersion({ boardId: currentBoard.id, expectedVersionNumber: snapshot.baseVersionNumber, user, versionId: version.id })
-                  const next = createEditorSnapshot({ board: restored })
-                  setCurrentBoard(restored); setSnapshot(next); setSavedSnapshot(next); setHistory([]); setPortraitCompatibility(null); setVersions(await getFormationBoardVersions(restored.id)); await refreshBoards()
-                  showToast({ title: 'Version restored', message: `Version ${restored.currentVersionNumber} now preserves the selected layout.` })
-                } catch (error) { setErrorMessage(error.message || 'That version could not be restored.') }
-              }}
-              versions={versions}
-            />
-          ) : null}
+          </main>
 
           <MobileActionDock
-            actionsClassName="grid grid-cols-2 gap-2"
+            actionsClassName="grid grid-cols-3 gap-2"
             attentionKey={dockAttentionKey}
-            desktopClassName="justify-end gap-3"
+            desktopClassName="mx-auto w-full max-w-[43rem] justify-center gap-2 border-t border-[var(--border-color)] pt-3"
             hasError={dockHasError}
             hasUnsavedChanges={hasUnsavedChanges}
             label="Formation Board actions"
             onAttentionFocus={focusFormationError}
             testId="formation-mobile-action-dock"
           >
-              <button type="button" onClick={() => setIsRosterOpen(true)} className={`${secondaryButtonClass} lg:hidden`}>Players</button>
-              <button type="button" onClick={undo} disabled={!canEdit || history.length === 0} className={`${secondaryButtonClass} lg:hidden`}>Undo</button>
-              <button type="button" onClick={() => setIsActionsOpen(true)} disabled={isNewBoard} className={`${secondaryButtonClass} lg:hidden`}>Actions</button>
-              <button type="button" onClick={() => void saveBoard()} disabled={!canEdit || isSaving || !hasUnsavedChanges || pitchCapacity.isOverCapacity} className={primaryButtonClass}>{isSaving ? 'Saving...' : saveState === 'failed' ? 'Retry' : 'Save'}</button>
+              <button type="button" onClick={() => setIsFormationOpen(true)} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-3 text-xs font-black text-[var(--text-primary)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="4" y="2.5" width="16" height="19" rx="2" /><path d="M4 12h16" /><circle cx="12" cy="12" r="2.5" /></svg>
+                Formation
+              </button>
+              <button type="button" onClick={() => setIsRosterOpen(true)} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-3 text-xs font-black text-[var(--text-primary)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M3.5 20c.4-4 2.2-6 5.5-6s5.1 2 5.5 6M14 15c3.7-.8 6 .9 6.5 4" /></svg>
+                Players
+              </button>
+              <button type="button" onClick={() => setIsActionsOpen(true)} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl bg-[var(--accent-soft)] px-3 text-xs font-black text-[var(--accent)] hover:bg-[var(--panel-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 15V3m0 0 4 4m-4-4L8 7" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" /></svg>
+                Share
+              </button>
           </MobileActionDock>
 
-          <MobileRosterSheet isOpen={isRosterOpen} onClose={() => setIsRosterOpen(false)}>{roster}</MobileRosterSheet>
+          <MobileRosterSheet isOpen={isRosterOpen} onClose={() => setIsRosterOpen(false)} title="Players">{roster}</MobileRosterSheet>
         </>
       )}
 
+      <FormationBoardDialog isOpen={isFormationOpen} onClose={() => setIsFormationOpen(false)} title="Formation">
+        {snapshot ? (
+          <div className="space-y-4">
+            <label className="block">
+              <span className="mb-2 block text-sm font-black">Game format</span>
+              <select
+                value={snapshot.gameFormat}
+                disabled={!canEdit}
+                onChange={(event) => {
+                  const firstPreset = presets.find((preset) => preset.gameFormat === event.target.value && !preset.key.endsWith('-custom'))
+                  if (firstPreset) setPendingPreset(firstPreset)
+                }}
+                className={fieldClass}
+              >
+                {FORMATION_BOARD_GAME_FORMATS.map((format) => <option key={format.value} value={format.value}>{format.label}</option>)}
+              </select>
+            </label>
+            <div>
+              <p className="mb-2 text-sm font-black">Choose formation</p>
+              <div className="grid grid-cols-2 gap-2">
+                {presets.filter((preset) => preset.gameFormat === snapshot.gameFormat).map((preset) => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    disabled={!canEdit}
+                    aria-pressed={preset.key === snapshot.presetKey}
+                    onClick={() => setPendingPreset(preset)}
+                    className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-black ${preset.key === snapshot.presetKey ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text-primary)]' : 'border-[var(--border-color)] bg-[var(--panel-soft)] text-[var(--text-primary)]'}`}
+                  >
+                    {preset.displayName}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs font-semibold leading-5 text-[var(--text-muted)]">Changing formation maps the current XI into the new shape. The goalkeeper stays in goal where possible, and unmatched Players move to the Bench.</p>
+            {formationChangeMessage ? <NoticeBanner tone="info" title="Formation updated" message={formationChangeMessage} /> : null}
+          </div>
+        ) : null}
+      </FormationBoardDialog>
+
+      <FormationBoardDialog isOpen={isSetupOpen} onClose={() => setIsSetupOpen(false)} title="Board details and options">
+        {snapshot ? (
+          <div className="space-y-5">
+            {errorMessage ? <div data-formation-dialog-error tabIndex={-1}><NoticeBanner title="Formation Board action failed" message={errorMessage} /></div> : null}
+            <section className="space-y-4" aria-label="Formation Board details">
+              <label className="block">
+                <span className="mb-2 block text-sm font-black">Board title</span>
+                <input autoFocus value={snapshot.title} maxLength={120} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, title: event.target.value })} className={fieldClass} placeholder="Saturday match shape" />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-black">Team visibility</span>
+                <select value={snapshot.visibility} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, visibility: event.target.value })} className={fieldClass}>
+                  <option value="draft">Draft, creator and manager oversight</option>
+                  <option value="shared">Shared with authorised Team Coaches</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-black">Description</span>
+                <textarea value={snapshot.description} maxLength={1000} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, description: event.target.value })} className={`${fieldClass} min-h-20 resize-y`} placeholder="Optional Coach context" />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-black">Coach notes</span>
+                <textarea value={snapshot.notes} maxLength={2000} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, notes: event.target.value })} className={`${fieldClass} min-h-24 resize-y`} placeholder="Optional Team Coach notes" />
+              </label>
+              {canEdit ? (
+                <button type="button" onClick={() => void saveBoard()} disabled={isSaving || !hasUnsavedChanges || pitchCapacity.isOverCapacity} className={`${primaryButtonClass} w-full`}>
+                  {isSaving ? 'Saving...' : saveState === 'failed' ? 'Retry save' : 'Save to Team'}
+                </button>
+              ) : null}
+            </section>
+
+            {!publishedSnapshotVersion && canEdit ? (
+              <details className="border-t border-[var(--border-color)] pt-4">
+                <summary className="min-h-11 cursor-pointer py-2 text-sm font-black">Match plan</summary>
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm font-semibold leading-6 text-[var(--text-muted)]">Link the private board to a match, then publish only the read-only pitch and Bench to parents. Coach notes, availability, and unselected squad members stay private.</p>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black">Match</span>
+                    <select value={selectedMatchId} disabled={isPublishingMatchPlan} onChange={(event) => setSelectedMatchId(event.target.value)} className={fieldClass}>
+                      <option value="">Choose a match</option>
+                      {activeMatches.map((match) => <option key={match.id} value={match.id}>{formatMatchOption(match)}</option>)}
+                    </select>
+                  </label>
+                  {currentBoard?.linkedMatchDayId ? <p className="text-xs font-semibold text-[var(--text-muted)]">Currently linked to {formatMatchOption(matches.find((match) => match.id === currentBoard.linkedMatchDayId))}.</p> : null}
+                  <div className="grid gap-2">
+                    <button type="button" disabled={!selectedMatchId || isSaving || isPublishingMatchPlan || pitchCapacity.isOverCapacity} onClick={() => void saveAndLinkMatch()} className={secondaryButtonClass}>{isSaving ? 'Saving...' : 'Save and link to match'}</button>
+                    <button type="button" disabled={!selectedMatchId || isNewBoard || hasUnsavedChanges || currentBoard?.linkedMatchDayId !== selectedMatchId || isPublishingMatchPlan} onClick={() => void publishMatchPlan()} className={primaryButtonClass}>{isPublishingMatchPlan ? 'Working...' : latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? 'Publish update to parents' : 'Publish to parents'}</button>
+                    {latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? <button type="button" disabled={isPublishingMatchPlan} onClick={() => void withdrawMatchPlan()} className={dangerButtonClass}>Withdraw parent plan</button> : null}
+                  </div>
+                  {latestSelectedMatchPublication ? <p className="text-xs font-semibold text-[var(--text-muted)]">Publication {latestSelectedMatchPublication.publicationNumber} {latestSelectedMatchPublication.withdrawnAt ? `was withdrawn ${formatDateTime(latestSelectedMatchPublication.withdrawnAt)}` : `is visible to parents from ${formatDateTime(latestSelectedMatchPublication.publishedAt)}`}.</p> : null}
+                </div>
+              </details>
+            ) : null}
+
+            {!isNewBoard ? (
+              <VersionHistory
+                canEdit={canEdit}
+                currentVersionNumber={snapshot.baseVersionNumber}
+                isBusy={isSaving}
+                onRestoreVersion={async (version) => {
+                  try {
+                    const restored = await restoreFormationBoardVersion({ boardId: currentBoard.id, expectedVersionNumber: snapshot.baseVersionNumber, user, versionId: version.id })
+                    const next = createEditorSnapshot({ board: restored })
+                    setCurrentBoard(restored); setSnapshot(next); setSavedSnapshot(next); setHistory([]); setPortraitCompatibility(null); setVersions(await getFormationBoardVersions(restored.id)); await refreshBoards()
+                    showToast({ title: 'Version restored', message: `Version ${restored.currentVersionNumber} now preserves the selected layout.` })
+                  } catch (error) { setErrorMessage(error.message || 'That version could not be restored.') }
+                }}
+                versions={versions}
+              />
+            ) : null}
+          </div>
+        ) : null}
+      </FormationBoardDialog>
+
       <FormationBoardDialog isOpen={isActionsOpen} onClose={() => setIsActionsOpen(false)} title="Formation Board actions">
         <div className="space-y-3">
+          {errorMessage ? <div data-formation-dialog-error tabIndex={-1}><NoticeBanner title="Formation Board action failed" message={errorMessage} /></div> : null}
           {hasUnsavedChanges ? <NoticeBanner tone="info" title="Save before continuing" message="Publishing and exports always use a protected saved version." /> : null}
+          {canEdit && hasUnsavedChanges ? <button type="button" disabled={isSaving || pitchCapacity.isOverCapacity} onClick={() => void saveBoard()} className={`${primaryButtonClass} w-full`}>{isSaving ? 'Saving...' : 'Save to Team'}</button> : null}
+          <button type="button" onClick={() => { setIsActionsOpen(false); setIsSetupOpen(true) }} className={`${secondaryButtonClass} w-full`}>Board details and options</button>
           {!publishedSnapshotVersion && canCreate ? (
             <button type="button" disabled={hasUnsavedChanges || isPublishing || isExporting} onClick={() => { setIsActionsOpen(false); setIsPublishOpen(true) }} className={`${primaryButtonClass} w-full`}>Publish to Team Resources</button>
           ) : null}
@@ -1744,6 +1791,7 @@ export function FormationBoardsPage() {
 
       <FormationBoardDialog isOpen={isPublishOpen} onClose={() => !isPublishing && setIsPublishOpen(false)} title="Publish to Team Resources">
         <div className="space-y-4">
+          {errorMessage ? <div data-formation-dialog-error tabIndex={-1}><NoticeBanner title="Formation Board action failed" message={errorMessage} /></div> : null}
           <div className="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-center">
             <BoardThumbnail board={{ ...currentBoard, currentVersion: currentBoard?.currentVersion || publishedSnapshotVersion }} />
             <div>
@@ -1867,6 +1915,7 @@ export function FormationBoardsPage() {
 
       <ConfirmModal
         isOpen={Boolean(pendingPreset)}
+        overlayZIndexClassName="z-[100]"
         title="Change formation?"
         message={pendingPreset
           ? `Player assignments will be mapped to ${pendingPreset.gameFormat}. The pitch will keep at most ${pendingPreset.playerCount} Players, excess Players will stay on the Bench, and you can Undo the change.`
@@ -1884,12 +1933,14 @@ export function FormationBoardsPage() {
           setCapacityMessage('')
           setActiveSlotId('')
           setSlotPlayerSearch('')
+          setIsFormationOpen(false)
           setPendingPreset(null)
         }}
       />
 
       <ConfirmModal
         isOpen={Boolean(pendingPlayerRemoval)}
+        overlayZIndexClassName="z-[100]"
         title="Remove Player from this board?"
         message={pendingPlayerRemoval
           ? `${pendingPlayerRemoval.displayName} will be removed only from this Formation Board. Team membership, Calendar events, and Match events will not change. You can Undo this local board change.`
@@ -1908,6 +1959,7 @@ export function FormationBoardsPage() {
 
       <ConfirmModal
         isOpen={blocker.state === 'blocked'}
+        overlayZIndexClassName="z-[100]"
         title="Leave with unsaved changes?"
         message="Your local draft is protected on this device, but the Team version will not change until you save."
         confirmLabel="Leave editor"
@@ -1917,6 +1969,7 @@ export function FormationBoardsPage() {
 
       <ConfirmModal
         isOpen={Boolean(conflict)}
+        overlayZIndexClassName="z-[100]"
         title="A newer Team version is available"
         message="Another authorised Team Coach saved a newer version. Your changes were not written over it. Reload the latest version or save your work as a new Formation Board."
         confirmLabel="Reload latest"

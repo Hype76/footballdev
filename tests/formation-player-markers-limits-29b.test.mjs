@@ -100,7 +100,7 @@ test('smaller-format conversion preserves goalkeeper and bench, moves excess to 
   assert.equal(allIds.length, 13)
 })
 
-test('editor, preview, mobile sheet, and exports use neutral silhouettes and optional number badges without question marks', async () => {
+test('editor uses supplied shirt assets with editable number overlays while exports stay safe', async () => {
   const [page, pitch, visual, pdfSource] = await Promise.all([
     readFile(new URL('../src/pages/FormationBoardsPage.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/components/formation-board/FormationBoardPitch.jsx', import.meta.url), 'utf8'),
@@ -108,7 +108,9 @@ test('editor, preview, mobile sheet, and exports use neutral silhouettes and opt
     readFile(new URL('../src/lib/pdf-document.js', import.meta.url), 'utf8'),
   ])
 
-  assert.match(visual, /FORMATION_PLAYER_SILHOUETTE/)
+  assert.match(visual, /formation-shirt-white\.png/)
+  assert.match(visual, /formation-shirt-gold\.png/)
+  assert.match(visual, /isGoalkeeper/)
   assert.match(visual, /normalizedNumber \?/)
   assert.match(pitch, /FormationPlayerMarkerVisual/)
   assert.match(pitch, /data-dragging/)
@@ -150,5 +152,6 @@ test('existing over-capacity boards are visible but cannot be silently saved or 
   assert.match(page, /Pitch capacity must be corrected/)
   assert.match(page, /No Player has been removed/)
   assert.match(page, /pitchCapacity\.isOverCapacity[\s\S]*Move the excess Players to the Bench before saving/)
-  assert.match(page, /disabled=\{!canEdit \|\| isSaving \|\| !hasUnsavedChanges \|\| pitchCapacity\.isOverCapacity\}/)
+  assert.match(page, /Formation Board actions[\s\S]*Save to Team/)
+  assert.match(page, /disabled=\{isSaving \|\| pitchCapacity\.isOverCapacity\}[\s\S]*Save to Team/)
 })
