@@ -109,7 +109,7 @@ function createStyles(palette) {
     pitchCentreSpot: { backgroundColor: 'rgba(255,255,255,0.82)', borderRadius: 5, height: 10, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -5 }, { translateY: -5 }], width: 10 },
     pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.82)', height: 2, left: 11, position: 'absolute', right: 11, top: '50%' },
     pitchOutline: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 17, borderWidth: 2, bottom: 11, left: 11, position: 'absolute', right: 11, top: 11 },
-    pitchStripe: { bottom: 0, position: 'absolute', top: 0, width: '12.5%' },
+    pitchStripe: { height: '12.5%', left: 0, position: 'absolute', right: 0 },
     planHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 7, paddingVertical: 13 },
     progress: { flexDirection: 'row', gap: 6 },
     progressItem: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flex: 1, gap: 2, minHeight: 58, paddingHorizontal: 4, paddingVertical: 6 },
@@ -168,7 +168,7 @@ export function CoachFormationSquadStep({ availabilityRows = [], draft, onBack, 
 function PitchLines({ styles }) {
   return (
     <>
-      {Array.from({ length: 8 }, (_, index) => <View key={index} style={[styles.pitchStripe, { backgroundColor: index % 2 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.035)', left: `${index * 12.5}%` }]} />)}
+      {Array.from({ length: 8 }, (_, index) => <View key={index} style={[styles.pitchStripe, { backgroundColor: index % 2 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.035)', top: `${index * 12.5}%` }]} />)}
       <View style={styles.pitchOutline} />
       <View style={styles.pitchHalfway} />
       <View style={styles.pitchCentreCircle} />
