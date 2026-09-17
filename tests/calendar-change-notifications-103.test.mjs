@@ -143,9 +143,12 @@ test('confirmed notes and venue edits can notify without a schedule change', asy
   const schedule=slice('sourceScheduleKey','async function verifyChange')
   const verify=sender.slice(sender.indexOf('async function verifyChange('),sender.indexOf('function getSourcePresentation('))
   let current={match_date:'2026-10-03',kickoff_time_tbc:true,notes:'new notes',venue_name:'old pitch'}
-  const check=new Function('loadSource','normalizeText','buildCalendarNotificationLocalDateTime',schedule+presentation+verify+';return verifyChange;')(async()=>current,value=>String(value||''),(date,time)=>date+'T'+time)
+  const {hasCalendarSourceChanged} = await import('../src/lib/calendar-change-classification.js')
+  const check=new Function('loadSource','normalizeText','buildCalendarNotificationLocalDateTime','hasCalendarSourceChanged',schedule+presentation+verify+';return verifyChange;')(async()=>current,value=>String(value||''),(date,time)=>date+'T'+time,hasCalendarSourceChanged)
   const preparation={source_type:'match-day',source_id:'fixture',change_action:'rescheduled',source_snapshot:{...current,notes:'old notes'}}
   assert.equal((await check(preparation)).changed,true)
   current={...preparation.source_snapshot};assert.equal((await check(preparation)).changed,false)
   current={...current,venue_name:'new pitch'};assert.equal((await check(preparation)).changed,true)
+  for(const change of [{arrival_time:'10:00'},{kit_id:'new-kit'}]) {current={...preparation.source_snapshot,...change};assert.equal((await check(preparation)).changed,true)}
+  current={...preparation.source_snapshot,updated_at:'2026-09-17T12:00:00Z'};assert.equal((await check(preparation)).changed,false)
 })

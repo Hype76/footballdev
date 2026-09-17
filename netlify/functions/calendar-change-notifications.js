@@ -1,4 +1,4 @@
-import { resolveCalendarChangeAction } from '../../src/lib/calendar-change-classification.js'
+import { hasCalendarSourceChanged, resolveCalendarChangeAction } from '../../src/lib/calendar-change-classification.js'
 import process from 'node:process'
 import webpush from 'web-push'
 import { randomUUID } from 'node:crypto'
@@ -233,7 +233,7 @@ async function verifyChange(preparation) {
   }
   return {
     changed: Boolean(current) && (sourceScheduleKey(sourceType, current) !== sourceScheduleKey(sourceType, preparation.source_snapshot)
-      || JSON.stringify(getSourcePresentation(sourceType, current)) !== JSON.stringify(getSourcePresentation(sourceType, preparation.source_snapshot))),
+      || hasCalendarSourceChanged(preparation.source_snapshot, current)),
     current,
   }
 }

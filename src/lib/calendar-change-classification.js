@@ -10,3 +10,8 @@ export function resolveCalendarChangeAction(action, before, after) {
   }
   return normalise(before?.startsAt) === normalise(after?.startsAt) ? 'update' : 'rescheduled'
 }
+
+export function hasCalendarSourceChanged(before = {}, after = {}) {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)])
+  return [...keys].some(key => key !== 'updated_at' && JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null))
+}
