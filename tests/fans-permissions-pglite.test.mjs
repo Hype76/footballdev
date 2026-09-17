@@ -36,6 +36,7 @@ async function dbFixture({ legacy = false } = {}) {
   await db.exec(await readFile(new URL('../supabase/migrations/20260907161234_fans_cancelled_invitation_delete.sql', import.meta.url), 'utf8'))
   await db.exec(await readFile(new URL('../supabase/migrations/20260908060952_platform_fan_signup_stats.sql', import.meta.url), 'utf8'))
   await db.exec(await readFile(new URL('../supabase/migrations/20260914135913_fan_invitation_renewal.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20260917164500_fans_expired_invitation_delete.sql', import.meta.url), 'utf8'))
   return db
 }
 async function actor(db, n, email) { await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.email',$2,false)",[id(n),email]) }
@@ -56,6 +57,15 @@ test('Only the inviting Parent converts an accepted Fan into a read-only Player 
     const saved = (await db.query('select relationship_type,permissions from fan_connections where id=$1', [connection.id])).rows[0]
     assert.equal(saved.relationship_type, 'player')
     assert.deepEqual(saved.permissions, { ...permissions, schedule: true })
+    await actor(db, 2, 'fan@example.test')
+    await assert.rejects(db.query('select set_fan_player_account($1,false)', [connection.id]), /inviting Parent/)
+    await actor(db, 1, 'parent@example.test')
+    await db.query('select set_fan_player_account($1,false)', [connection.id])
+    const reverted = (await db.query('select relationship_type,permissions,status,auth_user_id from fan_connections where id=$1', [connection.id])).rows[0]
+    assert.equal(reverted.relationship_type, 'fan')
+    assert.equal(reverted.status, 'active')
+    assert.equal(reverted.auth_user_id, id(2))
+    assert.deepEqual(reverted.permissions, saved.permissions)
     assert.equal((await db.query('select count(*)::int as count from parent_player_links where auth_user_id=$1', [id(2)])).rows[0].count, 0)
     await db.query("update parent_player_links set status='revoked' where id=$1", [id(30)])
     await assert.rejects(db.query('select set_fan_player_account($1,false)', [connection.id]), /inviting Parent/)
@@ -310,6 +320,29 @@ test('Only the inviting active Parent can delete cancelled Fans; history and sta
     await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [pending.id]), /Only cancelled/)
     await db.query("update fan_connections set relationship_type='player' where id=$1", [cancelled.id])
     await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [cancelled.id]), /Only cancelled/)
+  } finally { await db.close() }
+})
+
+test('Expired invitations can be deleted by their owner without deleting account history', async () => {
+  const db = await dbFixture()
+  try {
+    await actor(db, 1, 'parent@example.test')
+    const expired = await invite(db)
+    await db.query("update fan_connections set expires_at=now()-interval '1 hour' where id=$1", [expired.id])
+    await actor(db, 3, 'other@example.test')
+    await assert.rejects(db.query('select delete_cancelled_fan_invitation($1)', [expired.id]), /Only the inviting Parent/)
+    await actor(db, 1, 'parent@example.test')
+    await db.exec('set role authenticated')
+    await db.query('select delete_cancelled_fan_invitation($1)', [expired.id])
+    await db.query('select delete_cancelled_fan_invitation($1)', [expired.id])
+    assert.deepEqual((await db.query('select list_fan_connections() data')).rows[0].data, [])
+    await assert.rejects(db.query('select renew_fan_invitation($1,$2)', [expired.id, id(99)]), /cannot be renewed/)
+    await db.exec('reset role')
+    const retained = (await db.query('select status,owner_deleted_at,ended_at from fan_connections where id=$1', [expired.id])).rows[0]
+    assert.equal(retained.status, 'cancelled')
+    assert.ok(retained.owner_deleted_at && retained.ended_at)
+    await actor(db, 2, 'fan@example.test')
+    await assert.rejects(db.query('select accept_fan_invitation($1)', [expired.invite_token]), /expired or been cancelled/)
   } finally { await db.close() }
 })
 

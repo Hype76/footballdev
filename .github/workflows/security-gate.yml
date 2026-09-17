@@ -98,7 +98,7 @@ jobs:
           tests/partner-mobile-click.test.mjs
           tests/parent-invite-existing-account-hotfix.test.mjs
       - name: Fans permission and invitation regression
-        run: node --test tests/fan-branding.test.mjs tests/fans.test.mjs tests/fan-schedule-upcoming.test.mjs tests/fans-endpoint.test.mjs tests/fans-permissions-pglite.test.mjs tests/team-carpool-defaults.test.mjs && node tests/fans-browser.mjs
+        run: node --test tests/fan-branding.test.mjs tests/fans.test.mjs tests/fan-schedule-upcoming.test.mjs tests/fan-attendance.test.mjs tests/fans-endpoint.test.mjs tests/fans-permissions-pglite.test.mjs tests/team-carpool-defaults.test.mjs && node tests/fans-browser.mjs
       - name: Email app links, audience and account templates
         run: go version && node --test tests/email-branded-qr.test.mjs tests/fixture-custom-title.test.mjs tests/squad-batch-save-pglite.test.mjs tests/email-app-access.test.mjs tests/email-send-route-coverage.test.mjs tests/auth-email-app-role.test.mjs tests/supabase-auth-email-app-access.test.mjs tests/operational-email-app-audience.test.mjs tests/email-provider.test.mjs && node tests/email-app-access-browser.mjs
       - name: V1 regression firewall
@@ -111,7 +111,7 @@ jobs:
           node tests/fans-web-redesign-browser.mjs &&
           node tests/fan-app-choice-browser.mjs &&
           node tests/fan-confirmation-browser.mjs &&
-          node tests/fans-mobile-browser.mjs &&
+          node tests/fans-mobile-browser.mjs && node tests/fan-attendance-browser.mjs &&
           node tests/fan-invitation-mobile-browser.mjs &&
           node tests/fan-app-link-hook-browser.mjs &&
           node tests/fan-app-content-browser.mjs

@@ -14,6 +14,7 @@ function fixture() {
     match_days:[],match_day_availability_requests:[],calendar_event_invites:[],match_day_player_squad_decisions:[],calendar_events:[],training_availability_request_players:[],event_player_occurrence_exclusions:[],fan_notifications:[],fan_devices:[],
   }
   const read = []
+  const selections = []
   const client = { auth:{getUser:async()=>({data:{user:{id:id(2)}}})}, from(table) {
     read.push(table)
     let predicates = []
@@ -24,7 +25,7 @@ function fixture() {
     let maxRows = Infinity
     let ordering
     const query = {
-      select(value){columns=value;return query},eq(k,v){predicates.push(r=>r[k]===v);return query},neq(k,v){predicates.push(r=>r[k]!==v);return query},
+      select(value){columns=value;selections.push({table,columns:value});return query},eq(k,v){predicates.push(r=>r[k]===v);return query},neq(k,v){predicates.push(r=>r[k]!==v);return query},
       is(k,v){predicates.push(r=>(r[k]??null)===v);return query},in(k,v){predicates.push(r=>v.includes(r[k]));return query},gte(k,v){predicates.push(r=>r[k]>=v);return query},
       contains(k,v){predicates.push(r=>Object.entries(v).every(([key,value])=>r[k]?.[key]===value));return query},order(key, options){ordering={key,...options};return query},limit(count){maxRows=count;return query},
       maybeSingle(){single=true;return query},single(){single=true;return query},
@@ -42,8 +43,20 @@ function fixture() {
     }
     return query
   } }
-  return { tables, client, read }
+  return { tables, client, read, selections }
 }
+
+test('Fan resources retain saved categories and dates without exposing private storage fields',async()=>{
+  const {client,tables,selections}=fixture()
+  tables.fan_connections[0].permissions={schedule:false,game_day:false,development:true,resources:true}
+  const base={club_id:id(6),team_id:id(7),linked_type:'player',linked_id:id(5),parent_visible:true,removed_at:null}
+  const item={id:id(20),title:'Match report',description:'Shared report',category:'match_day',created_at:'2026-09-17T10:00:00Z',updated_at:'2026-09-17T12:00:00Z',club_id:id(6),team_id:id(7),storage_path:'private.pdf'}
+  tables.resource_library_links=[{...base,resource_library_items:item},{...base,linked_id:id(99),resource_library_items:{...item,id:id(21)}}]
+  const response=await handleFans({httpMethod:'POST',headers:{authorization:'Bearer test'},body:JSON.stringify({action:'resources',connectionId:id(1)})},{createClient:()=>client})
+  assert.equal(response.statusCode,200)
+  assert.deepEqual(JSON.parse(response.body).resources,[{id:item.id,title:item.title,description:item.description,category:'match_day',createdAt:item.created_at,updatedAt:item.updated_at}])
+  assert.match(selections.find(s=>s.table==='resource_library_links').columns,/category, created_at, updated_at/)
+})
 test('Player accounts read only their current attendance and cannot submit invitations', async () => {
   const {client,tables}=fixture()
   const call = action => handleFans({httpMethod:'POST',headers:{authorization:'Bearer test'},body:JSON.stringify({action,connectionId:id(1)})},{createClient:()=>client})
