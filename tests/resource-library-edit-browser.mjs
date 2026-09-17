@@ -80,6 +80,7 @@ try {
  assert.equal(await page.evaluate(()=>window.saves.at(-1).file),'replacement.pdf')
  await page.evaluate(()=>{window.setViewer();window.mount()})
  await page.getByText('2 active',{exact:true}).waitFor()
+ await page.getByRole('button',{name:'Edit resource',exact:true}).first().waitFor({state:'hidden'})
  assert.equal(await page.getByRole('button',{name:'Edit resource',exact:true}).count(),0)
  assert.deepEqual(errors,[])
  console.log('PASS: actual resource page edit/save/reopen, preserved assignments, failure/retry, pending state, file replacement, viewer restrictions, light/dark at 390/1280px.')
