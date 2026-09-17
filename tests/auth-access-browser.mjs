@@ -2024,6 +2024,8 @@ try {
     const parentContext = await browser.newContext()
     const { page: parentPage } = await preparePage(parentContext)
     await parentSignIn(parentPage, 'parent.fixture@footballplayer.test', mainBaseUrl)
+    await parentPage.waitForURL('**/parent-portal', { timeout: 15000 })
+    await assertVisibleText(parentPage, 'Family Portal')
     await parentPage.goto(`${mainBaseUrl}/parent-chat`, {
       waitUntil: 'domcontentloaded',
       timeout: 60000,
@@ -2035,6 +2037,8 @@ try {
     const staffContext = await browser.newContext()
     const { page: staffPage } = await preparePage(staffContext)
     await signIn(staffPage, 'multi.fixture@footballplayer.test', mainBaseUrl, 'club')
+    await staffPage.waitForURL('**/coach', { timeout: 15000 })
+    await assertVisibleText(staffPage, 'Club-wide view')
     await staffPage.goto(`${mainBaseUrl}/parent-chat-staff`, {
       waitUntil: 'domcontentloaded',
       timeout: 60000,
