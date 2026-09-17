@@ -85,13 +85,16 @@ test('encrypted cache document retains journal in its authorised context only', 
   assert.equal(getCoachOfflineResources(document, { ...context, teamId: 't2' }), null)
 })
 
-test('screen recovery uses a real Save step, guards discard, and preserves drafts automatically', async () => {
+test('screen recovery keeps explicit team save, guarded replacement, and automatic device drafts', async () => {
   const screen = await readFile(new URL('../apps/coach-mobile/src/CoachFormationBoard.js', import.meta.url), 'utf8')
-  assert.doesNotMatch(screen, /setWorkflowStep\([^\n]*['"]save['"]/)
-  assert.match(screen, /workflowStep === 'finish'/)
+  assert.doesNotMatch(screen, /workflowStep ===/)
+  assert.match(screen, /label=\{busy \? 'Saving\.\.\.' : 'Save Formation Board'\}/)
+  assert.match(screen, /activeSheet === 'share'/)
   assert.match(screen, /confirmDraftReplacement\(startNewBoard\)/)
   assert.match(screen, /confirmDraftReplacement\(\(\) => applyBoard\(item\)\)/)
   assert.match(screen, /saveCoachFormationLocalDraft\(user.id, context, currentDraftKey, entry\)/)
+  assert.match(screen, /createdByProfileId: normalize\(previousPendingSave\?\.createdByProfileId\) \|\| normalize\(board\?\.createdByProfileId\) \|\| user.id/)
+  assert.match(screen, /candidate\.createdByProfileId === createdByProfileId/)
   assert.doesNotMatch(screen, /activePublication \? 'Shared' : board \? 'Saved'/)
 })
 

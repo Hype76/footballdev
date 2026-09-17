@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'retry', 'retry-no-storage']) {
+  for (const scenario of ['race', 'retry', 'retry-no-storage', 'readonly']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -55,7 +55,7 @@ const entry = `
         matches={[]}
         palette={palette}
         players={[{ id: 'player-1', playerName: 'Player One', shirtNumber: 1 }]}
-        user={{ id: 'coach-1', activeTeamId: 'team-1' }}
+        user={{ id: 'coach-1', clubId: 'club-1', activeTeamId: 'team-1', roleRank: scenario === 'readonly' ? 20 : 30, hasActivePlanAccess: true }}
       />
     </View>
   }
@@ -160,7 +160,7 @@ const bundle = await build({
   bundle: true,
   write: false,
   jsx: 'automatic',
-  loader: { '.js': 'jsx' },
+  loader: { '.js': 'jsx', '.png': 'dataurl' },
   alias: {
     'react-native': path.join(modules, 'react-native-web'),
     react: path.join(modules, 'react'),
@@ -202,13 +202,21 @@ try {
     assert.equal(await page.getByText('Board A', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Board B', { exact: true }).count(), 1)
     console.log('PASS: stale fixture load cannot overwrite the active match board')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'readonly') {
+    await page.getByText('Viewing only', { exact: true }).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).isEnabled(), false)
+    assert.equal(await page.getByRole('button', { name: 'Players', exact: true }).isEnabled(), false)
+    assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
+    await page.getByRole('button', { name: 'Share', exact: true }).click()
+    assert.equal(await page.getByRole('button', { name: 'Save Formation Board', exact: true }).isEnabled(), false)
+    assert.equal(await page.evaluate(() => window.__formationTest.createCalls + window.__formationTest.saveCalls), 0)
+    console.log('PASS: read-only staff can view the board but cannot edit or save')
   } else {
-    await page.getByRole('button', { name: 'Confirm formation', exact: true }).click()
-    await page.getByRole('button', { name: 'Select full squad', exact: true }).click()
-    await page.getByRole('button', { name: 'Load empty pitch', exact: true }).click()
+    await page.getByLabel('Formation pitch', { exact: true }).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Confirm formation', exact: true }).count(), 0)
     await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).click()
-    await page.getByRole('button', { name: /#1 Player One Bench Add/ }).click()
-    await page.getByRole('button', { name: 'Continue to save', exact: true }).click()
+    await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
+    await page.getByRole('button', { name: 'Share', exact: true }).click()
     await page.getByRole('button', { name: 'Save Formation Board', exact: true }).click()
     await page.getByText(process.env.FORMATION_ASYNC_SCENARIO === 'retry-no-storage' ? /could not be saved on this device or confirmed online/ : /saved safely on this device/).waitFor()
     await page.getByRole('button', { name: 'Retry save', exact: true }).click()

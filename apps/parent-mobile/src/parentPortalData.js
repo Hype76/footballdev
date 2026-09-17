@@ -273,10 +273,12 @@ function normalizeParentFormationPlayer(row = {}) {
   if (!displayName) return null
   const x = Number(row.x)
   const y = Number(row.y)
+  const positionGroup = normalizeText(row.position_group ?? row.positionGroup).toLowerCase()
   return {
     displayName,
     playerId: normalizeText(row.player_id ?? row.playerId),
     shirtNumber: normalizeText(row.shirt_number ?? row.shirtNumber),
+    ...(['goalkeeper', 'defender', 'midfielder', 'forward'].includes(positionGroup) ? { positionGroup } : {}),
     x: Number.isFinite(x) ? x : 0.5,
     y: Number.isFinite(y) ? y : 0.5,
   }

@@ -217,7 +217,7 @@ test('editor and Team Resource Library expose publication, immutable history, an
   assert.match(editor, /Publish as new resource/)
   assert.match(editor, /Update existing linked resource/)
   assert.match(editor, /Review this preview before publishing/)
-  assert.match(editor, />Actions</)
+  assert.match(editor, /\sShare\s*<\/button>/)
   assert.match(editor, /publishedSnapshotVersion/)
   assert.match(editor, /versionId: parameters\.get\('version'\)/)
   assert.match(library, /Version history/)

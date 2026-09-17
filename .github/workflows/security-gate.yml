@@ -163,6 +163,8 @@ jobs:
       - name: Formation board save and recovery regression
         run: >-
           node --test tests/formation-board-creation-repair.test.mjs
+          tests/formation-board-pitch-first-overhaul.test.mjs
+          tests/coach-formation-pitch-first-overhaul.test.mjs
           tests/coach-formation-metadata-repair.test.mjs
           tests/coach-formation-draft-repair.test.mjs
           tests/parent-formation-match-plan-repair.test.mjs &&

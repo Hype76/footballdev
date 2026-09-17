@@ -38,13 +38,15 @@ test('Formation Board create and existing-board permissions stay role-scoped', (
   assert.equal(canEditFormationBoard(assistant, sharedBoard), false)
 })
 
-test('Formation Board page uses create permission for a new route and labels it Not saved', async () => {
+test('Formation Board page uses create permission for a new route and reports local draft state truthfully', async () => {
   const page = await readFile(new URL('../src/pages/FormationBoardsPage.jsx', import.meta.url), 'utf8')
 
   assert.match(page, /const isNewBoard = currentBoard\?\.id === 'new'/)
   assert.match(page, /const canEdit = publishedSnapshotVersion[\s\S]*?isNewBoard[\s\S]*?canCreate[\s\S]*?canEditFormationBoard\(user, currentBoard\)/)
   assert.match(page, /setSaveState\(board\.id === 'new' \? 'not_saved'/)
-  assert.match(page, /saveState === 'not_saved' \? 'Not saved'/)
+  assert.match(page, /localDraftState === 'saved'[\s\S]*'Saved on this device'/)
+  assert.match(page, /localDraftState === 'failed'[\s\S]*'Not saved on this device'/)
+  assert.match(page, /'Not saved yet'/)
   assert.match(page, /snapshotsMatch\(previous, savedSnapshot\) \? \(isNewBoard \? 'not_saved' : 'saved'\)/)
 })
 
@@ -56,6 +58,6 @@ test('Blank new boards keep Save disabled until dirty and guard dirty navigation
   assert.equal(snapshotsMatch(blank, blank), true)
   assert.equal(snapshotsMatch(blank, { ...blank, title: 'Saturday match shape' }), false)
   assert.match(page, /useBlocker\(\(\) => hasUnsavedChanges && !allowNavigationRef\.current\)/)
-  assert.match(page, /disabled=\{!canEdit \|\| isSaving \|\| !hasUnsavedChanges \|\| pitchCapacity\.isOverCapacity\}/)
+  assert.match(page, /disabled=\{isSaving \|\| !hasUnsavedChanges \|\| pitchCapacity\.isOverCapacity\}[\s\S]*Save to Team/)
   assert.match(page, /setSaveState\('unsaved'\)/)
 })

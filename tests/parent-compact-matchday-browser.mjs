@@ -12,7 +12,9 @@ async function extract(file, names) {
   const nodes = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.map(node => node.type === 'ExportNamedDeclaration' ? node.declaration : node)
   return names.map(name => { const node = nodes.find(node => node?.type === 'FunctionDeclaration' && node.id.name === name); assert.ok(node, name); return source.slice(node.start, node.end) }).join('\n')
 }
-const portal = await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'ParentMatchFormationPlan', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText'])
+const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'getFormationShirtSource', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
+  .replaceAll('../../mobile-core/assets/formation-shirt-white.png', './apps/mobile-core/assets/formation-shirt-white.png')
+  .replaceAll('../../mobile-core/assets/formation-shirt-gold.png', './apps/mobile-core/assets/formation-shirt-gold.png')
 const invitationCore = await extract('apps/parent-mobile/src/parentPortalData.js', ['getInvitationResponseOptions', 'isParentInvitationActionable'])
 const formationCore = await extract('apps/mobile-core/src/parentFormationBoardCore.js', ['getParentFormationPlayerLabel', 'getParentFormationPitchPercent', 'getNamedParentFormationPlayers'])
 const appSource = await readFile('apps/parent-mobile/App.js', 'utf8')
@@ -22,7 +24,7 @@ const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replace('../assets/kit-tbc.png', './apps/mobile-core/assets/kit-tbc.png'))
 const entry = `
 import React,{useState,useMemo,useEffect,useRef} from 'react';import {createRoot} from 'react-dom/client';
-import {View,Text,Pressable,StyleSheet,Platform,Image,Modal,SafeAreaView} from 'react-native';
+import {View,Text,Pressable,StyleSheet,Platform,Image,Modal,SafeAreaView,ScrollView} from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
 import {MatchTypeIcon} from './apps/parent-mobile/src/MatchTypeIcon.js';
@@ -49,7 +51,7 @@ const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),k
 const kitImageUrl=()=> 'data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="blue"/></svg>').toString('base64')}';
 let theme;const useParentTheme=()=>theme;
 ${kit}\n${invitationCore}\n${formationCore}\n${portal}\n${app}
-const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[],formationPlan:{title:'Published Match Plan',gameFormat:'7v7',formationPresetKey:'7v7-2-3-1',placements:[{playerId:'starter',displayName:'Published Starter',x:0.5,y:0.6}],bench:[{playerId:'bench',displayName:'Published Bench',state:'bench'}],notes:'PRIVATE COACH NOTE',unselectedPlayers:[{displayName:'UNSELECTED PRIVATE PLAYER'}]}};
+const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[],formationPlan:{title:'Published Match Plan',gameFormat:'7v7',formationPresetKey:'7v7-2-3-1',placements:[{playerId:'starter',displayName:'Published Starter',shirtNumber:'9',x:0.5,y:0.6},{playerId:'edge-left',displayName:'Left Defender',shirtNumber:'3',x:0.04,y:0.42},{playerId:'edge-right',displayName:'Right Defender',shirtNumber:'2',x:0.96,y:0.42}],bench:[{playerId:'bench',displayName:'Published Bench',shirtNumber:'12',state:'bench'}],notes:'PRIVATE COACH NOTE',unselectedPlayers:[{displayName:'UNSELECTED PRIVATE PLAYER'}]}};
 const parentLink={id:'parent',clubId:'club',playerId:'child',linkType:'parent'};
 const initialInvitation={invitationId:'invitation',eventId:'match',childId:'child',parentLinkId:'parent',sourceRecordId:'request',invitationType:'match_attendance',invitationState:'active',canRespond:true,canChangeResponse:true,responseState:'available',carpoolEnabled:true};
 const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=async()=>{};
@@ -85,6 +87,12 @@ try {
   await page.getByText('Show', { exact: true }).click()
   await page.getByText('Published Starter', { exact: true }).waitFor()
   await page.getByText('Published Bench', { exact: true }).waitFor()
+  for (const name of ['Left Defender', 'Right Defender']) {
+    const box = await page.getByText(name, { exact: true }).boundingBox()
+    assert.ok(box && box.x >= 0 && box.x + box.width <= 390, `${name} remains within the portrait pitch viewport`)
+  }
+  assert.ok(await page.evaluate(() => [...document.images].some((image) => image.naturalWidth > 200 && image.naturalHeight > 200)), 'published formation shirts render as image assets')
+  await page.screenshot({ path: 'output/playwright/parent-compact/formation-expanded.png', fullPage: true })
   assert.equal(await page.getByText('PRIVATE COACH NOTE', { exact: true }).count(), 0)
   assert.equal(await page.getByText('UNSELECTED PRIVATE PLAYER', { exact: true }).count(), 0)
   await page.getByText('Hide', { exact: true }).click()

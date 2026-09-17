@@ -12,14 +12,12 @@ import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 function createStyles(palette) {
   return StyleSheet.create({
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 21 },
-    card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 8, padding: 14 },
     error: { color: palette.danger, fontSize: 14, fontWeight: '800', lineHeight: 21 },
-    heading: { color: palette.textPrimary, fontSize: 29, fontWeight: '900', letterSpacing: -0.5 },
-    kicker: { color: palette.accentText, fontSize: 12, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase' },
-    secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 13, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14, paddingVertical: 10 },
+    loading: { alignItems: 'center', gap: 8, paddingVertical: 20 },
+    secondary: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderRadius: 13, justifyContent: 'center', minHeight: 46, paddingHorizontal: 14, paddingVertical: 10 },
     secondaryText: { color: palette.textPrimary, fontSize: 13, fontWeight: '900' },
     stack: { gap: 12 },
-    warning: { backgroundColor: palette.surfaceRaised, borderColor: palette.warning, borderRadius: 15, borderWidth: 1, gap: 8, padding: 13 },
+    warning: { borderLeftColor: palette.warning, borderLeftWidth: 2, gap: 8, paddingLeft: 12, paddingVertical: 8 },
   })
 }
 
@@ -72,15 +70,9 @@ export function CoachFormationScreen({ context, onQuickActionHandled, palette, q
 
   return (
     <View style={styles.stack}>
-      <View style={styles.stack}>
-        <Text style={styles.kicker}>Quick action</Text>
-        <Text accessibilityRole="header" style={styles.heading}>Formation Board</Text>
-        <Text style={styles.body}>Create a standalone Team plan now. Link it to a match or publish it to Team Resources only when you are ready.</Text>
-      </View>
-
       {error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load()} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
       {stale ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
-      {loading ? <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
+      {loading ? <View style={styles.loading}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
       {!loading && !error ? <CoachFormationBoard context={context} matches={matches} palette={palette} players={players} stale={stale} user={user} /> : null}
     </View>
   )

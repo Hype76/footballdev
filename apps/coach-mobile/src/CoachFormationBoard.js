@@ -2,7 +2,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   applyMobileFormationPreset,
   assignMobileFormationPlayerToSlot,
@@ -21,6 +21,7 @@ import {
   moveMobileFormationPlayer,
   moveMobileFormationPlayersToBench,
   parseMobileFormationPreferences,
+  placeMobileFormationLineup,
   placeMobileFormationPlayerInNextSlot,
   serializeMobileFormationPreferences,
   setMobileFormationSquad,
@@ -42,6 +43,7 @@ import {
 import { readCoachOfflineResources, saveCoachFormationLocalDraft, saveCoachOfflineResources } from './offline'
 import { findFormationLocalDraft, formationContentKey, formationDraftKey, formationMatchesBoard, getActiveFormationPublication, getFormationSaveLabel } from '../../mobile-core/src/coachFormationDraftCore'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
+import { canEditCoachFormationBoard, getCoachFormationMarkerVisualPosition } from './coachFormationEntryCore'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
 const normalize = (value) => String(value ?? '').trim()
@@ -52,80 +54,103 @@ const RESOURCE_CATEGORIES = Object.freeze([
   Object.freeze({ label: 'Development', value: 'development' }),
   Object.freeze({ label: 'Admin', value: 'admin' }),
 ])
-const WORKFLOW_STEPS = Object.freeze([
-  Object.freeze({ iconKey: 'formation.formation', label: 'Formation', value: 'formation' }),
-  Object.freeze({ iconKey: 'formation.squad', label: 'Squad', value: 'squad' }),
-  Object.freeze({ iconKey: 'formation.lineup', label: 'Lineup', value: 'lineup' }),
-  Object.freeze({ iconKey: 'formation.finish', label: 'Save', value: 'finish' }),
+const WHITE_SHIRT = require('../../mobile-core/assets/formation-shirt-white.png')
+const GOLD_SHIRT = require('../../mobile-core/assets/formation-shirt-gold.png')
+const BOARD_TABS = Object.freeze([
+  Object.freeze({ icon: 'grid-view', label: 'Formation', value: 'formation' }),
+  Object.freeze({ icon: 'groups', label: 'Players', value: 'players' }),
+  Object.freeze({ icon: 'ios-share', label: 'Share', value: 'share' }),
 ])
 
 function createStyles(palette) {
   return StyleSheet.create({
-    action: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accentText, borderRadius: 14, borderWidth: 1, flex: 1, flexDirection: 'row', gap: 7, justifyContent: 'center', minHeight: 50, minWidth: 138, paddingHorizontal: 14, paddingVertical: 11 },
-    actionDanger: { backgroundColor: palette.surfaceRaised, borderColor: palette.danger },
+    action: { alignItems: 'center', backgroundColor: palette.accent, borderRadius: 12, flex: 1, flexDirection: 'row', gap: 7, justifyContent: 'center', minHeight: 48, minWidth: 132, paddingHorizontal: 14, paddingVertical: 11 },
+    actionDanger: { backgroundColor: palette.surfaceRaised },
     actionDisabled: { opacity: 0.45 },
-    actionSecondary: { backgroundColor: palette.surfaceRaised, borderColor: palette.border },
+    actionSecondary: { backgroundColor: palette.surfaceRaised },
     actionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900', textAlign: 'center' },
     actionTextDanger: { color: palette.danger },
     actionTextSecondary: { color: palette.textPrimary },
-    benchButton: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accentText, borderWidth: 1, borderRadius: 10, justifyContent: 'center', minHeight: 38, paddingHorizontal: 10 },
-    benchButtonDisabled: { opacity: 0.45 },
-    benchButtonText: { color: palette.accentForeground, fontSize: 12, fontWeight: '900' },
-    benchCard: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 8, minWidth: 158, paddingVertical: 10 },
-    benchCardSelected: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
-    benchContent: { gap: 8, paddingBottom: 2, paddingRight: 12 },
+    bench: { borderBottomColor: palette.border, borderBottomWidth: 1, borderTopColor: palette.border, borderTopWidth: 1, paddingBottom: 4 },
+    benchContent: { gap: 18, paddingHorizontal: 4, paddingTop: 2 },
+    benchHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 44 },
+    benchPlayer: { alignItems: 'center', minWidth: 74 },
+    benchPlayerButton: { borderBottomColor: 'transparent', borderBottomWidth: 3, paddingBottom: 2 },
+    benchPlayerButtonSelected: { borderBottomColor: palette.accentText },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 21 },
     card: { borderTopColor: palette.border, borderTopWidth: 1, gap: 11, paddingVertical: 14 },
-    chip: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10 },
-    chipSelected: { backgroundColor: palette.selected, borderColor: palette.accentText },
+    chip: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderRadius: 999, flexDirection: 'row', gap: 6, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10 },
+    chipSelected: { backgroundColor: palette.selected },
     chipText: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
     chipTextSelected: { color: palette.textPrimary },
     count: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
+    dock: { borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingTop: 9 },
+    dockItem: { alignItems: 'center', borderRadius: 18, flex: 1, gap: 4, justifyContent: 'center', minHeight: 68, paddingHorizontal: 8, paddingVertical: 8 },
+    dockItemActive: { backgroundColor: palette.selected },
+    dockItemDisabled: { opacity: 0.48 },
+    dockItemShare: { backgroundColor: 'rgb(11,67,36)' },
+    dockLabel: { color: palette.textSecondary, fontSize: 13, fontWeight: '700' },
+    dockLabelActive: { color: palette.selectedForeground },
+    dockLabelShare: { color: 'rgb(104,242,162)' },
     eyebrow: { color: palette.accentText, fontSize: 11, fontWeight: '900', letterSpacing: 1.1, textTransform: 'uppercase' },
     heading: { color: palette.textPrimary, fontSize: 20, fontWeight: '900' },
-    input: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 13, borderWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 50, paddingHorizontal: 13, paddingVertical: 10 },
+    input: { backgroundColor: palette.surfaceRaised, borderBottomColor: palette.border, borderBottomWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 50, paddingHorizontal: 4, paddingVertical: 10 },
     label: { color: palette.textPrimary, fontSize: 14, fontWeight: '900' },
     modalBackdrop: { backgroundColor: 'rgba(0,0,0,0.62)', flex: 1, justifyContent: 'flex-end' },
-    modalPanel: { backgroundColor: palette.surface, borderColor: palette.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, gap: 12, maxHeight: '86%', padding: 16 },
+    modalPanel: { backgroundColor: palette.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, gap: 12, maxHeight: '88%', padding: 16, paddingBottom: 24 },
     modalPlayer: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingVertical: 10 },
-    emptySlot: { alignItems: 'center', backgroundColor: 'rgba(16,24,40,0.72)', borderColor: 'rgba(255,255,255,0.82)', borderRadius: 24, borderStyle: 'dashed', borderWidth: 2, height: 44, justifyContent: 'center', position: 'absolute', transform: [{ translateX: -22 }, { translateY: -22 }], width: 44, zIndex: 4 },
+    emptySlot: { alignItems: 'center', backgroundColor: 'rgba(4,45,25,0.7)', borderColor: 'rgba(255,255,255,0.9)', borderRadius: 25, borderStyle: 'dashed', borderWidth: 2, height: 46, justifyContent: 'center', position: 'absolute', transform: [{ translateX: -23 }, { translateY: -23 }], width: 46, zIndex: 4 },
     emptySlotLabel: { backgroundColor: 'rgba(16,24,40,0.9)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', left: -2, paddingHorizontal: 3, paddingVertical: 2, position: 'absolute', textAlign: 'center', top: 46, width: 48 },
-    marker: { alignItems: 'center', height: 74, justifyContent: 'flex-start', position: 'absolute', transform: [{ translateX: -38 }, { translateY: -25 }], width: 76, zIndex: 10 },
-    markerBadge: { alignItems: 'center', backgroundColor: 'rgb(16,24,40)', borderColor: 'rgb(255,255,255)', borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 20, minWidth: 20, paddingHorizontal: 4, position: 'absolute', right: -8, top: -5, zIndex: 3 },
-    markerBadgeText: { color: 'rgb(255,255,255)', fontSize: 10, fontWeight: '900', lineHeight: 12 },
-    markerCircle: { alignItems: 'center', backgroundColor: 'rgb(247,250,248)', borderColor: 'rgb(255,255,255)', borderRadius: 25, borderWidth: 3, elevation: 5, height: 50, justifyContent: 'center', shadowColor: 'rgb(16,24,40)', shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.28, shadowRadius: 5, width: 50 },
-    markerCircleDragging: { backgroundColor: 'rgb(224,242,254)', borderColor: 'rgb(186,230,253)', transform: [{ scale: 1.1 }] },
-    markerCircleRemoval: { borderColor: palette.warning, borderWidth: 4 },
-    markerCircleSelected: { backgroundColor: palette.selected, borderColor: palette.accentText, borderWidth: 4 },
-    markerName: { backgroundColor: 'rgba(16,24,40,0.9)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', marginTop: 3, maxWidth: 76, paddingHorizontal: 5, paddingVertical: 2, textAlign: 'center' },
-    markerSilhouetteHead: { borderRadius: 7, height: 14, marginBottom: 2, width: 14 },
-    markerSilhouetteShoulders: { borderTopLeftRadius: 14, borderTopRightRadius: 14, height: 14, width: 28 },
-    pitch: { backgroundColor: 'rgb(35,122,69)', borderColor: 'rgb(255,255,255)', borderRadius: 22, borderWidth: 4, height: 475, overflow: 'hidden', position: 'relative' },
-    pitchBoxBottom: { borderBottomWidth: 0, bottom: 11 },
+    marker: { alignItems: 'center', height: 86, justifyContent: 'flex-start', position: 'absolute', transform: [{ translateX: -39 }, { translateY: -33 }], width: 78, zIndex: 10 },
+    markerDragging: { opacity: 0.78, transform: [{ translateX: -39 }, { translateY: -33 }, { scale: 1.08 }] },
+    markerImage: { height: 60, resizeMode: 'contain', width: 68 },
+    markerName: { backgroundColor: 'rgba(3,35,20,0.94)', borderRadius: 6, color: 'rgb(255,255,255)', fontSize: 12, fontWeight: '700', lineHeight: 15, marginTop: -6, maxWidth: 78, paddingHorizontal: 5, paddingVertical: 2, textAlign: 'center' },
+    markerNumber: { color: 'rgb(5,62,34)', fontSize: 16, fontWeight: '900', left: 0, position: 'absolute', right: 0, textAlign: 'center', top: 21 },
+    markerNumberGoalkeeper: { color: 'rgb(34,24,4)' },
+    markerSelection: { borderColor: palette.accentText, borderRadius: 31, borderWidth: 3, height: 63, position: 'absolute', top: -2, width: 70 },
+    pitch: { aspectRatio: 0.69, backgroundColor: 'rgb(10,108,47)', borderColor: 'rgb(255,255,255)', borderRadius: 18, borderWidth: 3, overflow: 'hidden', position: 'relative', width: '100%' },
+    pitchArc: { borderColor: 'rgba(255,255,255,0.9)', borderRadius: 35, borderWidth: 2, height: 70, position: 'absolute', width: 70 },
+    pitchArcBottom: { bottom: -35 },
+    pitchArcTop: { top: -35 },
+    pitchArcWindow: { height: 35, left: '50%', overflow: 'hidden', position: 'absolute', transform: [{ translateX: -35 }], width: 70 },
+    pitchArcWindowBottom: { bottom: '14%' },
+    pitchArcWindowTop: { top: '14%' },
+    pitchBoxBottom: { borderBottomWidth: 0, bottom: 0 },
     pitchBoxLarge: { borderColor: 'rgba(255,255,255,0.82)', borderWidth: 2, height: '14%', left: '24%', position: 'absolute', width: '52%' },
     pitchBoxSmall: { borderColor: 'rgba(255,255,255,0.82)', borderWidth: 2, height: '6%', left: '38%', position: 'absolute', width: '24%' },
-    pitchBoxTop: { borderTopWidth: 0, top: 11 },
+    pitchBoxTop: { borderTopWidth: 0, top: 0 },
     pitchCentreCircle: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 43, borderWidth: 2, height: 86, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -43 }, { translateY: -43 }], width: 86 },
     pitchCentreSpot: { backgroundColor: 'rgba(255,255,255,0.82)', borderRadius: 5, height: 10, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -5 }, { translateY: -5 }], width: 10 },
-    pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.82)', height: 2, left: 11, position: 'absolute', right: 11, top: '50%' },
-    pitchOutline: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 17, borderWidth: 2, bottom: 11, left: 11, position: 'absolute', right: 11, top: 11 },
+    pitchCorner: { borderColor: 'rgba(255,255,255,0.9)', borderRadius: 14, borderWidth: 2, height: 28, position: 'absolute', width: 28 },
+    pitchCornerBottom: { bottom: -14 },
+    pitchCornerLeft: { left: -14 },
+    pitchCornerRight: { right: -14 },
+    pitchCornerTop: { top: -14 },
+    pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.82)', height: 2, left: 0, position: 'absolute', right: 0, top: '50%' },
+    pitchPenaltySpot: { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 4, height: 8, left: '50%', position: 'absolute', transform: [{ translateX: -4 }], width: 8 },
+    pitchPenaltySpotBottom: { bottom: '9%' },
+    pitchPenaltySpotTop: { top: '9%' },
     pitchStripe: { height: '12.5%', left: 0, position: 'absolute', right: 0 },
-    planHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 7, paddingVertical: 13 },
-    progress: { flexDirection: 'row', gap: 6 },
-    progressItem: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flex: 1, gap: 2, minHeight: 58, paddingHorizontal: 4, paddingVertical: 6 },
-    progressItemActive: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
-    progressLabel: { color: palette.textSecondary, fontSize: 10, fontWeight: '800', textAlign: 'center' },
-    progressLabelActive: { color: palette.selectedForeground },
-    progressNumber: { color: palette.textSecondary, fontSize: 11, fontWeight: '900' },
-    progressNumberActive: { color: palette.accentText },
+    planHeader: { alignItems: 'center', gap: 2, paddingBottom: 2 },
+    planHeaderRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
+    planTitle: { color: palette.textPrimary, flex: 1, fontSize: 20, fontWeight: '700', paddingHorizontal: 8, textAlign: 'center' },
+    statusRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
+    statusDot: { color: palette.textSecondary, fontSize: 13 },
+    statusMuted: { color: palette.textSecondary, fontSize: 13, fontWeight: '700' },
+    topIcon: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 44 },
     row: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     rowBetween: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
     savedBoard: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 4, minHeight: 56, paddingVertical: 12 },
     selectedPanel: { borderLeftColor: palette.accentText, borderLeftWidth: 2, gap: 8, paddingLeft: 12, paddingVertical: 8 },
+    sheetHandle: { alignSelf: 'center', backgroundColor: palette.border, borderRadius: 3, height: 5, marginBottom: 2, width: 48 },
     stack: { gap: 12 },
-    status: { alignSelf: 'flex-start', backgroundColor: palette.selected, borderColor: palette.accentText, borderRadius: 999, borderWidth: 1, paddingHorizontal: 11, paddingVertical: 6 },
-    statusText: { color: palette.selectedForeground, fontSize: 12, fontWeight: '900' },
+    shirtSmall: { height: 54, resizeMode: 'contain', width: 60 },
+    shirtSmallName: { backgroundColor: palette.surfaceRaised, borderRadius: 6, color: palette.textPrimary, fontSize: 12, fontWeight: '700', lineHeight: 15, marginTop: -8, maxWidth: 78, paddingHorizontal: 6, paddingVertical: 2, textAlign: 'center' },
+    shirtSmallNumber: { color: 'rgb(5,62,34)', fontSize: 15, fontWeight: '900', left: 0, position: 'absolute', right: 0, textAlign: 'center', top: 18 },
+    shirtWrap: { alignItems: 'center', height: 54, width: 60 },
+    statusText: { color: palette.accentText, fontSize: 12, fontWeight: '700' },
     warning: { borderLeftColor: palette.warning, borderLeftWidth: 2, gap: 8, paddingLeft: 12, paddingVertical: 8 },
+    workspace: { gap: 8 },
   })
 }
 
@@ -145,31 +170,15 @@ function Action({ danger = false, disabled = false, iconKey = '', label, onPress
   )
 }
 
-function Choice({ iconKey = '', label, onPress, selected, styles }) {
+function Choice({ disabled = false, iconKey = '', label, onPress, selected, styles }) {
   const contentStyle = [styles.chipText, selected && styles.chipTextSelected]
-  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={19} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
-}
-
-export function CoachFormationSquadStep({ availabilityRows = [], draft, onBack, onChange, onContinue, palette, players = [] }) {
-  const styles = useMemo(() => createStyles(palette), [palette])
-  const selectedIds = useMemo(() => getMobileFormationSelectedPlayerIds(draft), [draft])
-  const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
-  return <View style={styles.card}>
-    <Text style={styles.eyebrow}>Step 2 of 4</Text>
-    <View style={styles.rowBetween}><Text style={styles.heading}>Choose squad</Text><Text style={styles.count}>{selectedIds.size} selected</Text></View>
-    <Text style={styles.body}>Availability helps you choose, but the final Match squad remains your decision. Selected Players start on the Bench so you can assign each pitch position yourself.</Text>
-    <Action disabled={!availablePlayers.length} label={`Select available players (${availablePlayers.length})`} onPress={() => onChange(setMobileFormationSquad(draft, availablePlayers))} styles={styles} />
-    <View style={styles.row}><Action label="Select full squad" onPress={() => onChange(setMobileFormationSquad(draft, players))} secondary styles={styles} /><Action label="Clear" onPress={() => onChange(setMobileFormationSquad(draft, []))} secondary styles={styles} /></View>
-    <View style={styles.row}>{players.map((player) => { const availability = getMobileFormationPlayerAvailability(player.id, availabilityRows); return <Choice key={player.id} label={`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName} | ${availability.label}`} onPress={() => onChange(toggleMobileFormationSquadPlayer(draft, player))} selected={selectedIds.has(player.id)} styles={styles} /> })}</View>
-    <View style={styles.row}><Action label="Back" onPress={onBack} secondary styles={styles} /><Action disabled={!selectedIds.size} label="Load empty pitch" onPress={() => onContinue(selectedIds.size)} styles={styles} /></View>
-  </View>
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected }} disabled={disabled} onPress={onPress} style={[styles.chip, selected && styles.chipSelected, disabled && styles.actionDisabled]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={19} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
 }
 
 function PitchLines({ styles }) {
   return (
     <>
-      {Array.from({ length: 8 }, (_, index) => <View key={index} style={[styles.pitchStripe, { backgroundColor: index % 2 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.035)', top: `${index * 12.5}%` }]} />)}
-      <View style={styles.pitchOutline} />
+      {Array.from({ length: 8 }, (_, index) => <View key={index} style={[styles.pitchStripe, { backgroundColor: index % 2 ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.075)', top: `${index * 12.5}%` }]} />)}
       <View style={styles.pitchHalfway} />
       <View style={styles.pitchCentreCircle} />
       <View style={styles.pitchCentreSpot} />
@@ -177,11 +186,19 @@ function PitchLines({ styles }) {
       <View style={[styles.pitchBoxLarge, styles.pitchBoxBottom]} />
       <View style={[styles.pitchBoxSmall, styles.pitchBoxTop]} />
       <View style={[styles.pitchBoxSmall, styles.pitchBoxBottom]} />
+      <View style={[styles.pitchArcWindow, styles.pitchArcWindowTop]}><View style={[styles.pitchArc, styles.pitchArcTop]} /></View>
+      <View style={[styles.pitchArcWindow, styles.pitchArcWindowBottom]}><View style={[styles.pitchArc, styles.pitchArcBottom]} /></View>
+      <View style={[styles.pitchPenaltySpot, styles.pitchPenaltySpotTop]} />
+      <View style={[styles.pitchPenaltySpot, styles.pitchPenaltySpotBottom]} />
+      <View style={[styles.pitchCorner, styles.pitchCornerLeft, styles.pitchCornerTop]} />
+      <View style={[styles.pitchCorner, styles.pitchCornerRight, styles.pitchCornerTop]} />
+      <View style={[styles.pitchCorner, styles.pitchCornerLeft, styles.pitchCornerBottom]} />
+      <View style={[styles.pitchCorner, styles.pitchCornerRight, styles.pitchCornerBottom]} />
     </>
   )
 }
 
-function FormationPlayerMarker({ canMove, layout, onMove, onPress, palette, player, removal, selected, styles }) {
+function FormationPlayerMarker({ canEdit, canMove, layout, onMove, onPress, player, removal, selected, styles }) {
   const [dragging, setDragging] = useState(false)
   const [livePosition, setLivePosition] = useState(null)
   const playerX = getMobileFormationPitchRatio(player.x)
@@ -189,7 +206,7 @@ function FormationPlayerMarker({ canMove, layout, onMove, onPress, palette, play
 
   const clamp = useCallback((value) => Math.max(0.04, Math.min(0.96, value)), [])
   const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: () => canEdit,
     onMoveShouldSetPanResponder: (_, gesture) => canMove && (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4),
     onPanResponderMove: (_, gesture) => {
       if (!canMove || !layout.width || !layout.height) return
@@ -206,7 +223,7 @@ function FormationPlayerMarker({ canMove, layout, onMove, onPress, palette, play
         x: clamp(playerX + (gesture.dx / layout.width)),
         y: clamp(playerY + (gesture.dy / layout.height)),
       })
-      else onPress()
+      else if (canEdit) onPress()
       setDragging(false)
       setLivePosition(null)
     },
@@ -215,27 +232,36 @@ function FormationPlayerMarker({ canMove, layout, onMove, onPress, palette, play
       setLivePosition(null)
     },
     onPanResponderTerminationRequest: () => false,
-  }), [canMove, clamp, layout.height, layout.width, onMove, onPress, playerX, playerY])
+  }), [canEdit, canMove, clamp, layout.height, layout.width, onMove, onPress, playerX, playerY])
 
   const position = livePosition || { x: playerX, y: playerY }
-  const silhouetteColor = selected ? palette.selectedForeground : 'rgb(52,64,84)'
+  const visualPosition = getCoachFormationMarkerVisualPosition(position, layout)
+  const goalkeeper = player.positionGroup === 'goalkeeper' || player.slotId === 'gk'
   return (
     <View
       {...panResponder.panHandlers}
-      accessibilityHint={canMove ? 'Tap to change this Player. Drag to move the Player freely around the pitch.' : 'Tap to select this Player.'}
+      accessibilityHint={canEdit ? canMove ? 'Tap to change this Player. Drag to move the Player freely around the pitch.' : 'Tap to select this Player.' : 'This player position is read-only.'}
       accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}`}
-      accessibilityRole="button"
-      accessibilityState={{ selected: Boolean(selected || removal) }}
-      style={[styles.marker, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}
+      accessibilityRole={canEdit ? 'button' : 'image'}
+      accessibilityState={{ disabled: !canEdit, selected: Boolean(selected || removal) }}
+      style={[styles.marker, dragging && styles.markerDragging, { left: `${visualPosition.x * 100}%`, top: `${visualPosition.y * 100}%` }]}
     >
-      <View style={[styles.markerCircle, selected && styles.markerCircleSelected, removal && styles.markerCircleRemoval, dragging && styles.markerCircleDragging]}>
-        <View style={[styles.markerSilhouetteHead, { backgroundColor: silhouetteColor }]} />
-        <View style={[styles.markerSilhouetteShoulders, { backgroundColor: silhouetteColor }]} />
-        {player.shirtNumber ? <View style={styles.markerBadge}><Text style={styles.markerBadgeText}>{player.shirtNumber}</Text></View> : null}
-      </View>
+      <Image accessibilityIgnoresInvertColors source={goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} style={styles.markerImage} />
+      {player.shirtNumber ? <Text style={[styles.markerNumber, goalkeeper && styles.markerNumberGoalkeeper]}>{player.shirtNumber}</Text> : null}
+      {selected || removal ? <View pointerEvents="none" style={styles.markerSelection} /> : null}
       <Text numberOfLines={1} style={styles.markerName}>{player.displayName}</Text>
     </View>
   )
+}
+
+function ShirtPlayer({ goalkeeper = false, name, number, styles }) {
+  return <View style={styles.benchPlayer}>
+    <View style={styles.shirtWrap}>
+      <Image accessibilityIgnoresInvertColors source={goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} style={styles.shirtSmall} />
+      {number ? <Text style={styles.shirtSmallNumber}>{number}</Text> : null}
+    </View>
+    <Text numberOfLines={1} style={styles.shirtSmallName}>{name}</Text>
+  </View>
 }
 
 function publicationResourceId(publication) {
@@ -264,11 +290,11 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [activeSlotId, setActiveSlotId] = useState('')
   const [slotSearch, setSlotSearch] = useState('')
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [showBoards, setShowBoards] = useState(false)
   const [showMatchPicker, setShowMatchPicker] = useState(false)
   const [title, setTitle] = useState(match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board')
-  const [workflowStep, setWorkflowStep] = useState('formation')
+  const [activeSheet, setActiveSheet] = useState('')
+  const [benchExpanded, setBenchExpanded] = useState(true)
   const [savedContentKey, setSavedContentKey] = useState('')
   const [draftScope, setDraftScope] = useState('')
   const routeScope = JSON.stringify([user.id, context.id, context.clubId, context.teamId, context.authorityId, context.authoritySource, context.role, match?.id || ''])
@@ -309,7 +335,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setPresets(nextPresets)
     setSelectedPlayerId('')
     setShowBoards(false)
-    setWorkflowStep(local ? 'finish' : 'lineup')
+    setActiveSheet('')
     setNotice(local ? 'Your unsent changes are restored. Review them before saving to the team.' : '')
   }, [context, presets, resolvePublications, user.id])
 
@@ -357,7 +383,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       setResourcePublications(Array.isArray(savedFormation.resourcePublications) ? savedFormation.resourcePublications : [])
       setSelectedMatchId(savedFormation.board?.linkedMatchDayId || '')
       setTitle(cachedTitle)
-      setWorkflowStep(restored ? 'finish' : cachedBoard ? 'lineup' : 'formation')
+      setActiveSheet('')
       setOffline(true)
     }
     try {
@@ -374,8 +400,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       const linkedBoard = match?.id ? nextBoards.find((candidate) => candidate.linkedMatchDayId === match.id) || null : null
       const pendingThreshold = pendingSave?.startedAt ? new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000) : 0
       const attemptedDraft = pendingSave || (restored?.board ? { boardId: restored.board.id, draft: restored.draft, title: restored.title } : null)
+      const attemptedCreatorId = normalize(attemptedDraft?.createdByProfileId) || user.id
       const recoveredBoard = attemptedDraft ? nextBoards.find((candidate) => (
-        (attemptedDraft.boardId ? candidate.id === attemptedDraft.boardId : candidate.createdByProfileId === user.id && new Date(candidate.createdAt || 0).getTime() >= pendingThreshold)
+        (attemptedDraft.boardId ? candidate.id === attemptedDraft.boardId : candidate.createdByProfileId === attemptedCreatorId && new Date(candidate.createdAt || 0).getTime() >= pendingThreshold)
         && formationMatchesBoard(attemptedDraft.draft, attemptedDraft.title, candidate)
       )) || null : null
       // Keep the restored base version so a concurrent coach edit still conflicts.
@@ -397,7 +424,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       setMatchPublications(nextPublications.matchItems)
       setResourcePublications(nextPublications.resourceItems)
       setSelectedMatchId(nextBoard?.linkedMatchDayId || match?.id || '')
-      setWorkflowStep(restored || unresolvedPendingSave ? 'finish' : nextBoard ? 'lineup' : 'formation')
+      setActiveSheet('')
       setTitle(nextTitle)
       setNotice(recoveredBoard
         ? 'The previous server save was found. Your Formation Board is ready.'
@@ -432,7 +459,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const currentPresetSlots = useMemo(() => getMobileFormationPresetSlots(currentPreset), [currentPreset])
   const activeSlot = currentPresetSlots.find((slot) => slot.id === activeSlotId) || null
   const activeSlotPlayer = draft.placements.find((player) => player.slotId === activeSlotId) || null
-  const filteredSlotPlayers = players.filter((player) => selectedIds.has(player.id) && player.playerName.toLowerCase().includes(slotSearch.trim().toLowerCase()))
+  const selectedBenchPlayer = draft.bench.find((player) => player.playerId === selectedPlayerId) || null
+  const filteredSlotPlayers = players.filter((player) => player.playerName.toLowerCase().includes(slotSearch.trim().toLowerCase()))
   const linkedMatchId = board?.linkedMatchDayId || ''
   const linkedMatch = (match?.id === linkedMatchId ? match : null) || matches.find((candidate) => candidate.id === linkedMatchId) || null
   const availabilityMatch = linkedMatch || match || null
@@ -440,18 +468,20 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
   const latestResourcePublication = resourcePublications[0] || null
   const unavailable = stale || offline
+  const canEdit = canEditCoachFormationBoard(user)
   const capacity = getMobileFormationCapacity(draft.gameFormat)
-  const workflowStepIndex = WORKFLOW_STEPS.findIndex((step) => step.value === workflowStep)
+  const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
+  const formationName = (currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')
   const contentKey = formationContentKey(draft, title)
   const hasUnsavedChanges = Boolean(savedContentKey && contentKey !== savedContentKey)
   const currentDraftKey = restoredDraftKey || formationDraftKey(board?.id, match?.id)
   const saveLabel = getFormationSaveLabel({ board, dirty: hasUnsavedChanges, localState, publication: activePublication })
 
   useEffect(() => {
-    if (loading || busy || !savedContentKey || draftScope !== routeScope) return
+    if (!canEdit || loading || busy || !savedContentKey || draftScope !== routeScope) return
     const sequence = ++draftWriteSequence.current
     const entry = hasUnsavedChanges ? {
-      board, draft, title, workflowStep, matchDayId: match?.id || '', savedAt: new Date().toISOString(),
+      board, draft, title, workflowStep: 'lineup', matchDayId: match?.id || '', savedAt: new Date().toISOString(),
     } : null
     if (entry) setLocalState('saving')
     void saveCoachFormationLocalDraft(user.id, context, currentDraftKey, entry).then(() => {
@@ -459,10 +489,10 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     }).catch(() => {
       if (sequence === draftWriteSequence.current) setLocalState('failed')
     })
-  }, [board, busy, contentKey, context, currentDraftKey, draft, draftScope, hasUnsavedChanges, loading, match?.id, routeScope, savedContentKey, title, user.id, workflowStep])
+  }, [board, busy, canEdit, contentKey, context, currentDraftKey, draft, draftScope, hasUnsavedChanges, loading, match?.id, routeScope, savedContentKey, title, user.id])
 
   const confirmDraftReplacement = (action) => {
-    if (!hasUnsavedChanges) { void action(); return }
+    if (!hasUnsavedChanges || !canEdit) { void action(); return }
     Alert.alert('Discard these changes?', 'These edits have not been saved to the team. Keep editing to save them first.', [
       { text: 'Keep editing', style: 'cancel' },
       { text: 'Discard changes', style: 'destructive', onPress: async () => {
@@ -475,24 +505,28 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     ])
   }
   const rememberPreset = (nextDraft) => {
+    if (!canEdit) return
     setDraft(nextDraft)
     setSelectedPlayerId('')
     void AsyncStorage.setItem(preferenceKey, serializeMobileFormationPreferences(nextDraft)).catch(() => {})
   }
 
   const chooseFormat = (gameFormat) => {
+    if (!canEdit) return
     const preset = presets.find((candidate) => candidate.gameFormat === gameFormat && candidate.key === `${gameFormat}-4-4-2`)
       || presets.find((candidate) => candidate.gameFormat === gameFormat)
     if (preset) rememberPreset(applyMobileFormationPreset(draft, preset))
   }
 
   const startNewBoard = () => {
+    if (!canEdit) return
     const preset = presets.find((candidate) => candidate.key === draft.presetKey) || presets[0]
     const nextDraft = createMobileFormationDraft({ gameFormat: preset?.gameFormat || '11v11', presetKey: preset?.key || '11v11-4-4-2' })
     setBoard(null)
     setDraft(nextDraft)
-    setTitle('Formation Board')
-    setSavedContentKey(formationContentKey(nextDraft, 'Formation Board'))
+    const nextTitle = match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'
+    setTitle(nextTitle)
+    setSavedContentKey(formationContentKey(nextDraft, nextTitle))
     setRestoredDraftKey('')
     setLocalState('idle')
     setSelectedMatchId(match?.id || '')
@@ -500,8 +534,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setResourcePublications([])
     setSelectedPlayerId('')
     setShowBoards(false)
-    setWorkflowStep('formation')
-    setNotice('New standalone Formation Board ready. Confirm the formation to begin.')
+    setActiveSheet('')
+    setNotice('New Formation Board ready. Tap any pitch position to choose a Player.')
   }
 
   const saveOfflineFormation = async ({ nextBoard = board, nextBoards = boards, nextDraft = draft, pendingSave = null } = {}) => {
@@ -522,15 +556,17 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const reconcilePendingBoard = async (pendingSave) => {
     if (!pendingSave?.startedAt || !normalize(pendingSave?.title)) return null
     const threshold = new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000)
+    const createdByProfileId = normalize(pendingSave.createdByProfileId) || user.id
     const items = await getCoachFormationBoards(user)
     return items.find((candidate) => (
-      candidate.createdByProfileId === user.id
+      candidate.createdByProfileId === createdByProfileId
       && new Date(candidate.createdAt || 0).getTime() >= threshold
       && formationMatchesBoard(pendingSave.draft, pendingSave.title, candidate)
     )) || null
   }
 
   const persistBoard = async () => {
+    if (!canEdit) throw new Error('Coach or manager plan access is required to save formations.')
     const operation = loadSequence.current
     const requireActiveBoard = () => {
       if (operation === loadSequence.current) return
@@ -549,6 +585,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       ? cachedPending : null
     const pendingSave = {
       boardId: board?.id || '',
+      createdByProfileId: normalize(previousPendingSave?.createdByProfileId) || normalize(board?.createdByProfileId) || user.id,
       draft,
       startedAt: !board && previousPendingSave?.startedAt ? previousPendingSave.startedAt : new Date().toISOString(),
       title: normalize(title) || 'Formation Board',
@@ -700,6 +737,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   )
 
   const moveBenchPlayerToPitch = (playerId) => {
+    if (!canEdit) return
     if (!currentPreset) return
     const nextDraft = placeMobileFormationPlayerInNextSlot(draft, currentPreset, playerId)
     if (nextDraft === draft) setNotice('The pitch is full. Move a starter to the Bench or swap the two Players.')
@@ -711,13 +749,14 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   }
 
   const openSlotPicker = (slotId) => {
+    if (!canEdit) return
     setSelectedPlayerId('')
     setActiveSlotId(slotId)
     setSlotSearch('')
   }
 
   const chooseSlotPlayer = (player) => {
-    if (!activeSlot) return
+    if (!canEdit || !activeSlot) return
     const replacedPlayer = activeSlotPlayer
     setDraft(assignMobileFormationPlayerToSlot(draft, player, activeSlot))
     setActiveSlotId('')
@@ -728,6 +767,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   }
 
   const selectPlayer = (playerId, location) => {
+    if (!canEdit) return
     if (removalMode) {
       if (location !== 'pitch') return
       setRemovalIds((current) => current.includes(playerId) ? current.filter((id) => id !== playerId) : [...current, playerId])
@@ -743,131 +783,172 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
   if (loading) return <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View>
 
+  const publicationLabel = activePublication
+    ? 'Shared with Parents'
+    : latestResourcePublication
+      ? 'Published to Team Resources'
+      : 'Not shared'
+
+  const closeSheet = () => {
+    setActiveSheet('')
+    setShowBoards(false)
+    setShowMatchPicker(false)
+  }
+
   return (
-    <View pointerEvents={busy ? 'none' : 'auto'} style={styles.stack}>
+    <View pointerEvents={busy ? 'none' : 'auto'} style={styles.workspace}>
       <View style={styles.planHeader}>
-        <View style={styles.rowBetween}>
-          <View><Text style={styles.eyebrow}>{linkedMatchId ? 'Match-linked plan' : 'Standalone plan'}</Text><Text style={styles.heading}>{title || 'Formation Board'}</Text></View>
-          <Text accessibilityLiveRegion="polite" style={styles.statusText}>{saveLabel}</Text>
+        <View style={styles.planHeaderRow}>
+          <Pressable accessibilityLabel="New Formation Board" accessibilityRole="button" accessibilityState={{ disabled: !canEdit || Boolean(match?.id) }} disabled={!canEdit || Boolean(match?.id)} onPress={() => confirmDraftReplacement(startNewBoard)} style={[styles.topIcon, (match?.id || !canEdit) && { opacity: 0 }]}>
+            <MaterialIcons color={palette.textPrimary} name="add" size={28} />
+          </Pressable>
+          <Text accessibilityRole="header" numberOfLines={2} style={styles.planTitle}>{title || 'Formation Board'}</Text>
+          <Pressable accessibilityLabel="Formation Board options" accessibilityRole="button" onPress={() => setActiveSheet('details')} style={styles.topIcon}>
+            <MaterialIcons color={palette.textPrimary} name="more-vert" size={27} />
+          </Pressable>
         </View>
-        <Text style={styles.body}>{draft.gameFormat} | {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')} | {draft.placements.length} on pitch | {draft.bench.length} Bench</Text>
-        {linkedMatch ? <Text style={styles.body}>{linkedMatch.teamName} v {linkedMatch.opponent}</Text> : null}
-        {!match?.id ? <View style={styles.row}><Action iconKey="action.new-board" label="New board" onPress={() => confirmDraftReplacement(startNewBoard)} secondary styles={styles} /><Action disabled={!boards.length} iconKey="more.resources" label={showBoards ? 'Hide saved' : `Open saved (${boards.length})`} onPress={() => setShowBoards((current) => !current)} secondary styles={styles} /></View> : null}
+        <View accessibilityLiveRegion="polite" style={styles.statusRow}>
+          <Text style={styles.statusText}>{saveLabel}</Text>
+          <Text style={styles.statusDot}>•</Text>
+          <Text style={styles.statusMuted}>{publicationLabel}</Text>
+        </View>
+        <Text style={styles.heading}>{formationName || draft.gameFormat}</Text>
       </View>
 
-      {showBoards ? <View style={styles.card}><Text style={styles.heading}>Saved Formation Boards</Text>{boards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => confirmDraftReplacement(() => applyBoard(item))} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>{item.linkedMatchDayId ? 'Linked to a match' : 'Standalone'} | Version {item.currentVersionNumber}</Text></Pressable>)}</View> : null}
+      {!canEdit ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>Coach or manager plan access is required to edit, save or share this Formation Board.</Text></View> : null}
       {localState === 'failed' ? <Text accessibilityRole="alert" style={styles.body}>Changes could not be protected on this device. Keep this screen open and save to the team when connected.</Text> : null}
       {unavailable ? <View style={styles.warning}><Text style={styles.heading}>Offline read</Text><Text style={styles.body}>Showing the last encrypted board. Saving, linking and publishing require a successful online refresh.</Text></View> : null}
-      {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy} label={errorRetry === 'conflict' ? 'Reload latest version' : errorRetry === 'save' ? 'Retry save' : 'Try again'} onPress={errorRetry === 'conflict' ? reloadLatestBoard : errorRetry === 'save' ? save : load} secondary styles={styles} /></View> : null}
+      {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy || (!canEdit && errorRetry === 'save')} label={errorRetry === 'conflict' ? 'Reload latest version' : errorRetry === 'save' ? 'Retry save' : 'Try again'} onPress={errorRetry === 'conflict' ? reloadLatestBoard : errorRetry === 'save' ? save : load} secondary styles={styles} /></View> : null}
       {notice ? <View style={styles.selectedPanel}><Text style={styles.body}>{notice}</Text></View> : null}
+      {removalMode && canEdit ? <View style={styles.selectedPanel}><Text style={styles.body}>Tap starters to select them, then move the selection to the Bench.</Text><View style={styles.row}><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /><Action label="Cancel" onPress={() => { setRemovalIds([]); setRemovalMode(false) }} secondary styles={styles} /></View></View> : null}
 
-      <View accessibilityLabel={`Formation Board step ${workflowStepIndex + 1} of ${WORKFLOW_STEPS.length}`} style={styles.progress}>
-        {WORKFLOW_STEPS.map((step, index) => { const active = index === workflowStepIndex; const contentStyle = [styles.progressLabel, active && styles.progressLabelActive]; return <View key={step.value} style={[styles.progressItem, active && styles.progressItemActive]}><Text style={[styles.progressNumber, active && styles.progressNumberActive]}>{index + 1}</Text><MaterialIcons name={getMobileIconName(step.iconKey)} size={22} style={contentStyle} /><Text style={contentStyle}>{step.label}</Text></View> })}
+      <View accessibilityLabel="Formation pitch" onLayout={(event) => setPitchLayout(event.nativeEvent.layout)} style={styles.pitch}>
+        <PitchLines styles={styles} />
+        {currentPresetSlots.filter((slot) => !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
+          <Pressable
+            accessibilityHint="Opens the Player picker for this empty position"
+            accessibilityLabel={`Add Player at ${getMobileFormationSlotLabel(slot)}`}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canEdit }}
+            disabled={!canEdit}
+            key={slot.id}
+            onPress={() => openSlotPicker(slot.id)}
+            style={[styles.emptySlot, !canEdit && styles.actionDisabled, { left: `${getMobileFormationPitchPercent(slot.x)}%`, top: `${getMobileFormationPitchPercent(slot.y)}%` }]}
+          >
+            <MaterialIcons color="rgb(255,255,255)" name="add" size={24} />
+            <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.emptySlotLabel}>{getMobileFormationSlotShortLabel(slot)}</Text>
+          </Pressable>
+        ))}
+        {draft.placements.map((player) => (
+          <FormationPlayerMarker
+            canEdit={canEdit}
+            canMove={canEdit && !removalMode}
+            key={player.playerId}
+            layout={pitchLayout}
+            onMove={(coordinates) => {
+              setDraft((current) => moveMobileFormationPlayer(current, player.playerId, coordinates))
+              setSelectedPlayerId('')
+              setNotice(`${player.displayName} moved. Save the board to keep this coaching position.`)
+            }}
+            onPress={() => {
+              if (removalMode) selectPlayer(player.playerId, 'pitch')
+              else if (selectedPlayerId) selectPlayer(player.playerId, 'pitch')
+              else if (player.slotId) openSlotPicker(player.slotId)
+              else selectPlayer(player.playerId, 'pitch')
+            }}
+            player={player}
+            removal={removalIds.includes(player.playerId)}
+            selected={selectedPlayerId === player.playerId}
+            styles={styles}
+          />
+        ))}
       </View>
 
-      {workflowStep === 'formation' ? <View style={styles.card}>
-        <Text style={styles.eyebrow}>Step 1 of 4</Text>
-        <Text style={styles.heading}>Choose formation</Text>
-        <Text style={styles.body}>Your last choice is remembered, but you must confirm the formation before choosing Players. The pitch will then load every position as an empty slot.</Text>
-        <Text style={styles.label}>Game format</Text>
-        <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
-        <Text style={styles.label}>Formation</Text>
-        <View style={styles.row}>{presets.filter((preset) => preset.gameFormat === draft.gameFormat).map((preset) => <Choice iconKey="formation.formation" key={preset.key} label={preset.displayName || preset.key.replace(`${draft.gameFormat}-`, '')} onPress={() => rememberPreset(applyMobileFormationPreset(draft, preset))} selected={draft.presetKey === preset.key} styles={styles} />)}</View>
-        <Action disabled={!currentPreset} iconKey="action.save" label="Confirm formation" onPress={() => { setWorkflowStep('squad'); setNotice('Formation confirmed. Choose the Players available for this plan.') }} styles={styles} />
-      </View> : null}
+      <View style={styles.bench}>
+        <Pressable accessibilityLabel={`${benchExpanded ? 'Collapse' : 'Expand'} substitutes, ${draft.bench.length} Players`} accessibilityRole="button" onPress={() => setBenchExpanded((current) => !current)} style={styles.benchHeader}>
+          <Text style={styles.heading}>Subs ({draft.bench.length})</Text>
+          <MaterialIcons color={palette.textPrimary} name={benchExpanded ? 'expand-less' : 'expand-more'} size={28} />
+        </Pressable>
+        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => { const selected = selectedPlayerId === player.playerId; return <Pressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><ShirtPlayer name={player.displayName} number={player.shirtNumber} styles={styles} /></Pressable> })}</ScrollView> : <Text style={styles.body}>No substitutes selected.</Text> : null}
+        {benchExpanded && selectedBenchPlayer ? <Text accessibilityLiveRegion="polite" style={styles.body}>{selectedBenchPlayer.displayName} selected. Tap a starter to swap.</Text> : null}
+      </View>
 
-      {workflowStep === 'squad' ? <CoachFormationSquadStep availabilityRows={availabilityRows} draft={draft} onBack={() => setWorkflowStep('formation')} onChange={setDraft} onContinue={(count) => { setWorkflowStep('lineup'); setNotice(`${count} Players selected. Tap an empty pitch position to add a Player.`) }} palette={palette} players={players} /> : null}
+      <View accessibilityLabel="Formation Board tools" style={styles.dock}>
+        {BOARD_TABS.map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => setActiveSheet(tab.value)} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]}>{tab.label}</Text></Pressable> })}
+      </View>
 
-      {workflowStep === 'lineup' ? <View style={styles.card}>
-        <Text style={styles.eyebrow}>Step 3 of 4</Text>
-        <View style={styles.rowBetween}><Text style={styles.heading}>Build lineup</Text><Text style={styles.count}>{draft.placements.length}/{capacity}</Text></View>
-        <Text style={styles.body}>Tap an empty position to add a Player. Drag any Player marker freely around the pitch to show the movement or shape you want. Tap a marker to replace or swap that Player.</Text>
-        {draft.placements.length ? <Action label={removalMode ? 'Cancel taking off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId('') }} secondary styles={styles} /> : null}
-        {removalMode ? <View style={styles.selectedPanel}><Text style={styles.body}>Select one or more starters, then move them together.</Text><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /></View> : null}
-        <View accessibilityLabel="Formation pitch" onLayout={(event) => setPitchLayout(event.nativeEvent.layout)} style={styles.pitch}>
-          <PitchLines styles={styles} />
-          {currentPresetSlots.filter((slot) => !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
-            <Pressable
-              accessibilityHint="Opens the Player picker for this empty position"
-              accessibilityLabel={`Add Player at ${getMobileFormationSlotLabel(slot)}`}
-              accessibilityRole="button"
-              key={slot.id}
-              onPress={() => openSlotPicker(slot.id)}
-              style={[styles.emptySlot, { left: `${getMobileFormationPitchPercent(slot.x)}%`, top: `${getMobileFormationPitchPercent(slot.y)}%` }]}
-            >
-              <MaterialIcons color="rgb(255,255,255)" name="add" size={24} />
-              <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.emptySlotLabel}>{getMobileFormationSlotShortLabel(slot)}</Text>
-            </Pressable>
-          ))}
-          {draft.placements.map((player) => (
-            <FormationPlayerMarker
-              canMove={!removalMode}
-              key={player.playerId}
-              layout={pitchLayout}
-              onMove={(coordinates) => {
-                setDraft((current) => moveMobileFormationPlayer(current, player.playerId, coordinates))
-                setSelectedPlayerId('')
-                setNotice(`${player.displayName} moved. Save the board to keep this coaching position.`)
-              }}
-              onPress={() => {
-                if (removalMode) selectPlayer(player.playerId, 'pitch')
-                else if (player.slotId) openSlotPicker(player.slotId)
-                else selectPlayer(player.playerId, 'pitch')
-              }}
-              palette={palette}
-              player={player}
-              removal={removalIds.includes(player.playerId)}
-              selected={selectedPlayerId === player.playerId}
-              styles={styles}
-            />
-          ))}
-        </View>
-
-        <View style={styles.rowBetween}><Text style={styles.heading}>Bench</Text><Text style={styles.count}>{draft.bench.length}</Text></View>
-        {draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => <View key={player.playerId} style={[styles.benchCard, selectedPlayerId === player.playerId && styles.benchCardSelected]}><Pressable accessibilityRole="button" accessibilityState={{ selected: selectedPlayerId === player.playerId }} onPress={() => selectPlayer(player.playerId, 'bench')}><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.displayName}`}</Text></Pressable><Pressable accessibilityRole="button" accessibilityState={{ disabled: draft.placements.length >= capacity }} disabled={draft.placements.length >= capacity} onPress={() => moveBenchPlayerToPitch(player.playerId)} style={[styles.benchButton, draft.placements.length >= capacity && styles.benchButtonDisabled]}><Text style={styles.benchButtonText}>Move to pitch</Text></Pressable></View>)}</ScrollView> : <Text style={styles.body}>No Players are on the Bench.</Text>}
-        <View style={styles.row}><Action label="Edit squad" onPress={() => setWorkflowStep('squad')} secondary styles={styles} /><Action disabled={!selectedIds.size} label="Continue to save" onPress={() => setWorkflowStep('finish')} styles={styles} /></View>
-      </View> : null}
-
-      {workflowStep === 'finish' ? <View style={styles.card}>
-        <Text style={styles.eyebrow}>Step 4 of 4</Text>
-        <Text style={styles.heading}>Save first, choose the destination later</Text>
-        <Text style={styles.body}>{draft.placements.length} on pitch | {draft.bench.length} Bench | {draft.gameFormat} {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')}</Text>
-        <Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save Formation Board'} onPress={() => void save()} styles={styles} />
-        <Text style={styles.body}>Saving does not require a match. Existing Parent publications stay unchanged until you update them.</Text>
-
-        {!linkedMatchId ? <View style={styles.stack}>
-          <View style={styles.rowBetween}><Text style={styles.label}>Optional match link</Text><Action label={showMatchPicker ? 'Hide matches' : 'Choose match'} onPress={() => setShowMatchPicker((current) => !current)} secondary styles={styles} /></View>
-          {showMatchPicker ? <View style={styles.stack}>{matches.length ? matches.map((item) => <Choice key={item.id} label={`${item.matchDate || 'Date TBC'} | ${item.teamName} v ${item.opponent}`} onPress={() => setSelectedMatchId(item.id)} selected={selectedMatchId === item.id} styles={styles} />) : <Text style={styles.body}>No Match Day fixture is available for this Team.</Text>}<Action disabled={busy || unavailable || !selectedMatchId || !selectedIds.size} label="Save and link to match" onPress={() => void linkToMatch()} secondary styles={styles} /></View> : null}
-        </View> : <Text style={styles.body}>Linked to {linkedMatch?.teamName || 'Team'} v {linkedMatch?.opponent || 'opponent'}.</Text>}
-
-        <View style={styles.stack}>
-          <Text style={styles.label}>Optional Team Resources publication</Text>
-          <View style={styles.row}>{RESOURCE_CATEGORIES.map((category) => <Choice key={category.value} label={category.label} onPress={() => setResourceCategory(category.value)} selected={resourceCategory === category.value} styles={styles} />)}</View>
-          <Action disabled={busy || unavailable || !selectedIds.size} label={latestResourcePublication ? 'Save and update Team Resource' : 'Save and publish to Team Resources'} onPress={publishToResources} secondary styles={styles} />
-        </View>
-
-        {linkedMatchId ? <Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={activePublication ? 'Save and update Parents' : 'Save and share with Parents'} onPress={saveAndPublish} secondary styles={styles} /> : <Text style={styles.body}>Parent sharing becomes available after you link the saved board to a match.</Text>}
-        <Pressable accessibilityRole="button" onPress={() => setShowAdvanced((current) => !current)}><Text style={styles.count}>{showAdvanced ? 'Hide plan options' : 'Plan name and options'}</Text></Pressable>
-        {showAdvanced ? <View style={styles.stack}><Text style={styles.label}>Plan name</Text><TextInput editable={!busy} accessibilityLabel="Formation plan title" onChangeText={setTitle} style={styles.input} value={title} />{activePublication ? <Action danger disabled={busy || unavailable} label="Withdraw Parent plan" onPress={withdraw} secondary styles={styles} /> : null}</View> : null}
-        <Action label="Back to lineup" onPress={() => setWorkflowStep('lineup')} secondary styles={styles} />
-      </View> : null}
-
-      <Modal animationType="slide" onRequestClose={() => setActiveSlotId('')} transparent visible={Boolean(activeSlot)}>
+      <Modal accessibilityViewIsModal animationType="slide" onRequestClose={closeSheet} transparent visible={Boolean(activeSheet)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalPanel}>
+          <View accessibilityLabel={`${activeSheet || 'Formation Board'} options`} accessibilityRole="dialog" style={styles.modalPanel}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.rowBetween}>
+              <Text style={styles.heading}>{activeSheet === 'formation' ? 'Formation' : activeSheet === 'players' ? 'Players' : activeSheet === 'share' ? 'Save and share' : 'Board options'}</Text>
+              <Pressable accessibilityLabel="Close options" accessibilityRole="button" onPress={closeSheet} style={styles.topIcon}><MaterialIcons color={palette.textPrimary} name="close" size={25} /></Pressable>
+            </View>
+
+            {activeSheet === 'formation' ? <ScrollView contentContainerStyle={styles.stack}>
+              <Text style={styles.body}>Change the shape at any time. Players already on the pitch stay selected and move into the new formation in lineup order.</Text>
+              <Text style={styles.label}>Game format</Text>
+              <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice disabled={!canEdit} key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
+              <Text style={styles.label}>Formation</Text>
+              <View style={styles.row}>{presets.filter((preset) => preset.gameFormat === draft.gameFormat).map((preset) => <Choice disabled={!canEdit} iconKey="formation.formation" key={preset.key} label={preset.displayName || preset.key.replace(`${draft.gameFormat}-`, '')} onPress={() => { rememberPreset(applyMobileFormationPreset(draft, preset)); setNotice('Formation changed. Your selected Players have been kept.'); closeSheet() }} selected={draft.presetKey === preset.key} styles={styles} />)}</View>
+            </ScrollView> : null}
+
+            {activeSheet === 'players' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
+              <View style={styles.rowBetween}><Text style={styles.body}>{selectedIds.size} selected | {draft.placements.length}/{capacity} on pitch</Text><Text style={styles.count}>{draft.bench.length} Subs</Text></View>
+              <Action disabled={!canEdit || !availablePlayers.length} label={`Select available (${availablePlayers.length})`} onPress={() => setDraft(setMobileFormationSquad(draft, availablePlayers))} styles={styles} />
+              <View style={styles.row}><Action disabled={!canEdit} label="Select full squad" onPress={() => setDraft(setMobileFormationSquad(draft, players))} secondary styles={styles} /><Action disabled={!canEdit} label="Clear squad" onPress={() => setDraft(setMobileFormationSquad(draft, []))} secondary styles={styles} /></View>
+              <Action disabled={!canEdit || !currentPreset || !draft.bench.length || draft.placements.length >= capacity} label="Fill empty positions" onPress={() => { setDraft(placeMobileFormationLineup(draft, currentPreset)); setNotice('Empty pitch positions filled from the selected substitutes.'); closeSheet() }} secondary styles={styles} />
+              <Text style={styles.body}>Tap a Player to add or remove them from this plan. Tap a shirt on the pitch to replace or swap that position directly.</Text>
+              {players.map((player) => { const selected = selectedIds.has(player.id); const availability = getMobileFormationPlayerAvailability(player.id, availabilityRows); const placement = draft.placements.find((item) => item.playerId === player.id); return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: !canEdit }} disabled={!canEdit} key={player.id} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} style={[styles.modalPlayer, !canEdit && styles.actionDisabled]}><View><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`}</Text><Text style={styles.body}>{availability.label}{placement ? ' | On pitch' : selected ? ' | Substitute' : ''}</Text></View><MaterialIcons color={selected ? palette.accentText : palette.textSecondary} name={selected ? 'check-circle' : 'radio-button-unchecked'} size={24} /></Pressable> })}
+            </ScrollView> : null}
+
+            {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack}>
+              <Text style={styles.body}>{draft.placements.length} on pitch | {draft.bench.length} Subs | {draft.gameFormat} {formationName}</Text>
+              {!canEdit ? <Text style={styles.body}>This board is read-only. Coach or manager plan access is required to save or share changes.</Text> : null}
+              <Action disabled={!canEdit || busy || unavailable || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save Formation Board'} onPress={() => { closeSheet(); void save() }} styles={styles} />
+              <Text style={styles.body}>Saving keeps the board private to the team. Sharing and publication only happen when you choose them below.</Text>
+              {!linkedMatchId ? <View style={styles.stack}>
+                <View style={styles.rowBetween}><Text style={styles.label}>Optional match link</Text><Pressable accessibilityRole="button" accessibilityState={{ disabled: !canEdit }} disabled={!canEdit} onPress={() => setShowMatchPicker((current) => !current)} style={!canEdit && styles.actionDisabled}><Text style={styles.count}>{showMatchPicker ? 'Hide matches' : 'Choose match'}</Text></Pressable></View>
+                {showMatchPicker ? <View style={styles.stack}>{matches.length ? matches.map((item) => <Choice disabled={!canEdit} key={item.id} label={`${item.matchDate || 'Date TBC'} | ${item.teamName} v ${item.opponent}`} onPress={() => setSelectedMatchId(item.id)} selected={selectedMatchId === item.id} styles={styles} />) : <Text style={styles.body}>No Match Day fixture is available for this Team.</Text>}<Action disabled={!canEdit || busy || unavailable || !selectedMatchId || !selectedIds.size} label="Save and link to match" onPress={() => { closeSheet(); void linkToMatch() }} secondary styles={styles} /></View> : null}
+              </View> : <Text style={styles.body}>Linked to {linkedMatch?.teamName || 'Team'} v {linkedMatch?.opponent || 'opponent'}.</Text>}
+              <Text style={styles.label}>Team Resources category</Text>
+              <View style={styles.row}>{RESOURCE_CATEGORIES.map((category) => <Choice disabled={!canEdit} key={category.value} label={category.label} onPress={() => setResourceCategory(category.value)} selected={resourceCategory === category.value} styles={styles} />)}</View>
+              <Action disabled={!canEdit || busy || unavailable || !selectedIds.size} label={latestResourcePublication ? 'Save and update Team Resource' : 'Save and publish to Team Resources'} onPress={() => { closeSheet(); publishToResources() }} secondary styles={styles} />
+              {linkedMatchId ? <Action disabled={!canEdit || busy || unavailable || !title.trim() || !selectedIds.size} label={activePublication ? 'Save and update Parents' : 'Save and share with Parents'} onPress={() => { closeSheet(); saveAndPublish() }} secondary styles={styles} /> : <Text style={styles.body}>Parent sharing becomes available after this board is linked to a match.</Text>}
+            </ScrollView> : null}
+
+            {activeSheet === 'details' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
+              <Text style={styles.label}>Plan name</Text>
+              <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" onChangeText={setTitle} style={[styles.input, !canEdit && styles.actionDisabled]} value={title} />
+              <Text style={styles.body}>{linkedMatchId ? 'Match-linked plan' : 'Standalone plan'} | {draft.placements.length} on pitch | {draft.bench.length} Subs</Text>
+              {draft.placements.length ? <Action disabled={!canEdit} label={removalMode ? 'Cancel taking Players off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId(''); closeSheet() }} secondary styles={styles} /> : null}
+              {!match?.id ? <Action disabled={!canEdit} iconKey="action.new-board" label="New board" onPress={() => { closeSheet(); confirmDraftReplacement(startNewBoard) }} secondary styles={styles} /> : null}
+              {!match?.id && boards.length ? <Pressable accessibilityRole="button" onPress={() => setShowBoards((current) => !current)}><Text style={styles.count}>{showBoards ? 'Hide saved boards' : `Open saved boards (${boards.length})`}</Text></Pressable> : null}
+              {showBoards ? boards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => { closeSheet(); confirmDraftReplacement(() => applyBoard(item)) }} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>{item.linkedMatchDayId ? 'Linked to a match' : 'Standalone'} | Version {item.currentVersionNumber}</Text></Pressable>) : null}
+              {activePublication ? <Action danger disabled={!canEdit || busy || unavailable} label="Withdraw Parent plan" onPress={() => { closeSheet(); withdraw() }} secondary styles={styles} /> : null}
+            </ScrollView> : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal accessibilityViewIsModal animationType="slide" onRequestClose={() => setActiveSlotId('')} transparent visible={Boolean(activeSlot)}>
+        <View style={styles.modalBackdrop}>
+          <View accessibilityLabel="Choose Player" accessibilityRole="dialog" style={styles.modalPanel}>
+            <View style={styles.sheetHandle} />
             <View style={styles.rowBetween}>
               <View><Text style={styles.eyebrow}>Choose Player</Text><Text style={styles.heading}>{getMobileFormationSlotLabel(activeSlot)}</Text></View>
-              <Action label="Close" onPress={() => setActiveSlotId('')} secondary styles={styles} />
+              <Pressable accessibilityLabel="Close Player picker" accessibilityRole="button" onPress={() => setActiveSlotId('')} style={styles.topIcon}><MaterialIcons color={palette.textPrimary} name="close" size={25} /></Pressable>
             </View>
-            {activeSlotPlayer ? <View style={styles.selectedPanel}><Text style={styles.label}>Currently {activeSlotPlayer.displayName}</Text><Action label="Move to Bench" onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, [activeSlotPlayer.playerId])); setActiveSlotId(''); setNotice(`${activeSlotPlayer.displayName} moved to the Bench.`) }} secondary styles={styles} /></View> : <Text style={styles.body}>This position is empty. Choose any Player in the squad.</Text>}
-            <TextInput accessibilityLabel="Search squad" onChangeText={setSlotSearch} placeholder="Search squad" placeholderTextColor={palette.textSecondary} style={styles.input} value={slotSearch} />
+            {activeSlotPlayer ? <View style={styles.selectedPanel}><Text style={styles.label}>Currently {activeSlotPlayer.displayName}</Text><Action disabled={!canEdit} label="Move to Bench" onPress={() => { setDraft(moveMobileFormationPlayersToBench(draft, [activeSlotPlayer.playerId])); setActiveSlotId(''); setNotice(`${activeSlotPlayer.displayName} moved to the Bench.`) }} secondary styles={styles} /></View> : <Text style={styles.body}>This position is empty. Choose any Player from the team.</Text>}
+            <TextInput accessibilityLabel="Search squad" onChangeText={setSlotSearch} placeholder="Search Players" placeholderTextColor={palette.textSecondary} style={styles.input} value={slotSearch} />
             <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
               {filteredSlotPlayers.map((player) => {
                 const placement = draft.placements.find((item) => item.playerId === player.id)
                 const onBench = draft.bench.some((item) => item.playerId === player.id)
                 const current = placement?.slotId === activeSlotId
-                const location = placement ? getMobileFormationSlotLabel(currentPresetSlots.find((slot) => slot.id === placement.slotId)) : onBench ? 'Bench' : 'Not selected yet'
-                return <Pressable accessibilityRole="button" accessibilityState={{ disabled: current }} disabled={current} key={player.id} onPress={() => chooseSlotPlayer(player)} style={[styles.modalPlayer, current && styles.actionDisabled]}><View><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`}</Text><Text style={styles.body}>{current ? 'Already in this position' : location}</Text></View><Text style={styles.count}>{current ? 'Current' : activeSlotPlayer ? 'Choose' : 'Add'}</Text></Pressable>
+                const location = placement ? getMobileFormationSlotLabel(currentPresetSlots.find((slot) => slot.id === placement.slotId)) : onBench ? 'Substitute' : 'Not selected yet'
+                return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canEdit || current }} disabled={!canEdit || current} key={player.id} onPress={() => chooseSlotPlayer(player)} style={[styles.modalPlayer, (!canEdit || current) && styles.actionDisabled]}><View><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`}</Text><Text style={styles.body}>{current ? 'Already in this position' : location}</Text></View><Text style={styles.count}>{current ? 'Current' : activeSlotPlayer ? 'Choose' : 'Add'}</Text></Pressable>
               })}
               {!filteredSlotPlayers.length ? <Text style={styles.body}>No Players match that search.</Text> : null}
             </ScrollView>

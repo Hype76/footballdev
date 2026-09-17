@@ -21,13 +21,17 @@ test('Formation Board inspector uses the shared V1 surface and action hierarchy'
   assert.doesNotMatch(source, /rounded-lg border border-amber-300 bg-amber-50/)
 })
 
-test('Formation Board keeps one bounded responsive inspector scroll area and restores focus after state changes', async () => {
+test('Formation Board keeps a pitch-first workspace, bounded Players drawer, and focus restoration', async () => {
   const source = await readFile(formationPageUrl, 'utf8')
 
-  assert.match(source, /lg:grid-cols-\[minmax\(0,1fr\)_minmax\(18rem,21rem\)\]/)
-  assert.match(source, /lg:max-h-\[calc\(100dvh-2rem\)\]/)
-  assert.match(source, /lg:overflow-y-auto/)
-  assert.match(source, /max-h-\[82dvh\][\s\S]*overscroll-contain/)
+  assert.match(source, /aria-label="Formation pitch workspace"/)
+  assert.match(source, /title="Players"/)
+  assert.match(source, /lg:max-h-none/)
+  assert.match(source, /overflow-y-auto/)
+  assert.match(source, /max-h-\[88dvh\][\s\S]*overscroll-contain/)
+  assert.match(source, /\sFormation\s+<\/button>/)
+  assert.match(source, /\sPlayers\s+<\/button>/)
+  assert.match(source, /\sShare\s+<\/button>/)
   assert.doesNotMatch(source, /max-h-72 space-y-2 overflow-y-auto/)
   assert.match(source, /runPlayerStateAction[\s\S]*requestAnimationFrame\(\(\) => \(selectedPlayerPanelRef\.current \|\| searchInputRef\.current\)\?\.focus\(\)\)/)
   assert.match(source, /Remove Player from this board\?[\s\S]*Remove from board[\s\S]*requestAnimationFrame\(\(\) => pitchRef\.current\?\.focus\(\)\)/)

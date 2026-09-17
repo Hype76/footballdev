@@ -13,7 +13,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { AppState, BackHandler, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
 import { getParentCalendarAttendanceInvitation, getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
@@ -146,13 +146,35 @@ function usePortalStyles(themeTokens) {
       developmentScoreTrackFill: { backgroundColor: colors.accentText, borderRadius: 999, height: '100%' },
       volunteerCard: { borderBottomColor: colors.warning },
       volunteerRole: { color: colors.warning, fontSize: 22, fontWeight: '900' },
-      formationHalfway: { backgroundColor: 'rgba(255,255,255,0.72)', height: 1, left: 0, position: 'absolute', right: 0, top: '50%' },
-      formationPitch: { aspectRatio: 0.68, backgroundColor: colors.pitch, borderColor: colors.pitchLine, borderRadius: 18, borderWidth: 2, overflow: 'hidden', position: 'relative', width: '100%' },
+      formationPitch: { aspectRatio: 0.62, backgroundColor: colors.pitch, borderColor: colors.pitchLine, borderRadius: 20, borderWidth: 2, overflow: 'hidden', position: 'relative', width: '100%' },
+      formationPitchStripes: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
+      formationStripe: { height: '12.5%', left: 0, position: 'absolute', right: 0 },
+      formationStripeOdd: { backgroundColor: 'rgba(0,0,0,0.07)' },
+      formationPitchLine: { borderColor: 'rgba(255,255,255,0.88)', borderWidth: 2, position: 'absolute' },
+      formationPitchOuterLine: { borderColor: 'rgba(255,255,255,0.95)', borderWidth: 2, bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
+      formationHalfway: { backgroundColor: 'rgba(255,255,255,0.9)', height: 2, left: 0, position: 'absolute', right: 0, top: '50%' },
+      formationCenterCircle: { borderColor: 'rgba(255,255,255,0.9)', borderRadius: 48, borderWidth: 2, height: 96, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -48 }, { translateY: -48 }], width: 96 },
+      formationCenterSpot: { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 4, height: 8, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -4 }, { translateY: -4 }], width: 8 },
+      formationPenaltyTop: { height: '17%', left: '25%', top: 0, width: '50%' },
+      formationPenaltyBottom: { bottom: 0, height: '17%', left: '25%', width: '50%' },
+      formationGoalTop: { height: '8%', left: '38%', top: 0, width: '24%' },
+      formationGoalBottom: { bottom: 0, height: '8%', left: '38%', width: '24%' },
       formationEmpty: { alignSelf: 'center', backgroundColor: colors.card, borderRadius: 12, color: colors.text, fontSize: 13, fontWeight: '700', marginHorizontal: 18, marginTop: '55%', padding: 12, textAlign: 'center' },
-      formationPlayer: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.accentText, borderRadius: 18, borderWidth: 2, maxWidth: 100, minWidth: 66, paddingHorizontal: 6, paddingVertical: 7, position: 'absolute', transform: [{ translateX: -33 }, { translateY: -16 }] },
-      formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
-      formationPlanBench: { borderTopColor: colors.border, borderTopWidth: 1, gap: 4, paddingTop: 10 },
-      formationPlanBenchRow: { borderBottomColor: colors.border, borderBottomWidth: 1, minHeight: 40, paddingVertical: 8 },
+      formationPlayer: { alignItems: 'center', height: 86, position: 'absolute', transform: [{ translateX: -56 }, { translateY: -41 }], width: 112, zIndex: 2 },
+      formationShirtWrap: { height: 70, position: 'relative', width: 82 },
+      formationShirt: { height: 70, position: 'absolute', width: 82 },
+      formationShirtNumber: { color: colors.pitch, fontSize: 18, fontWeight: '900', left: 0, position: 'absolute', right: 0, textAlign: 'center', top: 26 },
+      formationPlayerName: { alignItems: 'center', backgroundColor: 'rgba(2,29,18,0.92)', borderRadius: 7, maxWidth: 112, minHeight: 24, paddingHorizontal: 8, paddingVertical: 3 },
+      formationPlayerNameText: { color: colors.accentForeground, fontSize: 11, fontWeight: '900', maxWidth: 104, textAlign: 'center' },
+      formationSubs: { borderTopColor: colors.border, borderTopWidth: 1, gap: 7, paddingTop: 10 },
+      formationSubsHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 40 },
+      formationSubsScroll: { flexDirection: 'row', gap: 14, paddingBottom: 4, paddingHorizontal: 2 },
+      formationSub: { alignItems: 'center', minWidth: 108 },
+      formationSubShirt: { height: 58, position: 'relative', width: 70 },
+      formationSubImage: { height: 58, position: 'absolute', width: 70 },
+      formationSubNumber: { color: colors.pitch, fontSize: 15, fontWeight: '900', left: 0, position: 'absolute', right: 0, textAlign: 'center', top: 22 },
+      formationSubName: { color: colors.text, fontSize: 11, fontWeight: '800', maxWidth: 104, textAlign: 'center' },
+      formationSubsEmpty: { color: colors.muted, fontSize: 13, paddingVertical: 8 },
       formationPlanContent: { gap: 12, paddingTop: 10 },
       formationPlanToggle: { alignItems: 'center', flexDirection: 'row', gap: 10, minHeight: 48 },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
@@ -1010,7 +1032,78 @@ function MatchdayAction({ accessibilityLabel, label, iconKey, onPress, colors, s
   </Pressable>
 }
 
-function ParentMatchFormationPlan({ error = '', plan = null, styles }) {
+function getFormationShirtSource(isGoalkeeper) {
+  return isGoalkeeper
+    ? require('../../mobile-core/assets/formation-shirt-gold.png')
+    : require('../../mobile-core/assets/formation-shirt-white.png')
+}
+
+function isConfirmedGoalkeeperPlacement(player = {}) {
+  const positionGroup = normalizeText(player.positionGroup || player.position_group || player.role).toLowerCase()
+  const slotId = normalizeText(player.slotId || player.slot_id).toLowerCase()
+  return positionGroup === 'goalkeeper' || positionGroup === 'goalie' || slotId === 'gk' || slotId.includes('goalkeeper')
+}
+
+function formationShirtNumber(player = {}) {
+  return normalizeText(player.shirtNumber || player.shirt_number || player.displayedShirtNumber)
+}
+
+function FormationSubsStrip({ bench = [], colors, styles }) {
+  const [expanded, setExpanded] = useState(true)
+  return (
+    <View style={styles.formationSubs}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Show'} Subs (${bench.length})`} accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.formationSubsHeader}>
+        <Text style={styles.cardTitle}>Subs ({bench.length})</Text>
+        <ParentIcon color={colors.text} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={24} />
+      </Pressable>
+      {expanded ? (bench.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.formationSubsScroll} accessibilityLabel="Substitutes">
+        {bench.map((player, index) => {
+          const number = formationShirtNumber(player)
+          return <View key={`${player.playerId || player.parentDisplayName}:bench:${index}`} accessibilityLabel={`${player.parentDisplayName}${number ? `, shirt ${number}` : ''}`} style={styles.formationSub}>
+            <View style={styles.formationSubShirt}>
+              <Image accessible={false} source={getFormationShirtSource(false)} resizeMode="contain" style={styles.formationSubImage} />
+              {number ? <Text style={styles.formationSubNumber}>{number}</Text> : null}
+            </View>
+            <Text numberOfLines={2} style={styles.formationSubName}>{player.parentDisplayName}</Text>
+          </View>
+        })}
+      </ScrollView> : <Text style={styles.formationSubsEmpty}>No named substitutes have been published.</Text>) : null}
+    </View>
+  )
+}
+
+function FormationPresentation({ bench = [], colors, emptyCopy, placements = [], styles, title }) {
+  return <View style={styles.formationPlanContent}>
+    <View accessibilityLabel={`${title || 'Published formation'} pitch`} style={styles.formationPitch}>
+      <View pointerEvents="none" style={styles.formationPitchStripes}>
+        {Array.from({ length: 8 }, (_, index) => <View key={index} style={[styles.formationStripe, index % 2 === 1 && styles.formationStripeOdd, { top: `${index * 12.5}%` }]} />)}
+      </View>
+      <View pointerEvents="none" style={[styles.formationPitchLine, styles.formationPitchOuterLine]} />
+      <View pointerEvents="none" style={styles.formationHalfway} />
+      <View pointerEvents="none" style={styles.formationCenterCircle} />
+      <View pointerEvents="none" style={styles.formationCenterSpot} />
+      <View pointerEvents="none" style={[styles.formationPitchLine, styles.formationPenaltyTop]} />
+      <View pointerEvents="none" style={[styles.formationPitchLine, styles.formationPenaltyBottom]} />
+      <View pointerEvents="none" style={[styles.formationPitchLine, styles.formationGoalTop]} />
+      <View pointerEvents="none" style={[styles.formationPitchLine, styles.formationGoalBottom]} />
+      {placements.map((player, index) => {
+        const number = formationShirtNumber(player)
+        const isGoalkeeper = isConfirmedGoalkeeperPlacement(player)
+        return <View key={`${player.playerId || player.parentDisplayName}:${index}`} accessibilityLabel={`${player.parentDisplayName}${number ? `, shirt ${number}` : ''}${isGoalkeeper ? ', goalkeeper' : ''}`} style={[styles.formationPlayer, { left: `${Math.max(20, Math.min(80, getParentFormationPitchPercent(player.x)))}%`, top: `${Math.max(8, Math.min(92, getParentFormationPitchPercent(player.y)))}%` }]}>
+          <View style={styles.formationShirtWrap}>
+            <Image accessible={false} source={getFormationShirtSource(isGoalkeeper)} resizeMode="contain" style={styles.formationShirt} />
+            {number ? <Text style={styles.formationShirtNumber}>{number}</Text> : null}
+          </View>
+          <View style={styles.formationPlayerName}><Text numberOfLines={2} style={styles.formationPlayerNameText}>{player.parentDisplayName}</Text></View>
+        </View>
+      })}
+      {!placements.length ? <Text style={styles.formationEmpty}>{emptyCopy || 'No named lineup has been published.'}</Text> : null}
+    </View>
+    <FormationSubsStrip bench={bench} colors={colors} styles={styles} />
+  </View>
+}
+
+function ParentMatchFormationPlan({ error = '', plan = null, styles, colors }) {
   const [expanded, setExpanded] = useState(false)
   if (error) return <View style={styles.card}><Text style={styles.cardTitle}>Match plan unavailable</Text><Text style={styles.warning}>{error}</Text></View>
   if (!plan) return null
@@ -1024,21 +1117,7 @@ function ParentMatchFormationPlan({ error = '', plan = null, styles }) {
         <View style={styles.compactCopy}><Text style={styles.cardTitle}>Match plan</Text><Text style={styles.meta}>{title}</Text></View>
         <Text style={styles.cardLink}>{expanded ? 'Hide' : 'Show'}</Text>
       </Pressable>
-      {expanded ? <View style={styles.formationPlanContent}>
-        <View accessibilityLabel={`${plan.title || 'Match plan'} pitch`} style={styles.formationPitch}>
-          <View style={styles.formationHalfway} />
-          {placements.map((player, index) => (
-            <View key={`${player.playerId || player.parentDisplayName}:${index}`} style={[styles.formationPlayer, { left: `${Math.max(4, Math.min(88, getParentFormationPitchPercent(player.x)))}%`, top: `${Math.max(3, Math.min(90, getParentFormationPitchPercent(player.y)))}%` }]}>
-              <Text numberOfLines={1} style={styles.formationPlayerText}>{player.parentDisplayName}</Text>
-            </View>
-          ))}
-          {!placements.length ? <Text style={styles.formationEmpty}>No named lineup has been published with this plan.</Text> : null}
-        </View>
-        <View style={styles.formationPlanBench}>
-          <View style={styles.row}><Text style={styles.cardTitle}>Bench</Text><Text style={styles.meta}>{bench.length}</Text></View>
-          {bench.length ? bench.map((player, index) => <Text key={`${player.playerId || player.parentDisplayName}:bench:${index}`} style={styles.formationPlanBenchRow}>{player.parentDisplayName}</Text>) : <Text style={styles.helper}>No named Players are on the Bench.</Text>}
-        </View>
-      </View> : null}
+      {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." placements={placements} styles={styles} title={plan.title || 'Match plan'} /> : null}
     </View>
   )
 }
@@ -1118,7 +1197,7 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
           </View>
         </View>
-        <ParentMatchFormationPlan error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} styles={styles} />
+        <ParentMatchFormationPlan colors={colors} error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} styles={styles} />
         {!selectedMatch.isFanView && squadOpenMatchId === selectedMatch.id ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>
@@ -1283,17 +1362,7 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
       <View style={styles.stack}>
         <View><Text accessibilityRole="header" style={styles.header}>{formationBoard.title}</Text><Text style={styles.helper}>{formationBoard.gameFormat} | {formationBoard.formation}</Text></View>
         {formationBoard.description ? <Text style={styles.body}>{formationBoard.description}</Text> : null}
-        <View accessibilityLabel={`${formationBoard.title} pitch`} style={styles.formationPitch}>
-          <View style={styles.formationHalfway} />
-          {placements.map((player, index) => (
-            <View key={`${player.playerId || player.parentDisplayName}:${index}`} style={[styles.formationPlayer, { left: `${Math.max(4, Math.min(88, getParentFormationPitchPercent(player.x)))}%`, top: `${Math.max(3, Math.min(90, getParentFormationPitchPercent(player.y)))}%` }]}>
-              <Text numberOfLines={1} style={styles.formationPlayerText}>{player.parentDisplayName}</Text>
-            </View>
-          ))}
-          {!placements.length ? <Text style={styles.formationEmpty}>No named lineup has been published with this board.</Text> : null}
-        </View>
-        <View style={styles.card}><Text style={styles.cardTitle}>Bench</Text>{bench.length ? bench.map((player, index) => <Text key={`${player.playerId || player.parentDisplayName}:bench:${index}`} style={styles.body}>{player.parentDisplayName}</Text>) : <Text style={styles.helper}>No named Players are on the Bench.</Text>}</View>
-        {formationBoard.notes ? <View style={styles.card}><Text style={styles.cardTitle}>Coach notes</Text><Text style={styles.body}>{formationBoard.notes}</Text></View> : null}
+        <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this board." placements={placements} styles={styles} title={formationBoard.title} />
         <Button label="Back to Resources" onPress={onCloseFormation} outline styles={styles} />
       </View>
     )
