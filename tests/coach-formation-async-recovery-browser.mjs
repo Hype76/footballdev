@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'retry', 'retry-no-storage', 'readonly', 'panels']) {
+  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'stable', 'loading-back', 'back', 'back-offline', 'retry', 'retry-no-storage', 'readonly', 'panels']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -34,6 +34,9 @@ const entry = `
     boardCalls: 0,
     boardResolvers: {},
     createCalls: 0,
+    localDraftCalls: 0,
+    lastLocalDraft: null,
+    presetCalls: 0,
     saveCalls: 0,
     refreshFailed: false,
     serverBoard: null,
@@ -46,17 +49,29 @@ const entry = `
 
   function App() {
     const [matchId, setMatchId] = React.useState('a')
+    const [scopeId, setScopeId] = React.useState('a')
+    const [revision, setRevision] = React.useState(0)
+    const [visible, setVisible] = React.useState(true)
+    const [stale, setStale] = React.useState(false)
+    const backHandler = React.useRef(null)
     const match = matches[matchId]
     return <View>
       {scenario === 'race' ? <button type="button" onClick={() => setMatchId('b')}>Switch to match B</button> : null}
-      <CoachFormationBoard
-        context={{ id: 'club-context', clubId: 'club-1', teamId: 'team-1', role: 'coach' }}
-        match={scenario === 'race' ? match : null}
+      {scenario === 'scope' ? <button type="button" onClick={() => setScopeId('b')}>Switch account and team</button> : null}
+      {scenario === 'stable' ? <button type="button" onClick={() => setRevision(current => current + 1)}>Equivalent parent refresh {revision}</button> : null}
+      {scenario === 'back' || scenario === 'back-offline' ? <button type="button" onClick={() => backHandler.current?.()}>Native workspace back</button> : null}
+      {scenario === 'back-offline' ? <button type="button" onClick={() => setStale(true)}>Lose connection</button> : null}
+      {visible ? <CoachFormationBoard
+        context={{ id: scopeId === 'a' ? 'club-context-a' : 'club-context-b', authorityId: scopeId === 'a' ? 'authority-a' : 'authority-b', authoritySource: 'team_staff', clubId: 'club-1', teamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
+        match={scenario === 'race' ? match : scenario === 'scope' ? matches.a : null}
         matches={[]}
+        onBack={() => { window.__formationTest.backCount = (window.__formationTest.backCount || 0) + 1; setVisible(false) }}
         palette={palette}
         players={[{ id: 'player-1', playerName: 'Player One', shirtNumber: 1 }]}
-        user={{ id: 'coach-1', clubId: 'club-1', activeTeamId: 'team-1', roleRank: scenario === 'readonly' ? 20 : 30, hasActivePlanAccess: true }}
-      />
+        registerBackHandler={handler => { backHandler.current = handler }}
+        stale={stale}
+        user={{ id: scopeId === 'a' ? 'coach-1' : 'coach-2', clubId: 'club-1', activeTeamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: scenario === 'readonly' ? 20 : 30, hasActivePlanAccess: true }}
+      /> : null}
     </View>
   }
 
@@ -82,9 +97,10 @@ const dataMock = `
   })
   const raceBoards = { a: board('board-a', 'Board A', 'match-a'), b: board('board-b', 'Board B', 'match-b') }
 
-  export const getCoachFormationPresets = async () => [{
-    key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots,
-  }]
+  export const getCoachFormationPresets = async () => {
+    globalThis.__formationTest.presetCalls += 1
+    return [{ key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots }]
+  }
   export const getCoachFormationPublications = async () => []
   export const getCoachFormationResourcePublications = async () => []
   export const linkCoachFormationBoard = async (user, currentBoard, matchId) => ({ ...currentBoard, linkedMatchDayId: matchId })
@@ -94,7 +110,7 @@ const dataMock = `
 
   export const getCoachFormationBoards = async () => {
     const state = globalThis.__formationTest
-    if (state.mode === 'race') {
+    if (state.mode === 'race' || state.mode === 'scope' || state.mode === 'cache' || state.mode === 'cache-missing' || state.mode === 'loading-back') {
       const call = ++state.boardCalls
       return new Promise(resolve => { state.boardResolvers[call] = resolve })
     }
@@ -128,20 +144,37 @@ const dataMock = `
 `
 
 const offlineMock = `
-  let stored = { resources: { formation: { pendingSave: null, localDrafts: {} } } }
-  export const readCoachOfflineResources = async () => stored
+  const cachedSlots = [
+    { id: 'goalkeeper', group: 'goalkeeper', label: 'Goalkeeper', shortLabel: 'GK', x: 50, y: 88 },
+    { id: 'defender-1', group: 'defender', label: 'Defender 1', shortLabel: 'D1', x: 25, y: 68 },
+  ]
+  let stored = null
+  const current = () => {
+    if (stored) return stored
+    if (window.__formationTest.mode === 'cache' || window.__formationTest.mode === 'cache-missing') {
+      const draft = { gameFormat: '11v11', presetKey: '11v11-4-4-2', placements: [{ playerId: 'cached-player', displayName: 'Cached Player', shirtNumber: 9, slotId: 'goalkeeper', positionGroup: 'goalkeeper', x: 0.5, y: 0.88 }], bench: [] }
+      const board = { id: 'cached-board', title: 'Cached Board', linkedMatchDayId: '', createdByProfileId: 'coach-1', currentVersionId: 'cached-v1', currentVersionNumber: 1, currentVersion: { id: 'cached-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: draft.placements, bench: [] } }
+      stored = { resources: { formation: { board, boards: [board], draft, localDrafts: {}, matchDayId: '', pendingSave: null, presets: [{ key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots: cachedSlots }] } } }
+    } else stored = { resources: { formation: { pendingSave: null, localDrafts: {} } } }
+    return stored
+  }
+  export const readCoachOfflineResources = async () => current()
   export const saveCoachOfflineResources = async (user, context, resources) => {
     if (window.__formationTest.mode === 'retry-no-storage') throw new Error('Device storage unavailable')
-    stored = { resources: { ...stored.resources, ...resources } }
+    const value = current()
+    stored = { resources: { ...value.resources, ...resources } }
     return stored
   }
   export const saveCoachFormationLocalDraft = async (user, context, key, entry) => {
     if (window.__formationTest.mode === 'retry-no-storage') throw new Error('Device storage unavailable')
-    const formation = stored.resources.formation || { pendingSave: null, localDrafts: {} }
+    window.__formationTest.localDraftCalls += 1
+    window.__formationTest.lastLocalDraft = entry
+    const value = current()
+    const formation = value.resources.formation || { pendingSave: null, localDrafts: {} }
     const localDrafts = { ...(formation.localDrafts || {}) }
     if (entry) localDrafts[key] = entry
     else delete localDrafts[key]
-    stored = { resources: { ...stored.resources, formation: { ...formation, localDrafts } } }
+    stored = { resources: { ...value.resources, formation: { ...formation, localDrafts } } }
     return stored
   }
 `
@@ -202,6 +235,87 @@ try {
     assert.equal(await page.getByText('Board A', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Board B', { exact: true }).count(), 1)
     console.log('PASS: stale fixture load cannot overwrite the active match board')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'scope') {
+    await page.waitForFunction(() => window.__formationTest.boardCalls === 1)
+    await page.getByRole('button', { name: 'Switch account and team', exact: true }).click()
+    await page.waitForFunction(() => window.__formationTest.boardCalls === 2)
+    assert.equal(await page.getByText('Loading Formation Board...', { exact: true }).count(), 1)
+    await page.evaluate(() => window.__formationTest.boardResolvers[2]([{
+      id: 'board-b', title: 'Board B', linkedMatchDayId: 'match-a', createdByProfileId: 'coach-2',
+      currentVersionId: 'board-b-v1', currentVersionNumber: 1,
+      currentVersion: { id: 'board-b-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] },
+    }]))
+    await page.getByText('Board B', { exact: true }).waitFor()
+    await page.evaluate(() => window.__formationTest.boardResolvers[1]([{
+      id: 'board-a', title: 'Board A', linkedMatchDayId: 'match-a', createdByProfileId: 'coach-1',
+      currentVersionId: 'board-a-v1', currentVersionNumber: 1,
+      currentVersion: { id: 'board-a-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] },
+    }]))
+    await page.waitForTimeout(80)
+    assert.equal(await page.getByText('Board A', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Board B', { exact: true }).count(), 1)
+    console.log('PASS: account, Team and authority changes reload without leaking the previous scope')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'cache' || process.env.FORMATION_ASYNC_SCENARIO === 'cache-missing') {
+    await page.getByText('Cached Board', { exact: true }).waitFor()
+    await page.getByText('Cached Player', { exact: true }).waitFor()
+    assert.equal(await page.getByText('Loading Formation Board...', { exact: true }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
+    await page.evaluate((missing) => window.__formationTest.boardResolvers[1](missing ? [] : [{
+      id: 'cached-board', title: 'Live Board', linkedMatchDayId: '', createdByProfileId: 'coach-1',
+      currentVersionId: 'cached-v2', currentVersionNumber: 2,
+      currentVersion: { id: 'cached-v2', versionNumber: 2, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [{ playerId: 'live-player', displayName: 'Live Player', shirtNumber: 8, slotId: 'goalkeeper', positionGroup: 'goalkeeper', x: 0.5, y: 0.88 }], bench: [] },
+    }]), process.env.FORMATION_ASYNC_SCENARIO === 'cache-missing')
+    await page.getByRole('button', { name: 'Formation', exact: true }).waitFor({ state: 'visible' })
+    if (process.env.FORMATION_ASYNC_SCENARIO === 'cache-missing') {
+      await page.getByText('The cached Formation Board is no longer available to this account. It was not restored or sent.', { exact: true }).waitFor()
+      assert.equal(await page.getByText('Cached Player', { exact: true }).count(), 0)
+      assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
+      await page.getByRole('button', { name: 'Formation Board options', exact: true }).click()
+      await page.getByRole('button', { name: 'Start replacement board', exact: true }).click()
+      assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), true)
+      console.log('PASS: a missing live board stays blocked until the coach starts a safe replacement')
+    } else {
+      await page.waitForFunction(() => document.querySelector('[aria-label="Formation"]')?.getAttribute('aria-disabled') !== 'true')
+      await page.getByText('Live Board', { exact: true }).waitFor()
+      await page.getByText('Live Player', { exact: true }).waitFor()
+      assert.equal(await page.getByText('Cached Player', { exact: true }).count(), 0)
+      console.log('PASS: cache renders read-only, then refreshes from the matching live board')
+    }
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'stable') {
+    await page.getByLabel('Formation pitch', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).click()
+    await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
+    await page.getByRole('button', { name: 'Equivalent parent refresh 0', exact: true }).click()
+    await page.getByRole('button', { name: 'Equivalent parent refresh 1', exact: true }).waitFor()
+    for (const label of ['Players', 'Formation', 'Share']) {
+      await page.getByRole('button', { name: label, exact: true }).click()
+      await page.getByRole('dialog', { name: `${label.toLowerCase()} options`, exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Close options', exact: true }).click()
+    }
+    assert.equal(await page.getByLabel(/Player One, shirt 1/).count(), 1)
+    assert.equal(await page.evaluate(() => window.__formationTest.boardCalls), 1)
+    assert.equal(await page.evaluate(() => window.__formationTest.presetCalls), 1)
+    console.log('PASS: equivalent parent rerenders and local actions keep edits without refetching')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'loading-back') {
+    await page.waitForFunction(() => window.__formationTest.boardCalls === 1)
+    await page.getByText('Loading Formation Board...', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).click()
+    await page.waitForFunction(() => window.__formationTest.backCount === 1)
+    assert.equal(await page.getByText('Loading Formation Board...', { exact: true }).count(), 0)
+    console.log('PASS: Match Day Board can leave while its first board load is pending')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'back' || process.env.FORMATION_ASYNC_SCENARIO === 'back-offline') {
+    await page.getByLabel('Formation pitch', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).click()
+    await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
+    if (process.env.FORMATION_ASYNC_SCENARIO === 'back-offline') {
+      await page.getByRole('button', { name: 'Lose connection', exact: true }).click()
+      await page.getByText('Offline draft', { exact: true }).waitFor()
+    }
+    await page.getByRole('button', { name: 'Native workspace back', exact: true }).click()
+    await page.waitForFunction(() => window.__formationTest.backCount === 1)
+    assert.equal(await page.evaluate(() => window.__formationTest.lastLocalDraft?.draft?.placements?.[0]?.playerId), 'player-1')
+    assert.ok(await page.evaluate(() => window.__formationTest.localDraftCalls >= 1))
+    console.log(`PASS: native workspace Back protects a rapid lineup edit before closing (${process.env.FORMATION_ASYNC_SCENARIO})`)
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'panels') {
     await page.getByLabel('Formation pitch', { exact: true }).waitFor()
     for (let repeat = 0; repeat < 2; repeat += 1) {

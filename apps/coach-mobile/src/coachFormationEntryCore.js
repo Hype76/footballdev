@@ -11,6 +11,42 @@ export function canEditCoachFormationBoard(user = {}) {
   )
 }
 
+const FORMATION_AUTHORITY_FIELDS = Object.freeze([
+  'id',
+  'authorityId',
+  'authoritySource',
+  'clubId',
+  'teamId',
+  'role',
+  'roleRank',
+  'clubStatus',
+  'teamStatus',
+  'archivedAt',
+  'hasActivePlanAccess',
+  'planKey',
+  'planStatus',
+])
+
+export function getCoachFormationAuthorityScope(user = {}, context = {}) {
+  return JSON.stringify([
+    normalize(user.id),
+    normalize(user.clubId),
+    normalize(user.activeTeamId),
+    normalize(user.role),
+    Number(user.roleRank || 0),
+    user.hasActivePlanAccess === true,
+    FORMATION_AUTHORITY_FIELDS.map((field) => field === 'roleRank'
+      ? Number(context[field] || 0)
+      : field === 'hasActivePlanAccess'
+        ? context[field] === true
+        : normalize(context[field])),
+  ])
+}
+
+export function getCoachFormationRouteScope(user = {}, context = {}, matchId = '') {
+  return JSON.stringify([getCoachFormationAuthorityScope(user, context), normalize(matchId)])
+}
+
 export function getCoachFormationMarkerVisualPosition(position = {}, layout = {}, {
   anchorY = 33,
   markerHeight = 86,
