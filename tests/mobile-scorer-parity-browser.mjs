@@ -160,6 +160,7 @@ try {
         await assertControllerTypography(page, width)
         const primary = page.getByTestId('scorer-primary-actions')
         assert.deepEqual(await primary.getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))), ['Goal', 'Yellow card', 'Red card', 'Substitution', 'Pause', 'Half time', 'Full time', 'Correct score'])
+        await page.getByRole('switch', { name: 'Keep screen awake' }).waitFor({ state: 'visible' })
         const before = await page.getByRole('switch', { name: 'Keep screen awake' }).boundingBox()
         const primaryBox = await primary.boundingBox()
         assert.ok(before.y < primaryBox.y, 'Off keep-awake prompt precedes actions')

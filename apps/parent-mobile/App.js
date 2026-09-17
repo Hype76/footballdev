@@ -1051,8 +1051,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
               resumeInteractionRef.current = null
             })
         })
-        void reloadParentNotificationState({ preserveKnownState: true })
       }
+      if (returnedFromBackground) void reloadParentNotificationState({ preserveKnownState: true })
     })
     return () => {
       subscription.remove()
@@ -1867,7 +1867,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   async function handleNotificationModeChange(mode) {
     if (activeActionId || !selectedLink?.id) return
     const currentMode = notificationState.enabled ? notificationState.detailLevel : 'off'
-    if (mode === currentMode) return
+    const registrationReady = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY
+      && notificationState.enabled && notificationState.registered && notificationState.permissionGranted
+    if (mode === currentMode && (mode === 'off' || registrationReady)) return
+    notificationStateRequestRef.current += 1
     setActiveActionId('notifications')
     setNotice(null)
     try {
@@ -1877,7 +1880,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             detailLevel: notificationState.detailLevel,
             enabled: false,
           })
-        : notificationState.enabled
+        : notificationState.enabled && registrationReady
           ? await updateParentNotificationPreference({
               apiBaseUrl: config.apiBaseUrl,
               detailLevel: mode,
@@ -3168,18 +3171,20 @@ function SettingsScreen({
       <InfoPanel iconKey="settings.notifications" title="Notifications">
         <InfoRow
           label="Status"
-          value={notificationStateKnown
+          value={notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY
             ? getParentNotificationStatusLabel(notificationState)
             : notificationStateLoading ? 'Checking this device' : 'Unable to verify'}
         />
-        {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
+        {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>Unable to confirm push alerts. Retry the check or enable alerts again. Your saved preference has not been changed.</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>Notification status could not be read. No setting has been changed.</Text> : null}
         {communicationPreference.communicationChannel === 'email' ? <Text style={styles.helperText}>Your communication choice is Email. Choose App notifications or Both in Email &amp; app to receive push alerts.</Text> : null}
         {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
           <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
         ) : null}
         {notificationStateKnown && notificationState.message ? <Text style={styles.helperText}>{notificationState.message}</Text> : null}
-        {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <PrimaryAction label="Retry notification check" onPress={onRetryNotificationState} secondary /> : null}
+        {[MOBILE_SETTING_LOAD_STATES.ERROR, MOBILE_SETTING_LOAD_STATES.STALE].includes(notificationStateStatus) ? <PrimaryAction iconKey="action.retry" disabled={activeActionId === 'notifications'} label="Retry notification check" onPress={onRetryNotificationState} secondary /> : null}
+        {!notificationStateLoading ? <PrimaryAction iconKey="settings.notifications" secondary disabled={activeActionId === 'notifications'} label={notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY && notificationState.enabled && notificationState.permissionGranted ? 'Pause all push alerts on this device' : 'Enable push alerts on this device'} onPress={() => onNotificationModeChange(notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY && notificationState.enabled && notificationState.permissionGranted ? 'off' : 'minimal')} /> : null}
+        <PrimaryAction iconKey="settings.app" label="Open device notification settings" onPress={() => Linking.openSettings()} secondary />
 
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
@@ -3197,13 +3202,8 @@ function SettingsScreen({
           )}
         </View>
 
-        {notificationStateKnown && !notificationState.permissionGranted && (notificationState.permissionStatus === 'denied' || notificationState.canAskAgain === false) ? (
-          <PrimaryAction label="Open device notification settings" onPress={() => Linking.openSettings()} secondary />
-        ) : null}
-
         {activeActionId === 'notifications' || notificationStateLoading ? <BrandLoader /> : null}
         <NotificationCategorySettings key={user.id} app="parent" userId={user.id} palette={palette} Icon={ParentIcon} />
-        {notificationStateKnown ? <PrimaryAction secondary disabled={activeActionId === 'notifications'} label={notificationState.enabled ? 'Pause all push alerts on this device' : 'Enable push alerts on this device'} onPress={() => onNotificationModeChange(notificationState.enabled ? 'off' : 'minimal')} /> : null}
 
         {notificationState.enabled && !config.isProduction ? (
           <View style={styles.notificationTestActions}>
@@ -3385,8 +3385,8 @@ function LoadingLine({ label }) {
   )
 }
 
-function PrimaryAction({ disabled = false, label, loading = false, onPress, secondary = false }) {
-  const { styles } = useParentTheme()
+function PrimaryAction({ disabled = false, iconKey, label, loading = false, onPress, secondary = false }) {
+  const { palette, styles } = useParentTheme()
   return (
     <Pressable
       accessibilityRole="button"
@@ -3397,12 +3397,13 @@ function PrimaryAction({ disabled = false, label, loading = false, onPress, seco
       style={({ pressed }) => [
         styles.primaryAction,
         secondary && styles.secondaryAction,
+        iconKey && { backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, flexDirection: 'row', justifyContent: 'flex-start', gap: 10, minHeight: 44, paddingHorizontal: 0, paddingVertical: 8 },
         (disabled || loading) && styles.disabled,
         pressed && styles.pressed,
       ]}
     >
       {loading ? <BrandLoader accessible={false} /> : (
-        <Text style={[styles.primaryActionText, secondary && styles.secondaryActionText]}>{label}</Text>
+        <>{iconKey ? <ParentIcon iconKey={iconKey} color={palette.accentText} size={23} /> : null}<Text style={[styles.primaryActionText, secondary && styles.secondaryActionText, iconKey && { flex: 1, textAlign: 'left', fontSize: 14 }]}>{label}</Text></>
       )}
     </Pressable>
   )

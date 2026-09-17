@@ -30,7 +30,7 @@ const entry = `
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
-const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand'])
+const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','notifyCoachMatchDaySquadDecisions'])
 const dataMock = `
   import {projectMatchDayCommand} from './apps/mobile-core/src/matchDayOutboxCore.js';
   export const createCoachMatchDayCommandId=()=>crypto.randomUUID();
@@ -38,6 +38,8 @@ const dataMock = `
   const requireSignal=()=>{if(!window.online){window.failedRefresh=(window.failedRefresh||0)+1;throw new Error('Waiting for a connection.');}};
   export async function getCoachMatchDayList(){requireSignal();return [window.server]}
   export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));return window.server}
+  export async function setCoachMatchDaySquadDecision(user,match,id,decision){await new Promise(resolve=>setTimeout(resolve,30));window.server={...window.server,squadDecisions:[...window.server.squadDecisions.filter(row=>row.playerId!==id),{playerId:id,status:decision,decisionRevision:id+'-revision',decidedAt:'now'}]};return window.server;}
+  export async function notifyCoachMatchDaySquadDecisions(user,match,choices){window.squadNotifyCalls=(window.squadNotifyCalls||0)+1;return choices.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}
   export async function syncCoachMatchDayCommand(user,command){
     requireSignal();window.calls.push(command.id); if(localStorage.getItem('conflict')==='1') throw Object.assign(new Error('Match changed on another device'),{code:'40001'});
     const accepted=JSON.parse(localStorage.getItem('accepted')||'{}');
@@ -53,7 +55,7 @@ const mocks = [
   [/ClubKitDisplay(?:\.js)?$/, 'export const ClubKitDisplay=()=>null;'],
   [/coachSquadTemplateData$/, 'export const createCoachSquadTemplateStore=()=>async()=>[];'],
   [/coachMatchDayData(?:\.js)?$/, dataMock],
-  [/coachPlayersData$/, 'export async function getCoachPlayerList(){return []}'],
+  [/coachPlayersData$/, `export async function getCoachPlayerList(){return [{id:'squad-a',playerName:'Squad Alex'},{id:'squad-b',playerName:'Squad Bailey'}]}`],
   [/\/offline$/, `export async function readCoachOfflineResources(){return JSON.parse(localStorage.getItem('resources')||'null')}
     export async function saveCoachOfflineResources(user,context,resources){localStorage.setItem('resources',JSON.stringify({resources}));}
     export async function readCoachMatchDayOutbox(){return window.readJournal()}
@@ -64,7 +66,6 @@ const mocks = [
   [/CoachFormationBoard$/, 'export const CoachFormationBoard=()=>null;'],
   [/CoachFixtureForm$/, `export const CoachFixtureForm=({match,onCancel,onUpdated})=><div><p>Editing fixture {match.id}</p><button onClick={onCancel}>Cancel fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20'})}>Save fixture edit</button></div>;`],
   [/CoachGuestScorer$/, 'export const CoachGuestScorer=()=>null;'],
-  [/CoachSquadPanel$/, 'export const CoachSquadPanel=()=>null;'],
   [/^expo-keep-awake$/, 'export const isAvailableAsync=async()=>false;export const activateKeepAwakeAsync=async()=>{};export const deactivateKeepAwake=async()=>{};'],
   [/^react-native$/, `export * from 'rn-web';export const AppState={currentState:'active',addEventListener(){return {remove(){}}}};`],
 ]
@@ -83,6 +84,7 @@ try {
   const mount = async()=>{await page.goto('http://localhost:9876/');await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
+  if(!process.argv.includes('--squad-only')) {
   await page.getByRole('button',{name:'Goal',exact:true}).waitFor().catch(async error=>{console.error((await page.locator('body').innerText()).slice(0,2500));throw error})
   await page.evaluate(()=>window.setSignal(false))
   await page.waitForFunction(()=>window.failedRefresh>0, null, {timeout:25000})
@@ -201,6 +203,15 @@ try {
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
     await page.screenshot({path:`output/playwright/club-match-name/overview-${mode}-${width}.png`,fullPage:true})
   }
+  }
+  await page.evaluate(()=>{window.server={...window.server,status:'scheduled',timerStatus:'not_started',squadDecisions:[],squadNotificationContacts:['squad-a','squad-b'].map(playerId=>({playerId,canNotify:true,hasContact:true,emailRecipientCount:1}))};localStorage.clear();localStorage.setItem('server',JSON.stringify(window.server))})
+  await mount()
+  await page.getByRole('button',{name:'Squad',exact:true}).click()
+  await page.getByRole('button',{name:'Selected: Squad Alex',exact:true}).click()
+  await page.getByRole('button',{name:'Selected: Squad Bailey',exact:true}).click()
+  await page.getByRole('button',{name:'Save and send notifications',exact:true}).click()
+  await page.getByText('Notifications queued for 2 players.',{exact:true}).waitFor({timeout:3000}).catch(async error=>{console.error('Notification endpoint calls:',await page.evaluate(()=>window.squadNotifyCalls||0));console.error((await page.locator('body').innerText()).slice(-1800));throw error})
+  assert.equal(await page.evaluate(()=>window.squadNotifyCalls),1,'The screen must call Notify after saving without waiting for a React render')
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
 } finally {await browser.close()}

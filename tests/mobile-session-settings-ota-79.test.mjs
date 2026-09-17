@@ -85,7 +85,7 @@ test('Coach and Parent use the coordinated Supabase Auth release', async () => {
 test('Parent settings do not display an unconfirmed off state', async () => {
   const source = await readSource('../apps/parent-mobile/App.js')
   assert.match(source, /preserveMobileNotificationState\(current, message\)/)
-  assert.match(source, /The last confirmed setting is shown and has not been changed\./)
+  assert.match(source, /Unable to confirm push alerts\. Retry the check or enable alerts again/)
   assert.match(source, /Retry biometric check/)
   assert.match(source, /Retry notification check/)
   assert.doesNotMatch(source, /setNotificationState\(\(current\) => \(\{ \.\.\.current, enabled: false/)
