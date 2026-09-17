@@ -39,6 +39,7 @@ const modules = path.join(process.cwd(), 'apps/parent-mobile/node_modules')
 const shared = `
   import React, { useState, useMemo, useEffect } from 'react'
   import { createRoot } from 'react-dom/client'
+  import { flushSync } from 'react-dom'
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'
   import { getGoalScorerSide, setGoalOwnGoal, oppositeMatchSide } from './src/lib/matchday-goal-credit.js'
   import { captureMatchEventTime, formatMatchAddedTimeClock, getMatchEventTime, getMatchClockDescription } from './src/lib/matchday-event-time.js'
@@ -75,7 +76,8 @@ const parentCode = `${shared}
     const { colors, styles } = usePortalStyles(tokens)
     return <View style={{ backgroundColor: colors.background, padding: 16, minHeight: 900 }}><ScorerControls activeActionId="" match={match} players={players} styles={styles} placeholderColor={colors.muted} onAction={async (action, value) => { window.calls.push({ action, value }); return true }} /></View>
   }
-  window.renderPreview = (mode, accent) => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />)
+  // Finish the requested remount before Playwright can inspect the old theme.
+  window.renderPreview = (mode, accent) => flushSync(() => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />))
 `
 const coachCode = `${shared}
   import { createCoachTheme } from './apps/coach-mobile/src/coachThemeCore.js'
@@ -92,7 +94,8 @@ const coachCode = `${shared}
     const styles = createStyles(palette)
     return <View style={{ backgroundColor: palette.background, padding: 16, minHeight: 900 }}><LivePanel match={match} players={players} actions={{ canRecordEvents: true, timerActions: getParentScorerTimerActions(match) }} eventForm={eventForm} onEventForm={onEventForm} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} onTimer={async () => {}} onPrepare={() => {}} onScore={async () => { window.calls.push({ action: 'event', value: validateCoachMatchDayEventForm(eventForm) }); return true }} /></View>
   }
-  window.renderPreview = (mode, accent) => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />)
+  // Finish the requested remount before Playwright can inspect the old theme.
+  window.renderPreview = (mode, accent) => flushSync(() => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />))
 `
 await mkdir('output/playwright/mobile-scorer', { recursive: true })
 const browser = await chromium.launch({ headless: true })
