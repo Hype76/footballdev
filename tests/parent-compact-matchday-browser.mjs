@@ -12,8 +12,9 @@ async function extract(file, names) {
   const nodes = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.map(node => node.type === 'ExportNamedDeclaration' ? node.declaration : node)
   return names.map(name => { const node = nodes.find(node => node?.type === 'FunctionDeclaration' && node.id.name === name); assert.ok(node, name); return source.slice(node.start, node.end) }).join('\n')
 }
-const portal = await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText'])
+const portal = await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'ParentMatchFormationPlan', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText'])
 const invitationCore = await extract('apps/parent-mobile/src/parentPortalData.js', ['getInvitationResponseOptions', 'isParentInvitationActionable'])
+const formationCore = await extract('apps/mobile-core/src/parentFormationBoardCore.js', ['getParentFormationPlayerLabel', 'getParentFormationPitchPercent', 'getNamedParentFormationPlayers'])
 const appSource = await readFile('apps/parent-mobile/App.js', 'utf8')
 const handlers = appSource.slice(appSource.indexOf('  async function handleInvitationResponse('), appSource.indexOf('  async function handleAddToCalendar('))
 const childChange = appSource.slice(appSource.indexOf('  function handleChildChange('), appSource.indexOf('  async function handleRemoveOwnPlayerAccess('))
@@ -40,14 +41,15 @@ import {getMatchDayDisplayName} from './src/lib/matchday-display.js';
 import {formatParentProductDateTime,formatParentProductTime} from './apps/mobile-core/src/parentDateTimeCore.js';
 import {formatMatchAddedTimeClock} from './src/lib/matchday-event-time.js';
 import {buildCompletedMatchEventPresentation} from './src/lib/matchday-final-report.js';
+const normalize = (value) => String(value ?? '').trim();
 const BrandLoader=()=>null,useConfirmedConnectionIssue=value=>value;
 const ResourceState=()=>null;
 const ScorerControls=()=> <Text>Authorised scorer controls</Text>;
 const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),kitLabel=()=> 'Home kit';
 const kitImageUrl=()=> 'data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="blue"/></svg>').toString('base64')}';
 let theme;const useParentTheme=()=>theme;
-${kit}\n${invitationCore}\n${portal}\n${app}
-const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[]};
+${kit}\n${invitationCore}\n${formationCore}\n${portal}\n${app}
+const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[],formationPlan:{title:'Published Match Plan',gameFormat:'7v7',formationPresetKey:'7v7-2-3-1',placements:[{playerId:'starter',displayName:'Published Starter',x:0.5,y:0.6}],bench:[{playerId:'bench',displayName:'Published Bench',state:'bench'}],notes:'PRIVATE COACH NOTE',unselectedPlayers:[{displayName:'UNSELECTED PRIVATE PLAYER'}]}};
 const parentLink={id:'parent',clubId:'club',playerId:'child',linkType:'parent'};
 const initialInvitation={invitationId:'invitation',eventId:'match',childId:'child',parentLinkId:'parent',sourceRecordId:'request',invitationType:'match_attendance',invitationState:'active',canRespond:true,canChangeResponse:true,responseState:'available',carpoolEnabled:true};
 const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=async()=>{};
@@ -80,6 +82,12 @@ try {
   await page.addScriptTag({ content: result.outputFiles[0].text })
   await page.getByRole('button', { name: 'Back to Matchday' }).waitFor()
   await page.waitForFunction(() => [...document.images].some(image => image.src.startsWith('data:image/svg+xml') && image.naturalWidth === 40))
+  await page.getByText('Show', { exact: true }).click()
+  await page.getByText('Published Starter', { exact: true }).waitFor()
+  await page.getByText('Published Bench', { exact: true }).waitFor()
+  assert.equal(await page.getByText('PRIVATE COACH NOTE', { exact: true }).count(), 0)
+  assert.equal(await page.getByText('UNSELECTED PRIVATE PLAYER', { exact: true }).count(), 0)
+  await page.getByText('Hide', { exact: true }).click()
   for (const text of ['Scheduled', 'Pre-match', 'Score', 'Match timer', 'Parent view', 'Match Timeline', 'Fixture details', 'Showing saved information while the latest update is checked.']) assert.equal(await page.getByText(text, { exact: true }).count(), 0, text)
   assert.equal(await page.getByText('Authorised scorer controls').count(), 0)
   for (const [name, action] of [['Back to Matchday', 'back'], ['Add to Google Calendar', 'calendar'], ['Get directions', 'directions']]) {

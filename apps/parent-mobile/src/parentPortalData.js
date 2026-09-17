@@ -268,6 +268,42 @@ function normalizeParentMatchEvent(row = {}) {
   }
 }
 
+function normalizeParentFormationPlayer(row = {}) {
+  const displayName = normalizePersonName(row.display_name ?? row.displayName ?? row.player_name ?? row.playerName ?? row.name)
+  if (!displayName) return null
+  const x = Number(row.x)
+  const y = Number(row.y)
+  return {
+    displayName,
+    playerId: normalizeText(row.player_id ?? row.playerId),
+    shirtNumber: normalizeText(row.shirt_number ?? row.shirtNumber),
+    x: Number.isFinite(x) ? x : 0.5,
+    y: Number.isFinite(y) ? y : 0.5,
+  }
+}
+
+function normalizeParentFormationPlayers(value) {
+  return (Array.isArray(value) ? value : []).map(normalizeParentFormationPlayer).filter(Boolean)
+}
+
+export function normalizeParentMatchFormationPlan(row = {}) {
+  const publicationId = normalizeText(row.publication_id ?? row.publicationId ?? row.id)
+  if (!publicationId) return null
+  const formationPresetKey = normalizeText(row.formation_preset_key ?? row.formationPresetKey)
+  return {
+    bench: normalizeParentFormationPlayers(row.bench),
+    formation: normalizeText(row.formation ?? row.formation_name ?? row.formationName) || formationPresetKey,
+    formationPresetKey,
+    gameFormat: normalizeText(row.game_format ?? row.gameFormat),
+    id: publicationId,
+    pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
+    placements: normalizeParentFormationPlayers(row.placements),
+    publicationNumber: Number(row.publication_number ?? row.publicationNumber ?? 0),
+    publishedAt: row.published_at ?? row.publishedAt ?? '',
+    title: normalizeText(row.board_title_snapshot ?? row.boardTitleSnapshot ?? row.title),
+  }
+}
+
 export function normalizeParentMatchDay(row = {}) {
   const match = normalizeMatchDay(row)
   return {
@@ -287,6 +323,8 @@ export function normalizeParentMatchDay(row = {}) {
       : [],
     currentMatchPhase: normalizeText(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match',
     events: Array.isArray(row.events) ? row.events.map(normalizeParentMatchEvent) : match.events,
+    formationPlan: row.formationPlan ? normalizeParentMatchFormationPlan(row.formationPlan) : null,
+    formationPlanError: normalizeText(row.formationPlanError),
     homeShootoutScore: Number(row.home_shootout_score ?? row.homeShootoutScore ?? 0),
     awayShootoutScore: Number(row.away_shootout_score ?? row.awayShootoutScore ?? 0),
     matchDurationMinutes: Number(row.match_duration_minutes ?? row.matchDurationMinutes ?? 90),
@@ -309,7 +347,7 @@ export function normalizeParentMatchDay(row = {}) {
 
 export async function getParentPortalMatchDays(user) {
   const link = requireSelectedLink(user)
-  const [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult, transportResult] = await Promise.all([
+  const [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult, transportResult, formationPlanResult] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: link.id }),
@@ -317,6 +355,7 @@ export async function getParentPortalMatchDays(user) {
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_match_day_review_requests', { parent_link_id_value: link.id }),
     link.linkType === 'parent' ? supabase.rpc('get_parent_portal_match_squad_transport', { parent_link_id_value: link.id }) : Promise.resolve({ data: [] }),
+    supabase.rpc('get_parent_portal_match_formation_plans', { parent_link_id_value: link.id }),
   ])
   for (const result of [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult, transportResult]) {
     if (result.error) throw result.error
@@ -327,6 +366,12 @@ export async function getParentPortalMatchDays(user) {
   const reviewById = new Map((reviewResult.data || []).map((row) => [String(row.match_day_id), row.scorer_review_requested_at]))
   const scorerIds = new Set((scorerResult.data || []).map((row) => String(row.match_day_id ?? row.matchDayId)))
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
+  const formationPlanByMatchId = new Map(
+    (formationPlanResult.error ? [] : (formationPlanResult.data || []))
+      .map((row) => [String(row.match_day_id ?? row.matchDayId ?? ''), normalizeParentMatchFormationPlan(row)])
+      .filter(([, plan]) => plan),
+  )
+  const formationPlanError = formationPlanResult.error ? 'The match plan could not be refreshed. Try again later.' : ''
   return (baseResult.data || []).map((row) => {
     const extended = extendedById.get(String(row.id)) || {}
     const eventContext = new Map((extended.event_contexts ?? extended.eventContexts ?? []).map((event) => [String(event.id), event]))
@@ -340,6 +385,8 @@ export async function getParentPortalMatchDays(user) {
       shirt_choice: shirtsById.get(String(row.id)),
       selected_player_names: teamById.get(String(row.id)) || [],
       squad_transport: transportById.get(String(row.id)) || [],
+      formationPlan: formationPlanByMatchId.get(String(row.id)) || null,
+      formationPlanError,
     })
   })
 }
