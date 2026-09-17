@@ -30,7 +30,7 @@ const entry = `
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
-const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','notifyCoachMatchDaySquadDecisions'])
+const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions'])
 const dataMock = `
   import {projectMatchDayCommand} from './apps/mobile-core/src/matchDayOutboxCore.js';
   export const createCoachMatchDayCommandId=()=>crypto.randomUUID();
@@ -39,6 +39,7 @@ const dataMock = `
   export async function getCoachMatchDayList(){requireSignal();return [window.server]}
   export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));return window.server}
   export async function setCoachMatchDaySquadDecision(user,match,id,decision){await new Promise(resolve=>setTimeout(resolve,30));window.server={...window.server,squadDecisions:[...window.server.squadDecisions.filter(row=>row.playerId!==id),{playerId:id,status:decision,decisionRevision:id+'-revision',decidedAt:'now'}]};return window.server;}
+  export async function setCoachMatchDaySquadDecisions(user,match,choices){window.squadSaveCalls=(window.squadSaveCalls||0)+1;for(const {player,decision} of choices) await setCoachMatchDaySquadDecision(user,match,player.id,decision);return window.server;}
   export async function notifyCoachMatchDaySquadDecisions(user,match,choices){window.squadNotifyCalls=(window.squadNotifyCalls||0)+1;return choices.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}
   export async function syncCoachMatchDayCommand(user,command){
     requireSignal();window.calls.push(command.id); if(localStorage.getItem('conflict')==='1') throw Object.assign(new Error('Match changed on another device'),{code:'40001'});
@@ -211,6 +212,7 @@ try {
   await page.getByRole('button',{name:'Selected: Squad Bailey',exact:true}).click()
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).click()
   await page.getByText('Notifications queued for 2 players.',{exact:true}).waitFor({timeout:3000}).catch(async error=>{console.error('Notification endpoint calls:',await page.evaluate(()=>window.squadNotifyCalls||0));console.error((await page.locator('body').innerText()).slice(-1800));throw error})
+  assert.equal(await page.evaluate(()=>window.squadSaveCalls),1);
   assert.equal(await page.evaluate(()=>window.squadNotifyCalls),1,'The screen must call Notify after saving without waiting for a React render')
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
