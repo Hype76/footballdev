@@ -120,10 +120,12 @@ function phaseStyles(palette) {
     confirmationError: { color: palette.danger, fontSize: 14, fontWeight: '800', lineHeight: 20 },
     confirmationActions: { flexDirection: 'row', gap: 10 },
     confirmationAction: { flex: 1 },
-    formChoice: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, justifyContent: 'space-between', minHeight: 64, paddingHorizontal: 14, paddingVertical: 10 },
-    formChoiceSelected: { borderColor: palette.accentText, borderWidth: 2 },
-    formChoiceCopy: { flex: 1, gap: 3 },
-    formChoiceAction: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
+    developmentChoice: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 58, paddingHorizontal: 4, paddingVertical: 8 },
+    developmentEditor: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 8, paddingVertical: 12 },
+    developmentHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 6, paddingBottom: 12 },
+    developmentChoiceCopy: { flex: 1, gap: 2, minWidth: 0 },
+    developmentSelector: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 64, paddingHorizontal: 4, paddingVertical: 10 },
+    developmentSelectorCopy: { flex: 1, gap: 2, minWidth: 0 },
     panel: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 8, padding: 14 },
     panelSelected: { borderColor: palette.accentText, borderWidth: 2 },
     title: { color: palette.textPrimary, fontSize: 26, fontWeight: '900' },
@@ -275,7 +277,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const common = { context, palette, chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
-      {!['chat', 'invites'].includes(domain) ? <View style={styles.panel}>
+      {!['chat', 'invites'].includes(domain) ? <View style={domain === 'development' ? styles.developmentHeader : styles.panel}>
         <Text accessibilityRole="header" style={styles.title}>{TITLES[domain]}</Text>
         <Text style={styles.body}>{context.teamName || context.clubName} | {context.roleLabel}</Text>
         {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'development' ? 'Saved information. Private drafts work offline.' : 'Offline and read-only'}</Text> : null}
@@ -297,51 +299,53 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
 function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user }) {
   const [playerId, setPlayerId] = useState(data.players?.[0]?.id || '')
   const [formId, setFormId] = useState(data.forms?.[0]?.id || '')
+  const [playerPickerOpen, setPlayerPickerOpen] = useState(false)
+  const [formPickerOpen, setFormPickerOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const player = data.players?.find((item) => item.id === playerId) || data.players?.[0]
   const activePlayerId = player?.id || ''
   const form = resolveCoachDevelopmentForm(data.forms, formId)
   const activeFormId = form?.id || ''
   const records = data.records?.filter((record) => !activePlayerId || record.playerId === activePlayerId) || []
 
+
+  const selectPlayer = (nextPlayer) => {
+    if (!nextPlayer?.id) return
+    setPlayerId(nextPlayer.id)
+    setPlayerPickerOpen(false)
+    setHistoryOpen(false)
+  }
   const selectDevelopmentForm = (nextForm) => {
-    if (!nextForm?.id || nextForm.id === activeFormId) return
+    if (!nextForm?.id) return
     setFormId(nextForm.id)
-    setNotice(`${nextForm.name} selected. The form fields have been updated.`)
+    setFormPickerOpen(false)
+    if (nextForm.id !== activeFormId) setNotice(`${nextForm.name} selected. The form fields have been updated.`)
   }
 
   if (!data.players?.length || !data.forms?.length) return <Empty copy="No active Player and dynamic Development form combination is available in this Team." styles={styles} />
   return (
     <View style={styles.stack}>
-      <View style={styles.panel}>
-        <Text style={styles.heading}>Player</Text>
-        <View style={styles.row}>{data.players.map((item) => <Button key={item.id} label={item.playerName} onPress={() => setPlayerId(item.id)} secondary={item.id !== activePlayerId} styles={styles} />)}</View>
-        <Text style={styles.heading}>Choose form</Text>
-        <Text style={styles.body}>Choose one form. Its fields will appear immediately below.</Text>
-        <View style={styles.stack}>{data.forms.map((item) => {
+      <View style={styles.stack}>
+        <Pressable accessibilityLabel="Choose Development Player" accessibilityRole="button" accessibilityState={{ expanded: playerPickerOpen }} aria-expanded={playerPickerOpen} onPress={() => { setPlayerPickerOpen((current) => !current); setFormPickerOpen(false) }} style={styles.developmentSelector}>
+          <MaterialIcons color={styles.status.color} name="person" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.label}>Player</Text><Text numberOfLines={1} style={styles.heading}>{player?.playerName || 'Choose Player'}</Text></View><MaterialIcons color={styles.status.color} name={playerPickerOpen ? 'expand-less' : 'expand-more'} size={27} />
+        </Pressable>
+        {playerPickerOpen ? <View>{data.players.map((item) => {
+          const selected = item.id === activePlayerId
+          return <Pressable accessibilityLabel={`${item.playerName}. ${selected ? 'Selected Player' : 'Choose this Player'}`} accessibilityRole="radio" accessibilityState={{ selected }} key={item.id} onPress={() => selectPlayer(item)} style={styles.developmentChoice}><View style={styles.developmentChoiceCopy}><Text style={styles.label}>{item.playerName}</Text><Text style={styles.helper}>{selected ? 'Selected Player' : 'Choose Player'}</Text></View><MaterialIcons color={styles.status.color} name={selected ? 'check-circle' : 'chevron-right'} size={22} /></Pressable>
+        })}</View> : null}
+        <Pressable accessibilityLabel="Choose Development form" accessibilityRole="button" accessibilityState={{ expanded: formPickerOpen }} aria-expanded={formPickerOpen} onPress={() => { setFormPickerOpen((current) => !current); setPlayerPickerOpen(false) }} style={styles.developmentSelector}>
+          <MaterialIcons color={styles.status.color} name="description" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.label}>Form</Text><Text numberOfLines={1} style={styles.heading}>{form?.name || 'Choose form'}</Text></View><MaterialIcons color={styles.status.color} name={formPickerOpen ? 'expand-less' : 'expand-more'} size={27} />
+        </Pressable>
+        {formPickerOpen ? <View>{data.forms.map((item) => {
           const selected = item.id === activeFormId
-          return (
-            <Pressable
-              accessibilityLabel={`${item.name}. ${selected ? 'Selected form' : 'Choose this form'}`}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              key={item.id}
-              onPress={() => selectDevelopmentForm(item)}
-              style={[styles.formChoice, selected && styles.formChoiceSelected]}
-            >
-              <View style={styles.formChoiceCopy}>
-                <Text style={styles.label}>{item.name}</Text>
-                <Text style={styles.body}>{selected ? 'Selected form' : `${item.fields.length} fields`}</Text>
-              </View>
-              <Text style={styles.formChoiceAction}>{selected ? 'Selected' : 'Choose'}</Text>
-            </Pressable>
-          )
-        })}</View>
+          return <Pressable accessibilityLabel={`${item.name}. ${selected ? 'Selected form' : 'Choose this form'}`} accessibilityRole="radio" accessibilityState={{ selected }} key={item.id} onPress={() => selectDevelopmentForm(item)} style={styles.developmentChoice}><View style={styles.developmentChoiceCopy}><Text style={styles.label}>{item.name}</Text><Text style={styles.helper}>{selected ? 'Selected form' : `${item.fields.length} fields`}</Text></View><MaterialIcons color={styles.status.color} name={selected ? 'check-circle' : 'chevron-right'} size={22} /></Pressable>
+        })}</View> : null}
       </View>
-      <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId)} stale={stale} styles={styles} user={user} onFinalised={() => { setNotice('Development record finalised and shared.'); void load({ silent: true }) }} />
-      <View style={styles.panel}>
-        <Text style={styles.heading}>Development history</Text>
-        {records.length ? records.slice(0, 10).map((record) => <Text key={record.id} style={styles.body}>{record.date || 'No date'} | {record.status} | {record.formName || 'Development record'} | {record.averageScore ?? 'No score'}</Text>) : <Text style={styles.body}>No Development history for this Player.</Text>}
+      <View style={styles.stack}>
+        <Pressable accessibilityLabel={historyOpen ? 'Hide recent forms' : 'Show recent forms'} accessibilityRole="button" accessibilityState={{ expanded: historyOpen }} aria-expanded={historyOpen} onPress={() => setHistoryOpen((current) => !current)} style={styles.developmentSelector}><MaterialIcons color={styles.status.color} name="history" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.heading}>Recent forms</Text><Text style={styles.helper}>{records.length} saved record{records.length === 1 ? '' : 's'} for {player?.playerName || 'this Player'}</Text></View><MaterialIcons color={styles.status.color} name={historyOpen ? 'expand-less' : 'chevron-right'} size={27} /></Pressable>
+        {historyOpen ? (records.length ? records.slice(0, 10).map((record) => <Text key={record.id} style={styles.body}>{record.date || 'No date'} | {record.status} | {record.formName || 'Development record'} | {record.averageScore ?? 'No score'}</Text>) : <Text style={styles.body}>No Development history for this Player.</Text>) : null}
       </View>
+      <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId)} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onFinalised={() => { setNotice('Development record finalised and shared.'); void load({ silent: true }) }} />
     </View>
   )
 }

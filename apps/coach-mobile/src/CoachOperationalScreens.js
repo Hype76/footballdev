@@ -109,6 +109,7 @@ function useDomainStyles(palette) {
     pickerPanel: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, gap: 8, overflow: 'hidden', padding: 8 },
     profileAction: { alignItems: 'center', flexDirection: 'row', gap: 5, justifyContent: 'center', minHeight: 44, minWidth: 44, paddingHorizontal: 6, paddingVertical: 7 },
     profileActionText: { color: palette.accentText, fontSize: 12, fontWeight: '900' },
+    profileConfirmation: { borderTopColor: palette.border, borderTopWidth: 1, gap: 10, paddingTop: 12 },
     profileHeader: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12 },
     profileIdentity: { alignItems: 'center', backgroundColor: palette.selected, borderRadius: 999, height: 42, justifyContent: 'center', width: 42 },
     profileRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 10, minHeight: 62, paddingVertical: 10 },
@@ -734,7 +735,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   useEffect(() => () => { playerRequest.current += 1 }, [user])
   const [detail, setDetail] = useState(null)
   const [developmentOpen, setDevelopmentOpen] = useState(false)
-  const [profileSections, setProfileSections] = useState({ notes: false, stats: false, details: false })
+  const [profileSections, setProfileSections] = useState({ contacts: false, notes: false, stats: false, details: false })
   const [error, setError] = useState('')
   const [form, setForm] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -783,7 +784,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setError('')
     setDetail(null)
     setDevelopmentOpen(false)
-    setProfileSections({ notes: false, stats: false, details: false })
+    setProfileSections({ contacts: false, notes: false, stats: false, details: false })
     setContactNotice('')
     setRevokeTarget(null)
     try {
@@ -804,7 +805,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setFocusedPlayer(null)
     setDetail(null)
     setDevelopmentOpen(false)
-    setProfileSections({ notes: false, stats: false, details: false })
+    setProfileSections({ contacts: false, notes: false, stats: false, details: false })
     setForm(null)
     setError('')
     setContactNotice('')
@@ -899,28 +900,36 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
             {policy.canEdit ? <Pressable accessibilityLabel="Edit Player" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={editPlayer} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="edit" size={18} /><Text style={styles.profileActionText}>Edit</Text></Pressable> : null}
           </View>
           <View style={styles.profileSection}>
-            <View style={styles.row}><Text style={styles.profileSectionTitle}>Parent and player contacts</Text>{policy.canEdit ? <Pressable accessibilityLabel="Manage contacts" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={editPlayer} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="manage-accounts" size={18} /><Text style={styles.profileActionText}>Manage</Text></Pressable> : null}</View>
-          {contactNotice ? <Text accessibilityLiveRegion="polite" style={styles.meta}>{contactNotice}</Text> : null}
-          {detail.parentLinksError ? <Text style={styles.danger}>{detail.parentLinksError}</Text> : null}
-          {detail.player.parentContacts.length ? detail.player.parentContacts.map((contact, index) => {
-            const action = getParentPortalInviteActionForContact({ contact, links: detail.parentLinks || [], player: detail.player, isSending: Boolean(contactBusy) })
-            const link = detail.parentLinks?.find((item) => item.email.toLowerCase() === contact.email.toLowerCase())
-            return <View key={`${contact.email}:${index}`} style={styles.profileRow}>
-              <MaterialIcons color={palette.accentText} name={contact.type === 'self' ? 'person' : 'groups'} size={25} />
-              <View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text><Text selectable style={styles.body}>{contact.email || 'No email added'}</Text>{action.statusLabel ? <Text style={styles.meta}>{action.statusLabel}</Text> : null}</View>
-              {policy.canEdit && !detail.parentLinksError && action.label ? <Pressable accessibilityLabel={contactBusy === contact.email ? 'Sending Parent app invite' : action.label.replace('parent portal', 'Parent app')} accessibilityRole="button" accessibilityState={{ busy: Boolean(contactBusy), disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => manageParent(contact)} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="send" size={18} /></Pressable> : null}
-              {policy.canEdit && link ? <Pressable accessibilityLabel="Remove Parent access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(link)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /></Pressable> : null}
-            </View>
-          }) : <Text style={styles.body}>No contacts added yet. Add a parent contact to invite them to the Parent app.</Text>}
-          {getUnlistedParentAccessLinks({ contacts: detail.player.parentContacts, links: detail.parentLinks || [] }).map((link) => <View key={link.id} style={styles.profileRow}>
-            <MaterialIcons color={palette.accentText} name="group-add" size={25} /><View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>Additional Parent access</Text><Text selectable style={styles.body}>{link.email}</Text><Text style={styles.meta}>{link.status === 'active' ? 'Parent app linked' : 'Invitation pending'}. This account is not in the contact list.</Text></View>
-            {policy.canEdit ? <Pressable accessibilityLabel="Remove Parent access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(link)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /></Pressable> : null}
-          </View>)}
-          {revokeTarget ? <View style={styles.profileSection}>
-            <Text style={styles.cardTitle}>Remove Parent access?</Text>
-            <Text style={styles.body}>{revokeTarget.email} will lose Parent app access to this player. Their contact details stay until you edit them.</Text>
-            <View style={styles.filterRow}><Pressable accessibilityLabel={contactBusy ? 'Removing access...' : 'Confirm remove access'} accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy), busy: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => manageParent(revokeTarget, true)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /><Text style={[styles.profileActionText, { color: palette.danger }]}>{contactBusy ? 'Removing access...' : 'Remove access'}</Text></Pressable><Pressable accessibilityLabel="Keep access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(null)} style={styles.profileAction}><Text style={styles.profileActionText}>Keep access</Text></Pressable></View>
-          </View> : null}
+            {(() => {
+              const unlistedLinks = getUnlistedParentAccessLinks({ contacts: detail.player.parentContacts, links: detail.parentLinks || [] })
+              const contactCount = detail.player.parentContacts.length + unlistedLinks.length
+              return <>
+                <View style={styles.row}><Pressable accessibilityLabel={profileSections.contacts ? 'Hide parent and player contacts' : 'Show parent and player contacts'} accessibilityRole="button" accessibilityState={{ expanded: profileSections.contacts }} aria-expanded={profileSections.contacts} onPress={() => toggleProfileSection('contacts')} style={[styles.profileSectionButton, { flex: 1 }]}><Text style={styles.profileSectionTitle}>Parent and player contacts ({contactCount})</Text><MaterialIcons color={palette.textMuted} name={profileSections.contacts ? 'expand-less' : 'expand-more'} size={24} /></Pressable>{policy.canEdit ? <Pressable accessibilityLabel="Manage contacts" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={editPlayer} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="manage-accounts" size={18} /><Text style={styles.profileActionText}>Manage</Text></Pressable> : null}</View>
+                {profileSections.contacts ? <>
+                  {contactNotice ? <Text accessibilityLiveRegion="polite" style={styles.meta}>{contactNotice}</Text> : null}
+                  {detail.parentLinksError ? <Text style={styles.danger}>{detail.parentLinksError}</Text> : null}
+                  {detail.player.parentContacts.length ? detail.player.parentContacts.map((contact, index) => {
+                    const action = getParentPortalInviteActionForContact({ contact, links: detail.parentLinks || [], player: detail.player, isSending: Boolean(contactBusy) })
+                    const link = detail.parentLinks?.find((item) => item.email.toLowerCase() === contact.email.toLowerCase())
+                    return <View key={`${contact.email}:${index}`} style={styles.profileRow}>
+                      <MaterialIcons color={palette.accentText} name={contact.type === 'self' ? 'person' : 'groups'} size={25} />
+                      <View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text><Text selectable style={styles.body}>{contact.email || 'No email added'}</Text>{action.statusLabel ? <Text style={styles.meta}>{action.statusLabel}</Text> : null}</View>
+                      {policy.canEdit && !detail.parentLinksError && action.label ? <Pressable accessibilityLabel={contactBusy === contact.email ? 'Sending Parent app invite' : action.label.replace('parent portal', 'Parent app')} accessibilityRole="button" accessibilityState={{ busy: Boolean(contactBusy), disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => manageParent(contact)} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="send" size={18} /></Pressable> : null}
+                      {policy.canEdit && link ? <Pressable accessibilityLabel="Remove Parent access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(link)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /></Pressable> : null}
+                    </View>
+                  }) : <Text style={styles.body}>No contacts added yet. Add a parent contact to invite them to the Parent app.</Text>}
+                  {unlistedLinks.map((link) => <View key={link.id} style={styles.profileRow}>
+                    <MaterialIcons color={palette.accentText} name="group-add" size={25} /><View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>Additional Parent access</Text><Text selectable style={styles.body}>{link.email}</Text><Text style={styles.meta}>{link.status === 'active' ? 'Parent app linked' : 'Invitation pending'}. This account is not in the contact list.</Text></View>
+                    {policy.canEdit ? <Pressable accessibilityLabel="Remove Parent access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(link)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /></Pressable> : null}
+                  </View>)}
+                  {revokeTarget ? <View style={styles.profileConfirmation}>
+                    <Text style={styles.cardTitle}>Remove Parent access?</Text>
+                    <Text style={styles.body}>{revokeTarget.email} will lose Parent app access to this player. Their contact details stay until you edit them.</Text>
+                    <View style={styles.filterRow}><Pressable accessibilityLabel={contactBusy ? 'Removing access...' : 'Confirm remove access'} accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy), busy: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => manageParent(revokeTarget, true)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /><Text style={[styles.profileActionText, { color: palette.danger }]}>{contactBusy ? 'Removing access...' : 'Remove access'}</Text></Pressable><Pressable accessibilityLabel="Keep access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(null)} style={styles.profileAction}><Text style={styles.profileActionText}>Keep access</Text></Pressable></View>
+                  </View> : null}
+                </> : null}
+              </>
+            })()}
           </View>
           <View style={styles.profileSection}>
             <Pressable accessibilityLabel={profileSections.notes ? 'Hide private notes' : 'Show private notes'} accessibilityRole="button" accessibilityState={{ expanded: profileSections.notes }} aria-expanded={profileSections.notes} onPress={() => toggleProfileSection('notes')} style={styles.profileSectionButton}><Text style={styles.profileSectionTitle}>Private notes</Text><MaterialIcons color={palette.textMuted} name={profileSections.notes ? 'expand-less' : 'expand-more'} size={24} /></Pressable>

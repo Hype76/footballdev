@@ -942,7 +942,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
               iconKey="coach.match"
               label="Next match"
               meta={nextMatch?.opponent || ''}
-              onPress={() => onNavigate('matchday')}
+              onPress={() => onNavigate('matchday', nextMatch?.id ? { fixtureId: nextMatch.id } : null)}
               value={nextMatch ? formatFixtureDateTime(nextMatch) : 'No upcoming match'}
             />
             <HomeNextRow
@@ -1268,7 +1268,7 @@ function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, p
             onPress={() => onNavigate(route.key)}
             style={({ pressed }) => [styles.tab, selected && styles.tabSelected, pressed && styles.pressed]}
           >
-            <CoachIcon color={selected ? palette.selectedForeground : palette.textMuted} iconKey={getCoachRouteIconKey(route.key)} size={23} />
+            <CoachIcon color={selected ? palette.accentText : palette.textMuted} iconKey={getCoachRouteIconKey(route.key)} size={23} />
             <Text numberOfLines={1} style={[styles.tabText, selected && styles.tabTextSelected]}>{route.label}</Text>
           </Pressable>
         )
@@ -1626,11 +1626,11 @@ function createCoachStyles(palette) {
     stateDanger: { borderColor: palette.danger },
     statePanel: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 9, marginHorizontal: 16, marginTop: 12, padding: 16 },
     stateWarning: { borderColor: palette.warning },
-    tab: { alignItems: 'center', borderColor: 'transparent', borderRadius: 12, borderWidth: 1, flex: 1, gap: 2, justifyContent: 'center', minHeight: 54, paddingHorizontal: 3, paddingVertical: 5 },
+    tab: { alignItems: 'center', borderTopColor: 'transparent', borderTopWidth: 2, flex: 1, gap: 2, justifyContent: 'center', minHeight: 54, paddingHorizontal: 3, paddingVertical: 5 },
     tabBar: { backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: 8, paddingHorizontal: 8, paddingTop: 8 },
-    tabSelected: { backgroundColor: palette.selected, borderColor: palette.accentText },
+    tabSelected: { borderTopColor: palette.accentText },
     tabText: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
-    tabTextSelected: { color: palette.selectedForeground },
+    tabTextSelected: { color: palette.accentText },
     testBadge: { backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
     testBadgeText: { color: palette.accentForeground, fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
   })

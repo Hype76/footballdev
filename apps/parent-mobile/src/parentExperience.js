@@ -3,7 +3,8 @@ import {
   getParentProductSortTimestamp,
   getParentProductWallTimeSortTimestamp,
 } from '../../mobile-core/src/parentDateTimeCore.js'
-import { getDateInTimeZone } from '../../mobile-core/src/parentCalendarCore.js'
+import { getDateInTimeZone, getParentCalendarAttendanceInvitation } from '../../mobile-core/src/parentCalendarCore.js'
+import { getParentMatchAttendanceInvitation, getParentMatchAvailability, getParentMatchSquadStatus } from './parentMatchAvailability.js'
 import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 
@@ -454,6 +455,40 @@ export function getParentHomeFixtureCards(homeModel = {}, limit = 3) {
       || (nextMatchId && normalizeText(match?.id) === nextMatchId)
     ))
     .slice(0, fixtureLimit)
+}
+
+export function getParentMatchStatusBadges(match = {}, invitations = [], link = {}, now = Date.now()) {
+  const invitation = getParentMatchAttendanceInvitation(match, invitations, link)
+  const invitationAvailability = {
+    available: 'available',
+    unavailable: 'unavailable',
+    accepted: 'available',
+    attending: 'available',
+    declined: 'unavailable',
+    no: 'unavailable',
+    not_attending: 'unavailable',
+    maybe: 'maybe',
+    yes: 'available',
+  }[normalizeText(invitation?.responseState).toLowerCase()]
+  const availabilityMatch = normalizeText(match.availabilityStatus)
+    ? match
+    : invitationAvailability ? { ...match, availabilityStatus: invitationAvailability } : match
+  return [
+    { key: 'availability', ...getParentMatchAvailability(availabilityMatch, invitation, link, now) },
+    { key: 'squad', ...getParentMatchSquadStatus(match) },
+  ]
+}
+
+export function getParentAgendaResponseBadge(event = {}, invitations = []) {
+  if (['cancelled', 'postponed'].includes(normalizeText(event.status).toLowerCase())) return null
+  const invitation = getParentCalendarAttendanceInvitation(event, invitations)
+  const state = normalizeText(invitation?.responseState || event.responseState).toLowerCase()
+  if ((!state || ['not_required', 'not_applicable', 'recorded', 'cancelled', 'closed', 'expired'].includes(state)) && !event.requiresResponse && !invitation?.isPending) return null
+  if (['awaiting_response', 'no_response', 'pending'].includes(state) || invitation?.isPending) return { icon: 'help-outline', key: 'response', label: 'Needs response', tone: 'warning' }
+  if (['available', 'yes', 'accepted', 'attending'].includes(state)) return { icon: 'check-circle', key: 'response', label: 'Attending', tone: 'success' }
+  if (['unavailable', 'no', 'declined', 'not_attending'].includes(state)) return { icon: 'cancel', key: 'response', label: 'Not attending', tone: 'danger' }
+  if (state === 'maybe') return { icon: 'help-outline', key: 'response', label: 'Maybe', tone: 'warning' }
+  return { icon: 'remove-circle-outline', key: 'response', label: 'Not responded', tone: 'muted' }
 }
 
 export function isParentPollActive(poll = {}, now = new Date()) {

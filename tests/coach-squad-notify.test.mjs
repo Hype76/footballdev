@@ -52,14 +52,43 @@ test('phone delivery failure leaves the saved in-app notification confirmed and 
 test('receipt delivery only uses the saved recipient and never rewrites the already saved inbox', async () => {
   const updates = []; let payload
   const admin = { rpc: async () => ({ data: { id, match_day_id: 'fixture', parent_link_id: 'parent-a', title: 'Squad update', body: 'Alex is selected.' } }), from: (table) => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'fixture' } }) }) }), update: (value) => ({ eq: async () => { updates.push({ table, value }); return {} } }) }) }
-  await deliverSquadDecisionNotifications([id], { admin, deliver: async (value) => { payload = value; return { mobileFailed: 0, webFailed: 0 } } })
+  await deliverSquadDecisionNotifications([id], { admin, deliver: async (value) => { payload = value; return { mobileFailed: 0, webFailed: 0, mobileSent: 1 } } })
   assert.deepEqual(payload.targetParentLinkIds, ['parent-a']); assert.equal(payload.inboxAlreadySaved, true)
   assert.equal(payload.notificationCopy.detailedBody, 'Alex is selected.'); assert.ok(updates[0].value.push_finished_at)
   assert.doesNotMatch(payload.notificationCopy.minimalBody, /Alex|selected/)
   assert.equal(payload.notificationCopy.tag, 'match-day-fixture')
 })
+
+for (const [name, delivery, expected] of [
+  ['no devices', { mobileSent: 0, sent: 0, mobileFailed: 0, webFailed: 0 }, { completed: 1, inAppOnly: 1, mobileSent: 0, webSent: 0, emailSent: 0 }],
+  ['one phone', { mobileSent: 1, sent: 0, mobileFailed: 0, webFailed: 0 }, { completed: 1, inAppOnly: 0, mobileSent: 1, webSent: 0, emailSent: 0 }],
+  ['one browser', { mobileSent: 0, sent: 1, mobileFailed: 0, webFailed: 0 }, { completed: 1, inAppOnly: 0, mobileSent: 0, webSent: 1, emailSent: 0 }],
+  ['failed phone', { mobileSent: 0, sent: 0, mobileFailed: 1, webFailed: 0 }, { completed: 0, inAppOnly: 0, mobileSent: 0, webSent: 0, emailSent: 0 }],
+  ['partial delivery', { mobileSent: 1, sent: 0, mobileFailed: 0, webFailed: 1 }, { completed: 0, inAppOnly: 0, mobileSent: 1, webSent: 0, emailSent: 0 }],
+]) {
+  test(`squad delivery distinguishes ${name} without falling back to email or retrying inbox-only delivery`, async () => {
+    const updates = []
+    const admin = {
+      rpc: async () => ({ data: { id, match_day_id: 'fixture', parent_link_id: 'parent', delivery_channel: 'app', title: 'Squad update', body: 'Selected.' } }),
+      from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'fixture' } }) }) }), update: value => ({ eq: async () => { updates.push(value); return {} } }) }),
+    }
+    const result = await deliverSquadDecisionNotifications([id], { admin, deliver: async payload => {
+      assert.equal(payload.inboxAlreadySaved, true)
+      assert.deepEqual(payload.targetParentLinkIds, ['parent'])
+      return delivery
+    }, email: async () => { assert.fail('App preference must never trigger an email fallback') } })
+    assert.deepEqual(result, expected)
+    assert.equal(Boolean(updates[0].push_finished_at), Boolean(expected.completed))
+    if (expected.inAppOnly) assert.equal(updates[0].push_error, 'In-app only: no phone or browser push was sent.')
+    else if (expected.completed) assert.equal(updates[0].push_error, null)
+    else {
+      assert.equal(updates[0].push_claimed_at, null)
+      assert.equal(updates[0].push_error, 'Notification delivery will retry.')
+    }
+  })
+}
 test('an already claimed or obsolete receipt does not produce another phone message', async () => {
-  assert.deepEqual(await deliverSquadDecisionNotifications([id], { admin: { rpc: async () => ({ data: null }) }, deliver: async () => { throw new Error('Must not deliver') } }), { completed: 0 })
+  assert.deepEqual(await deliverSquadDecisionNotifications([id], { admin: { rpc: async () => ({ data: null }) }, deliver: async () => { throw new Error('Must not deliver') } }), { completed: 0, inAppOnly: 0, mobileSent: 0, webSent: 0, emailSent: 0 })
 })
 
 test('email fallback uses only the saved recipient and a stable provider key across retries', async () => {
