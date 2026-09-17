@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 const migration = await readFile('supabase/migrations/20260917100816_squad_atomic_batch_save.sql','utf8')
+const executeBoundary = await readFile('supabase/migrations/20260917112716_squad_batch_execute_boundary.sql','utf8')
 const id = n => `10000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 test('batch RPC commits together, rolls back conflicts, validates input and enforces scope', async t => {
   const db = new PGlite(); t.after(()=>db.close())
@@ -26,6 +27,18 @@ test('batch RPC commits together, rolls back conflicts, validates input and enfo
   const choice = n => ({playerId:id(n),decision:'selected',expectedDecidedAt:null})
   const save = (rows, team=id(2)) => db.query('select set_match_day_squad_decisions_batch($1,$2,$3) result',[id(3),team,JSON.stringify(rows)])
   const count = async()=>Number((await db.query('select count(*) n from saved')).rows[0].n)
+  // Match production privileges and execute as the app role, not the database owner.
+  await db.exec(`grant usage on schema auth to authenticated;
+    grant select on saved to authenticated;
+    alter function get_staff_match_day_detail(uuid,uuid) security definer;
+    alter function set_match_day_player_squad_decision_v2(uuid,uuid,text,timestamptz) security definer;
+    revoke all on function set_match_day_player_squad_decision(uuid,uuid,text) from public, authenticated;
+    set role authenticated;`)
+  await assert.rejects(save([choice(4)]), /permission denied for function set_match_day_player_squad_decision/)
+  assert.equal(await count(),0,'Failed permission check must roll back the complete batch')
+  await db.exec('reset role')
+  await db.exec(executeBoundary)
+  await db.exec('set role authenticated')
   assert.equal((await save(Array.from({length:10},(_,i)=>choice(i+10)))).rows[0].result.squadDecisions.length,10)
   await assert.rejects(save([choice(4),choice(10)]),/Conflict/)
   assert.equal(await count(),10,'Earlier changes must roll back on a later conflict')
@@ -38,4 +51,5 @@ test('batch RPC commits together, rolls back conflicts, validates input and enfo
   await assert.rejects(save([choice(4)]),/Login/)
   const privileges=(await db.query("select has_function_privilege('anon','public.set_match_day_squad_decisions_batch(uuid,uuid,jsonb)','execute') anon,has_function_privilege('authenticated','public.set_match_day_squad_decisions_batch(uuid,uuid,jsonb)','execute') authenticated")).rows[0]
   assert.deepEqual(privileges,{anon:false,authenticated:true})
+  assert.equal((await db.query("select has_function_privilege('authenticated','public.set_match_day_player_squad_decision(uuid,uuid,text)','execute') allowed")).rows[0].allowed,false,'The old direct writer must remain private')
 })
