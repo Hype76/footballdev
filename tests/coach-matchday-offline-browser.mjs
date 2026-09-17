@@ -24,9 +24,9 @@ const entry = `
   const user={id:'user',activeTeamId:'team'},context={id:'context',clubId:'club',teamId:'team',role:'coach',roleRank:30,paymentAccess:{canMutate:true}};
   const contexts=[context];
   window.navigations=[];
-  function App(){const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState(JSON.parse(localStorage.getItem('entryTarget')||'null')||{fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
+  function App(){const [mode,setMode]=React.useState('dark');window.setMode=setMode;const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState(JSON.parse(localStorage.getItem('entryTarget')||'null')||{fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
     useCoachMatchDayBackgroundSync({user,contexts,enabled:!show});
-    return show?<CoachMatchDayScreen user={user} context={context} palette={createCoachTheme({mode:'dark'}).tokens}
+    return show?<CoachMatchDayScreen user={user} context={context} palette={createCoachTheme({mode}).tokens}
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
@@ -162,11 +162,26 @@ try {
   await mount()
   await page.getByRole('button',{name:'Upcoming',exact:true}).click()
   await page.getByText('Visitors v FP TEST Club',{exact:true}).waitFor()
-  await page.getByText('19:09:2099 | 10:45 | scheduled',{exact:true}).waitFor()
+  await page.getByText('19:09:2099 | 10:45',{exact:true}).waitFor()
   assert.equal(await page.getByText('Visitors v U14 JPL 26/27',{exact:true}).count(),0)
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
   await mkdir('output/playwright/club-match-name',{recursive:true})
   await page.screenshot({path:'output/playwright/club-match-name/coach-upcoming.png',fullPage:true})
+  for (const name of ['Availability', 'Team Chat', 'Calendar']) assert.equal(await page.getByRole('button', { name, exact: true }).count(), 0)
+  for (const mode of ['light', 'dark']) for (const width of [320, 390]) {
+    await page.evaluate(value => window.setMode(value), mode)
+    await page.setViewportSize({ width, height: 844 })
+    const tab = page.getByRole('button', { name: 'Upcoming', exact: true })
+    assert.equal(await tab.getAttribute('aria-selected'), 'true')
+    const look = await tab.evaluate(element => { const style = getComputedStyle(element); return { radius: style.borderTopLeftRadius, top: style.borderTopWidth, bottom: style.borderBottomWidth } })
+    assert.deepEqual(look, { radius: '0px', top: '0px', bottom: '2px' })
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    await page.screenshot({ path: `output/playwright/club-match-name/compact-${mode}-${width}.png`, fullPage: true })
+  }
+  await page.getByText('Visitors v FP TEST Club', { exact: true }).click()
+  await page.getByRole('button', { name: 'Back to fixtures', exact: true }).waitFor()
+  assert.equal(await page.getByText('scheduled', { exact: true }).count(), 0)
+  await page.getByText('Pre-match', { exact: true }).waitFor()
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
 } finally {await browser.close()}

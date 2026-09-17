@@ -1,7 +1,8 @@
 import { PartnersBanner } from './PartnersScreen'
 import { canChangeParentMatchAvailability, getParentMatchAttendanceInvitation, getParentMatchAvailability, getParentMatchSquadStatus } from './parentMatchAvailability'
 import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
-import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../../../src/lib/resource-date-presentation.js'
+import { groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
+import { getResourceDisplayTitle, getResourceTitleDate } from '../../../src/lib/resource-date-presentation.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
 import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import * as Crypto from 'expo-crypto'
@@ -49,6 +50,7 @@ import {
 
 const PARENT_CALENDAR_VIEW_KEY = 'football-player-parent-calendar-view-v1'
 const VOLUNTEER_ROLE_STATUS_LABEL = 'Volunteer role status'
+const EMPTY_RESOURCE_ITEMS = Object.freeze([])
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -158,6 +160,15 @@ function usePortalStyles(themeTokens) {
       carpoolIcon: { alignItems: 'center', borderRadius: 999, height: 38, justifyContent: 'center', width: 38 },
       compactCopy: { flex: 1, gap: 3, minWidth: 0 },
       compactRow: { alignItems: 'center', flexDirection: 'row', gap: 11, minHeight: 58 },
+      compactAction: { alignItems: 'center', borderBottomColor: 'transparent', borderBottomWidth: 2, flexDirection: 'row', gap: 6, minHeight: 44, paddingHorizontal: 4 },
+      compactActionSelected: { borderBottomColor: colors.accentText },
+      compactActionText: { color: colors.accentText, flexShrink: 1, fontSize: 13, fontWeight: '800' },
+      resourceFilter: { alignItems: 'center', flexDirection: 'row', gap: 5, minHeight: 44, paddingHorizontal: 3 },
+      resourceFilterRow: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingBottom: 7 },
+      resourceFilterSelected: { borderBottomColor: colors.accentText, borderBottomWidth: 2 },
+      resourceFilterText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
+      resourceFilterTextSelected: { color: colors.accentText },
+      resourceGroup: { gap: 2 },
       gameDayHero: { borderBottomColor: colors.accentText, borderBottomWidth: 1, gap: 12, paddingHorizontal: 0, paddingVertical: 14 },
       gameDayHeroLive: { borderBottomWidth: 2 },
       gameDayScore: { color: colors.text, fontSize: 42, fontVariant: ['tabular-nums'], fontWeight: '900', textAlign: 'center' },
@@ -207,14 +218,11 @@ function usePortalStyles(themeTokens) {
       monthCellActive: { borderColor: colors.accentText, borderStyle: 'solid', borderWidth: 2 },
       monthCellMuted: { backgroundColor: colors.background, borderStyle: 'dashed' },
       monthDay: { color: colors.text, fontSize: 13, fontWeight: '800' },
-      monthDot: { backgroundColor: colors.accentText, borderRadius: 999, height: 6, width: 6 },
-      monthDotCancelled: { backgroundColor: colors.danger },
-      monthDotEvent: { backgroundColor: colors.event },
-      monthDotMatch: { backgroundColor: colors.match, borderRadius: 0 },
-      monthDotResponse: { backgroundColor: colors.warning },
-      monthDotTraining: { backgroundColor: colors.success },
+      monthMarker: { alignItems: 'center', height: 16, justifyContent: 'center', width: 16 },
+      monthMarkerRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 0, maxWidth: '100%' },
       monthLegend: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-      monthLegendItem: { alignItems: 'center', flexDirection: 'row', gap: 5 },
+      monthLegendIcon: { alignItems: 'center', height: 18, justifyContent: 'center', width: 18 },
+      monthLegendItem: { alignItems: 'center', flexDirection: 'row', gap: 5, minHeight: 44 },
       monthLegendText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
       monthGrid: { gap: 5 },
       monthRow: { flexDirection: 'row', gap: 5 },
@@ -248,16 +256,18 @@ function usePortalStyles(themeTokens) {
   }, [themeTokens])
 }
 
-function Button({ danger = false, disabled = false, expanded, label, onPress, outline = false, selected = false, styles }) {
+function Button({ compact = false, danger = false, disabled = false, expanded, iconKey, iconColor, label, onPress, outline = false, selected = false, styles }) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ disabled, selected, ...(typeof expanded === 'boolean' ? { expanded } : {}) }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.action, outline && styles.actionOutline, selected && styles.actionSelected, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.78 }]}
+      style={({ pressed }) => [compact ? styles.compactAction : styles.action, !compact && outline && styles.actionOutline, !compact && selected && styles.actionSelected, compact && selected && styles.compactActionSelected, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.78 }]}
     >
-      <Text style={[styles.actionText, outline && styles.actionTextOutline, selected && styles.actionTextSelected, danger && styles.actionTextDanger]}>{label}</Text>
+      {compact && iconKey ? <ParentIcon color={iconColor || styles.compactActionText.color} iconKey={iconKey} size={18} /> : null}
+      <Text style={[compact ? styles.compactActionText : styles.actionText, !compact && outline && styles.actionTextOutline, !compact && selected && styles.actionTextSelected, danger && styles.actionTextDanger]}>{label}</Text>
     </Pressable>
   )
 }
@@ -476,13 +486,13 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
   const selectedDayEvents = useMemo(() => filteredEvents.filter((event) => event.calendarDate === selectedDate), [filteredEvents, selectedDate])
   const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(monthCursor)
   const moveMonth = (offset) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1, 12))
-  const markerStyle = (event) => ({
-    cancelled: styles.monthDotCancelled,
-    event: styles.monthDotEvent,
-    match: styles.monthDotMatch,
-    response: styles.monthDotResponse,
-    training: styles.monthDotTraining,
-  })[getParentCalendarMarkerTone(event)]
+  const markerPresentation = (tone) => ({
+    cancelled: { color: colors.danger, iconKey: 'attendance.unavailable' },
+    event: { color: colors.event, iconKey: 'event' },
+    match: { color: colors.match, iconKey: 'football' },
+    response: { color: colors.warning, iconKey: 'attendance.maybe' },
+    training: { color: colors.success, iconKey: 'parent.training' },
+  })[tone] || { color: colors.muted, iconKey: 'event' }
   const selectDate = (date) => {
     setSelectedDate(date)
     onDateSelected?.(date)
@@ -498,8 +508,8 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your player'}.</Text></View>
       <View accessibilityLabel="Calendar view" style={styles.actionRow}>
-        <Button label="Agenda" onPress={() => chooseView('agenda')} outline={viewMode !== 'agenda'} styles={styles} />
-        <Button label="Month" onPress={() => chooseView('month')} outline={viewMode !== 'month'} styles={styles} />
+        <Button compact iconColor={colors.accentText} iconKey="event" label="Agenda" onPress={() => chooseView('agenda')} selected={viewMode === 'agenda'} styles={styles} />
+        <Button compact iconColor={colors.accentText} iconKey="action.calendar" label="Month" onPress={() => chooseView('month')} selected={viewMode === 'month'} styles={styles} />
       </View>
       {viewMode === 'agenda' ? <View accessibilityLabel="Calendar date filter" style={styles.actionRow}>
         {[
@@ -515,16 +525,17 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
       </View> : null}
       <ResourceState emptyCopy="There are no shared calendar events for this player." {...resource} items={activeEvents} styles={styles} />
       {viewMode === 'month' ? <View style={styles.stack}>
-        <View style={styles.row}><Button label="Previous" onPress={() => moveMonth(-1)} outline styles={styles} /><Text style={styles.cardTitle}>{monthLabel}</Text><Button label="Next" onPress={() => moveMonth(1)} outline styles={styles} /></View>
-        <Button label="Today" onPress={() => { setMonthCursor(new Date()); setSelectedDate('') }} outline styles={styles} />
+        <View style={styles.row}><Button compact iconColor={colors.accentText} iconKey="action.back" label="Previous" onPress={() => moveMonth(-1)} styles={styles} /><Text style={styles.cardTitle}>{monthLabel}</Text><Button compact iconColor={colors.accentText} iconKey="action.open" label="Next" onPress={() => moveMonth(1)} styles={styles} /></View>
+        <Button compact iconColor={colors.accentText} iconKey="action.calendar" label="Today" onPress={() => { setMonthCursor(new Date()); setSelectedDate('') }} styles={styles} />
         <View style={styles.monthGrid}>
           <View style={styles.monthRow}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <Text key={day} style={styles.monthWeekday}>{day}</Text>)}</View>
-          {Array.from({ length: 6 }, (_unused, rowIndex) => <View key={rowIndex} style={styles.monthRow}>{monthDays.slice(rowIndex * 7, rowIndex * 7 + 7).map((day) => <Pressable accessibilityLabel={`${day.date}, ${day.events.length} events`} accessibilityRole="button" key={day.date} onPress={() => selectDate(day.date)} style={[styles.monthCell, !day.inMonth && styles.monthCellMuted, (day.isToday || day.date === selectedDate) && styles.monthCellActive]}><Text style={styles.monthDay}>{day.day}</Text><View style={styles.actionRow}>{day.events.slice(0, 3).map((event) => <View accessibilityLabel={getParentCalendarMarkerTone(event)} key={event.id} style={[styles.monthDot, markerStyle(event)]} />)}</View></Pressable>)}</View>)}
+          {Array.from({ length: 6 }, (_unused, rowIndex) => <View key={rowIndex} style={styles.monthRow}>{monthDays.slice(rowIndex * 7, rowIndex * 7 + 7).map((day) => <Pressable accessibilityLabel={`${day.date}, ${day.events.length} events`} accessibilityRole="button" key={day.date} onPress={() => selectDate(day.date)} style={[styles.monthCell, !day.inMonth && styles.monthCellMuted, (day.isToday || day.date === selectedDate) && styles.monthCellActive]}><Text style={styles.monthDay}>{day.day}</Text><View style={styles.monthMarkerRow}>{day.events.slice(0, 3).map((event) => { const marker = markerPresentation(getParentCalendarMarkerTone(event)); return <View accessibilityLabel={`${getParentCalendarMarkerTone(event)} calendar marker`} key={event.id} style={styles.monthMarker}><ParentIcon color={marker.color} iconKey={marker.iconKey} size={18} /></View> })}</View></Pressable>)}</View>)}
         </View>
         <View accessibilityLabel="Calendar filters" style={styles.monthLegend}>
           {[['match', 'Match'], ['training', 'Training'], ['response', 'Needs response'], ['event', 'Other']].map(([tone, label]) => {
             const selected = markerTones.includes(tone)
-            return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={styles.monthLegendItem}><View style={[styles.monthDot, ({ event: styles.monthDotEvent, match: styles.monthDotMatch, response: styles.monthDotResponse, training: styles.monthDotTraining })[tone], !selected && { backgroundColor: 'transparent', borderColor: colors.muted, borderWidth: 1 }]} /><Text style={styles.monthLegendText}>{label}</Text></Pressable>
+            const marker = markerPresentation(tone)
+            return <Pressable accessibilityLabel={`${label} calendar filter`} accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={styles.monthLegendItem}><View style={[styles.monthLegendIcon, !selected && { opacity: 0.42 }]}><ParentIcon color={marker.color} iconKey={marker.iconKey} size={18} /></View><Text style={styles.monthLegendText}>{label}</Text></Pressable>
           })}
         </View>
         {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard onOpenEvent={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
@@ -1210,6 +1221,23 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, them
 
 export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
+  const [resourceCategory, setResourceCategory] = useState('all')
+  const [resourceScopeState, setResourceScopeState] = useState('')
+  const resourceItems = Array.isArray(resource?.items) ? resource.items : EMPTY_RESOURCE_ITEMS
+  const resourceScope = useMemo(() => resourceItems.map((item) => item.id).join('|'), [resourceItems])
+  const normalizedResourceItems = useMemo(() => resourceItems.map((item) => ({ ...item, category: normalizeText(item.category).toLowerCase() || 'general' })), [resourceItems])
+  const allResourceGroups = useMemo(() => groupCoachResources(normalizedResourceItems), [normalizedResourceItems])
+  const resourceGroups = useMemo(() => groupCoachResources(
+    resourceCategory === 'all' ? normalizedResourceItems : normalizedResourceItems.filter((item) => item.category === resourceCategory),
+  ).sort((left, right) => {
+    const latestDate = (group) => getResourceTitleDate(group.resources[0]?.title || group.resources[0]?.fileName || '')
+      || String(group.resources[0]?.eventDate || group.resources[0]?.matchDate || group.resources[0]?.reportDate || '').slice(0, 10)
+    return latestDate(right).localeCompare(latestDate(left)) || left.label.localeCompare(right.label)
+  }), [normalizedResourceItems, resourceCategory])
+  if (resourceScopeState !== resourceScope) {
+    setResourceScopeState(resourceScope)
+    if (resourceCategory !== 'all') setResourceCategory('all')
+  }
   if (formationBoard) {
     const placements = getNamedParentFormationPlayers(formationBoard.placements)
     const bench = getNamedParentFormationPlayers(formationBoard.bench)
@@ -1237,7 +1265,14 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
       <View><Text accessibilityRole="header" style={styles.header}>Resources</Text><Text style={styles.helper}>Files and links shared for the selected player.</Text></View>
       {isOffline ? <Text style={styles.warning}>Resource details are saved for reading. Opening the item needs a connection.</Text> : null}
       <ResourceState emptyCopy="No resources are shared with this player." {...resource} styles={styles} />
-      {sortResourcesNewestFirst(resource.items).map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="resource" size={30} /><View style={styles.compactCopy}><Text style={styles.pill}>{labelize(item.category)}</Text><Text style={styles.cardTitle}>{getResourceDisplayTitle(item)}</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text>{onDismiss ? <IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /> : null}</View></View>)}
+      {allResourceGroups.length > 1 ? <View accessibilityLabel="Resource categories" style={styles.resourceFilterRow}>
+        {[{ category: 'all', label: 'All resources' }, ...allResourceGroups.map((group) => ({ category: group.category, label: group.label }))].map((option) => {
+          const selected = resourceCategory === option.category
+          const iconKey = option.category === 'training' ? 'parent.training' : option.category === 'match_day' ? 'football' : option.category === 'development' ? 'development' : option.category === 'admin' ? 'settings' : 'resource'
+          return <Pressable accessibilityLabel={`${option.label} resource filter`} accessibilityRole="button" accessibilityState={{ selected }} key={option.category} onPress={() => setResourceCategory(option.category)} style={[styles.resourceFilter, selected && styles.resourceFilterSelected]}><ParentIcon color={selected ? colors.accentText : colors.muted} iconKey={iconKey} size={16} /><Text style={[styles.resourceFilterText, selected && styles.resourceFilterTextSelected]}>{option.label}</Text></Pressable>
+        })}
+      </View> : null}
+      {resourceGroups.map((group) => <View key={group.category} style={styles.resourceGroup}><View style={styles.row}><Text style={styles.cardTitle}>{group.label}</Text><Text style={styles.meta}>{group.resources.length}</Text></View>{group.resources.map((item) => <View key={item.id} style={styles.card}><Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey={item.category === 'training' ? 'parent.training' : item.category === 'match_day' ? 'football' : item.category === 'development' ? 'development' : 'resource'} size={30} /><View style={styles.compactCopy}><Text style={styles.cardTitle}>{getResourceDisplayTitle(item)}</Text><Text style={styles.meta}>{group.label}</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text numberOfLines={1} style={[styles.meta, styles.inviteSectionCopy]}>{item.description || item.shareDescription || 'Shared resource'}</Text>{onDismiss ? <IconAction accessibilityLabel="Hide resource" colors={colors} iconKey="action.hide" onPress={() => onDismiss(item)} styles={styles} /> : null}</View></View>)}</View>)}
     </View>
   )
 }

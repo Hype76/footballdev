@@ -96,11 +96,11 @@ function createStyles(palette) {
     actionDisabled: { opacity: 0.45 },
     actionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900', textAlign: 'center' },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
-    card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 9, padding: 15 },
-    cardSelected: { borderColor: palette.accentText, borderWidth: 2 },
+    card: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 9, paddingVertical: 12 },
+    cardSelected: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
     cardTitle: { color: palette.textPrimary, fontSize: 17, fontWeight: '900' },
-    fixtureHero: { backgroundColor: palette.selected, borderColor: palette.accentText, borderRadius: 17, borderWidth: 1, gap: 11, padding: 15 },
-    fixtureHeroLive: { borderWidth: 2 },
+    fixtureHero: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 9, paddingVertical: 12 },
+    fixtureHeroLive: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
     fixtureTitle: { color: palette.textPrimary, fontSize: 22, fontWeight: '900', lineHeight: 28 },
     gameMode: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 12, padding: 15 },
     gameModeEyebrow: { color: palette.accentText, fontSize: 11, fontWeight: '900', letterSpacing: 1.3, textTransform: 'uppercase' },
@@ -109,16 +109,18 @@ function createStyles(palette) {
     gameStatLabel: { color: palette.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
     gameStatValue: { color: palette.textPrimary, fontSize: 18, fontVariant: ['tabular-nums'], fontWeight: '900' },
     gameStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    liveSync: { alignSelf: 'flex-start', backgroundColor: palette.surface, borderColor: palette.accentText, borderRadius: 9, borderWidth: 1, color: palette.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 7 },
+    liveSync: { alignSelf: 'flex-start', color: palette.accentText, fontSize: 12, fontWeight: '900', paddingVertical: 4 },
+    compactAction: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: 7, minHeight: 44, paddingHorizontal: 4, paddingVertical: 8 },
+    compactActionText: { color: palette.accentText, fontSize: 14, fontWeight: '900' },
     quickAction: { flexBasis: '47%', flexGrow: 1 },
     quickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     sectionHeader: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
     timelineItem: { borderTopColor: palette.border, borderTopWidth: 1, gap: 3, paddingTop: 10 },
     timelineMinute: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
-    chip: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, justifyContent: 'center', minHeight: 44, paddingHorizontal: 12 },
-    chipActive: { backgroundColor: palette.selected, borderColor: palette.accentText },
+    chip: { alignItems: 'center', borderBottomColor: 'transparent', borderBottomWidth: 2, flexDirection: 'row', gap: 5, justifyContent: 'center', minHeight: 44, paddingHorizontal: 8 },
+    chipActive: { borderBottomColor: palette.accentText },
     chipText: { color: palette.textSecondary, fontSize: 12, fontWeight: '900' },
-    chipTextActive: { color: palette.selectedForeground },
+    chipTextActive: { color: palette.accentText },
     clock: { color: palette.accentText, fontSize: 42, fontVariant: ['tabular-nums'], fontWeight: '900', textAlign: 'center' },
     dangerText: { color: palette.danger, fontSize: 13, fontWeight: '800', lineHeight: 19 },
     emptyState: { alignItems: 'center', gap: 6, minHeight: 118, paddingVertical: 22 },
@@ -164,13 +166,13 @@ function createStyles(palette) {
   })
 }
 
-function Button({ danger = false, disabled = false, iconKey = '', label, onPress, secondary = false, styles, warning = false }) {
-  const contentStyle = [secondary ? styles.secondaryText : styles.actionText, danger && (secondary ? styles.secondaryDangerText : styles.actionDangerText), warning && secondary && styles.secondaryWarningText]
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, danger && (secondary ? styles.secondaryDanger : styles.actionDanger), warning && secondary && styles.secondaryWarning, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={21} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
+function Button({ compact = false, danger = false, disabled = false, iconKey = '', label, onPress, secondary = false, styles, warning = false }) {
+  const contentStyle = [compact ? styles.compactActionText : secondary ? styles.secondaryText : styles.actionText, danger && (secondary ? styles.secondaryDangerText : styles.actionDangerText), warning && secondary && styles.secondaryWarningText]
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [compact ? styles.compactAction : secondary ? styles.secondary : styles.action, danger && (secondary ? styles.secondaryDanger : styles.actionDanger), warning && secondary && styles.secondaryWarning, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={21} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
 }
 
 function Chips({ iconResolver = null, onChange, options, styles, value }) {
-  return <View style={styles.tabs}>{options.map((option) => { const selected = value === option.value; const iconStyle = [styles.chipText, selected && styles.chipTextActive]; const iconKey = option.iconKey || iconResolver?.(option.value); return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={option.value} onPress={() => onChange(option.value)} style={[styles.chip, selected && styles.chipActive]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={20} style={iconStyle} /> : null}<Text style={iconStyle}>{option.label}</Text></Pressable> })}</View>
+  return <View style={styles.tabs}>{options.map((option) => { const selected = value === option.value; const iconStyle = [styles.chipText, selected && styles.chipTextActive]; const iconKey = option.iconKey || iconResolver?.(option.value); return <Pressable accessibilityRole="button" accessibilityState={{ selected }} aria-selected={selected} key={option.value} onPress={() => onChange(option.value)} style={[styles.chip, selected && styles.chipActive]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={20} style={iconStyle} /> : null}<Text style={iconStyle}>{option.label}</Text></Pressable> })}</View>
 }
 
 function Field({ keyboardType = 'default', label, multiline = false, onChangeText, styles, value }) {
@@ -232,7 +234,7 @@ function MatchList({ filter, matches, onOpen, selectedId, setFilter, styles }) {
   return <View style={styles.stack}>
     <Chips onChange={setFilter} options={[{ iconKey: getMatchDayFilterIconKey('current'), label: 'Today and live', value: 'current' }, { iconKey: getMatchDayFilterIconKey('upcoming'), label: 'Upcoming', value: 'upcoming' }, { iconKey: getMatchDayFilterIconKey('previous'), label: 'Previous', value: 'previous' }, { iconKey: getMatchDayFilterIconKey('all'), label: 'All', value: 'all' }]} styles={styles} value={filter} />
     {visible.length === 0 ? <View style={styles.emptyState}><MaterialIcons name="sports-soccer" size={40} style={styles.secondaryText} /><Text style={styles.cardTitle}>No fixtures match this view.</Text><Text style={styles.meta}>Select a filter above to view fixtures.</Text></View> : null}
-    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{formatUkDate(match.matchDate, 'Date TBC')} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'} | {label(match.status, 'scheduled')}</Text>{getMatchDayLifecycleState(match) !== 'not_started' ? <Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text> : null}</Pressable> })}
+    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{formatUkDate(match.matchDate, 'Date TBC')} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{normalize(match.status) && normalize(match.status) !== 'scheduled' ? ` | ${label(match.status)}` : ''}</Text>{getMatchDayLifecycleState(match) !== 'not_started' ? <Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text> : null}</Pressable> })}
   </View>
 }
 
@@ -262,7 +264,7 @@ function FixtureHero({ match, now, styles }) {
   const live = isLiveMatch(match)
   return <View style={[styles.fixtureHero, live && styles.fixtureHeroLive]}>
     <View style={styles.tabs}>
-      <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status, 'Scheduled')}</Text>
+      {live || (normalize(match.status) && normalize(match.status) !== 'scheduled') ? <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status)}</Text> : null}
       <Text style={styles.liveSync}>{view.phaseLabel}</Text>
       {match.homeAway ? <Text style={styles.liveSync}>{label(match.homeAway)}</Text> : null}
       {match.fixtureType ? <Text style={styles.liveSync}>{label(match.fixtureType)}</Text> : null}
@@ -874,9 +876,8 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const focusedLiveMode = Boolean(match && !fixtureFormOpen && panel === 'live')
 
   return <View style={styles.stack}>
-    {!focusedLiveMode ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Live fixture control with server-authoritative squad, clock, events, volunteers, shootout, and corrections.</Text></> : null}
-    {!match ? <View style={styles.tabs}><Button iconKey="coach.availability" label="Availability" onPress={() => onNavigate('invites')} secondary styles={styles} /><Button iconKey="coach.chat" label="Team Chat" onPress={() => onNavigate('chat')} secondary styles={styles} /><Button iconKey="route.calendar" label="Calendar" onPress={() => onNavigate('calendar')} secondary styles={styles} /></View> : null}
-    {!match && !fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
+    {!focusedLiveMode ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Manage fixtures, squads and live match updates.</Text></> : null}
+    {!match && !fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button compact iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
     {fixtureFormOpen ? <CoachFixtureForm match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCreated={handleFixtureCreated} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
     {match && !fixtureFormOpen && ['overview', 'volunteers'].includes(panel) ? <CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /> : null}
     {loading ? <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading authoritative Match Day data...</Text></View> : null}
@@ -898,7 +899,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       {serverMatch?.status === 'full_time' ? <Text style={styles.body}>The server match has reached full time. Review the saved actions above and sync them, or discard them if they are no longer needed, before concluding.</Text> : null}
     </View> : null}
     {!fixtureFormOpen && !match ? <MatchList filter={filter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={setFilter} styles={styles} /> : null}
-    {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><Button iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} /><Chips iconResolver={getMatchDayPanelIconKey} onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} /></> : null}
+    {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><Button compact iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} /><Chips iconResolver={getMatchDayPanelIconKey} onChange={setPanel} options={MATCH_DAY_PANEL_OPTIONS} styles={styles} value={panel} /></> : null}
       {reportMatch.status === 'full_time' && !reportMatch.concludedAt && panel !== 'report' ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for coach review</Text><Text style={styles.body}>Full time has been recorded. Review the result and conclude this match.</Text><Button disabled={busy || reconciling} label="Review and conclude" onPress={() => { setPanel('report'); onRequestScrollTop?.() }} styles={styles} /></View> : null}
       {panel === 'overview' ? <View style={styles.stack}><FixtureHero match={match} styles={styles} /><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><Text style={styles.body}>{match.venueAddress || match.venueName || 'Venue TBC'}</Text><ClubKitDisplay clubId={context.clubId || user.clubId} shirtChoice={match.shirtChoice} textStyle={styles.body} />{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text>{canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling }) ? <Button label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'start-match', label: 'Start match', run: async () => { const detail = await runTimer('start'); setPanel('live'); return detail } })} styles={styles} /></View> : actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
       <View style={panel === 'squad' ? undefined : { display: 'none' }}><CoachSquadPanel key={`${user.id}:${user.activeTeamId}:${match.id}`} templateStore={templateStore} actions={actions} busy={busy || reconciling} match={match} palette={palette} onPendingChange={setPendingSquadCount}

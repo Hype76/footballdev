@@ -30,7 +30,7 @@ ${selected}
 function App(){const[mode,setMode]=React.useState('dark'),[loading,setLoading]=React.useState(false);window.mode=setMode;window.loading=setLoading;
 const palette=createCoachTheme({mode,context:{clubAccent:'#2ba7aa'}}).tokens;theme={palette,styles:createCoachStyles(palette)};
 return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:16}}>
-<HomeScreen context={{teamId:'synthetic-team'}} onNavigate={route=>window.route=route} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View>}
+<HomeScreen context={{teamId:'synthetic-team'}} onNavigate={(route,target)=>{window.route=route;window.target=target}} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{id:'next-fixture',opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
 const browser = await chromium.launch({ headless: true })
@@ -47,6 +47,9 @@ try {
     assert.equal(await page.getByText('Quick access', {exact:true}).count(), 0)
     await page.getByRole('button', {name: /Availability next 7 days/}).click()
     assert.equal(await page.evaluate(() => window.route), 'invites')
+    await page.getByRole('button', { name: /^Next match:/ }).click()
+    assert.equal(await page.evaluate(() => window.route), 'matchday')
+    assert.deepEqual(await page.evaluate(() => window.target), { fixtureId: 'next-fixture' })
     assert.equal(await page.getByText(/Offline readiness|Offline downloads|Download for offline/).count(), 0)
     assert.ok((await page.getByRole('button', { name: 'Next Calendar item: Thu 10 Sept, 16:00' }).boundingBox()).y < 40)
     await page.screenshot({ path: `${output}/home-${mode}-${width}.png` })

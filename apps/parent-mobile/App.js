@@ -91,6 +91,8 @@ import {
   getParentMatchDirectionsUrl,
   getParentFriendlyError,
   getParentHomeFixtureCards,
+  getParentMatchStatusBadges,
+  getParentAgendaResponseBadge,
   getParentHomeModel,
   getPollDraftOption,
   isParentDefinitelyOffline,
@@ -2478,6 +2480,20 @@ function getNotificationTypeIcon(intentType) {
   })[normalizeText(intentType).toLowerCase()] || 'notifications'
 }
 
+function CompactIconAction({ disabled = false, iconKey, label, onPress, selected }) {
+  const { palette, styles } = useParentTheme()
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled, selected }} aria-selected={selected} disabled={disabled} onPress={onPress} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 4, borderBottomWidth: 2, borderBottomColor: selected ? palette.accentText : 'transparent' }, disabled && styles.disabled, pressed && styles.pressed]}><ParentIcon color={palette.accentText} iconKey={iconKey} size={22} /><Text style={[styles.cardLink, { flexShrink: 1 }]}>{label}</Text></Pressable>
+}
+
+function HomeStatusBadges({ badges = [] }) {
+  const { palette } = useParentTheme()
+  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>{badges.map((badge) => {
+    const dark = Number.parseInt(String(palette.background || '#ffffff').slice(1, 3), 16) < 128
+    const [color, backgroundColor] = ({ success: dark ? ['#86efac', '#14532d'] : ['#167000', '#e1f3e1'], danger: dark ? ['#fca5a5', '#7f1d1d'] : ['#b91c1c', '#fee2e2'], warning: dark ? ['#fcd34d', '#713f12'] : ['#995900', '#fff0d0'], accent: dark ? ['#bfdbfe', '#1e3a8a'] : ['#1d4ed8', '#dbeafe'] })[badge.tone] || (dark ? ['#d1d5db', '#374151'] : ['#4b5563', '#e5e7eb'])
+    return <View key={badge.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 4, backgroundColor }}><ParentIcon color={color} iconKey={badge.icon} size={16} /><Text style={{ color, fontSize: 11, fontWeight: '700' }}>{badge.label}</Text></View>
+  })}</View>
+}
+
 function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotification, onRetry, resource }) {
   const { palette, styles } = useParentTheme()
   const [unreadOnly, setUnreadOnly] = useState(false)
@@ -2487,12 +2503,12 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
     <SectionHeading title="Notifications" copy="Squad selection, scores and news from your club." />
     <ResourceError onRetry={onRetry} resource={resource} title="Notifications unavailable" />
     <View style={styles.cardTopRow}>
-      <PrimaryAction label={`All (${updates.length})`} onPress={() => setUnreadOnly(false)} secondary={unreadOnly} />
-      <PrimaryAction label={`Unread (${updates.filter((item) => !item.isRead).length})`} onPress={() => setUnreadOnly(true)} secondary={!unreadOnly} />
+      <CompactIconAction iconKey="notifications" selected={!unreadOnly} label={`All (${updates.length})`} onPress={() => setUnreadOnly(false)} secondary={unreadOnly} />
+      <CompactIconAction iconKey="mark-email-unread" selected={unreadOnly} label={`Unread (${updates.filter((item) => !item.isRead).length})`} onPress={() => setUnreadOnly(true)} secondary={!unreadOnly} />
     </View>
     {updates.length ? <View style={styles.cardTopRow}>
-      <PrimaryAction disabled={busy || isOffline || updates.every((item) => item.isRead)} label="Mark all as read" onPress={() => onAction('read', updates.filter((item) => !item.isRead))} secondary />
-      <PrimaryAction disabled={busy || isOffline} label="Clear all" onPress={() => onAction('clear', updates)} secondary />
+      <CompactIconAction iconKey="done-all" disabled={busy || isOffline || updates.every((item) => item.isRead)} label="Mark all as read" onPress={() => onAction('read', updates.filter((item) => !item.isRead))} secondary />
+      <CompactIconAction iconKey="delete-outline" disabled={busy || isOffline} label="Clear all" onPress={() => onAction('clear', updates)} secondary />
     </View> : null}
     {isOffline ? <Text style={styles.helperText}>Connect to the internet to mark notifications as read or clear them.</Text> : null}
     {resource.loading && !updates.length ? <LoadingPanel message="Loading notifications" /> : null}
@@ -2511,7 +2527,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
           </View>
         </View>
       </Pressable>
-      {!notification.isRead ? <PrimaryAction disabled={busy || isOffline} label="Mark as read" onPress={() => onAction('read', [notification])} secondary /> : <Text style={styles.helperText}>Read</Text>}
+      {!notification.isRead ? <CompactIconAction iconKey="done" disabled={busy || isOffline} label="Mark as read" onPress={() => onAction('read', [notification])} secondary /> : <Text style={styles.helperText}>Read</Text>}
       </View>
     })}
   </View>
@@ -2572,9 +2588,9 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
         <>
           <SectionHeading copy="The nearest Parent-visible fixture or event." title="Next up" />
           {homeModel.nextActivity?.type === 'match' ? (
-            <MatchPreviewCard match={homeModel.nextActivity.item} onPress={onOpenMatch} prominent />
+            <MatchPreviewCard invitations={invitations} link={link} match={homeModel.nextActivity.item} onPress={onOpenMatch} prominent />
           ) : homeModel.nextActivity?.type === 'calendar' ? (
-            <CalendarCard onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={homeModel.nextActivity.item} isOffline={isOffline} onOpenLink={onOpenLink} onOpenResource={onOpenResource} prominent />
+            <CalendarCard invitations={invitations} matches={matches.items} link={link} onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={homeModel.nextActivity.item} isOffline={isOffline} onOpenLink={onOpenLink} onOpenResource={onOpenResource} prominent />
           ) : (
             <EmptyPanel message="There are no upcoming fixtures or shared calendar events right now." title="Nothing scheduled" />
           )}
@@ -2586,7 +2602,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
       {homeFixtures.length > 0 ? (
         <HomeCollapsibleSection copy="Upcoming Parent-visible Matchday items." title="Fixtures" expanded={homeSections.sections.fixtures} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('fixtures')}>
           {homeFixtures.map((match) => (
-            <MatchPreviewCard key={match.id} match={match} onPress={onOpenMatch} />
+            <MatchPreviewCard invitations={invitations} link={link} key={match.id} match={match} onPress={onOpenMatch} />
           ))}
         </HomeCollapsibleSection>
       ) : null}
@@ -2594,7 +2610,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
       {homeModel.upcomingCalendarEvents.length > 0 ? (
         <HomeCollapsibleSection copy="Training, meetings and club events shared with your family." title="Agenda" expanded={homeSections.sections.calendar} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('calendar')}>
           {homeModel.upcomingCalendarEvents.slice(0, 4).map((event) => (
-            <CalendarCard onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={event} isOffline={isOffline} key={event.id} onOpenLink={onOpenLink} onOpenResource={onOpenResource} />
+            <CalendarCard invitations={invitations} matches={matches.items} link={link} onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={event} isOffline={isOffline} key={event.id} onOpenLink={onOpenLink} onOpenResource={onOpenResource} />
           ))}
         </HomeCollapsibleSection>
       ) : null}
@@ -2602,7 +2618,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
       {homeModel.recentMatches.length > 0 ? (
         <HomeCollapsibleSection copy="Recent Parent-visible results." title="Recent Matchday" expanded={homeSections.sections.recentMatches} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('recentMatches')}>
           {homeModel.recentMatches.slice(0, 3).map((match) => (
-            <MatchPreviewCard key={match.id} match={match} onPress={onOpenMatch} />
+            <MatchPreviewCard invitations={invitations} link={link} key={match.id} match={match} onPress={onOpenMatch} />
           ))}
         </HomeCollapsibleSection>
       ) : null}
@@ -2627,7 +2643,7 @@ function HomeCollapsibleSection({ title, copy, expanded, disabled, onToggle, chi
   )
 }
 
-function MatchPreviewCard({ match, onPress, prominent = false }) {
+function MatchPreviewCard({ match, onPress, prominent = false, invitations = [], link = {} }) {
   const { palette, styles } = useParentTheme()
   const status = getParentMatchStatusLabel(match)
   const isFinished = match.status === 'full_time'
@@ -2645,7 +2661,7 @@ function MatchPreviewCard({ match, onPress, prominent = false }) {
     >
       <View style={styles.compactRow}>
         {getParentMatchResult(match) ? <MatchResultIcon match={match} textStyle={styles.cardMeta} /> : <ParentIcon color={palette.text} iconKey="football" size={35} />}
-        <View style={styles.compactCopy}><View style={styles.cardTopRow}><Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /><Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
+        <View style={styles.compactCopy}><View style={styles.cardTopRow}>{status.toLowerCase() !== 'scheduled' ? <Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /> : null}<Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>{!isFinished && !match.isFanView ? <HomeStatusBadges badges={getParentMatchStatusBadges(match, invitations, link)} /> : null}<Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {score ? <Text style={styles.score}>{score}</Text> : <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />}
       </View>
     </Pressable>
@@ -2708,9 +2724,11 @@ function MatchDetail({ match, onBack }) {
   )
 }
 
-function CalendarCard({ event, onPress, prominent = false }) {
+function CalendarCard({ event, onPress, prominent = false, invitations = [], matches = [], link = {} }) {
   const { palette, styles } = useParentTheme()
   const presentation = getParentEventPresentation(event)
+  const fixture = event.sourceType === 'match_day' ? matches.find(match => match.id === event.sourceId) : null
+  const responseBadges = fixture ? (fixture.isFanView ? [] : getParentMatchStatusBadges(fixture, invitations, link)) : [getParentAgendaResponseBadge(event, invitations)].filter(Boolean)
   const eventColor = palette[presentation.tone]
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={event.title} accessibilityHint="Opens event details" onPress={() => onPress(event)} style={({ pressed }) => [styles.card, styles.homeCard, prominent && styles.cardProminent, pressed && styles.pressed]}>
@@ -2719,6 +2737,7 @@ function CalendarCard({ event, onPress, prominent = false }) {
         <View style={styles.compactCopy}>
           <View style={styles.cardTopRow}><Text style={[styles.eventLabel, { color: eventColor }]}>{presentation.label}</Text><Text style={styles.cardDate}>{getParentEventDateTimeLabel(event)}</Text></View>
           <Text style={styles.cardTitle}>{event.title}</Text>
+          <HomeStatusBadges badges={responseBadges} />
           {event.location ? <Text numberOfLines={1} style={styles.cardMeta}>{event.location}</Text> : null}
         </View>
         <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />
@@ -2815,8 +2834,8 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
       <ScreenIntro copy={`Parent responses for ${link.playerName}.`} title="Polls" />
       <ResourceError onRetry={onRetry} resource={resource} title="Polls unavailable" />
       {!targetPoll ? <View accessibilityLabel="Poll view" style={styles.notificationChoices}>
-        <PrimaryAction label={`Open (${openPolls.length})`} onPress={() => setViewMode('open')} secondary={activeView !== 'open'} />
-        <PrimaryAction label={`Results (${resultPolls.length})`} onPress={() => setViewMode('results')} secondary={activeView !== 'results'} />
+        <CompactIconAction iconKey="poll" selected={activeView === 'open'} label={`Open (${openPolls.length})`} onPress={() => setViewMode('open')} secondary={activeView !== 'open'} />
+        <CompactIconAction iconKey="bar-chart" selected={activeView === 'results'} label={`Results (${resultPolls.length})`} onPress={() => setViewMode('results')} secondary={activeView !== 'results'} />
       </View> : null}
       {resource.loading && resource.items.length === 0 ? <LoadingPanel message="Loading polls" /> : null}
       {!resource.loading && !resource.error && visibleItems.length === 0 ? (
