@@ -75,11 +75,11 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
       return json(200, { matches })
     }
     if (body.action === 'resources') {
-      const result = await client.from('resource_library_links').select('resource_id, resource_library_items!inner(id, title, description, archived_at, club_id, team_id)')
+      const result = await client.from('resource_library_links').select('resource_id, resource_library_items!inner(id, title, description, category, created_at, updated_at, archived_at, club_id, team_id)')
         .eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).eq('linked_type', 'player').eq('linked_id', scope.player.id).eq('parent_visible', true).is('removed_at', null)
       if (result.error) throw result.error
       const resources = (result.data || []).map((row) => row.resource_library_items).filter((r) => r && !r.archived_at && r.club_id === scope.fan.club_id && r.team_id === scope.player.team_id)
-        .map(({ id, title, description }) => ({ id, title, description }))
+        .map(({ id, title, description, category, created_at, updated_at }) => ({ id, title, description, category, createdAt: created_at, updatedAt: updated_at }))
       return json(200, { resources })
     }
     if (!UUID.test(body.resourceId || '')) return json(400, { message: 'Choose a valid resource.' })

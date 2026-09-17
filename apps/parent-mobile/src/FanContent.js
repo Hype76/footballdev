@@ -8,12 +8,13 @@ import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTim
 import { isFanGameDayMatch } from '../../../src/lib/fan-game-day'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display'
 import ParentIcon from './ParentIcon'
+import { FanAttendanceScreen } from './FanAttendanceScreen'
 
 export function FanContent({ connection, view, content, formation, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
   const link = { playerName: connection?.player_name, teamName: connection?.team_name, clubName: connection?.club_name }
   const resource = (items) => ({ items, loading: false, error: '' })
   const addToCalendar = (item) => onOpenLink(getParentGoogleCalendarUrl(item))
-  if (view.action === 'attendance') return <View style={{ gap: 16 }}><Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 26, fontWeight: '800' }}>My attendance</Text><Text style={{ color: themeTokens.textSecondary }}>Your current attendance responses. Your Parent manages replies to invitations.</Text>{(content.attendance || []).map(item => <View key={item.id} style={{ gap: 6, paddingVertical: 12 }}><Text style={{ color: themeTokens.textPrimary, fontWeight: '700' }}>{item.title}</Text><Text style={{ color: themeTokens.textSecondary }}>{formatParentProductDateTime(item.starts_at || item.date)}</Text><Text style={{ color: themeTokens.textPrimary }}>{({ available: 'Available', attending: 'Attending', accepted: 'Attending', unavailable: 'Unavailable', not_attending: 'Not attending', declined: 'Not attending', maybe: 'Maybe' })[item.response] || 'Awaiting response'}</Text></View>)}{!content.attendance?.length ? <Text style={{ color: themeTokens.textSecondary }}>No upcoming attendance requests.</Text> : null}</View>
+  if (view.action === 'attendance') return <FanAttendanceScreen items={content.attendance || []} themeTokens={themeTokens} />
   if (view.action === 'schedule') {
     const calendarEvents = upcomingFanSchedule(content.schedule || []).map((item) => ({
       id: item.id, title: item.title, eventType: item.event_type || 'event', status: item.status,

@@ -49,7 +49,7 @@ window.rpc=async(name,args)=>{
   window.calls.push({name,args});
   if(name==='list_fan_connections')return window.rows.filter(r=>!r.deleted);
   if(name==='partner_feed')return {items:[],linkedAnalytics:null};
-  if(name==='set_fan_player_account') {const row=window.rows.find(r=>r.id===args.connection_id_value);row.relationship_type='player';row.permissions.schedule=true;return null;}
+  if(name==='set_fan_player_account') {if(window.failConversion){window.failConversion=false;throw new Error('Could not change account. Try again.')}const row=window.rows.find(r=>r.id===args.connection_id_value);row.relationship_type=args.player_account_value?'player':'fan';if(args.player_account_value)row.permissions.schedule=true;return null;}
   if(name==='create_fan_invitation'){
     const row={id:crypto.randomUUID(),name:args.name_value,email:args.email_value,parent_link_id:args.parent_link_id_value,is_owner:true,status:'pending',permissions:args.permissions_value,invite_token:crypto.randomUUID(),expires_at:new Date(Date.now()+86400000).toISOString()};window.rows.push(row);return row;
   }
@@ -58,7 +58,7 @@ window.rpc=async(name,args)=>{
   }
   if(name==='delete_cancelled_fan_invitation'){
     if(window.failDelete)throw Error('Could not delete. Try again.');
-    const row=window.rows.find(r=>r.id===args.connection_id_value);if(row.status!=='cancelled')throw Error('Only cancelled');row.deleted=true;
+    const row=window.rows.find(r=>r.id===args.connection_id_value);if(!['cancelled','expired'].includes(row.status))throw Error('Only cancelled or expired');row.deleted=true;
   }
 };
 window.readRequests=[];window.responses={};window.failRead=false;window.delayRead=false;
@@ -192,6 +192,7 @@ try {
   assert.equal(await page.evaluate(()=>window.rows.length),3)
   await page.evaluate(()=>{window.rows[1].expires_at=new Date(Date.now()-60000).toISOString();window.rows[1].status='expired';window.remount()})
   await page.getByText('Expired',{exact:true}).waitFor()
+  await button('Expand QR code Fan details').click()
   await button('Show QR code').nth(1).click()
   await page.evaluate(()=>window.alert.buttons[1].onPress())
   await page.getByLabel('Fan invitation QR code').waitFor()
@@ -216,6 +217,14 @@ try {
   assert.equal(await button('Delete').count(), 0)
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
   await page.screenshot({ path: `${out}/after-delete.png`, fullPage: true })
+  await page.evaluate(() => { window.rows[1].status='expired'; window.remount() })
+  await button('Delete').click()
+  assert.equal(await page.evaluate(() => window.alert.title), 'Delete expired invitation?')
+  await page.evaluate(() => window.alert.buttons[0].onPress?.())
+  assert.equal(await page.evaluate(() => Boolean(window.rows[1].deleted)), false)
+  await button('Delete').click()
+  await page.evaluate(() => window.alert.buttons[1].onPress())
+  await page.getByText('QR code Fan', { exact: true }).waitFor({ state: 'hidden' })
   await page.evaluate(() => window.normalSwitch('first'))
   await page.locator('[data-tab="home"]').waitFor()
   await page.evaluate(() => window.navigate())
@@ -223,7 +232,7 @@ try {
   await page.evaluate(() => {
     window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};
     window.rows=[{id:'followed-child',is_owner:false,status:'active',player_name:'Followed Child',club_name:'Demo FC',team_name:'Under 17',permissions:{schedule:true,game_day:true,development:true,resources:true}}];
-    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:new Date(Date.now()+8*86400000).toISOString().slice(0,10),status:'live'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
+    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:new Date(Date.now()+8*86400000).toISOString().slice(0,10),status:'live'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice',category:'match_day'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
     window.remount();
   });
   await page.getByText('Followed Child',{exact:true}).waitFor();
@@ -405,6 +414,20 @@ try {
   await button('Attendance').click();await page.getByText('My attendance',{exact:true}).waitFor();
   await page.getByText('Available',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:/^(Accept|Decline|Maybe)$/}).count(),0);
+  await page.evaluate(()=>{window.standalone=false;window.user={id:'parent-test',parentPortalLinks:[{id:'second',playerName:'FP TEST Player',clubName:'Demo FC'}]};window.rows[0].is_owner=true;window.remount()});
+  await button('Edit access').click();await button('Change to a regular Fan').click();
+  await page.getByText('Change to a regular Fan?',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.rows[0].relationship_type),'player');
+  await page.evaluate(()=>window.failConversion=true);
+  await button('Confirm regular Fan').click();
+  await page.getByText('Could not change account. Try again.',{exact:true}).last().waitFor();
+  assert.equal(await page.evaluate(()=>window.rows[0].relationship_type),'player');
+  await button('Confirm regular Fan').click();
+  await page.waitForFunction(()=>window.rows[0].relationship_type==='fan');
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='set_fan_player_account').at(-1).args.player_account_value),false);
+  assert.equal(await page.evaluate(()=>window.rows[0].permissions.schedule),true);
+  await page.evaluate(()=>{window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};window.rows[0].is_owner=false;window.remount()});
+  await button('Schedule').waitFor();assert.equal(await button('Attendance').count(),0);
   await page.evaluate(()=>{window.ownerFixture();window.mode('light');window.remount();window.normalSwitch('first');window.navigate()});
   await button('Jenson Bailey (selected)').waitFor();
   assert.equal(await page.getByTestId('owner-fan-compact-0').count(),1,'The real Player account is retained alongside Fans');
@@ -417,7 +440,7 @@ try {
       await page.locator('[data-mode="'+mode+'"]').waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await assertRenderedTextContrast(page,'Compact owner Fans '+mode+' '+width);
-      for(const label of ['Edit access','Revoke access','Show QR code','Resend link']) {
+      for(const label of ['Edit access','Revoke access','Delete']) {
         const box=await button(label).first().boundingBox();assert.ok(box.width>=44&&box.height>=44,'Icon actions retain 44px targets');
       }
       const first=await page.getByTestId('owner-fan-compact-0').boundingBox();
@@ -436,6 +459,7 @@ try {
   await page.evaluate(()=>window.alert.buttons[0].onPress?.());
   assert.equal(await page.getByTestId('owner-fan-compact-0').count(),1);
   assert.equal(await page.getByTestId('owner-fan-compact-1').count(),1,'Cancelling revoke keeps the Fan');
+  await page.getByTestId('owner-fan-compact-4').getByRole('button',{name:/^Expand /}).click();
   await button('Show QR code').click();
   assert.equal(await page.evaluate(()=>window.alert.title),'Renew Fan invitation?');
   await page.evaluate(()=>window.alert.buttons[0].onPress?.());
@@ -452,5 +476,5 @@ try {
   await button('Jenson Bailey (selected)').waitFor();
   await page.getByTestId('owner-fan-compact-0').waitFor();
   assert.deepEqual(errors, [])
-  console.log('PASS: native Fans child/header sync, persisted selection, email/QR/share remount, prominent branded action, confirmed cancelled-only deletion, retry after failure, normal child navigation.')
+  console.log('PASS: native Fans child/header sync, persisted selection, invitation renewal, confirmed cancelled/expired deletion, Player-to-Fan conversion, retry after failure, normal child navigation.')
 } finally { await browser.close() }

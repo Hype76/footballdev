@@ -64,8 +64,8 @@ function OwnedFanRow({ connection, busy, onEdit, onRemove, onRenew, onDelete }) 
       <View style={styles.fanStatus}><ParentIcon iconKey="fiber-manual-record" color={status === 'active' ? tokens.success : tokens.textSecondary} size={9} /><Text style={styles.fanStatusText}>{status.slice(0, 1).toUpperCase() + status.slice(1)}</Text></View>
       <View style={styles.fanIconActions}>
         {status === 'active' ? <>{iconAction('Edit access', 'action.edit', onEdit)}{iconAction('Revoke access', 'delete-outline', onRemove, true)}</> : null}
-        {['pending', 'expired'].includes(status) ? <>{iconAction('Resend link', 'fan.email', () => onRenew('email'))}{iconAction('Show QR code', 'fan.qr', () => onRenew('qr'))}</> : null}
-        {status === 'cancelled' ? iconAction('Delete', 'delete-outline', onDelete, true) : null}
+        {status === 'pending' ? <>{iconAction('Resend link', 'fan.email', () => onRenew('email'))}{iconAction('Show QR code', 'fan.qr', () => onRenew('qr'))}</> : null}
+        {['cancelled', 'expired'].includes(status) ? iconAction('Delete', 'delete-outline', onDelete, true) : null}
         <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${connection.name} details`} accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={styles.fanIconAction}><ParentIcon iconKey={expanded ? 'section.collapse' : 'action.open'} color={tokens.textSecondary} size={21} /></Pressable>
       </View>
     </View>
@@ -74,6 +74,7 @@ function OwnedFanRow({ connection, busy, onEdit, onRemove, onRenew, onDelete }) 
       <Text style={styles.helper}>{connection.relationship_type === 'player' ? 'Player account' : 'Fan account'} | {status.slice(0, 1).toUpperCase() + status.slice(1)}</Text>
       <Text style={styles.helper}>{FAN_ACCESS.filter(item => connection.permissions[item.key]).map(item => item.label).join(', ') || 'No shared access'}</Text>
       {status === 'pending' ? <View style={styles.actions}><Action icon="action.edit" label="Edit access" disabled={busy} onPress={onEdit} /><Action icon="delete-outline" label="Cancel invitation" disabled={busy} onPress={onRemove} /></View> : null}
+      {status === 'expired' ? <View style={styles.actions}><Action icon="fan.email" label="Resend link" disabled={busy} onPress={() => onRenew('email')} /><Action icon="fan.qr" label="Show QR code" disabled={busy} onPress={() => onRenew('qr')} /></View> : null}
     </View> : null}
   </View>
 }
@@ -184,7 +185,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const remove = (connection, self) => Alert.alert(self ? 'Remove my access' : 'End Fan access', `Access to ${connection.player_name} and associated notifications will end. A new invitation will be needed to restore access.`, [
     { text: 'Go back', style: 'cancel' }, { text: 'Remove access', style: 'destructive', onPress: () => run(async () => { state.clearView(); setFormation(null); await state.manage(connection.id, self ? 'remove' : 'revoke'); await refreshUserProfile() }) },
   ])
-  const deleteInvitation = (connection) => Alert.alert('Delete cancelled invitation?', `Remove the cancelled invitation for ${connection.name} (${connection.email}) from your Fans list?`, [
+  const deleteInvitation = (connection) => Alert.alert(`Delete ${connection.status} invitation?`, `Remove the ${connection.status} invitation for ${connection.name} (${connection.email}) from your Fans list?`, [
     { text: 'Go back', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => run(() => state.deleteInvitation(connection.id)) },
   ])
   useEffect(() => {
@@ -262,7 +263,8 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
         <Text style={styles.label}>Name</Text><TextInput accessibilityLabel="Fan name" autoComplete="name" editable={!form.id} maxLength={120} value={form.name} onChangeText={(name) => setForm({ ...form, name })} style={styles.input} />
         <Text style={styles.label}>Email</Text><TextInput accessibilityLabel="Fan email" autoComplete="email" autoCapitalize="none" keyboardType="email-address" editable={!form.id} maxLength={254} value={form.email} onChangeText={(email) => setForm({ ...form, email })} style={styles.input} />
         <Text style={styles.label}>Choose access</Text>{FAN_ACCESS.map((item) => <View style={styles.permission} key={item.key}><ParentIcon iconKey={item.icon} color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{item.label}</Text><Text style={styles.helper}>{item.description}</Text></View><FanSwitch accessibilityLabel={item.label} disabled={item.key === 'resources' && !form.permissions.development} value={form.permissions[item.key]} onValueChange={(value) => setForm({ ...form, permissions: normalizeFanPermissions({ ...form.permissions, [item.key]: value }) })} /></View>)}
-        {form.id && state.connections.some(connection => connection.id === form.id && connection.status === 'active' && connection.relationship_type !== 'player') ? <Action label="Make this the Player account" disabled={busy} onPress={() => setConvertAccount(form)} /> : null}
+        {form.id && state.connections.some(connection => connection.id === form.id && connection.status === 'active' && connection.relationship_type !== 'player') ? <Action label="Make this the Player account" disabled={busy} onPress={() => setConvertAccount({ ...form, playerAccount: true })} /> : null}
+        {form.id && state.connections.some(connection => connection.id === form.id && connection.status === 'active' && connection.relationship_type === 'player') ? <Action label="Change to a regular Fan" disabled={busy} onPress={() => setConvertAccount({ ...form, playerAccount: false })} /> : null}
         <View style={styles.actions}>{form.id ? <Action label="Review changes" onPress={() => review('edit')} /> : <><Action icon="fan.email" label="Email" onPress={() => review('email')} disabled={busy} /><Action icon="fan.qr" label="QR code" onPress={() => review('qr')} disabled={busy} /><Action icon="fan.share" label="Share link" onPress={() => review('share')} disabled={busy} /></>}<Action label="Cancel" onPress={() => setForm(null)} /></View>
       </View> : null}
       {ready ? <View><Text style={{ color: tokens.textPrimary }}>Invitation ready for {ready.name} ({ready.email}). Expires {formatParentProductDateTime(ready.expires_at, { year: 'numeric' })}.</Text>{ready.mode === 'qr' ? <Qr value={ready.url} /> : null}<View style={styles.actions}><Action icon="fan.share" label="Share invitation" onPress={() => Share.share({ message: ready.url })} /><Action icon="fan.email" label="Send email" onPress={() => run(() => request({ action: 'send_invitation', connectionId: ready.id }))} /></View></View> : null}
@@ -274,7 +276,17 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     {!parents.length && !state.loading && !state.connections.some(c => !c.is_owner && c.status === 'active') ? <Text style={styles.helper}>You are not following any players yet. Open a Fan invitation to get started.</Text> : null}
 
 
-    <Modal visible={Boolean(convertAccount)} transparent animationType="fade" onRequestClose={() => setConvertAccount(null)}><View style={styles.overlay}><View style={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Make this the Player account?</Text><Text style={styles.helper}>{convertAccount?.name} will be able to see this player's current attendance. They cannot accept or decline invitations. Existing shared access is retained.</Text><Action label="Confirm Player account" disabled={busy} onPress={() => run(async () => { await rpc('set_fan_player_account', { connection_id_value: convertAccount.id, player_account_value: true }); await state.reload(); setConvertAccount(null); setForm(null) })} /><Action label="Cancel" disabled={busy} onPress={() => setConvertAccount(null)} /></View></View></Modal>
+    <Modal visible={Boolean(convertAccount)} transparent animationType="fade" onRequestClose={() => { if (!busy) setConvertAccount(null) }}>
+      <View style={styles.overlay}><View style={styles.modal}>
+        <Text accessibilityRole="header" style={styles.heading}>{convertAccount?.playerAccount ? 'Make this the Player account?' : 'Change to a regular Fan?'}</Text>
+        <Text style={styles.helper}>{convertAccount?.playerAccount
+          ? `${convertAccount?.name} will be able to see this player's current attendance. They cannot accept or decline invitations. Existing shared access is retained.`
+          : `${convertAccount?.name} will keep their account and existing shared access. The Player-only attendance view will be removed.`}</Text>
+        {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
+        <Action label={convertAccount?.playerAccount ? 'Confirm Player account' : 'Confirm regular Fan'} disabled={busy} onPress={() => run(async () => { await rpc('set_fan_player_account', { connection_id_value: convertAccount.id, player_account_value: convertAccount.playerAccount }); await state.reload(); setConvertAccount(null); setForm(null) })} />
+        <Action label="Cancel" disabled={busy} onPress={() => setConvertAccount(null)} />
+      </View></View>
+    </Modal>
     {embedded && followed.length ? <Action icon="settings" label="Fan settings" onPress={() => showSection('settings')} /> : null}
     </>}
     <Modal visible={signOutConfirm} transparent animationType="fade" onRequestClose={() => { if (!busy) setSignOutConfirm(false) }}><View style={styles.overlay}><ScrollView style={{ flexGrow: 0, maxHeight: "90%", width: "100%", maxWidth: 480, alignSelf: "center" }} contentContainerStyle={styles.modal}><Text accessibilityRole="header" style={styles.heading}>Sign out?</Text><Text style={styles.helper}>You will need to sign in again to see your players.</Text>{state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}<Action label="Stay signed in" disabled={busy} onPress={() => setSignOutConfirm(false)} /><Action label="Confirm sign out" disabled={busy} onPress={() => run(async () => { state.clearView(); await signOut(); setSignOutConfirm(false) })} /></ScrollView></View></Modal>

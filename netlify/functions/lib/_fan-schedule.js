@@ -18,7 +18,7 @@ export function canFanViewMatch(match, parent, involvedIds) {
 }
 export async function loadFanMatches(client, scope, matchId = '', { includeScheduled = false } = {}) {
   const scheduleAllowed = includeScheduled && scope.fan.permissions?.schedule === true
-  let query = client.from('match_days').select('id, club_id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, venue_name, status, home_score, away_score, updated_at, parent_visible, parent_audience, deleted_at, previous_hidden_at')
+  let query = client.from('match_days').select('id, title, club_id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, venue_name, status, home_score, away_score, updated_at, parent_visible, parent_audience, deleted_at, previous_hidden_at')
     .eq('club_id', scope.fan.club_id).eq('parent_visible', true).is('deleted_at', null).is('previous_hidden_at', null)
     .gte('match_date', new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10)).order('match_date', { ascending: false }).limit(100)
   if (!scheduleAllowed) query = query.in('status', FAN_GAME_DAY_STATUSES)
@@ -39,33 +39,39 @@ export async function loadFanMatches(client, scope, matchId = '', { includeSched
   }
   return allowed
 }
-export async function loadFanSchedule(client, scope, now = new Date()) {
+export async function loadFanSchedule(client, scope, now = new Date(), { includePast = false } = {}) {
+  const trainingQuery = client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')
+  if (!includePast) trainingQuery.neq('status', 'expired')
   const [matches, invitations, shared, training, exclusions] = await Promise.all([
     loadFanMatches(client, scope, '', { includeScheduled: true }),
     rows(client.from('calendar_event_invites').select('calendar_event_id, assessment_session_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')),
     rows(client.from('calendar_events').select('id,title,starts_at,ends_at,location,event_type,parent_visible,parent_audience,team_id,recurrence_frequency,recurrence_until')
       .eq('club_id', scope.fan.club_id).is('cancelled_at', null)),
-    rows(client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled').neq('status', 'expired')),
+    rows(trainingQuery),
     rows(client.from('event_player_occurrence_exclusions').select('calendar_event_id,scope,effective_from_date').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id)),
   ])
   const requestIds = [...new Set(training.map((item) => item.request_id))]
   const occurrences = requestIds.length ? await rows(client.from('training_availability_requests').select('calendar_event_id,occurrence_date,occurrence_starts_at,occurrence_ends_at').in('id', requestIds).neq('status', 'cancelled')) : []
   const invitedIds = new Set(invitations.map((row) => row.calendar_event_id).filter(Boolean))
-  const schedule = buildFanScheduleEvents({ events: shared, invitedIds, occurrences, exclusions, parent: scope.parent, now })
+  const schedule = buildFanScheduleEvents({ events: shared, invitedIds, occurrences, exclusions, parent: scope.parent, now, includePast })
   const assessmentIds = [...new Set(invitations.map((row) => row.assessment_session_id).filter(Boolean))]
   if (assessmentIds.length) {
     const sessions = await rows(client.from('assessment_sessions').select('id,title,session_date,start_time,end_time,location,status').in('id', assessmentIds).eq('club_id', scope.fan.club_id).neq('status', 'cancelled'))
     schedule.push(...sessions.map((session) => ({ id: session.id, title: session.title || 'Assessment', date: session.session_date, time: session.start_time, end_time: session.end_time, location: session.location, event_type: 'assessment', status: session.status })))
   }
-  schedule.push(...matches.map((match) => ({ id: match.id, title: getMatchDayDisplayName(match), date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name, event_type: 'match_day', status: match.status })))
+  schedule.push(...matches.map((match) => ({ id: match.id, title: getMatchDayDisplayName(match), date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name, home_away: match.home_away, event_type: 'match_day', status: match.status })))
+  if (includePast) {
+    const earliest = getParentProductDateTimeParts(new Date(now.getTime() - 90 * 86400000)).date
+    return schedule.filter(item => getParentProductDateTimeParts(item.starts_at || item.date).date >= earliest && !['cancelled', 'postponed'].includes(item.status))
+  }
   return upcomingFanSchedule(schedule, now)
 }
 
-export async function loadPlayerAttendance(client, scope) {
-  const schedule = await loadFanSchedule(client, scope)
+export async function loadPlayerAttendance(client, scope, now = new Date()) {
+  const schedule = await loadFanSchedule(client, scope, now, { includePast: true })
   const [matches, training, invitations] = await Promise.all([
     rows(client.from('match_day_player_availability').select('match_day_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id)),
-    rows(client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled').neq('status', 'expired')),
+    rows(client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')),
     rows(client.from('calendar_event_invites').select('calendar_event_id,assessment_session_id,invite_status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')),
   ])
   const requestIds = [...new Set(training.map(item => item.request_id))]
@@ -75,13 +81,13 @@ export async function loadPlayerAttendance(client, scope) {
   ]) : [[], []]
   const byId = new Map(matches.map(item => [item.match_day_id, item.status]))
   for (const occurrence of occurrences) byId.set(`${occurrence.calendar_event_id}:${occurrence.occurrence_date}`, responses.find(item => item.request_id === occurrence.id)?.status || 'awaiting_response')
-  return schedule.map(item => ({ id: item.id, title: item.title, starts_at: item.starts_at, date: item.date,
+  return schedule.map(item => ({ ...item,
     response: byId.get(item.id) || invitations.find(invite => invite.calendar_event_id === item.id.split(':')[0] || invite.assessment_session_id === item.id)?.invite_status || 'awaiting_response',
   }))
 }
 
-export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclusions, parent, now = new Date() }) {
-  const today = getParentProductDateTimeParts(now).date
+export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclusions, parent, now = new Date(), includePast = false }) {
+  const today = getParentProductDateTimeParts(includePast ? new Date(now.getTime() - 90 * 86400000) : now).date
   const horizon = new Date(now.getTime() + 90 * 86400000).toISOString().slice(0, 10)
   const result = new Map()
   const excluded = (eventId, date) => exclusions.some((e) => e.calendar_event_id === eventId && (e.scope === 'this_and_future' ? date >= e.effective_from_date : date === e.effective_from_date))
