@@ -624,8 +624,14 @@ export function FormationBoardsPage() {
   const activeTeamName = String(user?.activeTeamName ?? '').trim() || 'Selected Team'
   const canOpen = canUseFormationBoards(user)
   const canCreate = canCreateFormationBoard(user)
-  const canEdit = publishedSnapshotVersion ? false : currentBoard ? canEditFormationBoard(user, currentBoard) : canCreate
   const isNewBoard = currentBoard?.id === 'new'
+  const canEdit = publishedSnapshotVersion
+    ? false
+    : isNewBoard
+      ? canCreate
+      : currentBoard
+        ? canEditFormationBoard(user, currentBoard)
+        : canCreate
   const hasUnsavedChanges = Boolean(snapshot && savedSnapshot && !snapshotsMatch(snapshot, savedSnapshot))
   const blocker = useBlocker(() => hasUnsavedChanges && !allowNavigationRef.current)
   const selectedMarker = snapshot?.placements.find((item) => item.playerId === selectedMarkerId) || null
@@ -789,7 +795,7 @@ export function FormationBoardsPage() {
       setSlotPlayerSearch('')
       setIsLineupEditMode(false)
       setLineupEditPlayerIds(new Set())
-      setSaveState(isLandscapeCompatibility && !snapshotVersion ? 'unsaved' : 'saved')
+      setSaveState(board.id === 'new' ? 'not_saved' : isLandscapeCompatibility && !snapshotVersion ? 'unsaved' : 'saved')
       setConflict(null)
       setPortraitCompatibility(isLandscapeCompatibility ? {
         isHistoricalSnapshot: Boolean(snapshotVersion),
@@ -892,7 +898,7 @@ export function FormationBoardsPage() {
     const previous = history[history.length - 1]
     setHistory((current) => current.slice(0, -1))
     setSnapshot(previous)
-    setSaveState(snapshotsMatch(previous, savedSnapshot) ? 'saved' : 'unsaved')
+    setSaveState(snapshotsMatch(previous, savedSnapshot) ? (isNewBoard ? 'not_saved' : 'saved') : 'unsaved')
     setIsLineupEditMode(false)
     setLineupEditPlayerIds(new Set())
     setActiveSlotId('')
@@ -1455,7 +1461,7 @@ export function FormationBoardsPage() {
             <button type="button" onClick={closeEditor} className={secondaryButtonClass}>Back to Formation Boards</button>
             <div className="flex flex-wrap items-center gap-2 text-sm font-black">
               <span className={`rounded-full px-3 py-1.5 ${saveState === 'failed' || saveState === 'conflict' ? 'bg-[var(--danger-soft)] text-[var(--danger-text)]' : saveState === 'saved' ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fff7ed] text-[#9a3412]'}`}>
-                {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : saveState === 'failed' ? 'Save failed' : saveState === 'conflict' ? 'Conflict detected' : 'Unsaved changes'}
+                {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : saveState === 'not_saved' ? 'Not saved' : saveState === 'failed' ? 'Save failed' : saveState === 'conflict' ? 'Conflict detected' : 'Unsaved changes'}
               </span>
               {!isNewBoard ? <span className="rounded-full border border-[var(--border-color)] px-3 py-1.5">Version {snapshot.baseVersionNumber}</span> : null}
             </div>

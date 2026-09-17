@@ -183,7 +183,7 @@ test('Coach source wires Quick Add intents and the streamlined Formation finish'
   assert.match(formation, /numberOfLines=\{1\}/)
   assert.match(formation, /Move to pitch/)
   assert.match(formation, /Continue to save/)
-  assert.match(formation, /Save private Formation Board/)
+  assert.match(formation, /Save Formation Board/)
   assert.match(formation, /Save and link to match/)
   assert.match(formation, /Save and publish to Team Resources/)
   assert.match(formationScreen, /Create a standalone Team plan now/)

@@ -1,7 +1,17 @@
 import { supabase } from './supabase'
+import {
+  array,
+  buildCoachFormationBoardCreatePayload,
+  buildCoachFormationBoardSavePayload,
+  normalize,
+  normalizeCoachFormationBoard,
+} from './coachFormationBoardPayload.js'
 
-const normalize = (value) => String(value ?? '').trim()
-const array = (value) => Array.isArray(value) ? value : []
+export {
+  buildCoachFormationBoardCreatePayload,
+  buildCoachFormationBoardSavePayload,
+  normalizeCoachFormationBoard,
+} from './coachFormationBoardPayload.js'
 
 function assertFormationRead(user) {
   if (!user?.id || !user?.clubId || !user?.activeTeamId) throw new Error('Choose an authorised Team before opening formations.')
@@ -18,43 +28,6 @@ async function rpc(name, params) {
   return data
 }
 
-function normalizeVersion(row) {
-  if (!row) return null
-  const roster = array(row.bench)
-  return {
-    bench: roster.filter((player) => player?.state !== 'unplaced'),
-    boardId: row.board_id ?? row.boardId ?? '',
-    formationPresetKey: normalize(row.formation_preset_key ?? row.formationPresetKey),
-    gameFormat: normalize(row.game_format ?? row.gameFormat),
-    id: row.id ?? '',
-    notes: normalize(row.notes),
-    placements: array(row.placements),
-    presetRegistryVersion: Number(row.preset_registry_version ?? row.presetRegistryVersion ?? 1),
-    unplaced: roster.filter((player) => player?.state === 'unplaced'),
-    versionNumber: Number(row.version_number ?? row.versionNumber ?? 0),
-  }
-}
-
-export function normalizeCoachFormationBoard(row) {
-  const payload = row?.board ? row : { board: row }
-  const board = payload.board
-  if (!board) return null
-  return {
-    clubId: board.club_id ?? board.clubId ?? '',
-    createdAt: board.created_at ?? board.createdAt ?? '',
-    currentVersion: normalizeVersion(payload.currentVersion ?? payload.current_version),
-    currentVersionId: board.current_version_id ?? board.currentVersionId ?? '',
-    currentVersionNumber: Number(board.current_version_number ?? board.currentVersionNumber ?? 0),
-    formationPresetKey: normalize(board.formation_preset_key ?? board.formationPresetKey),
-    gameFormat: normalize(board.game_format ?? board.gameFormat),
-    id: board.id ?? '',
-    linkedMatchDayId: board.linked_match_day_id ?? board.linkedMatchDayId ?? '',
-    presetRegistryVersion: Number(board.preset_registry_version ?? board.presetRegistryVersion ?? 1),
-    teamId: board.team_id ?? board.teamId ?? '',
-    title: normalize(board.title),
-  }
-}
-
 export function normalizeCoachFormationPreset(row) {
   return {
     displayName: normalize(row.display_name ?? row.displayName),
@@ -64,10 +37,6 @@ export function normalizeCoachFormationPreset(row) {
     registryVersion: Number(row.registry_version ?? row.registryVersion ?? 1),
     slots: array(row.slots),
   }
-}
-
-function serializeBench(bench = []) {
-  return bench.map((player) => ({ ...player, state: 'bench' }))
 }
 
 export async function getCoachFormationPresets(user) {
@@ -85,40 +54,16 @@ export async function getCoachFormationBoards(user) {
 
 export async function createCoachFormationBoard(user, match, draft, title) {
   assertFormationWrite(user)
-  const matchDescription = match?.id ? `Match plan for ${match.teamName} v ${match.opponent}` : 'Standalone Team formation plan'
   const data = await rpc('create_formation_board', {
-    bench_value: serializeBench(draft.bench),
-    description_value: matchDescription,
-    game_format_value: draft.gameFormat,
-    notes_value: '',
-    pitch_orientation_value: 'portrait',
-    placements_value: draft.placements,
-    preset_key_value: draft.presetKey,
-    registry_version_value: draft.registryVersion || 1,
+    ...buildCoachFormationBoardCreatePayload(match, draft, title),
     target_team_id: user.activeTeamId,
-    title_value: normalize(title) || (match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'),
-    visibility_value: 'draft',
   })
   return normalizeCoachFormationBoard(data)
 }
 
 export async function saveCoachFormationBoard(user, board, draft, title) {
   assertFormationWrite(user)
-  const data = await rpc('save_formation_board_editor', {
-    bench_value: serializeBench(draft.bench),
-    description_value: board.linkedMatchDayId ? `Match plan for ${normalize(title) || board.title}` : 'Standalone Team formation plan',
-    expected_version_number: board.currentVersionNumber,
-    game_format_value: draft.gameFormat,
-    notes_value: '',
-    pitch_orientation_value: 'portrait',
-    placements_value: draft.placements,
-    preset_key_value: draft.presetKey,
-    registry_version_value: draft.registryVersion || 1,
-    target_board_id: board.id,
-    title_value: normalize(title) || board.title,
-    version_reason_value: 'coach_mobile_save',
-    visibility_value: 'draft',
-  })
+  const data = await rpc('save_formation_board_editor', buildCoachFormationBoardSavePayload(board, draft, title))
   return normalizeCoachFormationBoard(data)
 }
 

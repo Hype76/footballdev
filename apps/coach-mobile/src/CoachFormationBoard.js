@@ -1,7 +1,7 @@
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   applyMobileFormationPreset,
@@ -39,7 +39,8 @@ import {
   saveCoachFormationBoard,
   withdrawCoachFormationBoard,
 } from '../../mobile-core/src/coachFormationBoardData'
-import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { readCoachOfflineResources, saveCoachFormationLocalDraft, saveCoachOfflineResources } from './offline'
+import { findFormationLocalDraft, formationContentKey, formationDraftKey, formationMatchesBoard, getActiveFormationPublication, getFormationSaveLabel } from '../../mobile-core/src/coachFormationDraftCore'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
@@ -70,11 +71,11 @@ function createStyles(palette) {
     benchButton: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accentText, borderWidth: 1, borderRadius: 10, justifyContent: 'center', minHeight: 38, paddingHorizontal: 10 },
     benchButtonDisabled: { opacity: 0.45 },
     benchButtonText: { color: palette.accentForeground, fontSize: 12, fontWeight: '900' },
-    benchCard: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, gap: 8, minWidth: 158, padding: 10 },
-    benchCardSelected: { backgroundColor: palette.selected, borderColor: palette.accentText, borderWidth: 2 },
+    benchCard: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 8, minWidth: 158, paddingVertical: 10 },
+    benchCardSelected: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
     benchContent: { gap: 8, paddingBottom: 2, paddingRight: 12 },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 21 },
-    card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 11, padding: 14 },
+    card: { borderTopColor: palette.border, borderTopWidth: 1, gap: 11, paddingVertical: 14 },
     chip: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, minHeight: 44, paddingHorizontal: 13, paddingVertical: 10 },
     chipSelected: { backgroundColor: palette.selected, borderColor: palette.accentText },
     chipText: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
@@ -86,7 +87,7 @@ function createStyles(palette) {
     label: { color: palette.textPrimary, fontSize: 14, fontWeight: '900' },
     modalBackdrop: { backgroundColor: 'rgba(0,0,0,0.62)', flex: 1, justifyContent: 'flex-end' },
     modalPanel: { backgroundColor: palette.surface, borderColor: palette.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, gap: 12, maxHeight: '86%', padding: 16 },
-    modalPlayer: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingHorizontal: 13, paddingVertical: 10 },
+    modalPlayer: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingVertical: 10 },
     emptySlot: { alignItems: 'center', backgroundColor: 'rgba(16,24,40,0.72)', borderColor: 'rgba(255,255,255,0.82)', borderRadius: 24, borderStyle: 'dashed', borderWidth: 2, height: 44, justifyContent: 'center', position: 'absolute', transform: [{ translateX: -22 }, { translateY: -22 }], width: 44, zIndex: 4 },
     emptySlotLabel: { backgroundColor: 'rgba(16,24,40,0.9)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', left: -2, paddingHorizontal: 3, paddingVertical: 2, position: 'absolute', textAlign: 'center', top: 46, width: 48 },
     marker: { alignItems: 'center', height: 74, justifyContent: 'flex-start', position: 'absolute', transform: [{ translateX: -38 }, { translateY: -25 }], width: 76, zIndex: 10 },
@@ -109,22 +110,22 @@ function createStyles(palette) {
     pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.82)', height: 2, left: 11, position: 'absolute', right: 11, top: '50%' },
     pitchOutline: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 17, borderWidth: 2, bottom: 11, left: 11, position: 'absolute', right: 11, top: 11 },
     pitchStripe: { bottom: 0, position: 'absolute', top: 0, width: '12.5%' },
-    planHeader: { backgroundColor: palette.surfaceRaised, borderColor: palette.accentText, borderRadius: 18, borderWidth: 1, gap: 7, padding: 13 },
+    planHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 7, paddingVertical: 13 },
     progress: { flexDirection: 'row', gap: 6 },
-    progressItem: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 2, minHeight: 58, paddingHorizontal: 4, paddingVertical: 6 },
-    progressItemActive: { backgroundColor: palette.selected, borderColor: palette.accentText },
+    progressItem: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flex: 1, gap: 2, minHeight: 58, paddingHorizontal: 4, paddingVertical: 6 },
+    progressItemActive: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
     progressLabel: { color: palette.textSecondary, fontSize: 10, fontWeight: '800', textAlign: 'center' },
     progressLabelActive: { color: palette.selectedForeground },
     progressNumber: { color: palette.textSecondary, fontSize: 11, fontWeight: '900' },
     progressNumberActive: { color: palette.accentText },
     row: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     rowBetween: { alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
-    savedBoard: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 14, borderWidth: 1, gap: 4, padding: 12 },
-    selectedPanel: { backgroundColor: palette.selected, borderColor: palette.accentText, borderRadius: 15, borderWidth: 1, gap: 8, padding: 12 },
+    savedBoard: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 4, minHeight: 56, paddingVertical: 12 },
+    selectedPanel: { borderLeftColor: palette.accentText, borderLeftWidth: 2, gap: 8, paddingLeft: 12, paddingVertical: 8 },
     stack: { gap: 12 },
     status: { alignSelf: 'flex-start', backgroundColor: palette.selected, borderColor: palette.accentText, borderRadius: 999, borderWidth: 1, paddingHorizontal: 11, paddingVertical: 6 },
     statusText: { color: palette.selectedForeground, fontSize: 12, fontWeight: '900' },
-    warning: { backgroundColor: palette.surfaceRaised, borderColor: palette.warning, borderRadius: 15, borderWidth: 1, gap: 8, padding: 13 },
+    warning: { borderLeftColor: palette.warning, borderLeftWidth: 2, gap: 8, paddingLeft: 12, paddingVertical: 8 },
   })
 }
 
@@ -268,6 +269,13 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const [showMatchPicker, setShowMatchPicker] = useState(false)
   const [title, setTitle] = useState(match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board')
   const [workflowStep, setWorkflowStep] = useState('formation')
+  const [savedContentKey, setSavedContentKey] = useState('')
+  const [draftScope, setDraftScope] = useState('')
+  const routeScope = JSON.stringify([user.id, context.id, context.clubId, context.teamId, context.authorityId, context.authoritySource, context.role, match?.id || ''])
+  const [localState, setLocalState] = useState('idle')
+  const [restoredDraftKey, setRestoredDraftKey] = useState('')
+  const draftWriteSequence = useRef(0)
+  const loadSequence = useRef(0)
   const preferenceKey = useMemo(() => createMobileFormationPreferenceKey({ clubId: context.clubId, teamId: context.teamId, userId: user.id }), [context.clubId, context.teamId, user.id])
 
   const resolvePublications = useCallback(async (nextBoard) => {
@@ -280,47 +288,84 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   }, [user])
 
   const applyBoard = useCallback(async (nextBoard, nextPresets = presets) => {
-    const nextDraft = createMobileFormationDraft({ board: nextBoard })
+    const request = ++loadSequence.current
+    const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
+    if (request !== loadSequence.current) return
+    const localEntry = findFormationLocalDraft(saved?.resources?.formation, '', nextBoard.id)
+    const local = localEntry?.[1]
+    const nextDraft = local?.draft || createMobileFormationDraft({ board: nextBoard })
+    const baseBoard = local?.board || nextBoard
     const nextPublications = await resolvePublications(nextBoard)
-    setBoard(nextBoard)
+    if (request !== loadSequence.current) return
+    setBoard(baseBoard)
     setDraft(nextDraft)
-    setTitle(nextBoard?.title || 'Formation Board')
+    setTitle(local?.title || nextBoard?.title || 'Formation Board')
+    setSavedContentKey(formationContentKey(createMobileFormationDraft({ board: baseBoard }), baseBoard.title))
+    setRestoredDraftKey(localEntry?.[0] || '')
+    setLocalState(local ? 'saved' : 'idle')
     setSelectedMatchId(nextBoard?.linkedMatchDayId || '')
     setMatchPublications(nextPublications.matchItems)
     setResourcePublications(nextPublications.resourceItems)
     setPresets(nextPresets)
     setSelectedPlayerId('')
     setShowBoards(false)
-    setWorkflowStep('lineup')
-  }, [presets, resolvePublications])
+    setWorkflowStep(local ? 'finish' : 'lineup')
+    setNotice(local ? 'Your unsent changes are restored. Review them before saving to the team.' : '')
+  }, [context, presets, resolvePublications, user.id])
 
   const load = useCallback(async () => {
+    const request = ++loadSequence.current
+    const isCurrent = () => request === loadSequence.current
     setLoading(true)
+    setDraftScope('')
+    setTitle(match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board')
+    setBoards([])
+    setPresets([])
+    setSelectedMatchId(match?.id || '')
+    setShowBoards(false)
+    setNotice('')
+    setBoard(null)
+    setDraft(createMobileFormationDraft())
+    setSavedContentKey('')
+    setMatchPublications([])
+    setResourcePublications([])
     setError('')
     const [savedPreference, savedOffline] = await Promise.all([
       AsyncStorage.getItem(preferenceKey).catch(() => null),
       readCoachOfflineResources(user.id, context).catch(() => null),
     ])
+    if (!isCurrent()) return
     const savedFormation = savedOffline?.resources?.formation
-    const pendingSave = savedFormation?.pendingSave
-    if (savedFormation?.draft) {
-      setBoard(savedFormation.board || null)
+    const localEntry = findFormationLocalDraft(savedFormation, match?.id || '')
+    const localDraft = localEntry?.[1]
+    const cacheMatchesRoute = String(savedFormation?.matchDayId || '') === String(match?.id || '')
+    const pendingSave = localDraft?.pendingSave || (cacheMatchesRoute ? savedFormation?.pendingSave : null)
+    const restored = localDraft || (pendingSave ? { ...savedFormation, draft: pendingSave.draft, title: pendingSave.title } : null)
+    if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
+      const cachedBoard = restored ? restored.board || null : savedFormation.board || null
+      const cachedDraft = restored?.draft || savedFormation.draft
+      const cachedTitle = restored?.title || cachedBoard?.title || 'Formation Board'
+      setDraftScope(routeScope)
+      setBoard(cachedBoard)
       setBoards(Array.isArray(savedFormation.boards) ? savedFormation.boards : [])
-      setDraft(savedFormation.draft)
+      setDraft(cachedDraft)
+      setSavedContentKey(cachedBoard ? formationContentKey(createMobileFormationDraft({ board: cachedBoard }), cachedBoard.title) : formationContentKey(createMobileFormationDraft({ gameFormat: cachedDraft.gameFormat, presetKey: cachedDraft.presetKey }), match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'))
+      setRestoredDraftKey(localEntry?.[0] || '')
+      setLocalState(restored ? 'saved' : 'idle')
       setPresets(Array.isArray(savedFormation.presets) ? savedFormation.presets : [])
       setMatchPublications(Array.isArray(savedFormation.matchPublications) ? savedFormation.matchPublications : [])
       setResourcePublications(Array.isArray(savedFormation.resourcePublications) ? savedFormation.resourcePublications : [])
       setSelectedMatchId(savedFormation.board?.linkedMatchDayId || '')
-      setTitle(pendingSave?.title || savedFormation.board?.title || 'Formation Board')
-      setWorkflowStep(pendingSave ? 'save' : savedFormation.board ? 'lineup' : 'formation')
+      setTitle(cachedTitle)
+      setWorkflowStep(restored ? 'finish' : cachedBoard ? 'lineup' : 'formation')
       setOffline(true)
-      setLoading(false)
     }
     try {
       const [nextPresets, nextBoards] = await Promise.all([
         getCoachFormationPresets(user),
         getCoachFormationBoards(user),
       ])
+      if (!isCurrent()) return
       const preference = parseMobileFormationPreferences(savedPreference) || { gameFormat: '11v11', presetKey: '11v11-4-4-2' }
       const matchingPreset = nextPresets.find((preset) => preset.key === preference.presetKey)
         || nextPresets.find((preset) => preset.key === '11v11-4-4-2')
@@ -328,46 +373,57 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         || nextPresets[0]
       const linkedBoard = match?.id ? nextBoards.find((candidate) => candidate.linkedMatchDayId === match.id) || null : null
       const pendingThreshold = pendingSave?.startedAt ? new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000) : 0
-      const recoveredBoard = pendingSave ? nextBoards.find((candidate) => (
-        (pendingSave.boardId && candidate.id === pendingSave.boardId)
-        || (
-          candidate.title === normalize(pendingSave.title)
-          && new Date(candidate.createdAt || 0).getTime() >= pendingThreshold
-        )
+      const attemptedDraft = pendingSave || (restored?.board ? { boardId: restored.board.id, draft: restored.draft, title: restored.title } : null)
+      const recoveredBoard = attemptedDraft ? nextBoards.find((candidate) => (
+        (attemptedDraft.boardId ? candidate.id === attemptedDraft.boardId : candidate.createdByProfileId === user.id && new Date(candidate.createdAt || 0).getTime() >= pendingThreshold)
+        && formationMatchesBoard(attemptedDraft.draft, attemptedDraft.title, candidate)
       )) || null : null
-      const nextBoard = recoveredBoard || linkedBoard
-      const nextDraft = pendingSave?.draft
+      // Keep the restored base version so a concurrent coach edit still conflicts.
+      const nextBoard = recoveredBoard || (restored ? restored.board || null : linkedBoard)
+      const nextDraft = restored?.draft || pendingSave?.draft
         || createMobileFormationDraft({ board: nextBoard, gameFormat: matchingPreset?.gameFormat || preference.gameFormat, presetKey: matchingPreset?.key || preference.presetKey })
       const nextPublications = await resolvePublications(nextBoard)
+      if (!isCurrent()) return
       const unresolvedPendingSave = pendingSave && !recoveredBoard ? pendingSave : null
+      setDraftScope(routeScope)
       setBoard(nextBoard)
       setBoards(nextBoards)
       setDraft(nextDraft)
+      const nextTitle = restored?.title || pendingSave?.title || nextBoard?.title || (match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board')
+      setSavedContentKey(nextBoard ? formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title) : formationContentKey(createMobileFormationDraft({ gameFormat: nextDraft.gameFormat, presetKey: nextDraft.presetKey }), match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'))
+      setRestoredDraftKey(localEntry?.[0] || '')
+      setLocalState(restored ? 'saved' : 'idle')
       setPresets(nextPresets)
       setMatchPublications(nextPublications.matchItems)
       setResourcePublications(nextPublications.resourceItems)
       setSelectedMatchId(nextBoard?.linkedMatchDayId || match?.id || '')
-      setWorkflowStep(unresolvedPendingSave ? 'save' : nextBoard ? 'lineup' : 'formation')
-      setTitle(pendingSave?.title || nextBoard?.title || (match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'))
+      setWorkflowStep(restored || unresolvedPendingSave ? 'finish' : nextBoard ? 'lineup' : 'formation')
+      setTitle(nextTitle)
       setNotice(recoveredBoard
         ? 'The previous server save was found. Your Formation Board is ready.'
-        : unresolvedPendingSave
-          ? 'Your unsent Formation Board is preserved on this device. Continue to Save and retry.'
+        : restored || unresolvedPendingSave
+          ? 'Your unsent Formation Board is restored from this device. Review the lineup, then save it to the team.'
           : '')
       setOffline(false)
       await saveCoachOfflineResources(user.id, context, { formation: { board: nextBoard, boards: nextBoards, draft: nextDraft, matchDayId: match?.id || '', matchPublications: nextPublications.matchItems, pendingSave: unresolvedPendingSave, presets: nextPresets, resourcePublications: nextPublications.resourceItems } }).catch(() => {})
     } catch (loadError) {
-      if (savedFormation?.draft) {
+      if (!isCurrent()) return
+      if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
         if (pendingSave) setNotice('Your unsent Formation Board is saved on this device. Connect when you are ready to finish saving it.')
         setOffline(true)
       } else {
         setErrorRetry('load')
         setError(getCoachFriendlyError(loadError, 'The Formation Board could not be loaded.'))
       }
-    } finally { setLoading(false) }
-  }, [context, match, preferenceKey, resolvePublications, user])
+    } finally { if (isCurrent()) setLoading(false) }
+  }, [context, match, preferenceKey, resolvePublications, routeScope, user])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const requests = loadSequence
+    const writes = draftWriteSequence
+    void load()
+    return () => { ++requests.current; ++writes.current }
+  }, [load])
 
   const selectedIds = useMemo(() => getMobileFormationSelectedPlayerIds(draft), [draft])
   const currentPreset = presets.find((preset) => preset.key === draft.presetKey)
@@ -381,11 +437,43 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   const linkedMatch = (match?.id === linkedMatchId ? match : null) || matches.find((candidate) => candidate.id === linkedMatchId) || null
   const availabilityMatch = linkedMatch || match || null
   const availabilityRows = availabilityMatch?.playerAvailability || []
-  const activePublication = matchPublications.find((publication) => !(publication.withdrawn_at ?? publication.withdrawnAt)) || null
+  const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
   const latestResourcePublication = resourcePublications[0] || null
   const unavailable = stale || offline
   const capacity = getMobileFormationCapacity(draft.gameFormat)
   const workflowStepIndex = WORKFLOW_STEPS.findIndex((step) => step.value === workflowStep)
+  const contentKey = formationContentKey(draft, title)
+  const hasUnsavedChanges = Boolean(savedContentKey && contentKey !== savedContentKey)
+  const currentDraftKey = restoredDraftKey || formationDraftKey(board?.id, match?.id)
+  const saveLabel = getFormationSaveLabel({ board, dirty: hasUnsavedChanges, localState, publication: activePublication })
+
+  useEffect(() => {
+    if (loading || busy || !savedContentKey || draftScope !== routeScope) return
+    const sequence = ++draftWriteSequence.current
+    const entry = hasUnsavedChanges ? {
+      board, draft, title, workflowStep, matchDayId: match?.id || '', savedAt: new Date().toISOString(),
+    } : null
+    if (entry) setLocalState('saving')
+    void saveCoachFormationLocalDraft(user.id, context, currentDraftKey, entry).then(() => {
+      if (sequence === draftWriteSequence.current) setLocalState(entry ? 'saved' : 'idle')
+    }).catch(() => {
+      if (sequence === draftWriteSequence.current) setLocalState('failed')
+    })
+  }, [board, busy, contentKey, context, currentDraftKey, draft, draftScope, hasUnsavedChanges, loading, match?.id, routeScope, savedContentKey, title, user.id, workflowStep])
+
+  const confirmDraftReplacement = (action) => {
+    if (!hasUnsavedChanges) { void action(); return }
+    Alert.alert('Discard these changes?', 'These edits have not been saved to the team. Keep editing to save them first.', [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard changes', style: 'destructive', onPress: async () => {
+        try {
+          ++draftWriteSequence.current
+          await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null)
+          await action()
+        } catch { setError('The board could not be switched safely. Your changes are still open.') }
+      } },
+    ])
+  }
   const rememberPreset = (nextDraft) => {
     setDraft(nextDraft)
     setSelectedPlayerId('')
@@ -404,6 +492,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setBoard(null)
     setDraft(nextDraft)
     setTitle('Formation Board')
+    setSavedContentKey(formationContentKey(nextDraft, 'Formation Board'))
+    setRestoredDraftKey('')
+    setLocalState('idle')
     setSelectedMatchId(match?.id || '')
     setMatchPublications([])
     setResourcePublications([])
@@ -433,14 +524,29 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     const threshold = new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000)
     const items = await getCoachFormationBoards(user)
     return items.find((candidate) => (
-      candidate.title === normalize(pendingSave.title)
+      candidate.createdByProfileId === user.id
       && new Date(candidate.createdAt || 0).getTime() >= threshold
+      && formationMatchesBoard(pendingSave.draft, pendingSave.title, candidate)
     )) || null
   }
 
   const persistBoard = async () => {
+    const operation = loadSequence.current
+    const requireActiveBoard = () => {
+      if (operation === loadSequence.current) return
+      const changed = new Error('The active Formation Board changed.')
+      changed.code = 'formation_navigation_changed'
+      throw changed
+    }
     const cachedBeforeSave = await readCoachOfflineResources(user.id, context).catch(() => null)
-    const previousPendingSave = cachedBeforeSave?.resources?.formation?.pendingSave
+    requireActiveBoard()
+    const cachedFormation = cachedBeforeSave?.resources?.formation
+    const cachedPending = cachedFormation?.pendingSave
+    const previousPendingSave = String(cachedFormation?.matchDayId || '') === String(match?.id || '')
+      && String(cachedPending?.boardId || '') === String(board?.id || '')
+      && cachedPending?.draft
+      && formationContentKey(cachedPending.draft, cachedPending.title) === formationContentKey(draft, title)
+      ? cachedPending : null
     const pendingSave = {
       boardId: board?.id || '',
       draft,
@@ -451,25 +557,42 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     let savedLocally = false
     await saveOfflineFormation({ pendingSave }).then(() => { savedLocally = true }).catch(() => {})
     try {
+      requireActiveBoard()
       if (!nextBoard) {
         nextBoard = await reconcilePendingBoard(previousPendingSave).catch(() => null)
       }
+      requireActiveBoard()
       nextBoard = nextBoard
         ? await saveCoachFormationBoard(user, nextBoard, draft, title)
         : await createCoachFormationBoard(user, match, draft, title)
+      requireActiveBoard()
+      // Retain a confirmed server identity even if refresh or local storage fails.
+      setBoard(nextBoard)
       if (match?.id && nextBoard.linkedMatchDayId !== match.id) nextBoard = await linkCoachFormationBoard(user, nextBoard.id, match.id)
       const nextBoards = await getCoachFormationBoards(user)
       const nextPublications = await resolvePublications(nextBoard)
+      requireActiveBoard()
       setBoard(nextBoard)
       setBoards(nextBoards)
       setDraft(createMobileFormationDraft({ board: nextBoard }))
       setTitle(nextBoard.title)
+      setSavedContentKey(formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title))
       setSelectedMatchId(nextBoard.linkedMatchDayId || selectedMatchId)
       setMatchPublications(nextPublications.matchItems)
       setResourcePublications(nextPublications.resourceItems)
       await saveOfflineFormation({ nextBoard, nextBoards, nextDraft: createMobileFormationDraft({ board: nextBoard }), pendingSave: null }).catch(() => {})
+      await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null).catch(() => {})
+      setRestoredDraftKey('')
+      setLocalState('idle')
       return nextBoard
-    } catch {
+    } catch (saveError) {
+      if (saveError.code === 'formation_navigation_changed') throw saveError
+      requireActiveBoard()
+      if (String(saveError?.message || '').includes('formation_board_version_conflict')) {
+        const conflict = new Error('Another coach has saved a newer version. Your changes remain on this device. Reload the latest version to continue, or keep this screen open to review your changes first.')
+        conflict.code = 'formation_conflict'
+        throw conflict
+      }
       if (!nextBoard) {
         const reconciled = await reconcilePendingBoard(pendingSave).catch(() => null)
         if (reconciled) {
@@ -488,10 +611,23 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
     setBusy(true); setError(''); setNotice('')
     try {
       const nextBoard = await persistBoard()
-      setNotice(nextBoard.linkedMatchDayId ? 'Private Formation Board saved and linked to its match.' : 'Standalone Formation Board saved privately. You can link or publish it whenever you are ready.')
-    } catch (saveError) { setErrorRetry('save'); setError(saveError.message) }
+      setNotice(nextBoard.linkedMatchDayId ? 'Formation Board saved to the team and linked to its match. Parent publication is unchanged.' : 'Formation Board saved to the team. You can link or publish it whenever you are ready.')
+    } catch (saveError) { if (saveError.code === 'formation_navigation_changed') return; setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(saveError.message) }
     finally { setBusy(false) }
   }
+
+  const reloadLatestBoard = () => confirmDraftReplacement(async () => {
+    setBusy(true)
+    try {
+      const latestBoards = await getCoachFormationBoards(user)
+      const latest = latestBoards.find((item) => item.id === board?.id)
+      if (!latest) throw new Error('This board is no longer available. Your open lineup has been kept.')
+      await applyBoard(latest)
+      setBoards(latestBoards)
+      setError('')
+    } catch (reloadError) { setError(reloadError.message) }
+    finally { setBusy(false) }
+  })
 
   const linkToMatch = async () => {
     if (!selectedMatchId) { setError('Choose a match to link.'); return }
@@ -505,7 +641,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
       setShowMatchPicker(false)
       const selectedMatch = matches.find((candidate) => candidate.id === selectedMatchId) || match
       setNotice(`Formation Board linked to ${selectedMatch?.teamName || 'Team'} v ${selectedMatch?.opponent || 'opponent'}.`)
-    } catch (linkError) { setError(normalize(linkError?.message) || 'The Formation Board could not be linked to that match.') }
+    } catch (linkError) { if (linkError.code === 'formation_navigation_changed') return; setErrorRetry(linkError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(normalize(linkError?.message) || 'The Formation Board could not be linked to that match.') }
     finally { setBusy(false) }
   }
 
@@ -521,7 +657,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
           await publishCoachFormationResource(user, nextBoard, resourceCategory, publicationResourceId(latestResourcePublication))
           setResourcePublications(await getCoachFormationResourcePublications(user, nextBoard.id))
           setNotice(latestResourcePublication ? 'Saved and updated in Team Resources.' : 'Saved and published to Team Resources.')
-        } catch (publishError) { setError(normalize(publishError?.message) || 'The Formation Board could not be published to Team Resources.') }
+        } catch (publishError) { if (publishError.code === 'formation_navigation_changed') return; setErrorRetry(publishError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(normalize(publishError?.message) || 'The Formation Board could not be published to Team Resources.') }
         finally { setBusy(false) }
       } },
     ],
@@ -540,7 +676,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
           await publishCoachFormationBoard(user, nextBoard, nextBoard.linkedMatchDayId)
           setMatchPublications(await getCoachFormationPublications(user, nextBoard.id))
           setNotice('Saved and shared. Authorised Parents can now see the latest match plan.')
-        } catch (publishError) { setError(normalize(publishError?.message) || 'The match plan could not be saved and shared.') }
+        } catch (publishError) { if (publishError.code === 'formation_navigation_changed') return; setErrorRetry(publishError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(normalize(publishError?.message) || 'The match plan could not be saved and shared.') }
         finally { setBusy(false) }
       } },
     ],
@@ -608,20 +744,21 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
   if (loading) return <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View>
 
   return (
-    <View style={styles.stack}>
+    <View pointerEvents={busy ? 'none' : 'auto'} style={styles.stack}>
       <View style={styles.planHeader}>
         <View style={styles.rowBetween}>
           <View><Text style={styles.eyebrow}>{linkedMatchId ? 'Match-linked plan' : 'Standalone plan'}</Text><Text style={styles.heading}>{title || 'Formation Board'}</Text></View>
-          <View style={styles.status}><Text style={styles.statusText}>{activePublication ? 'Shared' : board ? 'Saved' : 'New'}</Text></View>
+          <Text accessibilityLiveRegion="polite" style={styles.statusText}>{saveLabel}</Text>
         </View>
         <Text style={styles.body}>{draft.gameFormat} | {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')} | {draft.placements.length} on pitch | {draft.bench.length} Bench</Text>
         {linkedMatch ? <Text style={styles.body}>{linkedMatch.teamName} v {linkedMatch.opponent}</Text> : null}
-        {!match?.id ? <View style={styles.row}><Action iconKey="action.new-board" label="New board" onPress={startNewBoard} secondary styles={styles} /><Action disabled={!boards.length} iconKey="more.resources" label={showBoards ? 'Hide saved' : `Open saved (${boards.length})`} onPress={() => setShowBoards((current) => !current)} secondary styles={styles} /></View> : null}
+        {!match?.id ? <View style={styles.row}><Action iconKey="action.new-board" label="New board" onPress={() => confirmDraftReplacement(startNewBoard)} secondary styles={styles} /><Action disabled={!boards.length} iconKey="more.resources" label={showBoards ? 'Hide saved' : `Open saved (${boards.length})`} onPress={() => setShowBoards((current) => !current)} secondary styles={styles} /></View> : null}
       </View>
 
-      {showBoards ? <View style={styles.card}><Text style={styles.heading}>Saved Formation Boards</Text>{boards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => void applyBoard(item)} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>{item.linkedMatchDayId ? 'Linked to a match' : 'Standalone'} | Version {item.currentVersionNumber}</Text></Pressable>)}</View> : null}
+      {showBoards ? <View style={styles.card}><Text style={styles.heading}>Saved Formation Boards</Text>{boards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => confirmDraftReplacement(() => applyBoard(item))} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>{item.linkedMatchDayId ? 'Linked to a match' : 'Standalone'} | Version {item.currentVersionNumber}</Text></Pressable>)}</View> : null}
+      {localState === 'failed' ? <Text accessibilityRole="alert" style={styles.body}>Changes could not be protected on this device. Keep this screen open and save to the team when connected.</Text> : null}
       {unavailable ? <View style={styles.warning}><Text style={styles.heading}>Offline read</Text><Text style={styles.body}>Showing the last encrypted board. Saving, linking and publishing require a successful online refresh.</Text></View> : null}
-      {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy} label={errorRetry === 'save' ? 'Retry save' : 'Try again'} onPress={errorRetry === 'save' ? save : load} secondary styles={styles} /></View> : null}
+      {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy} label={errorRetry === 'conflict' ? 'Reload latest version' : errorRetry === 'save' ? 'Retry save' : 'Try again'} onPress={errorRetry === 'conflict' ? reloadLatestBoard : errorRetry === 'save' ? save : load} secondary styles={styles} /></View> : null}
       {notice ? <View style={styles.selectedPanel}><Text style={styles.body}>{notice}</Text></View> : null}
 
       <View accessibilityLabel={`Formation Board step ${workflowStepIndex + 1} of ${WORKFLOW_STEPS.length}`} style={styles.progress}>
@@ -695,8 +832,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
         <Text style={styles.eyebrow}>Step 4 of 4</Text>
         <Text style={styles.heading}>Save first, choose the destination later</Text>
         <Text style={styles.body}>{draft.placements.length} on pitch | {draft.bench.length} Bench | {draft.gameFormat} {(currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')}</Text>
-        <Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save private Formation Board'} onPress={() => void save()} styles={styles} />
-        <Text style={styles.body}>Saving does not require a match and does not share anything.</Text>
+        <Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save Formation Board'} onPress={() => void save()} styles={styles} />
+        <Text style={styles.body}>Saving does not require a match. Existing Parent publications stay unchanged until you update them.</Text>
 
         {!linkedMatchId ? <View style={styles.stack}>
           <View style={styles.rowBetween}><Text style={styles.label}>Optional match link</Text><Action label={showMatchPicker ? 'Hide matches' : 'Choose match'} onPress={() => setShowMatchPicker((current) => !current)} secondary styles={styles} /></View>
@@ -711,7 +848,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], palet
 
         {linkedMatchId ? <Action disabled={busy || unavailable || !title.trim() || !selectedIds.size} label={activePublication ? 'Save and update Parents' : 'Save and share with Parents'} onPress={saveAndPublish} secondary styles={styles} /> : <Text style={styles.body}>Parent sharing becomes available after you link the saved board to a match.</Text>}
         <Pressable accessibilityRole="button" onPress={() => setShowAdvanced((current) => !current)}><Text style={styles.count}>{showAdvanced ? 'Hide plan options' : 'Plan name and options'}</Text></Pressable>
-        {showAdvanced ? <View style={styles.stack}><Text style={styles.label}>Plan name</Text><TextInput accessibilityLabel="Formation plan title" onChangeText={setTitle} style={styles.input} value={title} />{activePublication ? <Action danger disabled={busy || unavailable} label="Withdraw Parent plan" onPress={withdraw} secondary styles={styles} /> : null}</View> : null}
+        {showAdvanced ? <View style={styles.stack}><Text style={styles.label}>Plan name</Text><TextInput editable={!busy} accessibilityLabel="Formation plan title" onChangeText={setTitle} style={styles.input} value={title} />{activePublication ? <Action danger disabled={busy || unavailable} label="Withdraw Parent plan" onPress={withdraw} secondary styles={styles} /> : null}</View> : null}
         <Action label="Back to lineup" onPress={() => setWorkflowStep('lineup')} secondary styles={styles} />
       </View> : null}
 
