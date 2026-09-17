@@ -102,6 +102,7 @@ export function normalizeMatchDay(row) {
     matchDate: row.match_date ?? row.matchDate ?? '',
     notes: normalizeText(row.notes),
     opponent: normalizeText(row.opponent || 'Opponent'),
+    title: normalizeText(row.title),
     phaseStartedAt: row.phase_started_at ?? row.phaseStartedAt ?? '',
     requestLinesman: row.request_linesman === true || row.requestLinesman === true,
     requestReferee: row.request_referee === true || row.requestReferee === true,

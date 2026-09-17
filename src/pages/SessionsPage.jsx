@@ -918,7 +918,7 @@ function getFormFromCalendarEvent(event, invites = []) {
       requestReferee: source.requestReferee === true,
       startTime: source.kickoffTimeTbc ? '' : formatTimeInput(source.kickoffTime),
       teamId: source.teamId || '',
-      title: source.title || (source.opponent ? `Match vs ${source.opponent}` : ''),
+      title: getMatchDayDisplayName(source),
       ...inviteFields,
       parentAudience: sourceParentAudience,
       shareWithParents: Boolean(source.parentVisible || inviteFields.shareWithParents),
@@ -3550,6 +3550,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         } else if (sourceType === 'match-day') {
           const payload = {
             arrivalTime: calendarForm.arrivalTime,
+            title: trimmedTitle,
             autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers === true,
             enableMotmPoll: calendarForm.enableMotmPoll === true,
             motmPollExpiryHours: motmExpiryDurationToHours(calendarForm.motmPollExpiryDuration),

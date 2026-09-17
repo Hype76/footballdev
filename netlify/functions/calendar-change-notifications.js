@@ -1,4 +1,5 @@
 import { hasCalendarSourceChanged, resolveCalendarChangeAction } from '../../src/lib/calendar-change-classification.js'
+import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import process from 'node:process'
 import webpush from 'web-push'
 import { randomUUID } from 'node:crypto'
@@ -238,7 +239,7 @@ async function verifyChange(preparation) {
   }
 }
 
-function getSourcePresentation(sourceType, source) {
+function getSourcePresentation(sourceType, source, clubName = '') {
   if (sourceType === 'calendar') {
     return { endsAt: source.ends_at, eventType: source.event_type || 'Event', location: source.location, notes: source.notes, startsAt: source.starts_at, title: source.title || 'Calendar event' }
   }
@@ -246,7 +247,7 @@ function getSourcePresentation(sourceType, source) {
     const startsAt = source.kickoff_time_tbc || !source.kickoff_time
       ? source.match_date
       : buildCalendarNotificationLocalDateTime(source.match_date, source.kickoff_time)
-    return { endsAt: '', eventType: 'Match', location: source.venue_name, notes: source.notes, startsAt, title: `Match vs ${normalizeText(source.opponent) || 'Opponent'}` }
+    return { endsAt: '', eventType: 'Match', location: source.venue_name, notes: source.notes, startsAt, title: getMatchDayDisplayName({ ...source, clubName }) }
   }
   if (sourceType === 'session') {
     const startsAt = source.start_time
@@ -335,9 +336,9 @@ async function deliverPreparation(preparation, currentSource) {
   if (subscriptionsError) throw subscriptionsError
 
   const source = currentSource || preparation.source_snapshot
-  const presentation = getSourcePresentation(preparation.source_type, source)
+  const presentation = getSourcePresentation(preparation.source_type, source, club.name)
   const changeAction = resolveCalendarChangeAction(preparation.change_action,
-    getSourcePresentation(preparation.source_type, preparation.source_snapshot), presentation)
+    getSourcePresentation(preparation.source_type, preparation.source_snapshot, club.name), presentation)
   const copy = getChangeCopy(changeAction, presentation)
   const notificationTeamName = preparation.source_type === 'match-day'
     ? resolveMatchDayNotificationTeamName({ ...source, teams: team }, team?.name || '')
