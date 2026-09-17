@@ -492,9 +492,9 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       const attachedIds = getCoachCalendarEventResourceIds(latest, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType)
       await syncCoachCalendarEventResources(user, event, [...new Set([...attachedIds, ...resourceEditor.selectedIds])], event.occurrenceDate || event.calendarDate)
       invalidateMobileResource(user, 'coach:phase31e:resources')
+      await load()
       setResourceEditor(null)
       setSaveConfirmation('Resources added to this event.')
-      await load()
     } catch (saveError) {
       setResourceError(message(saveError, 'Resources could not be added. Try again.'))
     } finally { setSaving(false) }
