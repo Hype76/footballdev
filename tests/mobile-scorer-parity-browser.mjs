@@ -70,7 +70,7 @@ const parentCode = `${shared}
   const MaterialIcons = ({ color, name, size }) => <Text aria-hidden="true" style={{ color, fontFamily: 'MaterialIcons', fontSize: size }}>{String.fromCodePoint(glyphs[name])}</Text>
   const Crypto = { randomUUID: () => '70000000-0000-4000-8000-000000000001' }
   ${section(parent, 'function colorsFor(', 'function invitationResponsePresentation(')}
-  ${section(parent, 'function GoalPlayerPicker(', 'export function MatchdayScreen(')}
+  ${section(parent, 'function GoalPlayerPicker(', 'function MatchdayAction(')}
   function Preview({ mode, accent }) {
     const tokens = createParentMobileTheme({ mode, selectedLink: { themeAccent: accent } }).tokens
     const { colors, styles } = usePortalStyles(tokens)
