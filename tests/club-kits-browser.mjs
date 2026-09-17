@@ -64,7 +64,7 @@ try{
  await page.getByRole('button',{name:'Close kit image',exact:true}).waitFor()
  const enlarged=page.getByLabel('Home kit enlarged',{exact:true});await enlarged.waitFor()
  const bounds=await enlarged.boundingBox();assert.ok(bounds.width>250&&bounds.height>300,'Kit opens larger than its thumbnail')
- await page.screenshot({path:out+'/native-kit-enlarged.png',fullPage:true})
+ await page.screenshot({path:out+'/native-kit-enlarged.png',fullPage:true,animations:'disabled'})
  await page.getByRole('button',{name:'Close kit image',exact:true}).click()
  await page.getByRole('button',{name:'Close kit image',exact:true}).waitFor({state:'hidden'})
  for(const mode of ['light','dark']){await page.evaluate(v=>window.mode(v),mode);await page.screenshot({path:out+'/native-'+mode+'.png',fullPage:true})}

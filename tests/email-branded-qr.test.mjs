@@ -25,4 +25,3 @@ test('only public email QR images opt into cross-origin embedding', async () => 
   assert.match(config, /for = "\/email-apps\/\*"\s+\[headers.values\]\s+Cross-Origin-Resource-Policy = "cross-origin"/)
   assert.match(config, /Cross-Origin-Resource-Policy = "same-origin"/)
 })
-
