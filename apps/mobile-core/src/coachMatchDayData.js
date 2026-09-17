@@ -457,7 +457,13 @@ export async function runCoachMatchDayTimerAction(user, match, action) {
 export async function setCoachMatchDaySquadDecision(user, match, playerId, decision, expectedDecidedAt = null) {
   await prepareMutation(user, match)
   await rpc('set_match_day_player_squad_decision_v2', { match_day_id_value: match.id, player_id_value: playerId, decision_value: normalizeMatchDaySquadDecision(decision), expected_decided_at_value: expectedDecidedAt || null })
-  return getCoachMatchDayDetail(user, match.id)
+  // Read the authoritative revisions without reloading volunteer eligibility,
+  // contacts and presentation data for every player in the save sequence.
+  const detail = await rpc('get_staff_match_day_detail', { active_team_id_value: user.activeTeamId, target_match_day_id_value: match.id })
+  if (!detail?.id || detail.id !== match.id) throw new Error('This match day is not linked to your active Team.')
+  const latest = normalizeCoachMatchDay(detail)
+  if (latest.status !== match.status) return getCoachMatchDayDetail(user, match.id)
+  return { ...match, squadDecisions: latest.squadDecisions, updatedAt: latest.updatedAt }
 }
 
 export async function notifyCoachMatchDaySquadDecision(user, match, playerId, revision) {

@@ -20,6 +20,29 @@ import {
 const migration = await readFile(new URL('../mobile-test-api/migrations/20260807070500_parent_push_installations.sql', import.meta.url), 'utf8')
 const client = await readFile(new URL('../apps/parent-mobile/src/notifications.js', import.meta.url), 'utf8')
 const app = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+
+test('Parent can repair stale or permission-blocked registration without pausing first', async () => {
+  const body = app.slice(app.indexOf('  async function handleNotificationModeChange(mode) {'), app.indexOf('  async function handleAppBadgeEnabledChange'))
+  for (const [status, permissionGranted, expectedCalls] of [['stale', true, 1], ['error', true, 1], ['ready', false, 1], ['ready', true, 0]]) {
+    const calls = []
+    const state = { enabled: true, registered: true, detailLevel: 'minimal', permissionGranted }
+    const requestRef = { current: 4 }
+    const dependencies = {
+      activeActionId: '', selectedLink: { id: 'parent-link' }, notificationState: state,
+      notificationStateStatus: status, MOBILE_SETTING_LOAD_STATES: { READY: 'ready', STALE: 'stale' },
+      notificationStateRequestRef: requestRef, config: { apiBaseUrl: 'test', easProjectId: 'project' },
+      setActiveActionId() {}, setNotice() {}, setNotificationState() {}, setNotificationStateStatus() {},
+      async enableParentNotifications(options) { calls.push(options); return state },
+      async updateParentNotificationPreference() { assert.fail('Recovery must check permission and register the device') },
+      normalizeText: String, getParentFriendlyError: () => 'failed', preserveMobileNotificationState: value => value,
+    }
+    const handler = new Function(...Object.keys(dependencies), `${body}; return handleNotificationModeChange`)(...Object.values(dependencies))
+    await handler('minimal')
+    assert.equal(calls.length, expectedCalls, `${status}, permission ${permissionGranted}`)
+    assert.equal(requestRef.current, 4 + expectedCalls, 'An old status read cannot overwrite a new registration')
+    if (expectedCalls) assert.equal(calls[0].parentLinkId, 'parent-link')
+  }
+})
 const installationApi = await readFile(new URL('../mobile-test-api/netlify/functions/parent-push-installation.mjs', import.meta.url), 'utf8')
 const pushApi = await readFile(new URL('../mobile-test-api/netlify/functions/parent-push-test.mjs', import.meta.url), 'utf8')
 const environment = await readFile(new URL('../mobile-test-api/netlify/functions/_shared/environment.mjs', import.meta.url), 'utf8')

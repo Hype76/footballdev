@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { buildCoachMatchDaySquad } from '../../mobile-core/src/coachMatchDayCore'
 import { CoachSquadTemplates } from './CoachSquadTemplates'
 
@@ -10,7 +10,7 @@ const layout = StyleSheet.create({
   name: { fontSize: 13, fontWeight: '800' },
   meta: { fontSize: 11, lineHeight: 16 },
   controls: { flexDirection: 'row', gap: 3 },
-  control: { alignItems: 'center', borderRadius: 10, borderWidth: 1, gap: 3, justifyContent: 'center', minHeight: 44, width: 46 },
+  control: { alignItems: 'center', borderBottomWidth: 2, gap: 3, justifyContent: 'center', minHeight: 44, width: 60 },
   label: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
   toolbar: { flexDirection: 'row', gap: 12, marginTop: 12 },
   toolbarButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 6 },
@@ -34,6 +34,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
   const [summary, setSummary] = useState('')
   const [sending, setSending] = useState(false)
   const [deciding, setDeciding] = useState(false)
+  const [saveProgress, setSaveProgress] = useState(null)
   const sendingRef = useRef(false)
   const decidingRef = useRef(false)
   const locked = busy || sending || deciding || !actions.canSetSquad
@@ -53,7 +54,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
   }
   const save = async () => {
     if (locked || decidingRef.current || !pendingCount) return
-    decidingRef.current = true; setDeciding(true); setSummary('')
+    decidingRef.current = true; setDeciding(true); setSummary(''); setSaveProgress({ saved: 0, total: pendingCount })
     let savedCount = 0
     const savedRows = []
     try {
@@ -62,6 +63,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
         const saved = buildCoachMatchDaySquad(players, detail).rows.find((row) => row.id === player.id)
         if (saved?.decision !== decision) throw new Error('Selection not confirmed')
         savedCount++
+        setSaveProgress({ saved: savedCount, total: pendingCount })
         if (saved.canNotify && saved.decisionRevision && !saved.notifiedAt && chosen[player.id] !== 'skip') savedRows.push(saved)
         setDrafts((current) => { const next = { ...current }; delete next[player.id]; return next })
         setChosen((current) => ({ ...current, [player.id]: chosen[player.id] !== 'skip' && saved.canNotify && saved.decisionRevision && !saved.notifiedAt ? saved.decisionRevision : '' }))
@@ -70,7 +72,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
       return [...chosenPlayers, ...savedRows]
     } catch {
       setSummary(`${savedCount} saved. Remaining selections could not be confirmed and are still marked unsaved. Refresh the match before retrying, or discard the remaining changes.`)
-    } finally { decidingRef.current = false; setDeciding(false) }
+    } finally { decidingRef.current = false; setDeciding(false); setSaveProgress(null) }
   }
   const send = async (confirmedPlayers = null) => {
     const recipients = Array.isArray(confirmedPlayers) ? confirmedPlayers : chosenPlayers
@@ -119,6 +121,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
       <Pressable accessibilityRole="button" disabled={locked || available.length === 0} onPress={() => { setChosen(Object.fromEntries(available.map((player) => [player.id, player.decisionRevision]))); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !available.length ? 0.4 : 1 }]}>Tick all unsent</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={locked || chosenPlayers.length === 0} onPress={() => { setChosen({}); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !chosenPlayers.length ? 0.4 : 1 }]}>Clear</Text></Pressable>
     </View>
+    {saveProgress ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Saving {saveProgress.saved} of {saveProgress.total} selections...</Text></View> : sending ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Queuing parent notifications...</Text></View> : null}
     {saveButtons}
     {!pendingCount ? sendButton : null}
     {summary ? <Text accessibilityLiveRegion="polite" style={styles.body}>{summary}</Text> : null}
@@ -136,8 +139,8 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecision, onNotify,
         <View style={layout.person}><Text style={[layout.name, { color: player.notificationContactState === 'no_contact' ? palette.danger || '#ef4444' : palette.textPrimary }]}>{player.playerName}</Text>{player.notificationContactState === 'no_contact' ? <Text accessibilityLabel={`${player.playerName}: No contact details`} style={[layout.meta, { color: palette.danger || '#ef4444' }]}>No contact details</Text> : player.notificationContactState === 'disabled' ? <Text style={[layout.meta, { color: palette.textSecondary }]}>Notifications are switched off.</Text> : player.notificationContactState === 'unknown' ? <Text style={[layout.meta, { color: palette.textSecondary }]}>Contact details need refreshing.</Text> : null}{result?.message && !sent ? <Text style={[layout.meta, { color: palette.textPrimary }]}>{result.message}</Text> : null}</View>
         <View style={layout.controls}>{controls.map((control) => {
           const disabled = locked || (control.key === 'notify' ? sent || !decided || (!drafts[player.id] && !player.decisionRevision) : control.active)
-          const color = control.active ? palette.selectedForeground : palette.textPrimary
-          return <Pressable key={control.key} accessibilityRole={control.key === 'notify' && !sent ? 'checkbox' : 'button'} accessibilityLabel={`${control.label}: ${player.playerName}`} aria-checked={control.key === 'notify' && !sent ? picked : undefined} accessibilityState={{ disabled, selected: control.active, ...(control.key === 'notify' && !sent ? { checked: picked } : {}) }} disabled={disabled} onPress={control.onPress} style={[layout.control, { backgroundColor: control.active ? palette.selected : 'transparent', borderColor: control.active ? palette.accentText : palette.border, opacity: disabled && !control.active ? 0.4 : 1 }]}><MaterialIcons name={control.icon} size={20} color={color} /><Text style={[layout.label, { color }]}>{control.label}</Text></Pressable>
+          const color = control.active ? palette.accentText : palette.textPrimary
+          return <Pressable key={control.key} accessibilityRole={control.key === 'notify' && !sent ? 'checkbox' : 'button'} accessibilityLabel={`${control.label}: ${player.playerName}`} aria-checked={control.key === 'notify' && !sent ? picked : undefined} accessibilityState={{ disabled, selected: control.active, ...(control.key === 'notify' && !sent ? { checked: picked } : {}) }} disabled={disabled} onPress={control.onPress} style={[layout.control, { backgroundColor: 'transparent', borderBottomColor: control.active ? palette.accentText : 'transparent', opacity: disabled && !control.active ? 0.4 : 1 }]}><MaterialIcons name={control.icon} size={20} color={color} /><Text style={[layout.label, { color }]}>{control.label}</Text></Pressable>
         })}</View>
       </View>
     })}

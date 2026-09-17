@@ -492,9 +492,9 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       const attachedIds = getCoachCalendarEventResourceIds(latest, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType)
       await syncCoachCalendarEventResources(user, event, [...new Set([...attachedIds, ...resourceEditor.selectedIds])], event.occurrenceDate || event.calendarDate)
       invalidateMobileResource(user, 'coach:phase31e:resources')
+      await load()
       setResourceEditor(null)
       setSaveConfirmation('Resources added to this event.')
-      await load()
     } catch (saveError) {
       setResourceError(message(saveError, 'Resources could not be added. Try again.'))
     } finally { setSaving(false) }
@@ -971,8 +971,25 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   )
 }
 
+function TrainingSessionRow({ event, onOpen, palette, styles }) {
+  const summary = event.availabilitySummary
+  const statuses = [
+    ['attending', 'Attending', 'check-circle', palette.success],
+    ['awaitingResponse', 'Awaiting', 'schedule', palette.textSecondary],
+    ['notAttending', 'Not attending', 'cancel', palette.danger],
+    ['maybe', 'Maybe', 'help-outline', palette.warning],
+    ['invitationNotSent', 'Not sent', 'mail-outline', palette.textSecondary],
+    ['deliveryIssue', 'Delivery issue', 'error-outline', palette.warning],
+  ]
+  return <Pressable accessibilityRole="button" accessibilityLabel={`Open training session ${event.title}`} onPress={onOpen} style={styles.profileSection}>
+    <View style={styles.row}><MaterialIcons name="sports" size={26} color={palette.accentText} /><View style={styles.playerCopy}><Text style={styles.cardTitle}>{event.title}</Text><Text style={styles.meta}>{formatCoachCalendarEventDateTime(event)}</Text></View><MaterialIcons name="chevron-right" size={24} color={palette.accentText} /></View>
+    {summary ? <View style={styles.filterRow}>{statuses.filter(([key], index) => index < 3 || Number(summary[key]) > 0).map(([key, title, icon, color]) => <View accessibilityLabel={`${title}: ${Number(summary[key] || 0)}`} key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3 }}><MaterialIcons name={icon} size={18} color={color} /><Text style={styles.meta}>{title} {Number(summary[key] || 0)}</Text></View>)}</View> : null}
+  </Pressable>
+}
+
 export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled, palette, quickAction, user }) {
-  const styles = useDomainStyles(palette)
+  const domainStyles = useDomainStyles(palette)
+  const styles = { ...domainStyles, action: [domainStyles.profileAction, { alignSelf: 'flex-start' }], secondary: [domainStyles.profileAction, { alignSelf: 'flex-start' }], actionText: domainStyles.profileActionText, secondaryText: domainStyles.profileActionText, chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' }, chipActive: { borderBottomColor: palette.accentText }, chipTextActive: { color: palette.accentText } }
   const [sessions, setSessions] = useState([])
   const [players, setPlayers] = useState([])
   const [detail, setDetail] = useState(null)
@@ -1098,11 +1115,11 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
   }
   return (
     <View style={styles.stack}>
-      <DomainHeader copy="Create repeating training invitations for parents, or manage separate assessment Sessions and Player notes." styles={styles} title="Sessions" />
+      <DomainHeader copy="Training, attendance and player assessments." styles={styles} title="Sessions" />
       <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
       {cacheWarning && !error ? <View accessibilityLiveRegion="polite" style={styles.profileSection}><View style={styles.row}><MaterialIcons name="cloud-off" size={20} color={palette.warning} /><Text style={[styles.body, { flex: 1 }]}>{cacheWarning}</Text></View><Pressable accessibilityRole="button" accessibilityState={{ disabled: loading }} disabled={loading} onPress={() => load()} style={styles.profileAction}><MaterialIcons name="refresh" size={20} color={palette.accentText} /><Text style={styles.profileActionText}>Try saving offline again</Text></Pressable></View> : null}
       {trainingNotice ? <View style={styles.profileSection}><Text style={styles.cardTitle}>{trainingNotice}</Text></View> : null}
-      {policy.canCreate && !trainingForm && !form ? <Button label="Create training session" onPress={() => { setDetail(null); setTrainingForm(createTrainingForm()) }} styles={styles} /> : null}
+      {policy.canCreate && !trainingForm && !form ? <Pressable accessibilityRole="button" accessibilityLabel="Create training session" onPress={() => { setDetail(null); setTrainingForm(createTrainingForm()) }} style={[styles.profileAction, { alignSelf: 'flex-start' }]}><MaterialIcons name="add" size={23} color={palette.accentText} /><Text style={styles.profileActionText}>Create training session</Text></Pressable> : null}
       {trainingForm ? (
         <View style={styles.profileSection}>
           <Text style={styles.cardTitle}>Create training session</Text>
@@ -1125,7 +1142,7 @@ export function CoachSessionsScreen({ context, onNavigate, onQuickActionHandled,
           <Button label="Cancel" onPress={() => setTrainingForm(null)} secondary styles={styles} />
         </View>
       ) : null}
-      {trainingEvents.length ? <View style={styles.profileSection}><Text style={styles.cardTitle}>Upcoming training invitations</Text>{trainingEvents.slice(0, 8).map((event) => <Pressable accessibilityRole="button" key={event.id} onPress={() => onNavigate('calendar')} style={styles.stack}><Text style={styles.body}>{formatCoachCalendarEventDateTime(event)} | {event.title}</Text>{event.availabilitySummary ? <Text style={styles.meta}>Attending {event.availabilitySummary.attending} | Maybe {event.availabilitySummary.maybe} | Awaiting response {event.availabilitySummary.awaitingResponse} | Not attending {event.availabilitySummary.notAttending} | Invitation not sent {event.availabilitySummary.invitationNotSent} | Delivery issue {event.availabilitySummary.deliveryIssue}</Text> : null}</Pressable>)}</View> : null}
+      {trainingEvents.length && !trainingForm && !form ? <View style={styles.stack}><Text style={styles.profileSectionTitle}>Upcoming training</Text>{trainingEvents.slice(0, 8).map((event) => <TrainingSessionRow event={event} key={event.id} onOpen={() => onNavigate('calendar', { sourceId: event.sourceId || event.id, sourceType: 'calendar_event', occurrenceDate: event.occurrenceDate })} palette={palette} styles={styles} />)}</View> : null}
       <Text style={styles.cardTitle}>Assessment Sessions</Text>
       <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'Completed', value: 'completed' }, { label: 'History', value: 'history' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} />
       {getCoachSessionMutationPolicy({ context }).canCreate && !form && !trainingForm ? <Button label="Create assessment Session" onPress={() => { setDetail(null); setForm(coachSessionFormFromSession()) }} secondary styles={styles} /> : null}

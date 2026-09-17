@@ -34,7 +34,7 @@ const BrandLoader=()=>null, useConfirmedConnectionIssue=v=>v,useConfirmedConnect
 const deriveTeamNotificationDisplayName=v=>v,getCoachTeamNotificationDisplayName=async()=> 'FP TEST',message=e=>e.message;
 const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined,readMobileResource=async(u,k,fn)=>fn(),getCoachPlayerList=async()=>[],getCoachResources=async()=>{if(window.failResourceLoad)throw Error('Resource load failed');return window.resources};
 const invalidateMobileResource=()=>{},syncCoachCalendarEventResources=async(u,event,ids,date)=>{if(window.failResourceSave)throw Error('Resource save failed');window.resourceSaves.push({eventId:event.sourceId,ids,date})};
-const CoachDateTimeField=()=>null;const getCoachCalendarResources=async()=>{await new Promise(r=>setTimeout(r,30));return window.events};
+const CoachDateTimeField=()=>null;const getCoachCalendarResources=async()=>{await new Promise(r=>setTimeout(r,window.calendarDelay||30));return window.events};
 ${calendar}
 const useCoachTheme=()=>({styles:{}}),formatDateTime=v=>v,HomeNextRow=({label,onPress,value})=><Pressable accessibilityRole="button" onPress={onPress}><Text>{label}</Text><Text>{value}</Text></Pressable>,IconSection=({children})=><View>{children}</View>,IconAction=()=>null,IconStat=()=>null,EmptyPanel=()=>null,LoadingPanel=()=>null,StatePanel=()=>null;
 ${homeScreen}
@@ -110,10 +110,14 @@ try {
  await page.getByRole('button',{name:'Add resource',exact:true}).waitFor()
  await page.getByRole('button',{name:'Add resource',exact:true}).click()
  await page.getByRole('button',{name:'Add Match guide',exact:true}).click()
+ await page.evaluate(()=>window.calendarDelay=250)
  await page.getByRole('button',{name:'Add selected Resources (1)',exact:true}).click()
+ await page.getByRole('button',{name:'Saving Resources...',exact:true}).waitFor()
+ assert.equal(await page.getByRole('button',{name:'Edit fixture',exact:true}).count(),0)
  await page.getByText('Resources added to this event.',{exact:true}).waitFor()
  assert.deepEqual(await page.evaluate(()=>window.resourceSaves.at(-1)),{eventId:'fixture',ids:['other'],date:'2099-09-19'})
  await page.getByRole('button',{name:'Edit fixture',exact:true}).click()
+ await page.waitForFunction(()=>window.calls.at(-1)?.target?.intent==='edit-fixture')
  assert.deepEqual(await page.evaluate(()=>window.calls.at(-1)),{route:'matchday',target:{fixtureId:'fixture',intent:'edit-fixture',returnCalendarTarget:{sourceId:'fixture',sourceType:'match_day'}}})
  assert.equal(await page.getByText('Edit this item from its Match Day screen.',{exact:true}).count(),0)
  for(const mode of ['light','dark']){await page.evaluate(mode=>window.mode(mode),mode);await page.screenshot({path:out+'/calendar-fixture-edit-'+mode+'.png',fullPage:true})}

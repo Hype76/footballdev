@@ -9,7 +9,7 @@ const modules = path.join(rootDir, 'apps/coach-mobile/node_modules')
 const dataSource = await readFile('apps/mobile-core/src/coachMatchDayData.js', 'utf8')
 const names = [...dataSource.matchAll(/export (?:async )?function (\w+)/g)].map(match => match[1])
 const entry = `
-  import React from 'react'; import {createRoot} from 'react-dom/client';
+  import React from 'react'; import {createRoot} from 'react-dom/client'; import {View} from 'react-native';
   import {CoachMatchDayScreen} from './apps/coach-mobile/src/CoachMatchDayScreen.js';
   import {useCoachMatchDayBackgroundSync} from './apps/coach-mobile/src/useCoachMatchDayBackgroundSync.js';
   import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
@@ -26,11 +26,11 @@ const entry = `
   window.navigations=[];
   function App(){const [mode,setMode]=React.useState('dark');window.setMode=setMode;const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState(JSON.parse(localStorage.getItem('entryTarget')||'null')||{fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
     useCoachMatchDayBackgroundSync({user,contexts,enabled:!show});
-    return show?<CoachMatchDayScreen user={user} context={context} palette={createCoachTheme({mode}).tokens}
-      matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/>:<div>Home</div>;}
+    return show?<View style={{padding:16,backgroundColor:createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens.background,minHeight:'100vh'}}><CoachMatchDayScreen user={user} context={context} palette={createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens}
+      matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
-const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand'])
+const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','notifyCoachMatchDaySquadDecisions'])
 const dataMock = `
   import {projectMatchDayCommand} from './apps/mobile-core/src/matchDayOutboxCore.js';
   export const createCoachMatchDayCommandId=()=>crypto.randomUUID();
@@ -38,6 +38,8 @@ const dataMock = `
   const requireSignal=()=>{if(!window.online){window.failedRefresh=(window.failedRefresh||0)+1;throw new Error('Waiting for a connection.');}};
   export async function getCoachMatchDayList(){requireSignal();return [window.server]}
   export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));return window.server}
+  export async function setCoachMatchDaySquadDecision(user,match,id,decision){await new Promise(resolve=>setTimeout(resolve,30));window.server={...window.server,squadDecisions:[...window.server.squadDecisions.filter(row=>row.playerId!==id),{playerId:id,status:decision,decisionRevision:id+'-revision',decidedAt:'now'}]};return window.server;}
+  export async function notifyCoachMatchDaySquadDecisions(user,match,choices){window.squadNotifyCalls=(window.squadNotifyCalls||0)+1;return choices.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}
   export async function syncCoachMatchDayCommand(user,command){
     requireSignal();window.calls.push(command.id); if(localStorage.getItem('conflict')==='1') throw Object.assign(new Error('Match changed on another device'),{code:'40001'});
     const accepted=JSON.parse(localStorage.getItem('accepted')||'{}');
@@ -53,7 +55,7 @@ const mocks = [
   [/ClubKitDisplay(?:\.js)?$/, 'export const ClubKitDisplay=()=>null;'],
   [/coachSquadTemplateData$/, 'export const createCoachSquadTemplateStore=()=>async()=>[];'],
   [/coachMatchDayData(?:\.js)?$/, dataMock],
-  [/coachPlayersData$/, 'export async function getCoachPlayerList(){return []}'],
+  [/coachPlayersData$/, `export async function getCoachPlayerList(){return [{id:'squad-a',playerName:'Squad Alex'},{id:'squad-b',playerName:'Squad Bailey'}]}`],
   [/\/offline$/, `export async function readCoachOfflineResources(){return JSON.parse(localStorage.getItem('resources')||'null')}
     export async function saveCoachOfflineResources(user,context,resources){localStorage.setItem('resources',JSON.stringify({resources}));}
     export async function readCoachMatchDayOutbox(){return window.readJournal()}
@@ -64,12 +66,10 @@ const mocks = [
   [/CoachFormationBoard$/, 'export const CoachFormationBoard=()=>null;'],
   [/CoachFixtureForm$/, `export const CoachFixtureForm=({match,onCancel,onUpdated})=><div><p>Editing fixture {match.id}</p><button onClick={onCancel}>Cancel fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20'})}>Save fixture edit</button></div>;`],
   [/CoachGuestScorer$/, 'export const CoachGuestScorer=()=>null;'],
-  [/CoachSquadPanel$/, 'export const CoachSquadPanel=()=>null;'],
-  [/^@expo\/vector-icons\/MaterialIcons$/, 'export default ()=>null;'],
   [/^expo-keep-awake$/, 'export const isAvailableAsync=async()=>false;export const activateKeepAwakeAsync=async()=>{};export const deactivateKeepAwake=async()=>{};'],
   [/^react-native$/, `export * from 'rn-web';export const AppState={currentState:'active',addEventListener(){return {remove(){}}}};`],
 ]
-const result = await build({ stdin: { contents: entry, resolveDir: rootDir, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: {'.js':'jsx'},
+const result = await build({ stdin: { contents: entry, resolveDir: rootDir, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: {'.js':'jsx','.ttf':'dataurl'}, platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'},
   alias:{'rn-web':path.join(modules,'react-native-web'),react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom')},
   define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},
   plugins:[{name:'synthetic-transport-and-storage',setup(builder){
@@ -79,12 +79,13 @@ const result = await build({ stdin: { contents: entry, resolveDir: rootDir, load
 const browser = await chromium.launch({headless:true})
 try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
-  const errors=[];page.on('pageerror',error=>errors.push(error.message))
+  const errors=[];page.on('pageerror',error=>{errors.push(error.message);console.error(error.message)})
   await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
   const mount = async()=>{await page.goto('http://localhost:9876/');await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
-  await page.getByRole('button',{name:'Goal',exact:true}).waitFor()
+  if(!process.argv.includes('--squad-only')) {
+  await page.getByRole('button',{name:'Goal',exact:true}).waitFor().catch(async error=>{console.error((await page.locator('body').innerText()).slice(0,2500));throw error})
   await page.evaluate(()=>window.setSignal(false))
   await page.waitForFunction(()=>window.failedRefresh>0, null, {timeout:25000})
   assert.equal(await page.getByRole('button',{name:'Goal',exact:true}).isEnabled(),true)
@@ -156,7 +157,7 @@ try {
   assert.equal(await page.getByText('Editing fixture fixture',{exact:true}).count(),0,'A cached scheduled fixture must not open the editor after the server reports it live')
   await page.evaluate(() => {
     localStorage.clear();
-    localStorage.setItem('server',JSON.stringify({id:'fixture',clubId:'club',clubName:'FP TEST Club',teamId:'team',teamName:'U14 JPL 26/27',opponent:'Visitors',homeAway:'away',status:'scheduled',timerStatus:'not_started',matchDate:'2099-09-19',kickoffTime:'10:45',events:[],squadDecisions:[]}));
+    localStorage.setItem('server',JSON.stringify({id:'fixture',clubId:'club',clubName:'FP TEST Club',teamId:'team',teamName:'U14 JPL 26/27',opponent:'Visitors',homeAway:'away',status:'scheduled',timerStatus:'not_started',matchDate:'2099-09-19',kickoffTime:'10:45',arrivalTime:'10:00',fixtureType:'cup',venueName:'Bourne AGP 3G Fontwell Drive PE10 0YE (Pitch 1)',notes:'Please arrive at 10:00 or just before; we only have 45 mins to change and warm up.',clockMode:'fixed',matchDurationMinutes:70,events:[],squadDecisions:[]}));
     localStorage.setItem('entryTarget',JSON.stringify({requestId:'list'}));
   })
   await mount()
@@ -182,6 +183,35 @@ try {
   await page.getByRole('button', { name: 'Back to fixtures', exact: true }).waitFor()
   assert.equal(await page.getByText('scheduled', { exact: true }).count(), 0)
   await page.getByText('Pre-match', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Game Day', { exact: true }).count(),0)
+  await page.getByRole('button',{name:'Edit fixture',exact:true}).click()
+  await page.getByText('Editing fixture fixture',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Cancel fixture edit',exact:true}).click()
+  await page.getByRole('button',{name:'More match options',exact:true}).click()
+  await page.getByRole('button',{name:'Timeline',exact:true}).click()
+  assert.equal(await page.getByRole('button',{name:'More match options',exact:true}).getAttribute('aria-selected'),'true')
+  await page.getByRole('button',{name:'Overview',exact:true}).click()
+  for(const mode of ['light','dark']) for(const width of [320,390]) {
+    await page.evaluate(value=>window.setMode(value),mode)
+    await page.setViewportSize({width,height:844})
+    const navNames=['Overview','Squad','Formation','Volunteers','Live','More match options']
+    const boxes=await Promise.all(navNames.map(name=>page.getByRole('button',{name,exact:true}).boundingBox()))
+    assert.ok(boxes.every(box=>box.width>=44 && box.height>=44))
+    assert.ok(boxes.every(box=>Math.abs(box.y-boxes[0].y)<1),'All six tabs fit one row')
+    const heading=await page.getByRole('heading',{name:'Visitors v FP TEST Club',exact:true}).boundingBox()
+    assert.ok(heading.y<boxes[0].y,'Match heading precedes navigation')
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+    await page.screenshot({path:`output/playwright/club-match-name/overview-${mode}-${width}.png`,fullPage:true})
+  }
+  }
+  await page.evaluate(()=>{window.server={...window.server,status:'scheduled',timerStatus:'not_started',squadDecisions:[],squadNotificationContacts:['squad-a','squad-b'].map(playerId=>({playerId,canNotify:true,hasContact:true,emailRecipientCount:1}))};localStorage.clear();localStorage.setItem('server',JSON.stringify(window.server))})
+  await mount()
+  await page.getByRole('button',{name:'Squad',exact:true}).click()
+  await page.getByRole('button',{name:'Selected: Squad Alex',exact:true}).click()
+  await page.getByRole('button',{name:'Selected: Squad Bailey',exact:true}).click()
+  await page.getByRole('button',{name:'Save and send notifications',exact:true}).click()
+  await page.getByText('Notifications queued for 2 players.',{exact:true}).waitFor({timeout:3000}).catch(async error=>{console.error('Notification endpoint calls:',await page.evaluate(()=>window.squadNotifyCalls||0));console.error((await page.locator('body').innerText()).slice(-1800));throw error})
+  assert.equal(await page.evaluate(()=>window.squadNotifyCalls),1,'The screen must call Notify after saving without waiting for a React render')
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
 } finally {await browser.close()}

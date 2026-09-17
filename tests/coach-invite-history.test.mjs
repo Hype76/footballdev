@@ -4,7 +4,7 @@ import test from 'node:test'
 
 const source = await readFile(new URL('../netlify/functions/get-coach-invite-history.js', import.meta.url), 'utf8')
 const mobileSource = await readFile(new URL('../apps/mobile-core/src/coachInviteHistoryData.js', import.meta.url), 'utf8')
-const executable = (text) => text.replace(/^import .*\n/gm, '').replace(/export /g, '')
+const executable = (text) => text.replace(/^import .*\r?\n/gm, '').replace(/export /g, '')
 const ids = {
   actor: '11111111-1111-4111-8111-111111111111',
   club: '22222222-2222-4222-8222-222222222222',
@@ -78,7 +78,7 @@ test('history counts confirmed messages and logical resend commands without disc
   assert.equal(history.emailSends, 2)
   assert.equal(history.resendRequests, 2)
   assert.deepEqual(history.recentEmailSends, ['2026-09-15T09:00:00Z'])
-  assert.deepEqual(Object.keys(history).sort(), ['emailSends', 'recentEmailSends', 'recentResendRequests', 'resendRequests'])
+  assert.deepEqual(Object.keys(history).sort(), ['emailSends', 'firstEmailSentAt', 'recentEmailSends', 'recentResendRequests', 'resendRequests'])
   assert.doesNotMatch(JSON.stringify(history), /provider-|payload|playerId|clubId/)
 })
 
@@ -103,6 +103,7 @@ test('pagination counts more than 200 records and only returns the ten latest ti
   const audits = Array.from({ length: 201 }, (_, index) => resend(String(index).padStart(4, '0')))
   const db = fixture({ email_logs: emails, audit_logs: audits })
   const history = await load(db).readCoachInviteHistory({ db, profile, ...request })
+  assert.equal(history.firstEmailSentAt, emails[0].provider_accepted_at)
   assert.equal(history.emailSends, 401)
   assert.equal(history.resendRequests, 201)
   assert.equal(history.recentEmailSends.length, 10)
