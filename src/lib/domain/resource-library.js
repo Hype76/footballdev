@@ -501,6 +501,54 @@ export async function createExternalResourceLibraryItem({ category = 'general', 
   return normalizeResourceLibraryItem(resource ?? {})
 }
 
+export async function updateResourceLibraryItem({ resource, title, description = '', category, externalUrl = '', file = null, user } = {}) {
+  await blockDemoMutation(user)
+  assertResourceLibraryManageAccess(user)
+  const teamId = getActiveResourceTeamId(user)
+  if (!resource?.id || resource.teamId !== teamId || resource.clubId !== user.clubId || resource.currentFormationBoardPublication) {
+    throw new Error('Choose an editable resource in this team.')
+  }
+  const normalizedTitle = normalizeText(title)
+  const normalizedDescription = normalizeText(description)
+  if (!normalizedTitle || normalizedTitle.length > 120 || normalizedDescription.length > 1000) {
+    throw new Error('Add a title of up to 120 characters and a description of up to 1,000 characters.')
+  }
+  const isExternal = resource.resourceType === 'external_link'
+  const safeUrl = isExternal ? normalizeExternalResourceUrl(externalUrl) : null
+  if (isExternal && (!safeUrl || file)) throw new Error('Add a valid http or https resource link.')
+  let replacement = null
+  if (file) {
+    const validated = validateResourceLibraryFile(file)
+    const storagePath = `${user.clubId}/${teamId}/${resource.id}/${crypto.randomUUID()}-${validated.safeFilename}`
+    const { error } = await supabase.storage.from(RESOURCE_LIBRARY_BUCKET).upload(storagePath, file, {
+      contentType: validated.mimeType, upsert: false,
+    })
+    if (error) throw error
+    replacement = { storage_path: storagePath, original_filename: file.name, mime_type: validated.mimeType, file_size_bytes: Number(file.size) }
+  }
+  const { data, error } = await supabase.rpc('update_resource_library_item', {
+    target_resource_id: resource.id,
+    target_club_id: user.clubId,
+    target_team_id: teamId,
+    expected_updated_at: resource.updatedAt,
+    title_value: normalizedTitle,
+    description_value: normalizedDescription,
+    category_value: normalizeCategory(category),
+    external_url_value: safeUrl,
+    replacement_file: replacement,
+  })
+  // Keep uploaded objects on an uncertain response: the transaction may have committed.
+  // The old file is never overwritten or deleted by this operation.
+  if (error) throw error
+  const saved = Array.isArray(data) ? data[0] : data
+  if (!saved?.id) throw new Error('The server did not confirm the resource was saved. Reload before retrying.')
+  invalidateMemoryCacheByPrefix(`resource-library:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({ user, action: 'resource_library_item_updated', entityType: 'resource_library_item', entityId: resource.id,
+    metadata: { title: normalizedTitle, teamId, category: normalizeCategory(category), fileReplaced: Boolean(file) } })
+  return { ...resource, ...normalizeResourceLibraryItem({ ...saved, external_url: safeUrl }), links: resource.links, teamName: resource.teamName }
+}
+
 export async function assignResourceLibraryItem({
   replacePlayerAssignments = false,
   resourceId,

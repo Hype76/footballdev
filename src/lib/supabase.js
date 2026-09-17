@@ -353,6 +353,7 @@ export {
   removeResourceLibraryLink,
   syncCalendarEventResourceLinks,
   uploadResourceLibraryItem,
+  updateResourceLibraryItem,
   validateResourceLibraryFile,
 } from './domain/resource-library.js'
 

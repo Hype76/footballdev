@@ -240,6 +240,8 @@ jobs:
         run: npm run verify:build-env && npm run security:artifact-manifest
       - name: Verify responsive player contact layout
         run: npx playwright install --with-deps chromium && node tests/player-contact-layout-browser.mjs
+      - name: Verify resource editing and retained assignments
+        run: node --test tests/resource-library-edit.test.mjs tests/resource-library-edit-pglite.test.mjs && node tests/resource-library-edit-browser.mjs
       - name: Upload build evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
