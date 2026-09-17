@@ -15,6 +15,7 @@ import { APPROVED_MOBILE_PRODUCTION, APPROVED_MOBILE_TEST } from '../../mobile-c
 import { createEncryptedOfflineStore } from '../../mobile-core/src/offlineStorageCore'
 import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../../mobile-core/src/coachPhase31FCore'
 import { developmentDraftKey, editLocalDevelopmentDraft } from '../../mobile-core/src/developmentOfflineCore'
+import { formationDraftKey, updateFormationLocalDraft } from '../../mobile-core/src/coachFormationDraftCore'
 
 const config = getMobileRuntimeConfig('coach')
 const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split('.')[0] : ''
@@ -188,6 +189,18 @@ export async function saveCoachOfflineResources(userId, contextId, resources) {
   return saveCoachOfflineResourcesWithProfile(userId, contextId, resources)
 }
 
+export async function saveCoachFormationLocalDraft(userId, context, key, entry) {
+  return store.update(userId, (document) => {
+    assertOutboxContext(document, userId, context)
+    const previous = getCoachOfflineResources(document, context)?.resources?.formation
+    const formation = updateFormationLocalDraft(previous, key, entry)
+    if (!entry && key === formationDraftKey(previous?.board?.id, previous?.matchDayId)) formation.pendingSave = null
+    return setCoachOfflineResources(document, context, {
+      formation,
+    })
+  })
+}
+
 async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources, liveProfile = null) {
   const next = await store.update(userId, (current) => {
     if (!current?.profile) {
@@ -201,7 +214,13 @@ async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources
     ))) {
       throw new Error('offline_context_scope_mismatch')
     }
-    return setCoachOfflineResources(current, contextId, resources)
+    // Refreshing the read cache must never replace unsent formation drafts.
+    const previousFormation = getCoachOfflineResources(current, contextId)?.resources?.formation
+    const nextResources = resources.formation ? {
+      ...resources,
+      formation: { ...resources.formation, localDrafts: previousFormation?.localDrafts || {} },
+    } : resources
+    return setCoachOfflineResources(current, contextId, nextResources)
   })
   return getCoachOfflineResources(next, contextId)
 }

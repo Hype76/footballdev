@@ -74,7 +74,7 @@ test('Coach app exposes simplified Formation save and Parent publication through
     readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
   ])
   for (const rpc of ['create_formation_board', 'save_formation_board_editor', 'link_formation_board_to_match', 'publish_formation_board_match_plan', 'withdraw_formation_board_match_plan', 'publish_formation_board_version']) assert.match(data, new RegExp(rpc))
-  for (const copy of ['Choose formation', 'Select full squad', 'Load empty pitch', 'Build lineup', 'Take Players off', 'Move ${removalIds.length || \'\'} selected to Bench', 'Move to pitch', 'Continue to save', 'Save private Formation Board', 'Save and link to match', 'Save and publish to Team Resources']) assert.match(screen, new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  for (const copy of ['Choose formation', 'Select full squad', 'Load empty pitch', 'Build lineup', 'Take Players off', 'Move ${removalIds.length || \'\'} selected to Bench', 'Move to pitch', 'Continue to save', 'Save Formation Board', 'Save and link to match', 'Save and publish to Team Resources']) assert.match(screen, new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   assert.doesNotMatch(screen, /Use full squad & build team/)
   assert.doesNotMatch(screen, /#[0-9a-f]{3,8}/i)
   assert.match(matchDay, /label: 'Formation'/)

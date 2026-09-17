@@ -151,6 +151,10 @@ function usePortalStyles(themeTokens) {
       formationEmpty: { alignSelf: 'center', backgroundColor: colors.card, borderRadius: 12, color: colors.text, fontSize: 13, fontWeight: '700', marginHorizontal: 18, marginTop: '55%', padding: 12, textAlign: 'center' },
       formationPlayer: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.accentText, borderRadius: 18, borderWidth: 2, maxWidth: 100, minWidth: 66, paddingHorizontal: 6, paddingVertical: 7, position: 'absolute', transform: [{ translateX: -33 }, { translateY: -16 }] },
       formationPlayerText: { color: colors.text, fontSize: 10, fontWeight: '800' },
+      formationPlanBench: { borderTopColor: colors.border, borderTopWidth: 1, gap: 4, paddingTop: 10 },
+      formationPlanBenchRow: { borderBottomColor: colors.border, borderBottomWidth: 1, minHeight: 40, paddingVertical: 8 },
+      formationPlanContent: { gap: 12, paddingTop: 10 },
+      formationPlanToggle: { alignItems: 'center', flexDirection: 'row', gap: 10, minHeight: 48 },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
       cardLink: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
       eventDetailCard: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 16, gap: 14 },
@@ -1006,6 +1010,39 @@ function MatchdayAction({ accessibilityLabel, label, iconKey, onPress, colors, s
   </Pressable>
 }
 
+function ParentMatchFormationPlan({ error = '', plan = null, styles }) {
+  const [expanded, setExpanded] = useState(false)
+  if (error) return <View style={styles.card}><Text style={styles.cardTitle}>Match plan unavailable</Text><Text style={styles.warning}>{error}</Text></View>
+  if (!plan) return null
+
+  const placements = getNamedParentFormationPlayers(plan.placements)
+  const bench = getNamedParentFormationPlayers(plan.bench)
+  const title = [plan.title || 'Match plan', plan.gameFormat, plan.formation].filter(Boolean).join(' | ')
+  return (
+    <View style={styles.card}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.formationPlanToggle}>
+        <View style={styles.compactCopy}><Text style={styles.cardTitle}>Match plan</Text><Text style={styles.meta}>{title}</Text></View>
+        <Text style={styles.cardLink}>{expanded ? 'Hide' : 'Show'}</Text>
+      </Pressable>
+      {expanded ? <View style={styles.formationPlanContent}>
+        <View accessibilityLabel={`${plan.title || 'Match plan'} pitch`} style={styles.formationPitch}>
+          <View style={styles.formationHalfway} />
+          {placements.map((player, index) => (
+            <View key={`${player.playerId || player.parentDisplayName}:${index}`} style={[styles.formationPlayer, { left: `${Math.max(4, Math.min(88, getParentFormationPitchPercent(player.x)))}%`, top: `${Math.max(3, Math.min(90, getParentFormationPitchPercent(player.y)))}%` }]}>
+              <Text numberOfLines={1} style={styles.formationPlayerText}>{player.parentDisplayName}</Text>
+            </View>
+          ))}
+          {!placements.length ? <Text style={styles.formationEmpty}>No named lineup has been published with this plan.</Text> : null}
+        </View>
+        <View style={styles.formationPlanBench}>
+          <View style={styles.row}><Text style={styles.cardTitle}>Bench</Text><Text style={styles.meta}>{bench.length}</Text></View>
+          {bench.length ? bench.map((player, index) => <Text key={`${player.playerId || player.parentDisplayName}:bench:${index}`} style={styles.formationPlanBenchRow}>{player.parentDisplayName}</Text>) : <Text style={styles.helper}>No named Players are on the Bench.</Text>}
+        </View>
+      </View> : null}
+    </View>
+  )
+}
+
 export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
@@ -1081,6 +1118,7 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
           </View>
         </View>
+        <ParentMatchFormationPlan error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} styles={styles} />
         {!selectedMatch.isFanView && squadOpenMatchId === selectedMatch.id ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>

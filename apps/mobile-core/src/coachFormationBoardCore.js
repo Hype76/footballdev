@@ -94,6 +94,46 @@ export function normalizeMobileFormationPlayer(player = {}) {
   }
 }
 
+function formationPlayerId(player) {
+  return normalize(player?.playerId ?? player?.id)
+}
+
+function normalizeUnplacedFormationPlayer(player) {
+  return { ...normalizeMobileFormationPlayer(player), state: 'unplaced' }
+}
+
+function getDraftUnplacedPlayers(draft) {
+  if (Array.isArray(draft?.unplaced)) return draft.unplaced
+  return (Array.isArray(draft?.bench) ? draft.bench : []).filter((player) => player?.state === 'unplaced')
+}
+
+function updateDraftRoster(draft, { bench = [], placements = [], clearUnplacedIds = [] } = {}) {
+  const nextBench = Array.isArray(bench) ? bench : []
+  const nextPlacements = Array.isArray(placements) ? placements : []
+  const clearIds = new Set(clearUnplacedIds.map(normalize).filter(Boolean))
+  const placementIds = new Set(nextPlacements.map(formationPlayerId).filter(Boolean))
+  const benchIds = new Set(nextBench.map(formationPlayerId).filter(Boolean))
+  const nextUnplaced = getDraftUnplacedPlayers(draft)
+    .filter((player) => {
+      const id = formationPlayerId(player)
+      return id && !clearIds.has(id) && benchIds.has(id) && !placementIds.has(id)
+    })
+    .map(normalizeUnplacedFormationPlayer)
+  const unplacedIds = new Set(nextUnplaced.map(formationPlayerId))
+  return {
+    ...draft,
+    bench: nextBench.map((player) => {
+      if (unplacedIds.has(formationPlayerId(player))) return { ...player, state: 'unplaced' }
+      if (player?.state !== 'unplaced') return player
+      const normalBenchPlayer = { ...player }
+      delete normalBenchPlayer.state
+      return normalBenchPlayer
+    }),
+    placements: nextPlacements,
+    unplaced: nextUnplaced,
+  }
+}
+
 function normalizePlacement(player = {}) {
   return {
     ...normalizeMobileFormationPlayer(player),
@@ -106,16 +146,28 @@ function normalizePlacement(player = {}) {
 
 export function createMobileFormationDraft({ board = null, gameFormat = '11v11', presetKey = '11v11-4-4-2' } = {}) {
   const version = board?.currentVersion
+  const existingBench = (Array.isArray(version?.bench) ? version.bench : []).filter((player) => player?.state !== 'unplaced')
+  const existingUnplaced = [
+    ...(Array.isArray(version?.unplaced) ? version.unplaced : []),
+    ...(Array.isArray(version?.bench) ? version.bench.filter((player) => player?.state === 'unplaced') : []),
+  ]
+  const unplacedById = new Map()
+  existingUnplaced.forEach((player) => {
+    const id = formationPlayerId(player)
+    if (id && !unplacedById.has(id)) unplacedById.set(id, normalizeUnplacedFormationPlayer(player))
+  })
+  const unplaced = [...unplacedById.values()]
   return {
     baseVersionNumber: Number(board?.currentVersionNumber || 0),
     bench: [
-      ...(Array.isArray(version?.bench) ? version.bench : []),
-      ...(Array.isArray(version?.unplaced) ? version.unplaced : []),
-    ].map(normalizeMobileFormationPlayer).filter((player) => player.playerId),
+      ...existingBench.map(normalizeMobileFormationPlayer),
+      ...unplaced,
+    ].filter((player) => player.playerId),
     gameFormat: normalize(version?.gameFormat || board?.gameFormat || gameFormat) || '11v11',
     placements: (Array.isArray(version?.placements) ? version.placements : []).map(normalizePlacement).filter((player) => player.playerId),
     presetKey: normalize(version?.formationPresetKey || board?.formationPresetKey || presetKey) || '11v11-4-4-2',
     registryVersion: Number(version?.presetRegistryVersion || board?.presetRegistryVersion || 1),
+    unplaced,
   }
 }
 
@@ -148,33 +200,34 @@ export function setMobileFormationSquad(draft, players = []) {
   const allowed = new Set(nextPlayers.map((player) => player.playerId))
   const placements = (draft?.placements || []).filter((player) => allowed.has(player.playerId))
   const placed = new Set(placements.map((player) => player.playerId))
-  return {
-    ...draft,
+  return updateDraftRoster(draft, {
     placements,
     bench: nextPlayers.filter((player) => !placed.has(player.playerId)),
-  }
+  })
 }
 
 export function toggleMobileFormationSquadPlayer(draft, player) {
   const normalized = normalizeMobileFormationPlayer(player)
   if (!normalized.playerId) return draft
   const selected = getMobileFormationSelectedPlayerIds(draft)
-  if (!selected.has(normalized.playerId)) return { ...draft, bench: [...draft.bench, normalized] }
-  return {
-    ...draft,
+  if (!selected.has(normalized.playerId)) return updateDraftRoster(draft, {
+    bench: [...draft.bench, normalized],
+    placements: draft.placements,
+  })
+  return updateDraftRoster(draft, {
     bench: draft.bench.filter((item) => item.playerId !== normalized.playerId),
     placements: draft.placements.filter((item) => item.playerId !== normalized.playerId),
-  }
+    clearUnplacedIds: [normalized.playerId],
+  })
 }
 
 export function applyMobileFormationPreset(draft, preset) {
   const slots = getMobileFormationPresetSlots(preset)
   const players = [...(draft?.placements || [])]
   const placementCount = Math.min(getMobileFormationCapacity(preset?.gameFormat), slots.length, players.length)
-  return {
-    ...draft,
+  const nextDraft = updateDraftRoster(draft, {
     bench: [...(draft?.bench || []), ...players.slice(placementCount).map(normalizeMobileFormationPlayer)],
-    gameFormat: normalize(preset?.gameFormat) || draft.gameFormat,
+    clearUnplacedIds: players.slice(placementCount).map(formationPlayerId),
     placements: players.slice(0, placementCount).map((player, index) => ({
       ...normalizeMobileFormationPlayer(player),
       positionGroup: normalize(slots[index]?.group),
@@ -182,6 +235,10 @@ export function applyMobileFormationPreset(draft, preset) {
       x: coordinate(slots[index]?.x),
       y: coordinate(slots[index]?.y),
     })),
+  })
+  return {
+    ...nextDraft,
+    gameFormat: normalize(preset?.gameFormat) || draft.gameFormat,
     presetKey: normalize(preset?.key) || draft.presetKey,
     registryVersion: Number(preset?.registryVersion || draft.registryVersion || 1),
   }
@@ -200,11 +257,11 @@ export function placeMobileFormationLineup(draft, preset) {
     y: coordinate(openSlots[index]?.y),
   }))
   const placedIds = new Set(additions.map((player) => player.playerId))
-  return {
-    ...draft,
+  return updateDraftRoster(draft, {
     bench: draft.bench.filter((player) => !placedIds.has(player.playerId)),
     placements: [...draft.placements, ...additions],
-  }
+    clearUnplacedIds: [...placedIds],
+  })
 }
 
 export function buildMobileFormationLineup(draft, preset) {
@@ -218,10 +275,8 @@ export function buildMobileFormationLineup(draft, preset) {
       seen.add(player.playerId)
       return true
     })
-  return {
-    ...draft,
+  const nextDraft = updateDraftRoster(draft, {
     bench: players.slice(capacity),
-    gameFormat: normalize(preset?.gameFormat) || draft.gameFormat,
     placements: players.slice(0, capacity).map((player, index) => ({
       ...player,
       positionGroup: normalize(slots[index]?.group),
@@ -229,6 +284,11 @@ export function buildMobileFormationLineup(draft, preset) {
       x: coordinate(slots[index]?.x),
       y: coordinate(slots[index]?.y),
     })),
+    clearUnplacedIds: players.slice(0, capacity).map(formationPlayerId),
+  })
+  return {
+    ...nextDraft,
+    gameFormat: normalize(preset?.gameFormat) || draft.gameFormat,
     presetKey: normalize(preset?.key) || draft.presetKey,
     registryVersion: Number(preset?.registryVersion || draft.registryVersion || 1),
   }
@@ -239,8 +299,7 @@ export function placeMobileFormationPlayer(draft, playerId, slot) {
   const player = draft?.bench?.find((item) => item.playerId === targetId)
   const occupied = draft?.placements?.some((item) => item.slotId === normalize(slot?.id))
   if (!player || !slot?.id || occupied || draft.placements.length >= getMobileFormationCapacity(draft.gameFormat)) return draft
-  return {
-    ...draft,
+  return updateDraftRoster(draft, {
     bench: draft.bench.filter((item) => item.playerId !== targetId),
     placements: [...draft.placements, {
       ...normalizeMobileFormationPlayer(player),
@@ -249,7 +308,8 @@ export function placeMobileFormationPlayer(draft, playerId, slot) {
       x: coordinate(slot.x),
       y: coordinate(slot.y),
     }],
-  }
+    clearUnplacedIds: [targetId],
+  })
 }
 
 function mobileSlotPlacement(player, slot) {
@@ -291,7 +351,11 @@ export function assignMobileFormationPlayerToSlot(draft, player, slot) {
     bench.push(normalizeMobileFormationPlayer(targetPlacement))
   }
 
-  return { ...draft, bench, placements }
+  return updateDraftRoster(draft, {
+    bench,
+    placements,
+    clearUnplacedIds: [normalizedPlayer.playerId],
+  })
 }
 
 export function getMobileFormationSlotLabel(slot) {
@@ -376,11 +440,11 @@ export function moveMobileFormationPlayersToBench(draft, playerIds = []) {
   const selected = new Set(playerIds.map(normalize).filter(Boolean))
   const removed = draft.placements.filter((player) => selected.has(player.playerId)).map(normalizeMobileFormationPlayer)
   if (!removed.length) return draft
-  return {
-    ...draft,
+  return updateDraftRoster(draft, {
     bench: [...draft.bench, ...removed],
     placements: draft.placements.filter((player) => !selected.has(player.playerId)),
-  }
+    clearUnplacedIds: [...selected],
+  })
 }
 
 export function moveMobileFormationPlayer(draft, playerId, coordinates = {}) {
@@ -437,5 +501,9 @@ export function swapMobileFormationPlayers(draft, firstPlayerId, secondPlayerId)
     y: placed.y,
   }
   bench[benchIndex] = normalizeMobileFormationPlayer(placed)
-  return { ...draft, bench, placements }
+  return updateDraftRoster(draft, {
+    bench,
+    placements,
+    clearUnplacedIds: [firstId, secondId],
+  })
 }
