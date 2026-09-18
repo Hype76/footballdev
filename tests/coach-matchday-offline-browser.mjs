@@ -52,6 +52,7 @@ const dataMock = `
   ${names.filter(name=>!implemented.has(name)).map(name=>`export async function ${name}(){throw new Error('Unexpected call: ${name}')}`).join('\n')}
 `
 const mocks = [
+  [/coachFormationBoardData$/, `export const getCoachFormationBoards=async()=>[];export const deleteCoachFormationBoard=async()=>{throw new Error('No saved boards in this fixture')}`],
   // Kit rendering and permissions have their own browser and database checks.
   [/ClubKitDisplay(?:\.js)?$/, 'export const ClubKitDisplay=()=>null;'],
   [/coachSquadTemplateData$/, 'export const createCoachSquadTemplateStore=()=>async()=>[];'],
@@ -70,7 +71,7 @@ const mocks = [
   [/^expo-keep-awake$/, 'export const isAvailableAsync=async()=>false;export const activateKeepAwakeAsync=async()=>{};export const deactivateKeepAwake=async()=>{};'],
   [/^react-native$/, `export * from 'rn-web';export const AppState={currentState:'active',addEventListener(){return {remove(){}}}};`],
 ]
-const result = await build({ stdin: { contents: entry, resolveDir: rootDir, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: {'.js':'jsx','.ttf':'dataurl'}, platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'},
+const result = await build({ stdin: { contents: entry, resolveDir: rootDir, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: {'.js':'jsx','.ttf':'dataurl','.png':'dataurl'}, platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'},
   alias:{'rn-web':path.join(modules,'react-native-web'),react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom')},
   define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},
   plugins:[{name:'synthetic-transport-and-storage',setup(builder){

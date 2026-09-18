@@ -983,3 +983,47 @@ test('two named boards publish for one Match and withdrawing one never resurface
   const visibleAfter = await db.query('select * from public.get_parent_portal_match_formation_plans($1)', ['60000000-0000-4000-8000-000000000001'])
   assert.deepEqual(visibleAfter.rows.map((item) => item.board_id), [secondId])
 })
+
+test('saved snapshots reject every editor and deletion is author or shared Coach only', async () => {
+  await resetActor()
+  await db.exec(await readFile(new URL('../supabase/migrations/20260918173753_formation_saved_snapshot_lock.sql', import.meta.url), 'utf8'))
+  await setActor(IDS.coach)
+  const create = async (title, visibility = 'shared') => (await rpc(
+    'public.create_formation_board($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11)',
+    [IDS.teamA, title, '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', visibility, 1],
+  )).rows[0].result
+  const saved = await create('Locked shared')
+  const privateBoard = await create('Locked private', 'draft')
+  assert.equal(saved.isLocked, true)
+  assert.equal(saved.canDelete, true)
+  const resourcePublication = (await rpc('public.publish_formation_board_version($1,$2,$3,$4,$5,$6,$7)',
+    [saved.board.id, saved.currentVersion.id, 'training', 'new_resource', null, null, true])).rows[0].result
+  for (const actor of [IDS.coach, IDS.manager, IDS.teamAdmin]) {
+    await setActor(actor)
+    await assert.rejects(rpc('public.save_formation_board_editor($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13)',
+      [saved.board.id, 1, 'Changed', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 'edit', 1]), /formation_board_snapshot_locked/)
+    await assert.rejects(rpc('public.rename_formation_board($1,$2,$3,$4)', [saved.board.id, 1, 'Changed', '']), /formation_board_snapshot_locked/)
+    await assert.rejects(rpc('public.restore_formation_board_version($1,$2,$3)', [saved.board.id, saved.currentVersion.id, 1]), /formation_board_snapshot_locked/)
+  }
+  for (const actor of [IDS.parent, IDS.playerUser, IDS.assistant, IDS.coachB, IDS.revokedCoach]) {
+    await setActor(actor)
+    await assert.rejects(rpc('public.delete_formation_board($1,$2)', [saved.board.id, saved.board.title]), /formation_board_delete_forbidden/)
+  }
+  await setActor(IDS.manager)
+  await assert.rejects(rpc('public.delete_formation_board($1,$2)', [privateBoard.board.id, privateBoard.board.title]), /formation_board_delete_forbidden/)
+  await rpc('public.delete_formation_board($1,$2)', [saved.board.id, saved.board.title])
+  await resetActor()
+  const archivedResource = await db.query('select archived_at from public.resource_library_items where id = $1', [resourcePublication.resource.id])
+  assert.ok(archivedResource.rows[0].archived_at, 'Deleting a snapshot removes its shared resource too')
+  await setActor(IDS.coach)
+  await rpc('public.delete_formation_board($1,$2)', [privateBoard.board.id, privateBoard.board.title])
+  const matchSaved = (await rpc('public.save_coach_match_formation($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
+    ['Locked match', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 1, '50000000-0000-4000-8000-000000000002', null, null, true, 'new_snapshot'])).rows[0].result
+  assert.equal(matchSaved.isLocked, true)
+  await assert.rejects(rpc('public.save_coach_match_formation($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
+    ['Changed', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 1, '50000000-0000-4000-8000-000000000002', matchSaved.board.id, 1, true, 'edit_snapshot']), /formation_board_snapshot_locked/)
+  await rpc('public.delete_formation_board($1,$2)', [matchSaved.board.id, matchSaved.board.title])
+  await setActor(IDS.parent)
+  const visible = await db.query('select * from public.get_parent_portal_match_formation_plans($1)', ['60000000-0000-4000-8000-000000000001'])
+  assert.ok(visible.rows.every(row => row.board_id !== matchSaved.board.id))
+})

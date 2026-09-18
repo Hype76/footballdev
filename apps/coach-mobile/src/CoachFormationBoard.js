@@ -359,7 +359,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const saved = await readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
     if (request !== loadSequence.current) return
     const localEntry = findFormationLocalDraft(saved?.resources?.formation, '', nextBoard.id)
-    const local = localEntry?.[1]
+    const local = nextBoard?.isLocked ? null : localEntry?.[1]
     const nextDraft = local?.draft || createMobileFormationDraft({ board: nextBoard })
     const baseBoard = local?.board || nextBoard
     const nextPublications = await resolvePublications(nextBoard, currentUser)
@@ -425,8 +425,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const restored = localDraft || (pendingSave ? { board: pendingSave.board || null, draft: pendingSave.draft, title: pendingSave.title, shared: pendingSave.shared } : null)
     if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
       const cachedBoard = restored ? restored.board || null : savedFormation.board || null
-      const cachedDraft = restored?.draft || savedFormation.draft
-      const cachedTitle = restored?.title || cachedBoard?.title || 'Formation Board'
+      const cachedDraft = cachedBoard?.isLocked ? createMobileFormationDraft({ board: cachedBoard }) : restored?.draft || savedFormation.draft
+      const cachedTitle = (cachedBoard?.isLocked ? cachedBoard.title : restored?.title) || cachedBoard?.title || 'Formation Board'
       setDraftScope(routeScope)
       setBoard(cachedBoard)
       setBoards(Array.isArray(savedFormation.boards) ? savedFormation.boards : [])
@@ -467,16 +467,22 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         && formationMatchesBoard(attemptedDraft.draft, attemptedDraft.title, candidate)
       )) || null : null
       // Keep the restored base version so a concurrent coach edit still conflicts.
-      const nextBoard = recoveredBoard || (restored ? restored.board || null : linkedBoard)
-      const nextDraft = restored?.draft || pendingSave?.draft
+      const canonicalRestoredBoard = restored?.board?.id ? nextBoards.find(candidate => candidate.id === restored.board.id) : null
+      let nextBoard = recoveredBoard || (canonicalRestoredBoard?.isLocked ? canonicalRestoredBoard : restored ? restored.board || null : linkedBoard)
+      let nextDraft = (nextBoard?.isLocked ? createMobileFormationDraft({ board: nextBoard }) : restored?.draft || pendingSave?.draft)
         || createMobileFormationDraft({ board: nextBoard, gameFormat: matchingPreset?.gameFormat || preference.gameFormat, presetKey: matchingPreset?.key || preference.presetKey })
-      const nextPublications = await resolvePublications(nextBoard, currentUser)
+      let nextPublications = await resolvePublications(nextBoard, currentUser)
       if (!isCurrent()) return
       const recoveredPublication = getActiveFormationPublication(nextPublications.matchItems, currentMatch?.id)
       const recoveredAudienceMatches = pendingSave?.shared
         ? Boolean(recoveredPublication && (recoveredPublication.board_version_id ?? recoveredPublication.boardVersionId) === recoveredBoard?.currentVersionId)
         : !recoveredPublication
       const unresolvedPendingSave = pendingSave && !(recoveredBoard && recoveredAudienceMatches) ? pendingSave : null
+      if (unresolvedPendingSave && !pendingSave.boardId && nextBoard?.isLocked && !recoveredAudienceMatches) {
+        nextBoard = null
+        nextDraft = pendingSave.draft
+        nextPublications = { matchItems: [] }
+      }
       setQueuedRetryPending(Boolean(unresolvedPendingSave))
       setQueuedSaveAcknowledged(Boolean(unresolvedPendingSave?.acknowledged))
       const editorChangedDuringRefresh = showedCachedBoard && editorRevision.current !== refreshRevision
@@ -489,7 +495,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         setBoard(nextBoard)
         setShared(restored?.shared ?? pendingSave?.shared ?? Boolean(getActiveFormationPublication(nextPublications.matchItems, currentMatch?.id)))
         setDraft(nextDraft)
-        const nextTitle = restored?.title || pendingSave?.title || nextBoard?.title || (currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board')
+        const nextTitle = (nextBoard?.isLocked ? nextBoard.title : restored?.title || pendingSave?.title) || nextBoard?.title || (currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board')
         setSavedContentKey(nextBoard ? formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title) : formationContentKey(createMobileFormationDraft({ gameFormat: nextDraft.gameFormat, presetKey: nextDraft.presetKey }), currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board'))
         setRestoredDraftKey(localEntry?.[0] || '')
         setLocalState(restored ? 'saved' : 'idle')
@@ -545,7 +551,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
   const hasEditAuthority = canEditCoachFormationBoard(user)
-  const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable
+  const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable && !board?.isLocked
   const capacity = getMobileFormationCapacity(draft.gameFormat)
   const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
   const contentKey = formationContentKey(draft, title)
@@ -680,16 +686,23 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const threshold = new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000)
     const createdByProfileId = normalize(pendingSave.createdByProfileId) || user.id
     const items = await getCoachFormationBoards(user)
-    return items.find((candidate) => (
+    const candidate = items.find((candidate) => (
       candidate.linkedMatchDayId === match?.id
       && candidate.createdByProfileId === createdByProfileId
       && new Date(candidate.createdAt || 0).getTime() >= threshold
       && formationMatchesBoard(pendingSave.draft, pendingSave.title, candidate)
     )) || null
+    if (!candidate?.isLocked) return candidate
+    const publications = await resolvePublications(candidate, user)
+    const publication = getActiveFormationPublication(publications.matchItems, match.id)
+    const audienceMatches = pendingSave.shared
+      ? Boolean(publication && (publication.board_version_id ?? publication.boardVersionId) === candidate.currentVersionId)
+      : !publication
+    return audienceMatches ? candidate : null
   }
 
   const persistBoard = async ({ queuedSave = null, queuedEditorRevision = null } = {}) => {
-    if (!canEdit) throw new Error('Coach or manager plan access is required to save formations.')
+    if (!canEdit && !(queuedSave?.acknowledged && hasEditAuthority && !refreshPending && !serverBoardUnavailable)) throw new Error(board?.isLocked ? 'Saved boards cannot be edited. Create a new board for a different lineup.' : 'Coach or manager plan access is required to save formations.')
     if (!match?.id) throw new Error('Open a match before saving a Formation Board.')
     const saveBoard = queuedSave ? queuedSave.board || null : board
     const saveDraft = queuedSave?.draft || draft
@@ -735,7 +748,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       }
       requireActiveBoard()
       if (!queuedSave?.acknowledged) {
-        nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
+        if (!nextBoard?.isLocked) nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
         serverAcknowledged = true
         requireActiveBoard()
         const acknowledgedPendingSave = { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, expectedVersionNumber: nextBoard.currentVersionNumber }
@@ -754,7 +767,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         || formationContentKey(currentEditor.draft, currentEditor.title) !== formationContentKey(saveDraft, saveTitle)
         || currentEditor.shared !== saveShared
       )
-      setBoard(nextBoard)
+      setBoard(preserveCurrentDraft && nextBoard?.isLocked ? null : nextBoard)
       setBoards(nextBoards)
       if (!preserveCurrentDraft) {
         setDraft(createMobileFormationDraft({ board: nextBoard }))
@@ -762,7 +775,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       }
       setSavedContentKey(formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title))
       setMatchPublications(nextPublications.matchItems)
-      await saveOfflineFormation({ nextBoard, nextBoards, nextDraft: preserveCurrentDraft ? currentEditor.draft : createMobileFormationDraft({ board: nextBoard }), nextPublications: nextPublications.matchItems, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
+      await saveOfflineFormation({ nextBoard: preserveCurrentDraft && nextBoard?.isLocked ? null : nextBoard, nextBoards, nextDraft: preserveCurrentDraft ? currentEditor.draft : createMobileFormationDraft({ board: nextBoard }), nextPublications: nextPublications.matchItems, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
       if (!preserveCurrentDraft) await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null).catch(() => {})
       setQueuedRetryPending(false)
       setQueuedSaveAcknowledged(false)
@@ -803,6 +816,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setBusy(true); setError(''); setNotice('')
     try {
       const nextBoard = await persistBoard()
+      if (nextBoard.isLocked) setActiveSheet('')
       setNotice(`${nextBoard.title} saved to this match. ${shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
     } catch (saveError) {
       if (saveError.code === 'formation_navigation_changed' || saveError.code === 'formation_save_queued') return
@@ -813,7 +827,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   }
 
   const retryQueuedSave = useCallback(async () => {
-    if (queuedRetryInFlight.current || !queuedRetryPending || busy || loading || refreshPending || serverBoardUnavailable || !canEdit || !match?.id) return
+    if (queuedRetryInFlight.current || !queuedRetryPending || busy || loading || refreshPending || serverBoardUnavailable || (!canEdit && !(queuedSaveAcknowledged && hasEditAuthority)) || !match?.id) return
     queuedRetryInFlight.current = true
     try {
       const currentRoute = getCoachFormationRouteScope(user, context, match.id)
@@ -831,6 +845,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       setBusy(true)
       setError('')
       const nextBoard = await persistBoardRef.current({ queuedEditorRevision, queuedSave: pendingSave })
+      if (nextBoard.isLocked) setActiveSheet('')
       setNotice(`${nextBoard.title} saved to this match. ${pendingSave.shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
     } catch (retryError) {
       if (retryError.code === 'formation_navigation_changed' || retryError.code === 'formation_save_queued' || isRetryableFormationSaveError(retryError)) return
@@ -840,7 +855,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       queuedRetryInFlight.current = false
       setBusy(false)
     }
-  }, [board?.id, busy, canEdit, context, loading, match?.id, queuedRetryPending, refreshPending, routeScope, serverBoardUnavailable, user])
+  }, [board?.id, busy, canEdit, context, hasEditAuthority, loading, match?.id, queuedRetryPending, queuedSaveAcknowledged, refreshPending, routeScope, serverBoardUnavailable, user])
 
   useEffect(() => {
     const retry = (state) => { if (state === 'active') void retryQueuedSave() }
@@ -926,7 +941,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       <View style={fullScreen ? [styles.field, { bottom: footerHeight }] : null}>
       <View accessibilityLabel="Formation pitch" onLayout={(event) => setPitchLayout(event.nativeEvent.layout)} style={[styles.pitch, fullScreen && styles.pitchCanvas]}>
         <FormationPitchLines styles={styles} />
-        {currentPresetSlots.filter((slot) => !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
+        {currentPresetSlots.filter((slot) => !board?.isLocked && !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
           <Pressable
             accessibilityHint="Opens the Player picker for this empty position"
             accessibilityLabel={`Add Player at ${getMobileFormationSlotLabel(slot)}`}
@@ -995,7 +1010,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       </> : null}
       {!fullScreen || toolsOpen ? <View accessibilityLabel="Formation Board tools" style={[styles.dock, fullScreen && styles.toolsMenu]}>
         <Pressable accessibilityRole="button" accessibilityLabel={matchBoards.length ? `Saved lineups (${matchBoards.length})` : 'Formation Board options'} onPress={() => { setToolsOpen(false); setShowBoards(matchBoards.length > 0); setActiveSheet('details') }} style={[styles.dockItem, fullScreen && styles.menuItem]}><MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name="more-horiz" size={24} /><Text style={styles.dockLabel}>{matchBoards.length ? `Saved (${matchBoards.length})` : 'Options'}</Text></Pressable>
-        {BOARD_TABS.map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => { setToolsOpen(false); setActiveSheet(tab.value) }} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled, fullScreen && styles.menuItem]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
+        {BOARD_TABS.filter(() => !board?.isLocked).map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => { setToolsOpen(false); setActiveSheet(tab.value) }} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled, fullScreen && styles.menuItem]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
       </View> : null}
 
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={closeSheet} transparent visible={Boolean(activeSheet)}>
@@ -1040,7 +1055,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
             </ScrollView> : null}
 
             {activeSheet === 'details' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
-              <Text style={styles.label}>Plan name</Text>
+              <Text style={styles.label}>{board?.isLocked ? 'Saved snapshot' : 'Plan name'}</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" onChangeText={setTitle} style={[styles.input, !canEdit && styles.actionDisabled]} value={title} />
               <Text style={styles.body}>{saveLabel} | {draft.placements.length} on pitch | {draft.bench.length} Subs</Text>
               {draft.placements.length ? <Action disabled={!canEdit} label={removalMode ? 'Cancel taking Players off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId(''); closeSheet() }} secondary styles={styles} /> : null}

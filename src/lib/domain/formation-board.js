@@ -12,6 +12,7 @@ export const FORMATION_BOARD_VISIBILITY_STATES = Object.freeze(['draft', 'shared
 export const FORMATION_BOARD_EXPORT_FORMATS = Object.freeze(['png', 'pdf'])
 
 const FORMATION_BOARD_ERROR_MESSAGES = Object.freeze({
+  formation_board_snapshot_locked: 'Saved boards cannot be edited. Create a new board for a different lineup.',
   formation_board_archive_forbidden: 'You do not have permission to archive this Formation Board.',
   formation_board_archived_publish_forbidden: 'Restore this Formation Board before publishing it.',
   formation_board_auth_required: 'Sign in again before using Formation Boards.',
@@ -154,6 +155,8 @@ export function normalizeFormationBoard(row) {
 
   return {
     id: board.id ?? '',
+    isLocked: payload.isLocked === true || board.isLocked === true,
+    canDelete: payload.canDelete === true || board.canDelete === true,
     clubId: board.club_id ?? board.clubId ?? '',
     teamId: board.team_id ?? board.teamId ?? '',
     title: normalizeText(board.title),
