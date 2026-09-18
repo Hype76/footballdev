@@ -1122,6 +1122,8 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
   const [formationOpenKey, setFormationOpenKey] = useState('')
   const [availabilityOpenKey, setAvailabilityOpenKey] = useState('')
   const [now, setNow] = useState(() => Date.now())
+  const squadFocusRef = useRef(null)
+  const focusedSquadKeyRef = useRef('')
   const matchGroups = useMemo(() => getParentMatchGroups(resource.items), [resource.items])
   const visibleMatches = matchGroups[matchSection] || []
   const selectedMatchIsLive = Boolean(selectedMatch && ['extra_time', 'half_time', 'live', 'penalties', 'second_half'].includes(selectedMatch.status))
@@ -1188,7 +1190,11 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
           </View> : null}
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around', gap: 8 }}>
-            {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) ? <MatchdayAction expanded={squadOpenMatchId === selectedMatch.id} accessibilityLabel={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`} label={`Squad (${selectedMatch.confirmedTeam?.length || 0})`} iconKey="match.squad" onPress={() => setSquadOpenMatchId(current => current === selectedMatch.id ? '' : selectedMatch.id)} colors={colors} styles={styles} /> : null}
+            {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) ? <MatchdayAction expanded={squadOpenMatchId === selectedMatch.id} accessibilityLabel={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`} label={`Squad (${selectedMatch.confirmedTeam?.length || 0})`} iconKey="match.squad" onPress={() => setSquadOpenMatchId(current => {
+              const next = current === selectedMatch.id ? '' : selectedMatch.id
+              if (next) focusedSquadKeyRef.current = ''
+              return next
+            })} colors={colors} styles={styles} /> : null}
             {hasFormation ? <MatchdayAction expanded={formationOpen} accessibilityLabel={formationOpen ? 'Hide formation' : 'Show formation'} label="Formation" iconKey="action.formation" onPress={() => setFormationOpenKey(formationOpen ? '' : availabilityKey)} colors={colors} styles={styles} /> : null}
             {selectedMatch.matchDate ? <MatchdayAction accessibilityLabel="Add to Google Calendar" label="Add to calendar" iconKey="action.calendar" onPress={() => onAddToCalendar?.(selectedMatch)} colors={colors} styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
@@ -1196,7 +1202,11 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
         </View>
         {formationOpen || selectedMatch.formationPlanError ? <ParentMatchFormationPlan key={availabilityKey} colors={colors} error={selectedMatch.formationPlanError} onFocusBoard={onFocusFormation} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} viewportHeight={formationViewportHeight} /> : null}
         {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) && squadOpenMatchId === selectedMatch.id ? (
-          <View style={styles.card}>
+          <View ref={squadFocusRef} collapsable={false} onLayout={() => {
+            if (focusedSquadKeyRef.current === availabilityKey || !onFocusFormation) return
+            focusedSquadKeyRef.current = availabilityKey
+            onFocusFormation(squadFocusRef.current)
+          }} style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>
             <Text style={styles.helper}>Players selected by the coach for this match.</Text>
             {link?.linkType === 'parent' && selectedMatch.squadTransport?.length ? selectedMatch.squadTransport.map(player => <View key={player.playerId} style={[styles.row, { flexWrap: 'wrap', paddingVertical: 6 }]}><Text style={styles.body}>{player.playerName}</Text>{player.needsLift ? <MatchStatusBadge colors={colors} status={{ label: 'Needs a lift', tone: 'warning', icon: 'directions-car' }} prefix="Carpool" styles={styles} /> : player.canOfferLift ? <MatchStatusBadge colors={colors} status={{ label: 'Offering a lift', tone: 'success', icon: 'directions-car' }} prefix="Carpool" styles={styles} /> : null}</View>) : selectedMatch.confirmedTeam?.length

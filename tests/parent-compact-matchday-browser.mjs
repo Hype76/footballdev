@@ -144,7 +144,23 @@ try {
   }
   await page.getByRole('button', { name: 'See squad (1)' }).click()
   await page.getByText('Synthetic Player', { exact: true }).waitFor()
+  await page.waitForFunction(() => {
+    const heading = [...document.querySelectorAll('*')].find(element => element.textContent === 'Selected squad')
+    if (!heading) return false
+    const bounds = heading.parentElement.getBoundingClientRect()
+    return bounds.top >= 0 && bounds.bottom <= 420
+  })
   await page.getByRole('button', { name: 'Hide squad' }).click()
+  await page.evaluate(() => window.match({ confirmedTeam: Array.from({ length: 16 }, (_, i) => `Squad Player ${i + 1}`) }))
+  await page.getByRole('button', { name: 'See squad (16)' }).click()
+  await page.waitForFunction(() => {
+    const heading = [...document.querySelectorAll('*')].find(element => element.textContent === 'Selected squad')
+    const bounds = heading?.getBoundingClientRect()
+    return bounds && bounds.top >= 0 && bounds.bottom < 100
+  })
+  await page.getByText('Squad Player 16', { exact: true }).scrollIntoViewIfNeeded()
+  await page.getByRole('button', { name: 'Hide squad' }).click()
+  await page.evaluate(() => window.match({}))
   await page.getByRole('button', { name: 'Change availability' }).click()
   await page.getByRole('radio', { name: 'Availability, Not attending', exact: true }).click()
   await page.getByLabel('Availability: Not available', { exact: true }).waitFor()
