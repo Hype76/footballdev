@@ -45,7 +45,7 @@ test('Coach Formation Board is pitch-first with shirt assets and bottom editing 
     access(new URL('../apps/mobile-core/assets/formation-shirt-gold.png', import.meta.url)),
   ])
   assert.ok(source.indexOf('accessibilityLabel="Formation pitch"') < source.indexOf('accessibilityLabel="Formation Board tools"'))
-  for (const label of ['Formation', 'Players', 'Share']) assert.match(source, new RegExp(`label: '${label}'`))
+  for (const label of ['Formation', 'Players', 'Save']) assert.match(source, new RegExp(`label: '${label}'`))
   assert.match(source, /const filteredSlotPlayers = players\.filter/)
   assert.doesNotMatch(source, /selectedIds\.has\(player\.id\) && player\.playerName/)
   assert.match(source, /placeMobileFormationLineup\(draft, currentPreset\)/)

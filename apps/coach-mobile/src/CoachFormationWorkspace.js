@@ -1,21 +1,22 @@
 import { useCallback, useRef, useState } from 'react'
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Modal, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
+import { CoachFormationWorkspaceContext } from './coachFormationWorkspaceContext'
 
-function createStyles(palette) {
+function createStyles() {
   return StyleSheet.create({
-    board: { alignSelf: 'center', width: '100%' },
-    content: { alignItems: 'center', flexGrow: 1, paddingBottom: 12, paddingHorizontal: 6 },
-    safeArea: { backgroundColor: palette.background, flex: 1 },
-    screen: { backgroundColor: palette.background, flex: 1 },
+    board: { flex: 1, width: '100%' },
+    back: { alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center', left: 4, minHeight: 44, minWidth: 70, paddingHorizontal: 12, position: 'absolute', top: 0, zIndex: 40 },
+    safeArea: { backgroundColor: 'rgb(10,108,47)', flex: 1 },
+    screen: { backgroundColor: 'rgb(10,108,47)', flex: 1 },
   })
 }
 
-export function CoachFormationWorkspace({ children, onBack, palette, visible = true }) {
+export function CoachFormationWorkspace({ children, onBack, visible = true }) {
   const [markerGestureActive, setMarkerGestureActive] = useState(false)
   const [backHandler, setBackHandler] = useState(null)
   const leaving = useRef(false)
-  const styles = createStyles(palette)
+  const styles = createStyles()
   const handleMarkerGestureStart = useCallback(() => setMarkerGestureActive(true), [])
   const handleMarkerGestureEnd = useCallback(() => setMarkerGestureActive(false), [])
   const handleBack = useCallback(async () => {
@@ -49,27 +50,20 @@ export function CoachFormationWorkspace({ children, onBack, palette, visible = t
       statusBarTranslucent={false}
       visible={visible}
     >
+      <StatusBar barStyle="light-content" backgroundColor="rgb(10,108,47)" />
       <SafeAreaProvider>
       <SafeAreaView accessibilityViewIsModal edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea} testID="coach-formation-workspace">
         <View style={styles.screen}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close Formation Board" onPress={() => void handleBack()} style={{ minHeight: 48, paddingHorizontal: 18, justifyContent: 'center', alignSelf: 'flex-start' }}>
-            <Text style={{ color: palette.textPrimary, fontSize: 16, fontWeight: '700' }}>Back</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close Formation Board" onPress={() => void handleBack()} style={styles.back}>
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>Back</Text>
           </Pressable>
-          <ScrollView
-            alwaysBounceVertical={false}
-            automaticallyAdjustKeyboardInsets
-            bounces={false}
-            contentContainerStyle={styles.content}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            scrollEnabled={!markerGestureActive}
-            showsVerticalScrollIndicator={false}
+          <View
+            style={styles.board}
             dataSet={{ markerGestureActive: markerGestureActive ? 'true' : 'false' }}
-            testID="coach-formation-workspace-scroll"
+            testID="coach-formation-workspace-canvas"
           >
-            <View style={styles.board}>{content}</View>
-          </ScrollView>
+            <CoachFormationWorkspaceContext.Provider value={true}>{content}</CoachFormationWorkspaceContext.Provider>
+          </View>
         </View>
       </SafeAreaView>
       </SafeAreaProvider>

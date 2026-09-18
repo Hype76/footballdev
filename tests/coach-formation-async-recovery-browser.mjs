@@ -298,9 +298,10 @@ try {
     await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
     await page.getByRole('button', { name: 'Equivalent parent refresh 0', exact: true }).click()
     await page.getByRole('button', { name: 'Equivalent parent refresh 1', exact: true }).waitFor()
-    for (const label of ['Players', 'Formation', 'Share']) {
+    for (const label of ['Players', 'Formation', 'Save']) {
       await page.getByRole('button', { name: label, exact: true }).click()
-      await page.getByRole('dialog', { name: `${label.toLowerCase()} options`, exact: true }).waitFor()
+      const dialogName = label === 'Save' ? 'share options' : `${label.toLowerCase()} options`
+      await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor()
       await page.getByRole('button', { name: 'Close options', exact: true }).click()
     }
     assert.equal(await page.getByLabel(/Player One, shirt 1/).count(), 1)
@@ -330,9 +331,10 @@ try {
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'panels') {
     await page.getByLabel('Formation pitch', { exact: true }).waitFor()
     for (let repeat = 0; repeat < 2; repeat += 1) {
-      for (const label of ['Players', 'Formation', 'Share']) {
+      for (const label of ['Players', 'Formation', 'Save']) {
         await page.getByRole('button', { name: label, exact: true }).click()
-        await page.getByRole('dialog', { name: `${label.toLowerCase()} options`, exact: true }).waitFor()
+        const dialogName = label === 'Save' ? 'share options' : `${label.toLowerCase()} options`
+        await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor()
         await page.getByRole('button', { name: 'Close options', exact: true }).click()
         await page.waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0)
       }
@@ -342,13 +344,13 @@ try {
       await page.waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0)
     }
     assert.equal(await page.evaluate(() => window.__formationTest.createCalls + window.__formationTest.saveCalls), 0)
-    console.log('PASS: Players, Formation, Share and empty positions repeatedly open and close without writes')
+    console.log('PASS: Players, Formation, Save and empty positions repeatedly open and close without writes')
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'readonly') {
     await page.getByText('Viewing only', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).isEnabled(), false)
     assert.equal(await page.getByRole('button', { name: 'Players', exact: true }).isEnabled(), false)
     assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
-    await page.getByRole('button', { name: 'Share', exact: true }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     assert.equal(await page.getByRole('button', { name: 'Save Formation Board', exact: true }).isEnabled(), false)
     assert.equal(await page.evaluate(() => window.__formationTest.createCalls + window.__formationTest.saveCalls), 0)
     console.log('PASS: read-only staff can view the board but cannot edit or save')
@@ -357,7 +359,7 @@ try {
     assert.equal(await page.getByRole('button', { name: 'Confirm formation', exact: true }).count(), 0)
     await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).click()
     await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
-    await page.getByRole('button', { name: 'Share', exact: true }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.getByRole('button', { name: 'Save Formation Board', exact: true }).click()
     await page.getByText(process.env.FORMATION_ASYNC_SCENARIO === 'retry-no-storage' ? /could not be saved on this device or confirmed online/ : /saved safely on this device/).waitFor()
     await page.getByRole('button', { name: 'Retry save', exact: true }).click()
@@ -365,7 +367,7 @@ try {
     assert.equal(await page.evaluate(() => window.__formationTest.createCalls), 1)
     assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1)
     if (process.env.FORMATION_ASYNC_SCENARIO !== 'retry-no-storage') {
-      await page.getByRole('button', { name: 'Share', exact: true }).click()
+      await page.getByRole('button', { name: 'Save', exact: true }).click()
       await page.getByText(/Formation Board saved to the team/).waitFor()
       await page.getByRole('button', { name: 'Close options', exact: true }).click()
     }
