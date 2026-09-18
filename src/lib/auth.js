@@ -19,6 +19,7 @@ import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 import { STAFF_SWITCH_PENDING_STORAGE_KEY } from './workspace-routes.js'
 import { recordAnalyticsEvent, recordSuccessfulLoginAnalytics } from './domain/platform-analytics.js'
 import { getWorkspaceScope } from './workspace-scope.js'
+import { useMatchdayPolicy } from './use-matchday-policy.js'
 
 export {
   canAssignRole,
@@ -273,6 +274,7 @@ function RuntimeAuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [authUser, setAuthUser] = useState(null)
   const [user, setUser] = useState(null)
+  const matchdayPolicy = useMatchdayPolicy(user)
   const [clubOptions, setClubOptions] = useState([])
   const [accessModeOptions, setAccessModeOptions] = useState([])
   const [teamOptions, setTeamOptions] = useState([])
@@ -1055,14 +1057,14 @@ function RuntimeAuthProvider({ children }) {
     setUser(applyDemoRolePreview(profileWithTeam))
   }
 
-  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = PLAN_KEYS.individual }) => {
+  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = PLAN_KEYS.matchday }) => {
     setAuthError('')
     const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
     const normalizedEmail = String(email ?? '').trim()
     assertPasswordPolicy(password)
     const normalizedClubName = String(clubName ?? '').trim()
     const signupDisplayName = normalizedEmail.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || ''
-    const normalizedPlanKey = normalizePlanKey(planKey) || PLAN_KEYS.individual
+    const normalizedPlanKey = normalizePlanKey(planKey) || PLAN_KEYS.matchday
 
     if (testSignupWithoutPayment) {
       const prepareResponse = await fetch('/.netlify/functions/prepare-staging-test-signup', {
@@ -1145,7 +1147,7 @@ function RuntimeAuthProvider({ children }) {
           name: signupDisplayName,
           display_name: signupDisplayName,
           club_name: normalizedClubName,
-          signup_plan_key: normalizedPlanKey === PLAN_KEYS.individual ? PLAN_KEYS.individual : undefined,
+          signup_plan_key: normalizedPlanKey === PLAN_KEYS.matchday ? PLAN_KEYS.matchday : undefined,
           tester_access_code: String(accessCode ?? '').trim().toUpperCase(),
           test_signup_plan_key: testSignupWithoutPayment ? normalizedPlanKey : undefined,
         },
@@ -1369,6 +1371,7 @@ function RuntimeAuthProvider({ children }) {
         themeAccent: String(clubDetails.themeAccent ?? current.themeAccent ?? '').trim(),
         themeButtonStyle: String(clubDetails.themeButtonStyle ?? current.themeButtonStyle ?? 'solid').trim(),
         planKey: normalizePlanKey(clubDetails.planKey ?? current.planKey, { mapMissingToFree: true }),
+        subscriptionTeamCapacity: clubDetails.subscriptionTeamCapacity ?? current.subscriptionTeamCapacity ?? null,
         planStatus: String(clubDetails.planStatus ?? current.planStatus ?? 'active').trim(),
         isPlanComped: Boolean(clubDetails.isPlanComped ?? current.isPlanComped ?? false),
         stripeCustomerId: String(clubDetails.stripeCustomerId ?? current.stripeCustomerId ?? '').trim(),
@@ -1401,7 +1404,7 @@ function RuntimeAuthProvider({ children }) {
   const value = {
     session,
     authUser,
-    user,
+    user: user ? { ...user, matchdayPolicy } : user,
     clubOptions,
     accessModeOptions,
     accessRouteMismatch,

@@ -1,4 +1,5 @@
 import { contrastSafeColor, mixThemeColor, readableThemeTokens, themeContrastRatio, themeForeground } from './themeContrast.js'
+import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
 
 const THEME_ACCENTS = new Set(['yellow', 'blue', 'green', 'red', 'purple'])
 const HEX_ACCENT_PATTERN = /^#[0-9a-f]{6}$/
@@ -103,10 +104,15 @@ function resolveAccentPalette(accent, mode) {
 }
 
 export function resolveParentMobileBranding(selectedLink = null) {
+  const modernPlan = ['matchday', 'team', 'club'].includes(normalizeText(selectedLink?.planKey).toLowerCase())
+  const accessContext = { ...selectedLink, teamId: selectedLink?.teamId }
+  const logoAllowed = !modernPlan || getFeatureAccess(accessContext, CAPABILITIES.basicLogoBranding).allowed
+  const coloursAllowed = !modernPlan || getFeatureAccess(accessContext, CAPABILITIES.customColoursBranding).allowed
+  const source = { ...selectedLink, ...(coloursAllowed ? {} : { themeAccent: '', themeButtonStyle: '' }), ...(logoAllowed ? {} : { clubLogoUrl: '' }) }
   return {
-    accent: normalizeParentThemeAccent(selectedLink?.themeAccent, 'yellow'),
-    buttonStyle: normalizeParentButtonStyle(selectedLink?.themeButtonStyle),
-    clubLogoUrl: normalizeParentLogoUrl(selectedLink?.clubLogoUrl),
+    accent: normalizeParentThemeAccent(source?.themeAccent, 'yellow'),
+    buttonStyle: normalizeParentButtonStyle(source?.themeButtonStyle),
+    clubLogoUrl: normalizeParentLogoUrl(source?.clubLogoUrl),
     sourceClubId: normalizeText(selectedLink?.clubId),
     sourceLinkId: normalizeText(selectedLink?.id),
   }

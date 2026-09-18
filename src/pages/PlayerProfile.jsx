@@ -151,6 +151,8 @@ export function PlayerProfile() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
+  const canMovePlayersToTrial = canUseUiFeature(user, CAPABILITIES.trialPlayers)
+  const canViewDevelopment = canUseUiFeature(user, CAPABILITIES.basicDevelopmentRecords)
   const isDemoAccount = isDemoUser(user)
   const { showToast } = useToast()
   const routePlayerName = decodeURIComponent(id)
@@ -162,6 +164,13 @@ export function PlayerProfile() {
   const activeProfilePanel = normalizePlayerProfilePanel(activeProfileSection, searchParams.get('panel'))
   const isSavedPlayerProfileRoute = isSavedPlayerProfileSource(profileSource)
   const shouldLoadSavedPlayerById = Boolean(routePlayerId && isSavedPlayerProfileRoute)
+  useEffect(() => {
+    if (canViewDevelopment || activeProfileSection !== 'development') return
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('view')
+    nextParams.delete('panel')
+    setSearchParams(nextParams, { replace: true })
+  }, [activeProfileSection, canViewDevelopment, searchParams, setSearchParams])
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
   const scopedRouteTeamId = getPlayerProfileTeamScope({ routeTeamId, user })
   const expectedProfileSection = getExpectedPlayerProfileSection(profileSource)
@@ -1848,6 +1857,10 @@ export function PlayerProfile() {
   }
 
   const handleMovePlayerToTrial = async (playerId) => {
+    if (!canMovePlayersToTrial) {
+      setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.trialPlayers))
+      return
+    }
     setIsPromotingId(playerId)
     setErrorMessage('')
 
@@ -1993,6 +2006,7 @@ export function PlayerProfile() {
       <PlayerProfileWorkspaceNav
         activePanel={activeProfilePanel}
         activeSection={activeProfileSection}
+        canViewDevelopment={canViewDevelopment}
         onPanelChange={handleProfilePanelChange}
         onSectionChange={handleProfileSectionChange}
       />
@@ -2014,14 +2028,14 @@ export function PlayerProfile() {
         />
       ) : null}
 
-      {activeProfileSection === 'development' && activeProfilePanel === 'progression' ? (
+      {canViewDevelopment && activeProfileSection === 'development' && activeProfilePanel === 'progression' ? (
         <PlayerProgressionCharts
           playerName={routePlayerName}
           progressionData={progressionData}
         />
       ) : null}
 
-      {activeProfileSection === 'development' && activeProfilePanel === 'elite' ? (
+      {canViewDevelopment && activeProfileSection === 'development' && activeProfilePanel === 'elite' ? (
         <EliteDevelopmentCharts data={eliteDevelopmentData} />
       ) : null}
 
@@ -2038,6 +2052,7 @@ export function PlayerProfile() {
         onAddPlayerPosition={handleAddPlayerPosition}
         onCancelEditing={() => setEditingPlayerId('')}
         onMovePlayerToTrial={(playerId) => void handleMovePlayerToTrial(playerId)}
+        canMovePlayersToTrial={canMovePlayersToTrial}
         onParentContactDraftChange={handleParentContactDraftChange}
         onPlayerDraftChange={handlePlayerDraftChange}
         onPromotePlayer={(playerId) => void handlePromotePlayer(playerId)}
@@ -2135,7 +2150,7 @@ export function PlayerProfile() {
         />
       ) : null}
 
-      {activeProfileSection === 'records' && activeProfilePanel === 'activity' ? (
+      {canUseUiFeature(user, CAPABILITIES.playerNotes) && activeProfileSection === 'records' && activeProfilePanel === 'activity' ? (
         <PlayerStaffActivity
         activityLogs={activityLogs}
         deletingNoteId={deletingStaffNoteId}

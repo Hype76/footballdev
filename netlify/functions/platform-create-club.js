@@ -388,13 +388,13 @@ export async function createPlatformClubResult(event, {
   const ownerEmail = normalizeEmail(body.ownerEmail || body.contactEmail)
   const planKey = normalizePlanKey(body.planKey)
   const workspaceScope = getWorkspaceScope(planKey)
-  if (body.billingMode === 'paid' && planKey === 'individual') {
+  if (body.billingMode === 'paid' && ['individual', 'matchday'].includes(planKey)) {
     return failureResponse(400, 'Paid workspace setup needs a paid plan.')
   }
   if (body.billingMode === 'paid' && planKey === 'pilot') {
     return failureResponse(400, 'Pilot workspaces must use unpaid billing access.')
   }
-  const fallbackBillingArrangement = body.billingMode === 'unpaid' || planKey === 'pilot'
+  const fallbackBillingArrangement = body.billingMode === 'unpaid' || ['matchday', 'pilot'].includes(planKey)
     ? 'complimentary'
     : 'immediate'
   let billingConfiguration

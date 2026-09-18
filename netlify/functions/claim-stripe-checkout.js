@@ -94,6 +94,7 @@ async function claimLatestCheckout(profile) {
       stripe_subscription_id: claimedRecord.stripe_subscription_id || null,
       stripe_price_id: claimedRecord.stripe_price_id || null,
       current_period_end: claimedRecord.current_period_end || null,
+      subscription_team_capacity: claimedRecord.subscription_team_capacity ?? null,
       plan_updated_at: now,
     })
     .eq('id', profile.club_id)
@@ -136,6 +137,7 @@ export async function handler(event) {
         planKey: claimedRecord.plan_key,
         planStatus: claimedRecord.plan_status,
         isPlanComped: false,
+        teamCapacity: claimedRecord.subscription_team_capacity ?? null,
       },
       user: claimedRecord.promotion?.userId === profile.id
         ? {

@@ -56,7 +56,7 @@ export async function handler(event) {
 
     const { data: club, error: clubError } = await supabaseAdmin
       .from('clubs')
-      .select('id, name, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, billing_configuration_updated_at, billing_configuration_updated_by, workspace_owner_user_id, archived_at, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_expires_at')
+      .select('id, name, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, billing_configuration_updated_at, billing_configuration_updated_by, workspace_owner_user_id, archived_at, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, subscription_team_capacity, plan_updated_at, tester_access_expires_at')
       .eq('id', clubId)
       .single()
 
@@ -124,6 +124,7 @@ export async function handler(event) {
           stripeSubscriptionId: club.stripe_subscription_id || '',
           stripePriceId: club.stripe_price_id || '',
           currentPeriodEnd: club.current_period_end || '',
+          subscriptionTeamCapacity: club.subscription_team_capacity ?? null,
           planUpdatedAt: club.plan_updated_at || '',
           testerAccessExpiresAt: club.tester_access_expires_at || '',
         },

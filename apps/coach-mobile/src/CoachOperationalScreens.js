@@ -65,6 +65,7 @@ import { CoachDateTimeField } from './CoachDateTimeField'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
+import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
 
 const message = getCoachFriendlyError
 
@@ -284,6 +285,8 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   const [visibleMonth, setVisibleMonth] = useState(() => getCoachCalendarMonthKey())
   const contextModel = getCoachCalendarContextModel({ context, contexts })
   const policy = getCoachCalendarMutationPolicy({ context, event: selected })
+  const isMatchday = String(context?.planKey || '').trim().toLowerCase() === 'matchday'
+  const canViewDevelopment = getFeatureAccess({ ...context, teamId: context?.activeTeamId || context?.teamId }, CAPABILITIES.basicDevelopmentRecords).allowed
 
   const load = useCallback(async ({ reuseFresh = false } = {}) => {
     setError('')
@@ -628,8 +631,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
         ) : null}
         {contextModel.isTeamScope ? (
           <View style={styles.filterRow}>
-            <Button label="Open Assessment Sessions" onPress={() => onNavigate('sessions')} secondary styles={styles} />
-            <Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} />
+            {canViewDevelopment ? <><Button label="Open Assessment Sessions" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></> : null}
           </View>
         ) : null}
       </View></> : null}
@@ -641,7 +643,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{selected ? 'Edit event' : 'Create event'}</Text>
-          <Chips onChange={(value) => setForm({ ...form, eventType: value })} options={['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other'].map((value) => ({ label: value, value }))} styles={styles} value={form.eventType} />
+          <Chips onChange={(value) => setForm({ ...form, eventType: value })} options={(isMatchday ? ['match'] : ['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other']).map((value) => ({ label: value, value }))} styles={styles} value={form.eventType} />
           {form.eventType === 'match'
             ? <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} />
             : <Field label="Title" onChangeText={(value) => setForm({ ...form, title: value })} styles={styles} value={form.title} />}
@@ -717,7 +719,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
               {selected?.id === event.id ? <>{!event.notesPinned ? <Text style={styles.body}>{event.notes || 'No notes.'}</Text> : null}<VenueMapPreview key={event.location} location={event.location} offline={stale} colors={palette} styles={styles} />{event.location ? <Button label="Get directions" onPress={() => void openVenueDirections(event.location).catch(() => setError('Directions could not be opened.'))} secondary styles={styles} /> : null}{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType).map((resourceId) => {
                 const resource = resources.find((item) => item.id === resourceId)
                 return resource ? <Button key={resource.id} label={`Open ${resource.title}`} onPress={() => void openEventResource(resource)} secondary styles={styles} /> : null
-              })}{canAddEventResource(event) ? <Button disabled={saving} label="Add resource" onPress={() => void openResourceEditor(event)} secondary styles={styles} /> : null}{event.sourceType === 'match_day' ? <><Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} />{canEditCoachFixture({ context, fixture: event, stale: stale || user.isOfflineProfile }) ? <Button label="Edit fixture" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId, intent: 'edit-fixture', returnCalendarTarget: { sourceId: event.sourceId, sourceType: 'match_day' } })} secondary styles={styles} /> : null}</> : null}{event.sourceType === 'assessment_session' ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : !['calendar_event', 'match_day'].includes(event.sourceType) ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
+              })}{canAddEventResource(event) ? <Button disabled={saving} label="Add resource" onPress={() => void openResourceEditor(event)} secondary styles={styles} /> : null}{event.sourceType === 'match_day' ? <><Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} />{canEditCoachFixture({ context, fixture: event, stale: stale || user.isOfflineProfile }) ? <Button label="Edit fixture" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId, intent: 'edit-fixture', returnCalendarTarget: { sourceId: event.sourceId, sourceType: 'match_day' } })} secondary styles={styles} /> : null}</> : null}{event.sourceType === 'assessment_session' && canViewDevelopment ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : !['calendar_event', 'match_day'].includes(event.sourceType) ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
             </Pressable>
           ))}
         </View>
@@ -865,14 +867,14 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
       <DomainState error={error} loading={!focusedPlayer && loading} onRetry={focusedPlayer ? () => openPlayer(focusedPlayer) : load} stale={stale} styles={styles} />
       {!focusedPlayer && !form ? <>
       <Field label="Search Players" onChangeText={setQuery} styles={styles} value={query} />
-      <Chips onChange={setSection} options={[{ label: 'All', value: 'all' }, { label: 'Trial', value: 'Trial' }, { label: 'Squad', value: 'Squad' }]} styles={styles} value={section} />
-      {policy.canCreate && !form ? <Button iconKey="action.add-player" label="Add Player" onPress={() => { setDetail(null); setForm(coachPlayerFormFromPlayer()) }} styles={styles} /> : null}
+      <Chips onChange={setSection} options={[{ label: 'All', value: 'all' }, ...(policy.canCreateTrial ? [{ label: 'Trial', value: 'Trial' }] : []), { label: 'Squad', value: 'Squad' }]} styles={styles} value={section} />
+      {policy.canCreate && !form ? <Button iconKey="action.add-player" label="Add Player" onPress={() => { setDetail(null); setForm(coachPlayerFormFromPlayer({ section: policy.canCreateTrial ? 'Trial' : 'Squad' })) }} styles={styles} /> : null}
       </> : null}
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{detail ? 'Edit Player' : 'Add Player'}</Text>
           <Field label="Player name" onChangeText={(value) => setForm({ ...form, playerName: value })} styles={styles} value={form.playerName} />
-          <Chips onChange={(value) => setForm({ ...form, section: value })} options={[{ label: 'Trial', value: 'Trial' }, { label: 'Squad', value: 'Squad' }]} styles={styles} value={form.section} />
+          <Chips onChange={(value) => setForm({ ...form, section: value })} options={[...(policy.canCreateTrial ? [{ label: 'Trial', value: 'Trial' }] : []), { label: 'Squad', value: 'Squad' }]} styles={styles} value={form.section} />
           <Field label="Shirt number" onChangeText={(value) => setForm({ ...form, shirtNumber: value })} styles={styles} value={form.shirtNumber} />
           <Field label="Positions, separated by commas" onChangeText={(value) => setForm({ ...form, positions: value })} styles={styles} value={form.positions} />
           <Chips onChange={(value) => setForm({ ...form, contactType: value })} options={[{ label: 'Parent contact', value: 'parent' }, { label: 'Adult Player', value: 'self' }]} styles={styles} value={form.contactType} />
@@ -931,10 +933,10 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
               </>
             })()}
           </View>
-          <View style={styles.profileSection}>
+          {policy.canViewPlayerNotes ? <View style={styles.profileSection}>
             <Pressable accessibilityLabel={profileSections.notes ? 'Hide private notes' : 'Show private notes'} accessibilityRole="button" accessibilityState={{ expanded: profileSections.notes }} aria-expanded={profileSections.notes} onPress={() => toggleProfileSection('notes')} style={styles.profileSectionButton}><Text style={styles.profileSectionTitle}>Private notes</Text><MaterialIcons color={palette.textMuted} name={profileSections.notes ? 'expand-less' : 'expand-more'} size={24} /></Pressable>
             {profileSections.notes ? <Text style={styles.body}>{detail.player.notes || 'No private notes.'}</Text> : null}
-          </View>
+          </View> : null}
           <View style={styles.profileSection}>
             <Pressable accessibilityLabel={profileSections.stats ? 'Hide match stats' : 'Show match stats'} accessibilityRole="button" accessibilityState={{ expanded: profileSections.stats }} aria-expanded={profileSections.stats} onPress={() => toggleProfileSection('stats')} style={styles.profileSectionButton}><Text style={styles.profileSectionTitle}>Match stats</Text><MaterialIcons color={palette.textMuted} name={profileSections.stats ? 'expand-less' : 'expand-more'} size={24} /></Pressable>
             {profileSections.stats ? <>
@@ -952,7 +954,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
             <Pressable accessibilityLabel={profileSections.details ? 'Hide player details' : 'Show player details'} accessibilityRole="button" accessibilityState={{ expanded: profileSections.details }} aria-expanded={profileSections.details} onPress={() => toggleProfileSection('details')} style={styles.profileSectionButton}><Text style={styles.meta}>Custom fields and Session history</Text><MaterialIcons color={palette.textMuted} name={profileSections.details ? 'expand-less' : 'expand-more'} size={24} /></Pressable>
             {profileSections.details ? <><Text style={styles.fieldLabel}>Custom fields</Text><Text style={styles.body}>{detail.fields.map((field) => field.label).join(', ') || 'No enabled fields.'}</Text><Text style={styles.fieldLabel}>Session history</Text>{detail.sessions.length ? detail.sessions.map((session) => <Text key={session.id} style={styles.body}>{formatUkDate(session.sessionDate)} | {session.title} | {session.status}</Text>) : <Text style={styles.body}>No Session history.</Text>}</> : null}
           </View>
-          <View style={styles.profileSection}>
+          {policy.canViewDevelopment ? <View style={styles.profileSection}>
             <View style={styles.row}><Text style={styles.profileSectionTitle}>Development</Text><View style={styles.filterRow}><Pressable accessibilityLabel="Open Development" accessibilityRole="button" onPress={() => onNavigate('development')} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="trending-up" size={18} /></Pressable><Pressable accessibilityLabel="Open Resources" accessibilityRole="button" onPress={() => onNavigate('resources')} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="folder-open" size={18} /></Pressable></View></View>
             {detail.evaluations.length ? <>
               <Text style={styles.meta}>{detail.evaluations.length} saved record{detail.evaluations.length === 1 ? '' : 's'}. Latest: {formatUkDate(detail.evaluations[0]?.date, 'No date')} | Score {detail.evaluations[0]?.averageScore ?? 'not scored'}.</Text>
@@ -960,7 +962,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
               {developmentOpen ? detail.evaluations.slice(0, 5).map((evaluation) => <Text key={evaluation.id} style={styles.body}>{formatUkDate(evaluation.date, 'No date')} | {evaluation.session || 'Evaluation'} | Score {evaluation.averageScore ?? 'not scored'} | {evaluation.comments || 'No comments'}</Text>) : null}
               {developmentOpen && detail.evaluations.length > 5 ? <Text style={styles.meta}>Showing the 5 most recent records. Open Development for the full history.</Text> : null}
             </> : <Text style={styles.body}>No Development records.</Text>}
-          </View>
+          </View> : null}
           <Text style={styles.meta}>Use the website to archive a player or transfer them to another team.</Text>
         </View>
       ) : null}

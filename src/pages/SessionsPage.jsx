@@ -1008,6 +1008,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
+  const isMatchday = String(user?.planKey || '').trim().toLowerCase() === 'matchday'
   const isClubWideCalendar = calendarOnly && isClubAdmin(user) && !user?.activeTeamId
   const activeTeamScope = isClubWideCalendar ? 'club-wide' : user?.activeTeamId || user?.activeTeamName || 'assigned'
   const cacheKey = user?.clubId ? `sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamScope}` : ''
@@ -2143,7 +2144,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     setErrorMessage('')
     setCalendarValidation(null)
     const defaultForm = getDefaultCalendarForm(date)
-    const eventType = (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType
+    if (isMatchday && requestedEventType && requestedEventType !== 'match') {
+      setErrorMessage('Matchday teams can only add Match fixtures to the Calendar.')
+      return
+    }
+    const eventType = isMatchday ? 'match' : (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType
 
     if (requestedEventType === 'match') {
       openCalendarMatchDayWorkflow({
@@ -3256,6 +3261,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
       if (!canCreateClubCalendarEvent(user) && !safeTeamId) {
         throw new Error('Choose your assigned team before saving this calendar event.')
+      }
+
+      if (isMatchday && calendarForm.eventType !== 'match') {
+        throw new Error('Matchday teams can only save Match fixtures to the Calendar.')
       }
 
       validateCalendarForm({ form: calendarForm, safeTeamId, sourceType, user })

@@ -81,6 +81,8 @@ import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
 import { useConfirmedConnectionIssue } from '../mobile-core/src/useConfirmedConnectionIssue'
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import { getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
+import { isMatchdayPlan, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
+import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
 import ParentIcon from './src/ParentIcon'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
@@ -340,6 +342,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const { authError, isProfileLoading, refreshUserProfile, replaceCurrentUserProfile, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('home')
+  const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const [activeActionId, setActiveActionId] = useState('')
   const [appBadgeEnabled, setAppBadgeEnabled] = useState(true)
   const [attentionIndex, setAttentionIndex] = useState(0)
@@ -432,6 +435,30 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [parentLinks, selectedLink, user],
   )
+  const parentPlanContext = useMemo(() => selectedLink ? { ...selectedLink, planKey: selectedLink.planKey || user?.planKey } : user, [selectedLink, user])
+  const parentRouteAllowed = useCallback((route) => isMobileRouteAllowed(parentPlanContext, route, matchdayPlanConfig), [matchdayPlanConfig, parentPlanContext])
+  useEffect(() => {
+    let cancelled = false
+    if (!parentPlanContext || !isMatchdayPlan(parentPlanContext)) {
+      setMatchdayPlanConfig(null)
+      return undefined
+    }
+    setMatchdayPlanConfig(null)
+    void loadMatchdayPlanConfig().then((config) => {
+      if (!cancelled) setMatchdayPlanConfig(config)
+    }).catch(() => {
+      if (!cancelled) setMatchdayPlanConfig(null)
+    })
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || cancelled) return
+      void loadMatchdayPlanConfig().then((config) => { if (!cancelled) setMatchdayPlanConfig(config) }).catch(() => {})
+    })
+    return () => { cancelled = true; subscription.remove() }
+  }, [parentPlanContext, selectedLink?.id, selectedLink?.planKey, selectedLink?.plan_key, user?.planKey])
+  useEffect(() => {
+    if (moreSection && !parentRouteAllowed(moreSection)) setMoreSection('')
+    if (activeTab === 'chat' && !parentRouteAllowed('chat')) setActiveTab('home')
+  }, [activeTab, moreSection, parentRouteAllowed])
 
   useEffect(() => { setChildNotificationBadges({}) }, [user?.id])
 
@@ -503,8 +530,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       : null)
   chatMessagesRef.current = chatMessages
   const themeModel = useMemo(
-    () => createParentMobileTheme({ mode: displayTheme, selectedLink }),
-    [displayTheme, selectedLink],
+    () => createParentMobileTheme({ mode: displayTheme, selectedLink: selectedLink ? { ...selectedLink, matchdayPolicy: matchdayPlanConfig } : selectedLink }),
+    [displayTheme, matchdayPlanConfig, selectedLink],
   )
   const themeContext = useMemo(() => ({
     ...themeModel,
@@ -775,7 +802,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       }
     }
     return { failed, items: refreshedItems, sync: reconciledSync }
-  }, [isOffline, selectedLink?.id, selectedMobileUser])
+  }, [isOffline, selectedLink, selectedMobileUser])
 
   const parentSyncScopeRef = useRef('')
   const parentActionScopeRef = useRef(0)
@@ -1269,6 +1296,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   function handleTabChange(tab) {
+    if (!parentRouteAllowed(tab)) {
+      setNotice({ message: 'That section is not available for this team plan.', tone: 'warning' })
+      return
+    }
     setNotice(null)
     setSelectedInvitationId('')
     setSelectedMatchId('')
@@ -2113,7 +2144,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     { key: 'home', label: 'Home' },
     { key: 'calendar', label: 'Calendar' },
     { key: 'matchday', label: 'Matchday' },
-    { count: unreadChat, key: 'chat', label: 'Chat' },
+    ...(parentRouteAllowed('chat') ? [{ count: unreadChat, key: 'chat', label: 'Chat' }] : []),
     { count: unreadNotifications + homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
   ]
   const focusedChatRoom = activeTab === 'chat' && Boolean(selectedRoom)
@@ -2245,12 +2276,19 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             ) : null}
             {activeTab === 'more' && !moreSection ? (
               <MoreScreen
-                onOpen={setMoreSection}
+                onOpen={(section) => {
+                  if (!parentRouteAllowed(section)) {
+                    setNotice({ message: 'That section is not available for this team plan.', tone: 'warning' })
+                    return
+                  }
+                  setMoreSection(section)
+                }}
                 theme={displayTheme}
                 themeTokens={themeModel.tokens}
                 unansweredInvites={unansweredInvites}
                 unansweredPolls={homeModel.unansweredPolls}
                 unreadNotifications={unreadNotifications}
+                visibleKeys={['updates', 'invites', 'results', 'fans', 'development', 'resources', 'polls', 'feedback', 'bug', 'settings', 'partners'].filter((key) => parentRouteAllowed(key))}
               />
             ) : null}
             {activeTab === 'more' && moreSection && moreSection !== 'fans' ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}

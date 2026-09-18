@@ -7,6 +7,8 @@ import { TeamRemovalModal } from '../components/players/TeamRemovalModal.jsx'
 import { PlayersListSection } from '../components/players/PlayersListSection.jsx'
 import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
 import { canCreateEvaluation, canManageTeamSettings, useAuth } from '../lib/auth.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   PLAYER_PAGE_SIZE,
   getAverageScore,
@@ -78,6 +80,7 @@ export function PlayersPage({
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${activeTeamScope}` : ''
+  const canMovePlayersToTrial = canUseUiFeature(user, CAPABILITIES.trialPlayers)
 
   useEffect(() => {
     let isMounted = true
@@ -325,6 +328,10 @@ export function PlayersPage({
       setErrorMessage('Open the player profile first so this player can be moved.')
       return
     }
+    if (!canMovePlayersToTrial) {
+      setErrorMessage(createUiFeatureUnavailableMessage(user, CAPABILITIES.trialPlayers))
+      return
+    }
 
     setActionLoadingKey(`${playerId}:move-to-trial`)
     setErrorMessage('')
@@ -497,6 +504,7 @@ export function PlayersPage({
         onFilterChange={updateListFilter}
         onFocusedPlayerChange={handleFocusedPlayerChange}
         onMovePlayerToTrial={handleMovePlayerToTrial}
+        canMovePlayersToTrial={canMovePlayersToTrial}
         onRemoveFromTeam={handleRemoveFromTeam}
         onPageChange={setPlayerPage}
         onSearchChange={(nextSearchTerm) => {

@@ -11,11 +11,11 @@ function getMetadataPlanKey(authUser) {
 export function getPublicFreeSignupPlanKey(authUser, requestedPlanKey = '') {
   const explicitPlanKey = normalizePlanKey(requestedPlanKey)
 
-  if (explicitPlanKey === PLAN_KEYS.individual) {
-    return PLAN_KEYS.individual
+  if ([PLAN_KEYS.individual, PLAN_KEYS.matchday].includes(explicitPlanKey)) {
+    return PLAN_KEYS.matchday
   }
 
-  return getMetadataPlanKey(authUser) === PLAN_KEYS.individual ? PLAN_KEYS.individual : ''
+  return [PLAN_KEYS.individual, PLAN_KEYS.matchday].includes(getMetadataPlanKey(authUser)) ? PLAN_KEYS.matchday : ''
 }
 
 export function hasPublicFreeSignupIntent(authUser, body = {}) {

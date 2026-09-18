@@ -7,6 +7,7 @@ import {
   getUniqueStaffAccessEmails,
 } from '../plans.js'
 import { getFeatureAccess } from '../paywall-access.js'
+import { validateMatchdayFlags } from '../matchday-policy.js'
 import {
   isPastDate,
   normalizeWords,
@@ -19,7 +20,8 @@ export function getPlanGateUser(user, club = null) {
 
   return {
     ...user,
-    planKey: user?.planKey ?? user?.plan_key ?? club?.plan_key ?? club?.planKey,
+    planKey: club?.plan_key ?? club?.planKey ?? user?.planKey ?? user?.plan_key,
+    subscriptionTeamCapacity: club?.subscription_team_capacity ?? club?.subscriptionTeamCapacity ?? user?.subscriptionTeamCapacity,
     planStatus: user?.planStatus ?? user?.plan_status ?? club?.plan_status ?? club?.planStatus,
     isPlanComped: testerAccessExpired ? false : (user?.isPlanComped ?? user?.is_plan_comped ?? club?.is_plan_comped ?? club?.isPlanComped),
     testerAccessExpired,
@@ -38,7 +40,13 @@ export async function getClubPlanGateUser({ user = null, clubId = '' } = {}) {
   }
 
   const club = await fetchClubDetails(normalizedClubId)
-  return getPlanGateUser(user, club)
+  const context = getPlanGateUser(user, club)
+  if (context.planKey === 'matchday') {
+    const { data, error } = await supabase.rpc('get_matchday_plan_config')
+    if (error) throw new Error('Matchday settings could not be verified. Please try again.')
+    context.matchdayPolicy = { revision: data.revision, flags: validateMatchdayFlags(data.flags) }
+  }
+  return context
 }
 
 export async function assertClubFeature({ user = null, clubId = '', featureName }) {

@@ -25,6 +25,8 @@ export function sanitizeParentOfflineProfile(profile) {
     playerId: normalize(link.playerId),
     playerName: normalize(link.playerName),
     playerSection: normalize(link.playerSection),
+    planKey: normalize(link.planKey || link.plan_key),
+    planStatus: normalize(link.planStatus || link.plan_status),
     teamId: normalize(link.teamId),
     teamName: normalize(link.teamName),
     themeAccent: normalize(link.themeAccent),

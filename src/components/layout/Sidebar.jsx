@@ -2,7 +2,7 @@ import { UserFeedbackLinks } from './UserFeedbackLinks.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.webp'
-import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
+import { clubNavigation, platformNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
   canCreateEvaluation,
   canManageClubSettings,
@@ -69,6 +69,7 @@ const navIcons = {
   '/platform-admin': 'shield',
   '/platform-clubs': 'teams',
   '/platform-billing-options': 'card',
+  '/platform-matchday-config': 'whistle',
   '/platform-feedback': 'note',
   '/feedback/new': 'note',
 }
@@ -423,11 +424,11 @@ export function Sidebar({ isOpen, onClose }) {
     }
 
     if (item.path === '/staff-chat' || item.path === '/parent-chat-staff') {
-      return canUseStaffChat(displayUser)
+      return canUseStaffChat(displayUser) && canUseUiFeature(displayUser, getRouteCapability(item.path))
     }
 
     if (item.path === '/resources') {
-      return canUseResourceLibrary(displayUser) || canManageResourceLibrary(displayUser)
+      return (canUseResourceLibrary(displayUser) || canManageResourceLibrary(displayUser)) && canUseUiFeature(displayUser, CAPABILITIES.resourceLibrary)
     }
 
     if (item.path === '/polls') {
@@ -824,15 +825,7 @@ function NavGroup({ defaultOpen = false, items, onClose, pollCount, title }) {
 
 function PlatformNav({ canAccessPlatformFeedback, onClose }) {
   const items = [
-    { label: 'Platform Admin', path: '/platform-admin', helper: 'System overview' },
-    { label: 'Club Management', path: '/platform-clubs', helper: 'Club records' },
-    { label: 'Platform Analytics', path: '/platform-analytics', helper: 'Usage and adoption' },
-    { label: 'Partners and Offers', path: '/platform-partners', helper: 'App layouts and partner statistics' },
-    { label: 'Platform Banners', path: '/platform-banners', helper: 'Audience announcements' },
-    { label: 'Platform Admins', path: '/platform-staff', helper: 'Roles and admin accounts' },
-    { label: 'Data Hygiene', path: '/platform-data-hygiene', helper: 'Record quality and archives' },
-    { label: 'Data Transfer', path: '/data-transfer', helper: 'Import and export club spreadsheets' },
-    { label: 'Billing Options', path: '/platform-billing-options', helper: 'Plans and coupons' },
+    ...platformNavigation,
     ...(canAccessPlatformFeedback ? [{ label: 'Platform Feedback', path: '/platform-feedback', helper: 'Requests and issues' }] : []),
   ]
 

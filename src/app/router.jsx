@@ -1288,6 +1288,7 @@ function RequirePollAccess() {
 
 function RequireStaffChatAccess() {
   const { element, user } = useWorkspaceRouteGate()
+  const location = useLocation()
 
   if (element) {
     return element
@@ -1297,7 +1298,7 @@ function RequireStaffChatAccess() {
     return <RecoveryPhaseBlockedState />
   }
 
-  if (!canUseStaffChat(user)) {
+  if (!canUseStaffChat(user) || !canUseUiFeature(user, getRouteCapability(location.pathname))) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -1315,7 +1316,7 @@ function RequireResourceLibraryAccess() {
     return <RecoveryPhaseBlockedState />
   }
 
-  if (!canUseResourceLibrary(user)) {
+  if (!canUseResourceLibrary(user) || !canUseUiFeature(user, CAPABILITIES.resourceLibrary)) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -1329,7 +1330,7 @@ function RequireFormationBoardAccess() {
     return element
   }
 
-  if (!canUseFormationBoards(user)) {
+  if (!canUseFormationBoards(user) || (user?.planKey === 'matchday' && !canUseUiFeature(user, CAPABILITIES.matchDay))) {
     return <RedirectToWorkspaceHome user={user} />
   }
 
@@ -1931,6 +1932,17 @@ export const router = createBrowserRouter([
                 ),
                 handle: {
                   title: 'Data Hygiene',
+                },
+              },
+              {
+                path: 'platform-matchday-config',
+                element: (
+                  <PageSuspense>
+                    <PlatformAdminPage section="matchday-config" />
+                  </PageSuspense>
+                ),
+                handle: {
+                  title: 'Matchday Plan Configuration',
                 },
               },
               {

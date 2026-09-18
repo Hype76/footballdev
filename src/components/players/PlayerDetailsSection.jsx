@@ -19,6 +19,7 @@ const smallLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.14e
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayerDetailsSection({
+  canMovePlayersToTrial = true,
   directEmailSendingId,
   editingPlayerId,
   getDirectEmailTemplateOptions,
@@ -106,6 +107,7 @@ export function PlayerDetailsSection({
                   />
                 ) : (
                   <PlayerDetailsSummary
+                    canMovePlayersToTrial={canMovePlayersToTrial}
                     contacts={contacts}
                     directEmailSendingId={directEmailSendingId}
                     directEmailTemplates={getDirectEmailTemplateOptions(player)}
@@ -307,6 +309,7 @@ function PlayerDetailsEditor({
 }
 
 function PlayerDetailsSummary({
+  canMovePlayersToTrial = true,
   contacts,
   directEmailSendingId,
   directEmailTemplates,
@@ -497,7 +500,7 @@ function PlayerDetailsSummary({
           >
             {directEmailSendingId === directEmailId ? 'Sending...' : 'Send Email'}
           </button>
-          {player.section === 'Squad' ? (
+          {player.section === 'Squad' && canMovePlayersToTrial ? (
             <button
               type="button"
               disabled={isPromoting}

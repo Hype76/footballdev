@@ -103,3 +103,16 @@ export const clubNavigation = [
     helper: 'Audit trail',
   },
 ]
+
+export const platformNavigation = [
+  { label: 'Platform Admin', path: '/platform-admin', helper: 'System overview' },
+  { label: 'Club Management', path: '/platform-clubs', helper: 'Club records' },
+  { label: 'Platform Analytics', path: '/platform-analytics', helper: 'Usage and adoption' },
+  { label: 'Partners and Offers', path: '/platform-partners', helper: 'App layouts and partner statistics' },
+  { label: 'Platform Banners', path: '/platform-banners', helper: 'Audience announcements' },
+  { label: 'Platform Admins', path: '/platform-staff', helper: 'Roles and admin accounts' },
+  { label: 'Data Hygiene', path: '/platform-data-hygiene', helper: 'Record quality and archives' },
+  { label: 'Matchday Plan', path: '/platform-matchday-config', helper: 'Free tier capabilities' },
+  { label: 'Data Transfer', path: '/data-transfer', helper: 'Import and export club spreadsheets' },
+  { label: 'Billing Options', path: '/platform-billing-options', helper: 'Plans and coupons' },
+]

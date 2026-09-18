@@ -500,6 +500,7 @@ export async function selectUserClub(authUser, clubId) {
       status: selectedMembership.clubStatus,
       suspended_at: selectedMembership.clubSuspendedAt,
       plan_key: selectedMembership.planKey,
+      subscription_team_capacity: selectedMembership.subscriptionTeamCapacity,
       plan_status: selectedMembership.planStatus,
       is_plan_comped: selectedMembership.isPlanComped,
     },

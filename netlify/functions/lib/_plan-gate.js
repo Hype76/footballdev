@@ -49,6 +49,7 @@ function normalizePlanProfile(profile, authEmail, context = {}) {
     isPlanComped: testerAccessExpired ? false : Boolean(club?.is_plan_comped ?? profile.is_plan_comped),
     billingArrangement: String(club?.billing_arrangement ?? profile.billing_arrangement ?? '').trim(),
     billingStartAt: club?.billing_start_at ?? profile.billing_start_at ?? '',
+    subscriptionTeamCapacity: Number(club?.subscription_team_capacity ?? profile.subscription_team_capacity ?? 0) || null,
     workspaceOwnerUserId: String(club?.workspace_owner_user_id ?? profile.workspace_owner_user_id ?? '').trim(),
     isWorkspaceOwner: String(club?.workspace_owner_user_id ?? profile.workspace_owner_user_id ?? '').trim()
       === String(profile.id ?? '').trim(),
@@ -60,6 +61,23 @@ function normalizePlanProfile(profile, authEmail, context = {}) {
     playerId: String(context.playerId ?? context.player_id ?? '').trim(),
     ownsResource: context.ownsResource === true || context.isOwner === true,
     previewOnly: context.previewOnly === true,
+  }
+}
+
+async function loadMatchdayPolicy(planProfile) {
+  if (planProfile?.planKey !== 'matchday') {
+    return planProfile
+  }
+
+  const { data, error } = await supabaseAdmin.rpc('get_matchday_plan_config')
+
+  if (error || !data || typeof data !== 'object' || !data.flags) {
+    throw Object.assign(new Error('Matchday feature settings could not be verified.'), { statusCode: 503 })
+  }
+
+  return {
+    ...planProfile,
+    matchdayPolicy: data,
   }
 }
 
@@ -87,7 +105,7 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
 
   const authorityProfile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
     clubId: normalizedClubId,
-    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, workspace_owner_user_id, tester_access_expires_at)',
+    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, subscription_team_capacity, workspace_owner_user_id, tester_access_expires_at)',
   })
   const profile = {
     ...authorityProfile,
@@ -112,7 +130,7 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
     throw Object.assign(new Error('This club workspace is suspended.'), { statusCode: 403 })
   }
 
-  return planProfile
+  return loadMatchdayPolicy(planProfile)
 }
 
 export async function getAuthenticatedRequestUser(event) {
@@ -143,7 +161,7 @@ export async function getClubPlanProfile(clubId) {
 
   const { data: club, error } = await supabaseAdmin
     .from('clubs')
-    .select('id, name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, workspace_owner_user_id, tester_access_expires_at')
+    .select('id, name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, subscription_team_capacity, workspace_owner_user_id, tester_access_expires_at')
     .eq('id', normalizedClubId)
     .maybeSingle()
 
@@ -151,7 +169,7 @@ export async function getClubPlanProfile(clubId) {
     throw Object.assign(new Error('Club details could not be loaded.'), { statusCode: 403 })
   }
 
-  return normalizePlanProfile(
+  return loadMatchdayPolicy(normalizePlanProfile(
     {
       id: '',
       email: '',
@@ -162,7 +180,7 @@ export async function getClubPlanProfile(clubId) {
       clubs: club,
     },
     '',
-  )
+  ))
 }
 
 export function assertPlanAccess(planProfile) {

@@ -106,7 +106,7 @@ async function getTeamLimitOverride(clubId) {
 }
 
 async function assertCanCreateTeam(profile) {
-  if (isComped(profile)) {
+  if (isComped(profile) && !['matchday', 'team', 'club'].includes(profile.planKey)) {
     return
   }
 

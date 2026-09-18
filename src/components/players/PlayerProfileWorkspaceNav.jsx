@@ -1,13 +1,13 @@
 import { playerProfilePanels, playerProfileSections } from '../../lib/player-profile-workspace.js'
 
-export function PlayerProfileWorkspaceNav({ activePanel, activeSection, onPanelChange, onSectionChange }) {
+export function PlayerProfileWorkspaceNav({ activePanel, activeSection, canViewDevelopment = true, onPanelChange, onSectionChange }) {
   const panels = playerProfilePanels[activeSection] || []
 
   return (
     <div className="space-y-3">
       <nav aria-label="Player profile sections" className="rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] p-2 shadow-sm shadow-black/10">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-          {playerProfileSections.map((section) => {
+          {playerProfileSections.filter((section) => canViewDevelopment || section.key !== 'development').map((section) => {
             const isActive = section.key === activeSection
             return (
               <button

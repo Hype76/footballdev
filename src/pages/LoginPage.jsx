@@ -22,10 +22,13 @@ const initialFormData = {
   password: '',
   clubName: '',
   accessCode: '',
-  planKey: 'individual',
+  planKey: 'matchday',
 }
 
 const testPlanByName = {
+  Matchday: 'matchday',
+  Team: 'team',
+  Club: 'club',
   Individual: 'individual',
   'Individual Coach - Free': 'individual',
   'Individual Coach': 'individual',
@@ -120,7 +123,7 @@ export function LoginPage() {
         ...current,
         planKey: publicFreePlanKey,
       }))
-      setLocalMessage('Individual Coach free access selected. Create your individual workspace to continue.')
+      setLocalMessage('Free Matchday selected. Create your team to continue.')
     }
 
     if (checkoutStatus === 'success') {

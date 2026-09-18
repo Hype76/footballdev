@@ -13,6 +13,19 @@ import {
 const PRIVATE_EVENT_NOTE = 'Staff tactical note must stay private'
 const PRIVATE_REPORT_NOTE = 'Private staff final report note'
 
+test('Matchday report applies FP branding from workspace context and preserves saved paid branding', () => {
+  const match = { clubName: 'Saved Club', themeAccent: 'purple', clubLogoData: 'data:image/jpeg;base64,/9j/2Q==', logoWidth: 1, logoHeight: 1 }
+  const context = { planKey: 'matchday', clubId: 'club', teamId: 'team', matchdayPolicy: { flags: { basicLogoBranding: false, customColoursBranding: false } } }
+  const branding = buildCompletedReportBranding(match, { accessContext: context })
+  assert.equal(branding.brandingSource, 'platform')
+  assert.equal(branding.clubInitials, 'FP')
+  assert.equal(branding.clubLogoData, '')
+  assert.equal(match.themeAccent, 'purple')
+  assert.equal(buildCompletedReportBranding(match).brandingSource, 'club-logo')
+  const enabled = { ...context, matchdayPolicy: { flags: { basicLogoBranding: true, customColoursBranding: true } } }
+  assert.equal(buildCompletedReportBranding(match, { accessContext: enabled }).brandingSource, 'club-logo')
+})
+
 function completedMatch() {
   return {
     id: 'match-internal-id-must-not-export',

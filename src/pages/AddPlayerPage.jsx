@@ -4,6 +4,8 @@ import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { useAuth } from '../lib/auth.js'
+import { CAPABILITIES } from '../lib/paywall-access.js'
+import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import { sendParentPortalInvite } from '../lib/email-builder.js'
 import { createLimitUpgradeMessage, isWithinPlanLimit } from '../lib/plans.js'
 import {
@@ -41,6 +43,8 @@ export function AddPlayerPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
+  const canCreatePlayers = canUseUiFeature(user, CAPABILITIES.players)
+  const canCreateTrialPlayers = canUseUiFeature(user, CAPABILITIES.trialPlayers)
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}:${activeTeamScope}` : ''
   const cacheKey = user ? `add-player:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
   const [playerForm, setPlayerForm] = useState(createInitialPlayerForm)
@@ -98,6 +102,7 @@ export function AddPlayerPage() {
           null
         setPlayerForm((current) => ({
           ...current,
+          section: current.section === 'Trial' && !canCreateTrialPlayers ? 'Squad' : current.section,
           teamId: current.teamId || defaultTeam?.id || '',
           team: current.team || defaultTeam?.name || '',
         }))
@@ -135,7 +140,7 @@ export function AddPlayerPage() {
     return () => {
       isMounted = false
     }
-  }, [cacheKey, user, userScopeKey])
+  }, [cacheKey, canCreateTrialPlayers, user, userScopeKey])
 
   const handlePlayerFormChange = (event) => {
     const { name, value } = event.target
@@ -243,6 +248,10 @@ export function AddPlayerPage() {
     setErrorMessage('')
 
     try {
+      if (!canCreatePlayers) throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.players))
+      if (String(playerForm.section).toLowerCase() === 'trial' && !canCreateTrialPlayers) {
+        throw new Error(createUiFeatureUnavailableMessage(user, CAPABILITIES.trialPlayers))
+      }
       if (!isWithinPlanLimit(user, 'players', players.length)) {
         throw new Error(createLimitUpgradeMessage(user, 'players', 'Players'))
       }
@@ -366,7 +375,7 @@ export function AddPlayerPage() {
     }
   }
 
-  const canAddMorePlayers = isWithinPlanLimit(user, 'players', players.length)
+  const canAddMorePlayers = canCreatePlayers && isWithinPlanLimit(user, 'players', players.length)
   const playerLimitMessage = createLimitUpgradeMessage(user, 'players', 'Players')
   const normalizedContactType = normalizePlayerContactType(playerForm.contactType)
   const contactGroups = getContactGroups(normalizedContactType)
@@ -412,6 +421,7 @@ export function AddPlayerPage() {
         playerForm={playerForm}
         playerLimitMessage={playerLimitMessage}
         preparedContacts={preparedContacts}
+        allowTrialPlayers={canCreateTrialPlayers}
       />
 
       <ConfirmModal

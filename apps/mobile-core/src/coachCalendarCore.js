@@ -455,6 +455,9 @@ export function getCoachCalendarMutationPolicy({ context, event = null } = {}) {
 export function buildCoachCalendarPayload({ context, form }) {
   const eventType = normalizeKey(form?.eventType)
   if (!COACH_CALENDAR_EVENT_TYPES.includes(eventType)) throw new Error('Choose a supported Calendar event type.')
+  if (normalizeKey(context?.planKey) === 'matchday' && eventType !== 'match') {
+    throw new Error('Matchday teams can only add Match fixtures to the Calendar.')
+  }
   const opponent = normalize(form?.opponent)
   const title = eventType === 'match'
     ? `${normalize(context?.teamName || context?.activeTeamName) || 'Team'} v ${opponent || 'Opponent'}`
@@ -506,7 +509,9 @@ export function coachCalendarFormFromEvent(event = null, context = null) {
   return {
     date: formatCoachCalendarFormDate(start?.date || getDateInTimeZone()),
     endTime: end?.time || '19:00',
-    eventType: COACH_CALENDAR_EVENT_TYPES.includes(event?.eventType) ? event.eventType : 'training',
+    eventType: COACH_CALENDAR_EVENT_TYPES.includes(event?.eventType)
+      ? event.eventType
+      : normalizeKey(context?.planKey) === 'matchday' ? 'match' : 'training',
     involvedPlayerIds: Array.isArray(event?.involvedPlayerIds) ? event.involvedPlayerIds : [],
     location: normalize(event?.location),
     notes: normalize(event?.notes),

@@ -2,9 +2,8 @@ import process from 'node:process'
 import { Buffer } from 'node:buffer'
 import { supabaseAdmin } from './lib/_supabase.js'
 import {
-  getPlanFromPriceId,
+  getSubscriptionPlanDetails,
   getSubscriptionPeriodEnd,
-  getSubscriptionPriceId,
   json,
   normalizePlanKey,
   normalizePlanStatus,
@@ -84,6 +83,7 @@ async function updateClubFromBillingRecord(record, { preserveComped = false } = 
       stripe_price_id: record.stripe_price_id || null,
       current_period_end: record.current_period_end || null,
       plan_updated_at: new Date().toISOString(),
+      subscription_team_capacity: record.subscription_team_capacity ?? null,
     })
     .eq('id', record.club_id)
 
@@ -149,6 +149,7 @@ async function upsertCheckoutRecord({
   billingCycle,
   planStatus,
   rawPayload,
+  subscriptionTeamCapacity = null,
 }) {
   const customerEmail = String(
     checkoutSession.customer_details?.email ||
@@ -174,10 +175,14 @@ async function upsertCheckoutRecord({
       .maybeSingle()
     if (workspaceError || !workspace) throw new Error('Existing workspace checkout referenced an unknown workspace')
     if (workspace.archived_at) throw new Error('Archived workspaces cannot be reactivated by payment')
-    if (normalizePlanKey(workspace.plan_key) !== planKey) throw new Error('Existing workspace checkout plan did not match the workspace')
-    if (getWorkspaceScope(workspace.plan_key).key !== String(checkoutSession.metadata?.workspaceScope || '')) {
+    const originalPlanKey = normalizePlanKey(checkoutSession.metadata?.originalPlanKey || workspace.plan_key)
+    if (normalizePlanKey(workspace.plan_key) !== originalPlanKey) throw new Error('Existing workspace checkout source plan did not match the workspace')
+    if (getWorkspaceScope(workspace.plan_key).key !== String(checkoutSession.metadata?.sourceWorkspaceScope || checkoutSession.metadata?.workspaceScope || '')) {
       throw new Error('Existing workspace checkout scope did not match the workspace')
     }
+    const targetWorkspaceScope = String(checkoutSession.metadata?.targetWorkspaceScope || '').trim()
+    if (['team', 'club'].includes(planKey) && !targetWorkspaceScope) throw new Error('Modern workspace checkout did not include a target scope')
+    if (targetWorkspaceScope && getWorkspaceScope(planKey).key !== targetWorkspaceScope) throw new Error('Existing workspace checkout target scope did not match the configured plan')
     existingClubId = workspace.id
   } else {
     existingClubId = await findExistingClubId(customerEmail)
@@ -194,6 +199,7 @@ async function upsertCheckoutRecord({
     stripe_subscription_id: getStringId(checkoutSession.subscription),
     stripe_price_id: priceId || null,
     current_period_end: getSubscriptionPeriodEnd(subscription),
+    subscription_team_capacity: subscriptionTeamCapacity,
     raw_payload: rawPayload,
     updated_at: new Date().toISOString(),
   }
@@ -222,8 +228,9 @@ async function upsertCheckoutRecord({
 async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload) {
   const subscriptionId = getStringId(checkoutSession.subscription)
   const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null
-  const priceId = getSubscriptionPriceId(subscription)
-  const pricePlan = getPlanFromPriceId(priceId)
+  const details = getSubscriptionPlanDetails(subscription)
+  const priceId = details.priceId
+  const pricePlan = details
   const metadataPlanKey = normalizePlanKey(checkoutSession.metadata?.planKey || checkoutSession.metadata?.planName)
 
   if (!priceId || !pricePlan.planKey) {
@@ -241,14 +248,16 @@ async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload) {
     planKey: pricePlan.planKey,
     billingCycle: pricePlan.billingCycle || checkoutSession.metadata?.billingCycle || '',
     planStatus: normalizePlanStatus(subscription?.status || checkoutSession.status),
+    subscriptionTeamCapacity: details.planKey === 'club' ? details.teamCapacity : null,
     rawPayload,
   })
 }
 
 async function updateSubscriptionRecord(subscription, rawPayload) {
   const subscriptionId = getStringId(subscription)
-  const priceId = getSubscriptionPriceId(subscription)
-  const pricePlan = getPlanFromPriceId(priceId)
+  const details = getSubscriptionPlanDetails(subscription)
+  const priceId = details.priceId
+  const pricePlan = details
   const planKey = pricePlan.planKey
   const planStatus = normalizePlanStatus(subscription.status)
   const currentPeriodEnd = getSubscriptionPeriodEnd(subscription)
@@ -280,6 +289,8 @@ async function updateSubscriptionRecord(subscription, rawPayload) {
   if (priceId) {
     updatePayload.stripe_price_id = priceId
   }
+
+  updatePayload.subscription_team_capacity = details.planKey === 'club' ? details.teamCapacity : null
 
   const { data, error } = await supabaseAdmin
     .from('stripe_checkout_records')

@@ -67,6 +67,8 @@ import {
   getCoachRouteState,
   resolveCoachRoute,
 } from './src/coachNavigationCore'
+import { isMatchdayPlan } from '../mobile-core/src/matchdayPolicyCore'
+import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
 import { createMatchInvitesTheme, createCoachTheme, DEFAULT_COACH_THEME } from './src/coachThemeCore'
 import {
   clearCoachAllLocalState,
@@ -177,6 +179,7 @@ function CoachHome() {
   const [quickActionRequest, setQuickActionRequest] = useState(null)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
+  const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const contentScrollRef = useRef(null)
   const pendingScrollRestoreRef = useRef(null)
   const contentOriginRef = useRef(0)
@@ -202,19 +205,46 @@ function CoachHome() {
   )
   const activeContext = contextResolution.allowed ? contextResolution.context : null
   const selectedMobileUser = useMemo(
-    () => activeContext && user ? applyCoachContext(user, activeContext) : null,
-    [activeContext, user],
+    () => activeContext && user ? { ...applyCoachContext(user, activeContext), matchdayPolicy: matchdayPlanConfig } : null,
+    [activeContext, matchdayPlanConfig, user],
   )
-  const navigation = useMemo(() => getCoachNavigationModel(activeContext), [activeContext])
+  const navigation = useMemo(() => getCoachNavigationModel(activeContext, matchdayPlanConfig), [activeContext, matchdayPlanConfig])
   const quickActions = useMemo(() => getCoachQuickActions(activeContext), [activeContext])
   const isMatchInvitesRoute = activeRoute === 'more' && moreRoute === 'invites'
   const themeModel = useMemo(
-    () => isMatchInvitesRoute ? createMatchInvitesTheme(activeContext, displayTheme) : createCoachTheme({ context: activeContext, mode: displayTheme }),
-    [activeContext, displayTheme, isMatchInvitesRoute],
+    () => {
+      const themedContext = activeContext ? { ...activeContext, matchdayPolicy: matchdayPlanConfig } : activeContext
+      return isMatchInvitesRoute ? createMatchInvitesTheme(themedContext, displayTheme) : createCoachTheme({ context: themedContext, mode: displayTheme })
+    },
+    [activeContext, displayTheme, isMatchInvitesRoute, matchdayPlanConfig],
   )
   const themeContext = useMemo(() => createCoachThemeContext(themeModel), [themeModel])
   const { palette, styles } = themeContext
   const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id)
+  useEffect(() => {
+    let cancelled = false
+    if (!activeContext || !isMatchdayPlan(activeContext)) {
+      setMatchdayPlanConfig(null)
+      return undefined
+    }
+    setMatchdayPlanConfig(null)
+    void loadMatchdayPlanConfig().then((config) => {
+      if (!cancelled) setMatchdayPlanConfig(config)
+    }).catch(() => {
+      if (!cancelled) setMatchdayPlanConfig(null)
+    })
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || cancelled) return
+      void loadMatchdayPlanConfig().then((config) => { if (!cancelled) setMatchdayPlanConfig(config) }).catch(() => {})
+    })
+    return () => { cancelled = true; subscription.remove() }
+  }, [activeContext])
+  useEffect(() => {
+    if (activeRoute !== 'home' && !resolveCoachRoute(activeRoute === 'more' ? moreRoute : activeRoute, activeContext, matchdayPlanConfig)) {
+      setActiveRoute('home')
+      setMoreRoute('')
+    }
+  }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute])
   useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   useCoachDevelopmentSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser })
   useCoachOfflinePreparation({ user: selectedMobileUser, context: activeContext, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
@@ -490,7 +520,7 @@ function CoachHome() {
   const navigate = useCallback((route, navigationTarget = null) => {
     scrollContentToTop()
     setChatNotificationTarget(null)
-    const resolved = resolveCoachRoute(route, activeContext)
+    const resolved = resolveCoachRoute(route, activeContext, matchdayPlanConfig)
     if (!resolved) {
       setNotice('That destination is not available in this Coach context.')
       return false
@@ -507,7 +537,7 @@ function CoachHome() {
     setActiveRoute(routeTarget.activeRoute)
     setMoreRoute(routeTarget.moreRoute)
     return true
-  }, [activeContext, activeRoute, moreRoute, scrollContentToTop])
+  }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute, scrollContentToTop])
 
   const closeFormationWorkspace = useCallback(() => {
     const target = formationReturnRef.current
@@ -545,7 +575,7 @@ function CoachHome() {
       return false
     }
     const targetContext = contextResolution.contexts.find((context) => context.id === result.contextId)
-    const resolved = resolveCoachRoute(result.route, targetContext)
+    const resolved = resolveCoachRoute(result.route, targetContext, targetContext.id === activeContext?.id ? matchdayPlanConfig : null)
     if (!targetContext || !resolved) {
       setNotice('This Coach destination is not available in the current Coach role.')
       return false
@@ -568,7 +598,7 @@ function CoachHome() {
         }
       : null)
     return true
-  }, [activeContext?.id, contextResolution.contexts, resetContextDomainState])
+  }, [activeContext?.id, contextResolution.contexts, matchdayPlanConfig, resetContextDomainState])
 
   useEffect(() => {
     let mounted = true
