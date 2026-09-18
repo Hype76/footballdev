@@ -59,7 +59,7 @@ const entry = `
       {scenario === 'race' ? <button type="button" onClick={() => setMatchId('b')}>Switch to match B</button> : null}
       {scenario === 'scope' ? <button type="button" onClick={() => setScopeId('b')}>Switch account and team</button> : null}
       {scenario === 'stable' ? <button type="button" onClick={() => setRevision(current => current + 1)}>Equivalent parent refresh {revision}</button> : null}
-      {scenario === 'back' || scenario === 'back-offline' ? <button type="button" onClick={() => backHandler.current?.()}>Native workspace back</button> : null}
+      {scenario === 'back' || scenario === 'back-offline' || scenario === 'loading-back' ? <button type="button" onClick={() => backHandler.current?.()}>Native workspace back</button> : null}
       {scenario === 'back-offline' ? <button type="button" onClick={() => setStale(true)}>Lose connection</button> : null}
       {visible ? <CoachFormationBoard
         context={{ id: scopeId === 'a' ? 'club-context-a' : 'club-context-b', authorityId: scopeId === 'a' ? 'authority-a' : 'authority-b', authoritySource: 'team_staff', clubId: 'club-1', teamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
@@ -217,6 +217,16 @@ try {
   await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>')
   await page.addScriptTag({ content: bundle.outputFiles[0].text })
 
+  const readPlanTitle = async () => {
+    await page.getByRole('button', { name: 'Formation Board options', exact: true }).click()
+    const titleInput = page.getByLabel('Formation plan title', { exact: true })
+    await titleInput.waitFor()
+    const value = await titleInput.inputValue()
+    await page.getByRole('button', { name: 'Close options', exact: true }).click()
+    await page.waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0)
+    return value
+  }
+
   if ((process.env.FORMATION_ASYNC_SCENARIO || 'race') === 'race') {
     await page.getByRole('button', { name: 'Switch to match B', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.boardCalls >= 2)
@@ -225,15 +235,14 @@ try {
       currentVersionId: 'board-b-v1', currentVersionNumber: 1,
       currentVersion: { id: 'board-b-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] },
     }]))
-    await page.getByText('Board B', { exact: true }).waitFor()
+    assert.equal(await readPlanTitle(), 'Board B')
     await page.evaluate(() => window.__formationTest.boardResolvers[1]([{
       id: 'board-a', title: 'Board A', linkedMatchDayId: 'match-a', createdByProfileId: 'coach-1',
       currentVersionId: 'board-a-v1', currentVersionNumber: 1,
       currentVersion: { id: 'board-a-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] },
     }]))
     await page.waitForTimeout(80)
-    assert.equal(await page.getByText('Board A', { exact: true }).count(), 0)
-    assert.equal(await page.getByText('Board B', { exact: true }).count(), 1)
+    assert.equal(await readPlanTitle(), 'Board B')
     console.log('PASS: stale fixture load cannot overwrite the active match board')
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'scope') {
     await page.waitForFunction(() => window.__formationTest.boardCalls === 1)
@@ -245,18 +254,18 @@ try {
       currentVersionId: 'board-b-v1', currentVersionNumber: 1,
       currentVersion: { id: 'board-b-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] },
     }]))
-    await page.getByText('Board B', { exact: true }).waitFor()
+    assert.equal(await readPlanTitle(), 'Board B')
     await page.evaluate(() => window.__formationTest.boardResolvers[1]([{
       id: 'board-a', title: 'Board A', linkedMatchDayId: 'match-a', createdByProfileId: 'coach-1',
       currentVersionId: 'board-a-v1', currentVersionNumber: 1,
       currentVersion: { id: 'board-a-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] },
     }]))
     await page.waitForTimeout(80)
-    assert.equal(await page.getByText('Board A', { exact: true }).count(), 0)
-    assert.equal(await page.getByText('Board B', { exact: true }).count(), 1)
+    assert.equal(await readPlanTitle(), 'Board B')
     console.log('PASS: account, Team and authority changes reload without leaking the previous scope')
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'cache' || process.env.FORMATION_ASYNC_SCENARIO === 'cache-missing') {
-    await page.getByText('Cached Board', { exact: true }).waitFor()
+    await page.getByLabel('Formation pitch', { exact: true }).waitFor()
+    assert.equal(await readPlanTitle(), 'Cached Board')
     await page.getByText('Cached Player', { exact: true }).waitFor()
     assert.equal(await page.getByText('Loading Formation Board...', { exact: true }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
@@ -267,7 +276,7 @@ try {
     }]), process.env.FORMATION_ASYNC_SCENARIO === 'cache-missing')
     await page.getByRole('button', { name: 'Formation', exact: true }).waitFor({ state: 'visible' })
     if (process.env.FORMATION_ASYNC_SCENARIO === 'cache-missing') {
-      await page.getByText('The cached Formation Board is no longer available to this account. It was not restored or sent.', { exact: true }).waitFor()
+      await page.getByText('The saved board is no longer available to this account. Cached content cannot be edited or sent.', { exact: true }).waitFor()
       assert.equal(await page.getByText('Cached Player', { exact: true }).count(), 0)
       assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
       await page.getByRole('button', { name: 'Formation Board options', exact: true }).click()
@@ -276,7 +285,9 @@ try {
       console.log('PASS: a missing live board stays blocked until the coach starts a safe replacement')
     } else {
       await page.waitForFunction(() => document.querySelector('[aria-label="Formation"]')?.getAttribute('aria-disabled') !== 'true')
-      await page.getByText('Live Board', { exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Formation Board options', exact: true }).click()
+      assert.equal(await page.getByLabel('Formation plan title', { exact: true }).inputValue(), 'Live Board')
+      await page.getByRole('button', { name: 'Close options', exact: true }).click()
       await page.getByText('Live Player', { exact: true }).waitFor()
       assert.equal(await page.getByText('Cached Player', { exact: true }).count(), 0)
       console.log('PASS: cache renders read-only, then refreshes from the matching live board')
@@ -287,9 +298,10 @@ try {
     await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
     await page.getByRole('button', { name: 'Equivalent parent refresh 0', exact: true }).click()
     await page.getByRole('button', { name: 'Equivalent parent refresh 1', exact: true }).waitFor()
-    for (const label of ['Players', 'Formation', 'Share']) {
+    for (const label of ['Players', 'Formation', 'Save']) {
       await page.getByRole('button', { name: label, exact: true }).click()
-      await page.getByRole('dialog', { name: `${label.toLowerCase()} options`, exact: true }).waitFor()
+      const dialogName = label === 'Save' ? 'share options' : `${label.toLowerCase()} options`
+      await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor()
       await page.getByRole('button', { name: 'Close options', exact: true }).click()
     }
     assert.equal(await page.getByLabel(/Player One, shirt 1/).count(), 1)
@@ -299,7 +311,7 @@ try {
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'loading-back') {
     await page.waitForFunction(() => window.__formationTest.boardCalls === 1)
     await page.getByText('Loading Formation Board...', { exact: true }).waitFor()
-    await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).click()
+    await page.getByRole('button', { name: 'Native workspace back', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.backCount === 1)
     assert.equal(await page.getByText('Loading Formation Board...', { exact: true }).count(), 0)
     console.log('PASS: Match Day Board can leave while its first board load is pending')
@@ -319,9 +331,10 @@ try {
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'panels') {
     await page.getByLabel('Formation pitch', { exact: true }).waitFor()
     for (let repeat = 0; repeat < 2; repeat += 1) {
-      for (const label of ['Players', 'Formation', 'Share']) {
+      for (const label of ['Players', 'Formation', 'Save']) {
         await page.getByRole('button', { name: label, exact: true }).click()
-        await page.getByRole('dialog', { name: `${label.toLowerCase()} options`, exact: true }).waitFor()
+        const dialogName = label === 'Save' ? 'share options' : `${label.toLowerCase()} options`
+        await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor()
         await page.getByRole('button', { name: 'Close options', exact: true }).click()
         await page.waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0)
       }
@@ -331,13 +344,13 @@ try {
       await page.waitForFunction(() => document.querySelectorAll('[role="dialog"]').length === 0)
     }
     assert.equal(await page.evaluate(() => window.__formationTest.createCalls + window.__formationTest.saveCalls), 0)
-    console.log('PASS: Players, Formation, Share and empty positions repeatedly open and close without writes')
+    console.log('PASS: Players, Formation, Save and empty positions repeatedly open and close without writes')
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'readonly') {
     await page.getByText('Viewing only', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).isEnabled(), false)
     assert.equal(await page.getByRole('button', { name: 'Players', exact: true }).isEnabled(), false)
     assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
-    await page.getByRole('button', { name: 'Share', exact: true }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     assert.equal(await page.getByRole('button', { name: 'Save Formation Board', exact: true }).isEnabled(), false)
     assert.equal(await page.evaluate(() => window.__formationTest.createCalls + window.__formationTest.saveCalls), 0)
     console.log('PASS: read-only staff can view the board but cannot edit or save')
@@ -346,14 +359,18 @@ try {
     assert.equal(await page.getByRole('button', { name: 'Confirm formation', exact: true }).count(), 0)
     await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).click()
     await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
-    await page.getByRole('button', { name: 'Share', exact: true }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.getByRole('button', { name: 'Save Formation Board', exact: true }).click()
     await page.getByText(process.env.FORMATION_ASYNC_SCENARIO === 'retry-no-storage' ? /could not be saved on this device or confirmed online/ : /saved safely on this device/).waitFor()
     await page.getByRole('button', { name: 'Retry save', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
     assert.equal(await page.evaluate(() => window.__formationTest.createCalls), 1)
     assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1)
-    await page.getByText(/Formation Board saved to the team/).waitFor()
+    if (process.env.FORMATION_ASYNC_SCENARIO !== 'retry-no-storage') {
+      await page.getByRole('button', { name: 'Save', exact: true }).click()
+      await page.getByText(/Formation Board saved to the team/).waitFor()
+      await page.getByRole('button', { name: 'Close options', exact: true }).click()
+    }
     console.log(`PASS: create success followed by refresh failure retries the existing board (${process.env.FORMATION_ASYNC_SCENARIO})`)
   }
   assert.deepEqual(errors, [])

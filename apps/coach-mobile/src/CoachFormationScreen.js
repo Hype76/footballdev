@@ -1,5 +1,5 @@
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { getCoachMatchDayList, normalizeCoachMatchDay } from '../../mobile-core/src/coachMatchDayData'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
@@ -8,6 +8,8 @@ import { getCoachFormationAuthorityScope, getLinkableCoachFormationMatches } fro
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
+
+import { CoachFormationWorkspaceContext } from './coachFormationWorkspaceContext'
 
 function createStyles(palette) {
   return StyleSheet.create({
@@ -30,6 +32,7 @@ function normalizeCachedMatches(value) {
 }
 
 export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMarkerGestureStart, onQuickActionHandled, palette, quickAction, registerBackHandler, user }) {
+  const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const styles = useMemo(() => createStyles(palette), [palette])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -105,10 +108,10 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
   const boardRendered = readyScope === authorityScope && !error
 
   return (
-    <View style={styles.stack}>
-      {!boardRendered && onBack ? <Pressable accessibilityLabel="Back from Formation Board" accessibilityRole="button" onPress={onBack} style={styles.back}><Text style={styles.backText}>Back</Text></Pressable> : null}
+    <View style={[styles.stack, inWorkspace && { flex: 1 }]}>
+      {!boardRendered && onBack && !inWorkspace ? <Pressable accessibilityLabel="Back from Formation Board" accessibilityRole="button" onPress={onBack} style={styles.back}><Text style={styles.backText}>Back</Text></Pressable> : null}
       {readyScope === authorityScope && error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load()} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
-      {readyScope === authorityScope && stale ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
+      {readyScope === authorityScope && stale && !inWorkspace ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
       {readyScope !== authorityScope && loading ? <View style={styles.loading}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
       {boardRendered ? <CoachFormationBoard context={context} matches={matches} onBack={onBack} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
     </View>

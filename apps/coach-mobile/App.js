@@ -31,6 +31,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  ToastAndroid,
   View,
 } from 'react-native'
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -60,7 +61,7 @@ import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
 import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '../mobile-core/src/ui'
 import {
-  getCoachBackTarget,
+  getCoachBackPressAction,
   getCoachBottomNavigationPadding,
   getCoachNavigationModel,
   getCoachRouteState,
@@ -169,6 +170,7 @@ function CoachHome() {
   const [calendarTarget, setCalendarTarget] = useState(null)
   const [moreRoute, setMoreRoute] = useState('')
   const [notice, setNotice] = useState('')
+  const lastBackAtRef = useRef(0)
   const [notificationState, setNotificationState] = useState(null)
   const [notificationStateStatus, setNotificationStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
   const [notificationSettingsFocusRequest, setNotificationSettingsFocusRequest] = useState(null)
@@ -688,6 +690,7 @@ function CoachHome() {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const previousState = appStateRef.current
       if (nextState === 'background' && previousState !== 'background') backgroundedAtRef.current = Date.now()
+      if (nextState === 'background') lastBackAtRef.current = 0
       appStateRef.current = nextState
       const returnedFromBackground = previousState === 'background' && nextState === 'active'
       const wasAwayLongEnough = Date.now() - backgroundedAtRef.current >= 2500
@@ -735,11 +738,21 @@ function CoachHome() {
   }, [openCoachTarget])
 
   useEffect(() => {
+    lastBackAtRef.current = 0
+  }, [activeRoute, moreRoute, selectedContextId])
+
+  useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      const target = getCoachBackTarget({ activeRoute, moreRoute })
-      if (!target) return false
-      setActiveRoute(target.activeRoute)
-      setMoreRoute(target.moreRoute)
+      const action = getCoachBackPressAction({ activeRoute, moreRoute, lastBackAt: lastBackAtRef.current })
+      lastBackAtRef.current = action.nextLastBackAt
+      if (action.type === 'navigate') {
+        setActiveRoute(action.target.activeRoute)
+        setMoreRoute(action.target.moreRoute)
+      } else if (action.type === 'prompt') {
+        ToastAndroid.show(action.message, ToastAndroid.SHORT)
+      } else {
+        BackHandler.exitApp()
+      }
       return true
     })
     return () => subscription.remove()

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
-test('Coach Formation workspace is a safe full-screen modal with isolated scrolling', async () => {
+test('Coach Formation workspace is a safe fixed full-screen canvas', async () => {
   const source = await read('../apps/coach-mobile/src/CoachFormationWorkspace.js')
 
   assert.match(source, /<Modal[\s\S]*presentationStyle="fullScreen"/)
@@ -12,14 +12,15 @@ test('Coach Formation workspace is a safe full-screen modal with isolated scroll
   assert.match(source, /accessibilityViewIsModal/)
   assert.match(source, /edges=\{\['top', 'right', 'bottom', 'left'\]\}/)
   assert.match(source, /testID="coach-formation-workspace"/)
-  assert.match(source, /testID="coach-formation-workspace-scroll"/)
-  assert.match(source, /scrollEnabled=\{!markerGestureActive\}/)
+  assert.match(source, /testID="coach-formation-workspace-canvas"/)
+  assert.doesNotMatch(source, /coach-formation-workspace-scroll/)
+  assert.doesNotMatch(source, /<ScrollView/)
   assert.match(source, /onMarkerGestureStart: handleMarkerGestureStart/)
   assert.match(source, /onMarkerGestureEnd: handleMarkerGestureEnd/)
   assert.match(source, /registerBackHandler/)
   assert.match(source, /if \(backHandler\) await backHandler\(\)[\s\S]*else await onBack\?\.\(\)/)
   assert.match(source, /<SafeAreaProvider>[\s\S]*<SafeAreaView/)
-  assert.match(source, /accessibilityLabel="Close Formation Board"[\s\S]*<ScrollView/)
+  assert.match(source, /accessibilityLabel="Close Formation Board"[\s\S]*testID="coach-formation-workspace-canvas"/)
   assert.match(source, /if \(leaving.current\) return[\s\S]*finally \{ leaving.current = false \}/)
   assert.doesNotMatch(source, /PrimaryNavigation|CoachQuickActions|CoachHeader|ContextSwitcher/)
 })
@@ -56,6 +57,6 @@ test('Coach Formation screen and board forward Back, draft flush, and gesture ow
   assert.match(board, /accessibilityLabel="Back from Formation Board"/)
   assert.match(board, /saveCoachFormationLocalDraft[\s\S]*onBack\(\)/)
   assert.match(board, /registerBackHandler\?\.\(handleBack\)/)
-  assert.match(board, /beginGesture[\s\S]*onGestureStart\?\.\(\)[\s\S]*onPanResponderGrant: this\.beginGesture/)
+  assert.match(board, /beginGesture[\s\S]*onGestureStart\?\.\(\)[\s\S]*onPanResponderGrant: this\.prepareGesture/)
   assert.match(board, /endGesture[\s\S]*onGestureEnd\?\.\(\)[\s\S]*onPanResponderRelease[\s\S]*this\.endGesture\(\)[\s\S]*onPanResponderTerminate[\s\S]*this\.endGesture\(\)/)
 })
