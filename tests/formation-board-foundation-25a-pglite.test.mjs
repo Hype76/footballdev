@@ -14,6 +14,7 @@ const publishExportMigrationUrl = new URL('../supabase/migrations/20260802170000
 const resourceMimeMigrationUrl = new URL('../supabase/migrations/20260802173000_formation_board_resource_mime_25c.sql', import.meta.url)
 const thumbnailAccessMigrationUrl = new URL('../supabase/migrations/20260802174500_formation_board_thumbnail_access_25c.sql', import.meta.url)
 const mobileSelectionPortraitMigrationUrl = new URL('../supabase/migrations/20260803045754_formation_board_mobile_selection_portrait_27.sql', import.meta.url)
+const atomicMatchSaveMigrationUrl = new URL('../supabase/migrations/20260918093022_formation_board_atomic_match_save.sql', import.meta.url)
 
 const IDS = Object.freeze({
   assistant: '20000000-0000-4000-8000-000000000004',
@@ -227,6 +228,23 @@ before(async () => {
       created_at timestamptz not null default timezone('utc', now())
     );
 
+    create table public.match_days (
+      id uuid primary key,
+      club_id uuid not null references public.clubs(id),
+      team_id uuid not null references public.teams(id),
+      status text not null default 'scheduled',
+      deleted_at timestamptz
+    );
+
+    create table public.parent_player_links (
+      id uuid primary key,
+      club_id uuid not null references public.clubs(id),
+      team_id uuid references public.teams(id),
+      player_id uuid,
+      auth_user_id uuid,
+      status text not null default 'active'
+    );
+
     grant usage on schema public to anon, authenticated, service_role;
   `)
 
@@ -258,6 +276,24 @@ before(async () => {
   const mobileSelectionPortraitMigration = await readFile(mobileSelectionPortraitMigrationUrl, 'utf8')
   await db.exec(mobileSelectionPortraitMigration)
 
+  await db.exec('alter table public.formation_boards add column linked_match_day_id uuid references public.match_days(id) on delete set null')
+  await db.exec('alter table public.users add column display_name text; alter table public.users add column username text')
+  const workflowSource = await readFile(new URL('../supabase/migrations/20260811164422_formation_polls_web_workflow_42.sql', import.meta.url), 'utf8')
+  const workflowStart = workflowSource.indexOf('create table public.formation_board_match_publications')
+  const workflowEnd = workflowSource.indexOf('create function public.get_parent_portal_match_formation_plans')
+  assert.ok(workflowStart >= 0 && workflowEnd > workflowStart)
+  await db.exec(workflowSource.slice(workflowStart, workflowEnd))
+  await db.exec(`
+    create function public.current_user_has_active_authority()
+    returns boolean language sql stable as $$ select true $$;
+    create function public.current_user_role()
+    returns text language sql stable as $$ select coalesce((select role from public.users where id = auth.uid()), '') $$;
+    create function public.get_parent_portal_match_days(parent_link_id_value uuid)
+    returns table(id uuid) language sql stable as $$ select id from public.match_days $$;
+  `)
+  const atomicMatchSaveMigration = await readFile(atomicMatchSaveMigrationUrl, 'utf8')
+  await db.exec(atomicMatchSaveMigration)
+
   await db.exec(`
     insert into public.clubs (id, name) values
       ('${IDS.clubA}', 'Club A'),
@@ -267,6 +303,11 @@ before(async () => {
       ('${IDS.teamA}', '${IDS.clubA}', 'Team A'),
       ('${IDS.teamA2}', '${IDS.clubA}', 'Team A2'),
       ('${IDS.teamB}', '${IDS.clubB}', 'Team B');
+
+    insert into public.match_days (id, club_id, team_id, status) values
+      ('50000000-0000-4000-8000-000000000001', '${IDS.clubA}', '${IDS.teamA}', 'scheduled'),
+      ('50000000-0000-4000-8000-000000000002', '${IDS.clubA}', '${IDS.teamA}', 'scheduled'),
+      ('50000000-0000-4000-8000-000000000003', '${IDS.clubB}', '${IDS.teamB}', 'scheduled');
 
     insert into public.users (id, club_id, email, name, role, role_label, role_rank, status) values
       ('${IDS.teamAdmin}', '${IDS.clubA}', 'team-admin@example.test', 'Team Admin', 'head_manager', 'Team Admin', 70, 'active'),
@@ -853,4 +894,92 @@ test('Team deletion can cascade a published Formation Board graph without weaken
     const remaining = await db.query(`select count(*)::integer as count from public.${tableName} where id = $1`, [id])
     assert.equal(remaining.rows[0].count, 0, `${tableName} must not block Team deletion`)
   }
+})
+
+test('atomic Coach Match Formation save rolls back on invalid match and version conflict', async () => {
+  await setActor(IDS.manager)
+  const created = await rpc(
+    'public.save_coach_match_formation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
+    ['Atomic A', 'Match A', '5v5', '5v5-custom', 'portrait', '[]', '[]', 'before', 1, '50000000-0000-4000-8000-000000000001', null, null, false, 'atomic_create'],
+  )
+  const boardId = created.rows[0].result.board.id
+  const before = await db.query('select title, current_version_number, linked_match_day_id from public.formation_boards where id = $1', [boardId])
+
+  await resetActor()
+  await db.exec(`
+    create function public.test_fail_match_formation_publication()
+    returns trigger language plpgsql as $$ begin raise exception using errcode = 'P0001', message = 'test_publication_failure'; end; $$;
+    create trigger test_fail_match_formation_publication
+    before insert on public.formation_board_match_publications
+    for each row execute function public.test_fail_match_formation_publication();
+  `)
+  await setActor(IDS.manager)
+  await assert.rejects(
+    rpc(
+      'public.save_coach_match_formation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
+      ['Shared failure', 'Must roll back', '5v5', '5v5-custom', 'portrait', '[]', '[]', 'after', 1, '50000000-0000-4000-8000-000000000001', boardId, 1, true, 'publication_failure'],
+    ),
+    /test_publication_failure/,
+  )
+  const afterPublicationFailure = await db.query('select title, current_version_number, linked_match_day_id from public.formation_boards where id = $1', [boardId])
+  assert.deepEqual(afterPublicationFailure.rows, before.rows)
+  await resetActor()
+  const publicationCount = await db.query('select count(*)::integer as count from public.formation_board_match_publications where board_id = $1', [boardId])
+  assert.equal(publicationCount.rows[0].count, 0)
+  await db.exec('drop trigger test_fail_match_formation_publication on public.formation_board_match_publications; drop function public.test_fail_match_formation_publication()')
+  await setActor(IDS.manager)
+
+  await assert.rejects(
+    rpc(
+      'public.save_coach_match_formation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
+      ['Changed', 'Changed', '5v5', '5v5-custom', 'portrait', '[]', '[]', 'after', 1, '50000000-0000-4000-8000-000000000002', boardId, 1, false, 'wrong_match'],
+    ),
+    /formation_board_match_already_linked/,
+  )
+  const afterWrongMatch = await db.query('select title, current_version_number, linked_match_day_id from public.formation_boards where id = $1', [boardId])
+  assert.deepEqual(afterWrongMatch.rows, before.rows)
+
+  await assert.rejects(
+    rpc(
+      'public.save_coach_match_formation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
+      ['Changed', 'Changed', '5v5', '5v5-custom', 'portrait', '[]', '[]', 'after', 1, '50000000-0000-4000-8000-000000000003', boardId, 1, false, 'wrong_team'],
+    ),
+    /formation_board_match_invalid/,
+  )
+  const afterWrongTeam = await db.query('select title, current_version_number, linked_match_day_id from public.formation_boards where id = $1', [boardId])
+  assert.deepEqual(afterWrongTeam.rows, before.rows)
+
+  await assert.rejects(
+    rpc(
+      'public.save_coach_match_formation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
+      ['Changed', 'Changed', '5v5', '5v5-custom', 'portrait', '[]', '[]', 'after', 1, '50000000-0000-4000-8000-000000000001', boardId, 0, false, 'stale'],
+    ),
+    /formation_board_version_conflict/,
+  )
+  const afterConflict = await db.query('select title, current_version_number, linked_match_day_id from public.formation_boards where id = $1', [boardId])
+  assert.deepEqual(afterConflict.rows, before.rows)
+})
+
+test('two named boards publish for one Match and withdrawing one never resurfaces an older publication', async () => {
+  await setActor(IDS.manager)
+  const args = (title, shared) => [title, 'Multiple boards', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 1, '50000000-0000-4000-8000-000000000002', null, null, shared, 'multiple_board']
+  const first = await rpc('public.save_coach_match_formation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)', args('Press', true))
+  const second = await rpc('public.save_coach_match_formation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)', args('Build', true))
+  const firstId = first.rows[0].result.board.id
+  const secondId = second.rows[0].result.board.id
+  await resetActor()
+  await db.exec(`insert into public.parent_player_links(id, club_id, team_id, auth_user_id, status) values ('60000000-0000-4000-8000-000000000001', '${IDS.clubA}', '${IDS.teamA}', '${IDS.parent}', 'active')`)
+
+  await setActor(IDS.parent)
+  const visibleBefore = await db.query('select * from public.get_parent_portal_match_formation_plans($1)', ['60000000-0000-4000-8000-000000000001'])
+  assert.deepEqual(visibleBefore.rows.map((item) => item.board_id).sort(), [firstId, secondId].sort())
+
+  await setActor(IDS.manager)
+  const firstBoard = (await rpc('public.get_formation_board($1)', [firstId])).rows[0].result
+  await rpc('public.save_coach_match_formation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)', [
+    'Press', 'Multiple boards', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 1, '50000000-0000-4000-8000-000000000002', firstId, firstBoard.board.current_version_number, false, 'withdraw_one',
+  ])
+  await setActor(IDS.parent)
+  const visibleAfter = await db.query('select * from public.get_parent_portal_match_formation_plans($1)', ['60000000-0000-4000-8000-000000000001'])
+  assert.deepEqual(visibleAfter.rows.map((item) => item.board_id), [secondId])
 })

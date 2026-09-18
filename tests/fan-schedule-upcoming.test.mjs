@@ -29,7 +29,7 @@ test('Schedule filters historic fixtures and assessments after combining every p
     calendar_events: [{ id: 'training', title: 'Training', starts_at: '2026-09-07T17:00:00Z', ends_at: '2026-09-07T18:00:00Z', recurrence_frequency: 'weekly', recurrence_until: '2026-09-21', parent_visible: true, parent_audience: 'all_team_parents', team_id: 'team' }],
   }
   const client = { from(table) {
-    const query = { then(resolve) { return Promise.resolve({ data: tables[table] || [] }).then(resolve) } }
+    const query = { range: () => query, then(resolve) { return Promise.resolve({ data: tables[table] || [] }).then(resolve) } }
     for (const method of ['select', 'eq', 'neq', 'is', 'gte', 'order', 'limit', 'in']) query[method] = () => query
     return query
   } }

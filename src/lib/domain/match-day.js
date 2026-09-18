@@ -2109,17 +2109,23 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
   const scorerGameModeMatchIds = new Set(
     (scorerGameModeData ?? []).map((row) => String(row.match_day_id ?? row.matchDayId ?? '')),
   )
-  const formationPlanByMatchId = new Map((formationPlanData ?? []).map((row) => [String(row.match_day_id ?? row.matchDayId ?? ''), {
-    id: row.publication_id ?? row.publicationId ?? '',
-    publicationNumber: Number(row.publication_number ?? row.publicationNumber ?? 0),
-    title: normalizeText(row.board_title_snapshot ?? row.boardTitleSnapshot),
-    publishedAt: row.published_at ?? row.publishedAt ?? '',
-    gameFormat: normalizeText(row.game_format ?? row.gameFormat),
-    formationPresetKey: normalizeText(row.formation_preset_key ?? row.formationPresetKey),
-    pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
-    placements: Array.isArray(row.placements) ? row.placements : [],
-    bench: Array.isArray(row.bench) ? row.bench : [],
-  }]))
+  const formationPlansByMatchId = new Map()
+  for (const row of (formationPlanData ?? [])) {
+    const plan = {
+      boardId: normalizeText(row.board_id ?? row.boardId ?? row.formation_board_id ?? row.formationBoardId),
+      id: row.publication_id ?? row.publicationId ?? '',
+      publicationNumber: Number(row.publication_number ?? row.publicationNumber ?? 0),
+      title: normalizeText(row.board_title_snapshot ?? row.boardTitleSnapshot),
+      publishedAt: row.published_at ?? row.publishedAt ?? '',
+      gameFormat: normalizeText(row.game_format ?? row.gameFormat),
+      formationPresetKey: normalizeText(row.formation_preset_key ?? row.formationPresetKey),
+      pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
+      placements: Array.isArray(row.placements) ? row.placements : [],
+      bench: Array.isArray(row.bench) ? row.bench : [],
+    }
+    const matchId = String(row.match_day_id ?? row.matchDayId ?? '')
+    formationPlansByMatchId.set(matchId, [...(formationPlansByMatchId.get(matchId) || []), plan])
+  }
   const shirtChoiceByMatchId = new Map((shirtChoiceData ?? []).map((row) => [
     String(row.match_day_id ?? row.matchDayId ?? ''),
     normalizeMatchDayShirtChoice(row.shirt_choice ?? row.shirtChoice),
@@ -2143,7 +2149,8 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
       selected_player_names: confirmedTeamByMatchId.get(row.id) ?? [],
       events,
       }),
-      formationPlan: formationPlanByMatchId.get(String(row.id)) || null,
+      formationPlans: formationPlansByMatchId.get(String(row.id)) || [],
+      formationPlan: (formationPlansByMatchId.get(String(row.id)) || [])[0] || null,
     }
   })
 

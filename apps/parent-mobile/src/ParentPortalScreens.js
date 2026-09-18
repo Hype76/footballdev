@@ -176,7 +176,8 @@ function usePortalStyles(themeTokens) {
       formationSubName: { color: colors.text, fontSize: 11, fontWeight: '800', maxWidth: 104, textAlign: 'center' },
       formationSubsEmpty: { color: colors.muted, fontSize: 13, paddingVertical: 8 },
       formationPlanContent: { gap: 12, paddingTop: 10 },
-      formationPlanToggle: { alignItems: 'center', flexDirection: 'row', gap: 10, minHeight: 48 },
+      formationPlans: { gap: 8, paddingVertical: 12 },
+      formationPlanToggle: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', gap: 10, minHeight: 48 },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
       cardLink: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
       eventDetailCard: { borderBottomColor: colors.border, borderBottomWidth: 1, paddingBottom: 16, gap: 14 },
@@ -1107,21 +1108,28 @@ function FormationPresentation({ bench = [], colors, emptyCopy, placements = [],
   </View>
 }
 
-function ParentMatchFormationPlan({ error = '', plan = null, styles, colors }) {
-  const [expanded, setExpanded] = useState(false)
+function ParentMatchFormationPlan({ error = '', plan = null, plans = [], styles, colors }) {
+  const [expandedId, setExpandedId] = useState('')
+  const availablePlans = plans.length ? plans : (plan ? [plan] : [])
   if (error) return <View style={styles.card}><Text style={styles.cardTitle}>Match plan unavailable</Text><Text style={styles.warning}>{error}</Text></View>
-  if (!plan) return null
-
-  const placements = getNamedParentFormationPlayers(plan.placements)
-  const bench = getNamedParentFormationPlayers(plan.bench)
-  const title = [plan.title || 'Match plan', plan.gameFormat, plan.formation].filter(Boolean).join(' | ')
+  if (!availablePlans.length) return null
   return (
-    <View style={styles.card}>
-      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.formationPlanToggle}>
-        <View style={styles.compactCopy}><Text style={styles.cardTitle}>Match plan</Text><Text style={styles.meta}>{title}</Text></View>
-        <Text style={styles.cardLink}>{expanded ? 'Hide' : 'Show'}</Text>
-      </Pressable>
-      {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." placements={placements} styles={styles} title={plan.title || 'Match plan'} /> : null}
+    <View style={styles.formationPlans}>
+      <Text style={styles.cardTitle}>Match plans</Text>
+      {availablePlans.map((currentPlan, index) => {
+        const placements = getNamedParentFormationPlayers(currentPlan.placements)
+        const bench = getNamedParentFormationPlayers(currentPlan.bench)
+        const title = [currentPlan.title || `Match plan ${index + 1}`, currentPlan.gameFormat, currentPlan.formation].filter(Boolean).join(' | ')
+        const planKey = currentPlan.id || currentPlan.boardId || String(index)
+        const expanded = expandedId === planKey
+        return <View key={planKey}>
+          <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpandedId(expanded ? '' : planKey)} style={styles.formationPlanToggle}>
+            <View style={styles.compactCopy}><Text style={styles.cardTitle}>{currentPlan.title || `Match plan ${index + 1}`}</Text><Text style={styles.meta}>{[currentPlan.gameFormat, currentPlan.formation].filter(Boolean).join(' | ')}</Text></View>
+            <Text style={styles.cardLink}>{expanded ? 'Hide' : 'Show'}</Text>
+          </Pressable>
+          {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." placements={placements} styles={styles} title={title} /> : null}
+        </View>
+      })}
     </View>
   )
 }
@@ -1201,7 +1209,7 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
           </View>
         </View>
-        <ParentMatchFormationPlan colors={colors} error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} styles={styles} />
+        <ParentMatchFormationPlan colors={colors} error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} />
         {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) && squadOpenMatchId === selectedMatch.id ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>

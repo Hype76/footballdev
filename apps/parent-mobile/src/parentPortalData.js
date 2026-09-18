@@ -291,9 +291,11 @@ function normalizeParentFormationPlayers(value) {
 export function normalizeParentMatchFormationPlan(row = {}) {
   const publicationId = normalizeText(row.publication_id ?? row.publicationId ?? row.id)
   if (!publicationId) return null
+  const boardId = normalizeText(row.board_id ?? row.boardId ?? row.formation_board_id ?? row.formationBoardId)
   const formationPresetKey = normalizeText(row.formation_preset_key ?? row.formationPresetKey)
   return {
     bench: normalizeParentFormationPlayers(row.bench),
+    boardId,
     formation: normalizeText(row.formation ?? row.formation_name ?? row.formationName) || formationPresetKey,
     formationPresetKey,
     gameFormat: normalizeText(row.game_format ?? row.gameFormat),
@@ -308,6 +310,11 @@ export function normalizeParentMatchFormationPlan(row = {}) {
 
 export function normalizeParentMatchDay(row = {}) {
   const match = normalizeMatchDay(row)
+  const formationPlans = (Array.isArray(row.formationPlans ?? row.formation_plans)
+    ? (row.formationPlans ?? row.formation_plans)
+    : row.formationPlan ? [row.formationPlan] : [])
+    .map(normalizeParentMatchFormationPlan)
+    .filter(Boolean)
   return {
     ...match,
     squadTransport: (Array.isArray(row.squad_transport ?? row.squadTransport) ? (row.squad_transport ?? row.squadTransport) : []).map(player => ({
@@ -325,7 +332,8 @@ export function normalizeParentMatchDay(row = {}) {
       : [],
     currentMatchPhase: normalizeText(row.current_match_phase ?? row.currentMatchPhase) || 'pre_match',
     events: Array.isArray(row.events) ? row.events.map(normalizeParentMatchEvent) : match.events,
-    formationPlan: row.formationPlan ? normalizeParentMatchFormationPlan(row.formationPlan) : null,
+    formationPlans,
+    formationPlan: formationPlans[0] || null,
     formationPlanError: normalizeText(row.formationPlanError),
     homeShootoutScore: Number(row.home_shootout_score ?? row.homeShootoutScore ?? 0),
     awayShootoutScore: Number(row.away_shootout_score ?? row.awayShootoutScore ?? 0),
@@ -368,11 +376,15 @@ export async function getParentPortalMatchDays(user) {
   const reviewById = new Map((reviewResult.data || []).map((row) => [String(row.match_day_id), row.scorer_review_requested_at]))
   const scorerIds = new Set((scorerResult.data || []).map((row) => String(row.match_day_id ?? row.matchDayId)))
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
-  const formationPlanByMatchId = new Map(
-    (formationPlanResult.error ? [] : (formationPlanResult.data || []))
-      .map((row) => [String(row.match_day_id ?? row.matchDayId ?? ''), normalizeParentMatchFormationPlan(row)])
-      .filter(([, plan]) => plan),
-  )
+  const formationPlansByMatchId = new Map()
+  for (const row of (formationPlanResult.error ? [] : (formationPlanResult.data || []))) {
+    const plan = normalizeParentMatchFormationPlan(row)
+    if (!plan) continue
+    const matchId = String(row.match_day_id ?? row.matchDayId ?? '')
+    const plans = formationPlansByMatchId.get(matchId) || []
+    plans.push(plan)
+    formationPlansByMatchId.set(matchId, plans)
+  }
   const formationPlanError = formationPlanResult.error ? 'The match plan could not be refreshed. Try again later.' : ''
   return (baseResult.data || []).map((row) => {
     const extended = extendedById.get(String(row.id)) || {}
@@ -387,7 +399,7 @@ export async function getParentPortalMatchDays(user) {
       shirt_choice: shirtsById.get(String(row.id)),
       selected_player_names: teamById.get(String(row.id)) || [],
       squad_transport: transportById.get(String(row.id)) || [],
-      formationPlan: formationPlanByMatchId.get(String(row.id)) || null,
+      formationPlans: formationPlansByMatchId.get(String(row.id)) || [],
       formationPlanError,
     })
   })

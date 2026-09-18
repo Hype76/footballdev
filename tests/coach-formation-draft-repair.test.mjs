@@ -14,9 +14,9 @@ test('saved state distinguishes device draft, server save and older Parent publi
   assert.equal(getFormationSaveLabel({ board, dirty: true, localState: 'saving' }), 'Unsaved changes')
   assert.equal(getFormationSaveLabel({ board, dirty: true, localState: 'saved', publication: { board_version_id: 'v1' } }), 'Saved on this device')
   assert.equal(getFormationSaveLabel({ board, dirty: true, localState: 'failed' }), 'Not saved on this device')
-  assert.equal(getFormationSaveLabel({ board, dirty: false }), 'Saved to team')
-  assert.equal(getFormationSaveLabel({ board, dirty: false, publication: { board_version_id: 'v0' } }), 'Parent update needed')
-  assert.equal(getFormationSaveLabel({ board, dirty: false, publication: { board_version_id: 'v1' } }), 'Published to Parents')
+  assert.equal(getFormationSaveLabel({ board, dirty: false }), 'Saved to match | Coaches only')
+  assert.equal(getFormationSaveLabel({ board, dirty: false, publication: { board_version_id: 'v0' } }), 'Shared lineup update needed')
+  assert.equal(getFormationSaveLabel({ board, dirty: false, publication: { board_version_id: 'v1' } }), 'Visible to parents and players')
 })
 
 test('a same-title board is not a confirmed save unless lineup content matches', () => {
@@ -88,7 +88,8 @@ test('encrypted cache document retains journal in its authorised context only', 
 test('screen recovery keeps explicit team save, guarded replacement, and automatic device drafts', async () => {
   const screen = await readFile(new URL('../apps/coach-mobile/src/CoachFormationBoard.js', import.meta.url), 'utf8')
   assert.doesNotMatch(screen, /workflowStep ===/)
-  assert.match(screen, /label=\{busy \? 'Saving\.\.\.' : 'Save Formation Board'\}/)
+  assert.match(screen, /label=\{busy \? 'Saving\.\.\.' : 'Save to match'\}/)
+  assert.match(screen, /saveCoachMatchFormationBoard\(user, match, nextBoard, draft, title, shared\)/)
   assert.match(screen, /activeSheet === 'share'/)
   assert.match(screen, /confirmDraftReplacement\(startNewBoard\)/)
   assert.match(screen, /confirmDraftReplacement\(\(\) => applyBoard\(item\)\)/)

@@ -17,6 +17,7 @@ import {
   getParentMatchGroups,
   getPollDraftOption,
 } from '../apps/parent-mobile/src/parentExperience.js'
+import { getParentBackPressAction } from '../apps/parent-mobile/src/parentBackCore.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
@@ -105,6 +106,18 @@ test('Parent shell exposes only approved mobile areas with Android back and deta
   assert.doesNotMatch(`${appSource}\n${portalScreensSource}`, /Staff tactics|Admin controls|staff-only/i)
 })
 
+test('Parent Android Back prompts at the whole-app root and exits only on a quick second press', () => {
+  assert.match(appSource, /getParentBackPressAction/)
+  assert.match(appSource, /ToastAndroid\.show\(action\.message, ToastAndroid\.SHORT\)/)
+  assert.match(appSource, /BackHandler\.exitApp\(\)/)
+  assert.match(appSource, /\[activeTab, childSwitcherOpen, moreSection, selectedLink\?\.id, selectedMatchId, selectedMessageId, selectedRoomId\]/)
+  const first = getParentBackPressAction({ atRoot: true, now: 1000 })
+  assert.deepEqual(first, { type: 'prompt', message: 'Press Back again to exit', nextLastBackAt: 1000 })
+  assert.deepEqual(getParentBackPressAction({ atRoot: true, lastBackAt: 1000, now: 1800 }), { type: 'exit', nextLastBackAt: 0 })
+  assert.deepEqual(getParentBackPressAction({ atRoot: true, lastBackAt: 1000, now: 3100 }), { type: 'prompt', message: 'Press Back again to exit', nextLastBackAt: 3100 })
+  assert.deepEqual(getParentBackPressAction({ atRoot: false, lastBackAt: 1000, now: 1100 }), { type: 'normal', nextLastBackAt: 0 })
+})
+
 test('Parent notifications request permission only from Settings and scorer controls use Parent RPC authority', () => {
   const initialize = notificationSource.slice(
     notificationSource.indexOf('export async function initializeParentNotifications'),
@@ -116,7 +129,7 @@ test('Parent notifications request permission only from Settings and scorer cont
   )
   assert.doesNotMatch(initialize, /requestPermissionsAsync/)
   assert.match(enable, /requestPermissionsAsync/)
-  assert.match(appSource, /onPress=\{\(\) => onNotificationModeChange\(choice\.key\)\}/)
+  assert.match(appSource, /onPress=\{\(\) => onCommunicationChannelChange\(choice\.key\)\}/)
   assert.doesNotMatch(appSource, /accessibilityLabel="Parent notifications"/)
   assert.doesNotMatch(appSource, /useMobileDeviceControls|enableNotifications/)
   assert.doesNotMatch(appSource, /volunteerAsMatchScorer|updateCoachMatchStatus|addCoachMatchGoal|undoCoachLastMatchGoal/)

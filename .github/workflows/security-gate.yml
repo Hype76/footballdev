@@ -128,6 +128,7 @@ jobs:
           tests/mobile-match-day-read-performance-pglite.test.mjs
           tests/mobile-parent-offline-sync-21a.test.mjs
           tests/mobile-parent-startup-28.test.mjs
+          tests/mobile-parent-rebuild-20.test.mjs
           tests/mobile-chat-notify-performance-58.test.mjs
           tests/mobile-calendar-resource-occurrences-111.test.mjs
           tests/mobile-chat-counter-volunteer-labels.test.mjs
@@ -168,6 +169,8 @@ jobs:
           tests/coach-formation-fullscreen-workspace.test.mjs
           tests/coach-formation-metadata-repair.test.mjs
           tests/coach-formation-draft-repair.test.mjs
+          tests/coach-match-formation-save.test.mjs
+          tests/formation-board-foundation-25a-pglite.test.mjs
           tests/parent-formation-match-plan-repair.test.mjs &&
           node tests/coach-formation-async-recovery-browser.mjs &&
           node tests/coach-formation-fullscreen-workspace-browser.mjs &&

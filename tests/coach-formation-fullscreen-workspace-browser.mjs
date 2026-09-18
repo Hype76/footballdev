@@ -80,8 +80,7 @@ const dataMock = `
   export const getCoachFormationBoards = async () => [board]
   export const getCoachFormationPublications = async () => []
   export const getCoachFormationResourcePublications = async () => []
-  export const createCoachFormationBoard = async () => board
-  export const saveCoachFormationBoard = async () => board
+  export const saveCoachMatchFormationBoard = async () => board
   export const linkCoachFormationBoard = async () => board
   export const publishCoachFormationBoard = async () => ({})
   export const publishCoachFormationResource = async () => ({})

@@ -6,8 +6,10 @@ import { normalizePersonName } from '../src/lib/person-name.js'
 
 const dataPath = new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url)
 const screenPath = new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url)
+const webPath = new URL('../src/pages/ParentPortalPage.jsx', import.meta.url)
 const dataSource = await readFile(dataPath, 'utf8')
 const screenSource = await readFile(screenPath, 'utf8')
+const webSource = await readFile(webPath, 'utf8')
 
 function declarationSource(source, name) {
   const declarations = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body
@@ -28,6 +30,7 @@ const normalizeParentMatchFormationPlan = new Function('normalizePersonName', `
 test('Parent fixture formation normalizer keeps only shared pitch and Bench data', () => {
   const plan = normalizeParentMatchFormationPlan({
     publication_id: 'publication-1',
+    board_id: 'board-1',
     board_title_snapshot: 'Saturday plan',
     game_format: '11v11',
     formation_preset_key: '11v11-4-4-2',
@@ -42,6 +45,7 @@ test('Parent fixture formation normalizer keeps only shared pitch and Bench data
 
   assert.deepEqual(plan.placements, [{ displayName: 'A Player', playerId: 'player-1', shirtNumber: '', x: 0.5, y: 0.9 }])
   assert.deepEqual(plan.bench, [{ displayName: 'B Player', playerId: 'player-3', shirtNumber: '', x: 0.2, y: 0.2 }])
+  assert.equal(plan.boardId, 'board-1')
   assert.equal(plan.notes, undefined)
   assert.equal(plan.unselectedPlayers, undefined)
 })
@@ -65,7 +69,8 @@ test('Parent match loader uses the canonical published-plan RPC and clears unava
   assert.match(dataSource, /get_parent_portal_match_formation_plans/)
   assert.match(dataSource, /formationPlanResult\.error \? \[\]/)
   assert.match(dataSource, /const formationPlanError = formationPlanResult\.error \? 'The match plan could not be refreshed\./)
-  assert.match(dataSource, /formationPlan: formationPlanByMatchId\.get\(String\(row\.id\)\) \|\| null/)
+  assert.match(dataSource, /formationPlansByMatchId/)
+  assert.match(dataSource, /formationPlans: formationPlansByMatchId\.get\(String\(row\.id\)\) \|\| \[\]/)
   assert.match(dataSource, /formationPlanError,/)
   assert.equal(normalizeParentMatchFormationPlan({ match_day_id: 'withdrawn-match' }), null)
 })
@@ -80,4 +85,11 @@ test('Parent match screen renders the plan inline and excludes coach notes from 
   assert.match(screenSource, /formationSubs/)
   assert.match(component, /Match plan unavailable/)
   assert.doesNotMatch(component, /\.notes/)
+})
+
+test('Parent web Matchday renders every shared board with singular fallback support', () => {
+  assert.match(webSource, /formationPlans\?\.length \|\| match\.formationPlan/)
+  assert.match(webSource, /function ParentFormationPlans/)
+  assert.match(webSource, /availablePlans\.map/)
+  assert.doesNotMatch(webSource.slice(webSource.indexOf('function ParentFormationPlan')), /plan\.notes/)
 })

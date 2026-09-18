@@ -1,6 +1,7 @@
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { formatUkDate } from '../../../src/lib/date-format.js'
 import { getCoachMatchDayList, normalizeCoachMatchDay } from '../../mobile-core/src/coachMatchDayData'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { CoachFormationBoard } from './CoachFormationBoard'
@@ -37,6 +38,7 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [matches, setMatches] = useState([])
+  const [selectedMatchId, setSelectedMatchId] = useState('')
   const [players, setPlayers] = useState([])
   const [readyScope, setReadyScope] = useState('')
   const [stale, setStale] = useState(false)
@@ -56,6 +58,7 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
     setLoading(true)
     setError('')
     setReadyScope('')
+    setSelectedMatchId('')
     setStale(false)
     const remoteResult = Promise.all([
       readMobileResource(currentUser, 'coach:match-list', () => getCoachMatchDayList(currentUser), { force: refresh }),
@@ -106,6 +109,11 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
   }, [onQuickActionHandled, quickAction])
 
   const boardRendered = readyScope === authorityScope && !error
+  const selectedMatch = matches.find((item) => item.id === selectedMatchId) || null
+  useEffect(() => {
+    if (!selectedMatch) return registerBackHandler?.(onBack)
+    return undefined
+  }, [onBack, registerBackHandler, selectedMatch])
 
   return (
     <View style={[styles.stack, inWorkspace && { flex: 1 }]}>
@@ -113,7 +121,15 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
       {readyScope === authorityScope && error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load()} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
       {readyScope === authorityScope && stale && !inWorkspace ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
       {readyScope !== authorityScope && loading ? <View style={styles.loading}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
-      {boardRendered ? <CoachFormationBoard context={context} matches={matches} onBack={onBack} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
+      {boardRendered && !selectedMatch ? <ScrollView contentContainerStyle={{ paddingTop: inWorkspace ? 52 : 0, paddingHorizontal: 16, gap: 8 }}>
+        <Text style={[styles.backText, inWorkspace && { color: 'white' }]}>Choose a match</Text>
+        {matches.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => setSelectedMatchId(item.id)} style={{ minHeight: 56, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: palette.border }}>
+          <Text style={[styles.backText, inWorkspace && { color: 'white' }]}>{item.teamName} v {item.opponent}</Text>
+          <Text style={[styles.body, inWorkspace && { color: 'white' }]}>{formatUkDate(item.matchDate, 'Date TBC')}</Text>
+        </Pressable>)}
+        {!matches.length ? <Text style={[styles.body, inWorkspace && { color: 'white' }]}>No upcoming matches. Open an existing fixture from Match Day to view its saved lineups.</Text> : null}
+      </ScrollView> : null}
+      {boardRendered && selectedMatch ? <CoachFormationBoard key={selectedMatch.id} context={context} match={selectedMatch} matches={matches} onBack={() => setSelectedMatchId('')} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
     </View>
   )
 }

@@ -29,16 +29,10 @@ import {
   toggleMobileFormationSquadPlayer,
 } from '../../mobile-core/src/coachFormationBoardCore'
 import {
-  createCoachFormationBoard,
   getCoachFormationBoards,
+  saveCoachMatchFormationBoard,
   getCoachFormationPresets,
   getCoachFormationPublications,
-  getCoachFormationResourcePublications,
-  linkCoachFormationBoard,
-  publishCoachFormationBoard,
-  publishCoachFormationResource,
-  saveCoachFormationBoard,
-  withdrawCoachFormationBoard,
 } from '../../mobile-core/src/coachFormationBoardData'
 import { readCoachOfflineResources, saveCoachFormationLocalDraft, saveCoachOfflineResources } from './offline'
 import { findFormationLocalDraft, formationContentKey, formationDraftKey, formationMatchesBoard, getActiveFormationPublication, getFormationSaveLabel } from '../../mobile-core/src/coachFormationDraftCore'
@@ -49,13 +43,6 @@ import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 import { CoachFormationWorkspaceContext } from './coachFormationWorkspaceContext'
 
 const normalize = (value) => String(value ?? '').trim()
-const RESOURCE_CATEGORIES = Object.freeze([
-  Object.freeze({ label: 'General', value: 'general' }),
-  Object.freeze({ label: 'Training', value: 'training' }),
-  Object.freeze({ label: 'Match day', value: 'match_day' }),
-  Object.freeze({ label: 'Development', value: 'development' }),
-  Object.freeze({ label: 'Admin', value: 'admin' }),
-])
 const WHITE_SHIRT = require('../../mobile-core/assets/formation-shirt-white.png')
 const GOLD_SHIRT = require('../../mobile-core/assets/formation-shirt-gold.png')
 const BOARD_TABS = Object.freeze([
@@ -346,10 +333,6 @@ function ShirtPlayer({ goalkeeper = false, name, number, styles }) {
   </View>
 }
 
-function publicationResourceId(publication) {
-  return normalize(publication?.resource_id ?? publication?.resourceId)
-}
-
 export function CoachFormationBoard({ context, match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, stale, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const fullScreen = Boolean(inWorkspace)
@@ -368,17 +351,14 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const [presets, setPresets] = useState([])
   const [matchPublications, setMatchPublications] = useState([])
   const [pitchLayout, setPitchLayout] = useState({ height: 475, width: 320 })
-  const [resourcePublications, setResourcePublications] = useState([])
   const [serverBoardUnavailable, setServerBoardUnavailable] = useState(false)
   const [removalMode, setRemovalMode] = useState(false)
   const [removalIds, setRemovalIds] = useState([])
-  const [resourceCategory, setResourceCategory] = useState('general')
-  const [selectedMatchId, setSelectedMatchId] = useState(match?.id || '')
+  const [shared, setShared] = useState(false)
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [activeSlotId, setActiveSlotId] = useState('')
   const [slotSearch, setSlotSearch] = useState('')
   const [showBoards, setShowBoards] = useState(false)
-  const [showMatchPicker, setShowMatchPicker] = useState(false)
   const [title, setTitleState] = useState(match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board')
   const [activeSheet, setActiveSheet] = useState('')
   const [benchExpanded, setBenchExpanded] = useState(!fullScreen)
@@ -415,14 +395,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   }, [])
   const preferenceKey = useMemo(() => createMobileFormationPreferenceKey({ clubId: context.clubId, teamId: context.teamId, userId: user.id }), [context.clubId, context.teamId, user.id])
 
-  const resolvePublications = useCallback(async (nextBoard, actingUser) => {
-    if (!nextBoard?.id) return { matchItems: [], resourceItems: [] }
-    const [matchItems, resourceItems] = await Promise.all([
-      getCoachFormationPublications(actingUser, nextBoard.id),
-      getCoachFormationResourcePublications(actingUser, nextBoard.id),
-    ])
-    return { matchItems, resourceItems }
-  }, [])
+  const resolvePublications = useCallback(async (nextBoard, actingUser) => ({
+    matchItems: nextBoard?.id ? await getCoachFormationPublications(actingUser, nextBoard.id) : [],
+  }), [])
 
   const applyBoard = useCallback(async (nextBoard, nextPresets = presets) => {
     const { context: currentContext, user: currentUser } = propsRef.current
@@ -441,9 +416,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setSavedContentKey(formationContentKey(createMobileFormationDraft({ board: baseBoard }), baseBoard.title))
     setRestoredDraftKey(localEntry?.[0] || '')
     setLocalState(local ? 'saved' : 'idle')
-    setSelectedMatchId(nextBoard?.linkedMatchDayId || '')
     setMatchPublications(nextPublications.matchItems)
-    setResourcePublications(nextPublications.resourceItems)
+    setShared(local?.shared ?? Boolean(getActiveFormationPublication(nextPublications.matchItems, nextBoard.linkedMatchDayId)))
     setPresets(nextPresets)
     setSelectedPlayerId('')
     setShowBoards(false)
@@ -451,7 +425,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setOffline(false)
     setRefreshPending(false)
     setServerBoardUnavailable(false)
-    setNotice(local ? 'Your unsent changes are restored. Review them before saving to the team.' : '')
+    setNotice(local ? 'Your unsent changes are restored. Review them before saving to the match.' : '')
   }, [presets, resolvePublications, setDraft, setTitle])
 
   const load = useCallback(async () => {
@@ -465,7 +439,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setTitle(currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board')
     setBoards([])
     setPresets([])
-    setSelectedMatchId(currentMatch?.id || '')
     setSelectedPlayerId('')
     setActiveSlotId('')
     setShowBoards(false)
@@ -476,7 +449,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setDraft(createMobileFormationDraft())
     setSavedContentKey('')
     setMatchPublications([])
-    setResourcePublications([])
+    setShared(false)
     setError('')
     const [savedPreference, savedOffline] = await Promise.all([
       AsyncStorage.getItem(preferenceKey).catch(() => null),
@@ -502,8 +475,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       setLocalState(restored ? 'saved' : 'idle')
       setPresets(Array.isArray(savedFormation.presets) ? savedFormation.presets : [])
       setMatchPublications(Array.isArray(savedFormation.matchPublications) ? savedFormation.matchPublications : [])
-      setResourcePublications(Array.isArray(savedFormation.resourcePublications) ? savedFormation.resourcePublications : [])
-      setSelectedMatchId(savedFormation.board?.linkedMatchDayId || '')
+      setShared(restored?.shared ?? Boolean(getActiveFormationPublication(savedFormation.matchPublications || [], currentMatch?.id)))
       setTitle(cachedTitle)
       setActiveSheet('')
       setOffline(true)
@@ -530,7 +502,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       const attemptedDraft = pendingSave || (restored?.board ? { boardId: restored.board.id, draft: restored.draft, title: restored.title } : null)
       const attemptedCreatorId = normalize(attemptedDraft?.createdByProfileId) || currentUser.id
       const recoveredBoard = attemptedDraft ? nextBoards.find((candidate) => (
-        (attemptedDraft.boardId ? candidate.id === attemptedDraft.boardId : candidate.createdByProfileId === attemptedCreatorId && new Date(candidate.createdAt || 0).getTime() >= pendingThreshold)
+        candidate.linkedMatchDayId === currentMatch?.id
+        && (attemptedDraft.boardId ? candidate.id === attemptedDraft.boardId : candidate.createdByProfileId === attemptedCreatorId && new Date(candidate.createdAt || 0).getTime() >= pendingThreshold)
         && formationMatchesBoard(attemptedDraft.draft, attemptedDraft.title, candidate)
       )) || null : null
       // Keep the restored base version so a concurrent coach edit still conflicts.
@@ -546,20 +519,19 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       setBoards(nextBoards)
       setPresets(nextPresets)
       setMatchPublications(nextPublications.matchItems)
-      setResourcePublications(nextPublications.resourceItems)
       if (!editorChangedDuringRefresh) {
         setBoard(nextBoard)
+        setShared(restored?.shared ?? pendingSave?.shared ?? Boolean(getActiveFormationPublication(nextPublications.matchItems, currentMatch?.id)))
         setDraft(nextDraft)
         const nextTitle = restored?.title || pendingSave?.title || nextBoard?.title || (currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board')
         setSavedContentKey(nextBoard ? formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title) : formationContentKey(createMobileFormationDraft({ gameFormat: nextDraft.gameFormat, presetKey: nextDraft.presetKey }), currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board'))
         setRestoredDraftKey(localEntry?.[0] || '')
         setLocalState(restored ? 'saved' : 'idle')
-        setSelectedMatchId(nextBoard?.linkedMatchDayId || currentMatch?.id || '')
         setTitle(nextTitle)
         setNotice(recoveredBoard
           ? 'The previous server save was found. Your Formation Board is ready.'
           : restored || unresolvedPendingSave
-            ? 'Your unsent Formation Board is restored from this device. Review the lineup, then save it to the team.'
+            ? 'Your unsent Formation Board is restored from this device. Review the lineup, then save it to the match.'
             : cachedBoardUnavailable
               ? 'The cached Formation Board is no longer available to this account. It was not restored or sent.'
             : '')
@@ -569,7 +541,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       setServerBoardUnavailable(Boolean(cachedBoardUnavailable))
       setLoading(false)
       if (!editorChangedDuringRefresh) {
-        await saveCoachOfflineResources(currentUser.id, currentContext, { formation: { board: nextBoard, boards: nextBoards, draft: nextDraft, matchDayId: currentMatch?.id || '', matchPublications: nextPublications.matchItems, pendingSave: unresolvedPendingSave, presets: nextPresets, resourcePublications: nextPublications.resourceItems } }).catch(() => {})
+        await saveCoachOfflineResources(currentUser.id, currentContext, { formation: { board: nextBoard, boards: nextBoards, draft: nextDraft, matchDayId: currentMatch?.id || '', matchPublications: nextPublications.matchItems, pendingSave: unresolvedPendingSave, presets: nextPresets } }).catch(() => {})
       }
     } catch (loadError) {
       if (!isCurrent()) return
@@ -605,15 +577,14 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const availabilityMatch = linkedMatch || match || null
   const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
-  const latestResourcePublication = resourcePublications[0] || null
   const unavailable = stale || offline || serverBoardUnavailable
   const hasEditAuthority = canEditCoachFormationBoard(user)
   const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable
   const capacity = getMobileFormationCapacity(draft.gameFormat)
   const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
-  const formationName = (currentPreset?.displayName || draft.presetKey).replace(`${draft.gameFormat}-`, '')
   const contentKey = formationContentKey(draft, title)
-  const hasUnsavedChanges = Boolean(savedContentKey && contentKey !== savedContentKey)
+  const hasUnsavedChanges = Boolean(savedContentKey && (contentKey !== savedContentKey || shared !== Boolean(activePublication)))
+  const matchBoards = boards.filter((item) => item.linkedMatchDayId === match?.id)
   const currentDraftKey = restoredDraftKey || formationDraftKey(board?.id, match?.id)
   const saveLabel = getFormationSaveLabel({ board, dirty: hasUnsavedChanges, localState, publication: activePublication })
 
@@ -633,6 +604,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         board,
         draft,
         title,
+        shared,
         workflowStep: 'lineup',
         matchDayId: currentMatch?.id || '',
         savedAt: new Date().toISOString(),
@@ -648,7 +620,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     } finally {
       if (sequence === draftWriteSequence.current) setBusy(false)
     }
-  }, [board, currentDraftKey, draft, draftScope, hasEditAuthority, hasUnsavedChanges, onBack, routeScope, title])
+  }, [board, currentDraftKey, draft, draftScope, hasEditAuthority, hasUnsavedChanges, onBack, routeScope, shared, title])
 
   useEffect(() => {
     registerBackHandler?.(handleBack)
@@ -659,7 +631,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     if (!canEdit || loading || busy || !savedContentKey || draftScope !== routeScope) return
     const sequence = ++draftWriteSequence.current
     const entry = hasUnsavedChanges ? {
-      board, draft, title, workflowStep: 'lineup', matchDayId: match?.id || '', savedAt: new Date().toISOString(),
+      board, draft, title, shared, workflowStep: 'lineup', matchDayId: match?.id || '', savedAt: new Date().toISOString(),
     } : null
     if (entry) setLocalState('saving')
     void saveCoachFormationLocalDraft(user.id, context, currentDraftKey, entry).then(() => {
@@ -667,11 +639,11 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     }).catch(() => {
       if (sequence === draftWriteSequence.current) setLocalState('failed')
     })
-  }, [board, busy, canEdit, contentKey, context, currentDraftKey, draft, draftScope, hasUnsavedChanges, loading, match?.id, routeScope, savedContentKey, title, user.id])
+  }, [board, busy, canEdit, contentKey, context, currentDraftKey, draft, draftScope, hasUnsavedChanges, loading, match?.id, routeScope, savedContentKey, shared, title, user.id])
 
   const confirmDraftReplacement = (action) => {
     if (!hasUnsavedChanges || !canEdit) { void action(); return }
-    Alert.alert('Discard these changes?', 'These edits have not been saved to the team. Keep editing to save them first.', [
+    Alert.alert('Discard these changes?', 'These edits have not been saved to the match. Keep editing to save them first.', [
       { text: 'Keep editing', style: 'cancel' },
       { text: 'Discard changes', style: 'destructive', onPress: async () => {
         try {
@@ -702,14 +674,13 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const nextDraft = createMobileFormationDraft({ gameFormat: preset?.gameFormat || '11v11', presetKey: preset?.key || '11v11-4-4-2' })
     setBoard(null)
     setDraft(nextDraft)
-    const nextTitle = match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'
+    const nextTitle = `Lineup ${matchBoards.length + 1}`
     setTitle(nextTitle)
     setSavedContentKey(formationContentKey(nextDraft, nextTitle))
     setRestoredDraftKey('')
     setLocalState('idle')
-    setSelectedMatchId(match?.id || '')
     setMatchPublications([])
-    setResourcePublications([])
+    setShared(false)
     setSelectedPlayerId('')
     setShowBoards(false)
     setActiveSheet('')
@@ -727,7 +698,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         matchPublications,
         pendingSave,
         presets,
-        resourcePublications,
       },
     })
   }
@@ -738,7 +708,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const createdByProfileId = normalize(pendingSave.createdByProfileId) || user.id
     const items = await getCoachFormationBoards(user)
     return items.find((candidate) => (
-      candidate.createdByProfileId === createdByProfileId
+      candidate.linkedMatchDayId === match?.id
+      && candidate.createdByProfileId === createdByProfileId
       && new Date(candidate.createdAt || 0).getTime() >= threshold
       && formationMatchesBoard(pendingSave.draft, pendingSave.title, candidate)
     )) || null
@@ -746,6 +717,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
 
   const persistBoard = async () => {
     if (!canEdit) throw new Error('Coach or manager plan access is required to save formations.')
+    if (!match?.id) throw new Error('Open a match before saving a Formation Board.')
+    if (board?.linkedMatchDayId && board.linkedMatchDayId !== match.id) throw new Error('This board belongs to another match.')
     const operation = loadSequence.current
     const requireActiveBoard = () => {
       if (operation === loadSequence.current) return
@@ -766,6 +739,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       boardId: board?.id || '',
       createdByProfileId: normalize(previousPendingSave?.createdByProfileId) || normalize(board?.createdByProfileId) || user.id,
       draft,
+      shared,
       startedAt: !board && previousPendingSave?.startedAt ? previousPendingSave.startedAt : new Date().toISOString(),
       title: normalize(title) || 'Formation Board',
     }
@@ -778,13 +752,10 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         nextBoard = await reconcilePendingBoard(previousPendingSave).catch(() => null)
       }
       requireActiveBoard()
-      nextBoard = nextBoard
-        ? await saveCoachFormationBoard(user, nextBoard, draft, title)
-        : await createCoachFormationBoard(user, match, draft, title)
+      nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, draft, title, shared)
       requireActiveBoard()
       // Retain a confirmed server identity even if refresh or local storage fails.
       setBoard(nextBoard)
-      if (match?.id && nextBoard.linkedMatchDayId !== match.id) nextBoard = await linkCoachFormationBoard(user, nextBoard.id, match.id)
       const nextBoards = await getCoachFormationBoards(user)
       const nextPublications = await resolvePublications(nextBoard, user)
       requireActiveBoard()
@@ -793,9 +764,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       setDraft(createMobileFormationDraft({ board: nextBoard }))
       setTitle(nextBoard.title)
       setSavedContentKey(formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title))
-      setSelectedMatchId(nextBoard.linkedMatchDayId || selectedMatchId)
       setMatchPublications(nextPublications.matchItems)
-      setResourcePublications(nextPublications.resourceItems)
       await saveOfflineFormation({ nextBoard, nextBoards, nextDraft: createMobileFormationDraft({ board: nextBoard }), pendingSave: null }).catch(() => {})
       await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null).catch(() => {})
       setRestoredDraftKey('')
@@ -827,7 +796,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setBusy(true); setError(''); setNotice('')
     try {
       const nextBoard = await persistBoard()
-      setNotice(nextBoard.linkedMatchDayId ? 'Formation Board saved to the team and linked to its match. Parent publication is unchanged.' : 'Formation Board saved to the team. You can link or publish it whenever you are ready.')
+      setNotice(`${nextBoard.title} saved to this match. ${shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
     } catch (saveError) { if (saveError.code === 'formation_navigation_changed') return; setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(saveError.message) }
     finally { setBusy(false) }
   }
@@ -844,76 +813,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     } catch (reloadError) { setError(reloadError.message) }
     finally { setBusy(false) }
   })
-
-  const linkToMatch = async () => {
-    if (!selectedMatchId) { setError('Choose a match to link.'); return }
-    setBusy(true); setError(''); setNotice('')
-    try {
-      let nextBoard = await persistBoard()
-      if (nextBoard.linkedMatchDayId !== selectedMatchId) nextBoard = await linkCoachFormationBoard(user, nextBoard.id, selectedMatchId)
-      setBoard(nextBoard)
-      setBoards(await getCoachFormationBoards(user))
-      setMatchPublications(await getCoachFormationPublications(user, nextBoard.id))
-      setShowMatchPicker(false)
-      const selectedMatch = matches.find((candidate) => candidate.id === selectedMatchId) || match
-      setNotice(`Formation Board linked to ${selectedMatch?.teamName || 'Team'} v ${selectedMatch?.opponent || 'opponent'}.`)
-    } catch (linkError) { if (linkError.code === 'formation_navigation_changed') return; setErrorRetry(linkError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(normalize(linkError?.message) || 'The Formation Board could not be linked to that match.') }
-    finally { setBusy(false) }
-  }
-
-  const publishToResources = () => Alert.alert(
-    latestResourcePublication ? 'Update the Team Resource?' : 'Publish to Team Resources?',
-    'A protected saved version of the pitch and Bench will be added to the Team Resource library. Nothing is sent automatically.',
-    [
-      { style: 'cancel', text: 'Cancel' },
-      { text: latestResourcePublication ? 'Save and update' : 'Save and publish', onPress: async () => {
-        setBusy(true); setError(''); setNotice('')
-        try {
-          const nextBoard = await persistBoard()
-          await publishCoachFormationResource(user, nextBoard, resourceCategory, publicationResourceId(latestResourcePublication))
-          setResourcePublications(await getCoachFormationResourcePublications(user, nextBoard.id))
-          setNotice(latestResourcePublication ? 'Saved and updated in Team Resources.' : 'Saved and published to Team Resources.')
-        } catch (publishError) { if (publishError.code === 'formation_navigation_changed') return; setErrorRetry(publishError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(normalize(publishError?.message) || 'The Formation Board could not be published to Team Resources.') }
-        finally { setBusy(false) }
-      } },
-    ],
-  )
-
-  const saveAndPublish = () => Alert.alert(
-    activePublication ? 'Update the Parent match plan?' : 'Share this match plan with Parents?',
-    'The latest pitch and Bench will be saved and shared with authorised Parents for the linked fixture. Coach notes and unselected Players are not shared.',
-    [
-      { style: 'cancel', text: 'Cancel' },
-      { text: activePublication ? 'Save and update' : 'Save and share', onPress: async () => {
-        setBusy(true); setError(''); setNotice('')
-        try {
-          const nextBoard = await persistBoard()
-          if (!nextBoard.linkedMatchDayId) throw new Error('Link this Formation Board to a match before sharing it with Parents.')
-          await publishCoachFormationBoard(user, nextBoard, nextBoard.linkedMatchDayId)
-          setMatchPublications(await getCoachFormationPublications(user, nextBoard.id))
-          setNotice('Saved and shared. Authorised Parents can now see the latest match plan.')
-        } catch (publishError) { if (publishError.code === 'formation_navigation_changed') return; setErrorRetry(publishError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(normalize(publishError?.message) || 'The match plan could not be saved and shared.') }
-        finally { setBusy(false) }
-      } },
-    ],
-  )
-
-  const withdraw = () => Alert.alert(
-    'Withdraw the Parent plan?',
-    'The saved private Formation Board remains available to Coaches.',
-    [
-      { style: 'cancel', text: 'Cancel' },
-      { style: 'destructive', text: 'Withdraw', onPress: async () => {
-        setBusy(true); setError('')
-        try {
-          await withdrawCoachFormationBoard(user, board, board.linkedMatchDayId)
-          setMatchPublications(await getCoachFormationPublications(user, board.id))
-          setNotice('The match plan is private again.')
-        } catch (withdrawError) { setError(normalize(withdrawError?.message) || 'The Formation Board could not be withdrawn.') }
-        finally { setBusy(false) }
-      } },
-    ],
-  )
 
   const moveBenchPlayerToPitch = (playerId) => {
     if (!canEdit) return
@@ -963,16 +862,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     </View>
   )
 
-  const publicationLabel = activePublication
-    ? 'Shared with Parents'
-    : latestResourcePublication
-      ? 'Published to Team Resources'
-      : 'Not shared'
-
   const closeSheet = () => {
     setActiveSheet('')
     setShowBoards(false)
-    setShowMatchPicker(false)
   }
 
   return (
@@ -1037,8 +929,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
 
       <ScrollView style={fullScreen ? styles.canvasAlert : null}>
       {!hasEditAuthority ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>Coach or manager plan access is required to edit, save or share this Formation Board.</Text></View> : null}
-      {localState === 'failed' ? <Text accessibilityRole="alert" style={styles.body}>Changes could not be protected on this device. Keep this screen open and save to the team when connected.</Text> : null}
-      {unavailable ? <View style={styles.warning}><Text style={styles.heading}>{serverBoardUnavailable ? 'Board unavailable' : refreshPending ? 'Checking saved board' : 'Offline draft'}</Text><Text style={styles.body}>{serverBoardUnavailable ? 'The saved board is no longer available to this account. Cached content cannot be edited or sent.' : refreshPending ? 'Showing the last encrypted board as read-only while the live board is checked.' : 'Showing the last encrypted board. You can keep a private device draft, while saving, linking and publishing require a successful online refresh.'}</Text></View> : null}
+      {localState === 'failed' ? <Text accessibilityRole="alert" style={styles.body}>Changes could not be protected on this device. Keep this screen open and save to the match when connected.</Text> : null}
+      {unavailable ? <View style={styles.warning}><Text style={styles.heading}>{serverBoardUnavailable ? 'Board unavailable' : refreshPending ? 'Checking saved board' : 'Offline draft'}</Text><Text style={styles.body}>{serverBoardUnavailable ? 'The saved board is no longer available to this account. Cached content cannot be edited or sent.' : refreshPending ? 'Showing the last encrypted board as read-only while the live board is checked.' : 'Showing the last encrypted board. You can keep a private device draft, while saving and visibility changes require a successful online refresh.'}</Text></View> : null}
       {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy || (!canEdit && errorRetry === 'save')} label={errorRetry === 'conflict' ? 'Reload latest version' : errorRetry === 'save' ? 'Retry save' : errorRetry === 'back' ? 'Retry Back' : 'Try again'} onPress={errorRetry === 'conflict' ? reloadLatestBoard : errorRetry === 'save' ? save : errorRetry === 'back' ? handleBack : load} secondary styles={styles} /></View> : null}
       {removalMode && canEdit ? <View style={styles.selectedPanel}><Text style={styles.body}>Tap starters to select them, then move the selection to the Bench.</Text><View style={styles.row}><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { commitPlayerMove(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /><Action label="Cancel" onPress={() => { setRemovalIds([]); setRemovalMode(false) }} secondary styles={styles} /></View></View> : null}
 
@@ -1055,7 +947,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
           <View accessibilityLabel={`${activeSheet || 'Formation Board'} options`} role="dialog" style={styles.modalPanel}>
             <View style={styles.sheetHandle} />
             <View style={styles.rowBetween}>
-              <Text style={styles.heading}>{activeSheet === 'formation' ? 'Formation' : activeSheet === 'players' ? 'Players' : activeSheet === 'share' ? 'Save and share' : 'Board options'}</Text>
+              <Text style={styles.heading}>{activeSheet === 'formation' ? 'Formation' : activeSheet === 'players' ? 'Players' : activeSheet === 'share' ? 'Save to match' : 'Board options'}</Text>
               <Pressable accessibilityLabel="Close options" accessibilityRole="button" onPress={closeSheet} style={styles.topIcon}><MaterialIcons color={palette.textPrimary} name="close" size={25} /></Pressable>
             </View>
 
@@ -1076,32 +968,26 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
               {players.map((player) => { const selected = selectedIds.has(player.id); const availability = getMobileFormationPlayerAvailability(player.id, availabilityRows); const placement = draft.placements.find((item) => item.playerId === player.id); return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: !canEdit }} disabled={!canEdit} key={player.id} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} style={[styles.modalPlayer, !canEdit && styles.actionDisabled]}><View><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`}</Text><Text style={styles.body}>{availability.label}{placement ? ' | On pitch' : selected ? ' | Substitute' : ''}</Text></View><MaterialIcons color={selected ? palette.accentText : palette.textSecondary} name={selected ? 'check-circle' : 'radio-button-unchecked'} size={24} /></Pressable> })}
             </ScrollView> : null}
 
-            {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack}>
-              <Text style={styles.body}>{saveLabel} | {publicationLabel}</Text>
-              {notice ? <Text style={styles.body}>{notice}</Text> : null}
-              <Text style={styles.body}>{draft.placements.length} on pitch | {draft.bench.length} Subs | {draft.gameFormat} {formationName}</Text>
-              {!canEdit ? <Text style={styles.body}>This board is read-only. Coach or manager plan access is required to save or share changes.</Text> : null}
-              <Action disabled={!canEdit || busy || unavailable || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save Formation Board'} onPress={() => { closeSheet(); void save() }} styles={styles} />
-              <Text style={styles.body}>Saving keeps the board private to the team. Sharing and publication only happen when you choose them below.</Text>
-              {!linkedMatchId ? <View style={styles.stack}>
-                <View style={styles.rowBetween}><Text style={styles.label}>Optional match link</Text><Pressable accessibilityRole="button" accessibilityState={{ disabled: !canEdit }} disabled={!canEdit} onPress={() => setShowMatchPicker((current) => !current)} style={!canEdit && styles.actionDisabled}><Text style={styles.count}>{showMatchPicker ? 'Hide matches' : 'Choose match'}</Text></Pressable></View>
-                {showMatchPicker ? <View style={styles.stack}>{matches.length ? matches.map((item) => <Choice disabled={!canEdit} key={item.id} label={`${item.matchDate || 'Date TBC'} | ${item.teamName} v ${item.opponent}`} onPress={() => setSelectedMatchId(item.id)} selected={selectedMatchId === item.id} styles={styles} />) : <Text style={styles.body}>No Match Day fixture is available for this Team.</Text>}<Action disabled={!canEdit || busy || unavailable || !selectedMatchId || !selectedIds.size} label="Save and link to match" onPress={() => { closeSheet(); void linkToMatch() }} secondary styles={styles} /></View> : null}
-              </View> : <Text style={styles.body}>Linked to {linkedMatch?.teamName || 'Team'} v {linkedMatch?.opponent || 'opponent'}.</Text>}
-              <Text style={styles.label}>Team Resources category</Text>
-              <View style={styles.row}>{RESOURCE_CATEGORIES.map((category) => <Choice disabled={!canEdit} key={category.value} label={category.label} onPress={() => setResourceCategory(category.value)} selected={resourceCategory === category.value} styles={styles} />)}</View>
-              <Action disabled={!canEdit || busy || unavailable || !selectedIds.size} label={latestResourcePublication ? 'Save and update Team Resource' : 'Save and publish to Team Resources'} onPress={() => { closeSheet(); publishToResources() }} secondary styles={styles} />
-              {linkedMatchId ? <Action disabled={!canEdit || busy || unavailable || !title.trim() || !selectedIds.size} label={activePublication ? 'Save and update Parents' : 'Save and share with Parents'} onPress={() => { closeSheet(); saveAndPublish() }} secondary styles={styles} /> : <Text style={styles.body}>Parent sharing becomes available after this board is linked to a match.</Text>}
+            {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
+              <Text style={styles.body}>{match ? `${match.teamName} v ${match.opponent}` : 'Open a match to save this board.'}</Text>
+              <Text style={styles.label}>Lineup name</Text>
+              <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onChangeText={setTitle} style={styles.input} value={title} />
+              <Text style={styles.label}>Who can see this lineup?</Text>
+              <Choice disabled={!canEdit || busy} label="Coaches only" onPress={() => setShared(false)} selected={!shared} styles={styles} />
+              <Choice disabled={!canEdit || busy} label="Parents and players" onPress={() => setShared(true)} selected={shared} styles={styles} />
+              {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
+              {notice.startsWith(`${title} saved to this match.`) ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
+              <Action disabled={!canEdit || busy || unavailable || !match?.id || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save to match'} onPress={() => void save()} styles={styles} />
             </ScrollView> : null}
 
             {activeSheet === 'details' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
               <Text style={styles.label}>Plan name</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" onChangeText={setTitle} style={[styles.input, !canEdit && styles.actionDisabled]} value={title} />
-              <Text style={styles.body}>{linkedMatchId ? 'Match-linked plan' : 'Standalone plan'} | {draft.placements.length} on pitch | {draft.bench.length} Subs</Text>
+              <Text style={styles.body}>{saveLabel} | {draft.placements.length} on pitch | {draft.bench.length} Subs</Text>
               {draft.placements.length ? <Action disabled={!canEdit} label={removalMode ? 'Cancel taking Players off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId(''); closeSheet() }} secondary styles={styles} /> : null}
-              {!match?.id || serverBoardUnavailable ? <Action disabled={!hasEditAuthority || refreshPending} iconKey="action.new-board" label={serverBoardUnavailable ? 'Start replacement board' : 'New board'} onPress={() => { closeSheet(); confirmDraftReplacement(startNewBoard) }} secondary styles={styles} /> : null}
-              {!match?.id && boards.length ? <Pressable accessibilityRole="button" onPress={() => setShowBoards((current) => !current)}><Text style={styles.count}>{showBoards ? 'Hide saved boards' : `Open saved boards (${boards.length})`}</Text></Pressable> : null}
-              {showBoards ? boards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => { closeSheet(); confirmDraftReplacement(() => applyBoard(item)) }} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>{item.linkedMatchDayId ? 'Linked to a match' : 'Standalone'} | Version {item.currentVersionNumber}</Text></Pressable>) : null}
-              {activePublication ? <Action danger disabled={!canEdit || busy || unavailable} label="Withdraw Parent plan" onPress={() => { closeSheet(); withdraw() }} secondary styles={styles} /> : null}
+              <Action disabled={!hasEditAuthority || refreshPending || busy} iconKey="action.new-board" label={serverBoardUnavailable ? 'Start replacement board' : 'New board'} onPress={() => { closeSheet(); confirmDraftReplacement(startNewBoard) }} secondary styles={styles} />
+              {matchBoards.length ? <Pressable accessibilityRole="button" onPress={() => setShowBoards((current) => !current)}><Text style={styles.count}>{showBoards ? 'Hide saved boards' : `Open saved boards (${matchBoards.length})`}</Text></Pressable> : null}
+              {showBoards ? matchBoards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => { closeSheet(); confirmDraftReplacement(() => applyBoard(item)) }} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>Saved to this match | Version {item.currentVersionNumber}</Text></Pressable>) : null}
             </ScrollView> : null}
           </View>
         </View>
