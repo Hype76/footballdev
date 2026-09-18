@@ -524,6 +524,7 @@ try {
     await page.getByRole('button', { name: 'Save to match', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
     await page.waitForTimeout(120)
+    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry-no-storage') await page.getByRole('dialog', { name: 'share options', exact: true }).getByText('Saved to this match, but the latest lineup could not be refreshed. refresh failed', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Close options', exact: true }).click()
     if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') {
       await page.getByRole('button', { name: 'Resume connection', exact: true }).dblclick()

@@ -845,6 +845,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         queuedError.code = 'formation_save_queued'
         throw queuedError
       }
+      if (serverAcknowledged) throw new Error(`Saved to this match, but the latest lineup could not be refreshed. ${saveError.message}`)
       if (retryable) throw new Error('Your Formation Board could not be saved on this device or confirmed online. Keep this screen open and retry when connected.')
       throw saveError
     }
