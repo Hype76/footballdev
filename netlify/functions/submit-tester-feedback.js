@@ -345,12 +345,13 @@ async function getAuthenticatedProfile(event, supabaseAdmin) {
   const authEmail = normalizeText(authUser.email, { maxLength: 320 }).toLowerCase()
   // Sending feedback requires an active account, not a staff club membership.
   // Reporter identity always comes from the verified token and stored profile.
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const { data: accountProfile, error: profileError } = await supabaseAdmin
     .from('users')
     .select('id, email, username, name, display_name, role, role_label, role_rank, club_id, status')
     .eq('id', authUser.id)
     .maybeSingle()
   if (profileError) throw profileError
+  let profile = accountProfile
 
   if (!profile?.id || profile.status !== 'active') {
     throw Object.assign(new Error('Signed-in user profile was not found.'), {
@@ -360,7 +361,7 @@ async function getAuthenticatedProfile(event, supabaseAdmin) {
   }
 
   if (!['parent_portal', 'adult_player', 'fan'].includes(profile.role)) {
-    await loadActiveAuthorityProfile(supabaseAdmin, authUser)
+    profile = await loadActiveAuthorityProfile(supabaseAdmin, authUser)
   }
 
   return {
