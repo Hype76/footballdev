@@ -1138,6 +1138,7 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
+  const [formationOpenKey, setFormationOpenKey] = useState('')
   const [availabilityOpenKey, setAvailabilityOpenKey] = useState('')
   const [now, setNow] = useState(() => Date.now())
   const matchGroups = useMemo(() => getParentMatchGroups(resource.items), [resource.items])
@@ -1161,6 +1162,8 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
     const attendanceInvitation = getParentMatchAttendanceInvitation(selectedMatch, invitations, link)
     const canChangeAvailability = canChangeParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)
     const availabilityKey = `${link?.id}:${selectedMatch.id}`
+    const hasFormation = !selectedMatch.formationPlanError && Boolean(selectedMatch.formationPlans?.length || selectedMatch.formationPlan)
+    const formationOpen = formationOpenKey === availabilityKey
     const availabilityOpen = availabilityOpenKey === availabilityKey && canChangeAvailability
     const scorerInvitation = getParentScorerInterestInvitation(selectedMatch, invitations, new Date(now))
     const timeline = getParentMatchTimeline(selectedMatch)
@@ -1205,11 +1208,12 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around', gap: 8 }}>
             {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) ? <MatchdayAction expanded={squadOpenMatchId === selectedMatch.id} accessibilityLabel={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`} label={`Squad (${selectedMatch.confirmedTeam?.length || 0})`} iconKey="match.squad" onPress={() => setSquadOpenMatchId(current => current === selectedMatch.id ? '' : selectedMatch.id)} colors={colors} styles={styles} /> : null}
+            {hasFormation ? <MatchdayAction expanded={formationOpen} accessibilityLabel={formationOpen ? 'Hide formation' : 'Show formation'} label="Formation" iconKey="action.formation" onPress={() => setFormationOpenKey(formationOpen ? '' : availabilityKey)} colors={colors} styles={styles} /> : null}
             {selectedMatch.matchDate ? <MatchdayAction accessibilityLabel="Add to Google Calendar" label="Add to calendar" iconKey="action.calendar" onPress={() => onAddToCalendar?.(selectedMatch)} colors={colors} styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
           </View>
         </View>
-        <ParentMatchFormationPlan colors={colors} error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} />
+        {formationOpen || selectedMatch.formationPlanError ? <ParentMatchFormationPlan key={availabilityKey} colors={colors} error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} /> : null}
         {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) && squadOpenMatchId === selectedMatch.id ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>

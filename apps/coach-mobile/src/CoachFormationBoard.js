@@ -368,6 +368,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const routeScope = getCoachFormationRouteScope(user, context, match?.id)
   const [localState, setLocalState] = useState('idle')
   const [queuedRetryPending, setQueuedRetryPending] = useState(false)
+  const [queuedSaveAcknowledged, setQueuedSaveAcknowledged] = useState(false)
   const [restoredDraftKey, setRestoredDraftKey] = useState('')
   const draftWriteSequence = useRef(0)
   const queuedRetryInFlight = useRef(false)
@@ -457,6 +458,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setMatchPublications([])
     setShared(false)
     setQueuedRetryPending(false)
+    setQueuedSaveAcknowledged(false)
     setError('')
     const [savedPreference, savedOffline] = await Promise.all([
       AsyncStorage.getItem(preferenceKey).catch(() => null),
@@ -473,6 +475,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const pendingSave = savedFormation?.pendingSaves?.[currentPendingKey]
       || (legacyPending?.matchDayId === currentMatch?.id && String(legacyPending.boardId || '') === restoredBoardId ? legacyPending : null)
     setQueuedRetryPending(Boolean(pendingSave))
+    setQueuedSaveAcknowledged(Boolean(pendingSave?.acknowledged))
     const restored = localDraft || (pendingSave ? { board: pendingSave.board || null, draft: pendingSave.draft, title: pendingSave.title, shared: pendingSave.shared } : null)
     if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
       const cachedBoard = restored ? restored.board || null : savedFormation.board || null
@@ -529,6 +532,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         : !recoveredPublication
       const unresolvedPendingSave = pendingSave && !(recoveredBoard && recoveredAudienceMatches) ? pendingSave : null
       setQueuedRetryPending(Boolean(unresolvedPendingSave))
+      setQueuedSaveAcknowledged(Boolean(unresolvedPendingSave?.acknowledged))
       const editorChangedDuringRefresh = showedCachedBoard && editorRevision.current !== refreshRevision
       const cachedBoardUnavailable = showedCachedBoard && cachedBoardId && !restored && !refreshedCachedBoard
       setDraftScope(routeScope)
@@ -564,6 +568,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
         if (pendingSave) setNotice('Your unsent Formation Board is saved on this device. Connect when you are ready to finish saving it.')
         setQueuedRetryPending(Boolean(pendingSave))
+        setQueuedSaveAcknowledged(Boolean(pendingSave?.acknowledged))
         setRefreshPending(false)
       } else {
         setErrorRetry('load')
@@ -774,6 +779,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       title: normalize(saveTitle) || 'Formation Board',
     }
     let nextBoard = saveBoard
+    let serverAcknowledged = Boolean(queuedSave?.acknowledged)
     let savedLocally = false
     if (!queuedSave) await saveOfflineFormation({ pendingSave }).then(() => { savedLocally = true }).catch(() => {})
     try {
@@ -784,6 +790,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       requireActiveBoard()
       if (!queuedSave?.acknowledged) {
         nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
+        serverAcknowledged = true
         requireActiveBoard()
         const acknowledgedPendingSave = { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, expectedVersionNumber: nextBoard.currentVersionNumber }
         await saveOfflineFormation({ nextBoard, pendingSave: acknowledgedPendingSave }).catch(() => {})
@@ -812,6 +819,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       await saveOfflineFormation({ nextBoard, nextBoards, nextDraft: preserveCurrentDraft ? currentEditor.draft : createMobileFormationDraft({ board: nextBoard }), nextPublications: nextPublications.matchItems, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
       if (!preserveCurrentDraft) await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null).catch(() => {})
       setQueuedRetryPending(false)
+      setQueuedSaveAcknowledged(false)
       if (!preserveCurrentDraft) {
         setRestoredDraftKey('')
         setLocalState('idle')
@@ -825,6 +833,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         await saveOfflineFormation({ nextBoard, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
       }
       setQueuedRetryPending(retryable && hasQueuedSnapshot)
+      setQueuedSaveAcknowledged(serverAcknowledged)
       requireActiveBoard()
       if (String(saveError?.message || '').includes('formation_board_version_conflict')) {
         const conflict = new Error('Another coach has saved a newer version. Your changes remain on this device. Reload the latest version to continue, or keep this screen open to review your changes first.')
@@ -1075,7 +1084,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
               <Choice disabled={!canEdit || busy} label="Coaches only" onPress={() => setShared(false)} selected={!shared} styles={styles} />
               <Choice disabled={!canEdit || busy} label="Parents and players" onPress={() => setShared(true)} selected={shared} styles={styles} />
               {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
-              {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.</Text> : null}
+              {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>{queuedSaveAcknowledged ? 'Saved to this match. Refreshing the saved lineup is pending. Keep this board open to retry the refresh automatically.' : 'Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.'}</Text> : null}
               {notice.startsWith(`${title} saved to this match.`) ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
             <Action disabled={!canEdit || busy || !match?.id || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save to match'} onPress={() => void save()} styles={styles} />
             </ScrollView> : null}

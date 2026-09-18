@@ -353,6 +353,23 @@ async function getAuthenticatedProfile(event, supabaseAdmin) {
   if (profileError) throw profileError
   let profile = accountProfile
 
+  // Parent accounts can be authorised by player links without a staff profile.
+  // Never create a staff identity or trust role claims supplied by the client.
+  if (!profile) {
+    const { data: parentLink, error: linkError } = await supabaseAdmin
+      .from('parent_player_links')
+      .select('id, auth_user_id, status, link_type')
+      .eq('auth_user_id', authUser.id)
+      .eq('status', 'active')
+      .eq('link_type', 'parent')
+      .limit(1)
+      .maybeSingle()
+    if (linkError) throw linkError
+    if (parentLink?.id && parentLink.auth_user_id === authUser.id && parentLink.status === 'active' && parentLink.link_type === 'parent') {
+      return { id: null, authUserId: authUser.id, email: authEmail, name: authEmail, role: 'parent_portal', roleLabel: 'Parent', roleRank: 0, clubId: null }
+    }
+  }
+
   if (!profile?.id || profile.status !== 'active') {
     throw Object.assign(new Error('Signed-in user profile was not found.'), {
       code: 'profile_not_found',

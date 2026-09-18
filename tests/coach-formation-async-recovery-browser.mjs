@@ -482,6 +482,8 @@ try {
     } else if (process.env.FORMATION_ASYNC_SCENARIO === 'ack-refresh') {
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
+      await page.getByText('Saved to this match. Refreshing the saved lineup is pending. Keep this board open to retry the refresh automatically.', { exact: true }).waitFor()
+      assert.equal(await page.getByText(/^Saved on this phone\./).count(), 0, 'A confirmed server save must never be described as phone-only')
       await page.getByRole('button', { name: 'Close options', exact: true }).click()
       await page.getByRole('button', { name: 'Resume connection', exact: true }).dblclick()
       await page.waitForTimeout(250)
