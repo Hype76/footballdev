@@ -173,6 +173,7 @@ jobs:
           tests/coach-formation-save-queue.test.mjs
           tests/coach-match-formation-save.test.mjs
           tests/formation-board-foundation-25a-pglite.test.mjs
+          tests/formation-parent-link-visibility-pglite.test.mjs
           tests/parent-formation-match-plan-repair.test.mjs &&
           node tests/coach-formation-async-recovery-browser.mjs &&
           node tests/coach-formation-fullscreen-workspace-browser.mjs &&

@@ -1043,7 +1043,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
 
       </ScrollView>
       <View accessibilityLabel="Formation Board tools" style={styles.dock}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Formation Board options" onPress={() => setActiveSheet('details')} style={styles.dockItem}><MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name="more-horiz" size={24} /><Text style={styles.dockLabel}>Options</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={matchBoards.length ? `Saved lineups (${matchBoards.length})` : 'Formation Board options'} onPress={() => { setShowBoards(matchBoards.length > 0); setActiveSheet('details') }} style={styles.dockItem}><MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name="more-horiz" size={24} /><Text style={styles.dockLabel}>{matchBoards.length ? `Saved (${matchBoards.length})` : 'Options'}</Text></Pressable>
         {BOARD_TABS.map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => setActiveSheet(tab.value)} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
       </View>
 
@@ -1078,7 +1078,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
 
             {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
               <Text style={styles.body}>{match ? `${match.teamName} v ${match.opponent}` : 'Open a match to save this board.'}</Text>
-              {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation. They also appear in your team’s Formation Boards.</Text> : null}
+              {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation and tap Saved.</Text> : null}
               <Text style={styles.label}>Lineup name</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
