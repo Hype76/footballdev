@@ -1490,9 +1490,11 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
     ['development', 'development', 'Development', 'Shared reports', 0],
     ['resources', 'resource', 'Resources', 'Files and links', 0],
     ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls', unansweredPolls],
+    ['feedback', 'more.feedback', 'Feedback & Suggestions', 'Share your ideas', 0],
+    ['bug', 'more.bug', 'Report a Bug', 'Tell us what went wrong', 0],
     ['settings', 'settings', 'Settings', 'Account and alerts', 0],
   ]
-  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View><PartnersBanner onPress={() => onOpen('partners')} /></View>
+  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text><PartnersBanner onPress={() => onOpen('partners')} /><View style={styles.moreGrid}>{items.map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
 }
 
 export async function openExternalParentUrl(url) {

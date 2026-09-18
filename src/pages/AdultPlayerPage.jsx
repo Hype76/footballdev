@@ -1,3 +1,4 @@
+import { UserFeedbackLinks } from '../components/layout/UserFeedbackLinks.jsx'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.js'
 import {
@@ -179,6 +180,7 @@ export function AdultPlayerPage() {
       </header>
 
       <main className="mt-6">
+        <UserFeedbackLinks />
         <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Calendar and RSVP</p>

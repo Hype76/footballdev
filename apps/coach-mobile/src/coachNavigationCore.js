@@ -19,6 +19,8 @@ const MORE_ROUTES = Object.freeze([
   Object.freeze({ key: 'club', label: 'Club', clubAdminOnly: true }),
   Object.freeze({ key: 'payment', label: 'Plan access', payerOnly: true }),
   Object.freeze({ key: 'settings', label: 'Settings', minimumRank: 20 }),
+  Object.freeze({ key: 'feedback', label: 'Feedback & Suggestions', minimumRank: 20 }),
+  Object.freeze({ key: 'bug', label: 'Report a Bug', minimumRank: 20 }),
   Object.freeze({ key: 'partners', label: 'Partners and Special Offers', minimumRank: 20 }),
 ])
 
@@ -27,6 +29,8 @@ const QUICK_ROUTES = Object.freeze([
 ])
 
 const ROUTE_ALIASES = Object.freeze({
+  feedback: 'feedback',
+  bug: 'bug',
   assess: 'development',
   assessment: 'development',
   assessments: 'development',

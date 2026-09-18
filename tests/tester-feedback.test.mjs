@@ -15,6 +15,7 @@ const {
 
 const pageSource = readFileSync('src/pages/TesterFeedbackPage.jsx', 'utf8')
 const sidebarSource = readFileSync('src/components/layout/Sidebar.jsx', 'utf8')
+const userFeedbackLinksSource = readFileSync('src/components/layout/UserFeedbackLinks.jsx', 'utf8')
 const domainSource = readFileSync('src/lib/domain/tester-feedback.js', 'utf8')
 const functionSource = readFileSync('netlify/functions/submit-tester-feedback.js', 'utf8')
 const compatibilityWrapperSource = readFileSync('netlify/functions/_t-tester-feedback.js', 'utf8')
@@ -292,8 +293,10 @@ test('production feedback page and sidebar use production Report issue wording',
   assert.doesNotMatch(pageSource, /Screenshot URL/)
   assert.doesNotMatch(pageSource, /staging database/i)
   assert.doesNotMatch(pageSource, /recovery testing/i)
-  assert.match(sidebarSource, /const feedbackRoute = `\/feedback\/new\?route=\$\{encodeURIComponent/)
-  assert.match(sidebarSource, />\s*Report issue\s*<\/NavLink>/)
+  assert.match(sidebarSource, /import \{ UserFeedbackLinks \} from '\.\/UserFeedbackLinks\.jsx'/)
+  assert.match(sidebarSource, /<UserFeedbackLinks onSelect=\{onClose\} \/>/)
+  assert.match(userFeedbackLinksSource, /Feedback & Suggestions/)
+  assert.match(userFeedbackLinksSource, /Report a Bug/)
 })
 
 test('client submits through the protected Netlify function and not a direct browser table insert', () => {
@@ -608,6 +611,65 @@ test('submitTesterFeedbackResult blocks unauthenticated and cross-club team cont
   assert.equal(crossClubParsed.statusCode, 403)
   assert.equal(crossClubParsed.body.code, 'invalid_team_context')
   assert.equal(crossClubMock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), false)
+})
+
+test('submitTesterFeedbackResult accepts active parent, fan, and adult player profiles without staff membership', async () => {
+  for (const role of ['parent_portal', 'fan', 'adult_player']) {
+    const mock = createMockSupabase({
+      profile: {
+        id: userId,
+        email: `${role}@example.test`,
+        username: `Fixture ${role}`,
+        name: `Fixture ${role}`,
+        display_name: `Fixture ${role}`,
+        role,
+        role_label: role,
+        role_rank: 0,
+        club_id: null,
+        status: 'active',
+      },
+    })
+    const response = await submitTesterFeedbackResult(createEvent({ context: {} }), {
+      emailSender: createEmailSender().emailSender,
+      env: emailEnv,
+      supabaseAdmin: mock.supabaseAdmin,
+    })
+    const parsed = parseResponse(response)
+    const insertCall = mock.calls.find((call) => call.table === 'tester_feedback_reports' && call.action === 'insert')
+
+    assert.equal(parsed.statusCode, 200, role)
+    assert.equal(parsed.body.success, true, role)
+    assert.equal(insertCall.payload.role, role)
+    assert.equal(insertCall.payload.club_id, null)
+    assert.equal(insertCall.payload.team_id, null)
+  }
+})
+
+test('submitTesterFeedbackResult rejects an inactive profile before saving', async () => {
+  const mock = createMockSupabase({
+    profile: {
+      id: userId,
+      email: 'suspended@example.test',
+      username: 'Suspended User',
+      name: 'Suspended User',
+      display_name: 'Suspended User',
+      role: 'adult_player',
+      role_label: 'Adult Player',
+      role_rank: 0,
+      club_id: null,
+      status: 'suspended',
+    },
+  })
+  const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent({ context: {} }), {
+    emailSender: createEmailSender().emailSender,
+    env: emailEnv,
+    supabaseAdmin: mock.supabaseAdmin,
+  }))
+  const parsed = parseResponse(response)
+
+  assert.equal(parsed.statusCode, 403)
+  assert.equal(parsed.body.code, 'profile_not_found')
+  assert.equal(mock.calls.some((call) => call.table === 'tester_feedback_reports' && call.action === 'insert'), false)
 })
 
 test('tester feedback migration defines production table with RLS and spoofing protections', () => {

@@ -19,6 +19,7 @@ import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCo
 const FansTheme = createContext(DEFAULT_PARENT_MOBILE_THEME.tokens)
 import { FanContent } from './FanContent'
 import { FanPlayerCard } from './FanPlayerCard'
+import { UserFeedbackScreen } from '../../mobile-core/src/UserFeedbackScreen'
 import { PartnersBanner, PartnersScreen } from './PartnersScreen'
 import { readFanDeviceNotifications, enableFanDeviceNotifications } from './fanDeviceNotifications'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
@@ -226,9 +227,14 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const content = <FansTheme.Provider value={tokens}><View style={[styles.container, embedded && { padding: 0 }, { backgroundColor: state.view ? tokens.portalSurface : displayMode === 'light' ? '#f7f8fa' : tokens.portalBackground }]}>{!embedded && brandSource ? <ClubBrand source={brandSource} /> : null}
     {section === 'more' && !state.view ? <>
       <Text accessibilityRole="header" style={styles.title}>More</Text>
-      <Action icon="settings" label="Settings" onPress={() => showSection('settings')} />
       <PartnersBanner onPress={() => showSection('partners')} />
+      <Action icon="settings" label="Settings" onPress={() => showSection('settings')} />
+      <Action icon="more.feedback" label="Feedback & Suggestions" onPress={() => showSection('feedback')} />
+      <Action icon="more.bug" label="Report a Bug" onPress={() => showSection('bug')} />
       {embedded ? <Action label="Back to players" icon="action.back" onPress={() => showSection('home')} /> : null}
+    </> : ['feedback', 'bug'].includes(section) && !state.view ? <>
+      <Action label="Back to More" icon="action.back" onPress={() => showSection('more')} />
+      <UserFeedbackScreen key={section} type={section} appRole="parent" headingStyle={[styles.title, { color: tokens.textPrimary }]} textStyle={styles.helper} />
     </> : section === 'partners' && !state.view ? <>
       <Action label="Back to More" icon="action.back" onPress={() => showSection('more')} />
       <PartnersScreen appRole="parent" headingStyle={styles.title} textStyle={styles.helper} />
