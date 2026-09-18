@@ -128,6 +128,7 @@ jobs:
           tests/mobile-match-day-read-performance-pglite.test.mjs
           tests/mobile-parent-offline-sync-21a.test.mjs
           tests/mobile-parent-startup-28.test.mjs
+          tests/mobile-parent-rebuild-20.test.mjs
           tests/mobile-chat-notify-performance-58.test.mjs
           tests/mobile-calendar-resource-occurrences-111.test.mjs
           tests/mobile-chat-counter-volunteer-labels.test.mjs

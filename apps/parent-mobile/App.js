@@ -40,6 +40,7 @@ import {
   Switch,
   Text,
   TextInput,
+  ToastAndroid,
   useWindowDimensions,
   View,
 } from 'react-native'
@@ -101,6 +102,7 @@ import {
   rankParentPollResults,
 } from './src/parentExperience'
 import { getParentInvitationCounts } from './src/parentPresentationCore'
+import { getParentBackPressAction } from './src/parentBackCore'
 import { getParentEventDateTimeLabel, getParentEventKey, getParentEventPresentation } from './src/parentEventPresentation'
 import {
   addParentScorerGoal,
@@ -375,6 +377,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [displayTheme, setDisplayTheme] = useState('dark')
   const [dismissedItems, setDismissedItems] = useState({ development: [], invitations: [], matches: [], messages: [], polls: [], resources: [] })
   const [moreSection, setMoreSection] = useState('')
+  const lastBackAtRef = useRef(0)
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
   const [matchDayPlayers, setMatchDayPlayers] = useState([])
@@ -1034,6 +1037,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const previousState = appStateRef.current
       if (nextState === 'background' && previousState !== 'background') backgroundedAtRef.current = Date.now()
+      if (nextState === 'background') lastBackAtRef.current = 0
       appStateRef.current = nextState
       const returnedFromBackground = previousState === 'background' && nextState === 'active'
       const wasAwayLongEnough = Date.now() - backgroundedAtRef.current >= 1500
@@ -1197,35 +1201,49 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }, [applyParentNotificationDestination, consumeLastNotificationResponse, lastNotificationResponse, loadParentData, notificationResponseHistoryReady, parentLinks, selectedLink?.id, selectedMobileUser])
 
   useEffect(() => {
+    lastBackAtRef.current = 0
+  }, [activeTab, childSwitcherOpen, moreSection, selectedLink?.id, selectedMatchId, selectedMessageId, selectedRoomId])
+
+  useEffect(() => {
     if (Platform.OS !== 'android') return undefined
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (selectedMessageId) {
+        lastBackAtRef.current = 0
         setSelectedMessageId('')
         return true
       }
       if (selectedMatchId) {
+        lastBackAtRef.current = 0
         setSelectedMatchId('')
         return true
       }
       if (selectedRoomId) {
+        lastBackAtRef.current = 0
         setSelectedRoomId('')
         setPendingNotificationRoomId('')
         return true
       }
       if (moreSection) {
+        lastBackAtRef.current = 0
         setMoreSection('')
         return true
       }
       if (childSwitcherOpen) {
+        lastBackAtRef.current = 0
         setChildSwitcherOpen(false)
         return true
       }
       if (activeTab !== 'home') {
+        lastBackAtRef.current = 0
         setActiveTab('home')
         return true
       }
-      return false
+      const action = getParentBackPressAction({ atRoot: true, lastBackAt: lastBackAtRef.current })
+      lastBackAtRef.current = action.nextLastBackAt
+      if (action.type === 'prompt') ToastAndroid.show(action.message, ToastAndroid.SHORT)
+      else if (action.type === 'exit') BackHandler.exitApp()
+      return true
     })
 
     return () => subscription.remove()
