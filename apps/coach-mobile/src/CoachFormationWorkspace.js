@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
-import { Modal, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useCallback, useRef, useState } from 'react'
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 function createStyles(palette) {
   return StyleSheet.create({
@@ -14,19 +14,25 @@ function createStyles(palette) {
 export function CoachFormationWorkspace({ children, onBack, palette, visible = true }) {
   const [markerGestureActive, setMarkerGestureActive] = useState(false)
   const [backHandler, setBackHandler] = useState(null)
+  const leaving = useRef(false)
+  const [safeHeight, setSafeHeight] = useState(0)
   const insets = useSafeAreaInsets()
   const window = useWindowDimensions()
   const styles = createStyles(palette)
-  const usableHeight = window.height - insets.top - insets.bottom
+  const usableHeight = safeHeight || window.height - insets.top - insets.bottom
   const boardMaxWidth = window.height >= 700 && window.height > window.width
-    ? Math.max(300, Math.min(window.width - 36, (usableHeight - 320) * 0.69))
+    ? Math.max(240, Math.min(window.width - 36, (usableHeight - 368) * 0.69))
     : Math.min(window.width - 36, 360)
   const handleMarkerGestureStart = useCallback(() => setMarkerGestureActive(true), [])
   const handleMarkerGestureEnd = useCallback(() => setMarkerGestureActive(false), [])
-  const handleBack = useCallback(() => {
+  const handleBack = useCallback(async () => {
+    if (leaving.current) return
+    leaving.current = true
     setMarkerGestureActive(false)
-    if (backHandler) return backHandler()
-    return onBack?.()
+    try {
+      if (backHandler) await backHandler()
+      else await onBack?.()
+    } finally { leaving.current = false }
   }, [backHandler, onBack])
   const registerBackHandler = useCallback((handler) => {
     const nextHandler = typeof handler === 'function' ? handler : null
@@ -50,8 +56,12 @@ export function CoachFormationWorkspace({ children, onBack, palette, visible = t
       statusBarTranslucent={false}
       visible={visible}
     >
+      <SafeAreaProvider>
       <SafeAreaView accessibilityViewIsModal edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea} testID="coach-formation-workspace">
-        <View style={styles.screen}>
+        <View onLayout={event => setSafeHeight(event.nativeEvent.layout.height)} style={styles.screen}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close Formation Board" onPress={() => void handleBack()} style={{ minHeight: 48, paddingHorizontal: 18, justifyContent: 'center', alignSelf: 'flex-start' }}>
+            <Text style={{ color: palette.textPrimary, fontSize: 16, fontWeight: '700' }}>Back</Text>
+          </Pressable>
           <ScrollView
             alwaysBounceVertical={false}
             automaticallyAdjustKeyboardInsets
@@ -69,6 +79,7 @@ export function CoachFormationWorkspace({ children, onBack, palette, visible = t
           </ScrollView>
         </View>
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   )
 }

@@ -103,7 +103,7 @@ const mocks = [
   [/^\.\/offline$/, offlineMock],
   [/^@expo\/vector-icons\/MaterialIcons$/, `import React from 'react'; import { Text } from 'react-native'; const glyphs = ${JSON.stringify(materialIconGlyphs)}; export default function MaterialIcons({ color, name, size = 24, style }) { return <Text aria-hidden="true" style={[{ color, fontFamily: 'MaterialIcons', fontSize: size }, style]}>{String.fromCodePoint(glyphs[name] || glyphs.help)}</Text> }`],
   [/^@react-native-async-storage\/async-storage$/, 'export default { getItem: async () => null, setItem: async () => {} }'],
-  [/^react-native-safe-area-context$/, "import React from 'react'; import { View } from 'react-native'; export const useSafeAreaInsets = () => ({ top: 47, right: 0, bottom: 34, left: 0 }); export function SafeAreaView({ style, ...props }) { return <View {...props} style={[style, { paddingTop: 47, paddingBottom: 34 }]} /> }"],
+  [/^react-native-safe-area-context$/, "import React from 'react'; import { View } from 'react-native'; export const SafeAreaProvider = ({children}) => <View style={{flex:1}}>{children}</View>; export const useSafeAreaInsets = () => ({ top: 47, right: 0, bottom: 34, left: 0 }); export function SafeAreaView({ style, ...props }) { return <View {...props} style={[style, { paddingTop: 47, paddingBottom: 34 }]} /> }"],
   [/BrandLoader$/, 'export const BrandLoader = () => null'],
   [/coachFriendlyErrors$/, 'export const getCoachFriendlyError = error => error.message'],
 ]
@@ -214,7 +214,7 @@ try {
   await page.setViewportSize({ width: 852, height: 393 })
   await page.screenshot({ path: path.join(outputDir, 'coach-formation-workspace-dark-landscape-852x393.png') })
 
-  await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).click()
+  await page.getByRole('button', { name: 'Close Formation Board', exact: true }).click()
   await page.getByRole('heading', { name: 'Returned to prior Match Day panel', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => window.__workspaceTest.backCount), 1)
   assert.ok(await page.evaluate(() => window.__workspaceTest.localDraftCalls >= 1))

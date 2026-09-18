@@ -17,7 +17,10 @@ test('Coach Formation workspace is a safe full-screen modal with isolated scroll
   assert.match(source, /onMarkerGestureStart: handleMarkerGestureStart/)
   assert.match(source, /onMarkerGestureEnd: handleMarkerGestureEnd/)
   assert.match(source, /registerBackHandler/)
-  assert.match(source, /if \(backHandler\) return backHandler\(\)[\s\S]*onBack\?\.\(\)/)
+  assert.match(source, /if \(backHandler\) await backHandler\(\)[\s\S]*else await onBack\?\.\(\)/)
+  assert.match(source, /<SafeAreaProvider>[\s\S]*<SafeAreaView/)
+  assert.match(source, /accessibilityLabel="Close Formation Board"[\s\S]*<ScrollView/)
+  assert.match(source, /if \(leaving.current\) return[\s\S]*finally \{ leaving.current = false \}/)
   assert.doesNotMatch(source, /PrimaryNavigation|CoachQuickActions|CoachHeader|ContextSwitcher/)
 })
 

@@ -179,7 +179,7 @@ function usePortalStyles(themeTokens) {
       formationPlanToggle: { alignItems: 'center', flexDirection: 'row', gap: 10, minHeight: 48 },
       cardTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
       cardLink: { color: colors.accentText, fontSize: 13, fontWeight: '900' },
-      eventDetailCard: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 16, gap: 14 },
+      eventDetailCard: { borderBottomColor: colors.border, borderBottomWidth: 1, paddingBottom: 16, gap: 14 },
       calendarEventCard: { backgroundColor: 'transparent', borderBottomColor: colors.border, borderBottomWidth: 1, gap: 0, marginBottom: 8, paddingHorizontal: 0, paddingVertical: 12 },
       eventLabel: { fontSize: 12, fontWeight: '800' },
       carpoolChoice: { alignItems: 'center', flexDirection: 'row', gap: 9 },
@@ -411,6 +411,10 @@ export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calen
       <Text style={styles.meta}>{[getParentEventDateTimeLabel(event), presentation.label, event.teamName, labelize(event.status)].filter(Boolean).join(' | ')}</Text>
       {event.endsAt ? <Text style={styles.body}>Ends {formatParentProductDateTime(event.endsAt)}</Text> : null}
       {event.arrivalTime ? <Text style={styles.body}>Arrive {formatParentProductTime(event.arrivalTime)}</Text> : null}
+      {Array.isArray(event.selectedPlayerNames) ? <View style={styles.section}>
+        <Text style={styles.cardTitle}>Selected squad ({event.selectedPlayerNames.length})</Text>
+        {event.selectedPlayerNames.length ? event.selectedPlayerNames.map((name, index) => <View key={`${name}-${index}`} style={styles.compactRow}><ParentIcon iconKey="child" color={colors.accentText} size={22} /><Text style={styles.body}>{name}</Text></View>) : <Text style={styles.helper}>No players selected yet.</Text>}
+      </View> : null}
       {invitation && onRespond ? <View style={styles.section}>
         <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline || isParentCalendarEventCancelled(event)} label="Attendance" onRespond={onRespond} styles={styles} />
         {isOffline ? <Text style={styles.helper}>Connect to change attendance.</Text> : null}
@@ -1192,13 +1196,13 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
           </View> : null}
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around', gap: 8 }}>
-            {!selectedMatch.isFanView ? <MatchdayAction expanded={squadOpenMatchId === selectedMatch.id} accessibilityLabel={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`} label={`Squad (${selectedMatch.confirmedTeam?.length || 0})`} iconKey="match.squad" onPress={() => setSquadOpenMatchId(current => current === selectedMatch.id ? '' : selectedMatch.id)} colors={colors} styles={styles} /> : null}
+            {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) ? <MatchdayAction expanded={squadOpenMatchId === selectedMatch.id} accessibilityLabel={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`} label={`Squad (${selectedMatch.confirmedTeam?.length || 0})`} iconKey="match.squad" onPress={() => setSquadOpenMatchId(current => current === selectedMatch.id ? '' : selectedMatch.id)} colors={colors} styles={styles} /> : null}
             {selectedMatch.matchDate ? <MatchdayAction accessibilityLabel="Add to Google Calendar" label="Add to calendar" iconKey="action.calendar" onPress={() => onAddToCalendar?.(selectedMatch)} colors={colors} styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
           </View>
         </View>
         <ParentMatchFormationPlan colors={colors} error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} styles={styles} />
-        {!selectedMatch.isFanView && squadOpenMatchId === selectedMatch.id ? (
+        {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) && squadOpenMatchId === selectedMatch.id ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>
             <Text style={styles.helper}>Players selected by the coach for this match.</Text>

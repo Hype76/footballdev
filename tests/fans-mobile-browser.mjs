@@ -413,6 +413,16 @@ try {
   await page.evaluate(()=>{window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};window.rows[0].is_owner=false;window.responses.attendance={attendance:[{id:'event',title:'FP TEST Match',date:'2026-09-19',response:'available'}]};window.remount()});
   await button('Attendance').click();await page.getByText('My attendance',{exact:true}).waitFor();
   await page.getByText('Available',{exact:true}).waitFor();
+  await button('Back to Fans').click();
+  await page.evaluate(()=>{window.responses.schedule={schedule:[{id:'squad-match',title:'FP TEST Selected squad fixture',date:new Date(Date.now()+86400000).toISOString().slice(0,10),event_type:'match_day',selected_player_names:['Alex Selected','Sam Selected']}]}});
+  await button('Schedule').click();
+  await page.getByRole('button',{name:'FP TEST Selected squad fixture',exact:true}).click();
+  await page.getByText('Selected squad (2)',{exact:true}).waitFor();
+  await page.getByText('Alex Selected',{exact:true}).waitFor();
+  await page.getByText('Sam Selected',{exact:true}).waitFor();
+  await button('Back to Calendar').click();
+  await button('Back to Fans').click();
+  await button('Attendance').click();
   assert.equal(await page.getByRole('button',{name:/^(Accept|Decline|Maybe)$/}).count(),0);
   await page.evaluate(()=>{window.standalone=false;window.user={id:'parent-test',parentPortalLinks:[{id:'second',playerName:'FP TEST Player',clubName:'Demo FC'}]};window.rows[0].is_owner=true;window.remount()});
   await button('Edit access').click();await button('Change to a regular Fan').click();
