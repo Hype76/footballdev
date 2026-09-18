@@ -135,13 +135,61 @@ function updateDraftRoster(draft, { bench = [], placements = [], clearUnplacedId
 }
 
 function normalizePlacement(player = {}) {
+  const slotId = normalize(player.slotId)
   return {
     ...normalizeMobileFormationPlayer(player),
-    positionGroup: normalize(player.positionGroup),
-    slotId: normalize(player.slotId),
+    positionGroup: normalize(player.positionGroup) || (slotId.toLowerCase() === 'gk' ? 'goalkeeper' : ''),
+    slotId,
     x: coordinate(player.x),
     y: coordinate(player.y),
   }
+}
+
+function isGoalkeeperGroup(value) {
+  return ['goalkeeper', 'keeper', 'gk'].includes(normalize(value).toLowerCase())
+}
+
+function isCompatibleFormationGroup(playerGroup, slotGroup) {
+  const playerValue = normalize(playerGroup).toLowerCase()
+  const slotValue = normalize(slotGroup).toLowerCase()
+  if (isGoalkeeperGroup(playerValue) || isGoalkeeperGroup(slotValue)) return isGoalkeeperGroup(playerValue) && isGoalkeeperGroup(slotValue)
+  if (!playerValue || !slotValue || slotValue === 'custom' || playerValue === 'custom') return true
+  if (playerValue === slotValue) return true
+  const aliases = {
+    defence: 'defender',
+    defenders: 'defender',
+    back: 'defender',
+    backs: 'defender',
+    midfield: 'midfielder',
+    midfielders: 'midfielder',
+    centreback: 'defender',
+    centerback: 'defender',
+    forward: 'attacker',
+    forwards: 'attacker',
+    striker: 'attacker',
+    strikers: 'attacker',
+    attack: 'attacker',
+  }
+  return (aliases[playerValue] || playerValue) === (aliases[slotValue] || slotValue)
+}
+
+function formationDistance(player, slot) {
+  const playerX = getMobileFormationPitchPercent(player?.x)
+  const playerY = getMobileFormationPitchPercent(player?.y)
+  const slotX = getMobileFormationPitchPercent(slot?.x)
+  const slotY = getMobileFormationPitchPercent(slot?.y)
+  return ((playerX - slotX) ** 2) + ((playerY - slotY) ** 2)
+}
+
+function takeBestFormationPlayer(players, predicate, slot) {
+  const candidates = players.filter(predicate)
+  if (!candidates.length) return null
+  return candidates.reduce((best, player) => {
+    if (!best) return player
+    const distance = formationDistance(player, slot)
+    const bestDistance = formationDistance(best, slot)
+    return distance < bestDistance ? player : best
+  }, null)
 }
 
 export function createMobileFormationDraft({ board = null, gameFormat = '11v11', presetKey = '11v11-4-4-2' } = {}) {
@@ -223,18 +271,57 @@ export function toggleMobileFormationSquadPlayer(draft, player) {
 
 export function applyMobileFormationPreset(draft, preset) {
   const slots = getMobileFormationPresetSlots(preset)
-  const players = [...(draft?.placements || [])]
+  const players = [...(draft?.placements || [])].map(normalizePlacement).filter((player) => player.playerId)
   const placementCount = Math.min(getMobileFormationCapacity(preset?.gameFormat), slots.length, players.length)
+  const goalkeeperSlots = slots.filter((slot) => isGoalkeeperGroup(slot?.group))
+  const assignments = new Map()
+  const usedPlayers = new Set()
+  const assign = (slot, player) => {
+    if (!slot || !player || usedPlayers.has(player.playerId)) return
+    assignments.set(normalize(slot.id), player)
+    usedPlayers.add(player.playerId)
+  }
+
+  goalkeeperSlots.forEach((slot) => {
+    assign(slot, takeBestFormationPlayer(players, (player) => isGoalkeeperGroup(player.positionGroup), slot))
+  })
+  slots.forEach((slot) => {
+    if (assignments.has(normalize(slot.id))) return
+    assign(slot, takeBestFormationPlayer(players, (player) => !usedPlayers.has(player.playerId)
+      && normalize(player.slotId) === normalize(slot.id)
+      && isCompatibleFormationGroup(player.positionGroup, slot.group), slot))
+  })
+  slots.forEach((slot) => {
+    if (assignments.has(normalize(slot.id))) return
+    assign(slot, takeBestFormationPlayer(players, (player) => !usedPlayers.has(player.playerId) && isCompatibleFormationGroup(player.positionGroup, slot.group), slot))
+  })
+  slots.forEach((slot) => {
+    if (assignments.has(normalize(slot.id)) || assignments.size >= placementCount) return
+    assign(slot, takeBestFormationPlayer(players, (player) => !usedPlayers.has(player.playerId) && (goalkeeperSlots.length === 0 || !isGoalkeeperGroup(player.positionGroup)), slot))
+  })
+  const assignedSlots = slots.filter((slot) => assignments.has(normalize(slot.id)))
+  const selectedSlots = [
+    ...assignedSlots.filter((slot) => isGoalkeeperGroup(slot?.group)),
+    ...assignedSlots.filter((slot) => !isGoalkeeperGroup(slot?.group)),
+  ].slice(0, placementCount)
+  const selectedPlayerIds = new Set(selectedSlots.map((slot) => assignments.get(normalize(slot.id))?.playerId).filter(Boolean))
+  const nextPlayers = selectedSlots.map((slot) => assignments.get(normalize(slot.id)))
   const nextDraft = updateDraftRoster(draft, {
-    bench: [...(draft?.bench || []), ...players.slice(placementCount).map(normalizeMobileFormationPlayer)],
-    clearUnplacedIds: players.slice(placementCount).map(formationPlayerId),
-    placements: players.slice(0, placementCount).map((player, index) => ({
-      ...normalizeMobileFormationPlayer(player),
-      positionGroup: normalize(slots[index]?.group),
-      slotId: normalize(slots[index]?.id),
-      x: coordinate(slots[index]?.x),
-      y: coordinate(slots[index]?.y),
-    })),
+    bench: [
+      ...(draft?.bench || []),
+      ...players.filter((player) => !selectedPlayerIds.has(player.playerId)).map(normalizeMobileFormationPlayer),
+    ],
+    clearUnplacedIds: players.filter((player) => !selectedPlayerIds.has(player.playerId)).map(formationPlayerId),
+    placements: nextPlayers.map((player) => {
+      const slot = selectedSlots.find((item) => assignments.get(normalize(item?.id))?.playerId === player.playerId)
+      return {
+        ...player,
+        positionGroup: normalize(slot?.group),
+        slotId: normalize(slot?.id),
+        x: coordinate(slot?.x),
+        y: coordinate(slot?.y),
+      }
+    }),
   })
   return {
     ...nextDraft,

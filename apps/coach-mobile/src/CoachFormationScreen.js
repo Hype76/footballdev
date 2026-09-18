@@ -32,7 +32,7 @@ function normalizeCachedMatches(value) {
     .map(normalizeCoachMatchDay)
 }
 
-export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMarkerGestureStart, onQuickActionHandled, palette, quickAction, registerBackHandler, user }) {
+export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMarkerGestureStart, onPitchVisibilityChange, onQuickActionHandled, palette, quickAction, registerBackHandler, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const styles = useMemo(() => createStyles(palette), [palette])
   const [error, setError] = useState('')
@@ -110,6 +110,11 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
 
   const boardRendered = readyScope === authorityScope && !error
   const selectedMatch = matches.find((item) => item.id === selectedMatchId) || null
+  const clearSelectedMatch = useCallback(() => setSelectedMatchId(''), [])
+  useEffect(() => {
+    onPitchVisibilityChange?.(Boolean(boardRendered && selectedMatch))
+    return () => onPitchVisibilityChange?.(false)
+  }, [boardRendered, onPitchVisibilityChange, selectedMatch])
   useEffect(() => {
     if (!selectedMatch) return registerBackHandler?.(onBack)
     return undefined
@@ -122,14 +127,14 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
       {readyScope === authorityScope && stale && !inWorkspace ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
       {readyScope !== authorityScope && loading ? <View style={styles.loading}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
       {boardRendered && !selectedMatch ? <ScrollView contentContainerStyle={{ paddingTop: inWorkspace ? 52 : 0, paddingHorizontal: 16, gap: 8 }}>
-        <Text style={[styles.backText, inWorkspace && { color: 'white' }]}>Choose a match</Text>
+        <Text style={styles.backText}>Choose a match</Text>
         {matches.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => setSelectedMatchId(item.id)} style={{ minHeight: 56, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: palette.border }}>
-          <Text style={[styles.backText, inWorkspace && { color: 'white' }]}>{item.teamName} v {item.opponent}</Text>
-          <Text style={[styles.body, inWorkspace && { color: 'white' }]}>{formatUkDate(item.matchDate, 'Date TBC')}</Text>
+          <Text style={styles.backText}>{item.teamName} v {item.opponent}</Text>
+          <Text style={styles.body}>{formatUkDate(item.matchDate, 'Date TBC')}</Text>
         </Pressable>)}
-        {!matches.length ? <Text style={[styles.body, inWorkspace && { color: 'white' }]}>No upcoming matches. Open an existing fixture from Match Day to view its saved lineups.</Text> : null}
+        {!matches.length ? <Text style={styles.body}>No upcoming matches. Open an existing fixture from Match Day to view its saved lineups.</Text> : null}
       </ScrollView> : null}
-      {boardRendered && selectedMatch ? <CoachFormationBoard key={selectedMatch.id} context={context} match={selectedMatch} matches={matches} onBack={() => setSelectedMatchId('')} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
+      {boardRendered && selectedMatch ? <CoachFormationBoard key={selectedMatch.id} context={context} match={selectedMatch} matches={matches} onBack={clearSelectedMatch} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
     </View>
   )
 }

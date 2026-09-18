@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { mkdir } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,7 +7,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_SCREEN_SCENARIO) {
-  for (const scenario of ['stable', 'cache', 'scope', 'pending', 'failure']) {
+  for (const scenario of ['stable', 'cache', 'scope', 'pending', 'failure', 'theme']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       encoding: 'utf8',
       env: { ...process.env, FORMATION_SCREEN_SCENARIO: scenario },
@@ -26,26 +27,33 @@ const entry = `
   import React from 'react'
   import { createRoot } from 'react-dom/client'
   import { View } from 'react-native'
+  import { CoachFormationWorkspace } from './apps/coach-mobile/src/CoachFormationWorkspace.js'
   import { CoachFormationScreen } from './apps/coach-mobile/src/CoachFormationScreen.js'
 
-  const palette = new Proxy({}, { get: () => '#123456' })
+  const fallbackPalette = new Proxy({}, { get: () => '#123456' })
   window.__screenTest = { backCount: 0, boardMounts: 0, boardUnmounts: 0, resolvers: {}, resourceCalls: 0 }
 
   function App() {
+    const [dark, setDark] = React.useState(false)
+    window.__screenTest.setDark = setDark
+    const palette = ${JSON.stringify(scenario)} === 'theme' ? { background: dark ? '#0b1110' : '#f5f8f6', textPrimary: dark ? '#f6fbf8' : '#101828', textSecondary: dark ? '#d7e3dc' : '#4b5f55', border: '#66766d', isDark: dark } : fallbackPalette
     const [revision, setRevision] = React.useState(0)
     const [scope, setScope] = React.useState('a')
     const [visible, setVisible] = React.useState(true)
+    const closeWorkspace = React.useCallback(() => setVisible(false), [])
     const teamId = scope === 'a' ? 'team-a' : 'team-b'
     const userId = scope === 'a' ? 'coach-a' : 'coach-b'
     return <View>
       <button type="button" onClick={() => setRevision(value => value + 1)}>Equivalent refresh {revision}</button>
       <button type="button" onClick={() => setScope('b')}>Switch authority</button>
-      {visible ? <CoachFormationScreen
+      {visible ? (${JSON.stringify(scenario)} === 'theme' ? <CoachFormationWorkspace initialPitchVisible={false} palette={palette} onBack={closeWorkspace}>
+        {({ onPitchVisibilityChange, registerBackHandler }) => <CoachFormationScreen context={{ id: 'context-a', teamId }} user={{ id: userId, activeTeamId: teamId }} palette={palette} onBack={closeWorkspace} onPitchVisibilityChange={onPitchVisibilityChange} registerBackHandler={registerBackHandler} />}
+      </CoachFormationWorkspace> : <CoachFormationScreen
         context={{ id: 'context-' + scope, authorityId: 'authority-' + scope, authoritySource: 'team_staff', clubId: 'club-1', teamId, role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
         onBack={() => { window.__screenTest.backCount += 1; setVisible(false) }}
         palette={palette}
         user={{ id: userId, activeTeamId: teamId, clubId: 'club-1', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
-      /> : <span>Formation closed</span>}
+      />) : <span>Formation closed</span>}
     </View>
   }
 
@@ -54,8 +62,9 @@ const entry = `
 
 const boardMock = `
   import React from 'react'
-  export function CoachFormationBoard({ players, stale }) {
+  export function CoachFormationBoard({ players, stale, onBack, registerBackHandler }) {
     const [edits, setEdits] = React.useState(0)
+    React.useEffect(() => registerBackHandler?.(onBack), [registerBackHandler, onBack])
     React.useEffect(() => {
       window.__screenTest.boardMounts += 1
       return () => { window.__screenTest.boardUnmounts += 1 }
@@ -75,7 +84,7 @@ const resourceMock = `
     : [{ id: 'player-' + user.id, playerName: 'Player ' + user.id }]
   export const readMobileResource = async (user, key) => {
     window.__screenTest.resourceCalls += 1
-    if (scenario === 'stable') return response(user, key)
+    if (scenario === 'stable' || scenario === 'theme') return response(user, key)
     if (scenario === 'failure') throw new Error('Formation resources unavailable')
     return new Promise(resolve => { window.__screenTest.resolvers[user.id + ':' + key] = () => resolve(response(user, key)) })
   }
@@ -91,6 +100,7 @@ const offlineMock = `
 `
 
 const mocks = [
+  [/^react-native-safe-area-context$/, "import React from 'react'; import { View } from 'react-native'; export const SafeAreaProvider = ({children}) => <View style={{flex:1}}>{children}</View>; export const SafeAreaView = ({style,...props}) => <View {...props} style={[style,{paddingTop:47,paddingBottom:34}]} />"],
   [/^\.\/CoachFormationBoard$/, boardMock],
   [/mobileResourceCache$/, resourceMock],
   [/^\.\/offline$/, offlineMock],
@@ -133,7 +143,28 @@ try {
     await page.getByText(name, { exact: true }).click()
   }
 
-  if (scenario === 'stable') {
+  if (scenario === 'theme') {
+    const workspace = page.getByTestId('coach-formation-workspace')
+    const background = () => workspace.evaluate(el => getComputedStyle(el).backgroundColor)
+    const title = page.getByText('Choose a match', { exact: true })
+    await title.waitFor()
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="coach-formation-workspace"]')).backgroundColor === 'rgb(245, 248, 246)')
+    assert.equal(await title.evaluate(el => getComputedStyle(el).color), 'rgb(16, 24, 40)')
+    assert.equal(await page.getByText('Back', { exact: true }).evaluate(el => getComputedStyle(el).color), 'rgb(16, 24, 40)')
+    await mkdir('outputs/formation-picker-theme', { recursive: true })
+    await page.screenshot({ path: 'outputs/formation-picker-theme/light.png' })
+    await chooseMatch('Team v Opponent')
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="coach-formation-workspace"]')).backgroundColor === 'rgb(10, 108, 47)')
+    await page.getByRole('button', { name: 'Close Formation Board', exact: true }).click()
+    await title.waitFor()
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="coach-formation-workspace"]')).backgroundColor === 'rgb(245, 248, 246)')
+    assert.equal(await background(), 'rgb(245, 248, 246)')
+    await page.evaluate(() => window.__screenTest.setDark(true))
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid="coach-formation-workspace"]')).backgroundColor === 'rgb(11, 17, 16)')
+    assert.equal(await title.evaluate(el => getComputedStyle(el).color), 'rgb(246, 251, 248)')
+    await page.screenshot({ path: 'outputs/formation-picker-theme/dark.png' })
+    console.log('PASS: match picker follows light/dark palette, board stays green, and Back restores picker colours')
+  } else if (scenario === 'stable') {
     await chooseMatch('Team v Opponent')
     await page.getByText('Live screen data', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Local board edit 0', exact: true }).click()

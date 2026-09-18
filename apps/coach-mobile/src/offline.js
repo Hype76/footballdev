@@ -13,6 +13,7 @@ import {
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { APPROVED_MOBILE_PRODUCTION, APPROVED_MOBILE_TEST } from '../../mobile-core/src/environmentBoundary'
 import { createEncryptedOfflineStore } from '../../mobile-core/src/offlineStorageCore'
+import { mergeFormationPendingSaves } from './coachFormationSaveQueueCore'
 import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../../mobile-core/src/coachPhase31FCore'
 import { developmentDraftKey, editLocalDevelopmentDraft } from '../../mobile-core/src/developmentOfflineCore'
 import { formationDraftKey, updateFormationLocalDraft } from '../../mobile-core/src/coachFormationDraftCore'
@@ -218,7 +219,15 @@ async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources
     const previousFormation = getCoachOfflineResources(current, contextId)?.resources?.formation
     const nextResources = resources.formation ? {
       ...resources,
-      formation: { ...resources.formation, localDrafts: previousFormation?.localDrafts || {} },
+      formation: {
+        ...resources.formation,
+        pendingSaveChanges: undefined,
+        localDrafts: previousFormation?.localDrafts || {},
+        pendingSave: resources.formation.pendingSave === undefined ? previousFormation?.pendingSave : resources.formation.pendingSave,
+        pendingSaves: resources.formation.pendingSaveChanges
+          ? mergeFormationPendingSaves(previousFormation?.pendingSaves, resources.formation.pendingSaveChanges)
+          : resources.formation.pendingSaves === undefined ? (previousFormation?.pendingSaves || {}) : resources.formation.pendingSaves,
+      },
     } : resources
     return setCoachOfflineResources(current, contextId, nextResources)
   })
