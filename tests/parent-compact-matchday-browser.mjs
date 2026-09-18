@@ -53,7 +53,7 @@ const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),k
 const kitImageUrl=()=> 'data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="blue"/></svg>').toString('base64')}';
 let theme;const useParentTheme=()=>theme;
 ${kit}\n${invitationCore}\n${formationCore}\n${portal}\n${app}
-const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[],formationPlan:{title:'Published Match Plan',gameFormat:'7v7',formationPresetKey:'7v7-2-3-1',placements:[{playerId:'starter',displayName:'Published Starter',shirtNumber:'9',x:0.5,y:0.6},{playerId:'edge-left',displayName:'Left Defender',shirtNumber:'3',x:0.04,y:0.42},{playerId:'edge-right',displayName:'Right Defender',shirtNumber:'2',x:0.96,y:0.42}],bench:[{playerId:'bench',displayName:'Published Bench',shirtNumber:'12',state:'bench'}],notes:'PRIVATE COACH NOTE',unselectedPlayers:[{displayName:'UNSELECTED PRIVATE PLAYER'}]}};
+const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[],formationPlan:{title:'Published Match Plan',gameFormat:'7v7',formationPresetKey:'7v7-2-3-1',placements:[{playerId:'centre-defender',displayName:'Centre Defender',x:0.5,y:0.82,positionGroup:'defender'},{playerId:'keeper',displayName:'Goalkeeper',shirtNumber:'1',x:0.5,y:0.94,positionGroup:'goalkeeper'},{playerId:'starter',displayName:'Published Starter',shirtNumber:'9',x:0.5,y:0.6},{playerId:'edge-left',displayName:'Left Defender',shirtNumber:'3',x:0.04,y:0.42},{playerId:'edge-right',displayName:'Right Defender',shirtNumber:'2',x:0.96,y:0.42}],bench:[{playerId:'bench',displayName:'Published Bench',shirtNumber:'12',state:'bench'}],notes:'PRIVATE COACH NOTE',unselectedPlayers:[{displayName:'UNSELECTED PRIVATE PLAYER'}]}};
 const parentLink={id:'parent',clubId:'club',playerId:'child',linkType:'parent'};
 const initialInvitation={invitationId:'invitation',eventId:'match',childId:'child',parentLinkId:'parent',sourceRecordId:'request',invitationType:'match_attendance',invitationState:'active',canRespond:true,canChangeResponse:true,responseState:'available',carpoolEnabled:true};
 const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=async()=>{};
@@ -100,6 +100,12 @@ try {
   assert.equal(Math.round(markerImage.width), 52, 'Parent uses Coach shirt width')
   assert.equal(Math.round(markerImage.height), 46, 'Parent uses Coach shirt height')
   assert.equal(await page.getByText('Published Starter', { exact: true }).evaluate(el => getComputedStyle(el).color), 'rgb(255, 255, 255)', 'Coach white name labels in Parent')
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    const defender = await page.getByText('Centre Defender', { exact: true }).boundingBox()
+    const goalkeeper = await page.getByLabel('Goalkeeper, shirt 1, goalkeeper', { exact: true }).locator('img').boundingBox()
+    assert.ok(defender.y + defender.height + 4 <= goalkeeper.y, `Defender name clears the goalkeeper at ${width}px`)
+  }
   const pitch = await page.getByLabel('Published Match Plan | 7v7 pitch', { exact: true }).boundingBox()
   for (const name of ['Left Defender', 'Right Defender']) {
     const label = await page.getByText(name, { exact: true }).boundingBox()

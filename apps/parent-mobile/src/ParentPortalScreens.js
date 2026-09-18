@@ -1049,7 +1049,7 @@ function FormationSubsStrip({ bench = [], colors, styles }) {
 function FormationPresentation({ bench = [], colors, emptyCopy, placements = [], styles, title }) {
   const [pitchLayout, setPitchLayout] = useState({ width: 0, height: 0 })
   return <View style={styles.formationPlanContent}>
-    <View accessibilityLabel={`${title || 'Published formation'} pitch`} onLayout={event => setPitchLayout(event.nativeEvent.layout)} style={formationVisualStyles.pitch}>
+    <View accessibilityLabel={`${title || 'Published formation'} pitch`} onLayout={event => setPitchLayout(event.nativeEvent.layout)} style={[formationVisualStyles.pitch, { minHeight: 660 }]}>
       <FormationPitchLines styles={formationVisualStyles} />
       {placements.map((player, index) => {
         const number = formationShirtNumber(player)
