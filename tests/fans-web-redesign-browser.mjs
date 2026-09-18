@@ -71,7 +71,7 @@ try {
     if (url.origin !== origin && !url.protocol.startsWith('data')) return route.abort()
     return route.continue()
   })
-  connections.push({id:'fan1',is_owner:false,status:'active',relationship_type:'fan',player_name:'Lucas Turner',club_name:'Football Player Demo FC',team_name:'U17 Green',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:true}}, {id:'fan2',is_owner:false,status:'active',relationship_type:'fan',player_name:'Jenson Bailey',club_name:'Cambourne Town FC',team_name:'U14 JPL 26/27',permissions:{game_day:true}})
+  connections.push({id:'fan1',is_owner:false,status:'active',relationship_type:'fan',player_name:'Lucas Turner',club_name:'Football Player Demo FC',team_name:'U17 Green',plan_key:'large_club',plan_status:'active',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:true}}, {id:'fan2',is_owner:false,status:'active',relationship_type:'fan',player_name:'Jenson Bailey',club_name:'Cambourne Town FC',team_name:'U14 JPL 26/27',plan_key:'large_club',plan_status:'active',permissions:{game_day:true}})
   const page = await context.newPage()
   const errors=[]
   page.on('pageerror',error=>errors.push(error.message))
