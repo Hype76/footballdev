@@ -4,14 +4,14 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const load = (name) => readFile(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), 'utf8')
-const migration = await load('20260903120639_squad_notification_email_fallback') + '\n' + await load('20260903120851_coach_conclusion_authority') + '\n' + await load('20260903125603_squad_notification_copy_branding')
+const migration = await load('20260903120639_squad_notification_email_fallback') + '\n' + await load('20260903120851_coach_conclusion_authority') + '\n' + await load('20260903125603_squad_notification_copy_branding') + '\n' + await load('20260918185407_squad_notification_channel_preferences')
 const outbox = (await load('20260903091914_coach_squad_decision_notifications')).split('-- Saving a decision')[0]
 const canonicalRecipients = await load('20260823135328_promoted_player_matchday_recipient_fix_78')
 const bulkSource = await load('20260903095629_coach_squad_bulk_notify')
 const bulk = bulkSource.slice(bulkSource.indexOf('create or replace function public.notify_match_day_squad_decisions('), bulkSource.indexOf('-- Include current linked'))
 const id = (n) => `9a090305-0000-4000-8000-${String(n).padStart(12, '0')}`
 
-test('squad notifications choose one current app or email recipient and preserve authority', async (t) => {
+test('squad notifications honour independent recipient channels and preserve authority', async (t) => {
   const db = new PGlite()
   t.after(() => db.close())
   await db.exec(`
@@ -28,6 +28,7 @@ test('squad notifications choose one current app or email recipient and preserve
     create table public.adult_player_account_links(player_id uuid,club_id uuid,team_id uuid,user_id uuid,status text,verified_at timestamptz,revoked_at timestamptz);
     create table public.parent_communication_preferences(auth_user_id uuid primary key,communication_channel text);
     create table public.parent_mobile_app_installations(auth_user_id uuid);
+    create table public.parent_push_subscriptions(auth_user_id uuid,status text);
     create table public.match_days(id uuid primary key,club_id uuid,team_id uuid,opponent text,match_date date,status text,parent_visible boolean,deleted_at timestamptz,previous_hidden_at timestamptz,concluded_at timestamptz);
     create table public.match_day_player_squad_decisions(id uuid primary key default gen_random_uuid(),match_day_id uuid,club_id uuid,team_id uuid,player_id uuid,status text);
     create table public.parent_mobile_notification_events(id uuid default gen_random_uuid(),auth_user_id uuid,parent_link_id uuid,club_id uuid,team_id uuid,intent_type text,title text,body text,data jsonb,status text,sent_at timestamptz,created_at timestamptz,read_at timestamptz,dedupe_key text unique);
@@ -55,9 +56,9 @@ test('squad notifications choose one current app or email recipient and preserve
     await db.query('insert into public.player_team_memberships values($1,$2,$3,$4,null)', [id(n), id(2), id(3), 'active'])
     await db.query('insert into public.match_day_player_squad_decisions(match_day_id,club_id,team_id,player_id,status) values($1,$2,$3,$4,$5)', [id(4), id(2), id(3), id(n), 'selected'])
   }
-  const link = async (n, user, email, installed = false) => {
+  const link = async (n, user, email, installed = false, linkNumber = n + 1000) => {
     if (user) await db.query('insert into auth.users(id,email) values($1,$2) on conflict do nothing', [id(user), email])
-    await db.query("insert into public.parent_player_links(id,player_id,club_id,team_id,auth_user_id,status,email) values($1,$2,$3,$4,$5,'active',$6)", [id(n + 1000), id(n), id(2), id(3), user ? id(user) : null, email])
+    await db.query("insert into public.parent_player_links(id,player_id,club_id,team_id,auth_user_id,status,email) values($1,$2,$3,$4,$5,'active',$6)", [id(linkNumber), id(n), id(2), id(3), user ? id(user) : null, email])
     if (installed) await db.query('insert into public.parent_mobile_app_installations values($1)', [id(user)])
   }
   const recipients = async (n) => (await db.query('select * from private.squad_notification_recipients($1,$2,$3)', [id(2), id(3), id(n)])).rows
@@ -72,9 +73,9 @@ test('squad notifications choose one current app or email recipient and preserve
   await player(106, 'revoked@example.test'); await link(106, 206, 'revoked@example.test')
   await db.query("update public.parent_player_links set status='revoked' where player_id=$1", [id(106)])
 
-  await t.test('app installation chooses app, unsigned and non-installed parents use email', async () => {
-    assert.equal((await recipients(101))[0].delivery_channel, 'app')
-    assert.equal((await recipients(102))[0].delivery_channel, 'email')
+  await t.test('both uses app and email for linked accounts, while unsigned parents use email', async () => {
+    assert.deepEqual((await recipients(101)).map((row) => row.delivery_channel).sort(), ['app', 'email'])
+    assert.deepEqual((await recipients(102)).map((row) => row.delivery_channel).sort(), ['app', 'email'])
     assert.equal((await recipients(103))[0].delivery_channel, 'email')
     assert.deepEqual(await recipients(104), [])
     const flags = (await db.query('select * from public.get_match_day_squad_notification_contacts($1)', [id(4)])).rows
@@ -85,7 +86,7 @@ test('squad notifications choose one current app or email recipient and preserve
   })
   await t.test('duplicate parent account links resolve once and guardian opt-outs and revocation cannot fall back to email', async () => {
     await db.query('insert into public.parent_player_links select $1,player_id,club_id,team_id,auth_user_id,status,email,link_type,guardian_id,receives_communications from public.parent_player_links where player_id=$2', [id(9999), id(101)])
-    assert.equal((await recipients(101)).length, 1)
+    assert.equal((await recipients(101)).length, 2)
     assert.equal((await recipients(105))[0].delivery_channel, null)
     assert.deepEqual(await recipients(106), [])
     await assert.rejects(notify(104), /No contact details/)
@@ -95,11 +96,27 @@ test('squad notifications choose one current app or email recipient and preserve
   await t.test('channel preferences choose email explicitly and never bypass app-only preference', async () => {
     await db.query("insert into public.parent_communication_preferences values($1,'email'),($2,'app')", [id(201), id(202)])
     assert.equal((await recipients(101))[0].delivery_channel, 'email')
-    assert.equal((await recipients(102))[0].delivery_channel, null)
-    await assert.rejects(notify(102), /switched off/)
+    assert.equal((await recipients(102))[0].delivery_channel, 'app')
     await db.exec('delete from public.parent_communication_preferences')
   })
+  await t.test('both sends each selected channel and app-only keeps the linked inbox route', async () => {
+    await player(109, 'browser@example.test'); await link(109, 209, 'browser@example.test')
+    await db.query("insert into public.parent_push_subscriptions values($1,'active')", [id(209)])
+    assert.deepEqual((await recipients(109)).map((row) => row.delivery_channel).sort(), ['app', 'email'])
+    await db.query("insert into public.parent_communication_preferences values($1,'app')", [id(209)])
+    assert.deepEqual((await recipients(109)).map((row) => row.delivery_channel), ['app'])
+  })
+  await t.test('two linked parents keep independent app-only and email-only preferences', async () => {
+    await player(110, 'first@example.test'); await link(110, 210, 'first@example.test', true)
+    await link(110, 211, 'second@example.test', false, 9998)
+    await db.query("insert into public.parent_communication_preferences values($1,'app'),($2,'email')", [id(210), id(211)])
+    const rows = await recipients(110)
+    assert.equal(rows.length, 2)
+    assert.deepEqual(rows.map((row) => row.delivery_channel).sort(), ['app', 'email'])
+    assert.equal(new Set(rows.map((row) => row.auth_user_id)).size, 2)
+  })
   await t.test('explicit notification creates a single durable receipt, with app inbox only for app delivery', async () => {
+    await db.query("insert into public.parent_communication_preferences values($1,'app') on conflict(auth_user_id) do update set communication_channel='app'", [id(201)])
     const app = await notify(101); const email = await notify(103)
     assert.equal(app.notificationIds.length, 1); assert.equal(email.notificationIds.length, 1)
     assert.equal((await notify(103)).alreadySent, true)
@@ -108,6 +125,13 @@ test('squad notifications choose one current app or email recipient and preserve
     assert.equal(receipt.decision_status, 'selected')
     assert.equal(receipt.delivery_channel, 'email'); assert.equal(receipt.recipient_email, 'unsigned@example.test')
     assert.equal(await claim(email.notificationIds[0]), null)
+  })
+  await t.test('both persists two independent receipts and retries do not duplicate either channel', async () => {
+    const result = await notify(102)
+    assert.equal(result.notificationIds.length, 2)
+    const rows = (await db.query('select delivery_channel from public.match_day_squad_notifications where id = any($1::uuid[])', [result.notificationIds])).rows
+    assert.deepEqual(rows.map(row => row.delivery_channel).sort(), ['app', 'email'])
+    assert.equal((await notify(102)).alreadySent, true)
   })
   await t.test('changing a decision retires its old receipt and enables the new decision', async () => {
     const previous = await notify(102)
@@ -127,7 +151,8 @@ test('squad notifications choose one current app or email recipient and preserve
     await player(108, 'pref@example.test'); await link(108, 208, 'pref@example.test')
     const pref = await notify(108)
     await db.query("insert into public.parent_communication_preferences values($1,'app')", [id(208)])
-    assert.equal(await claim(pref.notificationIds[0]), null)
+    const emailReceipt = (await db.query("select n.id from public.match_day_squad_notifications n join public.match_day_player_squad_decisions d on d.id=n.decision_id where d.player_id=$1 and n.delivery_channel='email'", [id(108)])).rows[0].id
+    assert.equal(await claim(emailReceipt), null)
   })
   await t.test('suspended accounts and inactive membership never receive a fallback', async () => {
     await db.query("insert into public.users values($1,$2,'suspended','parent_portal',0)", [id(201), id(2)])

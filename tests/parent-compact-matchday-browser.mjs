@@ -70,10 +70,10 @@ async function loadParentData(){window.refreshes=(window.refreshes||0)+1;setMatc
 ${handlers}\n${childChange}
 window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId};
 const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:'#075293'}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
-return <ScrollView ref={scrollViewRef} style={{height:844}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
+return <ScrollView ref={scrollViewRef} style={{height:420}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
 <SyncStatus cacheState={{source:'cache',stale:true}} isOffline={offline} summary={{waiting:0,needsAttention:0}}/>
 {warning?<Notice compact tone="warning" message="Could not refresh. Showing saved information." onDismiss={()=>setWarning(false)}/>:null}
-<MatchdayScreen onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>
+<MatchdayScreen formationViewportHeight={420} onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>
 </View></ScrollView>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], nodePaths: [modules], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
@@ -91,10 +91,16 @@ try {
   await page.getByRole('button', { name: 'Show formation', exact: true }).click()
   await page.waitForFunction(() => {
     const pitch = document.querySelector('[aria-label="Published Match Plan | 7v7 pitch"]')
-    return pitch && Math.abs(pitch.getBoundingClientRect().top) < 20
+    if (!pitch) return false
+    const bounds = pitch.getBoundingClientRect()
+    return bounds.top >= 0 && bounds.bottom <= 420
   })
   await page.getByText('Published Starter', { exact: true }).waitFor()
   await page.getByText('Published Bench', { exact: true }).waitFor()
+  const focusedPitch = await page.getByLabel('Published Match Plan | 7v7 pitch', { exact: true }).boundingBox()
+  assert.ok(focusedPitch, 'published formation pitch renders')
+  assert.ok(focusedPitch.y + focusedPitch.height <= 420, 'focused formation pitch fits the measured content viewport')
+  assert.equal(Math.round(focusedPitch.height), 408, 'formation pitch reserves a small viewport inset')
   for (const name of ['Left Defender', 'Right Defender']) {
     const box = await page.getByText(name, { exact: true }).boundingBox()
     assert.ok(box && box.x >= 0 && box.x + box.width <= 390, `${name} remains within the portrait pitch viewport`)
@@ -102,8 +108,9 @@ try {
   assert.ok(await page.evaluate(() => [...document.images].some((image) => image.naturalWidth > 200 && image.naturalHeight > 200)), 'published formation shirts render as image assets')
   const marker = page.getByLabel('Published Starter, shirt 9', { exact: true })
   const markerImage = await marker.locator('img').boundingBox()
-  assert.equal(Math.round(markerImage.width), 52, 'Parent uses Coach shirt width')
-  assert.equal(Math.round(markerImage.height), 46, 'Parent uses Coach shirt height')
+  assert.equal(Math.round(markerImage.width), 36, 'Parent uses compact shirt artwork on a constrained pitch')
+  assert.equal(Math.round(markerImage.height), 32, 'Parent keeps compact shirt artwork readable')
+  assert.equal(await page.getByText('Published Starter', { exact: true }).evaluate(el => getComputedStyle(el).fontSize), '11px', 'compact player names remain readable')
   assert.equal(await page.getByText('Published Starter', { exact: true }).evaluate(el => getComputedStyle(el).color), 'rgb(255, 255, 255)', 'Coach white name labels in Parent')
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })

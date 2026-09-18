@@ -148,6 +148,7 @@ jobs:
           tests/parent-notification-inbox-controls.test.mjs
           tests/parent-experience-statuses.test.mjs
           tests/coach-squad-notify.test.mjs
+          tests/squad-notification-fallback-pglite.test.mjs
           tests/guest-scorer.test.mjs
           tests/guest-scorer-parity.test.mjs
           tests/guest-scorer-events-db.test.mjs

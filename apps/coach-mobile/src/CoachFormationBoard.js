@@ -1010,7 +1010,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       </> : null}
       {!fullScreen || toolsOpen ? <View accessibilityLabel="Formation Board tools" style={[styles.dock, fullScreen && styles.toolsMenu]}>
         <Pressable accessibilityRole="button" accessibilityLabel={matchBoards.length ? `Saved lineups (${matchBoards.length})` : 'Formation Board options'} onPress={() => { setToolsOpen(false); setShowBoards(matchBoards.length > 0); setActiveSheet('details') }} style={[styles.dockItem, fullScreen && styles.menuItem]}><MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name="more-horiz" size={24} /><Text style={styles.dockLabel}>{matchBoards.length ? `Saved (${matchBoards.length})` : 'Options'}</Text></Pressable>
-        {BOARD_TABS.filter(() => !board?.isLocked).map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => { setToolsOpen(false); setActiveSheet(tab.value) }} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled, fullScreen && styles.menuItem]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
+        {BOARD_TABS.map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !hasEditAuthority && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => { setToolsOpen(false); setActiveSheet(tab.value) }} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled, fullScreen && styles.menuItem]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
       </View> : null}
 
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={closeSheet} transparent visible={Boolean(activeSheet)}>
@@ -1022,6 +1022,11 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
               <Text style={styles.heading}>{activeSheet === 'formation' ? 'Formation' : activeSheet === 'players' ? 'Players' : activeSheet === 'share' ? 'Save to match' : 'Board options'}</Text>
               <Pressable accessibilityLabel="Close options" accessibilityRole="button" onPress={closeSheet} style={styles.topIcon}><MaterialIcons color={palette.textPrimary} name="close" size={25} /></Pressable>
             </View>
+
+            {board?.isLocked && activeSheet !== 'details' ? <View style={styles.stack}>
+              <Text style={styles.body}>This is a saved lineup. Create a new board to change the formation or players and save another lineup.</Text>
+              <Action disabled={!hasEditAuthority || refreshPending || busy || serverBoardUnavailable} label="New board" onPress={() => { closeSheet(); confirmDraftReplacement(startNewBoard) }} secondary styles={styles} />
+            </View> : null}
 
             {activeSheet === 'formation' ? <ScrollView contentContainerStyle={styles.stack}>
               <Text style={styles.body}>Change the shape at any time. Your goalkeeper stays in goal, and outfield players keep their positions as closely as the new shape allows.</Text>

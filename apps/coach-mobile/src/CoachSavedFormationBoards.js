@@ -10,9 +10,9 @@ import { CoachFormationWorkspace } from './CoachFormationWorkspace'
 function SavedFormationSnapshot({ board }) {
   const [layout, setLayout] = useState({ width: 0, height: 0 })
   const version = board.currentVersion || {}
-  return <ScrollView style={{ flex: 1, marginTop: 44 }} contentContainerStyle={{ paddingBottom: 12 }}>
+  return <View style={{ flex: 1, minHeight: 0, marginTop: 44, paddingBottom: 12 }}>
     <Text accessibilityRole="header" style={{ color: 'white', fontSize: 17, fontWeight: '700', padding: 10 }}>{board.title}</Text>
-    <View accessibilityLabel="Saved formation snapshot" onLayout={event => setLayout(event.nativeEvent.layout)} style={[formationVisualStyles.pitch, { minHeight: 660 }]}>
+    <View accessibilityLabel="Saved formation snapshot" onLayout={event => setLayout(event.nativeEvent.layout)} style={[formationVisualStyles.pitch, { aspectRatio: undefined, flex: 1, minHeight: 0 }]}>
       <FormationPitchLines styles={formationVisualStyles} />
       {(version.placements || []).map(player => {
         const position = getFormationMarkerVisualPosition(player, layout, { markerWidth: 64, markerHeight: 70, anchorY: 25 })
@@ -22,10 +22,10 @@ function SavedFormationSnapshot({ board }) {
       })}
     </View>
     <Text style={{ color: 'white', fontWeight: '700', padding: 10 }}>Subs ({version.bench?.length || 0})</Text>
-    <ScrollView horizontal contentContainerStyle={{ gap: 12, paddingHorizontal: 10 }}>
+    <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 12, paddingHorizontal: 10 }}>
       {(version.bench || []).map(player => <FormationSubArtwork key={player.playerId} name={player.displayName} number={player.shirtNumber} />)}
     </ScrollView>
-  </ScrollView>
+  </View>
 }
 
 export function CoachSavedFormationBoards({ context, match, palette, user }) {
