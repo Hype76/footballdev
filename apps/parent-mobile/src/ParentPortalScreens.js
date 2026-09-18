@@ -1046,10 +1046,26 @@ function FormationSubsStrip({ bench = [], colors, styles }) {
   )
 }
 
-function FormationPresentation({ bench = [], colors, emptyCopy, onFocusBoard, placements = [], styles, title }) {
+function FormationPresentation({ bench = [], colors, emptyCopy, onFocusBoard, placements = [], styles, title, viewportHeight = 0 }) {
   const [pitchLayout, setPitchLayout] = useState({ width: 0, height: 0 })
   const pitchRef = useRef(null)
   const focusedRef = useRef(false)
+  const pitchHeight = viewportHeight > 0 ? Math.max(1, viewportHeight - 12) : 0
+  const compactMarkers = pitchHeight > 0 && pitchHeight < 550
+  const markerPresentation = compactMarkers
+    ? {
+        anchorY: 20,
+        height: 46,
+        styles: {
+          ...formationVisualStyles,
+          marker: { ...formationVisualStyles.marker, height: 46, transform: [{ translateX: -32 }, { translateY: -20 }] },
+          markerImage: { ...formationVisualStyles.markerImage, height: 32, width: 36 },
+          markerName: { ...formationVisualStyles.markerName, fontSize: 11, lineHeight: 13, marginTop: -6, paddingVertical: 1 },
+          markerNumber: { ...formationVisualStyles.markerNumber, fontSize: 13, top: 10 },
+        },
+        width: 64,
+      }
+    : { anchorY: 25, height: 70, styles: formationVisualStyles, width: 64 }
   return <View style={styles.formationPlanContent}>
     <View ref={pitchRef} collapsable={false} accessibilityLabel={`${title || 'Published formation'} pitch`} onLayout={event => {
       setPitchLayout(event.nativeEvent.layout)
@@ -1057,14 +1073,14 @@ function FormationPresentation({ bench = [], colors, emptyCopy, onFocusBoard, pl
         focusedRef.current = true
         onFocusBoard(pitchRef.current)
       }
-    }} style={[formationVisualStyles.pitch, { minHeight: 660 }]}>
+    }} style={[formationVisualStyles.pitch, pitchHeight ? { aspectRatio: undefined, height: pitchHeight } : null]}>
       <FormationPitchLines styles={formationVisualStyles} />
       {placements.map((player, index) => {
         const number = formationShirtNumber(player)
         const isGoalkeeper = isConfirmedGoalkeeperPlacement(player)
-        const position = getFormationMarkerVisualPosition({ x: getParentFormationPitchPercent(player.x) / 100, y: getParentFormationPitchPercent(player.y) / 100 }, pitchLayout, { markerWidth: 64, markerHeight: 70, anchorY: 25 })
-        return <View key={`${player.playerId || player.parentDisplayName}:${index}`} accessibilityLabel={`${player.parentDisplayName}${number ? `, shirt ${number}` : ''}${isGoalkeeper ? ', goalkeeper' : ''}`} style={[formationVisualStyles.marker, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}>
-          <FormationPlayerArtwork name={player.parentDisplayName} number={number} goalkeeper={isGoalkeeper} />
+        const position = getFormationMarkerVisualPosition({ x: getParentFormationPitchPercent(player.x) / 100, y: getParentFormationPitchPercent(player.y) / 100 }, pitchLayout, { markerWidth: markerPresentation.width, markerHeight: markerPresentation.height, anchorY: markerPresentation.anchorY })
+        return <View key={`${player.playerId || player.parentDisplayName}:${index}`} accessibilityLabel={`${player.parentDisplayName}${number ? `, shirt ${number}` : ''}${isGoalkeeper ? ', goalkeeper' : ''}`} style={[markerPresentation.styles.marker, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}>
+          <FormationPlayerArtwork name={player.parentDisplayName} number={number} goalkeeper={isGoalkeeper} styles={markerPresentation.styles} />
         </View>
       })}
       {!placements.length ? <Text style={styles.formationEmpty}>{emptyCopy || 'No named lineup has been published.'}</Text> : null}
@@ -1073,7 +1089,7 @@ function FormationPresentation({ bench = [], colors, emptyCopy, onFocusBoard, pl
   </View>
 }
 
-function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans = [], styles, colors }) {
+function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans = [], styles, colors, viewportHeight = 0 }) {
   const availablePlans = plans.length ? plans : (plan ? [plan] : [])
   const [expandedId, setExpandedId] = useState(() => availablePlans[0]?.id || availablePlans[0]?.boardId || '0')
   if (error) return <View style={styles.card}><Text style={styles.cardTitle}>Match plan unavailable</Text><Text style={styles.warning}>{error}</Text></View>
@@ -1092,20 +1108,22 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
             <View style={styles.compactCopy}><Text style={styles.cardTitle}>{currentPlan.title || `Match plan ${index + 1}`}</Text><Text style={styles.meta}>{[currentPlan.gameFormat, currentPlan.formation].filter(Boolean).join(' | ')}</Text></View>
             <Text style={styles.cardLink}>{expanded ? 'Hide' : 'Show'}</Text>
           </Pressable>
-          {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." onFocusBoard={onFocusBoard} placements={placements} styles={styles} title={title} /> : null}
+          {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." onFocusBoard={onFocusBoard} placements={placements} styles={styles} title={title} viewportHeight={viewportHeight} /> : null}
         </View>
       })}
     </View>
   )
 }
 
-export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
   const [formationOpenKey, setFormationOpenKey] = useState('')
   const [availabilityOpenKey, setAvailabilityOpenKey] = useState('')
   const [now, setNow] = useState(() => Date.now())
+  const squadFocusRef = useRef(null)
+  const focusedSquadKeyRef = useRef('')
   const matchGroups = useMemo(() => getParentMatchGroups(resource.items), [resource.items])
   const visibleMatches = matchGroups[matchSection] || []
   const selectedMatchIsLive = Boolean(selectedMatch && ['extra_time', 'half_time', 'live', 'penalties', 'second_half'].includes(selectedMatch.status))
@@ -1172,15 +1190,23 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
           </View> : null}
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around', gap: 8 }}>
-            {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) ? <MatchdayAction expanded={squadOpenMatchId === selectedMatch.id} accessibilityLabel={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`} label={`Squad (${selectedMatch.confirmedTeam?.length || 0})`} iconKey="match.squad" onPress={() => setSquadOpenMatchId(current => current === selectedMatch.id ? '' : selectedMatch.id)} colors={colors} styles={styles} /> : null}
+            {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) ? <MatchdayAction expanded={squadOpenMatchId === selectedMatch.id} accessibilityLabel={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`} label={`Squad (${selectedMatch.confirmedTeam?.length || 0})`} iconKey="match.squad" onPress={() => setSquadOpenMatchId(current => {
+              const next = current === selectedMatch.id ? '' : selectedMatch.id
+              if (next) focusedSquadKeyRef.current = ''
+              return next
+            })} colors={colors} styles={styles} /> : null}
             {hasFormation ? <MatchdayAction expanded={formationOpen} accessibilityLabel={formationOpen ? 'Hide formation' : 'Show formation'} label="Formation" iconKey="action.formation" onPress={() => setFormationOpenKey(formationOpen ? '' : availabilityKey)} colors={colors} styles={styles} /> : null}
             {selectedMatch.matchDate ? <MatchdayAction accessibilityLabel="Add to Google Calendar" label="Add to calendar" iconKey="action.calendar" onPress={() => onAddToCalendar?.(selectedMatch)} colors={colors} styles={styles} /> : null}
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
           </View>
         </View>
-        {formationOpen || selectedMatch.formationPlanError ? <ParentMatchFormationPlan key={availabilityKey} colors={colors} error={selectedMatch.formationPlanError} onFocusBoard={onFocusFormation} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} /> : null}
+        {formationOpen || selectedMatch.formationPlanError ? <ParentMatchFormationPlan key={availabilityKey} colors={colors} error={selectedMatch.formationPlanError} onFocusBoard={onFocusFormation} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} viewportHeight={formationViewportHeight} /> : null}
         {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) && squadOpenMatchId === selectedMatch.id ? (
-          <View style={styles.card}>
+          <View ref={squadFocusRef} collapsable={false} onLayout={() => {
+            if (focusedSquadKeyRef.current === availabilityKey || !onFocusFormation) return
+            focusedSquadKeyRef.current = availabilityKey
+            onFocusFormation(squadFocusRef.current)
+          }} style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>
             <Text style={styles.helper}>Players selected by the coach for this match.</Text>
             {link?.linkType === 'parent' && selectedMatch.squadTransport?.length ? selectedMatch.squadTransport.map(player => <View key={player.playerId} style={[styles.row, { flexWrap: 'wrap', paddingVertical: 6 }]}><Text style={styles.body}>{player.playerName}</Text>{player.needsLift ? <MatchStatusBadge colors={colors} status={{ label: 'Needs a lift', tone: 'warning', icon: 'directions-car' }} prefix="Carpool" styles={styles} /> : player.canOfferLift ? <MatchStatusBadge colors={colors} status={{ label: 'Offering a lift', tone: 'success', icon: 'directions-car' }} prefix="Carpool" styles={styles} /> : null}</View>) : selectedMatch.confirmedTeam?.length
@@ -1317,7 +1343,7 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, them
   )
 }
 
-export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
+export function ResourcesScreen({ formationBoard, formationViewportHeight = 0, isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [resourceCategory, setResourceCategory] = useState('all')
   const [resourceScopeState, setResourceScopeState] = useState('')
@@ -1343,7 +1369,7 @@ export function ResourcesScreen({ formationBoard, isOffline, onCloseFormation, o
       <View style={styles.stack}>
         <View><Text accessibilityRole="header" style={styles.header}>{formationBoard.title}</Text><Text style={styles.helper}>{formationBoard.gameFormat} | {formationBoard.formation}</Text></View>
         {formationBoard.description ? <Text style={styles.body}>{formationBoard.description}</Text> : null}
-        <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this board." placements={placements} styles={styles} title={formationBoard.title} />
+        <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this board." placements={placements} styles={styles} title={formationBoard.title} viewportHeight={formationViewportHeight} />
         <Button label="Back to Resources" onPress={onCloseFormation} outline styles={styles} />
       </View>
     )

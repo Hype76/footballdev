@@ -389,6 +389,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [selectedLinkId, setSelectedLinkId] = useState('')
   const [selectedInvitationId, setSelectedInvitationId] = useState('')
   const [selectedMatchId, setSelectedMatchId] = useState('')
+  const [contentViewportHeight, setContentViewportHeight] = useState(0)
   const scorerHandoversRef = useRef({})
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [selectedPollId, setSelectedPollId] = useState('')
@@ -2221,6 +2222,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         ) : <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          onLayout={(event) => setContentViewportHeight(event.nativeEvent.layout.height)}
           ref={scrollViewRef}
           refreshControl={(
             <RefreshControl
@@ -2275,6 +2277,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             {renderedActiveTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
+                formationViewportHeight={contentViewportHeight}
                 invitations={visibleInvitationsWithMatchTimes}
                 isOffline={isOffline}
                 link={selectedLink}
@@ -2323,7 +2326,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             {renderedActiveTab === 'more' && renderedMoreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} formationViewportHeight={contentViewportHeight} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'messages' ? (
               <MessagesScreen
                 activeActionId={activeActionId}

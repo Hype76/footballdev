@@ -317,6 +317,18 @@ try {
   await page.getByRole('button', { name: 'Saved formations', exact: true }).click()
   await page.getByRole('button', { name: 'View saved formation Match shape', exact: true }).click()
   await page.getByLabel('Saved formation snapshot', { exact: true }).waitFor()
+  for (const viewport of [{ width: 393, height: 852 }, { width: 320, height: 568 }]) {
+    await page.setViewportSize(viewport)
+    await page.waitForTimeout(150)
+    const snapshot = await page.getByLabel('Saved formation snapshot', { exact: true }).boundingBox()
+    assert.ok(snapshot.y >= 47 && snapshot.y + snapshot.height < viewport.height - 34, 'Whole saved pitch fits above native navigation')
+    const markers = page.getByLabel('Saved formation snapshot', { exact: true }).locator(':scope > [aria-label]')
+    for (const marker of await markers.all()) {
+      const bounds = await marker.boundingBox()
+      assert.ok(bounds.y >= snapshot.y && bounds.y + bounds.height <= snapshot.y + snapshot.height + 1, 'Saved player stays inside the pitch')
+    }
+  }
+  await page.setViewportSize({ width: 393, height: 852 })
   assert.equal(await menuToggle.count(), 0, 'Saved snapshot has no editor menu')
   assert.equal(await page.locator('[aria-label^="Add Player at "]').count(), 0)
   await page.screenshot({ path: path.join(outputDir, 'saved-snapshot-viewer.png') })
@@ -326,7 +338,15 @@ try {
   await page.evaluate(() => { window.__workspaceTest.lockSaved = true; window.__workspaceTest.reopen() })
   await page.getByLabel('Formation pitch', { exact: true }).waitFor()
   await menuToggle.click()
-  assert.equal(await boardTools.getByRole('button').count(), 1, 'Locked board exposes saved options only')
+  assert.equal(await boardTools.getByRole('button').count(), 4, 'Locked board keeps every menu option visible')
+  for (const label of ['Formation', 'Players', 'Save']) {
+    await boardTools.getByRole('button').filter({ hasText: new RegExp(`${label}$`) }).click()
+    await page.getByText('This is a saved lineup. Create a new board to change the formation or players and save another lineup.', { exact: true }).waitFor()
+    if (label === 'Save') assert.equal(await page.getByRole('button', { name: 'Save to match', exact: true }).isDisabled(), true, 'Saved snapshot cannot be overwritten')
+    if (label === 'Players') assert.equal(await page.getByRole('button', { name: 'Select full squad', exact: true }).isDisabled(), true, 'Saved squad remains read-only')
+    await page.getByRole('button', { name: 'Close options', exact: true }).click()
+    await menuToggle.click()
+  }
   await boardTools.getByRole('button', { name: 'Saved lineups (1)', exact: true }).click()
   await page.getByText('Saved snapshot', { exact: true }).waitFor()
   await page.getByRole('button', { name: /New board/ }).click()
@@ -342,7 +362,7 @@ try {
   await page.getByRole('button', { name: 'Save to match', exact: true }).click()
   await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'detached' })
   await menuToggle.click()
-  assert.equal(await boardTools.getByRole('button').count(), 1, 'Successful save locks the new snapshot immediately')
+  assert.equal(await boardTools.getByRole('button').count(), 4, 'Successful save preserves the complete menu')
   assert.deepEqual(errors, [])
   console.log('PASS: full-screen Formation workspace uses a fixed safe-area canvas, preserves touch safety, opens every tool, and returns safely')
 } finally {
