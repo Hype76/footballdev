@@ -11,6 +11,7 @@ import {
 } from '../apps/mobile-core/src/coachContextCore.js'
 import {
   getCoachBackTarget,
+  getCoachBackPressAction,
   getCoachNavigationModel,
   getCoachRouteState,
   resolveCoachRoute,
@@ -121,6 +122,19 @@ test('deep-link and native back models resolve only authorised routes', () => {
   assert.deepEqual(getCoachBackTarget({ activeRoute: 'more', moreRoute: 'resources' }), { activeRoute: 'more', moreRoute: '' })
   assert.deepEqual(getCoachBackTarget({ activeRoute: 'calendar' }), { activeRoute: 'home', moreRoute: '' })
   assert.equal(getCoachBackTarget({ activeRoute: 'home' }), null)
+})
+
+test('Coach Android Back prompts once at root and exits only on a quick second press', () => {
+  const first = getCoachBackPressAction({ activeRoute: 'home', now: 1000 })
+  assert.deepEqual(first, { type: 'prompt', message: 'Press Back again to exit', nextLastBackAt: 1000 })
+  const second = getCoachBackPressAction({ activeRoute: 'home', lastBackAt: first.nextLastBackAt, now: 1800 })
+  assert.deepEqual(second, { type: 'exit', nextLastBackAt: 0 })
+  const expired = getCoachBackPressAction({ activeRoute: 'home', lastBackAt: first.nextLastBackAt, now: 3000 })
+  assert.deepEqual(expired, { type: 'prompt', message: 'Press Back again to exit', nextLastBackAt: 3000 })
+  const clockReversed = getCoachBackPressAction({ activeRoute: 'home', lastBackAt: first.nextLastBackAt, now: 900 })
+  assert.deepEqual(clockReversed, { type: 'prompt', message: 'Press Back again to exit', nextLastBackAt: 900 })
+  const elsewhere = getCoachBackPressAction({ activeRoute: 'calendar', lastBackAt: first.nextLastBackAt, now: 1100 })
+  assert.deepEqual(elsewhere, { type: 'navigate', target: { activeRoute: 'home', moreRoute: '' }, nextLastBackAt: 0 })
 })
 
 test('payment foundation is read-only when payment is required and limits payer authority', () => {

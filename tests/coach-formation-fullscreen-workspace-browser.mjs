@@ -143,7 +143,10 @@ try {
   const workspaceScroll = page.getByTestId('coach-formation-workspace-scroll')
   await workspace.waitFor()
   await page.getByLabel('Formation pitch', { exact: true }).waitFor()
-  await page.getByText('Match shape', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Match shape', { exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).count(), 0)
+  const pitchBox = await page.getByLabel('Formation pitch', { exact: true }).boundingBox()
+  assert.ok(pitchBox.width >= 375, 'Pitch uses available screen width')
   await page.waitForFunction(() => {
     const header = document.querySelector('[data-testid="standard-coach-chrome"]')
     const rect = header?.getBoundingClientRect()
@@ -184,13 +187,16 @@ try {
 
   const marker = page.getByLabel(/Player 1, shirt 1/)
   await page.evaluate(() => document.querySelector('[data-testid="coach-formation-workspace-scroll"]').scrollTop = 40)
-  const scrollBeforeDrag = await workspaceScroll.evaluate(element => element.scrollTop)
+  await marker.scrollIntoViewIfNeeded()
+  const originalPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
   const markerBox = await marker.boundingBox()
   assert.ok(markerBox)
   const gestureX = markerBox.x + markerBox.width / 2
   const gestureY = markerBox.y + markerBox.height / 2
   const cdp = await context.newCDPSession(page)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x: gestureX, y: gestureY }] })
+  await page.waitForTimeout(450)
+  const scrollBeforeDrag = await workspaceScroll.evaluate(element => element.scrollTop)
   for (let step = 1; step <= 5; step += 1) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: gestureX + (step * 6), y: gestureY - (step * 4) }] })
   }
@@ -200,13 +206,38 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-testid="coach-formation-workspace-scroll"]')?.dataset.markerGestureActive === 'false')
   const movedMarkerBox = await marker.boundingBox()
   assert.ok(movedMarkerBox && Math.abs(movedMarkerBox.x - markerBox.x) > 4)
+  await page.getByRole('button', { name: 'Undo last player move', exact: true }).click()
+  await marker.scrollIntoViewIfNeeded()
+  const restoredPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
+  assert.deepEqual(restoredPosition, originalPosition, 'Undo restores the original player position')
+  await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).click()
+  await page.getByText('Player 12 selected. Tap a starter to swap.', { exact: true }).waitFor()
+  await marker.scrollIntoViewIfNeeded()
+  const beforeSwipeScroll = await workspaceScroll.evaluate(element => element.scrollTop)
+  const swipeBox = await marker.boundingBox()
+  const sx = swipeBox.x + swipeBox.width / 2
+  const sy = swipeBox.y + swipeBox.height / 2
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 2, x: sx, y: sy }] })
+  for (let step = 1; step <= 6; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 2, x: sx, y: sy - step * 14 }] })
+    await page.waitForTimeout(20)
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await page.waitForTimeout(400)
+  assert.ok(await workspaceScroll.evaluate(element => element.scrollTop) > beforeSwipeScroll, 'Swiping a shirt must scroll the workspace')
+  assert.deepEqual(await marker.evaluate(element => ({ left: element.style.left, top: element.style.top })), restoredPosition, 'Scrolling over a shirt must not move it')
+  assert.equal(await page.getByRole('dialog', { name: 'Choose Player', exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Undo last player move', exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).count(), 1, 'Scrolling cannot swap the selected substitute')
   await page.evaluate(() => document.querySelector('[data-testid="coach-formation-workspace-scroll"]').scrollTop = 0)
-  const backBox = await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).boundingBox()
+  const backBox = await page.getByRole('button', { name: 'Close Formation Board', exact: true }).boundingBox()
   const toolsBox = await page.getByLabel('Formation Board tools', { exact: true }).boundingBox()
   assert.ok(backBox && backBox.y >= 47)
-  assert.ok(toolsBox && toolsBox.y + toolsBox.height <= 818, `Formation tools end at ${toolsBox ? toolsBox.y + toolsBox.height : 'missing'}px`)
+  assert.ok(toolsBox)
+  await page.getByLabel('Formation Board tools', { exact: true }).scrollIntoViewIfNeeded()
   await page.waitForTimeout(350)
 
+  await workspaceScroll.evaluate(element => { element.scrollTop = 0 })
   await page.screenshot({ path: path.join(outputDir, 'coach-formation-workspace-light-393x852.png') })
   await page.evaluate(() => window.__workspaceTest.setDark(true))
   await page.setViewportSize({ width: 320, height: 568 })
