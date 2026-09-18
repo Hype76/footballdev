@@ -1046,10 +1046,18 @@ function FormationSubsStrip({ bench = [], colors, styles }) {
   )
 }
 
-function FormationPresentation({ bench = [], colors, emptyCopy, placements = [], styles, title }) {
+function FormationPresentation({ bench = [], colors, emptyCopy, onFocusBoard, placements = [], styles, title }) {
   const [pitchLayout, setPitchLayout] = useState({ width: 0, height: 0 })
+  const pitchRef = useRef(null)
+  const focusedRef = useRef(false)
   return <View style={styles.formationPlanContent}>
-    <View accessibilityLabel={`${title || 'Published formation'} pitch`} onLayout={event => setPitchLayout(event.nativeEvent.layout)} style={[formationVisualStyles.pitch, { minHeight: 660 }]}>
+    <View ref={pitchRef} collapsable={false} accessibilityLabel={`${title || 'Published formation'} pitch`} onLayout={event => {
+      setPitchLayout(event.nativeEvent.layout)
+      if (!focusedRef.current && onFocusBoard) {
+        focusedRef.current = true
+        onFocusBoard(pitchRef.current)
+      }
+    }} style={[formationVisualStyles.pitch, { minHeight: 660 }]}>
       <FormationPitchLines styles={formationVisualStyles} />
       {placements.map((player, index) => {
         const number = formationShirtNumber(player)
@@ -1065,9 +1073,9 @@ function FormationPresentation({ bench = [], colors, emptyCopy, placements = [],
   </View>
 }
 
-function ParentMatchFormationPlan({ error = '', plan = null, plans = [], styles, colors }) {
-  const [expandedId, setExpandedId] = useState('')
+function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans = [], styles, colors }) {
   const availablePlans = plans.length ? plans : (plan ? [plan] : [])
+  const [expandedId, setExpandedId] = useState(() => availablePlans[0]?.id || availablePlans[0]?.boardId || '0')
   if (error) return <View style={styles.card}><Text style={styles.cardTitle}>Match plan unavailable</Text><Text style={styles.warning}>{error}</Text></View>
   if (!availablePlans.length) return null
   return (
@@ -1084,14 +1092,14 @@ function ParentMatchFormationPlan({ error = '', plan = null, plans = [], styles,
             <View style={styles.compactCopy}><Text style={styles.cardTitle}>{currentPlan.title || `Match plan ${index + 1}`}</Text><Text style={styles.meta}>{[currentPlan.gameFormat, currentPlan.formation].filter(Boolean).join(' | ')}</Text></View>
             <Text style={styles.cardLink}>{expanded ? 'Hide' : 'Show'}</Text>
           </Pressable>
-          {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." placements={placements} styles={styles} title={title} /> : null}
+          {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." onFocusBoard={onFocusBoard} placements={placements} styles={styles} title={title} /> : null}
         </View>
       })}
     </View>
   )
 }
 
-export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -1170,7 +1178,7 @@ export function MatchdayScreen({ activeActionId, clubKits, invitations = [], isO
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
           </View>
         </View>
-        {formationOpen || selectedMatch.formationPlanError ? <ParentMatchFormationPlan key={availabilityKey} colors={colors} error={selectedMatch.formationPlanError} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} /> : null}
+        {formationOpen || selectedMatch.formationPlanError ? <ParentMatchFormationPlan key={availabilityKey} colors={colors} error={selectedMatch.formationPlanError} onFocusBoard={onFocusFormation} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} /> : null}
         {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) && squadOpenMatchId === selectedMatch.id ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>

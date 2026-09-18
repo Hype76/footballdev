@@ -1,3 +1,4 @@
+import { focusParentFormationBoard } from './src/parentFormationFocus'
 import { UserFeedbackScreen } from '../mobile-core/src/UserFeedbackScreen'
 import { MatchResultIcon } from './src/MatchResultIcon'
 import { getParentMatchResult } from './src/matchResult'
@@ -407,6 +408,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const resumeInteractionRef = useRef(null)
   const resumeRefreshRef = useRef(false)
   const scrollViewRef = useRef(null)
+  const contentColumnRef = useRef(null)
   const notificationResponseIdRef = useRef('')
   const notificationStateRequestRef = useRef(0)
   const notificationResponseHistoryRef = useRef(new Set())
@@ -2230,7 +2232,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             />
           )}
         >
-          <View style={styles.contentColumn}>
+          <View ref={contentColumnRef} collapsable={false} style={styles.contentColumn}>
             {isRefreshing ? <LoadingLine label="Refreshing" /> : null}
             <SyncStatus
               attentionIndex={attentionIndex}
@@ -2279,6 +2281,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 onBack={() => setSelectedMatchId('')}
                 onDismiss={(match) => handleDismissParentItem('matches', match.id, 'match')}
                 onLiveRefresh={refreshParentMatchDay}
+                onFocusFormation={(target) => focusParentFormationBoard(target, contentColumnRef.current, scrollViewRef.current)}
                 onOpen={(match) => setSelectedMatchId(match.id)}
                 onAddToCalendar={handleAddToCalendar}
                 onOpenLink={handleOpenMatchLink}
