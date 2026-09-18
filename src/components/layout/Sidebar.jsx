@@ -1,6 +1,6 @@
 import { UserFeedbackLinks } from './UserFeedbackLinks.jsx'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.webp'
 import { clubNavigation, primaryNavigation } from '../../app/navigation.js'
 import {
@@ -180,7 +180,6 @@ export function Sidebar({ isOpen, onClose }) {
     teamOptions,
     user,
   } = useAuth()
-  const location = useLocation()
   const navigate = useNavigate()
   const displayUser = user
   const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
