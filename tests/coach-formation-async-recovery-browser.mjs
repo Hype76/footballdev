@@ -157,6 +157,7 @@ const dataMock = `
     state.lastShared = Boolean(shared)
     state.lastMatchId = match?.id || ''
     state.serverBoard = {
+      isLocked: state.mode === 'ack-refresh',
       ...(currentBoard || board('board-created-' + state.saveCalls, title || 'Created board', match?.id || '')),
       linkedMatchDayId: match?.id || currentBoard?.linkedMatchDayId || '',
       title: title || currentBoard?.title || 'Created board',

@@ -1549,7 +1549,7 @@ export function FormationBoardsPage() {
               title={`Published snapshot, version ${publishedSnapshotVersion.versionNumber}`}
               message={`This immutable Team Resource was published ${formatDateTime(viewedPublication?.publishedAt)}${viewedPublication?.publishedByName ? ` by ${viewedPublication.publishedByName}` : ''}. Later board edits do not change it.`}
             />
-          ) : !canEdit ? <NoticeBanner tone="info" title="Read-only Team board" message="Your current Team role can view this shared board but cannot change or save it." /> : null}
+          ) : !canEdit ? <NoticeBanner tone="info" title={currentBoard?.isLocked ? 'Saved snapshot' : 'Read-only Team board'} message={currentBoard?.isLocked ? 'Saved boards cannot be edited, including by their author. Create a new board for a different lineup.' : 'Your current Team role can view this shared board but cannot change or save it.'} /> : null}
 
           {portraitCompatibility ? (
             <NoticeBanner

@@ -17,6 +17,7 @@ const entry = `
   import { Pressable, Text, View } from 'react-native'
   import { CoachFormationBoard } from './apps/coach-mobile/src/CoachFormationBoard.js'
   import { CoachFormationWorkspace } from './apps/coach-mobile/src/CoachFormationWorkspace.js'
+  import { CoachSavedFormationBoards } from './apps/coach-mobile/src/CoachSavedFormationBoards.js'
 
   const palettes = {
     light: { accent: '#057a55', accentText: '#065f46', background: '#f5f8f6', border: '#d7e5dc', danger: '#b42318', selected: '#dcfce7', selectedForeground: '#052e16', surface: '#ffffff', surfaceRaised: '#edf4ef', textMuted: '#66766d', textPrimary: '#101828', textSecondary: '#4b5f55', warning: '#b54708' },
@@ -38,6 +39,7 @@ const entry = `
         <Pressable accessibilityLabel="Standard quick action" accessibilityRole="button" onPress={() => { window.__workspaceTest.navPresses += 1 }}><Text>Quick action</Text></Pressable>
       </View>
       {!visible ? <Text accessibilityRole="header">Returned to prior Match Day panel</Text> : null}
+      {!visible ? <CoachSavedFormationBoards context={{id:'context-1',teamId:'team-1',clubId:'club-1'}} match={{id:'match-1'}} palette={palette} user={{id:'coach-1',clubId:'club-1',activeTeamId:'team-1',roleRank:30,hasActivePlanAccess:true}} /> : null}
       {visible ? <CoachFormationWorkspace onBack={handleBack} palette={palette}>
         {({ onMarkerGestureEnd, onMarkerGestureStart, registerBackHandler }) => <CoachFormationBoard
           context={{ id: 'context-1', authorityId: 'authority-1', authoritySource: 'team_staff', clubId: 'club-1', teamId: 'team-1', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
@@ -77,10 +79,11 @@ const dataMock = `
   const bench = [12, 13].map(number => ({ playerId: 'player-' + number, displayName: 'Player ' + number, shirtNumber: number }))
   const board = { id: 'board-1', title: 'Match shape', linkedMatchDayId: 'match-1', createdByProfileId: 'coach-1', currentVersionId: 'board-v1', currentVersionNumber: 1, currentVersion: { id: 'board-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', presetRegistryVersion: 1, placements, bench } }
   export const getCoachFormationPresets = async () => [{ key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots }]
-  export const getCoachFormationBoards = async () => [board]
+  export const getCoachFormationBoards = async () => [{...board,isLocked:Boolean(window.__workspaceTest.lockSaved),canDelete:true}]
   export const getCoachFormationPublications = async () => []
   export const getCoachFormationResourcePublications = async () => []
-  export const saveCoachMatchFormationBoard = async () => board
+  export const saveCoachMatchFormationBoard = async () => ({...board,isLocked:Boolean(window.__workspaceTest.lockSaved)})
+  export const deleteCoachFormationBoard = async () => { window.__workspaceTest.deleteCalls = (window.__workspaceTest.deleteCalls || 0) + 1 }
   export const linkCoachFormationBoard = async () => board
   export const publishCoachFormationBoard = async () => ({})
   export const publishCoachFormationResource = async () => ({})
@@ -166,7 +169,23 @@ try {
   assert.equal(await page.evaluate(() => window.__workspaceTest.navPresses), 0)
 
   const boardTools = page.getByLabel('Formation Board tools', { exact: true })
+  const menuToggle = page.getByRole('button', { name: 'Formation menu', exact: true })
+  const backHeader = await page.getByRole('button', { name: 'Close Formation Board', exact: true }).boundingBox()
+  const menuHeader = await menuToggle.boundingBox()
+  assert.ok(Math.abs(backHeader.y - menuHeader.y) <= 1, 'Menu arrow is aligned with Back')
+  assert.equal(await boardTools.count(), 0, 'Bottom toolbar is replaced by a closed dropdown')
+  await page.getByRole('button', { name: /Collapse substitutes/ }).waitFor()
+  await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).waitFor()
+  await page.screenshot({ path: path.join(outputDir, 'coach-formation-menu-closed.png') })
+  await menuToggle.click()
+  await page.screenshot({ path: path.join(outputDir, 'coach-formation-menu-open.png') })
+  await boardTools.getByRole('button', { name: 'Saved lineups (1)', exact: true }).click()
+  await page.getByRole('dialog', { name: 'details options', exact: true }).waitFor()
+  await page.getByText('Match shape', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Close options', exact: true }).click()
+  await page.getByRole('dialog', { name: 'details options', exact: true }).waitFor({ state: 'detached' })
   for (const label of ['Formation', 'Players', 'Save']) {
+    await menuToggle.click()
     await boardTools.getByRole('button').filter({ hasText: new RegExp(`${label}$`) }).click()
     const dialogName = `${label === 'Save' ? 'share' : label.toLowerCase()} options`
     await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor()
@@ -225,11 +244,18 @@ try {
   await page.getByRole('button', { name: 'Undo last player move', exact: true }).click()
   const restoredPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
   assert.deepEqual(restoredPosition, originalPosition, 'Undo restores the original player position')
-  await page.getByRole('button', { name: /Expand substitutes/ }).click()
   await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).click()
   await page.getByText('Player 12 selected. Tap a starter to swap.', { exact: true }).waitFor()
 
   await page.getByRole('button', { name: /Collapse substitutes/ }).click()
+  await page.waitForFunction((label) => {
+    const shirt = [...document.querySelectorAll('[aria-label]')].find(node => node.getAttribute('aria-label') === label)
+    const rect = shirt?.getBoundingClientRect()
+    const pitch = document.querySelector('[aria-label="Formation pitch"]')?.getBoundingClientRect()
+    const subs = document.querySelector('[aria-label^="Expand substitutes"]')?.getBoundingClientRect()
+    return rect && pitch && subs && Math.abs(pitch.bottom - subs.top) <= 2
+      && shirt.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+  }, await marker.getAttribute('aria-label'))
   const preHoldMarkerBox = await marker.boundingBox()
   const preHoldPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
   const preHoldX = preHoldMarkerBox.x + preHoldMarkerBox.width / 2
@@ -264,7 +290,7 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).count(), 1, 'Scrolling cannot swap the selected substitute')
   await page.getByText('Player 12 selected. Tap a starter to swap.', { exact: true }).waitFor()
   const backBox = await page.getByRole('button', { name: 'Close Formation Board', exact: true }).boundingBox()
-  const toolsBox = await page.getByLabel('Formation Board tools', { exact: true }).boundingBox()
+  const toolsBox = await menuToggle.boundingBox()
   assert.ok(backBox && backBox.y >= 47)
   assert.ok(toolsBox && toolsBox.y + toolsBox.height <= 852 - 34)
 
@@ -287,6 +313,36 @@ try {
   await page.getByRole('heading', { name: 'Returned to prior Match Day panel', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => window.__workspaceTest.backCount), 1)
   assert.ok(await page.evaluate(() => window.__workspaceTest.localDraftCalls >= 1))
+  await page.setViewportSize({ width: 393, height: 852 })
+  await page.getByRole('button', { name: 'Saved formations', exact: true }).click()
+  await page.getByRole('button', { name: 'View saved formation Match shape', exact: true }).click()
+  await page.getByLabel('Saved formation snapshot', { exact: true }).waitFor()
+  assert.equal(await menuToggle.count(), 0, 'Saved snapshot has no editor menu')
+  assert.equal(await page.locator('[aria-label^="Add Player at "]').count(), 0)
+  await page.screenshot({ path: path.join(outputDir, 'saved-snapshot-viewer.png') })
+  await page.getByRole('button', { name: 'Close Formation Board', exact: true }).click()
+  await page.getByRole('button', { name: 'Delete saved formation Match shape', exact: true }).waitFor()
+  assert.equal(await page.evaluate(() => window.__workspaceTest.deleteCalls || 0), 0)
+  await page.evaluate(() => { window.__workspaceTest.lockSaved = true; window.__workspaceTest.reopen() })
+  await page.getByLabel('Formation pitch', { exact: true }).waitFor()
+  await menuToggle.click()
+  assert.equal(await boardTools.getByRole('button').count(), 1, 'Locked board exposes saved options only')
+  await boardTools.getByRole('button', { name: 'Saved lineups (1)', exact: true }).click()
+  await page.getByText('Saved snapshot', { exact: true }).waitFor()
+  await page.getByRole('button', { name: /New board/ }).click()
+  await page.getByRole('dialog', { name: 'details options', exact: true }).waitFor({ state: 'detached' })
+  await menuToggle.click()
+  assert.equal(await boardTools.getByRole('button').count(), 4, 'A new unsaved board has all creation controls')
+  await menuToggle.click()
+  await page.locator('[aria-label^="Add Player at "]').first().click()
+  await page.getByRole('dialog', { name: 'Choose Player', exact: true }).getByRole('button').filter({ hasText: /#1 Player 1.*Add/ }).click()
+  await page.getByRole('dialog', { name: 'Choose Player', exact: true }).waitFor({ state: 'detached' })
+  await menuToggle.click()
+  await boardTools.getByRole('button').filter({ hasText: /Save$/ }).click()
+  await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+  await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'detached' })
+  await menuToggle.click()
+  assert.equal(await boardTools.getByRole('button').count(), 1, 'Successful save locks the new snapshot immediately')
   assert.deepEqual(errors, [])
   console.log('PASS: full-screen Formation workspace uses a fixed safe-area canvas, preserves touch safety, opens every tool, and returns safely')
 } finally {

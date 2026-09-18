@@ -12,7 +12,7 @@ async function extract(file, names) {
   const nodes = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.map(node => node.type === 'ExportNamedDeclaration' ? node.declaration : node)
   return names.map(name => { const node = nodes.find(node => node?.type === 'FunctionDeclaration' && node.id.name === name); assert.ok(node, name); return source.slice(node.start, node.end) }).join('\n')
 }
-const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'getFormationShirtSource', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
+const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
   .replaceAll('../../mobile-core/assets/formation-shirt-white.png', './apps/mobile-core/assets/formation-shirt-white.png')
   .replaceAll('../../mobile-core/assets/formation-shirt-gold.png', './apps/mobile-core/assets/formation-shirt-gold.png')
 const invitationCore = await extract('apps/parent-mobile/src/parentPortalData.js', ['getInvitationResponseOptions', 'isParentInvitationActionable'])
@@ -23,6 +23,9 @@ const childChange = appSource.slice(appSource.indexOf('  function handleChildCha
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replace('../assets/kit-tbc.png', './apps/mobile-core/assets/kit-tbc.png'))
 const entry = `
+import {FormationPitchLines,FormationPlayerArtwork,FormationSubArtwork,formationVisualStyles} from './apps/mobile-core/src/FormationBoardVisuals.js';
+import {getFormationMarkerVisualPosition} from './apps/mobile-core/src/formationVisualCore.js';
+import {focusParentFormationBoard} from './apps/parent-mobile/src/parentFormationFocus.js';
 import React,{useState,useMemo,useEffect,useRef} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform,Image,Modal,SafeAreaView,ScrollView} from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -51,7 +54,7 @@ const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),k
 const kitImageUrl=()=> 'data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="blue"/></svg>').toString('base64')}';
 let theme;const useParentTheme=()=>theme;
 ${kit}\n${invitationCore}\n${formationCore}\n${portal}\n${app}
-const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[],formationPlan:{title:'Published Match Plan',gameFormat:'7v7',formationPresetKey:'7v7-2-3-1',placements:[{playerId:'starter',displayName:'Published Starter',shirtNumber:'9',x:0.5,y:0.6},{playerId:'edge-left',displayName:'Left Defender',shirtNumber:'3',x:0.04,y:0.42},{playerId:'edge-right',displayName:'Right Defender',shirtNumber:'2',x:0.96,y:0.42}],bench:[{playerId:'bench',displayName:'Published Bench',shirtNumber:'12',state:'bench'}],notes:'PRIVATE COACH NOTE',unselectedPlayers:[{displayName:'UNSELECTED PRIVATE PLAYER'}]}};
+const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town FC',teamName:'U14 JPL 26/27',opponent:'Peterborough Junior Blues U14',status:'scheduled',timerStatus:'not_started',currentMatchPhase:'pre_match',matchDate:'2099-09-19',arrivalTime:'10:00:00',kickoffTime:'10:45:00',venueName:'Bourne AGP',venueAddress:'Fontwell Drive PE10 0YE',fixtureType:'cup',homeAway:'away',shirtChoice:'home',pitchType:'3g',homeScore:0,awayScore:0,notes:'Please arrive at 10:00.',confirmedTeam:['Synthetic Player'],availabilityStatus:'available',squadDecisionState:'selected',events:[],formationPlan:{title:'Published Match Plan',gameFormat:'7v7',formationPresetKey:'7v7-2-3-1',placements:[{playerId:'centre-defender',displayName:'Centre Defender',x:0.5,y:0.82,positionGroup:'defender'},{playerId:'keeper',displayName:'Goalkeeper',shirtNumber:'1',x:0.5,y:0.94,positionGroup:'goalkeeper'},{playerId:'starter',displayName:'Published Starter',shirtNumber:'9',x:0.5,y:0.6},{playerId:'edge-left',displayName:'Left Defender',shirtNumber:'3',x:0.04,y:0.42},{playerId:'edge-right',displayName:'Right Defender',shirtNumber:'2',x:0.96,y:0.42}],bench:[{playerId:'bench',displayName:'Published Bench',shirtNumber:'12',state:'bench'}],notes:'PRIVATE COACH NOTE',unselectedPlayers:[{displayName:'UNSELECTED PRIVATE PLAYER'}]}};
 const parentLink={id:'parent',clubId:'club',playerId:'child',linkType:'parent'};
 const initialInvitation={invitationId:'invitation',eventId:'match',childId:'child',parentLinkId:'parent',sourceRecordId:'request',invitationType:'match_attendance',invitationState:'active',canRespond:true,canChangeResponse:true,responseState:'available',carpoolEnabled:true};
 const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=async()=>{};
@@ -62,15 +65,16 @@ function App(){const[match,setMatch]=useState(initial),[mode,setMode]=useState('
 const isOffline=offline,selectedMobileUser={id:'account',selectedParentLinkId:selectedLinkId},link={...parentLink,id:selectedLinkId,playerId:selectedLinkId==='parent'?'child':'other-child',linkType},parentLinks=[parentLink,{id:'other'}];
 const parentSyncScopeRef=useRef(''),parentActionScopeRef=useRef(0),requestIdRef=useRef(0);parentSyncScopeRef.current='account:'+selectedLinkId;
 const setChildSwitcherOpen=()=>{},setActiveTab=()=>{};
+const scrollViewRef=useRef(null),contentColumnRef=useRef(null);
 async function loadParentData(){window.refreshes=(window.refreshes||0)+1;setMatch(window.server);setInvitation(window.serverInvitation)}
 ${handlers}\n${childChange}
 window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId};
 const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:'#075293'}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
-return <View style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
+return <ScrollView ref={scrollViewRef} style={{height:844}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
 <SyncStatus cacheState={{source:'cache',stale:true}} isOffline={offline} summary={{waiting:0,needsAttention:0}}/>
 {warning?<Notice compact tone="warning" message="Could not refresh. Showing saved information." onDismiss={()=>setWarning(false)}/>:null}
-<MatchdayScreen activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>
-</View>}
+<MatchdayScreen onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>
+</View></ScrollView>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], nodePaths: [modules], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
 const browser = await chromium.launch({ headless: true })
@@ -85,7 +89,10 @@ try {
   await page.getByRole('button', { name: 'Back to Matchday' }).waitFor()
   await page.waitForFunction(() => [...document.images].some(image => image.src.startsWith('data:image/svg+xml') && image.naturalWidth === 40))
   await page.getByRole('button', { name: 'Show formation', exact: true }).click()
-  await page.getByText('Show', { exact: true }).click()
+  await page.waitForFunction(() => {
+    const pitch = document.querySelector('[aria-label="Published Match Plan | 7v7 pitch"]')
+    return pitch && Math.abs(pitch.getBoundingClientRect().top) < 20
+  })
   await page.getByText('Published Starter', { exact: true }).waitFor()
   await page.getByText('Published Bench', { exact: true }).waitFor()
   for (const name of ['Left Defender', 'Right Defender']) {
@@ -93,6 +100,22 @@ try {
     assert.ok(box && box.x >= 0 && box.x + box.width <= 390, `${name} remains within the portrait pitch viewport`)
   }
   assert.ok(await page.evaluate(() => [...document.images].some((image) => image.naturalWidth > 200 && image.naturalHeight > 200)), 'published formation shirts render as image assets')
+  const marker = page.getByLabel('Published Starter, shirt 9', { exact: true })
+  const markerImage = await marker.locator('img').boundingBox()
+  assert.equal(Math.round(markerImage.width), 52, 'Parent uses Coach shirt width')
+  assert.equal(Math.round(markerImage.height), 46, 'Parent uses Coach shirt height')
+  assert.equal(await page.getByText('Published Starter', { exact: true }).evaluate(el => getComputedStyle(el).color), 'rgb(255, 255, 255)', 'Coach white name labels in Parent')
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    const defender = await page.getByText('Centre Defender', { exact: true }).boundingBox()
+    const goalkeeper = await page.getByLabel('Goalkeeper, shirt 1, goalkeeper', { exact: true }).locator('img').boundingBox()
+    assert.ok(defender.y + defender.height + 4 <= goalkeeper.y, `Defender name clears the goalkeeper at ${width}px`)
+  }
+  const pitch = await page.getByLabel('Published Match Plan | 7v7 pitch', { exact: true }).boundingBox()
+  for (const name of ['Left Defender', 'Right Defender']) {
+    const label = await page.getByText(name, { exact: true }).boundingBox()
+    assert.ok(label.x >= pitch.x && label.x + label.width <= pitch.x + pitch.width + 1, 'Edge labels stay inside the pitch')
+  }
   await page.screenshot({ path: 'output/playwright/parent-compact/formation-expanded.png', fullPage: true })
   assert.equal(await page.getByText('PRIVATE COACH NOTE', { exact: true }).count(), 0)
   assert.equal(await page.getByText('UNSELECTED PRIVATE PLAYER', { exact: true }).count(), 0)

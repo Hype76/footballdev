@@ -345,7 +345,7 @@ export function canCreateFormationBoard(user) {
 }
 
 export function canEditFormationBoard(user, board) {
-  if (!canUseFormationBoards(user) || !board || board.archivedAt) {
+  if (!canUseFormationBoards(user) || !board || board.archivedAt || board.isLocked) {
     return false
   }
 

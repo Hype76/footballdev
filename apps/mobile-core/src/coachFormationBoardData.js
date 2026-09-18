@@ -69,6 +69,7 @@ export async function saveCoachFormationBoard(user, board, draft, title) {
 
 export async function saveCoachMatchFormationBoard(user, match, board, draft, title, shared = false) {
   assertFormationWrite(user)
+  if (board?.isLocked) throw new Error('Saved boards cannot be edited. Create a new board for a different lineup.')
   if (!normalize(match?.id)) throw new Error('Choose a match before saving a lineup.')
   if (board?.linkedMatchDayId && board.linkedMatchDayId !== match.id) throw new Error('This lineup belongs to another match.')
   const payload = board
@@ -120,4 +121,9 @@ export async function publishCoachFormationBoard(user, board, matchDayId) {
 export async function withdrawCoachFormationBoard(user, board, matchDayId) {
   assertFormationWrite(user)
   return rpc('withdraw_formation_board_match_plan', { target_board_id: board.id, target_match_day_id: matchDayId })
+}
+
+export async function deleteCoachFormationBoard(user, board) {
+  assertFormationWrite(user)
+  return rpc('delete_formation_board', { target_board_id: board.id, confirm_title_value: board.title })
 }

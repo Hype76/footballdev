@@ -1,3 +1,4 @@
+import { FormationPitchLines, FormationPlayerArtwork, FormationSubArtwork, formationVisualStyles } from '../../mobile-core/src/FormationBoardVisuals'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
@@ -45,8 +46,6 @@ import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 import { CoachFormationWorkspaceContext } from './coachFormationWorkspaceContext'
 
 const normalize = (value) => String(value ?? '').trim()
-const WHITE_SHIRT = require('../../mobile-core/assets/formation-shirt-white.png')
-const GOLD_SHIRT = require('../../mobile-core/assets/formation-shirt-gold.png')
 const BOARD_TABS = Object.freeze([
   Object.freeze({ icon: 'grid-view', label: 'Formation', value: 'formation' }),
   Object.freeze({ icon: 'groups', label: 'Players', value: 'players' }),
@@ -92,36 +91,9 @@ function createStyles(palette, fullScreen = false) {
     modalPlayer: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingVertical: 10 },
     emptySlot: { alignItems: 'center', backgroundColor: 'rgba(4,45,25,0.7)', borderColor: 'rgba(255,255,255,0.9)', borderRadius: 25, borderStyle: 'dashed', borderWidth: 2, height: 46, justifyContent: 'center', position: 'absolute', transform: [{ translateX: -23 }, { translateY: -23 }], width: 46, zIndex: 4 },
     emptySlotLabel: { backgroundColor: 'rgba(16,24,40,0.9)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', left: -2, paddingHorizontal: 3, paddingVertical: 2, position: 'absolute', textAlign: 'center', top: 46, width: 48 },
-    marker: { alignItems: 'center', height: 70, justifyContent: 'flex-start', position: 'absolute', transform: [{ translateX: -32 }, { translateY: -25 }], width: 64, zIndex: 10 },
+    ...formationVisualStyles,
     markerDragging: { opacity: 0.78, transform: [{ translateX: -32 }, { translateY: -25 }, { scale: 1.08 }] },
-    markerImage: { height: 46, resizeMode: 'contain', width: 52 },
-    markerName: { backgroundColor: 'rgba(3,35,20,0.94)', borderRadius: 6, color: 'rgb(255,255,255)', fontSize: 12, fontWeight: '700', lineHeight: 15, marginTop: -6, maxWidth: 64, paddingHorizontal: 3, paddingVertical: 2, textAlign: 'center' },
-    markerNumber: { color: 'rgb(5,62,34)', fontSize: 16, fontWeight: '900', left: 0, position: 'absolute', right: 0, textAlign: 'center', top: 15 },
-    markerNumberGoalkeeper: { color: 'rgb(34,24,4)' },
     markerSelection: { borderColor: fullScreen ? 'rgb(185,255,218)' : palette.accentText, borderRadius: 31, borderWidth: 3, height: 49, position: 'absolute', top: -2, width: 56 },
-    pitch: { aspectRatio: 0.69, backgroundColor: 'rgb(10,108,47)', borderColor: 'rgb(255,255,255)', borderRadius: 18, borderWidth: 3, overflow: 'hidden', position: 'relative', width: '100%' },
-    pitchArc: { borderColor: 'rgba(255,255,255,0.9)', borderRadius: 35, borderWidth: 2, height: 70, position: 'absolute', width: 70 },
-    pitchArcBottom: { bottom: -35 },
-    pitchArcTop: { top: -35 },
-    pitchArcWindow: { height: 35, left: '50%', overflow: 'hidden', position: 'absolute', transform: [{ translateX: -35 }], width: 70 },
-    pitchArcWindowBottom: { bottom: '14%' },
-    pitchArcWindowTop: { top: '14%' },
-    pitchBoxBottom: { borderBottomWidth: 0, bottom: 0 },
-    pitchBoxLarge: { borderColor: 'rgba(255,255,255,0.82)', borderWidth: 2, height: '14%', left: '24%', position: 'absolute', width: '52%' },
-    pitchBoxSmall: { borderColor: 'rgba(255,255,255,0.82)', borderWidth: 2, height: '6%', left: '38%', position: 'absolute', width: '24%' },
-    pitchBoxTop: { borderTopWidth: 0, top: 0 },
-    pitchCentreCircle: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 43, borderWidth: 2, height: 86, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -43 }, { translateY: -43 }], width: 86 },
-    pitchCentreSpot: { backgroundColor: 'rgba(255,255,255,0.82)', borderRadius: 5, height: 10, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -5 }, { translateY: -5 }], width: 10 },
-    pitchCorner: { borderColor: 'rgba(255,255,255,0.9)', borderRadius: 14, borderWidth: 2, height: 28, position: 'absolute', width: 28 },
-    pitchCornerBottom: { bottom: -14 },
-    pitchCornerLeft: { left: -14 },
-    pitchCornerRight: { right: -14 },
-    pitchCornerTop: { top: -14 },
-    pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.82)', height: 2, left: 0, position: 'absolute', right: 0, top: '50%' },
-    pitchPenaltySpot: { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 4, height: 8, left: '50%', position: 'absolute', transform: [{ translateX: -4 }], width: 8 },
-    pitchPenaltySpotBottom: { bottom: '9%' },
-    pitchPenaltySpotTop: { top: '9%' },
-    pitchStripe: { height: '12.5%', left: 0, position: 'absolute', right: 0 },
     planHeader: { alignItems: 'center', gap: 2, paddingBottom: 2 },
     planHeaderRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
     planTitle: { color: palette.textPrimary, flex: 1, fontSize: 20, fontWeight: '700', paddingHorizontal: 8, textAlign: 'center' },
@@ -146,8 +118,12 @@ function createStyles(palette, fullScreen = false) {
     field: { bottom: 112, left: 2, position: 'absolute', right: 2, top: 44 },
     pitchCanvas: { aspectRatio: undefined, borderRadius: 0, borderWidth: 2, flex: 1, height: '100%' },
     canvasFooter: { bottom: 0, left: 0, position: 'absolute', right: 0, zIndex: 25 },
+    menuToggle: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 48, position: 'absolute', right: 4, top: 0, zIndex: 45 },
+    menuDismiss: { ...StyleSheet.absoluteFillObject, top: 44, zIndex: 34 },
+    toolsMenu: { backgroundColor: 'rgb(3,35,20)', borderTopWidth: 0, flexDirection: 'column', gap: 0, paddingTop: 0, position: 'absolute', right: 4, top: 44, width: 200, zIndex: 45 },
+    menuItem: { borderBottomColor: 'rgba(255,255,255,0.2)', borderBottomWidth: 1, borderRadius: 0, flex: 0, flexDirection: 'row', gap: 12, justifyContent: 'flex-start', minHeight: 48, paddingHorizontal: 16 },
     canvasText: { color: 'white' },
-    canvasUndo: { alignSelf: 'flex-end', backgroundColor: 'rgba(3,35,20,0.94)', paddingHorizontal: 10, position: 'absolute', right: 4, top: 0, zIndex: 30 },
+    canvasUndo: { alignSelf: 'flex-end', backgroundColor: 'rgba(3,35,20,0.94)', paddingHorizontal: 10, position: 'absolute', right: 4, top: 48, zIndex: 30 },
     canvasAlert: { backgroundColor: palette.surface, maxHeight: 140, paddingHorizontal: 8 },
   })
 }
@@ -173,28 +149,6 @@ function Choice({ disabled = false, iconKey = '', label, onPress, selected, styl
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected }} disabled={disabled} onPress={onPress} style={[styles.chip, selected && styles.chipSelected, disabled && styles.actionDisabled]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={19} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
 }
 
-function PitchLines({ styles }) {
-  return (
-    <>
-      {Array.from({ length: 8 }, (_, index) => <View key={index} style={[styles.pitchStripe, { backgroundColor: index % 2 ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.075)', top: `${index * 12.5}%` }]} />)}
-      <View style={styles.pitchHalfway} />
-      <View style={styles.pitchCentreCircle} />
-      <View style={styles.pitchCentreSpot} />
-      <View style={[styles.pitchBoxLarge, styles.pitchBoxTop]} />
-      <View style={[styles.pitchBoxLarge, styles.pitchBoxBottom]} />
-      <View style={[styles.pitchBoxSmall, styles.pitchBoxTop]} />
-      <View style={[styles.pitchBoxSmall, styles.pitchBoxBottom]} />
-      <View style={[styles.pitchArcWindow, styles.pitchArcWindowTop]}><View style={[styles.pitchArc, styles.pitchArcTop]} /></View>
-      <View style={[styles.pitchArcWindow, styles.pitchArcWindowBottom]}><View style={[styles.pitchArc, styles.pitchArcBottom]} /></View>
-      <View style={[styles.pitchPenaltySpot, styles.pitchPenaltySpotTop]} />
-      <View style={[styles.pitchPenaltySpot, styles.pitchPenaltySpotBottom]} />
-      <View style={[styles.pitchCorner, styles.pitchCornerLeft, styles.pitchCornerTop]} />
-      <View style={[styles.pitchCorner, styles.pitchCornerRight, styles.pitchCornerTop]} />
-      <View style={[styles.pitchCorner, styles.pitchCornerLeft, styles.pitchCornerBottom]} />
-      <View style={[styles.pitchCorner, styles.pitchCornerRight, styles.pitchCornerBottom]} />
-    </>
-  )
-}
 
 class FormationPlayerMarker extends Component {
   state = { dragging: false, livePosition: null }
@@ -300,10 +254,9 @@ class FormationPlayerMarker extends Component {
         accessibilityState={{ disabled: !canEdit, selected: Boolean(selected || removal) }}
         style={[styles.marker, this.state.dragging && styles.markerDragging, { left: `${visualPosition.x * 100}%`, top: `${visualPosition.y * 100}%` }]}
       >
-        <Image accessibilityIgnoresInvertColors source={goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} style={styles.markerImage} />
-        {player.shirtNumber ? <Text style={[styles.markerNumber, goalkeeper && styles.markerNumberGoalkeeper]}>{player.shirtNumber}</Text> : null}
-        {selected || removal || this.state.dragging ? <View pointerEvents="none" style={styles.markerSelection} /> : null}
-        <Text numberOfLines={1} style={styles.markerName}>{player.displayName}</Text>
+        <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={goalkeeper} styles={styles}>
+          {selected || removal || this.state.dragging ? <View pointerEvents="none" style={styles.markerSelection} /> : null}
+        </FormationPlayerArtwork>
       </View>
     )
   }
@@ -325,15 +278,6 @@ function ScrollSafePressable({ onPress, ...props }) {
   />
 }
 
-function ShirtPlayer({ goalkeeper = false, name, number, styles }) {
-  return <View style={styles.benchPlayer}>
-    <View style={styles.shirtWrap}>
-      <Image accessibilityIgnoresInvertColors source={goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} style={styles.shirtSmall} />
-      {number ? <Text style={styles.shirtSmallNumber}>{number}</Text> : null}
-    </View>
-    <Text numberOfLines={1} style={styles.shirtSmallName}>{name}</Text>
-  </View>
-}
 
 export function CoachFormationBoard({ context, match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
@@ -362,7 +306,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const [showBoards, setShowBoards] = useState(false)
   const [title, setTitleState] = useState(match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board')
   const [activeSheet, setActiveSheet] = useState('')
-  const [benchExpanded, setBenchExpanded] = useState(!fullScreen)
+  const [benchExpanded, setBenchExpanded] = useState(true)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [footerHeight, setFooterHeight] = useState(120)
   const [savedContentKey, setSavedContentKey] = useState('')
   const [draftScope, setDraftScope] = useState('')
   const routeScope = getCoachFormationRouteScope(user, context, match?.id)
@@ -413,7 +359,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const saved = await readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
     if (request !== loadSequence.current) return
     const localEntry = findFormationLocalDraft(saved?.resources?.formation, '', nextBoard.id)
-    const local = localEntry?.[1]
+    const local = nextBoard?.isLocked ? null : localEntry?.[1]
     const nextDraft = local?.draft || createMobileFormationDraft({ board: nextBoard })
     const baseBoard = local?.board || nextBoard
     const nextPublications = await resolvePublications(nextBoard, currentUser)
@@ -479,8 +425,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const restored = localDraft || (pendingSave ? { board: pendingSave.board || null, draft: pendingSave.draft, title: pendingSave.title, shared: pendingSave.shared } : null)
     if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
       const cachedBoard = restored ? restored.board || null : savedFormation.board || null
-      const cachedDraft = restored?.draft || savedFormation.draft
-      const cachedTitle = restored?.title || cachedBoard?.title || 'Formation Board'
+      const cachedDraft = cachedBoard?.isLocked ? createMobileFormationDraft({ board: cachedBoard }) : restored?.draft || savedFormation.draft
+      const cachedTitle = (cachedBoard?.isLocked ? cachedBoard.title : restored?.title) || cachedBoard?.title || 'Formation Board'
       setDraftScope(routeScope)
       setBoard(cachedBoard)
       setBoards(Array.isArray(savedFormation.boards) ? savedFormation.boards : [])
@@ -521,16 +467,22 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         && formationMatchesBoard(attemptedDraft.draft, attemptedDraft.title, candidate)
       )) || null : null
       // Keep the restored base version so a concurrent coach edit still conflicts.
-      const nextBoard = recoveredBoard || (restored ? restored.board || null : linkedBoard)
-      const nextDraft = restored?.draft || pendingSave?.draft
+      const canonicalRestoredBoard = restored?.board?.id ? nextBoards.find(candidate => candidate.id === restored.board.id) : null
+      let nextBoard = recoveredBoard || (canonicalRestoredBoard?.isLocked ? canonicalRestoredBoard : restored ? restored.board || null : linkedBoard)
+      let nextDraft = (nextBoard?.isLocked ? createMobileFormationDraft({ board: nextBoard }) : restored?.draft || pendingSave?.draft)
         || createMobileFormationDraft({ board: nextBoard, gameFormat: matchingPreset?.gameFormat || preference.gameFormat, presetKey: matchingPreset?.key || preference.presetKey })
-      const nextPublications = await resolvePublications(nextBoard, currentUser)
+      let nextPublications = await resolvePublications(nextBoard, currentUser)
       if (!isCurrent()) return
       const recoveredPublication = getActiveFormationPublication(nextPublications.matchItems, currentMatch?.id)
       const recoveredAudienceMatches = pendingSave?.shared
         ? Boolean(recoveredPublication && (recoveredPublication.board_version_id ?? recoveredPublication.boardVersionId) === recoveredBoard?.currentVersionId)
         : !recoveredPublication
       const unresolvedPendingSave = pendingSave && !(recoveredBoard && recoveredAudienceMatches) ? pendingSave : null
+      if (unresolvedPendingSave && !pendingSave.boardId && nextBoard?.isLocked && !recoveredAudienceMatches) {
+        nextBoard = null
+        nextDraft = pendingSave.draft
+        nextPublications = { matchItems: [] }
+      }
       setQueuedRetryPending(Boolean(unresolvedPendingSave))
       setQueuedSaveAcknowledged(Boolean(unresolvedPendingSave?.acknowledged))
       const editorChangedDuringRefresh = showedCachedBoard && editorRevision.current !== refreshRevision
@@ -543,7 +495,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         setBoard(nextBoard)
         setShared(restored?.shared ?? pendingSave?.shared ?? Boolean(getActiveFormationPublication(nextPublications.matchItems, currentMatch?.id)))
         setDraft(nextDraft)
-        const nextTitle = restored?.title || pendingSave?.title || nextBoard?.title || (currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board')
+        const nextTitle = (nextBoard?.isLocked ? nextBoard.title : restored?.title || pendingSave?.title) || nextBoard?.title || (currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board')
         setSavedContentKey(nextBoard ? formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title) : formationContentKey(createMobileFormationDraft({ gameFormat: nextDraft.gameFormat, presetKey: nextDraft.presetKey }), currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board'))
         setRestoredDraftKey(localEntry?.[0] || '')
         setLocalState(restored ? 'saved' : 'idle')
@@ -599,7 +551,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
   const hasEditAuthority = canEditCoachFormationBoard(user)
-  const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable
+  const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable && !board?.isLocked
   const capacity = getMobileFormationCapacity(draft.gameFormat)
   const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
   const contentKey = formationContentKey(draft, title)
@@ -734,16 +686,23 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const threshold = new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000)
     const createdByProfileId = normalize(pendingSave.createdByProfileId) || user.id
     const items = await getCoachFormationBoards(user)
-    return items.find((candidate) => (
+    const candidate = items.find((candidate) => (
       candidate.linkedMatchDayId === match?.id
       && candidate.createdByProfileId === createdByProfileId
       && new Date(candidate.createdAt || 0).getTime() >= threshold
       && formationMatchesBoard(pendingSave.draft, pendingSave.title, candidate)
     )) || null
+    if (!candidate?.isLocked) return candidate
+    const publications = await resolvePublications(candidate, user)
+    const publication = getActiveFormationPublication(publications.matchItems, match.id)
+    const audienceMatches = pendingSave.shared
+      ? Boolean(publication && (publication.board_version_id ?? publication.boardVersionId) === candidate.currentVersionId)
+      : !publication
+    return audienceMatches ? candidate : null
   }
 
   const persistBoard = async ({ queuedSave = null, queuedEditorRevision = null } = {}) => {
-    if (!canEdit) throw new Error('Coach or manager plan access is required to save formations.')
+    if (!canEdit && !(queuedSave?.acknowledged && hasEditAuthority && !refreshPending && !serverBoardUnavailable)) throw new Error(board?.isLocked ? 'Saved boards cannot be edited. Create a new board for a different lineup.' : 'Coach or manager plan access is required to save formations.')
     if (!match?.id) throw new Error('Open a match before saving a Formation Board.')
     const saveBoard = queuedSave ? queuedSave.board || null : board
     const saveDraft = queuedSave?.draft || draft
@@ -789,7 +748,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       }
       requireActiveBoard()
       if (!queuedSave?.acknowledged) {
-        nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
+        if (!nextBoard?.isLocked) nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
         serverAcknowledged = true
         requireActiveBoard()
         const acknowledgedPendingSave = { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, expectedVersionNumber: nextBoard.currentVersionNumber }
@@ -808,7 +767,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         || formationContentKey(currentEditor.draft, currentEditor.title) !== formationContentKey(saveDraft, saveTitle)
         || currentEditor.shared !== saveShared
       )
-      setBoard(nextBoard)
+      setBoard(preserveCurrentDraft && nextBoard?.isLocked ? null : nextBoard)
       setBoards(nextBoards)
       if (!preserveCurrentDraft) {
         setDraft(createMobileFormationDraft({ board: nextBoard }))
@@ -816,7 +775,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       }
       setSavedContentKey(formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title))
       setMatchPublications(nextPublications.matchItems)
-      await saveOfflineFormation({ nextBoard, nextBoards, nextDraft: preserveCurrentDraft ? currentEditor.draft : createMobileFormationDraft({ board: nextBoard }), nextPublications: nextPublications.matchItems, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
+      await saveOfflineFormation({ nextBoard: preserveCurrentDraft && nextBoard?.isLocked ? null : nextBoard, nextBoards, nextDraft: preserveCurrentDraft ? currentEditor.draft : createMobileFormationDraft({ board: nextBoard }), nextPublications: nextPublications.matchItems, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
       if (!preserveCurrentDraft) await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null).catch(() => {})
       setQueuedRetryPending(false)
       setQueuedSaveAcknowledged(false)
@@ -857,6 +816,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setBusy(true); setError(''); setNotice('')
     try {
       const nextBoard = await persistBoard()
+      if (nextBoard.isLocked) setActiveSheet('')
       setNotice(`${nextBoard.title} saved to this match. ${shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
     } catch (saveError) {
       if (saveError.code === 'formation_navigation_changed' || saveError.code === 'formation_save_queued') return
@@ -867,7 +827,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   }
 
   const retryQueuedSave = useCallback(async () => {
-    if (queuedRetryInFlight.current || !queuedRetryPending || busy || loading || refreshPending || serverBoardUnavailable || !canEdit || !match?.id) return
+    if (queuedRetryInFlight.current || !queuedRetryPending || busy || loading || refreshPending || serverBoardUnavailable || (!canEdit && !(queuedSaveAcknowledged && hasEditAuthority)) || !match?.id) return
     queuedRetryInFlight.current = true
     try {
       const currentRoute = getCoachFormationRouteScope(user, context, match.id)
@@ -885,6 +845,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       setBusy(true)
       setError('')
       const nextBoard = await persistBoardRef.current({ queuedEditorRevision, queuedSave: pendingSave })
+      if (nextBoard.isLocked) setActiveSheet('')
       setNotice(`${nextBoard.title} saved to this match. ${pendingSave.shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
     } catch (retryError) {
       if (retryError.code === 'formation_navigation_changed' || retryError.code === 'formation_save_queued' || isRetryableFormationSaveError(retryError)) return
@@ -894,7 +855,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       queuedRetryInFlight.current = false
       setBusy(false)
     }
-  }, [board?.id, busy, canEdit, context, loading, match?.id, queuedRetryPending, refreshPending, routeScope, serverBoardUnavailable, user])
+  }, [board?.id, busy, canEdit, context, hasEditAuthority, loading, match?.id, queuedRetryPending, queuedSaveAcknowledged, refreshPending, routeScope, serverBoardUnavailable, user])
 
   useEffect(() => {
     const retry = (state) => { if (state === 'active') void retryQueuedSave() }
@@ -977,10 +938,10 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   return (
     <View pointerEvents={busy ? 'none' : 'auto'} style={[styles.workspace, fullScreen && styles.canvas]}>
       {!registerBackHandler && onBack ? <Pressable accessibilityLabel="Back from Formation Board" accessibilityRole="button" onPress={() => void handleBack()} style={styles.topIcon}><Text style={styles.label}>Back</Text></Pressable> : null}
-      <View style={fullScreen ? styles.field : null}>
+      <View style={fullScreen ? [styles.field, { bottom: footerHeight }] : null}>
       <View accessibilityLabel="Formation pitch" onLayout={(event) => setPitchLayout(event.nativeEvent.layout)} style={[styles.pitch, fullScreen && styles.pitchCanvas]}>
-        <PitchLines styles={styles} />
-        {currentPresetSlots.filter((slot) => !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
+        <FormationPitchLines styles={styles} />
+        {currentPresetSlots.filter((slot) => !board?.isLocked && !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
           <Pressable
             accessibilityHint="Opens the Player picker for this empty position"
             accessibilityLabel={`Add Player at ${getMobileFormationSlotLabel(slot)}`}
@@ -1024,13 +985,13 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       </View>
 
       {undoMove && canEdit && undoMove.after === draft ? <View style={[styles.rowBetween, fullScreen && styles.canvasUndo]} accessibilityLiveRegion="polite"><Text style={[styles.body, fullScreen && styles.canvasText]}>Lineup changed</Text><Pressable accessibilityRole="button" accessibilityLabel="Undo last player move" onPress={() => { setDraft(undoMove.before); setSelectedPlayerId(''); setNotice(''); }} style={styles.topIcon}><Text style={[styles.count, fullScreen && styles.canvasText]}>Undo</Text></Pressable></View> : null}
-      <View style={fullScreen ? styles.canvasFooter : null}>
+      <View onLayout={fullScreen ? (event) => setFooterHeight(event.nativeEvent.layout.height) : undefined} style={fullScreen ? styles.canvasFooter : null}>
       <View style={styles.bench}>
         <Pressable accessibilityLabel={`${benchExpanded ? 'Collapse' : 'Expand'} substitutes, ${draft.bench.length} Players`} accessibilityRole="button" onPress={() => setBenchExpanded((current) => !current)} style={styles.benchHeader}>
           <Text style={[styles.heading, fullScreen && { color: 'white', fontSize: 16, paddingHorizontal: 12 }]}>Subs ({draft.bench.length})</Text>
           <MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name={benchExpanded ? 'expand-less' : 'expand-more'} size={28} />
         </Pressable>
-        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><ShirtPlayer name={player.displayName} number={player.shirtNumber} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
+        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
         {benchExpanded && selectedBenchPlayer ? <Text accessibilityLiveRegion="polite" style={[styles.body, fullScreen && styles.canvasText]}>{selectedBenchPlayer.displayName} selected. Tap a starter to swap.</Text> : null}
       </View>
 
@@ -1042,12 +1003,15 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       {removalMode && canEdit ? <View style={styles.selectedPanel}><Text style={styles.body}>Tap starters to select them, then move the selection to the Bench.</Text><View style={styles.row}><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { commitPlayerMove(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /><Action label="Cancel" onPress={() => { setRemovalIds([]); setRemovalMode(false) }} secondary styles={styles} /></View></View> : null}
 
       </ScrollView>
-      <View accessibilityLabel="Formation Board tools" style={styles.dock}>
-        <Pressable accessibilityRole="button" accessibilityLabel={matchBoards.length ? `Saved lineups (${matchBoards.length})` : 'Formation Board options'} onPress={() => { setShowBoards(matchBoards.length > 0); setActiveSheet('details') }} style={styles.dockItem}><MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name="more-horiz" size={24} /><Text style={styles.dockLabel}>{matchBoards.length ? `Saved (${matchBoards.length})` : 'Options'}</Text></Pressable>
-        {BOARD_TABS.map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => setActiveSheet(tab.value)} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
       </View>
-
-      </View>
+      {fullScreen ? <>
+        {toolsOpen ? <Pressable accessibilityRole="button" accessibilityLabel="Dismiss formation menu" onPress={() => setToolsOpen(false)} style={styles.menuDismiss} /> : null}
+        <Pressable accessibilityRole="button" accessibilityLabel="Formation menu" accessibilityState={{ expanded: toolsOpen }} onPress={() => setToolsOpen(current => !current)} style={styles.menuToggle}><MaterialIcons color="white" name={toolsOpen ? 'expand-less' : 'expand-more'} size={30} /></Pressable>
+      </> : null}
+      {!fullScreen || toolsOpen ? <View accessibilityLabel="Formation Board tools" style={[styles.dock, fullScreen && styles.toolsMenu]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={matchBoards.length ? `Saved lineups (${matchBoards.length})` : 'Formation Board options'} onPress={() => { setToolsOpen(false); setShowBoards(matchBoards.length > 0); setActiveSheet('details') }} style={[styles.dockItem, fullScreen && styles.menuItem]}><MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name="more-horiz" size={24} /><Text style={styles.dockLabel}>{matchBoards.length ? `Saved (${matchBoards.length})` : 'Options'}</Text></Pressable>
+        {BOARD_TABS.filter(() => !board?.isLocked).map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => { setToolsOpen(false); setActiveSheet(tab.value) }} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled, fullScreen && styles.menuItem]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
+      </View> : null}
 
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={closeSheet} transparent visible={Boolean(activeSheet)}>
         <SafeAreaProvider>
@@ -1078,7 +1042,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
 
             {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
               <Text style={styles.body}>{match ? `${match.teamName} v ${match.opponent}` : 'Open a match to save this board.'}</Text>
-              {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation and tap Saved.</Text> : null}
+              {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation, open the top-right menu and tap Saved.</Text> : null}
               <Text style={styles.label}>Lineup name</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
@@ -1091,7 +1055,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
             </ScrollView> : null}
 
             {activeSheet === 'details' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
-              <Text style={styles.label}>Plan name</Text>
+              <Text style={styles.label}>{board?.isLocked ? 'Saved snapshot' : 'Plan name'}</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" onChangeText={setTitle} style={[styles.input, !canEdit && styles.actionDisabled]} value={title} />
               <Text style={styles.body}>{saveLabel} | {draft.placements.length} on pitch | {draft.bench.length} Subs</Text>
               {draft.placements.length ? <Action disabled={!canEdit} label={removalMode ? 'Cancel taking Players off' : 'Take Players off'} onPress={() => { setRemovalMode((current) => !current); setRemovalIds([]); setSelectedPlayerId(''); closeSheet() }} secondary styles={styles} /> : null}
