@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { Component, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, Vibration, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import {
   applyMobileFormationPreset,
   assignMobileFormationPlayerToSlot,
@@ -337,7 +337,6 @@ function ShirtPlayer({ goalkeeper = false, name, number, styles }) {
 export function CoachFormationBoard({ context, match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, stale, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const fullScreen = Boolean(inWorkspace)
-  const insets = useSafeAreaInsets()
   const styles = useMemo(() => createStyles(palette, fullScreen), [palette, fullScreen])
   const [board, setBoard] = useState(null)
   const [boards, setBoards] = useState([])
@@ -945,8 +944,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       </View>
 
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={closeSheet} transparent visible={Boolean(activeSheet)}>
-        <View style={styles.modalBackdrop}>
-          <View accessibilityLabel={`${activeSheet || 'Formation Board'} options`} role="dialog" style={[styles.modalPanel, { paddingBottom: 24 + insets.bottom }]}>
+        <SafeAreaProvider>
+        <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.modalBackdrop}>
+          <View accessibilityLabel={`${activeSheet || 'Formation Board'} options`} role="dialog" style={styles.modalPanel}>
             <View style={styles.sheetHandle} />
             <View style={styles.rowBetween}>
               <Text style={styles.heading}>{activeSheet === 'formation' ? 'Formation' : activeSheet === 'players' ? 'Players' : activeSheet === 'share' ? 'Save to match' : 'Board options'}</Text>
@@ -992,12 +992,14 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
               {showBoards ? matchBoards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => { closeSheet(); confirmDraftReplacement(() => applyBoard(item)) }} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>Saved to this match | Version {item.currentVersionNumber}</Text></Pressable>) : null}
             </ScrollView> : null}
           </View>
-        </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={() => setActiveSlotId('')} transparent visible={Boolean(activeSlot)}>
-        <View style={styles.modalBackdrop}>
-          <View accessibilityLabel="Choose Player" role="dialog" style={[styles.modalPanel, { paddingBottom: 24 + insets.bottom }]}>
+        <SafeAreaProvider>
+        <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.modalBackdrop}>
+          <View accessibilityLabel="Choose Player" role="dialog" style={styles.modalPanel}>
             <View style={styles.sheetHandle} />
             <View style={styles.rowBetween}>
               <View><Text style={styles.eyebrow}>Choose Player</Text><Text style={styles.heading}>{getMobileFormationSlotLabel(activeSlot)}</Text></View>
@@ -1016,7 +1018,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
               {!filteredSlotPlayers.length ? <Text style={styles.body}>No Players match that search.</Text> : null}
             </ScrollView>
           </View>
-        </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </View>
   )

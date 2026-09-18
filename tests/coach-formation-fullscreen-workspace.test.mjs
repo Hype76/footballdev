@@ -57,6 +57,7 @@ test('Coach Formation screen and board forward Back, draft flush, and gesture ow
   assert.match(board, /accessibilityLabel="Back from Formation Board"/)
   assert.match(board, /saveCoachFormationLocalDraft[\s\S]*onBack\(\)/)
   assert.match(board, /registerBackHandler\?\.\(handleBack\)/)
+  assert.equal((board.match(/<Modal[^\n]*>\s*<SafeAreaProvider>\s*<SafeAreaView edges=\{\['top', 'right', 'bottom', 'left'\]\}/g) || []).length, 2, 'Each native sheet measures its own safe area')
   assert.match(board, /beginGesture[\s\S]*onGestureStart\?\.\(\)[\s\S]*onPanResponderGrant: this\.prepareGesture/)
   assert.match(board, /endGesture[\s\S]*onGestureEnd\?\.\(\)[\s\S]*onPanResponderRelease[\s\S]*this\.endGesture\(\)[\s\S]*onPanResponderTerminate[\s\S]*this\.endGesture\(\)/)
 })
