@@ -17,14 +17,14 @@ export function FanContent({ connection, view, content, formation, onCloseFormat
   if (view.action === 'attendance') return <FanAttendanceScreen items={content.attendance || []} themeTokens={themeTokens} />
   if (view.action === 'schedule') {
     const calendarEvents = upcomingFanSchedule(content.schedule || []).map((item) => ({
-      id: item.id, title: item.title, eventType: item.event_type || 'event', status: item.status,
+      id: item.id, title: item.title, selectedPlayerNames: connection?.relationship_type === 'player' ? item.selected_player_names : undefined, eventType: item.event_type || 'event', status: item.status,
       startsAt: item.starts_at || (item.time ? `${item.date}T${item.time}` : item.date),
       endsAt: item.ends_at || (item.end_time ? `${item.date}T${item.end_time}` : ''), location: item.location,
     }))
     return <CalendarScreen upcomingOnly link={link} resource={resource(buildParentCalendarEvents({ calendarEvents }))} onAddToCalendar={addToCalendar} onOpenLink={onOpenLink} themeTokens={themeTokens} />
   }
   if (view.action === 'matches') {
-    const matches = (content.matches || []).filter(isFanGameDayMatch).map((item) => ({ ...normalizeParentMatchDay({ ...item, team_name: connection?.team_name, club_name: item.club_name || connection?.club_name, events: view.matchId === item.id ? content.events || [] : [], is_scorer: false, isScorer: false, request_scorer: false }), isFanView: true }))
+    const matches = (content.matches || []).filter(isFanGameDayMatch).map((item) => ({ ...normalizeParentMatchDay({ ...item, team_name: connection?.team_name, club_name: item.club_name || connection?.club_name, events: view.matchId === item.id ? content.events || [] : [], is_scorer: false, isScorer: false, request_scorer: false }), isFanView: true, canViewSelectedSquad: connection?.relationship_type === 'player' }))
     if (!view.matchId || !matches.some(item => item.id === view.matchId)) return <View style={{ gap: 16 }}>
       <Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 26, fontWeight: '800' }}>Game Day</Text>
       <Text style={{ color: themeTokens.textSecondary }}>Live matches and results shared for {connection?.player_name || 'your player'}.</Text>

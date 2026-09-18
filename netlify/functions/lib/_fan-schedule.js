@@ -16,6 +16,21 @@ export function canFanViewMatch(match, parent, involvedIds) {
       || (match.parent_audience === 'all_team_parents' && match.team_id === parent.team_id)
       || (match.parent_audience === 'involved_players' && involvedIds.has(match.id)))
 }
+export async function addPlayerSelectedSquads(client, scope, matches) {
+  if (scope.fan.relationship_type !== 'player') return matches
+  const scoped = matches.filter(match => match.team_id === scope.player.team_id)
+  if (!scoped.length) return matches
+  const decisions = await rows(client.from('match_day_player_squad_decisions').select('match_day_id,player_id')
+    .eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).eq('status', 'selected').in('match_day_id', scoped.map(match => match.id)))
+  const ids = [...new Set(decisions.map(row => row.player_id))]
+  const players = ids.length ? await rows(client.from('players').select('id,player_name,status,archived_at')
+    .eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).in('id', ids)) : []
+  const names = new Map(players.filter(player => player.status !== 'archived' && !player.archived_at && player.player_name?.trim()).map(player => [player.id, player.player_name.trim()]))
+  return matches.map(match => match.team_id !== scope.player.team_id ? match : ({ ...match,
+    selected_player_names: [...new Set(decisions.filter(row => row.match_day_id === match.id).map(row => row.player_id))]
+      .filter(id => names.has(id)).map(id => names.get(id)).sort((a, b) => a.localeCompare(b, 'en-GB')),
+  }))
+}
 export async function loadFanMatches(client, scope, matchId = '', { includeScheduled = false } = {}) {
   const scheduleAllowed = includeScheduled && scope.fan.permissions?.schedule === true
   let query = client.from('match_days').select('id, title, club_id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, venue_name, status, home_score, away_score, updated_at, parent_visible, parent_audience, deleted_at, previous_hidden_at')
@@ -37,7 +52,7 @@ export async function loadFanMatches(client, scope, matchId = '', { includeSched
       allowed.push({ ...safe, club_name: scope.club.name })
     }
   }
-  return allowed
+  return addPlayerSelectedSquads(client, scope, allowed)
 }
 export async function loadFanSchedule(client, scope, now = new Date(), { includePast = false } = {}) {
   const trainingQuery = client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')
@@ -59,7 +74,7 @@ export async function loadFanSchedule(client, scope, now = new Date(), { include
     const sessions = await rows(client.from('assessment_sessions').select('id,title,session_date,start_time,end_time,location,status').in('id', assessmentIds).eq('club_id', scope.fan.club_id).neq('status', 'cancelled'))
     schedule.push(...sessions.map((session) => ({ id: session.id, title: session.title || 'Assessment', date: session.session_date, time: session.start_time, end_time: session.end_time, location: session.location, event_type: 'assessment', status: session.status })))
   }
-  schedule.push(...matches.map((match) => ({ id: match.id, title: getMatchDayDisplayName(match), date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name, home_away: match.home_away, event_type: 'match_day', status: match.status })))
+  schedule.push(...matches.map((match) => ({ id: match.id, title: getMatchDayDisplayName(match), date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name, home_away: match.home_away, selected_player_names: match.selected_player_names, event_type: 'match_day', status: match.status })))
   if (includePast) {
     const earliest = getParentProductDateTimeParts(new Date(now.getTime() - 90 * 86400000)).date
     return schedule.filter(item => getParentProductDateTimeParts(item.starts_at || item.date).date >= earliest && !['cancelled', 'postponed'].includes(item.status))

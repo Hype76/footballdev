@@ -72,6 +72,29 @@ test('Player accounts read only their current attendance and cannot submit invit
   assert.equal((await call('attendance')).statusCode,403)
 })
 
+test('Player squad names are restricted to selected players in authorised same-team fixtures',async()=>{
+  const {client,tables}=fixture()
+  tables.fan_connections[0].relationship_type='player'
+  const match={id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date(Date.now()+86400000).toISOString().slice(0,10),opponent:'Visitors',status:'scheduled'}
+  tables.match_days=[match,{...match,id:id(10),parent_visible:false}]
+  tables.players.push({id:id(20),club_id:id(6),team_id:id(7),player_name:'Selected Player',status:'active',email:'private@example.test'}, {id:id(21),club_id:id(6),team_id:id(8),player_name:'Other team'}, {id:id(22),club_id:id(6),team_id:id(7),player_name:'Not selected'}, {id:id(23),club_id:id(6),team_id:id(7),player_name:'Archived',status:'archived'})
+  tables.match_day_player_squad_decisions=[20,21,22,23].map(n=>({match_day_id:id(9),club_id:id(6),team_id:id(7),player_id:id(n),status:n===22?'not_selected':'selected'}))
+  const call=()=>handleFans({httpMethod:'POST',headers:{authorization:'Bearer test'},body:JSON.stringify({action:'schedule',connectionId:id(1)})},{createClient:()=>client})
+  let result=await call()
+  assert.equal(result.statusCode,200)
+  assert.deepEqual(JSON.parse(result.body).schedule.map(row=>row.selected_player_names),[['Selected Player']])
+  assert.ok(!result.body.includes('private@example.test'))
+  tables.fan_connections[0].relationship_type='fan'
+  result=await call()
+  assert.equal(JSON.parse(result.body).schedule[0].selected_player_names,undefined)
+  tables.fan_connections[0].relationship_type='player'
+  tables.fan_connections[0].permissions.schedule=false
+  assert.equal((await call()).statusCode,403)
+  tables.fan_connections[0].permissions.schedule=true
+  tables.parent_player_links[0].status='revoked'
+  assert.equal((await call()).statusCode,403)
+})
+
 test('Server binds Fan identity, exact permissions and active parent ancestry before any child data read',async()=>{
   const {client,tables,read}=fixture()
   await loadFanScope(client,id(2),id(1),'schedule')
