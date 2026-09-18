@@ -1,3 +1,4 @@
+import { FormationPitchLines, FormationPlayerArtwork, FormationSubArtwork, formationVisualStyles } from '../../mobile-core/src/FormationBoardVisuals'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
@@ -45,8 +46,6 @@ import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 import { CoachFormationWorkspaceContext } from './coachFormationWorkspaceContext'
 
 const normalize = (value) => String(value ?? '').trim()
-const WHITE_SHIRT = require('../../mobile-core/assets/formation-shirt-white.png')
-const GOLD_SHIRT = require('../../mobile-core/assets/formation-shirt-gold.png')
 const BOARD_TABS = Object.freeze([
   Object.freeze({ icon: 'grid-view', label: 'Formation', value: 'formation' }),
   Object.freeze({ icon: 'groups', label: 'Players', value: 'players' }),
@@ -92,36 +91,9 @@ function createStyles(palette, fullScreen = false) {
     modalPlayer: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingVertical: 10 },
     emptySlot: { alignItems: 'center', backgroundColor: 'rgba(4,45,25,0.7)', borderColor: 'rgba(255,255,255,0.9)', borderRadius: 25, borderStyle: 'dashed', borderWidth: 2, height: 46, justifyContent: 'center', position: 'absolute', transform: [{ translateX: -23 }, { translateY: -23 }], width: 46, zIndex: 4 },
     emptySlotLabel: { backgroundColor: 'rgba(16,24,40,0.9)', borderRadius: 7, color: 'rgb(255,255,255)', fontSize: 9, fontWeight: '900', left: -2, paddingHorizontal: 3, paddingVertical: 2, position: 'absolute', textAlign: 'center', top: 46, width: 48 },
-    marker: { alignItems: 'center', height: 70, justifyContent: 'flex-start', position: 'absolute', transform: [{ translateX: -32 }, { translateY: -25 }], width: 64, zIndex: 10 },
+    ...formationVisualStyles,
     markerDragging: { opacity: 0.78, transform: [{ translateX: -32 }, { translateY: -25 }, { scale: 1.08 }] },
-    markerImage: { height: 46, resizeMode: 'contain', width: 52 },
-    markerName: { backgroundColor: 'rgba(3,35,20,0.94)', borderRadius: 6, color: 'rgb(255,255,255)', fontSize: 12, fontWeight: '700', lineHeight: 15, marginTop: -6, maxWidth: 64, paddingHorizontal: 3, paddingVertical: 2, textAlign: 'center' },
-    markerNumber: { color: 'rgb(5,62,34)', fontSize: 16, fontWeight: '900', left: 0, position: 'absolute', right: 0, textAlign: 'center', top: 15 },
-    markerNumberGoalkeeper: { color: 'rgb(34,24,4)' },
     markerSelection: { borderColor: fullScreen ? 'rgb(185,255,218)' : palette.accentText, borderRadius: 31, borderWidth: 3, height: 49, position: 'absolute', top: -2, width: 56 },
-    pitch: { aspectRatio: 0.69, backgroundColor: 'rgb(10,108,47)', borderColor: 'rgb(255,255,255)', borderRadius: 18, borderWidth: 3, overflow: 'hidden', position: 'relative', width: '100%' },
-    pitchArc: { borderColor: 'rgba(255,255,255,0.9)', borderRadius: 35, borderWidth: 2, height: 70, position: 'absolute', width: 70 },
-    pitchArcBottom: { bottom: -35 },
-    pitchArcTop: { top: -35 },
-    pitchArcWindow: { height: 35, left: '50%', overflow: 'hidden', position: 'absolute', transform: [{ translateX: -35 }], width: 70 },
-    pitchArcWindowBottom: { bottom: '14%' },
-    pitchArcWindowTop: { top: '14%' },
-    pitchBoxBottom: { borderBottomWidth: 0, bottom: 0 },
-    pitchBoxLarge: { borderColor: 'rgba(255,255,255,0.82)', borderWidth: 2, height: '14%', left: '24%', position: 'absolute', width: '52%' },
-    pitchBoxSmall: { borderColor: 'rgba(255,255,255,0.82)', borderWidth: 2, height: '6%', left: '38%', position: 'absolute', width: '24%' },
-    pitchBoxTop: { borderTopWidth: 0, top: 0 },
-    pitchCentreCircle: { borderColor: 'rgba(255,255,255,0.82)', borderRadius: 43, borderWidth: 2, height: 86, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -43 }, { translateY: -43 }], width: 86 },
-    pitchCentreSpot: { backgroundColor: 'rgba(255,255,255,0.82)', borderRadius: 5, height: 10, left: '50%', position: 'absolute', top: '50%', transform: [{ translateX: -5 }, { translateY: -5 }], width: 10 },
-    pitchCorner: { borderColor: 'rgba(255,255,255,0.9)', borderRadius: 14, borderWidth: 2, height: 28, position: 'absolute', width: 28 },
-    pitchCornerBottom: { bottom: -14 },
-    pitchCornerLeft: { left: -14 },
-    pitchCornerRight: { right: -14 },
-    pitchCornerTop: { top: -14 },
-    pitchHalfway: { backgroundColor: 'rgba(255,255,255,0.82)', height: 2, left: 0, position: 'absolute', right: 0, top: '50%' },
-    pitchPenaltySpot: { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 4, height: 8, left: '50%', position: 'absolute', transform: [{ translateX: -4 }], width: 8 },
-    pitchPenaltySpotBottom: { bottom: '9%' },
-    pitchPenaltySpotTop: { top: '9%' },
-    pitchStripe: { height: '12.5%', left: 0, position: 'absolute', right: 0 },
     planHeader: { alignItems: 'center', gap: 2, paddingBottom: 2 },
     planHeaderRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
     planTitle: { color: palette.textPrimary, flex: 1, fontSize: 20, fontWeight: '700', paddingHorizontal: 8, textAlign: 'center' },
@@ -173,28 +145,6 @@ function Choice({ disabled = false, iconKey = '', label, onPress, selected, styl
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected }} disabled={disabled} onPress={onPress} style={[styles.chip, selected && styles.chipSelected, disabled && styles.actionDisabled]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={19} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
 }
 
-function PitchLines({ styles }) {
-  return (
-    <>
-      {Array.from({ length: 8 }, (_, index) => <View key={index} style={[styles.pitchStripe, { backgroundColor: index % 2 ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.075)', top: `${index * 12.5}%` }]} />)}
-      <View style={styles.pitchHalfway} />
-      <View style={styles.pitchCentreCircle} />
-      <View style={styles.pitchCentreSpot} />
-      <View style={[styles.pitchBoxLarge, styles.pitchBoxTop]} />
-      <View style={[styles.pitchBoxLarge, styles.pitchBoxBottom]} />
-      <View style={[styles.pitchBoxSmall, styles.pitchBoxTop]} />
-      <View style={[styles.pitchBoxSmall, styles.pitchBoxBottom]} />
-      <View style={[styles.pitchArcWindow, styles.pitchArcWindowTop]}><View style={[styles.pitchArc, styles.pitchArcTop]} /></View>
-      <View style={[styles.pitchArcWindow, styles.pitchArcWindowBottom]}><View style={[styles.pitchArc, styles.pitchArcBottom]} /></View>
-      <View style={[styles.pitchPenaltySpot, styles.pitchPenaltySpotTop]} />
-      <View style={[styles.pitchPenaltySpot, styles.pitchPenaltySpotBottom]} />
-      <View style={[styles.pitchCorner, styles.pitchCornerLeft, styles.pitchCornerTop]} />
-      <View style={[styles.pitchCorner, styles.pitchCornerRight, styles.pitchCornerTop]} />
-      <View style={[styles.pitchCorner, styles.pitchCornerLeft, styles.pitchCornerBottom]} />
-      <View style={[styles.pitchCorner, styles.pitchCornerRight, styles.pitchCornerBottom]} />
-    </>
-  )
-}
 
 class FormationPlayerMarker extends Component {
   state = { dragging: false, livePosition: null }
@@ -300,10 +250,9 @@ class FormationPlayerMarker extends Component {
         accessibilityState={{ disabled: !canEdit, selected: Boolean(selected || removal) }}
         style={[styles.marker, this.state.dragging && styles.markerDragging, { left: `${visualPosition.x * 100}%`, top: `${visualPosition.y * 100}%` }]}
       >
-        <Image accessibilityIgnoresInvertColors source={goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} style={styles.markerImage} />
-        {player.shirtNumber ? <Text style={[styles.markerNumber, goalkeeper && styles.markerNumberGoalkeeper]}>{player.shirtNumber}</Text> : null}
-        {selected || removal || this.state.dragging ? <View pointerEvents="none" style={styles.markerSelection} /> : null}
-        <Text numberOfLines={1} style={styles.markerName}>{player.displayName}</Text>
+        <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={goalkeeper} styles={styles}>
+          {selected || removal || this.state.dragging ? <View pointerEvents="none" style={styles.markerSelection} /> : null}
+        </FormationPlayerArtwork>
       </View>
     )
   }
@@ -325,15 +274,6 @@ function ScrollSafePressable({ onPress, ...props }) {
   />
 }
 
-function ShirtPlayer({ goalkeeper = false, name, number, styles }) {
-  return <View style={styles.benchPlayer}>
-    <View style={styles.shirtWrap}>
-      <Image accessibilityIgnoresInvertColors source={goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} style={styles.shirtSmall} />
-      {number ? <Text style={styles.shirtSmallNumber}>{number}</Text> : null}
-    </View>
-    <Text numberOfLines={1} style={styles.shirtSmallName}>{name}</Text>
-  </View>
-}
 
 export function CoachFormationBoard({ context, match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
@@ -979,7 +919,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       {!registerBackHandler && onBack ? <Pressable accessibilityLabel="Back from Formation Board" accessibilityRole="button" onPress={() => void handleBack()} style={styles.topIcon}><Text style={styles.label}>Back</Text></Pressable> : null}
       <View style={fullScreen ? styles.field : null}>
       <View accessibilityLabel="Formation pitch" onLayout={(event) => setPitchLayout(event.nativeEvent.layout)} style={[styles.pitch, fullScreen && styles.pitchCanvas]}>
-        <PitchLines styles={styles} />
+        <FormationPitchLines styles={styles} />
         {currentPresetSlots.filter((slot) => !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
           <Pressable
             accessibilityHint="Opens the Player picker for this empty position"
@@ -1030,7 +970,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
           <Text style={[styles.heading, fullScreen && { color: 'white', fontSize: 16, paddingHorizontal: 12 }]}>Subs ({draft.bench.length})</Text>
           <MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name={benchExpanded ? 'expand-less' : 'expand-more'} size={28} />
         </Pressable>
-        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><ShirtPlayer name={player.displayName} number={player.shirtNumber} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
+        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
         {benchExpanded && selectedBenchPlayer ? <Text accessibilityLiveRegion="polite" style={[styles.body, fullScreen && styles.canvasText]}>{selectedBenchPlayer.displayName} selected. Tap a starter to swap.</Text> : null}
       </View>
 

@@ -81,7 +81,7 @@ test('Parent match screen renders the plan inline and excludes coach notes from 
   assert.ok(start >= 0 && end > start)
   const component = screenSource.slice(start, end)
   assert.match(component, /FormationPresentation/)
-  assert.match(screenSource, /formationPitch/)
+  assert.match(screenSource, /formationVisualStyles\.pitch/)
   assert.match(screenSource, /formationSubs/)
   assert.match(component, /Match plan unavailable/)
   assert.doesNotMatch(component, /\.notes/)

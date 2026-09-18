@@ -12,7 +12,7 @@ async function extract(file, names) {
   const nodes = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.map(node => node.type === 'ExportNamedDeclaration' ? node.declaration : node)
   return names.map(name => { const node = nodes.find(node => node?.type === 'FunctionDeclaration' && node.id.name === name); assert.ok(node, name); return source.slice(node.start, node.end) }).join('\n')
 }
-const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'getFormationShirtSource', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
+const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
   .replaceAll('../../mobile-core/assets/formation-shirt-white.png', './apps/mobile-core/assets/formation-shirt-white.png')
   .replaceAll('../../mobile-core/assets/formation-shirt-gold.png', './apps/mobile-core/assets/formation-shirt-gold.png')
 const invitationCore = await extract('apps/parent-mobile/src/parentPortalData.js', ['getInvitationResponseOptions', 'isParentInvitationActionable'])
@@ -23,6 +23,8 @@ const childChange = appSource.slice(appSource.indexOf('  function handleChildCha
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replace('../assets/kit-tbc.png', './apps/mobile-core/assets/kit-tbc.png'))
 const entry = `
+import {FormationPitchLines,FormationPlayerArtwork,FormationSubArtwork,formationVisualStyles} from './apps/mobile-core/src/FormationBoardVisuals.js';
+import {getFormationMarkerVisualPosition} from './apps/mobile-core/src/formationVisualCore.js';
 import React,{useState,useMemo,useEffect,useRef} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform,Image,Modal,SafeAreaView,ScrollView} from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -93,6 +95,16 @@ try {
     assert.ok(box && box.x >= 0 && box.x + box.width <= 390, `${name} remains within the portrait pitch viewport`)
   }
   assert.ok(await page.evaluate(() => [...document.images].some((image) => image.naturalWidth > 200 && image.naturalHeight > 200)), 'published formation shirts render as image assets')
+  const marker = page.getByLabel('Published Starter, shirt 9', { exact: true })
+  const markerImage = await marker.locator('img').boundingBox()
+  assert.equal(Math.round(markerImage.width), 52, 'Parent uses Coach shirt width')
+  assert.equal(Math.round(markerImage.height), 46, 'Parent uses Coach shirt height')
+  assert.equal(await page.getByText('Published Starter', { exact: true }).evaluate(el => getComputedStyle(el).color), 'rgb(255, 255, 255)', 'Coach white name labels in Parent')
+  const pitch = await page.getByLabel('Published Match Plan | 7v7 pitch', { exact: true }).boundingBox()
+  for (const name of ['Left Defender', 'Right Defender']) {
+    const label = await page.getByText(name, { exact: true }).boundingBox()
+    assert.ok(label.x >= pitch.x && label.x + label.width <= pitch.x + pitch.width + 1, 'Edge labels stay inside the pitch')
+  }
   await page.screenshot({ path: 'output/playwright/parent-compact/formation-expanded.png', fullPage: true })
   assert.equal(await page.getByText('PRIVATE COACH NOTE', { exact: true }).count(), 0)
   assert.equal(await page.getByText('UNSELECTED PRIVATE PLAYER', { exact: true }).count(), 0)
