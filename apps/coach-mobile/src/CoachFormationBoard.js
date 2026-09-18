@@ -1068,13 +1068,14 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
 
             {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
               <Text style={styles.body}>{match ? `${match.teamName} v ${match.opponent}` : 'Open a match to save this board.'}</Text>
+              {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation. They also appear in your team’s Formation Boards.</Text> : null}
               <Text style={styles.label}>Lineup name</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
               <Choice disabled={!canEdit || busy} label="Coaches only" onPress={() => setShared(false)} selected={!shared} styles={styles} />
               <Choice disabled={!canEdit || busy} label="Parents and players" onPress={() => setShared(true)} selected={shared} styles={styles} />
               {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
-              {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>Saved on this phone. It will retry when the connection returns.</Text> : null}
+              {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.</Text> : null}
               {notice.startsWith(`${title} saved to this match.`) ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
             <Action disabled={!canEdit || busy || !match?.id || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save to match'} onPress={() => void save()} styles={styles} />
             </ScrollView> : null}

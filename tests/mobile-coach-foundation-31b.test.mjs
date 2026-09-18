@@ -124,6 +124,17 @@ test('deep-link and native back models resolve only authorised routes', () => {
   assert.equal(getCoachBackTarget({ activeRoute: 'home' }), null)
 })
 
+test('Coach route guard keeps the More menu open and still rejects unavailable destinations', async () => {
+  const app = await readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8')
+  const guard = app.match(/if \((activeRoute !== 'home' && !resolveCoachRoute\([^\n]+)\) \{/)
+  assert.ok(guard, 'App must validate the current destination')
+  const shouldReset = new Function('activeRoute', 'moreRoute', 'activeContext', 'matchdayPlanConfig', 'resolveCoachRoute', `return ${guard[1]}`)
+  assert.equal(shouldReset('more', '', teamA, null, resolveCoachRoute), false)
+  assert.equal(shouldReset('more', 'resources', teamA, null, resolveCoachRoute), false)
+  assert.equal(shouldReset('more', 'club', teamA, null, resolveCoachRoute), true)
+  assert.equal(shouldReset('more', '', null, null, resolveCoachRoute), true)
+})
+
 test('Coach Android Back prompts once at root and exits only on a quick second press', () => {
   const first = getCoachBackPressAction({ activeRoute: 'home', now: 1000 })
   assert.deepEqual(first, { type: 'prompt', message: 'Press Back again to exit', nextLastBackAt: 1000 })
