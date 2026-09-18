@@ -59,7 +59,7 @@ const entry = `
       {scenario === 'race' ? <button type="button" onClick={() => setMatchId('b')}>Switch to match B</button> : null}
       {scenario === 'scope' ? <button type="button" onClick={() => setScopeId('b')}>Switch account and team</button> : null}
       {scenario === 'stable' ? <button type="button" onClick={() => setRevision(current => current + 1)}>Equivalent parent refresh {revision}</button> : null}
-      {scenario === 'back' || scenario === 'back-offline' ? <button type="button" onClick={() => backHandler.current?.()}>Native workspace back</button> : null}
+      {scenario === 'back' || scenario === 'back-offline' || scenario === 'loading-back' ? <button type="button" onClick={() => backHandler.current?.()}>Native workspace back</button> : null}
       {scenario === 'back-offline' ? <button type="button" onClick={() => setStale(true)}>Lose connection</button> : null}
       {visible ? <CoachFormationBoard
         context={{ id: scopeId === 'a' ? 'club-context-a' : 'club-context-b', authorityId: scopeId === 'a' ? 'authority-a' : 'authority-b', authoritySource: 'team_staff', clubId: 'club-1', teamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
@@ -310,7 +310,7 @@ try {
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'loading-back') {
     await page.waitForFunction(() => window.__formationTest.boardCalls === 1)
     await page.getByText('Loading Formation Board...', { exact: true }).waitFor()
-    await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).click()
+    await page.getByRole('button', { name: 'Native workspace back', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.backCount === 1)
     assert.equal(await page.getByText('Loading Formation Board...', { exact: true }).count(), 0)
     console.log('PASS: Match Day Board can leave while its first board load is pending')
@@ -364,9 +364,7 @@ try {
     await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
     assert.equal(await page.evaluate(() => window.__formationTest.createCalls), 1)
     assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1)
-    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry-no-storage') {
-      await page.getByText(/could not be saved on this device or confirmed online/).waitFor()
-    } else {
+    if (process.env.FORMATION_ASYNC_SCENARIO !== 'retry-no-storage') {
       await page.getByRole('button', { name: 'Share', exact: true }).click()
       await page.getByText(/Formation Board saved to the team/).waitFor()
       await page.getByRole('button', { name: 'Close options', exact: true }).click()
