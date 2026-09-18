@@ -150,11 +150,9 @@ export function LoginAuthPanel({
                 onChange={onChange}
                 className="min-h-11 w-full rounded-lg border border-white/12 bg-[#102016] px-3 py-2.5 text-sm font-semibold text-white outline-none transition focus:border-[#c6ff1a]/70 focus:bg-[#102016] focus:ring-2 focus:ring-[#c6ff1a]/20"
               >
-                <option value="individual">Individual Coach - Free</option>
-                <option value="single_team">Single Team</option>
-                <option value="small_club">Small Club</option>
-                <option value="development_club">Development Club</option>
-                <option value="large_club">Large Club</option>
+                <option value="matchday">Matchday - Free</option>
+                <option value="team">Team</option>
+                <option value="club">Club</option>
               </select>
               <span className="mt-2 block text-xs font-semibold leading-5 text-white/58">
                 Staging only. No payment checkout is used for this account.

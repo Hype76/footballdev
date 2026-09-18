@@ -112,14 +112,15 @@ test('Platform Admin plan controls expose Pilot as an admin-only free plan', asy
   const manageClubsSection = await readFile(new URL('../src/components/platform/ManageClubsSection.jsx', import.meta.url), 'utf8')
 
   assert.match(manageClubsSection, /getAdminAssignablePlanOptions/)
-  assert.match(manageClubsSection, /value="paid" disabled=\{form\.planKey === PLAN_KEYS\.pilot\}/)
+  assert.match(manageClubsSection, /value="immediate" disabled=\{\[PLAN_KEYS\.individual, PLAN_KEYS\.matchday, PLAN_KEYS\.pilot\]\.includes\(form\.planKey\)\}/)
+  assert.match(manageClubsSection, /value="deferred" disabled=\{\[PLAN_KEYS\.individual, PLAN_KEYS\.matchday, PLAN_KEYS\.pilot\]\.includes\(form\.planKey\)\}/)
   assert.match(platformSection, /getAdminAssignablePlanOptions/)
-  assert.match(platformSection, /isPilotPlan \|\| Boolean\(club\.isPlanComped\)/)
+  assert.match(platformSection, /PLAN_KEYS\.pilot/)
   assert.match(platformSection, /Pilot access is always free\./)
   assert.match(platformPage, /fieldName === 'planKey' && value === PLAN_KEYS\.pilot[\s\S]*billingMode: 'unpaid'/)
   assert.match(platformPage, /fieldName === 'planKey' && value === PLAN_KEYS\.pilot[\s\S]*isPlanComped: true[\s\S]*planStatus: 'active'/)
-  assert.match(billingFunction, /const nextPlanStatus = nextPlanKey === 'pilot' \? 'active' : requestedPlanStatus/)
-  assert.match(billingFunction, /const nextIsPlanComped = nextPlanKey === 'pilot'/)
+  assert.match(billingFunction, /const nextPlanStatus = nextPlanKey === 'pilot' \? 'active'/)
+  assert.match(billingFunction, /const nextIsPlanComped = nextPlanKey === 'pilot' \? true/)
 })
 
 test('Club Admin create-team flow does not block on stale client-only team limit', async () => {

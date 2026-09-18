@@ -275,7 +275,7 @@ export function resolveBillingAccess(context = {}, { actorRequired = false, now 
     })
   }
 
-  if (scope.key === WORKSPACE_SCOPES.individual) {
+  if (scope.key === WORKSPACE_SCOPES.individual || (safeContext.planKey ?? safeContext.plan_key) === 'matchday') {
     return buildDecision({
       accessState: BILLING_ACCESS_STATES.full,
       actorCategory,
@@ -283,8 +283,8 @@ export function resolveBillingAccess(context = {}, { actorRequired = false, now 
       billingStartAt,
       context: safeContext,
       operationalMutationsAllowed: true,
-      payerAuthorized: false,
-      reason: 'individual_free_access',
+      payerAuthorized: scope.key === WORKSPACE_SCOPES.individual ? false : payerAuthorized,
+      reason: scope.key === WORKSPACE_SCOPES.individual ? 'individual_free_access' : 'matchday_free_access',
       scope,
       subscriptionStatus,
     })

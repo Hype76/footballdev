@@ -82,6 +82,9 @@ const SCOPE_DEFINITIONS = Object.freeze({
 })
 
 const PLAN_SCOPE_KEYS = Object.freeze({
+  [PLAN_KEYS.matchday]: WORKSPACE_SCOPES.team,
+  [PLAN_KEYS.team]: WORKSPACE_SCOPES.team,
+  [PLAN_KEYS.club]: WORKSPACE_SCOPES.club,
   [PLAN_KEYS.individual]: WORKSPACE_SCOPES.individual,
   [PLAN_KEYS.singleTeam]: WORKSPACE_SCOPES.team,
   [PLAN_KEYS.smallClub]: WORKSPACE_SCOPES.club,

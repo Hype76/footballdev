@@ -44,7 +44,7 @@ export function validateBillingArrangement({ arrangement, startDate, now = new D
   if (!['immediate', 'deferred', 'complimentary'].includes(normalizedArrangement)) {
     throw new Error('Choose an immediate, deferred, or complimentary billing arrangement.')
   }
-  if (['individual', 'pilot'].includes(String(planKey ?? '').trim()) && normalizedArrangement !== 'complimentary') {
+  if (['individual', 'matchday', 'pilot'].includes(String(planKey ?? '').trim()) && normalizedArrangement !== 'complimentary') {
     throw new Error('Individual and Pilot workspaces require complimentary billing.')
   }
 

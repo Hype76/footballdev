@@ -29,6 +29,8 @@ function normalizeParentLink(row) {
       club?.theme_button_style
       ?? normalizeLegacyThemeButtonStyle(team?.theme_button_style),
     ).trim(),
+    planKey: String(club?.plan_key ?? '').trim(),
+    planStatus: String(club?.plan_status ?? '').trim(),
     playerId: row.player_id,
     playerName: normalizePersonName(player?.player_name),
     playerSection: String(player?.section ?? '').trim(),
@@ -78,7 +80,7 @@ export async function getParentPortalLinks() {
   if (!authData?.user?.id) return []
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, contact_email, theme_accent, theme_button_style)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, contact_email, theme_accent, theme_button_style, plan_key, plan_status)')
     .eq('status', 'active')
     .eq('auth_user_id', authData.user.id)
     .order('created_at', { ascending: false })
@@ -260,7 +262,7 @@ export async function acceptParentPortalInvite(token) {
 
   const { data: linkedRow, error: linkedError } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
     .eq('id', acceptedRow.id)
     .single()
 
@@ -283,7 +285,7 @@ export async function getParentLinksForPlayer({ playerId, teamId, clubId } = {})
 
   let query = supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
     .eq('player_id', playerId)
     .neq('status', 'revoked')
     .order('created_at', { ascending: false })
@@ -357,7 +359,7 @@ export async function getFamilyLinksForParentLink({ parentLinkId }) {
 
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
     .eq('parent_link_id', normalizedParentLinkId)
     .eq('link_type', 'family')
     .eq('status', 'active')
@@ -447,7 +449,7 @@ export async function createParentPortalInvites({ user, player, contacts, includ
 
   const existingQuery = supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
     .eq('team_id', teamId)
     .eq('player_id', player.id)
     .neq('status', 'revoked')
@@ -512,7 +514,7 @@ export async function createParentPortalInvites({ user, player, contacts, includ
   const { data, error } = await supabase
     .from('parent_player_links')
     .insert(rows)
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
 
   if (error) {
     console.error(error)

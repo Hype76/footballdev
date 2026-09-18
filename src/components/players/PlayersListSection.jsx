@@ -11,6 +11,7 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 
 export function PlayersListSection({
   actionLoadingKey,
+  canMovePlayersToTrial = true,
   compactMode = false,
   filteredPlayers,
   focusedPlayer,
@@ -199,7 +200,7 @@ export function PlayersListSection({
                       : 'No development records yet. Start from a session or profile when the player is ready.'}
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-                  {isSquadPlayer ? (
+                  {isSquadPlayer && canMovePlayersToTrial ? (
                     <button
                       type="button"
                       disabled={actionLoadingKey === `${player.playerId}:move-to-trial`}

@@ -7,6 +7,9 @@ import {
 } from './paywall-capabilities.js'
 
 export const PLAN_KEYS = {
+  matchday: 'matchday',
+  team: 'team',
+  club: 'club',
   individual: 'individual',
   singleTeam: 'single_team',
   smallClub: 'small_club',
@@ -29,6 +32,8 @@ export const PLAN_STATES = {
 }
 
 export const PLAN_KEY_ALIASES = Object.freeze({
+  matchday: PLAN_KEYS.matchday,
+  match_day: PLAN_KEYS.matchday,
   coach_free: PLAN_KEYS.individual,
   free: PLAN_KEYS.individual,
   individual: PLAN_KEYS.individual,
@@ -39,8 +44,8 @@ export const PLAN_KEY_ALIASES = Object.freeze({
   single: PLAN_KEYS.singleTeam,
   single_team: PLAN_KEYS.singleTeam,
   singleteam: PLAN_KEYS.singleTeam,
-  team: PLAN_KEYS.singleTeam,
-  club: PLAN_KEYS.smallClub,
+  team: PLAN_KEYS.team,
+  club: PLAN_KEYS.club,
   small_club: PLAN_KEYS.smallClub,
   smallclub: PLAN_KEYS.smallClub,
   development: PLAN_KEYS.developmentClub,
@@ -87,6 +92,20 @@ const UNKNOWN_PLAN = Object.freeze({
 })
 
 export const PLAN_OPTIONS = [
+  ...[
+    { key: 'matchday', name: 'Matchday', monthly: 0, annual: 0, teams: 1, free: true },
+    { key: 'team', name: 'Team', monthly: 7.99, annual: 79.90, teams: 1, free: false },
+    { key: 'club', name: 'Club', monthly: 59.99, annual: 599.90, teams: 10, free: false },
+  ].map(({ key, name, monthly, annual, teams, free }) => ({
+    key, name, displayName: name, headlineMonthlyPrice: free ? 'Free' : `GBP ${monthly.toFixed(2)}/month`,
+    price: free ? 'Free' : `GBP ${monthly.toFixed(2)}/month`, monthlyPricePence: Math.round(monthly * 100),
+    annualPricePence: Math.round(annual * 100), isFree: free, isPaid: !free, requiresPayment: !free,
+    purchaseMode: free ? PLAN_PURCHASE_MODES.free : PLAN_PURCHASE_MODES.selfService,
+    state: PLAN_STATES.active, isDeprecated: false, isPublic: true,
+    limits: { teams, staffLogins: null, players: null, monthlyEvaluations: free ? 0 : null },
+    features: getFeatureFlagMapForPlan(key), legacyAliases: [],
+    safeDefaultBehavior: 'subscription_and_role_permissions_required',
+  })),
   {
     key: PLAN_KEYS.individual,
     name: 'Individual Coach - Free',
@@ -224,7 +243,7 @@ export const PLAN_OPTIONS = [
 const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, plan]))
 export const PLAN_KEY_SET = new Set(PLAN_OPTIONS.map((plan) => plan.key))
 export const TEAM_LIMIT_OVERRIDE_MAX = 500
-export const PUBLIC_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => plan.isPublic !== false))
+export const PUBLIC_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => ['matchday', 'team', 'club'].includes(plan.key)))
 export const INTERNAL_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => plan.isInternal === true))
 export const ADMIN_ASSIGNABLE_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => plan.state === PLAN_STATES.active && !plan.isDeprecated))
 
@@ -238,7 +257,7 @@ export function getAdminAssignablePlanOptions() {
 
 export function isPublicPlanKey(value) {
   const planKey = normalizePlanKey(value)
-  return Boolean(planKey && PLAN_BY_KEY[planKey]?.isPublic !== false)
+  return ['matchday', 'team', 'club'].includes(planKey)
 }
 
 export function isInternalPlanKey(value) {
@@ -523,7 +542,7 @@ export function hasPlanFeature(user, featureName) {
     return false
   }
 
-  return isCapabilityIncludedForPlan(getPlanKey(user), featureName)
+  return isCapabilityIncludedForPlan(getPlanKey(user), featureName, user?.matchdayPolicy)
 }
 
 export function canEditClubIdentity(user) {
@@ -545,7 +564,7 @@ export function canEditClubIdentity(user) {
     return true
   }
 
-  if (planKey === PLAN_KEYS.singleTeam) {
+  if ([PLAN_KEYS.singleTeam, PLAN_KEYS.matchday, PLAN_KEYS.team].includes(planKey)) {
     return user.role === 'head_manager' || Number(user.roleRank ?? 0) >= 70
   }
 
@@ -562,6 +581,12 @@ export function getPlanLimit(user, limitName) {
   }
 
   const planKey = getPlanKey(user)
+
+  if (limitName === 'teams' && ['matchday', 'team'].includes(planKey)) return 1
+  if (limitName === 'teams' && planKey === 'club') {
+    const capacity = Number(user?.subscriptionTeamCapacity ?? user?.subscription_team_capacity ?? user?.clubs?.subscription_team_capacity ?? getTeamLimitOverride(user) ?? 10)
+    return Number.isInteger(capacity) && capacity >= 10 && capacity <= 500 && capacity % 10 === 0 ? capacity : 10
+  }
 
   if (limitName === 'teams') {
     const teamLimitOverride = getTeamLimitOverride(user)

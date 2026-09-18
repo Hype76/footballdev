@@ -1,3 +1,5 @@
+import { isMobileRouteAllowed } from '../../mobile-core/src/matchdayPolicyCore.js'
+
 const PRIMARY_ROUTES = Object.freeze([
   Object.freeze({ key: 'home', label: 'Home' }),
   Object.freeze({ key: 'calendar', label: 'Calendar' }),
@@ -63,7 +65,7 @@ function normalize(value) {
   return String(value ?? '').trim().toLowerCase().replaceAll('_', '').replaceAll('-', '')
 }
 
-function routeIsAllowed(route, context) {
+function routeIsAllowed(route, context, planConfig) {
   if (!context) return false
   const roleRank = Number(context.roleRank || 0)
   if (route.minimumRank && roleRank < route.minimumRank) return false
@@ -76,26 +78,27 @@ function routeIsAllowed(route, context) {
         ? 'team'
         : 'none')
   if (route.payerOnly && !['club', 'team'].includes(payerAuthority)) return false
+  if (!isMobileRouteAllowed(context, route.key, planConfig)) return false
   return true
 }
 
-export function getCoachNavigationModel(context) {
+export function getCoachNavigationModel(context, planConfig) {
   if (!context) return Object.freeze({ more: [], primary: [] })
   const primary = PRIMARY_ROUTES.filter((route) => {
-    if (['players', 'matchday'].includes(route.key)) return Boolean(context.teamId)
-    return true
+    if (['players', 'matchday'].includes(route.key)) return Boolean(context.teamId) && isMobileRouteAllowed(context, route.key, planConfig)
+    return isMobileRouteAllowed(context, route.key, planConfig)
   })
-  const more = MORE_ROUTES.filter((route) => routeIsAllowed(route, context))
+  const more = MORE_ROUTES.filter((route) => routeIsAllowed(route, context, planConfig))
   return Object.freeze({ more: Object.freeze(more), primary: Object.freeze(primary) })
 }
 
-export function resolveCoachRoute(route, context) {
+export function resolveCoachRoute(route, context, planConfig) {
   const normalizedRoute = ROUTE_ALIASES[normalize(route)] || ''
   if (!normalizedRoute) return ''
-  const navigation = getCoachNavigationModel(context)
+  const navigation = getCoachNavigationModel(context, planConfig)
   if (navigation.primary.some((item) => item.key === normalizedRoute)) return normalizedRoute
   if (navigation.more.some((item) => item.key === normalizedRoute)) return normalizedRoute
-  if (QUICK_ROUTES.some((item) => item.key === normalizedRoute && routeIsAllowed(item, context))) return normalizedRoute
+  if (QUICK_ROUTES.some((item) => item.key === normalizedRoute && routeIsAllowed(item, context, planConfig))) return normalizedRoute
   return ''
 }
 

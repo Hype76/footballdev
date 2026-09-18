@@ -8,6 +8,7 @@ const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg
 
 export function AddPlayerFormSection({
   availableTeams,
+  allowTrialPlayers = true,
   canAddMorePlayers,
   contactGroups,
   isAddingPlayer,
@@ -38,8 +39,8 @@ export function AddPlayerFormSection({
               {canAddMorePlayers ? 'Add the player once, then use their profile for development records, parent links, and match day work.' : playerLimitMessage}
             </p>
           </div>
-          <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-[#d7e5dc] bg-white px-4 text-sm font-black text-[#101828]">
-            Trial or Squad
+            <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-[#d7e5dc] bg-white px-4 text-sm font-black text-[#101828]">
+            {allowTrialPlayers ? 'Trial or Squad' : 'Squad'}
           </span>
         </div>
       </div>
@@ -133,7 +134,7 @@ export function AddPlayerFormSection({
               onChange={onChange}
               className={fieldClass}
             >
-              {EVALUATION_SECTIONS.map((section) => (
+              {EVALUATION_SECTIONS.filter((section) => allowTrialPlayers || section !== 'Trial').map((section) => (
                 <option key={section} value={section}>
                   {section}
                 </option>

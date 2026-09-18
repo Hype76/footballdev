@@ -28,9 +28,9 @@ const USER_PROFILE_SELECT = [
   'onboarding_dismissed_at',
 ].join(', ')
 
-const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, workspace_owner_user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
-const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, workspace_owner_user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
-const FREE_PLAN_KEY = PLAN_KEYS.individual
+const CLUB_SELECT = 'id, name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, workspace_owner_user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, subscription_team_capacity, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at'
+const MEMBERSHIP_CLUB_SELECT = '*, clubs:club_id (name, logo_url, contact_email, contact_phone, require_approval, status, suspended_at, plan_key, plan_status, is_plan_comped, workspace_owner_user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, subscription_team_capacity, plan_updated_at, tester_access_code_id, tester_access_code, tester_access_email, tester_access_redeemed_at, tester_access_expires_at)'
+const FREE_PLAN_KEY = PLAN_KEYS.matchday
 const TEST_SIGNUP_PLAN_KEY = PLAN_KEYS.smallClub
 const TEST_SIGNUP_PLAN_KEYS = PLAN_KEY_SET
 const ORPHAN_STAGING_ACCOUNT_MESSAGE = 'This staging account is not linked to an active test workspace. Ask the platform admin for a fresh test invite or create a new staging test account.'
@@ -517,6 +517,7 @@ async function updateClubBillingFromCheckout(clubId, checkoutRecord) {
       stripe_subscription_id: claimedRecord.stripe_subscription_id || null,
       stripe_price_id: claimedRecord.stripe_price_id || null,
       current_period_end: claimedRecord.current_period_end || null,
+      subscription_team_capacity: claimedRecord.subscription_team_capacity ?? null,
       plan_updated_at: new Date().toISOString(),
     })
     .eq('id', clubId)
@@ -692,6 +693,8 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
     stripe_subscription_id: checkoutRecord?.stripe_subscription_id || null,
     stripe_price_id: checkoutRecord?.stripe_price_id || null,
     current_period_end: checkoutRecord?.current_period_end || null,
+    subscription_team_capacity: checkoutRecord?.subscription_team_capacity ?? null,
+    matchday_free_forever: planKey === PLAN_KEYS.matchday,
     tester_access_code_id: testerAccessCode?.id || null,
     tester_access_code: testerAccessCode?.code || null,
     tester_access_email: testerAccessCode ? email : null,

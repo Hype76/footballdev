@@ -1,5 +1,11 @@
 import { getFeatureAccess, normalizePlanKey } from '../../../src/lib/paywall-access.js'
 import {
+  ACCESS_READINESS,
+  getCapabilityDefinition,
+  isCapabilityIncludedForPlan,
+  normalizeCapabilityKey,
+} from '../../../src/lib/paywall-capabilities.js'
+import {
   assertBillingActionAllowed,
   BILLING_ACTION_CATEGORIES,
 } from '../../../src/lib/billing-access.js'
@@ -49,6 +55,7 @@ function normalizePlanProfile(profile, authEmail, context = {}) {
     isPlanComped: testerAccessExpired ? false : Boolean(club?.is_plan_comped ?? profile.is_plan_comped),
     billingArrangement: String(club?.billing_arrangement ?? profile.billing_arrangement ?? '').trim(),
     billingStartAt: club?.billing_start_at ?? profile.billing_start_at ?? '',
+    subscriptionTeamCapacity: Number(club?.subscription_team_capacity ?? profile.subscription_team_capacity ?? 0) || null,
     workspaceOwnerUserId: String(club?.workspace_owner_user_id ?? profile.workspace_owner_user_id ?? '').trim(),
     isWorkspaceOwner: String(club?.workspace_owner_user_id ?? profile.workspace_owner_user_id ?? '').trim()
       === String(profile.id ?? '').trim(),
@@ -60,6 +67,23 @@ function normalizePlanProfile(profile, authEmail, context = {}) {
     playerId: String(context.playerId ?? context.player_id ?? '').trim(),
     ownsResource: context.ownsResource === true || context.isOwner === true,
     previewOnly: context.previewOnly === true,
+  }
+}
+
+async function loadMatchdayPolicy(planProfile, client = supabaseAdmin) {
+  if (planProfile?.planKey !== 'matchday') {
+    return planProfile
+  }
+
+  const { data, error } = await client.rpc('get_matchday_plan_config')
+
+  if (error || !data || typeof data !== 'object' || !data.flags) {
+    throw Object.assign(new Error('Matchday feature settings could not be verified.'), { statusCode: 503 })
+  }
+
+  return {
+    ...planProfile,
+    matchdayPolicy: data,
   }
 }
 
@@ -87,7 +111,7 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
 
   const authorityProfile = await loadActiveAuthorityProfile(supabaseAdmin, authUser, {
     clubId: normalizedClubId,
-    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, workspace_owner_user_id, tester_access_expires_at)',
+    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, subscription_team_capacity, workspace_owner_user_id, tester_access_expires_at)',
   })
   const profile = {
     ...authorityProfile,
@@ -112,7 +136,7 @@ export async function getAuthenticatedPlanProfile(event, { clubId = '', userId =
     throw Object.assign(new Error('This club workspace is suspended.'), { statusCode: 403 })
   }
 
-  return planProfile
+  return loadMatchdayPolicy(planProfile)
 }
 
 export async function getAuthenticatedRequestUser(event) {
@@ -134,16 +158,16 @@ export async function getAuthenticatedRequestUser(event) {
   }
 }
 
-export async function getClubPlanProfile(clubId) {
+export async function getClubPlanProfile(clubId, { client = supabaseAdmin } = {}) {
   const normalizedClubId = String(clubId ?? '').trim()
 
   if (!normalizedClubId) {
     throw Object.assign(new Error('Club details are required.'), { statusCode: 403 })
   }
 
-  const { data: club, error } = await supabaseAdmin
+  const { data: club, error } = await client
     .from('clubs')
-    .select('id, name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, workspace_owner_user_id, tester_access_expires_at')
+    .select('id, name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, subscription_team_capacity, workspace_owner_user_id, tester_access_expires_at')
     .eq('id', normalizedClubId)
     .maybeSingle()
 
@@ -151,7 +175,7 @@ export async function getClubPlanProfile(clubId) {
     throw Object.assign(new Error('Club details could not be loaded.'), { statusCode: 403 })
   }
 
-  return normalizePlanProfile(
+  return loadMatchdayPolicy(normalizePlanProfile(
     {
       id: '',
       email: '',
@@ -162,7 +186,7 @@ export async function getClubPlanProfile(clubId) {
       clubs: club,
     },
     '',
-  )
+  ), client)
 }
 
 export function assertPlanAccess(planProfile) {
@@ -229,6 +253,25 @@ export function assertPlanFeature(planProfile, featureName, {
   })
 }
 
+export function assertPlanEntitlement(planProfile, featureName, {
+  actionCategory = BILLING_ACTION_CATEGORIES.staffMutation,
+} = {}) {
+  const capabilityKey = normalizeCapabilityKey(featureName)
+  const capability = getCapabilityDefinition(capabilityKey)
+  const included = capability?.readiness === ACCESS_READINESS.active
+    && isCapabilityIncludedForPlan(planProfile?.planKey, capabilityKey, planProfile?.matchdayPolicy)
+
+  if (!included) {
+    const access = getFeatureAccess(planProfile, featureName)
+    throw Object.assign(new Error(createCapabilityDeniedMessage({
+      ...access,
+      reason: capability ? 'plan_not_included' : 'unknown_capability',
+    })), { statusCode: 403, access })
+  }
+
+  assertBillingActionAllowed(planProfile, actionCategory)
+}
+
 export function assertTrustedSystemPlanFeature(planProfile, featureName) {
   assertPlanFeatureWithBillingContext(planProfile, featureName, {
     actionCategory: BILLING_ACTION_CATEGORIES.staffMutation,
@@ -238,4 +281,11 @@ export function assertTrustedSystemPlanFeature(planProfile, featureName) {
 
 export function canUsePlanFeature(planProfile, featureName) {
   return getFeatureAccess(planProfile, featureName).allowed
+}
+
+export function canUsePlanEntitlement(planProfile, featureName) {
+  const capabilityKey = normalizeCapabilityKey(featureName)
+  const capability = getCapabilityDefinition(capabilityKey)
+  return capability?.readiness === ACCESS_READINESS.active
+    && isCapabilityIncludedForPlan(planProfile?.planKey, capabilityKey, planProfile?.matchdayPolicy)
 }

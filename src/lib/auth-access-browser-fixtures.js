@@ -35,6 +35,8 @@ const parentPortalLinks = [
     clubId: 'club-fixture',
     clubName: 'Fixture United',
     clubLogoUrl: '/assets/football-player-logo.png',
+    planKey: 'club',
+    planStatus: 'active',
     teamId: 'team-u12',
     teamName: 'U12 Fixture Team',
     status: 'active',
@@ -49,9 +51,28 @@ const multipleParentPortalLinks = [
     playerName: 'Second Fixture Child',
     clubId: 'club-fixture',
     clubName: 'Fixture United',
+    planKey: 'club',
+    planStatus: 'active',
     teamId: 'team-u12',
     teamName: 'U12 Fixture Team',
     status: 'active',
+  },
+]
+
+const matchdayParentPortalLinks = [
+  {
+    ...parentPortalLinks[0],
+    id: 'parent-link-matchday',
+    playerId: 'player-matchday',
+    playerName: 'Matchday Fixture Player',
+    planKey: 'matchday',
+  },
+  {
+    ...multipleParentPortalLinks[1],
+    id: 'parent-link-paid',
+    playerId: 'player-paid',
+    playerName: 'Paid Fixture Player',
+    planKey: 'club',
   },
 ]
 
@@ -256,6 +277,23 @@ const fixtureAccounts = {
       activeTeamId: '',
       activeTeamName: '',
       parentPortalLinks: multipleParentPortalLinks,
+    }),
+  },
+  'parent-plan-gates.fixture@footballplayer.test': {
+    password: 'FixturePass123!',
+    hasPlatformAdminAccess: false,
+    defaultMode: 'parent',
+    parentProfile: makeBaseProfile('parent-plan-gates.fixture@footballplayer.test', {
+      name: 'Plan Gates Parent Fixture',
+      role: 'parent_portal',
+      roleLabel: 'Parent',
+      roleRank: 0,
+      clubId: '',
+      clubName: 'Fixture Family',
+      team: 'Fixture Family',
+      activeTeamId: '',
+      activeTeamName: '',
+      parentPortalLinks: matchdayParentPortalLinks,
     }),
   },
   'parent-unlinked.fixture@footballplayer.test': {

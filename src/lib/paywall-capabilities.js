@@ -1,4 +1,9 @@
+import { CLUB_ONLY_CAPABILITIES, isMatchdayCapabilityEnabled } from './matchday-policy.js'
+
 export const ACCESS_PLAN_KEYS = Object.freeze({
+  matchday: 'matchday',
+  team: 'team',
+  club: 'club',
   individual: 'individual',
   singleTeam: 'single_team',
   smallClub: 'small_club',
@@ -22,6 +27,11 @@ export const ACCESS_LIMITS = Object.freeze({
 })
 
 export const CAPABILITIES = Object.freeze({
+  players: 'players',
+  trialPlayers: 'trialPlayers',
+  resourceLibrary: 'resourceLibrary',
+  staffChat: 'staffChat',
+  parentChat: 'parentChat',
   secureAuthentication: 'secureAuthentication',
   accountProtection: 'accountProtection',
   safeguardingControls: 'safeguardingControls',
@@ -169,6 +179,11 @@ const coreCapability = (key, label, securityNotes) => capability({
 })
 
 export const CAPABILITY_REGISTRY = Object.freeze({
+  [CAPABILITIES.players]: capability({ key: 'players', label: 'Players', includedPlans: ALL_PLANS }),
+  [CAPABILITIES.trialPlayers]: capability({ key: 'trialPlayers', label: 'Trial players', includedPlans: SINGLE_TEAM_AND_ABOVE }),
+  [CAPABILITIES.resourceLibrary]: capability({ key: 'resourceLibrary', label: 'Resource library', includedPlans: SINGLE_TEAM_AND_ABOVE }),
+  [CAPABILITIES.staffChat]: capability({ key: 'staffChat', label: 'Staff chat', includedPlans: SINGLE_TEAM_AND_ABOVE }),
+  [CAPABILITIES.parentChat]: capability({ key: 'parentChat', label: 'Parent chat', includedPlans: SINGLE_TEAM_AND_ABOVE }),
   [CAPABILITIES.secureAuthentication]: coreCapability(CAPABILITIES.secureAuthentication, 'Secure authentication', 'Secure authentication is a baseline control, not a premium feature.'),
   [CAPABILITIES.accountProtection]: coreCapability(CAPABILITIES.accountProtection, 'Account protection', 'Account protection stays available wherever accounts exist.'),
   [CAPABILITIES.safeguardingControls]: coreCapability(CAPABILITIES.safeguardingControls, 'Safeguarding controls', 'Safeguarding controls must not be gated as paid value.'),
@@ -320,13 +335,16 @@ export function isCapabilityKnown(capabilityKey) {
   return Boolean(getCapabilityDefinition(capabilityKey))
 }
 
-export function isCapabilityIncludedForPlan(planKey, capabilityKey) {
+export function isCapabilityIncludedForPlan(planKey, capabilityKey, matchdayPolicy) {
   const capabilityDefinition = getCapabilityDefinition(capabilityKey)
 
   if (!capabilityDefinition) {
     return false
   }
 
+  if (planKey === 'matchday') return isMatchdayCapabilityEnabled(capabilityDefinition.key, matchdayPolicy)
+  if (planKey === 'team') return capabilityDefinition.key !== 'platformAdminAccess' && !CLUB_ONLY_CAPABILITIES.includes(capabilityDefinition.key)
+  if (planKey === 'club') return capabilityDefinition.key !== 'platformAdminAccess'
   return capabilityDefinition.includedPlans.includes(getEntitlementPlanKey(planKey))
 }
 
@@ -335,6 +353,11 @@ export function getRequiredUpgradePlanKeyForCapability(capabilityKey, currentPla
 
   if (!capabilityDefinition) {
     return ''
+  }
+
+  if (['matchday', 'team', 'club'].includes(currentPlanKey)) {
+    const modernPlans = ['matchday', 'team', 'club']
+    return modernPlans.slice(modernPlans.indexOf(currentPlanKey) + 1).find(key => isCapabilityIncludedForPlan(key, capabilityKey)) || ''
   }
 
   const currentIndex = PLAN_ORDER.indexOf(getEntitlementPlanKey(currentPlanKey))

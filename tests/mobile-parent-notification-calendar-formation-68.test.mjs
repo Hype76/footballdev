@@ -86,7 +86,7 @@ test('opening a grouped Chat card marks every child-scoped event in that room re
   assert.match(actions, /\.eq\('auth_user_id', authUser\.id\)/)
   assert.match(actions, /\.eq\('parent_link_id', link\.id\)/)
   assert.match(endpoint, /\.gte\('created_at', link\.created_at\)/)
-  assert.match(endpoint, /filterUnavailableNotifications\(collapsedNotifications, link\)/)
+  assert.match(endpoint, /filterUnavailableNotifications\(collapsedNotifications, link, planProfile\)/)
   assert.match(endpoint, /match_day_availability_requests/)
   assert.match(endpoint, /training_availability_request_players/)
   assert.match(endpoint, /resource_library_items/)

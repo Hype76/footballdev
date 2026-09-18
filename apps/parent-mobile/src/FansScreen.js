@@ -11,7 +11,7 @@ import QRCode from 'qrcode/lib/core/qrcode'
 import { supabase, getAccessToken } from '../../mobile-core/src/supabase'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { useMobileAuth } from '../../mobile-core/src/auth'
-import { FAN_ACCESS, fanAccessSummary, fanInviteUrl, normalizeFanPermissions, validateFanInvite } from '../../../src/lib/fans'
+import { FAN_ACCESS, fanAccessSummary, fanInviteUrl, getFanAccessForPlan, isFanAccessAllowedForPlan, normalizeFanPermissions, restrictFanPermissionsForPlan, validateFanInvite } from '../../../src/lib/fans'
 import { useFans } from '../../../src/lib/use-fans'
 import { fetchFansJson } from '../../../src/lib/fans-fetch'
 import ParentIcon from './ParentIcon'
@@ -24,6 +24,7 @@ import { PartnersBanner, PartnersScreen } from './PartnersScreen'
 import { readFanDeviceNotifications, enableFanDeviceNotifications } from './fanDeviceNotifications'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 import { mixThemeColor, themeForeground } from '../../mobile-core/src/themeContrast'
+import { loadMatchdayPlanConfig } from '../../mobile-core/src/matchdayPlanData'
 
 function FanSwitch({ value, disabled = false, accessibilityLabel, onValueChange, inline = false }) {
   const tokens = useContext(FansTheme)
@@ -79,8 +80,8 @@ function OwnedFanRow({ connection, busy, onEdit, onRemove, onRenew, onDelete }) 
     </View> : null}
   </View>
 }
-function ClubBrand({ source }) {
-  const brand = fanBrandingLink(source)
+function ClubBrand({ source, matchdayPolicy }) {
+  const brand = fanBrandingLink(source, matchdayPolicy)
   const tokens = useContext(FansTheme)
   const [failedUrl, setFailedUrl] = useState('')
   if (!brand.clubName) return null
@@ -109,10 +110,11 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const { clearView, reload, open } = state
   const parents = (user?.parentPortalLinks || []).filter((p) => p.linkType !== 'fan' && p.linkType !== 'family')
   const [parentId, setParentId] = useState(user?.selectedParentLinkId || parents[0]?.id || '')
+  const [matchdayPolicy, setMatchdayPolicy] = useState(null)
   const parent = parents.find((p) => p.id === (selectedParentLinkId ?? parentId)) || parents[0]
   const brandSource = state.connections.find((c) => c.id === state.view?.connectionId) || parent || state.connections.find((c) => !c.is_owner && c.status === 'active')
   const displayMode = themeMode || savedMode
-  const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode).tokens : themeTokens || DEFAULT_PARENT_MOBILE_THEME.tokens, [brandSource, displayMode, themeTokens])
+  const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode, matchdayPolicy).tokens : themeTokens || DEFAULT_PARENT_MOBILE_THEME.tokens, [brandSource, displayMode, matchdayPolicy, themeTokens])
   const styles = useMemo(() => createStyles(tokens), [tokens])
   const [form, setForm] = useState(null)
   const [confirm, setConfirm] = useState(null)
@@ -136,6 +138,14 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const handledNotification = useRef('')
   const lastNotification = Notifications.useLastNotificationResponse()
   const run = async (action) => { setBusy(true); state.setError(''); try { await action() } catch (e) { state.setError(e.message) } finally { setBusy(false) } }
+  const hasMatchdayConnection = [...parents, ...state.connections].some((connection) => String(connection?.planKey || connection?.plan_key || '').toLowerCase() === 'matchday')
+  useEffect(() => {
+    let active = true
+    if (!hasMatchdayConnection) { setMatchdayPolicy(null); return undefined }
+    setMatchdayPolicy(null)
+    void loadMatchdayPlanConfig().then((policy) => { if (active) setMatchdayPolicy(policy) }).catch(() => { if (active) setMatchdayPolicy(null) })
+    return () => { active = false }
+  }, [hasMatchdayConnection])
   useEffect(() => {
     const listener = AppState.addEventListener('change', (status) => { if (status !== 'active') { clearView(); setFormation(null); setReady(null) } else void reload().catch(() => {}) })
     return () => listener.remove()
@@ -143,14 +153,36 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   useEffect(() => {
     const data = lastNotification?.notification?.request?.content?.data
     const notificationId = lastNotification?.notification?.request?.identifier
-    if (data?.route === 'fans' && data.fanConnectionId && notificationId !== handledNotification.current && state.connections.some((c) => c.id === data.fanConnectionId && c.permissions.game_day)) {
+    if (data?.route === 'fans' && data.fanConnectionId && notificationId !== handledNotification.current && state.connections.some((c) => c.id === data.fanConnectionId && c.permissions.game_day && isFanAccessAllowedForPlan(c, 'matches', matchdayPolicy))) {
       handledNotification.current = notificationId
       void open(data.fanConnectionId, 'matches', data.matchDayId ? { matchId: data.matchDayId } : {})
     }
-  }, [lastNotification, open, state.connections])
+  }, [lastNotification, matchdayPolicy, open, state.connections])
   useEffect(() => { setFormation(null) }, [state.view])
-  const begin = (existing) => { clearView(); requestId.current = Crypto.randomUUID(); setReady(null); setForm(existing ? { id: existing.id, name: existing.name, email: existing.email, permissions: existing.permissions } : { name: '', email: '', permissions: normalizeFanPermissions({ game_day: true }) }) }
-  const review = (mode) => { try { setConfirm({ ...validateFanInvite(form), id: form.id, mode, parentId: parent?.id, child: parent?.playerName }) } catch (e) { state.setError(e.message) } }
+  useEffect(() => {
+    if (!state.view) return
+    const connection = state.connections.find((item) => item.id === state.view.connectionId)
+    if (connection && !isFanAccessAllowedForPlan(connection, state.view.action, matchdayPolicy)) {
+      state.clearView()
+      state.setError('That section is not available for this player\'s team plan.')
+    }
+  }, [matchdayPolicy, state, state.connections, state.view])
+  const ownerAccess = getFanAccessForPlan(parent, matchdayPolicy)
+  const begin = (existing) => {
+    clearView(); requestId.current = Crypto.randomUUID(); setReady(null)
+    const permissions = existing?.permissions || { game_day: ownerAccess.some((item) => item.key === 'game_day'), schedule: ownerAccess.some((item) => item.key === 'schedule') }
+    setForm(existing ? { id: existing.id, name: existing.name, email: existing.email, permissions: restrictFanPermissionsForPlan(permissions, parent, matchdayPolicy) } : { name: '', email: '', permissions: restrictFanPermissionsForPlan(permissions, parent, matchdayPolicy) })
+  }
+  const review = (mode) => { try { setConfirm({ ...validateFanInvite({ ...form, permissions: restrictFanPermissionsForPlan(form?.permissions, parent, matchdayPolicy) }), id: form.id, mode, parentId: parent?.id, child: parent?.playerName }) } catch (e) { state.setError(e.message) } }
+  const openFanSection = (connection, action, details) => {
+    if (!isFanAccessAllowedForPlan(connection, action, matchdayPolicy)) {
+      state.clearView()
+      state.setError('That section is not available for this player\'s team plan.')
+      return
+    }
+    setFormation(null)
+    void state.open(connection.id, action, details)
+  }
   const complete = () => run(async () => {
     const draft = confirm
     if (draft.id) await state.manage(draft.id, 'permissions', draft.permissions)
@@ -224,7 +256,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const followed = state.connections.filter(c => !c.is_owner && c.status === 'active')
   const ownedFans = state.connections.filter(c => c.is_owner && c.parent_link_id === parent?.id)
   const showSection = next => { setSection(next); closeContent(); localScrollRef.current?.scrollTo({ y: 0, animated: false }) }
-  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, embedded && { padding: 0 }, { backgroundColor: state.view ? tokens.portalSurface : displayMode === 'light' ? '#f7f8fa' : tokens.portalBackground }]}>{!embedded && brandSource ? <ClubBrand source={brandSource} /> : null}
+  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, embedded && { padding: 0 }, { backgroundColor: state.view ? tokens.portalSurface : displayMode === 'light' ? '#f7f8fa' : tokens.portalBackground }]}>{!embedded && brandSource ? <ClubBrand source={brandSource} matchdayPolicy={matchdayPolicy} /> : null}
     {section === 'more' && !state.view ? <>
       <Text accessibilityRole="header" style={styles.title}>More</Text>
       <PartnersBanner onPress={() => showSection('partners')} />
@@ -268,17 +300,17 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
       {form ? <View>
         <Text style={styles.label}>Name</Text><TextInput accessibilityLabel="Fan name" autoComplete="name" editable={!form.id} maxLength={120} value={form.name} onChangeText={(name) => setForm({ ...form, name })} style={styles.input} />
         <Text style={styles.label}>Email</Text><TextInput accessibilityLabel="Fan email" autoComplete="email" autoCapitalize="none" keyboardType="email-address" editable={!form.id} maxLength={254} value={form.email} onChangeText={(email) => setForm({ ...form, email })} style={styles.input} />
-        <Text style={styles.label}>Choose access</Text>{FAN_ACCESS.map((item) => <View style={styles.permission} key={item.key}><ParentIcon iconKey={item.icon} color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{item.label}</Text><Text style={styles.helper}>{item.description}</Text></View><FanSwitch accessibilityLabel={item.label} disabled={item.key === 'resources' && !form.permissions.development} value={form.permissions[item.key]} onValueChange={(value) => setForm({ ...form, permissions: normalizeFanPermissions({ ...form.permissions, [item.key]: value }) })} /></View>)}
+        <Text style={styles.label}>Choose access</Text>{ownerAccess.map((item) => <View style={styles.permission} key={item.key}><ParentIcon iconKey={item.icon} color={tokens.accentText} size={26} /><View style={styles.copy}><Text style={styles.label}>{item.label}</Text><Text style={styles.helper}>{item.description}</Text></View><FanSwitch accessibilityLabel={item.label} disabled={item.key === 'resources' && !form.permissions.development} value={form.permissions[item.key]} onValueChange={(value) => setForm({ ...form, permissions: normalizeFanPermissions({ ...form.permissions, [item.key]: value }) })} /></View>)}
         {form.id && state.connections.some(connection => connection.id === form.id && connection.status === 'active' && connection.relationship_type !== 'player') ? <Action label="Make this the Player account" disabled={busy} onPress={() => setConvertAccount({ ...form, playerAccount: true })} /> : null}
         {form.id && state.connections.some(connection => connection.id === form.id && connection.status === 'active' && connection.relationship_type === 'player') ? <Action label="Change to a regular Fan" disabled={busy} onPress={() => setConvertAccount({ ...form, playerAccount: false })} /> : null}
         <View style={styles.actions}>{form.id ? <Action label="Review changes" onPress={() => review('edit')} /> : <><Action icon="fan.email" label="Email" onPress={() => review('email')} disabled={busy} /><Action icon="fan.qr" label="QR code" onPress={() => review('qr')} disabled={busy} /><Action icon="fan.share" label="Share link" onPress={() => review('share')} disabled={busy} /></>}<Action label="Cancel" onPress={() => setForm(null)} /></View>
       </View> : null}
       {ready ? <View><Text style={{ color: tokens.textPrimary }}>Invitation ready for {ready.name} ({ready.email}). Expires {formatParentProductDateTime(ready.expires_at, { year: 'numeric' })}.</Text>{ready.mode === 'qr' ? <Qr value={ready.url} /> : null}<View style={styles.actions}><Action icon="fan.share" label="Share invitation" onPress={() => Share.share({ message: ready.url })} /><Action icon="fan.email" label="Send email" onPress={() => run(() => request({ action: 'send_invitation', connectionId: ready.id }))} /></View></View> : null}
       <View style={styles.fansHeading}><View style={styles.row}><Text accessibilityRole="header" style={[styles.heading, { marginTop: 0, flex: 1, fontSize: 22, fontWeight: '800' }]}>Your player's Fans</Text><Text accessibilityLabel={`${ownedFans.length} accounts and invitations`} style={styles.fanCount}>{ownedFans.length}</Text></View><Text style={styles.helper}>Manage sharing for {parent?.playerName}.</Text></View>
-      <View style={styles.ownerFanList}>{ownedFans.map(c => <OwnedFanRow key={c.id} connection={c} busy={busy} onEdit={() => begin(c)} onRemove={() => remove(c, false)} onRenew={mode => reopenInvitation(c, mode)} onDelete={() => deleteInvitation(c)} />)}</View>
+      <View style={styles.ownerFanList}>{ownedFans.map(c => <OwnedFanRow key={c.id} connection={{ ...c, permissions: restrictFanPermissionsForPlan(c.permissions, parent, matchdayPolicy) }} busy={busy} onEdit={() => begin(c)} onRemove={() => remove(c, false)} onRenew={mode => reopenInvitation(c, mode)} onDelete={() => deleteInvitation(c)} />)}</View>
       {!state.loading && !ownedFans.length ? <Text style={styles.helper}>No Fan accounts for this player yet.</Text> : null}
     </> : null}
-    <View accessibilityLabel="Players you follow">{state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode).tokens}><FanPlayerCard connection={c} mode={displayMode} busy={busy} SwitchControl={FanSwitch} onOpen={(action) => { setFormation(null); void state.open(c.id, action) }} onNotifications={(value) => run(() => state.manage(c.id, value ? 'notifications_on' : 'notifications_off'))} /></FansTheme.Provider>)}</View>
+    <View accessibilityLabel="Players you follow">{state.connections.filter((c) => !c.is_owner && c.status === 'active').map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode, matchdayPolicy).tokens}><FanPlayerCard connection={c} matchdayPolicy={matchdayPolicy} mode={displayMode} busy={busy} SwitchControl={FanSwitch} onOpen={(action) => openFanSection(c, action)} onNotifications={(value) => run(() => state.manage(c.id, value ? 'notifications_on' : 'notifications_off'))} /></FansTheme.Provider>)}</View>
     {!parents.length && !state.loading && !state.connections.some(c => !c.is_owner && c.status === 'active') ? <Text style={styles.helper}>You are not following any players yet. Open a Fan invitation to get started.</Text> : null}
 
 

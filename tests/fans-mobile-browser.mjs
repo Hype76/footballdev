@@ -15,7 +15,7 @@ const app = await readFile('apps/parent-mobile/App.js', 'utf8')
 const handler = app.slice(app.indexOf('  function handleChildChange('), app.indexOf('  async function handleOpenMessage('))
 const sectionReset = app.match(/setMoreSection\(\(section\) => section === 'fans' \? section : ''\)/)?.[0]
 assert.ok(sectionReset, 'Authority refresh preserves the Fans route')
-assert.match(app, /moreSection && moreSection !== 'fans' \? <BackButton/, 'Embedded Fans uses the More tab instead of a duplicate Back row')
+assert.match(app, /renderedActiveTab === 'more' && renderedMoreSection && renderedMoreSection !== 'fans' \? <BackButton/, 'Embedded Fans uses the More tab instead of a duplicate Back row')
 assert.match(app, /selectedParentLinkId=\{selectedLink\?\.id\} onSelectedParentLinkChange=\{\(linkId\) => handleChildChange\(linkId, \{ stayOnFans: true \}\)\}/)
 const mocks = {
   auth: `export const useMobileAuth=()=>({user:window.user,refreshUserProfile:async()=>window.remount(),signOut:async()=>{if(window.failSignOut)throw Error('Could not sign out. Try again.');window.signedOut=(window.signedOut||0)+1}});`,
@@ -36,12 +36,12 @@ import React,{useState,useEffect,useRef} from 'react'; import {createRoot} from 
 import {Alert,AppState,Share,Platform} from 'react-native';
 window.phonePlatform=value=>{Platform.OS=value};
 import {FansScreen} from './apps/parent-mobile/src/FansScreen.js';
-window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'First Child',clubName:'Demo FC',themeAccent:'#414b92'},{id:'second',playerName:'Second Child',clubName:'Demo FC',themeAccent:'#414b92'}]};
+window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'First Child',clubName:'Demo FC',themeAccent:'#414b92',planKey:'large_club',planStatus:'active'},{id:'second',playerName:'Second Child',clubName:'Demo FC',themeAccent:'#414b92',planKey:'large_club',planStatus:'active'}]};
 window.calls=[];window.rows=[];window.saved='';window.alert=null;
 window.ownerFixture=()=>{
  window.ownerCompact=true;window.standalone=false;
- window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'Jenson Bailey',clubName:'Cambourne Town FC',themeAccent:'#073e83'},{id:'second',playerName:'Lucas Turner',clubName:'Football Player Demo FC',themeAccent:'#073e83'}]};
- window.rows=['Jenson Bailey','Steve','Julie','Elyse','Grandad','Brian'].map((name,index)=>({id:'compact-'+index,parent_link_id:'first',is_owner:true,name,email:name.toLowerCase().replaceAll(' ','.')+'@example.test',relationship_type:index===0?'player':'fan',status:index===4?'expired':'active',permissions:{schedule:true,game_day:true,development:index===0,resources:false}}));
+ window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'Jenson Bailey',clubName:'Cambourne Town FC',themeAccent:'#073e83',planKey:'large_club',planStatus:'active'},{id:'second',playerName:'Lucas Turner',clubName:'Football Player Demo FC',themeAccent:'#073e83',planKey:'large_club',planStatus:'active'}]};
+ window.rows=['Jenson Bailey','Steve','Julie','Elyse','Grandad','Brian'].map((name,index)=>({id:'compact-'+index,parent_link_id:'first',is_owner:true,name,email:name.toLowerCase().replaceAll(' ','.')+'@example.test',relationship_type:index===0?'player':'fan',status:index===4?'expired':'active',plan_key:'large_club',plan_status:'active',permissions:{schedule:true,game_day:true,development:index===0,resources:false}}));
 };
 const ownerPreview=location.pathname.endsWith('/owner-preview.html');
 if(ownerPreview)window.ownerFixture();
@@ -231,7 +231,7 @@ try {
   await button('First Child (selected)').waitFor()
   await page.evaluate(() => {
     window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};
-    window.rows=[{id:'followed-child',is_owner:false,status:'active',player_name:'Followed Child',club_name:'Demo FC',team_name:'Under 17',permissions:{schedule:true,game_day:true,development:true,resources:true}}];
+    window.rows=[{id:'followed-child',is_owner:false,status:'active',player_name:'Followed Child',club_name:'Demo FC',team_name:'Under 17',plan_key:'large_club',plan_status:'active',permissions:{schedule:true,game_day:true,development:true,resources:true}}];
     window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:new Date(Date.now()+8*86400000).toISOString().slice(0,10),status:'live'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice',category:'match_day'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
     window.remount();
   });
@@ -387,8 +387,8 @@ try {
   await button('Game Day').waitFor({state:'hidden'});
   await page.evaluate(()=>{
     window.rows=[
-      {id:'sample-a',is_owner:false,status:'active',player_name:'Jenson Bailey',club_name:'Cambourne Town FC',team_name:'U14 JPL 26/27',theme_accent:'#0645a6',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:false}},
-      {id:'sample-b',is_owner:false,status:'active',player_name:'John Barnes',club_name:'Football Player Demo FC',team_name:'U17 Green',theme_accent:'#0645a6',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:true}},
+      {id:'sample-a',is_owner:false,status:'active',player_name:'Jenson Bailey',club_name:'Cambourne Town FC',team_name:'U14 JPL 26/27',theme_accent:'#0645a6',plan_key:'large_club',plan_status:'active',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:false}},
+      {id:'sample-b',is_owner:false,status:'active',player_name:'John Barnes',club_name:'Football Player Demo FC',team_name:'U17 Green',theme_accent:'#0645a6',plan_key:'large_club',plan_status:'active',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:true}},
     ];window.mode('light');window.remount();
   });
   await page.getByText('Jenson Bailey',{exact:true}).waitFor();
@@ -402,8 +402,8 @@ try {
   await button('Remove my access to Jenson Bailey').click();
   assert.equal(await page.evaluate(()=>window.alert.title),'Remove my access');
   await page.evaluate(()=>{
-    window.standalone=false;window.user={id:'parent-test',parentPortalLinks:[{id:'second',playerName:'FP TEST Player',clubName:'Demo FC'}]};
-    window.rows=[{id:'convert-player',is_owner:true,parent_link_id:'second',status:'active',relationship_type:'fan',name:'FP TEST Account',email:'player@example.test',player_name:'FP TEST Player',permissions:{schedule:false,game_day:true,development:false,resources:false}}];window.remount();
+    window.standalone=false;window.user={id:'parent-test',parentPortalLinks:[{id:'second',playerName:'FP TEST Player',clubName:'Demo FC',planKey:'large_club',planStatus:'active'}]};
+    window.rows=[{id:'convert-player',is_owner:true,parent_link_id:'second',status:'active',relationship_type:'fan',name:'FP TEST Account',email:'player@example.test',player_name:'FP TEST Player',plan_key:'large_club',plan_status:'active',permissions:{schedule:false,game_day:true,development:false,resources:false}}];window.remount();
   });
   await button('Edit access').click();await button('Make this the Player account').click();
   await page.getByText('Make this the Player account?',{exact:true}).waitFor();

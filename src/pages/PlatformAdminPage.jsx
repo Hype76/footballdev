@@ -16,6 +16,7 @@ import { PlatformFeedbackSection } from '../components/platform/PlatformFeedback
 import { PlatformBannerManagementSection } from '../components/platform/PlatformBannerManagementSection.jsx'
 import { PlatformHeroSection, PlatformStatGrid } from '../components/platform/PlatformHeroSection.jsx'
 import { PlatformAnalyticsSection } from '../components/platform/PlatformAnalyticsSection.jsx'
+import { PlatformMatchdayConfigSection } from '../components/platform/PlatformMatchdayConfigSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { PageHeader } from '../components/ui/PageHeader.jsx'
@@ -215,6 +216,10 @@ const PAGE_META = {
     title: 'Data Hygiene',
     description: 'Review active, archived, communication, and recent admin record quality without destructive cleanup.',
   },
+  'matchday-config': {
+    title: 'Matchday plan configuration',
+    description: 'Manage the canonical Matchday free tier capabilities and server validated defaults.',
+  },
 }
 
 export function PlatformAdminPage({ section = 'dashboard' }) {
@@ -228,6 +233,7 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
   const showBanners = section === 'banners'
   const showPlatformStaff = section === 'staff'
   const showDataHygiene = section === 'hygiene'
+  const showMatchdayConfig = section === 'matchday-config'
   const showLegacyFeedback = section === 'feedback-legacy'
   const [stats, setStats] = useState(() => readCachedPlatformStats())
   const [analyticsReport, setAnalyticsReport] = useState(null)
@@ -733,10 +739,10 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
     setNewClubForm((current) => ({
       ...current,
       [fieldName]: value,
-      ...(fieldName === 'billingArrangement' && value !== 'complimentary' && current.planKey === 'individual'
+      ...(fieldName === 'billingArrangement' && value !== 'complimentary' && ['individual', 'matchday'].includes(current.planKey)
         ? { planKey: 'single_team' }
         : {}),
-      ...(fieldName === 'planKey' && [PLAN_KEYS.individual, PLAN_KEYS.pilot].includes(value)
+      ...(fieldName === 'planKey' && [PLAN_KEYS.individual, PLAN_KEYS.matchday, PLAN_KEYS.pilot].includes(value)
         ? { billingArrangement: 'complimentary', billingStartDate: '' }
         : {}),
       ...(fieldName === 'billingArrangement' && value !== 'deferred'
@@ -1456,6 +1462,8 @@ export function PlatformAdminPage({ section = 'dashboard' }) {
       {showDataHygiene ? (
         <PlatformDataHygieneSection platformTotals={platformTotals} />
       ) : null}
+
+      {showMatchdayConfig ? <PlatformMatchdayConfigSection /> : null}
 
       {showClubManagement ? (
         <div className="space-y-5">

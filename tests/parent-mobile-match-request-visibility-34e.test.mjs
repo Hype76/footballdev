@@ -42,7 +42,7 @@ test('Parent Home names the Invites destination and shares its grouped response 
   assert.match(parentAppSource, /inviteCount=\{unansweredInvites\}/)
   assert.match(parentAppSource, /count=\{inviteCount\} iconKey="parent.invites" label="Invites"/)
   assert.match(parentAppSource, /onPress=\{onOpenInvites\}/)
-  assert.match(parentAppSource, /moreSection === 'invites'/)
+  assert.match(parentAppSource, /renderedMoreSection === 'invites'/)
   assert.match(parentAppSource, /<InvitationsScreen/)
 })
 

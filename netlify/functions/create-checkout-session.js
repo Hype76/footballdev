@@ -1,5 +1,5 @@
 import process from 'node:process'
-import { arePaymentsDisabled, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json } from './lib/_stripe-billing.js'
+import { arePaymentsDisabled, getCheckoutLineItems, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json, validateCheckoutPrices } from './lib/_stripe-billing.js'
 import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
 import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
@@ -40,7 +40,7 @@ async function getValidatedLivePromotionCodeId(stripe, promotionCodeId) {
 export async function createCheckoutSession(stripe, params, livePromotionCodeId = '') {
   const checkoutParams = {
     mode: 'subscription',
-    line_items: [{ price: params.priceId, quantity: 1 }],
+    line_items: params.lineItems || [{ price: params.priceId, quantity: 1 }],
     success_url: `${params.appUrl}/sign-in?checkout=success&plan=${encodeURIComponent(params.planName)}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${params.appUrl}/sign-in?checkout=cancelled`,
     customer_email: params.customerEmail || undefined,
@@ -52,6 +52,7 @@ export async function createCheckoutSession(stripe, params, livePromotionCodeId 
         billingCycle: params.billingCycle,
         clubName: params.clubName,
         workspaceScope: params.workspaceScope,
+        teamCapacity: params.teamCapacity,
       },
     },
     metadata: {
@@ -60,6 +61,7 @@ export async function createCheckoutSession(stripe, params, livePromotionCodeId 
       billingCycle: params.billingCycle,
       clubName: params.clubName,
       workspaceScope: params.workspaceScope,
+      teamCapacity: params.teamCapacity,
     },
   }
 
@@ -87,6 +89,8 @@ export async function handler(event) {
     const billingCycle = cleanString(body.billingCycle || 'monthly').toLowerCase()
     const customerEmail = cleanString(body.customerEmail)
     const clubName = cleanString(body.clubName)
+    const isModernPlan = ['team', 'club'].includes(planKey)
+    const teamCapacity = isModernPlan ? (body.teamCapacity ?? (planKey === 'club' ? 10 : 1)) : undefined
 
     if (!planKey) {
       return json(400, { success: false, message: 'Choose a valid billing plan.' })
@@ -106,14 +110,16 @@ export async function handler(event) {
     if (!workspaceScope.supported) {
       return json(400, { success: false, message: 'Choose a supported billing plan.' })
     }
-    const priceId = getCheckoutPriceId(planKey, billingCycle)
+    const priceId = isModernPlan ? '' : getCheckoutPriceId(planKey, billingCycle)
+    const lineItems = isModernPlan ? getCheckoutLineItems(planKey, billingCycle, teamCapacity) : undefined
 
-    if (!priceId) {
+    if (!isModernPlan && !priceId) {
       return json(400, { success: false, message: 'This plan is not available for checkout yet' })
     }
 
     const appUrl = (process.env.VITE_APP_URL || process.env.URL || 'https://footballplayer.online').replace(/\/$/, '')
     const stripe = createStripeServerClient()
+    if (isModernPlan) await validateCheckoutPrices(stripe, lineItems, planKey, billingCycle, teamCapacity)
     const livePromotionCodeId = await getValidatedLivePromotionCodeId(stripe, body.livePromotionCodeId)
 
     const checkoutParams = {
@@ -125,6 +131,8 @@ export async function handler(event) {
       planName,
       priceId,
       workspaceScope: workspaceScope.key,
+      teamCapacity,
+      lineItems,
     }
     let session
     let promotionApplied = Boolean(livePromotionCodeId)
@@ -144,6 +152,6 @@ export async function handler(event) {
     return json(200, { success: true, url: session.url, promotionApplied })
   } catch (error) {
     logStripeFailure('Checkout request failed', error)
-    return json(500, { success: false, message: 'Checkout could not be started' })
+    return json(error instanceof RangeError ? 400 : 500, { success: false, message: error instanceof RangeError ? 'Invalid checkout selection.' : 'Checkout could not be started' })
   }
 }

@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
+import { PlanPriceCalculator } from '../components/billing/PlanPriceCalculator.jsx'
+import { PlanInsights } from '../components/billing/PlanInsights.jsx'
 import { canViewBilling, useAuth } from '../lib/auth.js'
 import { formatUkDate } from '../lib/date-format.js'
 import { getPlanName } from '../lib/plans.js'
+import { quoteSubscription } from '../lib/subscription-pricing.js'
 
 const SUPPORT_EMAIL = 'support@footballplayer.online'
 
@@ -85,6 +88,8 @@ export function BillingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [isStartingCheckout, setIsStartingCheckout] = useState(false)
+  const [modernPlanKey, setModernPlanKey] = useState('club')
+  const [modernQuote, setModernQuote] = useState(() => quoteSubscription({ planKey: 'club', teamCapacity: 10, billingCycle: 'monthly' }))
 
   useEffect(() => {
     let isMounted = true
@@ -111,6 +116,14 @@ export function BillingPage() {
 
         if (isMounted) {
           setBilling(result.billing)
+          const loadedPlanKey = result.billing?.club?.planKey
+          if (['matchday', 'team', 'club'].includes(loadedPlanKey)) {
+            const loadedCapacity = loadedPlanKey === 'club'
+              ? Number(result.billing.club.subscriptionTeamCapacity || 10)
+              : 1
+            setModernPlanKey(loadedPlanKey)
+            setModernQuote(quoteSubscription({ planKey: loadedPlanKey, teamCapacity: loadedCapacity, billingCycle: 'monthly' }))
+          }
         }
       } catch (error) {
         console.error(error)
@@ -141,6 +154,7 @@ export function BillingPage() {
       stripeCustomerId: user?.stripeCustomerId,
       stripeSubscriptionId: user?.stripeSubscriptionId,
       currentPeriodEnd: user?.currentPeriodEnd,
+      subscriptionTeamCapacity: user?.subscriptionTeamCapacity,
       planUpdatedAt: user?.planUpdatedAt,
       billingArrangement: user?.billingArrangement,
       billingStartAt: user?.billingStartAt,
@@ -172,7 +186,12 @@ export function BillingPage() {
     },
   ]
 
-  const startCheckout = async () => {
+  const startCheckout = async ({ modern = true } = {}) => {
+    const isModernPlan = modern && ['matchday', 'team', 'club'].includes(modernPlanKey)
+    if (isModernPlan && modernPlanKey === 'matchday') {
+      return
+    }
+
     setIsStartingCheckout(true)
     setErrorMessage('')
     try {
@@ -182,7 +201,13 @@ export function BillingPage() {
           Authorization: `Bearer ${session?.access_token || ''}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ billingCycle: 'monthly' }),
+        body: JSON.stringify(isModernPlan
+          ? {
+              planKey: modernPlanKey,
+              teamCapacity: modernQuote?.includedTeams,
+              billingCycle: modernQuote?.billingCycle || 'monthly',
+            }
+          : { billingCycle: 'monthly' }),
       })
       const result = await response.json().catch(() => ({}))
       if (!response.ok || !result.url) throw new Error(result.message || 'Checkout could not be started.')
@@ -199,6 +224,7 @@ export function BillingPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
+      <PlanInsights currentPlanKey={visibleClub?.planKey} insights={billing?.planInsights} loading={isLoading} />
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>
@@ -264,7 +290,7 @@ export function BillingPage() {
                 Export data
               </Link>
               {visibleClub?.payerAuthorized !== false ? (
-                <button type="button" disabled={isStartingCheckout} onClick={() => void startCheckout()} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+                <button type="button" disabled={isStartingCheckout} onClick={() => void startCheckout({ modern: false })} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
                   {isStartingCheckout ? 'Opening Stripe...' : 'Continue with Stripe'}
                 </button>
               ) : null}
@@ -275,27 +301,46 @@ export function BillingPage() {
 
       {!isLoading && isManagedBilling ? (
         <SectionCard
-          title="Billing"
+          title="Choose a plan"
           tourId="managed-billing-section"
           description="Billing is not active for this workspace yet."
         >
-          <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
+          <div className="space-y-5">
             <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
-              This club is currently on a managed setup. If you need to change plan, payment, or billing details, contact support.
+              Select the Matchday, Team, or Club plan for this workspace.
             </p>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <a
-                href={`mailto:${SUPPORT_EMAIL}`}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46]"
-              >
-                Contact us
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Plan selection">
+              {[
+                ['matchday', 'Matchday'],
+                ['team', 'Team'],
+                ['club', 'Club'],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={modernPlanKey === key}
+                  onClick={() => {
+                    setModernPlanKey(key)
+                    setModernQuote(quoteSubscription({ planKey: key, teamCapacity: key === 'club' ? 10 : 1, billingCycle: 'monthly' }))
+                  }}
+                  className={`min-h-10 rounded-md border px-4 py-2 text-sm font-black ${modernPlanKey === key ? 'border-[#047857] bg-[#ecfdf5] text-[#047857]' : 'border-[#d7e5dc] bg-white text-[#101828]'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <PlanPriceCalculator key={modernPlanKey} planKey={modernPlanKey} value={modernQuote} onChange={setModernQuote} />
+            <div className="flex flex-wrap gap-3">
+              {modernPlanKey === 'matchday' ? (
+                <p className="text-sm font-semibold leading-6 text-[#365247]">Matchday is free for one team. No payment is required.</p>
+              ) : (
+                <button type="button" disabled={isStartingCheckout} onClick={() => void startCheckout({ modern: true })} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+                  {isStartingCheckout ? 'Opening Stripe...' : 'Continue with Stripe'}
+                </button>
+              )}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828]">
+                Contact support
               </a>
-              <Link
-                to="/pricing"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] transition hover:border-[#047857] hover:bg-[#ecfdf5]"
-              >
-                View pricing
-              </Link>
             </div>
           </div>
         </SectionCard>

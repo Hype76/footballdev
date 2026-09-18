@@ -10,7 +10,7 @@ const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rou
 const adminAssignablePlanOptions = getAdminAssignablePlanOptions()
 
 function isPlanUnavailableForBillingMode(plan, billingArrangement) {
-  return billingArrangement !== 'complimentary' && plan.key === PLAN_KEYS.individual
+  return billingArrangement !== 'complimentary' && [PLAN_KEYS.individual, PLAN_KEYS.matchday].includes(plan.key)
 }
 
 export function ManageClubsSection({
@@ -152,8 +152,8 @@ export function ManageClubsSection({
             onChange={(event) => onChange('billingArrangement', event.target.value)}
             className={fieldClass}
           >
-            <option value="immediate" disabled={form.planKey === PLAN_KEYS.individual || form.planKey === PLAN_KEYS.pilot}>Payment starts immediately</option>
-            <option value="deferred" disabled={form.planKey === PLAN_KEYS.individual || form.planKey === PLAN_KEYS.pilot}>Payment starts on a future date</option>
+            <option value="immediate" disabled={[PLAN_KEYS.individual, PLAN_KEYS.matchday, PLAN_KEYS.pilot].includes(form.planKey)}>Payment starts immediately</option>
+            <option value="deferred" disabled={[PLAN_KEYS.individual, PLAN_KEYS.matchday, PLAN_KEYS.pilot].includes(form.planKey)}>Payment starts on a future date</option>
             <option value="complimentary">Complimentary access</option>
           </select>
         </label>

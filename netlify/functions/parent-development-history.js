@@ -19,6 +19,7 @@ import {
   enrichDevelopmentParentReportWithScores,
   resolveDevelopmentParentReport,
 } from './lib/_development-parent-email-output.js'
+import { assertParentPlanFeatureForScope } from './lib/_parent-plan-gate.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const PDF_RENDER_TIMEOUT_MS = 25_000
@@ -434,10 +435,26 @@ export default async (request) => {
       )
     }
 
-    const { parentLink } = await loadParentScope({
+    const { parentLink, player } = await loadParentScope({
       authUserId: authData.user.id,
       parentLinkId,
       supabaseAdmin,
+    })
+    await assertParentPlanFeatureForScope({
+      actionCategory: action === 'download_pdf' ? 'EXPORT' : 'READ',
+      clubId: parentLink.club_id,
+      featureName: 'basicDevelopmentRecords',
+      parentLinkId: parentLink.id,
+      playerId: player.id,
+      teamId: parentLink.team_id || player.team_id,
+    })
+    await assertParentPlanFeatureForScope({
+      actionCategory: action === 'download_pdf' ? 'EXPORT' : 'READ',
+      clubId: parentLink.club_id,
+      featureName: 'assessments',
+      parentLinkId: parentLink.id,
+      playerId: player.id,
+      teamId: parentLink.team_id || player.team_id,
     })
     const history = await loadHistory({ parentLink, supabaseAdmin })
 

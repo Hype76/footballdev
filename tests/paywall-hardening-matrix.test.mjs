@@ -43,6 +43,9 @@ function readSource(path) {
 
 test('approved plans, aliases, malformed values, and payment states fail closed consistently', () => {
   assert.deepEqual(PLAN_OPTIONS.map((plan) => plan.key), [
+    PLAN_KEYS.matchday,
+    PLAN_KEYS.team,
+    PLAN_KEYS.club,
     PLAN_KEYS.individual,
     PLAN_KEYS.singleTeam,
     PLAN_KEYS.smallClub,
@@ -52,17 +55,15 @@ test('approved plans, aliases, malformed values, and payment states fail closed 
   ])
 
   assert.deepEqual(getPublicPlanOptions().map((plan) => plan.key), [
-    PLAN_KEYS.individual,
-    PLAN_KEYS.singleTeam,
-    PLAN_KEYS.smallClub,
-    PLAN_KEYS.developmentClub,
-    PLAN_KEYS.largeClub,
+    PLAN_KEYS.matchday,
+    PLAN_KEYS.team,
+    PLAN_KEYS.club,
   ])
 
   const aliasCases = [
     ['Individual Coach - Free', PLAN_KEYS.individual],
     ['free', PLAN_KEYS.individual],
-    ['club', PLAN_KEYS.smallClub],
+    ['club', PLAN_KEYS.club],
     ['Development Club', PLAN_KEYS.developmentClub],
     ['dev club', PLAN_KEYS.developmentClub],
     ['Contact sales', PLAN_KEYS.largeClub],

@@ -12,6 +12,7 @@ import {
   validatePdfBranding,
 } from './pdf-branding.js'
 import { createThemeColorTokens } from './theme.js'
+import { CAPABILITIES, getFeatureAccess } from './paywall-access.js'
 
 const CSV_HEADINGS = [
   'Club',
@@ -868,20 +869,26 @@ function getLogoBytes(branding = {}) {
 }
 
 export function buildCompletedReportBranding(match = {}, override = {}) {
+  const accessContext = override.accessContext || match
+  const explicitPlanKey = String(accessContext.planKey || accessContext.plan_key || '').trim().toLowerCase()
   const fallback = createPdfBrandingFallback({
     clubName: getClubName(match),
     teamName: firstText(match.teamName, match.team_name, match.teams?.name),
   }, getMatchDate(match))
-  const themeAccent = firstText(match.themeAccent, match.theme_accent, match.clubAccent, match.club_accent) || 'green'
+  const isModernPlan = ['matchday', 'team', 'club'].includes(explicitPlanKey)
+  const customBrandingAllowed = !explicitPlanKey || !isModernPlan || getFeatureAccess({ ...accessContext, teamId: accessContext.teamId || accessContext.team_id }, CAPABILITIES.basicLogoBranding).allowed
+  const customColoursAllowed = !explicitPlanKey || !isModernPlan || getFeatureAccess(accessContext, CAPABILITIES.customColoursBranding).allowed
+  const themeAccent = customColoursAllowed ? firstText(match.themeAccent, match.theme_accent, match.clubAccent, match.club_accent) || 'green' : 'green'
   const tokens = createThemeColorTokens(themeAccent, 'light')
-  const clubLogoData = firstText(override.clubLogoData, match.clubLogoData, match.club_logo_data)
+  const clubLogoData = customBrandingAllowed ? firstText(override.clubLogoData, match.clubLogoData, match.club_logo_data) : ''
 
   return validatePdfBranding({
     ...fallback,
     clubLogoData,
     logoWidth: Number(override.logoWidth ?? match.logoWidth ?? match.logo_width ?? 0),
     logoHeight: Number(override.logoHeight ?? match.logoHeight ?? match.logo_height ?? 0),
-    brandingSource: clubLogoData ? PDF_BRANDING_SOURCES.clubLogo : fallback.brandingSource,
+    brandingSource: !customBrandingAllowed ? PDF_BRANDING_SOURCES.platform : clubLogoData ? PDF_BRANDING_SOURCES.clubLogo : fallback.brandingSource,
+    clubInitials: !customBrandingAllowed ? 'FP' : fallback.clubInitials,
     fallbackReason: clubLogoData ? '' : fallback.fallbackReason,
     primaryColour: tokens.buttonPrimary,
     secondaryColour: tokens.accentSoft,
@@ -916,7 +923,7 @@ function buildPdfPageStream(page, { branding, pageCount, pageNumber }) {
 }
 
 export function buildCompletedReportPdf(match = {}, options = {}) {
-  const branding = buildCompletedReportBranding(match, options.branding)
+  const branding = buildCompletedReportBranding(match, { ...(options.branding || {}), accessContext: options.accessContext })
   const model = buildPdfReportModel(match, { ...options, branding })
   const pages = buildPdfPages(model)
   const logoBytes = getLogoBytes(branding)

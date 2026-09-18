@@ -72,15 +72,16 @@ function normalizeStaffProfile(row) {
 }
 
 function getPlanAccessFromClub(club) {
+  if (normalizeText(club?.plan_key).toLowerCase() === 'matchday') return true
   const testerAccessExpiresAt = normalizeText(club?.tester_access_expires_at)
   return Boolean(club?.is_plan_comped)
     || (!isPastDate(testerAccessExpiresAt) && ['active', 'trialing'].includes(normalizeText(club?.plan_status || 'active')))
 }
 
-function getWorkspaceScopeFromPlanKey(value) {
+export function getWorkspaceScopeFromPlanKey(value) {
   const planKey = normalizeText(value).toLowerCase()
   if (planKey === 'individual') return 'individual'
-  if (planKey === 'single_team') return 'team'
+  if (['single_team', 'team', 'matchday'].includes(planKey)) return 'team'
   return 'club'
 }
 
@@ -229,6 +230,8 @@ function normalizeParentLink(row) {
     playerSection: normalizeText(player?.section || ''),
     teamId: row.team_id || '',
     teamName: normalizeText(team?.name || player?.team || ''),
+    planKey: normalizeText(row.plan_key || club?.plan_key),
+    planStatus: normalizeText(row.plan_status || club?.plan_status),
     themeAccent: normalizeText(club?.theme_accent || team?.theme_accent),
     themeButtonStyle: normalizeText(club?.theme_button_style || team?.theme_button_style || 'solid'),
     themeMode: normalizeText(team?.theme_mode),
@@ -312,7 +315,7 @@ async function fetchStaffProfile(authUser) {
 async function fetchParentProfile(authUser) {
   const [{ data, error }, fans] = await Promise.all([supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, theme_accent, theme_button_style)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, theme_accent, theme_button_style, plan_key, plan_status)')
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true }), supabase.rpc('list_fan_connections')])

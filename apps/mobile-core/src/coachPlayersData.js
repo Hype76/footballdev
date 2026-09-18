@@ -144,9 +144,10 @@ export async function getCoachPlayerDetail(user, playerId) {
 
 export async function saveCoachPlayer(user, form, existingPlayer = null) {
   assertCoachOperationalMutation(user, { requiresTeam: true })
-  assertCoachCapability(user, CAPABILITIES.basicDevelopmentRecords)
+  assertCoachCapability(user, CAPABILITIES.players)
   if (existingPlayer?.status === 'archived') throw new Error('Archived Players are read-only in Coach mobile.')
   const payload = buildCoachPlayerPayload({ context: user, form })
+  if (payload.section === 'Trial') assertCoachCapability(user, CAPABILITIES.trialPlayers)
   const identity = getCoachEntryIdentity(user, 'updated')
   let query
   let action

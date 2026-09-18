@@ -28,9 +28,9 @@ async function readRepoFile(path) {
   return readFile(resolve(repoRoot, path), 'utf8')
 }
 
-test('public free signup opens the signup mode with the Individual plan', () => {
-  assert.equal(PUBLIC_FREE_SIGNUP_PATH, '/sign-in?mode=signup&plan=individual')
-  assert.equal(getClientPublicFreeSignupPlanKey('Individual Coach - Free'), 'individual')
+test('public free signup opens the signup mode with the Matchday plan', () => {
+  assert.equal(PUBLIC_FREE_SIGNUP_PATH, '/sign-in?mode=signup&plan=matchday')
+  assert.equal(getClientPublicFreeSignupPlanKey('Individual Coach - Free'), 'matchday')
   assert.equal(getClientPublicFreeSignupPlanKey('single_team'), '')
 })
 
@@ -53,7 +53,7 @@ test('production policy authorises only explicit own-club free signup without ch
     },
   }
 
-  assert.equal(getServerPublicFreeSignupPlanKey(authUser), 'individual')
+  assert.equal(getServerPublicFreeSignupPlanKey(authUser), 'matchday')
   assert.equal(hasPublicFreeSignupIntent(authUser), true)
   assert.equal(hasPublicFreeSignupIntent(authUser, {
     clubName: 'FP TEST Signup Club',
@@ -88,7 +88,7 @@ test('first confirmed Club login completes only an explicit public free signup',
 })
 
 test('paid and internal plans remain fail closed without checkout or tester authority', () => {
-  for (const planKey of ['single_team', 'small_club', 'development_club', 'large_club', 'pilot']) {
+  for (const planKey of ['team', 'club', 'single_team', 'small_club', 'development_club', 'large_club', 'pilot']) {
     const authUser = {
       user_metadata: {
         club_name: 'FP TEST Signup Club',
@@ -123,9 +123,9 @@ test('every public Start free route uses the canonical signup entry point', asyn
   const signupFunction = await readRepoFile('netlify/functions/ensure-signup-club-profile.js')
 
   assert.match(loginPage, /getPublicFreeSignupPlanKey\(params\.get\('plan'\)\)/)
-  assert.match(loginPage, /planKey: 'individual'/)
-  assert.match(auth, /planKey = PLAN_KEYS\.individual/)
-  assert.match(auth, /signup_plan_key: normalizedPlanKey === PLAN_KEYS\.individual/)
+  assert.match(loginPage, /planKey: 'matchday'/)
+  assert.match(auth, /planKey = PLAN_KEYS\.matchday/)
+  assert.match(auth, /signup_plan_key: normalizedPlanKey === PLAN_KEYS\.matchday/)
   assert.match(signupFunction, /hasPublicFreeSignupIntent\(authUser, body\)/)
 })
 

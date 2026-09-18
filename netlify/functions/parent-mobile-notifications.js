@@ -9,6 +9,8 @@ import { supabaseAdmin } from './lib/_supabase.js'
 import { getParentMatchNotificationGroupKey } from '../../apps/mobile-core/src/parentNotificationInboxCore.js'
 import { updateParentNotificationInbox } from './lib/_parent-notification-actions.js'
 import { getParentChildNotificationBadges } from './lib/_parent-child-notification-badges.js'
+import { assertParentPlanFeatureForScope } from './lib/_parent-plan-gate.js'
+import { canUsePlanEntitlement } from './lib/_plan-gate.js'
 
 function response(statusCode, payload) {
   return {
@@ -123,16 +125,43 @@ async function loadValidReferenceIds(table, ids, select, isValid) {
   return new Set((data || []).filter(isValid).map((row) => normalizeText(row.id)).filter(Boolean))
 }
 
-async function filterUnavailableNotifications(notifications, link) {
-  const matchIds = uniqueReferenceIds(notifications, 'matchday_update', 'availabilityRequestId')
-  const matchDayIds = uniqueReferenceIds(notifications, 'matchday_update', 'matchDayId')
-  const trainingIds = uniqueReferenceIds(notifications, 'training_update', 'trainingRequestPlayerId')
+export function notificationAllowedByPlan(notification, featureAllowed) {
+  const intentType = normalizeText(notification?.intentType).toLowerCase()
+  const dataType = normalizeText(notification?.data?.type).toLowerCase()
+  if (intentType === 'matchday_update') return featureAllowed('fixtures') && featureAllowed('matchDay')
+  if (intentType === 'training_update') return featureAllowed('trainingEvents')
+  if (intentType === 'parent_poll' || intentType === 'poll_results') return featureAllowed('teamPolls')
+  if (intentType === 'resource_shared') return featureAllowed('resourceLibrary')
+  if (intentType === 'parent_chat') return featureAllowed('parentChat')
+  if (dataType === 'development_report') {
+    return featureAllowed('basicDevelopmentRecords') && featureAllowed('assessments')
+  }
+  return true
+}
+
+async function loadParentPlanProfile(link) {
+  return assertParentPlanFeatureForScope({
+    actionCategory: 'READ',
+    clubId: link.club_id,
+    featureName: 'parentPortal',
+    parentLinkId: link.id,
+    playerId: link.player_id,
+    teamId: link.team_id,
+  }, { supabaseAdmin })
+}
+
+async function filterUnavailableNotifications(notifications, link, planProfile) {
+  const featureAllowed = (featureName) => canUsePlanEntitlement(planProfile, featureName)
+  const planFilteredNotifications = notifications.filter((notification) => notificationAllowedByPlan(notification, featureAllowed))
+  const matchIds = uniqueReferenceIds(planFilteredNotifications, 'matchday_update', 'availabilityRequestId')
+  const matchDayIds = uniqueReferenceIds(planFilteredNotifications, 'matchday_update', 'matchDayId')
+  const trainingIds = uniqueReferenceIds(planFilteredNotifications, 'training_update', 'trainingRequestPlayerId')
   const pollIds = [...new Set([
-    ...uniqueReferenceIds(notifications, 'parent_poll', 'pollId'),
-    ...uniqueReferenceIds(notifications, 'poll_results', 'pollId'),
+    ...uniqueReferenceIds(planFilteredNotifications, 'parent_poll', 'pollId'),
+    ...uniqueReferenceIds(planFilteredNotifications, 'poll_results', 'pollId'),
   ])]
-  const resourceIds = uniqueReferenceIds(notifications, 'resource_shared', 'resourceId')
-  const reportIds = notifications
+  const resourceIds = uniqueReferenceIds(planFilteredNotifications, 'resource_shared', 'resourceId')
+  const reportIds = planFilteredNotifications
     .filter((notification) => normalizeText(notification?.data?.type).toLowerCase() === 'development_report')
     .map((notification) => referenceId(notification, 'reportId'))
     .filter(Boolean)
@@ -164,7 +193,7 @@ async function filterUnavailableNotifications(notifications, link) {
     loadValidReferenceIds('evaluations', reportIds, 'id, player_id', (row) => normalizeText(row.player_id) === normalizeText(link.player_id)),
   ])
 
-  return notifications.map((notification) => {
+  return planFilteredNotifications.map((notification) => {
     const intentType = normalizeText(notification.intentType).toLowerCase()
     if (intentType === 'matchday_update') {
       const requestId = referenceId(notification, 'availabilityRequestId')
@@ -207,11 +236,17 @@ export async function handler(event) {
     if (!parentLinkId) return response(400, { success: false, message: 'Choose a player before opening notifications.' })
 
     const { authUser, link } = await getAuthorisedParentLink(event, parentLinkId)
+    const planProfile = await loadParentPlanProfile(link)
 
     if (event.httpMethod === 'GET' && event.queryStringParameters?.summary === 'children') {
       const unreadByParentLink = await getParentChildNotificationBadges({
         admin: supabaseAdmin, authUserId: authUser.id,
-        collapse: collapseParentNotificationRows, filterAvailable: filterUnavailableNotifications,
+        collapse: collapseParentNotificationRows,
+        filterAvailable: async (notifications, childLink) => filterUnavailableNotifications(
+          notifications,
+          childLink,
+          await loadParentPlanProfile(childLink),
+        ),
       })
       return response(200, { success: true, unreadByParentLink })
     }
@@ -238,7 +273,7 @@ export async function handler(event) {
     if (error) throw error
 
     const collapsedNotifications = collapseParentNotificationRows(data || [])
-    const notifications = await filterUnavailableNotifications(collapsedNotifications, link)
+    const notifications = await filterUnavailableNotifications(collapsedNotifications, link, planProfile)
     const availableIds = new Set(notifications.flatMap((notification) => notification.notificationIds || [notification.id]))
     const unavailableIds = collapsedNotifications
       .flatMap((notification) => notification.notificationIds || [notification.id])

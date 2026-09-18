@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { loadFanScope, loadFanInviteForOwner } from '../netlify/functions/lib/_fan-access.js'
 import { sendFanMatchNotifications } from '../netlify/functions/lib/_fan-push.js'
+import { MATCHDAY_DEFAULT_FLAGS } from '../src/lib/matchday-policy.js'
 process.env.VITE_SUPABASE_URL = 'https://synthetic.supabase.test'
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'synthetic-test-key'
 const { handleFans } = await import('../netlify/functions/fans.js')
@@ -10,12 +11,17 @@ function fixture() {
   const tables = {
     fan_connections: [{ id:id(1),auth_user_id:id(2),invited_by:id(3),parent_link_id:id(4),player_id:id(5),club_id:id(6),relationship_type:'fan',status:'active',permissions:{schedule:true,game_day:false,development:false,resources:false},notifications_enabled:true }],
     parent_player_links: [{id:id(4),auth_user_id:id(3),player_id:id(5),club_id:id(6),team_id:id(7),link_type:'parent',status:'active'}],
-    players: [{id:id(5),club_id:id(6),team_id:id(7),status:'active'}],clubs:[{id:id(6),status:'active'}],users:[],
+    players: [{id:id(5),club_id:id(6),team_id:id(7),status:'active'}],clubs:[{id:id(6),status:'active',plan_key:'club',plan_status:'active'}],users:[],
     match_days:[],match_day_availability_requests:[],calendar_event_invites:[],match_day_player_squad_decisions:[],calendar_events:[],training_availability_request_players:[],event_player_occurrence_exclusions:[],fan_notifications:[],fan_devices:[],
   }
   const read = []
   const selections = []
-  const client = { auth:{getUser:async()=>({data:{user:{id:id(2)}}})}, from(table) {
+  const client = {
+    auth:{getUser:async()=>({data:{user:{id:id(2)}}})},
+    rpc: async (name) => name === 'get_matchday_plan_config'
+      ? { data: { revision: 1, flags: MATCHDAY_DEFAULT_FLAGS }, error: null }
+      : { data: null, error: { message: 'Unknown RPC' } },
+    from(table) {
     read.push(table)
     let predicates = []
     let single = false
@@ -285,4 +291,30 @@ test('Future fixture volume cannot displace live matches before the Game Day res
   const response = await handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action: 'matches', connectionId: id(1) }) }, { createClient: () => client })
   assert.equal(response.statusCode, 200)
   assert.deepEqual(JSON.parse(response.body).matches.map(item => item.id), [id(400)])
+})
+
+test('Matchday Fan service reads enforce the selected player Club plan before privileged data access', async () => {
+  const { client, tables, read } = fixture()
+  tables.clubs[0].plan_key = 'matchday'
+  tables.fan_connections[0].permissions = { schedule: true, game_day: true, development: true, resources: true }
+  tables.match_days.push({ id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: '2099-12-31', status: 'scheduled' })
+  tables.calendar_events.push(
+    { id: id(20), club_id: id(6), team_id: id(7), event_type: 'training', title: 'Private training', starts_at: '2099-12-30T18:00:00Z', ends_at: '2099-12-30T19:00:00Z', recurrence_frequency: 'none' },
+    { id: id(21), club_id: id(6), team_id: id(7), event_type: 'social', title: 'Private social', starts_at: '2099-12-29T18:00:00Z', ends_at: '2099-12-29T19:00:00Z', recurrence_frequency: 'none' },
+  )
+  const call = (action) => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action, connectionId: id(1) }) }, { createClient: () => client })
+
+  const schedule = await call('schedule')
+  assert.equal(schedule.statusCode, 200)
+  assert.deepEqual(JSON.parse(schedule.body).schedule.map((item) => item.event_type), ['match_day'])
+  assert.equal(read.includes('training_availability_request_players'), false)
+  assert.equal(read.includes('assessment_sessions'), false)
+
+  read.length = 0
+  assert.equal((await call('development')).statusCode, 403)
+  assert.equal(read.includes('evaluations'), false)
+
+  read.length = 0
+  assert.equal((await call('resources')).statusCode, 403)
+  assert.equal(read.includes('resource_library_links'), false)
 })

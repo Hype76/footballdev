@@ -1,4 +1,5 @@
 import { contrastSafeColor, mixThemeColor, readableThemeTokens, themeContrastRatio, themeForeground } from '../../mobile-core/src/themeContrast.js'
+import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
 
 const ACCENTS = new Set(['yellow', 'blue', 'green', 'red', 'purple'])
 const HEX_PATTERN = /^#[0-9a-f]{6}$/
@@ -45,14 +46,23 @@ export function normalizeCoachLogoUrl(value) {
 }
 
 export function resolveCoachBranding(context = null) {
-  const clubAccent = normalizeAccent(context?.clubAccent, '')
-  const teamAccent = normalizeAccent(context?.teamAccent, '')
-  const hasClubAccent = ACCENTS.has(normalize(context?.clubAccent).toLowerCase()) || HEX_PATTERN.test(normalize(context?.clubAccent).toLowerCase())
-  const hasTeamAccent = ACCENTS.has(normalize(context?.teamAccent).toLowerCase()) || HEX_PATTERN.test(normalize(context?.teamAccent).toLowerCase())
+  const modernPlan = ['matchday', 'team', 'club'].includes(normalize(context?.planKey).toLowerCase())
+  const accessContext = { ...context, teamId: context?.activeTeamId || context?.teamId }
+  const logoAllowed = !modernPlan || getFeatureAccess(accessContext, CAPABILITIES.basicLogoBranding).allowed
+  const coloursAllowed = !modernPlan || getFeatureAccess(accessContext, CAPABILITIES.customColoursBranding).allowed
+  const brandingContext = {
+    ...context,
+    ...(coloursAllowed ? {} : { clubAccent: '', teamAccent: '', clubButtonStyle: '', teamButtonStyle: '' }),
+    ...(logoAllowed ? {} : { clubLogoUrl: '' }),
+  }
+  const clubAccent = normalizeAccent(brandingContext?.clubAccent, '')
+  const teamAccent = normalizeAccent(brandingContext?.teamAccent, '')
+  const hasClubAccent = ACCENTS.has(normalize(brandingContext?.clubAccent).toLowerCase()) || HEX_PATTERN.test(normalize(brandingContext?.clubAccent).toLowerCase())
+  const hasTeamAccent = ACCENTS.has(normalize(brandingContext?.teamAccent).toLowerCase()) || HEX_PATTERN.test(normalize(brandingContext?.teamAccent).toLowerCase())
   return Object.freeze({
     accent: hasClubAccent ? clubAccent : hasTeamAccent ? teamAccent : 'green',
-    buttonStyle: normalize(context?.clubButtonStyle || context?.teamButtonStyle).toLowerCase() === 'gradient' ? 'gradient' : 'solid',
-    logoUrl: normalizeCoachLogoUrl(context?.clubLogoUrl),
+    buttonStyle: normalize(brandingContext?.clubButtonStyle || brandingContext?.teamButtonStyle).toLowerCase() === 'gradient' ? 'gradient' : 'solid',
+    logoUrl: normalizeCoachLogoUrl(brandingContext?.clubLogoUrl),
     source: hasClubAccent ? 'club' : hasTeamAccent ? 'team' : 'default',
   })
 }

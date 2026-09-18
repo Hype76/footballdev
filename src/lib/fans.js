@@ -1,3 +1,5 @@
+import { isCapabilityIncludedForPlan } from './paywall-capabilities.js'
+
 export const FAN_ACCESS = Object.freeze([
   { key: 'schedule', label: 'Schedule', description: 'View the calendar, including shared training, events and fixtures', icon: 'action.calendar' },
   { key: 'game_day', label: 'Game Day', description: 'View live matches, results and Game Day alerts. Upcoming fixtures require Schedule access', icon: 'parent.match' },
@@ -8,6 +10,44 @@ export const FAN_ACCESS = Object.freeze([
 export const FAN_RELATIONSHIP_TYPES = Object.freeze(['fan', 'player'])
 // Player invitations are reserved for a future release. No client can enable them.
 export const PLAYER_INVITATIONS_ENABLED = false
+
+const FAN_ACCESS_CAPABILITIES = Object.freeze({
+  schedule: 'teamCalendar',
+  game_day: 'matchDay',
+  matches: 'matchDay',
+  notifications: 'matchDay',
+  attendance: 'teamCalendar',
+  development: 'basicDevelopmentRecords',
+  resources: 'resourceLibrary',
+})
+
+function normalizePlanKey(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+export function isFanAccessAllowedForPlan(connection, accessKey, matchdayPolicy) {
+  const capability = FAN_ACCESS_CAPABILITIES[String(accessKey ?? '').trim().toLowerCase()]
+  if (!capability) return false
+  const planKey = normalizePlanKey(connection?.planKey || connection?.plan_key)
+  if (!planKey) return false
+  if (planKey === 'matchday' && !matchdayPolicy?.flags) return false
+  if (!['matchday', 'team', 'club'].includes(planKey)) return true
+  return isCapabilityIncludedForPlan(planKey, capability, matchdayPolicy)
+}
+
+export function getFanAccessForPlan(connection, matchdayPolicy) {
+  return FAN_ACCESS.filter((item) => isFanAccessAllowedForPlan(connection, item.key, matchdayPolicy))
+}
+
+export function restrictFanPermissionsForPlan(permissions, connection, matchdayPolicy) {
+  const normalized = normalizeFanPermissions(permissions)
+  return normalizeFanPermissions(Object.fromEntries(
+    Object.entries(normalized).map(([key, enabled]) => [
+      key,
+      enabled && isFanAccessAllowedForPlan(connection, key, matchdayPolicy),
+    ]),
+  ))
+}
 
 export function normalizeFanPermissions(value = {}) {
   return { schedule: value.schedule === true, game_day: value.game_day === true, development: value.development === true, resources: value.development === true && value.resources === true }
@@ -40,5 +80,6 @@ export function fanInviteUrl(origin, token) {
 
 export function normalizeFanProfileLink(row) {
   return { id: row.id, linkType: 'fan', relationshipType: row.relationship_type, playerId: row.player_id, playerName: row.player_name,
-    clubId: row.club_id, clubName: row.club_name, clubLogoUrl: row.club_logo_url, themeAccent: row.theme_accent, themeButtonStyle: row.theme_button_style, teamId: row.team_id, teamName: row.team_name, permissions: row.permissions }
+    clubId: row.club_id, clubName: row.club_name, clubLogoUrl: row.club_logo_url, themeAccent: row.theme_accent, themeButtonStyle: row.theme_button_style, teamId: row.team_id, teamName: row.team_name,
+    planKey: row.plan_key, planStatus: row.plan_status, permissions: row.permissions }
 }

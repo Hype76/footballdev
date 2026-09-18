@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useAuth } from '../../lib/auth.js'
+import { getClubPlanGateUser } from '../../lib/domain/plan-gates.js'
 import {
   downloadCompletedReportCsv,
   downloadCompletedReportPdf,
@@ -7,6 +9,7 @@ import {
 const buttonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-black text-[var(--text-primary)] shadow-sm shadow-[#047857]/10 transition hover:bg-[var(--panel-bg)] focus:outline-none focus:ring-2 focus:ring-[#047857] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
 
 export function CompletedMatchReportExportActions({ audience = 'parent', match }) {
+  const { user } = useAuth()
   const [errorMessage, setErrorMessage] = useState('')
   const [busyFormat, setBusyFormat] = useState('')
 
@@ -14,7 +17,10 @@ export function CompletedMatchReportExportActions({ audience = 'parent', match }
     setBusyFormat(format)
     setErrorMessage('')
     try {
-      if (format === 'pdf') await downloadCompletedReportPdf(match, { audience })
+      if (format === 'pdf') {
+        const accessContext = await getClubPlanGateUser({ user, clubId: match.clubId || match.club_id })
+        await downloadCompletedReportPdf(match, { audience, accessContext })
+      }
       else downloadCompletedReportCsv(match, { audience })
     } catch (error) {
       console.error(error)

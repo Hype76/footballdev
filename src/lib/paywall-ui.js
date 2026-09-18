@@ -8,7 +8,7 @@ import { getPlanName } from './plans.js'
 
 export const ROUTE_CAPABILITIES = Object.freeze({
   '/activity-log': CAPABILITIES.fullOperationalAuditLog,
-  '/add-player': CAPABILITIES.basicDevelopmentRecords,
+  '/add-player': CAPABILITIES.players,
   '/archived-players': CAPABILITIES.limitedRecordHistory,
   '/assess-player': CAPABILITIES.assessments,
   '/calendar': CAPABILITIES.teamCalendar,
@@ -20,7 +20,10 @@ export const ROUTE_CAPABILITIES = Object.freeze({
   '/match-day': CAPABILITIES.matchDay,
   '/parent-email-templates': CAPABILITIES.parentEmails,
   '/parent-linking': CAPABILITIES.parentInvitations,
-  '/players': CAPABILITIES.basicDevelopmentRecords,
+  '/players': CAPABILITIES.players,
+  '/resources': CAPABILITIES.resourceLibrary,
+  '/staff-chat': CAPABILITIES.staffChat,
+  '/parent-chat-staff': CAPABILITIES.parentChat,
   '/polls': CAPABILITIES.teamPolls,
   '/sessions': CAPABILITIES.teamCalendar,
   '/teams': CAPABILITIES.teamStaffRoles,
@@ -31,7 +34,7 @@ const ROUTE_PREFIX_CAPABILITIES = Object.freeze([
   ['/assess-player/', CAPABILITIES.assessments],
   ['/calendar/', CAPABILITIES.teamCalendar],
   ['/create-evaluation', CAPABILITIES.assessments],
-  ['/players/', CAPABILITIES.basicDevelopmentRecords],
+  ['/players/', CAPABILITIES.players],
   ['/sessions/', CAPABILITIES.teamCalendar],
 ])
 

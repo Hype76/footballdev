@@ -1,4 +1,5 @@
 import { normalizePersonName } from '../../../src/lib/person-name.js'
+import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
 
 export const COACH_PLAYER_SECTIONS = Object.freeze(['Trial', 'Squad'])
 export const COACH_PLAYER_CONTACT_TYPES = Object.freeze(['parent', 'self'])
@@ -144,10 +145,16 @@ export function filterCoachPlayers(players = [], { query = '', section = 'all', 
 }
 
 export function getCoachPlayerMutationPolicy({ context, player = null } = {}) {
-  const canMutate = context?.paymentAccess?.canMutate === true && Number(context?.roleRank || 0) >= 20 && Boolean(context?.teamId)
+  const canMutate = context?.paymentAccess?.canMutate === true && Number(context?.roleRank || 0) >= 20 && Boolean(context?.teamId) && getFeatureAccess({ ...context, teamId: context?.activeTeamId || context?.teamId }, CAPABILITIES.players).allowed
+  const canCreateTrial = getFeatureAccess({ ...context, teamId: context?.activeTeamId || context?.teamId }, CAPABILITIES.trialPlayers).allowed
+  const canViewDevelopment = getFeatureAccess({ ...context, teamId: context?.activeTeamId || context?.teamId }, CAPABILITIES.basicDevelopmentRecords).allowed
+  const canViewPlayerNotes = getFeatureAccess({ ...context, teamId: context?.activeTeamId || context?.teamId }, CAPABILITIES.playerNotes).allowed
   return Object.freeze({
     canArchive: false,
     canCreate: canMutate,
+    canCreateTrial,
+    canViewDevelopment,
+    canViewPlayerNotes,
     canEdit: canMutate && player?.status !== 'archived',
     canTransferTeam: false,
     onlineRequired: true,

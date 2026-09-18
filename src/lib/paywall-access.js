@@ -189,7 +189,7 @@ export function getFeatureAccess(context, capabilityKey) {
     }
   }
 
-  if (!isCapabilityIncludedForPlan(accessContext.planKey, capabilityDefinition.key)) {
+  if (!isCapabilityIncludedForPlan(accessContext.planKey, capabilityDefinition.key, accessContext.matchdayPolicy)) {
     return deniedAccess({ capabilityDefinition, accessContext, reason: 'plan_not_included' })
   }
 

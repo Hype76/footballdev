@@ -4,6 +4,7 @@ import { json } from './lib/_stripe-billing.js'
 import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 import { resolveBillingAccess } from '../../src/lib/billing-access.js'
+import { loadPlanInsights } from './lib/_plan-insights.js'
 
 function formatInvoice(invoice) {
   return {
@@ -56,7 +57,7 @@ export async function handler(event) {
 
     const { data: club, error: clubError } = await supabaseAdmin
       .from('clubs')
-      .select('id, name, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, billing_configuration_updated_at, billing_configuration_updated_by, workspace_owner_user_id, archived_at, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, plan_updated_at, tester_access_expires_at')
+      .select('id, name, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, billing_configuration_updated_at, billing_configuration_updated_by, workspace_owner_user_id, archived_at, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_end, subscription_team_capacity, plan_updated_at, tester_access_expires_at')
       .eq('id', clubId)
       .single()
 
@@ -72,6 +73,8 @@ export async function handler(event) {
     if (!canAccessBilling) {
       return json(403, { success: false, message: `Billing is only available to the ${scope.ownerRole.label}.` })
     }
+
+    const planInsights = await loadPlanInsights(supabaseAdmin, club)
 
     let invoices = []
     const { data: reminders, error: remindersError } = await supabaseAdmin
@@ -108,6 +111,7 @@ export async function handler(event) {
     return json(200, {
       success: true,
       billing: {
+        planInsights,
         club: {
           id: club.id,
           name: club.name,
@@ -124,6 +128,7 @@ export async function handler(event) {
           stripeSubscriptionId: club.stripe_subscription_id || '',
           stripePriceId: club.stripe_price_id || '',
           currentPeriodEnd: club.current_period_end || '',
+          subscriptionTeamCapacity: club.subscription_team_capacity ?? null,
           planUpdatedAt: club.plan_updated_at || '',
           testerAccessExpiresAt: club.tester_access_expires_at || '',
         },

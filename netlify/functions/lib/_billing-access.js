@@ -24,6 +24,7 @@ export const BILLING_WORKSPACE_SELECT = [
   'stripe_subscription_id',
   'stripe_price_id',
   'current_period_end',
+  'subscription_team_capacity',
   'status',
   'archived_at',
 ].join(', ')
