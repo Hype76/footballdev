@@ -92,6 +92,7 @@ function createMockSupabase({
   },
   team = { id: teamId, club_id: clubId },
   assignment = { id: '55555555-5555-4555-8555-555555555555' },
+  parentLink = null,
   insertError = null,
   storageUploadError = null,
 } = {}) {
@@ -139,6 +140,7 @@ function createMockSupabase({
     }
 
     maybeSingle() {
+      if (this.table === 'parent_player_links') return Promise.resolve({ data: parentLink, error: null })
       if (this.table === 'users') {
         return Promise.resolve({ data: profile, error: null })
       }
@@ -642,6 +644,28 @@ test('submitTesterFeedbackResult accepts active parent, fan, and adult player pr
     assert.equal(insertCall.payload.role, role)
     assert.equal(insertCall.payload.club_id, null)
     assert.equal(insertCall.payload.team_id, null)
+  }
+})
+
+test('Parent feedback uses a verified active player link when no staff profile exists', async () => {
+  const mock = createMockSupabase({ profile: null, parentLink: { id: 'parent-link', auth_user_id: userId, status: 'active', link_type: 'parent' } })
+  const response = await submitTesterFeedbackResult(createEvent({ context: {} }), { emailSender: createEmailSender().emailSender, env: emailEnv, supabaseAdmin: mock.supabaseAdmin })
+  assert.equal(response.statusCode, 200)
+  const saved = mock.calls.find(call => call.table === 'tester_feedback_reports' && call.action === 'insert').payload
+  assert.equal(saved.submitted_by_user_id, null, 'Auth-only accounts must not violate the staff-profile foreign key')
+  assert.equal(saved.submitted_by_email, 'coach@example.test', 'Reporter comes from the verified token, not the payload')
+  assert.equal(saved.role, 'parent_portal')
+  assert.equal(saved.club_id, null)
+  assert.equal(saved.team_id, null)
+  assert.ok(mock.calls.some(call => call.table === 'parent_player_links' && call.column === 'auth_user_id' && call.value === userId))
+})
+
+test('Parent feedback cannot bypass missing, revoked or another account player links', async () => {
+  for (const parentLink of [null, { id: 'link', auth_user_id: userId, status: 'revoked', link_type: 'parent' }, { id: 'link', auth_user_id: 'someone-else', status: 'active', link_type: 'parent' }]) {
+    const mock = createMockSupabase({ profile: null, parentLink })
+    const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent({ context: {} }), { env: emailEnv, supabaseAdmin: mock.supabaseAdmin }))
+    assert.equal(response.statusCode, 403)
+    assert.equal(mock.calls.some(call => call.table === 'tester_feedback_reports' && call.action === 'insert'), false)
   }
 })
 

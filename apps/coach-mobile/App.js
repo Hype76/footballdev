@@ -240,7 +240,7 @@ function CoachHome() {
     return () => { cancelled = true; subscription.remove() }
   }, [activeContext])
   useEffect(() => {
-    if (activeRoute !== 'home' && !resolveCoachRoute(activeRoute === 'more' ? moreRoute : activeRoute, activeContext, matchdayPlanConfig)) {
+    if (activeRoute !== 'home' && !resolveCoachRoute(activeRoute === 'more' ? moreRoute || 'more' : activeRoute, activeContext, matchdayPlanConfig)) {
       setActiveRoute('home')
       setMoreRoute('')
     }

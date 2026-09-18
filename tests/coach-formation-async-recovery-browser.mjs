@@ -450,7 +450,7 @@ try {
     if (process.env.FORMATION_ASYNC_SCENARIO === 'queue-resume' || process.env.FORMATION_ASYNC_SCENARIO === 'conflict') {
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       if (process.env.FORMATION_ASYNC_SCENARIO === 'queue-resume') {
-        await page.getByText('Saved on this phone. It will retry when the connection returns.', { exact: true }).waitFor()
+        await page.getByText('Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.', { exact: true }).waitFor()
         assert.equal(await page.evaluate(() => Object.keys(window.__formationTest.lastOfflineFormation?.pendingSaves || {}).length), 1, 'Network failure stores the pending save in the keyed map')
         await page.getByRole('button', { name: 'Close options', exact: true }).click()
         await page.getByRole('button', { name: 'Save', exact: true }).click()
@@ -482,6 +482,8 @@ try {
     } else if (process.env.FORMATION_ASYNC_SCENARIO === 'ack-refresh') {
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
+      await page.getByText('Saved to this match. Refreshing the saved lineup is pending. Keep this board open to retry the refresh automatically.', { exact: true }).waitFor()
+      assert.equal(await page.getByText(/^Saved on this phone\./).count(), 0, 'A confirmed server save must never be described as phone-only')
       await page.getByRole('button', { name: 'Close options', exact: true }).click()
       await page.getByRole('button', { name: 'Resume connection', exact: true }).dblclick()
       await page.waitForTimeout(250)
@@ -490,7 +492,7 @@ try {
       console.log('PASS: acknowledged save reconciles after refresh failure without duplicating the RPC')
     } else if (process.env.FORMATION_ASYNC_SCENARIO === 'queue-switch') {
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
-      await page.getByText('Saved on this phone. It will retry when the connection returns.', { exact: true }).waitFor()
+      await page.getByText('Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.', { exact: true }).waitFor()
       assert.equal(await page.evaluate(() => Object.keys(window.__formationTest.lastOfflineFormation?.pendingSaves || {}).length), 1)
       await page.getByRole('button', { name: 'Close options', exact: true }).click()
       await page.getByRole('button', { name: 'Switch to match B', exact: true }).click()
@@ -498,12 +500,12 @@ try {
       await page.getByRole('button', { name: 'Switch to match A', exact: true }).click()
       await page.getByLabel('Formation pitch', { exact: true }).waitFor()
       await page.getByRole('button', { name: 'Save', exact: true }).click()
-      await page.getByText('Saved on this phone. It will retry when the connection returns.', { exact: true }).waitFor()
+      await page.getByText('Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.', { exact: true }).waitFor()
       assert.equal(await page.evaluate(() => Object.keys(window.__formationTest.lastOfflineFormation?.pendingSaves || {}).filter(key => key.startsWith('match-a:')).length), 1, 'Queued intent survives another match route')
       console.log('PASS: queued intent survives navigating to another match and returning')
     } else if (process.env.FORMATION_ASYNC_SCENARIO === 'new-board-isolation') {
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
-      await page.getByText('Saved on this phone. It will retry when the connection returns.', { exact: true }).waitFor()
+      await page.getByText('Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.', { exact: true }).waitFor()
       const formation = await page.evaluate(() => window.__formationTest.lastOfflineFormation)
       assert.notEqual(formation?.board?.linkedMatchDayId, 'match-b', 'New-board failure must not leak another match board')
       assert.equal(formation?.pendingSave?.matchDayId, 'match-a')
@@ -522,6 +524,7 @@ try {
     await page.getByRole('button', { name: 'Save to match', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
     await page.waitForTimeout(120)
+    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry-no-storage') await page.getByRole('dialog', { name: 'share options', exact: true }).getByText('Saved to this match, but the latest lineup could not be refreshed. refresh failed', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Close options', exact: true }).click()
     if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') {
       await page.getByRole('button', { name: 'Resume connection', exact: true }).dblclick()
