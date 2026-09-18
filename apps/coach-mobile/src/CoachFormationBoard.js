@@ -2,7 +2,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { Component, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, Vibration, View } from 'react-native'
+import { Alert, AppState, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, Vibration, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import {
   applyMobileFormationPreset,
@@ -38,6 +38,7 @@ import {
 import { readCoachOfflineResources, saveCoachFormationLocalDraft, saveCoachOfflineResources } from './offline'
 import { findFormationLocalDraft, formationContentKey, formationDraftKey, formationMatchesBoard, getActiveFormationPublication, getFormationSaveLabel } from '../../mobile-core/src/coachFormationDraftCore'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
+import { isRetryableFormationSaveError } from './coachFormationSaveQueueCore'
 import { canEditCoachFormationBoard, getCoachFormationMarkerVisualPosition, getCoachFormationRouteScope } from './coachFormationEntryCore'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
@@ -334,7 +335,7 @@ function ShirtPlayer({ goalkeeper = false, name, number, styles }) {
   </View>
 }
 
-export function CoachFormationBoard({ context, match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, stale, user }) {
+export function CoachFormationBoard({ context, match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const fullScreen = Boolean(inWorkspace)
   const styles = useMemo(() => createStyles(palette, fullScreen), [palette, fullScreen])
@@ -347,7 +348,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [undoMove, setUndoMove] = useState(null)
-  const [offline, setOffline] = useState(false)
   const [refreshPending, setRefreshPending] = useState(false)
   const [presets, setPresets] = useState([])
   const [matchPublications, setMatchPublications] = useState([])
@@ -367,8 +367,14 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const [draftScope, setDraftScope] = useState('')
   const routeScope = getCoachFormationRouteScope(user, context, match?.id)
   const [localState, setLocalState] = useState('idle')
+  const [queuedRetryPending, setQueuedRetryPending] = useState(false)
   const [restoredDraftKey, setRestoredDraftKey] = useState('')
   const draftWriteSequence = useRef(0)
+  const queuedRetryInFlight = useRef(false)
+  const editorSnapshotRef = useRef({ draft, title, shared })
+  const saveOfflineFormationRef = useRef(null)
+  const persistBoardRef = useRef(null)
+  editorSnapshotRef.current = { draft, title, shared }
   const editorRevision = useRef(0)
   const loadSequence = useRef(0)
   const propsRef = useRef({ context, match, user })
@@ -423,7 +429,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setSelectedPlayerId('')
     setShowBoards(false)
     setActiveSheet('')
-    setOffline(false)
     setRefreshPending(false)
     setServerBoardUnavailable(false)
     setNotice(local ? 'Your unsent changes are restored. Review them before saving to the match.' : '')
@@ -451,6 +456,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setSavedContentKey('')
     setMatchPublications([])
     setShared(false)
+    setQueuedRetryPending(false)
     setError('')
     const [savedPreference, savedOffline] = await Promise.all([
       AsyncStorage.getItem(preferenceKey).catch(() => null),
@@ -461,8 +467,13 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const localEntry = findFormationLocalDraft(savedFormation, currentMatch?.id || '')
     const localDraft = localEntry?.[1]
     const cacheMatchesRoute = String(savedFormation?.matchDayId || '') === String(currentMatch?.id || '')
-    const pendingSave = localDraft?.pendingSave || (cacheMatchesRoute ? savedFormation?.pendingSave : null)
-    const restored = localDraft || (pendingSave ? { ...savedFormation, draft: pendingSave.draft, title: pendingSave.title } : null)
+    const restoredBoardId = localDraft?.board?.id || (cacheMatchesRoute ? savedFormation?.board?.id : '') || ''
+    const currentPendingKey = `${currentMatch?.id || ''}:${restoredBoardId || 'new'}`
+    const legacyPending = savedFormation?.pendingSave
+    const pendingSave = savedFormation?.pendingSaves?.[currentPendingKey]
+      || (legacyPending?.matchDayId === currentMatch?.id && String(legacyPending.boardId || '') === restoredBoardId ? legacyPending : null)
+    setQueuedRetryPending(Boolean(pendingSave))
+    const restored = localDraft || (pendingSave ? { board: pendingSave.board || null, draft: pendingSave.draft, title: pendingSave.title, shared: pendingSave.shared } : null)
     if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
       const cachedBoard = restored ? restored.board || null : savedFormation.board || null
       const cachedDraft = restored?.draft || savedFormation.draft
@@ -479,7 +490,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       setShared(restored?.shared ?? Boolean(getActiveFormationPublication(savedFormation.matchPublications || [], currentMatch?.id)))
       setTitle(cachedTitle)
       setActiveSheet('')
-      setOffline(true)
       setRefreshPending(true)
       showedCachedBoard = true
       refreshRevision = editorRevision.current
@@ -513,7 +523,12 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         || createMobileFormationDraft({ board: nextBoard, gameFormat: matchingPreset?.gameFormat || preference.gameFormat, presetKey: matchingPreset?.key || preference.presetKey })
       const nextPublications = await resolvePublications(nextBoard, currentUser)
       if (!isCurrent()) return
-      const unresolvedPendingSave = pendingSave && !recoveredBoard ? pendingSave : null
+      const recoveredPublication = getActiveFormationPublication(nextPublications.matchItems, currentMatch?.id)
+      const recoveredAudienceMatches = pendingSave?.shared
+        ? Boolean(recoveredPublication && (recoveredPublication.board_version_id ?? recoveredPublication.boardVersionId) === recoveredBoard?.currentVersionId)
+        : !recoveredPublication
+      const unresolvedPendingSave = pendingSave && !(recoveredBoard && recoveredAudienceMatches) ? pendingSave : null
+      setQueuedRetryPending(Boolean(unresolvedPendingSave))
       const editorChangedDuringRefresh = showedCachedBoard && editorRevision.current !== refreshRevision
       const cachedBoardUnavailable = showedCachedBoard && cachedBoardId && !restored && !refreshedCachedBoard
       setDraftScope(routeScope)
@@ -537,18 +552,18 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
               ? 'The cached Formation Board is no longer available to this account. It was not restored or sent.'
             : '')
       }
-      setOffline(false)
       setRefreshPending(false)
       setServerBoardUnavailable(Boolean(cachedBoardUnavailable))
       setLoading(false)
       if (!editorChangedDuringRefresh) {
-        await saveCoachOfflineResources(currentUser.id, currentContext, { formation: { board: nextBoard, boards: nextBoards, draft: nextDraft, matchDayId: currentMatch?.id || '', matchPublications: nextPublications.matchItems, pendingSave: unresolvedPendingSave, presets: nextPresets } }).catch(() => {})
+        const pendingForWrite = unresolvedPendingSave || (savedFormation?.pendingSave && String(savedFormation.pendingSave.matchDayId || '') !== String(currentMatch?.id || '') ? undefined : null)
+        await saveOfflineFormationRef.current?.({ nextBoard, nextBoards, nextDraft, nextPresets, nextPublications: nextPublications.matchItems, pendingSave: pendingForWrite, pendingQueueKey: pendingSave?.queueKey }).catch(() => {})
       }
     } catch (loadError) {
       if (!isCurrent()) return
       if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
         if (pendingSave) setNotice('Your unsent Formation Board is saved on this device. Connect when you are ready to finish saving it.')
-        setOffline(true)
+        setQueuedRetryPending(Boolean(pendingSave))
         setRefreshPending(false)
       } else {
         setErrorRetry('load')
@@ -578,7 +593,6 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const availabilityMatch = linkedMatch || match || null
   const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
-  const unavailable = stale || offline || serverBoardUnavailable
   const hasEditAuthority = canEditCoachFormationBoard(user)
   const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable
   const capacity = getMobileFormationCapacity(draft.gameFormat)
@@ -689,19 +703,26 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     setNotice('New Formation Board ready. Tap any pitch position to choose a Player.')
   }
 
-  const saveOfflineFormation = async ({ nextBoard = board, nextBoards = boards, nextDraft = draft, pendingSave = null } = {}) => {
+  const saveOfflineFormation = async ({ nextBoard = board, nextBoards = boards, nextDraft = draft, nextPresets = presets, nextPublications = matchPublications, pendingSave, pendingQueueKey } = {}) => {
+    const pendingKey = `${match?.id || ''}:${pendingSave?.boardId || nextBoard?.id || board?.id || 'new'}`
+    const pendingSaveChanges = pendingSave === undefined ? undefined : {
+      ...((pendingSave?.queueKey || pendingQueueKey) ? { [pendingSave?.queueKey || pendingQueueKey]: null } : {}),
+      [pendingKey]: pendingSave,
+    }
     await saveCoachOfflineResources(user.id, context, {
       formation: {
         board: nextBoard,
         boards: nextBoards,
         draft: nextDraft,
         matchDayId: match?.id || '',
-        matchPublications,
-        pendingSave,
-        presets,
+        matchPublications: nextPublications,
+        pendingSave: pendingSave === undefined ? undefined : pendingSave,
+        pendingSaveChanges,
+        presets: nextPresets,
       },
     })
   }
+  saveOfflineFormationRef.current = saveOfflineFormation
 
   const reconcilePendingBoard = async (pendingSave) => {
     if (!pendingSave?.startedAt || !normalize(pendingSave?.title)) return null
@@ -716,10 +737,14 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     )) || null
   }
 
-  const persistBoard = async () => {
+  const persistBoard = async ({ queuedSave = null, queuedEditorRevision = null } = {}) => {
     if (!canEdit) throw new Error('Coach or manager plan access is required to save formations.')
     if (!match?.id) throw new Error('Open a match before saving a Formation Board.')
-    if (board?.linkedMatchDayId && board.linkedMatchDayId !== match.id) throw new Error('This board belongs to another match.')
+    const saveBoard = queuedSave ? queuedSave.board || null : board
+    const saveDraft = queuedSave?.draft || draft
+    const saveTitle = queuedSave?.title || title
+    const saveShared = queuedSave ? queuedSave.shared === true : shared
+    if (saveBoard?.linkedMatchDayId && saveBoard.linkedMatchDayId !== match.id) throw new Error('This board belongs to another match.')
     const operation = loadSequence.current
     const requireActiveBoard = () => {
       if (operation === loadSequence.current) return
@@ -730,77 +755,148 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     const cachedBeforeSave = await readCoachOfflineResources(user.id, context).catch(() => null)
     requireActiveBoard()
     const cachedFormation = cachedBeforeSave?.resources?.formation
-    const cachedPending = cachedFormation?.pendingSave
-    const previousPendingSave = String(cachedFormation?.matchDayId || '') === String(match?.id || '')
-      && String(cachedPending?.boardId || '') === String(board?.id || '')
+    const cachedPending = cachedFormation?.pendingSaves?.[`${match.id}:${saveBoard?.id || 'new'}`] || cachedFormation?.pendingSave
+    const previousPendingSave = queuedSave || (String(cachedFormation?.matchDayId || '') === String(match?.id || '')
+      && String(cachedPending?.boardId || '') === String(saveBoard?.id || '')
       && cachedPending?.draft
-      && formationContentKey(cachedPending.draft, cachedPending.title) === formationContentKey(draft, title)
-      ? cachedPending : null
-    const pendingSave = {
-      boardId: board?.id || '',
-      createdByProfileId: normalize(previousPendingSave?.createdByProfileId) || normalize(board?.createdByProfileId) || user.id,
-      draft,
-      shared,
-      startedAt: !board && previousPendingSave?.startedAt ? previousPendingSave.startedAt : new Date().toISOString(),
-      title: normalize(title) || 'Formation Board',
+      && formationContentKey(cachedPending.draft, cachedPending.title) === formationContentKey(saveDraft, saveTitle)
+      ? cachedPending : null)
+    const pendingSave = queuedSave || {
+      board: saveBoard || null,
+      boardId: saveBoard?.id || '',
+      createdByProfileId: normalize(previousPendingSave?.createdByProfileId) || normalize(saveBoard?.createdByProfileId) || user.id,
+      draft: saveDraft,
+      expectedVersionNumber: saveBoard?.currentVersionNumber ?? null,
+      matchDayId: match.id,
+      queueKey: `${match.id}:${saveBoard?.id || 'new'}`,
+      shared: saveShared,
+      startedAt: !saveBoard && previousPendingSave?.startedAt ? previousPendingSave.startedAt : new Date().toISOString(),
+      title: normalize(saveTitle) || 'Formation Board',
     }
-    let nextBoard = board
+    let nextBoard = saveBoard
     let savedLocally = false
-    await saveOfflineFormation({ pendingSave }).then(() => { savedLocally = true }).catch(() => {})
+    if (!queuedSave) await saveOfflineFormation({ pendingSave }).then(() => { savedLocally = true }).catch(() => {})
     try {
       requireActiveBoard()
-      if (!nextBoard) {
-        nextBoard = await reconcilePendingBoard(previousPendingSave).catch(() => null)
+      if (!queuedSave?.acknowledged && !nextBoard) {
+        nextBoard = await reconcilePendingBoard(queuedSave || previousPendingSave)
       }
       requireActiveBoard()
-      nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, draft, title, shared)
-      requireActiveBoard()
+      if (!queuedSave?.acknowledged) {
+        nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
+        requireActiveBoard()
+        const acknowledgedPendingSave = { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, expectedVersionNumber: nextBoard.currentVersionNumber }
+        await saveOfflineFormation({ nextBoard, pendingSave: acknowledgedPendingSave }).catch(() => {})
+      }
       // Retain a confirmed server identity even if refresh or local storage fails.
       setBoard(nextBoard)
       const nextBoards = await getCoachFormationBoards(user)
+      if (queuedSave?.acknowledged && !nextBoards.some((candidate) => candidate.id === nextBoard.id)) throw new Error('The saved Formation Board is no longer available to this account.')
       const nextPublications = await resolvePublications(nextBoard, user)
+      if (queuedSave?.acknowledged && queuedSave.shared && !getActiveFormationPublication(nextPublications.matchItems, match.id)) throw new Error('The saved Formation Board visibility could not be confirmed. It remains queued for review.')
       requireActiveBoard()
+      const currentEditor = editorSnapshotRef.current
+      const preserveCurrentDraft = queuedSave && (
+        queuedEditorRevision !== editorRevision.current
+        || formationContentKey(currentEditor.draft, currentEditor.title) !== formationContentKey(saveDraft, saveTitle)
+        || currentEditor.shared !== saveShared
+      )
       setBoard(nextBoard)
       setBoards(nextBoards)
-      setDraft(createMobileFormationDraft({ board: nextBoard }))
-      setTitle(nextBoard.title)
+      if (!preserveCurrentDraft) {
+        setDraft(createMobileFormationDraft({ board: nextBoard }))
+        setTitle(nextBoard.title)
+      }
       setSavedContentKey(formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title))
       setMatchPublications(nextPublications.matchItems)
-      await saveOfflineFormation({ nextBoard, nextBoards, nextDraft: createMobileFormationDraft({ board: nextBoard }), pendingSave: null }).catch(() => {})
-      await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null).catch(() => {})
-      setRestoredDraftKey('')
-      setLocalState('idle')
+      await saveOfflineFormation({ nextBoard, nextBoards, nextDraft: preserveCurrentDraft ? currentEditor.draft : createMobileFormationDraft({ board: nextBoard }), nextPublications: nextPublications.matchItems, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
+      if (!preserveCurrentDraft) await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null).catch(() => {})
+      setQueuedRetryPending(false)
+      if (!preserveCurrentDraft) {
+        setRestoredDraftKey('')
+        setLocalState('idle')
+      } else setLocalState('saved')
       return nextBoard
     } catch (saveError) {
       if (saveError.code === 'formation_navigation_changed') throw saveError
+      const retryable = isRetryableFormationSaveError(saveError)
+      const hasQueuedSnapshot = savedLocally || Boolean(queuedSave)
+      if (!retryable) {
+        await saveOfflineFormation({ nextBoard, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
+      }
+      setQueuedRetryPending(retryable && hasQueuedSnapshot)
       requireActiveBoard()
       if (String(saveError?.message || '').includes('formation_board_version_conflict')) {
         const conflict = new Error('Another coach has saved a newer version. Your changes remain on this device. Reload the latest version to continue, or keep this screen open to review your changes first.')
         conflict.code = 'formation_conflict'
         throw conflict
       }
-      if (!nextBoard) {
-        const reconciled = await reconcilePendingBoard(pendingSave).catch(() => null)
-        if (reconciled) {
-          setBoard(reconciled)
-          setDraft(createMobileFormationDraft({ board: reconciled }))
-          nextBoard = reconciled
-        }
+      if (retryable && hasQueuedSnapshot) {
+        const queuedError = new Error('Saved on this phone. It will retry when the connection returns.')
+        queuedError.code = 'formation_save_queued'
+        throw queuedError
       }
-      throw new Error(savedLocally
-        ? 'Your Formation Board is saved safely on this device. Connect and retry. The app will check for the previous server save before creating anything again.'
-        : 'Your Formation Board could not be saved on this device or confirmed online. Keep this screen open and retry when connected.')
+      if (retryable) throw new Error('Your Formation Board could not be saved on this device or confirmed online. Keep this screen open and retry when connected.')
+      throw saveError
     }
   }
+
+  persistBoardRef.current = persistBoard
 
   const save = async () => {
     setBusy(true); setError(''); setNotice('')
     try {
       const nextBoard = await persistBoard()
       setNotice(`${nextBoard.title} saved to this match. ${shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
-    } catch (saveError) { if (saveError.code === 'formation_navigation_changed') return; setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : 'save'); setError(saveError.message) }
+    } catch (saveError) {
+      if (saveError.code === 'formation_navigation_changed' || saveError.code === 'formation_save_queued') return
+      setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : 'save')
+      setError(saveError.message)
+    }
     finally { setBusy(false) }
   }
+
+  const retryQueuedSave = useCallback(async () => {
+    if (queuedRetryInFlight.current || !queuedRetryPending || busy || loading || refreshPending || serverBoardUnavailable || !canEdit || !match?.id) return
+    queuedRetryInFlight.current = true
+    try {
+      const currentRoute = getCoachFormationRouteScope(user, context, match.id)
+      if (currentRoute !== routeScope) return
+      const saved = await readCoachOfflineResources(user.id, context).catch(() => null)
+      const currentProps = propsRef.current
+      if (currentProps.match?.id !== match.id || currentProps.user?.id !== user.id || currentProps.context?.id !== context.id) return
+      const formation = saved?.resources?.formation
+      const pendingKey = `${match.id}:${board?.id || 'new'}`
+      const pendingSave = formation?.pendingSaves?.[pendingKey]
+        || (String(formation?.pendingSave?.matchDayId || '') === String(match.id) && (!formation.pendingSave.boardId || formation.pendingSave.boardId === board?.id) ? formation.pendingSave : null)
+      if (!pendingSave || String(pendingSave.matchDayId || '') !== String(match.id)) return
+      if (pendingSave.boardId && !pendingSave.board) return
+      const queuedEditorRevision = editorRevision.current
+      setBusy(true)
+      setError('')
+      const nextBoard = await persistBoardRef.current({ queuedEditorRevision, queuedSave: pendingSave })
+      setNotice(`${nextBoard.title} saved to this match. ${pendingSave.shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
+    } catch (retryError) {
+      if (retryError.code === 'formation_navigation_changed' || retryError.code === 'formation_save_queued' || isRetryableFormationSaveError(retryError)) return
+      setErrorRetry(retryError.code === 'formation_conflict' ? 'conflict' : 'save')
+      setError(retryError.message)
+    } finally {
+      queuedRetryInFlight.current = false
+      setBusy(false)
+    }
+  }, [board?.id, busy, canEdit, context, loading, match?.id, queuedRetryPending, refreshPending, routeScope, serverBoardUnavailable, user])
+
+  useEffect(() => {
+    const retry = (state) => { if (state === 'active') void retryQueuedSave() }
+    const subscription = AppState.addEventListener('change', retry)
+    return () => subscription.remove()
+  }, [retryQueuedSave])
+
+  useEffect(() => {
+    if (!queuedRetryPending || AppState.currentState !== 'active') return undefined
+    const timer = setInterval(() => void retryQueuedSave(), 30_000)
+    return () => clearInterval(timer)
+  }, [queuedRetryPending, retryQueuedSave])
 
   const reloadLatestBoard = () => confirmDraftReplacement(async () => {
     setBusy(true)
@@ -931,7 +1027,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       <ScrollView style={fullScreen ? styles.canvasAlert : null}>
       {!hasEditAuthority ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>Coach or manager plan access is required to edit, save or share this Formation Board.</Text></View> : null}
       {localState === 'failed' ? <Text accessibilityRole="alert" style={styles.body}>Changes could not be protected on this device. Keep this screen open and save to the match when connected.</Text> : null}
-      {unavailable ? <View style={styles.warning}><Text style={styles.heading}>{serverBoardUnavailable ? 'Board unavailable' : refreshPending ? 'Checking saved board' : 'Offline draft'}</Text><Text style={styles.body}>{serverBoardUnavailable ? 'The saved board is no longer available to this account. Cached content cannot be edited or sent.' : refreshPending ? 'Showing the last encrypted board as read-only while the live board is checked.' : 'Showing the last encrypted board. You can keep a private device draft, while saving and visibility changes require a successful online refresh.'}</Text></View> : null}
+      {serverBoardUnavailable ? <View style={styles.warning}><Text style={styles.heading}>Board unavailable</Text><Text style={styles.body}>The saved board is no longer available to this account. Cached content cannot be edited or sent.</Text></View> : null}
       {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy || (!canEdit && errorRetry === 'save')} label={errorRetry === 'conflict' ? 'Reload latest version' : errorRetry === 'save' ? 'Retry save' : errorRetry === 'back' ? 'Retry Back' : 'Try again'} onPress={errorRetry === 'conflict' ? reloadLatestBoard : errorRetry === 'save' ? save : errorRetry === 'back' ? handleBack : load} secondary styles={styles} /></View> : null}
       {removalMode && canEdit ? <View style={styles.selectedPanel}><Text style={styles.body}>Tap starters to select them, then move the selection to the Bench.</Text><View style={styles.row}><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { commitPlayerMove(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /><Action label="Cancel" onPress={() => { setRemovalIds([]); setRemovalMode(false) }} secondary styles={styles} /></View></View> : null}
 
@@ -954,7 +1050,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
             </View>
 
             {activeSheet === 'formation' ? <ScrollView contentContainerStyle={styles.stack}>
-              <Text style={styles.body}>Change the shape at any time. Players already on the pitch stay selected and move into the new formation in lineup order.</Text>
+              <Text style={styles.body}>Change the shape at any time. Your goalkeeper stays in goal, and outfield players keep their positions as closely as the new shape allows.</Text>
               <Text style={styles.label}>Game format</Text>
               <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice disabled={!canEdit} key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
               <Text style={styles.label}>Formation</Text>
@@ -978,8 +1074,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
               <Choice disabled={!canEdit || busy} label="Coaches only" onPress={() => setShared(false)} selected={!shared} styles={styles} />
               <Choice disabled={!canEdit || busy} label="Parents and players" onPress={() => setShared(true)} selected={shared} styles={styles} />
               {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
+              {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>Saved on this phone. It will retry when the connection returns.</Text> : null}
               {notice.startsWith(`${title} saved to this match.`) ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
-              <Action disabled={!canEdit || busy || unavailable || !match?.id || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save to match'} onPress={() => void save()} styles={styles} />
+            <Action disabled={!canEdit || busy || !match?.id || !title.trim() || !selectedIds.size} label={busy ? 'Saving...' : 'Save to match'} onPress={() => void save()} styles={styles} />
             </ScrollView> : null}
 
             {activeSheet === 'details' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
