@@ -106,7 +106,6 @@ function createStyles(palette) {
     panelTab: { flex: 1, minWidth: 44, minHeight: 60, alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
     panelTabText: { color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
     fixtureHero: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 9, paddingVertical: 12 },
-    fixtureBadge: { alignItems: 'center', flexDirection: 'row', gap: 4, paddingVertical: 4 },
     fixtureHeroLive: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
     fixtureTitle: { color: palette.textPrimary, fontSize: 22, fontWeight: '900', lineHeight: 28 },
     gameMode: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 12, padding: 15 },
@@ -292,12 +291,7 @@ function FixtureHero({ match, now, styles }) {
   const view = getCoachMatchDayPresentation(match, Number.isFinite(now) ? now : currentNow)
   const live = isLiveMatch(match)
   return <View style={[styles.fixtureHero, live && styles.fixtureHeroLive]}>
-    <View style={styles.tabs}>
-      {live || (normalize(match.status) && normalize(match.status) !== 'scheduled') ? <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status)}</Text> : null}
-      <Text style={styles.liveSync}>{view.phaseLabel}</Text>
-      {match.homeAway ? <View style={styles.fixtureBadge}><MaterialIcons name={match.homeAway === 'away' ? 'place' : 'home'} size={16} style={styles.chipTextActive} /><Text style={styles.liveSync}>{label(match.homeAway)}</Text></View> : null}
-      {match.fixtureType ? <View style={styles.fixtureBadge}><MaterialIcons name={match.fixtureType === 'cup' ? 'emoji-events' : 'sports-soccer'} size={16} style={styles.chipTextActive} /><Text style={styles.liveSync}>{label(match.fixtureType)}</Text></View> : null}
-    </View>
+    {live || (normalize(match.status) && normalize(match.status) !== 'scheduled') ? <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status)}</Text> : null}
     <Text accessibilityRole="header" style={styles.fixtureTitle}>{view.displayName}</Text>
     <FixtureDetailRow icon="calendar-month" styles={styles}>{formatFixtureDate(match.matchDate)} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}</FixtureDetailRow>
     <FixtureDetailRow icon="place" styles={styles}>{match.venueAddress || match.venueName || 'Venue TBC'}</FixtureDetailRow>
