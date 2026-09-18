@@ -166,7 +166,23 @@ try {
   assert.equal(await page.evaluate(() => window.__workspaceTest.navPresses), 0)
 
   const boardTools = page.getByLabel('Formation Board tools', { exact: true })
+  const menuToggle = page.getByRole('button', { name: 'Formation menu', exact: true })
+  const backHeader = await page.getByRole('button', { name: 'Close Formation Board', exact: true }).boundingBox()
+  const menuHeader = await menuToggle.boundingBox()
+  assert.ok(Math.abs(backHeader.y - menuHeader.y) <= 1, 'Menu arrow is aligned with Back')
+  assert.equal(await boardTools.count(), 0, 'Bottom toolbar is replaced by a closed dropdown')
+  await page.getByRole('button', { name: /Collapse substitutes/ }).waitFor()
+  await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).waitFor()
+  await page.screenshot({ path: path.join(outputDir, 'coach-formation-menu-closed.png') })
+  await menuToggle.click()
+  await page.screenshot({ path: path.join(outputDir, 'coach-formation-menu-open.png') })
+  await boardTools.getByRole('button', { name: 'Saved lineups (1)', exact: true }).click()
+  await page.getByRole('dialog', { name: 'details options', exact: true }).waitFor()
+  await page.getByText('Match shape', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Close options', exact: true }).click()
+  await page.getByRole('dialog', { name: 'details options', exact: true }).waitFor({ state: 'detached' })
   for (const label of ['Formation', 'Players', 'Save']) {
+    await menuToggle.click()
     await boardTools.getByRole('button').filter({ hasText: new RegExp(`${label}$`) }).click()
     const dialogName = `${label === 'Save' ? 'share' : label.toLowerCase()} options`
     await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor()
@@ -225,11 +241,15 @@ try {
   await page.getByRole('button', { name: 'Undo last player move', exact: true }).click()
   const restoredPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
   assert.deepEqual(restoredPosition, originalPosition, 'Undo restores the original player position')
-  await page.getByRole('button', { name: /Expand substitutes/ }).click()
   await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).click()
   await page.getByText('Player 12 selected. Tap a starter to swap.', { exact: true }).waitFor()
 
   await page.getByRole('button', { name: /Collapse substitutes/ }).click()
+  await page.waitForFunction((label) => {
+    const shirt = [...document.querySelectorAll('[aria-label]')].find(node => node.getAttribute('aria-label') === label)
+    const rect = shirt?.getBoundingClientRect()
+    return rect && shirt.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+  }, await marker.getAttribute('aria-label'))
   const preHoldMarkerBox = await marker.boundingBox()
   const preHoldPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
   const preHoldX = preHoldMarkerBox.x + preHoldMarkerBox.width / 2
@@ -264,7 +284,7 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).count(), 1, 'Scrolling cannot swap the selected substitute')
   await page.getByText('Player 12 selected. Tap a starter to swap.', { exact: true }).waitFor()
   const backBox = await page.getByRole('button', { name: 'Close Formation Board', exact: true }).boundingBox()
-  const toolsBox = await page.getByLabel('Formation Board tools', { exact: true }).boundingBox()
+  const toolsBox = await menuToggle.boundingBox()
   assert.ok(backBox && backBox.y >= 47)
   assert.ok(toolsBox && toolsBox.y + toolsBox.height <= 852 - 34)
 

@@ -118,8 +118,12 @@ function createStyles(palette, fullScreen = false) {
     field: { bottom: 112, left: 2, position: 'absolute', right: 2, top: 44 },
     pitchCanvas: { aspectRatio: undefined, borderRadius: 0, borderWidth: 2, flex: 1, height: '100%' },
     canvasFooter: { bottom: 0, left: 0, position: 'absolute', right: 0, zIndex: 25 },
+    menuToggle: { alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 48, position: 'absolute', right: 4, top: 0, zIndex: 45 },
+    menuDismiss: { ...StyleSheet.absoluteFillObject, top: 44, zIndex: 34 },
+    toolsMenu: { backgroundColor: 'rgb(3,35,20)', borderTopWidth: 0, flexDirection: 'column', gap: 0, paddingTop: 0, position: 'absolute', right: 4, top: 44, width: 200, zIndex: 45 },
+    menuItem: { borderBottomColor: 'rgba(255,255,255,0.2)', borderBottomWidth: 1, borderRadius: 0, flex: 0, flexDirection: 'row', gap: 12, justifyContent: 'flex-start', minHeight: 48, paddingHorizontal: 16 },
     canvasText: { color: 'white' },
-    canvasUndo: { alignSelf: 'flex-end', backgroundColor: 'rgba(3,35,20,0.94)', paddingHorizontal: 10, position: 'absolute', right: 4, top: 0, zIndex: 30 },
+    canvasUndo: { alignSelf: 'flex-end', backgroundColor: 'rgba(3,35,20,0.94)', paddingHorizontal: 10, position: 'absolute', right: 4, top: 48, zIndex: 30 },
     canvasAlert: { backgroundColor: palette.surface, maxHeight: 140, paddingHorizontal: 8 },
   })
 }
@@ -302,7 +306,9 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   const [showBoards, setShowBoards] = useState(false)
   const [title, setTitleState] = useState(match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board')
   const [activeSheet, setActiveSheet] = useState('')
-  const [benchExpanded, setBenchExpanded] = useState(!fullScreen)
+  const [benchExpanded, setBenchExpanded] = useState(true)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [footerHeight, setFooterHeight] = useState(120)
   const [savedContentKey, setSavedContentKey] = useState('')
   const [draftScope, setDraftScope] = useState('')
   const routeScope = getCoachFormationRouteScope(user, context, match?.id)
@@ -917,7 +923,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
   return (
     <View pointerEvents={busy ? 'none' : 'auto'} style={[styles.workspace, fullScreen && styles.canvas]}>
       {!registerBackHandler && onBack ? <Pressable accessibilityLabel="Back from Formation Board" accessibilityRole="button" onPress={() => void handleBack()} style={styles.topIcon}><Text style={styles.label}>Back</Text></Pressable> : null}
-      <View style={fullScreen ? styles.field : null}>
+      <View style={fullScreen ? [styles.field, { bottom: footerHeight }] : null}>
       <View accessibilityLabel="Formation pitch" onLayout={(event) => setPitchLayout(event.nativeEvent.layout)} style={[styles.pitch, fullScreen && styles.pitchCanvas]}>
         <FormationPitchLines styles={styles} />
         {currentPresetSlots.filter((slot) => !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
@@ -964,7 +970,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       </View>
 
       {undoMove && canEdit && undoMove.after === draft ? <View style={[styles.rowBetween, fullScreen && styles.canvasUndo]} accessibilityLiveRegion="polite"><Text style={[styles.body, fullScreen && styles.canvasText]}>Lineup changed</Text><Pressable accessibilityRole="button" accessibilityLabel="Undo last player move" onPress={() => { setDraft(undoMove.before); setSelectedPlayerId(''); setNotice(''); }} style={styles.topIcon}><Text style={[styles.count, fullScreen && styles.canvasText]}>Undo</Text></Pressable></View> : null}
-      <View style={fullScreen ? styles.canvasFooter : null}>
+      <View onLayout={fullScreen ? (event) => setFooterHeight(event.nativeEvent.layout.height) : undefined} style={fullScreen ? styles.canvasFooter : null}>
       <View style={styles.bench}>
         <Pressable accessibilityLabel={`${benchExpanded ? 'Collapse' : 'Expand'} substitutes, ${draft.bench.length} Players`} accessibilityRole="button" onPress={() => setBenchExpanded((current) => !current)} style={styles.benchHeader}>
           <Text style={[styles.heading, fullScreen && { color: 'white', fontSize: 16, paddingHorizontal: 12 }]}>Subs ({draft.bench.length})</Text>
@@ -982,12 +988,15 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       {removalMode && canEdit ? <View style={styles.selectedPanel}><Text style={styles.body}>Tap starters to select them, then move the selection to the Bench.</Text><View style={styles.row}><Action disabled={!removalIds.length} label={`Move ${removalIds.length || ''} selected to Bench`.replace('  ', ' ')} onPress={() => { commitPlayerMove(moveMobileFormationPlayersToBench(draft, removalIds)); setRemovalIds([]); setRemovalMode(false) }} styles={styles} /><Action label="Cancel" onPress={() => { setRemovalIds([]); setRemovalMode(false) }} secondary styles={styles} /></View></View> : null}
 
       </ScrollView>
-      <View accessibilityLabel="Formation Board tools" style={styles.dock}>
-        <Pressable accessibilityRole="button" accessibilityLabel={matchBoards.length ? `Saved lineups (${matchBoards.length})` : 'Formation Board options'} onPress={() => { setShowBoards(matchBoards.length > 0); setActiveSheet('details') }} style={styles.dockItem}><MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name="more-horiz" size={24} /><Text style={styles.dockLabel}>{matchBoards.length ? `Saved (${matchBoards.length})` : 'Options'}</Text></Pressable>
-        {BOARD_TABS.map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => setActiveSheet(tab.value)} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
       </View>
-
-      </View>
+      {fullScreen ? <>
+        {toolsOpen ? <Pressable accessibilityRole="button" accessibilityLabel="Dismiss formation menu" onPress={() => setToolsOpen(false)} style={styles.menuDismiss} /> : null}
+        <Pressable accessibilityRole="button" accessibilityLabel="Formation menu" accessibilityState={{ expanded: toolsOpen }} onPress={() => setToolsOpen(current => !current)} style={styles.menuToggle}><MaterialIcons color="white" name={toolsOpen ? 'expand-less' : 'expand-more'} size={30} /></Pressable>
+      </> : null}
+      {!fullScreen || toolsOpen ? <View accessibilityLabel="Formation Board tools" style={[styles.dock, fullScreen && styles.toolsMenu]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={matchBoards.length ? `Saved lineups (${matchBoards.length})` : 'Formation Board options'} onPress={() => { setToolsOpen(false); setShowBoards(matchBoards.length > 0); setActiveSheet('details') }} style={[styles.dockItem, fullScreen && styles.menuItem]}><MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name="more-horiz" size={24} /><Text style={styles.dockLabel}>{matchBoards.length ? `Saved (${matchBoards.length})` : 'Options'}</Text></Pressable>
+        {BOARD_TABS.map((tab) => { const active = activeSheet === tab.value; const share = tab.value === 'share'; const disabled = !canEdit && !share; return <Pressable accessibilityRole="button" accessibilityState={{ disabled, selected: active }} disabled={disabled} key={tab.value} onPress={() => { setToolsOpen(false); setActiveSheet(tab.value) }} style={[styles.dockItem, active && styles.dockItemActive, share && styles.dockItemShare, disabled && styles.dockItemDisabled, fullScreen && styles.menuItem]}><MaterialIcons color={share ? 'rgb(104,242,162)' : active ? palette.selectedForeground : fullScreen ? 'white' : palette.textSecondary} name={tab.icon} size={28} /><Text style={[styles.dockLabel, active && styles.dockLabelActive, share && styles.dockLabelShare]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tab.label}</Text></Pressable> })}
+      </View> : null}
 
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={closeSheet} transparent visible={Boolean(activeSheet)}>
         <SafeAreaProvider>
@@ -1018,7 +1027,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
 
             {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
               <Text style={styles.body}>{match ? `${match.teamName} v ${match.opponent}` : 'Open a match to save this board.'}</Text>
-              {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation and tap Saved.</Text> : null}
+              {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation, open the top-right menu and tap Saved.</Text> : null}
               <Text style={styles.label}>Lineup name</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
