@@ -1,4 +1,3 @@
-import { UserFeedbackLinks } from '../layout/UserFeedbackLinks.jsx'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.webp'
@@ -38,6 +37,8 @@ const parentPortalSections = [
   { id: 'chat', label: 'Chat', description: 'Player, team and match chat', to: '/parent-chat', recoveryPath: '/parent-chat' },
   { id: 'polls', label: 'Polls', description: 'Questions to answer', to: '/parent-polls', recoveryPath: '/parent-polls' },
   { id: 'fans', label: 'Fans', description: 'People and access', to: '/fans' },
+  { id: 'feedback', label: 'Feedback & Suggestions', mobileLabel: 'Feedback', description: 'Share your ideas', to: '/feedback/send?type=suggestion' },
+  { id: 'bug', label: 'Report a Bug', description: 'Tell us what went wrong', to: '/feedback/send?type=bug' },
   { id: 'settings', label: 'Settings', description: 'Profile and preferences', to: '/parent-portal?section=settings' },
 ]
 
@@ -406,7 +407,7 @@ export function ParentPortalSectionNav({
             const content = (
               <>
                 <span className="min-w-0">
-                  <span className="block text-xs font-black sm:text-sm">{section.label}</span>
+                  <span className="block text-xs font-black sm:text-sm">{variant === 'mobile' ? section.mobileLabel || section.label : section.label}</span>
                   {variant === 'mobile' ? null : (
                     <span className="mt-0.5 block text-xs font-semibold text-[#4b5f55]">{section.description}</span>
                   )}
@@ -454,7 +455,6 @@ export function ParentPortalSectionNav({
           })}
         </div>
       </nav>
-      <UserFeedbackLinks />
       {showAccountActions ? (
         <div className={variant === 'mobile' ? 'mt-1 border-t border-[#d7e5dc] pt-1.5' : 'mt-auto shrink-0 border-t border-[#d7e5dc] pt-3'}>
           <ParentPortalAccountActions
