@@ -140,10 +140,14 @@ try {
   await page.addScriptTag({ content: bundle.outputFiles[0].text })
 
   const workspace = page.getByTestId('coach-formation-workspace')
-  const workspaceScroll = page.getByTestId('coach-formation-workspace-scroll')
+  const workspaceCanvas = page.getByTestId('coach-formation-workspace-canvas')
   await workspace.waitFor()
+  await workspaceCanvas.waitFor()
   await page.getByLabel('Formation pitch', { exact: true }).waitFor()
-  await page.getByText('Match shape', { exact: true }).waitFor()
+  assert.equal(await page.getByText('Match shape', { exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).count(), 0)
+  const pitchBox = await page.getByLabel('Formation pitch', { exact: true }).boundingBox()
+  assert.ok(pitchBox.width >= 375, 'Pitch uses available screen width')
   await page.waitForFunction(() => {
     const header = document.querySelector('[data-testid="standard-coach-chrome"]')
     const rect = header?.getBoundingClientRect()
@@ -163,11 +167,16 @@ try {
   assert.equal(await page.evaluate(() => window.__workspaceTest.navPresses), 0)
 
   const boardTools = page.getByLabel('Formation Board tools', { exact: true })
-  for (const label of ['Formation', 'Players', 'Share']) {
+  for (const label of ['Formation', 'Players', 'Save']) {
     await boardTools.getByRole('button').filter({ hasText: label }).click()
-    await page.getByRole('dialog', { name: `${label.toLowerCase()} options`, exact: true }).waitFor()
+    const dialogName = `${label === 'Save' ? 'share' : label.toLowerCase()} options`
+    await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor()
+    if (label === 'Formation') {
+      await page.getByLabel('Formation pitch', { exact: true }).click({ position: { x: 8, y: 8 } })
+      assert.equal(await page.getByRole('dialog', { name: 'Choose Player', exact: true }).count(), 0, 'Modal backdrop isolates the pitch')
+    }
     await page.getByRole('button', { name: 'Close options', exact: true }).click()
-    await page.getByRole('dialog', { name: `${label.toLowerCase()} options`, exact: true }).waitFor({ state: 'detached' })
+    await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor({ state: 'detached' })
     await page.waitForTimeout(350)
   }
   const emptySlot = page.locator('[aria-label^="Add Player at "]').first()
@@ -183,35 +192,81 @@ try {
   await page.waitForTimeout(350)
 
   const marker = page.getByLabel(/Player 1, shirt 1/)
-  await page.evaluate(() => document.querySelector('[data-testid="coach-formation-workspace-scroll"]').scrollTop = 40)
-  const scrollBeforeDrag = await workspaceScroll.evaluate(element => element.scrollTop)
+  const originalPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
   const markerBox = await marker.boundingBox()
   assert.ok(markerBox)
   const gestureX = markerBox.x + markerBox.width / 2
   const gestureY = markerBox.y + markerBox.height / 2
   const cdp = await context.newCDPSession(page)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x: gestureX, y: gestureY }] })
+  await page.waitForTimeout(450)
   for (let step = 1; step <= 5; step += 1) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: gestureX + (step * 6), y: gestureY - (step * 4) }] })
   }
-  await page.waitForFunction(() => document.querySelector('[data-testid="coach-formation-workspace-scroll"]')?.dataset.markerGestureActive === 'true')
-  assert.equal(await workspaceScroll.evaluate(element => element.scrollTop), scrollBeforeDrag)
+  await page.waitForFunction(() => document.querySelector('[data-testid="coach-formation-workspace-canvas"]')?.dataset.markerGestureActive === 'true')
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-  await page.waitForFunction(() => document.querySelector('[data-testid="coach-formation-workspace-scroll"]')?.dataset.markerGestureActive === 'false')
+  await page.waitForFunction(() => document.querySelector('[data-testid="coach-formation-workspace-canvas"]')?.dataset.markerGestureActive === 'false')
   const movedMarkerBox = await marker.boundingBox()
   assert.ok(movedMarkerBox && Math.abs(movedMarkerBox.x - markerBox.x) > 4)
-  await page.evaluate(() => document.querySelector('[data-testid="coach-formation-workspace-scroll"]').scrollTop = 0)
-  const backBox = await page.getByRole('button', { name: 'Back from Formation Board', exact: true }).boundingBox()
+  await page.getByRole('button', { name: 'Undo last player move', exact: true }).click()
+  const restoredPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
+  assert.deepEqual(restoredPosition, originalPosition, 'Undo restores the original player position')
+  await page.getByRole('button', { name: /Expand substitutes/ }).click()
+  await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).click()
+  await page.getByText('Player 12 selected. Tap a starter to swap.', { exact: true }).waitFor()
+
+  await page.getByRole('button', { name: /Collapse substitutes/ }).click()
+  const preHoldMarkerBox = await marker.boundingBox()
+  const preHoldPosition = await marker.evaluate(element => ({ left: element.style.left, top: element.style.top }))
+  const preHoldX = preHoldMarkerBox.x + preHoldMarkerBox.width / 2
+  const preHoldY = preHoldMarkerBox.y + preHoldMarkerBox.height / 2
+  assert.equal(await marker.evaluate((element, point) => element.contains(document.elementFromPoint(point.x, point.y)), { x: preHoldX, y: preHoldY }), true, 'Swipe starts on the exposed pitch shirt')
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 2, x: preHoldX, y: preHoldY }] })
+  for (let step = 1; step <= 5; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 2, x: preHoldX + step * 6, y: preHoldY - step * 8 }] })
+    await page.waitForTimeout(20)
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await page.waitForTimeout(400)
+  assert.deepEqual(await marker.evaluate(element => ({ left: element.style.left, top: element.style.top })), preHoldPosition, 'Pre-hold pitch swipe must not move the player')
+  assert.equal(await page.getByRole('dialog', { name: 'Choose Player', exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Undo last player move', exact: true }).count(), 0)
+  await page.getByRole('button', { name: /Expand substitutes/ }).click()
+  await page.getByText('Player 12 selected. Tap a starter to swap.', { exact: true }).waitFor()
+
+  const swipeBox = await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).boundingBox()
+  const sx = swipeBox.x + swipeBox.width / 2
+  const sy = swipeBox.y + swipeBox.height / 2
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 3, x: sx, y: sy }] })
+  for (let step = 1; step <= 6; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 3, x: sx + step * 18, y: sy }] })
+    await page.waitForTimeout(20)
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await page.waitForTimeout(400)
+  assert.deepEqual(await marker.evaluate(element => ({ left: element.style.left, top: element.style.top })), restoredPosition, 'Swiping a substitute must not move the pitch player')
+  assert.equal(await page.getByRole('dialog', { name: 'Choose Player', exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Undo last player move', exact: true }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Player 12, shirt 12, substitute', exact: true }).count(), 1, 'Scrolling cannot swap the selected substitute')
+  await page.getByText('Player 12 selected. Tap a starter to swap.', { exact: true }).waitFor()
+  const backBox = await page.getByRole('button', { name: 'Close Formation Board', exact: true }).boundingBox()
   const toolsBox = await page.getByLabel('Formation Board tools', { exact: true }).boundingBox()
   assert.ok(backBox && backBox.y >= 47)
-  assert.ok(toolsBox && toolsBox.y + toolsBox.height <= 818, `Formation tools end at ${toolsBox ? toolsBox.y + toolsBox.height : 'missing'}px`)
-  await page.waitForTimeout(350)
+  assert.ok(toolsBox && toolsBox.y + toolsBox.height <= 852 - 34)
 
   await page.screenshot({ path: path.join(outputDir, 'coach-formation-workspace-light-393x852.png') })
   await page.evaluate(() => window.__workspaceTest.setDark(true))
   await page.setViewportSize({ width: 320, height: 568 })
+  const compactBack = await page.getByRole('button', { name: 'Close Formation Board', exact: true }).boundingBox()
+  const compactCanvas = await workspaceCanvas.boundingBox()
+  assert.ok(compactBack && compactBack.y >= 47 && compactBack.y + compactBack.height <= 568 - 34)
+  assert.ok(compactCanvas && compactCanvas.y >= 47 && compactCanvas.y + compactCanvas.height <= 568 - 34)
   await page.screenshot({ path: path.join(outputDir, 'coach-formation-workspace-dark-320x568.png') })
   await page.setViewportSize({ width: 852, height: 393 })
+  const landscapeBack = await page.getByRole('button', { name: 'Close Formation Board', exact: true }).boundingBox()
+  const landscapeCanvas = await workspaceCanvas.boundingBox()
+  assert.ok(landscapeBack && landscapeBack.y >= 47 && landscapeBack.y + landscapeBack.height <= 393 - 34)
+  assert.ok(landscapeCanvas && landscapeCanvas.y >= 47 && landscapeCanvas.y + landscapeCanvas.height <= 393 - 34)
   await page.screenshot({ path: path.join(outputDir, 'coach-formation-workspace-dark-landscape-852x393.png') })
 
   await page.getByRole('button', { name: 'Close Formation Board', exact: true }).click()
@@ -219,7 +274,7 @@ try {
   assert.equal(await page.evaluate(() => window.__workspaceTest.backCount), 1)
   assert.ok(await page.evaluate(() => window.__workspaceTest.localDraftCalls >= 1))
   assert.deepEqual(errors, [])
-  console.log('PASS: full-screen Formation workspace hides app chrome, owns drag scrolling, opens every tool, and returns safely')
+  console.log('PASS: full-screen Formation workspace uses a fixed safe-area canvas, preserves touch safety, opens every tool, and returns safely')
 } finally {
   await browser.close()
 }

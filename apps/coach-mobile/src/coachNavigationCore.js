@@ -114,6 +114,14 @@ export function getCoachBackTarget({ activeRoute, moreRoute = '' } = {}) {
   return null
 }
 
+export function getCoachBackPressAction({ activeRoute, moreRoute = '', lastBackAt = 0, now = Date.now(), windowMs = 2000 } = {}) {
+  const target = getCoachBackTarget({ activeRoute, moreRoute })
+  if (target) return Object.freeze({ type: 'navigate', target, nextLastBackAt: 0 })
+  const elapsed = now - lastBackAt
+  if (lastBackAt && elapsed >= 0 && elapsed < windowMs) return Object.freeze({ type: 'exit', nextLastBackAt: 0 })
+  return Object.freeze({ type: 'prompt', message: 'Press Back again to exit', nextLastBackAt: now })
+}
+
 export function getCoachPrimaryRoutes() {
   return PRIMARY_ROUTES
 }
