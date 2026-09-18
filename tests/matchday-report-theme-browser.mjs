@@ -10,6 +10,7 @@ const entry = `
   import React from 'react';
   import { createRoot } from 'react-dom/client';
   import { FinalMatchReportPanel } from '/src/pages/MatchDayPage.jsx';
+  import { AuthProvider } from '/src/lib/auth.js';
   import { normalizeMatchDay } from '/src/lib/domain/match-day.js';
   import { applyThemeColorVariables } from '/src/lib/theme.js';
   import '/src/index.css';
@@ -33,10 +34,10 @@ const entry = `
     ]
   });
   const root=createRoot(document.getElementById('root'));
-  window.renderReport=(tone='success')=>root.render(React.createElement(FinalMatchReportPanel,{
+  window.renderReport=(tone='success')=>root.render(React.createElement(AuthProvider,null,React.createElement(FinalMatchReportPanel,{
     match,clubIdentity:{clubName:'Test Club'},onSave:()=>{},onClose:()=>{},isBusy:false,
     status:{tone,message:tone==='error'?'Report could not be saved.':'Final match report saved.'}
-  }));
+  })));
   window.renderReport();
 `
 const server = await createServer({
@@ -45,6 +46,7 @@ const server = await createServer({
   define: {
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('http://fixture.supabase.test'),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('fixture-key'),
+    'import.meta.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES': JSON.stringify('true'),
   },
   plugins: [{
     name: 'render-actual-final-report',

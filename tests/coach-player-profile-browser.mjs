@@ -33,9 +33,9 @@ const getCoachPlayerDetail=async(user,id)=>{
 };
 ${helpers}
 ${screen}
-const user={id:'coach',clubId:'club',activeTeamId:'team'};
+const user={id:'coach',clubId:'club',activeTeamId:'team',planKey:'large_club',planStatus:'active'};
 function App(){const [mode,setMode]=useState('light'),[readOnly,setReadOnly]=useState(false),[quickAction,setQuickAction]=useState(null);window.mode=setMode;window.readOnly=setReadOnly;window.quickAdd=()=>setQuickAction({intent:'create-player'});const handled=useCallback(()=>setQuickAction(null),[]);
- const context=useMemo(()=>({id:'team',clubId:'club',teamId:'team',roleRank:30,paymentAccess:{canMutate:!readOnly}}),[readOnly]);
+ const context=useMemo(()=>({id:'team',clubId:'club',teamId:'team',planKey:'large_club',planStatus:'active',roleRank:30,paymentAccess:{canMutate:!readOnly}}),[readOnly]);
  const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;
  return <View style={{minHeight:'100vh',backgroundColor:palette.background,padding:12}}><CoachPlayersScreen context={context} user={user} palette={palette} quickAction={quickAction} onQuickActionHandled={handled} onNavigate={()=>{}} onRequestScrollTop={()=>{window.scrollRequests++;window.scrollTo(0,0)}}/></View>;
 }

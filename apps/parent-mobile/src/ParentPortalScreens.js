@@ -1502,7 +1502,7 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
     ['bug', 'more.bug', 'Report a Bug', 'Tell us what went wrong', 0],
     ['settings', 'settings', 'Settings', 'Account and alerts', 0],
   ]
-  const allowed = new Set(Array.isArray(visibleKeys) ? visibleKeys : items.map(([key]) => key))
+  const allowed = new Set(Array.isArray(visibleKeys) ? visibleKeys : ['partners', ...items.map(([key]) => key)])
   return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text>{allowed.has('partners') ? <PartnersBanner onPress={() => onOpen('partners')} /> : null}<View style={styles.moreGrid}>{items.filter(([key]) => allowed.has(key)).map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
 }
 
