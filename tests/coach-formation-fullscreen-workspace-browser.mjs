@@ -174,6 +174,15 @@ try {
       await page.getByLabel('Formation pitch', { exact: true }).click({ position: { x: 8, y: 8 } })
       assert.equal(await page.getByRole('dialog', { name: 'Choose Player', exact: true }).count(), 0, 'Modal backdrop isolates the pitch')
     }
+    if (label === 'Save') {
+      const saveDialog = page.getByRole('dialog', { name: 'share options', exact: true })
+      const saveButton = saveDialog.getByRole('button', { name: 'Save to match', exact: true })
+      await saveButton.waitFor()
+      await saveButton.scrollIntoViewIfNeeded()
+      const saveButtonBox = await saveButton.boundingBox()
+      assert.ok(saveButtonBox && saveButtonBox.y + saveButtonBox.height <= 852 - 34, 'Save action stays above the bottom safe-area inset')
+      await page.screenshot({ path: path.join(rootDir, 'outputs/formation-picker-theme/save-safe-area.png') })
+    }
     await page.getByRole('button', { name: 'Close options', exact: true }).click()
     await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor({ state: 'detached' })
     await page.waitForTimeout(350)

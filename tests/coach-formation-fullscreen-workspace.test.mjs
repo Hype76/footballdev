@@ -31,7 +31,7 @@ test('standalone Formation route preserves its prior route and hides app chrome 
   assert.match(source, /import \{ CoachFormationWorkspace \}/)
   assert.match(source, /routeTarget\.activeRoute === 'formation'[\s\S]*formationReturnRef\.current = \{ activeRoute, moreRoute \}/)
   assert.match(source, /const closeFormationWorkspace = useCallback[\s\S]*navigate\(target\.moreRoute \|\| target\.activeRoute \|\| 'home'\)/)
-  assert.match(source, /activeRoute === 'formation'[\s\S]*<CoachFormationWorkspace onBack=\{props\.onFormationBack\}/)
+  assert.match(source, /activeRoute === 'formation'[\s\S]*<CoachFormationWorkspace initialPitchVisible=\{false\} onBack=\{props\.onFormationBack\}/)
   assert.match(source, /<CoachFormationScreen[\s\S]*onBack=\{props\.onFormationBack\}[\s\S]*registerBackHandler=\{registerBackHandler\}/)
 })
 

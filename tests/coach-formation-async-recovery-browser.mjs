@@ -194,6 +194,7 @@ const offlineMock = `
 `
 
 const mocks = [
+  [/^react-native-safe-area-context$/, "import React from 'react'; import { View } from 'react-native'; export const SafeAreaProvider = ({children}) => <View style={{flex:1}}>{children}</View>; export const useSafeAreaInsets = () => ({ top: 47, right: 0, bottom: 34, left: 0 }); export const SafeAreaView = ({style,...props}) => <View {...props} style={[style,{paddingTop:47,paddingBottom:34}]} />"],
   [/coachFormationBoardData$/, dataMock],
   [/^\.\/offline$/, offlineMock],
   [/^@expo\/vector-icons\/MaterialIcons$/, `export default () => null`],
