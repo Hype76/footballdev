@@ -31,12 +31,90 @@ export async function addPlayerSelectedSquads(client, scope, matches) {
       .filter(id => names.has(id)).map(id => names.get(id)).sort((a, b) => a.localeCompare(b, 'en-GB')),
   }))
 }
+
+function normalizeSharedFormationPlayer(row = {}) {
+  const displayName = String(row.display_name ?? row.displayName ?? row.player_name ?? row.playerName ?? row.name ?? '').trim()
+  if (!displayName) return null
+  const positionGroup = String(row.position_group ?? row.positionGroup ?? '').trim().toLowerCase()
+  const x = Number(row.x)
+  const y = Number(row.y)
+  return {
+    display_name: displayName,
+    player_id: String(row.player_id ?? row.playerId ?? '').trim(),
+    shirt_number: String(row.shirt_number ?? row.shirtNumber ?? '').trim(),
+    ...( ['goalkeeper', 'defender', 'midfielder', 'forward'].includes(positionGroup) ? { position_group: positionGroup } : {}),
+    x: Number.isFinite(x) ? x : 0.5,
+    y: Number.isFinite(y) ? y : 0.5,
+  }
+}
+
+export async function addPublishedFormationPlans(client, scope, matches) {
+  if (!matches.length || scope.fan.relationship_type !== 'player') return matches
+  const matchIds = matches.map((match) => match.id).filter(Boolean)
+  const createPublicationQuery = () => client.from('formation_board_match_publications')
+    .select('match_day_id, board_id, id, publication_number, board_title_snapshot, published_at, withdrawn_at, board_version_id')
+    .eq('club_id', scope.fan.club_id)
+    .eq('team_id', scope.player.team_id)
+    .in('match_day_id', matchIds)
+    .order('publication_number', { ascending: false })
+    .order('id', { ascending: false })
+  const publicationRows = []
+  for (let page = 0; ; page += 1) {
+    const { data, error } = await createPublicationQuery().range(page * 1000, page * 1000 + 999)
+    if (error) throw error
+    publicationRows.push(...(data || []))
+    if (!data || data.length < 1000) break
+  }
+  const latestByBoard = new Map()
+  for (const row of publicationRows || []) {
+    const key = `${row.match_day_id}:${row.board_id}`
+    const previous = latestByBoard.get(key)
+    if (!previous || Number(row.publication_number || 0) > Number(previous.publication_number || 0)) latestByBoard.set(key, row)
+  }
+  const latest = [...latestByBoard.values()].filter((row) => !row.withdrawn_at)
+  const versionIds = latest.map((row) => row.board_version_id).filter(Boolean)
+  const { data: versions, error: versionError } = versionIds.length
+    ? await client.from('formation_board_versions').select('id, game_format, formation_preset_key, pitch_orientation, placements, bench').in('id', versionIds)
+    : { data: [], error: null }
+  if (versionError) throw versionError
+  const versionsById = new Map((versions || []).map((version) => [String(version.id), version]))
+  const plansByMatchId = new Map()
+  for (const row of latest) {
+    const version = versionsById.get(String(row.board_version_id))
+    if (!version) continue
+    const publicationId = String(row.publication_id ?? row.publicationId ?? row.id ?? '').trim()
+    const matchId = String(row.match_day_id ?? row.matchDayId ?? '').trim()
+    if (!publicationId || !matchId) continue
+    const plans = plansByMatchId.get(matchId) || []
+    plans.push({
+      board_id: String(row.board_id ?? row.boardId ?? row.formation_board_id ?? row.formationBoardId ?? '').trim(),
+      board_title_snapshot: String(row.board_title_snapshot ?? row.boardTitleSnapshot ?? row.title ?? '').trim(),
+      bench: (Array.isArray(version.bench) ? version.bench : []).map(normalizeSharedFormationPlayer).filter(Boolean),
+      formation: String(version.formation ?? version.formation_name ?? version.formationName ?? '').trim(),
+      formation_preset_key: String(version.formation_preset_key ?? version.formationPresetKey ?? '').trim(),
+      game_format: String(version.game_format ?? version.gameFormat ?? '').trim(),
+      pitch_orientation: String(version.pitch_orientation ?? version.pitchOrientation ?? 'portrait').trim() || 'portrait',
+      placements: (Array.isArray(version.placements) ? version.placements : []).map(normalizeSharedFormationPlayer).filter(Boolean),
+      publication_id: publicationId,
+      publication_number: Number(row.publication_number ?? row.publicationNumber ?? 0),
+      published_at: row.published_at ?? row.publishedAt ?? '',
+    })
+    plansByMatchId.set(matchId, plans)
+  }
+  return matches.map((match) => {
+    const plans = plansByMatchId.get(String(match.id)) || []
+    return { ...match, formation_plans: plans, formation_plan: plans[0] || null }
+  })
+}
+
 export async function loadFanMatches(client, scope, matchId = '', { includeScheduled = false } = {}) {
+  const playerMatchAccess = includeScheduled && scope.fan.relationship_type === 'player'
   const scheduleAllowed = includeScheduled && scope.fan.permissions?.schedule === true
   let query = client.from('match_days').select('id, title, club_id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, venue_name, status, home_score, away_score, updated_at, parent_visible, parent_audience, deleted_at, previous_hidden_at')
     .eq('club_id', scope.fan.club_id).eq('parent_visible', true).is('deleted_at', null).is('previous_hidden_at', null)
     .gte('match_date', new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10)).order('match_date', { ascending: false }).limit(100)
-  if (!scheduleAllowed) query = query.in('status', FAN_GAME_DAY_STATUSES)
+  if (playerMatchAccess) query = query.in('status', [...new Set([...FAN_GAME_DAY_STATUSES, 'scheduled'])])
+  else if (!scheduleAllowed) query = query.in('status', FAN_GAME_DAY_STATUSES)
   if (matchId) query = query.eq('id', matchId)
   const candidates = await rows(query)
   const [requests, invitations, decisions] = await Promise.all([
@@ -47,12 +125,13 @@ export async function loadFanMatches(client, scope, matchId = '', { includeSched
   const involved = new Set([...requests, ...invitations, ...decisions.filter((d) => d.status === 'selected' || d.notified_at)].map((row) => row.match_day_id))
   const allowed = []
   for (const match of candidates) {
-    if (canFanViewMatch(match, scope.parent, involved) && (scheduleAllowed || isFanGameDayMatch(match))) {
+    if (canFanViewMatch(match, scope.parent, involved) && (scheduleAllowed || playerMatchAccess || isFanGameDayMatch(match))) {
       const { parent_visible: _visible, parent_audience: _audience, deleted_at: _deleted, previous_hidden_at: _hidden, ...safe } = match
       allowed.push({ ...safe, club_name: scope.club.name })
     }
   }
-  return addPlayerSelectedSquads(client, scope, allowed)
+  const withSquads = await addPlayerSelectedSquads(client, scope, allowed)
+  return addPublishedFormationPlans(client, scope, withSquads)
 }
 export async function loadFanSchedule(client, scope, now = new Date(), { includePast = false } = {}) {
   const trainingQuery = client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')

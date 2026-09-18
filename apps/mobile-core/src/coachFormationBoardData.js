@@ -67,6 +67,23 @@ export async function saveCoachFormationBoard(user, board, draft, title) {
   return normalizeCoachFormationBoard(data)
 }
 
+export async function saveCoachMatchFormationBoard(user, match, board, draft, title, shared = false) {
+  assertFormationWrite(user)
+  if (!normalize(match?.id)) throw new Error('Choose a match before saving a lineup.')
+  if (board?.linkedMatchDayId && board.linkedMatchDayId !== match.id) throw new Error('This lineup belongs to another match.')
+  const payload = board
+    ? buildCoachFormationBoardSavePayload(board, draft, title)
+    : buildCoachFormationBoardCreatePayload(match, draft, title)
+  delete payload.visibility_value
+  return normalizeCoachFormationBoard(await rpc('save_coach_match_formation', {
+    ...payload,
+    target_board_id: board?.id || null,
+    target_match_day_id: match.id,
+    expected_version_number: board?.currentVersionNumber ?? null,
+    shared_value: shared === true,
+  }))
+}
+
 export async function linkCoachFormationBoard(user, boardId, matchDayId) {
   assertFormationWrite(user)
   return normalizeCoachFormationBoard(await rpc('link_formation_board_to_match', { target_board_id: boardId, target_match_day_id: matchDayId }))

@@ -168,6 +168,8 @@ jobs:
           tests/coach-formation-fullscreen-workspace.test.mjs
           tests/coach-formation-metadata-repair.test.mjs
           tests/coach-formation-draft-repair.test.mjs
+          tests/coach-match-formation-save.test.mjs
+          tests/formation-board-foundation-25a-pglite.test.mjs
           tests/parent-formation-match-plan-repair.test.mjs &&
           node tests/coach-formation-async-recovery-browser.mjs &&
           node tests/coach-formation-fullscreen-workspace-browser.mjs &&

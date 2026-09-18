@@ -63,7 +63,7 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
       return json(200, { notifications: (result.data || []).filter((item) => visible.has(item.match_id)) })
     }
     if (body.action === 'matches') {
-      const matches = await loadFanMatches(client, scope)
+      const matches = await loadFanMatches(client, scope, '', { includeScheduled: scope.fan.relationship_type === 'player' })
       if (body.matchId) {
         if (!matches.some((match) => match.id === body.matchId)) return json(403, { message: 'This Game Day is unavailable.' })
         const clubKits = await readClubKits(client, scope.fan.club_id)

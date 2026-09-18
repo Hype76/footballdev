@@ -53,7 +53,7 @@ test('Coach Formation screen and board forward Back, draft flush, and gesture ow
   ])
 
   assert.match(screen, /registerBackHandler/)
-  assert.match(screen, /<CoachFormationBoard[\s\S]*onBack=\{onBack\}[\s\S]*onMarkerGestureEnd=\{onMarkerGestureEnd\}[\s\S]*onMarkerGestureStart=\{onMarkerGestureStart\}[\s\S]*registerBackHandler=\{registerBackHandler\}/)
+  assert.match(screen, /<CoachFormationBoard[\s\S]*onBack=\{[^}]+\}[\s\S]*onMarkerGestureEnd=\{onMarkerGestureEnd\}[\s\S]*onMarkerGestureStart=\{onMarkerGestureStart\}[\s\S]*registerBackHandler=\{registerBackHandler\}/)
   assert.match(board, /accessibilityLabel="Back from Formation Board"/)
   assert.match(board, /saveCoachFormationLocalDraft[\s\S]*onBack\(\)/)
   assert.match(board, /registerBackHandler\?\.\(handleBack\)/)

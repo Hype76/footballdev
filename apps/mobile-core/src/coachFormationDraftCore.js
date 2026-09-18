@@ -27,9 +27,9 @@ export function formationMatchesBoard(draft, title, board) {
 export function getFormationSaveLabel({ board, dirty, localState, publication }) {
   if (dirty) return localState === 'saved' ? 'Saved on this device' : localState === 'failed' ? 'Not saved on this device' : 'Unsaved changes'
   if (!board) return 'Not saved'
-  if (!publication) return 'Saved to team'
+  if (!publication) return 'Saved to match | Coaches only'
   const publishedVersion = publication.board_version_id ?? publication.boardVersionId
-  return publishedVersion === board.currentVersionId ? 'Published to Parents' : 'Parent update needed'
+  return publishedVersion === board.currentVersionId ? 'Visible to parents and players' : 'Shared lineup update needed'
 }
 
 export function findFormationLocalDraft(formation, matchId = '', boardId = '') {

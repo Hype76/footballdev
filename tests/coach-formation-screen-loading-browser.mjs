@@ -129,7 +129,12 @@ try {
   await page.setContent('<html><body><div id="root"></div></body></html>')
   await page.addScriptTag({ content: bundle.outputFiles[0].text })
 
+  const chooseMatch = async (name) => {
+    await page.getByText(name, { exact: true }).click()
+  }
+
   if (scenario === 'stable') {
+    await chooseMatch('Team v Opponent')
     await page.getByText('Live screen data', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Local board edit 0', exact: true }).click()
     await page.getByRole('button', { name: 'Equivalent refresh 0', exact: true }).click()
@@ -140,6 +145,7 @@ try {
     assert.equal(await page.evaluate(() => window.__screenTest.boardUnmounts), 0)
     console.log('PASS: equivalent Screen props neither refetch nor remount the active board')
   } else if (scenario === 'cache') {
+    await chooseMatch('Cached Team v Cached Opponent')
     await page.getByText('Cached screen data', { exact: true }).waitFor()
     assert.equal(await page.getByText('Cached Player', { exact: true }).count(), 1)
     assert.equal(await page.getByRole('button', { name: 'Local board edit 0', exact: true }).isEnabled(), false)
@@ -147,6 +153,7 @@ try {
       window.__screenTest.resolvers['coach-a:coach:match-list']()
       window.__screenTest.resolvers['coach-a:coach:players']()
     })
+    await chooseMatch('Team v Opponent')
     await page.getByText('Live screen data', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Local board edit 0', exact: true }).isEnabled(), true)
     console.log('PASS: Screen cache is visible and read-only while live resources are deferred')
@@ -158,6 +165,7 @@ try {
       window.__screenTest.resolvers['coach-b:coach:match-list']()
       window.__screenTest.resolvers['coach-b:coach:players']()
     })
+    await chooseMatch('Team v Opponent')
     await page.getByText('Player coach-b', { exact: true }).waitFor()
     await page.evaluate(() => {
       window.__screenTest.resolvers['coach-a:coach:match-list']()

@@ -3840,7 +3840,7 @@ function ParentMatchCard({
         </div>
       </div>
 
-      {match.formationPlan ? <ParentFormationPlan plan={match.formationPlan} /> : null}
+      {(match.formationPlans?.length || match.formationPlan) ? <ParentFormationPlans plans={match.formationPlans} plan={match.formationPlan} /> : null}
 
       {responseRows.length > 0 ? (
         <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
@@ -4149,10 +4149,17 @@ function ParentMatchCard({
   )
 }
 
+function ParentFormationPlans({ plan = null, plans = [] }) {
+  const availablePlans = plans.length ? plans : (plan ? [plan] : [])
+  return <div className="mt-4 space-y-2" data-testid="parent-match-formation-plans">
+    {availablePlans.map((currentPlan, index) => <ParentFormationPlan key={currentPlan.id || currentPlan.boardId || index} plan={currentPlan} />)}
+  </div>
+}
+
 function ParentFormationPlan({ plan }) {
   return (
-    <details className={`${softPanelClass} mt-4`} data-testid="parent-match-formation-plan">
-      <summary className="cursor-pointer text-sm font-black text-[#101828]">Match plan: {plan.title || plan.formationPresetKey}</summary>
+    <details className={softPanelClass} data-testid="parent-match-formation-plan">
+      <summary className="cursor-pointer text-sm font-black text-[#101828]">{plan.title || plan.formationPresetKey || 'Match plan'}</summary>
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(12rem,1fr)] lg:items-start">
         <FormationBoardPitch
           canEdit={false}

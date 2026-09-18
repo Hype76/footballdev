@@ -27,7 +27,7 @@ function fixture() {
     const query = {
       select(value){columns=value;selections.push({table,columns:value});return query},eq(k,v){predicates.push(r=>r[k]===v);return query},neq(k,v){predicates.push(r=>r[k]!==v);return query},
       is(k,v){predicates.push(r=>(r[k]??null)===v);return query},in(k,v){predicates.push(r=>v.includes(r[k]));return query},gte(k,v){predicates.push(r=>r[k]>=v);return query},
-      contains(k,v){predicates.push(r=>Object.entries(v).every(([key,value])=>r[k]?.[key]===value));return query},order(key, options){ordering={key,...options};return query},limit(count){maxRows=count;return query},
+      contains(k,v){predicates.push(r=>Object.entries(v).every(([key,value])=>r[k]?.[key]===value));return query},order(key, options){ordering={key,...options};return query},range(){return query},limit(count){maxRows=count;return query},
       maybeSingle(){single=true;return query},single(){single=true;return query},
       upsert(v){operation='upsert';values=v;return query},update(v){operation='update';values=v;return query},delete(){operation='delete';return query},
       then(resolve,reject){try {
@@ -62,7 +62,7 @@ test('Player accounts read only their current attendance and cannot submit invit
   const call = action => handleFans({httpMethod:'POST',headers:{authorization:'Bearer test'},body:JSON.stringify({action,connectionId:id(1)})},{createClient:()=>client})
   assert.equal((await call('attendance')).statusCode,403)
   tables.fan_connections[0].relationship_type='player'
-  tables.match_days.push({id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),opponent:'FP TEST Visitors'})
+  tables.match_days.push({id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),status:'live',opponent:'FP TEST Visitors'})
   tables.match_day_player_availability=[{match_day_id:id(9),club_id:id(6),player_id:id(5),status:'available'},{match_day_id:id(9),club_id:id(6),player_id:id(99),status:'unavailable'}]
   const result=await call('attendance')
   assert.equal(result.statusCode,200)
@@ -167,6 +167,16 @@ test('Game Day alone exposes shared matches without querying Schedule, then obey
     assert.equal((await call('matches')).statusCode, 403)
     assert.equal(read.includes('match_days'), false, 'Stale client permissions cannot authorise a new match read')
   }
+})
+
+test('Player Game Day exposes authorised scheduled fixtures for pre-match shared plans', async () => {
+  const { client, tables } = fixture()
+  tables.fan_connections[0].relationship_type = 'player'
+  tables.fan_connections[0].permissions = { schedule: false, game_day: true, development: false, resources: false }
+  tables.match_days.push({ id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: new Date().toISOString().slice(0, 10), status: 'scheduled', opponent: 'Visitors' })
+  const response = await handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action: 'matches', connectionId: id(1) }) }, { createClient: () => client })
+  assert.equal(response.statusCode, 200)
+  assert.deepEqual(JSON.parse(response.body).matches.map((match) => match.id), [id(9)])
 })
 
 test('Fan calendar fixture titles use the authorised club name and home team first', async () => {
