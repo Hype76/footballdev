@@ -6,16 +6,22 @@ const sidebarUrl = new URL('../src/components/layout/Sidebar.jsx', import.meta.u
 const onboardingProviderUrl = new URL('../src/components/onboarding/OnboardingProvider.jsx', import.meta.url)
 const onboardingLibUrl = new URL('../src/lib/onboarding.js', import.meta.url)
 const phaseSetupGuideUrl = new URL('../src/components/setup/PhaseSetupGuide.jsx', import.meta.url)
+const userFeedbackLinksUrl = new URL('../src/components/layout/UserFeedbackLinks.jsx', import.meta.url)
 
-test('authenticated sidebar omits setup guide trigger but keeps support and sign-out actions', async () => {
-  const source = await readFile(sidebarUrl, 'utf8')
+test('authenticated sidebar omits setup guide trigger but keeps feedback and sign-out actions', async () => {
+  const [source, feedbackLinksSource] = await Promise.all([
+    readFile(sidebarUrl, 'utf8'),
+    readFile(userFeedbackLinksUrl, 'utf8'),
+  ])
 
   assert.doesNotMatch(source, /Open setup guide/)
   assert.doesNotMatch(source, /openOnboarding/)
   assert.doesNotMatch(source, /canShowSetupGuide/)
-  assert.match(source, /Report issue/)
+  assert.match(feedbackLinksSource, /Feedback & Suggestions/)
+  assert.match(feedbackLinksSource, /Report a Bug/)
+  assert.match(feedbackLinksSource, /sidebar-user-feedback/)
+  assert.match(feedbackLinksSource, /sidebar-tester-feedback/)
   assert.match(source, /Sign out/)
-  assert.match(source, /sidebar-tester-feedback/)
 })
 
 test('setup guide feature remains available outside the sidebar footer action', async () => {

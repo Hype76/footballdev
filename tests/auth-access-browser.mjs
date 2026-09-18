@@ -893,7 +893,8 @@ async function assertSidebarFooterContract(page, { reportIssueExpected = true } 
   await sidebar.getByRole('button', { name: 'Sign out' }).waitFor({ state: 'visible', timeout: 15000 })
 
   if (reportIssueExpected) {
-    await sidebar.getByText('Report issue', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
+    await sidebar.getByRole('link', { name: 'Feedback & Suggestions' }).waitFor({ state: 'visible', timeout: 15000 })
+    await sidebar.getByRole('link', { name: 'Report a Bug' }).waitFor({ state: 'visible', timeout: 15000 })
   }
 }
 
