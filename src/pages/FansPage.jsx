@@ -1,3 +1,4 @@
+import { UserFeedbackLinks } from '../components/layout/UserFeedbackLinks.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import QRCode from 'qrcode'
@@ -63,6 +64,7 @@ function FansWorkspace({ user, signOut, parentId, setParentId }) {
   return <FanBrandScope source={brandSource}><main className={`fans fans-workspace ${parents.length ? 'fans-managed' : 'fans-standalone'}`}>
     <FanClubBrand source={brandSource} />
     <header className="fans-heading"><div><span className="fans-eyebrow">{parents.length ? 'Sharing with family' : 'Your football'}</span><h1>{section === 'settings' ? 'Settings' : parents.length ? 'Fans' : 'Players'}</h1><p>{section === 'settings' ? 'Manage your connections and account.' : parents.length ? 'Choose who follows your player and what they can see.' : 'Follow your players, their matches and shared updates.'}</p></div></header>
+    <UserFeedbackLinks />
     <nav className="fans-navigation" aria-label="Fan navigation"><button aria-current={section === 'players' ? 'page' : undefined} onClick={() => navigate('players')}><FanIcon />{parents.length ? 'Fans' : 'Players'}</button><button aria-current={section === 'settings' ? 'page' : undefined} onClick={() => navigate('settings')}>Settings</button>{parents.length ? <Link to="/parent-portal">Parent portal</Link> : null}</nav>
     {state.error ? <p role="alert" className="fans-error">{state.error}</p> : null}
     {state.loading ? <p role="status">Loading Fans...</p> : null}

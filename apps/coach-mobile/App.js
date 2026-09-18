@@ -51,6 +51,7 @@ import { getCoachPlayerList } from '../mobile-core/src/coachPlayersData'
 import { getCoachChatRooms, getCoachInvitesAndAvailability } from '../mobile-core/src/coachPhase31EData'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
+import { UserFeedbackScreen } from '../mobile-core/src/UserFeedbackScreen'
 import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
 import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary } from '../mobile-core/src/coachPhase31GCore'
@@ -894,7 +895,7 @@ function CoachHome() {
             </View>
           </ScrollView>
           <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
-          {!(activeRoute === 'more' && moreRoute === 'invites') ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
+          {!(activeRoute === 'more' && ['invites', 'feedback', 'bug'].includes(moreRoute)) ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </CoachThemeContext.Provider>
@@ -926,6 +927,7 @@ function CoachRoute(props) {
   if (activeRoute === 'matchday') return <CoachMatchDayScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'sessions') return <CoachSessionsScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'more') {
+    if (['feedback', 'bug'].includes(moreRoute)) return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><UserFeedbackScreen key={moreRoute} type={moreRoute} appRole="coach" textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
     if (moreRoute === 'notifications') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><CoachNotificationsScreen {...props} key={props.context.id} /></ScreenIntro>
     if (moreRoute === 'partners') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><PartnersScreen appRole="coach" textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
     if (moreRoute === 'sessions') return <CoachSessionsScreen {...props} key={`${props.context.id}:sessions`} palette={palette} />
@@ -1075,9 +1077,9 @@ function MoreScreen({ navigation, onSelectMore }) {
   const { palette } = useCoachTheme()
   return (
     <ScreenIntro copy="Open the Coach tools available for this role and context." title="More">
+      <PartnersBanner onPress={() => onSelectMore('partners')} />
       <IconMenu accessibilityLabel="More tools" Icon={CoachIcon} palette={palette} onSelect={onSelectMore}
         items={navigation.more.filter(route => route.key !== 'partners').map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}` }))} />
-      <PartnersBanner onPress={() => onSelectMore('partners')} />
     </ScreenIntro>
   )
 }

@@ -113,6 +113,7 @@ const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'Sessi
 const StaffChatPage = lazyRoute(() => import('../pages/StaffChatPage.jsx'), 'StaffChatPage')
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
+const UserFeedbackPage = lazyRoute(() => import('../pages/UserFeedbackPage.jsx'), 'UserFeedbackPage')
 const TesterFeedbackPage = lazyRoute(() => import('../pages/TesterFeedbackPage.jsx'), 'TesterFeedbackPage')
 const TermsPage = lazyRoute(() => import('../pages/TermsPage.jsx'), 'TermsPage')
 const UserAccessPage = lazyRoute(() => import('../pages/UserAccessPage.jsx'), 'UserAccessPage')
@@ -1708,6 +1709,11 @@ export const router = createBrowserRouter([
         ),
       },
     ],
+  },
+  {
+    path: '/feedback/send',
+    element: <RequireUser />,
+    children: [{ index: true, element: <PageSuspense><UserFeedbackPage /></PageSuspense> }],
   },
   {
     path: '/home',

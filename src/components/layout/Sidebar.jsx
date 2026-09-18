@@ -1,3 +1,4 @@
+import { UserFeedbackLinks } from './UserFeedbackLinks.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.webp'
@@ -188,7 +189,6 @@ export function Sidebar({ isOpen, onClose }) {
   const canUseTeamWorkflow = hasTeamWorkflowContext(displayUser)
   const clubLabel = displayUser?.role === 'super_admin' ? 'Platform' : displayUser?.clubName || 'Football Operations'
   const canAccessPlatformFeedback = canViewPlatformFeedback(displayUser)
-  const feedbackRoute = `/feedback/new?route=${encodeURIComponent(`${location.pathname}${location.search}`)}`
   const [openPollCount, setOpenPollCount] = useState(0)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isSwitchingTeam, setIsSwitchingTeam] = useState(false)
@@ -669,32 +669,9 @@ export function Sidebar({ isOpen, onClose }) {
         </nav>
 
         <div className="mt-auto space-y-3 pt-4">
+          <UserFeedbackLinks onSelect={onClose} />
           {!isParentPortal ? (
             <>
-              {!isCoachOnly ? (
-                <NavLink
-                to={feedbackRoute}
-                data-tour-id="sidebar-tester-feedback"
-                onClick={(event) => {
-                  if (event.currentTarget.getAttribute('aria-current') === 'page') {
-                    event.preventDefault()
-                    return
-                  }
-
-                  onClose()
-                }}
-                className={({ isActive }) =>
-                  [
-                    'block rounded-lg border px-4 py-3 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]',
-                    isActive
-                      ? 'border-[var(--accent)] bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
-                      : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] hover:bg-[var(--panel-alt)]',
-                  ].join(' ')
-                }
-              >
-                Report issue
-              </NavLink>
-              ) : null}
               {!isSuperAdmin(displayUser) && canAccessPlatformFeedback && isRecoveryModuleVisible('platformFeedback', { user: displayUser }) ? (
                 <NavLink
                   to="/platform-feedback"
@@ -720,30 +697,6 @@ export function Sidebar({ isOpen, onClose }) {
                 </NavLink>
               ) : null}
             </>
-          ) : null}
-          {isParentPortal ? (
-            <NavLink
-              to={feedbackRoute}
-              data-tour-id="sidebar-tester-feedback"
-              onClick={(event) => {
-                if (event.currentTarget.getAttribute('aria-current') === 'page') {
-                  event.preventDefault()
-                  return
-                }
-
-                onClose()
-              }}
-              className={({ isActive }) =>
-                [
-                      'block rounded-lg border px-4 py-3 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]',
-                  isActive
-                        ? 'border-[var(--accent)] bg-[var(--sidebar-active-bg)] text-[var(--text-primary)]'
-                        : 'border-[var(--border-color)] bg-[var(--panel-bg)] text-[var(--text-muted)] hover:bg-[var(--panel-alt)]',
-                ].join(' ')
-              }
-            >
-              Report issue
-            </NavLink>
           ) : null}
           <NavLink
             to="/user-settings"

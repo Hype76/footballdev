@@ -1,3 +1,4 @@
+import { UserFeedbackLinks } from '../layout/UserFeedbackLinks.jsx'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.webp'
@@ -453,6 +454,7 @@ export function ParentPortalSectionNav({
           })}
         </div>
       </nav>
+      <UserFeedbackLinks />
       {showAccountActions ? (
         <div className={variant === 'mobile' ? 'mt-1 border-t border-[#d7e5dc] pt-1.5' : 'mt-auto shrink-0 border-t border-[#d7e5dc] pt-3'}>
           <ParentPortalAccountActions

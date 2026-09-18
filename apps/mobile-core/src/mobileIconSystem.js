@@ -1,4 +1,6 @@
 const ICONS = Object.freeze({
+  'more.feedback': 'chat-bubble-outline',
+  'more.bug': 'bug-report',
   'action.add-assessment': 'assignment',
   'action.add-match': 'sports-soccer',
   'action.add-player': 'person-add-alt',
