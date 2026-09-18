@@ -167,7 +167,7 @@ try {
 
   const boardTools = page.getByLabel('Formation Board tools', { exact: true })
   for (const label of ['Formation', 'Players', 'Save']) {
-    await boardTools.getByRole('button').filter({ hasText: label }).click()
+    await boardTools.getByRole('button').filter({ hasText: new RegExp(`${label}$`) }).click()
     const dialogName = `${label === 'Save' ? 'share' : label.toLowerCase()} options`
     await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor()
     if (label === 'Formation') {
