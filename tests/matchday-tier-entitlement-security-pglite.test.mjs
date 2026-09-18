@@ -8,6 +8,10 @@ const migration = await readFile(
   new URL('../supabase/migrations/20260918104253_matchday_tier_entitlement_security.sql', import.meta.url),
   'utf8',
 )
+const currentActorPolicyMigration = await readFile(
+  new URL('../supabase/migrations/20260918130741_matchday_policy_current_actor_execute.sql', import.meta.url),
+  'utf8',
+)
 const clubDisplayControlsMigration = await readFile(
   new URL('../supabase/migrations/20260727111343_club_display_controls.sql', import.meta.url),
   'utf8',
@@ -23,6 +27,7 @@ const IDS = Object.freeze({
   legacyPilotClub: '11000000-0000-4000-8000-000000000004',
   admin: '20000000-0000-4000-8000-000000000001',
   staff: '20000000-0000-4000-8000-000000000002',
+  coach: '20000000-0000-4000-8000-000000000003',
 })
 
 async function setActor(db, actorId = '') {
@@ -164,6 +169,8 @@ async function createDatabase() {
           and platform_admin.status = 'active'
       )
     $$;
+    revoke all on function public.platform_access_is_admin_v1(uuid) from public, anon, authenticated;
+    grant execute on function public.platform_access_is_admin_v1(uuid) to service_role;
 
     create function public.is_club_plan_access_active(target_club_id uuid)
     returns boolean language sql stable security definer set search_path = '' as $$
@@ -183,9 +190,10 @@ async function createDatabase() {
       select actor.club_id from public.users actor where actor.id = auth.uid()
     $$;
 
-    insert into public.users (id, role) values
-      ('${IDS.admin}', 'super_admin'),
-      ('${IDS.staff}', 'admin');
+    insert into public.users (id, role, club_id) values
+      ('${IDS.admin}', 'super_admin', null),
+      ('${IDS.staff}', 'admin', '${IDS.legacySmallClub}'),
+      ('${IDS.coach}', 'coach', '${IDS.legacySingleClub}');
     insert into public.platform_admins (id) values ('${IDS.admin}');
     insert into public.clubs (id, plan_key) values
       ('${IDS.matchdayClub}', 'individual'),
@@ -202,6 +210,7 @@ async function createDatabase() {
   `)
 
   await db.exec(migration)
+  await db.exec(currentActorPolicyMigration)
   await db.exec(clubDisplayControlsMigration)
   await db.exec(`
     create trigger enforce_club_plan_update_features
@@ -483,7 +492,7 @@ test('database mutation gates add commercial restrictions without replacing role
   }
 })
 
-test('restrictive read policies hide disabled development, trial and calendar data after downgrade', async () => {
+test('authenticated restrictive reads use the current-actor admin wrapper and preserve legacy plan access', async () => {
   const db = await createDatabase()
   try {
     await db.exec(`
@@ -499,18 +508,71 @@ test('restrictive read policies hide disabled development, trial and calendar da
       insert into public.calendar_events (id, club_id, team_id, event_type) values
         ('81000000-0000-4000-8000-000000000001', '${IDS.matchdayClub}', '31000000-0000-4000-8000-000000000001', 'training'),
         ('81000000-0000-4000-8000-000000000002', '${IDS.matchdayClub}', '31000000-0000-4000-8000-000000000001', 'match');
+      insert into public.players (id, club_id, player_name, section) values
+        ('51000000-0000-4000-8000-000000000003', '${IDS.legacySingleClub}', 'Legacy Coach Player', 'Squad'),
+        ('51000000-0000-4000-8000-000000000004', '${IDS.legacySmallClub}', 'Legacy Admin Player', 'Squad');
+      insert into public.evaluations (id, club_id) values
+        ('71000000-0000-4000-8000-000000000002', '${IDS.legacySingleClub}'),
+        ('71000000-0000-4000-8000-000000000003', '${IDS.legacySmallClub}');
+      insert into public.teams (id, club_id) values
+        ('31000000-0000-4000-8000-000000000002', '${IDS.legacySingleClub}'),
+        ('31000000-0000-4000-8000-000000000003', '${IDS.legacySmallClub}');
+      insert into public.calendar_events (id, club_id, team_id, event_type) values
+        ('81000000-0000-4000-8000-000000000003', '${IDS.legacySingleClub}', '31000000-0000-4000-8000-000000000002', 'training'),
+        ('81000000-0000-4000-8000-000000000004', '${IDS.legacySmallClub}', '31000000-0000-4000-8000-000000000003', 'training');
     `)
 
+    await setActor(db, IDS.coach)
+    await db.exec('set role authenticated')
+    await assert.rejects(
+      db.query(`select public.platform_access_is_admin_v1('${IDS.coach}')`),
+      /permission denied for function platform_access_is_admin_v1/,
+    )
+    const coachAdmin = await db.query('select public.matchday_current_actor_is_platform_admin() as allowed')
+    assert.equal(coachAdmin.rows[0].allowed, false)
+    const legacyCoachRows = await db.query(`
+      select
+        (select count(*)::integer from public.players where club_id = '${IDS.legacySingleClub}') as players,
+        (select count(*)::integer from public.evaluations where club_id = '${IDS.legacySingleClub}') as evaluations,
+        (select count(*)::integer from public.calendar_events where club_id = '${IDS.legacySingleClub}') as calendar
+    `)
+    assert.deepEqual(legacyCoachRows.rows[0], { players: 1, evaluations: 1, calendar: 1 })
+
+    await db.exec('reset role')
     await setActor(db, IDS.staff)
     await db.exec('set role authenticated')
+    const legacyAdminRows = await db.query(`
+      select
+        (select count(*)::integer from public.players where club_id = '${IDS.legacySmallClub}') as players,
+        (select count(*)::integer from public.evaluations where club_id = '${IDS.legacySmallClub}') as evaluations,
+        (select count(*)::integer from public.calendar_events where club_id = '${IDS.legacySmallClub}') as calendar
+    `)
+    assert.deepEqual(legacyAdminRows.rows[0], { players: 1, evaluations: 1, calendar: 1 })
     const players = await db.query('select player_name from public.players order by player_name')
-    assert.deepEqual(players.rows, [{ player_name: 'Squad Player' }])
+    assert.deepEqual(players.rows, [
+      { player_name: 'Legacy Admin Player' },
+      { player_name: 'Legacy Coach Player' },
+      { player_name: 'Squad Player' },
+    ])
     const evaluations = await db.query('select id from public.evaluations')
-    assert.equal(evaluations.rows.length, 0)
+    assert.equal(evaluations.rows.length, 2)
     const fixtures = await db.query('select id from public.match_days')
     assert.equal(fixtures.rows.length, 1)
-    const calendar = await db.query('select id from public.calendar_events')
-    assert.deepEqual(calendar.rows, [{ id: '81000000-0000-4000-8000-000000000002' }])
+    const matchdayCalendar = await db.query(`select id from public.calendar_events where club_id = '${IDS.matchdayClub}'`)
+    assert.deepEqual(matchdayCalendar.rows, [{ id: '81000000-0000-4000-8000-000000000002' }])
+
+    await db.exec('reset role')
+    await setActor(db, IDS.admin)
+    await db.exec('set role authenticated')
+    const platformAdmin = await db.query('select public.matchday_current_actor_is_platform_admin() as allowed')
+    assert.equal(platformAdmin.rows[0].allowed, true)
+    const adminMatchdayRows = await db.query(`
+      select
+        (select count(*)::integer from public.players where club_id = '${IDS.matchdayClub}') as players,
+        (select count(*)::integer from public.evaluations where club_id = '${IDS.matchdayClub}') as evaluations,
+        (select count(*)::integer from public.calendar_events where club_id = '${IDS.matchdayClub}') as calendar
+    `)
+    assert.deepEqual(adminMatchdayRows.rows[0], { players: 2, evaluations: 1, calendar: 2 })
   } finally {
     await db.close()
   }
