@@ -3,20 +3,33 @@ import { Modal, Pressable, StatusBar, StyleSheet, Text, View } from 'react-nativ
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { CoachFormationWorkspaceContext } from './coachFormationWorkspaceContext'
 
-function createStyles() {
+const PITCH_GREEN = 'rgb(10,108,47)'
+
+function createStyles(palette, pitchVisible) {
+  const background = pitchVisible ? PITCH_GREEN : palette?.background || '#030603'
   return StyleSheet.create({
     board: { flex: 1, width: '100%' },
     back: { alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center', left: 4, minHeight: 44, minWidth: 70, paddingHorizontal: 12, position: 'absolute', top: 0, zIndex: 40 },
-    safeArea: { backgroundColor: 'rgb(10,108,47)', flex: 1 },
-    screen: { backgroundColor: 'rgb(10,108,47)', flex: 1 },
+    safeArea: { backgroundColor: background, flex: 1 },
+    screen: { backgroundColor: background, flex: 1 },
   })
 }
 
-export function CoachFormationWorkspace({ children, onBack, visible = true }) {
+function isDarkPalette(palette) {
+  if (typeof palette?.isDark === 'boolean') return palette.isDark
+  const background = String(palette?.background || '#030603')
+  const channels = /^#[0-9a-f]{6}$/i.test(background)
+    ? [1, 3, 5].map((start) => Number.parseInt(background.slice(start, start + 2), 16))
+    : null
+  return channels ? channels[0] * 0.299 + channels[1] * 0.587 + channels[2] * 0.114 < 128 : true
+}
+
+export function CoachFormationWorkspace({ children, initialPitchVisible = true, onBack, palette, visible = true }) {
   const [markerGestureActive, setMarkerGestureActive] = useState(false)
   const [backHandler, setBackHandler] = useState(null)
+  const [pitchVisible, setPitchVisible] = useState(initialPitchVisible)
   const leaving = useRef(false)
-  const styles = createStyles()
+  const styles = createStyles(palette, pitchVisible)
   const handleMarkerGestureStart = useCallback(() => setMarkerGestureActive(true), [])
   const handleMarkerGestureEnd = useCallback(() => setMarkerGestureActive(false), [])
   const handleBack = useCallback(async () => {
@@ -35,9 +48,12 @@ export function CoachFormationWorkspace({ children, onBack, visible = true }) {
       setBackHandler((current) => current === nextHandler ? null : current)
     }
   }, [])
+  const handlePitchVisibilityChange = useCallback((nextVisible) => {
+    setPitchVisible(Boolean(nextVisible))
+  }, [])
 
   const content = typeof children === 'function'
-    ? children({ onMarkerGestureEnd: handleMarkerGestureEnd, onMarkerGestureStart: handleMarkerGestureStart, registerBackHandler })
+    ? children({ onMarkerGestureEnd: handleMarkerGestureEnd, onMarkerGestureStart: handleMarkerGestureStart, onPitchVisibilityChange: handlePitchVisibilityChange, registerBackHandler })
     : children
 
   return (
@@ -50,12 +66,12 @@ export function CoachFormationWorkspace({ children, onBack, visible = true }) {
       statusBarTranslucent={false}
       visible={visible}
     >
-      <StatusBar barStyle="light-content" backgroundColor="rgb(10,108,47)" />
+      <StatusBar barStyle={pitchVisible || isDarkPalette(palette) ? 'light-content' : 'dark-content'} backgroundColor={pitchVisible ? PITCH_GREEN : palette?.background || '#030603'} />
       <SafeAreaProvider>
       <SafeAreaView accessibilityViewIsModal edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea} testID="coach-formation-workspace">
         <View style={styles.screen}>
           <Pressable accessibilityRole="button" accessibilityLabel="Close Formation Board" onPress={() => void handleBack()} style={styles.back}>
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>Back</Text>
+            <Text style={{ color: pitchVisible ? 'white' : palette?.textPrimary || 'white', fontSize: 16, fontWeight: '700' }}>Back</Text>
           </Pressable>
           <View
             style={styles.board}

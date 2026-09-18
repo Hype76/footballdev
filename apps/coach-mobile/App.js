@@ -923,14 +923,15 @@ function CoachRoute(props) {
   if (activeRoute === 'calendar') return <CoachCalendarScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'players') return <CoachPlayersScreen {...props} key={props.context.id} palette={palette} />
   if (activeRoute === 'formation') return (
-    <CoachFormationWorkspace onBack={props.onFormationBack} palette={palette}>
-      {({ onMarkerGestureEnd, onMarkerGestureStart, registerBackHandler }) => (
+    <CoachFormationWorkspace initialPitchVisible={false} onBack={props.onFormationBack} palette={palette}>
+      {({ onMarkerGestureEnd, onMarkerGestureStart, onPitchVisibilityChange, registerBackHandler }) => (
         <CoachFormationScreen
           {...props}
           key={props.context.id}
           onBack={props.onFormationBack}
           onMarkerGestureEnd={onMarkerGestureEnd}
           onMarkerGestureStart={onMarkerGestureStart}
+          onPitchVisibilityChange={onPitchVisibilityChange}
           palette={palette}
           registerBackHandler={registerBackHandler}
         />

@@ -98,3 +98,111 @@ test('changing formation keeps the selected XI and moves excess Players to Subs'
   assert.equal(next.placements.length, 11)
   assert.equal(next.bench.length, 2)
 })
+
+test('changing formation keeps a shuffled goalkeeper in the goalkeeper slot', () => {
+  const draft = {
+    bench: [],
+    placements: [
+      { playerId: 'defender', displayName: 'Defender', positionGroup: 'defender', slotId: 'old-defender', x: 0.2, y: 0.2 },
+      { playerId: 'goalkeeper', displayName: 'Keeper', positionGroup: 'goalkeeper', slotId: 'old-gk', x: 0.5, y: 0.9 },
+      { playerId: 'midfielder', displayName: 'Midfielder', positionGroup: 'midfielder', slotId: 'old-midfielder', x: 0.7, y: 0.5 },
+    ],
+    gameFormat: '5v5',
+  }
+  const preset = {
+    gameFormat: '5v5',
+    key: '5v5-custom',
+    slots: [
+      { id: 'new-gk', group: 'goalkeeper', x: 0.5, y: 0.92 },
+      { id: 'new-mid', group: 'midfielder', x: 0.5, y: 0.5 },
+      { id: 'new-def', group: 'defender', x: 0.5, y: 0.2 },
+    ],
+  }
+  const next = applyMobileFormationPreset(draft, preset)
+  assert.equal(next.placements.find((player) => player.playerId === 'goalkeeper').slotId, 'new-gk')
+  assert.deepEqual(new Set(next.placements.map((player) => player.playerId)), new Set(['goalkeeper', 'midfielder', 'defender']))
+})
+
+test('legacy goalkeeper slot IDs remain protected when positionGroup is missing', () => {
+  const next = applyMobileFormationPreset({
+    bench: [],
+    placements: [
+      { playerId: 'outfield', positionGroup: 'defender', slotId: 'old-defender', x: 0.2, y: 0.2 },
+      { playerId: 'legacy-keeper', slotId: 'gk', x: 0.5, y: 0.9 },
+    ],
+    gameFormat: '5v5',
+  }, {
+    gameFormat: '5v5',
+    key: '5v5-legacy-gk',
+    slots: [
+      { id: 'gk', group: 'goalkeeper', x: 0.5, y: 0.9 },
+      { id: 'defender', group: 'defender', x: 0.5, y: 0.2 },
+    ],
+  })
+  assert.equal(next.placements.find((player) => player.playerId === 'legacy-keeper').positionGroup, 'goalkeeper')
+  assert.equal(next.placements.find((player) => player.playerId === 'legacy-keeper').slotId, 'gk')
+})
+
+test('same-format formation changes prefer compatible groups before spatial fallback', () => {
+  const draft = {
+    bench: [],
+    placements: [
+      { playerId: 'wide', positionGroup: 'winger', slotId: 'old-wide', x: 0.1, y: 0.4 },
+      { playerId: 'back', positionGroup: 'defender', slotId: 'old-back', x: 0.9, y: 0.2 },
+      { playerId: 'keeper', positionGroup: 'goalkeeper', slotId: 'old-keeper', x: 0.5, y: 0.9 },
+    ],
+    gameFormat: '5v5',
+  }
+  const next = applyMobileFormationPreset(draft, {
+    gameFormat: '5v5',
+    key: '5v5-alt',
+    slots: [
+      { id: 'keeper-new', group: 'goalkeeper', x: 0.5, y: 0.9 },
+      { id: 'defender-new', group: 'defender', x: 0.2, y: 0.2 },
+      { id: 'winger-new', group: 'winger', x: 0.8, y: 0.4 },
+    ],
+  })
+  assert.equal(next.placements.find((player) => player.playerId === 'back').slotId, 'defender-new')
+  assert.equal(next.placements.find((player) => player.playerId === 'wide').slotId, 'winger-new')
+})
+
+test('reused slot IDs still require a compatible role and mixed coordinates compare spatially', () => {
+  const next = applyMobileFormationPreset({
+    bench: [],
+    placements: [
+      { playerId: 'back', positionGroup: 'defender', slotId: 'reused', x: 90, y: 20 },
+      { playerId: 'mid', positionGroup: 'midfielder', slotId: 'old-mid', x: 0.1, y: 0.5 },
+    ],
+    gameFormat: '5v5',
+  }, {
+    gameFormat: '5v5',
+    key: '5v5-role-change',
+    slots: [
+      { id: 'goalkeeper', group: 'goalkeeper', x: 0.5, y: 0.9 },
+      { id: 'reused', group: 'midfielder', x: 0.9, y: 0.2 },
+      { id: 'defender', group: 'defender', x: 0.1, y: 0.2 },
+    ],
+  })
+  assert.equal(next.placements.find((player) => player.playerId === 'back').slotId, 'defender')
+  assert.equal(next.placements.find((player) => player.playerId === 'mid').slotId, 'reused')
+})
+
+test('smaller formations preserve the goalkeeper and keep every selected Player', () => {
+  const placements = Array.from({ length: 9 }, (_, index) => ({
+    playerId: `player-${index + 1}`,
+    positionGroup: index === 5 ? 'goalkeeper' : 'outfield',
+    slotId: `old-${index + 1}`,
+    x: (index % 3) / 2,
+    y: 0.1 + (index * 0.1),
+  }))
+  const next = applyMobileFormationPreset({ bench: [], placements, gameFormat: '9v9' }, {
+    gameFormat: '7v7',
+    key: '7v7-compact',
+    slots: Array.from({ length: 7 }, (_, index) => ({ id: `small-${index + 1}`, group: index === 0 ? 'goalkeeper' : 'outfield', x: 0.5, y: 0.1 + (index * 0.1) })),
+  })
+  const allPlayers = new Set([...next.placements, ...next.bench].map((player) => player.playerId))
+  assert.equal(allPlayers.size, 9)
+  assert.equal(next.placements.find((player) => player.playerId === 'player-6').positionGroup, 'goalkeeper')
+  assert.equal(next.placements.length, 7)
+  assert.equal(next.bench.length, 2)
+})
