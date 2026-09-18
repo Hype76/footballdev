@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { PlanPriceCalculator } from '../components/billing/PlanPriceCalculator.jsx'
+import { PlanInsights } from '../components/billing/PlanInsights.jsx'
 import { canViewBilling, useAuth } from '../lib/auth.js'
 import { formatUkDate } from '../lib/date-format.js'
 import { getPlanName } from '../lib/plans.js'
@@ -223,6 +224,7 @@ export function BillingPage() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
+      <PlanInsights currentPlanKey={visibleClub?.planKey} insights={billing?.planInsights} loading={isLoading} />
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
           <div>

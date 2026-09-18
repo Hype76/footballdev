@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { NoticeBanner } from '../ui/NoticeBanner.jsx'
 import { MATCHDAY_DEFAULT_FLAGS, validateMatchdayFlags } from '../../lib/matchday-policy.js'
+import { getMatchdayPresetKey, MATCHDAY_PRESET_OPTIONS } from '../../lib/matchday-presets.js'
 import { supabase } from '../../lib/supabase.js'
 
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-2 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
@@ -46,6 +47,15 @@ export function PlatformMatchdayConfigSection() {
   useEffect(() => { void loadConfig() }, [loadConfig])
 
   const hasChanges = useMemo(() => Boolean(config && draft && Object.keys(config.flags).some((key) => config.flags[key] !== draft[key])), [config, draft])
+  const selectedPresetKey = useMemo(() => getMatchdayPresetKey(draft), [draft])
+
+  function handlePresetChange(event) {
+    const preset = MATCHDAY_PRESET_OPTIONS.find((option) => option.key === event.target.value)
+    if (!preset) return
+    setErrorMessage('')
+    setSuccessMessage('')
+    setDraft({ ...preset.flags })
+  }
 
   async function handleSave(event) {
     event.preventDefault()
@@ -75,7 +85,7 @@ export function PlatformMatchdayConfigSection() {
   return (
     <SectionCard
       title="Matchday plan configuration"
-      description="Control the canonical Matchday free tier. Server validation and the expected revision protect concurrent changes."
+      description="Choose the features available to all Matchday accounts. Review your changes before saving."
       storageKey="platform-matchday-plan-config"
     >
       <div className="space-y-4">
@@ -84,6 +94,15 @@ export function PlatformMatchdayConfigSection() {
         {isLoading ? <p className="text-sm font-semibold text-[var(--text-muted)]" role="status">Loading Matchday settings.</p> : null}
         {!isLoading && draft ? (
           <form className="space-y-4" onSubmit={handleSave}>
+            <div className="space-y-2">
+              <label htmlFor="matchday-preset" className="block text-sm font-black text-[var(--text-primary)]">Configuration preset</label>
+              <select id="matchday-preset" value={selectedPresetKey || ''} onChange={handlePresetChange} disabled={isSaving} className="min-h-11 w-full rounded-lg border border-[var(--border-color)] bg-[var(--panel-bg)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]">
+                <option value="" disabled>Custom settings</option>
+                {MATCHDAY_PRESET_OPTIONS.map((preset) => <option key={preset.key} value={preset.key}>{preset.label}</option>)}
+              </select>
+              <p className="text-xs font-semibold text-[var(--text-muted)]">{selectedPresetKey ? MATCHDAY_PRESET_OPTIONS.find((preset) => preset.key === selectedPresetKey)?.description : 'Choose a preset to update the local draft, then review and save it.'}</p>
+              {hasChanges ? <p className="text-xs font-black text-[#b45309]" role="status">Unsaved changes</p> : null}
+            </div>
             <div className="divide-y divide-[var(--border-color)] overflow-hidden rounded-lg border border-[var(--border-color)]">
               {Object.keys(MATCHDAY_DEFAULT_FLAGS).map((key) => (
                 <label key={key} className="flex min-h-14 cursor-pointer items-center justify-between gap-4 bg-[var(--panel-bg)] px-4 py-3 hover:bg-[var(--panel-alt)]">

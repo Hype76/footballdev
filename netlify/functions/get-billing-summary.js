@@ -4,6 +4,7 @@ import { json } from './lib/_stripe-billing.js'
 import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 import { resolveBillingAccess } from '../../src/lib/billing-access.js'
+import { loadPlanInsights } from './lib/_plan-insights.js'
 
 function formatInvoice(invoice) {
   return {
@@ -73,6 +74,8 @@ export async function handler(event) {
       return json(403, { success: false, message: `Billing is only available to the ${scope.ownerRole.label}.` })
     }
 
+    const planInsights = await loadPlanInsights(supabaseAdmin, club)
+
     let invoices = []
     const { data: reminders, error: remindersError } = await supabaseAdmin
       .from('billing_access_reminders')
@@ -108,6 +111,7 @@ export async function handler(event) {
     return json(200, {
       success: true,
       billing: {
+        planInsights,
         club: {
           id: club.id,
           name: club.name,
