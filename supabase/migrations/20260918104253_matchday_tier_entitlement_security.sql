@@ -12,13 +12,45 @@ immutable
 set search_path = ''
 as $$
   select case
-    when raw_plan_key is null or pg_catalog.btrim(raw_plan_key) = '' then 'matchday'
+    when raw_plan_key is null or pg_catalog.btrim(raw_plan_key) = '' then 'individual'
     when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
-      in ('matchday', 'individual', 'individual_coach', 'individual_coach_free', 'individual_free', 'free') then 'matchday'
+      = 'matchday' then 'matchday'
     when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
-      in ('team', 'single', 'single_team') then 'team'
+      in ('individual', 'individual_coach', 'individual_coach_free', 'individual_free', 'free') then 'individual'
     when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
-      in ('club', 'small_club', 'development', 'development_club', 'dev_club', 'large_club', 'contact', 'contact_sales', 'enterprise', 'negotiated', 'pilot') then 'club'
+      = 'team' then 'team'
+    when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
+      in ('single', 'single_team') then 'single_team'
+    when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
+      = 'club' then 'club'
+    when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
+      = 'small_club' then 'small_club'
+    when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
+      in ('development', 'development_club', 'dev_club') then 'development_club'
+    when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
+      in ('large_club', 'contact', 'contact_sales', 'enterprise', 'negotiated') then 'large_club'
+    when pg_catalog.lower(pg_catalog.regexp_replace(pg_catalog.btrim(raw_plan_key), '[^a-zA-Z0-9]+', '_', 'g'))
+      = 'pilot' then 'pilot'
+    else ''
+  end
+$$;
+
+create or replace function public.canonical_subscription_plan_key(raw_plan_key text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case public.normalize_subscription_plan_key(raw_plan_key)
+    when 'matchday' then 'matchday'
+    when 'individual' then 'matchday'
+    when 'team' then 'team'
+    when 'single_team' then 'team'
+    when 'club' then 'club'
+    when 'small_club' then 'club'
+    when 'development_club' then 'club'
+    when 'large_club' then 'club'
+    when 'pilot' then 'club'
     else ''
   end
 $$;
@@ -46,8 +78,14 @@ set search_path = ''
 as $$
   select case public.normalize_subscription_plan_key(raw_plan_key)
     when 'matchday' then 'team'
+    when 'individual' then 'individual'
     when 'team' then 'team'
+    when 'single_team' then 'team'
     when 'club' then 'club'
+    when 'small_club' then 'club'
+    when 'development_club' then 'club'
+    when 'large_club' then 'club'
+    when 'pilot' then 'club'
     else 'unknown'
   end
 $$;
@@ -82,18 +120,6 @@ alter table if exists public.stripe_checkout_records
       and subscription_team_capacity % 10 = 0
     )
   );
-
-alter table if exists public.club_team_limit_overrides
-  drop constraint if exists club_team_limit_overrides_package_capacity_check;
-alter table if exists public.club_team_limit_overrides
-  add constraint club_team_limit_overrides_package_capacity_check
-  check (
-    team_limit_override = 1
-    or (
-      team_limit_override between 10 and 500
-      and team_limit_override % 10 = 0
-    )
-  ) not valid;
 
 create or replace function app_private.matchday_default_flags()
 returns jsonb
@@ -443,6 +469,7 @@ set search_path = ''
 as $$
 declare
   raw_plan_key text;
+  normalized_plan_key text;
   canonical_plan_key text;
   target_is_plan_comped boolean;
   capability_key text := app_private.plan_capability_key(feature_name);
@@ -452,6 +479,36 @@ declare
     'essentialRolePermissions', 'parentalConsentVisibilityControls', 'safetyAuditability',
     'dataRightsAccess', 'dataRightsExport', 'dataRightsDeletion', 'responsiveWebPwa',
     'footballPlayerBranding'
+  ];
+  legacy_free_keys constant text[] := array[
+    'players', 'basicDevelopmentRecords', 'goalsAndNotes', 'basicPlayerFeedback',
+    'limitedRecordHistory', 'familyPortalPreview'
+  ];
+  legacy_team_keys constant text[] := array[
+    'trialPlayers', 'resourceLibrary', 'staffChat', 'parentChat',
+    'fullTeamRecords', 'fullRecordHistory', 'assessments', 'standardAssessmentTemplates',
+    'customDevelopmentFields', 'monthlyEvaluations', 'playerNotes', 'attachments',
+    'standardProgressViews', 'parentPortal', 'parentInvitations', 'parentEmails',
+    'pdfReports', 'parentCommunicationHistory', 'teamCalendar', 'trainingEvents',
+    'fixtures', 'generalEvents', 'matchDay', 'teamPolls', 'teamStaffRoles',
+    'basicLogoBranding', 'basicActivityVisibility'
+  ];
+  legacy_small_club_keys constant text[] := array[
+    'clubAdministration', 'clubStaffRoles', 'sharedPlayerOversight', 'bulkInvitesImports',
+    'clubWideCalendar', 'clubWideEvents', 'recurringEvents', 'calendarExportFeed',
+    'sharedReportTemplates', 'customColoursBranding', 'fullOperationalAuditLog',
+    'basicClubAnalytics'
+  ];
+  legacy_development_club_keys constant text[] := array[
+    'advancedDevelopmentAnalytics', 'playerPathways', 'coachHandovers',
+    'scheduledReviewCycles', 'approvalWorkflows', 'customAssessmentTemplates',
+    'customReportTemplates', 'clubWideOperationalExports', 'scheduledParentReports',
+    'prioritySupport'
+  ];
+  legacy_large_club_keys constant text[] := array[
+    'negotiatedLimits', 'bespokeBranding', 'assistedSetup', 'dataMigration',
+    'customOnboarding', 'rolloutPlanning', 'dedicatedSupportContact',
+    'agreedServiceTerms'
   ];
   club_only_keys constant text[] := array[
     'clubAdministration', 'clubStaffRoles', 'sharedPlayerOversight', 'bulkInvitesImports',
@@ -473,8 +530,9 @@ begin
     return true;
   end if;
 
-  select club.plan_key, public.normalize_subscription_plan_key(club.plan_key), coalesce(club.is_plan_comped, false)
-  into raw_plan_key, canonical_plan_key, target_is_plan_comped
+  select club.plan_key, public.normalize_subscription_plan_key(club.plan_key),
+    public.canonical_subscription_plan_key(club.plan_key), coalesce(club.is_plan_comped, false)
+  into raw_plan_key, normalized_plan_key, canonical_plan_key, target_is_plan_comped
   from public.clubs club
   where club.id = target_club_id;
 
@@ -491,6 +549,40 @@ begin
 
   if capability_key = 'platformAdminAccess' then
     return false;
+  end if;
+
+  -- Existing plan keys keep their established capability ladder. This prevents
+  -- the Matchday defaults or the broader new Club package from changing access
+  -- for a current workspace during the migration.
+  if normalized_plan_key in ('individual', 'single_team', 'small_club', 'development_club', 'large_club', 'pilot') then
+    if capability_key = any(legacy_free_keys) then
+      return true;
+    end if;
+    if capability_key in ('nativeAppEntitlement', 'integrations', 'externalCalendarIntegrations') then
+      return false;
+    end if;
+    if normalized_plan_key = 'individual' then
+      return false;
+    end if;
+    if capability_key = any(legacy_team_keys) then
+      return true;
+    end if;
+    if normalized_plan_key = 'single_team' then
+      return false;
+    end if;
+    if capability_key = any(legacy_small_club_keys) then
+      return true;
+    end if;
+    if normalized_plan_key = 'small_club' then
+      return false;
+    end if;
+    if capability_key = any(legacy_development_club_keys) then
+      return true;
+    end if;
+    if normalized_plan_key = 'development_club' then
+      return false;
+    end if;
+    return capability_key = any(legacy_large_club_keys);
   end if;
 
   if canonical_plan_key = 'club' then
@@ -513,6 +605,82 @@ begin
   return coalesce((flags_value ->> capability_key)::boolean, false);
 end;
 $$;
+
+-- Keep the existing Fan RPC shape compatible while exposing the linked Club's
+-- authoritative plan to Parent and Fan clients. The plan gate is evaluated for
+-- each selected-player link, so an active relationship is retained in storage
+-- but cannot be used while Parent Portal access is unavailable.
+do $fan_rpc$
+begin
+  if pg_catalog.to_regprocedure('public.list_fan_connections()') is not null then
+    execute $function$
+create or replace function public.list_fan_connections()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+    'id', fan.id,
+    'parent_link_id', fan.parent_link_id,
+    'player_id', fan.player_id,
+    'club_id', fan.club_id,
+    'player_name', player.player_name,
+    'club_name', club.name,
+    'club_logo_url', club.logo_url,
+    'theme_accent', club.theme_accent,
+    'theme_button_style', club.theme_button_style,
+    'team_id', player.team_id,
+    'team_name', team.name,
+    'plan_key', club.plan_key,
+    'plan_status', club.plan_status,
+    'name', fan.name,
+    'email', fan.email,
+    'relationship_type', fan.relationship_type,
+    'permissions', fan.permissions,
+    'status', case
+      when fan.status = 'pending' and fan.expires_at <= pg_catalog.now() then 'expired'
+      else fan.status
+    end,
+    'created_at', fan.created_at,
+    'expires_at', fan.expires_at,
+    'accepted_at', fan.accepted_at,
+    'updated_at', fan.updated_at,
+    'notifications_enabled', fan.notifications_enabled,
+    'is_owner', fan.invited_by = (select auth.uid()),
+    'invite_token', case
+      when fan.invited_by = (select auth.uid())
+        and fan.status = 'pending'
+        and fan.expires_at > pg_catalog.now()
+        then fan.invite_token
+    end
+  ) order by fan.created_at desc), '[]'::jsonb)
+  from public.fan_connections fan
+  join public.players player on player.id = fan.player_id
+  join public.clubs club on club.id = fan.club_id
+  left join public.teams team on team.id = player.team_id
+  where (select auth.uid()) is not null
+    and app_private.fan_scope_active(fan.parent_link_id, fan.player_id, fan.club_id, fan.invited_by)
+    and public.can_use_plan_feature(fan.club_id, 'parentPortal')
+    and (
+      (fan.invited_by = (select auth.uid()) and fan.owner_deleted_at is null)
+      or (fan.auth_user_id = (select auth.uid()) and fan.status = 'active')
+    )
+    and not exists (
+      select 1
+      from public.users actor
+      where actor.id = (select auth.uid())
+        and actor.status = 'suspended'
+        and (actor.role = 'parent_portal' or actor.club_id = fan.club_id)
+    )
+$$
+    $function$;
+    execute 'revoke all on function public.list_fan_connections() from public, anon';
+    execute 'grant execute on function public.list_fan_connections() to authenticated';
+  end if;
+end
+$fan_rpc$;
 
 create or replace function public.can_insert_player_for_plan(
   target_club_id uuid,
@@ -563,6 +731,7 @@ set search_path = ''
 as $$
 declare
   raw_plan_key text;
+  normalized_plan_key text;
   canonical_plan_key text;
   target_is_plan_comped boolean;
   purchased_capacity integer;
@@ -573,10 +742,11 @@ begin
   select
     club.plan_key,
     public.normalize_subscription_plan_key(club.plan_key),
+    public.canonical_subscription_plan_key(club.plan_key),
     coalesce(club.is_plan_comped, false),
     club.subscription_team_capacity,
     limits.team_limit_override
-  into raw_plan_key, canonical_plan_key, target_is_plan_comped, purchased_capacity, legacy_override
+  into raw_plan_key, normalized_plan_key, canonical_plan_key, target_is_plan_comped, purchased_capacity, legacy_override
   from public.clubs club
   left join public.club_team_limit_overrides limits on limits.club_id = club.id
   where club.id = target_club_id;
@@ -592,12 +762,40 @@ begin
     return false;
   end if;
 
+  -- Preserve the legacy helper exactly for existing workspaces. Complimentary
+  -- non-pilot plans remain uncapped, while Pilot and paid legacy plans continue
+  -- to use their current override or legacy package default.
+  if normalized_plan_key in ('individual', 'single_team', 'small_club', 'development_club', 'large_club', 'pilot') then
+    if target_is_plan_comped and normalized_plan_key <> 'pilot' then
+      return true;
+    end if;
+
+    team_limit := coalesce(
+      legacy_override,
+      case normalized_plan_key
+        when 'individual' then 1
+        when 'single_team' then 1
+        when 'small_club' then 5
+        when 'development_club' then 10
+        when 'large_club' then 10
+        when 'pilot' then 10
+        else 0
+      end
+    );
+
+    select pg_catalog.count(*) into current_team_count
+    from public.teams team
+    where team.club_id = target_club_id;
+
+    return current_team_count < team_limit;
+  end if;
+
   if canonical_plan_key in ('matchday', 'team') then
     team_limit := 1;
   else
     team_limit := case
       when purchased_capacity between 10 and 500 and purchased_capacity % 10 = 0 then purchased_capacity
-      when legacy_override between 10 and 500 and legacy_override % 10 = 0 then legacy_override
+      when legacy_override between 1 and 500 then legacy_override
       else 10
     end;
   end if;
@@ -620,8 +818,8 @@ as $$
   select case
     when club.id is null then 'payment_required'
     when club.archived_at is not null then 'archived'
-    when public.normalize_subscription_plan_key(club.plan_key) = '' then 'payment_required'
-    when public.normalize_subscription_plan_key(club.plan_key) = 'matchday' then 'full'
+    when public.canonical_subscription_plan_key(club.plan_key) = '' then 'payment_required'
+    when public.canonical_subscription_plan_key(club.plan_key) = 'matchday' then 'full'
     when pg_catalog.lower(coalesce(club.plan_key, '')) = 'pilot' then 'full'
     when pg_catalog.lower(coalesce(club.plan_status, '')) in ('active', 'trialing') then 'full'
     when coalesce(club.is_plan_comped, false) or club.billing_arrangement = 'complimentary' then 'full'
@@ -1108,6 +1306,7 @@ before insert or update or delete on public.calendar_events
 for each row execute function app_private.enforce_calendar_event_plan_capabilities();
 
 revoke all on function public.normalize_subscription_plan_key(text) from public, anon;
+revoke all on function public.canonical_subscription_plan_key(text) from public, anon;
 revoke all on function public.workspace_scope_for_plan_key(text) from public, anon;
 revoke all on function app_private.matchday_default_flags() from public, anon, authenticated;
 revoke all on function app_private.validate_matchday_flags(jsonb) from public, anon, authenticated;
@@ -1130,6 +1329,7 @@ revoke all on function public.can_insert_staff_invite_for_plan(uuid, text) from 
 revoke all on function public.can_insert_team_for_plan(uuid) from public, anon;
 
 grant execute on function public.normalize_subscription_plan_key(text) to authenticated, service_role;
+grant execute on function public.canonical_subscription_plan_key(text) to authenticated, service_role;
 grant execute on function public.workspace_scope_for_plan_key(text) to authenticated, service_role;
 grant execute on function public.can_use_plan_feature(uuid, text) to authenticated, service_role;
 grant execute on function public.can_insert_player_for_plan(uuid, text, text) to authenticated, service_role;

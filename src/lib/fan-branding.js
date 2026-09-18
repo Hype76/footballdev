@@ -1,19 +1,31 @@
-import { createParentMobileTheme, getParentThemeContrastRatio, normalizeParentLogoUrl } from '../../apps/mobile-core/src/parentThemeCore.js'
+import { createParentMobileTheme, getParentThemeContrastRatio, resolveParentMobileBranding } from '../../apps/mobile-core/src/parentThemeCore.js'
 
-export function fanBrandingLink(source = {}) {
+export function fanBrandingLink(source = {}, matchdayPolicy) {
   source ||= {}
-  return {
-    id: source.id || '',
+  const selectedLink = {
     clubId: source.club_id || source.clubId || '',
-    clubName: source.club_name || source.clubName || '',
-    clubLogoUrl: normalizeParentLogoUrl(source.club_logo_url || source.clubLogoUrl),
+    clubLogoUrl: source.club_logo_url || source.clubLogoUrl || '',
+    id: source.id || '',
+    matchdayPolicy,
+    planKey: source.plan_key || source.planKey || '',
     themeAccent: source.theme_accent || source.themeAccent || 'green',
     themeButtonStyle: source.theme_button_style || source.themeButtonStyle || 'solid',
   }
+  const branding = resolveParentMobileBranding(selectedLink)
+  return {
+    id: selectedLink.id,
+    clubId: selectedLink.clubId,
+    clubName: source.club_name || source.clubName || '',
+    clubLogoUrl: branding.clubLogoUrl,
+    matchdayPolicy,
+    planKey: selectedLink.planKey,
+    themeAccent: branding.accent,
+    themeButtonStyle: branding.buttonStyle,
+  }
 }
 
-export function fanBrandTheme(source, mode = 'light') {
-  const theme = createParentMobileTheme({ selectedLink: fanBrandingLink(source), mode })
+export function fanBrandTheme(source, mode = 'light', matchdayPolicy) {
+  const theme = createParentMobileTheme({ selectedLink: fanBrandingLink(source, matchdayPolicy), mode })
   const { tokens } = theme
   const backgrounds = [tokens.portalSurface, tokens.portalBackground, tokens.surfaceRaised]
   const readable = (colour) => backgrounds.every((background) => getParentThemeContrastRatio(colour, background) >= 4.5)
@@ -29,8 +41,8 @@ export function fanBrandTheme(source, mode = 'light') {
   return { ...theme, tokens: { ...tokens, accentText: tokens.textPrimary } }
 }
 
-export function fanBrandWebStyle(source, mode) {
-  const { tokens: t } = fanBrandTheme(source, mode)
+export function fanBrandWebStyle(source, mode, matchdayPolicy) {
+  const { tokens: t } = fanBrandTheme(source, mode, matchdayPolicy)
   return {
     '--app-bg': t.portalBackground, '--panel-bg': t.portalSurface, '--panel-soft': t.surfaceRaised,
     '--text-primary': t.textPrimary, '--text-muted': t.textSecondary, '--text-secondary': t.accentText,

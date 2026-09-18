@@ -7,12 +7,18 @@ import { loadFanInviteForOwner, loadFanScope } from './lib/_fan-access.js'
 import { loadFanMatches, loadFanSchedule, loadPlayerAttendance } from './lib/_fan-schedule.js'
 import { loadHistory } from './lib/_parent-development-history.js'
 import { loadAuthorisedResource } from './parent-resource-access.js'
+import { assertParentPlanFeatureForScope } from './lib/_parent-plan-gate.js'
+import { canUsePlanEntitlement } from './lib/_plan-gate.js'
 import { readClubKits } from '../../src/lib/club-kits.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const json = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' }, body: JSON.stringify(body) })
 
-export async function handleFans(event, { createClient = createSupabaseAdminClient, deliverEmail = sendEmail } = {}) {
+export async function handleFans(event, {
+  assertPlanFeatureForScope = assertParentPlanFeatureForScope,
+  createClient = createSupabaseAdminClient,
+  deliverEmail = sendEmail,
+} = {}) {
   if (event.httpMethod !== 'POST') return json(405, { message: 'Method not allowed.' })
   if (Buffer.byteLength(event.body || '') > 8192) return json(413, { message: 'Request is too large.' })
   try {
@@ -39,6 +45,14 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
     if (!UUID.test(body.connectionId || '')) return json(400, { message: 'Choose a valid Fan connection.' })
     if (body.action === 'send_invitation') {
       const fan = await loadFanInviteForOwner(client, actor, body.connectionId)
+      await assertPlanFeatureForScope({
+        actionCategory: 'READ',
+        clubId: fan.club_id,
+        featureName: 'parentInvitations',
+        parentLinkId: fan.parent_link_id,
+        playerId: fan.player_id,
+        teamId: fan.team_id,
+      }, { supabaseAdmin: client })
       if (fan.email_sent_at) return json(200, { success: true, alreadySent: true })
       const url = fanInviteUrl('https://parent.footballplayer.online', fan.invite_token)
       await deliverEmail({ from: createFromAddress('Football Player'), to: [fan.email], ...buildFanEmail({ club: fan.club, fan, url }), emailAppRole: 'parent'
@@ -50,19 +64,47 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
     const permission = { schedule: 'schedule', attendance: 'schedule', matches: 'game_day', notifications: 'game_day', development: 'development', resources: 'resources', open_resource: 'resources' }[body.action]
     if (!permission) return json(400, { message: 'Choose a valid Fan action.' })
     const scope = await loadFanScope(client, actor, body.connectionId, permission)
+    const planProfile = await assertPlanFeatureForScope({
+      actionCategory: 'READ',
+      clubId: scope.fan.club_id,
+      featureName: 'parentPortal',
+      parentLinkId: scope.parent.id,
+      playerId: scope.player.id,
+      teamId: scope.parent.team_id || scope.player.team_id,
+    }, { supabaseAdmin: client })
+    const requireFeature = async (featureName) => assertPlanFeatureForScope({
+      actionCategory: 'READ',
+      clubId: scope.fan.club_id,
+      featureName,
+      parentLinkId: scope.parent.id,
+      playerId: scope.player.id,
+      teamId: scope.parent.team_id || scope.player.team_id,
+    }, { supabaseAdmin: client })
+    const featureAllowed = (featureName) => canUsePlanEntitlement(planProfile, featureName)
     if (body.action === 'attendance') {
       if (scope.fan.relationship_type !== 'player') return json(403, { message: 'Player account access is required.' })
-      return json(200, { attendance: await loadPlayerAttendance(client, scope) })
+      await requireFeature('teamCalendar')
+      return json(200, { attendance: await loadPlayerAttendance(client, scope, new Date(), { featureAllowed }) })
     }
-    if (body.action === 'development') return json(200, { reports: await loadHistory({ parentLink: scope.parent, supabaseAdmin: client }) })
-    if (body.action === 'schedule') return json(200, { schedule: await loadFanSchedule(client, scope) })
+    if (body.action === 'development') {
+      await requireFeature('basicDevelopmentRecords')
+      await requireFeature('assessments')
+      return json(200, { reports: await loadHistory({ parentLink: scope.parent, supabaseAdmin: client }) })
+    }
+    if (body.action === 'schedule') {
+      await requireFeature('teamCalendar')
+      return json(200, { schedule: await loadFanSchedule(client, scope, new Date(), { featureAllowed }) })
+    }
     if (body.action === 'notifications') {
+      await requireFeature('matchDay')
       const result = await client.from('fan_notifications').select('id, match_id, title, body, created_at').eq('connection_id', scope.fan.id).order('created_at', { ascending: false }).limit(60)
       if (result.error) throw result.error
       const visible = new Set((await loadFanMatches(client, scope)).map((match) => match.id))
       return json(200, { notifications: (result.data || []).filter((item) => visible.has(item.match_id)) })
     }
     if (body.action === 'matches') {
+      await requireFeature('matchDay')
+      await requireFeature('fixtures')
       const matches = await loadFanMatches(client, scope, '', { includeScheduled: scope.fan.relationship_type === 'player' })
       if (body.matchId) {
         if (!matches.some((match) => match.id === body.matchId)) return json(403, { message: 'This Game Day is unavailable.' })
@@ -75,6 +117,7 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
       return json(200, { matches })
     }
     if (body.action === 'resources') {
+      await requireFeature('resourceLibrary')
       const result = await client.from('resource_library_links').select('resource_id, resource_library_items!inner(id, title, description, category, created_at, updated_at, archived_at, club_id, team_id)')
         .eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).eq('linked_type', 'player').eq('linked_id', scope.player.id).eq('parent_visible', true).is('removed_at', null)
       if (result.error) throw result.error
@@ -82,6 +125,7 @@ export async function handleFans(event, { createClient = createSupabaseAdminClie
         .map(({ id, title, description, category, created_at, updated_at }) => ({ id, title, description, category, createdAt: created_at, updatedAt: updated_at }))
       return json(200, { resources })
     }
+    await requireFeature('resourceLibrary')
     if (!UUID.test(body.resourceId || '')) return json(400, { message: 'Choose a valid resource.' })
     const { access, resource, formationBoard } = await loadAuthorisedResource({ authUserId: scope.parent.auth_user_id, parentLinkId: scope.parent.id, resourceId: body.resourceId, supabaseAdmin: client })
     if (formationBoard) return json(200, { formationBoard })

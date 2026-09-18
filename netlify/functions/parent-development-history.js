@@ -448,6 +448,14 @@ export default async (request) => {
       playerId: player.id,
       teamId: parentLink.team_id || player.team_id,
     })
+    await assertParentPlanFeatureForScope({
+      actionCategory: action === 'download_pdf' ? 'EXPORT' : 'READ',
+      clubId: parentLink.club_id,
+      featureName: 'assessments',
+      parentLinkId: parentLink.id,
+      playerId: player.id,
+      teamId: parentLink.team_id || player.team_id,
+    })
     const history = await loadHistory({ parentLink, supabaseAdmin })
 
     if (action === 'list') {

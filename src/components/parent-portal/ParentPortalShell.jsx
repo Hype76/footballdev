@@ -4,7 +4,9 @@ import fallbackLogo from '../../assets/football-player-logo.webp'
 import { useAuth } from '../../lib/auth.js'
 import { buildMainAppUrl } from '../../lib/app-origins.js'
 import { rememberParentAccessIntent } from '../../lib/parent-auth-intent.js'
-import { resolveParentPortalBranding } from '../../lib/parent-portal-branding.js'
+import { isParentSectionAllowed } from '../../lib/parent-plan-access.js'
+import { resolveParentPortalBranding, resolveParentPortalDisplayLink } from '../../lib/parent-portal-branding.js'
+import { useMatchdayPolicy } from '../../lib/use-matchday-policy.js'
 import {
   getParentPortalStaffReturnMode,
   PARENT_PORTAL_STAFF_RETURN_LABEL,
@@ -336,6 +338,7 @@ export function ParentPortalSectionNav({
   isKeyboardOpen = false,
   isSigningOut = false,
   links = [],
+  matchdayPolicy,
   newStateByCategory = {},
   onParentLinkSelect,
   onCollapse,
@@ -354,6 +357,7 @@ export function ParentPortalSectionNav({
       className,
       isSigningOut,
       links,
+      matchdayPolicy,
       newStateByCategory,
       onParentLinkSelect,
       onSelect,
@@ -367,7 +371,8 @@ export function ParentPortalSectionNav({
   }
 
   const visibleSections = parentPortalSections.filter((section) =>
-    !section.recoveryPath || isRecoveryPathVisible(section.recoveryPath, { user }))
+    (!section.recoveryPath || isRecoveryPathVisible(section.recoveryPath, { user }))
+    && isParentSectionAllowed(selectedLink, section.id, matchdayPolicy, user?.planKey))
   const itemClass = (isActive) => [
     'relative flex items-center justify-between gap-3 rounded-lg border px-3 text-left transition',
     variant === 'mobile' ? 'min-h-11 w-[5.75rem] shrink-0 justify-center py-2 text-center' : 'min-h-12 w-full py-2',
@@ -617,6 +622,26 @@ export function ParentPortalRouteShell({
       ?? resolvedLinks[0],
     [resolvedLinks, selectedLink, selectedParentLinkId],
   )
+  const selectedPlanUser = useMemo(() => ({
+    ...user,
+    clubId: resolvedSelectedLink?.clubId || user?.clubId,
+    planKey: resolvedSelectedLink?.planKey || resolvedSelectedLink?.plan_key || user?.planKey,
+  }), [resolvedSelectedLink, user])
+  const matchdayPolicy = useMatchdayPolicy(selectedPlanUser)
+  const displayLinks = useMemo(
+    () => resolvedLinks.map((link) => resolveParentPortalDisplayLink(link, matchdayPolicy)),
+    [matchdayPolicy, resolvedLinks],
+  )
+  const displaySelectedLink = useMemo(
+    () => resolveParentPortalDisplayLink(resolvedSelectedLink, matchdayPolicy),
+    [matchdayPolicy, resolvedSelectedLink],
+  )
+  const canOpenActiveSection = isParentSectionAllowed(
+    resolvedSelectedLink,
+    activeSection,
+    matchdayPolicy,
+    user?.planKey,
+  )
 
   useEffect(() => {
     if (!resolvedSelectedLink?.id) {
@@ -624,15 +649,16 @@ export function ParentPortalRouteShell({
     }
 
     const branding = resolveParentPortalBranding({
-      selectedLink: resolvedSelectedLink,
-      links: resolvedLinks,
+      selectedLink: displaySelectedLink,
+      links: displayLinks,
+      matchdayPolicy,
     })
     saveThemePreferences({
       mode: getStoredThemeMode(),
       accent: branding.accent,
       buttonStyle: branding.buttonStyle,
     })
-  }, [resolvedLinks, resolvedSelectedLink])
+  }, [displayLinks, displaySelectedLink, matchdayPolicy, resolvedSelectedLink])
 
   return (
     <div
@@ -644,30 +670,37 @@ export function ParentPortalRouteShell({
           activeSection={activeSection}
           className="hidden lg:flex"
           isSigningOut={isSigningOut}
-          links={resolvedLinks}
+          links={displayLinks}
+          matchdayPolicy={matchdayPolicy}
           newStateByCategory={newStateByCategory}
           onParentLinkSelect={onSelectedParentLinkChange}
           onSelect={onSelect}
           onSignOut={onSignOut}
-          selectedLink={resolvedSelectedLink}
+          selectedLink={displaySelectedLink}
           selectedParentLinkId={resolvedSelectedLink?.id || selectedParentLinkId}
           user={user}
           variant="desktop"
         />
         <main className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:scroll-pb-6 lg:pr-1">
-          {children}
+          {canOpenActiveSection ? children : (
+            <section aria-live="polite" className="px-1 py-4 sm:px-2">
+              <h1 className="text-2xl font-black tracking-tight text-[#101828]">Section unavailable</h1>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">This section is not included for the selected player&apos;s team plan. Choose another available section or player.</p>
+            </section>
+          )}
         </main>
       </div>
       <ParentPortalSectionNav
         activeSection={activeSection}
         className="lg:hidden"
         isSigningOut={isSigningOut}
-        links={resolvedLinks}
+        links={displayLinks}
+        matchdayPolicy={matchdayPolicy}
         newStateByCategory={newStateByCategory}
         onParentLinkSelect={onSelectedParentLinkChange}
         onSelect={onSelect}
         onSignOut={onSignOut}
-        selectedLink={resolvedSelectedLink}
+        selectedLink={displaySelectedLink}
         selectedParentLinkId={resolvedSelectedLink?.id || selectedParentLinkId}
         user={user}
         variant="mobile"

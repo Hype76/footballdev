@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fanBrandingLink, fanBrandWebStyle } from '../../lib/fan-branding.js'
 
-export function FanBrandScope({ source, children, className = '' }) {
+export function FanBrandScope({ source, children, className = '', matchdayPolicy }) {
   const [mode, setMode] = useState(() => document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light')
   useEffect(() => {
     const update = () => setMode(document.documentElement.classList.contains('theme-dark') ? 'dark' : 'light')
@@ -9,11 +9,11 @@ export function FanBrandScope({ source, children, className = '' }) {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
     return () => observer.disconnect()
   }, [])
-  return <div className={className} data-fan-club={fanBrandingLink(source).clubId} style={source ? fanBrandWebStyle(source, mode) : undefined}>{children}</div>
+  return <div className={className} data-fan-club={fanBrandingLink(source, matchdayPolicy).clubId} style={source ? fanBrandWebStyle(source, mode, matchdayPolicy) : undefined}>{children}</div>
 }
 
-export function FanClubBrand({ source }) {
-  const brand = fanBrandingLink(source)
+export function FanClubBrand({ source, matchdayPolicy }) {
+  const brand = fanBrandingLink(source, matchdayPolicy)
   const [failedUrl, setFailedUrl] = useState('')
   if (!brand.clubName) return null
   return <div className="fans-club-brand">

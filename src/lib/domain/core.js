@@ -184,7 +184,7 @@ async function getParentPortalMemberships(authUser) {
 
   const { data, error } = await supabase
     .from('parent_player_links')
-    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email, theme_accent, theme_button_style)')
+    .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, logo_url, contact_email, theme_accent, theme_button_style, plan_key, plan_status)')
     .eq('auth_user_id', authUser.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
@@ -238,6 +238,8 @@ async function getParentPortalMemberships(authUser) {
       playerName: String(player?.player_name ?? '').trim(),
       playerSection: String(player?.section ?? '').trim(),
       linkType: String(row.link_type ?? 'parent').trim(),
+      planKey: String(club?.plan_key ?? '').trim(),
+      planStatus: String(club?.plan_status ?? '').trim(),
     }
   })
 
@@ -337,8 +339,8 @@ function normalizeParentPortalProfile(authUser, parentLinks, options = {}) {
     roleLabel: 'Parent',
     roleRank: 0,
     accountStatus: 'active',
-    planKey: PLAN_KEYS.individual,
-    planStatus: 'active',
+    planKey: selectedLink?.planKey || PLAN_KEYS.individual,
+    planStatus: selectedLink?.planStatus || 'active',
     isPlanComped: false,
     clubId: selectedLink?.clubId ?? '',
     clubName: selectedLink?.clubName ?? 'Family portal',

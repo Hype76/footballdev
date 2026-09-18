@@ -68,6 +68,8 @@ import {
 import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 import { getStoredThemeMode, normalizeThemeMode, saveThemePreferences, THEME_CHANGED_EVENT } from '../lib/theme.js'
 import { resolveParentPortalBranding } from '../lib/parent-portal-branding.js'
+import { isParentSectionAllowed } from '../lib/parent-plan-access.js'
+import { useMatchdayPolicy } from '../lib/use-matchday-policy.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
 import { getMatchCalendarLocation, getMatchVenueDisplay } from '../lib/match-location.js'
 import { sortParentResultsNewestFirst } from '../lib/parent-results-order.js'
@@ -617,6 +619,8 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
     ?? links.find((link) => link.id === selectedLinkId)
     ?? links.find((link) => link.id === user?.selectedParentLinkId)
     ?? links[0]
+  const matchdayPolicy = useMatchdayPolicy(selectedLink)
+  const canViewMatches = isParentSectionAllowed(selectedLink, 'matches', matchdayPolicy)
   const {
     activityByCategory,
     captureActivityState,
@@ -824,21 +828,21 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
       return
     }
 
-    const branding = resolveParentPortalBranding({ selectedLink, links })
+    const branding = resolveParentPortalBranding({ selectedLink, links, matchdayPolicy })
 
     saveThemePreferences({
       mode: parentThemePreference,
       accent: branding.accent,
       buttonStyle: branding.buttonStyle,
     })
-  }, [links, parentThemePreference, selectedLink])
+  }, [links, matchdayPolicy, parentThemePreference, selectedLink])
 
   const handleParentThemePreferenceChange = (mode) => {
     const nextMode = normalizeThemeMode(mode)
     setParentThemePreference(nextMode)
 
     if (selectedLink?.id) {
-      const branding = resolveParentPortalBranding({ selectedLink, links })
+      const branding = resolveParentPortalBranding({ selectedLink, links, matchdayPolicy })
       saveThemePreferences({
         mode: nextMode,
         accent: branding.accent,
@@ -1653,7 +1657,7 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
       {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}
       {invitationError ? <NoticeBanner title="Response not changed" message={invitationError} /> : null}
 
-      {activeSection === 'overview' && todayMatches.length > 0 && !scorerGameModeMatchId ? (
+      {activeSection === 'overview' && canViewMatches && todayMatches.length > 0 && !scorerGameModeMatchId ? (
         <ParentMatchDayHero
           matches={todayMatches}
           onOpenGameMode={handleOpenTodayGameMode}
@@ -1661,7 +1665,7 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
         />
       ) : null}
 
-      {activeSection === 'overview' ? (
+      {activeSection === 'overview' && canViewMatches ? (
         <DemoGameDayEntryCard
           hasTodayMatch={todayMatches.length > 0}
           onOpen={handleOpenPracticeMatch}
@@ -1671,6 +1675,7 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
           <section className="min-w-0">
           {activeSection === 'overview' ? (
             <ParentOverviewPanel
+              matchdayPolicy={matchdayPolicy}
               activeMatches={activeMatches}
               calendarEvents={parentCalendarEvents}
               eventInvites={pendingParentInvitations}
@@ -2744,6 +2749,7 @@ function buildAllLinkedParentCalendarEvents({ calendarItemsByLinkId = {}, links 
 }
 
 function ParentOverviewPanel({
+  matchdayPolicy,
   activeMatches,
   calendarEvents,
   eventInvites,
@@ -2755,7 +2761,6 @@ function ParentOverviewPanel({
 }) {
   const nextMatch = activeMatches[0]
   const nextCalendarEvent = calendarEvents[0]
-  const sharedItemCount = calendarEvents.length + eventInvites.length + activeMatches.length + previousMatches.length + playerResources.length
   const engagementSummary = getParentEngagementSummary([...activeMatches, ...previousMatches])
   const overviewItems = [
     {
@@ -2796,7 +2801,9 @@ function ParentOverviewPanel({
       detail: playerResources.length > 0 ? 'Open resources to view links shared for this player.' : 'Coach-only resources stay hidden until the club shares them.',
     },
   ]
-  const visibleOverviewItems = isLoading ? overviewItems : overviewItems.filter((item) => item.count > 0)
+  const allowedOverviewItems = overviewItems.filter((item) => isParentSectionAllowed(selectedLink, item.id, matchdayPolicy))
+  const sharedItemCount = allowedOverviewItems.reduce((total, item) => total + item.count, 0)
+  const visibleOverviewItems = isLoading ? allowedOverviewItems : allowedOverviewItems.filter((item) => item.count > 0)
 
   return (
     <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">

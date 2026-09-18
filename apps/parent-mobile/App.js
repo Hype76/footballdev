@@ -81,7 +81,7 @@ import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
 import { useConfirmedConnectionIssue } from '../mobile-core/src/useConfirmedConnectionIssue'
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import { getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
-import { isMatchdayPlan, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
+import { isMatchdayPlan, isMobileCapabilityAllowed, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
 import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
 import ParentIcon from './src/ParentIcon'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
@@ -435,8 +435,20 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [parentLinks, selectedLink, user],
   )
-  const parentPlanContext = useMemo(() => selectedLink ? { ...selectedLink, planKey: selectedLink.planKey || user?.planKey } : user, [selectedLink, user])
-  const parentRouteAllowed = useCallback((route) => isMobileRouteAllowed(parentPlanContext, route, matchdayPlanConfig), [matchdayPlanConfig, parentPlanContext])
+  const parentPlanContext = useMemo(() => selectedLink || user, [selectedLink, user])
+  const parentRouteAllowed = useCallback((route) => {
+    const normalizedRoute = String(route || '').trim().toLowerCase()
+    if (selectedLink && !String(selectedLink.planKey || selectedLink.plan_key || '').trim()) {
+      return !['calendar', 'matchday', 'formation', 'sessions', 'development', 'resources', 'chat', 'messages', 'polls', 'invites', 'results'].includes(normalizedRoute)
+    }
+    if (normalizedRoute === 'results') {
+      return isMobileCapabilityAllowed(parentPlanContext, 'matchDay', matchdayPlanConfig)
+    }
+    if (['chat', 'messages'].includes(normalizedRoute)) {
+      return isMobileCapabilityAllowed(parentPlanContext, 'parentChat', matchdayPlanConfig)
+    }
+    return isMobileRouteAllowed(parentPlanContext, normalizedRoute, matchdayPlanConfig)
+  }, [matchdayPlanConfig, parentPlanContext, selectedLink])
   useEffect(() => {
     let cancelled = false
     if (!parentPlanContext || !isMatchdayPlan(parentPlanContext)) {
@@ -456,9 +468,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     return () => { cancelled = true; subscription.remove() }
   }, [parentPlanContext, selectedLink?.id, selectedLink?.planKey, selectedLink?.plan_key, user?.planKey])
   useEffect(() => {
+    if (selectedLink && !String(selectedLink.planKey || selectedLink.plan_key || '').trim()) return
     if (moreSection && !parentRouteAllowed(moreSection)) setMoreSection('')
-    if (activeTab === 'chat' && !parentRouteAllowed('chat')) setActiveTab('home')
-  }, [activeTab, moreSection, parentRouteAllowed])
+    if (!parentRouteAllowed(activeTab)) setActiveTab('home')
+  }, [activeTab, moreSection, parentRouteAllowed, selectedLink])
 
   useEffect(() => { setChildNotificationBadges({}) }, [user?.id])
 
@@ -2135,6 +2148,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     )
   }
 
+  if (selectedLink && !String(selectedLink.planKey || selectedLink.plan_key || '').trim()) {
+    return <LoadingScreen message="Checking your player's team access..." />
+  }
+
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
   const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId)
   const unansweredInvites = getParentInvitationCounts(visibleInvitationsWithMatchTimes).needsResponse
@@ -2144,11 +2161,13 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     { key: 'home', label: 'Home' },
     { key: 'calendar', label: 'Calendar' },
     { key: 'matchday', label: 'Matchday' },
-    ...(parentRouteAllowed('chat') ? [{ count: unreadChat, key: 'chat', label: 'Chat' }] : []),
+    { count: unreadChat, key: 'chat', label: 'Chat' },
     { count: unreadNotifications + homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
-  ]
-  const focusedChatRoom = activeTab === 'chat' && Boolean(selectedRoom)
-  const focusedScorer = activeTab === 'matchday' && selectedMatch?.isScorer && !selectedMatch?.scorerReviewRequestedAt && !selectedMatch?.concludedAt
+  ].filter(({ key }) => parentRouteAllowed(key))
+  const renderedActiveTab = parentRouteAllowed(activeTab) ? activeTab : 'home'
+  const renderedMoreSection = moreSection && parentRouteAllowed(moreSection) ? moreSection : ''
+  const focusedChatRoom = renderedActiveTab === 'chat' && Boolean(selectedRoom)
+  const focusedScorer = renderedActiveTab === 'matchday' && selectedMatch?.isScorer && !selectedMatch?.scorerReviewRequestedAt && !selectedMatch?.concludedAt
 
   return (
     <ParentThemeContext.Provider value={themeContext}>
@@ -2174,7 +2193,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           theme={displayTheme}
         /> : null}
 
-        {activeTab === 'chat' ? (
+        {renderedActiveTab === 'chat' ? (
           <View style={[styles.contentColumn, styles.chatRouteContent]}>
             {!focusedChatRoom ? <SyncStatus attentionIndex={attentionIndex} cacheState={offlineCacheState} isOffline={isOffline} isSyncing={isSyncing} onNextAttention={() => setAttentionIndex((current) => (current + 1) % Math.max(syncSummary.needsAttention, 1))} onOpenAttention={handleOpenAttentionItem} summary={syncSummary} /> : null}
             {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
@@ -2224,7 +2243,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             />
             {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
 
-            {activeTab === 'home' ? (
+            {renderedActiveTab === 'home' ? (
               <HomeScreen
                 userId={selectedMobileUser?.id}
                 onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })}
@@ -2250,8 +2269,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {activeTab === 'calendar' ? <CalendarScreen onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })} activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {activeTab === 'matchday' ? (
+            {renderedActiveTab === 'calendar' ? <CalendarScreen onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })} activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'matchday' ? (
               <MatchdayScreen
                 activeActionId={activeActionId}
                 invitations={visibleInvitationsWithMatchTimes}
@@ -2274,7 +2293,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 themeTokens={themeModel.tokens}
               />
             ) : null}
-            {activeTab === 'more' && !moreSection ? (
+            {renderedActiveTab === 'more' && !renderedMoreSection ? (
               <MoreScreen
                 onOpen={(section) => {
                   if (!parentRouteAllowed(section)) {
@@ -2291,18 +2310,18 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 visibleKeys={['updates', 'invites', 'results', 'fans', 'development', 'resources', 'polls', 'feedback', 'bug', 'settings', 'partners'].filter((key) => parentRouteAllowed(key))}
               />
             ) : null}
-            {activeTab === 'more' && moreSection && moreSection !== 'fans' ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
-            {activeTab === 'more' && ['feedback', 'bug'].includes(moreSection) ? <UserFeedbackScreen key={moreSection} type={moreSection} appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 16 }} /> : null}
-            {activeTab === 'more' && moreSection === 'partners' ? <PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
-            {activeTab === 'more' && moreSection === 'updates' ? <NotificationsScreen busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
-            {activeTab === 'more' && moreSection === 'invites' ? (
+            {renderedActiveTab === 'more' && renderedMoreSection && renderedMoreSection !== 'fans' ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
+            {renderedActiveTab === 'more' && ['feedback', 'bug'].includes(renderedMoreSection) ? <UserFeedbackScreen key={renderedMoreSection} type={renderedMoreSection} appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 16 }} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'partners' ? <PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'updates' ? <NotificationsScreen busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'invites' ? (
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
-            {activeTab === 'more' && moreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {activeTab === 'more' && moreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
-            {activeTab === 'more' && moreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {activeTab === 'more' && moreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {activeTab === 'more' && moreSection === 'messages' ? (
+            {renderedActiveTab === 'more' && renderedMoreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'messages' ? (
               <MessagesScreen
                 activeActionId={activeActionId}
                 development={resources.development}
@@ -2317,7 +2336,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 selectedMessage={selectedMessage}
               />
             ) : null}
-            {activeTab === 'more' && moreSection === 'polls' ? (
+            {renderedActiveTab === 'more' && renderedMoreSection === 'polls' ? (
               <PollsScreen
                 activeActionId={activeActionId}
                 drafts={pollDrafts}
@@ -2330,7 +2349,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 targetPollId={selectedPollId}
               />
             ) : null}
-            {activeTab === 'more' && moreSection === 'settings' ? (
+            {renderedActiveTab === 'more' && renderedMoreSection === 'settings' ? (
               <SettingsScreen
                 key={`settings-${user.id || user.email || 'parent'}-${user.displayName || user.name || ''}`}
                 activeActionId={activeActionId}
@@ -2377,7 +2396,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           </View>
         </ScrollView>}
 
-        {!focusedChatRoom ? <BottomTabs activeTab={activeTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} /> : null}
+        {!focusedChatRoom ? <BottomTabs activeTab={renderedActiveTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} /> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
     </ParentThemeContext.Provider>

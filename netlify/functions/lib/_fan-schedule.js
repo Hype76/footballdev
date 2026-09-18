@@ -133,22 +133,43 @@ export async function loadFanMatches(client, scope, matchId = '', { includeSched
   const withSquads = await addPlayerSelectedSquads(client, scope, allowed)
   return addPublishedFormationPlans(client, scope, withSquads)
 }
-export async function loadFanSchedule(client, scope, now = new Date(), { includePast = false } = {}) {
-  const trainingQuery = client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')
-  if (!includePast) trainingQuery.neq('status', 'expired')
+export async function loadFanSchedule(client, scope, now = new Date(), { featureAllowed = () => true, includePast = false } = {}) {
+  const canAssessments = featureAllowed('assessments')
+  const canFixtures = featureAllowed('fixtures')
+  const canGeneralEvents = featureAllowed('generalEvents')
+  const canRecurringEvents = featureAllowed('recurringEvents')
+  const canTrainingEvents = featureAllowed('trainingEvents')
+  const canReadCalendarEvents = canGeneralEvents || canTrainingEvents
+  const trainingQuery = canTrainingEvents
+    ? client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')
+    : null
+  if (trainingQuery && !includePast) trainingQuery.neq('status', 'expired')
   const [matches, invitations, shared, training, exclusions] = await Promise.all([
-    loadFanMatches(client, scope, '', { includeScheduled: true }),
-    rows(client.from('calendar_event_invites').select('calendar_event_id, assessment_session_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')),
-    rows(client.from('calendar_events').select('id,title,starts_at,ends_at,location,event_type,parent_visible,parent_audience,team_id,recurrence_frequency,recurrence_until')
-      .eq('club_id', scope.fan.club_id).is('cancelled_at', null)),
-    rows(trainingQuery),
-    rows(client.from('event_player_occurrence_exclusions').select('calendar_event_id,scope,effective_from_date').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id)),
+    canFixtures ? loadFanMatches(client, scope, '', { includeScheduled: true }) : [],
+    (canReadCalendarEvents || canAssessments)
+      ? rows(client.from('calendar_event_invites').select('calendar_event_id, assessment_session_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled'))
+      : [],
+    canReadCalendarEvents
+      ? rows(client.from('calendar_events').select('id,title,starts_at,ends_at,location,event_type,parent_visible,parent_audience,team_id,recurrence_frequency,recurrence_until')
+        .eq('club_id', scope.fan.club_id).is('cancelled_at', null))
+      : [],
+    trainingQuery ? rows(trainingQuery) : [],
+    canReadCalendarEvents
+      ? rows(client.from('event_player_occurrence_exclusions').select('calendar_event_id,scope,effective_from_date').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id))
+      : [],
   ])
   const requestIds = [...new Set(training.map((item) => item.request_id))]
   const occurrences = requestIds.length ? await rows(client.from('training_availability_requests').select('calendar_event_id,occurrence_date,occurrence_starts_at,occurrence_ends_at').in('id', requestIds).neq('status', 'cancelled')) : []
-  const invitedIds = new Set(invitations.map((row) => row.calendar_event_id).filter(Boolean))
-  const schedule = buildFanScheduleEvents({ events: shared, invitedIds, occurrences, exclusions, parent: scope.parent, now, includePast })
-  const assessmentIds = [...new Set(invitations.map((row) => row.assessment_session_id).filter(Boolean))]
+  const allowedEvents = shared.filter((event) => {
+    const eventAllowed = event.event_type === 'training' ? canTrainingEvents
+      : event.event_type === 'match' ? canFixtures
+        : canGeneralEvents
+    return eventAllowed && (canRecurringEvents || (event.recurrence_frequency || 'none') === 'none')
+  })
+  const allowedEventIds = new Set(allowedEvents.map((event) => event.id))
+  const invitedIds = new Set(invitations.map((row) => row.calendar_event_id).filter((id) => allowedEventIds.has(id)))
+  const schedule = buildFanScheduleEvents({ events: allowedEvents, invitedIds, occurrences, exclusions, parent: scope.parent, now, includePast })
+  const assessmentIds = canAssessments ? [...new Set(invitations.map((row) => row.assessment_session_id).filter(Boolean))] : []
   if (assessmentIds.length) {
     const sessions = await rows(client.from('assessment_sessions').select('id,title,session_date,start_time,end_time,location,status').in('id', assessmentIds).eq('club_id', scope.fan.club_id).neq('status', 'cancelled'))
     schedule.push(...sessions.map((session) => ({ id: session.id, title: session.title || 'Assessment', date: session.session_date, time: session.start_time, end_time: session.end_time, location: session.location, event_type: 'assessment', status: session.status })))
@@ -161,12 +182,16 @@ export async function loadFanSchedule(client, scope, now = new Date(), { include
   return upcomingFanSchedule(schedule, now)
 }
 
-export async function loadPlayerAttendance(client, scope, now = new Date()) {
-  const schedule = await loadFanSchedule(client, scope, now, { includePast: true })
+export async function loadPlayerAttendance(client, scope, now = new Date(), { featureAllowed = () => true } = {}) {
+  const canAssessments = featureAllowed('assessments')
+  const canFixtures = featureAllowed('fixtures')
+  const canTrainingEvents = featureAllowed('trainingEvents')
+  const canReadInvitations = canAssessments || canTrainingEvents || featureAllowed('generalEvents')
+  const schedule = await loadFanSchedule(client, scope, now, { featureAllowed, includePast: true })
   const [matches, training, invitations] = await Promise.all([
-    rows(client.from('match_day_player_availability').select('match_day_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id)),
-    rows(client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')),
-    rows(client.from('calendar_event_invites').select('calendar_event_id,assessment_session_id,invite_status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')),
+    canFixtures ? rows(client.from('match_day_player_availability').select('match_day_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id)) : [],
+    canTrainingEvents ? rows(client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')) : [],
+    canReadInvitations ? rows(client.from('calendar_event_invites').select('calendar_event_id,assessment_session_id,invite_status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')) : [],
   ])
   const requestIds = [...new Set(training.map(item => item.request_id))]
   const [occurrences, responses] = requestIds.length ? await Promise.all([

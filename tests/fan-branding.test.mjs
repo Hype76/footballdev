@@ -23,6 +23,17 @@ test('Fan branding switches clubs and retains readable custom colours in both di
   }
 })
 
+test('Matchday Fan branding hides stored club customisation unless the trusted policy enables it', () => {
+  const source = { club_id: 'club', club_logo_url: 'https://example.test/club.png', plan_key: 'matchday', theme_accent: '#123abc' }
+  const restricted = fanBrandingLink(source, { flags: { basicLogoBranding: false, customColoursBranding: false } })
+  assert.equal(restricted.clubLogoUrl, '')
+  assert.equal(restricted.themeAccent, 'yellow')
+
+  const enabled = fanBrandingLink(source, { flags: { basicLogoBranding: true, customColoursBranding: true } })
+  assert.equal(enabled.clubLogoUrl, source.club_logo_url)
+  assert.equal(enabled.themeAccent, source.theme_accent)
+})
+
 test('Invitation and verification emails use safe club branding and exact selected permissions', () => {
   const club={name:'Blue <Club>',logo_url:'https://example.test/blue.png',theme_accent:'#123abc'}
   const fan={name:'Alex <Relative>',email:'alex@example.test',permissions:{schedule:true}}

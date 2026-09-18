@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { fanBrandingLink, fanBrandTheme } from '../../../src/lib/fan-branding'
-import { FAN_ACCESS } from '../../../src/lib/fans'
+import { getFanAccessForPlan, isFanAccessAllowedForPlan } from '../../../src/lib/fans'
 import ParentIcon from './ParentIcon'
 
-export function FanPlayerCard({ connection, mode, busy, onOpen, onNotifications, SwitchControl }) {
+export function FanPlayerCard({ connection, matchdayPolicy, mode, busy, onOpen, onNotifications, SwitchControl }) {
   const FanSwitch = SwitchControl
-  const tokens = fanBrandTheme(connection, mode).tokens
-  const brand = fanBrandingLink(connection)
+  const tokens = fanBrandTheme(connection, mode, matchdayPolicy).tokens
+  const brand = fanBrandingLink(connection, matchdayPolicy)
   const [failedLogo, setFailedLogo] = useState('')
   const border = mode === 'dark' ? tokens.border : '#e0e4e9'
-  const access = [...FAN_ACCESS.filter(item => connection.permissions[item.key]), ...(connection.relationship_type === 'player' && connection.permissions.schedule ? [{ key: 'attendance', label: 'Attendance', icon: 'action.calendar' }] : [])]
+  const access = [...getFanAccessForPlan(connection, matchdayPolicy).filter(item => connection.permissions[item.key]), ...(connection.relationship_type === 'player' && connection.permissions.schedule && isFanAccessAllowedForPlan(connection, 'attendance', matchdayPolicy) ? [{ key: 'attendance', label: 'Attendance', icon: 'action.calendar' }] : [])]
   const colours = mode === 'dark'
     ? { schedule: '#4ade80', game_day: '#dbe7ee', development: '#ffb24d', resources: '#c3a3ff' }
     : { schedule: '#078539', game_day: '#293d4b', development: '#db7900', resources: '#53109b' }
@@ -30,7 +30,7 @@ export function FanPlayerCard({ connection, mode, busy, onOpen, onNotifications,
         <Text style={[styles.shortcutLabel, { color: tokens.textPrimary }]}>{item.key === 'resources' ? 'Resources' : item.label}</Text><ParentIcon iconKey="action.open" color={tokens.textSecondary} size={18} />
       </Pressable>)}
     </View>
-    {connection.permissions.game_day ? <View style={[styles.notifications, { borderTopColor: border }]}>
+    {connection.permissions.game_day && isFanAccessAllowedForPlan(connection, 'notifications', matchdayPolicy) ? <View style={[styles.notifications, { borderTopColor: border }]}>
       <View style={styles.notificationToggle}><ParentIcon iconKey="notifications" color={tokens.accentText} size={24} /><Text style={[styles.notificationLabel, { color: tokens.textPrimary }]}>Game Day notifications</Text><FanSwitch inline accessibilityLabel={`Game Day notifications for ${connection.player_name}`} value={connection.notifications_enabled} disabled={busy} onValueChange={onNotifications} /></View>
       <View style={styles.notificationActions}><Pressable accessibilityRole="button" accessibilityLabel="View notifications" onPress={() => onOpen('notifications')} style={styles.viewNotifications}><ParentIcon iconKey="visibility" color={colours.game_day} size={24} /><Text style={[styles.notificationLabel, { color: tokens.textPrimary }]}>View notifications</Text></Pressable></View>
     </View> : null}

@@ -11,6 +11,7 @@ export async function assertParentPlanFeatureForScope({
   teamId,
 } = {}, {
   loadPlanGate = () => import('./_plan-gate.js'),
+  supabaseAdmin,
 } = {}) {
   const normalizedClubId = normalizeText(clubId)
   const normalizedFeatureName = normalizeText(featureName)
@@ -20,8 +21,8 @@ export async function assertParentPlanFeatureForScope({
   }
 
   try {
-    const { assertPlanFeature, getClubPlanProfile } = await loadPlanGate()
-    const planProfile = await getClubPlanProfile(normalizedClubId)
+    const { assertPlanEntitlement, assertPlanFeature, getClubPlanProfile } = await loadPlanGate()
+    const planProfile = await getClubPlanProfile(normalizedClubId, { client: supabaseAdmin })
     const parentPlanProfile = {
       ...planProfile,
       activeTeamId: normalizeText(teamId),
@@ -33,7 +34,8 @@ export async function assertParentPlanFeatureForScope({
       teamId: normalizeText(teamId),
     }
 
-    assertPlanFeature(parentPlanProfile, normalizedFeatureName, { actionCategory })
+    const assertCapability = assertPlanEntitlement || assertPlanFeature
+    assertCapability(parentPlanProfile, normalizedFeatureName, { actionCategory })
     return parentPlanProfile
   } catch (error) {
     if (!error.status && error.statusCode) {

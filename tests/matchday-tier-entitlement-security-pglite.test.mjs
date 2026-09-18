@@ -17,6 +17,10 @@ const IDS = Object.freeze({
   matchdayClub: '10000000-0000-4000-8000-000000000001',
   teamClub: '10000000-0000-4000-8000-000000000002',
   clubClub: '10000000-0000-4000-8000-000000000003',
+  legacySingleClub: '11000000-0000-4000-8000-000000000001',
+  legacySmallClub: '11000000-0000-4000-8000-000000000002',
+  legacyLargeClub: '11000000-0000-4000-8000-000000000003',
+  legacyPilotClub: '11000000-0000-4000-8000-000000000004',
   admin: '20000000-0000-4000-8000-000000000001',
   staff: '20000000-0000-4000-8000-000000000002',
 })
@@ -53,6 +57,7 @@ async function createDatabase() {
     );
     create table public.clubs (
       id uuid primary key,
+      name text,
       plan_key text not null,
       plan_status text not null default 'active',
       is_plan_comped boolean not null default false,
@@ -62,6 +67,7 @@ async function createDatabase() {
       logo_url text,
       require_approval boolean not null default false,
       theme_accent text not null default 'yellow',
+      theme_button_style text,
       constraint clubs_plan_key_check check (
         plan_key in ('individual', 'single_team', 'small_club', 'development_club', 'large_club', 'pilot')
       )
@@ -72,7 +78,8 @@ async function createDatabase() {
     );
     create table public.teams (
       id uuid primary key,
-      club_id uuid not null references public.clubs (id)
+      club_id uuid not null references public.clubs (id),
+      name text
     );
     create table public.stripe_checkout_records (
       id uuid primary key,
@@ -81,6 +88,7 @@ async function createDatabase() {
     create table public.players (
       id uuid primary key,
       club_id uuid not null references public.clubs (id),
+      team_id uuid references public.teams (id),
       player_name text not null,
       section text not null default 'Squad'
     );
@@ -99,6 +107,39 @@ async function createDatabase() {
       event_type text not null,
       recurrence_frequency text not null default 'none'
     );
+    create table public.parent_player_links (
+      id uuid primary key,
+      auth_user_id uuid,
+      club_id uuid not null references public.clubs (id),
+      team_id uuid references public.teams (id),
+      player_id uuid not null references public.players (id),
+      status text not null default 'active'
+    );
+    create table public.fan_connections (
+      id uuid primary key,
+      parent_link_id uuid not null references public.parent_player_links (id),
+      player_id uuid not null references public.players (id),
+      club_id uuid not null references public.clubs (id),
+      invited_by uuid not null,
+      auth_user_id uuid,
+      name text not null,
+      email text not null,
+      relationship_type text not null default 'fan',
+      permissions jsonb not null default '{}'::jsonb,
+      status text not null default 'active',
+      invite_token uuid,
+      expires_at timestamptz,
+      created_at timestamptz not null default now(),
+      accepted_at timestamptz,
+      updated_at timestamptz not null default now(),
+      notifications_enabled boolean not null default true,
+      owner_deleted_at timestamptz
+    );
+
+    create function app_private.fan_scope_active(uuid, uuid, uuid, uuid)
+    returns boolean language sql stable security definer set search_path = '' as $$ select true $$;
+    create function public.list_fan_connections()
+    returns jsonb language sql stable security definer set search_path = '' as $$ select '[]'::jsonb $$;
 
     grant select, insert, update, delete on public.players, public.evaluations,
       public.match_days, public.calendar_events to authenticated;
@@ -150,6 +191,14 @@ async function createDatabase() {
       ('${IDS.matchdayClub}', 'individual'),
       ('${IDS.teamClub}', 'single_team'),
       ('${IDS.clubClub}', 'development_club');
+    insert into public.clubs (id, plan_key, is_plan_comped) values
+      ('${IDS.legacySingleClub}', 'single_team', true),
+      ('${IDS.legacySmallClub}', 'small_club', true),
+      ('${IDS.legacyLargeClub}', 'large_club', true),
+      ('${IDS.legacyPilotClub}', 'pilot', true);
+    insert into public.club_team_limit_overrides (club_id, team_limit_override) values
+      ('${IDS.legacyLargeClub}', 50),
+      ('${IDS.legacyPilotClub}', 5);
   `)
 
   await db.exec(migration)
@@ -175,13 +224,23 @@ test('canonical plans preserve legacy billing keys and enforce package team capa
         public.normalize_subscription_plan_key('individual') as individual,
         public.normalize_subscription_plan_key('single_team') as single_team,
         public.normalize_subscription_plan_key('development_club') as development_club,
-        public.normalize_subscription_plan_key('pilot') as pilot
+        public.normalize_subscription_plan_key('pilot') as pilot,
+        public.canonical_subscription_plan_key('individual') as canonical_individual,
+        public.canonical_subscription_plan_key('single_team') as canonical_single_team,
+        public.canonical_subscription_plan_key('development_club') as canonical_development_club,
+        public.workspace_scope_for_plan_key('individual') as individual_scope,
+        public.workspace_scope_for_plan_key('matchday') as matchday_scope
     `)
     assert.deepEqual(normalized.rows[0], {
-      individual: 'matchday',
-      single_team: 'team',
-      development_club: 'club',
-      pilot: 'club',
+      individual: 'individual',
+      single_team: 'single_team',
+      development_club: 'development_club',
+      pilot: 'pilot',
+      canonical_individual: 'matchday',
+      canonical_single_team: 'team',
+      canonical_development_club: 'club',
+      individual_scope: 'individual',
+      matchday_scope: 'team',
     })
 
     await db.exec(`
@@ -198,6 +257,7 @@ test('canonical plans preserve legacy billing keys and enforce package team capa
       select ('40000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid, '${IDS.clubClub}'
       from generate_series(1, 10) value;
     `)
+    await db.exec(`update public.club_team_limit_overrides set team_limit_override = 11 where club_id = '${IDS.clubClub}'`)
     const clubAtTen = await db.query(`select public.can_insert_team_for_plan('${IDS.clubClub}') as allowed`)
     assert.equal(clubAtTen.rows[0].allowed, true)
 
@@ -260,6 +320,123 @@ test('Matchday config is safe to read and only an active platform admin can save
       { revision: 1, changed_by: null },
       { revision: 2, changed_by: IDS.admin },
     ])
+  } finally {
+    await db.close()
+  }
+})
+
+test('Fan connection RPC returns the selected player Club plan without changing stored links', async () => {
+  const db = await createDatabase()
+  try {
+    await setActor(db, IDS.admin)
+    await db.exec(`
+      insert into public.teams (id, club_id, name)
+      values ('32000000-0000-4000-8000-000000000001', '${IDS.matchdayClub}', 'Selected team');
+      insert into public.players (id, club_id, player_name)
+      values ('52000000-0000-4000-8000-000000000001', '${IDS.matchdayClub}', 'Selected player');
+      update public.players
+      set team_id = '32000000-0000-4000-8000-000000000001'
+      where id = '52000000-0000-4000-8000-000000000001';
+      insert into public.parent_player_links (id, auth_user_id, club_id, team_id, player_id)
+      values (
+        '42000000-0000-4000-8000-000000000001',
+        '${IDS.admin}',
+        '${IDS.matchdayClub}',
+        '32000000-0000-4000-8000-000000000001',
+        '52000000-0000-4000-8000-000000000001'
+      );
+      insert into public.fan_connections (
+        id, parent_link_id, player_id, club_id, invited_by, auth_user_id,
+        name, email, invite_token, expires_at
+      ) values (
+        '62000000-0000-4000-8000-000000000001',
+        '42000000-0000-4000-8000-000000000001',
+        '52000000-0000-4000-8000-000000000001',
+        '${IDS.matchdayClub}',
+        '${IDS.admin}',
+        '${IDS.admin}',
+        'Parent viewer',
+        'parent@example.test',
+        '72000000-0000-4000-8000-000000000001',
+        now() + interval '1 day'
+      );
+    `)
+
+    const result = await db.query('select public.list_fan_connections() as connections')
+    assert.equal(result.rows[0].connections.length, 1)
+    assert.equal(result.rows[0].connections[0].plan_key, 'matchday')
+    assert.equal(result.rows[0].connections[0].plan_status, 'active')
+
+    await db.exec(`update public.clubs set plan_status = 'inactive' where id = '${IDS.matchdayClub}'`)
+    const retained = await db.query('select count(*)::integer as count from public.fan_connections')
+    assert.equal(retained.rows[0].count, 1)
+  } finally {
+    await db.close()
+  }
+})
+
+test('existing comped legacy plans retain feature tiers, scopes and team allowances', async () => {
+  const db = await createDatabase()
+  try {
+    const capabilities = await db.query(`
+      select
+        public.workspace_scope_for_plan_key('single_team') as single_scope,
+        public.workspace_scope_for_plan_key('small_club') as small_scope,
+        public.workspace_scope_for_plan_key('large_club') as large_scope,
+        public.workspace_scope_for_plan_key('pilot') as pilot_scope,
+        public.can_use_plan_feature('${IDS.legacySingleClub}', 'parentPortal') as single_parent,
+        public.can_use_plan_feature('${IDS.legacySingleClub}', 'resourceLibrary') as single_resources,
+        public.can_use_plan_feature('${IDS.legacySingleClub}', 'advancedDevelopmentAnalytics') as single_advanced,
+        public.can_use_plan_feature('${IDS.legacySmallClub}', 'clubAdministration') as small_admin,
+        public.can_use_plan_feature('${IDS.legacySmallClub}', 'advancedDevelopmentAnalytics') as small_advanced,
+        public.can_use_plan_feature('${IDS.legacyLargeClub}', 'negotiatedLimits') as large_negotiated,
+        public.can_use_plan_feature('${IDS.legacyLargeClub}', 'integrations') as large_integrations,
+        public.can_use_plan_feature('${IDS.legacyLargeClub}', 'nativeAppEntitlement') as large_native,
+        public.can_use_plan_feature('${IDS.legacyPilotClub}', 'negotiatedLimits') as pilot_negotiated
+    `)
+    assert.deepEqual(capabilities.rows[0], {
+      single_scope: 'team', small_scope: 'club', large_scope: 'club', pilot_scope: 'club',
+      single_parent: true, single_resources: true, single_advanced: false,
+      small_admin: true, small_advanced: false,
+      large_negotiated: true, large_integrations: false, large_native: false,
+      pilot_negotiated: true,
+    })
+
+    await db.exec(`
+      insert into public.teams (id, club_id)
+      select ('81000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid, '${IDS.legacySingleClub}'
+      from generate_series(1, 2) value;
+      insert into public.teams (id, club_id)
+      select ('82000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid, '${IDS.legacySmallClub}'
+      from generate_series(1, 6) value;
+      insert into public.teams (id, club_id)
+      select ('83000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid, '${IDS.legacyLargeClub}'
+      from generate_series(1, 51) value;
+      insert into public.teams (id, club_id)
+      select ('84000000-0000-4000-8000-' || lpad(value::text, 12, '0'))::uuid, '${IDS.legacyPilotClub}'
+      from generate_series(1, 4) value;
+    `)
+
+    const allowances = await db.query(`
+      select
+        public.can_insert_team_for_plan('${IDS.legacySingleClub}') as single_allowed,
+        public.can_insert_team_for_plan('${IDS.legacySmallClub}') as small_allowed,
+        public.can_insert_team_for_plan('${IDS.legacyLargeClub}') as large_allowed,
+        public.can_insert_team_for_plan('${IDS.legacyPilotClub}') as pilot_allowed
+    `)
+    assert.deepEqual(allowances.rows[0], {
+      single_allowed: true,
+      small_allowed: true,
+      large_allowed: true,
+      pilot_allowed: true,
+    })
+
+    await db.exec(`
+      insert into public.teams (id, club_id)
+      values ('84000000-0000-4000-8000-000000000005', '${IDS.legacyPilotClub}')
+    `)
+    const pilotAtOverride = await db.query(`select public.can_insert_team_for_plan('${IDS.legacyPilotClub}') as allowed`)
+    assert.equal(pilotAtOverride.rows[0].allowed, false)
   } finally {
     await db.close()
   }

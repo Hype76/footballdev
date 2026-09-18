@@ -1,5 +1,11 @@
 import { getFeatureAccess, normalizePlanKey } from '../../../src/lib/paywall-access.js'
 import {
+  ACCESS_READINESS,
+  getCapabilityDefinition,
+  isCapabilityIncludedForPlan,
+  normalizeCapabilityKey,
+} from '../../../src/lib/paywall-capabilities.js'
+import {
   assertBillingActionAllowed,
   BILLING_ACTION_CATEGORIES,
 } from '../../../src/lib/billing-access.js'
@@ -64,12 +70,12 @@ function normalizePlanProfile(profile, authEmail, context = {}) {
   }
 }
 
-async function loadMatchdayPolicy(planProfile) {
+async function loadMatchdayPolicy(planProfile, client = supabaseAdmin) {
   if (planProfile?.planKey !== 'matchday') {
     return planProfile
   }
 
-  const { data, error } = await supabaseAdmin.rpc('get_matchday_plan_config')
+  const { data, error } = await client.rpc('get_matchday_plan_config')
 
   if (error || !data || typeof data !== 'object' || !data.flags) {
     throw Object.assign(new Error('Matchday feature settings could not be verified.'), { statusCode: 503 })
@@ -152,14 +158,14 @@ export async function getAuthenticatedRequestUser(event) {
   }
 }
 
-export async function getClubPlanProfile(clubId) {
+export async function getClubPlanProfile(clubId, { client = supabaseAdmin } = {}) {
   const normalizedClubId = String(clubId ?? '').trim()
 
   if (!normalizedClubId) {
     throw Object.assign(new Error('Club details are required.'), { statusCode: 403 })
   }
 
-  const { data: club, error } = await supabaseAdmin
+  const { data: club, error } = await client
     .from('clubs')
     .select('id, name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, subscription_team_capacity, workspace_owner_user_id, tester_access_expires_at')
     .eq('id', normalizedClubId)
@@ -180,7 +186,7 @@ export async function getClubPlanProfile(clubId) {
       clubs: club,
     },
     '',
-  ))
+  ), client)
 }
 
 export function assertPlanAccess(planProfile) {
@@ -247,6 +253,25 @@ export function assertPlanFeature(planProfile, featureName, {
   })
 }
 
+export function assertPlanEntitlement(planProfile, featureName, {
+  actionCategory = BILLING_ACTION_CATEGORIES.staffMutation,
+} = {}) {
+  const capabilityKey = normalizeCapabilityKey(featureName)
+  const capability = getCapabilityDefinition(capabilityKey)
+  const included = capability?.readiness === ACCESS_READINESS.active
+    && isCapabilityIncludedForPlan(planProfile?.planKey, capabilityKey, planProfile?.matchdayPolicy)
+
+  if (!included) {
+    const access = getFeatureAccess(planProfile, featureName)
+    throw Object.assign(new Error(createCapabilityDeniedMessage({
+      ...access,
+      reason: capability ? 'plan_not_included' : 'unknown_capability',
+    })), { statusCode: 403, access })
+  }
+
+  assertBillingActionAllowed(planProfile, actionCategory)
+}
+
 export function assertTrustedSystemPlanFeature(planProfile, featureName) {
   assertPlanFeatureWithBillingContext(planProfile, featureName, {
     actionCategory: BILLING_ACTION_CATEGORIES.staffMutation,
@@ -256,4 +281,11 @@ export function assertTrustedSystemPlanFeature(planProfile, featureName) {
 
 export function canUsePlanFeature(planProfile, featureName) {
   return getFeatureAccess(planProfile, featureName).allowed
+}
+
+export function canUsePlanEntitlement(planProfile, featureName) {
+  const capabilityKey = normalizeCapabilityKey(featureName)
+  const capability = getCapabilityDefinition(capabilityKey)
+  return capability?.readiness === ACCESS_READINESS.active
+    && isCapabilityIncludedForPlan(planProfile?.planKey, capabilityKey, planProfile?.matchdayPolicy)
 }

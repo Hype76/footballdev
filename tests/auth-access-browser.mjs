@@ -4,6 +4,7 @@ import { once } from 'node:events'
 import { mkdir } from 'node:fs/promises'
 import net from 'node:net'
 import { chromium } from 'playwright'
+import { MATCHDAY_DEFAULT_FLAGS } from '../src/lib/matchday-policy.js'
 
 const fixturePassword = 'FixturePass123!'
 const platformAnalyticsOnly = process.env.AUTH_BROWSER_PLATFORM_ANALYTICS_ONLY === 'true'
@@ -381,6 +382,13 @@ async function preparePage(context, {
       status: 200,
       contentType: 'application/json',
       body: '[]',
+    })
+  })
+  await context.route('**/rest/v1/rpc/get_matchday_plan_config', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ revision: 'fixture', flags: MATCHDAY_DEFAULT_FLAGS }),
     })
   })
   await context.route('**/rest/v1/rpc/get_parent_portal_activity_state', async (route) => {
@@ -1933,6 +1941,38 @@ try {
     await page.locator('#parent-portal-shell-child').selectOption('parent-link-fixture')
     await page.locator('a[aria-label="Resources, New activity"]:visible').first()
       .waitFor({ state: 'visible', timeout: 15000 })
+
+    await context.close()
+  })
+
+  await runScenario('Matchday parent access follows the selected player plan', async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    const { page } = await preparePage(context)
+    await parentSignIn(page, 'parent-plan-gates.fixture@footballplayer.test', mainBaseUrl)
+    await page.waitForURL('**/parent-portal', { timeout: 15000 })
+
+    const visibleLink = (label) => page.locator(`a[aria-label="${label}"]:visible`).first()
+    await page.getByRole('heading', { name: 'Matchday Fixture Player', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    assert.equal(await visibleLink('Calendar').count(), 1)
+    assert.equal(await visibleLink('Match cards').count(), 1)
+    assert.equal(await visibleLink('Resources').count(), 0)
+    assert.equal(await visibleLink('Chat').count(), 0)
+    assert.equal(await visibleLink('Polls').count(), 0)
+    assert.equal(await page.getByRole('button', { name: /^Resources/ }).count(), 0)
+
+    await page.goto(`${mainBaseUrl}/parent-portal?section=resources`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.getByText('Section unavailable', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+
+    const childSelector = page.locator('#parent-portal-shell-child:visible').first()
+    await childSelector.selectOption('parent-link-paid')
+    await page.getByRole('heading', { name: 'Paid Fixture Player', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await visibleLink('Resources').waitFor({ state: 'visible', timeout: 15000 })
+    await page.goto(`${mainBaseUrl}/parent-portal?section=resources&parentLinkId=parent-link-paid`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.getByRole('heading', { name: 'Shared player resources', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+
+    await page.locator('#parent-portal-shell-child:visible').first().selectOption('parent-link-matchday')
+    await page.getByText('Section unavailable', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    assert.equal(await visibleLink('Resources').count(), 0)
 
     await context.close()
   })
