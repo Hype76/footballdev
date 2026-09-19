@@ -54,6 +54,7 @@ function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
 const moreRoute=activeRoute==='invites'?'invites':'';const isMatchInvitesRoute=activeRoute==='invites';const safeAreaInsets={bottom:16};
+const quickActionVisibility={ready:true,enabled:true};
 theme={...createCoachTheme({mode,context:{clubAccent:'#51bac4'}})};theme.palette=theme.tokens;theme.styles=createCoachStyles(theme.palette);theme.branding={logoUrl:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" fill="teal"/></svg>'};
 const styles=theme.styles,palette=theme.palette;
 const contexts=[{id:'a',clubName:'FP TEST',teamName:'U17 Green',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}},{id:'b',clubName:'FP TEST',teamName:'Spain',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}}].slice(0,window.contextCount||2);
