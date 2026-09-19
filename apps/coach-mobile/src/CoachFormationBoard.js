@@ -756,6 +756,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       }
       // Retain a confirmed server identity even if refresh or local storage fails.
       setBoard(nextBoard)
+      setActiveSheet((sheet) => sheet === 'share' ? '' : sheet)
       const nextBoards = await getCoachFormationBoards(user)
       if (queuedSave?.acknowledged && !nextBoards.some((candidate) => candidate.id === nextBoard.id)) throw new Error('The saved Formation Board is no longer available to this account.')
       const nextPublications = await resolvePublications(nextBoard, user)
