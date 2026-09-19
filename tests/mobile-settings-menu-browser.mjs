@@ -39,6 +39,8 @@ for (const app of ['parent', 'coach']) {
     import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';
     import {createParentMobileTheme} from './apps/mobile-core/src/parentThemeCore.js';
     import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
+    import {useQuickActionVisibility} from './apps/coach-mobile/src/useQuickActionVisibility.js';
+    import {CoachQuickActions} from './apps/coach-mobile/src/CoachQuickActions.js';
     const Application={nativeApplicationVersion:'1.0.22',nativeBuildVersion:'44'}, Constants={};
     const config={isProduction:true,isUsable:true,buildProfile:'store-live'};
     const getBuildClassification=()=> 'Production build';
@@ -49,10 +51,11 @@ for (const app of ['parent', 'coach']) {
     const ParentThemeContext=createContext(null), CoachThemeContext=createContext(null);
     ${selected}
     export default function Preview({mode, accent, ...props}) {
+      const quickActionVisibility=useQuickActionVisibility();
       const theme=${app === 'parent' ? 'createParentMobileTheme({mode,selectedLink:{themeAccent:accent}})' : 'createCoachTheme({mode,context:{clubAccent:accent}})'};
       const value=${app === 'parent' ? '{palette:createParentAppPalette(theme.tokens),styles:createParentAppStyles(theme.tokens)}' : 'createCoachThemeContext(theme)'};
       const Provider=${app === 'parent' ? 'ParentThemeContext' : 'CoachThemeContext'}.Provider;
-      return <Provider value={value}><View style={{backgroundColor:theme.tokens.background,minHeight:'100%',padding:16}}><SettingsScreen {...props}/></View></Provider>;
+      return <Provider value={value}><View style={{backgroundColor:theme.tokens.background,minHeight:'100%',padding:16}}><SettingsScreen {...props} quickActionVisibility={quickActionVisibility}/></View>{props.testQuickAction && quickActionVisibility.ready && quickActionVisibility.enabled ? <CoachQuickActions actions={[{id:'test',label:'Add Player',icon:'person-add'}]} palette={value.palette} userId="synthetic" onAction={()=>{}}/> : null}</Provider>;
     }
   `
 }
@@ -240,6 +243,25 @@ try {
     await open(app === 'parent' ? 'Sign out' : 'Log out')
     assert.ok(await page.evaluate(() => window.calls.some(call => call.name === 'signout')))
   }
+  await page.evaluate(() => window.override({ testQuickAction: true }))
+  await page.getByRole('button', { name: 'Open Quick Add', exact: true }).waitFor()
+  await open('Display')
+  const quickToggle = page.getByRole('switch', { name: 'Show quick-action + button', exact: true })
+  assert.equal(await quickToggle.isChecked(), true, 'Quick actions are enabled by default')
+  await quickToggle.click()
+  await page.getByRole('button', { name: 'Open Quick Add', exact: true }).waitFor({ state: 'hidden' })
+  await page.evaluate(() => window.showApp('parent'))
+  await page.locator('[data-app="parent"]').waitFor()
+  await page.evaluate(() => window.showApp('coach'))
+  await page.locator('[data-app="coach"]').waitFor()
+  await page.evaluate(() => window.override({ testQuickAction: true }))
+  await open('Display')
+  await page.waitForFunction(() => document.querySelector('[role="switch"][aria-label="Show quick-action + button"]')?.disabled === false)
+  assert.equal(await quickToggle.isChecked(), false, 'Hidden preference survives remounting')
+  assert.equal(await page.getByRole('button', { name: 'Open Quick Add', exact: true }).count(), 0)
+  await quickToggle.click()
+  await page.getByRole('button', { name: 'Open Quick Add', exact: true }).waitFor()
+  console.log('PASS: Quick action visibility defaults on, hides immediately, survives remounting and can be restored.')
   assert.deepEqual(errors, [])
   console.log('Actual Parent and Coach Settings: compact menus, every section, 320/360/390 widths, dark/light, tap targets, notification shortcut, independent alerts, password update/clearing, profile update, failure states and signout passed.')
 } finally { await browser.close() }

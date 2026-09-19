@@ -43,6 +43,7 @@ import {
   writeMobileAppBadgeEnabled,
 } from '../mobile-core/src/appBadge'
 import { useCoachAppBadge } from '../mobile-core/src/useCoachAppBadge'
+import { useQuickActionVisibility } from './src/useQuickActionVisibility'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, preserveCoachNotificationRegistration, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
@@ -161,6 +162,7 @@ function CoachHome() {
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeRoute, setActiveRoute] = useState('home')
   const [appBadgeEnabled, setAppBadgeEnabled] = useState(true)
+  const quickActionVisibility = useQuickActionVisibility()
   const [chatNotificationTarget, setChatNotificationTarget] = useState(null)
   const [contextReady, setContextReady] = useState(false)
   const [contextOwnerUserId, setContextOwnerUserId] = useState('')
@@ -932,13 +934,14 @@ function CoachHome() {
               onToggleTheme={toggleTheme}
               reloadHome={loadHome}
               quickAction={quickActionRequest}
+              quickActionVisibility={quickActionVisibility}
               themeMode={displayTheme}
               user={selectedMobileUser}
             />
             </View>
           </ScrollView>
           <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
-          {!(activeRoute === 'more' && ['invites', 'feedback', 'bug'].includes(moreRoute)) ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
+          {quickActionVisibility.ready && quickActionVisibility.enabled && !(activeRoute === 'more' && ['invites', 'feedback', 'bug'].includes(moreRoute)) ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </CoachThemeContext.Provider>
@@ -1149,6 +1152,7 @@ function SettingsScreen({
   onToggleBiometrics,
   onToggleAppBadge,
   onToggleTheme,
+  quickActionVisibility,
   themeMode,
   user,
 }) {
@@ -1184,6 +1188,9 @@ function SettingsScreen({
       <Section compact iconKey="settings.appearance" title="Appearance">
         <SettingRow copy="Choose a lighter appearance for this device." label={`Light mode ${themeMode === 'light' ? 'on' : 'off'}`}>
           <Switch accessibilityLabel="Toggle light mode" onValueChange={onToggleTheme} value={themeMode === 'light'} />
+        </SettingRow>
+        <SettingRow copy={quickActionVisibility?.error || 'Hide the floating + button when taking screenshots. Remembered on this device.'} label="Show quick-action + button">
+          <Switch accessibilityLabel="Show quick-action + button" disabled={!quickActionVisibility?.ready || quickActionVisibility.saving} onValueChange={quickActionVisibility?.toggle} value={quickActionVisibility?.enabled ?? true} />
         </SettingRow>
       </Section>
       </SettingsSection>
