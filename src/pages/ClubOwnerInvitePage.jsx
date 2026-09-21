@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.webp'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { APP_DOWNLOAD_LINKS } from '../lib/app-download-links.js'
 import { supabase } from '../lib/supabase-client.js'
 import { recordSuccessfulLoginAnalytics } from '../lib/domain/platform-analytics.js'
 import { assertPasswordPolicy, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
@@ -143,7 +144,13 @@ export function ClubOwnerInvitePage() {
         password,
       })
 
-      if (signInError) {
+      if (invite.planKey === 'matchday') {
+        setSignInEmail(result.email || invite.invitedEmail)
+        setSuccessMessage('Your Matchday access is ready in the Football Player Coach app.')
+        if (!signInError) {
+          void recordSuccessfulLoginAnalytics(signInData)
+        }
+      } else if (signInError) {
         setSignInEmail(result.email || invite.invitedEmail)
         setSuccessMessage(`${invite.roleLabel || 'Workspace'} access created. Sign in to continue setup.`)
       } else {
@@ -163,6 +170,7 @@ export function ClubOwnerInvitePage() {
 
   const logoUrl = invite?.logoUrl || fallbackLogo
   const isPaidInvite = invite?.billingMode !== 'unpaid'
+  const showMatchdayAppHandoff = invite?.planKey === 'matchday' && successMessage
 
   return (
     <main className="min-h-screen bg-[#f7faf8] px-4 py-10 text-[#101828]">
@@ -204,13 +212,44 @@ export function ClubOwnerInvitePage() {
               {errorMessage ? (
                 <NoticeBanner title={`${invite.roleLabel || 'Workspace'} access not created`} message={errorMessage} />
               ) : null}
-              {successMessage ? (
+              {successMessage && !showMatchdayAppHandoff ? (
                 <div className="rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] px-4 py-3 text-sm font-bold text-[#065f46]">
                   {successMessage}
                 </div>
               ) : null}
 
-              {!successMessage ? (
+              {showMatchdayAppHandoff ? (
+                <div className="space-y-4 border-t border-[#d7e5dc] pt-5">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Access ready</p>
+                    <h2 className="mt-1 text-xl font-black text-[#101828]">Continue in the Coach app</h2>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
+                      Sign in with <strong className="text-[#101828]">{signInEmail || invite.invitedEmail}</strong> and the same password you just created.
+                    </p>
+                  </div>
+                  <a href="footballplayercoach://" className={primaryButtonClass}>
+                    Open Coach app
+                  </a>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <a
+                      href={APP_DOWNLOAD_LINKS.coach.apple}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#047857] px-4 py-3 text-center text-sm font-black text-[#047857] transition hover:bg-[#ecfdf5]"
+                    >
+                      Download for iPhone
+                    </a>
+                    <a
+                      href={APP_DOWNLOAD_LINKS.coach.android}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#047857] px-4 py-3 text-center text-sm font-black text-[#047857] transition hover:bg-[#ecfdf5]"
+                    >
+                      Download for Android
+                    </a>
+                  </div>
+                </div>
+              ) : !successMessage ? (
                 <>
                   <label className="block">
                     <span className="mb-2 block text-sm font-black text-[#101828]">Login email</span>
@@ -256,7 +295,9 @@ export function ClubOwnerInvitePage() {
                     />
                   </label>
 
-                  <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{PASSWORD_POLICY_SUMMARY}</p>
+                  <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+                    {PASSWORD_POLICY_SUMMARY} Choose a unique password. Common passwords and passwords found in known data breaches are not accepted.
+                  </p>
 
                   <button
                     type="submit"

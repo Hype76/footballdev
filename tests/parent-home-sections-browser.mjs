@@ -26,10 +26,10 @@ ${selected}
 const resources={items:[],loading:false};
 const next={id:'next',title:'Monday Training',startsAt:'2099-01-01T18:00:00Z'};
 const fixture={id:'fixture',opponent:'Upcoming fixture',status:'scheduled',matchDate:'2099-01-02'};
-const homeModel={nextActivity:{type:'calendar',item:next},upcomingMatches:[fixture],upcomingCalendarEvents:[{id:'calendar',title:'Calendar session'}],recentMatches:[{id:'recent',opponent:'Recent result'}]};
-function App(){const[user,setUser]=useState('parent-one'),[mounted,setMounted]=useState(true),[mode,setMode]=useState('light');window.user=setUser;window.mounted=setMounted;window.mode=setMode;
+const homeModel={nextActivity:{type:'calendar',item:next},unansweredPolls:2,upcomingMatches:[fixture],upcomingCalendarEvents:[{id:'calendar',title:'Calendar session'}],recentMatches:[{id:'recent',opponent:'Recent result'}]};
+function App(){const[user,setUser]=useState('parent-one'),[mounted,setMounted]=useState(true),[mode,setMode]=useState('light'),[pollsVisible,setPollsVisible]=useState(false);window.user=setUser;window.mounted=setMounted;window.mode=setMode;window.pollsVisible=setPollsVisible;
 const tokens=createParentMobileTheme({mode}).tokens;const palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
-return <View style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>{mounted?<HomeScreen userId={user} link={{id:'player'}} homeModel={homeModel} calendar={resources} matches={resources} messages={resources} notifications={{items:[{id:'notice',intentType:'match_update',title:'Hidden notification card',isRead:false}]}} onOpenUpdates={()=>window.destination='notifications'} onOpenMatch={match=>window.destination=match.id}/>:null}</View>}
+return <View style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>{mounted?<HomeScreen userId={user} link={{id:'player'}} homeModel={homeModel} calendar={resources} matches={resources} messages={resources} notifications={{items:[{id:'notice',intentType:'match_update',title:'Hidden notification card',isRead:false}]}} pollsVisible={pollsVisible} onOpenPolls={()=>window.destination='polls'} onOpenUpdates={()=>window.destination='notifications'} onOpenMatch={match=>window.destination=match.id}/>:null}</View>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], nodePaths: [modules], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
 const browser = await chromium.launch({ headless: true })
@@ -41,6 +41,14 @@ try {
   await boot()
   assert.equal(await page.getByText('Hidden notification card').count(), 0)
   assert.equal(await page.getByRole('button', {name:'Calendar',exact:true}).count(),0)
+  assert.equal(await page.getByRole('button', { name: '2 Polls', exact: true }).count(), 0)
+  await page.evaluate(() => window.pollsVisible(true))
+  const polls = page.getByRole('button', { name: '2 Polls', exact: true })
+  await polls.waitFor()
+  await polls.click()
+  assert.equal(await page.evaluate(() => window.destination), 'polls')
+  await page.evaluate(() => window.pollsVisible(false))
+  await polls.waitFor({ state: 'detached' })
   await page.getByRole('button', { name: '1 Notifications', exact: true }).click()
   assert.equal(await page.evaluate(() => window.destination), 'notifications')
   for (const [title, row] of [['Fixtures', 'Upcoming fixture'], ['Agenda', 'Calendar session'], ['Recent Matchday', 'Recent result']]) {
@@ -76,5 +84,5 @@ try {
   await page.getByRole('button', { name: 'Upcoming fixture', exact: true }).click()
   assert.equal(await page.evaluate(() => window.destination), 'fixture')
   assert.deepEqual(errors, [])
-  console.log('PASS: Parent Home notification icon, saved independent sections, account isolation, remount and full reload, Next up, fixture navigation, 320/390px light/dark.')
+  console.log('PASS: Parent Home Matchday Polls gate, notification icon, saved independent sections, account isolation, remount and full reload, Next up, fixture navigation, 320/390px light/dark.')
 } finally { await browser.close() }

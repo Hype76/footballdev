@@ -39,6 +39,7 @@ for (const app of ['parent', 'coach']) {
     import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';
     import {createParentMobileTheme} from './apps/mobile-core/src/parentThemeCore.js';
     import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
+    import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
     import {useQuickActionVisibility} from './apps/coach-mobile/src/useQuickActionVisibility.js';
     import {CoachQuickActions} from './apps/coach-mobile/src/CoachQuickActions.js';
     const Application={nativeApplicationVersion:'1.0.22',nativeBuildVersion:'44'}, Constants={};
@@ -72,7 +73,7 @@ function App(){
   const [app,setApp]=React.useState('parent'),[mode,setMode]=React.useState('dark'),[focus,setFocus]=React.useState(null),[overrides,setOverrides]=React.useState({}),[accent,setAccent]=React.useState('#2ba7aa');
   window.showApp=value=>{setApp(value);setOverrides({});setFocus(null)};window.setMode=setMode;window.setAccent=setAccent;
   window.openBell=()=>setFocus({id:Date.now()});window.override=setOverrides;
-  const props={user:{id:'synthetic',displayName:'Alex',email:'alex@example.invalid'},context:{roleLabel:'Coach',teamName:'U17',clubName:'Demo FC'},
+  const props={user:{id:'synthetic',displayName:'Alex',email:'alex@example.invalid'},context:{role:'coach',roleRank:30,roleLabel:'Coach',teamId:'synthetic-team',teamName:'U17',clubName:'Demo FC'},
     appBadgeEnabled:true,biometricAvailable:true,biometricEnabled:true,biometricStateStatus:'ready',notificationStateStatus:'ready',
     cacheState:{source:'live'},syncSummary:{waiting:0,needsAttention:0},communicationPreference:{communicationChannel:'both'},
     notificationState:{enabled:true,registered:true,permissionGranted:true,preferenceEnabled:true,message:''},

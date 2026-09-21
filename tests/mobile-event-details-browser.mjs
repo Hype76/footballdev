@@ -16,6 +16,7 @@ const parentStyles=parent.slice(parent.indexOf('function colorsFor('),parent.ind
 const matchStatusBadge=parent.slice(parent.indexOf('function MatchStatusBadge('),parent.indexOf('\nfunction MatchCard(',parent.indexOf('function MatchStatusBadge(')))
 const hero=parent.slice(parent.indexOf('        <View style={[styles.gameDayHero,'),parent.indexOf('          {selectedMatch.notes ?'))+'</View>'
 const entry=`import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
+import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {formatUkDate} from './src/lib/date-format.js';
 import {PitchTypeIcon} from './apps/parent-mobile/src/PitchTypeIcon.js';
 import {MatchTypeIcon} from './apps/parent-mobile/src/MatchTypeIcon.js';

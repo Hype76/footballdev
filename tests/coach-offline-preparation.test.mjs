@@ -19,6 +19,24 @@ function fixture() {
   return { state, options, dependencies }
 }
 
+test('Matchday offline preparation skips disabled development and fails closed without policy', async () => {
+  const { options, dependencies, state } = fixture()
+  options.user.planKey = 'matchday'
+  options.user.matchdayPolicy = { flags: { players: true, teamCalendar: true, fixtures: true, matchDay: true } }
+  dependencies.getDevelopment = async () => { throw new Error('Disabled development must not load') }
+  await prepareCoachOfflineData(options)
+  assert.equal(state.resources['phase31e:development'], undefined)
+  assert.equal(state.resources.players.length, 1)
+  assert.equal(state.journals.size, 8)
+  const blocked = fixture()
+  blocked.options.user.planKey = 'matchday'
+  for (const key of ['getPlayers', 'getDevelopment', 'getCalendar', 'getMatches', 'getMatch']) {
+    blocked.dependencies[key] = async () => { throw new Error('Missing policy must not load data') }
+  }
+  await prepareCoachOfflineData(blocked.options)
+  assert.equal(blocked.state.writes, 0)
+})
+
 test('preparation saves without user action, bounds fixtures, keeps pending actions and skips fresh data', async () => {
   const { state, options } = fixture()
   const pending = { baseMatch: { id: 'match0' }, pending: [{ id: 'unsent' }] }

@@ -20,7 +20,7 @@ async function preferenceRequest(query) {
   try { return await query.abortSignal(controller.signal) } finally { clearTimeout(timer) }
 }
 
-export function NotificationCategorySettings({ app, userId, palette: themePalette, Icon: iconComponent, client = supabase }) {
+export function NotificationCategorySettings({ allowedKeys, app, userId, palette: themePalette, Icon: iconComponent, client = supabase }) {
   const Icon = iconComponent
   const palette = { ...themePalette, accent: themePalette.accentText || themePalette.accent, text: themePalette.text || themePalette.textPrimary, textMuted: themePalette.textSecondary || themePalette.textMuted, accentMuted: themePalette.selectedSurface || themePalette.selected || themePalette.accentMuted }
   const [state, setState] = useState({ preferences: null, loading: true, saving: false, message: '' })
@@ -61,11 +61,14 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
     } finally { saving.current = false }
   }
   const disabled = state.loading || state.saving || !state.preferences
+  const allowed = allowedKeys ? new Set(allowedKeys) : null
+  const switches = (app === 'coach' ? COACH_SWITCHES : SWITCHES).filter(choice => !allowed || allowed.has(choice.key))
+  const gameDayAllowed = app === 'parent' && (!allowed || allowed.has('gameDay'))
   const text = { color: palette.text }
   const muted = { color: palette.textMuted }
   return <View style={styles.stack}>
     <Text style={[styles.copy, muted]}>Applies across your {app === 'coach' ? 'Coach' : 'Parent'} devices.</Text>
-    {app === 'parent' ? <>
+    {gameDayAllowed ? <>
     <Text style={[styles.title, text]} accessibilityRole="header">Game Day</Text>
     <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel="Game Day alerts">
     {GAME_DAY_CHOICES.map(choice => {
@@ -80,7 +83,7 @@ export function NotificationCategorySettings({ app, userId, palette: themePalett
     </View>
     {state.preferences ? <Text style={[styles.copy, muted]}>{GAME_DAY_CHOICES.find(choice => choice.key === state.preferences.gameDay)?.copy}</Text> : null}
     </> : null}
-    {(app === 'coach' ? COACH_SWITCHES : SWITCHES).map(choice => <View key={choice.key} style={[styles.switchRow, { borderColor: palette.border }]}>
+    {switches.map(choice => <View key={choice.key} style={[styles.switchRow, { borderColor: palette.border }]}>
       <Icon iconKey={choice.iconKey} color={palette.accent} size={28} />
       <View style={styles.copyColumn}><Text style={[styles.label, text]}>{choice.label}</Text></View>
       <Switch accessibilityLabel={choice.label} accessibilityHint={choice.copy} disabled={disabled} value={state.preferences?.[choice.key] === true}

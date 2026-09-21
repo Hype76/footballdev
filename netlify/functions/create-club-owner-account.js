@@ -215,6 +215,14 @@ export async function createWorkspaceOwnerAccountResult(event, {
       })
 
       if (createAuthError) {
+        if (createAuthError.code === 'weak_password' || createAuthError.name === 'AuthWeakPasswordError') {
+          return failureResponse(
+            400,
+            'Choose a stronger, unique password. This password does not meet the security requirements or is known to be weak or easy to guess.',
+            'invalid_password',
+          )
+        }
+
         if (isExistingUserError(createAuthError)) {
           return failureResponse(
             409,
