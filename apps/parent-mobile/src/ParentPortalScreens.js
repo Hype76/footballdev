@@ -1167,7 +1167,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
           <View accessibilityLabel="Match information" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
             <MatchTypeIcon compact fixtureType={selectedMatch.fixtureType} textStyle={styles.body} />
             <HomeAwayIcon compact homeAway={selectedMatch.homeAway} textStyle={styles.body} />
-            <ClubKitDisplay compact clubId={link?.clubId || selectedMatch.clubId} clubKits={clubKits} shirtChoice={selectedMatch.shirtChoice} textStyle={styles.body} />
+            <ClubKitDisplay compact clubId={link?.clubId || selectedMatch.clubId} teamId={selectedMatch.teamId || selectedMatch.team_id || link?.teamId || link?.team_id} clubKits={clubKits} shirtChoice={selectedMatch.shirtChoice} textStyle={styles.body} />
             <PitchTypeIcon compact pitchType={selectedMatch.pitchType} textStyle={styles.body} />
           </View>
           <Text style={styles.body}>{formatDateOnly(selectedMatch.matchDate)}</Text>

@@ -172,7 +172,9 @@ jobs:
       - name: Install Coach browser test dependencies
         run: npm ci --prefix apps/coach-mobile --include=optional
       - name: Matchday mobile feature visibility
-        run: node --test tests/mobile-matchday-plan.test.mjs tests/parent-fan-selected-plan-gates.test.mjs && node tests/mobile-notification-settings-browser.mjs
+        run: node --test tests/mobile-matchday-plan.test.mjs tests/parent-fan-selected-plan-gates.test.mjs && node tests/mobile-notification-settings-browser.mjs && node tests/mobile-coach-plan-access-browser.mjs
+      - name: Team kit colours and permissions
+        run: node --test tests/team-matchday-kits.test.mjs tests/team-matchday-kits-pglite.test.mjs && node tests/mobile-coach-team-kits-browser.mjs
       - name: Formation board save and recovery regression
         run: >-
           node --test tests/formation-board-creation-repair.test.mjs

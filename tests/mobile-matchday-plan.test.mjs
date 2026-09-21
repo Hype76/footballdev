@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import { getCoachNavigationModel, resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
 import { isMobileRouteAllowed, resolveMobilePlan } from '../apps/mobile-core/src/matchdayPolicyCore.js'
 import { getCoachPlayerMutationPolicy } from '../apps/mobile-core/src/coachPlayersCore.js'
@@ -7,7 +8,7 @@ import { buildCoachCalendarPayload, coachCalendarFormFromEvent } from '../apps/m
 import { resolveCoachBranding } from '../apps/coach-mobile/src/coachThemeCore.js'
 import { resolveParentMobileBranding } from '../apps/mobile-core/src/parentThemeCore.js'
 
-const coach = { id: 'ctx', clubId: 'club', teamId: 'team', role: 'coach', roleRank: 30, planKey: 'matchday' }
+const coach = { id: 'ctx', clubId: 'club', teamId: 'team', role: 'coach', roleRank: 30, planKey: 'matchday', paymentAccess: { payerAuthority: 'none' } }
 const matchdayConfig = { revision: 'test', flags: {
   players: true, teamCalendar: true, fixtures: true, matchDay: true, parentPortal: true,
   parentInvitations: true, parentEmails: true, pdfReports: true,
@@ -22,11 +23,36 @@ test('Matchday plan keeps matchday navigation and hides paid Coach tools', () =>
   assert.deepEqual(navigation.primary.map((item) => item.key), ['home', 'calendar', 'players', 'matchday', 'more'])
   assert.ok(navigation.more.some((item) => item.key === 'invites'))
   assert.ok(navigation.more.some((item) => item.key === 'formation'))
+  assert.ok(navigation.more.some((item) => item.key === 'payment'))
   assert.equal(navigation.more.some((item) => item.key === 'development'), false)
   assert.equal(navigation.more.some((item) => item.key === 'resources'), false)
   assert.equal(navigation.more.some((item) => item.key === 'chat'), false)
   assert.equal(resolveCoachRoute('development', coach, matchdayConfig), '')
   assert.equal(resolveCoachRoute('matchday', coach, matchdayConfig), 'matchday')
+  assert.equal(resolveCoachRoute('payment', coach, matchdayConfig), 'payment')
+})
+
+test('paid plan access remains restricted to the authorised payer', () => {
+  const paidCoach = { ...coach, planKey: 'team' }
+  const teamPayer = { ...paidCoach, paymentAccess: { payerAuthority: 'team' } }
+
+  assert.equal(resolveCoachRoute('payment', paidCoach, null), '')
+  assert.equal(resolveCoachRoute('payment', teamPayer, null), 'payment')
+})
+
+test('Coach plan access renders customer-facing authoritative options without a mobile purchase action', async () => {
+  const source = await readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8')
+  const start = source.indexOf("if (route === 'payment')")
+  const end = source.indexOf('This route is not part of the final authorised Coach mobile navigation contract.', start)
+  const section = source.slice(start, end)
+
+  assert.match(section, /quoteSubscription\(\{ planKey: 'team'/)
+  assert.match(section, /quoteSubscription\(\{ planKey: 'club'/)
+  assert.match(section, /CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE/)
+  assert.match(section, /Everything at one-team level/)
+  assert.match(section, /Everything across the whole club/)
+  assert.doesNotMatch(section, /Payer authority|Operational changes|authoritative|coupons|checkout/)
+  assert.doesNotMatch(section, /Linking\.openURL|onPress=/)
 })
 
 test('Matchday navigation fails closed before trusted config and legacy plans retain routes', () => {

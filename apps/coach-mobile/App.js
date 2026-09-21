@@ -70,6 +70,11 @@ import {
 } from './src/coachNavigationCore'
 import { isMatchdayPlan, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
 import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
+import {
+  CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE,
+  CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE,
+  quoteSubscription,
+} from '../../src/lib/subscription-pricing'
 import { createMatchInvitesTheme, createCoachTheme, DEFAULT_COACH_THEME } from './src/coachThemeCore'
 import {
   clearCoachAllLocalState,
@@ -92,6 +97,7 @@ import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoac
 import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
+import { CoachTeamKitSettings } from './src/CoachTeamKitSettings'
 import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
 import { countPendingCoachDevelopmentDrafts } from './src/offline'
 import {
@@ -1104,14 +1110,43 @@ function FoundationRoute({ context, route, ...props }) {
     )
   }
   if (route === 'payment') {
+    const currentPlanKey = String(context.planKey || '').trim().toLowerCase()
+    const currentPlan = currentPlanKey === 'matchday'
+      ? 'Matchday'
+      : currentPlanKey === 'team'
+        ? 'Team'
+        : currentPlanKey === 'club'
+          ? 'Club'
+          : context.planKey || 'No active plan key'
+    const accessStatus = context.paymentAccess.state === 'active'
+      ? 'Active'
+      : context.paymentAccess.state === 'payment_required'
+        ? 'Action needed'
+        : 'Check your plan'
+    const teamMonthly = quoteSubscription({ planKey: 'team', teamCapacity: 1, billingCycle: 'monthly' })
+    const teamAnnual = quoteSubscription({ planKey: 'team', teamCapacity: 1, billingCycle: 'annual' })
+    const clubMonthly = quoteSubscription({ planKey: 'club', teamCapacity: 10, billingCycle: 'monthly' })
+    const clubAnnual = quoteSubscription({ planKey: 'club', teamCapacity: 10, billingCycle: 'annual' })
+    const formatPrice = pence => `£${(pence / 100).toFixed(2)}`
     return (
-      <ScreenIntro copy="Read-only plan state and exact payer authority. Financial changes remain on the authoritative web flow." title="Plan access">
-        <Section title="Current access">
-          <InfoRow label="Status" value={context.paymentAccess.state} />
-          <InfoRow label="Plan" value={context.planKey || 'No active plan key'} />
-          <InfoRow label="Payer authority" value={context.paymentAccess.payerAuthority} />
-          <InfoRow label="Operational changes" value={context.paymentAccess.canMutate ? 'Allowed' : 'Blocked'} />
-          <Text style={styles.helperText}>Ordinary Coaches cannot gain plan purchase control. Payment methods, coupons, and ownership changes remain web-only.</Text>
+      <ScreenIntro copy="See what your current plan includes and compare the plans available for your team or club." title="Plan access">
+        <Section compact title="Current plan">
+          <InfoRow label="Plan" value={currentPlan} />
+          <InfoRow label="Status" value={accessStatus} />
+          <InfoRow label="Allowance" value={['matchday', 'team'].includes(currentPlanKey) ? '1 team' : 'Your existing team allowance'} />
+          {currentPlanKey === 'matchday' ? <Text style={styles.helperText}>Includes core Match Day tools, Players, Calendar and parent updates for your team.</Text> : null}
+        </Section>
+        <Section compact title="Upgrade options">
+          {currentPlanKey !== 'team' && currentPlanKey !== 'club' ? <>
+            <InfoRow label="Team" value={`${formatPrice(teamMonthly.chargePence)}/month or ${formatPrice(teamAnnual.chargePence)}/year`} />
+            <Text style={styles.helperText}>Everything at one-team level, including training, development, polls, resources, chat and branding. Save {formatPrice(teamAnnual.annualSavingsPence)} with annual billing.</Text>
+          </> : null}
+          {currentPlanKey !== 'club' ? <>
+            <InfoRow label="Club" value={`From ${formatPrice(clubMonthly.chargePence)}/month or ${formatPrice(clubAnnual.chargePence)}/year`} />
+            <Text style={styles.helperText}>Everything across the whole club, including Club management, shared oversight, branding and analytics. The starting package includes 10 teams and saves {formatPrice(clubAnnual.annualSavingsPence)} with annual billing.</Text>
+            <InfoRow label="More Club teams" value={`Each 10 teams: ${formatPrice(CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE)}/month or ${formatPrice(CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE)}/year`} />
+          </> : <Text style={styles.helperText}>Your Club plan already provides the full club package.</Text>}
+          <Text style={styles.helperText}>Annual plans provide 12 months for the price of 10. {['team', 'club'].includes(context.paymentAccess.payerAuthority) ? 'You can manage your plan on the Football Player website.' : 'Ask your Team or Club account owner if you want to change plan.'}</Text>
         </Section>
       </ScreenIntro>
     )
@@ -1201,6 +1236,9 @@ function SettingsScreen({
         </SettingRow>
       </Section>
       </SettingsSection>
+      {user.activeTeamId && isMobileRouteAllowed(user, 'matchday', user?.matchdayPolicy) ? <SettingsSection id="kits" label="Team kits" iconKey="matchday">
+        <CoachTeamKitSettings key={`${user.clubId}:${user.activeTeamId}`} palette={palette} user={user} />
+      </SettingsSection> : null}
       <SettingsSection id="security" label="Security" iconKey="settings.security">
       <Section compact iconKey="settings.security" title="Device security">
         <SettingRow
