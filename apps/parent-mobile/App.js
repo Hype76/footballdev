@@ -392,6 +392,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [contentViewportHeight, setContentViewportHeight] = useState(0)
   const scorerHandoversRef = useRef({})
+  const scorerActionGenerationRef = useRef(0)
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [selectedPollId, setSelectedPollId] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState('')
@@ -1815,11 +1816,37 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
   async function handleScorerAction(match, action, value) {
     if (isOffline || activeActionId || !match.isScorer || match.scorerReviewRequestedAt || scorerHandoversRef.current[match.id] || match.concludedAt) return false
+    const scorerActionGeneration = ++scorerActionGenerationRef.current
+    const actionScope = parentActionScopeRef.current
     setActiveActionId(`scorer:${match.id}:${action}`)
     setNotice(null)
     let changeSaved = false
     let notificationType = ''
     let notificationEventId = ''
+    let savedNotice = null
+    const canReportBackgroundResult = () => scorerActionGeneration === scorerActionGenerationRef.current
+      && actionScope === parentActionScopeRef.current
+    const reportBackgroundWarning = (message) => {
+      if (canReportBackgroundResult()) setNotice((current) => current === savedNotice ? { message, tone: 'warning' } : current)
+    }
+    const refreshSavedScorerAction = (warningMessage) => {
+      void loadParentData()
+        .then((result) => {
+          if (result?.failed > 0) reportBackgroundWarning(warningMessage)
+        })
+        .catch(() => {
+          reportBackgroundWarning(warningMessage)
+        })
+    }
+    const notifySavedScorerAction = (type, eventId, warningMessage) => {
+      void sendParentScorerMatchDayPush(selectedMobileUser, match.id, type, eventId)
+        .then((result) => {
+          if (!result) reportBackgroundWarning(warningMessage)
+        })
+        .catch(() => {
+          reportBackgroundWarning(warningMessage)
+        })
+    }
     try {
       if (action === 'timer' && value === 'conclude') throw new Error('Send this match to the Coach or manager for conclusion.')
       if (action === 'request-review') {
@@ -1830,11 +1857,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         scorerHandoversRef.current[match.id] = handover.scorerReviewRequestedAt
         // Remove controls as soon as the server saves, before notification or refresh can fail.
         setResources((current) => ({ ...current, matches: { ...current.matches, items: current.matches.items.map((item) => item.id === match.id ? { ...item, isScorer: false, scorerReviewRequestedAt: handover.scorerReviewRequestedAt } : item) } }))
-        const result = await sendParentScorerMatchDayPush(selectedMobileUser, match.id, 'full_time')
-        await loadParentData()
-        setNotice(result
-          ? { message: 'The match has been sent to the Coach for review and conclusion. Your scoring access has ended.', tone: 'success' }
-          : { message: 'The match is with the Coach and your scoring access has ended, but the Coach notification could not be confirmed.', tone: 'warning' })
+        savedNotice = { message: 'The match has been sent to the Coach for review and conclusion. Your scoring access has ended.', tone: 'success' }
+        setNotice(savedNotice)
+        refreshSavedScorerAction('The match is with the Coach and your scoring access has ended. Refresh Matchday to check the latest information.')
+        notifySavedScorerAction('full_time', '', 'The match is with the Coach and your scoring access has ended, but the Coach notification could not be confirmed.')
         return true
       }
       if (action === 'start') {
@@ -1869,11 +1895,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       if (action === 'shootout') await recordParentScorerShootoutKick(match.id, value)
       if (action === 'void-shootout') await voidParentScorerShootoutKick(match.id, value.kickId, value.reason)
       changeSaved = true
-      const notificationResult = notificationType ? await sendParentScorerMatchDayPush(selectedMobileUser, match.id, notificationType, notificationEventId) : true
-      await loadParentData()
-      setNotice(notificationResult
-        ? { message: 'Game Day has been updated.', tone: 'success' }
-        : { message: 'Game Day was saved, but its notification could not be confirmed.', tone: 'warning' })
+      savedNotice = { message: 'Game Day has been updated.', tone: 'success' }
+      setNotice(savedNotice)
+      refreshSavedScorerAction('Your change was saved. Refresh Matchday to see the latest information.')
+      if (notificationType) notifySavedScorerAction(notificationType, notificationEventId, 'Game Day was saved, but its notification could not be confirmed.')
       return true
     } catch (error) {
       if (changeSaved) {
