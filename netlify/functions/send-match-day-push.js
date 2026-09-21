@@ -473,7 +473,14 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
     })
     const mobileResult = await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
-  const fans = await sendFanMatchNotifications({ client: supabaseAdmin, match, type, eventId, targetParentLinkIds })
+  const fans = await sendFanMatchNotifications({
+    client: supabaseAdmin,
+    match,
+    type,
+    eventId,
+    targetParentLinkIds,
+    notificationCopy,
+  })
   return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available, ...fans }
 }
 

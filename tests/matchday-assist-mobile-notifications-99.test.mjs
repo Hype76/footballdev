@@ -23,10 +23,10 @@ test('detailed goal notifications use compact scorer and assist copy while minim
   const copy = buildParentMatchDayNotificationCopy({
     match: { away_score: 0, home_score: 1, home_away: 'home', id: 'match', opponent: 'Visitors', teams: { name: 'U17 Green' } },
     type: 'goal',
-    event: { assist_name: 'Jamie Smith', assist_shirt_number: '8', event_type: 'goal', scorer_name: 'John Barnes' },
+    event: { assist_name: 'Jamie Smith', assist_shirt_number: '8', event_type: 'goal', minute: 45, scorer_name: 'John Barnes', stoppage_minute: 2 },
   })
 
-  assert.equal(copy.detailedBody, 'Goal: John Barnes. Assist: Jamie Smith #8. 1 - 0 v Visitors.')
+  assert.equal(copy.detailedBody, "Goal: John Barnes at 45+2'. Assist: Jamie Smith #8. 1 - 0 v Visitors.")
   assert.doesNotMatch(copy.minimalBody, /Jamie Smith|John Barnes/)
 })
 

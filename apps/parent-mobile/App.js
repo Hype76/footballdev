@@ -183,6 +183,7 @@ import { prepareParentMobileStartup } from './src/startup'
 import { getParentCommunicationPreference, updateParentCommunicationPreference as updateParentCommunicationChannel } from './src/communicationPreferences'
 import { getSafeParentMessageUrl, presentParentMessages } from './messagePresentation'
 import { shareParentMobileDevelopmentPdf } from './parentDevelopment'
+import { shareParentMobileMatchReportPdf } from './parentMatchReport'
 
 const config = getMobileRuntimeConfig('parent')
 const PARENT_REFRESH_MIN_INTERVAL_MS = 30 * 1000
@@ -1542,6 +1543,22 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     }
   }
 
+  async function handleDownloadMatchReport(match) {
+    if (activeActionId || !match) return
+
+    setActiveActionId(`match-report:${match.id}`)
+    setNotice(null)
+
+    try {
+      await shareParentMobileMatchReportPdf(match)
+      setNotice({ message: 'Match report PDF is ready to view or share.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'The match report PDF could not be prepared.'), tone: 'warning' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
+
   async function handleOpenCalendarResource(event, resource) {
     if (isOffline || activeActionId || !event || !resource?.id) return
     setActiveActionId(`calendar-resource:${resource.id}`)
@@ -2159,7 +2176,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId)
   const unansweredInvites = getParentInvitationCounts(visibleInvitationsWithMatchTimes).needsResponse
   const unreadChat = parentChatRooms.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
-  const unreadNotifications = countUnreadNonChatNotifications(resources.notifications.items)
+  const unreadNotifications = countUnreadGeneralNotifications(resources.notifications.items)
   const tabs = [
     { key: 'home', label: 'Home' },
     { key: 'calendar', label: 'Calendar' },
@@ -2323,7 +2340,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             {renderedActiveTab === 'more' && renderedMoreSection === 'invites' ? (
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
-            {renderedActiveTab === 'more' && renderedMoreSection === 'results' ? <ResultsScreen link={selectedLink} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'results' ? <ResultsScreen activeActionId={activeActionId} link={selectedLink} onDownloadPdf={handleDownloadMatchReport} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} formationViewportHeight={contentViewportHeight} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}

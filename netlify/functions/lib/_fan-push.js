@@ -4,7 +4,18 @@ import { sendExpoPushMessages } from './_expo-push.js'
 const TYPES = new Set(['match_started','goal','half_time','second_half','extra_time','penalties','full_time','yellow_card','red_card','substitution','score_correction','paused','resumed'])
 // Fans receive game updates only. Poll invitations and results, including Player of the Match, are excluded.
 export const isFanMatchNotificationType = (type) => TYPES.has(type)
-export async function sendFanMatchNotifications({ client, match, type, eventId, targetParentLinkIds, sendPush = (messages) => sendExpoPushMessages(messages, { client }) }) {
+export function buildFanMatchNotificationPayload({ fanConnectionId, match, notificationCopy, type }) {
+  return {
+    title: notificationCopy.title,
+    body: notificationCopy.detailedBody,
+    sound: 'default',
+    priority: 'high',
+    ttl: 14400,
+    data: { app: 'parent', route: 'fans', type, fanConnectionId, matchDayId: match.id },
+  }
+}
+
+export async function sendFanMatchNotifications({ client, match, type, eventId, targetParentLinkIds, notificationCopy, sendPush = (messages) => sendExpoPushMessages(messages, { client }) }) {
   if (!isFanMatchNotificationType(type) || !targetParentLinkIds.length) return { fanSent: 0, fanFailed: 0 }
   const result = await client.from('fan_connections').select('id,auth_user_id')
     .eq('club_id', match.club_id).eq('status', 'active').in('relationship_type', ['fan', 'player']).eq('notifications_enabled', true)
@@ -20,8 +31,9 @@ export async function sendFanMatchNotifications({ client, match, type, eventId, 
       const visible = await loadFanMatches(client, scope, match.id)
       if (!visible.some((item) => item.id === match.id)) continue
       const eventKey = `${match.id}:${type}:${eventId || match.updated_at}`
+      const payload = buildFanMatchNotificationPayload({ fanConnectionId: fan.id, match, notificationCopy, type })
       const saved = await client.from('fan_notifications').upsert({ connection_id: fan.id, match_id: match.id, event_key: eventKey,
-        title: 'Game Day update', body: 'A game you follow has an update. Open Fans to view it.' }, { onConflict: 'connection_id,event_key', ignoreDuplicates: true })
+        title: payload.title, body: payload.body }, { onConflict: 'connection_id,event_key', ignoreDuplicates: true })
       if (saved.error) throw saved.error
       const record = await client.from('fan_notifications').select('id,push_sent_at').eq('connection_id', fan.id).eq('event_key', eventKey).single()
       if (record.error) throw record.error
@@ -32,8 +44,7 @@ export async function sendFanMatchNotifications({ client, match, type, eventId, 
       const current = await loadFanScope(client, fan.auth_user_id, fan.id, 'game_day')
       if (!current.fan.notifications_enabled) continue
       const tokens = (devices.data || []).map((d) => d.token).filter((token) => !seenTokens.has(token))
-      const delivery = await sendPush(tokens.map((to) => ({ to, title: 'Game Day update', body: 'Open Fans to view a game you follow.', sound: 'default', priority: 'high', ttl: 14400,
-        data: { app: 'parent', route: 'fans', type, fanConnectionId: fan.id, matchDayId: match.id } })))
+      const delivery = await sendPush(tokens.map((to) => ({ to, ...payload })))
       if (!delivery.failed) {
         tokens.forEach((token) => seenTokens.add(token))
         const marked = await client.from('fan_notifications').update({ push_sent_at: new Date().toISOString() }).eq('id', record.data.id)

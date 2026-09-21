@@ -66,6 +66,7 @@ window.emailRequests=0;window.fetch=async(_url,options)=>{
  const body=JSON.parse(options.body);if(body.action==='send_invitation'){window.emailRequests++;return {ok:true,status:200,json:async()=>({success:true})}}
  if(body.action==='device_status')return {ok:true,status:200,json:async()=>({registered:window.phoneRegistered===true})};
  if(body.action==='register_device'){if(window.failPhoneRegistration)return {ok:false,status:503,json:async()=>({message:'Phone registration failed. Try again.'})};window.phoneRegistered=true;return {ok:true,status:200,json:async()=>({success:true})}}
+ if(body.action==='unregister_device'){window.phoneRegistered=false;return {ok:true,status:200,json:async()=>({success:true})}}
  window.readRequests.push(body);const payload=window.responses[body.action]||{};const fail=window.failRead;
  if(window.delayRead)await new Promise(resolve=>{window.finishRead=resolve});
  return {ok:!fail,status:fail?503:200,json:async()=>fail?{message:'Could not load shared items. Try again.'}:payload};
@@ -267,7 +268,13 @@ try {
   await button('Enable phone notifications').click();
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
   assert.equal(await button('Enable phone notifications').count(),0,'Enabled registration replaces the enable action');
+  await button('Turn off phone notifications').waitFor();
   await page.screenshot({path:`${out}/phone-notifications-enabled.png`,fullPage:true});
+  await button('Turn off phone notifications').click();
+  await page.getByText('This device is not registered for phone notifications.').waitFor();
+  await button('Enable phone notifications').waitFor();
+  await button('Enable phone notifications').click();
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
   await page.evaluate(()=>{window.phonePermission={status:'denied',canAskAgain:false}});
   await button('Back to More').click();await button('Settings').click();
   await page.getByText('Phone notifications are off on this device.').waitFor();
@@ -392,6 +399,8 @@ try {
     ];window.mode('light');window.remount();
   });
   await page.getByText('Jenson Bailey',{exact:true}).waitFor();
+  await page.getByLabel('Game Day notifications for Jenson Bailey',{exact:true}).waitFor();
+  await page.getByLabel('Game Day notifications for John Barnes',{exact:true}).waitFor();
   assert.equal(await button('Resources').count(),1,'Each card retains its own permission set');
   await page.getByRole('tab',{name:'More',exact:true}).click();
   await button('Settings').click();

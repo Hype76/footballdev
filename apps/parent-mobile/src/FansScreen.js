@@ -21,7 +21,7 @@ import { FanContent } from './FanContent'
 import { FanPlayerCard } from './FanPlayerCard'
 import { UserFeedbackScreen } from '../../mobile-core/src/UserFeedbackScreen'
 import { PartnersBanner, PartnersScreen } from './PartnersScreen'
-import { readFanDeviceNotifications, enableFanDeviceNotifications } from './fanDeviceNotifications'
+import { readFanDeviceNotifications, enableFanDeviceNotifications, disableFanDeviceNotifications } from './fanDeviceNotifications'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 import { mixThemeColor, themeForeground } from '../../mobile-core/src/themeContrast'
 import { loadMatchdayPlanConfig } from '../../mobile-core/src/matchdayPlanData'
@@ -243,6 +243,10 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     const next = await enableFanDeviceNotifications({ notifications: Notifications, secureStore: SecureStore, request, projectId })
     setDeviceNotifications(next)
   })
+  const disableDevice = () => run(async () => {
+    const next = await disableFanDeviceNotifications({ secureStore: SecureStore, request })
+    setDeviceNotifications(next)
+  })
   const openResource = (resource) => run(async () => {
     const currentView = state.view
     const result = await request({ action: 'open_resource', connectionId: currentView.connectionId, resourceId: resource.id })
@@ -279,7 +283,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
         <Text style={styles.label}>Phone notifications</Text>
         <Text accessibilityLiveRegion="polite" style={styles.helper}>{({ checking: 'Checking phone notifications...', enabled: 'Phone notifications are enabled on this device.', off: 'Phone notifications are off on this device.', not_registered: 'This device is not registered for phone notifications.', unknown: 'Phone notification status could not be checked.', web: 'Phone notifications are available in the mobile app.' })[deviceNotifications.status]}</Text>
         <Text style={styles.helper}>The Game Day switch on each player chooses which alerts you follow. Phone notifications also need permission and registration on this device.</Text>
-        {deviceNotifications.status === 'off' && deviceNotifications.canAskAgain === false ? <Action icon="settings" label="Open phone settings" disabled={busy} onPress={() => run(() => Linking.openSettings())} /> : ['off', 'not_registered', 'unknown'].includes(deviceNotifications.status) ? <Action icon="notifications" label={deviceNotifications.status === 'unknown' ? 'Retry phone notifications' : 'Enable phone notifications'} disabled={busy} onPress={enableDevice} /> : null}
+        {deviceNotifications.status === 'enabled' ? <Action icon="notifications" label="Turn off phone notifications" disabled={busy} onPress={disableDevice} /> : deviceNotifications.status === 'off' && deviceNotifications.canAskAgain === false ? <Action icon="settings" label="Open phone settings" disabled={busy} onPress={() => run(() => Linking.openSettings())} /> : ['off', 'not_registered', 'unknown'].includes(deviceNotifications.status) ? <Action icon="notifications" label={deviceNotifications.status === 'unknown' ? 'Retry phone notifications' : 'Enable phone notifications'} disabled={busy} onPress={enableDevice} /> : null}
       </View> : null}
       <Action icon="person-add" label="Open a Fan invitation" onPress={() => { setJoining(true); setInvitationLink('') }} />
       <Text accessibilityRole="header" style={styles.heading}>Linked players</Text>

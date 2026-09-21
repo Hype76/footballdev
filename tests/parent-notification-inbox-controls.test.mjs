@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
-import { applyParentNotificationAction, countUnreadGeneralNotifications, getParentNotificationCategory, getParentOpenedNotificationIds, prepareParentUpdates } from '../apps/mobile-core/src/parentNotificationInboxCore.js'
+import { applyParentNotificationAction, countUnreadGeneralNotifications, countUnreadNonChatNotifications, getParentNotificationCategory, getParentOpenedNotificationIds, prepareParentUpdates } from '../apps/mobile-core/src/parentNotificationInboxCore.js'
 import { updateParentNotificationInbox } from '../netlify/functions/lib/_parent-notification-actions.js'
 
 const now = '2026-09-03T14:00:00Z'
@@ -48,8 +48,17 @@ test('general inbox excludes poll, invite and chat notifications before grouping
   ]
   assert.deepEqual(prepareParentUpdates(rows).map((row) => row.id), ['score', 'news'])
   assert.equal(countUnreadGeneralNotifications(rows), 1)
+  assert.equal(countUnreadNonChatNotifications(rows), 5)
   assert.deepEqual(getParentOpenedNotificationIds(data, rows), ['score'])
   assert.deepEqual(getParentOpenedNotificationIds({ ...data, route: 'invites' }, rows), ['invite', 'legacy-invite'])
+})
+
+test('More notifications count matches the general updates listed by NotificationsScreen', async () => {
+  const source = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+  assert.match(source, /const unreadNotifications = countUnreadGeneralNotifications\(resources\.notifications\.items\)/)
+  assert.match(source, /<NotificationsScreen[\s\S]*resource=\{resources\.notifications\}/)
+  assert.match(source, /function NotificationsScreen[\s\S]*const updates = prepareParentUpdates\(resource\.items\)/)
+  assert.match(source, /count: unreadNotifications \+ homeModel\.unansweredPolls \+ unansweredInvites/)
 })
 
 test('clear all persists only general notifications for this parent and child, including beyond 500', async () => {

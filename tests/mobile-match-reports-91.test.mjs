@@ -3,12 +3,15 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
   buildCompletedMatchEventPresentation,
+  buildCompletedMatchGoalScorerLines,
   buildFinalMatchReportSummary,
 } from '../src/lib/matchday-final-report.js'
 
-const [coachScreen, parentData, parentMetro, parentScreens] = await Promise.all([
+const [coachScreen, parentApp, parentData, parentMatchReport, parentMetro, parentScreens] = await Promise.all([
   readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
+  readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8'),
   readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8'),
+  readFile(new URL('../apps/parent-mobile/parentMatchReport.js', import.meta.url), 'utf8'),
   readFile(new URL('../apps/parent-mobile/metro.config.js', import.meta.url), 'utf8'),
   readFile(new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url), 'utf8'),
 ])
@@ -46,12 +49,33 @@ test('Parent Results exposes event reports without staff-only final report data'
   assert.match(resultsSource, /View match report/)
   assert.match(resultsSource, /Hide match report/)
   assert.match(resultsSource, /buildFinalMatchReportSummary\(match\)/)
-  assert.match(resultsSource, /buildCompletedMatchEventPresentation\(event, match, \{ includeNotes: false \}\)/)
+  assert.match(resultsSource, /buildCompletedMatchGoalScorerLines\(match, report\.activeGoals\)/)
+  assert.match(resultsSource, /line\.minutes\.join\(', '\)/)
   assert.match(resultsSource, /Goals \{report\.activeGoals\.length\}/)
   assert.match(resultsSource, /Cards \{report\.activeCards\.length\}/)
   assert.match(resultsSource, /Substitutions \{report\.activeSubstitutions\.length\}/)
   assert.match(resultsSource, /Match timeline/)
+  assert.match(resultsSource, /Download match report PDF/)
+  assert.match(resultsSource, /Goal scorers/)
+  assert.match(parentScreens, /!match\.isFanView && !isCompleted/)
+  assert.match(parentScreens, /!selectedMatch\.isFanView && !isCompleted/)
   assert.doesNotMatch(resultsSource, /staffNotes|match_day_final_reports|Coach notes/)
+})
+
+test('Parent phone exports only its visible completed report and Coach corrections open beside the chosen goal', () => {
+  assert.match(parentApp, /shareParentMobileMatchReportPdf/)
+  assert.match(parentApp, /handleDownloadMatchReport/)
+  assert.match(parentMatchReport, /match\.status !== 'full_time'/)
+  assert.match(parentMatchReport, /buildCompletedReportPdf\(match, \{ audience: 'parent' \}\)/)
+  assert.match(parentMatchReport, /writeAsStringAsync/)
+  assert.match(parentMatchReport, /openMatchReportPdf/)
+  const timelineStart = coachScreen.indexOf('function TimelinePanel')
+  const timelineEnd = coachScreen.indexOf('function ShootoutPanel', timelineStart)
+  const timelineSource = coachScreen.slice(timelineStart, timelineEnd)
+
+  assert.match(timelineSource, /const isCorrecting = correctEvent\?\.id === event\.id/)
+  assert.match(timelineSource, /isCorrecting \? renderGoalCorrection\(\) : null/)
+  assert.ok(timelineSource.indexOf('isCorrecting ? renderGoalCorrection() : null') < timelineSource.indexOf('{undoEvent ?'))
 })
 
 test('Parent OTA bundling includes the shared canonical report source', () => {
@@ -82,4 +106,26 @@ test('Parent match report omits voided events and keeps Parent-visible event cop
   assert.equal(event.detail, 'Alex')
   assert.equal(event.team.name, 'FP TEST')
   assert.equal(event.notes, '')
+})
+
+test('Parent Results groups each scorer and team side into one compact goal line', () => {
+  const match = {
+    events: [
+      { eventStatus: 'active', eventType: 'goal', id: 'freddy-9', minute: 9, scorerName: 'Freddy', teamSide: 'club' },
+      { eventStatus: 'active', eventType: 'goal', id: 'freddy-22', minute: 22, scorerName: 'Freddy', teamSide: 'club' },
+      { eventStatus: 'active', eventType: 'goal', id: 'freddy-47', minute: 47, scorerName: 'Freddy', teamSide: 'club' },
+      { eventStatus: 'active', eventType: 'goal', id: 'freddy-75', minute: 75, scorerName: 'Freddy', teamSide: 'club' },
+    ],
+    homeAway: 'home',
+    opponent: 'Visitors',
+    teamName: 'FP TEST',
+  }
+  const report = buildFinalMatchReportSummary(match)
+
+  assert.deepEqual(buildCompletedMatchGoalScorerLines(match, report.activeGoals), [{
+    label: 'Freddy',
+    minutes: ['9', '22', '47', '75'],
+    teamLabel: '',
+    teamName: 'FP TEST',
+  }])
 })
