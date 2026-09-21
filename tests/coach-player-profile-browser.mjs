@@ -19,11 +19,13 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {coachPlayerFormFromPlayer,filterCoachPlayers,formatCoachParentAppInstallationStatus,getCoachPlayerMutationPolicy} from './apps/mobile-core/src/coachPlayersCore.js';
 import {getParentPortalInviteActionForContact,getUnlistedParentAccessLinks} from './src/lib/parent-portal-invite-actions.js';
+import {sendNewMatchdayParentInvites} from './apps/mobile-core/src/coachParentAutoInvite.js';
+import {getCoachParentInviteStatus} from './apps/mobile-core/src/coachParentInviteStatus.js';
 import {formatUkDate} from './src/lib/date-format.js';
 const BrandLoader=()=>null,useConfirmedConnectionIssue=v=>v,useConfirmedConnectionMessage=v=>v,getMobileIconName=()=> 'person',message=e=>e.message;
 const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined,readMobileResource=async(u,k,fn)=>fn(),invalidateMobileResource=()=>{};
 const players=Array.from({length:16},(_,i)=>({id:'player-'+i,playerName:'FP TEST Player '+i,section:'Squad',positions:['Defender'],shirtNumber:String(i+1),status:'active',parentContacts:[{name:'FP TEST Parent',email:'parent@example.test',type:'parent'},{name:'Second Parent',email:'second@example.test',type:'parent'}],parentAppInstallationStatusAvailable:true,parentAppContactCount:2,parentAppInstalledContactCount:1}));
-const getCoachPlayerList=async()=>players.map(p=>({...p}));window.saved=[];window.inviteCalls=[];let parentLinks=[];window.setParentLinks=links=>{parentLinks=links};const saveCoachPlayer=async(u,f,p)=>{window.saved.push(f);if(window.holdSave)await new Promise((resolve,reject)=>{window.resolveSave=resolve;window.rejectSave=()=>reject(new Error('Earlier save failed.'))});const saved={...(p||{id:'created-player',status:'active'}),...f,positions:f.positions?f.positions.split(','):[]};const i=players.findIndex(row=>row.id===saved.id);if(i>=0)players[i]=saved;else players.push(saved);return saved};const sendCoachParentInvite=async(u,id,c)=>{window.inviteCalls.push(c.email);parentLinks=[{id:'link',email:c.email,status:'pending',invite_sent_at:'2026-09-15'}];return{success:true}};const getCoachParentLinks=async()=>parentLinks;const revokeCoachParentAccess=async()=>{parentLinks=[]};
+const getCoachPlayerList=async()=>players.map(p=>({...p}));window.saved=[];window.inviteCalls=[];let parentLinks=[];window.setParentLinks=links=>{parentLinks=links};const saveCoachPlayer=async(u,f,p)=>{window.saved.push(f);if(window.holdSave)await new Promise((resolve,reject)=>{window.resolveSave=resolve;window.rejectSave=()=>reject(new Error('Earlier save failed.'))});const saved={...(p||{id:'created-player',status:'active'}),...f,positions:f.positions?f.positions.split(','):[]};const i=players.findIndex(row=>row.id===saved.id);if(i>=0)players[i]=saved;else players.push(saved);return saved};const sendCoachParentInvite=async(u,id,c)=>{window.inviteCalls.push(c.email);if(window.failInviteEmail===c.email)throw new Error('Invite failed');parentLinks=[...parentLinks.filter(l=>l.email!==c.email),{id:'link-'+c.email,email:c.email,status:'pending',invite_sent_at:'2026-09-21'}];return{success:true}};const getCoachParentLinks=async()=>parentLinks;const revokeCoachParentAccess=async()=>{parentLinks=[]};
 window.requests=[];window.scrollRequests=0;window.pending={};
 const getCoachPlayerDetail=async(user,id)=>{
  window.requests.push(id);
@@ -33,9 +35,9 @@ const getCoachPlayerDetail=async(user,id)=>{
 };
 ${helpers}
 ${screen}
-const user={id:'coach',clubId:'club',activeTeamId:'team',planKey:'large_club',planStatus:'active'};
-function App(){const [mode,setMode]=useState('light'),[readOnly,setReadOnly]=useState(false),[quickAction,setQuickAction]=useState(null);window.mode=setMode;window.readOnly=setReadOnly;window.quickAdd=()=>setQuickAction({intent:'create-player'});const handled=useCallback(()=>setQuickAction(null),[]);
- const context=useMemo(()=>({id:'team',clubId:'club',teamId:'team',planKey:'large_club',planStatus:'active',roleRank:30,paymentAccess:{canMutate:!readOnly}}),[readOnly]);
+const user={id:'coach',clubId:'club',activeTeamId:'team',planKey:'large_club',planStatus:'active',role:'coach',roleRank:30,hasActivePlanAccess:true,paymentAccess:{canMutate:true},matchdayPolicy:{flags:{players:true,parentPortal:true,parentInvitations:true}}};
+function App(){const [mode,setMode]=useState('light'),[readOnly,setReadOnly]=useState(false),[quickAction,setQuickAction]=useState(null),[plan,setPlan]=useState('large_club');window.matchday=()=>{user.planKey='matchday';setPlan('matchday')};window.mode=setMode;window.readOnly=setReadOnly;window.quickAdd=()=>setQuickAction({intent:'create-player'});const handled=useCallback(()=>setQuickAction(null),[]);
+ const context=useMemo(()=>({id:'team',clubId:'club',teamId:'team',planKey:plan,matchdayPolicy:user.matchdayPolicy,planStatus:'active',roleRank:30,paymentAccess:{canMutate:!readOnly}}),[readOnly,plan]);
  const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;
  return <View style={{minHeight:'100vh',backgroundColor:palette.background,padding:12}}><CoachPlayersScreen context={context} user={user} palette={palette} quickAction={quickAction} onQuickActionHandled={handled} onNavigate={()=>{}} onRequestScrollTop={()=>{window.scrollRequests++;window.scrollTo(0,0)}}/></View>;
 }
@@ -174,6 +176,28 @@ try {
   await page.evaluate(()=>window.readOnly(true))
   await page.getByRole('button',{name:'Edit Player',exact:true}).waitFor({state:'hidden'})
   await expectProfile('player-11')
+  await page.evaluate(()=>{window.readOnly(false);window.matchday();window.quickAdd();window.inviteCalls=[];window.failInviteEmail='fail@example.test'})
+  await page.getByLabel('Player name',{exact:true}).fill('FP TEST Automatic Invites')
+  await page.getByRole('button',{name:'Squad',exact:true}).click()
+  await page.getByLabel('Contact 1 email',{exact:true}).fill('auto@example.test')
+  await page.getByRole('button',{name:'Add another contact',exact:true}).click()
+  await page.getByLabel('Contact 2 email',{exact:true}).fill('fail@example.test')
+  await page.evaluate(()=>{void window.submitPlayerForm();void window.submitPlayerForm()})
+  await page.getByText('Player saved. Some parent invitations could not be sent. Use the send button beside each failed contact to try again.',{exact:true}).waitFor()
+  assert.deepEqual(await page.evaluate(()=>window.inviteCalls),['auto@example.test','fail@example.test'])
+  await page.getByText('Invite sent awaiting acceptance',{exact:true}).waitFor()
+  await page.getByText('Invite failed: Use the send button to try again.',{exact:true}).waitFor()
+  await page.screenshot({path:'output/playwright/coach-player-profile/matchday-invite-status.png',fullPage:true})
+  await page.evaluate(()=>window.failInviteEmail='')
+  await page.getByRole('button',{name:'Send Parent app invite',exact:true}).click()
+  await page.getByText('Parent invite sent to fail@example.test.',{exact:true}).waitFor()
+  assert.equal(await page.getByText('Invite sent awaiting acceptance',{exact:true}).count(),2)
+  const sentBeforeEdit=await page.evaluate(()=>window.inviteCalls.length)
+  await page.getByRole('button',{name:'Edit Player',exact:true}).click()
+  await page.getByLabel('Player name',{exact:true}).fill('FP TEST Edited Automatic Invites')
+  await page.getByRole('button',{name:'Save Player',exact:true}).click()
+  await page.getByText('FP TEST Edited Automatic Invites',{exact:true}).waitFor()
+  assert.equal(await page.evaluate(()=>window.inviteCalls.length),sentBeforeEdit)
   assert.deepEqual(errors,[])
   console.log('PASS: Coach player profiles preserve contacts, reject duplicate saves, preserve newer Quick Add forms after delayed save success/error, retain filters, reject late detail responses, preserve permissions, and render at 320/390px in light/dark themes.')
 } finally {await browser.close()}

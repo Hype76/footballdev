@@ -44,6 +44,8 @@ import {
 } from '../../mobile-core/src/coachPlayersCore'
 import { getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
 import { getCoachParentLinks, revokeCoachParentAccess, sendCoachParentInvite } from '../../mobile-core/src/coachParentContactsData'
+import { sendNewMatchdayParentInvites } from '../../mobile-core/src/coachParentAutoInvite'
+import { getCoachParentInviteStatus } from '../../mobile-core/src/coachParentInviteStatus'
 import { getParentPortalInviteActionForContact, getUnlistedParentAccessLinks } from '../../../src/lib/parent-portal-invite-actions.js'
 import {
   coachSessionFormFromSession,
@@ -749,6 +751,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const [contactBusy, setContactBusy] = useState('')
   const contactRequest = useRef(false)
   const [contactNotice, setContactNotice] = useState('')
+  const [inviteResults, setInviteResults] = useState({})
   const [revokeTarget, setRevokeTarget] = useState(null)
   const policy = getCoachPlayerMutationPolicy({ context, player: detail?.player })
   const load = useCallback(async ({ reuseFresh = false } = {}) => {
@@ -788,6 +791,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setDevelopmentOpen(false)
     setProfileSections({ contacts: false, notes: false, stats: false, details: false })
     setContactNotice('')
+    setInviteResults({})
     setRevokeTarget(null)
     try {
       const next = await readMobileResource(user, `coach:player-detail:${player.id}`, () => getCoachPlayerDetail(user, player.id), { force })
@@ -826,28 +830,43 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
         : [...current, saved]).sort((a, b) => a.playerName.localeCompare(b.playerName)))
       invalidateMobileResource(user, `coach:player-detail:${saved.id}`)
       invalidateMobileResource(user, 'coach:players')
+      const results = await sendNewMatchdayParentInvites({ user, player: saved, previousPlayer: detail?.player,
+        sendInvite: sendCoachParentInvite,
+        onSending: (email) => { if (request === playerRequest.current) setContactBusy(email) },
+      })
       if (request !== playerRequest.current) return
       const openingRequest = playerRequest.current + 1
       await openPlayer(saved)
-      if (openingRequest === playerRequest.current) setContactNotice('Player saved. Use the Parent invite button beside a contact to send their invitation.')
+      if (openingRequest === playerRequest.current) {
+        setInviteResults(results)
+        const attempts = Object.values(results)
+        const failed = attempts.some(result => result.status === 'failed')
+        setContactNotice(failed ? 'Player saved. Some parent invitations could not be sent. Use the send button beside each failed contact to try again.'
+          : attempts.length ? 'Player saved. Parent invitations processed. See each contact for their status.'
+          : 'Player saved. Use the Parent invite button beside a contact to send their invitation.')
+        if (attempts.length) setProfileSections(current => ({ ...current, contacts: true }))
+      }
     } catch (saveError) {
       if (request === playerRequest.current) setError(message(saveError, 'Player could not be saved.'))
-    } finally { saveRequest.current = false; setSaving(false) }
+    } finally { saveRequest.current = false; setSaving(false); setContactBusy('') }
   }
   const cancelForm = () => { setForm(null); setError(''); onRequestScrollTop?.() }
   const editPlayer = () => { setForm(coachPlayerFormFromPlayer(detail.player)); setContactNotice(''); onRequestScrollTop?.() }
   const toggleProfileSection = (sectionName) => setProfileSections((current) => ({ ...current, [sectionName]: !current[sectionName] }))
   const updateContact = (index, changes) => setForm((current) => ({ ...current, parentContacts: current.parentContacts.map((contact, i) => i === index ? { ...contact, ...changes } : contact) }))
   const manageParent = async (contact, revoke = false) => {
-    if (contactRequest.current || !detail || !policy.canEdit) return
+    if (contactRequest.current || saveRequest.current || !detail || !policy.canEdit) return
     contactRequest.current = true
     const request = playerRequest.current
     const playerId = detail.player.id
+    let invitationSent = false
     setContactBusy(contact.email || contact.id); setContactNotice(''); setError('')
     try {
       const result = revoke
         ? await revokeCoachParentAccess(user, playerId, contact.id)
         : await sendCoachParentInvite(user, playerId, contact)
+      invitationSent = !revoke
+      if (request === playerRequest.current) setInviteResults(current => ({ ...current, [contact.email.toLowerCase()]: { status: revoke ? 'revoked' : result?.alreadyLinked ? 'accepted' : 'sent', confirmedByServer: true } }))
       invalidateMobileResource(user, `coach:player-detail:${playerId}`)
       const links = await getCoachParentLinks(user, playerId)
       if (request === playerRequest.current) {
@@ -856,7 +875,11 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
         setContactNotice(revoke ? 'Parent access removed for this player. You can now edit or remove their contact details.' : result?.alreadyLinked ? 'This parent already has access.' : `Parent invite sent to ${contact.email}.`)
       }
     } catch (contactError) {
-      if (request === playerRequest.current) setError(message(contactError, 'Parent access could not be updated.'))
+      if (request === playerRequest.current) {
+        setError(message(contactError, 'Parent access could not be updated.'))
+        if (!revoke && !invitationSent) setInviteResults(current => ({ ...current, [contact.email.toLowerCase()]: { status: 'failed', message: 'Use the send button to try again.' } }))
+        if (invitationSent) setContactNotice('Invitation sent. Refresh the player to update its status.')
+      }
     } finally { contactRequest.current = false; setContactBusy('') }
   }
   return (
@@ -890,7 +913,8 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
           })}
           <Button disabled={saving} label="Add another contact" onPress={() => setForm({ ...form, parentContacts: [...form.parentContacts, { name: '', email: '', type: form.contactType }] })} secondary styles={styles} />
           <Field label="Private notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
-          <Button disabled={saving} label={saving ? 'Saving...' : 'Save Player'} onPress={save} styles={styles} />
+          {user?.planKey === 'matchday' ? <Text style={styles.meta}>New parent contacts receive an invitation automatically when you save.</Text> : null}
+          <Button disabled={saving} label={saving ? (contactBusy ? 'Sending parent invites...' : 'Saving...') : 'Save Player'} onPress={save} styles={styles} />
           <Button disabled={saving} label="Cancel" onPress={cancelForm} secondary styles={styles} />
         </View>
       ) : null}
@@ -913,9 +937,10 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
                   {detail.player.parentContacts.length ? detail.player.parentContacts.map((contact, index) => {
                     const action = getParentPortalInviteActionForContact({ contact, links: detail.parentLinks || [], player: detail.player, isSending: Boolean(contactBusy) })
                     const link = detail.parentLinks?.find((item) => item.email.toLowerCase() === contact.email.toLowerCase())
+                    const inviteStatus = getCoachParentInviteStatus({ contact, inviteResults, isSending: contactBusy === contact.email, link })
                     return <View key={`${contact.email}:${index}`} style={styles.profileRow}>
                       <MaterialIcons color={palette.accentText} name={contact.type === 'self' ? 'person' : 'groups'} size={25} />
-                      <View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text><Text selectable style={styles.body}>{contact.email || 'No email added'}</Text>{action.statusLabel ? <Text style={styles.meta}>{action.statusLabel}</Text> : null}</View>
+                      <View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text><Text selectable style={styles.body}>{contact.email || 'No email added'}</Text><Text accessibilityLiveRegion="polite" style={inviteStatus.state === 'failed' ? [styles.meta, { color: palette.danger }] : styles.meta}>{inviteStatus.label}</Text></View>
                       {policy.canEdit && !detail.parentLinksError && action.label ? <Pressable accessibilityLabel={contactBusy === contact.email ? 'Sending Parent app invite' : action.label.replace('parent portal', 'Parent app')} accessibilityRole="button" accessibilityState={{ busy: Boolean(contactBusy), disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => manageParent(contact)} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="send" size={18} /></Pressable> : null}
                       {policy.canEdit && link ? <Pressable accessibilityLabel="Remove Parent access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(link)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /></Pressable> : null}
                     </View>
