@@ -23,6 +23,21 @@ function formatPerson(name, shirtNumber, fallback = 'Player') {
   return `${resolvedName}${resolvedShirtNumber ? ` #${resolvedShirtNumber}` : ''}`
 }
 
+function formatEventMinute(event) {
+  const minuteValue = Number(event?.minute)
+  const stoppageValue = Number(event?.stoppage_minute ?? event?.stoppageMinute ?? 0)
+
+  if (!Number.isInteger(minuteValue) || minuteValue < 0) {
+    return ''
+  }
+
+  const stoppageMinute = Number.isInteger(stoppageValue) && stoppageValue > 0
+    ? `+${stoppageValue}`
+    : ''
+
+  return ` at ${minuteValue}${stoppageMinute}'`
+}
+
 function resolveNotificationType(type, event, match) {
   const requestedType = normalizeType(type)
   const eventType = normalizeType(event?.event_type || event?.eventType)
@@ -109,12 +124,13 @@ function getCompactEventDetail(notificationType, event) {
   const relatedShirt = normalizeText(event?.assist_shirt_number || event?.assistShirtNumber || event?.player_on_shirt_number || event?.playerOnShirtNumber)
   if (notificationType === 'goal') {
     const scorer = formatPerson(playerName, playerShirt)
-    if (event?.is_own_goal === true || event?.isOwnGoal === true) return `Own goal${playerName || playerShirt ? `: ${scorer}` : ''}.`
+    const minute = formatEventMinute(event)
+    if (event?.is_own_goal === true || event?.isOwnGoal === true) return `Own goal${playerName || playerShirt ? `: ${scorer}` : ''}${minute}.`
     const assist = relatedName || relatedShirt ? ` Assist: ${formatPerson(relatedName, relatedShirt)}.` : ''
-    return `Goal: ${scorer}.${assist}`
+    return `Goal: ${scorer}${minute}.${assist}`
   }
-  if (notificationType === 'yellow_card') return `Yellow: ${formatPerson(playerName, playerShirt)}.`
-  if (notificationType === 'red_card') return `Red: ${formatPerson(playerName, playerShirt)}.`
+  if (notificationType === 'yellow_card') return `Yellow: ${formatPerson(playerName, playerShirt)}${formatEventMinute(event)}.`
+  if (notificationType === 'red_card') return `Red: ${formatPerson(playerName, playerShirt)}${formatEventMinute(event)}.`
   if (notificationType === 'substitution') {
     return `Sub: ${formatPerson(playerName, playerShirt)} off, ${formatPerson(relatedName, relatedShirt)} on.`
   }
@@ -130,8 +146,12 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const compactEventDetail = getCompactEventDetail(notificationType, event)
   const opponentName = getOpponentName(match)
   const compactScore = `${score} v ${opponentName}`
+  const matchId = normalizeText(match?.id) || 'unknown'
+  const eventId = normalizeText(event?.id)
   const detailedBody = compactEventDetail
     ? `${compactEventDetail} ${compactScore}.`
+    : notificationType === 'full_time'
+      ? `Full time: ${teamName} ${score} ${opponentName}.`
     : copy.includeScore === false
       ? `${copy.detail} for ${matchName}.`
       : notificationType === 'match_started'
@@ -145,6 +165,8 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
     detailedBody,
     notificationType,
     renotify: ['goal', 'score_correction', 'full_time', 'extra_time', 'start_extra_time', 'penalties', 'start_penalties'].includes(notificationType),
-    tag: `match-day-${normalizeText(match?.id) || 'unknown'}`,
+    tag: eventId
+      ? `match-day-${matchId}-${notificationType}-${eventId}`
+      : `match-day-${matchId}-${notificationType}`,
   }
 }

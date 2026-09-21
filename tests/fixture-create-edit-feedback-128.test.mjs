@@ -21,6 +21,20 @@ test('Coach pitch type is preserved on edit, validated, and can be cleared', () 
   assert.throws(() => validateCoachFixtureForm({ ...form, pitchType: 'invalid' }), /valid pitch type/)
 })
 
+test('Coach fixture edits preserve Car pool when its optional saved default is unavailable', async () => {
+  const [coachForm, coachData] = await Promise.all([
+    source('../apps/coach-mobile/src/CoachFixtureForm.js'),
+    source('../apps/mobile-core/src/coachMatchDayData.js'),
+  ])
+
+  assert.match(coachData, /export function buildCoachFixtureUpdatePayload/)
+  assert.match(coachData, /if \(typeof form\.carpoolEnabled === 'boolean'\) fixtureUpdate\.carpoolEnabled = fixture\.carpoolEnabled/)
+  assert.match(coachForm, /\.\.\.\(carpoolReady \? \{ carpoolEnabled \} : \{\}\)/)
+  assert.match(coachForm, /if \(carpoolSaving\) return/)
+  assert.doesNotMatch(coachForm, /if \(!carpoolReady \|\| carpoolSaving\) return/)
+  assert.match(coachForm, /disabled=\{busy \|\| carpoolSaving\}/)
+})
+
 test('a fixture notification name overrides the saved Team notification name for that fixture', () => {
   assert.equal(resolveMatchDayNotificationTeamName({
     notification_team_name: 'U14 JPL',

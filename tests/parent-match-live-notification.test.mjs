@@ -40,7 +40,7 @@ test('successive match updates replace the inbox row and use the same phone and 
   await writeParentNotificationInbox({ client, intentType: 'matchday_update', data: { matchDayId: 'game', type: 'full_time' }, parentLinks: [{ id: 'parent', auth_user_id: 'user' }] })
   assert.equal(calls[0].options.ignoreDuplicates, false)
   assert.equal(calls[0].rows[0].read_at, null)
-  assert.equal(buildParentMatchDayNotificationCopy({ match, type: 'goal', event: { id: 'goal' } }).tag, buildParentMatchDayNotificationCopy({ match, type: 'full_time' }).tag)
+  assert.notEqual(buildParentMatchDayNotificationCopy({ match, type: 'goal', event: { id: 'goal' } }).tag, buildParentMatchDayNotificationCopy({ match, type: 'full_time' }).tag)
   const sender = await readFile(new URL('../netlify/functions/send-match-day-push.js', import.meta.url), 'utf8')
   assert.match(sender, /buildMatchDayNativeMessage/)
   const native = await readFile(new URL('../netlify/functions/lib/_match-day-native-message.js', import.meta.url), 'utf8')

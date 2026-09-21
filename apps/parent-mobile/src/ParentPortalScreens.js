@@ -16,7 +16,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, BackHandler, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
+import { buildCompletedMatchEventPresentation, buildCompletedMatchGoalScorerLines, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
 import { getParentCalendarAttendanceInvitation, getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
 import {
@@ -657,9 +657,10 @@ function MatchStatusBadge({ colors, status, prefix, styles, compact = false }) {
 
 function MatchCard({ colors, invitations, link, match, onOpen, styles }) {
   const invitation = getParentMatchAttendanceInvitation(match, invitations, link)
+  const isCompleted = match.status === 'full_time'
   return (
     <View style={styles.card}>
-      {!match.isFanView ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
+      {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
       <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
         <ParentIcon color={colors.text} iconKey="football" size={34} />
         <View style={styles.compactCopy}><View style={styles.row}>{match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}<Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
@@ -1151,6 +1152,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
     const scorerInvitation = getParentScorerInterestInvitation(selectedMatch, invitations, new Date(now))
     const timeline = getParentMatchTimeline(selectedMatch)
     const matchStarted = getMatchDayLifecycleState(selectedMatch) !== 'not_started'
+    const isCompleted = selectedMatch.status === 'full_time'
     const confirmedPlayerNames = new Set(selectedMatch.confirmedTeam || [])
     const scorerPlayers = players.filter((player) => confirmedPlayerNames.has(player.playerName))
     return (
@@ -1181,7 +1183,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
               <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Period</Text><Text style={styles.gameDayStatValue}>{presentation?.phaseLabel || 'Pre-match'}</Text></View>
             </View> : null}
           </View> : null}
-          {!selectedMatch.isFanView ? <View style={styles.section}>
+          {!selectedMatch.isFanView && !isCompleted ? <View style={styles.section}>
             <View style={styles.row}><View style={{ gap: 6, flexShrink: 1 }}><Text style={styles.fieldLabel}>Availability</Text><MatchStatusBadge colors={colors} status={getParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)} prefix="Availability" styles={styles} /></View>
               {canChangeAvailability && onRespond ? <Pressable accessibilityLabel={availabilityOpen ? 'Close availability response' : 'Change availability'} accessibilityRole="button" accessibilityState={{ expanded: availabilityOpen, disabled: isOffline || Boolean(activeActionId) }} disabled={isOffline || Boolean(activeActionId)} onPress={() => setAvailabilityOpenKey(availabilityOpen ? '' : availabilityKey)} style={{ minHeight: 44, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[styles.body, { color: colors.accentText, fontWeight: '700' }]}>{availabilityOpen ? 'Done' : 'Change'}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={20} /></Pressable> : null}
             </View>
@@ -1209,9 +1211,11 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
           }} style={styles.card}>
             <Text style={styles.cardTitle}>Selected squad</Text>
             <Text style={styles.helper}>Players selected by the coach for this match.</Text>
-            {link?.linkType === 'parent' && selectedMatch.squadTransport?.length ? selectedMatch.squadTransport.map(player => <View key={player.playerId} style={[styles.row, { flexWrap: 'wrap', paddingVertical: 6 }]}><Text style={styles.body}>{player.playerName}</Text>{player.needsLift ? <MatchStatusBadge colors={colors} status={{ label: 'Needs a lift', tone: 'warning', icon: 'directions-car' }} prefix="Carpool" styles={styles} /> : player.canOfferLift ? <MatchStatusBadge colors={colors} status={{ label: 'Offering a lift', tone: 'success', icon: 'directions-car' }} prefix="Carpool" styles={styles} /> : null}</View>) : selectedMatch.confirmedTeam?.length
-              ? selectedMatch.confirmedTeam.map((playerName, index) => <Text key={`${playerName}-${index}`} style={styles.body}>{playerName}</Text>)
-              : <Text style={styles.body}>No players have been selected yet.</Text>}
+            <View style={{ gap: 0 }}>
+              {link?.linkType === 'parent' && selectedMatch.squadTransport?.length ? selectedMatch.squadTransport.map(player => <View key={player.playerId} style={[styles.row, { flexWrap: 'wrap', paddingVertical: 2 }]}><Text style={styles.body}>{player.playerName}</Text>{player.needsLift ? <MatchStatusBadge colors={colors} status={{ label: 'Needs a lift', tone: 'warning', icon: 'directions-car' }} prefix="Carpool" styles={styles} /> : player.canOfferLift ? <MatchStatusBadge colors={colors} status={{ label: 'Offering a lift', tone: 'success', icon: 'directions-car' }} prefix="Carpool" styles={styles} /> : null}</View>) : selectedMatch.confirmedTeam?.length
+                ? selectedMatch.confirmedTeam.map((playerName, index) => <Text key={`${playerName}-${index}`} style={[styles.body, { paddingVertical: 2 }]}>{playerName}</Text>)
+                : <Text style={styles.body}>No players have been selected yet.</Text>}
+            </View>
           </View>
         ) : null}
         {scorerInvitation ? (
@@ -1239,26 +1243,29 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
   )
 }
 
-export function ResultsScreen({ link, resource, themeTokens }) {
+export function ResultsScreen({ activeActionId = '', link, onDownloadPdf, resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const results = getParentMatchGroups(resource.items).recent.filter((match) => match.status === 'full_time')
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Results</Text><Text style={styles.helper}>Completed Parent-visible fixtures for {link?.playerName || 'your player'}.</Text></View>
       <ResourceState emptyCopy="There are no completed results for this player." error={resource.error} items={results} loading={resource.loading} styles={styles} />
-      {results.map((match) => <ParentMatchReportCard colors={colors} key={match.id} match={match} styles={styles} />)}
+      {results.map((match) => <ParentMatchReportCard colors={colors} isDownloading={activeActionId === `match-report:${match.id}`} key={match.id} match={match} onDownloadPdf={onDownloadPdf} styles={styles} />)}
     </View>
   )
 }
 
-function ParentMatchReportCard({ colors, match, styles }) {
+function ParentMatchReportCard({ colors, isDownloading = false, match, onDownloadPdf, styles }) {
   const [expanded, setExpanded] = useState(false)
   const report = useMemo(() => buildFinalMatchReportSummary(match), [match])
+  const goalScorerLines = useMemo(() => buildCompletedMatchGoalScorerLines(match, report.activeGoals), [match, report.activeGoals])
   const activeEvents = getParentMatchTimeline(match)
   return (
     <View style={styles.card}>
       <Pressable accessibilityLabel={expanded ? 'Hide match report' : 'View match report'} accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.compactRow}><ParentIcon color={colors.text} iconKey="football" size={34} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text></View><Text style={styles.score}>{report.result.finalScore}</Text><ParentIcon color={colors.accentText} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
+      {goalScorerLines.length ? <View accessibilityLabel="Goal scorers" style={{ gap: 3, paddingTop: 2 }}>{goalScorerLines.map((line) => <Text key={`${line.teamName}:${line.label}`} style={styles.meta}>{line.teamLabel ? `${line.teamLabel}: ` : ''}{line.label} {line.minutes.join(', ')}</Text>)}</View> : null}
       {report.result.shootoutScore ? <Text style={styles.meta}>Shootout: {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
+      {onDownloadPdf ? <Button disabled={isDownloading} label={isDownloading ? 'Preparing match report...' : 'Download match report PDF'} onPress={() => onDownloadPdf(match)} secondary styles={styles} /> : null}
       {expanded ? (
         <View style={styles.section}>
           <Text style={styles.cardTitle}>Match report</Text>

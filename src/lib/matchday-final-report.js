@@ -375,6 +375,41 @@ export function buildCompletedMatchEventPresentation(event = {}, match = {}, { i
   }
 }
 
+export function buildCompletedMatchGoalScorerLines(match = {}, goals = []) {
+  const linesByScorer = new Map()
+
+  goals.slice().reverse().forEach((event) => {
+    const presentation = buildCompletedMatchEventPresentation(event, match, { includeNotes: false })
+    const isOwnGoal = event?.isOwnGoal === true || event?.is_own_goal === true
+    const scorerName = resolveCompletedMatchPlayerName(event)
+    const label = scorerName === 'Unknown player'
+      ? presentation.title
+      : `${scorerName}${isOwnGoal ? ' (OG)' : ''}`
+    const teamKey = presentation.team.id || presentation.team.side || presentation.team.name
+    const key = `${teamKey}:${label}`
+    const current = linesByScorer.get(key) || {
+      label,
+      minutes: [],
+      teamName: presentation.team.name,
+    }
+
+    current.minutes.push(presentation.minuteLabel.replace(/'$/, ''))
+    linesByScorer.set(key, current)
+  })
+
+  const duplicateLabels = new Set()
+  const uniqueLabels = new Set()
+  linesByScorer.forEach((line) => {
+    if (uniqueLabels.has(line.label)) duplicateLabels.add(line.label)
+    uniqueLabels.add(line.label)
+  })
+
+  return [...linesByScorer.values()].map((line) => ({
+    ...line,
+    teamLabel: duplicateLabels.has(line.label) ? line.teamName : '',
+  }))
+}
+
 export function buildCompletedMatchResult(match = {}) {
   const homeScore = Math.max(Number(match.homeScore ?? match.home_score ?? 0), 0)
   const awayScore = Math.max(Number(match.awayScore ?? match.away_score ?? 0), 0)

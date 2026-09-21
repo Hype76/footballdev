@@ -224,11 +224,13 @@ test('Visible Game Day delivers once with a scoped link; unsharing hides its sav
   tables.match_days.push(match)
   tables.fan_devices.push({token:'ExpoPushToken[synthetic]',auth_user_id:id(2)})
   const delivered=[]
-  const send=()=>sendFanMatchNotifications({client,match,type:'goal',eventId:id(11),targetParentLinkIds:[id(4)],sendPush:async(messages)=>{delivered.push(...messages);return {sent:messages.length,failed:0}}})
+  const notificationCopy={title:'Goal update',detailedBody:"Goal: FP TEST Player at 12'. 1 - 0 v Visitors."}
+  const send=()=>sendFanMatchNotifications({client,match,type:'goal',eventId:id(11),targetParentLinkIds:[id(4)],notificationCopy,sendPush:async(messages)=>{delivered.push(...messages);return {sent:messages.length,failed:0}}})
   assert.equal((await send()).fanSent,1)
   assert.equal((await send()).fanSent,0)
   assert.equal(delivered.length,1)
   assert.equal(delivered[0].data.fanConnectionId,id(1))
+  assert.equal(delivered[0].body,notificationCopy.detailedBody)
   assert.equal(JSON.stringify(delivered).includes('Private match name'),false)
   match.parent_visible=false
   const response=await handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action:'notifications',connectionId:id(1)})},{createClient:()=>client})

@@ -17,3 +17,10 @@ export async function enableFanDeviceNotifications({ notifications, secureStore,
   if (current.status !== 'enabled') throw new Error('Phone notification registration could not be confirmed. Please try again.')
   return current
 }
+
+export async function disableFanDeviceNotifications({ secureStore, request }) {
+  const token = await secureStore.getItemAsync('fan-notification-device')
+  if (token) await request({ action: 'unregister_device', token })
+  await secureStore.deleteItemAsync('fan-notification-device')
+  return { status: 'not_registered', canAskAgain: true }
+}

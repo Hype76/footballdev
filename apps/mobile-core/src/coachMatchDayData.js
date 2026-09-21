@@ -293,6 +293,32 @@ export async function archiveCoachMatchLocation(user, location) {
   return data
 }
 
+export function buildCoachFixtureUpdatePayload(form = {}, fixture = {}, locationId = '') {
+  const fixtureUpdate = {
+    arrivalTime: fixture.kickoffTimeTbc ? '' : fixture.arrivalTime,
+    conclusionRule: normalizeMatchDayConclusionRule(fixture.conclusionRule),
+    extraTimeHalfMinutes: fixture.extraTimeHalfMinutes,
+    extraTimePeriodCount: fixture.extraTimePeriodCount,
+    fixtureType: fixture.fixtureType,
+    pitchType: fixture.pitchType,
+    homeAway: assertNewMatchHomeAway(fixture.homeAway),
+    kickoffTime: fixture.kickoffTime,
+    kickoffTimeTbc: fixture.kickoffTimeTbc,
+    locationId: locationId || '',
+    matchDate: fixture.matchDate,
+    matchDurationMinutes: assertValidMatchDurationMinutes(fixture.matchDurationMinutes),
+    notes: fixture.notes,
+    notificationTeamName: normalizeTeamNotificationDisplayName(fixture.notificationTeamName),
+    opponent: fixture.opponent,
+    shirtChoice: assertMatchDayShirtChoice(fixture.shirtChoice),
+    venueAddress: fixture.venueAddress,
+    venueName: fixture.venueName,
+  }
+  // A failed optional default lookup must never guess a Car pool value for an existing fixture.
+  if (typeof form.carpoolEnabled === 'boolean') fixtureUpdate.carpoolEnabled = fixture.carpoolEnabled
+  return fixtureUpdate
+}
+
 export async function updateCoachMatchDayFixture(user, match, form) {
   await prepareMutation(user, match)
   if (!['scheduled', 'scorer_request', 'postponed'].includes(normalize(match.status))) {
@@ -309,28 +335,9 @@ export async function updateCoachMatchDayFixture(user, match, form) {
     p_team_id: user.activeTeamId,
   })
   if (locationError) throw locationError
+  const fixtureUpdate = buildCoachFixtureUpdatePayload(form, fixture, locationId)
   const { data, error } = await supabase.rpc('update_match_day_fixture_for_team', {
-    p_fixture: {
-      arrivalTime: fixture.kickoffTimeTbc ? '' : fixture.arrivalTime,
-      conclusionRule: normalizeMatchDayConclusionRule(fixture.conclusionRule),
-      extraTimeHalfMinutes: fixture.extraTimeHalfMinutes,
-      extraTimePeriodCount: fixture.extraTimePeriodCount,
-      fixtureType: fixture.fixtureType,
-      pitchType: fixture.pitchType,
-      carpoolEnabled: fixture.carpoolEnabled,
-      homeAway: assertNewMatchHomeAway(fixture.homeAway),
-      kickoffTime: fixture.kickoffTime,
-      kickoffTimeTbc: fixture.kickoffTimeTbc,
-      locationId: locationId || '',
-      matchDate: fixture.matchDate,
-      matchDurationMinutes: assertValidMatchDurationMinutes(fixture.matchDurationMinutes),
-      notes: fixture.notes,
-      notificationTeamName: normalizeTeamNotificationDisplayName(fixture.notificationTeamName),
-      opponent: fixture.opponent,
-      shirtChoice: assertMatchDayShirtChoice(fixture.shirtChoice),
-      venueAddress: fixture.venueAddress,
-      venueName: fixture.venueName,
-    },
+    p_fixture: fixtureUpdate,
     p_match_day_id: match.id,
     p_team_id: user.activeTeamId,
   })
