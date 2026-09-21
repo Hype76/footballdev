@@ -1,4 +1,4 @@
-export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItems }) {
+export function Pagination({ compact = false, currentPage, onPageChange, pageSize = 10, totalItems }) {
   const totalPages = Math.max(1, Math.ceil((Number(totalItems) || 0) / Math.max(1, Number(pageSize) || 1)))
 
   if (!totalItems || totalPages <= 1) {
@@ -21,11 +21,11 @@ export function Pagination({ currentPage, onPageChange, pageSize = 10, totalItem
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`mt-4 flex flex-col gap-3 rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-semibold text-[#4b5f55] shadow-sm shadow-[#047857]/10 ${compact ? '' : 'sm:flex-row sm:items-center sm:justify-between'}`}>
       <p>
         Showing {startItem} to {endItem} of {totalItems}
       </p>
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:flex">
+      <div className={`grid grid-cols-[1fr_auto_1fr] items-center gap-2 ${compact ? '[&>button]:px-2 [&>span]:px-2 [&>span]:whitespace-nowrap [&>span]:shrink-0' : 'sm:flex'}`}>
         <button
           type="button"
           onClick={() => handlePageChange(safePage - 1)}

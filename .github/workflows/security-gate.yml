@@ -201,6 +201,8 @@ jobs:
         run: node --test tests/coach-availability-response-notification-64.test.mjs tests/club-kits-notification-history.test.mjs tests/calendar-export.test.mjs tests/kit-background-removal.test.mjs && node tests/club-kits-browser.mjs && node tests/kit-background-removal-browser.mjs
       - name: Final match report theme contrast
         run: node --test tests/matchday-final-report.test.mjs tests/matchday-final-report-accuracy.test.mjs tests/matchday-report-export.test.mjs && node tests/matchday-report-theme-browser.mjs && node tests/calendar-vote-edit-browser.mjs
+      - name: Season awards, calendar poll results and compact team pagination
+        run: node --test tests/season-potential-award-counts-pglite.test.mjs tests/season-stats-date-range.test.mjs tests/calendar-poll-results.test.mjs tests/hidden-feature-batch4-resurface.test.mjs && node tests/season-stats-date-range-browser.mjs && node tests/calendar-poll-modal-browser.mjs && node tests/team-pagination-browser.mjs
       - name: Mobile selection and event detail feedback
         run: node tests/coach-squad-multiselect-browser.mjs && node tests/coach-more-menu-browser.mjs && node tests/coach-manual-sync-browser.mjs && node tests/parent-event-details-browser.mjs && node tests/mobile-login-keyboard-browser.mjs --coach && node --test tests/mobile-convenience.test.mjs tests/mobile-convenience-pglite.test.mjs && node tests/mobile-convenience-browser.mjs && node --test tests/mobile-offline-recovery.test.mjs tests/coach-offline-storage.test.mjs && node tests/mobile-offline-development-browser.mjs && node tests/mobile-offline-readiness-browser.mjs
       - name: User feedback and More menu reports

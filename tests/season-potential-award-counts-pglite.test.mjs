@@ -16,6 +16,10 @@ async function database() {
   const db = new PGlite()
   await db.exec(`
     create schema auth;
+    create schema app_private;
+    create role anon;
+    create role authenticated;
+    grant usage on schema app_private to authenticated;
     create function auth.uid() returns uuid language sql stable as $$
       select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
     $$;
@@ -34,7 +38,7 @@ async function database() {
       select role from public.users where id = auth.uid()
     $$;
     create function public.current_user_role_rank() returns integer language sql stable as $$
-      select case when public.current_user_role() = 'admin' then 90 else 0 end
+      select case when public.current_user_role() = 'admin' then 90 when public.current_user_role() = 'coach' then 20 else 0 end
     $$;
     insert into public.users values ('${adminId}', '${clubId}', 'admin');
     insert into public.teams values ('${teamId}', 'U16 Green');
@@ -69,6 +73,7 @@ async function database() {
       ('70000000-0000-4000-8000-000000000014', '60000000-0000-4000-8000-000000000004', '${alexId}');
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20260921105720_season_report_date_range.sql', import.meta.url), 'utf8'))
   await db.exec(`select set_config('request.jwt.claim.sub', '${adminId}', false);`)
   return db
 }
@@ -82,6 +87,46 @@ test('season POTM counts final outright and joint winners, never an open poll le
       { player_name: 'Bailey', motm_votes: 2 },
       { player_name: 'Casey', motm_votes: 0 },
     ])
+  } finally {
+    await db.close()
+  }
+})
+
+test('season date range is inclusive across years and preserves final tied awards', async () => {
+  const db = await database()
+  try {
+    await db.exec(`update match_days set match_date = case
+      when id::text like '%001' then date '2026-07-01'
+      when id::text like '%002' then date '2027-06-30'
+      when id::text like '%003' then date '2027-07-01'
+      else date '2026-06-30' end;
+      insert into match_day_events values
+      ('50000000-0000-4000-8000-000000000001', 'goal', 'club', 'active', null, false, 'Alex', 'Bailey'),
+      ('50000000-0000-4000-8000-000000000002', 'goal', 'club', 'active', null, false, 'Alex', 'Bailey'),
+      ('50000000-0000-4000-8000-000000000003', 'goal', 'club', 'active', null, false, 'Alex', 'Bailey'),
+      ('50000000-0000-4000-8000-000000000001', 'goal', 'club', 'active', null, true, 'Alex', 'Bailey'),
+      ('50000000-0000-4000-8000-000000000001', 'goal', 'club', 'void', now(), false, 'Alex', 'Bailey');`)
+    const { rows } = await db.query("select player_name, goals, assists, motm_votes from public.get_end_season_stats_range(null, '2026-07-01', '2027-06-30') order by player_name")
+    assert.deepEqual(rows, [
+      { player_name: 'Alex', goals: 2, assists: 0, motm_votes: 2 },
+      { player_name: 'Bailey', goals: 0, assists: 2, motm_votes: 1 },
+      { player_name: 'Casey', goals: 0, assists: 0, motm_votes: 0 },
+    ])
+    for (const dates of ["null, '2027-06-30'", "'2027-07-01', '2027-06-30'", "'-infinity', '2027-06-30'"]) {
+      await assert.rejects(db.query(`select * from public.get_end_season_stats_range(null, ${dates})`), /valid start and end date/)
+    }
+    await db.exec(`update users set role = 'coach' where id = '${adminId}'`)
+    const teamQuery = `select * from public.get_end_season_stats_range('${teamId}', '2026-07-01', '2027-06-30')`
+    assert.equal((await db.query(teamQuery)).rows.length, 0, 'unassigned staff cannot read team totals')
+    await db.exec(`insert into team_staff values ('${teamId}', '${adminId}')`)
+    assert.equal((await db.query(teamQuery)).rows.length, 3, 'assigned staff can read their team')
+    assert.equal((await db.query("select * from public.get_end_season_stats_range(null, '2026-07-01', '2027-06-30')")).rows.length, 0, 'staff cannot read all teams')
+    await db.exec(`update users set club_id = '10000000-0000-4000-8000-000000000002' where id = '${adminId}'`)
+    assert.equal((await db.query(teamQuery)).rows.length, 0, 'club boundary is retained')
+    await db.exec("select set_config('request.jwt.claim.sub', '', false)")
+    assert.equal((await db.query("select * from public.get_end_season_stats_range(null, '2026-07-01', '2027-06-30')")).rows.length, 0)
+    await db.exec('set role anon')
+    await assert.rejects(db.query("select * from public.get_end_season_stats_range(null, '2026-07-01', '2027-06-30')"), /permission denied/)
   } finally {
     await db.close()
   }
