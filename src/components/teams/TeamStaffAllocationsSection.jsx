@@ -177,6 +177,7 @@ function TeamList({
         })}
       </div>
       <Pagination
+        compact
         currentPage={teamPage}
         onPageChange={onTeamPageChange}
         pageSize={teamPageSize}

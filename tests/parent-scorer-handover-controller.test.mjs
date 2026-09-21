@@ -8,19 +8,22 @@ const handlerSource = app.slice(app.indexOf('  async function handleScorerAction
 const match = { id:'FP TEST match', isScorer:true, status:'full_time' }
 const requestedAt = '2026-09-15T12:00:00Z'
 
-for (const failure of ['none','notification','refresh','handover']) {
+for (const failure of ['none','notification','refresh','handover','delayed']) {
   test(`handover controller preserves ended access across ${failure} failure and rejects stale handlers`, async () => {
     let resources = {matches:{items:[match]}}
     const notices = []
     const steps = []
     const locks = {current:{}}
+    const scorerActionGenerationRef = { current: 0 }
+    const parentActionScopeRef = { current: 0 }
+    let currentNotice = null
     const context = {
-      isOffline:false,activeActionId:'',selectedMobileUser:{id:'FP TEST parent'},scorerHandoversRef:locks,
-      setActiveActionId: () => {},setNotice: value => notices.push(value),
+      isOffline:false,activeActionId:'',selectedMobileUser:{id:'FP TEST parent'},scorerHandoversRef:locks,scorerActionGenerationRef,parentActionScopeRef,
+      setActiveActionId: () => {},setNotice: value => { currentNotice = typeof value === 'function' ? value(currentNotice) : value; notices.push(currentNotice) },
       setResources: updater => {resources=updater(resources);steps.push('controls removed')},
       requestParentScorerReview: async () => {steps.push('save');if(failure==='handover')throw new Error('Could not save');return{scorerReviewRequestedAt:requestedAt}},
-      sendParentScorerMatchDayPush: async () => {assert.equal(resources.matches.items[0].isScorer,false);steps.push('notify');return failure==='notification'?null:{success:true}},
-      loadParentData: async () => {steps.push('refresh');if(failure==='refresh')throw new Error('Refresh failed')},
+      sendParentScorerMatchDayPush: async () => {assert.equal(resources.matches.items[0].isScorer,false);steps.push('notify');if(failure==='delayed')return new Promise(()=>{});return failure==='notification'?null:{success:true}},
+      loadParentData: async () => {steps.push('refresh');if(failure==='delayed')return new Promise(()=>{});if(failure==='refresh')throw new Error('Refresh failed')},
       getParentFriendlyError: error => error.message,
       setParentScorerTimer: () => {throw new Error('A stale scorer mutation escaped the lock')},
     }
@@ -33,10 +36,10 @@ for (const failure of ['none','notification','refresh','handover']) {
       assert.deepEqual(steps,['save'])
     }else{
       assert.equal(result,true)
-      assert.deepEqual(steps,['save','controls removed','notify','refresh'])
+      assert.deepEqual(steps,['save','controls removed','refresh','notify'])
       assert.equal(locks.current[match.id],requestedAt)
       assert.equal(await context.handleScorerAction(match,'timer','resume'),false)
-      assert.equal(notices.at(-1).tone,failure==='none'?'success':'warning')
+      assert.equal(notices.at(-1).tone,['none','delayed'].includes(failure)?'success':'warning')
       assert.match(notices.at(-1).message,/scoring access has ended/)
     }
   })

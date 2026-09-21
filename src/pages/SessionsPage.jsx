@@ -43,6 +43,7 @@ import {
   writeStoredSessionWorkspace,
 } from '../lib/session-page-utils.js'
 import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
+import { getCalendarPollResults, isCalendarPollClosed } from '../lib/calendar-poll-results.js'
 import {
   commitCalendarChangeNotification,
   prepareCalendarChangeNotification,
@@ -1378,7 +1379,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const sourceType = String(calendarModal?.event?.sourceType ?? '').trim()
     const eventType = String(calendarModal?.event?.data?.eventType ?? calendarForm.eventType ?? '').trim()
 
-    if (!sourceId || !['match-day', 'calendar'].includes(sourceType)) {
+    if (!sourceId || !['match-day', 'calendar', 'poll'].includes(sourceType)) {
       return () => {
         isMounted = false
       }
@@ -1392,7 +1393,29 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       refreshInFlight = true
 
       try {
-        if (sourceType === 'match-day') {
+        if (sourceType === 'poll') {
+          if (!canShowPollsInCalendar) {
+            return
+          }
+
+          const refreshedPolls = await getPolls({ user })
+          const refreshedPoll = refreshedPolls.find((poll) => String(poll.id) === sourceId)
+
+          if (!isMounted) {
+            return
+          }
+
+          setPolls(refreshedPolls)
+          setCalendarModal((current) => {
+            if (String(current?.event?.sourceId ?? '').trim() !== sourceId) {
+              return current
+            }
+
+            return refreshedPoll
+              ? { ...current, event: { ...current.event, data: refreshedPoll } }
+              : null
+          })
+        } else if (sourceType === 'match-day') {
           const matchDay = await getMatchDay({ user, matchDayId: sourceId })
 
           if (!isMounted) {
@@ -1467,6 +1490,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       document.removeEventListener('visibilitychange', handleVisibleRefresh)
     }
   }, [
+    canShowPollsInCalendar,
     calendarForm.eventType,
     calendarModal?.event?.data?.eventType,
     calendarModal?.event?.sourceId,
@@ -5690,6 +5714,52 @@ function EventPlayerRemovalModal({
   )
 }
 
+function CalendarPollResults({ poll }) {
+  const { leaders, rankedOptions, totalVotes } = getCalendarPollResults(poll)
+  const isClosed = isCalendarPollClosed(poll)
+  const leaderNames = leaders.map((option) => option.label).join(', ')
+  const outcomeLabel = leaders.length > 1
+    ? isClosed ? 'Joint winners' : 'Joint leaders'
+    : isClosed ? 'Winner' : 'Leading'
+
+  return (
+    <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-white p-4" data-testid="calendar-poll-results">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Poll</p>
+          <h4 className="mt-1 text-base font-black text-[#101828]">{isClosed ? 'Final results' : 'Current results'}</h4>
+        </div>
+        <span className={`w-fit rounded-full border px-3 py-1 text-xs font-black ${isClosed ? 'border-[#d7e5dc] bg-[#f1f5f9] text-[#4b5f55]' : 'border-[#bbf7d0] bg-[#ecfdf5] text-[#065f46]'}`}>
+          {isClosed ? 'Closed' : 'Open'}
+        </span>
+      </div>
+
+      {totalVotes > 0 ? (
+        <p className="mt-3 text-sm font-semibold text-[#4b5f55]">
+          <span className="font-black text-[#101828]">{outcomeLabel}:</span> {leaderNames}
+        </p>
+      ) : (
+        <p className="mt-3 text-sm font-semibold text-[#4b5f55]">
+          {isClosed ? 'No votes were recorded for this poll.' : 'No votes have been recorded yet.'}
+        </p>
+      )}
+
+      {rankedOptions.length > 0 ? (
+        <ul className="mt-4" aria-label="Poll results">
+          {rankedOptions.map((option) => (
+            <li key={option.id} className="flex items-center justify-between gap-3 border-b border-[#d7e5dc] px-1 py-2 last:border-b-0">
+              <span className="min-w-0 text-sm font-bold text-[#101828]">{option.label}</span>
+              <span className="shrink-0 text-sm font-black text-[#4b5f55]">{option.count} {option.count === 1 ? 'vote' : 'votes'}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm font-semibold text-[#4b5f55]">No poll options are available.</p>
+      )}
+    </section>
+  )
+}
+
 function CalendarEventModal({
   attachedResources = [],
   clubWideOnly = false,
@@ -5753,6 +5823,7 @@ function CalendarEventModal({
   const [editingBaseline, setEditingBaseline] = useState('')
   const calendarModalViewportStyle = useCalendarModalViewportStyle(isOpen)
   const isEditingMode = mode !== 'view' && mode !== 'manage-players'
+  const isPollDeadline = event?.sourceType === 'poll'
 
   useEffect(() => {
     if (!isOpen || !isEditingMode) {
@@ -6188,7 +6259,9 @@ function CalendarEventModal({
                 <p className="mt-1">Team membership unchanged. Previous responses and delivered evidence are preserved.</p>
               </div>
             ) : null}
-            {eventResponseManager?.counts?.total > 0 ? (
+            {isPollDeadline ? (
+              <CalendarPollResults poll={event?.data} />
+            ) : eventResponseManager?.counts?.total > 0 ? (
               <EventResponseSummary
                 buttonRef={responseManagerButtonRef}
                 manager={eventResponseManager}
@@ -6935,7 +7008,7 @@ function CalendarEventModal({
             </MobileActionDock>
             <div className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
               <div>
-                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : 'Open item'}</button> : null}
+                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : isPollDeadline ? 'Open poll' : 'Open item'}</button> : null}
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <button type="button" onClick={handleModalCancel} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
@@ -6965,7 +7038,7 @@ function CalendarEventModal({
                 testId="calendar-mobile-action-bar"
               >
                   {event?.href ? (
-                    <button type="button" onClick={onOpenWorkflow} className={compactPrimaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : 'Open item'}</button>
+                    <button type="button" onClick={onOpenWorkflow} className={compactPrimaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : isPollDeadline ? 'Open poll' : 'Open item'}</button>
                   ) : null}
                   {hasMobileSecondaryActions ? (
                     <button
@@ -6983,7 +7056,7 @@ function CalendarEventModal({
             ) : null}
             <div data-testid="calendar-desktop-action-bar" className="hidden shrink-0 items-center justify-between gap-3 border-t border-[#d7e5dc] bg-white px-6 py-4 sm:flex">
               <div className="flex flex-wrap items-center gap-3">
-                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : 'Open item'}</button> : null}
+                {event?.href ? <button type="button" onClick={onOpenWorkflow} className={secondaryButtonClass}>{isMatchFixture ? 'Manage volunteer assignments' : isPollDeadline ? 'Open poll' : 'Open item'}</button> : null}
                 {canBuildFormation ? <button type="button" onClick={onBuildFormation} className={primaryButtonClass}>Build Formation Board with attending players</button> : null}
               </div>
               <div className="flex flex-wrap items-center justify-end gap-3">

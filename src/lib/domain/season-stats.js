@@ -4,6 +4,53 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+export function isValidIsoDate(value) {
+  const date = normalizeText(value)
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return false
+  }
+
+  const parsedDate = new Date(`${date}T00:00:00.000Z`)
+
+  return Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === date
+}
+
+export function formatSeasonDate(value) {
+  if (!isValidIsoDate(value)) {
+    return ''
+  }
+
+  return new Date(`${value}T00:00:00.000Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+export function getCurrentFootballSeasonDateRange(today = new Date()) {
+  const year = today.getFullYear()
+  const startYear = today.getMonth() < 6 ? year - 1 : year
+
+  return {
+    startDate: `${startYear}-07-01`,
+    endDate: `${startYear + 1}-06-30`,
+  }
+}
+
+export function getSeasonDateRangeError(startDate, endDate) {
+  if (!isValidIsoDate(startDate) || !isValidIsoDate(endDate)) {
+    return 'Enter valid From and To dates in YYYY-MM-DD format.'
+  }
+
+  if (startDate > endDate) {
+    return 'The From date must be on or before the To date.'
+  }
+
+  return ''
+}
+
 function assertSeasonStatsAccess(user) {
   if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin') {
     throw new Error('Manager access is required for end of season stats.')
@@ -18,14 +65,32 @@ function assertSeasonStatsAccess(user) {
   }
 }
 
-export async function getEndSeasonStats({ user, teamId = '' } = {}) {
+export async function getEndSeasonStats({ user, teamId = '', startDate = '', endDate = '' } = {}) {
   assertSeasonStatsAccess(user)
   const isClubAdmin = user?.role === 'admin'
   const safeTeamId = isClubAdmin ? normalizeText(teamId) || null : normalizeText(user.activeTeamId)
+  const safeStartDate = normalizeText(startDate)
+  const safeEndDate = normalizeText(endDate)
+  const dateRangeError = safeStartDate || safeEndDate
+    ? getSeasonDateRangeError(safeStartDate, safeEndDate)
+    : ''
 
-  const { data, error } = await supabase.rpc('get_end_season_stats', {
-    team_id_value: safeTeamId,
-  })
+  if (dateRangeError) {
+    throw new Error(dateRangeError)
+  }
+
+  const rpcName = safeStartDate && safeEndDate
+    ? 'get_end_season_stats_range'
+    : 'get_end_season_stats'
+  const rpcArgs = safeStartDate && safeEndDate
+    ? {
+        team_id_value: safeTeamId,
+        start_date_value: safeStartDate,
+        end_date_value: safeEndDate,
+      }
+    : { team_id_value: safeTeamId }
+
+  const { data, error } = await supabase.rpc(rpcName, rpcArgs)
 
   if (error) {
     console.error(error)

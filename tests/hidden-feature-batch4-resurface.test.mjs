@@ -70,7 +70,8 @@ test('season report access allows assigned team staff but blocks unscoped staff 
   assert.match(source, /!normalizeText\(user\.activeTeamId\)/)
   assert.match(source, /const isClubAdmin = user\?\.role === 'admin'/)
   assert.match(source, /safeTeamId = isClubAdmin \? normalizeText\(teamId\) \|\| null : normalizeText\(user\.activeTeamId\)/)
-  assert.match(source, /assertSeasonStatsAccess\(user\)[\s\S]*supabase\.rpc\('get_end_season_stats'/)
+  assert.match(source, /assertSeasonStatsAccess\(user\)[\s\S]*get_end_season_stats_range/)
+  assert.match(source, /get_end_season_stats'/)
 })
 
 test('season stats RPC is club scoped manager scoped and team filter safe', async () => {
@@ -102,9 +103,12 @@ test('season report page is read-only and keeps awards as local snapshots', asyn
 
   assert.match(source, /const canUseClubWideSeasonView = isClubAdmin\(user\)/)
   assert.match(source, /getAvailableTeamsForUser\(user\)/)
-  assert.match(source, /getEndSeasonStats\(\{ user, teamId: selectedTeamId \}\)/)
+  assert.match(source, /getEndSeasonStats\(\{[\s\S]*teamId: selectedTeamId,[\s\S]*startDate: dateRange\.startDate,[\s\S]*endDate: dateRange\.endDate/)
+  assert.match(source, /type="date"/)
+  assert.match(source, /getCurrentFootballSeasonDateRange\(\)/)
+  assert.match(source, /Joint winners share the award/)
   assert.match(source, /canUseClubWideSeasonView \? \(/)
-  assert.match(source, /const generateAwards = \(\) => \{\s*setAwardsGeneratedAt\(new Date\(\)\.toISOString\(\)\)\s*\}/)
+  assert.match(source, /const generateAwards = \(\) => \{[\s\S]*canDisplayStats[\s\S]*setAwardsGeneratedAt\(new Date\(\)\.toISOString\(\)\)/)
   assert.match(source, /All active squad players are listed/)
   assert.doesNotMatch(source, /\.insert\(|\.upsert\(|\.update\(|\.delete\(|sendParentEmail|sendPreparedParentEmail|sendEmail/i)
 })

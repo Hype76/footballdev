@@ -81,6 +81,10 @@ jobs:
         run: npm ci --include=optional
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+      - name: Season awards, calendar poll results and compact team pagination
+        run: node --test tests/season-potential-award-counts-pglite.test.mjs tests/season-stats-date-range.test.mjs tests/calendar-poll-results.test.mjs tests/hidden-feature-batch4-resurface.test.mjs && node tests/season-stats-date-range-browser.mjs && node tests/calendar-poll-modal-browser.mjs && node tests/team-pagination-browser.mjs
+      - name: Parent scorer save completion and handover
+        run: node --test tests/parent-gameplay-notifications-followup.test.mjs tests/parent-scorer-handover-controller.test.mjs
       - name: M3 monitoring tests
         run: npm run security:monitoring
       - name: Existing security controls

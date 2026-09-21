@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
 import { canViewEndSeasonStats, isClubAdmin, useAuth } from '../lib/auth.js'
+import { formatSeasonDate, getCurrentFootballSeasonDateRange, getSeasonDateRangeError } from '../lib/domain/season-stats.js'
 import { getAvailableTeamsForUser, getEndSeasonStats, withRequestTimeout } from '../lib/supabase.js'
 
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#0f9f6e] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
@@ -11,11 +12,12 @@ const primaryButtonClass = 'inline-flex min-h-12 items-center justify-center rou
 const emptyStateClass = 'rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] px-4 py-5 text-sm font-bold text-[#4b5f55] shadow-sm shadow-[#047857]/10'
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] shadow-sm shadow-[#047857]/10'
+const EMPTY_STATS = []
 
 const seasonRules = [
   {
     label: 'Match day only',
-    body: 'Goals and assists use active goal entries for this calendar year. Removed goals and own goals do not count towards individual totals.',
+    body: 'Goals and assists use active goal entries within your selected dates. Removed goals and own goals do not count towards individual totals.',
   },
   {
     label: 'Zero still matters',
@@ -23,7 +25,7 @@ const seasonRules = [
   },
   {
     label: 'Awards are snapshots',
-    body: 'Generate awards after records are checked, then use the summary for end-of-season planning.',
+    body: 'Generate POTM awards after records are checked, then use the summary for end-of-season planning.',
   },
 ]
 
@@ -56,8 +58,10 @@ export function EndSeasonStatsPage() {
   const canUseClubWideSeasonView = isClubAdmin(user)
   const [teams, setTeams] = useState([])
   const [selectedTeamId, setSelectedTeamId] = useState(user?.activeTeamId || '')
+  const [dateRange, setDateRange] = useState(() => getCurrentFootballSeasonDateRange())
   const [stats, setStats] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadedStatsKey, setLoadedStatsKey] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [awardsGeneratedAt, setAwardsGeneratedAt] = useState('')
   const [sortConfig, setSortConfig] = useState({ field: 'total', direction: 'desc' })
@@ -65,25 +69,70 @@ export function EndSeasonStatsPage() {
   useEffect(() => {
     let isMounted = true
 
-    async function loadData() {
-      setIsLoading(true)
-      setErrorMessage('')
-
+    async function loadTeams() {
       try {
-        const [nextTeams, nextStats] = await Promise.all([
-          withRequestTimeout(() => getAvailableTeamsForUser(user), 'Teams could not be loaded.'),
-          withRequestTimeout(() => getEndSeasonStats({ user, teamId: selectedTeamId }), 'End of season stats could not be loaded.'),
-        ])
+        const nextTeams = await withRequestTimeout(() => getAvailableTeamsForUser(user), 'Teams could not be loaded.')
 
         if (isMounted) {
           setTeams(nextTeams)
-          setStats(nextStats)
         }
       } catch (error) {
         console.error(error)
 
         if (isMounted) {
-          setStats([])
+          setTeams([])
+        }
+      }
+    }
+
+    if (user) {
+      void loadTeams()
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [user])
+
+  const dateRangeError = getSeasonDateRangeError(dateRange.startDate, dateRange.endDate)
+  const statsRequestKey = `${selectedTeamId}|${dateRange.startDate}|${dateRange.endDate}`
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadStats() {
+      setStats([])
+      setLoadedStatsKey('')
+      setAwardsGeneratedAt('')
+      setErrorMessage('')
+
+      if (dateRangeError) {
+        setIsLoading(false)
+        setErrorMessage(dateRangeError)
+        return
+      }
+
+      setIsLoading(true)
+
+      try {
+        const nextStats = await withRequestTimeout(
+          () => getEndSeasonStats({
+            user,
+            teamId: selectedTeamId,
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+          }),
+          'End of season stats could not be loaded.',
+        )
+
+        if (isMounted) {
+          setStats(nextStats)
+          setLoadedStatsKey(statsRequestKey)
+        }
+      } catch (error) {
+        console.error(error)
+
+        if (isMounted) {
           setErrorMessage(error.message || 'End of season stats could not be loaded.')
         }
       } finally {
@@ -94,18 +143,24 @@ export function EndSeasonStatsPage() {
     }
 
     if (user) {
-      void loadData()
+      void loadStats()
     }
 
     return () => {
       isMounted = false
     }
-  }, [selectedTeamId, user])
+  }, [dateRange.endDate, dateRange.startDate, dateRangeError, selectedTeamId, statsRequestKey, user])
+
+  const canDisplayStats = !isLoading && !dateRangeError && loadedStatsKey === statsRequestKey
+  const displayedStats = useMemo(
+    () => (canDisplayStats ? stats : EMPTY_STATS),
+    [canDisplayStats, stats],
+  )
 
   const sortedStats = useMemo(() => {
     const directionMultiplier = sortConfig.direction === 'asc' ? 1 : -1
 
-    return [...stats].sort((left, right) => {
+    return [...displayedStats].sort((left, right) => {
       let result = 0
 
       if (sortConfig.field === 'playerName') {
@@ -130,13 +185,13 @@ export function EndSeasonStatsPage() {
 
       return compareText(left.playerName, right.playerName)
     })
-  }, [sortConfig, stats])
+  }, [displayedStats, sortConfig])
 
   const awardSummary = useMemo(() => ({
-    goals: getTopPlayers(stats, 'goals'),
-    assists: getTopPlayers(stats, 'assists'),
-    motmVotes: getTopPlayers(stats, 'motmVotes'),
-  }), [stats])
+    goals: getTopPlayers(displayedStats, 'goals'),
+    assists: getTopPlayers(displayedStats, 'assists'),
+    motmVotes: getTopPlayers(displayedStats, 'motmVotes'),
+  }), [displayedStats])
 
   if (!canViewEndSeasonStats(user)) {
     return <Navigate to="/" replace />
@@ -145,13 +200,21 @@ export function EndSeasonStatsPage() {
   const selectedTeamName = selectedTeamId
     ? teams.find((team) => team.id === selectedTeamId)?.name || 'Selected team'
     : canUseClubWideSeasonView ? 'All teams' : user?.activeTeamName || 'Selected team'
-  const totalGoals = stats.reduce((total, player) => total + Number(player.goals ?? 0), 0)
-  const totalAssists = stats.reduce((total, player) => total + Number(player.assists ?? 0), 0)
-  const totalVotes = stats.reduce((total, player) => total + Number(player.motmVotes ?? 0), 0)
-  const activePlayers = stats.length
+  const totalGoals = displayedStats.reduce((total, player) => total + Number(player.goals ?? 0), 0)
+  const totalAssists = displayedStats.reduce((total, player) => total + Number(player.assists ?? 0), 0)
+  const totalVotes = displayedStats.reduce((total, player) => total + Number(player.motmVotes ?? 0), 0)
+  const activePlayers = displayedStats.length
 
   const generateAwards = () => {
-    setAwardsGeneratedAt(new Date().toISOString())
+    if (canDisplayStats && displayedStats.length > 0) {
+      setAwardsGeneratedAt(new Date().toISOString())
+    }
+  }
+
+  const updateDate = (field, value) => {
+    setAwardsGeneratedAt('')
+    setLoadedStatsKey('')
+    setDateRange((currentRange) => ({ ...currentRange, [field]: value }))
   }
 
   const updateSort = (field) => {
@@ -171,7 +234,7 @@ export function EndSeasonStatsPage() {
               Turn match day records into a clear end-of-season football review.
             </h1>
             <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-              Review year-to-date goals, assists, and Player of the Match votes before you publish awards or plan next season.
+              Review goals, assists, and Player of the Match awards for the selected dates before you publish awards or plan next season.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               {seasonRules.map((rule) => (
@@ -188,7 +251,7 @@ export function EndSeasonStatsPage() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Selected view</p>
               <p className="mt-2 break-words text-2xl font-black tracking-tight text-[#101828]">{selectedTeamName}</p>
               <p className={`mt-2 ${bodyTextClass}`}>
-                {isLoading ? 'Loading current season stats.' : `${activePlayers} squad players included in this review.`}
+                {isLoading ? 'Loading selected period stats.' : `${activePlayers} squad players included in this review.`}
               </p>
             </div>
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -205,9 +268,9 @@ export function EndSeasonStatsPage() {
 
       <SectionCard
         title="Season view"
-        description="Stats are calculated from Match Day records and Player of the Match parent polls for the current calendar year."
+        description="Choose the dates to include. The default football season runs from 1 July to 30 June. Stats use Match Day records and Player of the Match awards within the selected dates."
       >
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
           {canUseClubWideSeasonView ? (
             <label className="block md:min-w-72">
               <span className={labelClass}>Team</span>
@@ -216,6 +279,7 @@ export function EndSeasonStatsPage() {
                 onChange={(event) => {
                   setSelectedTeamId(event.target.value)
                   setAwardsGeneratedAt('')
+                  setLoadedStatsKey('')
                 }}
                 className={fieldClass}
               >
@@ -232,35 +296,60 @@ export function EndSeasonStatsPage() {
             </div>
           )}
 
+          <label className="block">
+            <span className={labelClass}>From</span>
+            <input
+              type="date"
+              value={dateRange.startDate}
+              onChange={(event) => updateDate('startDate', event.target.value)}
+              className={fieldClass}
+              aria-describedby={dateRangeError ? 'season-date-range-error' : undefined}
+            />
+          </label>
+
+          <label className="block">
+            <span className={labelClass}>To</span>
+            <input
+              type="date"
+              value={dateRange.endDate}
+              onChange={(event) => updateDate('endDate', event.target.value)}
+              className={fieldClass}
+              aria-describedby={dateRangeError ? 'season-date-range-error' : undefined}
+            />
+          </label>
+
           <button
             type="button"
             onClick={generateAwards}
-            disabled={isLoading || stats.length === 0}
+            disabled={!canDisplayStats || displayedStats.length === 0}
             className={primaryButtonClass}
           >
             Generate end of season awards
           </button>
         </div>
+        {dateRangeError ? <p id="season-date-range-error" className="mt-3 text-sm font-bold text-[#b42318]">{dateRangeError}</p> : null}
       </SectionCard>
 
       {awardsGeneratedAt ? (
         <SectionCard
           title="Award ceremony summary"
-          description={`${selectedTeamName} awards generated from current year Match Day stats.`}
+          description={`${selectedTeamName} awards generated from Match Day stats between ${formatSeasonDate(dateRange.startDate)} and ${formatSeasonDate(dateRange.endDate)}, inclusive. Joint winners share the award when they have the same highest total.`}
         >
           <div className="grid gap-3 md:grid-cols-3">
             <AwardCard title="Top goal scorer" value={formatWinners(awardSummary.goals, 'goals', 'goals')} />
             <AwardCard title="Top assistant" value={formatWinners(awardSummary.assists, 'assists', 'assists')} />
-            <AwardCard title="Top Player of the Match" value={formatWinners(awardSummary.motmVotes, 'votes', 'motmVotes')} />
+            <AwardCard title="Most POTM awards" value={formatWinners(awardSummary.motmVotes, 'POTM awards', 'motmVotes')} />
           </div>
         </SectionCard>
       ) : null}
 
-      <SectionCard title="Player stats" description="All active squad players are listed. Manual score corrections do not assign goals or assists to a player.">
+      <SectionCard title="Player stats" description="All active squad players are listed for the selected dates. Manual score corrections do not assign goals or assists to a player.">
         {isLoading ? (
           <p className={emptyStateClass}>
             Loading end of season stats...
           </p>
+        ) : dateRangeError ? (
+          <p className={emptyStateClass}>Correct the date range to load player stats.</p>
         ) : sortedStats.length > 0 ? (
           <div className="overflow-hidden rounded-lg border border-[#d7e5dc] shadow-sm shadow-[#047857]/10">
             <div className="overflow-x-auto">
