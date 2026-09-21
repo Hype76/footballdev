@@ -68,7 +68,7 @@ import {
   getCoachRouteState,
   resolveCoachRoute,
 } from './src/coachNavigationCore'
-import { isMatchdayPlan } from '../mobile-core/src/matchdayPolicyCore'
+import { isMatchdayPlan, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
 import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
 import { createMatchInvitesTheme, createCoachTheme, DEFAULT_COACH_THEME } from './src/coachThemeCore'
 import {
@@ -418,6 +418,8 @@ function CoachHome() {
 
   const loadHome = useCallback(async ({ refresh = false, chatOnly = false, availabilityOnly = false } = {}) => {
     if (!selectedMobileUser?.clubId) return
+    if (availabilityOnly && !isMobileRouteAllowed(selectedMobileUser, 'invites', selectedMobileUser.matchdayPolicy)) return
+    if (chatOnly && !isMobileRouteAllowed(selectedMobileUser, 'chat', selectedMobileUser.matchdayPolicy)) return
     if (availabilityOnly) {
       if (selectedMobileUser.isOfflineProfile || !selectedMobileUser.activeTeamId) return
       const requestId = requestIdRef.current
@@ -455,7 +457,10 @@ function CoachHome() {
     if (refresh) setIsRefreshing(true)
     setHomeState((current) => ({ ...current, error: '', loading: !refresh }))
 
-    const recentPrimary = !refresh && peekMobileResource(selectedMobileUser, 'coach:home-primary')
+    const primaryCacheKey = isMatchdayPlan(selectedMobileUser)
+      ? `coach:home-primary:${JSON.stringify(selectedMobileUser.matchdayPolicy?.flags || {})}`
+      : 'coach:home-primary'
+    const recentPrimary = !refresh && peekMobileResource(selectedMobileUser, primaryCacheKey)
     const cached = recentPrimary ? null : await readCoachOfflineResources(user.id, activeContext).catch(() => null)
     const savedHome = cached?.resources?.home
     if (requestId !== requestIdRef.current) return
@@ -471,7 +476,7 @@ function CoachHome() {
     }
 
     try {
-      const primary = await readMobileResource(selectedMobileUser, 'coach:home-primary',
+      const primary = await readMobileResource(selectedMobileUser, primaryCacheKey,
         () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
           if (requestId === requestIdRef.current && !savedHome) setHomeState(current => preserveCoachAvailabilitySummary({ ...current, ...partial, loading: false }, current))
         }), { force: refresh })
@@ -485,8 +490,8 @@ function CoachHome() {
 
       InteractionManager.runAfterInteractions(() => {
         if (requestId !== requestIdRef.current) return
-        void readMobileResource(selectedMobileUser, 'coach:calendar', () => getCoachCalendarResources(selectedMobileUser)).catch(() => {})
-        if (selectedMobileUser.activeTeamId) void readMobileResource(selectedMobileUser, 'coach:players', () => getCoachPlayerList(selectedMobileUser)).catch(() => {})
+        if (isMobileRouteAllowed(selectedMobileUser, 'calendar', selectedMobileUser.matchdayPolicy)) void readMobileResource(selectedMobileUser, 'coach:calendar', () => getCoachCalendarResources(selectedMobileUser)).catch(() => {})
+        if (selectedMobileUser.activeTeamId && isMobileRouteAllowed(selectedMobileUser, 'players', selectedMobileUser.matchdayPolicy)) void readMobileResource(selectedMobileUser, 'coach:players', () => getCoachPlayerList(selectedMobileUser)).catch(() => {})
       })
       const attentionResult = await getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh })
         .then(value => ({ value }), error => ({ error }))
@@ -991,11 +996,13 @@ function CoachNotificationsScreen(props) {
   return <CoachNotificationHistoryScreen {...props} palette={palette} styles={styles} />
 }
 
-function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
+function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
   const { styles } = useCoachTheme()
   const nextMatch = homeState.nextMatch
   const nextSession = homeState.nextSession
   const nextCalendar = homeState.nextCalendar
+  const canOpen = route => Boolean(resolveCoachRoute(route, context, user?.matchdayPolicy))
+  const attentionVisible = ['invites', 'polls', 'chat', 'development'].some(canOpen)
 
   return (
     <View style={styles.stack}>
@@ -1003,47 +1010,47 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome }) {
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <Pressable accessibilityRole="button" accessibilityLabel="Retry unavailable overview information" onPress={() => reloadHome({ refresh: true })} style={{ paddingVertical: 8 }}><Text style={styles.helperText}>Some overview information could not refresh. Tap to retry.</Text></Pressable> : null}
       <View style={styles.iconList}>
-        <HomeNextRow
+        {canOpen('calendar') ? <HomeNextRow
           iconKey="route.calendar"
           label="Next Calendar item"
           meta={nextCalendar?.title || ''}
           onPress={() => onNavigate('calendar', nextCalendar ? { eventId: nextCalendar.id, sourceId: nextCalendar.sourceId, sourceType: nextCalendar.sourceType, occurrenceDate: nextCalendar.occurrenceDate || nextCalendar.calendarDate } : null)}
           value={nextCalendar ? formatDateTime(nextCalendar.startsAt) : 'No upcoming Calendar item'}
-        />
+        /> : null}
         {context.teamId ? (
           <>
-            <HomeNextRow
+            {canOpen('matchday') ? <HomeNextRow
               iconKey="coach.match"
               label="Next match"
               meta={nextMatch?.opponent || ''}
               onPress={() => onNavigate('matchday', nextMatch?.id ? { fixtureId: nextMatch.id } : null)}
               value={nextMatch ? formatFixtureDateTime(nextMatch) : 'No upcoming match'}
-            />
-            <HomeNextRow
+            /> : null}
+            {canOpen('sessions') ? <HomeNextRow
               iconKey="coach.session"
               label="Next session"
               meta={nextSession?.title || nextSession?.type || ''}
               onPress={() => onNavigate('sessions')}
               value={nextSession ? formatDateTime(nextSession.startsAt || `${nextSession.sessionDate || nextSession.session_date}${nextSession.startTime || nextSession.start_time ? `T${nextSession.startTime || nextSession.start_time}` : ''}`) : 'No upcoming session'}
-            />
+            /> : null}
           </>
         ) : <EmptyPanel message="Choose a Team context to see Team fixtures, Players, and Sessions." title="Club overview" />}
       </View>
-      <IconSection iconKey="coach.attention" title="Operational attention">
+      {attentionVisible ? <IconSection iconKey="coach.attention" title="Operational attention">
         <View style={styles.iconStatGrid}>
-          <IconStat iconKey="coach.availability" label="Availability next 7 days" onPress={() => onNavigate('invites')} value={homeState.errors?.some(error => error.startsWith('invites:')) ? 'Unavailable' : homeState.pendingAvailability || 0} />
-          <IconStat iconKey="coach.polls" label="Active Polls" onPress={() => onNavigate('polls')} value={homeState.errors?.some(error => error.startsWith('polls:')) ? 'Unavailable' : homeState.activePolls || 0} />
-          <IconStat iconKey="coach.chat" label="Unread Chat" onPress={() => onNavigate('chat')} value={homeState.errors?.some(error => error.startsWith('chatRooms:')) ? 'Unavailable' : homeState.unreadChat || 0} />
-          <IconStat iconKey="coach.development" label="Development records" onPress={() => onNavigate('development')} value={homeState.errors?.some(error => error.startsWith('development:')) ? 'Unavailable' : homeState.developmentRecords || 0} />
+          {canOpen('invites') ? <IconStat iconKey="coach.availability" label="Availability next 7 days" onPress={() => onNavigate('invites')} value={homeState.errors?.some(error => error.startsWith('invites:')) ? 'Unavailable' : homeState.pendingAvailability || 0} /> : null}
+          {canOpen('polls') ? <IconStat iconKey="coach.polls" label="Active Polls" onPress={() => onNavigate('polls')} value={homeState.errors?.some(error => error.startsWith('polls:')) ? 'Unavailable' : homeState.activePolls || 0} /> : null}
+          {canOpen('chat') ? <IconStat iconKey="coach.chat" label="Unread Chat" onPress={() => onNavigate('chat')} value={homeState.errors?.some(error => error.startsWith('chatRooms:')) ? 'Unavailable' : homeState.unreadChat || 0} /> : null}
+          {canOpen('development') ? <IconStat iconKey="coach.development" label="Development records" onPress={() => onNavigate('development')} value={homeState.errors?.some(error => error.startsWith('development:')) ? 'Unavailable' : homeState.developmentRecords || 0} /> : null}
         </View>
         <View style={styles.iconActionGrid}>
-          <IconAction iconKey="coach.availability" label="Availability" onPress={() => onNavigate('invites')} />
-          <IconAction iconKey="coach.chat" label="Chat" onPress={() => onNavigate('chat')} />
-          <IconAction iconKey="coach.polls" label="Polls" onPress={() => onNavigate('polls')} />
-          <IconAction iconKey="coach.development" label="Development" onPress={() => onNavigate('development')} />
+          {canOpen('invites') ? <IconAction iconKey="coach.availability" label="Availability" onPress={() => onNavigate('invites')} /> : null}
+          {canOpen('chat') ? <IconAction iconKey="coach.chat" label="Chat" onPress={() => onNavigate('chat')} /> : null}
+          {canOpen('polls') ? <IconAction iconKey="coach.polls" label="Polls" onPress={() => onNavigate('polls')} /> : null}
+          {canOpen('development') ? <IconAction iconKey="coach.development" label="Development" onPress={() => onNavigate('development')} /> : null}
         </View>
-        <Text style={styles.helperText}>Availability covers the next 7 days. Tap the count to see all outstanding requests.</Text>
-      </IconSection>
+        {canOpen('invites') ? <Text style={styles.helperText}>Availability covers the next 7 days. Tap the count to see all outstanding requests.</Text> : null}
+      </IconSection> : null}
 
     </View>
   )
@@ -1230,7 +1237,12 @@ function SettingsScreen({
           ? notificationState.message || 'Not enabled on this device.'
           : 'Notification status could not be read. No setting has been changed.'}</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR && hasKnownNotificationState ? <Text style={styles.helperText}>The latest check failed. The last confirmed setting is shown and has not been changed.</Text> : null}
-        <NotificationCategorySettings key={user.id} app="coach" userId={user.id} palette={palette} Icon={CoachIcon} />
+        <NotificationCategorySettings key={user.id} app="coach" userId={user.id} palette={palette} Icon={CoachIcon}
+          allowedKeys={[
+            ...(resolveCoachRoute('invites', context, user?.matchdayPolicy) ? ['invites'] : []),
+            ...(resolveCoachRoute('chat', context, user?.matchdayPolicy) ? ['chats'] : []),
+          ]}
+        />
         {notificationStateLoading || !hasKnownNotificationState ? (
           notificationStateLoading ? <BrandLoader /> : <PrimaryAction disabled={isRegisteringPush} label="Retry notification check" onPress={onRefreshNotificationState} />
         ) : <SecondaryAction disabled={isRegisteringPush} label={notificationState.preferenceEnabled ? 'Pause all push alerts on this device' : 'Enable push alerts on this device'} onPress={() => onNotificationModeChange(notificationState.preferenceEnabled ? 'off' : 'minimal')} />}

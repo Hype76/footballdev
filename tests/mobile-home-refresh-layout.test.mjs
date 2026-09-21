@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { isMatchdayPlan, isMobileRouteAllowed } from '../apps/mobile-core/src/matchdayPolicyCore.js'
 import { parse } from '@babel/parser'
 import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary } from '../apps/mobile-core/src/coachPhase31GCore.js'
 import { normalizeCoachInvite } from '../apps/mobile-core/src/coachPhase31ECore.js'
@@ -26,6 +27,7 @@ function harness() {
   let state = { pendingAvailability: 107, unreadChat: 2, errors: ['polls:unavailable'] }
   const reads = []
   const dependencies = {
+    isMatchdayPlan, isMobileRouteAllowed,
     selectedMobileUser: { id: 'coach', clubId: 'club', activeTeamId: 'team' },
     requestIdRef: { current: 1 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },

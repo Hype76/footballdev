@@ -2182,7 +2182,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     { key: 'calendar', label: 'Calendar' },
     { key: 'matchday', label: 'Matchday' },
     { count: unreadChat, key: 'chat', label: 'Chat' },
-    { count: unreadNotifications + homeModel.unansweredPolls + unansweredInvites, key: 'more', label: 'More' },
+    { count: unreadNotifications + (parentRouteAllowed('polls') ? homeModel.unansweredPolls : 0) + unansweredInvites, key: 'more', label: 'More' },
   ].filter(({ key }) => parentRouteAllowed(key))
   const renderedActiveTab = parentRouteAllowed(activeTab) ? activeTab : 'home'
   const renderedMoreSection = moreSection && parentRouteAllowed(moreSection) ? moreSection : ''
@@ -2280,6 +2280,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 messages={{ ...resources.messages, items: visibleMessages }}
                 notifications={resources.notifications}
                 isOffline={isOffline}
+                pollsVisible={parentRouteAllowed('polls')}
                 onOpenInvites={() => { setMoreSection('invites'); setActiveTab('more') }}
                 onOpenMatch={(match) => { setSelectedMatchId(match.id); setActiveTab('matchday'); scrollViewRef.current?.scrollTo({ y: 0, animated: false }) }}
                 onOpenLink={handleOpenMatchLink}
@@ -2391,6 +2392,12 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 communicationPreference={communicationPreference}
                 notificationState={notificationState}
                 notificationStateStatus={notificationStateStatus}
+                notificationCategoryKeys={[
+                  ...(parentRouteAllowed('matchday') ? ['gameDay'] : []),
+                  ...(parentRouteAllowed('invites') ? ['invites'] : []),
+                  ...(parentRouteAllowed('chat') ? ['chats'] : []),
+                  ...(parentRouteAllowed('resources') ? ['resources'] : []),
+                ]}
                 notificationSettingsFocusRequest={notificationSettingsFocusRequest}
                 onCommunicationChannelChange={handleCommunicationChannelChange}
                 onNotificationModeChange={handleNotificationModeChange}
@@ -2636,7 +2643,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, selectedMatch, themeTokens, onOpenEventDetails }) {
+function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, selectedMatch, themeTokens, onOpenEventDetails }) {
   const { styles } = useParentTheme()
   const homeSections = useParentHomeSections(userId)
   const [selectedEventKey, setSelectedEventKey] = useState('')
@@ -2675,7 +2682,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
 
       <View accessibilityLabel="Family actions" style={styles.summaryGrid}>
         <SummaryButton count={countUnreadGeneralNotifications(notifications.items)} iconKey="notifications" label="Notifications" onPress={onOpenUpdates} />
-        <SummaryButton count={homeModel.unansweredPolls} iconKey="parent.polls" label="Polls" onPress={onOpenPolls} />
+        {pollsVisible ? <SummaryButton count={homeModel.unansweredPolls} iconKey="parent.polls" label="Polls" onPress={onOpenPolls} /> : null}
         <SummaryButton count={inviteCount} iconKey="parent.invites" label="Invites" onPress={onOpenInvites} />
         <SummaryButton disabled={!nextDirectionsUrl} iconKey="parent.directions" label="Directions" onPress={() => onOpenLink?.(nextDirectionsUrl, 'directions')} />
       </View>
@@ -3080,6 +3087,7 @@ function SettingsScreen({
   links,
   notificationState,
   notificationStateStatus,
+  notificationCategoryKeys,
   notificationSettingsFocusRequest,
   onBiometricChange,
   onAppBadgeEnabledChange,
@@ -3303,7 +3311,7 @@ function SettingsScreen({
         </View>
 
         {activeActionId === 'notifications' || notificationStateLoading ? <BrandLoader /> : null}
-        <NotificationCategorySettings key={user.id} app="parent" userId={user.id} palette={palette} Icon={ParentIcon} />
+        <NotificationCategorySettings allowedKeys={notificationCategoryKeys} key={user.id} app="parent" userId={user.id} palette={palette} Icon={ParentIcon} />
 
         {notificationState.enabled && !config.isProduction ? (
           <View style={styles.notificationTestActions}>

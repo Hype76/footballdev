@@ -90,6 +90,7 @@ jobs:
           tests/tenant-isolation.test.mjs
           tests/security-p2-invitation-processor.test.mjs
           tests/workspace-owner-invites.test.mjs
+          tests/matchday-owner-app-handoff-browser.mjs
           tests/privileged-functions-authority.test.mjs
           tests/pdf-renderer-security.test.mjs
           tests/security-account-browser-hardening.test.mjs
@@ -164,6 +165,8 @@ jobs:
           tests/matchday-offline-commands-db.test.mjs
       - name: Install Coach browser test dependencies
         run: npm ci --prefix apps/coach-mobile --include=optional
+      - name: Matchday mobile feature visibility
+        run: node --test tests/mobile-matchday-plan.test.mjs tests/parent-fan-selected-plan-gates.test.mjs && node tests/mobile-notification-settings-browser.mjs
       - name: Formation board save and recovery regression
         run: >-
           node --test tests/formation-board-creation-repair.test.mjs

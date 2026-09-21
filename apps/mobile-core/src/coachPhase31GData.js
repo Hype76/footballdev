@@ -4,6 +4,7 @@ import { readMobileResource } from './mobileResourceCache'
 import { buildCoachHomeOperationalSnapshot, mergeCoachHomeOperationalSnapshots } from './coachPhase31GCore'
 import { getCoachMatchDays, getCoachSessions } from './data'
 import { withMobileAsyncTimeout } from './http'
+import { isMobileRouteAllowed } from './matchdayPolicyCore.js'
 
 function sourceError(name, result) {
   return result.status === 'rejected' ? `${name}:${String(result.reason?.message || 'unavailable')}` : ''
@@ -23,12 +24,13 @@ export function mergeCoachPhase31GHomeSnapshots(primary, attention) {
 
 export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress) {
   const names = ['matches', 'sessions', 'calendar']
+  const routes = ['matchday', 'sessions', 'calendar']
   const partial = {}
   const results = await Promise.allSettled([
     () => getCoachMatchDays(user),
     () => getCoachSessions(user),
     () => getCoachCalendarResources(user, { includeDetails: false }),
-  ].map((loader, index) => withMobileAsyncTimeout(loader).then(value => {
+  ].map((loader, index) => withMobileAsyncTimeout(() => isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? loader() : []).then(value => {
     partial[names[index]] = value
     onProgress?.(buildCoachHomeOperationalSnapshot(partial))
     return value
@@ -41,12 +43,13 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress) {
 
 export async function getCoachPhase31GAttentionSnapshot(user, { force = true } = {}) {
   const names = ['development', 'chatRooms', 'polls', 'invites']
+  const routes = ['development', 'chat', 'polls', 'invites']
   const results = await Promise.allSettled([
-    readMobileResource(user, 'coach:development-summary', () => getCoachDevelopmentSummary(user), { force }),
-    readMobileResource(user, 'coach:phase31e:chat', () => getCoachChatRooms(user), { force }),
-    readMobileResource(user, 'coach:phase31e:polls', () => getCoachPolls(user), { force }),
-    readMobileResource(user, 'coach:phase31e:invites', () => getCoachInvitesAndAvailability(user), { force }),
-  ])
+    () => readMobileResource(user, 'coach:development-summary', () => getCoachDevelopmentSummary(user), { force }),
+    () => readMobileResource(user, 'coach:phase31e:chat', () => getCoachChatRooms(user), { force }),
+    () => readMobileResource(user, 'coach:phase31e:polls', () => getCoachPolls(user), { force }),
+    () => readMobileResource(user, 'coach:phase31e:invites', () => getCoachInvitesAndAvailability(user), { force }),
+  ].map((loader, index) => isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? loader() : null))
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)
   return buildCoachHomeOperationalSnapshot({ ...values, errors })

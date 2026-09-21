@@ -61,11 +61,12 @@ test('Fan profile links retain the authoritative selected player plan context', 
 })
 
 test('Parent and Fan surfaces hide denied entries and guard direct opens', async () => {
-  const [shell, fansWeb, fansMobile, parentApp] = await Promise.all([
+  const [shell, fansWeb, fansMobile, parentApp, notificationSettings] = await Promise.all([
     readFile(new URL('../src/components/parent-portal/ParentPortalShell.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/pages/FansPage.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/src/FansScreen.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/mobile-core/src/NotificationCategorySettings.js', import.meta.url), 'utf8'),
   ])
 
   assert.match(shell, /isParentSectionAllowed\(selectedLink, section\.id, matchdayPolicy/)
@@ -82,5 +83,13 @@ test('Parent and Fan surfaces hide denied entries and guard direct opens', async
   assert.match(parentApp, /const renderedActiveTab = parentRouteAllowed\(activeTab\) \? activeTab : 'home'/)
   assert.match(parentApp, /const renderedMoreSection = moreSection && parentRouteAllowed\(moreSection\) \? moreSection : ''/)
   assert.match(parentApp, /if \(!parentRouteAllowed\(activeTab\)\) setActiveTab\('home'\)/)
+  assert.match(parentApp, /pollsVisible=\{parentRouteAllowed\('polls'\)\}/)
+  assert.match(parentApp, /parentRouteAllowed\('polls'\) \? homeModel\.unansweredPolls : 0/)
+  assert.match(parentApp, /notificationCategoryKeys=\{\[/)
+  assert.match(parentApp, /parentRouteAllowed\('chat'\) \? \['chats'\] : \[\]/)
+  assert.match(parentApp, /parentRouteAllowed\('resources'\) \? \['resources'\] : \[\]/)
+  assert.match(notificationSettings, /allowedKeys \? new Set\(allowedKeys\) : null/)
+  assert.match(notificationSettings, /allowed\.has\('gameDay'\)/)
+  assert.match(notificationSettings, /filter\(choice => !allowed \|\| allowed\.has\(choice\.key\)\)/)
   assert.doesNotMatch(parentApp, /setActiveTab\('more'\)[\s\S]{0,120}setMoreSection\('settings'\)/)
 })

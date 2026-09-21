@@ -24,13 +24,15 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {BrandLoader} from './apps/mobile-core/src/BrandLoader.js';
+import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
 Platform.OS='android';let theme;const useCoachTheme=()=>theme;
 const formatDateTime=value=>value;
 ${selected}
 function App(){const[mode,setMode]=React.useState('dark'),[loading,setLoading]=React.useState(false);window.mode=setMode;window.loading=setLoading;
+const[plan,setPlan]=React.useState('team'),[flags,setFlags]=React.useState({teamCalendar:true,fixtures:true,matchDay:true,parentPortal:true,parentInvitations:true});window.plan=setPlan;window.flags=setFlags;
 const palette=createCoachTheme({mode,context:{clubAccent:'#2ba7aa'}}).tokens;theme={palette,styles:createCoachStyles(palette)};
 return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:16}}>
-<HomeScreen context={{teamId:'synthetic-team'}} onNavigate={(route,target)=>{window.route=route;window.target=target}} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{id:'next-fixture',opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View>}
+<HomeScreen context={{teamId:'synthetic-team',planKey:plan,roleRank:70,role:'head_manager'}} user={{matchdayPolicy:{flags}}} onNavigate={(route,target)=>{window.route=route;window.target=target}} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{id:'next-fixture',opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
 const browser = await chromium.launch({ headless: true })
@@ -68,6 +70,25 @@ try {
   }
   await page.getByRole('button', { name: 'Next match: Sun 20 Sept, 11:00' }).click()
   assert.equal(await page.evaluate(() => window.route), 'matchday')
+  assert.deepEqual(errors, [])
+  await page.evaluate(() => window.plan('matchday'))
+  await page.getByText('Next session', { exact: true }).waitFor({ state: 'hidden' })
+  for (const label of ['Chat', 'Unread Chat', 'Polls', 'Active Polls', 'Development', 'Development records']) {
+    assert.equal(await page.getByText(label, { exact: true }).count(), 0, `${label} must be hidden for Matchday`)
+  }
+  await page.getByRole('button', { name: /Availability next 7 days/ }).click()
+  assert.equal(await page.evaluate(() => window.route), 'invites')
+  await page.screenshot({ path: `${output}/matchday-home.png` })
+  await page.evaluate(() => window.flags({ teamCalendar: true, fixtures: true, matchDay: true, parentPortal: true, parentInvitations: true, teamPolls: true }))
+  await page.getByText('Active Polls', { exact: true }).waitFor()
+  await page.evaluate(() => window.flags({}))
+  await page.getByText('Operational attention', { exact: true }).waitFor({ state: 'hidden' })
+  assert.equal(await page.getByRole('button', { name: /^Next match:/ }).count(), 0)
+  for (const plan of ['team', 'club', 'single_team']) {
+    await page.evaluate(value => window.plan(value), plan)
+    await page.getByText('Development records', { exact: true }).waitFor()
+    await page.getByText('Next session', { exact: true }).waitFor()
+  }
   assert.deepEqual(errors, [])
   console.log('PASS: actual Coach Home and loading layout at 320/390px in both themes; fixtures first, no offline panel, compact unboxed FP loader and Match Day navigation.')
 } finally { await browser.close() }

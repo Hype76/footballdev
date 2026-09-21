@@ -19,8 +19,8 @@ const read=(app,user)=>JSON.parse(localStorage.getItem(app+user)||'null');
 const client={from(){let app,user=window.actor;return {select(){return this},eq(key,value){if(key==='app')app=value;else user=value;return this},maybeSingle(){return {async abortSignal(){if(!window.online||window.failRead)throw Error('offline');const row=read(app,user);return {data:row?{...row,game_day:row.gameDay}:null}}}}}},
 rpc(name,args){return {async abortSignal(){window.calls.push(args);await new Promise(r=>setTimeout(r,60));if(!window.online||window.failSave)throw Error('offline');const next={...normalizeNotificationCategories(read(args.app_value,window.actor)),[args.key_value]:args.value_json};localStorage.setItem(args.app_value+window.actor,JSON.stringify(next));return {data:next}}}}};
 function Icon({iconKey,name,...rest}){return <MaterialIcons name={name||getMobileIconName(iconKey)} {...rest}/>}
-function App(){const [app,setApp]=React.useState('coach'),[mode,setMode]=React.useState('dark'),[user,setUser]=React.useState('one');window.actor=user;window.showApp=setApp;window.setMode=setMode;window.switchUser=setUser;
-const tokens=(app==='parent'?createParentMobileTheme({mode}):createCoachTheme({mode})).tokens;const palette=app==='parent'?{...tokens,text:tokens.textPrimary,textMuted:tokens.textSecondary,accent:tokens.buttonPrimary}:tokens;return <div style={{padding:16,background:palette.background,minHeight:'100vh',boxSizing:'border-box'}}><h1 style={{color:palette.textPrimary,fontFamily:'sans-serif',fontSize:26}}>Settings</h1><div style={{padding:16,borderRadius:20,background:palette.surface,border:'1px solid '+palette.border}}><NotificationCategorySettings key={app+user} app={app} userId={user} palette={palette} Icon={Icon} client={client}/></div></div>}
+function App(){const [app,setApp]=React.useState('coach'),[mode,setMode]=React.useState('dark'),[user,setUser]=React.useState('one'),[allowedKeys,setAllowedKeys]=React.useState(null);window.actor=user;window.showApp=setApp;window.setMode=setMode;window.switchUser=setUser;window.setAllowedKeys=setAllowedKeys;
+const tokens=(app==='parent'?createParentMobileTheme({mode}):createCoachTheme({mode})).tokens;const palette=app==='parent'?{...tokens,text:tokens.textPrimary,textMuted:tokens.textSecondary,accent:tokens.buttonPrimary}:tokens;return <div style={{padding:16,background:palette.background,minHeight:'100vh',boxSizing:'border-box'}}><h1 style={{color:palette.textPrimary,fontFamily:'sans-serif',fontSize:26}}>Settings</h1><div style={{padding:16,borderRadius:20,background:palette.surface,border:'1px solid '+palette.border}}><NotificationCategorySettings allowedKeys={allowedKeys} key={app+user} app={app} userId={user} palette={palette} Icon={Icon} client={client}/></div></div>}
 createRoot(document.getElementById('root')).render(<App/>);
 `
 const result = await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],
@@ -78,6 +78,18 @@ try {
   await page.getByText(/Connect to the internet and retry/).waitFor()
   assert.equal(await page.getByRole('switch',{name:inviteName,exact:true}).isDisabled(),true)
   assert.equal(await page.getByRole('radio').count(),0)
+  await page.evaluate(()=>{window.online=true;window.showApp('coach');window.setAllowedKeys(['invites'])})
+  await page.waitForFunction(()=>!document.body.innerText.includes('Checking your saved choices'))
+  assert.equal(await page.getByRole('switch',{name:'Availability & event updates',exact:true}).count(),1)
+  assert.equal(await page.getByRole('switch',{name:'Chats & messages',exact:true}).count(),0)
+  await page.evaluate(()=>window.setAllowedKeys(['chats']))
+  assert.equal(await page.getByRole('switch',{name:'Availability & event updates',exact:true}).count(),0)
+  assert.equal(await page.getByRole('switch',{name:'Chats & messages',exact:true}).count(),1)
+  await page.evaluate(()=>{window.showApp('parent');window.setAllowedKeys(['gameDay','invites'])})
+  await page.waitForFunction(()=>document.querySelector('[role="radiogroup"]'))
+  assert.equal(await page.getByRole('switch',{name:'Invites',exact:true}).count(),1)
+  assert.equal(await page.getByRole('switch',{name:'Chats',exact:true}).count(),0)
+  assert.equal(await page.getByRole('switch',{name:'New resources',exact:true}).count(),0)
   assert.deepEqual(errors,[])
   console.log('Coach and Parent category screens: defaults, independent toggles, persistence, save failure, offline state, account isolation, dark/light and phone width passed.')
 } finally { await browser.close() }
