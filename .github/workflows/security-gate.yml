@@ -89,6 +89,7 @@ jobs:
           tests/authority-containment.test.mjs
           tests/tenant-isolation.test.mjs
           tests/security-p2-invitation-processor.test.mjs
+          tests/workspace-owner-invites.test.mjs
           tests/privileged-functions-authority.test.mjs
           tests/pdf-renderer-security.test.mjs
           tests/security-account-browser-hardening.test.mjs

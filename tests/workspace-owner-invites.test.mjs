@@ -13,7 +13,7 @@ const TEAM_ID = '22222222-2222-4222-8222-222222222222'
 const AUTH_USER_ID = '33333333-3333-4333-8333-333333333333'
 
 function createInvite(planKey = 'single_team', overrides = {}) {
-  const isTeam = planKey === 'single_team' || planKey === 'individual'
+  const isTeam = ['matchday', 'team', 'single_team', 'individual'].includes(planKey)
   const isIndividual = planKey === 'individual'
 
   return {
@@ -21,7 +21,7 @@ function createInvite(planKey = 'single_team', overrides = {}) {
     club_id: CLUB_ID,
     team_id: isTeam ? TEAM_ID : null,
     invited_email: 'owner@example.test',
-    billing_mode: planKey === 'individual' ? 'unpaid' : 'paid',
+    billing_mode: ['matchday', 'individual'].includes(planKey) ? 'unpaid' : 'paid',
     plan_key: planKey,
     invite_scope: isIndividual ? 'individual' : isTeam ? 'team' : 'club',
     intended_role_key: isTeam ? 'head_manager' : 'admin',
@@ -196,4 +196,48 @@ test('an existing recipient account must prove the exact invited identity', asyn
   assert.equal(result.statusCode, 409)
   assert.equal(result.body.code, 'existing_account_authentication_required')
   assert.equal(mock.calls.some((call) => call.name === 'accept_workspace_owner_invite_v3'), false)
+})
+
+test('Matchday password rejection is actionable and the invitation can be retried without consuming it', async () => {
+  const mock = createMockSupabase(createInvite('matchday'))
+  const createUser = mock.client.auth.admin.createUser
+
+  for (const error of [
+    { code: 'weak_password', message: 'Provider detail must not be exposed' },
+    { name: 'AuthWeakPasswordError', message: 'Provider detail must not be exposed' },
+  ]) {
+    mock.client.auth.admin.createUser = async () => ({ data: { user: null }, error })
+    const result = parse(await createWorkspaceOwnerAccountResult(event({
+      token: 'valid-matchday-token', password: 'StrongPassword123!',
+    }), { supabaseAdmin: mock.client }))
+
+    assert.equal(result.statusCode, 400)
+    assert.equal(result.body.code, 'invalid_password')
+    assert.match(result.body.message, /stronger, unique password/)
+    assert.doesNotMatch(result.body.message, /Provider detail/)
+    assert.equal(mock.calls.some((call) => call.action === 'rpc' || call.action === 'deleteUser'), false)
+  }
+
+  mock.client.auth.admin.createUser = createUser
+  const retry = parse(await createWorkspaceOwnerAccountResult(event({
+    token: 'valid-matchday-token', password: 'DifferentStrongPassword456!',
+  }), { supabaseAdmin: mock.client }))
+  assert.equal(retry.statusCode, 200)
+  assert.equal(retry.body.roleLabel, 'Team Admin')
+  assert.equal(retry.body.scope, 'team')
+  assert.equal(retry.body.redirectPath, '/coach')
+  assert.equal(mock.calls.filter((call) => call.name === 'accept_workspace_owner_invite_v3').length, 1)
+})
+
+test('unknown authentication errors remain generic and do not accept the invitation', async () => {
+  const mock = createMockSupabase(createInvite('matchday'))
+  mock.client.auth.admin.createUser = async () => ({
+    data: { user: null }, error: { code: 'unexpected_failure', message: 'Private provider detail' },
+  })
+  const result = parse(await createWorkspaceOwnerAccountResult(event({
+    token: 'valid-matchday-token', password: 'StrongPassword123!',
+  }), { supabaseAdmin: mock.client }))
+  assert.equal(result.body.code, 'account_creation_failed')
+  assert.equal(result.body.message, 'Team Admin account could not be created.')
+  assert.equal(mock.calls.some((call) => call.action === 'rpc'), false)
 })
