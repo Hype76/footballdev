@@ -256,7 +256,9 @@ export function ClubOwnerInvitePage() {
                     />
                   </label>
 
-                  <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{PASSWORD_POLICY_SUMMARY}</p>
+                  <p className="text-sm font-semibold leading-6 text-[#4b5f55]">
+                    {PASSWORD_POLICY_SUMMARY} Choose a unique password. Common passwords and passwords found in known data breaches are not accepted.
+                  </p>
 
                   <button
                     type="submit"
