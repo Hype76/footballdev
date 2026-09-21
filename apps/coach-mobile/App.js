@@ -1139,11 +1139,11 @@ function FoundationRoute({ context, route, ...props }) {
         <Section compact title="Upgrade options">
           {currentPlanKey !== 'team' && currentPlanKey !== 'club' ? <>
             <InfoRow label="Team" value={`${formatPrice(teamMonthly.chargePence)}/month or ${formatPrice(teamAnnual.chargePence)}/year`} />
-            <Text style={styles.helperText}>Everything at one-team level, including training, development, polls, resources, chat and branding. Save {formatPrice(teamAnnual.annualSavingsPence)} with annual billing.</Text>
+            <Text style={styles.helperText}>Everything at one-team level, including training, development, polls, resources, chat and branding. Save {formatPrice(teamAnnual.annualSavingsPence)} with an annual plan.</Text>
           </> : null}
           {currentPlanKey !== 'club' ? <>
             <InfoRow label="Club" value={`From ${formatPrice(clubMonthly.chargePence)}/month or ${formatPrice(clubAnnual.chargePence)}/year`} />
-            <Text style={styles.helperText}>Everything across the whole club, including Club management, shared oversight, branding and analytics. The starting package includes 10 teams and saves {formatPrice(clubAnnual.annualSavingsPence)} with annual billing.</Text>
+            <Text style={styles.helperText}>Everything across the whole club, including Club management, shared oversight, branding and analytics. The starting package includes 10 teams and saves {formatPrice(clubAnnual.annualSavingsPence)} with an annual plan.</Text>
             <InfoRow label="More Club teams" value={`Each 10 teams: ${formatPrice(CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE)}/month or ${formatPrice(CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE)}/year`} />
           </> : <Text style={styles.helperText}>Your Club plan already provides the full club package.</Text>}
           <Text style={styles.helperText}>Annual plans provide 12 months for the price of 10. {['team', 'club'].includes(context.paymentAccess.payerAuthority) ? 'You can manage your plan on the Football Player website.' : 'Ask your Team or Club account owner if you want to change plan.'}</Text>
