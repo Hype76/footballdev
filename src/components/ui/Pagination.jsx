@@ -25,7 +25,7 @@ export function Pagination({ compact = false, currentPage, onPageChange, pageSiz
       <p>
         Showing {startItem} to {endItem} of {totalItems}
       </p>
-      <div className={`grid grid-cols-[1fr_auto_1fr] items-center gap-2 ${compact ? '[&>button]:px-2 [&>span]:px-2 [&>span]:whitespace-nowrap [&>span]:shrink-0' : 'sm:flex'}`}>
+      <div className={`grid items-center gap-2 ${compact ? 'grid-cols-[minmax(min-content,1fr)_auto_minmax(min-content,1fr)] [&>button]:min-h-[44px] [&>button]:px-2 [&>span]:px-2 [&>span]:whitespace-nowrap' : 'grid-cols-[1fr_auto_1fr] sm:flex'}`}>
         <button
           type="button"
           onClick={() => handlePageChange(safePage - 1)}
