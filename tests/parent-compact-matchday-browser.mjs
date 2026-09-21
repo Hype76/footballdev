@@ -21,7 +21,7 @@ const appSource = await readFile('apps/parent-mobile/App.js', 'utf8')
 const handlers = appSource.slice(appSource.indexOf('  async function handleInvitationResponse('), appSource.indexOf('  async function handleAddToCalendar('))
 const childChange = appSource.slice(appSource.indexOf('  function handleChildChange('), appSource.indexOf('  async function handleRemoveOwnPlayerAccess('))
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
-const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replace('../assets/kit-tbc.png', './apps/mobile-core/assets/kit-tbc.png'))
+const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replaceAll('../assets/', './apps/mobile-core/assets/'))
 const entry = `
 import {FormationPitchLines,FormationPlayerArtwork,FormationSubArtwork,formationVisualStyles} from './apps/mobile-core/src/FormationBoardVisuals.js';
 import {getFormationMarkerVisualPosition} from './apps/mobile-core/src/formationVisualCore.js';
@@ -50,7 +50,7 @@ const normalize = (value) => String(value ?? '').trim();
 const BrandLoader=()=>null,useConfirmedConnectionIssue=value=>value;
 const ResourceState=()=>null;
 const ScorerControls=()=> <Text>Authorised scorer controls</Text>;
-const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),kitLabel=()=> 'Home kit';
+const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),peekMobileTeamKits=()=>({}),loadMobileTeamKits=async()=>({}),kitLabel=()=> 'Home kit';
 const kitImageUrl=()=> 'data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="blue"/></svg>').toString('base64')}';
 let theme;const useParentTheme=()=>theme;
 ${kit}\n${invitationCore}\n${formationCore}\n${portal}\n${app}
