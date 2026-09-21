@@ -1,4 +1,4 @@
-import { isMobileRouteAllowed } from '../../mobile-core/src/matchdayPolicyCore.js'
+import { isMatchdayPlan, isMobileRouteAllowed } from '../../mobile-core/src/matchdayPolicyCore.js'
 
 const PRIMARY_ROUTES = Object.freeze([
   Object.freeze({ key: 'home', label: 'Home' }),
@@ -19,7 +19,7 @@ const MORE_ROUTES = Object.freeze([
   Object.freeze({ key: 'invites', label: 'Invites and availability', minimumRank: 20, requiresTeam: true }),
   Object.freeze({ key: 'team', label: 'Team', minimumRank: 50, requiresTeam: true }),
   Object.freeze({ key: 'club', label: 'Club', clubAdminOnly: true }),
-  Object.freeze({ key: 'payment', label: 'Plan access', payerOnly: true }),
+  Object.freeze({ key: 'payment', label: 'Plan access', matchdayOrPayerOnly: true }),
   Object.freeze({ key: 'settings', label: 'Settings', minimumRank: 20 }),
   Object.freeze({ key: 'feedback', label: 'Feedback & Suggestions', minimumRank: 20 }),
   Object.freeze({ key: 'bug', label: 'Report a Bug', minimumRank: 20 }),
@@ -52,6 +52,7 @@ const ROUTE_ALIASES = Object.freeze({
   more: 'more',
   notifications: 'notifications',
   alerts: 'notifications',
+  payment: 'payment',
   players: 'players',
   polls: 'polls',
   partners: 'partners',
@@ -77,7 +78,7 @@ function routeIsAllowed(route, context, planConfig) {
       : context.role === 'head_manager' && roleRank >= 70 && context.workspaceScope === 'team'
         ? 'team'
         : 'none')
-  if (route.payerOnly && !['club', 'team'].includes(payerAuthority)) return false
+  if (route.matchdayOrPayerOnly && !['club', 'team'].includes(payerAuthority) && !isMatchdayPlan(context)) return false
   if (!isMobileRouteAllowed(context, route.key, planConfig)) return false
   return true
 }
