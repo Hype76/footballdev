@@ -39,6 +39,7 @@ for (const app of ['parent', 'coach']) {
     import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';
     import {createParentMobileTheme} from './apps/mobile-core/src/parentThemeCore.js';
     import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
+    import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
     import {useQuickActionVisibility} from './apps/coach-mobile/src/useQuickActionVisibility.js';
     import {CoachQuickActions} from './apps/coach-mobile/src/CoachQuickActions.js';
     const Application={nativeApplicationVersion:'1.0.22',nativeBuildVersion:'44'}, Constants={};
