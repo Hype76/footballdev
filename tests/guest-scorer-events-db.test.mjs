@@ -50,6 +50,7 @@ test('scorer event database enforces guest/parent scope, roster, replay, lifecyc
     const pushSource = await readFile(new URL('../supabase/migrations/20260731110000_fp_v1_gameday_scorer_authority_02a.sql', import.meta.url), 'utf8')
     await db.exec(pushSource.match(/create or replace function public.authorize_match_day_push\([\s\S]*?\$\$;/)[0])
     await db.exec(migration.slice(migration.indexOf('-- Keep staff delivery unchanged.')))
+    await db.exec(await readFile(new URL('../supabase/migrations/20260922054949_matchday_participant_recovery.sql', import.meta.url), 'utf8'))
     let command = 1
     const save = (changes = {}) => {
       const values = { match: fixture, type: 'yellow_card', side: 'club', minute: 5, name: 'Clyde Bates', shirt: '4', onName: '', onShirt: '', request: `70000000-0000-4000-8000-${String(command++).padStart(12, '0')}`, link: null, added: 2, ...changes }
@@ -66,6 +67,7 @@ test('scorer event database enforces guest/parent scope, roster, replay, lifecyc
     await assert.rejects(save({ request, type: 'red_card' }), /different change/)
     await assert.rejects(save({ match: foreignFixture }), /Login is required/)
     await assert.rejects(save({ name: 'Unselected', shirt: '8' }), /selected Match squad/)
+    await assert.rejects(save({ name: 'Coach: Dave', shirt: '' }), /selected Match squad/)
     await assert.rejects(save({ type: 'substitution', onName: 'Clyde Bates', onShirt: '4' }), /different Player On/)
     const sub = (await save({ type: 'substitution', onName: 'Alex', onShirt: '9' })).rows[0].event
     assert.equal(sub.assist_name, 'Alex')
@@ -83,6 +85,7 @@ test('scorer event database enforces guest/parent scope, roster, replay, lifecyc
     await db.query("select set_config('request.jwt.claim.sub',$1,false)", [parent])
     await assert.rejects(save(), /selected scorer/)
     await assert.rejects(save({ link, match: foreignFixture }), /selected scorer/)
+    await assert.rejects(save({ link, name: 'Other: Paul', shirt: '' }), /selected Match squad/)
     const red = (await save({ link, type: 'red_card' })).rows[0].event
     assert.equal(red.created_by, parent)
     assert.equal(red.created_by_parent_link_id, link)
@@ -95,6 +98,18 @@ test('scorer event database enforces guest/parent scope, roster, replay, lifecyc
     assert.equal((await db.query("select actor_role from public.match_day_event_log where metadata->>'matchEventId'=$1", [red.id])).rows[0].actor_role, 'scorer_parent')
     await db.query("select set_config('request.jwt.claim.sub',$1,false)", [coach])
     assert.equal((await save()).rows[0].event.created_by, coach)
+    const coachCard = (await save({ type: 'red_card', name: 'Coach: Dave', shirt: '' })).rows[0].event
+    assert.equal(coachCard.scorer_name, 'Coach: Dave')
+    assert.equal(coachCard.created_by, coach)
+    const otherSub = (await save({ type: 'substitution', name: 'Other: Paul', shirt: '', onName: 'Other: Pat', onShirt: '' })).rows[0].event
+    assert.equal(otherSub.assist_name, 'Other: Pat')
+    await assert.rejects(save({ name: 'Paul', shirt: '' }), error => error.code === '22023')
+    await assert.rejects(save({ name: 'Coach: Dave', shirt: '8' }), /selected Match squad/)
+    await assert.rejects(save({ type: 'substitution', name: 'Coach: Dave', shirt: '', onName: 'Other: Pat', onShirt: '' }), /selected Match squad/)
+    await assert.rejects(save({ type: 'substitution', name: 'Other: Paul', shirt: '', onName: 'Other: Paul', onShirt: '' }), /different Player On/)
+    await assert.rejects(save({ type: 'substitution', name: 'Other: Paul', shirt: '', onName: 'Unselected', onShirt: '' }), /selected Match squad/)
+    const audit = (await db.query("select new_value from public.match_day_event_log where metadata->>'matchEventId'=$1",[coachCard.id])).rows[0].new_value
+    assert.equal(audit.playerId, null)
     await db.query("update public.match_days set timer_status='full_time',status='full_time' where id=$1", [fixture])
     await assert.rejects(save(), /Start or resume/)
     await db.exec('set role anon')

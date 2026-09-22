@@ -40,6 +40,9 @@ test('database sync preserves offline times, command identity, authority and con
     await db.exec(sqlFunction(await read('../supabase/migrations/20260731131726_fp_v1_gameday_day_of_presentation_02b.sql'), 'start_match_day'))
     await db.exec(sqlFunction(await read('../supabase/migrations/20260903162403_guest_scorer_events_and_branding.sql'), 'record_match_day_scorer_event_v1'))
     await db.exec(await read('../supabase/migrations/20260907112202_coach_match_day_offline_commands.sql'))
+    await db.exec(await read('../supabase/migrations/20260922054949_matchday_participant_recovery.sql'))
+    await db.exec(`alter table public.players add column player_name text, add column shirt_number text, add column archived_at timestamptz;
+      create table public.match_day_player_squad_decisions(match_day_id uuid,club_id uuid,team_id uuid,player_id uuid,status text);`)
     await db.query('insert into public.clubs values ($1)', [club])
     await db.query('insert into public.teams values ($1,$2)', [team, club])
     await db.query("insert into public.users(id,club_id,role) values($1,$3,'coach'),($2,$3,'parent_portal')", [coach,parent,club])
@@ -82,6 +85,16 @@ test('database sync preserves offline times, command identity, authority and con
     const card = (await call(cardId,'event',{ eventType:'yellow_card',teamSide:'opponent',minute:6,playerName:'FP TEST Opponent' },at(6))).rows[0].value
     assert.equal(card.savedEvent.event_type,'yellow_card')
     previousId = cardId
+    const staffId = randomUUID()
+    await call(staffId,'event',{eventType:'red_card',teamSide:'club',minute:6,playerName:'Coach: Dave'},at(6))
+    previousId = staffId
+    const rejectedId = randomUUID()
+    await assert.rejects(call(rejectedId,'event',{eventType:'substitution',teamSide:'club',minute:6,playerName:'Paul',playerOnName:'Other: Pat'},at(6)), error => error.code === '22023')
+    assert.equal((await db.query('select count(*)::int as n from private.coach_match_day_commands where id=$1',[rejectedId])).rows[0].n,0)
+    const correctedId = randomUUID()
+    const corrected = (await call(correctedId,'event',{eventType:'substitution',teamSide:'club',minute:6,playerName:'Other: Paul',playerOnName:'Other: Pat'},at(6))).rows[0].value
+    assert.equal(corrected.savedEvent.scorer_name,'Other: Paul')
+    previousId = correctedId
     const pauseId = randomUUID()
     const pause = (await call(pauseId,'timer',{ action:'pause' },at(10))).rows[0].value
     assert.equal(pause.timer_elapsed_seconds,600)
@@ -118,7 +131,8 @@ test('database sync preserves offline times, command identity, authority and con
       has_function_privilege('authenticated','public.claim_coach_match_day_command_notifications(uuid,uuid)','execute') as claim`)).rows[0]
     assert.deepEqual(grants,{anon:false,claim:false})
     const jobs = (await db.query('select public.claim_coach_match_day_command_notifications() as value')).rows[0].value
-    assert.equal(jobs.length,5)
+    const remainingJobs = (await db.query('select public.claim_coach_match_day_command_notifications() as value')).rows[0].value
+    assert.equal(new Set([...jobs,...remainingJobs].map(job=>job.id)).size,7)
     assert.deepEqual((await db.query('select public.claim_coach_match_day_command_notifications() as value')).rows[0].value,[])
     await db.query("select set_config('request.jwt.claim.sub',$1,false)", [coach])
     const readyId = randomUUID()

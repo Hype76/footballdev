@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { appendMatchDayCommand, createMatchDayOutbox, mergeMatchDayCommandSnapshot, projectMatchDayOutbox } from '../apps/mobile-core/src/matchDayOutboxCore.js'
 import { getCoachMatchDayActions } from '../apps/mobile-core/src/coachMatchDayCore.js'
+import { canCorrectMatchDayCommand } from '../apps/mobile-core/src/matchDayOutboxCore.js'
+import { validateCoachMatchDayEventParticipants, validateCoachMatchDayEventForm } from '../apps/mobile-core/src/coachMatchDayCore.js'
 import { getMatchTimerElapsedSeconds } from '../src/lib/matchday-timer.js'
 import { buildMatchDayNativeMessage } from '../netlify/functions/lib/_match-day-native-message.js'
 import { sendExpoPushMessages } from '../netlify/functions/lib/_expo-push.js'
@@ -13,6 +15,42 @@ const match = { id: 'fixture', clubId: 'club', teamId: 'team', updatedAt: iso(0)
   timerStatus: 'running', timerStartedAt: iso(0), timerElapsedSeconds: 0, homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 70, clockMode: 'fixed', events: [] }
 const initial = () => ({ baseMatch: structuredClone(match), pending: [], verifiedAt: iso(0), error: '' })
 const goal = (id, minute = 5) => ({ id, kind: 'event', capturedAt: iso(minute), payload: { eventType: 'goal', teamSide: 'club', minute, scorerName: 'FP TEST' } })
+
+test('definitively rejected substitution can be corrected without losing later full time or captured times', async () => {
+  let journal = appendMatchDayCommand(initial(), { id:'bad-sub', kind:'event', capturedAt:iso(3), payload:{eventType:'substitution',teamSide:'club',minute:3,playerName:'Paul',playerOnName:'Other: Pat',notes:'Keep note'} })
+  for (const [index, action] of ['resume','hydration','resume','full_time'].entries()) journal = appendMatchDayCommand(journal,{id:`timer-${index}`,kind:'timer',payload:{action},capturedAt:iso(4+index)})
+  const original = structuredClone(journal.pending)
+  const sent = []
+  const box = createMatchDayOutbox({read:async()=>journal,update:async fn=>(journal=fn(journal)),send:async(command,base)=>{
+    if(command.id==='bad-sub') throw Object.assign(new Error('Choose one selected Match squad Player from this fixture Team.'),{code:'22023'})
+    sent.push(command);return {...projectMatchDayOutbox({baseMatch:base,pending:[command]}),updatedAt:command.capturedAt}
+  }})
+  await box.sync()
+  assert.equal(canCorrectMatchDayCommand(journal),true)
+  for (const errorCode of ['', '42501', '40001']) assert.equal(canCorrectMatchDayCommand({...journal,errorCode}),false)
+  await box.correctRejected({commandId:'bad-sub',id:'fixed-sub',payload:{...original[0].payload,playerName:'Other: Paul',participantType:'other'}})
+  assert.equal(journal.pending[1].previousCommandId,'fixed-sub')
+  assert.deepEqual(journal.pending.slice(2),original.slice(2))
+  assert.equal(journal.pending[0].capturedAt,original[0].capturedAt)
+  assert.equal(journal.pending[0].payload.notes,'Keep note')
+  assert.deepEqual(journal.corrections[0].original,original[0])
+  await box.sync()
+  assert.equal(journal.pending.length,0)
+  assert.equal(journal.baseMatch.status,'full_time')
+  assert.equal(journal.baseMatch.events.length,1)
+  assert.equal(sent.length,5)
+})
+
+test('uncertain transport errors cannot be rewritten and invalid roster names are caught before saving', async () => {
+  let journal = appendMatchDayCommand(initial(),{id:'card',kind:'event',capturedAt:iso(3),payload:{eventType:'red_card',teamSide:'club',playerName:'Coach: Dave'}})
+  const box = createMatchDayOutbox({read:async()=>journal,update:async fn=>(journal=fn(journal)),send:async()=>{throw new Error('Response lost')}})
+  await box.sync()
+  await assert.rejects(box.correctRejected({commandId:'card',id:'new',payload:journal.pending[0].payload}),/Sync saved actions first/)
+  assert.equal(journal.pending[0].id,'card')
+  assert.throws(()=>validateCoachMatchDayEventParticipants({eventType:'substitution',teamSide:'club',playerName:'Paul'},[]),/selected squad player/)
+  const card = validateCoachMatchDayEventForm({eventType:'red_card',teamSide:'club',participantType:'coach',playerName:'Dave',minute:3})
+  assert.equal(validateCoachMatchDayEventParticipants(card,[]).playerName,'Coach: Dave')
+})
 
 test('server notification retries retain failure and preserve the recorded score and recipient scope', async () => {
   const calls = []
