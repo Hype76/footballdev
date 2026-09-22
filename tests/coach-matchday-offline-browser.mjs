@@ -83,7 +83,7 @@ const browser = await chromium.launch({headless:true})
 try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
   const errors=[];page.on('pageerror',error=>{errors.push(error.message);console.error(error.message)})
-  await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
+  await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html style="scrollbar-gutter:stable"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
   const mount = async()=>{await page.goto('http://localhost:9876/');await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
@@ -232,8 +232,13 @@ try {
   assert.equal(await page.getByRole('button',{name:'Review and conclude',exact:true}).count(),0);
   for(const mode of ['light','dark']) for(const width of [320,390]) {
     await page.evaluate(value=>window.setMode(value),mode);await page.setViewportSize({width,height:844});
-    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({path:`output/playwright/club-match-name/recovery-${mode}-${width}.png`,fullPage:true});
+    const overflow = await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,elements:[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth).map(el=>({tag:el.tagName,text:el.textContent.slice(0,80),right:el.getBoundingClientRect().right})).slice(-12)}));
+    assert.ok(overflow.scroll<=width,JSON.stringify({mode,...overflow}));
+    for(const label of ['Player off','Player off shirt number']) {
+      const fits = await page.getByRole('textbox',{name:label,exact:true}).evaluate(el=>el.parentElement.scrollWidth<=el.parentElement.clientWidth);
+      assert.equal(fits,true,`${label} input and Choose action fit their row at ${width}`);
+    }
   }
   await page.getByRole('button',{name:'Other',exact:true}).first().click();
   await page.getByRole('button',{name:'Save correction and sync',exact:true}).click();

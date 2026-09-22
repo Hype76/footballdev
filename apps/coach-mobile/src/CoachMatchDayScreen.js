@@ -137,7 +137,7 @@ function createStyles(palette) {
     input: { backgroundColor: palette.background, borderColor: palette.border, borderRadius: 12, borderWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 48, paddingHorizontal: 12, paddingVertical: 10 },
     inputText: { color: palette.textPrimary, fontSize: 15 },
     inputMultiline: { minHeight: 96, textAlignVertical: 'top' },
-    linkedInput: { flex: 1 },
+    linkedInput: { flex: 1, minWidth: 0 },
     linkedInputRow: { alignItems: 'stretch', flexDirection: 'row', gap: 8 },
     playerChoiceEmpty: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18, paddingHorizontal: 11, paddingVertical: 10 },
     playerChoiceList: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
