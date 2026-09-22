@@ -154,7 +154,7 @@ begin
 
       end if;
 
-      if participant_player_id = participant_player_on_id or lower(normalized_player_name) = lower(normalized_player_on_name) then
+      if participant_player_id = participant_player_on_id or (named_off and named_on and lower(normalized_player_name) = lower(normalized_player_on_name)) then
         raise exception 'Choose a different Player On for this substitution.' using errcode = '22023';
       end if;
     end if;

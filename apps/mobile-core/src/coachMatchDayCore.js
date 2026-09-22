@@ -374,7 +374,7 @@ export function validateCoachMatchDayEventParticipants(payload, selectedPlayers 
     const matches = selectedPlayers.filter(player => normalize(player.playerName).toLowerCase() === name && (!shirt || normalize(player.shirtNumber) === shirt))
     if (matches.length !== 1) throw new Error(`Choose a selected squad player${prefix === 'playerOn' ? ' coming on' : ''}, or choose Other for a match-only participant.`)
   }
-  if (payload.eventType === 'substitution' && normalize(payload.playerName).toLowerCase() === normalize(payload.playerOnName).toLowerCase()) throw new Error('Choose a different player coming on.')
+  if (payload.eventType === 'substitution' && normalize(payload.playerName).toLowerCase() === normalize(payload.playerOnName).toLowerCase() && normalize(payload.playerShirtNumber) === normalize(payload.playerOnShirtNumber)) throw new Error('Choose a different player coming on.')
   return payload
 }
 

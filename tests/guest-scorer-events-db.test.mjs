@@ -108,6 +108,9 @@ test('scorer event database enforces guest/parent scope, roster, replay, lifecyc
     await assert.rejects(save({ type: 'substitution', name: 'Coach: Dave', shirt: '', onName: 'Other: Pat', onShirt: '' }), /selected Match squad/)
     await assert.rejects(save({ type: 'substitution', name: 'Other: Paul', shirt: '', onName: 'Other: Paul', onShirt: '' }), /different Player On/)
     await assert.rejects(save({ type: 'substitution', name: 'Other: Paul', shirt: '', onName: 'Unselected', onShirt: '' }), /selected Match squad/)
+    await db.query("insert into public.players(id,club_id,team_id,player_name,shirt_number) values('40000000-0000-4000-8000-000000000004',$1,$2,'Alex','7')",[club,team])
+    await db.query("insert into public.match_day_player_squad_decisions values($1,$2,$3,'40000000-0000-4000-8000-000000000004','selected')",[fixture,club,team])
+    assert.equal((await save({type:'substitution',name:'Alex',shirt:'9',onName:'Alex',onShirt:'7'})).rows[0].event.assist_shirt_number,'7')
     const audit = (await db.query("select new_value from public.match_day_event_log where metadata->>'matchEventId'=$1",[coachCard.id])).rows[0].new_value
     assert.equal(audit.playerId, null)
     await db.query("update public.match_days set timer_status='full_time',status='full_time' where id=$1", [fixture])
