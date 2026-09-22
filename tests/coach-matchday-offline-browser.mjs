@@ -127,15 +127,15 @@ try {
   })
   await mount()
   await page.getByText('1 action saved on this device',{exact:true}).waitFor()
-  await page.getByRole('button',{name:'Review and conclude',exact:true}).click()
-  await page.getByText('Final result',{exact:true}).waitFor({timeout:5000}).catch(async error=>{console.error(errors,await page.locator('body').innerText());throw error})
-  assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isEnabled(),false)
+  assert.equal(await page.getByRole('button',{name:'Review and conclude',exact:true}).count(),0)
   await page.getByRole('button',{name:'Discard saved actions',exact:true}).click()
   await page.getByRole('button',{name:'Cancel',exact:true}).click()
   assert.equal(await page.evaluate(()=>window.readJournal().pending.length),1)
   await page.getByRole('button',{name:'Discard saved actions',exact:true}).click()
   await page.getByRole('button',{name:'Confirm',exact:true}).click()
   await page.waitForFunction(()=>window.readJournal().pending.length===0)
+  await page.getByRole('button',{name:'Review and conclude',exact:true}).click()
+  await page.getByText('Final result',{exact:true}).waitFor()
   assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isEnabled(),true)
   for (const action of ['Cancel', 'Save']) {
     await page.evaluate(() => {
