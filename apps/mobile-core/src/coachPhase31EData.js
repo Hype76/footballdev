@@ -598,15 +598,16 @@ export async function getCoachInvitesAndAvailability(user) {
     matches,
     ...await readCoachMatchAvailability(supabase, user, matches),
   }))
-  const [calendarResult, trainingResult, trainingResponseResult, matchData, players] = await Promise.all([
+  const [calendarResult, trainingResult, trainingResponseResult, trainingCoachResult, matchData, players] = await Promise.all([
     supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at,recurrence_frequency)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*),scheduled_email_queue:email_queue_id(delivery_state,provider_accepted_at,provider_delivered_at,status)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_responses').select('request_id,player_id,status,note,responded_at,responded_by_name,response_source').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('responded_at', { ascending: false }).limit(250),
+    supabase.from('training_coach_attendance').select('id,request_id,club_id,team_id,calendar_event_id,occurrence_date,occurrence_starts_at,coach_user_id,coach_name,status,responded_at,notification_status,notification_sent_at,notification_error').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('occurrence_starts_at', { ascending: true }).limit(250),
     matchReads,
     getCoachPlayerList(user),
   ])
   const { matchResult, matchAvailabilityResult, matches } = matchData
-  const hardError = calendarResult.error || trainingResult.error || trainingResponseResult.error || matchResult.error || matchAvailabilityResult.error
+  const hardError = calendarResult.error || trainingResult.error || trainingResponseResult.error || trainingCoachResult.error || matchResult.error || matchAvailabilityResult.error
   if (hardError) throw hardError
   const trainingRows = trainingResult.data || []
   const trainingEventIds = [...new Set(trainingRows.map((row) => {
@@ -638,7 +639,23 @@ export async function getCoachInvitesAndAvailability(user) {
     const response = matchAvailabilityByPlayer.get(`${normalize(row.match_day_id)}:${normalize(row.player_id)}`)
     return normalizeCoachInvite({ ...row, availability_status: response?.status, responded_at: row.responded_at, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
   })
-  return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(training), match: Object.freeze(match), matches: Object.freeze(matches), players: Object.freeze(players), all: Object.freeze([...match, ...training, ...calendar]) })
+  const trainingCoaches = (trainingCoachResult.data || []).map((row) => Object.freeze({
+    id: normalize(row.id),
+    requestId: normalize(row.request_id),
+    clubId: normalize(row.club_id),
+    teamId: normalize(row.team_id),
+    eventId: normalize(row.calendar_event_id),
+    occurrenceDate: normalize(row.occurrence_date),
+    occurrenceStartsAt: normalize(row.occurrence_starts_at),
+    coachUserId: normalize(row.coach_user_id),
+    coachName: normalize(row.coach_name) || 'Coach',
+    status: normalize(row.status) || 'pending',
+    respondedAt: normalize(row.responded_at),
+    notificationStatus: normalize(row.notification_status) || 'pending',
+    notificationSentAt: normalize(row.notification_sent_at),
+    notificationError: normalize(row.notification_error),
+  }))
+  return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(training), trainingCoaches: Object.freeze(trainingCoaches), match: Object.freeze(match), matches: Object.freeze(matches), players: Object.freeze(players), all: Object.freeze([...match, ...training, ...calendar]) })
 }
 
 export async function setCoachInviteAvailabilityOnBehalf(user, invite, availabilityStatus) {
@@ -673,6 +690,25 @@ export async function setCoachInviteAvailabilityOnBehalf(user, invite, availabil
     respondedAt: normalize(result?.respondedAt),
     responseStatus: normalize(result?.responseStatus) || normalizedStatus,
     source: normalize(result?.source) || 'staff_on_behalf',
+  })
+}
+
+export async function submitOwnTrainingCoachAttendance(user, attendance, status) {
+  assertCoachOperationalRead(user, { requiresTeam: true })
+  assertTeamEntity(user, attendance, 'Training invitation')
+  if (!attendance?.id || attendance.coachUserId !== user?.id) throw new Error('Choose your own Training invitation.')
+  const normalizedStatus = normalize(status).toLowerCase()
+  if (!['available', 'unavailable'].includes(normalizedStatus)) throw new Error('Choose Attending or Not attending.')
+  const result = await rpc('submit_own_training_coach_attendance', {
+    attendance_id_value: attendance.id,
+    status_value: normalizedStatus,
+  })
+  return Object.freeze({
+    attendanceId: normalize(result?.attendanceId) || attendance.id,
+    changed: result?.changed === true,
+    previousStatus: normalize(result?.previousStatus),
+    respondedAt: normalize(result?.respondedAt),
+    status: normalize(result?.status) || normalizedStatus,
   })
 }
 

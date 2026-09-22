@@ -36,6 +36,7 @@ import {
   setCoachResourceSharing,
   setCoachPollStatus,
   setCoachInviteAvailabilityOnBehalf,
+  submitOwnTrainingCoachAttendance,
   subscribeToCoachChatRoom,
   submitCoachPollVote,
 } from '../../mobile-core/src/coachPhase31EData'
@@ -908,6 +909,9 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
   const selectedTrainingInvites = [...collapseCoachInvitesByPlayer(trainingGroups.find((group) => group.key === trainingKey)?.invites || [])]
     .sort((left, right) => left.playerName.localeCompare(right.playerName))
+  const selectedTrainingCoachAttendance = (data.trainingCoaches || [])
+    .filter((attendance) => `${attendance.eventId}:${attendance.occurrenceDate || 'date-to-be-confirmed'}` === trainingKey)
+    .sort((left, right) => left.coachName.localeCompare(right.coachName))
   const activeInvites = matchId ? selectedMatchInvites : selectedTrainingInvites
   const selectedInvites = getSelectedCoachInvites(activeInvites, selectedPlayerIds)
   const selectedAvailabilityInvite = selectedInvites.length === 1 && ['match', 'training'].includes(selectedInvites[0]?.kind)
@@ -920,6 +924,14 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
   const [followUpMessage, setFollowUpMessage] = useState('Please could you confirm whether you can attend? Thank you.')
   const [followUpNotice, setFollowUpNotice] = useState('')
   const followUpAttempt = useRef(null)
+  const respondToTrainingAsCoach = async (attendance, status) => {
+    const result = await submitOwnTrainingCoachAttendance(user, attendance, status)
+    await load()
+    await reloadHome?.()
+    const label = result.status === 'available' ? 'Attending' : 'Not attending'
+    setNotice(result.changed ? `Your Training response is now ${label}.` : `Your Training response is already ${label}.`)
+    return result
+  }
   const sendFollowUp = async () => {
     if (bulkAction || stale || !followUp?.length || !followUpMessage.trim()) return
     setBulkAction('follow_up')
@@ -1138,7 +1150,7 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
           <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{group.title || 'Training'}</Text><Text style={styles.helper}>{group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}</Text>{!expanded ? <Text style={styles.helper}>Attending {trainingSummary.attending} · Awaiting {trainingSummary.awaitingResponse}</Text> : null}</View>
         </Pressable>
         {expanded ? <>
-          <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          <CoachMatchInviteTable coachAttendance={selectedTrainingCoachAttendance} currentCoachId={user.id} onCoachRespond={respondToTrainingAsCoach} onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
           {renderSelectedInviteActions()}
         </> : null}
       </View>
