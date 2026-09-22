@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260922093535_coach_training_attendance.sql', import.meta.url)
+const scopeMigrationUrl = new URL('../supabase/migrations/20260922103001_coach_training_attendance_notification_scope.sql', import.meta.url)
 
 const ids = {
   club: '10000000-0000-4000-8000-000000000001',
@@ -58,6 +59,7 @@ async function createMigrationDb() {
     returns boolean language sql stable as $$ select true $$;
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  await db.exec(await readFile(scopeMigrationUrl, 'utf8'))
   return db
 }
 
@@ -76,14 +78,20 @@ test('Coach Training attendance uses scoped read access and own-response RPC aut
 })
 
 test('Coach invitations are generated for active assigned Team Coaches and claimed once', async () => {
-  const migration = await readFile(migrationUrl, 'utf8')
+  const [migration, scopeMigration] = await Promise.all([
+    readFile(migrationUrl, 'utf8'),
+    readFile(scopeMigrationUrl, 'utf8'),
+  ])
   assert.match(migration, /from public\.team_staff assignment[\s\S]*join public\.users app_user/i)
   assert.match(migration, /app_user\.role in \('assistant_coach', 'coach', 'manager', 'head_manager', 'admin'\)/i)
   assert.match(migration, /create trigger sync_training_coach_attendance_after_staff_change/i)
-  assert.match(migration, /for update skip locked/i)
-  assert.match(migration, /notification_claimed_by = worker_id_value/i)
-  assert.match(migration, /notification_attempts < 5/i)
-  assert.match(migration, /grant execute on function public\.claim_training_coach_attendance_notifications\(uuid, integer, integer\)\s+to service_role/i)
+  assert.match(scopeMigration, /notification_eligible boolean not null default false/i)
+  assert.match(scopeMigration, /sync_training_coach_attendance\(new\.id, true\)/i)
+  assert.match(scopeMigration, /sync_training_coach_attendance\(pending_request\.id, false\)/i)
+  assert.match(scopeMigration, /where attendance\.notification_eligible[\s\S]*for update skip locked/i)
+  assert.match(scopeMigration, /notification_claimed_by = worker_id_value/i)
+  assert.match(scopeMigration, /notification_attempts < 5/i)
+  assert.match(scopeMigration, /grant execute on function public\.claim_training_coach_attendance_notifications\(uuid, integer, integer\)\s+to service_role/i)
 })
 
 test('Coach attendance migration executes and adds invitations for existing and newly assigned Coaches', async () => {
@@ -104,20 +112,25 @@ test('Coach attendance migration executes and adds invitations for existing and 
       '${ids.request}', '${ids.club}', '${ids.team}', '${ids.event}', current_date + 1, now() + interval '1 day'
     );
   `)
-  let rows = await db.query('select id, coach_user_id, status from public.training_coach_attendance order by coach_user_id')
+  let rows = await db.query('select id, coach_user_id, status, notification_eligible, notification_status from public.training_coach_attendance order by coach_user_id')
   assert.equal(rows.rows.length, 1)
   assert.equal(rows.rows[0].coach_user_id, ids.coach1)
   assert.equal(rows.rows[0].status, 'pending')
+  assert.equal(rows.rows[0].notification_eligible, true)
+  assert.equal(rows.rows[0].notification_status, 'pending')
 
   await db.exec(`
     insert into public.team_staff(team_id, user_id, role_key, role_rank)
     values ('${ids.team}', '${ids.coach2}', 'assistant_coach', 20)
   `)
-  rows = await db.query('select id, coach_user_id, status from public.training_coach_attendance order by coach_user_id')
-  assert.deepEqual(rows.rows.map(({ coach_user_id, status }) => ({ coach_user_id, status })), [
-    { coach_user_id: ids.coach1, status: 'pending' },
-    { coach_user_id: ids.coach2, status: 'pending' },
+  rows = await db.query('select id, coach_user_id, status, notification_eligible, notification_status from public.training_coach_attendance order by coach_user_id')
+  assert.deepEqual(rows.rows.map(({ coach_user_id, notification_eligible, notification_status, status }) => ({ coach_user_id, notification_eligible, notification_status, status })), [
+    { coach_user_id: ids.coach1, notification_eligible: true, notification_status: 'pending', status: 'pending' },
+    { coach_user_id: ids.coach2, notification_eligible: false, notification_status: 'skipped', status: 'pending' },
   ])
+
+  const claims = await db.query(`select coach_user_id from public.claim_training_coach_attendance_notifications(gen_random_uuid(), 25, 90)`)
+  assert.deepEqual(claims.rows, [{ coach_user_id: ids.coach1 }])
 
   await db.exec(`select set_config('request.jwt.claim.sub', '${ids.coach1}', false)`)
   const result = await db.query(`select public.submit_own_training_coach_attendance('${rows.rows[0].id}'::uuid, 'available')`)
