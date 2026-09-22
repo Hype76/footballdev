@@ -7,7 +7,7 @@ import { formatUkDateTime } from '../../../src/lib/date-format.js'
 
 const responseKey = status => ['pending', 'responded', '', undefined].includes(status) ? 'awaiting' : status
 
-export function CoachMatchInviteTable({ invites, players = [], kind = 'match', palette, selectedPlayerIds, selectionDisabled, onToggleSelection, onFilterChange, onLoadHistory }) {
+export function CoachMatchInviteTable({ coachAttendance = [], currentCoachId = '', invites, players = [], kind = 'match', palette, selectedPlayerIds, selectionDisabled, onCoachRespond, onToggleSelection, onFilterChange, onLoadHistory }) {
   const [filter, setFilter] = useState('all')
   const [sort, setSort] = useState({ key: 'player', direction: 1 })
   const [detailsId, setDetailsId] = useState(null)
@@ -61,6 +61,8 @@ export function CoachMatchInviteTable({ invites, players = [], kind = 'match', p
       })}
     </View>
     {filter !== 'all' ? <View style={styles.toolbar}><Pressable accessibilityRole="button" accessibilityState={{ selected: filter === 'all' }} onPress={() => { setFilter('all'); onFilterChange?.() }} style={styles.allButton}><Text style={styles.allText}>All {invites.length}</Text></Pressable><Text accessibilityLiveRegion="polite" style={styles.caption}>Showing {visible.length} of {invites.length}</Text></View> : null}
+    {kind === 'training' ? <TrainingCoachAttendanceTable attendance={coachAttendance} currentCoachId={currentCoachId} onRespond={onCoachRespond} palette={palette} styles={styles} /> : null}
+    {kind === 'training' ? <Text accessibilityRole="header" style={styles.sectionHeading}>Players ({invites.length})</Text> : null}
     <View style={styles.table}>
       <View style={[styles.row, styles.header]}>
         <Text style={[styles.number, styles.caption]}>#</Text>
@@ -105,14 +107,82 @@ export function CoachMatchInviteTable({ invites, players = [], kind = 'match', p
   </View>
 }
 
+function TrainingCoachAttendanceTable({ attendance, currentCoachId, onRespond, palette, styles }) {
+  const [detailsId, setDetailsId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const details = attendance.find((row) => row.id === detailsId)
+  const response = row => row.status === 'available'
+    ? { color: palette.success, icon: 'check-circle', label: 'Attending' }
+    : row.status === 'unavailable'
+      ? { color: palette.danger, icon: 'cancel', label: 'Not attending' }
+      : { color: contrastSafeColor('#38a3ff', [palette.surface, palette.surfaceRaised], themeForeground(palette.background) === '#000000' ? 'light' : 'dark', 4.5), icon: 'schedule', label: 'Awaiting' }
+  const respond = async status => {
+    if (!details || saving || !onRespond) return
+    setSaving(true)
+    setError('')
+    try {
+      await onRespond(details, status)
+      setDetailsId('')
+    } catch (responseError) {
+      setError(responseError?.message || 'Your Training attendance could not be saved.')
+    } finally {
+      setSaving(false)
+    }
+  }
+  return <View style={styles.section}>
+    <Text accessibilityRole="header" style={styles.sectionHeading}>Coaches ({attendance.length})</Text>
+    <View style={styles.table}>
+      <View style={[styles.row, styles.header]}>
+        <Text style={[styles.number, styles.caption]}>#</Text>
+        <Text style={[styles.player, styles.caption]}>Coach</Text>
+        <Text style={[styles.response, styles.caption]}>Response</Text>
+        <Text style={[styles.message, styles.caption]}>Message</Text>
+        <View style={styles.info} />
+      </View>
+      {attendance.map(row => {
+        const item = response(row)
+        const sent = Boolean(row.notificationSentAt || row.notificationStatus === 'sent')
+        const seen = Boolean(row.respondedAt || row.status !== 'pending')
+        return <View key={row.id} style={styles.row}>
+          <View style={styles.selectRow} accessibilityLabel={`${row.coachName}, ${item.label}, Sent ${sent ? 'yes' : 'no'}, seen ${seen ? 'yes' : 'no'}`}>
+            <View style={styles.number}><Text style={styles.numberText}>-</Text></View>
+            <View style={styles.player}><Text numberOfLines={1} style={styles.playerName}>{row.coachName}</Text></View>
+            <View style={styles.response}><MaterialIcons name={item.icon} size={18} color={item.color} /><Text style={[styles.responseText, { color: item.color }]}>{item.label}</Text></View>
+            <View style={styles.message}>{[sent, seen].map((active, index) => <MaterialIcons key={index} name={active ? 'check' : 'radio-button-unchecked'} size={17} color={active ? palette.success : palette.textMuted} />)}</View>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${row.coachName} attendance details`} onPress={() => { setError(''); setDetailsId(row.id) }} style={styles.info}><MaterialIcons name="info-outline" size={19} color={palette.textSecondary} /></Pressable>
+        </View>
+      })}
+      {!attendance.length ? <Text style={styles.empty}>No Coaches are assigned to this training occurrence.</Text> : null}
+    </View>
+    <Modal visible={Boolean(details)} transparent animationType="fade" onRequestClose={() => { if (!saving) setDetailsId('') }}>
+      <View style={styles.modalBackdrop}><View accessibilityViewIsModal style={styles.modalCard}>
+        <Text accessibilityRole="header" style={styles.detailTitle}>{details?.coachName || 'Coach attendance'}</Text>
+        <Text style={styles.detailText}>Response: {details ? response(details).label : ''}</Text>
+        {details?.coachUserId === currentCoachId ? <>
+          <Text style={styles.detailText}>Confirm your own attendance for this Training session.</Text>
+          <View style={styles.choiceRow}>
+            <Pressable accessibilityRole="button" disabled={saving} onPress={() => void respond('available')} style={styles.choice}><Text style={styles.allText}>{saving ? 'Saving...' : 'Attending'}</Text></Pressable>
+            <Pressable accessibilityRole="button" disabled={saving} onPress={() => void respond('unavailable')} style={styles.choice}><Text style={styles.allText}>{saving ? 'Saving...' : 'Not attending'}</Text></Pressable>
+          </View>
+        </> : <Text style={styles.detailText}>Only this Coach can change their response.</Text>}
+        {details?.notificationError ? <Text style={styles.detailText}>Notification: {details.notificationError}</Text> : null}
+        {error ? <Text accessibilityLiveRegion="polite" style={[styles.detailText, { color: palette.danger }]}>{error}</Text> : null}
+        <Pressable accessibilityRole="button" disabled={saving} onPress={() => setDetailsId('')} style={styles.close}><Text style={styles.allText}>Close</Text></Pressable>
+      </View></View>
+    </Modal>
+  </View>
+}
+
 function createStyles(p) {
   return StyleSheet.create({
     container: { gap: 8 }, filters: { flexDirection: 'row', flexWrap: 'wrap', borderColor: p.border, borderWidth: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: p.surface },
     filter: { flex: 1, minWidth: 94, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 6, paddingVertical: 6, minHeight: 46, borderWidth: 2, borderColor: 'transparent' }, filterSelected: { borderColor: p.accentText, backgroundColor: p.selected }, filterCopy: { flexShrink: 1 }, count: { color: p.textPrimary, fontSize: 18, fontWeight: '800' }, filterLabel: { color: p.textPrimary, fontSize: 11 },
     toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, allButton: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 10 }, allText: { color: p.accentText, fontSize: 13, fontWeight: '800' }, caption: { color: p.textSecondary, fontSize: 11, lineHeight: 16 },
-    table: { backgroundColor: p.surface, borderRadius: 7, overflow: 'hidden' }, row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: p.border, paddingLeft: 6 }, header: { backgroundColor: p.surfaceRaised, minHeight: 28 }, selectRow: { flexDirection: 'row', alignItems: 'center', flex: 1, minHeight: 26, paddingVertical: 2 }, selected: { backgroundColor: p.selected },
+    section: { gap: 4 }, sectionHeading: { color: p.textPrimary, fontSize: 15, fontWeight: '900', paddingHorizontal: 4, paddingTop: 4 }, table: { backgroundColor: p.surface, borderRadius: 7, overflow: 'hidden' }, row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: p.border, paddingLeft: 6 }, header: { backgroundColor: p.surfaceRaised, minHeight: 28 }, selectRow: { flexDirection: 'row', alignItems: 'center', flex: 1, minHeight: 26, paddingVertical: 2 }, selected: { backgroundColor: p.selected },
     number: { width: 38, alignItems: 'flex-start', paddingLeft: 6 }, numberText: { color: p.textSecondary, fontSize: 12 }, player: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 2, paddingRight: 4 }, playerName: { color: p.textPrimary, fontSize: 11, lineHeight: 15, flexShrink: 1 }, response: { width: 98, flexDirection: 'row', alignItems: 'center', gap: 4 }, responseText: { fontSize: 11, lineHeight: 15, flexShrink: 1 }, message: { width: 55, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }, info: { width: 27, minHeight: 26, justifyContent: 'center', alignItems: 'center' },
     legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 16, paddingHorizontal: 10 }, legendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 }, empty: { color: p.textSecondary, padding: 16, fontSize: 13 },
-    modalBackdrop: { flex: 1, backgroundColor: '#00000099', justifyContent: 'center', padding: 20 }, modalCard: { backgroundColor: p.surface, padding: 18, maxHeight: '85%' }, detailTitle: { color: p.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 12 }, detailText: { color: p.textPrimary, fontSize: 14, lineHeight: 21, marginBottom: 10 }, close: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+    modalBackdrop: { flex: 1, backgroundColor: '#00000099', justifyContent: 'center', padding: 20 }, modalCard: { backgroundColor: p.surface, padding: 18, maxHeight: '85%' }, detailTitle: { color: p.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 12 }, detailText: { color: p.textPrimary, fontSize: 14, lineHeight: 21, marginBottom: 10 }, choiceRow: { flexDirection: 'row', gap: 8, marginBottom: 8 }, choice: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderBottomColor: p.border, borderBottomWidth: 1 }, close: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   })
 }

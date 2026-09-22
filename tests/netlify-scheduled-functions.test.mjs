@@ -6,6 +6,7 @@ const expectedSchedules = new Map([
   ['cleanup-expired-retention', '@daily'],
   ['process-billing-access-reminders', '*/15 * * * *'],
   ['process-chat-mobile-notifications', '* * * * *'],
+  ['process-training-coach-attendance', '* * * * *'],
   ['process-platform-analytics', '*/15 * * * *'],
   ['process-training-availability-requests', '* * * * *'],
   ['retry-failed-emails', '* * * * *'],
@@ -20,7 +21,7 @@ const cleanupSource = await readFile(
   'utf8',
 )
 
-test('all nine scheduled functions have the expected effective source schedule', async () => {
+test('all ten scheduled functions have the expected effective source schedule', async () => {
   const discoveredSchedules = new Map()
 
   for (const [functionName, expectedSchedule] of expectedSchedules) {
