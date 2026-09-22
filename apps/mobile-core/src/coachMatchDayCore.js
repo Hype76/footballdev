@@ -364,6 +364,20 @@ export function formatCoachMatchDayParticipantName(participantType, value) {
   return name
 }
 
+export function validateCoachMatchDayEventParticipants(payload, selectedPlayers = []) {
+  if (payload.teamSide !== 'club' || !['yellow_card', 'red_card', 'substitution'].includes(payload.eventType)) return payload
+  for (const prefix of payload.eventType === 'substitution' ? ['player', 'playerOn'] : ['player']) {
+    const type = prefix === 'player' ? payload.participantType : payload.playerOnParticipantType
+    if (type === 'other' || type === 'coach' && payload.eventType !== 'substitution') continue
+    const name = normalize(payload[`${prefix}Name`]).toLowerCase()
+    const shirt = normalize(payload[`${prefix}ShirtNumber`])
+    const matches = selectedPlayers.filter(player => normalize(player.playerName).toLowerCase() === name && (!shirt || normalize(player.shirtNumber) === shirt))
+    if (matches.length !== 1) throw new Error(`Choose a selected squad player${prefix === 'playerOn' ? ' coming on' : ''}, or choose Other for a match-only participant.`)
+  }
+  if (payload.eventType === 'substitution' && normalize(payload.playerName).toLowerCase() === normalize(payload.playerOnName).toLowerCase() && normalize(payload.playerShirtNumber) === normalize(payload.playerOnShirtNumber)) throw new Error('Choose a different player coming on.')
+  return payload
+}
+
 export function validateCoachMatchDayEventForm(form = {}) {
   const eventType = normalize(form.eventType)
   if (eventType !== 'goal' && !STAFF_EVENT_TYPES.has(eventType)) throw new Error('Choose a supported Match Day event type.')

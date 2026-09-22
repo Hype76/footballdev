@@ -43,6 +43,7 @@ const dataMock = `
   export async function notifyCoachMatchDaySquadDecisions(user,match,choices){window.squadNotifyCalls=(window.squadNotifyCalls||0)+1;return choices.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}
   export async function syncCoachMatchDayCommand(user,command){
     requireSignal();window.calls.push(command.id); if(localStorage.getItem('conflict')==='1') throw Object.assign(new Error('Match changed on another device'),{code:'40001'});
+    if(command.kind==='event' && command.payload.eventType==='substitution' && command.payload.playerName==='Paul') throw Object.assign(new Error('Choose one selected Match squad Player from this fixture Team.'),{code:'22023'});
     const accepted=JSON.parse(localStorage.getItem('accepted')||'{}');
     if(!accepted[command.id]){window.server=projectMatchDayCommand(window.server,command);window.server.updatedAt=new Date().toISOString();accepted[command.id]=window.server;
       localStorage.setItem('accepted',JSON.stringify(accepted));localStorage.setItem('server',JSON.stringify(window.server));}
@@ -82,7 +83,7 @@ const browser = await chromium.launch({headless:true})
 try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
   const errors=[];page.on('pageerror',error=>{errors.push(error.message);console.error(error.message)})
-  await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
+  await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html style="scrollbar-gutter:stable"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
   const mount = async()=>{await page.goto('http://localhost:9876/');await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
@@ -126,15 +127,15 @@ try {
   })
   await mount()
   await page.getByText('1 action saved on this device',{exact:true}).waitFor()
-  await page.getByRole('button',{name:'Review and conclude',exact:true}).click()
-  await page.getByText('Final result',{exact:true}).waitFor({timeout:5000}).catch(async error=>{console.error(errors,await page.locator('body').innerText());throw error})
-  assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isEnabled(),false)
+  assert.equal(await page.getByRole('button',{name:'Review and conclude',exact:true}).count(),0)
   await page.getByRole('button',{name:'Discard saved actions',exact:true}).click()
   await page.getByRole('button',{name:'Cancel',exact:true}).click()
   assert.equal(await page.evaluate(()=>window.readJournal().pending.length),1)
   await page.getByRole('button',{name:'Discard saved actions',exact:true}).click()
   await page.getByRole('button',{name:'Confirm',exact:true}).click()
   await page.waitForFunction(()=>window.readJournal().pending.length===0)
+  await page.getByRole('button',{name:'Review and conclude',exact:true}).click()
+  await page.getByText('Final result',{exact:true}).waitFor()
   assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isEnabled(),true)
   for (const action of ['Cancel', 'Save']) {
     await page.evaluate(() => {
@@ -216,6 +217,35 @@ try {
   await page.getByText('Notifications queued for 2 players.',{exact:true}).waitFor({timeout:3000}).catch(async error=>{console.error('Notification endpoint calls:',await page.evaluate(()=>window.squadNotifyCalls||0));console.error((await page.locator('body').innerText()).slice(-1800));throw error})
   assert.equal(await page.evaluate(()=>window.squadSaveCalls),1);
   assert.equal(await page.evaluate(()=>window.squadNotifyCalls),1,'The screen must call Notify after saving without waiting for a React render')
+  await page.evaluate(()=>{
+    localStorage.clear();
+    const now=Date.now();const timestamp=new Date(now-60000).toISOString();
+    window.server={...window.server,status:'live',timerStatus:'running',timerStartedAt:timestamp,updatedAt:timestamp,homeScore:1,awayScore:0,events:[],squadDecisions:[]};
+    localStorage.setItem('server',JSON.stringify(window.server));
+    const pending=[{id:'bad-sub',matchId:'fixture',kind:'event',payload:{eventType:'substitution',teamSide:'club',minute:3,playerName:'Paul',playerOnName:'Other: Pat'},capturedAt:timestamp,expectedUpdatedAt:timestamp,previousCommandId:null},
+      {id:'pending-full',matchId:'fixture',kind:'timer',payload:{action:'full_time'},capturedAt:new Date(now-30000).toISOString(),expectedUpdatedAt:null,previousCommandId:'bad-sub'}];
+    localStorage.setItem('journal',JSON.stringify({baseMatch:window.server,pending,verifiedAt:timestamp,error:''}));
+  });
+  await mount();
+  await page.getByRole('button',{name:'Correct saved event',exact:true}).click();
+  await page.getByText('Full time is saved on this device. Sync the remaining actions before concluding the match.',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Review and conclude',exact:true}).count(),0);
+  for(const mode of ['light','dark']) for(const width of [320,390]) {
+    await page.evaluate(value=>window.setMode(value),mode);await page.setViewportSize({width,height:844});
+    await page.screenshot({path:`output/playwright/club-match-name/recovery-${mode}-${width}.png`,fullPage:true});
+    const overflow = await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,elements:[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth).map(el=>({tag:el.tagName,text:el.textContent.slice(0,80),right:el.getBoundingClientRect().right})).slice(-12)}));
+    assert.ok(overflow.scroll<=width,JSON.stringify({mode,...overflow}));
+    for(const label of ['Player off','Player off shirt number']) {
+      const fits = await page.getByRole('textbox',{name:label,exact:true}).evaluate(el=>el.parentElement.scrollWidth<=el.parentElement.clientWidth);
+      assert.equal(fits,true,`${label} input and Choose action fit their row at ${width}`);
+    }
+  }
+  await page.getByRole('button',{name:'Other',exact:true}).first().click();
+  await page.getByRole('button',{name:'Save correction and sync',exact:true}).click();
+  await page.waitForFunction(()=>window.readJournal()?.pending.length===0);
+  assert.equal(await page.evaluate(()=>window.server.status),'full_time');
+  assert.equal(await page.evaluate(()=>window.server.homeScore),1);
+  assert.equal(await page.evaluate(()=>window.server.events.at(-1).playerName),'Other: Paul');
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
 } finally {await browser.close()}

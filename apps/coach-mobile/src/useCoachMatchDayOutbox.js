@@ -39,5 +39,8 @@ export function useCoachMatchDayOutbox({ user, context, matchId }) {
     return journal
   }, [controller])
   const journal = state?.scopeKey === scopeKey ? state.journal : null
-  return { enqueue, refresh, discard: match => controller?.discardPending(match), review: match => controller?.reviewAgainstLatest(match), retry: () => controller?.sync(), journal, projected: journal ? projectMatchDayOutbox(journal) : null }
+  return { enqueue, refresh, correct: async (commandId, payload) => {
+    await controller?.correctRejected({ commandId, payload, id: createCoachMatchDayCommandId() })
+    await controller?.sync()
+  }, discard: match => controller?.discardPending(match), review: match => controller?.reviewAgainstLatest(match), retry: () => controller?.sync(), journal, projected: journal ? projectMatchDayOutbox(journal) : null }
 }
