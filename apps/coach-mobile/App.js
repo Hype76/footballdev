@@ -9,6 +9,7 @@ import { createCoachScrollBounds } from './src/coachScrollBounds'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { IconMenu, IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
+import { supabase as coachSupabase } from '../mobile-core/src/supabase'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import * as Application from 'expo-application'
 import Constants from 'expo-constants'
@@ -100,6 +101,11 @@ import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
 import { CoachTeamKitSettings } from './src/CoachTeamKitSettings'
 import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
 import { countPendingCoachDevelopmentDrafts } from './src/offline'
+import {
+  canChooseTrainingAttendanceVisibility,
+  getTrainingAttendanceVisibility,
+  setTrainingAttendanceVisibility,
+} from '../../src/lib/training-attendance-visibility.js'
 import {
   addCoachPushTokenListener,
   enableCoachNotifications,
@@ -1208,11 +1214,52 @@ function SettingsScreen({
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const hasKnownNotificationState = Boolean(notificationState)
   const [cacheState, setCacheState] = useState(null)
+  const [attendanceVisibility, setAttendanceVisibility] = useState({ enabled: true, error: '', saving: false, scopeKey: '' })
+  const attendanceVisibilityUser = useMemo(() => ({
+    activeTeamId: context.teamId,
+    role: context.role,
+    roleRank: context.roleRank,
+  }), [context.role, context.roleRank, context.teamId])
+  const canChooseAttendanceVisibility = canChooseTrainingAttendanceVisibility(attendanceVisibilityUser)
   useEffect(() => {
     let mounted = true
     void inspectCoachOfflineState(user.id).then((state) => { if (mounted) setCacheState(state) }).catch(() => { if (mounted) setCacheState({ hasDocument: false, status: 'unavailable' }) })
     return () => { mounted = false }
   }, [lastUpdatedAt, user.id])
+  useEffect(() => {
+    let active = true
+
+    if (!canChooseAttendanceVisibility) {
+      return () => { active = false }
+    }
+
+    void getTrainingAttendanceVisibility(coachSupabase, attendanceVisibilityUser)
+      .then((enabled) => {
+        if (active) setAttendanceVisibility({ enabled, error: '', saving: false, scopeKey: context.id })
+      })
+      .catch(() => {
+        if (active) setAttendanceVisibility((current) => ({ ...current, error: 'Training attendance visibility could not be loaded.', scopeKey: context.id }))
+      })
+
+    return () => { active = false }
+  }, [attendanceVisibilityUser, canChooseAttendanceVisibility, context.id, user.id])
+
+  const changeAttendanceVisibility = async (enabled) => {
+    if (!canChooseAttendanceVisibility || attendanceVisibility.saving) return
+    const previous = attendanceVisibility.enabled
+    setAttendanceVisibility({ enabled, error: '', saving: true, scopeKey: context.id })
+    try {
+      const saved = await setTrainingAttendanceVisibility(coachSupabase, attendanceVisibilityUser, enabled)
+      setAttendanceVisibility({ enabled: saved, error: '', saving: false, scopeKey: context.id })
+    } catch (error) {
+      setAttendanceVisibility({
+        enabled: previous,
+        error: error?.message || 'Training attendance visibility could not be saved.',
+        saving: false,
+        scopeKey: context.id,
+      })
+    }
+  }
   return (
     <ScreenIntro title="Settings">
       <IconSettings palette={palette} Icon={CoachIcon} focusRequest={notificationSettingsFocusRequest}
@@ -1224,6 +1271,17 @@ function SettingsScreen({
         <InfoRow iconName="mail-outline" label="Email" value={user.email} />
         <InfoRow iconName="shield" label="Role" value={context.roleLabel} />
         <InfoRow iconName="groups" label="Context" value={context.teamName || context.clubName} />
+        {canChooseAttendanceVisibility ? <SettingRow
+          copy={attendanceVisibility.error || 'Turn this off if you should not appear in upcoming Training Coach attendance lists or receive those attendance prompts.'}
+          label="Show me in Training attendance"
+        >
+          {attendanceVisibility.scopeKey !== context.id ? <BrandLoader /> : <Switch
+            accessibilityLabel="Show me in Training attendance"
+            disabled={attendanceVisibility.saving}
+            onValueChange={(enabled) => void changeAttendanceVisibility(enabled)}
+            value={attendanceVisibility.enabled}
+          />}
+        </SettingRow> : null}
       </Section>
       </SettingsSection>
       <SettingsSection id="display" label="Display" iconKey="settings.appearance">

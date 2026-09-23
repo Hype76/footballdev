@@ -5,6 +5,7 @@ import test from 'node:test'
 
 const migrationUrl = new URL('../supabase/migrations/20260922093535_coach_training_attendance.sql', import.meta.url)
 const scopeMigrationUrl = new URL('../supabase/migrations/20260922103001_coach_training_attendance_notification_scope.sql', import.meta.url)
+const visibilityMigrationUrl = new URL('../supabase/migrations/20260923103000_team_admin_training_attendance_visibility.sql', import.meta.url)
 
 const ids = {
   club: '10000000-0000-4000-8000-000000000001',
@@ -60,6 +61,7 @@ async function createMigrationDb() {
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
   await db.exec(await readFile(scopeMigrationUrl, 'utf8'))
+  await db.exec(await readFile(visibilityMigrationUrl, 'utf8'))
   return db
 }
 
@@ -138,6 +140,50 @@ test('Coach attendance migration executes and adds invitations for existing and 
   await db.close()
 })
 
+test('Team Admin can hide from upcoming Training attendance and restore visibility without deleting history', async () => {
+  const migration = await readFile(visibilityMigrationUrl, 'utf8')
+  assert.match(migration, /show_in_training_attendance boolean not null default true/i)
+  assert.match(migration, /is_visible boolean not null default true/i)
+  assert.match(migration, /assignment\.role_key = 'head_manager'/i)
+  assert.match(migration, /coalesce\(assignment\.role_rank, 0\) >= 70/i)
+  assert.match(migration, /attendance\.occurrence_starts_at > changed_at/i)
+  assert.match(migration, /is_visible[\s\S]*training_availability_user_can_view/i)
+
+  const db = await createMigrationDb()
+  await db.exec(`
+    insert into public.clubs(id) values ('${ids.club}');
+    insert into public.teams(id, club_id) values ('${ids.team}', '${ids.club}');
+    insert into public.calendar_events(id, club_id, team_id, event_type)
+    values ('${ids.event}', '${ids.club}', '${ids.team}', 'training');
+    insert into public.users(id, club_id, email, name, role, status)
+    values ('${ids.coach1}', '${ids.club}', 'admin@example.test', 'Team Admin', 'head_manager', 'active');
+    insert into public.team_staff(team_id, user_id, role_key, role_rank)
+    values ('${ids.team}', '${ids.coach1}', 'head_manager', 70);
+    insert into public.training_availability_requests(
+      id, club_id, team_id, calendar_event_id, occurrence_date, occurrence_starts_at
+    ) values (
+      '${ids.request}', '${ids.club}', '${ids.team}', '${ids.event}', current_date + 1, now() + interval '1 day'
+    );
+    select set_config('request.jwt.claim.sub', '${ids.coach1}', false);
+  `)
+
+  let setting = await db.query(`select public.get_own_training_attendance_visibility('${ids.team}'::uuid) as visible`)
+  assert.equal(setting.rows[0].visible, true)
+
+  await db.query(`select public.set_own_training_attendance_visibility('${ids.team}'::uuid, false)`)
+  let rows = await db.query('select is_visible, notification_eligible, notification_status, status from public.training_coach_attendance')
+  assert.deepEqual(rows.rows, [{ is_visible: false, notification_eligible: false, notification_status: 'skipped', status: 'pending' }])
+  let claims = await db.query('select coach_user_id from public.claim_training_coach_attendance_notifications(gen_random_uuid(), 25, 90)')
+  assert.deepEqual(claims.rows, [])
+
+  await db.query(`select public.set_own_training_attendance_visibility('${ids.team}'::uuid, true)`)
+  setting = await db.query(`select public.get_own_training_attendance_visibility('${ids.team}'::uuid) as visible`)
+  rows = await db.query('select is_visible, status from public.training_coach_attendance')
+  assert.equal(setting.rows[0].visible, true)
+  assert.deepEqual(rows.rows, [{ is_visible: true, status: 'pending' }])
+  await db.close()
+})
+
 test('scheduled processor sends and completes one claimed Coach invitation', async () => {
   process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
   process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
@@ -173,11 +219,14 @@ test('scheduled processor sends and completes one claimed Coach invitation', asy
 })
 
 test('Coach mobile loads the Coach section and only submits the signed-in Coach response', async () => {
-  const [data, table, screen, push] = await Promise.all([
+  const [data, table, screen, push, app, web, visibility] = await Promise.all([
     readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachMatchInviteTable.js', import.meta.url), 'utf8'),
     readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8'),
     readFile(new URL('../netlify/functions/send-coach-mobile-push.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/pages/UserSettingsPage.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/lib/training-attendance-visibility.js', import.meta.url), 'utf8'),
   ])
   assert.match(data, /from\('training_coach_attendance'\)/)
   assert.match(data, /attendance\.coachUserId !== user\?\.id/)
@@ -189,4 +238,9 @@ test('Coach mobile loads the Coach section and only submits the signed-in Coach 
   assert.match(push, /sendCoachTrainingAttendanceInvitationPush/)
   assert.match(push, /training_coach_attendance_invite/)
   assert.match(push, /eligibleDevices\.filter\(\(device\) => device\.auth_user_id === attendance\.coach_user_id\)/)
+  assert.match(app, /Show me in Training attendance/)
+  assert.match(web, /Show me in Training attendance/)
+  assert.match(visibility, /normalizeText\(user\.role\) === 'head_manager'/)
+  assert.match(visibility, /Number\(user\.roleRank \?\? 0\) >= 70/)
+  assert.match(visibility, /set_own_training_attendance_visibility/)
 })
