@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AccountProfileSection } from '../components/user-settings/AccountProfileSection.jsx'
 import { DisplaySettingsSection } from '../components/user-settings/DisplaySettingsSection.jsx'
@@ -21,6 +21,12 @@ import {
 import { CAPABILITIES } from '../lib/paywall-access.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import { canEditClubIdentity } from '../lib/plans.js'
+import { supabase } from '../lib/supabase-client.js'
+import {
+  canChooseTrainingAttendanceVisibility,
+  getTrainingAttendanceVisibility,
+  setTrainingAttendanceVisibility,
+} from '../lib/training-attendance-visibility.js'
 import {
   CUSTOM_THEME_ACCENT_OPTION,
   DEFAULT_CUSTOM_THEME_ACCENT,
@@ -93,12 +99,19 @@ export function UserSettingsPage() {
   const [isSavingBranding, setIsSavingBranding] = useState(false)
   const [brandingSaveState, setBrandingSaveState] = useState('idle')
   const [brandingSaveMessage, setBrandingSaveMessage] = useState('')
+  const [attendanceVisibility, setAttendanceVisibility] = useState({ enabled: true, error: '', saving: false, scopeKey: '' })
   const brandingScopeRef = useRef(`${user?.id || ''}:${user?.clubId || ''}`)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const currentLoginEmail = String(user?.email || authUser?.email || '').trim().toLowerCase()
   const requestedLoginEmail = String(email || '').trim().toLowerCase()
   const isLoginEmailUnchanged = Boolean(currentLoginEmail) && requestedLoginEmail === currentLoginEmail
+  const attendanceVisibilityUser = useMemo(() => ({
+    activeTeamId: user?.activeTeamId,
+    role: user?.role,
+    roleRank: user?.roleRank,
+  }), [user?.activeTeamId, user?.role, user?.roleRank])
+  const canChooseAttendanceVisibility = canChooseTrainingAttendanceVisibility(attendanceVisibilityUser)
 
   useEffect(() => {
     setUsername(user?.username || user?.name || '')
@@ -142,6 +155,24 @@ export function UserSettingsPage() {
       setBrandingSaveMessage('')
     }
   }, [user?.clubId, user?.id, user?.themeAccent, user?.themeButtonStyle, user?.themeMode])
+
+  useEffect(() => {
+    let active = true
+
+    if (!canChooseAttendanceVisibility) {
+      return () => { active = false }
+    }
+
+    void getTrainingAttendanceVisibility(supabase, attendanceVisibilityUser)
+      .then((enabled) => {
+        if (active) setAttendanceVisibility({ enabled, error: '', saving: false, scopeKey: attendanceVisibilityUser.activeTeamId || '' })
+      })
+      .catch(() => {
+        if (active) setAttendanceVisibility((current) => ({ ...current, error: 'Training attendance visibility could not be loaded.', scopeKey: attendanceVisibilityUser.activeTeamId || '' }))
+      })
+
+    return () => { active = false }
+  }, [attendanceVisibilityUser, canChooseAttendanceVisibility, user?.id])
 
   useEffect(() => {
     if (!successMessage) {
@@ -379,6 +410,27 @@ export function UserSettingsPage() {
     void persistUserThemePreference(nextPreferences.mode)
   }
 
+  const handleAttendanceVisibilityChange = async (enabled) => {
+    if (!canChooseAttendanceVisibility || attendanceVisibility.saving) return
+    const previous = attendanceVisibility.enabled
+    setAttendanceVisibility({ enabled, error: '', saving: true, scopeKey: user?.activeTeamId || '' })
+
+    try {
+      const saved = await setTrainingAttendanceVisibility(supabase, attendanceVisibilityUser, enabled)
+      setAttendanceVisibility({ enabled: saved, error: '', saving: false, scopeKey: user?.activeTeamId || '' })
+      showToast({
+        title: 'Training attendance updated',
+        message: saved
+          ? 'You will appear in upcoming Coach attendance lists.'
+          : 'You will not appear in upcoming Coach attendance lists.',
+      })
+    } catch (error) {
+      const message = error.message || 'Training attendance visibility could not be saved.'
+      setAttendanceVisibility({ enabled: previous, error: message, saving: false, scopeKey: user?.activeTeamId || '' })
+      showToast({ title: 'Training attendance not updated', message, tone: 'error' })
+    }
+  }
+
   const handleThemeAccentChange = (nextThemeAccent) => {
     if (!canEditClubBranding) {
       showToast({ title: 'Branding not changed', message: brandingUnavailableMessage, tone: 'error' })
@@ -557,27 +609,53 @@ export function UserSettingsPage() {
       </section>
 
       {settingsArea === 'profile' ? (
-        <AccountProfileSection
-          authUser={authUser}
-          canEditEmailClubName={canEditEmailClubName}
-          displayName={displayName}
-          emailClubName={emailClubName}
-          emailTeamName={emailTeamName}
-          isDemoSettings={isDemoSettings}
-          isSavingProfile={isSavingProfile}
-          onDisplayNameChange={setDisplayName}
-          onEmailClubNameChange={setEmailClubName}
-          onEmailTeamNameChange={setEmailTeamName}
-          onReplyToEmailChange={setReplyToEmail}
-          onSubmit={handleProfileSubmit}
-          onUsernameChange={setUsername}
-          replyToEmail={replyToEmail}
-          senderPreview={senderPreview}
-          showEmailIdentity={showSenderIdentity}
-          user={user}
-          username={username}
-          workspaceLabel={workspaceLabel}
-        />
+        <div className="space-y-5">
+          <AccountProfileSection
+            authUser={authUser}
+            canEditEmailClubName={canEditEmailClubName}
+            displayName={displayName}
+            emailClubName={emailClubName}
+            emailTeamName={emailTeamName}
+            isDemoSettings={isDemoSettings}
+            isSavingProfile={isSavingProfile}
+            onDisplayNameChange={setDisplayName}
+            onEmailClubNameChange={setEmailClubName}
+            onEmailTeamNameChange={setEmailTeamName}
+            onReplyToEmailChange={setReplyToEmail}
+            onSubmit={handleProfileSubmit}
+            onUsernameChange={setUsername}
+            replyToEmail={replyToEmail}
+            senderPreview={senderPreview}
+            showEmailIdentity={showSenderIdentity}
+            user={user}
+            username={username}
+            workspaceLabel={workspaceLabel}
+          />
+          {canChooseAttendanceVisibility ? (
+            <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 shadow-sm shadow-[#047857]/10 sm:p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-black text-[#101828]">Training attendance</h2>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
+                    Turn this off if you should not appear in upcoming Coach attendance lists or receive those attendance prompts.
+                  </p>
+                  {attendanceVisibility.error ? <p className="mt-2 text-sm font-bold text-[#b42318]">{attendanceVisibility.error}</p> : null}
+                </div>
+                <label className="inline-flex min-h-11 shrink-0 items-center gap-3 font-black text-[#101828]">
+                  <span>{attendanceVisibility.enabled ? 'Shown' : 'Hidden'}</span>
+                  <input
+                    aria-label="Show me in Training attendance"
+                    checked={attendanceVisibility.enabled}
+                    className="h-5 w-5 accent-[#047857]"
+                    disabled={attendanceVisibility.scopeKey !== (user?.activeTeamId || '') || attendanceVisibility.saving}
+                    onChange={(event) => void handleAttendanceVisibilityChange(event.target.checked)}
+                    type="checkbox"
+                  />
+                </label>
+              </div>
+            </section>
+          ) : null}
+        </div>
       ) : null}
 
       {settingsArea === 'display' && showDisplaySettings ? (

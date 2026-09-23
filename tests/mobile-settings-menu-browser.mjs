@@ -24,7 +24,7 @@ for (const app of ['parent', 'coach']) {
     return source.slice(node.start, node.end)
   }).join('\n')
   virtual[app] = `
-    import React, {useState, useEffect, useContext, createContext} from 'react';
+    import React, {useState, useEffect, useMemo, useContext, createContext} from 'react';
     import {View, Text, TextInput, Switch, Pressable, StyleSheet, Platform, Linking} from 'react-native';
     import MaterialIcons from '@expo/vector-icons/MaterialIcons';
     import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
@@ -46,6 +46,10 @@ for (const app of ['parent', 'coach']) {
     const config={isProduction:true,isUsable:true,buildProfile:'store-live'};
     const getBuildClassification=()=> 'Production build';
     const inspectCoachOfflineState=async()=>({hasDocument:true});
+    const coachSupabase={};
+    const canChooseTrainingAttendanceVisibility=()=>false;
+    const getTrainingAttendanceVisibility=async()=>true;
+    const setTrainingAttendanceVisibility=async(client,user,visible)=>visible;
     const BrandLoader=()=> <Text>Loading...</Text>;
     const CoachOfflineReadiness=({styles})=> <Text style={styles.cardTitle}>Saved automatically</Text>;
     ${app === 'coach' ? 'const formatDateTime=()=> "Today";' : ''}
