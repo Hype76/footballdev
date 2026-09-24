@@ -13,27 +13,28 @@ const { sendCoachMatchReviewPush } = await import('../netlify/functions/send-coa
 
 const match = { id: 'game', club_id: 'club', team_id: 'team', status: 'full_time', home_away: 'away', opponent: 'Visitors', teams: { name: 'U17 Green' } }
 
-test('one latest notification per match preserves separate games and marks every underlying event read', () => {
+test('recorded match events remain visible separately and open only their own notification', () => {
   const rows = ['goal', 'half_time', 'full_time'].map((type, i) => ({
     id: String(i + 1), intent_type: 'matchday_update', body: type, title: 'Game',
     sent_at: `2026-09-02T12:0${i}:00Z`, data: { route: 'matchday', parentLinkId: 'parent', matchDayId: 'game', eventId: String(i) },
   }))
   rows.push({ ...rows[0], id: '4', data: { ...rows[0].data, matchDayId: 'other-game' } })
   const result = collapseParentNotificationRows(rows)
-  assert.equal(result.length, 2)
+  assert.equal(result.length, 4)
   assert.equal(result[0].body, 'full_time')
-  assert.deepEqual(result[0].notificationIds, ['3', '2', '1'])
-  assert.equal(countUnreadNonChatNotifications(result), 2)
-  assert.deepEqual(getParentOpenedNotificationIds(rows[0].data, result), ['3', '2', '1'])
+  assert.deepEqual(result[0].notificationIds, ['3'])
+  assert.equal(countUnreadNonChatNotifications(result), 4)
+  assert.deepEqual(getParentOpenedNotificationIds(rows[0].data, result), ['1'])
   const raw = rows.map(r => ({ id: r.id, intentType: r.intent_type, data: r.data, sentAt: r.sent_at, body: r.body }))
   assert.equal(prepareParentNotificationInbox(raw)[0].body, 'full_time')
   rows[2].read_at = '2026-09-02T12:03:00Z'
-  assert.equal(countUnreadNonChatNotifications(collapseParentNotificationRows(rows)), 1)
+  assert.equal(countUnreadNonChatNotifications(collapseParentNotificationRows(rows)), 3)
 })
 
-test('successive match updates replace the inbox row and use the same phone and browser identity', async () => {
+test('successive match events keep separate inbox rows and use the same phone and browser identity', async () => {
   const keys = ['live', 'goal', 'half_time', 'full_time'].map(type => getParentNotificationDedupeKey({ data: { matchDayId: 'game', type, eventId: type }, parentLinkId: 'parent', intentType: 'matchday_update' }))
-  assert.equal(new Set(keys).size, 1)
+  assert.equal(new Set(keys).size, 4)
+  assert.equal(keys[1], getParentNotificationDedupeKey({ data: { matchDayId: 'game', type: 'goal', eventId: 'goal' }, parentLinkId: 'parent', intentType: 'matchday_update' }))
   assert.notEqual(keys[0], getParentNotificationDedupeKey({ data: { matchDayId: 'other' }, parentLinkId: 'parent', intentType: 'matchday_update' }))
   const calls = []
   const client = { from: () => ({ upsert: (rows, options) => { calls.push({ rows, options }); return { select: async () => ({ data: [{ id: 1 }] }) } } }) }

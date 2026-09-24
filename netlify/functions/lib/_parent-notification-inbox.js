@@ -33,7 +33,7 @@ function sourceId(data = {}) {
 export function getParentNotificationDedupeKey({ data = {}, intentType, parentLinkId } = {}) {
   const linkId = normalizeText(parentLinkId || data.parentLinkId)
   const kind = normalizeText(intentType || data.type).toLowerCase()
-  const source = kind === 'matchday_update' && normalizeText(data.matchDayId) ? normalizeText(data.matchDayId) : sourceId(data)
+  const source = sourceId(data)
   return linkId && source && kind ? `${kind}:${linkId}:${source}` : ''
 }
 

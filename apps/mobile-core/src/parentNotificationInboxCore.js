@@ -18,7 +18,7 @@ export function getParentMatchNotificationGroupKey(notification = {}) {
   const matchId = normalize(data.matchDayId)
   const kind = normalize(notification.intentType || notification.intent_type)
   return matchId && (kind === 'matchday_update' || ['matchday', 'invites'].includes(normalize(data.route)))
-    ? `${getParentNotificationCategory(notification) === 'invites' ? 'invite' : 'match'}:${normalize(data.parentLinkId)}:${matchId}` : ''
+    ? `${getParentNotificationCategory(notification) === 'invites' ? 'invite' : 'match'}:${normalize(data.parentLinkId)}:${matchId}${kind === 'matchday_update' && normalize(data.eventId) ? `:${normalize(data.eventId)}` : ''}` : ''
 }
 
 function parentChatRoomId(notification = {}) {
@@ -50,6 +50,7 @@ export function getParentOpenedNotificationIds(data = {}, notifications = []) {
     if (normalize(data.parentLinkId) && normalize(candidate.parentLinkId) !== normalize(data.parentLinkId)) return false
     if (getParentMatchNotificationGroupKey({ data })) return normalize(candidate.matchDayId) === normalize(data.matchDayId)
       && getParentNotificationCategory(notification) === getParentNotificationCategory({ data })
+      && (!normalize(data.eventId) || normalize(candidate.eventId) === normalize(data.eventId))
     if ((normalize(data.route) === 'invites' || normalize(data.type) === 'scorer_request') && normalize(data.matchDayId)) {
       return (normalize(candidate.route) === 'invites' || normalize(candidate.type) === 'scorer_request') && normalize(candidate.matchDayId) === normalize(data.matchDayId)
     }

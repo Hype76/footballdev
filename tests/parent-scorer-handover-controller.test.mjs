@@ -12,6 +12,7 @@ for (const failure of ['none','notification','refresh','handover','delayed']) {
   test(`handover controller preserves ended access across ${failure} failure and rejects stale handlers`, async () => {
     let resources = {matches:{items:[match]}}
     const notices = []
+    const selections = []
     const steps = []
     const locks = {current:{}}
     const scorerActionGenerationRef = { current: 0 }
@@ -20,6 +21,7 @@ for (const failure of ['none','notification','refresh','handover','delayed']) {
     const context = {
       isOffline:false,activeActionId:'',selectedMobileUser:{id:'FP TEST parent'},scorerHandoversRef:locks,scorerActionGenerationRef,parentActionScopeRef,
       setActiveActionId: () => {},setNotice: value => { currentNotice = typeof value === 'function' ? value(currentNotice) : value; notices.push(currentNotice) },
+      setSelectedMatchId: value => selections.push(value),
       setResources: updater => {resources=updater(resources);steps.push('controls removed')},
       requestParentScorerReview: async () => {steps.push('save');if(failure==='handover')throw new Error('Could not save');return{scorerReviewRequestedAt:requestedAt}},
       sendParentScorerMatchDayPush: async () => {assert.equal(resources.matches.items[0].isScorer,false);steps.push('notify');if(failure==='delayed')return new Promise(()=>{});return failure==='notification'?null:{success:true}},
@@ -34,13 +36,19 @@ for (const failure of ['none','notification','refresh','handover','delayed']) {
       assert.equal(result.saved,false)
       assert.equal(resources.matches.items[0].isScorer,true)
       assert.deepEqual(steps,['save'])
+      assert.deepEqual(selections,[])
     }else{
       assert.equal(result,true)
       assert.deepEqual(steps,['save','controls removed','refresh','notify'])
+      assert.deepEqual(selections,[''])
       assert.equal(locks.current[match.id],requestedAt)
       assert.equal(await context.handleScorerAction(match,'timer','resume'),false)
-      assert.equal(notices.at(-1).tone,['none','delayed'].includes(failure)?'success':'warning')
-      assert.match(notices.at(-1).message,/scoring access has ended/)
+      if (['notification','refresh'].includes(failure)) {
+        assert.equal(notices.at(-1).tone,'warning')
+        assert.match(notices.at(-1).message,/scoring access has ended/)
+      } else {
+        assert.equal(notices.at(-1),null)
+      }
     }
   })
 }

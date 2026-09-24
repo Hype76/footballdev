@@ -3,9 +3,20 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  canRecordParentScorerEvent,
   getMatchDayLifecycleState,
   getParentScorerTimerActions,
 } from "../src/lib/matchday-lifecycle.js";
+
+test("half-time allows substitutions while keeping goals, cards and score changes paused", () => {
+  const halfTime = { status: "half_time", timerStatus: "half_time", currentMatchPhase: "half_time" };
+  assert.equal(canRecordParentScorerEvent(halfTime, "substitution"), true);
+  for (const type of ["goal", "yellow_card", "red_card", "score_correction"]) {
+    assert.equal(canRecordParentScorerEvent(halfTime, type), false);
+  }
+  assert.equal(canRecordParentScorerEvent({ ...halfTime, status: "full_time", timerStatus: "full_time" }, "substitution"), false);
+  assert.equal(canRecordParentScorerEvent({ status: "live", timerStatus: "running" }, "substitution"), true);
+});
 import { formatMatchTimerClock } from "../src/lib/matchday-timer.js";
 
 const migrationPath = new URL(
