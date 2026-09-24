@@ -692,12 +692,14 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
 
   useEffect(() => {
     const requestedEventId = String(searchParams.get('eventId') ?? '').trim()
+    const requestedOccurrenceDate = String(searchParams.get('occurrenceDate') ?? '').trim()
 
     if (!requestedEventId) {
       return
     }
 
-    const requestedEvent = parentCalendarEvents.find((event) => String(event.sourceId) === requestedEventId)
+    const matchingEvents = parentCalendarEvents.filter((event) => String(event.sourceId) === requestedEventId)
+    const requestedEvent = matchingEvents.find((event) => String(event.occurrenceDate || event.date || '') === requestedOccurrenceDate) || matchingEvents[0]
 
     if (requestedEvent) {
       setActiveSection('calendar')

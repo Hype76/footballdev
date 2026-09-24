@@ -4,15 +4,20 @@ import test from 'node:test'
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('existing Match Day edit exposes role requests and the existing invitation send choice', async () => {
-  const source = await read('src/pages/SessionsPage.jsx')
+test('existing Match Day edit exposes role requests and sends actionable invitations only after the review choice', async () => {
+  const [source, notifications] = await Promise.all([
+    read('src/pages/SessionsPage.jsx'),
+    read('src/lib/domain/calendar-events.js'),
+  ])
   assert.match(source, /isMatchFixture && event\?\.sourceType === 'match-day'/)
   for (const name of ['requestScorer', 'requestLinesman', 'requestReferee']) {
     assert.match(source, new RegExp(`\\['${name}', 'Request`))
     assert.match(source, new RegExp(`${name}: calendarForm\\.${name}`))
   }
-  assert.match(source, /Send updated invitations to parents/)
-  assert.match(source, /Sends secure availability and configured volunteer response links/)
+  assert.match(source, /Send notification & save/)
+  assert.match(source, /decision\?\.notifyEveryone && shouldNotifyNewlyEnabledVolunteerRoles/)
+  assert.match(source, /notifyCalendarEventParents\(/)
+  assert.match(notifications, /send-match-day-availability-requests/)
   assert.match(source, /Manage volunteer assignments/)
   assert.match(source, /\/match-day\?fixture=\$\{encodeURIComponent\(matchDayId\)\}&section=roles/)
 })

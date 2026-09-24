@@ -53,7 +53,7 @@ test('Calendar change notification storage is service-only and accepts the three
   }
 })
 
-test('web asks before reschedules, cancellations, and deletions and commits only after the mutation', async () => {
+test('web reviews every saved edit and preserves cancellation choices', async () => {
   const [page, matchDay, client, modal] = await Promise.all([
     source('src/pages/SessionsPage.jsx'),
     source('src/pages/MatchDayPage.jsx'),
@@ -61,7 +61,10 @@ test('web asks before reschedules, cancellations, and deletions and commits only
     source('src/components/ui/ConfirmModal.jsx'),
   ])
   assert.match(page, /Notify everyone about this \$\{calendarChangePrompt\?\.action/)
-  assert.match(page, /secondaryActionLabel="Do not notify"/)
+  assert.match(page, /Review calendar changes/)
+  assert.match(page, /'Save only'/)
+  assert.match(page, /'Send notification & save'/)
+  assert.match(page, /previewCalendarChangeNotification/)
   assert.match(page, /prepareCalendarChangeNotification[\s\S]*commitCalendarChangeNotification/)
   assert.doesNotMatch(page, /window\.confirm\(deleteMessage\)/)
   assert.match(matchDay, /notificationChoice: status === 'cancelled'/)
@@ -78,7 +81,9 @@ test('Coach OTA Calendar asks the same question and supports reschedule, cancel,
   assert.match(screen, /Alert\.alert\(/)
   assert.match(screen, /Notify everyone/)
   assert.match(screen, /Do not notify/)
-  assert.match(screen, /prepareCoachCalendarChangeNotification\(selected, 'rescheduled'\)/)
+  assert.match(screen, /prepareCoachCalendarChangeNotification\(selected, 'rescheduled', form\)/)
+  assert.match(screen, /previewCoachCalendarChangeNotification/)
+  assert.match(screen, /Send notification & save/)
   assert.match(screen, /changeEventState\('cancelled'\)/)
   assert.match(screen, /changeEventState\('deleted'\)/)
   assert.match(data, /calendar-change-notifications/)
@@ -87,7 +92,8 @@ test('Coach OTA Calendar asks the same question and supports reschedule, cancel,
 
 test('server captures recipient authority before the change and verifies it before delivery', async () => {
   const sender = await source('netlify/functions/calendar-change-notifications.js')
-  assert.match(sender, /parent_link_ids: parentLinkIds/)
+  assert.match(sender, /parent_link_ids: previousParentLinkIds/)
+  assert.match(sender, /confirmedParentLinkIds = unique\(\[\.\.\.claimed\.parent_link_ids, \.\.\.currentParentLinkIds\]\)/)
   assert.match(sender, /verifyChange\(preparation\)/)
   assert.match(sender, /if \(!verification\.changed\)/)
   assert.match(sender, /writeParentNotificationInbox/)
@@ -95,6 +101,33 @@ test('server captures recipient authority before the change and verifies it befo
   assert.match(sender, /sendEmail/)
   assert.match(sender, /if \(!link\.auth_user_id\) return Boolean\(normalizeText\(link\.email\)\)/)
   assert.match(sender, /status: 'committed'/)
+  assert.match(sender, /operation === 'preview'/)
+  assert.match(sender, /resource_library_links/)
+  assert.match(sender, /calendarEventId: preparation\.change_action/)
+})
+
+test('edit review separates resource, schedule, and audience changes and detects an unchanged event', async () => {
+  const { buildCalendarEditReview } = await import('../src/lib/calendar-edit-review.js')
+  const before = { title: 'Training', date: '2026-10-03', startTime: '10:00', resourceIds: ['old'], invitedPlayerIds: ['a'] }
+  assert.equal(buildCalendarEditReview({ before, after: { ...before } }).changes.length, 0)
+  const review = buildCalendarEditReview({
+    before,
+    after: { ...before, date: '2026-10-04', resourceIds: ['old', 'new'], invitedPlayerIds: ['a', 'b'] },
+    resourceNames: { new: 'Session plan' },
+    playerNames: { b: 'Alex' },
+  })
+  assert.deepEqual(review.categories, ['Schedule', 'Players', 'Resources'])
+  assert.match(review.notificationBody, /New resource added to Training: Session plan/)
+  assert.ok(review.changes.some((change) => change.detail === 'Player added: Alex'))
+})
+
+test('calendar notification destinations retain the resource occurrence date', async () => {
+  const { resolveParentNotificationOpen } = await import('../apps/mobile-core/src/parentNotificationsCore.js')
+  assert.deepEqual(resolveParentNotificationOpen({
+    app: 'parent', calendarEventId: 'event-1', occurrenceDate: '2026-10-04', route: 'calendar',
+  }, { calendar: ['event-1'] }), {
+    occurrenceDate: '2026-10-04', tab: 'calendar', targetId: 'event-1',
+  })
 })
 
 test('Calendar change copy keeps UK local times and date-only changes free of invented times', async () => {

@@ -47,7 +47,9 @@ import { getCalendarPollResults, isCalendarPollClosed } from '../lib/calendar-po
 import {
   commitCalendarChangeNotification,
   prepareCalendarChangeNotification,
+  previewCalendarChangeNotification,
 } from '../lib/calendar-change-notifications.js'
+import { buildCalendarEditReview, getCalendarReviewAudience } from '../lib/calendar-edit-review.js'
 import { getMatchDayDisplayName } from '../lib/matchday-display.js'
 import { buildEventResponsePlayerNavigation } from '../lib/domain/player-profile-navigation.js'
 import { getManageableEventPlayerIds } from '../lib/domain/event-player-selection.js'
@@ -1103,6 +1105,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const currentSessionRef = useRef(null)
   const calendarDeepLinkRequestRef = useRef('')
   const calendarChangeDecisionRef = useRef(null)
+  const calendarEditBaselineRef = useRef(null)
   const userScopeKey = user
     ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}:${user.activeTeamName || ''}`
     : ''
@@ -2313,9 +2316,18 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   }
 
   const handleCalendarEdit = () => {
+    const baseline = {
+      ...calendarForm,
+      invitedPlayerIds: currentCalendarEventInvites.map((invite) => invite.playerId).filter(Boolean),
+    }
+    calendarEditBaselineRef.current = {
+      form: baseline,
+      sourceId: calendarModal?.event?.sourceId,
+      sourceType: calendarModal?.event?.sourceType,
+    }
     setCalendarForm((current) => ({
       ...current,
-      invitedPlayerIds: currentCalendarEventInvites.map((invite) => invite.playerId).filter(Boolean),
+      invitedPlayerIds: baseline.invitedPlayerIds,
     }))
     setCalendarModal((current) => ({ ...current, mode: 'edit' }))
   }
@@ -3194,15 +3206,52 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const activeEvent = calendarModal?.event || null
     const sourceType = activeEvent?.sourceType || ''
     const isRescheduled = hasCalendarDateTimeChange({ event: activeEvent, form: calendarForm })
-    const changeKey = activeEvent?.sourceId ? `save:${activeEvent.sourceType}:${activeEvent.sourceId}:rescheduled` : ''
+    const changeKey = activeEvent?.sourceId ? `save:${activeEvent.sourceType}:${activeEvent.sourceId}` : ''
     const decision = calendarChangeDecisionRef.current?.key === changeKey ? calendarChangeDecisionRef.current : null
-    if (isRescheduled && !decision) {
-      setCalendarChangePrompt({
-        action: 'rescheduled',
+    if (sourceType === 'calendar' && isCalendarResourcesLoading) {
+      setCalendarValidation({ fieldName: 'resourceIds', message: 'Wait for event Resources to load before reviewing changes.' })
+      return
+    }
+    if (activeEvent?.sourceId && !decision) {
+      const before = calendarEditBaselineRef.current?.sourceId === activeEvent.sourceId
+        && calendarEditBaselineRef.current?.sourceType === activeEvent.sourceType
+        ? { ...calendarEditBaselineRef.current.form }
+        : getFormFromCalendarEvent(activeEvent, calendarInvites)
+      before.resourceIds = currentCalendarEventResources.map((resource) => String(resource.id))
+      const playerNames = Object.fromEntries(calendarInvitePlayers.map((player) => [String(player.id), player.playerName]))
+      const resourceNames = Object.fromEntries(calendarResourceOptions.map((resource) => [String(resource.id), resource.title]))
+      const review = buildCalendarEditReview({ before, after: calendarForm, playerNames, resourceNames })
+      const actionableInvitation = getNewlyEnabledCalendarVolunteerRoles({ event: activeEvent, form: calendarForm }).length > 0
+      const prompt = {
+        action: isRescheduled ? 'rescheduled' : 'updated',
         key: changeKey,
         operation: 'save',
+        actionableInvitation,
+        review,
+        audience: getCalendarReviewAudience({ ...calendarForm, shareWithParents: calendarForm.shareWithParents }, calendarInvitePlayers),
+        recipientCount: null,
+        scheduledNotice: calendarForm.requestTrainingAvailability
+          ? 'Availability requests and reminders follow the saved schedule, including when you choose Save only.'
+          : '',
         title: activeEvent.title || calendarForm.title || 'Calendar item',
-      })
+      }
+      setCalendarChangePrompt(prompt)
+      if (review.changes.length) {
+        void previewCalendarChangeNotification({
+          parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
+          playerIds: calendarForm.invitedPlayerIds,
+          sourceId: activeEvent.sourceId,
+          sourceType: activeEvent.sourceType,
+        }).then((preview) => {
+          setCalendarChangePrompt((current) => current?.key === changeKey
+            ? { ...current, recipientCount: preview.recipientCount }
+            : current)
+        }).catch((previewError) => {
+          setCalendarChangePrompt((current) => current?.key === changeKey
+            ? { ...current, recipientError: previewError.message || 'Recipients could not be checked.' }
+            : current)
+        })
+      }
       return
     }
     calendarChangeDecisionRef.current = null
@@ -3232,12 +3281,14 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     let changeNotificationPreparation = null
 
     try {
-      if (isRescheduled && decision?.notifyEveryone) {
+      if (activeEvent?.sourceId && decision?.notifyEveryone && !shouldNotifyNewlyEnabledVolunteerRoles) {
         changeNotificationPreparation = await prepareCalendarChangeNotification({
           changeAction: 'rescheduled',
           requestToken: crypto.randomUUID(),
           sourceId: activeEvent.sourceId,
           sourceType: activeEvent.sourceType,
+          parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
+          playerIds: calendarForm.invitedPlayerIds,
         })
       }
       if (sourceType === 'assessment-reminder') {
@@ -3389,8 +3440,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         const sharedAllClubParents = calendarForm.shareWithParents && calendarForm.parentAudience === 'all_club_parents'
         const notificationPlayers = buildCalendarNotificationPlayers(calendarForm, calendarInvitePlayers, selectedCalendarInvitePlayers)
         const notifyRequested = (
-          (calendarForm.notifyInvitedFamilies && !isRescheduled)
-          || shouldNotifyNewlyEnabledVolunteerRoles
+          sourceType
+            ? decision?.notifyEveryone && shouldNotifyNewlyEnabledVolunteerRoles
+            : calendarForm.notifyInvitedFamilies || shouldNotifyNewlyEnabledVolunteerRoles
         )
           && (sharedInvolvedPlayers || sharedAllTeamParents || sharedAllClubParents)
 
@@ -4327,25 +4379,46 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     <ConfirmModal
       isOpen={Boolean(calendarChangePrompt)}
       isBusy={isSaving}
-      title={`Notify everyone about this ${calendarChangePrompt?.action || 'change'}?`}
+      title={calendarChangePrompt?.operation === 'save' ? 'Review calendar changes' : `Notify everyone about this ${calendarChangePrompt?.action || 'change'}?`}
       message={calendarChangePrompt?.action === 'cancelled'
         ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar. Choose whether everyone involved should receive an app notification and email.'
         : calendarChangePrompt?.action === 'deleted'
           ? `Delete ${calendarChangePrompt?.title || 'this Calendar item'}? If this is a repeat series, the entire series will be deleted. This cannot be undone. Choose whether everyone involved should receive an app notification and email.`
-          : `${calendarChangePrompt?.title || 'This Calendar item'} will be ${calendarChangePrompt?.action || 'changed'}. Choose whether everyone involved should receive an app notification and email.`}
-      itemsTitle="Your choices"
-      items={[
+          : calendarChangePrompt?.operation === 'save'
+            ? calendarChangePrompt?.review?.changes.length ? 'Check the changes and choose how to save.' : 'No changes to save.'
+            : `${calendarChangePrompt?.title || 'This Calendar item'} will be ${calendarChangePrompt?.action || 'changed'}. Choose whether everyone involved should receive an app notification and email.`}
+      itemsTitle={calendarChangePrompt?.operation === 'save' ? 'What changed' : 'Your choices'}
+      items={calendarChangePrompt?.operation === 'save'
+        ? calendarChangePrompt.review.changes.map((change) => `${change.category}: ${change.detail}`)
+        : [
         'Notify everyone: Send the update after the change is confirmed',
         'Do not notify: Save the change without contacting anyone',
         'Go back: Make no change yet',
       ]}
-      cancelLabel="Go back"
-      secondaryActionLabel="Do not notify"
-      confirmLabel="Notify everyone"
+      cancelLabel={calendarChangePrompt?.operation === 'save' ? 'Close' : 'Go back'}
+      secondaryActionLabel={calendarChangePrompt?.operation === 'save' ? 'Save only' : 'Do not notify'}
+      secondaryActionDisabled={calendarChangePrompt?.operation === 'save' && !calendarChangePrompt.review.changes.length}
+      confirmLabel={calendarChangePrompt?.operation === 'save' ? 'Send notification & save' : 'Notify everyone'}
+      confirmDisabled={calendarChangePrompt?.operation === 'save' && (!calendarChangePrompt.review.changes.length || calendarChangePrompt.recipientCount === null)}
       onCancel={() => setCalendarChangePrompt(null)}
       onSecondaryAction={() => resumeCalendarChange(false)}
       onConfirm={() => resumeCalendarChange(true)}
-    />
+    >
+      {calendarChangePrompt?.operation === 'save' && calendarChangePrompt.review.changes.length ? (
+        <div className="space-y-3 text-sm font-semibold text-[var(--text-muted)]">
+          <p><strong>Recipients:</strong> {calendarChangePrompt.audience}. {calendarChangePrompt.recipientCount === null ? 'Checking contacts...' : `${calendarChangePrompt.recipientCount} parent contact${calendarChangePrompt.recipientCount === 1 ? '' : 's'} in scope.`}</p>
+          {calendarChangePrompt.recipientError ? <p role="alert">{calendarChangePrompt.recipientError}</p> : null}
+          {calendarChangePrompt.scheduledNotice ? <p>{calendarChangePrompt.scheduledNotice}</p> : null}
+          <div aria-label="Notification preview">
+            <p className="font-black text-[var(--text-primary)]">Notification preview</p>
+            {calendarChangePrompt.actionableInvitation
+              ? <p>Updated match invitation: Availability and volunteer requests for {calendarChangePrompt.title}.</p>
+              : <p>{calendarChangePrompt.review.notificationTitle}: {calendarChangePrompt.review.notificationBody}</p>}
+            <p>Opens the affected {calendarChangePrompt.actionableInvitation ? 'fixture' : 'calendar event'}.</p>
+          </div>
+        </div>
+      ) : null}
+    </ConfirmModal>
   )
 
   if (calendarOnly) {
@@ -6709,7 +6782,7 @@ function CalendarEventModal({
                     </span>
                   </span>
                 </label>
-                {form.shareWithParents ? (
+                {!event && form.shareWithParents ? (
                   <label className="mt-4 flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
                     <input
                       type="checkbox"
@@ -6720,7 +6793,7 @@ function CalendarEventModal({
                       className="mt-1 h-5 w-5 accent-[#047857]"
                     />
                     <span>
-                      {event ? 'Send updated invitations to club families' : 'Notify club families'}
+                      Notify club families
                       <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
                         Sends one club-branded event invitation to each eligible active family contact.
                       </span>
@@ -6752,7 +6825,7 @@ function CalendarEventModal({
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4" data-calendar-field="volunteerRequests">
                 <p className="text-sm font-black text-[#101828]">Parent volunteer requests</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-                  Choose the roles needed for this fixture. Saving a newly enabled role sends the normal parent invitations automatically.
+                  Choose the roles needed for this fixture. The save review lets you decide whether to send the parent requests now.
                 </p>
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                   {[
@@ -6816,7 +6889,7 @@ function CalendarEventModal({
                   Only involved players fails closed unless at least one player is attached below.
                 </p>
               ) : null}
-              {form.shareWithParents && form.parentAudience === 'all_team_parents' && hasInviteTeam ? (
+              {!event && form.shareWithParents && form.parentAudience === 'all_team_parents' && hasInviteTeam ? (
                 <label className="mt-4 flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
                   <input
                     type="checkbox"
@@ -6827,7 +6900,7 @@ function CalendarEventModal({
                     className="mt-1 h-5 w-5 accent-[#047857]"
                   />
                   <span>
-                    {event ? 'Send updated invitations to team families' : 'Notify team families'}
+                    Notify team families
                     <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
                       {isMatchFixture
                         ? 'Sends secure availability and configured volunteer response links for this Match Day fixture.'
@@ -6950,7 +7023,7 @@ function CalendarEventModal({
                       ))}
                     </div>
 
-                    {!isTrainingRsvpMode ? (
+                    {!event && !isTrainingRsvpMode ? (
                     <label className="flex min-h-12 items-start gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
                       <input
                         type="checkbox"
@@ -6961,7 +7034,7 @@ function CalendarEventModal({
                         className="mt-1 h-5 w-5 accent-[#047857]"
                       />
                       <span>
-                        {event ? 'Send updated invitations to parents' : 'Notify invited families'}
+                        Notify invited families
                         <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
                           {isMatchFixture
                             ? 'Sends secure availability and configured volunteer response links for this Match Day fixture.'

@@ -28,12 +28,14 @@ import {
   deleteCoachCalendarEvent,
   getCoachCalendarResources,
   prepareCoachCalendarChangeNotification,
+  previewCoachCalendarChangeNotification,
   saveCoachCalendarEvent,
   saveCoachTrainingInvitation,
   syncCoachCalendarEventResources,
 } from '../../mobile-core/src/coachCalendarData'
 import { getCoachTeamNotificationDisplayName } from '../../mobile-core/src/coachTeamNotificationData'
 import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
+import { buildCalendarEditReview, getCalendarReviewAudience } from '../../../src/lib/calendar-edit-review.js'
 import { getMatchDayShirtChoiceLabel } from '../../../src/lib/matchday-model.js'
 import { getCoachResourceAccessUrl, getCoachResources } from '../../mobile-core/src/coachPhase31EData'
 import {
@@ -279,6 +281,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   const [selectedDate, setSelectedDate] = useState('')
   const [focusedEventId, setFocusedEventId] = useState('')
   const handledTarget = useRef(null)
+  const calendarEditBaseline = useRef(null)
   const [saveConfirmation, setSaveConfirmation] = useState('')
   const [stale, setStale] = useState(false)
   const [teamNotificationName, setTeamNotificationName] = useState(
@@ -371,12 +374,14 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
     const nextForm = coachCalendarFormFromEvent(event
       ? { ...event, resourceIds: getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType) }
       : null, context)
-    setForm({
+    const openedForm = {
       ...nextForm,
       notificationTeamName: nextForm.notificationTeamName || teamNotificationName,
       ...(!event && selectedDate ? { date: formatCoachCalendarFormDate(selectedDate) } : {}),
       ...(!event && !nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}),
-    })
+    }
+    calendarEditBaseline.current = event ? { sourceId: event.sourceId, form: openedForm } : null
+    setForm(openedForm)
   }
   useEffect(() => {
     if (quickAction?.route !== 'calendar') return
@@ -406,6 +411,23 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       { cancelable: true, onDismiss: () => resolve(null) },
     )
   })
+  const chooseSaveReview = (review, audience, recipientCount, scheduledNotice = '') => new Promise((resolve) => {
+    if (!review.changes.length) {
+      Alert.alert('No changes to save', 'The event has no changes.', [{ text: 'Close', onPress: () => resolve(null) }])
+      return
+    }
+    const changed = review.changes.map((change) => `${change.category}: ${change.detail}`).join('\n')
+    Alert.alert(
+      'Review calendar changes',
+      `${changed}\n\nRecipients: ${audience}. ${recipientCount === null ? 'Could not check contacts. Save only is still available.' : `${recipientCount} parent contacts in scope.`}\n\nNotification preview\n${review.notificationTitle}: ${review.notificationBody}\nOpens the affected calendar event.${scheduledNotice ? `\n\n${scheduledNotice}` : ''}`,
+      [
+        { text: 'Close', style: 'cancel', onPress: () => resolve(null) },
+        { text: 'Save only', onPress: () => resolve(false) },
+        ...(recipientCount === null ? [] : [{ text: 'Send notification & save', onPress: () => resolve(true) }]),
+      ],
+      { cancelable: true, onDismiss: () => resolve(null) },
+    )
+  })
   const save = async () => {
     Keyboard.dismiss()
     setSaving(true)
@@ -413,15 +435,30 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
     setFormError('')
     setSaveConfirmation('')
     try {
-      const original = selected ? coachCalendarFormFromEvent(selected, context) : null
-      const isRescheduled = Boolean(original && (
-        original.date !== form?.date
-        || original.startTime !== form?.startTime
-        || original.endTime !== form?.endTime
-      ))
-      const notifyEveryone = isRescheduled ? await chooseNotification('rescheduled', selected?.title) : false
-      if (isRescheduled && notifyEveryone === null) return
-      const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled') : null
+      const original = selected
+        ? calendarEditBaseline.current?.sourceId === selected.sourceId
+          ? calendarEditBaseline.current.form
+          : coachCalendarFormFromEvent({
+            ...selected,
+            resourceIds: getCoachCalendarEventResourceIds(resources, selected.sourceId, selected.occurrenceDate || selected.calendarDate, selected.sourceType),
+          }, context)
+        : null
+      const review = original ? buildCalendarEditReview({
+        before: original,
+        after: form,
+        playerNames: Object.fromEntries(players.map((player) => [String(player.id), player.playerName])),
+        resourceNames: Object.fromEntries(resources.map((resource) => [String(resource.id), resource.title])),
+      }) : null
+      let notifyEveryone = false
+      if (review) {
+        const preview = review.changes.length
+          ? await previewCoachCalendarChangeNotification(selected, form).catch(() => ({ recipientCount: null }))
+          : { recipientCount: 0 }
+        notifyEveryone = await chooseSaveReview(review, getCalendarReviewAudience(form, players), preview.recipientCount ?? null,
+          form.requestTrainingAvailability ? 'Availability requests and reminders follow the saved schedule, including when you choose Save only.' : '')
+        if (notifyEveryone === null) return
+      }
+      const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled', form) : null
       const attachmentOccurrenceDate = selected?.occurrenceDate || selected?.calendarDate || form?.date
       const savedEvent = await saveCoachCalendarEvent(user, form, selected)
       let attachmentMessage = ''

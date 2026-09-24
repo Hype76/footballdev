@@ -21,10 +21,22 @@ async function callCalendarChangeNotifications(payload) {
   return result
 }
 
-export async function prepareCalendarChangeNotification({ changeAction, requestToken, sourceId, sourceType }) {
+export async function previewCalendarChangeNotification({ parentAudience, playerIds = [], sourceId, sourceType }) {
+  return callCalendarChangeNotifications({
+    operation: 'preview',
+    parentAudience: normalizeText(parentAudience),
+    playerIds,
+    sourceId: normalizeText(sourceId),
+    sourceType: normalizeText(sourceType),
+  })
+}
+
+export async function prepareCalendarChangeNotification({ changeAction, parentAudience, playerIds = [], requestToken, sourceId, sourceType }) {
   return callCalendarChangeNotifications({
     changeAction: normalizeText(changeAction),
     operation: 'prepare',
+    parentAudience: normalizeText(parentAudience),
+    playerIds,
     requestToken: normalizeText(requestToken),
     sourceId: normalizeText(sourceId),
     sourceType: normalizeText(sourceType),

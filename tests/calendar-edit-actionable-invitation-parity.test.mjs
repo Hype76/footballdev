@@ -122,14 +122,15 @@ test('edits reuse active tokens and safely rotate only when no reusable token re
   assert.match(responseFunction, /id="volunteer-\$\{escapeHtml\(normalizeText\(label\)\.toLowerCase\(\)\)\}"/)
 })
 
-test('edit remains opt-in except when a volunteer role is newly enabled', async () => {
+test('edited volunteer requests use the review choice and preserve actionable invitations', async () => {
   const sessionsPage = await readFile(sessionsPageUrl, 'utf8')
 
   assert.match(sessionsPage, /if \(shouldQueueCalendarNotification\) \{[\s\S]*notifyCalendarEventParents/)
   assert.match(sessionsPage, /shouldQueueCalendarNotification = notifyRequested[\s\S]*!\(isTraining && calendarForm\.requestTrainingAvailability\)/)
-  assert.match(sessionsPage, /Send updated invitations to parents/)
-  assert.match(sessionsPage, /secure availability and configured volunteer response links/)
-  assert.match(sessionsPage, /const notifyRequested = \([\s\S]*calendarForm\.notifyInvitedFamilies[\s\S]*shouldNotifyNewlyEnabledVolunteerRoles/)
+  assert.match(sessionsPage, /Send notification & save/)
+  assert.match(sessionsPage, /Updated match invitation: Availability and volunteer requests/)
+  assert.match(sessionsPage, /decision\?\.notifyEveryone && shouldNotifyNewlyEnabledVolunteerRoles/)
+  assert.match(sessionsPage, /const notifyRequested = \([\s\S]*decision\?\.notifyEveryone && shouldNotifyNewlyEnabledVolunteerRoles/)
 })
 
 test('calendar-only fixtures expose a clear first-send action after creation', async () => {

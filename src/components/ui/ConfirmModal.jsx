@@ -54,6 +54,7 @@ export function ConfirmModal({
   requireReason = false,
   requirePassword = false,
   secondaryActionLabel = '',
+  secondaryActionDisabled = false,
   title = 'Confirm action',
 }) {
   const [password, setPassword] = useState('')
@@ -182,7 +183,7 @@ export function ConfirmModal({
   }
 
   const handleSecondaryAction = async () => {
-    if (!onSecondaryAction || isBusy || isSubmitting || submittingRef.current) return
+    if (!onSecondaryAction || isBusy || isSubmitting || submittingRef.current || secondaryActionDisabled) return
     setValidationError('')
     submittingRef.current = true
     setIsSubmitting(true)
@@ -355,7 +356,7 @@ export function ConfirmModal({
             <button
               type="button"
               onClick={handleSecondaryAction}
-              disabled={isActionBusy}
+              disabled={isActionBusy || secondaryActionDisabled}
               title={cancelDisabledReason}
               className={cancelButtonClassName}
             >
