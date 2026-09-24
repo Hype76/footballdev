@@ -52,7 +52,7 @@ test('failed Parent saves send no success notification and keep the form open', 
   assert.equal(notified,false)
 })
 
-test('Parent scorer confirms a committed save without waiting for push delivery or global refresh', async () => {
+test('Parent scorer completes a committed save quietly without waiting for push delivery or global refresh', async () => {
   let releasePush
   let releaseRefresh
   let saves = 0
@@ -70,7 +70,7 @@ test('Parent scorer confirms a committed save without waiting for push delivery 
   assert.equal(saves, 1)
   assert.equal(pushCalls, 1)
   assert.equal(refreshCalls, 1)
-  assert.equal(notices.at(-1).tone, 'success')
+  assert.equal(notices.at(-1), null)
   assert.equal(activeActions.at(-1), '', 'Saving indicator clears before background work completes')
   releasePush()
   releaseRefresh()
@@ -96,7 +96,7 @@ test('scorer keeps saving active until the authoritative save resolves', async (
   assert.equal(followups, 2)
 })
 
-test('older scorer background failures cannot replace a newer action notice', async () => {
+test('older scorer background failures cannot add a notice after a newer quiet save', async () => {
   let resolveFirstPush
   const firstPush = new Promise((resolve) => { resolveFirstPush = resolve })
   let notifyCalls = 0
@@ -114,7 +114,7 @@ test('older scorer background failures cannot replace a newer action notice', as
   assert.equal(await fn(match, 'goal', {}), true)
   resolveFirstPush(null)
   await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(notices.at(-1).tone, 'success')
+  assert.equal(notices.at(-1), null)
 })
 
 test('scorer background warnings preserve a newer unrelated notice', async () => {
