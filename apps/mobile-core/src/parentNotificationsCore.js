@@ -206,6 +206,7 @@ export function resolveParentNotificationOpen(data, available = {}) {
   }
 
   return {
+    ...(tab === 'calendar' && normalize(data?.occurrenceDate) ? { occurrenceDate: normalize(data.occurrenceDate) } : {}),
     targetId: targetId && (!availabilityProvided || availableIds.has(targetId)) ? targetId : '',
     tab,
   }

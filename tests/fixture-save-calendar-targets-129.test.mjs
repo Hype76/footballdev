@@ -17,7 +17,7 @@ test('Calendar-only route renders its reschedule notification choice', async () 
   assert.notEqual(calendarRoute, -1)
   assert.notEqual(historyRoute, -1)
   assert.match(calendarRouteSource, /<CalendarEventModal[\s\S]*\{calendarChangeConfirmModal\}/)
-  assert.match(sessions, /if \(isRescheduled && !decision\)[\s\S]*setCalendarChangePrompt/)
+  assert.match(sessions, /if \(activeEvent\?\.sourceId && !decision\)[\s\S]*setCalendarChangePrompt/)
   assert.match(sessions, /onSecondaryAction=\{\(\) => resumeCalendarChange\(false\)\}/)
 })
 

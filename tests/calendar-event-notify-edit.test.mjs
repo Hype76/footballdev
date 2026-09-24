@@ -148,7 +148,8 @@ test('the Parent Portal deep link selects only an authorised relationship and op
   assert.match(parentPortalPage, /searchParams\.get\('parentLinkId'\)/i)
   assert.match(parentPortalPage, /links\.some\(\(link\) => link\.id === requestedParentLinkId\)/i)
   assert.match(parentPortalPage, /searchParams\.get\('eventId'\)/i)
-  assert.match(parentPortalPage, /parentCalendarEvents\.find\(\(event\) => String\(event\.sourceId\) === requestedEventId\)/i)
+  assert.match(parentPortalPage, /parentCalendarEvents\.filter\(\(event\) => String\(event\.sourceId\) === requestedEventId\)/i)
+  assert.match(parentPortalPage, /matchingEvents\.find\(\(event\) => String\(event\.occurrenceDate \|\| event\.date \|\| ''\) === requestedOccurrenceDate\)/i)
   assert.match(parentPortalPage, /setSelectedCalendarEventId\(requestedEvent\.id\)/i)
 })
 

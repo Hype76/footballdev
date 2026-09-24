@@ -102,6 +102,7 @@ export function buildCalendarNotificationHtml({
   action = 'creation',
   clubLogoUrl = '',
   clubName,
+  changes = [],
   endsAt = '',
   eventTitle,
   eventType,
@@ -165,6 +166,7 @@ export function buildCalendarNotificationHtml({
       <h1 style="margin:0 0 4px;color:#142018;font-size:25px;line-height:1.25;">${escapeHtml(resolvedTitle)}</h1>
       <p style="margin:0 0 22px;color:#52635a;font-size:15px;font-weight:700;">${escapeHtml(resolvedTeamName)}</p>
       <p style="margin:0 0 16px;color:#142018;font-size:16px;">Hi ${escapeHtml(resolvedParentName)}, ${escapeHtml(changeSummary)}</p>
+      ${changes.length ? `<div style="margin:0 0 20px;"><p style="margin:0 0 8px;font-weight:800;">What changed</p><ul style="margin:0;padding-left:20px;">${changes.slice(0, 12).map((change) => `<li>${escapeHtml(change)}</li>`).join('')}</ul></div>` : ''}
       <div style="margin:0 0 22px;padding:18px;border:1px solid #d8e5dc;border-radius:12px;background:#f7faf8;">
         <p style="margin:0 0 8px;color:#52635a;font-size:12px;font-weight:800;text-transform:uppercase;">Event details</p>
         <p style="margin:0 0 7px;color:#142018;font-size:14px;"><strong>Type:</strong> ${escapeHtml(resolvedType)}</p>

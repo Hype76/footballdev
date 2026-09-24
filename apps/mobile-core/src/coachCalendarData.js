@@ -351,13 +351,28 @@ async function callCoachCalendarChangeNotifications(payload) {
   return result
 }
 
-export async function prepareCoachCalendarChangeNotification(event, changeAction) {
+export async function previewCoachCalendarChangeNotification(event, form) {
+  if (!event?.sourceId || event.sourceType !== 'calendar_event') {
+    throw new Error('Open a saved Calendar event before reviewing recipients.')
+  }
+  return callCoachCalendarChangeNotifications({
+    operation: 'preview',
+    parentAudience: form?.parentVisible ? form.parentAudience : 'none',
+    playerIds: form?.involvedPlayerIds || [],
+    sourceId: event.sourceId,
+    sourceType: 'calendar',
+  })
+}
+
+export async function prepareCoachCalendarChangeNotification(event, changeAction, form = null) {
   if (!event?.sourceId || event.sourceType !== 'calendar_event') {
     throw new Error('Open Match Day or Sessions to change this item.')
   }
   return callCoachCalendarChangeNotifications({
     changeAction,
     operation: 'prepare',
+    parentAudience: form?.parentVisible ? form.parentAudience : '',
+    playerIds: form?.involvedPlayerIds || [],
     requestToken: Crypto.randomUUID(),
     sourceId: event.sourceId,
     sourceType: 'calendar',

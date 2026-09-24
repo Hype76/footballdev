@@ -79,7 +79,7 @@ test('calendar and Match Day flows persist and display pitch type', async () => 
   assert.match(workflow, /pitchType: assertValidPitchType\(intent\.pitchType\)/)
 })
 
-test('calendar edit automatically uses the existing notification service for newly enabled roles', async () => {
+test('calendar edit offers the existing notification service for newly enabled roles', async () => {
   const sessionsPage = await readFile(sessionsPageUrl, 'utf8')
 
   assert.match(sessionsPage, /getNewlyEnabledCalendarVolunteerRoles\(\{[\s\S]*event: activeEvent,[\s\S]*form: calendarForm/)
@@ -87,5 +87,6 @@ test('calendar edit automatically uses the existing notification service for new
   assert.match(sessionsPage, /requestToken: notificationRequestToken/)
   assert.match(sessionsPage, /notifyCalendarEventParents\(\{/)
   assert.match(sessionsPage, /Share this fixture with parents and choose an audience/)
-  assert.match(sessionsPage, /Saving a newly enabled role sends the normal parent invitations automatically/)
+  assert.match(sessionsPage, /The save review lets you decide whether to send the parent requests now/)
+  assert.match(sessionsPage, /decision\?\.notifyEveryone && shouldNotifyNewlyEnabledVolunteerRoles/)
 })

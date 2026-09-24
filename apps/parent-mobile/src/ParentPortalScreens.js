@@ -456,7 +456,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
   )
 }
 
-export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, resource, themeTokens, onOpenEventDetails, upcomingOnly = false }) {
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, resource, targetEventId = '', targetOccurrenceDate = '', targetRequestId = 0, themeTokens, onOpenEventDetails, upcomingOnly = false }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [selectedEventKey, setSelectedEventKey] = useState('')
   const [detailPlayerId, setDetailPlayerId] = useState(link?.id)
@@ -479,6 +479,14 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
     () => resource.items.filter((event) => !isParentCalendarEventCancelled(event)),
     [resource.items],
   )
+  useEffect(() => {
+    if (!targetEventId) return
+    const matchingEvents = activeEvents.filter((event) => [event.id, event.sourceId].some((id) => String(id || '') === String(targetEventId)))
+    const target = matchingEvents.find((event) => (event.occurrenceDate || event.calendarDate) === targetOccurrenceDate) || matchingEvents[0]
+    if (!target) return
+    const frame = requestAnimationFrame(() => setSelectedEventKey(getParentEventKey(target)))
+    return () => cancelAnimationFrame(frame)
+  }, [activeEvents, targetEventId, targetOccurrenceDate, targetRequestId])
   const filteredEvents = useMemo(
     () => activeEvents.filter((event) => markerTones.includes(getParentCalendarMarkerTone(event))),
     [activeEvents, markerTones],

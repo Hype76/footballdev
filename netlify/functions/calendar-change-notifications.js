@@ -1,4 +1,5 @@
 import { hasCalendarSourceChanged, resolveCalendarChangeAction } from '../../src/lib/calendar-change-classification.js'
+import { buildCalendarEditReview } from '../../src/lib/calendar-edit-review.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import process from 'node:process'
 import webpush from 'web-push'
@@ -103,28 +104,65 @@ async function maybeSingle(query, message) {
 
 async function loadSource(sourceType, sourceId, clubId, { required = true } = {}) {
   if (sourceType === 'calendar') {
-    return maybeSingle(
+    const source = await maybeSingle(
       supabaseAdmin.from('calendar_events')
-        .select('id, club_id, team_id, event_type, title, starts_at, ends_at, location, notes, parent_visible, parent_audience, cancelled_at, updated_at')
+        .select('id, club_id, team_id, event_type, title, starts_at, ends_at, location, notes, parent_visible, parent_audience, recurrence_frequency, recurrence_until, cancelled_at, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Calendar event could not be found.' : '',
     )
+    if (!source) return null
+    const [
+      { data: links, error: linksError },
+      { data: invites, error: invitesError },
+      { data: availability, error: availabilityError },
+    ] = await Promise.all([
+      supabaseAdmin.from('resource_library_links')
+        .select('resource_id, calendar_occurrence_date, resource_library_items(title)')
+        .eq('club_id', clubId).eq('linked_type', 'calendar_event').eq('linked_id', sourceId).is('removed_at', null),
+      supabaseAdmin.from('calendar_event_invites')
+        .select('player_id, players:player_id(player_name)').eq('club_id', clubId).eq('calendar_event_id', sourceId).neq('invite_status', 'cancelled'),
+      supabaseAdmin.from('training_availability_settings')
+        .select('enabled, send_days_before').eq('calendar_event_id', sourceId).maybeSingle(),
+    ])
+    if (linksError || invitesError || availabilityError) throw linksError || invitesError || availabilityError
+    return {
+      ...source,
+      resource_links: (links || []).map((link) => ({
+        id: normalizeText(link.resource_id),
+        date: normalizeText(link.calendar_occurrence_date),
+        title: normalizeText(relation(link.resource_library_items)?.title),
+      })).sort((a, b) => `${a.date}:${a.id}`.localeCompare(`${b.date}:${b.id}`)),
+      invited_player_ids: unique((invites || []).map((invite) => invite.player_id)).sort(),
+      player_names: Object.fromEntries((invites || []).map((invite) => [normalizeText(invite.player_id), normalizeText(relation(invite.players)?.player_name)])),
+      training_availability_enabled: availability?.enabled === true,
+      training_availability_send_days_before: availability?.send_days_before ?? 2,
+    }
   }
   if (sourceType === 'match-day') {
-    return maybeSingle(
+    const source = await maybeSingle(
       supabaseAdmin.from('match_days')
-        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, status, deleted_at, updated_at')
+        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, request_scorer, request_linesman, request_referee, status, deleted_at, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Match Day fixture could not be found.' : '',
     )
+    if (!source) return null
+    const { data: requests, error } = await supabaseAdmin.from('match_day_availability_requests')
+      .select('player_id').eq('club_id', clubId).eq('match_day_id', sourceId)
+    if (error) throw error
+    return { ...source, invited_player_ids: unique((requests || []).map((row) => row.player_id)).sort() }
   }
   if (sourceType === 'session') {
-    return maybeSingle(
+    const source = await maybeSingle(
       supabaseAdmin.from('assessment_sessions')
         .select('id, club_id, team_id, team, opponent, session_type, session_date, start_time, end_time, location, notes, title, status, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Session could not be found.' : '',
     )
+    if (!source) return null
+    const { data: invites, error } = await supabaseAdmin.from('calendar_event_invites')
+      .select('player_id').eq('club_id', clubId).eq('assessment_session_id', sourceId).neq('invite_status', 'cancelled')
+    if (error) throw error
+    return { ...source, invited_player_ids: unique((invites || []).map((row) => row.player_id)).sort() }
   }
   return maybeSingle(
     supabaseAdmin.from('communication_logs')
@@ -258,6 +296,134 @@ function getSourcePresentation(sourceType, source, clubName = '') {
   return { endsAt: '', eventType: 'Development review', location: '', notes: '', startsAt: source.metadata?.dueDate || '', title: 'Development review' }
 }
 
+async function getPlannedParentLinkIds(profile, body, teamId) {
+  const audience = normalizeText(body.parentAudience)
+  if (!audience || audience === 'none') return []
+  if (!['involved_players', 'all_team_parents', 'all_club_parents'].includes(audience)) {
+    throw Object.assign(new Error('Choose a valid parent audience.'), { statusCode: 400 })
+  }
+  if (audience === 'all_club_parents' && profile.roleRank < 50) {
+    throw Object.assign(new Error('Club parent notifications require Club Admin access.'), { statusCode: 403 })
+  }
+  if (audience !== 'all_club_parents' && !teamId) {
+    throw Object.assign(new Error('Choose a team before notifying parents.'), { statusCode: 400 })
+  }
+  if (audience !== 'involved_players') {
+    let query = supabaseAdmin.from('parent_player_links').select('id')
+      .eq('club_id', profile.clubId).eq('status', 'active')
+    if (audience === 'all_team_parents') query = query.eq('team_id', teamId)
+    const { data, error } = await query
+    if (error) throw error
+    return unique((data || []).map((row) => row.id))
+  }
+  const playerIds = unique(body.playerIds)
+  if (!playerIds.length) return []
+  if (playerIds.length > 500 || playerIds.some((id) => !isUuid(id))) {
+    throw Object.assign(new Error('Choose valid involved Players.'), { statusCode: 400 })
+  }
+  const { data: players, error } = await supabaseAdmin.from('players')
+    .select('id').eq('club_id', profile.clubId).eq('team_id', teamId).in('id', playerIds)
+  if (error) throw error
+  if (players?.length !== playerIds.length) {
+    throw Object.assign(new Error('Selected Players must belong to this team.'), { statusCode: 403 })
+  }
+  return getParentLinkIdsForPlayers(profile.clubId, playerIds)
+}
+
+async function getNotificationScope(profile, body) {
+  const sourceType = normalizeText(body.sourceType).toLowerCase()
+  const sourceId = normalizeText(body.sourceId)
+  if (!SOURCE_TYPES.has(sourceType) || !isUuid(sourceId)) {
+    throw Object.assign(new Error('Choose a valid Calendar item.'), { statusCode: 400 })
+  }
+  let source = await loadSource(sourceType, sourceId, profile.clubId)
+  let teamId = normalizeText(source.team_id)
+  if (sourceType === 'assessment-reminder') {
+    const player = await getPlayerTeam(source.player_id, profile.clubId)
+    teamId = normalizeText(player?.team_id)
+    source = { ...source, player_name: player?.player_name || '' }
+  }
+  await assertTeamAuthority(profile, teamId)
+  const previous = await getParentLinkIdsForScope({ clubId: profile.clubId, source, sourceId, sourceType, teamId })
+  const planned = sourceType === 'assessment-reminder'
+    ? []
+    : await getPlannedParentLinkIds(profile, body, teamId)
+  const parentLinkIds = unique([...previous, ...planned])
+  let recipientCount = 0
+  if (parentLinkIds.length) {
+    const { data: links, error } = await supabaseAdmin.from('parent_player_links')
+      .select('auth_user_id, email').eq('club_id', profile.clubId).eq('status', 'active').in('id', parentLinkIds)
+    if (error) throw error
+    recipientCount = unique((links || []).map((link) => link.auth_user_id || normalizeText(link.email).toLowerCase())).length
+  }
+  return { parentLinkIds, previousParentLinkIds: previous, recipientCount, source, sourceId, sourceType, teamId }
+}
+
+function getLondonParts(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return { date: '', time: '' }
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', hour: '2-digit', hourCycle: 'h23', minute: '2-digit', month: '2-digit',
+    timeZone: 'Europe/London', year: 'numeric',
+  }).formatToParts(date).map((part) => [part.type, part.value]))
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` }
+}
+
+function getConfirmedEditReview(sourceType, before, after) {
+  if (!after) return null
+  const project = (source) => {
+    if (sourceType === 'match-day') return {
+      date: source?.match_date,
+      invitedPlayerIds: source?.invited_player_ids,
+      location: source?.venue_name,
+      notes: source?.notes,
+      opponent: source?.opponent,
+      parentAudience: source?.parent_audience,
+      requestLinesman: source?.request_linesman,
+      requestReferee: source?.request_referee,
+      requestScorer: source?.request_scorer,
+      shareWithParents: source?.parent_visible,
+      startTime: source?.kickoff_time_tbc ? 'Time TBC' : source?.kickoff_time,
+    }
+    if (sourceType === 'session') return {
+      date: source?.session_date,
+      endTime: source?.end_time,
+      invitedPlayerIds: source?.invited_player_ids,
+      location: source?.location,
+      notes: source?.notes,
+      startTime: source?.start_time,
+      title: source?.title,
+    }
+    if (sourceType === 'assessment-reminder') return { date: source?.metadata?.dueDate, title: 'Development review' }
+    const resourceLinks = Array.isArray(source?.resource_links) ? source.resource_links : []
+    const start = getLondonParts(source?.starts_at)
+    const end = getLondonParts(source?.ends_at)
+    return {
+      date: start.date,
+      endTime: end.time,
+      eventType: source?.event_type,
+      invitedPlayerIds: source?.invited_player_ids,
+      location: source?.location,
+      notes: source?.notes,
+      parentAudience: source?.parent_audience,
+      recurrenceFrequency: source?.recurrence_frequency,
+      recurrenceUntil: source?.recurrence_until,
+      requestTrainingAvailability: source?.training_availability_enabled,
+      resourceIds: resourceLinks.map((link) => `${link.date}:${link.id}`),
+      shareWithParents: source?.parent_visible,
+      startTime: start.time,
+      title: source?.title,
+      trainingAvailabilitySendDaysBefore: source?.training_availability_send_days_before,
+    }
+  }
+  const names = Object.fromEntries([...(before?.resource_links || []), ...(after?.resource_links || [])]
+    .map((link) => [`${link.date}:${link.id}`, link.title]))
+  return buildCalendarEditReview({
+    before: project(before), after: project(after), resourceNames: names,
+    playerNames: { ...before?.player_names, ...after?.player_names },
+  })
+}
+
 function getChangeCopy(action, presentation) {
   const label = action === 'rescheduled' ? 'Event rescheduled' : action === 'cancelled' ? 'Event cancelled' : action === 'update' ? 'Event updated' : 'Event removed'
   const date = action === 'rescheduled' ? ` New time: ${formatCalendarNotificationDateTime(presentation.startsAt)}.` : ''
@@ -340,6 +506,19 @@ async function deliverPreparation(preparation, currentSource) {
   const changeAction = resolveCalendarChangeAction(preparation.change_action,
     getSourcePresentation(preparation.source_type, preparation.source_snapshot, club.name), presentation)
   const copy = getChangeCopy(changeAction, presentation)
+  const editReview = ['cancelled', 'deleted'].includes(changeAction)
+    ? null
+    : getConfirmedEditReview(preparation.source_type, preparation.source_snapshot, source)
+  const previousResourceKeys = new Set((preparation.source_snapshot?.resource_links || []).map((link) => `${link.date}:${link.id}`))
+  const currentResourceKeys = new Set((source?.resource_links || []).map((link) => `${link.date}:${link.id}`))
+  const changedResourceDate = (source?.resource_links || [])
+    .find((link) => !previousResourceKeys.has(`${link.date}:${link.id}`))?.date
+    || (preparation.source_snapshot?.resource_links || []).find((link) => !currentResourceKeys.has(`${link.date}:${link.id}`))?.date
+    || ''
+  if (editReview?.changes.length) {
+    copy.label = editReview.notificationTitle
+    copy.body = editReview.notificationBody
+  }
   const notificationTeamName = preparation.source_type === 'match-day'
     ? resolveMatchDayNotificationTeamName({ ...source, teams: team }, team?.name || '')
     : resolveTeamNotificationDisplayName(team || {}, team?.name || '')
@@ -347,8 +526,11 @@ async function deliverPreparation(preparation, currentSource) {
   const notificationData = {
     app: 'parent',
     calendarChangeId: preparation.id,
+    calendarEventId: preparation.change_action === 'deleted' ? '' : preparation.source_id,
     eventId: preparation.change_action === 'deleted' ? '' : preparation.source_id,
-    route: 'calendar',
+    matchDayId: preparation.source_type === 'match-day' && preparation.change_action !== 'deleted' ? preparation.source_id : '',
+    occurrenceDate: changedResourceDate,
+    route: preparation.source_type === 'match-day' ? 'matchday' : 'calendar',
     sourceId: preparation.source_id,
     sourceType: preparation.source_type,
     teamId: preparation.team_id || '',
@@ -370,7 +552,10 @@ async function deliverPreparation(preparation, currentSource) {
   if (mobile.invalidTokens?.length) {
     await supabaseAdmin.from('parent_mobile_push_installations').update({ enabled: false, expo_push_token: null, status: 'revoked', updated_at: new Date().toISOString() }).in('expo_push_token', mobile.invalidTokens)
   }
-  const webPayload = { badge: '/icons/favicon-48.png', body: copy.body, icon: '/icons/icon-192.png', tag: `calendar-change-${preparation.id}`, title, url: '/parent-portal?section=calendar' }
+  const eventUrl = preparation.source_type === 'match-day'
+    ? `/parent-portal?section=matches${preparation.change_action === 'deleted' ? '' : `&matchDayId=${encodeURIComponent(preparation.source_id)}`}`
+    : `/parent-portal?section=calendar${preparation.change_action === 'deleted' ? '' : `&eventId=${encodeURIComponent(preparation.source_id)}${changedResourceDate ? `&occurrenceDate=${encodeURIComponent(changedResourceDate)}` : ''}`}`
+  const webPayload = { badge: '/icons/favicon-48.png', body: copy.body, icon: '/icons/icon-192.png', tag: `calendar-change-${preparation.id}`, title, url: eventUrl }
   const webResults = configureWebPush() ? await Promise.all((subscriptions || []).map((subscription) => sendWebPush(subscription, webPayload))) : []
 
   const emailTargets = [...new Map(emailLinks.map((link) => [normalizeText(link.email).toLowerCase(), link])).values()]
@@ -381,6 +566,7 @@ async function deliverPreparation(preparation, currentSource) {
       action: changeAction,
       clubLogoUrl: club.logo_url,
       clubName: club.name,
+      changes: editReview?.changes.map((change) => change.detail) || [],
       endsAt: presentation.endsAt,
       eventTitle: presentation.title,
       eventType: presentation.eventType,
@@ -388,7 +574,9 @@ async function deliverPreparation(preparation, currentSource) {
       notes: presentation.notes,
       parentName: parent?.display_name || parent?.name || 'Parent or guardian',
       playerName: player?.player_name || 'your player',
-      portalUrl: CALENDAR_NOTIFICATION_PARENT_PORTAL_URL,
+      portalUrl: preparation.source_type === 'match-day'
+        ? `${CALENDAR_NOTIFICATION_PARENT_PORTAL_URL.replace('section=calendar', 'section=matches')}${preparation.change_action === 'deleted' ? '' : `&matchDayId=${encodeURIComponent(preparation.source_id)}`}`
+        : `${CALENDAR_NOTIFICATION_PARENT_PORTAL_URL}${preparation.change_action === 'deleted' ? '' : `&eventId=${encodeURIComponent(preparation.source_id)}${changedResourceDate ? `&occurrenceDate=${encodeURIComponent(changedResourceDate)}` : ''}`}`,
       startsAt: presentation.startsAt,
       teamName: notificationTeamName || club.name,
       themeAccent: club.theme_accent,
@@ -404,7 +592,7 @@ async function deliverPreparation(preparation, currentSource) {
     inbox: inbox.inserted,
     mobileFailed: mobile.failed,
     mobileSent: mobile.sent,
-    recipientCount: eligibleLinks.length,
+    recipientCount: unique(eligibleLinks.map((link) => link.auth_user_id || normalizeText(link.email).toLowerCase())).length,
     webSent: webResults.filter((result) => result.sent).length,
   }
 }
@@ -417,20 +605,12 @@ async function prepareNotification(profile, body) {
   if (!SOURCE_TYPES.has(sourceType) || !isUuid(sourceId) || !CHANGE_ACTIONS.has(changeAction) || !isUuid(requestToken)) {
     throw Object.assign(new Error('Choose a valid Calendar change before notifying people.'), { statusCode: 400 })
   }
-  let source = await loadSource(sourceType, sourceId, profile.clubId)
-  let teamId = normalizeText(source.team_id)
-  if (sourceType === 'assessment-reminder') {
-    const player = await getPlayerTeam(source.player_id, profile.clubId)
-    teamId = normalizeText(player?.team_id)
-    source = { ...source, player_name: player?.player_name || '' }
-  }
-  await assertTeamAuthority(profile, teamId)
-  const parentLinkIds = await getParentLinkIdsForScope({ clubId: profile.clubId, source, sourceId, sourceType, teamId })
+  const { source, teamId, previousParentLinkIds, recipientCount } = await getNotificationScope(profile, body)
   const row = {
     actor_user_id: profile.id,
     change_action: changeAction,
     club_id: profile.clubId,
-    parent_link_ids: parentLinkIds,
+    parent_link_ids: previousParentLinkIds,
     request_token: requestToken,
     source_id: sourceId,
     source_snapshot: source,
@@ -447,7 +627,7 @@ async function prepareNotification(profile, body) {
     supabaseAdmin.from('calendar_change_notification_preparations').select('*').eq('actor_user_id', profile.id).eq('request_token', requestToken),
     'Notification choice could not be prepared.',
   )
-  return jsonResponse(200, { preparationId: preparation.id, recipientCount: preparation.parent_link_ids?.length || 0, success: true })
+  return jsonResponse(200, { preparationId: preparation.id, recipientCount: recipientCount, success: true })
 }
 
 async function commitNotification(profile, body) {
@@ -474,7 +654,24 @@ async function commitNotification(profile, body) {
     throw Object.assign(new Error('Notification delivery is already being processed.'), { statusCode: 409 })
   }
   try {
-    const result = await deliverPreparation(claimed, verification.current)
+    await assertTeamAuthority(profile, claimed.team_id)
+    const currentTeamId = normalizeText(verification.current?.team_id || claimed.team_id)
+    await assertTeamAuthority(profile, currentTeamId)
+    const currentParentLinkIds = verification.current
+      ? await getParentLinkIdsForScope({
+          clubId: profile.clubId,
+          source: verification.current,
+          sourceId: claimed.source_id,
+          sourceType: claimed.source_type,
+          teamId: currentTeamId,
+        })
+      : []
+    const confirmedParentLinkIds = unique([...claimed.parent_link_ids, ...currentParentLinkIds])
+    const { error: scopeError } = await supabaseAdmin.from('calendar_change_notification_preparations')
+      .update({ parent_link_ids: confirmedParentLinkIds, updated_at: new Date().toISOString() })
+      .eq('id', claimed.id).eq('status', 'committing')
+    if (scopeError) throw scopeError
+    const result = await deliverPreparation({ ...claimed, parent_link_ids: confirmedParentLinkIds }, verification.current)
     await supabaseAdmin.from('calendar_change_notification_preparations').update({ committed_at: new Date().toISOString(), delivery_result: result, status: 'committed', updated_at: new Date().toISOString() }).eq('id', claimed.id).eq('status', 'committing')
     return jsonResponse(200, { ...result, success: true })
   } catch (error) {
@@ -490,6 +687,10 @@ export async function handler(event) {
     const profile = await getStaffProfile(authUser)
     const body = JSON.parse(event.body || '{}')
     const operation = normalizeText(body.operation).toLowerCase()
+    if (operation === 'preview') {
+      const scope = await getNotificationScope(profile, body)
+      return jsonResponse(200, { recipientCount: scope.recipientCount, success: true })
+    }
     if (operation === 'prepare') return prepareNotification(profile, body)
     if (operation === 'commit') return commitNotification(profile, body)
     return failureResponse(400, 'Choose prepare or commit for this notification.')
