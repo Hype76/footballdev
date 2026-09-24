@@ -3,8 +3,7 @@ import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
-import { buildCoachAvailabilityResponsePayload, buildCoachAvailabilityHistoryPayload } from './lib/_coach-availability-push.js'
-import { buildScopedNotificationTitle, hydrateNotificationScopeNames } from './lib/_notification-scope.js'
+import { buildScopedNotificationTitle } from './lib/_notification-scope.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 import { buildCoachMatchReviewPayload } from './lib/_coach-match-review-push.js'
 
@@ -360,105 +359,12 @@ export async function sendCoachMatchReviewPush({ match, adminClient = supabaseAd
   return { failed: result.failed, sent: result.sent, skipped: devices.length === 0 }
 }
 
-export async function sendCoachAvailabilityResponsePush({
-  adminClient = supabaseAdmin,
-  clubId,
-  contextLabel = '',
-  playerName = '',
-  route,
-  status,
-  targetId,
-  teamId,
-  type,
-} = {}) {
-  const normalizedStatus = normalizeText(status).toLowerCase()
-  if (!clubId || !teamId || !targetId || !['available', 'unavailable', 'maybe'].includes(normalizedStatus)) {
-    return { failed: 0, sent: 0, skipped: true }
-  }
-
-  const match = { club_id: clubId, id: targetId, team_id: teamId }
-  const devices = await getCoachDevices(match, adminClient)
-  const [scope] = await hydrateNotificationScopeNames(adminClient, [match])
-  const deliveries = devices.map((device) => ({
-    device,
-    payload: buildCoachAvailabilityResponsePayload({ clubName: scope?.club_name, contextLabel, playerName, route, status: normalizedStatus, targetId, teamId, teamName: scope?.team_name, type }),
-    historyPayload: buildCoachAvailabilityHistoryPayload({ clubName: scope?.club_name, contextLabel, playerName, route, status: normalizedStatus, targetId, teamId, teamName: scope?.team_name, type }),
-  }))
-  const pushResult = await sendExpoPushMessages(deliveries.map(({ device, payload }) => ({
-    body: payload.body,
-    data: payload.data,
-    sound: 'default',
-    title: payload.title,
-    to: device.expo_push_token,
-  })))
-  await revokeMobileDeviceTokens(pushResult.invalidTokens || [], adminClient)
-  await logNotificationEvents({
-    client: adminClient,
-    deliveries,
-    match,
-    status: pushResult.failed > 0 && pushResult.sent === 0 ? 'failed' : 'sent',
-  })
-  return { failed: pushResult.failed, sent: pushResult.sent, skipped: devices.length === 0 }
+export async function sendCoachAvailabilityResponsePush() {
+  return { failed: 0, sent: 0, skipped: true }
 }
 
-export async function sendCoachTrainingAttendanceInvitationPush({
-  adminClient = supabaseAdmin,
-  attendance,
-  eventTitle = 'training',
-  sendMessages = sendExpoPushMessages,
-} = {}) {
-  if (!attendance?.id || !attendance.coach_user_id || !attendance.club_id || !attendance.team_id || !attendance.calendar_event_id) {
-    return { failed: 0, sent: 0, skipped: true }
-  }
-  const target = {
-    club_id: attendance.club_id,
-    id: attendance.calendar_event_id,
-    team_id: attendance.team_id,
-  }
-  const eligibleDevices = await getCoachDevices(target, adminClient)
-  const devices = eligibleDevices.filter((device) => device.auth_user_id === attendance.coach_user_id)
-  if (devices.length === 0) return { failed: 0, sent: 0, skipped: true }
-  const [scope] = await hydrateNotificationScopeNames(adminClient, [target])
-  const title = buildScopedNotificationTitle('Training attendance', {
-    clubName: scope?.club_name,
-    teamName: scope?.team_name,
-  })
-  const deliveries = devices.map((device) => {
-    const detailed = device.detail_level === 'detailed'
-    const payload = {
-      body: detailed
-        ? `Please confirm whether you are attending ${normalizeText(eventTitle) || 'training'} on ${attendance.occurrence_date}.`
-        : 'Please confirm your training attendance in Football Player Coach.',
-      data: {
-        app: 'coach',
-        attendanceId: attendance.id,
-        contextId: `team:${attendance.team_id}`,
-        occurrenceDate: attendance.occurrence_date,
-        route: 'invites',
-        targetId: attendance.calendar_event_id,
-        teamId: attendance.team_id,
-        type: 'training_coach_attendance_invite',
-      },
-      title,
-      type: 'coach_update',
-    }
-    return { device, payload }
-  })
-  const pushResult = await sendMessages(deliveries.map(({ device, payload }) => ({
-    body: payload.body,
-    data: payload.data,
-    sound: 'default',
-    title: payload.title,
-    to: device.expo_push_token,
-  })))
-  await revokeMobileDeviceTokens(pushResult.invalidTokens || [], adminClient)
-  await logNotificationEvents({
-    client: adminClient,
-    deliveries,
-    match: target,
-    status: pushResult.failed > 0 && pushResult.sent === 0 ? 'failed' : 'sent',
-  })
-  return { failed: pushResult.failed, sent: pushResult.sent, skipped: false }
+export async function sendCoachTrainingAttendanceInvitationPush() {
+  return { failed: 0, sent: 0, skipped: true }
 }
 
 export async function handler(event) {

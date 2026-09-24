@@ -184,7 +184,7 @@ test('Team Admin can hide from upcoming Training attendance and restore visibili
   await db.close()
 })
 
-test('scheduled processor sends and completes one claimed Coach invitation', async () => {
+test('scheduled processor skips and completes one claimed Coach attendance alert', async () => {
   process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
   process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
   const { processTrainingCoachAttendance } = await import('../netlify/functions/process-training-coach-attendance.js')
@@ -206,16 +206,24 @@ test('scheduled processor sends and completes one claimed Coach invitation', asy
       return query
     },
   }
-  const deliveries = []
   const summary = await processTrainingCoachAttendance({
     client,
-    sendInvitation: async value => { deliveries.push(value); return { failed: 0, sent: 1, skipped: false } },
     workerId: 'worker-1',
   })
-  assert.deepEqual(summary, { claimed: 1, failed: 0, sent: 1, skipped: 0 })
-  assert.equal(deliveries[0].attendance.coach_user_id, 'coach-1')
-  assert.equal(deliveries[0].eventTitle, 'Thursday Training')
-  assert.equal(rpcCalls.at(-1).args.outcome_value, 'sent')
+  assert.deepEqual(summary, { claimed: 1, failed: 0, sent: 0, skipped: 1 })
+  assert.equal(rpcCalls.at(-1).args.outcome_value, 'skipped')
+  assert.equal(rpcCalls.at(-1).args.error_value, 'Coach attendance notifications are disabled.')
+})
+
+test('Coach training attendance invitation push never reaches a delivery service', async () => {
+  process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
+  const { sendCoachTrainingAttendanceInvitationPush } = await import('../netlify/functions/send-coach-mobile-push.js')
+  const result = await sendCoachTrainingAttendanceInvitationPush({
+    attendance: { id: ids.request, club_id: ids.club, team_id: ids.team, calendar_event_id: ids.event, coach_user_id: ids.coach1 },
+    sendMessages: () => { throw new Error('No Coach attendance push should be sent') },
+  })
+  assert.deepEqual(result, { failed: 0, sent: 0, skipped: true })
 })
 
 test('Coach mobile loads the Coach section and only submits the signed-in Coach response', async () => {
@@ -236,8 +244,7 @@ test('Coach mobile loads the Coach section and only submits the signed-in Coach 
   assert.match(table, /Only this Coach can change their response/)
   assert.match(screen, /submitOwnTrainingCoachAttendance/)
   assert.match(push, /sendCoachTrainingAttendanceInvitationPush/)
-  assert.match(push, /training_coach_attendance_invite/)
-  assert.match(push, /eligibleDevices\.filter\(\(device\) => device\.auth_user_id === attendance\.coach_user_id\)/)
+  assert.doesNotMatch(push, /training_coach_attendance_invite/)
   assert.match(app, /Show me in Training attendance/)
   assert.match(web, /Show me in Training attendance/)
   assert.match(visibility, /normalizeText\(user\.role\) === 'head_manager'/)

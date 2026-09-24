@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import { buildCoachAvailabilityResponsePayload } from '../netlify/functions/lib/_coach-availability-push.js'
@@ -54,31 +53,21 @@ test('availability alerts keep useful copy across existing detail preferences an
   assert.equal(buildCoachAvailabilityResponsePayload({}).body, 'A player updated their availability.')
 })
 
-test('public availability responders trigger non-blocking Coach push delivery', async () => {
-  const [matchResponse, trainingResponse] = await Promise.all([
-    readFile(new URL('../netlify/functions/match-day-availability-confirm.js', import.meta.url), 'utf8'),
-    readFile(new URL('../netlify/functions/training-availability-response.js', import.meta.url), 'utf8'),
-  ])
-  assert.match(matchResponse, /sendCoachAvailabilityResponsePush/)
-  assert.match(matchResponse, /type: 'match_availability_response'/)
-  assert.match(trainingResponse, /sendCoachAvailabilityResponsePush/)
-  assert.match(trainingResponse, /type: 'training_availability_response'/)
-  assert.match(matchResponse, /\.catch\(\(pushError\)/)
-  assert.match(trainingResponse, /\.catch\(\(pushError\)/)
-})
+test('Coach attendance response pushes are skipped for match and training changes', async () => {
+  process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key'
+  const { sendCoachAvailabilityResponsePush } = await import('../netlify/functions/send-coach-mobile-push.js')
+  const unavailableClient = new Proxy({}, { get: () => { throw new Error('Notification delivery must not access the client') } })
 
-test('authenticated Parent Training responses notify Coaches only after a changed response is saved', async () => {
-  const [parentData, coachPush] = await Promise.all([
-    readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8'),
-    readFile(new URL('../netlify/functions/send-coach-mobile-push.js', import.meta.url), 'utf8'),
-  ])
-
-  assert.match(parentData, /previousResponse !== response && data\?\.respondedAt/)
-  assert.match(parentData, /type: 'training_availability_response'/)
-  assert.match(parentData, /requestPlayerId: invitation\.sourceRecordId/)
-  assert.match(coachPush, /getParentTrainingAvailabilityResponse/)
-  assert.match(coachPush, /\.eq\('auth_user_id', authUser\.id\)/)
-  assert.match(coachPush, /normalizeText\(response\.responded_at\) !== respondedAt/)
-  assert.match(coachPush, /route: 'sessions'/)
-  assert.match(coachPush, /sendCoachAvailabilityResponsePush/)
+  for (const type of ['match_availability_response', 'training_availability_response']) {
+    const result = await sendCoachAvailabilityResponsePush({
+      adminClient: unavailableClient,
+      clubId: 'club-1',
+      status: 'available',
+      targetId: 'event-1',
+      teamId: 'team-1',
+      type,
+    })
+    assert.deepEqual(result, { failed: 0, sent: 0, skipped: true })
+  }
 })
