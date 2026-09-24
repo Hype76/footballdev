@@ -185,6 +185,20 @@ test('Player Game Day exposes authorised scheduled fixtures for pre-match shared
   assert.deepEqual(JSON.parse(response.body).matches.map((match) => match.id), [id(9)])
 })
 
+test('Fans and Player accounts see scorer-request fixtures in their schedules', async () => {
+  const { client, tables } = fixture()
+  const match = { id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: '2099-09-15', status: 'scorer_request', opponent: 'Visitors' }
+  tables.match_days.push(match)
+  const call = (action) => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action, connectionId: id(1) }) }, { createClient: () => client })
+  assert.deepEqual(JSON.parse((await call('schedule')).body).schedule.map((item) => item.id), [match.id])
+  tables.fan_connections[0].relationship_type = 'player'
+  tables.fan_connections[0].permissions.game_day = true
+  assert.deepEqual(JSON.parse((await call('schedule')).body).schedule.map((item) => item.id), [match.id])
+  assert.deepEqual(JSON.parse((await call('matches')).body).matches.map((item) => item.id), [match.id])
+  tables.fan_connections[0].relationship_type = 'fan'
+  assert.deepEqual(JSON.parse((await call('matches')).body).matches, [])
+})
+
 test('Fan calendar fixture titles use the authorised club name and home team first', async () => {
   const { client, tables } = fixture()
   tables.clubs[0].name = 'FP TEST Club'
@@ -235,6 +249,22 @@ test('Visible Game Day delivers once with a scoped link; unsharing hides its sav
   match.parent_visible=false
   const response=await handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action:'notifications',connectionId:id(1)})},{createClient:()=>client})
   assert.deepEqual(JSON.parse(response.body).notifications,[])
+})
+
+test('Game alerts reach opted-in Fan and Player accounts through their Fan connections', async () => {
+  const { client, tables } = fixture()
+  tables.fan_connections[0].permissions.game_day = true
+  tables.fan_connections.push({ ...tables.fan_connections[0], id: id(12), auth_user_id: id(13), relationship_type: 'player' })
+  const match = { id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: new Date().toISOString().slice(0, 10), status: 'live', updated_at: new Date().toISOString() }
+  tables.match_days.push(match)
+  tables.fan_devices.push({ token: 'ExpoPushToken[fan]', auth_user_id: id(2) }, { token: 'ExpoPushToken[player]', auth_user_id: id(13) })
+  const delivered = []
+  const result = await sendFanMatchNotifications({ client, match, type: 'goal', eventId: id(11), targetParentLinkIds: [id(4)], notificationCopy: { title: 'Goal update', detailedBody: 'A goal was scored.' }, sendPush: async (messages) => { delivered.push(...messages); return { sent: messages.length, failed: 0 } } })
+  assert.equal(result.fanSent, 2)
+  assert.deepEqual(delivered.map((message) => [message.to, message.data.route, message.data.fanConnectionId]), [
+    ['ExpoPushToken[fan]', 'fans', id(1)],
+    ['ExpoPushToken[player]', 'fans', id(12)],
+  ])
 })
 
 test('renewed Fan email uses a new idempotency key and retries do not send again', async () => {
