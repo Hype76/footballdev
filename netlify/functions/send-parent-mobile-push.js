@@ -282,7 +282,7 @@ async function getMatchDayAvailabilityPayload({ id, profile, matchInvitationUpda
     categoryId: answeredUpdate ? null : 'parent-response',
     detailedBody: answeredUpdate
       ? `Match v ${opponent}, ${matchDate} has been updated. Your existing response is unchanged.`
-      : `Match v ${opponent}, ${matchDate}. Open the invitation to answer attendance and any volunteer requests together.`,
+      : `Match v ${opponent}, ${matchDate}. Accept or decline attendance here. Volunteer roles are optional.`,
     minimalBody: answeredUpdate
       ? `Match v ${opponent}, ${matchDate} has been updated. Your existing response is unchanged.`
       : `Match v ${opponent}, ${matchDate}. Your event invitation is ready to answer.`,

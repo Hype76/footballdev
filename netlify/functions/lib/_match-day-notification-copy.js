@@ -161,7 +161,9 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   return {
     title: copy.title,
     matchTitle: matchName,
-    minimalBody: `${copy.category} for ${matchName}.`,
+    minimalBody: notificationType === 'goal' && compactEventDetail && event
+      ? detailedBody
+      : `${copy.category} for ${matchName}.`,
     detailedBody,
     notificationType,
     renotify: ['goal', 'score_correction', 'full_time', 'extra_time', 'start_extra_time', 'penalties', 'start_penalties'].includes(notificationType),

@@ -1133,6 +1133,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       || !responseId
       || notificationResponseIdRef.current === responseId
       || notificationResponseProcessingRef.current === responseId
+      || !selectedMobileUser?.id
+      || !selectedLink?.id
     ) return undefined
 
     if (notificationResponseHistoryRef.current.has(responseId)) {
@@ -1161,7 +1163,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
     notificationResponseProcessingRef.current = responseId
     applyParentNotificationDestination(currentDestination, { pending: true })
-    consumeLastNotificationResponse(responseId)
+    const isInvitationAction = currentDestination.tab === 'invites' && ['parent_accept', 'parent_decline'].includes(notificationAction)
+    const actionInvitationId = normalizeText(notificationData?.invitationId).replace(/^match:/, 'match_attendance:')
+    if (!isInvitationAction) consumeLastNotificationResponse(responseId)
     void loadCurrentParentNotificationData(loadParentData)
       .then(async (result) => {
         if (notificationResponseProcessingRef.current !== responseId) return
@@ -1179,6 +1183,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         }
         if (currentDestination.targetId && !destination.targetId) {
           applyParentNotificationDestination({ tab: currentDestination.tab, targetId: '' })
+          if (isInvitationAction) notificationResponseIdRef.current = responseId
           setNotice({ message: 'That notification item is no longer available. The latest information for this section is shown.', tone: 'warning' })
           return
         }
@@ -1213,24 +1218,34 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             }
           }
         }
-        if (destination.tab === 'invites' && ['parent_accept', 'parent_decline'].includes(notificationAction)) {
-          const invitation = (result?.items?.invitations || []).find((item) => item.invitationId === destination.targetId)
+        if (isInvitationAction) {
+          const invitation = actionInvitationId
+            ? (result?.items?.invitations || []).find((item) => item.invitationId === actionInvitationId)
+            : null
           if (invitation && isParentInvitationActionable(invitation)) {
             const responseState = notificationAction === 'parent_accept'
               ? invitation.invitationType === 'match_role' ? 'yes' : 'available'
               : invitation.invitationType === 'match_role' ? 'no' : 'unavailable'
             try {
               await respondToParentInvitation(selectedMobileUser, invitation, responseState)
-              await loadParentData()
+              consumeLastNotificationResponse(responseId)
               setNotice({ message: notificationAction === 'parent_accept' ? 'Request accepted.' : 'Request declined.', tone: 'success' })
+              void loadParentData().catch(() => {
+                setNotice({ message: 'Your response was saved. Pull to refresh the invitation list.', tone: 'warning' })
+              })
             } catch (error) {
+              notificationResponseIdRef.current = responseId
               setNotice({ message: getParentFriendlyError(error, 'That response could not be saved. Open the request and try again.'), tone: 'warning' })
             }
+          } else {
+            notificationResponseIdRef.current = responseId
+            setNotice({ message: 'That request could not be confirmed. Open Invites and check its current status.', tone: 'warning' })
           }
         }
       })
       .catch(() => {
         if (notificationResponseProcessingRef.current !== responseId) return
+        if (isInvitationAction) notificationResponseIdRef.current = responseId
         if (currentDestination.tab === 'chat' && currentDestination.targetId) {
           setChatMessages({ error: 'Chat messages could not be loaded. Pull to retry or return to Chat rooms.', items: [], loading: false })
         }
