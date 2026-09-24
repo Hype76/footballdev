@@ -193,7 +193,7 @@ async function getPollPayload({ id, profile }) {
   }
 }
 
-async function getResourcePayload({ id, profile }) {
+export async function getResourcePayload({ id, profile }) {
   const { data: notification, error } = await supabaseAdmin
     .from('resource_library_parent_notifications')
     .select('id, club_id, team_id, resource_id, parent_link_id')
@@ -227,7 +227,7 @@ async function getResourcePayload({ id, profile }) {
       type: 'resource_shared',
     },
     detailedBody: `${normalizeText(resource.title) || 'A resource'} is ready to view.`,
-    minimalBody: 'Your club has shared a new resource.',
+    minimalBody: `Your ${notification.team_id ? 'team' : 'club'} has shared a new resource.`,
     parentLinkQuery: (query) => query.eq('id', notification.parent_link_id),
     teamId: notification.team_id || null,
     title: 'New resource shared',
@@ -293,7 +293,7 @@ async function getMatchDayAvailabilityPayload({ id, profile, matchInvitationUpda
   }
 }
 
-async function getTrainingAvailabilityPayload({ id, profile }) {
+export async function getTrainingAvailabilityPayload({ id, profile }) {
   const { data: requestPlayer, error } = await supabaseAdmin
     .from('training_availability_request_players')
     .select('id, request_id, club_id, team_id, calendar_event_id, parent_link_id, recipient_type, status, response_deadline_at, token_revoked_at')
@@ -352,7 +352,7 @@ async function getTrainingAvailabilityPayload({ id, profile }) {
     },
     categoryId: 'parent-response',
     detailedBody: `Please confirm attendance for ${title} on ${trainingDate}.`,
-    minimalBody: 'Your club needs an attendance response for an upcoming training session.',
+    minimalBody: `Your ${requestPlayer.team_id ? 'team' : 'club'} needs an attendance response for an upcoming training session.`,
     parentLinkQuery: (query) => query.eq('id', requestPlayer.parent_link_id),
     teamId: requestPlayer.team_id || null,
     title: 'Training response requested',
