@@ -25,7 +25,7 @@ import {
 } from '../../mobile-core/src/parentDateTimeCore'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
 import { getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
-import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
+import { canRecordParentScorerEvent, getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
 import { getMatchDayShirtChoiceLabel, isContinuousMatchClock, normalizeMatchDurationMinutes } from '../../../src/lib/matchday-model.js'
 import { PitchTypeIcon } from './PitchTypeIcon'
 import { MatchTypeIcon } from './MatchTypeIcon'
@@ -914,7 +914,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   const handedOver = Boolean(match.scorerReviewRequestedAt || match.concludedAt)
   const disabled = isOffline || busy || handedOver
   const timerActions = getParentScorerTimerActions(match).filter((item) => item.action !== 'conclude')
-  const canRecordEvents = getMatchDayLifecycleState(match) === 'playing'
+  const canRecordEvents = canRecordParentScorerEvent(match, 'goal')
   const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt)
   useEffect(() => {
     let mounted = true
@@ -986,7 +986,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
         {!keepAwake ? awakeControl : null}
         <View style={styles.actionGrid} testID="scorer-primary-actions">
           {canRecordEvents ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Goal" onPress={() => openAction('goal', 'Add goal')} primary styles={styles} /> : null}
-          {canRecordEvents ? Object.entries(SCORER_EVENT_LABELS).map(([kind, label]) => <ScorerActionButton disabled={disabled} icon={kind === 'substitution' ? 'swap-horiz' : 'style'} iconColor={kind === 'yellow_card' ? '#d79b00' : kind === 'red_card' ? '#e92736' : '#24ad60'} key={kind} label={label} onPress={() => openAction(kind, label)} styles={styles} />) : null}
+          {Object.entries(SCORER_EVENT_LABELS).filter(([kind]) => canRecordParentScorerEvent(match, kind)).map(([kind, label]) => <ScorerActionButton disabled={disabled} icon={kind === 'substitution' ? 'swap-horiz' : 'style'} iconColor={kind === 'yellow_card' ? '#d79b00' : kind === 'red_card' ? '#e92736' : '#24ad60'} key={kind} label={label} onPress={() => openAction(kind, label)} styles={styles} />)}
           {timerActions.filter((item) => item.action !== 'hydration').map((item) => <ScorerActionButton danger={item.action === 'full_time'} disabled={disabled} icon={item.action === 'pause' ? 'pause' : item.action === 'full_time' ? 'stop' : item.action.includes('half_time') ? 'timer' : 'play-arrow'} key={item.action} label={item.label} onPress={() => chooseTimerAction(item.action)} styles={styles} />)}
           {match.status === 'full_time' && !match.concludedAt ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Send to Coach to conclude" onPress={() => onAction('request-review')} styles={styles} /></View> : null}
           <ScorerActionButton disabled={disabled || !canRecordEvents} icon="track-changes" label="Correct score" onPress={() => openAction('score', 'Correct score')} styles={styles} />

@@ -51,6 +51,12 @@ export function getMatchDayLifecycleState(match = {}) {
   return 'not_started'
 }
 
+export function canRecordParentScorerEvent(match = {}, eventType = '') {
+  const lifecycle = getMatchDayLifecycleState(match)
+  return lifecycle === 'playing'
+    || (eventType === 'substitution' && normalizeText(match.status) === 'half_time' && lifecycle === 'paused')
+}
+
 export function getParentScorerTimerActions(match = {}) {
   const lifecycleState = getMatchDayLifecycleState(match)
   const status = normalizeText(match.status)

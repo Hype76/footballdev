@@ -1876,8 +1876,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         scorerHandoversRef.current[match.id] = handover.scorerReviewRequestedAt
         // Remove controls as soon as the server saves, before notification or refresh can fail.
         setResources((current) => ({ ...current, matches: { ...current.matches, items: current.matches.items.map((item) => item.id === match.id ? { ...item, isScorer: false, scorerReviewRequestedAt: handover.scorerReviewRequestedAt } : item) } }))
-        savedNotice = { message: 'The match has been sent to the Coach for review and conclusion. Your scoring access has ended.', tone: 'success' }
-        setNotice(savedNotice)
+        setSelectedMatchId('')
         refreshSavedScorerAction('The match is with the Coach and your scoring access has ended. Refresh Matchday to check the latest information.')
         notifySavedScorerAction('full_time', '', 'The match is with the Coach and your scoring access has ended, but the Coach notification could not be confirmed.')
         return true
@@ -1914,8 +1913,6 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       if (action === 'shootout') await recordParentScorerShootoutKick(match.id, value)
       if (action === 'void-shootout') await voidParentScorerShootoutKick(match.id, value.kickId, value.reason)
       changeSaved = true
-      savedNotice = { message: 'Game Day has been updated.', tone: 'success' }
-      setNotice(savedNotice)
       refreshSavedScorerAction('Your change was saved. Refresh Matchday to see the latest information.')
       if (notificationType) notifySavedScorerAction(notificationType, notificationEventId, 'Game Day was saved, but its notification could not be confirmed.')
       return true
