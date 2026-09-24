@@ -44,7 +44,7 @@ export async function processTrainingCoachAttendance({ client, batchSize = 25, s
         errorMessage = outcome === 'failed'
           ? 'Coach app notification could not be delivered.'
           : outcome === 'skipped'
-            ? 'No active Coach app notification device was available.'
+            ? 'Coach attendance notifications are disabled.'
             : ''
       }
     } catch (error) {
