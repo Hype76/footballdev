@@ -19,7 +19,7 @@ test('goal event presentation shows a recorded assist and remains useful without
   )
 })
 
-test('detailed goal notifications use compact scorer and assist copy while minimal copy does not expose Player names', () => {
+test('goal notifications include recorded scorer and assist names at both detail levels', () => {
   const copy = buildParentMatchDayNotificationCopy({
     match: { away_score: 0, home_score: 1, home_away: 'home', id: 'match', opponent: 'Visitors', teams: { name: 'U17 Green' } },
     type: 'goal',
@@ -27,7 +27,7 @@ test('detailed goal notifications use compact scorer and assist copy while minim
   })
 
   assert.equal(copy.detailedBody, "Goal: John Barnes at 45+2'. Assist: Jamie Smith #8. 1 - 0 v Visitors.")
-  assert.doesNotMatch(copy.minimalBody, /Jamie Smith|John Barnes/)
+  assert.equal(copy.minimalBody, copy.detailedBody)
 })
 
 test('Parent scorer goals preserve assist fields and request the shared Parent push after the event is saved', async () => {

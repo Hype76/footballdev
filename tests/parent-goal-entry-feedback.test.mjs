@@ -15,7 +15,7 @@ test('Other scorer and free text assist names appear in detailed goal alerts', (
   } })
   assert.equal(copy.detailedBody, 'Goal: Trial Player. Assist: Guest Assist. 3 - 1 v Newcastle.')
   assert.equal(copy.matchTitle, 'U17G v Newcastle')
-  assert.doesNotMatch(copy.minimalBody, /Trial Player|Guest Assist/)
+  assert.equal(copy.minimalBody, copy.detailedBody)
   assert.equal(copy.tag, 'match-day-feedback-match-goal-named-goal')
 })
 

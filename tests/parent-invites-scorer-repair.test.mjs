@@ -9,13 +9,18 @@ import { countUnreadNonChatNotifications, getParentOpenedNotificationIds, getPar
 const now = new Date('2026-09-02T08:00:00Z')
 const attendance = { invitationId: 'match_attendance:request-1', childId: 'child-1', eventId: 'match-1', eventStart: '2026-09-02', eventDate: '2026-09-02', kickoffTimeTbc: true, invitationType: 'match_attendance', invitationState: 'active', isPending: true, canRespond: true, responseState: 'awaiting_response' }
 
-test('same-day TBC attendance and roles appear together in Needs response and count as one event', () => {
+test('same-day TBC attendance needs a response while volunteer roles remain optional', () => {
   const rows = [attendance, { ...attendance, invitationId: 'role:scorer', invitationType: 'match_role', roleType: 'scorer' }]
   const sections = getParentInvitationSections(rows, now)
-  assert.equal(sections.needsResponse.length, 2)
+  assert.deepEqual(sections.needsResponse.map((item) => item.invitationId), [attendance.invitationId])
+  assert.deepEqual(sections.upcoming.map((item) => item.invitationId), ['role:scorer'])
   assert.equal(sections.history.length, 0)
   assert.equal(getParentInvitationCounts(rows, now).needsResponse, 1)
   assert.equal(groupParentInvitationsByEvent(sections.needsResponse).length, 1)
+  const answered = getParentInvitationSections([{ ...attendance, isPending: false, responseState: 'available' }, rows[1]], now)
+  assert.equal(answered.needsResponse.length, 0)
+  assert.equal(answered.responded.length, 1)
+  assert.equal(answered.upcoming.length, 1)
 })
 
 test('active replacement training request wins over expired copies without merging different occurrences', () => {
