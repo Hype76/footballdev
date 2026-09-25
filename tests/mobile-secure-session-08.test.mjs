@@ -442,6 +442,6 @@ test('shared Supabase and Auth integration use secure storage and canonical logo
   assert.match(authSource, /await setBiometricEnabled\(false\)/)
   assert.match(coachSource, /<AuthProvider appRole="coach">/)
   assert.match(coachSource, /<AuthProvider[\s\S]{0,400}appRole="coach"[\s\S]{0,400}preserveNativePushOnSignOut/)
-  assert.match(parentSource, /<AuthProvider[\s\S]{0,300}appRole="parent"[\s\S]{0,300}offlineProfileStore=\{parentOfflineProfileStore\}[\s\S]{0,300}preserveNativePushOnSignOut/)
-  assert.doesNotMatch(parentSource, /onBeforeSignOut=\{unbindParentNotifications\}/)
+  assert.match(parentSource, /<AuthProvider[\s\S]{0,300}appRole="parent"[\s\S]{0,300}offlineProfileStore=\{parentOfflineProfileStore\}[\s\S]{0,300}onBeforeSignOut=\{clearParentNotificationsBeforeSignOut\}/)
+  assert.doesNotMatch(parentSource, /preserveNativePushOnSignOut/)
 })

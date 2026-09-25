@@ -34,7 +34,7 @@ test('mobile notification fanout follows current account authority instead of se
   assert.match(worker, /if \(normalizeText\(teamId\)\) return `team:/)
 })
 
-test('signed out mobile apps retain their authorised installation while local data is cleared', async () => {
+test('Parent sign-out unbinds phone notifications while Coach retains its existing policy', async () => {
   const [auth, parentApp, coachApp] = await Promise.all([
     readSource('apps/mobile-core/src/auth.js'),
     readSource('apps/parent-mobile/App.js'),
@@ -42,10 +42,11 @@ test('signed out mobile apps retain their authorised installation while local da
   ])
 
   assert.match(auth, /!preserveNativePushOnSignOut/)
-  assert.match(parentApp, /preserveNativePushOnSignOut/)
+  assert.match(parentApp, /onBeforeSignOut=\{clearParentNotificationsBeforeSignOut\}/)
+  assert.match(parentApp, /clearFanNotificationDevice\(\)[\s\S]*unbindParentNotifications\(\{ accessToken, apiBaseUrl \}\)/)
+  assert.doesNotMatch(parentApp, /preserveNativePushOnSignOut/)
   assert.match(coachApp, /preserveNativePushOnSignOut/)
   assert.match(coachApp, /clearCoachBeforeSignOut[\s\S]*clearCoachAllLocalState/)
-  assert.doesNotMatch(parentApp, /onBeforeSignOut=\{unbindParentNotifications\}/)
   assert.doesNotMatch(coachApp, /unbindCoachNotifications/)
 })
 

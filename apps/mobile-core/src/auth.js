@@ -385,7 +385,8 @@ export function AuthProvider({
           accessToken,
           apiBaseUrl: config.apiBaseUrl,
         })
-      } else if (!preserveNativePushOnSignOut && accessToken && config.apiBaseUrl) {
+      }
+      if (!preserveNativePushOnSignOut && accessToken && config.apiBaseUrl) {
         await revokeNativePushDevice({
           accessToken,
           apiBaseUrl: config.apiBaseUrl,

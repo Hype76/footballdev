@@ -177,6 +177,7 @@ import {
   loadParentNotificationState,
   registerParentAppInstallation,
   sendParentTestNotification,
+  unbindParentNotifications,
   updateParentNotificationPreference,
 } from './src/notifications'
 import { prepareParentMobileStartup } from './src/startup'
@@ -3669,6 +3670,13 @@ class ParentRootErrorBoundary extends Component {
   }
 }
 
+async function clearParentNotificationsBeforeSignOut({ accessToken, apiBaseUrl }) {
+  await Promise.allSettled([
+    clearFanNotificationDevice(),
+    unbindParentNotifications({ accessToken, apiBaseUrl }),
+  ])
+}
+
 export default function App() {
   const mobileUpdate = useMobileAutomaticUpdates()
   return (
@@ -3678,8 +3686,7 @@ export default function App() {
           appRole="parent"
           offlineProfileStore={parentOfflineProfileStore}
           prepareStartup={prepareParentMobileStartup}
-          onBeforeSignOut={clearFanNotificationDevice}
-          preserveNativePushOnSignOut
+          onBeforeSignOut={clearParentNotificationsBeforeSignOut}
         >
           <AppContent />
         </AuthProvider>
