@@ -294,6 +294,11 @@ function normalizeMatchDayFinalReport(row) {
   return {
     matchDayId: row.match_day_id ?? row.matchDayId ?? '',
     staffNotes: normalizeText(row.staff_notes ?? row.staffNotes),
+    ...(row.ai_narrative !== undefined || row.aiNarrative !== undefined ? {
+      aiNarrative: normalizeText(row.ai_narrative ?? row.aiNarrative),
+      aiAnswers: row.ai_answers ?? row.aiAnswers ?? {},
+      aiSavedAt: row.ai_saved_at ?? row.aiSavedAt ?? '',
+    } : {}),
     createdByName: normalizeText(row.created_by_name ?? row.createdByName),
     createdAt: row.created_at ?? row.createdAt ?? '',
     updatedByName: normalizeText(row.updated_by_name ?? row.updatedByName),

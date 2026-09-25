@@ -360,7 +360,7 @@ function buildPdfShootoutEvent(kick, match, result, branding) {
   }
 }
 
-function buildPdfReportModel(match = {}, { audience = 'parent', branding } = {}) {
+function buildPdfReportModel(match = {}, { audience = 'parent', branding, coachNarrative = '' } = {}) {
   const safeAudience = audience === 'staff' ? 'staff' : 'parent'
   const summary = buildFinalMatchReportSummary(match)
   const result = summary.result
@@ -415,7 +415,8 @@ function buildPdfReportModel(match = {}, { audience = 'parent', branding } = {})
       { label: 'Substitutions', value: String(summary.activeSubstitutions.length) },
     ],
     sections,
-    staffNotes: safeAudience === 'staff' ? getFinalReportNotes(match) : '',
+    staffNotes: safeAudience === 'staff' ? coachNarrative || getFinalReportNotes(match) : '',
+    notesTitle: coachNarrative ? 'Coach match report' : 'Coach notes',
   }
 }
 
@@ -725,7 +726,7 @@ function addPdfSectionTitle(layout, title, count, continued = false) {
     bold: true,
     colour: '#101828',
   })
-  addPdfText(layout.page, `${count} ${count === 1 ? 'item' : 'items'}`, {
+  if (count !== null) addPdfText(layout.page, `${count} ${count === 1 ? 'item' : 'items'}`, {
     x: PDF_PAGE_WIDTH - PDF_MARGIN - 100,
     top: layout.cursor + 6,
     width: 100,
@@ -825,30 +826,29 @@ function addPdfReportSection(layout, section) {
   layout.cursor += 8
 }
 
-function addPdfCoachNotes(layout, notes) {
+function addPdfCoachNotes(layout, notes, title = 'Coach notes') {
   if (!notes) return
-  const noteLines = wrapText(notes, 78)
-  const height = 48 + (noteLines.length * 13)
-  ensurePdfSpace(layout, height + 40)
-  addPdfSectionTitle(layout, 'Coach notes', 1)
-  addPdfRect(layout.page, {
-    x: PDF_MARGIN,
-    top: layout.cursor,
-    width: PDF_PAGE_WIDTH - (PDF_MARGIN * 2),
-    height,
-    fill: layout.branding.secondaryColour,
-    stroke: layout.branding.primaryColour,
-    radius: 8,
-  })
-  addWrappedPdfText(layout.page, notes, {
-    x: PDF_MARGIN + 16,
-    top: layout.cursor + 16,
-    width: PDF_PAGE_WIDTH - (PDF_MARGIN * 2) - 32,
-    size: 10,
-    lineHeight: 13,
-    colour: '#101828',
-  })
-  layout.cursor += height + 10
+  const lines = notes.split(/\r?\n/).flatMap((paragraph) => paragraph.trim() ? wrapText(paragraph, 78) : [''])
+  if (lines.length <= 40 && layout.cursor + 74 + lines.length * 13 > PDF_PAGE_HEIGHT - PDF_CONTENT_BOTTOM) startNextPdfPage(layout)
+  let index = 0
+  while (index < lines.length) {
+    ensurePdfSpace(layout, 75)
+    addPdfSectionTitle(layout, title, null, index > 0)
+    const availableHeight = PDF_PAGE_HEIGHT - PDF_CONTENT_BOTTOM - layout.cursor - 18
+    const count = Math.max(1, Math.floor((availableHeight - 28) / 13))
+    const pageLines = lines.slice(index, index + count)
+    const height = 28 + pageLines.length * 13
+    addPdfRect(layout.page, {
+      x: PDF_MARGIN, top: layout.cursor, width: PDF_PAGE_WIDTH - (PDF_MARGIN * 2), height,
+      fill: layout.branding.secondaryColour, stroke: layout.branding.primaryColour, radius: 8,
+    })
+    pageLines.forEach((line, lineIndex) => addPdfText(layout.page, line, {
+      x: PDF_MARGIN + 16, top: layout.cursor + 16 + lineIndex * 13,
+      size: 10, colour: '#101828',
+    }))
+    layout.cursor += height + 10
+    index += pageLines.length
+  }
 }
 
 function buildPdfPages(model) {
@@ -856,7 +856,7 @@ function buildPdfPages(model) {
   addPdfScoreboard(layout, model)
   addPdfMetrics(layout, model.metrics)
   model.sections.forEach((section) => addPdfReportSection(layout, section))
-  addPdfCoachNotes(layout, model.staffNotes)
+  addPdfCoachNotes(layout, model.staffNotes, model.notesTitle)
   return layout.pages
 }
 
