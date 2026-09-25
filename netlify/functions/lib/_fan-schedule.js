@@ -134,11 +134,12 @@ export async function loadFanMatches(client, scope, matchId = '', { includeSched
   return addPublishedFormationPlans(client, scope, withSquads)
 }
 export async function loadFanSchedule(client, scope, now = new Date(), { featureAllowed = () => true, includePast = false } = {}) {
-  const canAssessments = featureAllowed('assessments')
+  const isPlayer = scope.fan.relationship_type === 'player'
+  const canAssessments = isPlayer && featureAllowed('assessments')
   const canFixtures = featureAllowed('fixtures')
-  const canGeneralEvents = featureAllowed('generalEvents')
-  const canRecurringEvents = featureAllowed('recurringEvents')
-  const canTrainingEvents = featureAllowed('trainingEvents')
+  const canGeneralEvents = isPlayer && featureAllowed('generalEvents')
+  const canRecurringEvents = isPlayer && featureAllowed('recurringEvents')
+  const canTrainingEvents = isPlayer && featureAllowed('trainingEvents')
   const canReadCalendarEvents = canGeneralEvents || canTrainingEvents
   const trainingQuery = canTrainingEvents
     ? client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')
@@ -212,7 +213,7 @@ export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclus
   const excluded = (eventId, date) => exclusions.some((e) => e.calendar_event_id === eventId && (e.scope === 'this_and_future' ? date >= e.effective_from_date : date === e.effective_from_date))
   for (const event of events) {
     const direct = invitedIds.has(event.id)
-    const shared = event.parent_visible === true && (event.parent_audience === 'all_club_parents' || (event.parent_audience === 'all_team_parents' && event.team_id === parent.team_id))
+    const shared = event.event_type !== 'training' && event.parent_visible === true && (event.parent_audience === 'all_club_parents' || (event.parent_audience === 'all_team_parents' && event.team_id === parent.team_id))
     const start = getParentProductDateTimeParts(event.starts_at)
     const end = getParentProductDateTimeParts(event.ends_at)
     if (direct || shared) {

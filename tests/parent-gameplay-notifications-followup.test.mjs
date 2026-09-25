@@ -4,7 +4,7 @@ import test from 'node:test'
 
 const source = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
 const actionSource = source.slice(source.indexOf('async function handleScorerAction'), source.indexOf('async function handleDisplayThemeChange'))
-const names = ['isOffline','activeActionId','selectedMobileUser','scorerHandoversRef','setActiveActionId','setNotice','startParentScorerMatch','setParentScorerTimer','setParentScorerExtendedState','updateParentScorerScore','addParentScorerGoal','correctParentScorerGoal','voidParentScorerGoal','recordParentScorerShootoutKick','voidParentScorerShootoutKick','sendParentScorerMatchDayPush','loadParentData','getParentFriendlyError','scorerActionGenerationRef','parentActionScopeRef']
+const names = ['isOffline','activeActionId','selectedMobileUser','scorerHandoversRef','setActiveActionId','setNotice','startParentScorerMatch','setParentScorerTimer','setParentScorerExtendedState','updateParentScorerScore','addParentScorerGoal','correctParentScorerGoal','voidParentScorerGoal','recordParentScorerShootoutKick','voidParentScorerShootoutKick','sendParentScorerMatchDayPush','loadParentData','getParentFriendlyError','scorerActionGenerationRef','scorerActionInFlightRef','parentActionScopeRef']
 const makeAction = new Function(...names, 'addParentScorerEvent', `return (${actionSource.trim()})`)
 
 function createAction({ load = async () => {}, notify = async () => ({ success: true }), save = async () => ({ id: 'event-1', status: 'live' }) } = {}) {
@@ -12,12 +12,13 @@ function createAction({ load = async () => {}, notify = async () => ({ success: 
   const activeActions = []
   let currentNotice = null
   const generations = { current: 0 }
+  const inFlight = { current: false }
   const actionScope = { current: 0 }
   const setNotice = (notice) => {
     currentNotice = typeof notice === 'function' ? notice(currentNotice) : notice
     notices.push(currentNotice)
   }
-  const fn = makeAction(false, '', { id: 'parent-1' }, { current: {} }, (id) => activeActions.push(id), setNotice, save, save, save, save, save, save, save, save, save, notify, load, (error) => error.message, generations, actionScope, save)
+  const fn = makeAction(false, '', { id: 'parent-1' }, { current: {} }, (id) => activeActions.push(id), setNotice, save, save, save, save, save, save, save, save, save, notify, load, (error) => error.message, generations, inFlight, actionScope, save)
   return { actionScope, activeActions, fn, generations, notices, setNotice }
 }
 

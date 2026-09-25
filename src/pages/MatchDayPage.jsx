@@ -2296,6 +2296,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const [isFixtureDataLoading, setIsFixtureDataLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [activeMatchId, setActiveMatchId] = useState('')
+  const pendingTimerMatchIdsRef = useRef(new Set())
   const [errorMessage, setErrorMessage] = useState('')
   const [expandedMatchId, setExpandedMatchId] = useState(requestedFixtureId)
   const [workspaceSection, setWorkspaceSection] = useState(requestedWorkspaceSection)
@@ -3305,6 +3306,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     closeGameMode = false,
     saveTimerAction = setMatchDayTimerState,
   } = {}) => {
+    if (pendingTimerMatchIdsRef.current.has(match.id)) return
+    pendingTimerMatchIdsRef.current.add(match.id)
     setActiveMatchId(match.id)
     setMatchActionStatus({
       key: `${match.id}:${busyKey}`,
@@ -3341,6 +3344,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         message,
       })
     } finally {
+      pendingTimerMatchIdsRef.current.delete(match.id)
       setActiveMatchId('')
     }
   }

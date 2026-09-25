@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { upcomingFanSchedule } from '../src/lib/fan-schedule.js'
-import { loadFanSchedule } from '../netlify/functions/lib/_fan-schedule.js'
+import { buildFanScheduleEvents, loadFanSchedule } from '../netlify/functions/lib/_fan-schedule.js'
 
 test('Upcoming uses London time, keeps ongoing and time-TBC items, and excludes ended or terminal items', () => {
   const items = [
@@ -33,6 +33,30 @@ test('Schedule filters historic fixtures and assessments after combining every p
     for (const method of ['select', 'eq', 'neq', 'is', 'gte', 'order', 'limit', 'in']) query[method] = () => query
     return query
   } }
-  const result = await loadFanSchedule(client, { club: { name: 'Test club' }, fan: { club_id: 'club', permissions: { schedule: true } }, parent: { club_id: 'club', team_id: 'team' }, player: { id: 'player', team_id: 'team' } }, new Date('2026-09-09T10:00:00Z'))
+  const result = await loadFanSchedule(client, { club: { name: 'Test club' }, fan: { club_id: 'club', relationship_type: 'player', permissions: { schedule: true } }, parent: { club_id: 'club', team_id: 'team' }, player: { id: 'player', team_id: 'team' } }, new Date('2026-09-09T10:00:00Z'))
   assert.deepEqual(result.map(item => item.id), ['future-match', 'future-assessment', 'training:2026-09-14', 'training:2026-09-21'])
+})
+
+test('regular fans see games only even when schedule permissions include other event types', async () => {
+  const tables = {
+    match_days: [{ id: 'game', club_id: 'club', team_id: 'team', parent_visible: true, parent_audience: 'all_team_parents', match_date: '2026-09-11', kickoff_time: '18:00', status: 'scheduled' }],
+    calendar_event_invites: [{ calendar_event_id: 'training', assessment_session_id: 'assessment' }],
+    calendar_events: [{ id: 'training', title: 'Training', event_type: 'training', starts_at: '2026-09-11T17:00:00Z', parent_visible: true, parent_audience: 'all_team_parents', team_id: 'team' }],
+    assessment_sessions: [{ id: 'assessment', session_date: '2026-09-12' }],
+  }
+  const client = { from(table) {
+    const query = { then(resolve) { return Promise.resolve({ data: tables[table] || [] }).then(resolve) } }
+    for (const method of ['select', 'eq', 'neq', 'is', 'gte', 'order', 'limit', 'in']) query[method] = () => query
+    return query
+  } }
+  const scope = { club: { name: 'Test club' }, fan: { club_id: 'club', relationship_type: 'fan', permissions: { schedule: true } }, parent: { club_id: 'club', team_id: 'team' }, player: { id: 'player', team_id: 'team' } }
+  const result = await loadFanSchedule(client, scope, new Date('2026-09-09T10:00:00Z'))
+  assert.deepEqual(result.map(item => item.id), ['game'])
+})
+
+test('training appears only for a directly selected player', () => {
+  const event = { id: 'training', title: 'Training', event_type: 'training', starts_at: '2026-09-11T17:00:00Z', ends_at: '2026-09-11T18:00:00Z', parent_visible: true, parent_audience: 'all_team_parents', team_id: 'team' }
+  const input = { events: [event], occurrences: [], exclusions: [], parent: { team_id: 'team' }, now: new Date('2026-09-09T10:00:00Z') }
+  assert.deepEqual(buildFanScheduleEvents({ ...input, invitedIds: new Set() }), [])
+  assert.deepEqual(buildFanScheduleEvents({ ...input, invitedIds: new Set(['training']) }).map(item => item.id), ['training:2026-09-11'])
 })
