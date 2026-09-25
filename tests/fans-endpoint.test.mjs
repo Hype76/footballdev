@@ -3,6 +3,7 @@ import test from 'node:test'
 import { loadFanScope, loadFanInviteForOwner } from '../netlify/functions/lib/_fan-access.js'
 import { sendFanMatchNotifications } from '../netlify/functions/lib/_fan-push.js'
 import { MATCHDAY_DEFAULT_FLAGS } from '../src/lib/matchday-policy.js'
+import { buildCompletedMatchEventPresentation } from '../src/lib/matchday-final-report.js'
 process.env.VITE_SUPABASE_URL = 'https://synthetic.supabase.test'
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'synthetic-test-key'
 const { handleFans } = await import('../netlify/functions/fans.js')
@@ -12,7 +13,7 @@ function fixture() {
     fan_connections: [{ id:id(1),auth_user_id:id(2),invited_by:id(3),parent_link_id:id(4),player_id:id(5),club_id:id(6),relationship_type:'fan',status:'active',permissions:{schedule:true,game_day:false,development:false,resources:false},notifications_enabled:true }],
     parent_player_links: [{id:id(4),auth_user_id:id(3),player_id:id(5),club_id:id(6),team_id:id(7),link_type:'parent',status:'active'}],
     players: [{id:id(5),club_id:id(6),team_id:id(7),status:'active'}],clubs:[{id:id(6),status:'active',plan_key:'club',plan_status:'active'}],users:[],
-    match_days:[],match_day_availability_requests:[],calendar_event_invites:[],match_day_player_squad_decisions:[],calendar_events:[],training_availability_request_players:[],event_player_occurrence_exclusions:[],fan_notifications:[],fan_devices:[],
+    match_days:[],match_day_events:[],match_day_availability_requests:[],calendar_event_invites:[],match_day_player_squad_decisions:[],calendar_events:[],training_availability_request_players:[],event_player_occurrence_exclusions:[],fan_notifications:[],fan_devices:[],
   }
   const read = []
   const selections = []
@@ -43,7 +44,7 @@ function fixture() {
         if(operation==='delete') tables[table]=tables[table].filter(r=>!result.includes(r))
         if(ordering)result.sort((a,b)=>String(a[ordering.key]??'').localeCompare(String(b[ordering.key]??''))*(ordering.ascending===false?-1:1))
         result=result.slice(0,maxRows)
-        if(table==='match_days' && columns && columns!=='*') result=result.map(row=>Object.fromEntries(columns.split(',').map(key=>key.trim()).map(key=>[key,row[key]])))
+        if(['match_days','match_day_events'].includes(table) && columns && columns!=='*') result=result.map(row=>Object.fromEntries(columns.split(',').map(key=>key.trim()).map(key=>[key,row[key]])))
         return Promise.resolve({data:single ? result[0] || null : result,error:null}).then(resolve,reject)
       } catch(e){return Promise.reject(e).then(resolve,reject)} },
     }
@@ -141,6 +142,19 @@ test('Fan match details retain the selected kit and return artwork only for the 
     assert.equal(read.includes('club_kits'),false)
   }
 })
+
+test('Fan match timeline shows recorded scorer and assist names without private event notes', async () => {
+  const { client, tables } = fixture()
+  tables.fan_connections[0].permissions.game_day = true
+  tables.match_days.push({ id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: new Date().toISOString().slice(0, 10), status: 'full_time', home_away: 'away', home_score: 2, away_score: 3 })
+  tables.match_day_events.push({ id: id(11), match_day_id: id(9), event_status: 'active', event_type: 'goal', team_side: 'club', minute: 70, scorer_name: 'St Neots Scorer', assist_name: 'St Neots Assister', home_score: 2, away_score: 3, notes: 'Private staff note' })
+  const response = await handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action: 'matches', connectionId: id(1), matchId: id(9) }) }, { createClient: () => client })
+  assert.equal(response.statusCode, 200)
+  const content = JSON.parse(response.body)
+  assert.equal(buildCompletedMatchEventPresentation(content.events[0], content.matches[0], { includeNotes: false }).detail, 'St Neots Scorer, assisted by St Neots Assister')
+  assert.equal(response.body.includes('Private staff note'), false)
+})
+
 test('Schedule-only endpoint denies every other view and exposes no scoring or attendance actions',async()=>{
   const {client,read}=fixture()
   const call=action=>handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action,connectionId:id(1)})},{createClient:()=>client})
