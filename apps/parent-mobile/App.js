@@ -394,6 +394,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [contentViewportHeight, setContentViewportHeight] = useState(0)
   const scorerHandoversRef = useRef({})
   const scorerActionGenerationRef = useRef(0)
+  const scorerActionInFlightRef = useRef(false)
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [selectedPollId, setSelectedPollId] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState('')
@@ -1834,7 +1835,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   async function handleScorerAction(match, action, value) {
-    if (isOffline || activeActionId || !match.isScorer || match.scorerReviewRequestedAt || scorerHandoversRef.current[match.id] || match.concludedAt) return false
+    if (isOffline || activeActionId || scorerActionInFlightRef.current || !match.isScorer || match.scorerReviewRequestedAt || scorerHandoversRef.current[match.id] || match.concludedAt) return false
+    scorerActionInFlightRef.current = true
     const scorerActionGeneration = ++scorerActionGenerationRef.current
     const actionScope = parentActionScopeRef.current
     setActiveActionId(`scorer:${match.id}:${action}`)
@@ -1925,6 +1927,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       setNotice({ message, tone: 'error' })
       return { saved: false, message }
     } finally {
+      scorerActionInFlightRef.current = false
       setActiveActionId('')
     }
   }
