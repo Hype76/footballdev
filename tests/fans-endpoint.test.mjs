@@ -102,6 +102,22 @@ test('Player squad names are restricted to selected players in authorised same-t
   assert.equal((await call()).statusCode,403)
 })
 
+test('Player match details include the shared fixture type and surface', async () => {
+  const { client, tables, selections } = fixture()
+  tables.fan_connections[0].relationship_type = 'player'
+  tables.fan_connections[0].permissions.game_day = true
+  const match = { id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents', match_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10), status: 'scheduled', fixture_type: 'league', pitch_type: '3g' }
+  tables.match_days = [match, { ...match, id: id(10), parent_visible: false }]
+  const call = (matchId) => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({ action: 'matches', connectionId: id(1), matchId }) }, { createClient: () => client })
+  const response = await call(id(9))
+  assert.equal(response.statusCode, 200)
+  assert.equal(JSON.parse(response.body).matches[0].fixture_type, 'league')
+  assert.equal(JSON.parse(response.body).matches[0].pitch_type, '3g')
+  assert.match(selections.find((selection) => selection.table === 'match_days').columns, /fixture_type/)
+  assert.match(selections.find((selection) => selection.table === 'match_days').columns, /pitch_type/)
+  assert.equal((await call(id(10))).statusCode, 403)
+})
+
 test('Server binds Fan identity, exact permissions and active parent ancestry before any child data read',async()=>{
   const {client,tables,read}=fixture()
   await loadFanScope(client,id(2),id(1),'schedule')

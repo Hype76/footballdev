@@ -233,7 +233,7 @@ try {
   await page.evaluate(() => {
     window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};
     window.rows=[{id:'followed-child',is_owner:false,status:'active',player_name:'Followed Child',club_name:'Demo FC',team_name:'Under 17',plan_key:'large_club',plan_status:'active',permissions:{schedule:true,game_day:true,development:true,resources:true}}];
-    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:new Date(Date.now()+8*86400000).toISOString().slice(0,10),status:'live'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice',category:'match_day'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
+    window.responses={schedule:{schedule:[{id:'training',title:'Shared training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]},matches:{matches:[{id:'match',opponent:'Away Club',home_score:0,away_score:0,match_date:new Date(Date.now()+8*86400000).toISOString().slice(0,10),status:'live',fixture_type:'league',pitch_type:'3g'}]},development:{reports:[{id:'report',form:{name:'Shared report'},recordDate:'2026-09-01'}]},resources:{resources:[{id:'resource',title:'Shared practice',category:'match_day'}]},notifications:{notifications:[{id:'notice',title:'Shared goal',body:'Goal scored'}]}};
     window.remount();
   });
   await page.getByText('Followed Child',{exact:true}).waitFor();
@@ -346,6 +346,8 @@ try {
           await page.evaluate(choice=>{window.responses.matches.matches[0].shirt_choice=choice;window.responses.matches.clubKits={home:{colour:'#123456',imagePath:'club/home/custom.png'},away:{colour:'#af2555',imagePath:'club/away/custom.png'}}},choice);
           await page.getByText('Demo FC v Away Club',{exact:true}).click();
           await page.getByRole('heading',{name:'Demo FC v Away Club',exact:true}).waitFor();
+          await page.getByLabel('Match type: League',{exact:true}).waitFor();
+          await page.getByLabel('Surface: 3G',{exact:true}).waitFor();
           assert.equal(await page.getByText('Goal Alex Scorer',{exact:true}).locator('..').getByText('Assist: Jamie Assist',{exact:true}).count(),1,'Recorded assist appears on its own line below the Fan goal')
           assert.equal(await page.getByText('Goal Sam Solo',{exact:true}).locator('..').getByText(/^Assist:/).count(),0,'Goals without a recorded assist have no assist line')
           if(mode==='light' && choice==='home') {
