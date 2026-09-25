@@ -16,10 +16,11 @@ for (const failure of ['none','notification','refresh','handover','delayed']) {
     const steps = []
     const locks = {current:{}}
     const scorerActionGenerationRef = { current: 0 }
+    const scorerActionInFlightRef = { current: false }
     const parentActionScopeRef = { current: 0 }
     let currentNotice = null
     const context = {
-      isOffline:false,activeActionId:'',selectedMobileUser:{id:'FP TEST parent'},scorerHandoversRef:locks,scorerActionGenerationRef,parentActionScopeRef,
+      isOffline:false,activeActionId:'',selectedMobileUser:{id:'FP TEST parent'},scorerHandoversRef:locks,scorerActionGenerationRef,scorerActionInFlightRef,parentActionScopeRef,
       setActiveActionId: () => {},setNotice: value => { currentNotice = typeof value === 'function' ? value(currentNotice) : value; notices.push(currentNotice) },
       setSelectedMatchId: value => selections.push(value),
       setResources: updater => {resources=updater(resources);steps.push('controls removed')},
@@ -31,7 +32,10 @@ for (const failure of ['none','notification','refresh','handover','delayed']) {
     }
     vm.createContext(context)
     vm.runInContext(handlerSource,context)
-    const result=await context.handleScorerAction(match,'request-review')
+    const pending=context.handleScorerAction(match,'request-review')
+    assert.equal(await context.handleScorerAction(match,'request-review'),false)
+    const result=await pending
+    assert.equal(scorerActionInFlightRef.current,false)
     if(failure==='handover'){
       assert.equal(result.saved,false)
       assert.equal(resources.matches.items[0].isScorer,true)
