@@ -337,11 +337,21 @@ try {
       await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
       if(title==='Game Day'){
+        await page.evaluate(() => { window.responses.matches.events = [
+          { id: 'assisted-goal', event_type: 'goal', team_side: 'club', minute: 70, scorer_name: 'Alex Scorer', assist_name: 'Jamie Assist', home_score: 1, away_score: 0, created_at: '2026-09-24T19:10:00Z' },
+          { id: 'solo-goal', event_type: 'goal', team_side: 'club', minute: 80, scorer_name: 'Sam Solo', home_score: 2, away_score: 0, created_at: '2026-09-24T19:20:00Z' },
+        ] })
         await page.route('http://localhost:9877/kits/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><path fill="#af2555" d="M16 5h24l12 12-8 8-5-5v31H17V20l-5 5-8-8z"/></svg>'}));
         for(const choice of ['home','away','tbc']) {
           await page.evaluate(choice=>{window.responses.matches.matches[0].shirt_choice=choice;window.responses.matches.clubKits={home:{colour:'#123456',imagePath:'club/home/custom.png'},away:{colour:'#af2555',imagePath:'club/away/custom.png'}}},choice);
           await page.getByText('Demo FC v Away Club',{exact:true}).click();
           await page.getByRole('heading',{name:'Demo FC v Away Club',exact:true}).waitFor();
+          assert.equal(await page.getByText('Goal Alex Scorer',{exact:true}).locator('..').getByText('Assist: Jamie Assist',{exact:true}).count(),1,'Recorded assist appears on its own line below the Fan goal')
+          assert.equal(await page.getByText('Goal Sam Solo',{exact:true}).locator('..').getByText(/^Assist:/).count(),0,'Goals without a recorded assist have no assist line')
+          if(mode==='light' && choice==='home') {
+            await page.getByText('Match Timeline',{exact:true}).scrollIntoViewIfNeeded()
+            await page.screenshot({path:`${out}/fan-goal-assist-line.png`})
+          }
           assert.equal(await page.getByRole('button',{name:/See squad|Register interest|Start match/}).count(),0);
           const matchDate=new Date((await page.evaluate(()=>window.responses.matches.matches[0].match_date))+'T12:00:00Z');await page.getByText(new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/London'}).format(matchDate),{exact:true}).waitFor();
           const label=choice==='tbc'?'Kit to be confirmed':choice==='home'?'Home kit':'Away kit';

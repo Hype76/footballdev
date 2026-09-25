@@ -16,7 +16,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, BackHandler, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { buildCompletedMatchEventPresentation, buildCompletedMatchGoalScorerLines, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
+import { buildCompletedMatchEventPresentation, buildCompletedMatchGoalScorerLines, buildFinalMatchReportSummary, resolveCompletedMatchPlayerName } from '../../../src/lib/matchday-final-report.js'
 import { getParentCalendarAttendanceInvitation, getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
 import {
@@ -1233,7 +1233,17 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
           <Text style={styles.cardTitle}>Match Timeline</Text>
           {timeline.map((event) => {
             const eventPresentation = buildCompletedMatchEventPresentation(event, selectedMatch, { includeNotes: false })
-            return <View key={event.id} style={styles.timelineItem}><Text style={styles.timelineMinute}>{eventPresentation.minuteLabel}</Text><Text style={styles.body}>{eventPresentation.title}{eventPresentation.detail ? ` ${eventPresentation.detail}` : ''}</Text>{event.homeScore != null && event.awayScore != null ? <Text style={styles.meta}>{event.homeScore} - {event.awayScore}</Text> : null}</View>
+            const recordedAssist = selectedMatch.isFanView && eventPresentation.eventType === 'goal'
+              ? resolveCompletedMatchPlayerName(event, 'secondary')
+              : ''
+            const separateAssist = recordedAssist && recordedAssist !== 'Unknown player' ? recordedAssist : ''
+            const detail = separateAssist ? resolveCompletedMatchPlayerName(event) : eventPresentation.detail
+            return <View key={event.id} style={styles.timelineItem}>
+              <Text style={styles.timelineMinute}>{eventPresentation.minuteLabel}</Text>
+              <Text style={styles.body}>{eventPresentation.title}{detail ? ` ${detail}` : ''}</Text>
+              {separateAssist ? <Text style={styles.meta}>Assist: {separateAssist}</Text> : null}
+              {event.homeScore != null && event.awayScore != null ? <Text style={styles.meta}>{event.homeScore} - {event.awayScore}</Text> : null}
+            </View>
           })}
         </View> : null}
       </View>
