@@ -109,7 +109,7 @@ export async function handleFans(event, {
       if (body.matchId) {
         if (!matches.some((match) => match.id === body.matchId)) return json(403, { message: 'This Game Day is unavailable.' })
         const clubKits = await readClubKits(client, scope.fan.club_id)
-        const events = await client.from('match_day_events').select('id, event_type, minute, home_score, away_score, created_at')
+        const events = await client.from('match_day_events').select('id, event_type, team_side, minute, stoppage_minute, match_phase, phase_order, event_sequence, scorer_name, scorer_shirt_number, assist_name, assist_shirt_number, is_penalty_goal, is_own_goal, home_score, away_score, created_at')
           .eq('match_day_id', body.matchId).eq('event_status', 'active').order('created_at', { ascending: true })
         if (events.error) throw events.error
         return json(200, { matches: matches.filter((match) => match.id === body.matchId), events: events.data || [], clubKits })
