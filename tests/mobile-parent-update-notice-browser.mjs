@@ -16,7 +16,7 @@ const result = await build({
     import {SafeAreaProvider} from 'react-native-safe-area-context';
     import {MobileUpdateNotice} from './apps/mobile-core/src/MobileUpdateNotice.js';
     import {useMobileAutomaticUpdates} from './apps/mobile-core/src/updates.js';
-    const AuthProvider=({children})=>children,parentOfflineProfileStore={},prepareParentMobileStartup=()=>{},clearFanNotificationDevice=()=>{};
+    const AuthProvider=({children})=>children,parentOfflineProfileStore={},prepareParentMobileStartup=()=>{},clearParentNotificationsBeforeSignOut=()=>{};
     const StartupRecoveryScreen=()=> <main>Recovery screen</main>;
     function AppContent(){const[screen,setScreen]=useState('home');window.showScreen=setScreen;if(screen==='error')throw Error('synthetic render failure');return <main><h1>{screen}</h1><input aria-label="Unsaved draft" defaultValue="Keep this draft"/></main>}
     ${source.slice(boundary.start,boundary.end)}
