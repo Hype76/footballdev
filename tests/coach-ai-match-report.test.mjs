@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildCoachAiFacts, buildCoachAiPrompt, canUseCoachAiReport, PILOT_CLUB_ID, validateCoachAiAnswers, validateCoachAiNarrative } from '../netlify/functions/lib/_coach-ai-report.js'
+import { buildCoachAiFacts, buildCoachAiPrompt, canUseCoachAiReport, getCoachAiReportStorageKey, getCoachAiReportStoreName, PILOT_CLUB_ID, validateCoachAiAnswers, validateCoachAiNarrative } from '../netlify/functions/lib/_coach-ai-report.js'
 import { canUseCoachAiReportUi } from '../src/lib/coach-ai-report-pilot.js'
 import { buildCompletedReportPdf } from '../src/lib/matchday-report-export.js'
 
@@ -29,6 +29,11 @@ test('optional coach answers are bounded and cannot alter fact fields', () => {
   assert.throws(() => validateCoachAiAnswers({ score: '3-1' }))
   assert.throws(() => validateCoachAiAnswers({ flow: 'x'.repeat(1001) }))
   assert.throws(() => validateCoachAiNarrative(''))
+})
+
+test('saved reports are bound to one club and match, with separate preview storage', () => {
+  assert.equal(getCoachAiReportStorageKey(match), `${PILOT_CLUB_ID}/${match.id}`)
+  assert.notEqual(getCoachAiReportStoreName('production'), getCoachAiReportStoreName('deploy-preview'))
 })
 
 test('generation prompt separates recorded facts from coach opinion', () => {

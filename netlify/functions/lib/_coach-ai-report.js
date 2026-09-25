@@ -1,6 +1,8 @@
 import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../../src/lib/matchday-final-report.js'
 
 export const PILOT_CLUB_ID = 'f747d2cc-a5e5-4960-8ad3-dcfe85b49279'
+export const getCoachAiReportStoreName = (context) => context === 'production' ? 'coach-match-report-pilot' : 'coach-match-report-pilot-preview'
+export const getCoachAiReportStorageKey = (match) => `${match.club_id}/${match.id}`
 export const AI_REPORT_QUESTIONS = [
   ['flow', 'How did the match flow?'],
   ['outstandingPlayers', 'Which players stood out?'],

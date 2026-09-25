@@ -91,7 +91,7 @@ export function normalizeCoachMatchDay(row = {}) {
     playerAvailability: (row.match_day_player_availability ?? row.playerAvailability ?? []).map(normalizeAvailability), squadDecisions: (row.match_day_player_squad_decisions ?? row.squadDecisions ?? []).map(normalizeSquadDecision), availabilityRequests: (row.match_day_availability_requests ?? row.availabilityRequests ?? []).map(normalizeRequest), roleAssignments: (row.match_day_role_assignments ?? row.roleAssignments ?? []).map(normalizeRoleAssignment),
     squadNotificationContacts: (row.squad_notification_contacts ?? row.squadNotificationContacts ?? []).map((contact) => ({ playerId: contact.player_id ?? contact.playerId, canNotify: contact.can_notify === true || contact.canNotify === true, hasContact: contact.has_contact === true || contact.hasContact === true, appRecipientCount: integer(contact.app_recipient_count ?? contact.appRecipientCount), emailRecipientCount: integer(contact.email_recipient_count ?? contact.emailRecipientCount) })),
     events: rawEvents.map(normalizeEvent).sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)), shootoutEvents: rawKicks.map(normalizeShootoutKick),
-    finalReport: finalReportRow ? { matchDayId: finalReportRow.match_day_id ?? finalReportRow.matchDayId ?? '', staffNotes: normalize(finalReportRow.staff_notes ?? finalReportRow.staffNotes), aiNarrative: normalize(finalReportRow.ai_narrative ?? finalReportRow.aiNarrative), aiAnswers: finalReportRow.ai_answers ?? finalReportRow.aiAnswers ?? {}, aiSavedAt: finalReportRow.ai_saved_at ?? finalReportRow.aiSavedAt ?? '', createdByName: normalize(finalReportRow.created_by_name ?? finalReportRow.createdByName), updatedByName: normalize(finalReportRow.updated_by_name ?? finalReportRow.updatedByName), updatedAt: finalReportRow.updated_at ?? finalReportRow.updatedAt ?? '' } : null,
+    finalReport: finalReportRow ? { matchDayId: finalReportRow.match_day_id ?? finalReportRow.matchDayId ?? '', staffNotes: normalize(finalReportRow.staff_notes ?? finalReportRow.staffNotes), createdByName: normalize(finalReportRow.created_by_name ?? finalReportRow.createdByName), updatedByName: normalize(finalReportRow.updated_by_name ?? finalReportRow.updatedByName), updatedAt: finalReportRow.updated_at ?? finalReportRow.updatedAt ?? '' } : null,
     previousHiddenAt: row.previous_hidden_at ?? row.previousHiddenAt ?? '', deletedAt: row.deleted_at ?? row.deletedAt ?? '', updatedAt: row.updated_at ?? row.updatedAt ?? '', isHydrated: Array.isArray(row.match_day_events),
   }
 }
@@ -566,14 +566,16 @@ export async function saveCoachMatchDayFinalReport(user, match, staffNotes) {
 }
 
 export async function requestCoachAiMatchReport(user, match, action, answers, narrative = '') {
-  await prepareMutation(user, match)
+  if (action !== 'load') await prepareMutation(user, match)
+  else { assertCoachMatchDayAccess(user); assertScope(user, match) }
   const config = getMobileRuntimeConfig('coach')
   const accessToken = await getAccessToken()
   if (!config.apiBaseUrl || !accessToken) throw new Error('Login is required.')
-  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/coach-ai-match-report'), {
-    method: 'POST',
+  const endpoint = joinApiPath(config.apiBaseUrl, '.netlify/functions/coach-ai-match-report')
+  const { ok, result } = await fetchJsonWithTimeout(action === 'load' ? `${endpoint}?matchDayId=${encodeURIComponent(match.id)}` : endpoint, {
+    method: action === 'load' ? 'GET' : 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, matchDayId: match.id, answers, narrative }),
+    ...(action === 'load' ? {} : { body: JSON.stringify({ action, matchDayId: match.id, answers, narrative }) }),
   })
   if (!ok) throw new Error(result?.message || 'The report could not be completed.')
   return result

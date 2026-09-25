@@ -1,9 +1,11 @@
 import process from 'node:process'
+import { getStore } from '@netlify/blobs'
 import { createClient } from '@supabase/supabase-js'
 import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import {
   buildCoachAiFacts, buildCoachAiPrompt, canUseCoachAiReport,
+  getCoachAiReportStorageKey, getCoachAiReportStoreName,
   validateCoachAiAnswers, validateCoachAiNarrative,
 } from './lib/_coach-ai-report.js'
 
@@ -14,17 +16,17 @@ const json = (status, body) => new Response(JSON.stringify(body), {
 const envValue = (name) => globalThis.Netlify?.env?.get?.(name) || process.env[name]
 
 export default async function coachAiMatchReport(request) {
-  if (request.method !== 'POST') return json(405, { message: 'Method not allowed.' })
+  if (!['GET', 'POST'].includes(request.method)) return json(405, { message: 'Method not allowed.' })
   try {
     const token = request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1]
     if (!token) return json(401, { message: 'Login is required.' })
     const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token)
     if (authError || !auth?.user) return json(401, { message: 'Login is required.' })
 
-    const body = await request.json()
-    const matchDayId = String(body?.matchDayId || '').trim()
+    const body = request.method === 'POST' ? await request.json() : {}
+    const matchDayId = String(request.method === 'GET' ? new URL(request.url).searchParams.get('matchDayId') : body?.matchDayId || '').trim()
     if (!/^[0-9a-f-]{36}$/i.test(matchDayId)) return json(400, { message: 'Choose a valid match.' })
-    if (!['generate', 'save'].includes(body?.action)) return json(400, { message: 'Choose a valid report action.' })
+    if (request.method === 'POST' && !['generate', 'save'].includes(body?.action)) return json(400, { message: 'Choose a valid report action.' })
 
     const { data: match, error: matchError } = await supabaseAdmin.from('match_days')
       .select('*, teams:team_id(name), clubs:club_id(name)')
@@ -42,17 +44,26 @@ export default async function coachAiMatchReport(request) {
     const { data: canReadMatch, error: accessError } = await client.rpc('can_read_match_day', { target_team_id: match.team_id })
     if (accessError) throw accessError
     if (!canReadMatch) return json(403, { message: 'You no longer have access to this match.' })
+    const store = getStore({
+      name: getCoachAiReportStoreName(envValue('CONTEXT')),
+      consistency: 'strong',
+    })
+    const storageKey = getCoachAiReportStorageKey(match)
+    if (request.method === 'GET') {
+      const saved = await store.get(storageKey, { type: 'json' })
+      return json(200, {
+        narrative: saved?.narrative || '',
+        answers: saved?.answers || {},
+        savedAt: saved?.savedAt || '',
+      })
+    }
     const answers = validateCoachAiAnswers(body.answers || {})
 
     if (body.action === 'save') {
       const narrative = validateCoachAiNarrative(body.narrative)
-      const { data, error } = await client.rpc('save_match_day_ai_report', {
-        match_day_id_value: match.id,
-        narrative_value: narrative,
-        answers_value: answers,
-      })
-      if (error) throw error
-      return json(200, { narrative: data.ai_narrative, savedAt: data.ai_saved_at })
+      const savedAt = new Date().toISOString()
+      await store.setJSON(storageKey, { narrative, answers, savedAt, generatedBy: auth.user.id })
+      return json(200, { narrative, savedAt })
     }
 
     const apiKey = envValue('OPENAI_API_KEY')

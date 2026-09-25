@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { downloadCompletedReportPdf } from '../../lib/matchday-report-export.js'
 import { buildCompletedMatchEventPresentation, buildFinalMatchReportSummary } from '../../lib/matchday-final-report.js'
 
@@ -21,14 +21,39 @@ async function requestReport(token, payload) {
   return result
 }
 
+async function loadSavedReport(token, matchDayId) {
+  const response = await fetch(`/.netlify/functions/coach-ai-match-report?matchDayId=${encodeURIComponent(matchDayId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(result.message || 'The saved report could not be loaded.')
+  return result
+}
+
 export function CoachAiMatchReport({ match, token }) {
   const facts = buildFinalMatchReportSummary(match)
-  const [mode, setMode] = useState(match.finalReport?.aiNarrative ? 'report' : 'choice')
-  const [answers, setAnswers] = useState(match.finalReport?.aiAnswers || {})
-  const [draft, setDraft] = useState(match.finalReport?.aiNarrative || '')
-  const [savedText, setSavedText] = useState(match.finalReport?.aiNarrative || '')
+  const [mode, setMode] = useState('choice')
+  const [answers, setAnswers] = useState({})
+  const [draft, setDraft] = useState('')
+  const [savedText, setSavedText] = useState('')
+  const [loadingSaved, setLoadingSaved] = useState(true)
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    loadSavedReport(token, match.id).then((saved) => {
+      if (cancelled) return
+      if (saved.narrative) {
+        setAnswers((current) => Object.values(current).some(Boolean) ? current : saved.answers || {})
+        setDraft((current) => current || saved.narrative)
+        setSavedText(saved.narrative)
+        setMode((current) => current === 'choice' ? 'report' : current)
+      }
+    }).catch((error) => { if (!cancelled) setMessage(error.message) })
+      .finally(() => { if (!cancelled) setLoadingSaved(false) })
+    return () => { cancelled = true }
+  }, [match.id, token])
 
   const generate = async () => {
     setBusy('generate')
@@ -64,7 +89,8 @@ export function CoachAiMatchReport({ match, token }) {
 
   return <section className="mt-5 border-t border-[var(--border-color)] pt-4" aria-label="Coach match report">
     <h6 className="text-base font-black text-[var(--text-primary)]">Coach match report</h6>
-    {mode === 'choice' ? <div className="mt-2 flex flex-wrap items-center gap-3">
+    {loadingSaved ? <p className="mt-2 text-sm">Checking for a saved report...</p> : null}
+    {!loadingSaved && mode === 'choice' ? <div className="mt-2 flex flex-wrap items-center gap-3">
       <button type="button" className="text-sm font-bold underline" onClick={() => setMode('questions')}>Generate a report</button>
       <button type="button" className="text-sm font-bold underline" onClick={() => setMode('existing')}>Use the Matchday report</button>
     </div> : null}
