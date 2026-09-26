@@ -10,8 +10,12 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
+import * as Clipboard from 'expo-clipboard'
+import { File, Paths } from 'expo-file-system'
+import * as Sharing from 'expo-sharing'
 import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation } from '../../../src/lib/matchday-final-report.js'
+import { buildCompletedReportPdf } from '../../../src/lib/matchday-report-export.js'
 import {
   buildCoachFinalMatchReport,
   captureCoachMatchDayAction,
@@ -45,6 +49,7 @@ import {
   getCoachMatchDayList,
   normalizeCoachMatchDay,
   recordCoachMatchDayShootoutKick,
+  requestCoachAiMatchReport,
   runCoachMatchDayTimerAction,
   saveCoachMatchDayFinalReport,
   selectCoachMatchDayVolunteer,
@@ -551,7 +556,68 @@ function ShootoutPanel({ busy, match, onKick, onPrepare, onVoid, styles }) {
   return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Penalty shootout</Text><Text style={styles.score}>{match.homeShootoutScore} - {match.awayShootoutScore}</Text><Chips onChange={(value) => setKick({ ...kick, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={kick.teamSide} /><Chips onChange={(value) => setKick({ ...kick, outcome: value })} options={[{ label: 'Scored', value: 'scored' }, { label: 'Missed', value: 'missed' }]} styles={styles} value={kick.outcome} /><Field label="Player" onChangeText={(value) => setKick({ ...kick, playerName: value })} styles={styles} value={kick.playerName} /><Field label="Notes" onChangeText={(value) => setKick({ ...kick, notes: value })} styles={styles} value={kick.notes} /><Button disabled={busy || match.currentMatchPhase !== 'penalties'} label="Review penalty" onPress={() => onPrepare({ kind: 'kick', label: 'Record penalty', run: () => onKick(kick) })} styles={styles} /></View>{(match.shootoutEvents || []).map((item) => <View key={item.id} style={styles.card}><Text style={styles.cardTitle}>{item.kickNumber}. {item.teamSide} {item.outcome}</Text><Text style={styles.body}>{item.playerName || 'Player not recorded'}</Text>{item.eventStatus !== 'voided' ? <Button disabled={busy} label="Void penalty" onPress={() => onPrepare({ kind: 'void-kick', label: 'Void penalty kick', run: () => onVoid(item.id) })} secondary styles={styles} /> : null}</View>)}</View>
 }
 
-function ReportPanel({ busy, canConclude, canSave, match, onConclude, onSave, styles }) {
+const AI_REPORT_PILOT_CLUB_ID = 'f747d2cc-a5e5-4960-8ad3-dcfe85b49279'
+const aiQuestions = [
+  ['flow', 'How did the match flow?'],
+  ['outstandingPlayers', 'Which players stood out?'],
+  ['standoutMoment', 'What really stood out?'],
+  ['disagreements', 'Is there anything you disagree with in the recorded events?'],
+  ['eventComments', 'Any other comments on the events?'],
+]
+
+function CoachAiReport({ match, user, styles }) {
+  const [mode, setMode] = useState('choice')
+  const [answers, setAnswers] = useState({})
+  const [draft, setDraft] = useState('')
+  const [savedText, setSavedText] = useState('')
+  const [loadingSaved, setLoadingSaved] = useState(true)
+  const [working, setWorking] = useState('')
+  const [feedback, setFeedback] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    requestCoachAiMatchReport(user, match, 'load').then((saved) => {
+      if (cancelled || !saved.narrative) return
+      setAnswers((current) => Object.values(current).some(Boolean) ? current : saved.answers || {})
+      setDraft((current) => current || saved.narrative)
+      setSavedText(saved.narrative)
+      setMode((current) => current === 'choice' ? 'report' : current)
+    }).catch((error) => { if (!cancelled) setFeedback(error.message || 'The saved report could not be loaded.') })
+      .finally(() => { if (!cancelled) setLoadingSaved(false) })
+    return () => { cancelled = true }
+  }, [match.id, user])
+  const run = async (action) => {
+    setWorking(action); setFeedback('')
+    try {
+      const result = await requestCoachAiMatchReport(user, match, action, answers, draft)
+      if (action === 'generate') { setDraft(result.narrative); setMode('report'); setFeedback('Review and edit this draft before saving.') }
+      else { setSavedText(result.narrative); setFeedback('Report saved to this match.') }
+    } catch (error) { setFeedback(error.message || 'The report could not be completed.') }
+    finally { setWorking('') }
+  }
+  const sharePdf = async () => {
+    setWorking('pdf'); setFeedback('')
+    try {
+      if (!await Sharing.isAvailableAsync()) throw new Error('PDF sharing is unavailable on this device.')
+      const bytes = buildCompletedReportPdf(match, { audience: 'staff', coachNarrative: savedText, accessContext: { planKey: 'matchday' } })
+      const file = new File(Paths.cache, `coach-match-report-${match.id}.pdf`)
+      file.create({ overwrite: true })
+      file.write(bytes)
+      await Sharing.shareAsync(file.uri, { dialogTitle: 'Save or share coach match report', mimeType: 'application/pdf', UTI: 'com.adobe.pdf' })
+    } catch (error) { setFeedback(error.message || 'The PDF could not be prepared.') }
+    finally { setWorking('') }
+  }
+  return <View style={styles.card}>
+    <Text style={styles.cardTitle}>Coach match report</Text>
+    {loadingSaved ? <Text style={styles.body}>Checking for a saved report...</Text> : null}
+    {!loadingSaved && mode === 'choice' ? <><Text style={styles.body}>Choose the recorded Matchday report above or generate a coach report from it.</Text><Button label="Generate a report" onPress={() => setMode('questions')} styles={styles} /><Button label="Use Matchday report" onPress={() => setMode('existing')} secondary styles={styles} /></> : null}
+    {mode === 'existing' ? <><Text style={styles.body}>The recorded score and events above are your Matchday report.</Text><Button label="Generate a report" onPress={() => setMode('questions')} secondary styles={styles} /></> : null}
+    {mode === 'questions' ? <><Text style={styles.body}>All questions are optional. Recorded match facts will stay unchanged.</Text>{aiQuestions.map(([key, question]) => <View key={key} style={styles.card}><Text style={styles.fieldLabel}>{question}</Text><TextInput accessibilityLabel={question} multiline maxLength={1000} onChangeText={(value) => setAnswers({ ...answers, [key]: value })} style={[styles.input, styles.inputMultiline]} value={answers[key] || ''} /></View>)}<Button disabled={Boolean(working)} label={working === 'generate' ? 'Generating...' : 'Generate draft'} onPress={() => run('generate')} styles={styles} /></> : null}
+    {mode === 'report' ? <><Text style={styles.body}>Check this draft against the recorded result and events above. Edit the wording before saving.</Text><TextInput accessibilityLabel="Coach match report text" multiline maxLength={5000} onChangeText={setDraft} style={[styles.input, styles.inputMultiline, { minHeight: 220 }]} value={draft} /><Button disabled={Boolean(working) || !draft.trim() || draft.trim() === savedText.trim()} label={working === 'save' ? 'Saving...' : 'Save to match'} onPress={() => run('save')} styles={styles} /><Button label="Change answers or regenerate" onPress={() => setMode('questions')} secondary styles={styles} />{savedText ? <Button label="Copy saved text" onPress={async () => { await Clipboard.setStringAsync(savedText); setFeedback('Saved report copied.') }} secondary styles={styles} /> : null}{savedText ? <Button disabled={Boolean(working)} label="Save or share PDF" onPress={sharePdf} secondary styles={styles} /> : null}{savedText && draft.trim() !== savedText.trim() ? <Text style={styles.meta}>Save your edits to update the copy and PDF versions.</Text> : null}</> : null}
+    {feedback ? <Text accessibilityLiveRegion="polite" style={styles.body}>{feedback}</Text> : null}
+  </View>
+}
+
+function ReportPanel({ busy, canConclude, canSave, match, onConclude, onSave, styles, user }) {
   const report = buildCoachFinalMatchReport(match)
   const activeEvents = report.activeEvents.slice().reverse()
   const [notes, setNotes] = useState(match.finalReport?.staffNotes || '')
@@ -581,6 +647,7 @@ function ReportPanel({ busy, canConclude, canSave, match, onConclude, onSave, st
       <Field label="Coach notes" multiline onChangeText={setNotes} styles={styles} value={notes} />
       <Button disabled={busy || !canSave} label="Save final report" onPress={() => onSave(notes)} styles={styles} />
     </View>
+    {match.clubId === AI_REPORT_PILOT_CLUB_ID && match.concludedAt && match.concludedBy === user?.id ? <CoachAiReport match={match} styles={styles} user={user} /> : null}
   </View>
 }
 
@@ -1004,7 +1071,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       {panel === 'live' ? <LivePanel actions={actions} busy={busy} eventForm={eventForm} match={match} onEventForm={setEventForm} onExit={() => setPanel('overview')} onPrepare={setPending} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' ? <TimelinePanel busy={busy || reconciling || stale || pendingCount > 0} match={match} onCorrectGoal={(event, goal, reason) => replace(() => correctCoachMatchDayGoal(user, match, event, goal, reason), (detail) => isCoachMatchDayGoalCorrectionApplied(detail, event.id, goal, reason))} onPrepare={setPending} onUndo={(event, input) => replace(() => voidCoachMatchDayEvent(user, match, event, input), (detail) => isCoachMatchDayEventVoided(detail, event.id))} styles={styles} /> : null}
       {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling || stale || pendingCount > 0} match={match} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}
-      {panel === 'report' ? <ReportPanel busy={busy || reconciling || stale || pendingCount > 0} canConclude={actions.timerActions.some((item) => item.action === 'conclude')} onConclude={() => setPending({ kind: 'conclude', label: `Conclude ${getCoachMatchDayPresentation(match).displayName} at ${getCoachMatchDayPresentation(match).displayScore}? Check the score and events first.`, run: () => replace(() => runCoachMatchDayTimerAction(user, match, 'conclude'), (detail) => isCoachMatchDayTimerActionApplied(detail, 'conclude')) })} canSave={actions.canSaveFinalReport} key={`${reportMatch.id}:${reportMatch.finalReport?.updatedAt || ''}`} match={reportMatch} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}
+      {panel === 'report' ? <ReportPanel busy={busy || reconciling || stale || pendingCount > 0} canConclude={actions.timerActions.some((item) => item.action === 'conclude')} onConclude={() => setPending({ kind: 'conclude', label: `Conclude ${getCoachMatchDayPresentation(match).displayName} at ${getCoachMatchDayPresentation(match).displayScore}? Check the score and events first.`, run: () => replace(() => runCoachMatchDayTimerAction(user, match, 'conclude'), (detail) => isCoachMatchDayTimerActionApplied(detail, 'conclude')) })} canSave={actions.canSaveFinalReport} key={`${reportMatch.id}:${reportMatch.finalReport?.updatedAt || ''}`} match={reportMatch} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} user={user} /> : null}
     </> : null}
     <Modal animationType="fade" onRequestClose={() => setPending(null)} transparent visible={Boolean(pending)}><View accessibilityViewIsModal style={styles.modalScreen}><Pressable accessibilityLabel="Cancel Match Day change" onPress={() => setPending(null)} style={styles.modalBackdrop} /><View accessibilityLiveRegion="assertive" style={styles.modalCard}><Text style={styles.cardTitle}>{pending?.kind === 'start-match' ? 'Start this match?' : 'Confirm this change'}</Text><Text style={styles.body}>{pending?.kind === 'start-match' ? `This starts the match clock for ${getCoachMatchDayPresentation(match).displayName} and makes Match Day live.` : pending?.label}</Text><Text style={styles.meta}>{pending?.kind === 'start-match' ? 'Only start when both teams are ready for kick-off.' : 'Match actions save on this device and sync when connected. Other changes need an online connection.'}</Text><Button disabled={busy || reconciling} label={pending?.kind === 'start-match' ? 'Start match' : 'Confirm'} onPress={confirm} styles={styles} /><Button label="Cancel" onPress={() => setPending(null)} secondary styles={styles} /></View></View></Modal>
   </View>
