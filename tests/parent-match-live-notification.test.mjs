@@ -78,7 +78,7 @@ test('parent full-time review alert only reaches currently authorised team coach
   assert.equal(sent[0].to, 'ExpoPushToken[coach]')
   assert.equal(sent[0].data.matchDayId, 'game')
   assert.equal(sent[0].data.contextId, 'team:team')
-  assert.match(sent[0].body, /review the report and conclude the game/)
+  assert.match(sent[0].body, /Review the score and events, then conclude the match/)
   assert.equal(logged[0].intent_type, 'coach_update')
   assert.equal(sent[0].data.targetId, 'game')
   assert.equal(buildCoachMatchReviewPayload(match).title, 'Visitors v U17 G: review required')

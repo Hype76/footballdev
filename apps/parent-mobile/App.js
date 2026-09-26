@@ -2678,7 +2678,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
       {scorerMatches.map((match) => (
         <View key={`scoring:${match.id}`} style={styles.sectionStack}>
           <Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>
-          <Text style={styles.helperText}>You are the scorer for this match.</Text>
+          <Text style={styles.helperText}>{match.status === 'full_time' ? 'Check the score and events, then send them to Coach to conclude the match.' : 'You are the scorer for this match.'}</Text>
           <PrimaryAction label={getParentScorerActionLabel(match)} onPress={() => onOpenMatch(match)} />
         </View>
       ))}

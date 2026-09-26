@@ -8,7 +8,7 @@ export function getParentScorerMatches(matches = []) {
 }
 
 export function getParentScorerActionLabel(match = {}) {
-  return ['scheduled', 'scorer_request'].includes(match.status) ? 'Open scoring' : match.status === 'full_time' ? 'Finish match report' : 'Resume scoring'
+  return ['scheduled', 'scorer_request'].includes(match.status) ? 'Open scoring' : match.status === 'full_time' ? 'Review scoring' : 'Resume scoring'
 }
 
 export function captureParentScorerAction(match, kind, now = Date.now()) {

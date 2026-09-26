@@ -178,7 +178,7 @@ export function GuestScorerPage() {
     {!session ? <p>Ask the coach to show the guest scorer QR code for this match, then scan it with your phone camera.</p> : null}
     {session && !session.claimed ? <form onSubmit={claim}><p>You can help score one match. The coach will confirm your name before you get access.</p><label>Your name<input required minLength={2} maxLength={80} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} /></label><button className="gs-primary" disabled={busy}>Ask coach for access</button></form> : null}
     {waiting ? <section aria-live="polite"><h2>Waiting for coach approval</h2><p>Ask the coach to approve your name on their screen. This page will open automatically.</p></section> : null}
-    {finished ? <section aria-live="polite"><h2>Full time</h2><p>The match has ended. The coach will review the report and conclude the game.</p><p>Your scoring access has now ended. Thank you for helping.</p></section> : null}
+    {finished ? <section aria-live="polite"><h2>Full time</h2><p>The match has ended. The Coach will review the score and events, then conclude the match.</p><p>Your scoring access has now ended. Thank you for helping.</p></section> : null}
     {match ? <>
       <p className="gs-caption">Scoring as {data.name}. Access is limited to this match.</p>
       <div className="gs-score"><strong>{match.homeScore} : {match.awayScore}</strong><span>{formatMatchAddedTimeClock(match, now)}</span><small>{match.currentMatchPhase.replaceAll('_', ' ')}</small></div>

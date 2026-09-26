@@ -8,12 +8,12 @@ import { buildParentMatchDayNotificationCopy } from '../netlify/functions/lib/_m
 
 const match = { id: 'match', status: 'live', currentMatchPhase: 'first_half', matchDurationMinutes: 20, timerStatus: 'paused', timerElapsedSeconds: 14 * 60 + 30, isScorer: true, homeAway: 'home', homeScore: 2, awayScore: 1 }
 
-test('assigned scorer remains discoverable after a fresh load, including half-time and finishing the report', () => {
+test('assigned scorer remains discoverable after a fresh load, including half-time and scoring review', () => {
   const fresh = JSON.parse(JSON.stringify(match))
   assert.deepEqual(getParentScorerMatches([fresh, { ...fresh, id: 'other', isScorer: false }]).map(x => x.id), ['match'])
   assert.equal(getParentScorerActionLabel(fresh), 'Resume scoring')
   assert.equal(getParentScorerActionLabel({ ...fresh, status: 'half_time' }), 'Resume scoring')
-  assert.equal(getParentScorerActionLabel({ ...fresh, status: 'full_time' }), 'Finish match report')
+  assert.equal(getParentScorerActionLabel({ ...fresh, status: 'full_time' }), 'Review scoring')
   assert.deepEqual(getParentScorerMatches([{ ...fresh, concludedAt: '2026-09-02' }, { ...fresh, status: 'cancelled' }]), [])
 })
 
