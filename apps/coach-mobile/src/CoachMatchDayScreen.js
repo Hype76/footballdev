@@ -486,7 +486,7 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
         {timerAction('start') ? <View style={styles.quickAction}><Button disabled={busy} label="Start match" onPress={() => runTimer('start', 'Start match')} styles={styles} /></View> : null}
         {timerAction('resume') ? <View style={styles.quickAction}><Button disabled={busy} label="Resume" onPress={() => runTimer('resume', 'Resume')} secondary styles={styles} /></View> : null}
       </View>
-      <Button disabled={busy || !actions.canRecordEvents} iconKey="match.correct-score" label="Correct score" onPress={prepareScoreCorrection} secondary styles={styles} />
+      <Button disabled={busy || !actions.canCorrectScore} iconKey="match.correct-score" label="Correct score" onPress={prepareScoreCorrection} secondary styles={styles} />
     </View>
     {actionSheet?.kind === 'event' ? <MatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
       <Text style={styles.body}>The match time was captured when you pressed the action. Add the details without rushing.</Text>
@@ -522,7 +522,7 @@ function LivePanel({ actions, busy, eventForm, match, onEventForm, onExit, onPre
       <Text style={styles.body}>Use this only when the displayed score is wrong. The correction remains in the Match Day audit history.</Text>
       <View style={styles.row}><View style={{ flex: 1 }}><Field label="Home" onChangeText={(value) => setScoreDraft({ ...scoreDraft, home: value })} styles={styles} value={scoreDraft.home} /></View><View style={{ flex: 1 }}><Field label="Away" onChangeText={(value) => setScoreDraft({ ...scoreDraft, away: value })} styles={styles} value={scoreDraft.away} /></View></View>
       {actionError ? <View accessibilityLiveRegion="assertive" style={styles.warning}><Text style={styles.dangerText}>{actionError}</Text></View> : null}
-      <Button disabled={busy || !actions.canRecordEvents} label={busy ? 'Saving...' : 'Save score correction'} onPress={saveScore} styles={styles} />
+      <Button disabled={busy || !actions.canCorrectScore} label={busy ? 'Saving...' : 'Save score correction'} onPress={saveScore} styles={styles} />
     </MatchDayActionSheet> : null}
     <LiveTimeline match={match} styles={styles} />
   </View>

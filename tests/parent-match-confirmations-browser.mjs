@@ -14,7 +14,7 @@ const shared = `
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'
   import { getGoalScorerSide, setGoalOwnGoal, oppositeMatchSide } from './src/lib/matchday-goal-credit.js'
   import { captureMatchEventTime, formatMatchAddedTimeClock, getMatchEventTime, getMatchClockDescription } from './src/lib/matchday-event-time.js'
-  import { canRecordParentScorerEvent, getMatchDayLifecycleState, getParentScorerTimerActions } from './src/lib/matchday-lifecycle.js'
+  import { canCorrectMatchDayScore, canRecordParentScorerEvent, getMatchDayLifecycleState, getParentScorerTimerActions } from './src/lib/matchday-lifecycle.js'
   import { isContinuousMatchClock, normalizeMatchDurationMinutes } from './src/lib/matchday-model.js'
   import { getCoachMatchDayPresentation, getCoachMatchDaySelectedPlayers, getCoachMatchDayOpponentPlayers, captureCoachMatchDayAction, createCoachMatchDayEventForm, validateCoachMatchDayEventForm, pickCoachMatchDayLinkedPlayer, updateCoachMatchDayLinkedPlayer, filterCoachMatchDayPlayerChoices } from './apps/mobile-core/src/coachMatchDayCore.js'
   const isAvailableAsync = async () => false
@@ -80,8 +80,29 @@ try {
     await page.evaluate(mode => window.renderPreview(mode,'#1b437e',{status:'full_time',currentMatchPhase:'full_time',timerStatus:'full_time'}), mode)
     await page.getByRole('button',{name:'Send to Coach to conclude',exact:true}).waitFor()
     assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).count(),0)
+    await page.getByRole('button',{name:'Correct score',exact:true}).click()
+    await page.getByLabel('Away score').fill('1')
+    await page.getByRole('button',{name:'Save score correction',exact:true}).click()
+    assert.equal(await page.evaluate(() => window.calls.at(-1).action),'score')
+    assert.equal(await page.evaluate(() => window.calls.at(-1).value.awayScore),'1')
+    await page.evaluate(mode => window.renderPreview(mode,'#1b437e',{status:'full_time',currentMatchPhase:'full_time',timerStatus:'full_time',awayScore:2,events:[{id:'first-goal',eventType:'goal',teamSide:'opponent',scorerName:'FP TEST',minute:40},{id:'second-goal',eventType:'goal',teamSide:'opponent',scorerName:'FP TEST',minute:40}]}), mode)
+    await page.getByRole('button',{name:'Correct goal',exact:true}).click()
+    await page.getByRole('button',{name:"40' FP TEST (goal 2)",exact:true}).click()
+    await page.getByRole('button',{name:'Remove goal',exact:true}).click()
+    await page.getByRole('button',{name:'Confirm removal',exact:true}).click()
+    assert.equal(await page.evaluate(() => window.calls.at(-1).action),'void-goal')
+    assert.equal(await page.evaluate(() => window.calls.at(-1).value.event.id),'second-goal')
     await page.getByRole('button',{name:'Send to Coach to conclude',exact:true}).click()
     assert.equal(await page.evaluate(() => window.calls.at(-1).action),'request-review')
+    await page.evaluate(mode => { window.calls=[]; window.renderPreview(mode,'#1b437e',{status:'second_half',currentMatchPhase:'second_half',timerStatus:'running',events:[{id:'existing-goal',eventType:'goal',teamSide:'club',scorerName:'Alex',minute:6}]} ) }, mode)
+    await page.getByRole('button',{name:'Goal',exact:true}).click()
+    await page.getByRole('button',{name:'Choose scorer',exact:true}).click()
+    await page.getByRole('button',{name:'Alex | Shirt 9',exact:true}).click()
+    await page.getByRole('button',{name:'Record goal',exact:true}).click()
+    assert.equal(await page.evaluate(() => window.calls.length),0)
+    await page.getByText('A goal for this scorer at this minute already exists. Check the details before recording another.').waitFor()
+    await page.getByRole('button',{name:'Record another goal',exact:true}).click()
+    assert.equal(await page.evaluate(() => window.calls.at(-1).action),'goal')
   }
 
   const app = await readFile('apps/parent-mobile/App.js', 'utf8')

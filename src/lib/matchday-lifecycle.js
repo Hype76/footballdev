@@ -57,6 +57,10 @@ export function canRecordParentScorerEvent(match = {}, eventType = '') {
     || (eventType === 'substitution' && normalizeText(match.status) === 'half_time' && lifecycle === 'paused')
 }
 
+export function canCorrectMatchDayScore(match = {}) {
+  return canRecordParentScorerEvent(match, 'score') || isMatchDayAtFullTime(match)
+}
+
 export function getParentScorerTimerActions(match = {}) {
   const lifecycleState = getMatchDayLifecycleState(match)
   const status = normalizeText(match.status)
