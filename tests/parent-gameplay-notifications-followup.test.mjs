@@ -1,135 +1,95 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { deliverParentScorerCommands } from '../netlify/functions/lib/_parent-scorer-command-notifications.js'
 
 const source = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
 const actionSource = source.slice(source.indexOf('async function handleScorerAction'), source.indexOf('async function handleDisplayThemeChange'))
-const names = ['isOffline','activeActionId','selectedMobileUser','scorerHandoversRef','setActiveActionId','setNotice','startParentScorerMatch','setParentScorerTimer','setParentScorerExtendedState','updateParentScorerScore','addParentScorerGoal','correctParentScorerGoal','voidParentScorerGoal','recordParentScorerShootoutKick','voidParentScorerShootoutKick','sendParentScorerMatchDayPush','loadParentData','getParentFriendlyError','scorerActionGenerationRef','scorerActionInFlightRef','parentActionScopeRef']
-const makeAction = new Function(...names, 'addParentScorerEvent', `return (${actionSource.trim()})`)
+const names = ['activeActionId', 'scorerActionInFlightRef', 'selectedMobileUser', 'selectedLink', 'setActiveActionId',
+  'setNotice', 'queueParentScorerAction', 'setScorerOutboxes', 'isOffline', 'runParentSync', 'getParentFriendlyError']
+const makeAction = new Function(...names, `return (${actionSource.trim()})`)
 
-function createAction({ load = async () => {}, notify = async () => ({ success: true }), save = async () => ({ id: 'event-1', status: 'live' }) } = {}) {
+function createAction({ offline = false, queue = async () => ({ journal: { pending: [{ id: 'saved' }] } }), sync = async () => {} } = {}) {
   const notices = []
   const activeActions = []
-  let currentNotice = null
-  const generations = { current: 0 }
-  const inFlight = { current: false }
-  const actionScope = { current: 0 }
-  const setNotice = (notice) => {
-    currentNotice = typeof notice === 'function' ? notice(currentNotice) : notice
-    notices.push(currentNotice)
-  }
-  const fn = makeAction(false, '', { id: 'parent-1' }, { current: {} }, (id) => activeActions.push(id), setNotice, save, save, save, save, save, save, save, save, save, notify, load, (error) => error.message, generations, inFlight, actionScope, save)
-  return { actionScope, activeActions, fn, generations, notices, setNotice }
+  const savedOutboxes = []
+  const fn = makeAction('', { current: false }, { id: 'parent-1' }, { id: 'link-1' }, id => activeActions.push(id),
+    notice => notices.push(notice), queue, update => savedOutboxes.push(update({})), offline, sync,
+    error => error.message)
+  return { activeActions, fn, notices, savedOutboxes }
 }
 
-test('Parent gameplay sends notifications only after saved changes, including all clock phases', async () => {
-  for (const [action,value,status,expected] of [
-    ['start',null,'live','live'], ['timer','half_time','half_time','half_time'],
-    ['timer','resume','second_half','second_half'], ['timer','full_time','full_time','full_time'],
-    ['extended','start_extra_time','extra_time','extra_time'], ['extended','start_penalties','penalties','penalties'],
-    ['timer','pause','live',''], ['goal',{},'live','goal'], ['score',{homeScore:1,awayScore:0},'live','score_correction'],
-    ['event',{eventType:'red_card'},'live','red_card'],
+const match = { id: 'match-1', isScorer: true, status: 'live' }
+
+test('Parent scorer saves locally before sync and includes each action payload', async () => {
+  for (const [action, value, expected] of [
+    ['start', null, {}], ['timer', 'half_time', { action: 'half_time' }],
+    ['extended', 'start_extra_time', { action: 'start_extra_time' }],
+    ['goal', { teamSide: 'club' }, { teamSide: 'club' }],
+    ['score', { homeScore: 1, awayScore: 0 }, { homeScore: 1, awayScore: 0 }],
+    ['event', { eventType: 'red_card' }, { eventType: 'red_card' }],
+    ['correct-goal', { event: { id: 'goal-1' }, goal: { scorerName: 'Player' }, reason: 'Correction' },
+      { eventId: 'goal-1', goal: { scorerName: 'Player' }, reason: 'Correction' }],
+    ['shootout', { outcome: 'scored' }, { outcome: 'scored' }],
+    ['request-review', null, {}],
   ]) {
     const calls = []
-    const save = async () => { calls.push('saved'); return {id:'event-1',status} }
-    const { fn } = createAction({
-      load: async () => { calls.push('refresh') },
-      notify: async (_user, _match, type, eventId) => { calls.push({ type, eventId }); return { success: true } },
-      save,
-    })
-    assert.equal(await fn({id:'match-1',isScorer:true,status:'live'},action,value),true)
-    assert.equal(calls[0],'saved')
-    assert.equal(calls.filter((call) => call === 'saved').length, 1)
-    assert.equal(calls.includes('refresh'), true)
-    assert.deepEqual(calls.filter((call) => typeof call === 'object'), expected ? [{type:expected,eventId:['goal','score_correction','red_card'].includes(expected)?'event-1':''}] : [])
+    const { fn, savedOutboxes } = createAction({ queue: async (_user, _link, _match, kind, payload) => {
+      calls.push(['saved', kind, payload]); return { journal: { pending: [{ id: 'saved' }] } }
+    }, sync: async () => { calls.push(['sync']) } })
+    assert.equal(await fn(match, action, value), true)
+    assert.deepEqual(calls[0], ['saved', action, expected])
+    assert.deepEqual(calls[1], ['sync'])
+    assert.equal(savedOutboxes[0]['match-1'].pending.length, 1)
   }
 })
 
-test('failed Parent saves send no success notification and keep the form open', async () => {
-  const fail = async () => { throw new Error('Database rejected save') }
-  let notified = false
-  const { fn } = createAction({ notify: async () => { notified = true }, save: fail })
-  assert.deepEqual(await fn({id:'match-1',isScorer:true},'goal',{}),{saved:false,message:'Database rejected save'})
-  assert.equal(notified,false)
+test('offline save waits for reconnection and failed local save sends nothing', async () => {
+  let synced = 0
+  const offline = createAction({ offline: true, sync: async () => { synced += 1 } })
+  assert.equal(await offline.fn(match, 'goal', {}), true)
+  assert.equal(synced, 0)
+  assert.match(offline.notices.at(-1).message, /Saved on this phone/)
+  const rejected = createAction({ queue: async () => { throw new Error('Encrypted save failed') },
+    sync: async () => { synced += 1 } })
+  assert.deepEqual(await rejected.fn(match, 'goal', {}), { saved: false, message: 'Encrypted save failed' })
+  assert.equal(rejected.savedOutboxes.length, 0)
+  assert.equal(synced, 0)
 })
 
-test('Parent scorer completes a committed save quietly without waiting for push delivery or global refresh', async () => {
-  let releasePush
-  let releaseRefresh
-  let saves = 0
-  let pushCalls = 0
-  let refreshCalls = 0
-  const push = new Promise((resolve) => { releasePush = resolve })
-  const refresh = new Promise((resolve) => { releaseRefresh = resolve })
-  const { activeActions, fn, notices } = createAction({
-    load: async () => { refreshCalls += 1; await refresh },
-    notify: async () => { pushCalls += 1; await push; return { success: true } },
-    save: async () => { saves += 1; return { id: 'event-1', status: 'live' } },
-  })
-
-  assert.equal(await fn({ id: 'match-1', isScorer: true, status: 'live' }, 'goal', {}), true)
-  assert.equal(saves, 1)
-  assert.equal(pushCalls, 1)
-  assert.equal(refreshCalls, 1)
-  assert.equal(notices.at(-1), null)
-  assert.equal(activeActions.at(-1), '', 'Saving indicator clears before background work completes')
-  releasePush()
-  releaseRefresh()
-})
-
-test('scorer keeps saving active until the authoritative save resolves', async () => {
-  let resolveSave
-  const save = new Promise(resolve => { resolveSave = resolve })
-  let followups = 0
-  const { activeActions, fn, notices } = createAction({
-    save: () => save,
-    notify: async () => { followups += 1; return true },
-    load: async () => { followups += 1 },
-  })
-  const result = fn({ id: 'match-1', isScorer: true, status: 'live' }, 'goal', {})
+test('saving indicator remains active until local persistence finishes', async () => {
+  let release
+  const queued = new Promise(resolve => { release = resolve })
+  const { activeActions, fn, notices } = createAction({ queue: () => queued })
+  const result = fn(match, 'goal', {})
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(activeActions.at(-1), 'scorer:match-1:goal')
   assert.equal(notices.at(-1), null)
-  assert.equal(followups, 0)
-  resolveSave({ id: 'saved-event' })
+  release({ journal: { pending: [{ id: 'saved' }] } })
   assert.equal(await result, true)
   assert.equal(activeActions.at(-1), '')
-  assert.equal(followups, 2)
 })
 
-test('older scorer background failures cannot add a notice after a newer quiet save', async () => {
-  let resolveFirstPush
-  const firstPush = new Promise((resolve) => { resolveFirstPush = resolve })
-  let notifyCalls = 0
-  const { fn, notices } = createAction({
-    load: async () => {},
-    notify: async () => {
-      notifyCalls += 1
-      if (notifyCalls === 1) return firstPush
-      return { success: true }
+test('server notification failure retries after the recorded match action', async () => {
+  let attempts = 0
+  const command = { id: 'command', match: { id: 'match-1', home_score: 1 }, type: 'goal', eventId: 'event' }
+  const completions = []
+  const client = {
+    async rpc(name, args) {
+      if (name.startsWith('claim_')) return { data: [command] }
+      if (name.startsWith('get_')) return { data: ['link-1'] }
+      completions.push(args.error_value)
+      return { data: null }
     },
-  })
-  const match = { id: 'match-1', isScorer: true, status: 'live' }
-
-  assert.equal(await fn(match, 'goal', {}), true)
-  assert.equal(await fn(match, 'goal', {}), true)
-  resolveFirstPush(null)
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(notices.at(-1), null)
-})
-
-test('scorer background warnings preserve a newer unrelated notice', async () => {
-  let resolvePush
-  const push = new Promise((resolve) => { resolvePush = resolve })
-  const { fn, notices, setNotice } = createAction({
-    load: async () => {},
-    notify: async () => push,
-  })
-
-  assert.equal(await fn({ id: 'match-1', isScorer: true, status: 'live' }, 'goal', {}), true)
-  const newerNotice = { message: 'A newer action has completed.', tone: 'success' }
-  setNotice(newerNotice)
-  resolvePush(null)
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.deepEqual(notices.at(-1), newerNotice)
+    from() { return { select() { return this }, eq() { return this }, is() { return this },
+      async maybeSingle() { return { data: { teams: { name: 'Team' }, clubs: { name: 'Club', status: 'active' } } } } } },
+  }
+  const deliver = async ({ match: savedMatch }) => {
+    assert.equal(savedMatch.home_score, 1)
+    return { mobileFailed: attempts++ === 0 ? 1 : 0 }
+  }
+  assert.deepEqual(await deliverParentScorerCommands('command', 'parent-1', { client, deliver }), { completed: 0, failed: 1 })
+  assert.deepEqual(await deliverParentScorerCommands('command', 'parent-1', { client, deliver }), { completed: 1, failed: 0 })
+  assert.match(completions[0], /retried/)
+  assert.equal(completions[1], '')
 })
