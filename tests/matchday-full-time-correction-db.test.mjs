@@ -7,8 +7,7 @@ import { canCorrectMatchDayScore } from '../src/lib/matchday-lifecycle.js'
 import { getCoachMatchDayActions } from '../apps/mobile-core/src/coachMatchDayCore.js'
 
 const migration = await readFile(new URL('../supabase/migrations/20260926144304_match_day_full_time_score_and_parent_goal_undo.sql', import.meta.url), 'utf8')
-const scoreSql = migration.slice(0, migration.indexOf('create or replace function public.void_parent_match_day_goal'))
-const voidSql = migration.slice(migration.indexOf('create or replace function public.void_parent_match_day_goal'), migration.indexOf('create or replace function public.apply_parent_match_day_command'))
+const writeFix = await readFile(new URL('../supabase/migrations/20260926165000_authorised_full_time_event_corrections.sql', import.meta.url), 'utf8')
 assert.match(migration, /perform public\.void_parent_match_day_goal\(m\.id,target_event_id,parent_link_id_value,payload_value->>'reason'\)/)
 
 test('Parent and Coach may correct the score at full time before conclusion', () => {
@@ -53,13 +52,14 @@ test('full-time correction and Parent goal removal enforce assignment and preser
         returns table(actor_user_id uuid, actor_parent_link_id uuid, actor_name text, actor_role text)
         language sql as $$select auth.uid(),parent_link,'FP TEST','scorer_parent'$$;
     `)
-    await db.exec(scoreSql)
-    await db.exec(voidSql)
+    await db.exec(writeFix)
     await db.query('insert into public.match_days(id,club_id,team_id,status,timer_status,away_score) values($1,$2,$3,$4,$5,2)', [fixture, club, team, 'full_time', 'full_time'])
     await db.query('insert into public.parent_player_links values($1,$2,$3,$4,$5)', [link, actor, 'active', club, team])
     await db.query('insert into public.match_day_role_assignments values($1,$2,$3,$4,$5,$6)', [fixture, 'scorer', link, actor, club, team])
     await db.query('insert into public.match_day_events(id,match_day_id,club_id,team_id,event_type,team_side,scorer_name) values($1,$2,$3,$4,$5,$6,$7)', [goal, fixture, club, team, 'goal', 'opponent', 'FP TEST'])
+    await db.exec('create trigger match_day_events_enforce_write before insert or update or delete on public.match_day_events for each row execute function public.enforce_match_day_event_write()')
     await db.query("select set_config('request.jwt.claim.sub',$1,false)", [actor])
+    await assert.rejects(db.query('insert into public.match_day_events(match_day_id,event_type) values($1,$2)', [fixture, 'score_correction']), /Completed or closed matches are read only/)
     await db.query('select public.record_match_day_score_correction_v2($1,$2,0,2,$3,$4)', [fixture, link, 'Reviewed score', randomUUID()])
     const removed = (await db.query('select public.void_parent_match_day_goal($1,$2,$3,$4) as result', [fixture, goal, link, 'Duplicate goal'])).rows[0].result
     assert.equal(removed.awayScore, 1)
