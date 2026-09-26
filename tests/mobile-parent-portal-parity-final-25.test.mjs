@@ -65,10 +65,12 @@ test('all Parent reads and writes use established child-scoped authorities', () 
   assert.doesNotMatch(data, /service_role|SUPABASE_SERVICE_ROLE_KEY/)
 })
 
-test('offline cache includes all read-only parity resources and leaves high-risk writes online only', () => {
+test('offline cache includes Parent resources and saves scorer actions for replay', () => {
   for (const resource of ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'polls', 'resources']) assert.match(offline, new RegExp(`'${resource}'`))
-  assert.doesNotMatch(offline, /chat_send|scorer|invitation_response/)
-  assert.match(screens, /Controls are unavailable offline/)
+  assert.doesNotMatch(offline, /chat_send|invitation_response/)
+  assert.match(app, /queueParentScorerAction/)
+  assert.match(app, /syncParentScorerOutboxes/)
+  assert.match(screens, /Game Day actions save on this phone and sync when connected/)
   assert.match(screens, /Responses need a connection/)
 })
 
@@ -77,7 +79,7 @@ test('normalizers preserve response authority and safe display fields', () => {
   assert.match(data, /roleType: normalizeText\(row\.role_type/)
   assert.match(data, /linesman: 'Linesman'[\s\S]*referee: 'Referee'[\s\S]*scorer: 'Scorer'/)
   assert.match(screens, /Volunteer offer/)
-  assert.match(screens, /This is a Parent or guardian volunteer role\. It does not select your player for the squad\./)
+  assert.match(screens, /This is a Parent or guardian volunteer role\.[^<]*This does not select your player for the squad\./)
   assert.match(screens, /Volunteer role status/)
   assert.match(data, /unreadCount: Number\(row\.unread_count/)
   assert.match(data, /canDelete: Boolean\(row\.can_delete/)

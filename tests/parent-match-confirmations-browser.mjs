@@ -14,11 +14,13 @@ const shared = `
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'
   import { getGoalScorerSide, setGoalOwnGoal, oppositeMatchSide } from './src/lib/matchday-goal-credit.js'
   import { captureMatchEventTime, formatMatchAddedTimeClock, getMatchEventTime, getMatchClockDescription } from './src/lib/matchday-event-time.js'
-  import { getMatchDayLifecycleState, getParentScorerTimerActions } from './src/lib/matchday-lifecycle.js'
+  import { canRecordParentScorerEvent, getMatchDayLifecycleState, getParentScorerTimerActions } from './src/lib/matchday-lifecycle.js'
+  import { isContinuousMatchClock, normalizeMatchDurationMinutes } from './src/lib/matchday-model.js'
   import { getCoachMatchDayPresentation, getCoachMatchDaySelectedPlayers, getCoachMatchDayOpponentPlayers, captureCoachMatchDayAction, createCoachMatchDayEventForm, validateCoachMatchDayEventForm, pickCoachMatchDayLinkedPlayer, updateCoachMatchDayLinkedPlayer, filterCoachMatchDayPlayerChoices } from './apps/mobile-core/src/coachMatchDayCore.js'
   const isAvailableAsync = async () => false
   const activateKeepAwakeAsync = async () => {}
   const deactivateKeepAwake = async () => {}
+  const MaterialIcons = () => null
   const normalize = (value) => String(value ?? '').trim()
   const normalizeText = normalize
   const label = (value) => normalize(value).replaceAll('_', ' ')
@@ -26,6 +28,7 @@ const shared = `
   const errorMessage = (error) => error.message
   const players = [{ id: 'alex', playerName: 'Alex', shirtNumber: '9', teamId: 'team' }, { id: 'clyde', playerName: 'Clyde Bates', shirtNumber: '4', teamId: 'team' }]
   let match = { id: 'test-match', teamId: 'team', teamName: 'FP TEST Team', opponent: 'Visitors', homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 10, clockMode: 'fixed', currentMatchPhase: 'second_half', status: 'second_half', timerStatus: 'running', timerStartedAt: '2026-09-03T12:00:00Z', timerElapsedSeconds: 340, events: [], squadDecisions: players.map((player) => ({ playerId: player.id, status: 'selected' })) }
+  const initialMatch = match
   Date.now = () => Date.parse('2026-09-03T12:00:00Z')
   window.calls = []
   const root = createRoot(document.getElementById('root'))
@@ -40,9 +43,9 @@ const parentCode = `${shared}
   function Preview({ mode, accent }) {
     const tokens = createParentMobileTheme({ mode, selectedLink: { themeAccent: accent } }).tokens
     const { colors, styles } = usePortalStyles(tokens)
-    return <View style={{ backgroundColor: colors.background, padding: 16, minHeight: 900 }}><ScorerControls activeActionId="" match={match} players={players} styles={styles} placeholderColor={colors.muted} onAction={async (action, value) => { window.calls.push({ action, value }); return true }} /></View>
+    return <View style={{ backgroundColor: colors.background, padding: 16, minHeight: 900 }}><ScorerControls activeActionId="" isOffline={match.isOffline === true} match={match} players={players} styles={styles} placeholderColor={colors.muted} onAction={async (action, value) => { window.calls.push({ action, value }); return true }} /></View>
   }
-  window.renderPreview = (mode, accent, state) => { match = { ...match, ...state }; root.render(<Preview key={mode + accent + match.status} mode={mode} accent={accent} />) }
+  window.renderPreview = (mode, accent, state) => { match = { ...initialMatch, ...state }; root.render(<Preview key={mode + accent + match.status} mode={mode} accent={accent} />) }
 `
 
 const browser = await chromium.launch({ headless: true })
@@ -69,6 +72,11 @@ try {
       assert.equal(await page.evaluate(() => window.calls.length),1)
       assert.equal(await page.evaluate(() => window.calls[0].action),expected)
     }
+    await page.evaluate(mode => { window.calls = []; window.renderPreview(mode, '#1b437e', { status: 'scheduled', currentMatchPhase: 'pre_match', timerStatus: 'not_started', timerStartedAt: '', phaseStartedAt: '', timerElapsedSeconds: 0, isOffline: true }) }, mode)
+    await page.getByText('Offline. Game Day actions save on this phone and sync when connected.').waitFor()
+    await page.getByRole('button', { name: 'Start match', exact: true }).click()
+    await page.getByRole('button', { name: 'Confirm start', exact: true }).click()
+    assert.equal(await page.evaluate(() => window.calls.at(-1)?.action), 'start')
     await page.evaluate(mode => window.renderPreview(mode,'#1b437e',{status:'full_time',currentMatchPhase:'full_time',timerStatus:'full_time'}), mode)
     await page.getByRole('button',{name:'Send to Coach to conclude',exact:true}).waitFor()
     assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).count(),0)
@@ -78,7 +86,7 @@ try {
 
   const app = await readFile('apps/parent-mobile/App.js', 'utf8')
   const hook = section(app, '  const [notice, setNotice]', '  const [notificationState,')
-  const noticeCode = `import React,{useState,useEffect} from 'react'; import {createRoot} from 'react-dom/client';
+  const noticeCode = `import React,{useState,useEffect} from 'react'; import {createRoot} from 'react-dom/client'; const initialNotice = null;
     function Preview(){ ${hook} window.setNotice=setNotice; return <div>{notice?.message || 'clear'}</div> }
     createRoot(document.getElementById('root')).render(<Preview/>);`
   const noticeBundle = await build({stdin:{resolveDir:process.cwd(),contents:noticeCode,loader:'jsx'},write:false,bundle:true,jsx:'automatic',alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom')},define:{'process.env.NODE_ENV':'"production"'}})

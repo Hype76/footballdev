@@ -13,7 +13,7 @@ const code = `
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
 import { isParentDefinitelyOffline } from './apps/parent-mobile/src/parentExperience.js'
-const AppState = { currentState: 'active' }
+const AppState = { currentState: 'active', addEventListener() { return { remove() {} } } }
 const listeners = new Set()
 const NetInfo = { addEventListener(fn) { listeners.add(fn); return () => listeners.delete(fn) } }
 window.calls = []
@@ -23,12 +23,15 @@ const syncParentOfflineCommands = async (user) => {
   await new Promise(resolve => { finishSync = resolve })
   return { attentionItems: [], needsAttention: 0, state: 'completed', waiting: 0 }
 }
+const syncParentScorerOutboxes = async () => ({ saved: 0 })
+const readParentScorerOutboxes = async () => ({})
 function App() {
   const [isOffline, setIsOffline] = useState(true)
   const [selectedMobileUser, setUser] = useState({ id: 'account-a' })
   const [selectedLink, setLink] = useState({ id: 'child-a' })
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncSummary, setSyncSummary] = useState(null)
+  const [, setScorerOutboxes] = useState({})
   const loadParentData = useCallback(async () => { window.calls.push(['load', selectedMobileUser.id, selectedLink.id]) }, [selectedMobileUser, selectedLink])
   ${section('  const parentSyncScopeRef', '  const refreshParentMatchDay')}
   ${section('  const recoveryCallbacksRef', '  useEffect(() => {\n    const authorityScope').trim()}

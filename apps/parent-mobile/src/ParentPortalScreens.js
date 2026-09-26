@@ -902,7 +902,7 @@ function getScorerPeriodLabel(match) {
   return `${phase} (${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')})`
 }
 
-function ScorerControls({ activeActionId, isOffline, match, onAction, placeholderColor, players = [], styles }) {
+function ScorerControls({ activeActionId, isOffline, match, onAction, placeholderColor, players = [], scorerSync, styles }) {
   const busy = activeActionId.startsWith(`scorer:${match.id}:`)
   const [homeScore, setHomeScore] = useState(String(match.homeScore || 0))
   const [awayScore, setAwayScore] = useState(String(match.awayScore || 0))
@@ -912,7 +912,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   const [keepAwake, setKeepAwake] = useState(false)
   const [keepAwakeAvailable, setKeepAwakeAvailable] = useState(true)
   const handedOver = Boolean(match.scorerReviewRequestedAt || match.concludedAt)
-  const disabled = isOffline || busy || handedOver
+  const disabled = busy || handedOver || match.pendingReview
   const timerActions = getParentScorerTimerActions(match).filter((item) => item.action !== 'conclude')
   const canRecordEvents = canRecordParentScorerEvent(match, 'goal')
   const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt)
@@ -982,7 +982,10 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
           <Text style={styles.scorerPhase}>{getScorerPeriodLabel(match)}</Text>
           <Text accessibilityLabel={`Score ${match.homeScore || 0} to ${match.awayScore || 0}`} accessibilityLiveRegion="polite" adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.scorerScore} testID="scorer-score">{match.homeScore || 0} - {match.awayScore || 0}</Text>
         </View>
-        {isOffline ? <Text style={styles.warning}>Controls are unavailable offline. Connect before changing the clock, score or events.</Text> : null}
+        {isOffline ? <Text style={styles.warning}>Offline. Game Day actions save on this phone and sync when connected.</Text> : null}
+        {scorerSync?.pending?.length ? <Text accessibilityRole="status" style={styles.helper}>{scorerSync.pending.length} saved action{scorerSync.pending.length === 1 ? '' : 's'} waiting to sync.</Text> : null}
+        {scorerSync?.error ? <Text accessibilityRole="alert" style={styles.warning}>{scorerSync.error}</Text> : null}
+        {match.pendingReview ? <Text accessibilityRole="status" style={styles.helper}>Coach handover saved on this phone and waiting to sync.</Text> : null}
         {!keepAwake ? awakeControl : null}
         <View style={styles.actionGrid} testID="scorer-primary-actions">
           {canRecordEvents ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Goal" onPress={() => openAction('goal', 'Add goal')} primary styles={styles} /> : null}
@@ -1124,7 +1127,7 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
   )
 }
 
-export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -1167,7 +1170,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
       <View style={styles.stack}>
         {!selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
-        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} players={scorerPlayers} styles={styles} /> : null}
+        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
