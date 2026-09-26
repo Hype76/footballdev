@@ -42,5 +42,6 @@ export function pruneRemovedParentOfflineScopes(document, removedLinkIds) {
     ...document,
     journal: (document.journal || []).filter(command => !removed.has(command.childScope)),
     resources: Object.fromEntries(Object.entries(document.resources || {}).filter(([linkId]) => !removed.has(linkId))),
+    parentScorerOutboxes: Object.fromEntries(Object.entries(document.parentScorerOutboxes || {}).filter(([linkId]) => !removed.has(linkId))),
   }
 }

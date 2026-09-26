@@ -24,6 +24,8 @@ import {
 import { getParentPortalLinks, withSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { applyParentNotificationAction } from '../../mobile-core/src/parentNotificationInboxCore'
 import { pruneRemovedParentOfflineScopes } from '../../mobile-core/src/parentAccessRemovalCore'
+import { appendParentScorerCommand, projectParentScorerOutbox } from './parentScorerOutboxCore'
+import { applyParentScorerCommand } from './parentPortalData'
 
 const config = getMobileRuntimeConfig('parent')
 const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split('.')[0] : ''
@@ -176,6 +178,7 @@ export async function readParentOfflineView(userScope, linkId) {
   return {
     cache,
     document,
+    scorerOutboxes: document?.parentScorerOutboxes?.[normalize(linkId)] || {},
     sync: {
       ...getParentSyncSummary(document, linkId),
       attentionItems: getParentSyncAttentionItems(document, linkId),
@@ -204,6 +207,98 @@ export async function saveParentOfflineSelection(user, linkId) {
 
 export async function removeParentOfflineAccessScopes(user, removedLinkIds) {
   return updateDocument(user.id, document => pruneRemovedParentOfflineScopes(document, removedLinkIds))
+}
+
+function assertParentScorerScope(document, user, link, match) {
+  if (!document || document.userScope !== user.id || !link?.id || !match?.id
+    || !getParentPortalLinks(document.profile?.value).some(item => item.id === link.id && item.clubId === match.clubId && item.teamId === match.teamId)) {
+    throw new Error('This saved fixture is outside your current Parent access.')
+  }
+}
+
+export async function readParentScorerOutboxes(user, linkId) {
+  const document = await readDocument(user.id)
+  if (!document || document.userScope !== user.id) return {}
+  return document.parentScorerOutboxes?.[linkId] || {}
+}
+
+export async function queueParentScorerAction(user, link, match, kind, payload) {
+  let journal
+  await updateParentDocument(user, document => {
+    assertParentScorerScope(document, user, link, match)
+    const outboxes = document.parentScorerOutboxes || {}
+    const current = outboxes[link.id]?.[match.id]
+    if (current && (current.baseMatch.clubId !== match.clubId || current.baseMatch.teamId !== match.teamId)) throw new Error('This saved fixture changed scope. Its actions need review.')
+    const base = current || { baseMatch: match, pending: [], verifiedAt: match.offlineVerifiedAt || match.updatedAt, error: '' }
+    journal = appendParentScorerCommand(base, { id: Crypto.randomUUID(), kind, payload })
+    const next = { ...document, parentScorerOutboxes: { ...outboxes, [link.id]: { ...outboxes[link.id], [match.id]: journal } } }
+    if (JSON.stringify(next).length > 1500000) throw new Error('There is not enough offline storage. Reconnect and sync before recording more.')
+    return next
+  })
+  return { journal, match: projectParentScorerOutbox(journal) }
+}
+
+export async function refreshParentScorerOutboxes(user, link, matches) {
+  const updated = await updateParentDocument(user, document => {
+    const outboxes = document.parentScorerOutboxes || {}
+    const scoped = { ...outboxes[link.id] }
+    for (const match of matches) {
+      if (!match.isScorer || !match.updatedAt) continue
+      assertParentScorerScope(document, user, link, match)
+      const current = scoped[match.id]
+      if (current && !current.pending?.length && Date.parse(match.updatedAt) >= Date.parse(current.baseMatch.updatedAt)) {
+        scoped[match.id] = { baseMatch: match, pending: [], verifiedAt: new Date().toISOString(), error: '' }
+      }
+    }
+    return { ...document, parentScorerOutboxes: { ...outboxes, [link.id]: scoped } }
+  })
+  return updated.parentScorerOutboxes?.[link.id] || {}
+}
+
+const activeScorerSyncs = new Map()
+
+export function syncParentScorerOutboxes(user) {
+  if (activeScorerSyncs.has(user.id)) return activeScorerSyncs.get(user.id)
+  const run = (async () => {
+    let saved = 0
+    const links = getParentPortalLinks(user)
+    for (const link of links) {
+      const journals = await readParentScorerOutboxes(user, link.id)
+      for (const matchId of Object.keys(journals)) {
+        for (;;) {
+          const latest = (await readParentScorerOutboxes(user, link.id))[matchId]
+          const command = latest?.pending?.[0]
+          if (!command) break
+          try {
+            const result = await applyParentScorerCommand(withSelectedParentLink(user, link), command, latest.baseMatch)
+            await updateParentDocument(user, document => {
+              const current = document.parentScorerOutboxes?.[link.id]?.[matchId]
+              if (current?.pending?.[0]?.id !== command.id) throw new Error('The saved action queue changed. Reopen this match.')
+              const baseMatch = result.match
+              return { ...document, parentScorerOutboxes: { ...document.parentScorerOutboxes,
+                [link.id]: { ...document.parentScorerOutboxes[link.id], [matchId]: {
+                  ...current, baseMatch, pending: current.pending.slice(1), verifiedAt: new Date().toISOString(), error: '', errorCode: '',
+                } },
+              } }
+            })
+            saved += 1
+          } catch (error) {
+            await updateParentDocument(user, document => {
+              const current = document.parentScorerOutboxes?.[link.id]?.[matchId]
+              if (current?.pending?.[0]?.id !== command.id) return document
+              return { ...document, parentScorerOutboxes: { ...document.parentScorerOutboxes,
+                [link.id]: { ...document.parentScorerOutboxes[link.id], [matchId]: { ...current, error: error.message || 'Waiting for a connection.', errorCode: error.code || '' } },
+              } }
+            })
+            break
+          }
+        }
+      }
+    }
+    return { saved }
+  })().finally(() => activeScorerSyncs.delete(user.id))
+  activeScorerSyncs.set(user.id, run)
+  return run
 }
 
 export async function reconcileParentOfflineAttention(user, linkId, resources) {

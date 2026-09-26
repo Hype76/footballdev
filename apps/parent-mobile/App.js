@@ -86,6 +86,7 @@ import { isMatchdayPlan, isMobileCapabilityAllowed, isMobileRouteAllowed } from 
 import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
 import ParentIcon from './src/ParentIcon'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
+import { projectParentScorerOutbox } from './src/parentScorerOutboxCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import {
   canSubmitParentPoll,
@@ -108,9 +109,6 @@ import { getParentInvitationCounts } from './src/parentPresentationCore'
 import { getParentBackPressAction } from './src/parentBackCore'
 import { getParentEventDateTimeLabel, getParentEventKey, getParentEventPresentation } from './src/parentEventPresentation'
 import {
-  addParentScorerGoal,
-  addParentScorerEvent,
-  correctParentScorerGoal,
   deleteParentChatMessage,
   getParentChatMessages,
   getParentChatRooms,
@@ -127,23 +125,14 @@ import {
   markParentChatRoomRead,
   markParentNotificationRead,
   openParentResource,
-  recordParentScorerShootoutKick,
-  requestParentScorerReview,
   respondToParentInvitation,
   setParentMatchTransport,
-  sendParentScorerMatchDayPush,
   sendParentChatMessage,
   setParentChatRoomNotifications,
   subscribeToParentChatRoom,
-  setParentScorerExtendedState,
-  setParentScorerTimer,
-  startParentScorerMatch,
   updateParentPassword,
   updateParentDisplayName,
-  updateParentScorerScore,
   revokeOwnParentPlayerAccess,
-  voidParentScorerGoal,
-  voidParentScorerShootoutKick,
 } from './src/parentPortalData'
 import { getParentAnnouncementMessages, getParentStaffMessageRoomId, isParentStaffMessageRoom, isParentStaffAnnouncement, prepareParentChatRooms } from './src/parentPresentationCore'
 import {
@@ -163,12 +152,16 @@ import {
   markParentOfflineNotificationRead,
   queueParentMessageRead,
   queueParentPollVote,
+  queueParentScorerAction,
+  readParentScorerOutboxes,
   readParentOfflineView,
+  refreshParentScorerOutboxes,
   removeParentOfflineAccessScopes,
   reconcileParentOfflineAttention,
   saveParentOfflineResources,
   saveParentOfflineSelection,
   syncParentOfflineCommands,
+  syncParentScorerOutboxes,
 } from './src/offline'
 import {
   addParentPushTokenListener,
@@ -386,6 +379,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const lastBackAtRef = useRef(0)
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
+  const [scorerOutboxes, setScorerOutboxes] = useState({})
   const [matchDayPlayers, setMatchDayPlayers] = useState([])
   const [selectedResourcePreview, setSelectedResourcePreview] = useState(null)
   const [selectedLinkId, setSelectedLinkId] = useState('')
@@ -393,8 +387,6 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [selectedCalendarTarget, setSelectedCalendarTarget] = useState(null)
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [contentViewportHeight, setContentViewportHeight] = useState(0)
-  const scorerHandoversRef = useRef({})
-  const scorerActionGenerationRef = useRef(0)
   const scorerActionInFlightRef = useRef(false)
   const [selectedMessageId, setSelectedMessageId] = useState('')
   const [selectedPollId, setSelectedPollId] = useState('')
@@ -507,7 +499,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     [selectedLink?.id, selectedMobileUser?.id],
   )
   const visibleInvitations = resources.invitations.items
-  const visibleMatches = resources.matches.items.map((match) => scorerHandoversRef.current[match.id] ? { ...match, isScorer: false, scorerReviewRequestedAt: scorerHandoversRef.current[match.id] } : match)
+  const visibleMatches = resources.matches.items.map((match) => {
+    const journal = scorerOutboxes[match.id]
+    const projected = journal?.pending?.length ? projectParentScorerOutbox(journal) : match
+    return projected
+  })
   const visibleInvitationsWithMatchTimes = useMemo(
     () => enrichParentMatchInvitations(visibleInvitations, resources.matches.items),
     [resources.matches.items, visibleInvitations],
@@ -634,6 +630,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     }
     if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
     if (shouldHydrateCache) hydratedScopeRef.current = cacheScopeKey
+    if (shouldHydrateCache) setScorerOutboxes(cachedView?.scorerOutboxes || {})
 
     if (cachedView?.cache && shouldHydrateCache) {
       setResources(Object.fromEntries(resourceNames.map((name) => [name, {
@@ -713,7 +710,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           resourcesByOccurrencePromise,
         ])
         if (requestId === requestIdRef.current) setMatchDayPlayers(players)
-        return matches.map((match) => ({ ...match, resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(match.id, match.matchDate, 'match_day')) || [] }))
+        return matches.map((match) => ({ ...match, offlineVerifiedAt: new Date().toISOString(), resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(match.id, match.matchDate, 'match_day')) || [] }))
       },
       messages: () => getParentMessages(selectedMobileUser),
       notifications: () => getParentNotificationInbox(selectedMobileUser),
@@ -817,6 +814,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             && (name !== 'calendar' || !calendarDependencyFailed))
             .map((name) => [name, refreshedItems[name]]),
         ))
+        if (resultByName.matches?.status === 'fulfilled') {
+          const outboxes = await refreshParentScorerOutboxes(selectedMobileUser, selectedLink, refreshedItems.matches)
+          if (requestId === requestIdRef.current) setScorerOutboxes(outboxes)
+        }
         if (failed === 0) {
           reconciledSync = await reconcileParentOfflineAttention(selectedMobileUser, selectedLink.id, refreshedItems)
           if (requestId === requestIdRef.current) setSyncSummary(reconciledSync)
@@ -841,7 +842,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     setIsSyncing(true)
     try {
       const result = await syncParentOfflineCommands(selectedMobileUser, { explicitRetry })
+      const scorerResult = await syncParentScorerOutboxes(selectedMobileUser)
       if (scope !== parentSyncScopeRef.current) return null
+      if (selectedLink?.id) setScorerOutboxes(await readParentScorerOutboxes(selectedMobileUser, selectedLink.id))
+      if (scorerResult.saved) void loadParentData()
       setSyncSummary({
         attentionItems: result.attentionItems || [],
         needsAttention: result.needsAttention,
@@ -855,7 +859,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     } finally {
       if (scope === parentSyncScopeRef.current) setIsSyncing(false)
     }
-  }, [isOffline, selectedMobileUser])
+  }, [isOffline, loadParentData, selectedLink?.id, selectedMobileUser])
 
   const refreshParentMatchDay = useCallback(async () => {
     if (isOffline || !selectedMobileUser?.id) return
@@ -865,14 +869,16 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         getParentPortalMatchDayPlayers(selectedMobileUser),
       ])
       setMatchDayPlayers(players)
+      const verifiedMatches = matches.map(match => ({ ...match, offlineVerifiedAt: new Date().toISOString() }))
+      if (selectedLink) setScorerOutboxes(await refreshParentScorerOutboxes(selectedMobileUser, selectedLink, verifiedMatches))
       setResources((current) => ({
         ...current,
-        matches: { error: '', items: matches, loading: false },
+        matches: { error: '', items: verifiedMatches, loading: false },
       }))
     } catch {
       return
     }
-  }, [isOffline, selectedMobileUser])
+  }, [isOffline, selectedLink, selectedMobileUser])
 
   useEffect(() => {
     if (syncSummary.needsAttention === 0) setAttentionIndex(0)
@@ -915,6 +921,16 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     previousOfflineRef.current = isOffline
     if (wasOffline && !isOffline && selectedMobileUser?.id) void recoverParentConnection()
   }, [isOffline, recoverParentConnection, selectedMobileUser?.id])
+
+  useEffect(() => {
+    if (isOffline || !selectedMobileUser?.id) return undefined
+    const retrySavedScorerActions = () => {
+      if (AppState.currentState === 'active') void runParentSync()
+    }
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') retrySavedScorerActions() })
+    const interval = setInterval(retrySavedScorerActions, 30000)
+    return () => { subscription.remove(); clearInterval(interval) }
+  }, [isOffline, runParentSync, selectedMobileUser?.id])
 
   useEffect(() => {
     const authorityScope = JSON.stringify([
@@ -1836,95 +1852,22 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   async function handleScorerAction(match, action, value) {
-    if (isOffline || activeActionId || scorerActionInFlightRef.current || !match.isScorer || match.scorerReviewRequestedAt || scorerHandoversRef.current[match.id] || match.concludedAt) return false
+    if (activeActionId || scorerActionInFlightRef.current || !selectedMobileUser?.id || !selectedLink?.id
+      || !match.isScorer || match.pendingReview || match.scorerReviewRequestedAt || match.concludedAt) return false
     scorerActionInFlightRef.current = true
-    const scorerActionGeneration = ++scorerActionGenerationRef.current
-    const actionScope = parentActionScopeRef.current
     setActiveActionId(`scorer:${match.id}:${action}`)
     setNotice(null)
-    let changeSaved = false
-    let notificationType = ''
-    let notificationEventId = ''
-    let savedNotice = null
-    const canReportBackgroundResult = () => scorerActionGeneration === scorerActionGenerationRef.current
-      && actionScope === parentActionScopeRef.current
-    const reportBackgroundWarning = (message) => {
-      if (canReportBackgroundResult()) setNotice((current) => current === savedNotice ? { message, tone: 'warning' } : current)
-    }
-    const refreshSavedScorerAction = (warningMessage) => {
-      void loadParentData()
-        .then((result) => {
-          if (result?.failed > 0) reportBackgroundWarning(warningMessage)
-        })
-        .catch(() => {
-          reportBackgroundWarning(warningMessage)
-        })
-    }
-    const notifySavedScorerAction = (type, eventId, warningMessage) => {
-      void sendParentScorerMatchDayPush(selectedMobileUser, match.id, type, eventId)
-        .then((result) => {
-          if (!result) reportBackgroundWarning(warningMessage)
-        })
-        .catch(() => {
-          reportBackgroundWarning(warningMessage)
-        })
-    }
     try {
-      if (action === 'timer' && value === 'conclude') throw new Error('Send this match to the Coach or manager for conclusion.')
-      if (action === 'request-review') {
-        if (match.status !== 'full_time' || match.concludedAt) throw new Error('Finish the match before sending it to the Coach for review.')
-        const handover = await requestParentScorerReview(selectedMobileUser, match.id)
-        if (!handover?.scorerReviewRequestedAt) throw new Error('The match handover could not be confirmed. Please refresh and try again.')
-        changeSaved = true
-        scorerHandoversRef.current[match.id] = handover.scorerReviewRequestedAt
-        // Remove controls as soon as the server saves, before notification or refresh can fail.
-        setResources((current) => ({ ...current, matches: { ...current.matches, items: current.matches.items.map((item) => item.id === match.id ? { ...item, isScorer: false, scorerReviewRequestedAt: handover.scorerReviewRequestedAt } : item) } }))
-        setSelectedMatchId('')
-        refreshSavedScorerAction('The match is with the Coach and your scoring access has ended. Refresh Matchday to check the latest information.')
-        notifySavedScorerAction('full_time', '', 'The match is with the Coach and your scoring access has ended, but the Coach notification could not be confirmed.')
-        return true
-      }
-      if (action === 'start') {
-        await startParentScorerMatch(match.id)
-        notificationType = 'live'
-      }
-      if (action === 'timer' || action === 'extended') {
-        const savedMatch = action === 'timer'
-          ? await setParentScorerTimer(match.id, value)
-          : await setParentScorerExtendedState(match.id, value)
-        if (savedMatch?.status !== match.status && ['live', 'half_time', 'second_half', 'extra_time', 'penalties', 'full_time'].includes(savedMatch?.status)) {
-          notificationType = savedMatch.status
-        }
-      }
-      if (action === 'score') {
-        const savedEvent = await updateParentScorerScore(selectedMobileUser, match.id, value.homeScore, value.awayScore, value.reason)
-        notificationType = 'score_correction'
-        notificationEventId = savedEvent?.id || ''
-      }
-      if (action === 'goal') {
-        const savedEvent = await addParentScorerGoal(selectedMobileUser, match.id, value)
-        notificationType = 'goal'
-        notificationEventId = savedEvent?.id || ''
-      }
-      if (action === 'event') {
-        const savedEvent = await addParentScorerEvent(selectedMobileUser, match.id, value)
-        notificationType = value.eventType
-        notificationEventId = savedEvent?.id || ''
-      }
-      if (action === 'correct-goal') await correctParentScorerGoal(selectedMobileUser, match, value.event, value.goal, value.reason)
-      if (action === 'void-goal') await voidParentScorerGoal(selectedMobileUser, match.id, value.eventId, value.reason)
-      if (action === 'shootout') await recordParentScorerShootoutKick(match.id, value)
-      if (action === 'void-shootout') await voidParentScorerShootoutKick(match.id, value.kickId, value.reason)
-      changeSaved = true
-      refreshSavedScorerAction('Your change was saved. Refresh Matchday to see the latest information.')
-      if (notificationType) notifySavedScorerAction(notificationType, notificationEventId, 'Game Day was saved, but its notification could not be confirmed.')
+      const payload = action === 'timer' || action === 'extended' ? { action: value }
+        : action === 'correct-goal' ? { eventId: value.event.id, goal: value.goal, reason: value.reason }
+          : value || {}
+      const queued = await queueParentScorerAction(selectedMobileUser, selectedLink, match, action, payload)
+      setScorerOutboxes(current => ({ ...current, [match.id]: queued.journal }))
+      setNotice({ message: isOffline ? 'Saved on this phone. It will sync when connected.' : 'Saved on this phone. Syncing now.', tone: 'success' })
+      if (!isOffline) void runParentSync()
       return true
     } catch (error) {
-      if (changeSaved) {
-        setNotice({ message: action === 'request-review' ? 'The match is with the Coach and your scoring access has ended. Refresh Matchday to check the latest information.' : 'Your change was saved. Refresh Matchday to see the latest information.', tone: 'warning' })
-        return true
-      }
-      const message = getParentFriendlyError(error, 'This Game Day change could not be saved. Please try again.')
+      const message = getParentFriendlyError(error, 'This Game Day change was not saved on this phone.')
       setNotice({ message, tone: 'error' })
       return { saved: false, message }
     } finally {
@@ -1932,7 +1875,6 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       setActiveActionId('')
     }
   }
-
   async function handleDisplayThemeChange(theme) {
     if (!['dark', 'light'].includes(theme)) return
     setDisplayTheme(theme)
@@ -2357,6 +2299,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 onTransport={handleMatchTransport}
                 players={matchDayPlayers}
                 resource={{ ...resources.matches, items: visibleMatches }}
+                scorerSync={selectedMatch ? scorerOutboxes[selectedMatch.id] : null}
                 selectedMatch={selectedMatch}
                 theme={displayTheme}
                 themeTokens={themeModel.tokens}

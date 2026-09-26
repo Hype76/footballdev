@@ -1,6 +1,6 @@
 // Bound the actual request, including session renewal. Timing out only the
 // caller leaves the request running and can keep the auth session lock held.
-const MATCH_DAY_WRITE_RPCS = new Set(['apply_coach_match_day_command', 'start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'save_coach_match_formation'])
+const MATCH_DAY_WRITE_RPCS = new Set(['apply_coach_match_day_command', 'apply_parent_match_day_command', 'start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'save_coach_match_formation'])
 export const MOBILE_PASSWORD_REQUEST_TIMEOUT_MS = 20000
 
 function isPasswordSignIn(url, options) {

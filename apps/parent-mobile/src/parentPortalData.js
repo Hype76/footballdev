@@ -11,6 +11,7 @@ import { getAccessToken, supabase } from '../../mobile-core/src/supabase'
 import { subscribeToMobileChatRoom } from '../../mobile-core/src/chatRealtime'
 import { normalizePersonName } from '../../../src/lib/person-name.js'
 import { canRemoveOwnParentAccess, validateParentAccessRemovalResult } from '../../mobile-core/src/parentAccessRemovalCore'
+import { mergeMatchDayCommandSnapshot } from '../../mobile-core/src/matchDayOutboxCore'
 
 export async function revokeOwnParentPlayerAccess(user, link) {
   if (!user?.id || user.isOfflineProfile || !canRemoveOwnParentAccess(link)
@@ -788,6 +789,41 @@ async function scorerRpc(name, args) {
   const { data, error } = await supabase.rpc(name, args)
   if (error) throw error
   return data
+}
+
+export async function applyParentScorerCommand(user, command, baseMatch) {
+  const link = requireSelectedLink(user)
+  if (!baseMatch || baseMatch.id !== command.matchId || baseMatch.clubId !== link.clubId || baseMatch.teamId !== link.teamId) {
+    throw new Error('This saved match is outside your current Parent access.')
+  }
+  const result = await scorerRpc('apply_parent_match_day_command', {
+    command_id_value: command.id,
+    match_day_id_value: command.matchId,
+    parent_link_id_value: link.id,
+    kind_value: command.kind,
+    payload_value: command.payload,
+    captured_at_value: command.capturedAt,
+    expected_updated_at_value: command.expectedUpdatedAt,
+    previous_command_id_value: command.previousCommandId,
+  })
+  const config = getMobileRuntimeConfig('parent')
+  const accessToken = await getAccessToken().catch(() => '')
+  if (config.apiBaseUrl && accessToken) {
+    void fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-parent-scorer-command-notification'), {
+      method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commandId: command.id }),
+    }).catch(() => {})
+  }
+  const events = result.savedEvent && ['goal', 'event', 'score', 'correct-goal'].includes(command.kind)
+    ? [...(baseMatch.events || []).filter(event => event.requestId !== command.id && event.id !== result.savedEvent.id), result.savedEvent]
+    : baseMatch.events || []
+  const merged = mergeMatchDayCommandSnapshot(baseMatch, result.match || {})
+  const match = normalizeParentMatchDay({ ...merged, events,
+    isScorer: command.kind === 'request-review' ? false : baseMatch.isScorer,
+    scorerReviewRequestedAt: result.scorerReviewRequestedAt || baseMatch.scorerReviewRequestedAt,
+    shootoutEvents: result.shootoutEvents || baseMatch.shootoutEvents,
+  })
+  return { match }
 }
 
 export async function sendParentScorerMatchDayPush(user, matchDayId, type, eventId = '') {

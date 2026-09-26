@@ -118,6 +118,7 @@ export function setParentOfflineProfile(document, profile, { now = Date.now } = 
       value: { ...profile, selectedParentLinkId: retainedSelection },
     },
     resources: Object.fromEntries(Object.entries(document.resources || {}).filter(([linkId]) => activeLinkIds.has(linkId))),
+    parentScorerOutboxes: Object.fromEntries(Object.entries(document.parentScorerOutboxes || {}).filter(([linkId]) => activeLinkIds.has(linkId))),
     selectedLinkId: retainedSelection,
     updatedAt: isoNow(now),
   }
