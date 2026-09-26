@@ -931,7 +931,7 @@ export async function correctParentScorerGoal(user, match, event, goal = {}, rea
 
 export async function voidParentScorerGoal(user, matchId, eventId, reason = 'Corrected goal') {
   const link = requireSelectedLink(user)
-  return scorerRpc('void_match_day_goal', {
+  return scorerRpc('void_parent_match_day_goal', {
     goal_event_id_value: eventId,
     match_day_id_value: matchId,
     parent_link_id_value: link.id,

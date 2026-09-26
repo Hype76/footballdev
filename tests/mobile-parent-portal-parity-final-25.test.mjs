@@ -57,7 +57,7 @@ test('all Parent reads and writes use established child-scoped authorities', () 
     'record_match_day_score_correction_v2',
     'record_match_day_goal_v3',
     'correct_match_day_goal',
-    'void_match_day_goal',
+    'void_parent_match_day_goal',
     'record_match_day_shootout_kick',
     'void_match_day_shootout_kick',
   ]) assert.match(data, new RegExp(rpc))

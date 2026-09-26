@@ -1860,6 +1860,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     try {
       const payload = action === 'timer' || action === 'extended' ? { action: value }
         : action === 'correct-goal' ? { eventId: value.event.id, goal: value.goal, reason: value.reason }
+          : action === 'void-goal' ? { eventId: value.event.id, reason: value.reason }
           : value || {}
       const queued = await queueParentScorerAction(selectedMobileUser, selectedLink, match, action, payload)
       setScorerOutboxes(current => ({ ...current, [match.id]: queued.journal }))
