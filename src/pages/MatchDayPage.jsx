@@ -6,6 +6,8 @@ import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { CompletedMatchEventReport } from '../components/match-day/CompletedMatchEventReport.jsx'
 import { CompletedMatchReportExportActions } from '../components/match-day/CompletedMatchReportExportActions.jsx'
+import { CoachAiMatchReport } from '../components/match-day/CoachAiMatchReport.jsx'
+import { canUseCoachAiReportUi } from '../lib/coach-ai-report-pilot.js'
 import { MatchDayWakeLockControl } from '../components/match-day/MatchDayWakeLockControl.jsx'
 import { StartMatchConfirmModal } from '../components/match-day/StartMatchConfirmModal.jsx'
 import { FixtureNavigationCard } from '../components/match-day/FixtureNavigationCard.jsx'
@@ -3371,6 +3373,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           ? status
           : ''
       await persistTimerAction(match, timerAction, {
+        busyKey: timerAction === 'conclude' ? 'conclude' : 'status',
         loadingMessage: `${getMatchStatusLabel(status)} saving...`,
         successMessage: `${getMatchStatusLabel(status)} saved.`,
         toastMessage: `${getMatchStatusLabel(status)} is now showing.`,
@@ -4766,6 +4769,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         volunteerSelectionStatus={volunteerSelectionStatus}
         workspaceSection={workspaceSection}
         onWorkspaceSectionChange={handleWorkspaceSectionChange}
+        token={session?.access_token || ''}
+        userId={user?.id || ''}
       />
       {isPreviousMatch(match) && canDeletePreviousGames ? (
         <div className="flex justify-end">
@@ -5219,7 +5224,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   )
 }
 
-function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, status }) {
+function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, status, token, userId }) {
   const report = match.finalReport
   const [staffNotes, setStaffNotes] = useState(report?.staffNotes || '')
   const reportMatch = {
@@ -5262,6 +5267,8 @@ function FinalMatchReportPanel({ clubIdentity, isBusy, match, onClose, onSave, s
 
         <CompletedMatchReportExportActions audience="staff" match={reportMatch} />
       </div>
+
+      {canUseCoachAiReportUi(match, userId) ? <CoachAiMatchReport key={match.id} match={reportMatch} token={token} /> : null}
 
       <section className="mt-5 border-t border-[var(--border-color)] pt-4">
         <label className="block">
@@ -5374,8 +5381,15 @@ function MatchDayCard({
   volunteerSelectionStatus,
   workspaceSection,
   onWorkspaceSectionChange,
+  token,
+  userId,
 }) {
   const [isFinalReportOpen, setIsFinalReportOpen] = useState(false)
+  const [dismissedAutoReport, setDismissedAutoReport] = useState(false)
+  const autoOpenAiReport = !dismissedAutoReport
+    && matchActionStatus?.key === `${match.id}:conclude`
+    && matchActionStatus.tone === 'success'
+    && canUseCoachAiReportUi(match, userId)
   const [availabilityDisclosureState, setAvailabilityDisclosureState] = useState({ groups: {}, matchId: '' })
   const [confirmedRoleChoice, setConfirmedRoleChoice] = useState('')
   const [confirmedParentChoices, setConfirmedParentChoices] = useState({})
@@ -5443,8 +5457,9 @@ function MatchDayCard({
     onGameModeBack()
   }
   const handleFinalReportToggle = async () => {
-    if (isFinalReportOpen) {
+    if (isFinalReportOpen || autoOpenAiReport) {
       setIsFinalReportOpen(false)
+      setDismissedAutoReport(true)
       return
     }
 
@@ -5561,7 +5576,7 @@ function MatchDayCard({
                 type="button"
                 onClick={() => void handleFinalReportToggle()}
                 className={`${primaryLiveAction ? secondaryButtonClass : primaryButtonClass} w-full sm:w-auto`}
-                aria-expanded={isFinalReportOpen}
+                aria-expanded={isFinalReportOpen || autoOpenAiReport}
               >
                 Final Match Report
               </button>
@@ -5625,14 +5640,16 @@ function MatchDayCard({
         />
       ) : null}
 
-      {isFinalReportAvailable && isFinalReportOpen ? (
+      {isFinalReportAvailable && (isFinalReportOpen || autoOpenAiReport) ? (
         <FinalMatchReportPanel
           clubIdentity={clubIdentity}
           isBusy={isBusy}
           match={match}
-          onClose={() => setIsFinalReportOpen(false)}
+          onClose={() => { setIsFinalReportOpen(false); setDismissedAutoReport(true) }}
           onSave={onFinalReportSave}
           status={matchActionStatus?.key === `${match.id}:final-report` ? matchActionStatus : null}
+          token={token}
+          userId={userId}
         />
       ) : null}
 

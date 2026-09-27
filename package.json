@@ -90,6 +90,7 @@
     "security:m3": "npm run security:supply-chain && npm run security:secret-scan && npm run security:migrations && npm run security:monitoring"
   },
   "dependencies": {
+    "@netlify/blobs": "^11.0.3",
     "@sparticuz/chromium": "^148.0.0",
     "@supabase/supabase-js": "^2.110.8",
     "@tailwindcss/vite": "^4.2.2",

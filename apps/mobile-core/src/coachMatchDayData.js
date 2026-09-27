@@ -565,6 +565,22 @@ export async function saveCoachMatchDayFinalReport(user, match, staffNotes) {
   return getCoachMatchDayDetail(user, match.id)
 }
 
+export async function requestCoachAiMatchReport(user, match, action, answers, narrative = '') {
+  if (action !== 'load') await prepareMutation(user, match)
+  else { assertCoachMatchDayAccess(user); assertScope(user, match) }
+  const config = getMobileRuntimeConfig('coach')
+  const accessToken = await getAccessToken()
+  if (!config.apiBaseUrl || !accessToken) throw new Error('Login is required.')
+  const endpoint = joinApiPath(config.apiBaseUrl, '.netlify/functions/coach-ai-match-report')
+  const { ok, result } = await fetchJsonWithTimeout(action === 'load' ? `${endpoint}?matchDayId=${encodeURIComponent(match.id)}` : endpoint, {
+    method: action === 'load' ? 'GET' : 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    ...(action === 'load' ? {} : { body: JSON.stringify({ action, matchDayId: match.id, answers, narrative }) }),
+  })
+  if (!ok) throw new Error(result?.message || 'The report could not be completed.')
+  return result
+}
+
 export async function selectCoachMatchDayVolunteer(user, match, request, role, selected = true) {
   await prepareMutation(user, match)
   if (!['scorer', 'linesman', 'referee'].includes(role)) throw new Error('Choose a valid volunteer role.')
