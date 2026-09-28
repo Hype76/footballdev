@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
-const migration = await readFile(new URL('../supabase/migrations/20260928081904_coach_goal_penalty_correction.sql', import.meta.url), 'utf8')
+const migration = await readFile(new URL('../supabase/migrations/20260928081904_mobile_match_calendar.sql', import.meta.url), 'utf8')
 
 test('Coach goal correction changes penalty status at full time with audit and scoped access', async () => {
   const db = new PGlite()
@@ -41,7 +41,7 @@ test('Coach goal correction changes penalty status at full time with audit and s
           return jsonb_build_object('id',$2,'eventStatus','voided');
         end$$;
     `)
-    await db.exec(migration)
+    await db.exec(migration.split('-- Parent accepted calendar feed tokens.')[0])
     await db.query('insert into public.match_days(id,club_id,team_id,status) values($1,$2,$3,$4)', [fixture, club, team, 'full_time'])
     await db.query('insert into public.match_day_events(id,match_day_id,club_id,team_id,event_type,event_status,is_penalty_goal,is_own_goal) values($1,$2,$3,$4,$5,$6,$7,$8)', [goal, fixture, club, team, 'goal', 'active', false, false])
     await db.query('insert into public.match_day_events(id,match_day_id,club_id,team_id,event_type,event_status,is_penalty_goal,is_own_goal) values($1,$2,$3,$4,$5,$6,$7,$8)', [secondGoal, fixture, club, team, 'goal', 'active', false, false])
