@@ -2402,7 +2402,7 @@ function ParentAccountContactPanel({ parentEmail, parentName, onNameSaved, selec
         <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Display name</p>
           <form className="mt-2 space-y-2" onSubmit={saveName}>
-            <input aria-label="Profile name" className="min-h-12 w-full border-b border-[#60756a] bg-white px-2 text-sm text-[#101828]" maxLength={80} minLength={2} onChange={(event) => setNameDraft(event.target.value)} required value={nameDraft} />
+            <input aria-label="Profile name" className="min-h-12 w-full border-b border-[#d7e5dc] bg-white px-2 text-sm text-[#101828]" maxLength={80} minLength={2} onChange={(event) => setNameDraft(event.target.value)} required value={nameDraft} />
             <button className={secondaryButtonClass} disabled={isSavingName || nameDraft.trim() === displayName} type="submit">{isSavingName ? 'Saving...' : 'Save name'}</button>
             {nameError ? <p role="alert" className="text-sm text-red-700">{nameError}</p> : null}
           </form>
