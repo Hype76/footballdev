@@ -3142,7 +3142,7 @@ function SettingsScreen({
     }
     return () => { current = false }
   }, [selectedLink, user])
-  async function subscribePhoneCalendar() {
+  async function copyPhoneCalendarLink() {
     setCalendarBusy(true)
     setCalendarError('')
     setCalendarNotice('')
@@ -3152,12 +3152,10 @@ function SettingsScreen({
       const url = storedUrl || await changeParentCalendarFeed(user, selectedLink, 'generate')
       if (!/^https:\/\//i.test(url)) throw new Error('The calendar subscription link is invalid. Replace it and try again.')
       setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
-      if (Platform.OS === 'ios') {
-        await Linking.openURL(url.replace(/^https:/i, 'webcal:'))
-      } else {
-        await Clipboard.setStringAsync(url)
-        setCalendarNotice('Link copied. In Google Calendar on a computer, choose Other calendars, then From URL. The subscribed calendar can then sync to your phone.')
-      }
+      await Clipboard.setStringAsync(url)
+      setCalendarNotice(Platform.OS === 'ios'
+        ? 'Link copied. In iPhone Calendar, choose Calendars, Add Calendar, then Add Subscription Calendar and paste the link.'
+        : 'Link copied. In Google Calendar on a computer, choose Other calendars, then From URL. The added calendar can then sync to your phone.')
     } catch (error) {
       setCalendarError(error.message)
     } finally {
@@ -3404,11 +3402,10 @@ function SettingsScreen({
 
       <SettingsSection id="calendar-sync" label="Calendar sync" iconKey="action.calendar">
         <Text style={styles.helperText}>Add accepted events for {selectedLink?.playerName || 'the selected player'} to your calendar. Unanswered, declined and cancelled events stay out. Your calendar app controls when updates appear.</Text>
-        <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label={Platform.OS === 'ios' ? 'Add calendar on this iPhone' : 'Copy link for phone calendar'} onPress={() => { void subscribePhoneCalendar() }} secondary />
-        <Text style={styles.helperText}>{Platform.OS === 'ios' ? 'If Calendar does not open, copy the link and add a subscription in Calendar.' : 'In Google Calendar on a computer, choose Other calendars, then From URL. The subscribed calendar can then sync to your phone.'}</Text>
+        <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label="Copy secure calendar link" onPress={() => { void copyPhoneCalendarLink() }} secondary />
+        <Text style={styles.helperText}>{Platform.OS === 'ios' ? 'In iPhone Calendar, choose Calendars, Add Calendar, then Add Subscription Calendar and paste the link.' : 'In Google Calendar on a computer, choose Other calendars, then From URL. The added calendar can then sync to your phone.'}</Text>
         <Text style={styles.helperText}>This private link shows a rolling 90 day view. Keep it private. Replacing it stops the previous link working; to remove a calendar from your phone, unsubscribe in your calendar app.</Text>
         {calendarFeedUrl ? <Text selectable style={styles.bodyText}>{calendarFeedUrl}</Text> : null}
-        {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy} label="Copy subscription link" onPress={() => { void Clipboard.setStringAsync(calendarFeedUrl).catch((error) => setCalendarError(error.message)) }} secondary /> : null}
         {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy} label="Share subscription link" onPress={() => { void Share.share({ message: calendarFeedUrl, url: calendarFeedUrl }).catch((error) => setCalendarError(error.message)) }} secondary /> : null}
         <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label={calendarFeedUrl ? 'Replace subscription link' : 'Generate subscription link'} onPress={() => { void changeCalendarSubscription('generate') }} secondary />
         {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy || isOffline} label="Revoke subscription link" onPress={() => { void changeCalendarSubscription('revoke') }} secondary /> : null}

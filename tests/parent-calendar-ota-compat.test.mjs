@@ -15,5 +15,6 @@ test('accepted calendar subscription can update the installed Parent 1.0.22 app'
   assert.doesNotMatch(JSON.stringify(config), /expo-calendar|READ_CALENDAR|WRITE_CALENDAR/)
   assert.doesNotMatch(app, /parentDeviceCalendar|Sync accepted events to this phone/)
   assert.match(app, /changeParentCalendarFeed/)
-  assert.match(app, /webcal:/)
+  assert.doesNotMatch(app, /webcal:/)
+  assert.match(app, /Copy secure calendar link/)
 })
