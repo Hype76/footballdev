@@ -16,6 +16,7 @@ import {
   validateOrdinaryEventDateTime,
 } from '../calendar-datetime-integrity.js'
 import { assertValidPitchType, normalizePitchType } from '../pitch-type.js'
+import { buildFootballCalendarEvents } from '../football-calendar-events.js'
 
 const USER_FACING_EVENT_TYPES = ['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other']
 const LEGACY_EVENT_TYPES = ['availability_deadline', 'parent_cutoff']
@@ -80,6 +81,7 @@ export function normalizeCalendarEvent(row, options = {}) {
     notes: normalizeText(row.notes),
     recurrenceFrequency: normalizeRecurrenceFrequency(row.recurrence_frequency ?? row.recurrenceFrequency),
     recurrenceUntil: normalizeDateOnly(row.recurrence_until ?? row.recurrenceUntil),
+    deletedOccurrenceDates: (row.deleted_occurrence_dates ?? row.deletedOccurrenceDates ?? []).map(normalizeDateOnly).filter(Boolean),
     parentVisible: row.parent_visible === true || row.parentVisible === true,
     parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
     cancelledAt: row.cancelled_at ?? row.cancelledAt ?? '',
@@ -587,6 +589,94 @@ export async function syncCalendarEventParentScope({
     portalRecordCount: Number(data?.portalRecordCount ?? 0),
     responseRequirement: normalizeText(data?.responseRequirement),
   }
+}
+
+export async function deleteCalendarEventOccurrence({ user, eventId, occurrenceDate, scope }) {
+  await blockDemoMutation(user)
+  assertCalendarAccess(user)
+
+  if (!['this_event', 'this_and_future'].includes(scope)) {
+    throw new Error('Choose which repeating events to delete.')
+  }
+
+  const { data: row, error: readError } = await supabase
+    .from('calendar_events')
+    .select('*')
+    .eq('id', eventId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (readError) throw readError
+  await assertCalendarTeamAccess({ user, teamId: row.team_id })
+  await assertCalendarFeatureAccess({ user, payload: row })
+
+  const event = normalizeCalendarEvent(row)
+  if (event.recurrenceFrequency === 'none') {
+    throw new Error('This event is not a repeat series.')
+  }
+
+  const dates = buildFootballCalendarEvents({ calendarEvents: [event] })
+    .filter((item) => item.sourceType === 'calendar')
+    .map((item) => item.occurrenceDate)
+  const selectedIndex = dates.indexOf(normalizeDateOnly(occurrenceDate))
+
+  if (selectedIndex < 0) {
+    throw new Error('This occurrence is no longer in the repeat series. Refresh the calendar.')
+  }
+
+  if (scope === 'this_and_future' && selectedIndex === 0) {
+    const { data: cancelled, error: cancelError } = await supabase
+      .from('calendar_events')
+      .update({
+        cancelled_at: new Date().toISOString(),
+        updated_by: getEntryUserId(user),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', eventId)
+      .eq('club_id', user.clubId)
+      .eq('updated_at', row.updated_at)
+      .select('id')
+      .maybeSingle()
+    if (cancelError) throw cancelError
+    if (!cancelled) throw new Error('This series changed while you were deleting it. Refresh the calendar and try again.')
+    clearViewCaches()
+    invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:`)
+    await createAuditLog({
+      user,
+      action: 'calendar_event_occurrences_deleted',
+      entityType: 'calendar_event',
+      entityId: eventId,
+      metadata: { occurrenceDate: dates[selectedIndex], scope },
+    })
+    return null
+  }
+
+  const changes = scope === 'this_event'
+    ? { deleted_occurrence_dates: [...new Set([...event.deletedOccurrenceDates, dates[selectedIndex]])] }
+    : { recurrence_until: dates[selectedIndex - 1] }
+  const { data: updated, error: updateError } = await supabase
+    .from('calendar_events')
+    .update({ ...changes, updated_by: getEntryUserId(user), updated_at: new Date().toISOString() })
+    .eq('id', eventId)
+    .eq('club_id', user.clubId)
+    .eq('updated_at', row.updated_at)
+    .select('*')
+    .maybeSingle()
+
+  if (updateError) throw updateError
+  if (!updated) throw new Error('This series changed while you were deleting it. Refresh the calendar and try again.')
+
+  clearViewCaches()
+  invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'calendar_event_occurrences_deleted',
+    entityType: 'calendar_event',
+    entityId: eventId,
+    metadata: { occurrenceDate: dates[selectedIndex], scope },
+  })
+
+  return normalizeCalendarEvent(updated)
 }
 
 export async function deleteCalendarEvent({ user, eventId }) {

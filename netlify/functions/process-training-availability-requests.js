@@ -293,7 +293,7 @@ export function buildAvailabilityEmail({ appOrigin, event, includeRecurringSched
 async function loadRecurrenceSetting({ supabase, work }) {
   const { data, error } = await supabase
     .from('training_availability_settings')
-    .select('*, calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url))')
+    .select('*, calendar_events:calendar_event_id(id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, deleted_occurrence_dates, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url))')
     .eq('id', work.setting_id)
     .maybeSingle()
 
@@ -882,7 +882,7 @@ export async function prepareScheduledTrainingInvitationRow(row, {
       .maybeSingle(),
     supabaseClient
       .from('calendar_events')
-      .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url)')
+      .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, deleted_occurrence_dates, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url)')
       .eq('id', eventId)
       .maybeSingle(),
     supabaseClient
@@ -1312,7 +1312,7 @@ export async function loadRequestWork({ supabase, work }) {
 
   const { data: event, error: eventError } = await supabase
     .from('calendar_events')
-    .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url)')
+    .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, deleted_occurrence_dates, location, notes, cancelled_at, teams:team_id(name,notification_display_name), clubs:club_id(name, logo_url)')
     .eq('id', request.calendar_event_id)
     .maybeSingle()
 

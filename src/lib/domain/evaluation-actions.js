@@ -357,6 +357,37 @@ export async function updateEvaluation(id, data, clubId) {
   return normalizeEvaluationRow(updatedRow)
 }
 
+export async function hideEvaluationFromCalendar({ user, evaluationId }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId || user.role === 'parent_portal' || user.role === 'super_admin' || Number(user.roleRank ?? 0) < 20) {
+    throw new Error('Coach or manager access is required to remove a development record from the calendar.')
+  }
+
+  const { data, error } = await supabase
+    .from('evaluations')
+    .update({ calendar_hidden_at: new Date().toISOString() })
+    .eq('id', evaluationId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) throw new Error('This development record could not be changed. Check permissions or refresh the calendar.')
+
+  invalidateMemoryCacheByPrefix(`evaluations:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'evaluation_calendar_entry_removed',
+    entityType: 'evaluation',
+    entityId: evaluationId,
+    metadata: { date: data.date },
+  })
+
+  return normalizeEvaluationRow(data)
+}
+
 export async function deleteEvaluation({ user, evaluationId }) {
   await blockDemoMutation(user)
 

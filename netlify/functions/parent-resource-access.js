@@ -165,6 +165,8 @@ export function validateParentCalendarEventResourceAccess({
     && normalizeText(calendarEvent.club_id) === normalizeText(parentLink.club_id)
     && calendarEvent.parent_visible === true
     && !calendarEvent.cancelled_at
+    && !(calendarEvent.deleted_occurrence_dates || []).includes(normalizeText(calendarOccurrenceDate))
+    && (!calendarEvent.recurrence_until || normalizeText(calendarOccurrenceDate) <= calendarEvent.recurrence_until)
     && (
       eventAudience === 'all_club_parents'
       || (eventAudience === 'all_team_parents' && eventTeamId && eventTeamId === parentTeamId)
@@ -357,7 +359,7 @@ export async function listAuthorisedCalendarEventResources({ authUserId, parentL
   const cutoffDate = cutoff.slice(0, 10)
   const { data: calendarEvents, error: calendarError } = await supabaseAdmin
     .from('calendar_events')
-    .select('id, club_id, team_id, parent_visible, parent_audience, cancelled_at, starts_at')
+    .select('id, club_id, team_id, parent_visible, parent_audience, cancelled_at, starts_at, recurrence_until, deleted_occurrence_dates')
     .eq('club_id', parentLink.club_id)
     .eq('parent_visible', true)
     .is('cancelled_at', null)
@@ -430,6 +432,8 @@ export async function listAuthorisedCalendarEventResources({ authUserId, parentL
     const event = eventById.get(eventKey(link.linked_type, link.linked_id))
     return event && normalizeText(link.team_id) === normalizeText(event.team_id)
       && (!event.resourceSourceType || link.calendar_occurrence_date == null)
+      && (event.resourceSourceType || !(event.deleted_occurrence_dates || []).includes(normalizeText(link.calendar_occurrence_date)))
+      && (event.resourceSourceType || !event.recurrence_until || normalizeText(link.calendar_occurrence_date) <= event.recurrence_until)
   })
   const resourceIds = [...new Set(inScopeLinks.map((link) => normalizeText(link.resource_id)).filter(Boolean))]
 
@@ -495,7 +499,7 @@ export async function loadAuthorisedResource({ authUserId, calendarEventId = '',
     ? await maybeSingle(
         supabaseAdmin
           .from('calendar_events')
-          .select('id, club_id, team_id, parent_visible, parent_audience, cancelled_at')
+          .select('id, club_id, team_id, parent_visible, parent_audience, cancelled_at, recurrence_until, deleted_occurrence_dates')
           .eq('id', calendarEventId)
           .eq('club_id', parentLink.club_id)
           .eq('parent_visible', true)

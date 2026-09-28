@@ -169,6 +169,7 @@ export function buildOccurrences(event = {}, { maxOccurrences = 400 } = {}) {
   const recurrenceUntil = normalizeText(event.recurrence_until ?? event.recurrenceUntil)
   const hasFiniteRecurrence = Boolean(RECURRENCE_INTERVALS[frequency] && parseDateOnly(recurrenceUntil))
   const finalDate = frequency === 'none' || !hasFiniteRecurrence ? startDate : recurrenceUntil
+  const deletedDates = new Set(event.deleted_occurrence_dates ?? event.deletedOccurrenceDates ?? [])
   const occurrences = []
   let cursorDate = startDate
 
@@ -176,7 +177,7 @@ export function buildOccurrences(event = {}, { maxOccurrences = 400 } = {}) {
     const occurrenceStartsAt = londonLocalDateTimeToUtc(cursorDate, startTime)
     const occurrenceEndsAt = londonLocalDateTimeToUtc(addCalendarDays(cursorDate, endDayOffset), endTime)
 
-    if (occurrenceStartsAt) {
+    if (occurrenceStartsAt && !deletedDates.has(cursorDate)) {
       occurrences.push({
         occurrenceDate: cursorDate,
         occurrenceEndsAt: occurrenceEndsAt || occurrenceStartsAt,

@@ -217,6 +217,7 @@ function buildCalendarEventOccurrences(calendarEvent) {
     ? recurrenceUntil
     : addMonths(startsAt, 3)
   const occurrences = []
+  const deletedDates = new Set(calendarEvent.deletedOccurrenceDates || [])
   let occurrenceDate = new Date(startsAt)
   let occurrenceIndex = 0
 
@@ -230,7 +231,7 @@ function buildCalendarEventOccurrences(calendarEvent) {
     const occurrenceEndsAt = buildDateTime(occurrenceEndDate, calendarEvent.endsAt || calendarEvent.startsAt)
     const isRecurring = frequency !== 'none'
 
-    occurrences.push({
+    if (!deletedDates.has(date)) occurrences.push({
       id: occurrenceIndex === 0 ? `calendar:${calendarEvent.id}` : `calendar:${calendarEvent.id}:${date}`,
       sourceId: calendarEvent.id,
       sourceType: 'calendar',
@@ -423,6 +424,7 @@ export function buildFootballCalendarEvents({ calendarEvents = [], sessions = []
     .filter(Boolean)
 
   const developmentEvents = evaluations
+    .filter((evaluation) => !evaluation.calendarHiddenAt)
     .map((evaluation) => {
       const date = toDateOnly(evaluation.date)
       if (!date) {
