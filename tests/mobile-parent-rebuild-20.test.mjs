@@ -279,10 +279,11 @@ test('signed-in accounts with no active link receive the safe no-child state', (
   assert.match(appSource, /No player linked/)
 })
 
-test('Settings contain local biometric explanation, identity, child summary and restrained test classification', () => {
+test('Settings retain local biometric explanation, linked players and restrained test classification while name editing moves to Profile', () => {
   assert.match(appSource, /Biometric app lock/)
   assert.match(appSource, /Use Face ID or your fingerprint to unlock this app/)
-  assert.match(appSource, /Signed-in Parent/)
+  assert.match(appSource, /ParentProfileScreen/)
+  assert.match(appSource, /Profile name/)
   assert.match(appSource, /Linked players/)
   assert.equal(getBuildClassification('internal'), 'Internal test build')
   assert.equal(getBuildClassification('store-test'), 'TestFlight test build')
