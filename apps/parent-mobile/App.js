@@ -65,7 +65,6 @@ import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsC
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore'
-import { getParentPhoneCalendarEnabled, setParentPhoneCalendarEnabled, syncParentPhoneCalendar } from './src/parentDeviceCalendar'
 import {
   formatParentProductDateTime,
   formatParentProductTime,
@@ -535,11 +534,6 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     messages: visibleMessages.filter((message) => normalizeText(message.body)),
     polls: visiblePolls,
   }), [resources.calendar.items, visibleMatches, visibleMessages, visiblePolls])
-  useEffect(() => {
-    if (!user?.id || !selectedLink?.id || isOffline || resources.calendar.loading || resources.calendar.error) return
-    void syncParentPhoneCalendar({ userId: user.id, linkId: selectedLink.id, items: resources.calendar.items })
-      .catch((error) => setNotice({ message: getParentFriendlyError(error, 'Phone calendar could not be synchronised.'), tone: 'warning' }))
-  }, [isOffline, resources.calendar.error, resources.calendar.items, resources.calendar.loading, selectedLink?.id, user?.id])
   const parentChatRooms = useMemo(
     () => prepareParentChatRooms(resources.chatRooms.items, visibleMessages, visibleMatches),
     [resources.chatRooms.items, visibleMessages, visibleMatches],
@@ -2387,8 +2381,6 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 lastUpdatedAt={lastUpdatedAt}
                 links={parentLinks}
                 selectedLink={selectedLink}
-                calendarItems={resources.calendar.items}
-                calendarReady={!isOffline && !resources.calendar.loading && !resources.calendar.error}
                 onBiometricChange={handleBiometricChange}
                 onAppBadgeEnabledChange={handleAppBadgeEnabledChange}
                 displayTheme={displayTheme}
@@ -3101,8 +3093,6 @@ function SettingsScreen({
   biometricEnabled,
   biometricStateStatus,
   cacheState,
-  calendarItems,
-  calendarReady,
   communicationPreference,
   displayTheme,
   hiddenItemCount,
@@ -3135,32 +3125,39 @@ function SettingsScreen({
   const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
-  const [phoneCalendarEnabled, setPhoneCalendarEnabled] = useState(false)
-  const [calendarFeedUrl, setCalendarFeedUrl] = useState('')
+  const [calendarFeed, setCalendarFeed] = useState({ userId: '', linkId: '', url: '' })
+  const calendarFeedUrl = calendarFeed.userId === user?.id && calendarFeed.linkId === selectedLink?.id ? calendarFeed.url : ''
   const [calendarBusy, setCalendarBusy] = useState(false)
   const [calendarError, setCalendarError] = useState('')
+  const [calendarNotice, setCalendarNotice] = useState('')
   useEffect(() => {
     let current = true
     if (user?.id && selectedLink?.id) {
-      void Promise.all([
-        getParentPhoneCalendarEnabled(user.id, selectedLink.id),
-        getStoredParentCalendarFeedUrl(user, selectedLink),
-      ]).then(([enabled, url]) => {
+      void getStoredParentCalendarFeedUrl(user, selectedLink).then((url) => {
         if (!current) return
-        setPhoneCalendarEnabled(enabled)
-        setCalendarFeedUrl(url)
+        setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
         setCalendarError('')
+        setCalendarNotice('')
       }).catch((error) => { if (current) setCalendarError(error.message) })
     }
     return () => { current = false }
   }, [selectedLink, user])
-  async function changePhoneCalendar(enabled) {
+  async function subscribePhoneCalendar() {
     setCalendarBusy(true)
     setCalendarError('')
+    setCalendarNotice('')
     try {
-      if (enabled && !calendarReady) throw new Error('Refresh your family calendar while connected before enabling phone sync.')
-      await setParentPhoneCalendarEnabled({ userId: user.id, linkId: selectedLink.id, enabled, items: calendarItems })
-      setPhoneCalendarEnabled(enabled)
+      if (!selectedLink?.id || isOffline) throw new Error('Connect and choose a linked player first.')
+      const storedUrl = calendarFeedUrl || await getStoredParentCalendarFeedUrl(user, selectedLink)
+      const url = storedUrl || await changeParentCalendarFeed(user, selectedLink, 'generate')
+      if (!/^https:\/\//i.test(url)) throw new Error('The calendar subscription link is invalid. Replace it and try again.')
+      setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
+      if (Platform.OS === 'ios') {
+        await Linking.openURL(url.replace(/^https:/i, 'webcal:'))
+      } else {
+        await Clipboard.setStringAsync(url)
+        setCalendarNotice('Link copied. In Google Calendar on a computer, choose Other calendars, then From URL. The subscribed calendar can then sync to your phone.')
+      }
     } catch (error) {
       setCalendarError(error.message)
     } finally {
@@ -3170,9 +3167,10 @@ function SettingsScreen({
   async function changeCalendarSubscription(action) {
     setCalendarBusy(true)
     setCalendarError('')
+    setCalendarNotice('')
     try {
       const url = await changeParentCalendarFeed(user, selectedLink, action)
-      setCalendarFeedUrl(url)
+      setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
     } catch (error) {
       setCalendarError(error.message)
     } finally {
@@ -3405,19 +3403,16 @@ function SettingsScreen({
       </SettingsSection>
 
       <SettingsSection id="calendar-sync" label="Calendar sync" iconKey="action.calendar">
-        <Text style={styles.helperText}>Only events you accept are synchronised. Unanswered, declined and cancelled events stay out of your phone calendar.</Text>
-        <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 48 }}>
-          <Text style={styles.bodyText}>Sync accepted events to this phone</Text>
-          <Switch accessibilityLabel="Sync accepted events to this phone" accessibilityRole="switch" disabled={calendarBusy || !selectedLink?.id} onValueChange={changePhoneCalendar} value={phoneCalendarEnabled} />
-        </View>
-        <Text style={styles.helperText}>Sync applies to {selectedLink?.playerName || 'the selected player'}. Choose another player to set up their calendar too. Turning this off removes events this app added for that player.</Text>
-        <Text style={styles.cardTitle}>Connect another calendar</Text>
-        <Text style={styles.helperText}>Generate a private link for a rolling 90 day view of accepted events. Generating a new link replaces the previous one.</Text>
+        <Text style={styles.helperText}>Add accepted events for {selectedLink?.playerName || 'the selected player'} to your calendar. Unanswered, declined and cancelled events stay out. Your calendar app controls when updates appear.</Text>
+        <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label={Platform.OS === 'ios' ? 'Add calendar on this iPhone' : 'Copy link for phone calendar'} onPress={() => { void subscribePhoneCalendar() }} secondary />
+        <Text style={styles.helperText}>{Platform.OS === 'ios' ? 'If Calendar does not open, copy the link and add a subscription in Calendar.' : 'In Google Calendar on a computer, choose Other calendars, then From URL. The subscribed calendar can then sync to your phone.'}</Text>
+        <Text style={styles.helperText}>This private link shows a rolling 90 day view. Keep it private. Replacing it stops the previous link working; to remove a calendar from your phone, unsubscribe in your calendar app.</Text>
         {calendarFeedUrl ? <Text selectable style={styles.bodyText}>{calendarFeedUrl}</Text> : null}
         {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy} label="Copy subscription link" onPress={() => { void Clipboard.setStringAsync(calendarFeedUrl).catch((error) => setCalendarError(error.message)) }} secondary /> : null}
         {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy} label="Share subscription link" onPress={() => { void Share.share({ message: calendarFeedUrl, url: calendarFeedUrl }).catch((error) => setCalendarError(error.message)) }} secondary /> : null}
         <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label={calendarFeedUrl ? 'Replace subscription link' : 'Generate subscription link'} onPress={() => { void changeCalendarSubscription('generate') }} secondary />
         {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy || isOffline} label="Revoke subscription link" onPress={() => { void changeCalendarSubscription('revoke') }} secondary /> : null}
+        {calendarNotice ? <Text style={styles.helperText}>{calendarNotice}</Text> : null}
         {calendarError ? <Text style={styles.errorText}>{calendarError}</Text> : null}
       </SettingsSection>
 

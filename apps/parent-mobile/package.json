@@ -1,6 +1,6 @@
 {
   "name": "parent-mobile",
-  "version": "1.0.23",
+  "version": "1.0.22",
   "main": "index.js",
   "private": true,
   "scripts": {
@@ -30,7 +30,6 @@
     "@supabase/supabase-js": "2.110.8",
     "expo": "~54.0.37",
     "expo-application": "~7.0.8",
-    "expo-calendar": "15.0.8",
     "expo-clipboard": "8.0.8",
     "expo-constants": "~18.0.14",
     "expo-crypto": "15.0.9",
