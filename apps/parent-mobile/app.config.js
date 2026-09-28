@@ -9,7 +9,7 @@ const config = createMobileExpoConfig({
   packageName: 'com.footballplayer.parents',
   scheme: 'footballplayerparents',
   slug: 'football-player-parents',
-  version: '1.0.22',
+  version: '1.0.23',
   plugins: [['expo-calendar', { calendarPermission: 'Football Player uses your calendar to synchronise events you accept.' }]],
 })
 

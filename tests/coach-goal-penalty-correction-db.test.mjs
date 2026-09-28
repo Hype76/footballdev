@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
-const migration = await readFile(new URL('../supabase/migrations/20260928081904_mobile_match_calendar.sql', import.meta.url), 'utf8')
+const migration = await readFile(new URL('../supabase/migrations/20260928124108_mobile_match_calendar.sql', import.meta.url), 'utf8')
 
 test('Coach goal correction changes penalty status at full time with audit and scoped access', async () => {
   const db = new PGlite()

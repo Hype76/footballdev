@@ -180,6 +180,37 @@ test('Ref 38 permits only the bounded Parent production build profiles', () => {
   }
 })
 
+test('Ref 132 permits Parent store builds and submissions only', () => {
+  const promotionReference = 'FP-MOBILE-FEEDBACK-CALENDAR-STATS-132'
+  for (const platform of ['ios', 'android']) {
+    const parentBuild = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', 'parent', 'store-live', platform], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: promotionReference, MOBILE_NATIVE_BUILD_CONFIRMED: '' },
+    })
+    assert.equal(parentBuild.status, 1)
+    assert.match(parentBuild.stderr, /Mobile native build is blocked until EAS setup/)
+    assert.doesNotMatch(parentBuild.stderr, /production_build_not_authorised/)
+
+    const coachBuild = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', 'coach', 'store-live', platform], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: promotionReference, MOBILE_NATIVE_BUILD_CONFIRMED: '' },
+    })
+    assert.equal(coachBuild.status, 1)
+    assert.match(coachBuild.stderr, /production_build_not_authorised/)
+
+    const parentSubmit = spawnSync(process.execPath, ['apps/scripts/mobile-submit-guard.mjs', 'parent', platform, 'store-live'], {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_PRODUCTION_PROMOTION_REFERENCE: promotionReference, MOBILE_SUBMISSION_BUILD_ID: '', MOBILE_SUBMISSION_CONFIRMED: '' },
+    })
+    assert.equal(parentSubmit.status, 1)
+    assert.match(parentSubmit.stderr, /production_submission_build_id_required/)
+    assert.doesNotMatch(parentSubmit.stderr, /production_build_not_authorised/)
+  }
+})
+
 test('Ref 47 permits bounded internal live iOS candidates for Coach and Parent', () => {
   for (const appRole of ['coach', 'parent']) {
     const result = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', appRole, 'internal-live', 'ios'], {
