@@ -77,6 +77,9 @@ test('Parent overview screens use the flat icon-first system', async () => {
   assert.match(portalSource, /disabled && !selected && styles\.iconChoiceDisabled/)
   assert.match(portalSource, /isParentInvitationOptionSelected\(invitation, option\.value\)/)
   assert.match(portalSource, /styles\.moreGrid/)
+  const moreScreenSource = portalSource.slice(portalSource.indexOf('export function MoreScreen'), portalSource.indexOf('export async function openExternalParentUrl'))
+  assert.match(moreScreenSource, /accessibilityLabel="Profile, your name and account"[\s\S]*styles\.compactRow[\s\S]*borderBottomWidth: 1/)
+  assert.doesNotMatch(moreScreenSource, /\['profile', 'settings\.account'/)
   assert.match(portalSource, /volunteerHelpOpen/)
   assert.match(portalSource, /This is a Parent or guardian volunteer role/)
 

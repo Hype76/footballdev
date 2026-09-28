@@ -85,7 +85,7 @@ test('parent settings treats parent email as club-managed and does not call emai
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
   assert.match(source, /ParentAccountContactPanel/)
-  assert.match(source, /Display name and email changes are managed by the club\./)
+  assert.match(source, /The club manages contact details\./)
   assert.match(source, /Email address/)
   assert.doesNotMatch(source, /const handleEmailSubmit = async/)
   assert.doesNotMatch(source, /function getAuthUserSettingsEmails/)
@@ -108,7 +108,7 @@ test('parent settings treats parent email as club-managed and does not call emai
   assert.doesNotMatch(source, /updateUser\(/)
 })
 
-test('parent settings display name is club-managed and has no parent self-service save', async () => {
+test('parent settings saves the account name through shared Auth metadata', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
   assert.match(source, /Display name/)
@@ -116,7 +116,8 @@ test('parent settings display name is club-managed and has no parent self-servic
   assert.doesNotMatch(source, /const handleDisplayNameSubmit = async/)
   assert.doesNotMatch(source, /Save display name/)
   assert.doesNotMatch(source, /Display name not saved/)
-  assert.doesNotMatch(source, /updateParentPortalDisplayName/)
+  assert.match(source, /updateParentPortalDisplayName/)
+  assert.match(source, /onNameSaved\?\.\(profile\)/)
 })
 
 test('parent portal selector continues to expose every linked child for one parent account', async () => {
@@ -136,7 +137,7 @@ test('unsafe parent email takeover remains rejected by signed-in auth identity c
     readFile(cleanupMigrationUrl, 'utf8'),
   ])
 
-  assert.match(portalSource, /Display name and email changes are managed by the club\./)
+  assert.match(portalSource, /The club manages contact details\./)
   assert.doesNotMatch(portalSource, /That email is already used by another parent account/)
   assert.match(migration, /if target_link\.status = 'active' then[\s\S]*target_link\.auth_user_id is distinct from auth\.uid\(\)[\s\S]*already connected to another account/i)
   assert.match(migration, /existing\.auth_user_id = auth\.uid\(\)/i)

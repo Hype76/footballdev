@@ -122,7 +122,7 @@ export function normalizeUserProfile(profile) {
     email: String(profile.email ?? '').trim().toLowerCase(),
     username: String(profile.username ?? '').trim(),
     name: getDisplayName(profile),
-    displayName: String(profile.display_name ?? profile.displayName ?? profile.username ?? profile.name ?? '').trim(),
+    displayName: String(profile.user_metadata?.display_name || profile.user_metadata?.name || profile.display_name || profile.displayName || profile.username || profile.name || '').trim(),
     emailTeamName: String(profile.team_name ?? profile.teamName ?? '').trim(),
     emailClubName: String(profile.club_name ?? profile.emailClubName ?? '').trim(),
     replyToEmail: String(profile.reply_to_email ?? profile.replyToEmail ?? '').trim().toLowerCase(),

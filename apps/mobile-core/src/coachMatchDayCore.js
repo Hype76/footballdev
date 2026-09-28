@@ -60,6 +60,7 @@ export function isCoachMatchDayGoalCorrectionApplied(match, eventId, goal = {}, 
     && sameText(event.assistName, goal.assistName)
     && Number(event.minute ?? -1) === Number(goal.minute ?? -1)
     && Boolean(event.isOwnGoal) === Boolean(goal.isOwnGoal)
+    && Boolean(event.isPenaltyGoal) === Boolean(goal.isPenaltyGoal && !goal.isOwnGoal)
     && Number(event.stoppageMinute || 0) === Number(goal.stoppageMinute || 0)
     && sameText(event.correctionReason, reason)
 }

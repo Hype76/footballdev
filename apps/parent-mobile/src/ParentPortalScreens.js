@@ -253,7 +253,7 @@ function usePortalStyles(themeTokens) {
       chatRoomContent: { gap: 10, paddingBottom: 16 },
       composer: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 8, padding: 8 },
       composerField: { flex: 1, maxHeight: 110, minHeight: 46 },
-      messageBubble: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, gap: 4, maxWidth: '86%', paddingHorizontal: 12, paddingVertical: 9 },
+      messageBubble: { alignSelf: 'flex-start', backgroundColor: colors.card, borderColor: colors.border, borderRadius: 16, gap: 4, paddingHorizontal: 12, paddingVertical: 9, width: '86%' },
       messageBubbleOwn: { alignSelf: 'flex-end', backgroundColor: colors.accentSoft, borderColor: colors.accentText },
       messageDelete: { alignSelf: 'flex-end', paddingHorizontal: 4, paddingTop: 3 },
       messageDeleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
@@ -1540,10 +1540,15 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
     ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls', unansweredPolls],
     ['feedback', 'more.feedback', 'Feedback & Suggestions', 'Share your ideas', 0],
     ['bug', 'more.bug', 'Report a Bug', 'Tell us what went wrong', 0],
-    ['settings', 'settings', 'Settings', 'Account and alerts', 0],
+    ['settings', 'settings', 'Settings', 'App and alerts', 0],
   ]
-  const allowed = new Set(Array.isArray(visibleKeys) ? visibleKeys : ['partners', ...items.map(([key]) => key)])
-  return <View style={styles.stack}><Text accessibilityRole="header" style={styles.header}>More</Text>{allowed.has('partners') ? <PartnersBanner onPress={() => onOpen('partners')} /> : null}<View style={styles.moreGrid}>{items.filter(([key]) => allowed.has(key)).map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View></View>
+  const allowed = new Set(Array.isArray(visibleKeys) ? visibleKeys : ['partners', 'profile', ...items.map(([key]) => key)])
+  return <View style={styles.stack}>
+    <Text accessibilityRole="header" style={styles.header}>More</Text>
+    {allowed.has('partners') ? <PartnersBanner onPress={() => onOpen('partners')} /> : null}
+    {allowed.has('profile') ? <Pressable accessibilityLabel="Profile, your name and account" accessibilityRole="button" onPress={() => onOpen('profile')} style={({ pressed }) => [styles.compactRow, { borderBottomColor: colors.border, borderBottomWidth: 1, paddingHorizontal: 8 }, pressed && { opacity: 0.72 }]}><ParentIcon color={colors.accentText} iconKey="settings.account" size={26} /><View style={styles.compactCopy}><Text style={styles.cardTitle}>Profile</Text><Text style={styles.helper}>Your name and account</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable> : null}
+    <View style={styles.moreGrid}>{items.filter(([key]) => allowed.has(key)).map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View>
+  </View>
 }
 
 export async function openExternalParentUrl(url) {

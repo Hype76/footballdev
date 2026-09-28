@@ -129,6 +129,9 @@ export function normalizeDateOnly(value) {
 }
 
 export function getDisplayName(profile) {
+  const accountName = String(profile?.user_metadata?.display_name || profile?.user_metadata?.name || '').trim()
+  if (accountName) return accountName
+
   const username = String(
     profile?.username ??
       profile?.displayName ??

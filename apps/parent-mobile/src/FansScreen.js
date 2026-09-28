@@ -255,7 +255,7 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
     else if (/^https:\/\//.test(result.accessUrl || '')) await Linking.openURL(result.accessUrl)
     else throw new Error('This resource could not be opened.')
   })
-  const viewTitle = { schedule: 'Schedule', matches: 'Game Day', development: 'Development records', resources: 'Resources', notifications: 'Notifications' }[state.view?.action] || 'Shared items'
+  const viewTitle = { schedule: 'Schedule', matches: 'Game Day', stats: 'Stats', development: 'Development records', resources: 'Resources', notifications: 'Notifications' }[state.view?.action] || 'Shared items'
   const closeContent = () => { state.clearView(); setFormation(null) }
   const followed = state.connections.filter(c => !c.is_owner && c.status === 'active')
   const ownedFans = state.connections.filter(c => c.is_owner && c.parent_link_id === parent?.id)

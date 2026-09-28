@@ -2,6 +2,7 @@ import { validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event
 import * as Crypto from 'expo-crypto'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
+import * as SecureStore from 'expo-secure-store'
 import { wakeChatMobileNotificationProcessor } from '../../../src/lib/chat-notification-wake'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { normalizeMatchDay } from '../../mobile-core/src/data'
@@ -564,6 +565,37 @@ async function callParentApi(path, body) {
   })
   if (!ok) throw new Error(result.message || result.error || 'The Parent service could not complete this request.')
   return result
+}
+
+function calendarFeedStorageKey(userId, linkId) {
+  return `parent-calendar-feed-${userId}-${linkId}`
+}
+
+export async function getStoredParentCalendarFeedUrl(user, link) {
+  if (!user?.id || !link?.id) return ''
+  return (await SecureStore.getItemAsync(calendarFeedStorageKey(user.id, link.id))) || ''
+}
+
+export async function changeParentCalendarFeed(user, link, action) {
+  if (!user?.id || !link?.id || user.isOfflineProfile) throw new Error('Connect and choose a linked player first.')
+  if (!user.parentPortalLinks?.some((candidate) => candidate.id === link.id)) throw new Error('Choose a linked player first.')
+  const token = await getAccessToken()
+  if (!token) throw new Error('Sign in again before continuing.')
+  const config = getMobileRuntimeConfig('parent')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '/.netlify/functions/parent-calendar-feed'), {
+    method: action === 'revoke' ? 'DELETE' : 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ parentLinkId: link.id }),
+  })
+  if (!ok || result?.success === false) throw new Error(result?.message || result?.error || 'Calendar subscription could not be changed.')
+  const key = calendarFeedStorageKey(user.id, link.id)
+  if (action === 'revoke') {
+    await SecureStore.deleteItemAsync(key)
+    return ''
+  }
+  if (!/^https:\/\//i.test(result?.url || '')) throw new Error('Calendar subscription link was not returned.')
+  await SecureStore.setItemAsync(key, result.url)
+  return result.url
 }
 
 export async function getParentDevelopmentHistory(user) {

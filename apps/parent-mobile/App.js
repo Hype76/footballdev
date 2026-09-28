@@ -21,6 +21,7 @@ import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
+import * as Clipboard from 'expo-clipboard'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
@@ -37,6 +38,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -63,6 +65,7 @@ import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsC
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore'
+import { getParentPhoneCalendarEnabled, setParentPhoneCalendarEnabled, syncParentPhoneCalendar } from './src/parentDeviceCalendar'
 import {
   formatParentProductDateTime,
   formatParentProductTime,
@@ -114,6 +117,8 @@ import {
   getParentChatRooms,
   getParentCalendarEventDetails,
   getParentCalendarEventResources,
+  getStoredParentCalendarFeedUrl,
+  changeParentCalendarFeed,
   getParentDevelopmentHistory,
   getParentInvitations,
   getParentNotificationInbox,
@@ -530,6 +535,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     messages: visibleMessages.filter((message) => normalizeText(message.body)),
     polls: visiblePolls,
   }), [resources.calendar.items, visibleMatches, visibleMessages, visiblePolls])
+  useEffect(() => {
+    if (!user?.id || !selectedLink?.id || isOffline || resources.calendar.loading || resources.calendar.error) return
+    void syncParentPhoneCalendar({ userId: user.id, linkId: selectedLink.id, items: resources.calendar.items })
+      .catch((error) => setNotice({ message: getParentFriendlyError(error, 'Phone calendar could not be synchronised.'), tone: 'warning' }))
+  }, [isOffline, resources.calendar.error, resources.calendar.items, resources.calendar.loading, selectedLink?.id, user?.id])
   const parentChatRooms = useMemo(
     () => prepareParentChatRooms(resources.chatRooms.items, visibleMessages, visibleMatches),
     [resources.chatRooms.items, visibleMessages, visibleMatches],
@@ -2320,11 +2330,12 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 unansweredInvites={unansweredInvites}
                 unansweredPolls={homeModel.unansweredPolls}
                 unreadNotifications={unreadNotifications}
-                visibleKeys={['updates', 'invites', 'results', 'fans', 'development', 'resources', 'polls', 'feedback', 'bug', 'settings', 'partners'].filter((key) => parentRouteAllowed(key))}
+                visibleKeys={['updates', 'invites', 'results', 'fans', 'development', 'resources', 'polls', 'feedback', 'bug', 'profile', 'settings', 'partners'].filter((key) => parentRouteAllowed(key))}
               />
             ) : null}
             {renderedActiveTab === 'more' && renderedMoreSection && renderedMoreSection !== 'fans' ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
             {renderedActiveTab === 'more' && ['feedback', 'bug'].includes(renderedMoreSection) ? <UserFeedbackScreen key={renderedMoreSection} type={renderedMoreSection} appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 16 }} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'profile' ? <ParentProfileScreen key={`profile-${user.id}-${user.displayName || user.name || ''}`} activeActionId={activeActionId} isOffline={isOffline} isSyncing={isSyncing} onDisplayNameChange={handleDisplayNameChange} user={user} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'partners' ? <PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'updates' ? <NotificationsScreen busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'invites' ? (
@@ -2375,6 +2386,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 isSyncing={isSyncing}
                 lastUpdatedAt={lastUpdatedAt}
                 links={parentLinks}
+                selectedLink={selectedLink}
+                calendarItems={resources.calendar.items}
+                calendarReady={!isOffline && !resources.calendar.loading && !resources.calendar.error}
                 onBiometricChange={handleBiometricChange}
                 onAppBadgeEnabledChange={handleAppBadgeEnabledChange}
                 displayTheme={displayTheme}
@@ -2394,7 +2408,6 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 onRetryBiometricState={retryParentBiometricState}
                 onRetryNotificationState={() => reloadParentNotificationState()}
                 onDisplayThemeChange={handleDisplayThemeChange}
-                onDisplayNameChange={handleDisplayNameChange}
                 onPasswordChange={handlePasswordChange}
                 onRestoreDismissedItems={handleRestoreDismissedItems}
                 onRemoveOwnPlayerAccess={handleRemoveOwnPlayerAccess}
@@ -3060,6 +3073,27 @@ function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNe
   ) : <View accessibilityLiveRegion="polite" style={[styles.syncStatus, tone === 'warning' && styles.syncStatusWarning]}>{content}</View>
 }
 
+function ParentProfileScreen({ activeActionId, isOffline, isSyncing, onDisplayNameChange, user }) {
+  const { palette, styles } = useParentTheme()
+  const currentName = user.displayName || user.name || ''
+  const [displayName, setDisplayName] = useState(currentName)
+  const normalizedName = displayName.trim()
+  const canSave = normalizedName.length >= 2 && normalizedName.length <= 80 && normalizedName !== currentName.trim()
+
+  return <View style={styles.screenStack}>
+    <ScreenIntro title="Profile" />
+    <Text style={styles.bodyText}>Your name is shared across your Football Player account, including other clubs, teams, apps and the website.</Text>
+    <View style={{ borderBottomColor: palette.border, borderBottomWidth: 1, paddingVertical: 14 }}>
+      <Text style={styles.bodyText}>Name</Text>
+      <TextInput accessibilityLabel="Profile name" autoCapitalize="words" editable={!isOffline && !isSyncing && activeActionId !== 'display-name'} maxLength={80} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor={palette.textMuted} style={styles.settingsInput} value={displayName} />
+      <PrimaryAction disabled={!canSave || isOffline || isSyncing || Boolean(activeActionId)} label="Save name" loading={activeActionId === 'display-name'} onPress={() => { void onDisplayNameChange(normalizedName).catch(() => {}) }} secondary />
+    </View>
+    <View style={{ borderBottomColor: palette.border, borderBottomWidth: 1, paddingVertical: 14 }}>
+      <InfoRow label="Email" value={user.email || 'Email unavailable'} />
+    </View>
+  </View>
+}
+
 function SettingsScreen({
   activeActionId,
   appBadgeEnabled,
@@ -3067,6 +3101,8 @@ function SettingsScreen({
   biometricEnabled,
   biometricStateStatus,
   cacheState,
+  calendarItems,
+  calendarReady,
   communicationPreference,
   displayTheme,
   hiddenItemCount,
@@ -3074,6 +3110,7 @@ function SettingsScreen({
   isSyncing,
   lastUpdatedAt,
   links,
+  selectedLink,
   notificationState,
   notificationStateStatus,
   notificationCategoryKeys,
@@ -3082,7 +3119,6 @@ function SettingsScreen({
   onAppBadgeEnabledChange,
   onCommunicationChannelChange,
   onDisplayThemeChange,
-  onDisplayNameChange,
   onNotificationModeChange,
   onNotificationSettingsFocus,
   onRetryBiometricState,
@@ -3098,8 +3134,51 @@ function SettingsScreen({
 }) {
   const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
-  const [displayName, setDisplayName] = useState(user.displayName || user.name || '')
   const [nextPassword, setNextPassword] = useState('')
+  const [phoneCalendarEnabled, setPhoneCalendarEnabled] = useState(false)
+  const [calendarFeedUrl, setCalendarFeedUrl] = useState('')
+  const [calendarBusy, setCalendarBusy] = useState(false)
+  const [calendarError, setCalendarError] = useState('')
+  useEffect(() => {
+    let current = true
+    if (user?.id && selectedLink?.id) {
+      void Promise.all([
+        getParentPhoneCalendarEnabled(user.id, selectedLink.id),
+        getStoredParentCalendarFeedUrl(user, selectedLink),
+      ]).then(([enabled, url]) => {
+        if (!current) return
+        setPhoneCalendarEnabled(enabled)
+        setCalendarFeedUrl(url)
+        setCalendarError('')
+      }).catch((error) => { if (current) setCalendarError(error.message) })
+    }
+    return () => { current = false }
+  }, [selectedLink, user])
+  async function changePhoneCalendar(enabled) {
+    setCalendarBusy(true)
+    setCalendarError('')
+    try {
+      if (enabled && !calendarReady) throw new Error('Refresh your family calendar while connected before enabling phone sync.')
+      await setParentPhoneCalendarEnabled({ userId: user.id, linkId: selectedLink.id, enabled, items: calendarItems })
+      setPhoneCalendarEnabled(enabled)
+    } catch (error) {
+      setCalendarError(error.message)
+    } finally {
+      setCalendarBusy(false)
+    }
+  }
+  async function changeCalendarSubscription(action) {
+    setCalendarBusy(true)
+    setCalendarError('')
+    try {
+      const url = await changeParentCalendarFeed(user, selectedLink, action)
+      setCalendarFeedUrl(url)
+    } catch (error) {
+      setCalendarError(error.message)
+    } finally {
+      setCalendarBusy(false)
+    }
+  }
   const appVersion = Application.nativeApplicationVersion || Constants.expoConfig?.version || '1.0.6'
   const buildNumber = Application.nativeBuildVersion || (Platform.OS === 'ios'
     ? Constants.expoConfig?.ios?.buildNumber || '1'
@@ -3117,29 +3196,6 @@ function SettingsScreen({
       <IconSettings palette={palette} Icon={ParentIcon} focusRequest={notificationSettingsFocusRequest}
         onNavigate={() => { setCurrentPassword(''); setNextPassword(''); onNotificationSettingsFocus?.(settingsRootY || 0) }}
         footer={<PrimaryAction label="Sign out" onPress={onSignOut} secondary />}>
-
-      <SettingsSection id="account" label="Account" iconKey="settings.account">
-      <InfoPanel iconKey="settings.account" title="Signed-in Parent">
-        <TextInput
-          accessibilityLabel="Display name"
-          autoCapitalize="words"
-          editable={activeActionId !== 'display-name'}
-          onChangeText={setDisplayName}
-          placeholder="Display name"
-          placeholderTextColor={palette.textMuted}
-          style={styles.settingsInput}
-          value={displayName}
-        />
-        <PrimaryAction
-          disabled={!displayName.trim() || displayName.trim() === (user.displayName || user.name || '').trim()}
-          label="Update display name"
-          loading={activeActionId === 'display-name'}
-          onPress={() => { void onDisplayNameChange(displayName).catch(() => {}) }}
-          secondary
-        />
-        <InfoRow label="Email" value={user.email || 'Email unavailable'} />
-      </InfoPanel>
-      </SettingsSection>
 
       <SettingsSection id="children" label="Players" iconKey="more.team">
       <InfoPanel iconKey="more.team" title="Linked players">
@@ -3346,6 +3402,23 @@ function SettingsScreen({
           <PrimaryAction label="Retry sync" loading={isSyncing} onPress={onRetrySync} secondary />
         ) : null}
       </InfoPanel>
+      </SettingsSection>
+
+      <SettingsSection id="calendar-sync" label="Calendar sync" iconKey="action.calendar">
+        <Text style={styles.helperText}>Only events you accept are synchronised. Unanswered, declined and cancelled events stay out of your phone calendar.</Text>
+        <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 48 }}>
+          <Text style={styles.bodyText}>Sync accepted events to this phone</Text>
+          <Switch accessibilityLabel="Sync accepted events to this phone" accessibilityRole="switch" disabled={calendarBusy || !selectedLink?.id} onValueChange={changePhoneCalendar} value={phoneCalendarEnabled} />
+        </View>
+        <Text style={styles.helperText}>Sync applies to {selectedLink?.playerName || 'the selected player'}. Choose another player to set up their calendar too. Turning this off removes events this app added for that player.</Text>
+        <Text style={styles.cardTitle}>Connect another calendar</Text>
+        <Text style={styles.helperText}>Generate a private link for a rolling 90 day view of accepted events. Generating a new link replaces the previous one.</Text>
+        {calendarFeedUrl ? <Text selectable style={styles.bodyText}>{calendarFeedUrl}</Text> : null}
+        {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy} label="Copy subscription link" onPress={() => { void Clipboard.setStringAsync(calendarFeedUrl).catch((error) => setCalendarError(error.message)) }} secondary /> : null}
+        {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy} label="Share subscription link" onPress={() => { void Share.share({ message: calendarFeedUrl, url: calendarFeedUrl }).catch((error) => setCalendarError(error.message)) }} secondary /> : null}
+        <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label={calendarFeedUrl ? 'Replace subscription link' : 'Generate subscription link'} onPress={() => { void changeCalendarSubscription('generate') }} secondary />
+        {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy || isOffline} label="Revoke subscription link" onPress={() => { void changeCalendarSubscription('revoke') }} secondary /> : null}
+        {calendarError ? <Text style={styles.errorText}>{calendarError}</Text> : null}
       </SettingsSection>
 
       </IconSettings>
