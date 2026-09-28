@@ -469,6 +469,7 @@ async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCod
   invalidateMemoryCacheByPrefix(`user-profile:${authUser.id}`)
   return normalizeUserProfile({
     ...result.profile,
+    user_metadata: authUser.user_metadata,
     clubs: result.club ?? result.profile.clubs ?? null,
     email: result.profile.email || authUser.email,
   })
@@ -491,6 +492,7 @@ export async function selectUserClub(authUser, clubId) {
   const data = await applyActiveMembership(authUser, selectedMembership)
   return normalizeUserProfile({
     ...data,
+    user_metadata: authUser.user_metadata,
     clubOptions: memberships,
     clubs: {
       name: selectedMembership.clubName,
@@ -651,6 +653,7 @@ export async function fetchUserProfile(authUser, options = {}) {
 
       return normalizeUserProfile({
         ...data,
+        user_metadata: authUser.user_metadata,
         email: data.email || authUser.email,
         clubOptions: memberships,
         parentPortalLinks: parentLinks,
@@ -817,6 +820,7 @@ export async function fetchUserProfile(authUser, options = {}) {
 
     return normalizeUserProfile({
       ...data,
+      user_metadata: authUser.user_metadata,
       clubs: clubData,
       email: data.email || authUser.email,
       parentPortalLinks: parentLinks,

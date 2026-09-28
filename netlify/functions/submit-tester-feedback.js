@@ -366,7 +366,20 @@ async function getAuthenticatedProfile(event, supabaseAdmin) {
       .maybeSingle()
     if (linkError) throw linkError
     if (parentLink?.id && parentLink.auth_user_id === authUser.id && parentLink.status === 'active' && parentLink.link_type === 'parent') {
-      return { id: null, authUserId: authUser.id, email: authEmail, name: authEmail, role: 'parent_portal', roleLabel: 'Parent', roleRank: 0, clubId: null }
+      return { id: null, authUserId: authUser.id, email: authEmail, name: normalizeText(authUser.user_metadata?.display_name || authUser.user_metadata?.name || authEmail), role: 'parent_portal', roleLabel: 'Parent', roleRank: 0, clubId: null }
+    }
+
+    const { data: fanConnection, error: fanError } = await supabaseAdmin
+      .from('fan_connections')
+      .select('id, auth_user_id, status, relationship_type')
+      .eq('auth_user_id', authUser.id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+    if (fanError) throw fanError
+    if (fanConnection?.id && fanConnection.auth_user_id === authUser.id && fanConnection.status === 'active' && ['fan', 'player'].includes(fanConnection.relationship_type)) {
+      const role = fanConnection.relationship_type === 'player' ? 'adult_player' : 'fan'
+      return { id: null, authUserId: authUser.id, email: authEmail, name: normalizeText(authUser.user_metadata?.display_name || authUser.user_metadata?.name || authEmail), role, roleLabel: role === 'fan' ? 'Fan' : 'Player', roleRank: 0, clubId: null }
     }
   }
 

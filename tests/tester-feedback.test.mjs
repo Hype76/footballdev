@@ -93,6 +93,7 @@ function createMockSupabase({
   team = { id: teamId, club_id: clubId },
   assignment = { id: '55555555-5555-4555-8555-555555555555' },
   parentLink = null,
+  fanConnection = null,
   insertError = null,
   storageUploadError = null,
 } = {}) {
@@ -141,6 +142,7 @@ function createMockSupabase({
 
     maybeSingle() {
       if (this.table === 'parent_player_links') return Promise.resolve({ data: parentLink, error: null })
+      if (this.table === 'fan_connections') return Promise.resolve({ data: fanConnection, error: null })
       if (this.table === 'users') {
         return Promise.resolve({ data: profile, error: null })
       }
@@ -658,6 +660,35 @@ test('Parent feedback uses a verified active player link when no staff profile e
   assert.equal(saved.club_id, null)
   assert.equal(saved.team_id, null)
   assert.ok(mock.calls.some(call => call.table === 'parent_player_links' && call.column === 'auth_user_id' && call.value === userId))
+})
+
+test('Fan and player feedback use verified active connections without a staff profile', async () => {
+  for (const relationship_type of ['fan', 'player']) {
+    const mock = createMockSupabase({
+      authUser: { id: userId, email: 'supporter@example.test', user_metadata: { display_name: 'Sam Supporter' } },
+      profile: null,
+      fanConnection: { id: 'connection', auth_user_id: userId, status: 'active', relationship_type },
+    })
+    const response = await submitTesterFeedbackResult(createEvent({ context: {} }), { emailSender: createEmailSender().emailSender, env: emailEnv, supabaseAdmin: mock.supabaseAdmin })
+    assert.equal(response.statusCode, 200)
+    const saved = mock.calls.find(call => call.table === 'tester_feedback_reports' && call.action === 'insert').payload
+    assert.equal(saved.submitted_by_user_id, null)
+    assert.equal(saved.submitted_by_name, 'Sam Supporter')
+    assert.equal(saved.role, relationship_type === 'player' ? 'adult_player' : 'fan')
+    assert.equal(saved.club_id, null)
+  }
+})
+
+test('Feedback rejects revoked or another account fan connections', async () => {
+  for (const fanConnection of [
+    { id: 'connection', auth_user_id: userId, status: 'revoked', relationship_type: 'fan' },
+    { id: 'connection', auth_user_id: 'someone-else', status: 'active', relationship_type: 'player' },
+  ]) {
+    const mock = createMockSupabase({ profile: null, fanConnection })
+    const response = await withMutedConsole(() => submitTesterFeedbackResult(createEvent({ context: {} }), { env: emailEnv, supabaseAdmin: mock.supabaseAdmin }))
+    assert.equal(response.statusCode, 403)
+    assert.equal(mock.calls.some(call => call.table === 'tester_feedback_reports' && call.action === 'insert'), false)
+  }
 })
 
 test('Parent feedback cannot bypass missing, revoked or another account player links', async () => {

@@ -42,7 +42,7 @@ export function isPlanAccessActive(profile) {
   return profile.isPlanComped || ['active', 'trialing'].includes(profile.planStatus)
 }
 
-function normalizeStaffProfile(row) {
+function normalizeStaffProfile(row, authUser) {
   const club = getRelatedRow(row, 'clubs')
   const testerAccessExpiresAt = club?.tester_access_expires_at || ''
 
@@ -52,7 +52,7 @@ function normalizeStaffProfile(row) {
     clubLogoUrl: normalizeText(club?.logo_url),
     clubName: normalizeText(club?.name || 'Club workspace'),
     clubStatus: normalizeText(club?.status || 'active') || 'active',
-    displayName: normalizeText(row.display_name || row.name || row.username || row.email),
+    displayName: normalizeText(authUser?.user_metadata?.display_name || authUser?.user_metadata?.name || row.display_name || row.name || row.username || row.email),
     email: normalizeEmail(row.email),
     hasActivePlanAccess: false,
     id: row.id,
@@ -277,7 +277,7 @@ async function fetchStaffProfile(authUser) {
   }
 
   if (data) {
-    const profile = normalizeStaffProfile(data)
+    const profile = normalizeStaffProfile(data, authUser)
     const contextResult = resolveCoachStaffContext({
       profile: {
         ...profile,

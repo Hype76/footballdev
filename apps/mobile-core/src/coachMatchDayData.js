@@ -536,14 +536,14 @@ export async function correctCoachMatchDayScore(user, match, homeScore, awayScor
 
 export async function correctCoachMatchDayGoal(user, match, event, goal, reason = '') {
   await prepareMutation(user, match)
-  await rpc('correct_match_day_goal_v2', { match_day_id_value: match.id, goal_event_id_value: event.id, parent_link_id_value: null, team_side_value: goal.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(goal.scorerName), scorer_shirt_number_value: normalize(goal.scorerShirtNumber), assist_name_value: normalize(goal.assistName), assist_shirt_number_value: normalize(goal.assistShirtNumber), minute_value: goal.minute ?? null, notes_value: normalize(goal.notes), correction_reason_value: normalize(reason), is_own_goal_value: goal.isOwnGoal === true, stoppage_minute_value: goal.stoppageMinute ? Number(goal.stoppageMinute) : null })
+  await rpc('correct_coach_match_day_goal_v1', { match_day_id_value: match.id, goal_event_id_value: event.id, team_side_value: goal.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(goal.scorerName), scorer_shirt_number_value: normalize(goal.scorerShirtNumber), assist_name_value: normalize(goal.assistName), assist_shirt_number_value: normalize(goal.assistShirtNumber), minute_value: goal.minute ?? null, notes_value: normalize(goal.notes), correction_reason_value: normalize(reason), is_own_goal_value: goal.isOwnGoal === true, is_penalty_goal_value: goal.isOwnGoal !== true && goal.isPenaltyGoal === true, stoppage_minute_value: goal.stoppageMinute ? Number(goal.stoppageMinute) : null })
   return getCoachMatchDayDetail(user, match.id)
 }
 
 export async function voidCoachMatchDayEvent(user, match, event, { note = '', reasonCode = '' } = {}) {
   await prepareMutation(user, match)
   const validated = validateMatchDayEventUndoInput({ eventType: event.eventType, note, reasonCode })
-  await rpc('void_match_day_event', { match_day_id_value: match.id, event_id_value: event.id, reason_code_value: validated.reasonCode, note_value: validated.note })
+  await rpc('void_coach_match_day_event_v1', { match_day_id_value: match.id, event_id_value: event.id, reason_code_value: validated.reasonCode, note_value: validated.note })
   return getCoachMatchDayDetail(user, match.id)
 }
 

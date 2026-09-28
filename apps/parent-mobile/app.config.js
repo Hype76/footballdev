@@ -1,6 +1,6 @@
 const { createMobileExpoConfig } = require('../mobile-core/appConfig.cjs')
 
-module.exports = createMobileExpoConfig({
+const config = createMobileExpoConfig({
   appRole: 'parent',
   bundleIdentifier: 'com.footballplayer.parents',
   description: 'Parent portal app for Football Player updates and notifications.',
@@ -9,5 +9,10 @@ module.exports = createMobileExpoConfig({
   packageName: 'com.footballplayer.parents',
   scheme: 'footballplayerparents',
   slug: 'football-player-parents',
-  version: '1.0.22',
+  version: '1.0.23',
+  plugins: [['expo-calendar', { calendarPermission: 'Football Player uses your calendar to synchronise events you accept.' }]],
 })
+
+config.expo.android.permissions.push('READ_CALENDAR', 'WRITE_CALENDAR')
+
+module.exports = config

@@ -23,7 +23,7 @@ import { useToast } from '../components/ui/toast-context.js'
 import { MatchDayPage } from './MatchDayPage.jsx'
 import { buildMainAppUrl } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
-import { getOwnParentPortalFanLinks, revokeOwnParentPlayerAccess } from '../lib/domain/parent-portal.js'
+import { getOwnParentPortalFanLinks, revokeOwnParentPlayerAccess, updateParentPortalDisplayName } from '../lib/domain/parent-portal.js'
 import { recordAnalyticsEvent } from '../lib/domain/platform-analytics.js'
 import {
   getParentCommunicationPreference,
@@ -1797,6 +1797,7 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
               resetPassword={resetPassword}
               parentEmail={getParentEmail(user)}
               parentName={getParentDisplayName(user)}
+              onNameSaved={(profile) => updateCurrentUserDetails(profile, { expectedAuthUserId: authUser?.id || '' })}
               pushState={pushState}
               selectedLink={selectedLink}
               themePreference={parentThemePreference}
@@ -2043,6 +2044,7 @@ function ParentSettingsPanel({
   onThemePreferenceChange,
   parentEmail,
   parentName,
+  onNameSaved,
   pushState,
   resetPassword,
   selectedLink,
@@ -2215,6 +2217,7 @@ function ParentSettingsPanel({
             <ParentAccountContactPanel
               parentEmail={parentEmail}
               parentName={parentName}
+              onNameSaved={onNameSaved}
               selectedLink={selectedLink}
             />
 
@@ -2359,27 +2362,50 @@ function ParentSettingsPanel({
   )
 }
 
-function ParentAccountContactPanel({ parentEmail, parentName, selectedLink }) {
+function ParentAccountContactPanel({ parentEmail, parentName, onNameSaved, selectedLink }) {
   const contact = getParentSettingsContact(selectedLink)
   const displayName = String(parentName ?? '').trim() || 'Parent or guardian'
   const email = String(parentEmail ?? selectedLink?.email ?? '').trim() || 'No email shown'
+  const [nameDraft, setNameDraft] = useState(displayName)
+  const [isSavingName, setIsSavingName] = useState(false)
+  const [nameError, setNameError] = useState('')
+
+  useEffect(() => { setNameDraft(displayName) }, [displayName])
+
+  async function saveName(event) {
+    event.preventDefault()
+    if (isSavingName) return
+    setIsSavingName(true)
+    setNameError('')
+    try {
+      const profile = await updateParentPortalDisplayName({ displayName: nameDraft })
+      onNameSaved?.(profile)
+    } catch (error) {
+      setNameError(error?.message || 'Your name could not be updated.')
+    } finally {
+      setIsSavingName(false)
+    }
+  }
 
   return (
     <section className={softPanelClass} aria-labelledby="parent-account-contact-heading">
       <p className={eyebrowClass}>Account details</p>
       <h4 id="parent-account-contact-heading" className="mt-2 text-xl font-black text-[#101828]">
-        Club-managed contact details
+        Profile and contact details
       </h4>
       <p className={`mt-3 ${bodyTextClass}`}>
-        Display name and email changes are managed by the club.
+        Your name is shared across your Football Player account. The club manages contact details.
       </p>
       <p className={`mt-1 ${bodyTextClass}`}>{contact.message}</p>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Display name</p>
-          <p className="mt-2 break-words text-sm font-black text-[#101828]">{displayName}</p>
-          <p className="mt-1 text-xs font-semibold text-[#60756a]">Read-only</p>
+          <form className="mt-2 space-y-2" onSubmit={saveName}>
+            <input aria-label="Profile name" className="min-h-12 w-full border-b border-[#d7e5dc] bg-white px-2 text-sm text-[#101828]" maxLength={80} minLength={2} onChange={(event) => setNameDraft(event.target.value)} required value={nameDraft} />
+            <button className={secondaryButtonClass} disabled={isSavingName || nameDraft.trim() === displayName} type="submit">{isSavingName ? 'Saving...' : 'Save name'}</button>
+            {nameError ? <p role="alert" className="text-sm text-red-700">{nameError}</p> : null}
+          </form>
         </div>
         <div className="rounded-lg border border-[#d7e5dc] bg-white px-4 py-3">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Email address</p>

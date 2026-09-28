@@ -15,6 +15,7 @@ const FAN_ACCESS_CAPABILITIES = Object.freeze({
   schedule: 'teamCalendar',
   game_day: 'matchDay',
   matches: 'matchDay',
+  stats: 'matchDay',
   notifications: 'matchDay',
   attendance: 'teamCalendar',
   development: 'basicDevelopmentRecords',

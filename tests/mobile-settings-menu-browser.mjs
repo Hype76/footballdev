@@ -121,13 +121,13 @@ try {
   for (const app of ['parent', 'coach']) {
     await page.evaluate(app => window.showApp(app), app)
     await page.locator(`[data-app="${app}"]`).waitFor()
-    const labels = app === 'parent' ? ['Account', 'Players', 'Display', 'Security', 'Email & app', 'Notifications', 'App info', 'Hidden items', 'Offline & sync'] : ['Account', 'Display', 'Security', 'Notifications', 'Offline & sync', 'App info']
-    await page.getByRole('button', { name: 'Account', exact: true }).waitFor()
+    const labels = app === 'parent' ? ['Players', 'Display', 'Security', 'Email & app', 'Notifications', 'App info', 'Hidden items', 'Offline & sync', 'Calendar sync'] : ['Account', 'Display', 'Security', 'Notifications', 'Offline & sync', 'App info']
+    await page.getByRole('button', { name: labels[0], exact: true }).waitFor()
     assert.equal(await page.locator('input').count(), 0, 'No editable controls on the menu')
     const readsBeforeNavigation = await page.evaluate(() => window.reads)
-    await open('Account')
+    await open(labels[0])
     assert.equal(await page.evaluate(() => window.hardwareBack()), true, 'Android back returns to Settings')
-    await page.getByRole('button', { name: 'Account', exact: true }).waitFor()
+    await page.getByRole('button', { name: labels[0], exact: true }).waitFor()
     assert.equal(await page.evaluate(() => window.hardwareBack()), false, 'Menu releases Android back to app navigation')
     assert.equal(await page.evaluate(() => window.reads), readsBeforeNavigation, 'Notification preferences load only when opened')
     for (const width of [390, 320, 360]) {
@@ -174,7 +174,7 @@ try {
     for (const label of labels) {
       await open(label)
       await page.getByRole('button', { name: 'Back to Settings', exact: true }).waitFor()
-      assert.equal(await page.getByRole('button', { name: 'Account', exact: true }).count(), 0, 'Only selected section renders')
+      assert.equal(await page.getByRole('button', { name: labels[0], exact: true }).count(), 0, 'Only selected section renders')
       await page.screenshot({ path: `${out}/${app}-${label.toLowerCase().replaceAll(/[^a-z]+/g, '-')}.png`, fullPage: true })
       await back()
       assert.equal(await page.locator('input').count(), 0)
@@ -212,10 +212,6 @@ try {
       await page.getByLabel('Current password', { exact: true }).fill('draft-must-clear')
       await back(); await open('Security')
       assert.equal(await page.getByLabel('Current password', { exact: true }).inputValue(), '')
-      await back(); await open('Account')
-      await page.getByLabel('Display name', { exact: true }).fill('Updated Parent')
-      await open('Update display name')
-      assert.deepEqual(await page.evaluate(() => window.calls.find(call => call.name === 'name').args), ['Updated Parent'])
       await back()
     }
     if (app === 'coach') {
@@ -268,5 +264,5 @@ try {
   await page.getByRole('button', { name: 'Open Quick Add', exact: true }).waitFor()
   console.log('PASS: Quick action visibility defaults on, hides immediately, survives remounting and can be restored.')
   assert.deepEqual(errors, [])
-  console.log('Actual Parent and Coach Settings: compact menus, every section, 320/360/390 widths, dark/light, tap targets, notification shortcut, independent alerts, password update/clearing, profile update, failure states and signout passed.')
+  console.log('Actual Parent and Coach Settings: compact menus, every section, 320/360/390 widths, dark/light, tap targets, notification shortcut, independent alerts, password update/clearing, failure states and signout passed.')
 } finally { await browser.close() }

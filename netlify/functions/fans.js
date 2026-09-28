@@ -5,6 +5,7 @@ import { fanInviteUrl } from '../../src/lib/fans.js'
 import { buildFanEmail } from './lib/_fan-email.js'
 import { loadFanInviteForOwner, loadFanScope } from './lib/_fan-access.js'
 import { loadFanMatches, loadFanSchedule, loadPlayerAttendance } from './lib/_fan-schedule.js'
+import { loadFanPlayerStats } from './lib/_fan-player-stats.js'
 import { loadHistory } from './lib/_parent-development-history.js'
 import { loadAuthorisedResource } from './parent-resource-access.js'
 import { assertParentPlanFeatureForScope } from './lib/_parent-plan-gate.js'
@@ -61,7 +62,7 @@ export async function handleFans(event, {
       if (sent.error) throw sent.error
       return json(200, { success: true })
     }
-    const permission = { schedule: 'schedule', attendance: 'schedule', matches: 'game_day', notifications: 'game_day', development: 'development', resources: 'resources', open_resource: 'resources' }[body.action]
+    const permission = { schedule: 'schedule', attendance: 'schedule', matches: 'game_day', stats: 'game_day', notifications: 'game_day', development: 'development', resources: 'resources', open_resource: 'resources' }[body.action]
     if (!permission) return json(400, { message: 'Choose a valid Fan action.' })
     const scope = await loadFanScope(client, actor, body.connectionId, permission)
     const planProfile = await assertPlanFeatureForScope({
@@ -81,6 +82,12 @@ export async function handleFans(event, {
       teamId: scope.parent.team_id || scope.player.team_id,
     }, { supabaseAdmin: client })
     const featureAllowed = (featureName) => canUsePlanEntitlement(planProfile, featureName)
+    if (body.action === 'stats') {
+      if (scope.fan.relationship_type !== 'player') return json(403, { message: 'Player account access is required.' })
+      await requireFeature('matchDay')
+      await requireFeature('fixtures')
+      return json(200, { stats: await loadFanPlayerStats(client, scope) })
+    }
     if (body.action === 'attendance') {
       if (scope.fan.relationship_type !== 'player') return json(403, { message: 'Player account access is required.' })
       await requireFeature('teamCalendar')

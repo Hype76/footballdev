@@ -6,22 +6,23 @@ const parentPortalPageUrl = new URL('../src/pages/ParentPortalPage.jsx', import.
 const coreDomainUrl = new URL('../src/lib/domain/core.js', import.meta.url)
 const parentPortalDomainUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
 
-test('parent settings renders display name and email as club-managed read-only details', async () => {
+test('parent settings allows one account name edit while email stays club-managed', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
   const panelStart = source.indexOf('function ParentAccountContactPanel')
   const panelEnd = source.indexOf('function toDateOnly', panelStart)
   const panelSection = source.slice(panelStart, panelEnd)
 
-  assert.match(panelSection, /Club-managed contact details/)
-  assert.match(panelSection, /Display name and email changes are managed by the club\./)
+  assert.match(panelSection, /Profile and contact details/)
+  assert.match(panelSection, /Your name is shared across your Football Player account/)
   assert.match(panelSection, /Display name/)
   assert.match(panelSection, /Email address/)
   assert.match(panelSection, /Read-only/)
   assert.match(panelSection, /parentName/)
   assert.match(panelSection, /parentEmail/)
-  assert.doesNotMatch(panelSection, /<input/)
+  assert.match(panelSection, /aria-label="Profile name"/)
+  assert.match(panelSection, /updateParentPortalDisplayName/)
   assert.doesNotMatch(panelSection, /type="email"/)
-  assert.doesNotMatch(panelSection, /type="submit"/)
+  assert.match(panelSection, /type="submit"/)
 })
 
 test('parent settings contact notice prefers Team Admin email then falls back safely', async () => {
@@ -44,7 +45,7 @@ test('parent settings contact notice prefers Team Admin email then falls back sa
   assert.match(panelSection, /\{contact\.label\} contact/)
 })
 
-test('parent settings no longer exposes parent-side display-name or email mutation calls', async () => {
+test('parent settings keeps email mutation unavailable', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
   const settingsStart = source.indexOf('function ParentSettingsPanel')
   const settingsEnd = source.indexOf('function ParentAccountContactPanel', settingsStart)
@@ -57,7 +58,7 @@ test('parent settings no longer exposes parent-side display-name or email mutati
   assert.doesNotMatch(source, /Change email/)
   assert.doesNotMatch(source, /requestLoginEmailChange/)
   assert.doesNotMatch(source, /prepareParentPortalEmailChange/)
-  assert.doesNotMatch(source, /updateParentPortalDisplayName/)
+  assert.match(source, /updateParentPortalDisplayName/)
   assert.doesNotMatch(source, /parent-portal-email-change/)
   assert.doesNotMatch(source, /supabase\.auth\.updateUser/)
   assert.doesNotMatch(source, /updateUser\(/)

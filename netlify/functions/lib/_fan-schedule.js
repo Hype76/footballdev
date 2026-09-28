@@ -107,12 +107,12 @@ export async function addPublishedFormationPlans(client, scope, matches) {
   })
 }
 
-export async function loadFanMatches(client, scope, matchId = '', { includeScheduled = false } = {}) {
+export async function loadFanMatches(client, scope, matchId = '', { includeScheduled = false, limit = 100 } = {}) {
   const playerMatchAccess = includeScheduled && scope.fan.relationship_type === 'player'
   const scheduleAllowed = includeScheduled && scope.fan.permissions?.schedule === true
-  let query = client.from('match_days').select('id, title, club_id, team_id, opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, venue_name, pitch_type, status, home_score, away_score, updated_at, parent_visible, parent_audience, deleted_at, previous_hidden_at')
+  let query = client.from('match_days').select('id, title, club_id, team_id, opponent, fixture_type, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, shirt_choice, venue_name, pitch_type, status, home_score, away_score, motm_poll_id, updated_at, parent_visible, parent_audience, deleted_at, previous_hidden_at')
     .eq('club_id', scope.fan.club_id).eq('parent_visible', true).is('deleted_at', null).is('previous_hidden_at', null)
-    .gte('match_date', new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10)).order('match_date', { ascending: false }).limit(100)
+    .gte('match_date', new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10)).order('match_date', { ascending: false }).limit(Math.min(Math.max(Number(limit) || 100, 1), 1000))
   if (playerMatchAccess) query = query.in('status', [...new Set([...FAN_GAME_DAY_STATUSES, 'scheduled', 'scorer_request'])])
   else if (!scheduleAllowed) query = query.in('status', FAN_GAME_DAY_STATUSES)
   if (matchId) query = query.eq('id', matchId)

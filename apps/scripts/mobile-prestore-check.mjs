@@ -651,7 +651,7 @@ assertIncludes(coachMatchDayData, 'is_own_goal_value: event.isOwnGoal === true',
 assertIncludes(coachMatchDayData, 'stoppage_minute_value:', 'Coach added-time persistence')
 assertIncludes(coachMatchDayData, "rpc('record_match_day_score_correction_v2'", 'Coach Match Day score correction authority')
 assertIncludes(coachMatchDayData, "rpc('record_match_day_scorer_event_v1'", 'Coach Match Day event authority')
-assertIncludes(coachMatchDayData, "rpc('void_match_day_event'", 'Coach Match Day undo authority')
+assertIncludes(coachMatchDayData, "rpc('void_coach_match_day_event_v1'", 'Coach Match Day scoped undo authority')
 assertIncludes(coachMatchDayData, 'Crypto.randomUUID()', 'Coach Match Day idempotency')
 assertIncludes(coachMatchDayScreen, 'Recording on this device', 'Coach Match Day offline recording state')
 assertIncludes(coachMatchDayScreen, 'Parents receive updates after your connection returns and the actions sync.', 'Coach Match Day offline delivery explanation')

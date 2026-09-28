@@ -9,12 +9,14 @@ import { isFanGameDayMatch } from '../../../src/lib/fan-game-day'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display'
 import ParentIcon from './ParentIcon'
 import { FanAttendanceScreen } from './FanAttendanceScreen'
+import { PlayerStatsScreen } from './PlayerStatsScreen'
 
 export function FanContent({ connection, view, content, formation, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
   const link = { playerName: connection?.player_name, teamName: connection?.team_name, clubName: connection?.club_name }
   const resource = (items) => ({ items, loading: false, error: '' })
   const addToCalendar = (item) => onOpenLink(getParentGoogleCalendarUrl(item))
   if (view.action === 'attendance') return <FanAttendanceScreen items={content.attendance || []} themeTokens={themeTokens} />
+  if (view.action === 'stats' && connection?.relationship_type === 'player') return <PlayerStatsScreen connection={connection} stats={content.stats} themeTokens={themeTokens} />
   if (view.action === 'schedule') {
     const calendarEvents = upcomingFanSchedule(content.schedule || []).map((item) => ({
       id: item.id, title: item.title, selectedPlayerNames: connection?.relationship_type === 'player' ? item.selected_player_names : undefined, eventType: item.event_type || 'event', status: item.status,

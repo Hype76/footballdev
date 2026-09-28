@@ -10,6 +10,7 @@ import {
   getCoachMatchDayActions,
   getCoachMatchDayPresentation,
   getCoachMatchDayUndoModel,
+  isCoachMatchDayGoalCorrectionApplied,
   validateCoachMatchDayEventForm,
 } from '../apps/mobile-core/src/coachMatchDayCore.js'
 
@@ -145,6 +146,26 @@ test('undo model requires a canonical reason and Other note', () => {
   assert.equal(getCoachMatchDayUndoModel({ eventStatus: 'voided', eventType: 'goal' }).canUndo, false)
 })
 
+test('goal correction reconciliation checks the penalty flag', () => {
+  const match = { events: [{ id: 'goal-1', eventStatus: 'corrected', eventType: 'goal', teamSide: 'club', scorerName: 'Alex', scorerShirtNumber: '9', assistName: '', minute: 43, isOwnGoal: false, isPenaltyGoal: false, stoppageMinute: null, correctionReason: 'Penalty omitted' }] }
+  const goal = { teamSide: 'club', scorerName: 'Alex', scorerShirtNumber: '9', assistName: '', minute: 43, isOwnGoal: false, isPenaltyGoal: true, stoppageMinute: null }
+  assert.equal(isCoachMatchDayGoalCorrectionApplied(match, 'goal-1', goal, 'Penalty omitted'), false)
+  assert.equal(isCoachMatchDayGoalCorrectionApplied({ events: [{ ...match.events[0], isPenaltyGoal: true }] }, 'goal-1', goal, 'Penalty omitted'), true)
+})
+
+test('Coach full-time review and timeline corrections stay next to their controls', async () => {
+  const [source, data] = await Promise.all([
+    readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8'),
+    readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8'),
+  ])
+  assert.match(source, /match\.status === 'full_time' && !match\.concludedAt \? <Button label="Review and conclude" onPress=\{onReviewConclude\}/)
+  assert.match(source, /isPenaltyGoal: event\.isPenaltyGoal === true/)
+  assert.match(source, /accessibilityLabel="Corrected goal is a penalty"/)
+  assert.match(source, /isUndoing \? <View style=\{styles\.stack\}>/)
+  assert.match(data, /rpc\('correct_coach_match_day_goal_v1'.*is_penalty_goal_value:/)
+  assert.match(data, /rpc\('void_coach_match_day_event_v1'/)
+})
+
 test('final report derives active and voided timeline evidence and shootout result', () => {
   const report = buildCoachFinalMatchReport({ ...baseMatch, events: [{ createdAt: '2026-08-09T12:01:00Z', eventStatus: 'active', eventType: 'goal', homeScore: 1, awayScore: 0 }, { createdAt: '2026-08-09T12:02:00Z', eventStatus: 'voided', eventType: 'yellow_card' }], status: 'full_time' })
   assert.equal(report.activeEvents.length, 1)
@@ -160,7 +181,7 @@ test('backend deltas explicitly refuse invented fixture-linked lineup and extern
 
 test('Match Day live operations use canonical RPC mutations while pre-match fixture details remain editable', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
-  for (const rpc of ['start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'set_match_day_player_squad_decision_v2', 'record_match_day_goal_v3', 'record_match_day_score_correction_v2', 'record_match_day_scorer_event_v1', 'void_match_day_event', 'record_match_day_shootout_kick', 'void_match_day_shootout_kick', 'save_match_day_final_report']) assert.match(source, new RegExp(`['\"]${rpc}['\"]`))
+  for (const rpc of ['start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'set_match_day_player_squad_decision_v2', 'record_match_day_goal_v3', 'record_match_day_score_correction_v2', 'record_match_day_scorer_event_v1', 'correct_coach_match_day_goal_v1', 'void_coach_match_day_event_v1', 'record_match_day_shootout_kick', 'void_match_day_shootout_kick', 'save_match_day_final_report']) assert.match(source, new RegExp(`['\"]${rpc}['\"]`))
   assert.match(source, /select-match-day-volunteer/)
   assert.match(source, /Authorization: `Bearer \$\{accessToken\}`/)
   assert.equal((source.match(/\.from\('match_days'\)\.update\(/g) || []).length, 0)
