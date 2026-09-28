@@ -163,6 +163,7 @@ export {
   createEvaluation,
   deleteEvaluation,
   getEvaluations,
+  hideEvaluationFromCalendar,
   updateEvaluation,
   updateEvaluationStatus,
 } from './domain/evaluations.js'
@@ -170,6 +171,7 @@ export {
 export {
   createCalendarEvent,
   deleteCalendarEvent,
+  deleteCalendarEventOccurrence,
   getCalendarEvents,
   getParentPortalSharedCalendarEvents,
   notifyCalendarEventParents,

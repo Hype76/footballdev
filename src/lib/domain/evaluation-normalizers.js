@@ -176,6 +176,7 @@ export function normalizeEvaluationRow(row) {
     contactType: normalizePlayerContactType(row.contact_type ?? row.contactType ?? (row.is_adult || row.isAdult ? 'self' : 'parent')),
     session: String(row.session ?? '').trim(),
     date: String(row.date ?? '').trim(),
+    calendarHiddenAt: row.calendar_hidden_at ?? row.calendarHiddenAt ?? '',
     scores,
     averageScore: averageScore !== null ? Number(averageScore) : null,
     comments,

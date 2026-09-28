@@ -242,7 +242,7 @@ async function submitTokenResponse(supabase, token, params) {
 async function getCalendarEvent(adminSupabase, calendarEventId) {
   const { data, error } = await adminSupabase
     .from('calendar_events')
-    .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, location, notes, cancelled_at, updated_at, notification_revision')
+    .select('id, club_id, team_id, event_type, title, starts_at, ends_at, recurrence_frequency, recurrence_until, deleted_occurrence_dates, location, notes, cancelled_at, updated_at, notification_revision')
     .eq('id', calendarEventId)
     .eq('event_type', 'training')
     .is('cancelled_at', null)

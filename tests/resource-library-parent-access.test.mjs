@@ -176,6 +176,18 @@ test('Parent-visible calendar attachments use event authority and do not require
   })
 })
 
+test('removed occurrence attachments are no longer accessible to parents', () => {
+  const records = createCalendarEventRecords()
+  records.calendarOccurrenceDate = '2026-09-14'
+  records.resourceLink.calendar_occurrence_date = '2026-09-14'
+  records.calendarEvent.deleted_occurrence_dates = ['2026-09-14']
+  assert.throws(() => validateParentCalendarEventResourceAccess(records), /not available/)
+
+  records.calendarEvent.deleted_occurrence_dates = []
+  records.calendarEvent.recurrence_until = '2026-09-07'
+  assert.throws(() => validateParentCalendarEventResourceAccess(records), /not available/)
+})
+
 test('involved-player calendar attachments require an active invitation for the selected child', () => {
   const records = createCalendarInviteRecords()
 

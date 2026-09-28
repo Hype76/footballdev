@@ -78,11 +78,13 @@ import {
   createAssessmentSession,
   createPlayerStaffNote,
   deleteCalendarEvent,
+  deleteCalendarEventOccurrence,
   deleteAssessmentSession,
   deletePlayerStaffNote,
   formatResourceLibraryFileSize,
   RESOURCE_LIBRARY_CATEGORIES,
   getEvaluations,
+  hideEvaluationFromCalendar,
   getAssessmentReminderLogs,
   getCalendarEventResources,
   getCalendarEvents,
@@ -3170,7 +3172,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const resumeCalendarChange = (notifyEveryone) => {
     const prompt = calendarChangePrompt
     if (!prompt) return
-    calendarChangeDecisionRef.current = { key: prompt.key, notifyEveryone: notifyEveryone === true }
+    calendarChangeDecisionRef.current = { key: prompt.key, notifyEveryone: !prompt.partialScope && notifyEveryone === true }
     setCalendarChangePrompt(null)
     if (prompt.operation === 'save') {
       void handleCalendarSave({ preventDefault() {} })
@@ -3861,7 +3863,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
 
-    if (requiresRepeatDeleteScope && calendarForm.deleteRepeatScope !== 'entire_series') {
+    if (requiresRepeatDeleteScope && !['this_event', 'this_and_future', 'entire_series'].includes(calendarForm.deleteRepeatScope)) {
       setErrorMessage('Choose how to delete this repeating event before continuing.')
       showToast({ title: 'Calendar not deleted', message: 'Choose how to delete this repeating event before continuing.', tone: 'error' })
       return
@@ -3871,13 +3873,16 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       ? getAssessmentCountForSession(evaluations, activeEvent.data)
       : 0
     const changeAction = activeEvent.sourceType === 'match-day' || activeSessionAssessmentCount > 0 ? 'cancelled' : 'deleted'
-    const changeKey = `delete:${activeEvent.sourceType}:${activeEvent.sourceId}:${changeAction}`
+    const deleteScope = requiresRepeatDeleteScope ? calendarForm.deleteRepeatScope : 'entire_series'
+    const partialRepeatDelete = requiresRepeatDeleteScope && deleteScope !== 'entire_series'
+    const changeKey = `delete:${activeEvent.sourceType}:${activeEvent.sourceId}:${activeEvent.occurrenceDate || ''}:${deleteScope}:${changeAction}`
     const decision = calendarChangeDecisionRef.current?.key === changeKey ? calendarChangeDecisionRef.current : null
     if (!decision) {
       setCalendarChangePrompt({
         action: changeAction,
         key: changeKey,
         operation: 'delete',
+        partialScope: partialRepeatDelete ? deleteScope : '',
         title: activeEvent.title || 'Calendar item',
       })
       return
@@ -3889,7 +3894,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     let changeNotificationPreparation = null
 
     try {
-      if (decision.notifyEveryone) {
+      if (decision.notifyEveryone && !partialRepeatDelete) {
         changeNotificationPreparation = await prepareCalendarChangeNotification({
           changeAction,
           requestToken: crypto.randomUUID(),
@@ -3898,26 +3903,45 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         })
       }
       if (activeEvent.sourceType === 'calendar') {
-        if (activeEvent.data?.eventType === 'training') {
+        if (!partialRepeatDelete && activeEvent.data?.eventType === 'training') {
           await cancelPendingTrainingAvailabilityRequests({ user, calendarEventId: activeEvent.sourceId })
         }
-        await deleteCalendarEvent({ user, eventId: activeEvent.sourceId })
-        const nextCalendarItems = calendarItems.filter((item) => item.id !== activeEvent.sourceId)
-        const nextCalendarInvites = calendarInvites.filter((invite) => invite.calendarEventId !== activeEvent.sourceId)
+        const updatedEvent = partialRepeatDelete
+          ? await deleteCalendarEventOccurrence({
+            user,
+            eventId: activeEvent.sourceId,
+            occurrenceDate: activeEvent.occurrenceDate || activeEvent.date,
+            scope: deleteScope,
+          })
+          : (await deleteCalendarEvent({ user, eventId: activeEvent.sourceId }), null)
+        const nextCalendarItems = [
+          ...(updatedEvent ? [updatedEvent] : []),
+          ...calendarItems.filter((item) => item.id !== activeEvent.sourceId),
+        ]
+        const nextCalendarInvites = updatedEvent
+          ? calendarInvites
+          : calendarInvites.filter((invite) => invite.calendarEventId !== activeEvent.sourceId)
         setCalendarItems(nextCalendarItems)
         setCalendarInvites(nextCalendarInvites)
-        setTrainingAvailabilitySettingsByEventId((current) => {
-          const nextSettings = { ...current }
-          delete nextSettings[activeEvent.sourceId]
-          return nextSettings
-        })
+        if (!updatedEvent) {
+          setTrainingAvailabilitySettingsByEventId((current) => {
+            const nextSettings = { ...current }
+            delete nextSettings[activeEvent.sourceId]
+            return nextSettings
+          })
+        }
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
-        showToast({ title: 'Event deleted', message: 'The calendar event was removed.' })
+        showToast({ title: 'Event deleted', message: partialRepeatDelete ? 'The selected repeat dates were removed.' : 'The calendar event was removed.' })
       } else if (activeEvent.sourceType === 'session') {
         const legacySeriesSessions = requiresRepeatDeleteScope
           ? getLegacyRecurringSessionSeries({ event: activeEvent, sessions })
           : []
-        const sessionsToDelete = legacySeriesSessions.length > 1 ? legacySeriesSessions : [activeEvent.data]
+        const selectedDate = formatDateInput(activeEvent.occurrenceDate || activeEvent.date)
+        const sessionsToDelete = legacySeriesSessions.length > 1
+          ? legacySeriesSessions.filter((session) => deleteScope === 'entire_series'
+            || (deleteScope === 'this_event' && formatDateInput(session.sessionDate) === selectedDate)
+            || (deleteScope === 'this_and_future' && formatDateInput(session.sessionDate) >= selectedDate))
+          : [activeEvent.data]
         const assessmentCount = sessionsToDelete.reduce(
           (total, session) => total + getAssessmentCountForSession(evaluations, session),
           0,
@@ -3979,6 +4003,27 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       console.error(error)
       setErrorMessage(error.message || 'Calendar event could not be deleted.')
       showToast({ title: 'Calendar not deleted', message: error.message || 'Calendar event could not be deleted.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleHideDevelopmentCalendarEntry = async () => {
+    const activeEvent = calendarModal?.event
+    if (activeEvent?.sourceType !== 'development' || !activeEvent.sourceId) return
+
+    setIsSaving(true)
+    setErrorMessage('')
+    try {
+      const updated = await hideEvaluationFromCalendar({ user, evaluationId: activeEvent.sourceId })
+      const nextEvaluations = evaluations.map((evaluation) => evaluation.id === updated.id ? updated : evaluation)
+      setEvaluations(nextEvaluations)
+      writeCalendarAwareCache({ evaluations: nextEvaluations })
+      setCalendarModal(null)
+      showToast({ title: 'Calendar entry removed', message: 'The development record remains in player history.' })
+    } catch (error) {
+      setErrorMessage(error.message || 'The calendar entry could not be removed.')
+      showToast({ title: 'Calendar entry not removed', message: error.message || 'Try again.', tone: 'error' })
     } finally {
       setIsSaving(false)
     }
@@ -4379,8 +4424,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     <ConfirmModal
       isOpen={Boolean(calendarChangePrompt)}
       isBusy={isSaving}
-      title={calendarChangePrompt?.operation === 'save' ? 'Review calendar changes' : `Notify everyone about this ${calendarChangePrompt?.action || 'change'}?`}
-      message={calendarChangePrompt?.action === 'cancelled'
+      title={calendarChangePrompt?.operation === 'save' ? 'Review calendar changes' : calendarChangePrompt?.partialScope ? 'Delete selected repeat dates?' : `Notify everyone about this ${calendarChangePrompt?.action || 'change'}?`}
+      message={calendarChangePrompt?.partialScope
+        ? 'The selected date or future dates will be removed from the calendar. Earlier events and saved responses remain. This action does not send a parent notification.'
+        : calendarChangePrompt?.action === 'cancelled'
         ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar. Choose whether everyone involved should receive an app notification and email.'
         : calendarChangePrompt?.action === 'deleted'
           ? `Delete ${calendarChangePrompt?.title || 'this Calendar item'}? If this is a repeat series, the entire series will be deleted. This cannot be undone. Choose whether everyone involved should receive an app notification and email.`
@@ -4390,18 +4437,20 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       itemsTitle={calendarChangePrompt?.operation === 'save' ? 'What changed' : 'Your choices'}
       items={calendarChangePrompt?.operation === 'save'
         ? calendarChangePrompt.review.changes.map((change) => `${change.category}: ${change.detail}`)
+        : calendarChangePrompt?.partialScope
+          ? [calendarChangePrompt.partialScope === 'this_event' ? 'Only this date is removed' : 'This date and later repeats are removed', 'Earlier dates and saved responses remain']
         : [
         'Notify everyone: Send the update after the change is confirmed',
         'Do not notify: Save the change without contacting anyone',
         'Go back: Make no change yet',
       ]}
       cancelLabel={calendarChangePrompt?.operation === 'save' ? 'Close' : 'Go back'}
-      secondaryActionLabel={calendarChangePrompt?.operation === 'save' ? 'Save only' : 'Do not notify'}
+      secondaryActionLabel={calendarChangePrompt?.partialScope ? '' : calendarChangePrompt?.operation === 'save' ? 'Save only' : 'Do not notify'}
       secondaryActionDisabled={calendarChangePrompt?.operation === 'save' && !calendarChangePrompt.review.changes.length}
-      confirmLabel={calendarChangePrompt?.operation === 'save' ? 'Send notification & save' : 'Notify everyone'}
+      confirmLabel={calendarChangePrompt?.partialScope ? 'Delete selected dates' : calendarChangePrompt?.operation === 'save' ? 'Send notification & save' : 'Notify everyone'}
       confirmDisabled={calendarChangePrompt?.operation === 'save' && (!calendarChangePrompt.review.changes.length || calendarChangePrompt.recipientCount === null)}
       onCancel={() => setCalendarChangePrompt(null)}
-      onSecondaryAction={() => resumeCalendarChange(false)}
+      onSecondaryAction={calendarChangePrompt?.partialScope ? undefined : () => resumeCalendarChange(false)}
       onConfirm={() => resumeCalendarChange(true)}
     >
       {calendarChangePrompt?.operation === 'save' && calendarChangePrompt.review.changes.length ? (
@@ -4480,6 +4529,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           onCancel={handleCalendarModalClose}
           onChange={handleCalendarFormChange}
           onDelete={handleCalendarDelete}
+          onRemoveDevelopmentCalendarEntry={handleHideDevelopmentCalendarEntry}
           onEdit={handleCalendarEdit}
           onOpenWorkflow={() => {
             const href = calendarModal?.event?.href
@@ -4847,6 +4897,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         onCancel={handleCalendarModalClose}
         onChange={handleCalendarFormChange}
         onDelete={handleCalendarDelete}
+        onRemoveDevelopmentCalendarEntry={handleHideDevelopmentCalendarEntry}
         onEdit={handleCalendarEdit}
         onOpenWorkflow={() => {
           const href = calendarModal?.event?.href
@@ -5134,13 +5185,13 @@ function CalendarRepeatDeleteScope({ isBusy, onChange, value }) {
           className={fieldClass}
         >
           <option value="">Choose delete scope</option>
-          <option value="this_event" disabled>This event only is not available in V1</option>
-          <option value="this_and_future" disabled>This and future events is not available in V1</option>
+          <option value="this_event">This event only</option>
+          <option value="this_and_future">This and future events</option>
           <option value="entire_series">Entire repeat series</option>
         </select>
       </label>
       <p className="mt-2 text-xs font-bold leading-5 text-[#92400e]">
-        V1 stores this repeated calendar event as one series record, so deleting can only remove the full series safely.
+        Earlier events and their saved responses are kept when you remove this date or future dates.
       </p>
     </div>
   )
@@ -5853,6 +5904,7 @@ function CalendarEventModal({
   onCancel,
   onChange,
   onDelete,
+  onRemoveDevelopmentCalendarEntry,
   onEdit,
   onAcceptOnBehalf,
   onInvitationAction,
@@ -6094,6 +6146,8 @@ function CalendarEventModal({
   const canUsePitchType = !isAssessmentReminder && event?.sourceType !== 'session'
   const canManageEventPlayers = editableSource && ['calendar', 'match-day', 'session'].includes(event?.sourceType)
   const canDeleteEvent = Boolean(event && editableSource && !isAssessmentReminder)
+  const canRemoveDevelopmentCalendarEntry = Boolean(event?.sourceType === 'development'
+    && (Number(user?.roleRank ?? 0) >= 50 || event?.data?.coachId === user?.id))
   const isInheritedClubEvent = Boolean(event?.isInheritedClubEvent || event?.data?.isInheritedClubEvent)
   const showOpponent = form.eventType === 'match'
   const isMatchFixture = form.eventType === 'match'
@@ -6132,8 +6186,8 @@ function CalendarEventModal({
   const repeatUpdateScopeRequired = hasRecurringCalendarDateTimeChange({ event, form })
   const showRepeatUpdateScope = isRecurringCalendarEdit
   const showRepeatDeleteScope = Boolean(event && editableSource && isRecurringCalendarEdit)
-  const deleteButtonDisabled = isBusy || (showRepeatDeleteScope && form.deleteRepeatScope !== 'entire_series')
-  const hasMobileSecondaryActions = Boolean(event && editableSource && (!isEditing || canDeleteEvent))
+  const deleteButtonDisabled = isBusy || (showRepeatDeleteScope && !['this_event', 'this_and_future', 'entire_series'].includes(form.deleteRepeatScope))
+  const hasMobileSecondaryActions = Boolean((event && editableSource && (!isEditing || canDeleteEvent)) || canRemoveDevelopmentCalendarEntry)
   const canBuildFormation = Boolean(event?.sourceType === 'match-day' && event?.sourceId && onBuildFormation)
   const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
@@ -7141,6 +7195,11 @@ function CalendarEventModal({
                 ) : null}
                 {editableSource && !isAssessmentReminder ? <button type="button" onClick={onEdit} className={secondaryButtonClass}>Edit event</button> : null}
                 {editableSource ? <button type="button" onClick={onEdit} className={primaryButtonClass}>Move or reschedule</button> : null}
+                {canRemoveDevelopmentCalendarEntry ? (
+                  <button type="button" onClick={onRemoveDevelopmentCalendarEntry} disabled={isBusy} className={secondaryButtonClass}>
+                    Remove from calendar
+                  </button>
+                ) : null}
                 {canDeleteEvent ? (
                   <button
                     type="button"
@@ -7239,6 +7298,20 @@ function CalendarEventModal({
                     className={compactSecondaryButtonClass}
                   >
                     Move or reschedule
+                  </button>
+                ) : null}
+                {canRemoveDevelopmentCalendarEntry ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMobileActionMenuOpen(false)
+                      onRemoveDevelopmentCalendarEntry()
+                    }}
+                    disabled={isBusy}
+                    className={compactSecondaryButtonClass}
+                  >
+                    Remove from calendar
                   </button>
                 ) : null}
                 {canDeleteEvent ? (

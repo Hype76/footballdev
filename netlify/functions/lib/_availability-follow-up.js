@@ -15,7 +15,7 @@ export function normalizeAvailabilityFollowUp(value) {
 async function followUpScope(client, scope) {
   const isMatch = scope.sourceType === 'match-day'
   const eventResult = await client.from(isMatch ? 'match_days' : 'calendar_events')
-    .select(isMatch ? 'id,club_id,team_id,status,deleted_at,match_date,kickoff_time,kickoff_time_tbc,opponent' : 'id,club_id,team_id,event_type,title,starts_at,ends_at,recurrence_frequency,recurrence_until,cancelled_at')
+    .select(isMatch ? 'id,club_id,team_id,status,deleted_at,match_date,kickoff_time,kickoff_time_tbc,opponent' : 'id,club_id,team_id,event_type,title,starts_at,ends_at,recurrence_frequency,recurrence_until,deleted_occurrence_dates,cancelled_at')
     .eq('id', scope.eventId).eq('club_id', scope.clubId).eq('team_id', scope.teamId).maybeSingle()
   if (eventResult.error) throw eventResult.error
   const event = eventResult.data

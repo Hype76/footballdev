@@ -60,3 +60,26 @@ test('training appears only for a directly selected player', () => {
   assert.deepEqual(buildFanScheduleEvents({ ...input, invitedIds: new Set() }), [])
   assert.deepEqual(buildFanScheduleEvents({ ...input, invitedIds: new Set(['training']) }).map(item => item.id), ['training:2026-09-11'])
 })
+
+test('removed repeat dates are absent from the player schedule', () => {
+  const event = {
+    id: 'training',
+    title: 'Training',
+    event_type: 'training',
+    starts_at: '2026-09-07T17:00:00Z',
+    ends_at: '2026-09-07T18:00:00Z',
+    recurrence_frequency: 'weekly',
+    recurrence_until: '2026-09-21',
+    deleted_occurrence_dates: ['2026-09-14'],
+    team_id: 'team',
+  }
+  const result = buildFanScheduleEvents({
+    events: [event],
+    invitedIds: new Set(['training']),
+    occurrences: [],
+    exclusions: [],
+    parent: { team_id: 'team' },
+    now: new Date('2026-09-09T10:00:00Z'),
+  })
+  assert.deepEqual(result.map((item) => item.id), ['training:2026-09-21'])
+})
