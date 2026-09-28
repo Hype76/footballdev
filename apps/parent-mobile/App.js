@@ -21,7 +21,6 @@ import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
-import * as Clipboard from 'expo-clipboard'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
@@ -3142,7 +3141,7 @@ function SettingsScreen({
     }
     return () => { current = false }
   }, [selectedLink, user])
-  async function copyPhoneCalendarLink() {
+  async function showPhoneCalendarLink() {
     setCalendarBusy(true)
     setCalendarError('')
     setCalendarNotice('')
@@ -3152,10 +3151,7 @@ function SettingsScreen({
       const url = storedUrl || await changeParentCalendarFeed(user, selectedLink, 'generate')
       if (!/^https:\/\//i.test(url)) throw new Error('The calendar subscription link is invalid. Replace it and try again.')
       setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
-      await Clipboard.setStringAsync(url)
-      setCalendarNotice(Platform.OS === 'ios'
-        ? 'Link copied. In iPhone Calendar, choose Calendars, Add Calendar, then Add Subscription Calendar and paste the link.'
-        : 'Link copied. In Google Calendar on a computer, choose Other calendars, then From URL. The added calendar can then sync to your phone.')
+      setCalendarNotice('Press and hold the link below to copy it.')
     } catch (error) {
       setCalendarError(error.message)
     } finally {
@@ -3402,7 +3398,7 @@ function SettingsScreen({
 
       <SettingsSection id="calendar-sync" label="Calendar sync" iconKey="action.calendar">
         <Text style={styles.helperText}>Add accepted events for {selectedLink?.playerName || 'the selected player'} to your calendar. Unanswered, declined and cancelled events stay out. Your calendar app controls when updates appear.</Text>
-        <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label="Copy secure calendar link" onPress={() => { void copyPhoneCalendarLink() }} secondary />
+        <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label="Show secure calendar link" onPress={() => { void showPhoneCalendarLink() }} secondary />
         <Text style={styles.helperText}>{Platform.OS === 'ios' ? 'In iPhone Calendar, choose Calendars, Add Calendar, then Add Subscription Calendar and paste the link.' : 'In Google Calendar on a computer, choose Other calendars, then From URL. The added calendar can then sync to your phone.'}</Text>
         <Text style={styles.helperText}>This private link shows a rolling 90 day view. Keep it private. Replacing it stops the previous link working; to remove a calendar from your phone, unsubscribe in your calendar app.</Text>
         {calendarFeedUrl ? <Text selectable style={styles.bodyText}>{calendarFeedUrl}</Text> : null}
