@@ -220,10 +220,10 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const recent = reuseFresh ? peekMobileResource(user, memoryKey) : undefined
     if (recent !== undefined) {
       setData(recent); setStale(false); setLoading(false); setError('')
-      return
+      if (domain !== 'invites') return
     }
     if (!silent) {
-      setLoading(!dataRef.current)
+      setLoading(recent === undefined && !dataRef.current)
       setError('')
       setNotice('')
       if (domain === 'chat') setData(null)
@@ -232,7 +232,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const savedValue = cached?.resources?.[`phase31e:${domain}`]
     const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
     const hasCachedValue = offlinePolicy.cache && hasUsableCoachPhase31ECache(domain, savedValue, cachedValue)
-    if (hasCachedValue) {
+    if (hasCachedValue && recent === undefined && !dataRef.current) {
       setData(cachedValue)
       setStale(true)
       setLoading(false)
@@ -243,7 +243,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       return
     }
     try {
-      const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user)), { force: !reuseFresh })
+      const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user)), { force: domain === 'invites' || !reuseFresh })
       setData(next)
       setStale(false)
       setError('')
@@ -254,13 +254,24 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
         setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
       }
     } catch (loadError) {
-      if (!silent && !hasCachedValue) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
+      if (domain === 'invites' && (dataRef.current || recent !== undefined)) setStale(true)
+      if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
     } finally {
       if (!silent) setLoading(false)
     }
   }, [context, domain, offlinePolicy.cache, user])
 
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
+
+  useEffect(() => {
+    if (domain !== 'invites') return undefined
+    const refreshInvites = () => void load({ silent: true })
+    const interval = setInterval(refreshInvites, 30000)
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') refreshInvites()
+    })
+    return () => { clearInterval(interval); subscription.remove() }
+  }, [domain, load])
 
   useEffect(() => {
     if (domain !== 'polls') return undefined
@@ -283,7 +294,10 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
         <Text style={styles.body}>{context.teamName || context.clubName} | {context.roleLabel}</Text>
         {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'development' ? 'Saved information. Private drafts work offline.' : 'Offline and read-only'}</Text> : null}
         {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
-      </View> : notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
+      </View> : <>
+        {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Showing saved invitations. Reconnect to refresh.</Text> : null}
+        {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
+      </>}
       {loading ? <View style={styles.panel}><BrandLoader size="large" /><Text style={styles.body}>{`Loading ${TITLES[domain]}...`}</Text></View> : null}
       {!loading && error && !visibleError ? <View style={styles.panel}><BrandLoader /><Text style={styles.body}>Checking for the latest information...</Text></View> : null}
       {visibleError ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}

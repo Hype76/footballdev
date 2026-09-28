@@ -17,7 +17,7 @@ test('ordinary web session restoration does not call the Stripe claim endpoint',
 test('mobile startup avoids update-check contention and parallelises independent secure reads', () => {
   const updates = read('apps/mobile-core/src/updates.js')
   const startup = read('apps/mobile-core/src/startupStateCore.js')
-  assert.match(updates, /INITIAL_CHECK_DELAY_MS = 20 \* 1000/)
+  assert.match(updates, /INITIAL_CHECK_DELAY_MS = 5 \* 1000/)
   assert.match(updates, /setTimeout\(\(\) => \{\s*void check\(\)/)
   assert.doesNotMatch(updates, /check\(\{ force: true \}\)/)
   const biometricStart = startup.indexOf('const biometricResultPromise = withStartupTimeout')
