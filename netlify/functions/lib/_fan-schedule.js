@@ -151,7 +151,7 @@ export async function loadFanSchedule(client, scope, now = new Date(), { feature
       ? rows(client.from('calendar_event_invites').select('calendar_event_id, assessment_session_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled'))
       : [],
     canReadCalendarEvents
-      ? rows(client.from('calendar_events').select('id,title,starts_at,ends_at,location,event_type,parent_visible,parent_audience,team_id,recurrence_frequency,recurrence_until')
+      ? rows(client.from('calendar_events').select('id,title,starts_at,ends_at,location,event_type,parent_visible,parent_audience,team_id,recurrence_frequency,recurrence_until,deleted_occurrence_dates')
         .eq('club_id', scope.fan.club_id).is('cancelled_at', null))
       : [],
     trainingQuery ? rows(trainingQuery) : [],
@@ -212,6 +212,7 @@ export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclus
   const result = new Map()
   const excluded = (eventId, date) => exclusions.some((e) => e.calendar_event_id === eventId && (e.scope === 'this_and_future' ? date >= e.effective_from_date : date === e.effective_from_date))
   for (const event of events) {
+    const deletedDates = new Set(event.deleted_occurrence_dates || [])
     const direct = invitedIds.has(event.id)
     const shared = event.event_type !== 'training' && event.parent_visible === true && (event.parent_audience === 'all_club_parents' || (event.parent_audience === 'all_team_parents' && event.team_id === parent.team_id))
     const start = getParentProductDateTimeParts(event.starts_at)
@@ -219,14 +220,14 @@ export function buildFanScheduleEvents({ events, invitedIds, occurrences, exclus
     if (direct || shared) {
       const dates = buildCoachCalendarOccurrenceDates({ date: start.date, recurrenceFrequency: event.recurrence_frequency, recurrenceUntil: event.recurrence_until && event.recurrence_until < horizon ? event.recurrence_until : horizon })
       for (const date of dates) {
-        if (date < today || date > horizon || excluded(event.id, date)) continue
+        if (date < today || date > horizon || deletedDates.has(date) || excluded(event.id, date)) continue
         const id = `${event.id}:${date}`
         result.set(id, { id, title: event.title, date, time: start.time, end_time: end.time, location: event.location, event_type: event.event_type })
       }
     }
     for (const occurrence of occurrences.filter((o) => o.calendar_event_id === event.id)) {
       const date = occurrence.occurrence_date
-      if (date < today || date > horizon || excluded(event.id, date)) continue
+      if (date < today || date > horizon || deletedDates.has(date) || excluded(event.id, date)) continue
       const id = `${event.id}:${date}`
       result.set(id, { id, title: event.title, starts_at: occurrence.occurrence_starts_at, ends_at: occurrence.occurrence_ends_at, location: event.location, event_type: event.event_type })
     }

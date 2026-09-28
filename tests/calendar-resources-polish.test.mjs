@@ -78,7 +78,7 @@ test('calendar UI attaches resources only to team custom events and protects rec
 
   assert.match(source, /function isCalendarResourceEventType\(eventType\)/)
   assert.match(source, /\['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other'\]\.includes/)
-  assert.match(source, /const defaultForm = getDefaultCalendarForm\(date\)[\s\S]*const eventType = \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType[\s\S]*eventType,/)
+  assert.match(source, /const defaultForm = getDefaultCalendarForm\(date\)[\s\S]*const eventType = isMatchday \? 'match' : \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType[\s\S]*eventType,/)
   assert.match(source, /const saveTrainingAsSession = isTraining && sourceType === 'session'/)
   assert.match(source, /const canShowTeamResourceArea = Boolean\(!clubWideOnly && safeFormTeamId && canManageResourceLibrary\(user\)\)/)
   assert.match(source, /const canUseCalendarResourceLinks = Boolean\(\(!event \|\| event\.sourceType === 'calendar'\) && isCalendarResourceEventType\(form\.eventType\)\)/)
@@ -112,8 +112,9 @@ test('calendar UI attaches resources only to team custom events and protects rec
   assert.match(source, /Choose how to delete this repeating event before continuing\./)
   assert.match(source, /This is a repeating event\. What do you want to delete\?/)
   assert.match(source, /Entire repeat series/)
-  assert.match(source, /This event only is not available in V1/)
-  assert.match(source, /This and future events is not available in V1/)
+  assert.match(source, /<option value="this_event">This event only<\/option>/)
+  assert.match(source, /<option value="this_and_future">This and future events<\/option>/)
+  assert.match(source, /deleteCalendarEventOccurrence/)
 })
 
 test('calendar event schema retains legacy types while the domain exposes supported user-facing types', async () => {

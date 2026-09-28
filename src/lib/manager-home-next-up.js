@@ -76,12 +76,13 @@ function buildCalendarOccurrences(calendarEvent) {
 
   const frequency = normalizeText(calendarEvent.recurrenceFrequency) || 'none'
   const recurrenceUntil = normalizeText(calendarEvent.recurrenceUntil) || startsAt.date
+  const deletedDates = new Set(calendarEvent.deletedOccurrenceDates || [])
   const occurrences = []
   let occurrenceDate = startsAt.date
   let occurrenceIndex = 0
 
   while (occurrenceIndex < 80 && occurrenceDate <= recurrenceUntil) {
-    occurrences.push({
+    if (!deletedDates.has(occurrenceDate)) occurrences.push({
       id: occurrenceIndex === 0 ? `calendar:${calendarEvent.id}` : `calendar:${calendarEvent.id}:${occurrenceDate}`,
       sourceId: calendarEvent.id,
       sourceType: 'calendar',
