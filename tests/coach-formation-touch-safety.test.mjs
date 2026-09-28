@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import vm from 'node:vm'
 
 const source = await readFile(new URL('../apps/coach-mobile/src/CoachFormationBoard.js', import.meta.url), 'utf8')
+const tapSource = await readFile(new URL('../apps/coach-mobile/src/formationMarkerTapCore.js', import.meta.url), 'utf8')
 const classStart = source.indexOf('class FormationPlayerMarker')
 const renderStart = source.indexOf('\n  render()', classStart)
 const markerClass = `${source.slice(classStart, renderStart)}\n}`.replace('class FormationPlayerMarker', 'class TestFormationPlayerMarker')
@@ -30,6 +31,7 @@ const createMarkerClass = () => {
       return timer
     },
   })
+  vm.runInContext(tapSource.replace('export function', 'function'), context)
   const Marker = new vm.Script(`(${markerClass})`).runInContext(context)
   return { Marker, cleared, timers, vibrated }
 }

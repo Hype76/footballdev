@@ -33,7 +33,7 @@ const result = await build({
       export async function fetchUpdateAsync(){window.downloads++;return new Promise(resolve=>{window.finishDownload=resolve})}
       export async function reloadAsync(){window.restarts++;if(window.failRestart)throw Error('synthetic reload failure');return new Promise(resolve=>{window.finishRestart=resolve})}
     `:`import React from 'react';export const useSafeAreaInsets=()=>({top:24,bottom:16,left:0,right:0});export const SafeAreaProvider=({children})=><div style={{height:'100vh',position:'relative'}}>{children}</div>`}))
-    b.onLoad({filter:/updates\.js$/},async({path:file})=>({contents:(await readFile(file,'utf8')).replace('const INITIAL_CHECK_DELAY_MS = 20 * 1000','const INITIAL_CHECK_DELAY_MS = 10'),loader:'js'}))
+    b.onLoad({filter:/updates\.js$/},async({path:file})=>({contents:(await readFile(file,'utf8')).replace('const INITIAL_CHECK_DELAY_MS = 5 * 1000','const INITIAL_CHECK_DELAY_MS = 10'),loader:'js'}))
   }}],
 })
 const out='output/playwright/parent-update-notice'

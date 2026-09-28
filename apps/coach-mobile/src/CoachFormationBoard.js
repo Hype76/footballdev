@@ -41,6 +41,7 @@ import { findFormationLocalDraft, formationContentKey, formationDraftKey, format
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { isRetryableFormationSaveError } from './coachFormationSaveQueueCore'
 import { canEditCoachFormationBoard, getCoachFormationMarkerVisualPosition, getCoachFormationRouteScope } from './coachFormationEntryCore'
+import { createFormationMarkerTapRecognizer } from './formationMarkerTapCore'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
 import { CoachFormationWorkspaceContext } from './coachFormationWorkspaceContext'
@@ -155,6 +156,12 @@ class FormationPlayerMarker extends Component {
   gestureActive = false
   movedBeforeHold = false
   holdTimer = null
+  tapRecognizer = createFormationMarkerTapRecognizer({
+    onSingleTap: () => { if (this.props.canEdit) this.props.onPress?.() },
+    onTripleTap: () => { if (this.props.canEdit) this.props.onTriplePress?.() },
+  })
+
+  clearTapSequence = () => this.tapRecognizer.cancel()
 
   clearHold = () => {
     clearTimeout(this.holdTimer)
@@ -176,6 +183,7 @@ class FormationPlayerMarker extends Component {
 
   beginGesture = () => {
     if (this.gestureActive) return
+    this.clearTapSequence()
     this.gestureActive = true
     this.props.onGestureStart?.()
   }
@@ -188,6 +196,7 @@ class FormationPlayerMarker extends Component {
   }
 
   componentWillUnmount() {
+    this.clearTapSequence()
     this.endGesture()
   }
 
@@ -200,6 +209,7 @@ class FormationPlayerMarker extends Component {
         if (Math.hypot(gesture.dx, gesture.dy) > 8 || gesture.numberActiveTouches > 1) {
           this.movedBeforeHold = true
           this.clearHold()
+          this.clearTapSequence()
         }
         return
       }
@@ -217,7 +227,7 @@ class FormationPlayerMarker extends Component {
       })
     },
     onPanResponderRelease: (_, gesture) => {
-      const { canEdit, canMove, layout, onMove, onPress, player } = this.props
+      const { canEdit, canMove, layout, onMove, player } = this.props
       const playerX = getMobileFormationPitchRatio(player.x)
       const playerY = getMobileFormationPitchRatio(player.y)
       const moved = this.gestureActive && canMove && layout.width && layout.height && (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4)
@@ -225,11 +235,12 @@ class FormationPlayerMarker extends Component {
         x: this.clamp(playerX + (gesture.dx / layout.width)),
         y: this.clamp(playerY + (gesture.dy / layout.height)),
       })
-      else if (canEdit && !this.gestureActive && !this.movedBeforeHold && Math.hypot(gesture.dx, gesture.dy) <= 8) onPress()
+      else if (canEdit && !this.gestureActive && !this.movedBeforeHold && Math.hypot(gesture.dx, gesture.dy) <= 8) this.tapRecognizer.tap()
       this.endGesture()
       this.setState({ dragging: false, livePosition: null })
     },
     onPanResponderTerminate: () => {
+      this.clearTapSequence()
       this.endGesture()
       this.setState({ dragging: false, livePosition: null })
     },
@@ -247,8 +258,8 @@ class FormationPlayerMarker extends Component {
     return (
       <View
         {...this.panResponder.panHandlers}
-        accessibilityHint={canEdit ? canMove ? 'Tap to change this Player. Hold briefly, then drag to move the Player.' : 'Tap to select this Player.' : 'This player position is read-only.'}
-        onAccessibilityTap={() => { if (canEdit) this.props.onPress() }}
+        accessibilityHint={canEdit ? canMove ? 'Tap to change this Player. Triple tap to move to Subs. Hold briefly, then drag to move the Player.' : 'Tap to select this Player. Triple tap to move to Subs.' : 'This player position is read-only.'}
+        onAccessibilityTap={() => { if (canEdit) { this.clearTapSequence(); this.props.onPress() } }}
         accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}`}
         accessibilityRole={canEdit ? 'button' : 'image'}
         accessibilityState={{ disabled: !canEdit, selected: Boolean(selected || removal) }}
@@ -974,6 +985,12 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
               else if (selectedPlayerId) selectPlayer(player.playerId, 'pitch')
               else if (player.slotId) openSlotPicker(player.slotId)
               else selectPlayer(player.playerId, 'pitch')
+            }}
+            onTriplePress={() => {
+              if (!canEdit) return
+              setDraft(moveMobileFormationPlayersToBench(draft, [player.playerId]))
+              setSelectedPlayerId('')
+              setRemovalIds((current) => current.filter((id) => id !== player.playerId))
             }}
             player={player}
             removal={removalIds.includes(player.playerId)}

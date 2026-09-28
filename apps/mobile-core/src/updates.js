@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 
 const MINIMUM_CHECK_INTERVAL_MS = 15 * 60 * 1000
-const INITIAL_CHECK_DELAY_MS = 20 * 1000
+const INITIAL_CHECK_DELAY_MS = 5 * 1000
 
 export function useMobileAutomaticUpdates() {
   const [state, setState] = useState({ readyOnRestart: false, status: 'idle' })
@@ -29,6 +29,7 @@ export function useMobileAutomaticUpdates() {
       setState({ readyOnRestart: true, status: 'ready' })
       return true
     } catch {
+      lastCheckedAtRef.current = 0
       setState((current) => ({ ...current, status: 'retry-later' }))
       return false
     } finally {
