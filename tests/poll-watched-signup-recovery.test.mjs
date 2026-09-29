@@ -5,7 +5,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {requiresWatchedMatch} from '../src/lib/poll-watched-match.js';
 import {getLinkableCoachFormationMatches} from '../apps/coach-mobile/src/coachFormationEntryCore.js';
 import {createBoundedMobileFetch,getMobileRequestTimeout} from '../apps/mobile-core/src/mobileFetchCore.js';
-import {createParentOfflineDocument,enqueueParentOfflineCommand} from '../apps/mobile-core/src/parentOfflineCore.js';
+import {createParentOfflineDocument,enqueueParentOfflineCommand,classifyParentCommandError} from '../apps/mobile-core/src/parentOfflineCore.js';
 
 test('only match awards require watching, including older cached poll titles',()=>{
  assert.equal(requiresWatchedMatch({pollType:'awards',title:'Player of the Match'}),true);
@@ -70,3 +70,8 @@ test('database blocks unconfirmed match votes and old clients, preserves ordinar
  } finally {await db.close()}
 });
 
+
+test('old unconfirmed queued votes require attention instead of endlessly retrying',()=>{
+ assert.equal(classifyParentCommandError({code:'22023',message:'Confirm "I watched the match" before voting.'}),'conflict');
+ assert.equal(classifyParentCommandError(new Error('Network request failed')),'retryable_failure');
+});
