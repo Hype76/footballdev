@@ -58,6 +58,7 @@ try {
   await page.waitForFunction(()=>window.saved?.pitchType==='3g')
   await page.evaluate(()=>window.reopen())
   await page.getByText('Edit fixture',{exact:true}).waitFor()
+  assert.ok((await page.getByRole('button',{name:'Cancel fixture',exact:true}).boundingBox())?.y < 400)
   assert.equal(await page.getByLabel('Kick-off time',{exact:true}).inputValue(),'10:45')
   await page.evaluate(()=>{window.saved=null})
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
