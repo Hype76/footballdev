@@ -1,3 +1,4 @@
+import { requiresWatchedMatch } from '../../../src/lib/poll-watched-match.js'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js'
@@ -324,11 +325,12 @@ export async function queueParentMessageRead(user, linkId, message) {
   })
 }
 
-export async function queueParentPollVote(user, linkId, poll, optionId) {
+export async function queueParentPollVote(user, linkId, poll, optionId, watchedMatch = false) {
+  if (requiresWatchedMatch(poll) && watchedMatch !== true) throw new Error('Confirm "I watched the match" before voting.')
   return queueParentCommand(user, {
     actorScope: user.id, childScope: linkId, entityId: poll.id,
     expectedServerVersion: [poll.createdAt, poll.closesAt, poll.currentOptionIds?.join(',')].filter(Boolean).join(':'),
-    payload: { optionId: normalize(optionId) }, type: 'poll_vote',
+    payload: { optionId: normalize(optionId), watchedMatch: watchedMatch === true }, type: 'poll_vote',
   })
 }
 
@@ -341,7 +343,7 @@ async function executeParentCommand(user, command) {
   }
   const scopedUser = withSelectedParentLink(user, link)
   if (command.type === 'message_read') return markParentMessageRead(scopedUser, command.entityId)
-  if (command.type === 'poll_vote') return submitParentPollVote(scopedUser, command.entityId, command.payload.optionId)
+  if (command.type === 'poll_vote') return submitParentPollVote(scopedUser, command.entityId, command.payload.optionId, command.payload.watchedMatch === true)
   throw new Error('offline_command_invalid')
 }
 

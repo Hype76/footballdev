@@ -70,11 +70,7 @@ function dateValue(match) {
 }
 
 export function sortCoachFormationMatches(matches = []) {
-  const priority = { live: 0, half_time: 0, second_half: 0, extra_time: 0, penalties: 0, scheduled: 1, postponed: 2, full_time: 3, cancelled: 4 }
-  return [...matches].sort((left, right) => {
-    const statusDifference = Number(priority[normalize(left?.status)] ?? 2) - Number(priority[normalize(right?.status)] ?? 2)
-    return statusDifference || dateValue(left) - dateValue(right)
-  })
+  return [...matches].sort((left, right) => dateValue(left) - dateValue(right))
 }
 
 export function isCoachFormationMatchLinkable(match, { now = new Date(), teamId = '' } = {}) {

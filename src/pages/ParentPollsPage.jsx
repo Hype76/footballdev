@@ -1,3 +1,4 @@
+import { requiresWatchedMatch } from '../lib/poll-watched-match.js'
 import { useEffect, useMemo, useState } from 'react'
 import { ParentPortalRouteShell } from '../components/parent-portal/ParentPortalShell.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -176,7 +177,8 @@ export function ParentPollsPage() {
     }).catch(() => {})
   }, [markCategoryViewed, selectedLink?.id, successfulPollLoad])
 
-  const handleVote = async (poll, optionId) => {
+  const handleVote = async (poll, optionId, watchedMatch = false) => {
+    if (requiresWatchedMatch(poll) && watchedMatch !== true) return
     if (!selectedLink?.id) {
       return
     }
@@ -188,6 +190,7 @@ export function ParentPollsPage() {
       await submitParentPortalPollVote({
         parentLinkId: selectedLink.id,
         pollId: poll.id,
+        watchedMatch,
         optionId,
       })
       await loadPolls()
@@ -326,6 +329,10 @@ function ParentPollMetric({ caption, isLoading, label, value }) {
 }
 
 function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
+  const [watchedFor, setWatchedFor] = useState('')
+  const confirmationKey = `${selectedLink?.id}:${poll.id}`
+  const watchedMatch = watchedFor === confirmationKey
+  const needsConfirmation = requiresWatchedMatch(poll)
   const counts = getPollVoteCounts(poll)
   const totalVotes = getTotalVotes(poll)
   const selectedOptionIds = getSelectedOptionIds(poll)
@@ -365,6 +372,7 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
         </p>
       </div>
 
+      {needsConfirmation ? <label className="mt-3 flex min-h-12 items-center gap-3 text-sm font-bold text-[#142b25]"><input type="checkbox" checked={watchedMatch} disabled={isBusy} onChange={event => setWatchedFor(event.target.checked ? confirmationKey : '')} />I watched the match</label> : null}
       <div className="mt-4 space-y-3">
         {poll.options.map((option) => {
           const count = Number(counts.get(option.id) ?? 0)
@@ -373,7 +381,7 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
           const isOwnChildOption = poll.allowOwnChildVotes === false
             && selectedPlayerId
             && String(option.playerId ?? '').trim() === selectedPlayerId
-          const isDisabled = isBusy || isVoteLocked || isOwnChildOption
+          const isDisabled = isBusy || isVoteLocked || isOwnChildOption || (needsConfirmation && !watchedMatch)
 
           return (
             <div
@@ -394,7 +402,7 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => onVote(poll, option.id)}
+                  onClick={() => onVote(poll, option.id, watchedMatch)}
                   disabled={isDisabled}
                   className={`inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
                     isSelected

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Image, Linking, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native'
 import { PrimaryButton, TextField } from './ui'
 import { createMobileAccount } from './mobileSignup'
+import { getMobileConnectionErrorMessage } from './mobileFetchCore'
 import { PASSWORD_POLICY_SUMMARY } from '../../../src/lib/password-policy.js'
 
 export function MobileSignupScreen({ appRole, logoSource, onBack }) {
@@ -19,7 +20,7 @@ export function MobileSignupScreen({ appRole, logoSource, onBack }) {
     if (!accepted) { setError('Please accept the terms and privacy policy.'); return }
     setBusy(true)
     try { await createMobileAccount({ ...form, appRole }); setComplete(true); setForm(current => ({ ...current, password: '', confirmation: '' })) }
-    catch (failure) { setError(failure.message || 'Account creation could not be completed. Please try again.') }
+    catch (failure) { setError(getMobileConnectionErrorMessage(failure) ? 'We could not confirm account creation. Check your connection and try again. If a confirmation email has arrived, follow it and then sign in. Your details are still here.' : failure.message || 'Account creation could not be completed. Please try again.') }
     finally { setBusy(false) }
   }
   return <SafeAreaView style={{ flex: 1, backgroundColor: '#f4f7f6' }}>

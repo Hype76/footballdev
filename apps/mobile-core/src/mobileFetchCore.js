@@ -40,6 +40,7 @@ export function getMobileConnectionErrorMessage(error) {
 
 export function getMobileRequestTimeout(url, options = {}, timeoutMs = 8000) {
   const path = String(url).split('?')[0]
+  if (String(options.method || 'GET').toUpperCase() === 'POST' && path.endsWith('/auth/v1/signup')) return Math.max(timeoutMs, 30000)
   if (isPasswordSignIn(url, options)) {
     return Math.max(timeoutMs, MOBILE_PASSWORD_REQUEST_TIMEOUT_MS)
   }

@@ -13,6 +13,7 @@ import { PasswordInput } from '../mobile-core/src/PasswordInput'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
 import { FanInvitationScreen } from './src/FanInvitationScreen'
 import { useFanAppLink } from './src/useFanAppLink'
+import { requiresWatchedMatch } from '../../src/lib/poll-watched-match.js'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { ParentPlayerAccessControls } from './src/ParentPlayerAccessControls'
 import { buildParentProfileAfterAccessRemoval } from '../mobile-core/src/parentAccessRemovalCore'
@@ -1461,14 +1462,15 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     }
   }
 
-  async function handlePollSubmit(poll, selectedOptionId = '') {
+  async function handlePollSubmit(poll, selectedOptionId = '', watchedMatch = false) {
+    if (requiresWatchedMatch(poll) && watchedMatch !== true) return
     const optionId = normalizeText(selectedOptionId) || getPollDraftOption(poll, pollDrafts)
     if (!canSubmitParentPoll(poll, optionId) || activeActionId) return
 
     setActiveActionId(`poll:${poll.id}`)
     setNotice(null)
     try {
-      const command = await queueParentPollVote(selectedMobileUser, selectedLink.id, poll, optionId)
+      const command = await queueParentPollVote(selectedMobileUser, selectedLink.id, poll, optionId, watchedMatch)
       setResources((current) => ({
         ...current,
         polls: {
@@ -2925,6 +2927,7 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
 function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, onRetry, onSubmit, resource, targetPollId = '' }) {
   const { styles } = useParentTheme()
   const [viewMode, setViewMode] = useState('open')
+  const [watched, setWatched] = useState({})
   if (!link?.id) return <EmptyPanel message="No active player link is available for polls." title="Polls unavailable" />
   const targetPoll = targetPollId ? resource.items.find((poll) => poll.id === targetPollId) : null
   const isOpenPoll = (poll) => poll.status === 'open' && !poll.isExpired
@@ -2952,11 +2955,14 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
           : normalizeText(poll.currentOptionId) ? [normalizeText(poll.currentOptionId)] : []
         const currentOptionId = currentOptionIds[0] || ''
         const busy = activeActionId === `poll:${poll.id}`
-        const submitEnabled = canSubmitParentPoll(poll, draftOptionId)
+        const watchedKey = `${link.id}:${poll.id}`
+        const watchedMatch = watched[watchedKey] === true
+        const needsConfirmation = requiresWatchedMatch(poll)
+        const submitEnabled = canSubmitParentPoll(poll, draftOptionId) && (!needsConfirmation || watchedMatch)
         const rankedResults = rankParentPollResults(poll.options, poll.votes)
 
         return (
-          <View key={poll.id} style={styles.card}>
+          <View key={poll.id} style={{ gap: 12, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#94a3a0' }}>
             <View style={styles.cardTopRow}>
               <Badge label={poll.status === 'open' && !poll.isExpired ? 'Open' : 'Closed'} tone={poll.status === 'open' && !poll.isExpired ? 'accent' : 'neutral'} />
               {poll.closesAt ? <Text style={styles.cardDate}>Closes {formatDateTime(poll.closesAt)}</Text> : null}
@@ -2970,6 +2976,9 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                 <Text style={styles.cardMeta}>{option.count} vote{option.count === 1 ? '' : 's'}</Text>
               </View>)}
             </View> : null}
+            {isOpenPoll(poll) && needsConfirmation ? <Pressable accessibilityRole="checkbox" accessibilityLabel="I watched the match" accessibilityState={{ checked: watchedMatch, disabled: busy }} disabled={busy} onPress={() => setWatched(current => ({ ...current, [watchedKey]: !watchedMatch }))} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 }}>
+              <Text style={styles.bodyText}>{watchedMatch ? '☑' : '☐'}</Text><Text style={styles.bodyText}>I watched the match</Text>
+            </Pressable> : null}
             {isOpenPoll(poll) && poll.allowMultiple ? (
               <Text style={styles.helperText}>
                 {poll.maxChoices ? `Choose up to ${poll.maxChoices} answers. Each change is saved separately.` : 'Choose one or more answers. Each change is saved separately.'}
@@ -2986,7 +2995,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                   && Number(poll.maxChoices || 0) > 0
                   && currentOptionIds.length >= Number(poll.maxChoices)
                   && !selected
-                const optionDisabled = !canSubmitParentPoll(poll, option.id) || busy || ownChildOption || atChoiceLimit
+                const optionDisabled = (needsConfirmation && !watchedMatch) || !canSubmitParentPoll(poll, option.id) || busy || ownChildOption || atChoiceLimit
                 return (
                   <Pressable
                     accessibilityHint={ownChildOption ? 'Your own player is not available for this poll' : poll.allowMultiple ? 'Adds or removes this saved response' : 'Selects this response'}
@@ -2994,7 +3003,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                     accessibilityState={{ checked: selected, disabled: optionDisabled }}
                     disabled={optionDisabled}
                     key={option.id}
-                    onPress={() => poll.allowMultiple ? onSubmit(poll, option.id) : onDraftChange(poll.id, option.id)}
+                    onPress={() => poll.allowMultiple ? onSubmit(poll, option.id, watchedMatch) : onDraftChange(poll.id, option.id)}
                     style={({ pressed }) => [styles.optionButton, selected && styles.optionButtonSelected, optionDisabled && styles.optionButtonDisabled, pressed && styles.pressed]}
                   >
                     <View style={[styles.radio, selected && styles.radioSelected]} />
@@ -3024,7 +3033,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                 disabled={!submitEnabled}
                 label={currentOptionId ? 'Save changed response' : 'Submit response'}
                 loading={busy}
-                onPress={() => onSubmit(poll)}
+                onPress={() => onSubmit(poll, '', watchedMatch)}
               />
             ))}
             <PrimaryAction label="Remove from this list" onPress={() => onDismiss(poll)} secondary />
