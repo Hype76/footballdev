@@ -93,6 +93,7 @@ export function normalizePoll(row) {
     clubId: row.club_id ?? row.clubId ?? '',
     teamId: row.team_id ?? row.teamId ?? '',
     teamName: String(team?.name ?? row.team_name ?? row.teamName ?? '').trim(),
+    requiresWatchedMatch: row.requires_watched_match === true || row.requiresWatchedMatch === true,
     title: String(row.title ?? '').trim(),
     description: String(row.description ?? '').trim(),
     audience: String(row.audience ?? 'parents').trim() === 'staff' ? 'staff' : 'parents',
@@ -338,9 +339,10 @@ export async function getParentPortalPolls({ parentLinkId }) {
   return (data ?? []).map(normalizePoll)
 }
 
-export async function submitParentPortalPollVote({ parentLinkId, pollId, optionId }) {
+export async function submitParentPortalPollVote({ parentLinkId, pollId, optionId, watchedMatch = false }) {
   const { data, error } = await supabase.rpc('submit_parent_portal_poll_vote', {
     parent_link_id_value: parentLinkId,
+    watched_match_value: watchedMatch === true,
     poll_id_value: pollId,
     option_id_value: optionId,
   })

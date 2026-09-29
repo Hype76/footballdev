@@ -235,6 +235,7 @@ function normalizePoll(row) {
     isExpired: Boolean(closesAt && new Date(closesAt).getTime() <= Date.now()),
     maxChoices: row.max_choices ?? row.maxChoices ?? null,
     options: (Array.isArray(row.options) ? row.options : []).map(normalizePollOption).filter(Boolean),
+    requiresWatchedMatch: row.requires_watched_match === true || row.requiresWatchedMatch === true,
     pollType: normalizeText(row.poll_type || 'text'),
     status: normalizeText(row.status || 'open'),
     title: normalizeText(row.title || 'Poll'),
@@ -487,7 +488,7 @@ export async function markParentMessageRead(user, messageId) {
   return data || new Date().toISOString()
 }
 
-export async function submitParentPollVote(user, pollId, optionId) {
+export async function submitParentPollVote(user, pollId, optionId, watchedMatch = false) {
   const selectedLink = getSelectedParentLink(user)
   const normalizedPollId = normalizeText(pollId)
   const normalizedOptionId = normalizeText(optionId)
@@ -497,6 +498,7 @@ export async function submitParentPollVote(user, pollId, optionId) {
   }
 
   const { data, error } = await supabase.rpc('submit_parent_portal_poll_vote', {
+    watched_match_value: watchedMatch === true,
     option_id_value: normalizedOptionId,
     parent_link_id_value: selectedLink.id,
     poll_id_value: normalizedPollId,

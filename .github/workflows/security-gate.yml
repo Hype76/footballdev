@@ -172,7 +172,7 @@ jobs:
       - name: Install Coach browser test dependencies
         run: npm ci --prefix apps/coach-mobile --include=optional
       - name: Mobile signup and Coach referral security
-        run: node --test tests/mobile-signup-referral.test.mjs && node tests/mobile-signup-browser.mjs
+        run: node --test tests/mobile-signup-referral.test.mjs tests/poll-watched-signup-recovery.test.mjs && node tests/mobile-signup-browser.mjs && node tests/poll-watched-browser.mjs
       - name: Matchday mobile feature visibility
         run: npm run mobile:prestore && node --test tests/mobile-matchday-plan.test.mjs tests/parent-fan-selected-plan-gates.test.mjs && node tests/mobile-notification-settings-browser.mjs && node tests/mobile-coach-plan-access-browser.mjs
       - name: Team kit colours and permissions
