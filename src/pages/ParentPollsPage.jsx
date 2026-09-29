@@ -372,7 +372,7 @@ function ParentPollCard({ activePollId, onVote, poll, selectedLink }) {
         </p>
       </div>
 
-      {needsConfirmation ? <label className="mt-3 flex min-h-12 items-center gap-3 text-sm font-bold text-[#142b25]"><input type="checkbox" checked={watchedMatch} disabled={isBusy} onChange={event => setWatchedFor(event.target.checked ? confirmationKey : '')} />I watched the match</label> : null}
+      {needsConfirmation ? <label className="mt-3 flex min-h-12 items-center gap-3 text-sm font-bold text-[#101828]"><input type="checkbox" checked={watchedMatch} disabled={isBusy} onChange={event => setWatchedFor(event.target.checked ? confirmationKey : '')} />I watched the match</label> : null}
       <div className="mt-4 space-y-3">
         {poll.options.map((option) => {
           const count = Number(counts.get(option.id) ?? 0)
