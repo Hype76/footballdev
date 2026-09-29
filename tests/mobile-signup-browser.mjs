@@ -73,6 +73,7 @@ try {
   await page.getByRole('button', { name: 'Create account', exact: true }).click()
   await page.getByText('Check your email', { exact: true }).waitFor()
   assert.equal(await page.evaluate(() => window.signup.options.data.account_type), 'parent')
+  assert.equal(await page.evaluate(() => window.signup.options.emailRedirectTo), 'https://parent.footballplayer.online/sign-in')
   assert.equal(await page.evaluate(() => window.signup.options.data.club_name), undefined)
   await page.evaluate(() => window.setMode('unlinked'))
   await page.getByRole('button', { name: 'Invite your Coach', exact: true }).click()

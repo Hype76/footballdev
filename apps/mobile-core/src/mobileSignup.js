@@ -26,7 +26,7 @@ export async function createMobileAccount({ appRole, name, email, password, team
   const { data, error } = await supabase.auth.signUp({
     email: email.trim().toLowerCase(), password,
     options: {
-      emailRedirectTo: appRole === 'coach' ? 'https://footballplayer.online/sign-in' : 'https://parent.footballplayer.online/parent-login',
+      emailRedirectTo: appRole === 'coach' ? 'https://footballplayer.online/sign-in' : 'https://parent.footballplayer.online/sign-in',
       data: { name: displayName, display_name: displayName, account_type: appRole,
         ...(appRole === 'coach' ? { club_name: clubName, signup_plan_key: 'matchday' } : {}) },
     },

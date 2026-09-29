@@ -55,7 +55,7 @@ test('referral reservation enforces limits, stable retries and service-only acce
   const db = new PGlite()
   try {
     await db.exec(`create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users(id uuid primary key); insert into auth.users values ('${user.id}'),('20000000-0000-4000-8000-000000000002');`)
-    await db.exec(await readFile(new URL('../supabase/migrations/20260929114242_parent_coach_referrals.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20260929120106_parent_coach_referrals.sql', import.meta.url), 'utf8'))
     const reserve = (digest, actor = user.id) => db.query('select * from public.reserve_parent_coach_referral($1,$2,$3)', [actor, digest, { sample: true }])
     const first = await reserve('recipient-one')
     assert.equal((await reserve('recipient-one')).rows[0].id, first.rows[0].id)
@@ -70,4 +70,24 @@ test('referral reservation enforces limits, stable retries and service-only acce
     }
     assert.equal((await db.query("select relrowsecurity from pg_class where relname='parent_coach_referrals'")).rows[0].relrowsecurity, true)
   } finally { await db.close() }
+})
+
+
+test('new Coach provisions once after confirmation; existing inactive staff cannot use signup to bypass access', async () => {
+  const source = await readFile(new URL('../apps/mobile-core/src/profile.js', import.meta.url), 'utf8')
+  const fn = source.slice(source.indexOf('async function fetchStaffProfile('), source.indexOf('async function fetchParentProfile('))
+  const authUser = { ...user, user_metadata: { signup_plan_key: 'matchday', club_name: 'FP TEST Team' } }
+  let row = null; let provisions = 0
+  const query = { select() { return this }, or() { return this }, async maybeSingle() { return { data: row } } }
+  const deps = [{ from: () => query }, value => value, async () => [], value => value,
+    ({ profile }) => ({ allowed: row?.status !== 'inactive', code: 'staff_account_inactive', contexts: [], context: profile }),
+    value => value, async (role, endpoint, body) => { assert.equal(role, 'coach'); assert.equal(endpoint, 'ensure-signup-club-profile'); assert.deepEqual(body, {}); provisions++; row = { id: user.id, status: 'active' } }]
+  const fetchProfile = new Function('supabase','normalizeEmail','fetchStaffContexts','normalizeStaffProfile','resolveCoachStaffContext','applyCoachContext','mobileAccountRequest', `${fn};return fetchStaffProfile`)(...deps)
+  await assert.rejects(fetchProfile({ ...authUser, email_confirmed_at: null }), /not linked/)
+  assert.equal(provisions, 0)
+  assert.equal((await fetchProfile(authUser)).id, user.id)
+  assert.equal(provisions, 1)
+  row = { id: user.id, status: 'inactive' }
+  await assert.rejects(fetchProfile(authUser), /staff_account_inactive/)
+  assert.equal(provisions, 1)
 })
