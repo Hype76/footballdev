@@ -582,7 +582,8 @@ export async function changeParentCalendarFeed(user, link, action) {
   const token = await getAccessToken()
   if (!token) throw new Error('Sign in again before continuing.')
   const config = getMobileRuntimeConfig('parent')
-  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '/.netlify/functions/parent-calendar-feed'), {
+  const feedPath = `/.netlify/functions/parent-calendar-feed?parentLinkId=${encodeURIComponent(link.id)}`
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, feedPath), {
     method: action === 'revoke' ? 'DELETE' : 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ parentLinkId: link.id }),

@@ -180,7 +180,7 @@ import { prepareParentMobileStartup } from './src/startup'
 import { getParentCommunicationPreference, updateParentCommunicationPreference as updateParentCommunicationChannel } from './src/communicationPreferences'
 import { getSafeParentMessageUrl, presentParentMessages } from './messagePresentation'
 import { shareParentMobileDevelopmentPdf } from './parentDevelopment'
-import { shareParentMobileMatchReportPdf } from './parentMatchReport'
+import { saveParentMobileMatchReportPdf } from './parentMatchReport'
 
 const config = getMobileRuntimeConfig('parent')
 const PARENT_REFRESH_MIN_INTERVAL_MS = 30 * 1000
@@ -1591,8 +1591,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     setNotice(null)
 
     try {
-      await shareParentMobileMatchReportPdf(match)
-      setNotice({ message: 'Match report PDF is ready to view or share.', tone: 'success' })
+      const result = await saveParentMobileMatchReportPdf(match)
+      if (result.saved) setNotice({ message: 'Match report PDF saved to your selected folder.', tone: 'success' })
+      else if (Platform.OS === 'ios') setNotice({ message: 'To keep the PDF in Files, choose Save to Files in the iPhone sheet.', tone: 'info' })
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, 'The match report PDF could not be prepared.'), tone: 'warning' })
     } finally {

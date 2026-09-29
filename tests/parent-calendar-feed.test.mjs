@@ -24,6 +24,26 @@ test('calendar feed rejects missing secret and unauthenticated token creation', 
   assert.equal(missingAuth.statusCode, 401)
 })
 
+test('calendar feed accepts UUID variants but still checks the signed-in player link', async () => {
+  let lookedUpLink = false
+  const createClient = () => ({
+    auth: { getUser: async () => ({ data: { user: { id: 'user-id' } }, error: null }) },
+    from: () => {
+      const query = { select: () => query, eq: () => query, maybeSingle: async () => { lookedUpLink = true; return { data: null, error: null } } }
+      return query
+    },
+  })
+  const versionSeven = await handleParentCalendarFeed({ httpMethod: 'POST', headers: { authorization: 'Bearer token' }, body: JSON.stringify({ parentLinkId: '019c6e27-e55b-73d1-87d8-4e01f1f75043' }) }, { createClient })
+  assert.equal(versionSeven.statusCode, 403)
+  assert.equal(lookedUpLink, true)
+  lookedUpLink = false
+  const queryFallback = await handleParentCalendarFeed({ httpMethod: 'POST', headers: { authorization: 'Bearer token' }, queryStringParameters: { parentLinkId: '019c6e27-e55b-43d1-87d8-4e01f1f75043' }, body: '{}' }, { createClient })
+  assert.equal(queryFallback.statusCode, 403)
+  assert.equal(lookedUpLink, true)
+  const malformed = await handleParentCalendarFeed({ httpMethod: 'POST', headers: { authorization: 'Bearer token' }, body: JSON.stringify({ parentLinkId: 'not-a-uuid' }) }, { createClient })
+  assert.equal(malformed.statusCode, 400)
+})
+
 test('revoked player access makes an existing subscription unavailable', async () => {
   const records = {
     parent_calendar_feed_tokens: { auth_user_id: 'user-id', parent_link_id: 'link-id' },
