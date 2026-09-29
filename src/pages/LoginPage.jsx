@@ -5,6 +5,7 @@ import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { useAuth } from '../lib/auth.js'
+import { clearAuthRedirectError, readAuthRedirectError } from '../lib/auth-redirect-error.js'
 import { DEMO_EMAIL, DEMO_PASSWORD, isDemoEmail } from '../lib/demo.js'
 import {
   buildParentInviteAcceptancePath,
@@ -52,6 +53,10 @@ function getFriendlyAuthErrorMessage(error, mode) {
     return 'An account already exists for this email. Use Login, or use Forgot password if you need access.'
   }
 
+  if (normalizedMessage.includes('email not confirmed')) {
+    return 'Email not confirmed. Open the newest Football Player confirmation email for this account, then try again.'
+  }
+
   return rawMessage || 'Authentication failed.'
 }
 
@@ -87,8 +92,12 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [localMessage, setLocalMessage] = useState('')
-  const [localError, setLocalError] = useState('')
+  const [localError, setLocalError] = useState(readAuthRedirectError)
   const [parentInviteToken, setParentInviteToken] = useState(() => getParentInviteToken(window.location.search))
+
+  useEffect(() => {
+    clearAuthRedirectError()
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)

@@ -57,6 +57,7 @@ try {
   await page.screenshot({ path: `${output}/coach-signup.png`, fullPage: true })
   await page.getByRole('button', { name: 'Create account', exact: true }).click()
   await page.getByText('Check your email', { exact: true }).waitFor()
+  await page.getByText(/Open the newest confirmation email sent to coach@example\.test/).waitFor()
   const signup = await page.evaluate(() => window.signup)
   assert.equal(signup.options.data.signup_plan_key, 'matchday')
   assert.equal(signup.options.data.club_name, 'FP TEST United')

@@ -27,7 +27,7 @@ export function MobileSignupScreen({ appRole, logoSource, onBack }) {
     <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={{ padding: 24, paddingTop: 48, gap: 18, maxWidth: 560, width: '100%', alignSelf: 'center' }}>
       <Image source={logoSource} style={{ width: 72, height: 72 }} />
       <Text style={{ fontSize: 30, fontWeight: '800', color: '#142b25' }}>{complete ? 'Check your email' : 'Create your account'}</Text>
-      <Text style={{ fontSize: 16, lineHeight: 24, color: '#425850' }}>{complete ? `Open the confirmation email sent to ${form.email.trim()}, then return here to sign in. If you already have an account, sign in or use Forgot password.` : coach ? 'Start with free Match Day. Set up your team, invite parents and share live match alerts.' : 'Stay close to your player. Create your account now, then connect using an invitation from your team.'}</Text>
+      <Text style={{ fontSize: 16, lineHeight: 24, color: '#425850' }}>{complete ? `Open the newest confirmation email sent to ${form.email.trim()}, then return here to sign in. An older link from a previous signup will not work. If you already have an account, sign in or use Forgot password.` : coach ? 'Start with free Match Day. Set up your team, invite parents and share live match alerts.' : 'Stay close to your player. Create your account now, then connect using an invitation from your team.'}</Text>
       {!complete && <View style={{ gap: 14 }}>
         <TextField light label="Your name" autoCapitalize="words" value={form.name} onChangeText={set('name')} />
         {coach && <TextField light label="Team name" autoCapitalize="words" value={form.teamName} onChangeText={set('teamName')} />}
