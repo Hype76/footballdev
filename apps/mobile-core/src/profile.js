@@ -1,3 +1,4 @@
+import { mobileAccountRequest } from './mobileSignup'
 import { normalizeFanProfileLink } from '../../../src/lib/fans.js'
 import { supabase } from './supabase'
 import { getSelectedParentLink } from './parentLinks'
@@ -264,7 +265,7 @@ function normalizeParentProfile(authUser, links) {
   }
 }
 
-async function fetchStaffProfile(authUser) {
+async function fetchStaffProfile(authUser, allowSignupProvisioning = true) {
   const email = normalizeEmail(authUser.email)
   const [{ data, error }, coachContexts] = await Promise.all([supabase
     .from('users')
@@ -309,6 +310,10 @@ async function fetchStaffProfile(authUser) {
     return applyCoachContext(profileWithContexts, contextResult.context)
   }
 
+  if (allowSignupProvisioning && authUser.email_confirmed_at && authUser.user_metadata?.signup_plan_key === 'matchday' && authUser.user_metadata?.club_name) {
+    await mobileAccountRequest('coach', 'ensure-signup-club-profile', {})
+    return fetchStaffProfile(authUser, false)
+  }
   throw new Error('This login is not linked to a coach account.')
 }
 

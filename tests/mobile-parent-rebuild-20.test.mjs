@@ -273,10 +273,10 @@ test('friendly errors fail closed without rendering raw exceptions', () => {
   )
 })
 
-test('signed-in accounts with no active link receive the safe no-child state', () => {
+test('signed-in accounts with no active link receive the safe invitation onboarding state', () => {
   assert.doesNotMatch(profileSource, /links\.length === 0[\s\S]{0,100}throw new Error/)
   assert.match(profileSource, /hasParentAccess: Boolean\(selectedLink\?\.id\)/)
-  assert.match(appSource, /No player linked/)
+  assert.match(appSource, /if \(!link\?\.id\) \{\s*return <UnlinkedParentScreen themeTokens=\{themeTokens\} \/>/)
 })
 
 test('Settings retain local biometric explanation, linked players and restrained test classification while name editing moves to Profile', () => {
