@@ -8,7 +8,7 @@ const modules = path.join(rootDir, 'apps/coach-mobile/node_modules')
 const entry = `
   import React from 'react'; import {createRoot} from 'react-dom/client';
   import {CoachFixtureForm} from './apps/coach-mobile/src/CoachFixtureForm.js';
-  const styles=new Proxy({input:{color:'#123',borderWidth:1,padding:8},tabs:{flexDirection:'row',flexWrap:'wrap'},chip:{padding:10},card:{padding:16},action:{padding:12}}, {get:(target,key)=>target[key]||{}});
+  const styles=new Proxy({input:{color:'#123',borderWidth:1,padding:8},tabs:{flexDirection:'row',flexWrap:'wrap'},chip:{padding:10},card:{padding:16},action:{padding:12},compactAction:{minHeight:44,paddingHorizontal:4,paddingVertical:8,alignSelf:'flex-start'},dangerText:{color:'#b42318'}}, {get:(target,key)=>target[key]||{}});
   const user={id:'staff',activeTeamId:'team'};
   window.saved=null;
   function App(){const [version,setVersion]=React.useState(0);const [match,setMatch]=React.useState(null);
@@ -58,7 +58,13 @@ try {
   await page.waitForFunction(()=>window.saved?.pitchType==='3g')
   await page.evaluate(()=>window.reopen())
   await page.getByText('Edit fixture',{exact:true}).waitFor()
-  assert.ok((await page.getByRole('button',{name:'Cancel fixture',exact:true}).boundingBox())?.y < 400)
+  const cancelFixture=page.getByRole('button',{name:'Cancel fixture',exact:true})
+  const backWithoutSaving=page.getByRole('button',{name:'Back without saving',exact:true})
+  assert.ok((await cancelFixture.boundingBox())?.y > (await backWithoutSaving.boundingBox())?.y)
+  const cancelStyle=await cancelFixture.evaluate(element=>{const style=getComputedStyle(element);return {backgroundColor:style.backgroundColor,borderWidth:style.borderWidth,minHeight:style.minHeight}})
+  assert.equal(cancelStyle.backgroundColor,'rgba(0, 0, 0, 0)')
+  assert.equal(cancelStyle.borderWidth,'0px')
+  assert.equal(cancelStyle.minHeight,'44px')
   assert.equal(await page.getByLabel('Kick-off time',{exact:true}).inputValue(),'10:45')
   await page.evaluate(()=>{window.saved=null})
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
