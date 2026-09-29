@@ -630,6 +630,23 @@ export async function fetchUserProfile(authUser, options = {}) {
       })
     }
 
+    // A new Parent account is valid before a club has linked a player. Keep it
+    // out of the family portal, but let the signed-in account finish setup.
+    if (
+      selectedAccessMode === 'parent'
+      && !hasParentAccess
+      && !parentLinkLookupFailed
+      && data?.role !== 'super_admin'
+      && !data?.club_id
+      && (await loadStaffMemberships()).length === 0
+    ) {
+      return {
+        parentAccessUnavailable: true,
+        parentAccessReason: 'awaiting_invite',
+        accessModeOptions: [],
+      }
+    }
+
     if (data?.role === 'super_admin') {
       const memberships = await loadStaffMemberships()
 

@@ -141,7 +141,7 @@ function scanPilotPreservation() {
     {
       label: 'Pilot create-club free guard preserved',
       path: 'netlify/functions/platform-create-club.js',
-      pattern: /billingMode === 'paid' && planKey === 'pilot'[\s\S]*billingMode === 'unpaid' \|\| planKey === 'pilot'/,
+      pattern: /body\.billingMode === 'paid' && planKey === 'pilot'[\s\S]*body\.billingMode === 'unpaid' \|\| \['matchday', 'pilot'\]\.includes\(planKey\)/,
     },
     {
       label: 'Pilot update-club free guard preserved',
