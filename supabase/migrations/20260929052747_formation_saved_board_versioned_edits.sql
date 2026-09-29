@@ -8,6 +8,7 @@ create or replace function app_private.formation_board_payload(target_board_id u
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('board', to_jsonb(board), 'currentVersion', to_jsonb(version),
     'currentPublication', to_jsonb(publication), 'isLocked', false,
+    'canEdit', app_private.formation_board_can_edit(auth.uid(), board.id),
     'canDelete', app_private.formation_board_can_delete(auth.uid(), board.id))
   from public.formation_boards board
   join public.formation_board_versions version on version.id = board.current_version_id

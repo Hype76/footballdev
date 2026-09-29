@@ -569,7 +569,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
   const hasEditAuthority = canEditCoachFormationBoard(user)
-  const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable && !board?.isLocked
+  const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable && !board?.isLocked && board?.canEdit !== false
   const capacity = getMobileFormationCapacity(draft.gameFormat)
   const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
   const contentKey = formationContentKey(draft, title)

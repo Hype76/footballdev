@@ -996,6 +996,7 @@ test('saved boards gain authorised versions while deletion stays restricted', as
   const saved = await create('Editable shared')
   const privateBoard = await create('Private board', 'draft')
   assert.equal(saved.isLocked, false)
+  assert.equal(saved.canEdit, true)
   assert.equal(saved.canDelete, true)
   const resourcePublication = (await rpc('public.publish_formation_board_version($1,$2,$3,$4,$5,$6,$7)',
     [saved.board.id, saved.currentVersion.id, 'training', 'new_resource', null, null, true])).rows[0].result
@@ -1014,6 +1015,10 @@ test('saved boards gain authorised versions while deletion stays restricted', as
     [saved.board.id, 1, 'Stale', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 'edit', 1]), /formation_board_version_conflict/)
   for (const actor of [IDS.parent, IDS.playerUser, IDS.assistant, IDS.coachB, IDS.revokedCoach]) {
     await setActor(actor)
+    if (actor === IDS.assistant) {
+      const readOnly = (await rpc('public.get_formation_board($1)', [saved.board.id])).rows[0].result
+      assert.equal(readOnly.canEdit, false)
+    }
     await assert.rejects(rpc('public.save_formation_board_editor($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,$11,$12,$13)',
       [saved.board.id, versionNumber, 'Denied', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 'edit', 1]), /formation_board_edit_forbidden|formation_board_auth_required/)
     await assert.rejects(rpc('public.delete_formation_board($1,$2)', [saved.board.id, saved.board.title]), /formation_board_delete_forbidden/)

@@ -28,6 +28,7 @@ export function normalizeCoachFormationBoard(row) {
   return {
     clubId: board.club_id ?? board.clubId ?? '',
     isLocked: payload.isLocked === true || board.isLocked === true,
+    canEdit: payload.canEdit ?? board.canEdit,
     canDelete: payload.canDelete === true || board.canDelete === true,
     createdAt: board.created_at ?? board.createdAt ?? '',
     createdByProfileId: board.created_by_profile_id ?? board.createdByProfileId ?? '',
