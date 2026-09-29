@@ -44,19 +44,19 @@ const screen = ast.program.body.find(node => node.type === 'ExportNamedDeclarati
 const callback = screen.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'load').declarations[0].init.arguments[0]
 
 function loadHarness({ saveError, loadError, cachedValue, offline = false } = {}) {
-  const state = { data: null, error: '', notice: '', loading: true, stale: false, saves: 0, reads: 0 }
+  const state = { data: null, error: '', notice: '', loading: true, stale: false, invitesRefreshing: false, invitesRefreshedAt: null, saves: 0, reads: 0, timeoutMs: null }
   const next = { invites: [{ playerId: 'synthetic-player', status: 'maybe' }] }
   const environment = {
     domain: 'invites', context: { id: 'team:test' }, user: { id: 'coach', isOfflineProfile: offline },
     LOADERS: { invites: async () => { state.reads += 1; if (loadError) throw loadError; return next } },
     TITLES: { invites: 'Invites' }, dataRef: { current: null }, offlinePolicy: { cache: true },
     peekMobileResource: () => undefined,
-    readMobileResource: (_user, _key, loader) => loader(), withMobileAsyncTimeout: loader => loader(),
+    readMobileResource: (_user, _key, loader) => loader(), withMobileAsyncTimeout: (loader, options) => { state.timeoutMs = options?.timeoutMs; return loader() },
     readCoachOfflineResources: async () => ({ resources: { 'phase31e:invites': cachedValue } }),
     hasUsableCoachPhase31ECache: (_domain, value) => Boolean(value),
     saveCoachOfflineResources: async () => { state.saves += 1; if (saveError) throw saveError },
     getCoachFriendlyError: error => error.message,
-    ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Stale'].map(name => [`set${name}`, value => { state[name.toLowerCase()] = value }])),
+    ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Stale', 'InvitesRefreshing', 'InvitesRefreshedAt'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = value }])),
   }
   return { state, next, load: vm.runInNewContext(`(${screenSource.slice(callback.start, callback.end)})`, environment) }
 }
@@ -69,6 +69,9 @@ test('a failed optional save never hides successfully loaded Coach invites', asy
     assert.equal(state.error, '')
     assert.equal(state.loading, false)
     assert.equal(state.stale, false)
+    assert.equal(state.invitesRefreshing, false)
+    assert.equal(state.timeoutMs, 30000)
+    assert.equal(Object.prototype.toString.call(state.invitesRefreshedAt), '[object Date]')
     assert.match(state.notice, /could not be saved/)
   }
 })
@@ -94,6 +97,7 @@ test('offline and failed-network fallback keep cached data read-only', async () 
     assert.equal(state.stale, true)
     assert.equal(state.error, '')
     assert.equal(state.saves, 0)
+    assert.equal(state.invitesRefreshing, false)
     if (options.offline) assert.equal(state.reads, 0)
   }
 })
