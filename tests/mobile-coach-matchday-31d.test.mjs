@@ -7,6 +7,7 @@ import {
   buildCoachMatchDaySquad,
   createCoachMatchDayEventForm,
   filterCoachMatchDays,
+  getCoachMatchDayDefaultFilter,
   getCoachMatchDayActions,
   getCoachMatchDayPresentation,
   getCoachMatchDayUndoModel,
@@ -49,6 +50,15 @@ test('fixture filters separate live, upcoming, previous, and cancelled states', 
   assert.deepEqual(filterCoachMatchDays(matches, 'upcoming', now).map((item) => item.id), ['future'])
   assert.deepEqual(filterCoachMatchDays(matches, 'previous', now).map((item) => item.id), ['past'])
   assert.equal(filterCoachMatchDays(matches, 'all', now).length, 4)
+})
+
+test('Game Day defaults to Upcoming only when Today and live is empty', () => {
+  const now = new Date('2026-08-09T12:00:00Z')
+  const future = { ...baseMatch, matchDate: '2026-08-10', status: 'scheduled' }
+  assert.equal(getCoachMatchDayDefaultFilter([future], now), 'upcoming')
+  assert.equal(getCoachMatchDayDefaultFilter([future, { ...baseMatch, matchDate: '2026-08-09', status: 'scheduled' }], now), 'current')
+  assert.equal(getCoachMatchDayDefaultFilter([future, baseMatch], now), 'current')
+  assert.equal(getCoachMatchDayDefaultFilter([], now), 'upcoming')
 })
 
 test('payment-required, stale, closed, and insufficient-role contexts fail closed', () => {

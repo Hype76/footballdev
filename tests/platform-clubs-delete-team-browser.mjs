@@ -944,6 +944,24 @@ try {
     await openPlatformClubs(page)
     await page.getByText('Club access', { exact: true }).waitFor({ state: 'visible' })
 
+    await page.evaluate(() => {
+      document.documentElement.classList.add('theme-dark')
+      document.body.classList.add('theme-dark')
+    })
+    const archiveNoticeContrast = await page.locator('.platform-archive-notice').evaluate((notice) => {
+      const rgb = (colour) => colour.match(/[\d.]+/g).slice(0, 3).map(Number)
+      const luminance = (colour) => rgb(colour).map((channel) => {
+        const value = channel / 255
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+      }).reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0)
+      const background = luminance(getComputedStyle(notice).backgroundColor)
+      return [...notice.querySelectorAll('p')].map((paragraph) => {
+        const foreground = luminance(getComputedStyle(paragraph).color)
+        return (Math.max(background, foreground) + 0.05) / (Math.min(background, foreground) + 0.05)
+      })
+    })
+    assert.ok(archiveNoticeContrast.length === 2 && archiveNoticeContrast.every((ratio) => ratio >= 4.5), `Club archive notice contrast: ${archiveNoticeContrast}`)
+
     for (const label of ['Owner', 'Club Admins', 'Team Administrators', 'Pending invitations', 'Removed access']) {
       await page.getByText(label, { exact: true }).last().waitFor({ state: 'visible' })
     }

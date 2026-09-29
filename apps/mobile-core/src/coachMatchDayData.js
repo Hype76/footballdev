@@ -345,6 +345,19 @@ export async function updateCoachMatchDayFixture(user, match, form) {
   return normalizeCoachMatchDay({ ...data, clubName: user.clubName })
 }
 
+export async function cancelCoachMatchDayFixture(user, match) {
+  await prepareMutation(user, match)
+  if (match.concludedAt || !['scheduled', 'scorer_request', 'postponed'].includes(normalize(match.status))) {
+    throw new Error('Only a fixture that has not started can be cancelled.')
+  }
+  const { data, error } = await supabase.rpc('cancel_match_day_fixture_for_team', {
+    p_match_day_id: match.id,
+    p_team_id: user.activeTeamId,
+  })
+  if (error) throw error
+  return normalizeCoachMatchDay({ ...data, clubName: user.clubName })
+}
+
 export async function getCoachMatchDayDetail(user, matchDayId, { includeVolunteerEligibility = true } = {}) {
   assertCoachMatchDayAccess(user)
   if (!normalize(matchDayId)) throw new Error('Choose a Match Day fixture.')

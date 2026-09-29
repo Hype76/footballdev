@@ -383,6 +383,17 @@ export async function commitCoachCalendarChangeNotification(preparationId) {
   return callCoachCalendarChangeNotifications({ operation: 'commit', preparationId })
 }
 
+export async function prepareCoachMatchCancellationNotification(match) {
+  if (!match?.id) throw new Error('Open a saved fixture before notifying families.')
+  return callCoachCalendarChangeNotifications({
+    changeAction: 'cancelled',
+    operation: 'prepare',
+    requestToken: Crypto.randomUUID(),
+    sourceId: match.id,
+    sourceType: 'match-day',
+  })
+}
+
 export async function cancelCoachCalendarEvent(user, event) {
   assertCoachOperationalMutation(user)
   if (!event?.sourceId || event.sourceType !== 'calendar_event' || event.canEdit === false) {

@@ -154,6 +154,10 @@ export function filterCoachMatchDays(matches, filter = 'current', now = new Date
     })
 }
 
+export function getCoachMatchDayDefaultFilter(matches, now = new Date()) {
+  return filterCoachMatchDays(matches, 'current', now).length > 0 ? 'current' : 'upcoming'
+}
+
 export function getCoachMatchDayPresentation(match, now = Date.now()) {
   const parts = getMatchDayDisplayParts(match)
   return Object.freeze({
