@@ -93,6 +93,7 @@ const ParentChatPage = lazyRoute(() => import('../pages/ParentChatPage.jsx'), 'P
 const ParentChatStaffPage = lazyRoute(() => import('../pages/ParentChatStaffPage.jsx'), 'ParentChatStaffPage')
 const ParentPollsPage = lazyRoute(() => import('../pages/ParentPollsPage.jsx'), 'ParentPollsPage')
 const ParentPortalPage = lazyRoute(() => import('../pages/ParentPortalPage.jsx'), 'ParentPortalPage')
+const ParentSignupWelcomePage = lazyRoute(() => import('../pages/ParentSignupWelcomePage.jsx'), 'ParentSignupWelcomePage')
 const FansPage = lazyRoute(() => import('../pages/FansPage.jsx'), 'FansPage')
 const FanInvitePage = lazyRoute(() => import('../pages/FanInvitePage.jsx'), 'FanInvitePage')
 const FriendsFamilyPage = lazyRoute(() => import('../pages/FriendsFamilyPage.jsx'), 'FriendsFamilyPage')
@@ -834,6 +835,10 @@ function useWorkspaceRouteGate({
       }
     }
 
+    if (parentIntent && accessRouteMismatch?.parentAccessReason === 'awaiting_invite') {
+      return { element: <PageSuspense><ParentSignupWelcomePage /></PageSuspense>, user: null }
+    }
+
     if (
       accessRouteMismatch?.parentAccessUnavailable
       && (accessRouteMismatch.parentAccessReason === 'lookup_failed' || accessModeOptions.length > 0)
@@ -1031,6 +1036,10 @@ function WorkspaceHome() {
 
     if (accessRouteMismatch?.teamAccessUnavailable) {
       return <TeamAccessUnavailableState />
+    }
+
+    if (accessRouteMismatch?.parentAccessReason === 'awaiting_invite') {
+      return <PageSuspense><ParentSignupWelcomePage /></PageSuspense>
     }
 
     if (

@@ -301,6 +301,7 @@ const fixtureAccounts = {
     hasPlatformAdminAccess: false,
     defaultMode: 'parent',
     parentProfileUnavailable: true,
+    parentAccessReason: 'awaiting_invite',
   },
   'adult-player.fixture@footballplayer.test': {
     password: 'FixturePass123!',

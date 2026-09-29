@@ -2569,24 +2569,36 @@ try {
     await context.close()
   })
 
-  await runScenario('parent-only unavailable fallback keeps the session until an explicit account change without exposing data', async () => {
+  await runScenario('new unlinked Parent signup opens welcome steps without exposing player data', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
-    await parentSignIn(page, 'parent-unlinked.fixture@footballplayer.test', mainBaseUrl)
-    await assertLoginIntentRecovery(page, {
-      email: 'parent-unlinked.fixture@footballplayer.test',
-      intendedLabel: 'Parent',
+    await parentSignIn(page, 'parent-unlinked.fixture@footballplayer.test', parentBaseUrl)
+    await assertVisibleText(page, 'Your Parent account is ready.')
+    await assertVisibleText(page, 'parent-unlinked.fixture@footballplayer.test')
+    await page.getByRole('button', { name: 'Preview invitation' }).waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: 'Open invitation' }).waitFor({ state: 'visible' })
+    const referralActions = []
+    await page.route('**/.netlify/functions/invite-coach', async (route) => {
+      const request = route.request()
+      const body = request.postDataJSON()
+      referralActions.push(body.action)
+      assert.equal(request.headers().authorization, 'Bearer fixture-token-parent-unlinked.fixture@footballplayer.test')
+      assert.equal(body.email, 'coach@example.test')
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(body.action === 'preview'
+          ? { success: true, subject: 'Coach invitation', text: 'Your team can try free Match Day.' }
+          : { success: true }),
+      })
     })
-    await page.getByRole('button', { name: 'Sign in with a different account', exact: true }).click()
-    await waitForPathname(page, '/sign-in')
-    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
-    assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
-    assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
-    assert.equal(await page.getByText('What this means', { exact: true }).count(), 0)
-    assert.equal(await page.getByText('Next step', { exact: true }).count(), 0)
-    assert.equal(await page.getByRole('button', { name: 'Return to Coach platform' }).count(), 0)
-    assert.equal(await page.getByRole('button', { name: 'Retry' }).count(), 0)
-    assert.equal(await page.getByRole('button', { name: 'Sign in again' }).count(), 0)
+    await page.getByRole('textbox', { name: 'Your name' }).fill('Parent Fixture')
+    await page.getByRole('textbox', { name: 'Coach email address' }).fill('coach@example.test')
+    await page.getByRole('button', { name: 'Preview invitation' }).click()
+    await assertVisibleText(page, 'Coach invitation')
+    await page.getByRole('button', { name: 'Send invitation' }).click()
+    await assertVisibleTextContaining(page, 'Invitation sent to coach@example.test.')
+    assert.deepEqual(referralActions, ['preview', 'send'])
+    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), 'parent-unlinked.fixture@footballplayer.test')
     assert.equal(await page.getByText('Fixture Child').count(), 0)
     await assertNoSetupGuideTrigger(page)
     await context.close()
