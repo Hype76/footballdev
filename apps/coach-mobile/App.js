@@ -152,7 +152,7 @@ function LoginScreen() {
       emailPlaceholder="coach@example.com"
       kicker="Football Player Coach"
       logoSource={require('./assets/football-player-logo.png')}
-      meta="Already invited by a club? Open your invitation email to join."
+      meta="Restricted club access. Already invited by a club? Open your invitation email to join."
       requestPasswordReset={requestPasswordReset}
       signIn={handleSignIn}
       title="Your team. Your match day."
