@@ -11,8 +11,9 @@ await mkdir(output, { recursive: true })
 const result = await build({
   stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client';
     import {MobileSignupScreen} from './apps/mobile-core/src/MobileSignupScreen';
+    import {createParentMobileTheme} from './apps/mobile-core/src/parentThemeCore.js';
     import {UnlinkedParentScreen} from './apps/parent-mobile/src/UnlinkedParentScreen';
-    function App(){const [mode,setMode]=React.useState('coach');window.setMode=setMode;return mode==='unlinked'?<div style={{padding:20}}><UnlinkedParentScreen/></div>:<MobileSignupScreen key={mode} appRole={mode} logoSource={{uri:'https://example.test/logo.png'}} onBack={()=>{window.back=true}}/>}createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: root, loader: 'jsx' },
+    function App(){const [dark,setDark]=React.useState(false);window.setDark=setDark;const [mode,setMode]=React.useState('coach');window.setMode=setMode;return mode==='unlinked'?<div style={{padding:20}}><UnlinkedParentScreen themeTokens={createParentMobileTheme({mode:dark?'dark':'light'}).tokens}/></div>:<MobileSignupScreen key={mode} appRole={mode} logoSource={{uri:'https://example.test/logo.png'}} onBack={()=>{window.back=true}}/>}createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: root, loader: 'jsx' },
   bundle: true, write: false, jsx: 'automatic', platform: 'browser', mainFields: ['browser', 'module', 'main'],
   loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths: [modules],
   alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') },
@@ -82,6 +83,9 @@ try {
   await page.getByText('An invitation for your team').waitFor()
   assert.equal(sendCount, 0)
   await page.screenshot({ path: `${output}/coach-invitation-preview.png`, fullPage: true })
+  await page.evaluate(() => window.setDark(true))
+  await page.screenshot({path:`${output}/coach-invitation-dark.png`,fullPage:true})
+  await page.evaluate(() => window.setDark(false))
   await page.getByRole('button', { name: 'Send invitation', exact: true }).click()
   await page.getByText('Invitation sent', { exact: true }).waitFor()
   assert.equal(sendCount, 1)

@@ -2652,7 +2652,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
   const homeFixtures = getParentHomeFixtureCards(homeModel)
   const scorerMatches = getParentScorerMatches(matches.items)
   if (!link?.id) {
-    return <UnlinkedParentScreen />
+    return <UnlinkedParentScreen themeTokens={themeTokens} />
   }
 
   if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} backLabel="Back to Home" event={selectedEvent} invitations={invitations} onRespond={onRespond} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} themeTokens={themeTokens} />
