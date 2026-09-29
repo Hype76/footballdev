@@ -207,6 +207,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [stale, setStale] = useState(false)
+  const [invitesRefreshing, setInvitesRefreshing] = useState(false)
+  const [invitesRefreshedAt, setInvitesRefreshedAt] = useState(null)
   const dataRef = useRef(null)
   dataRef.current = data
   const confirmedStale = useConfirmedConnectionIssue(stale)
@@ -219,7 +221,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const memoryKey = `coach:phase31e:${domain}`
     const recent = reuseFresh ? peekMobileResource(user, memoryKey) : undefined
     if (recent !== undefined) {
-      setData(recent); setStale(false); setLoading(false); setError('')
+      setData(recent); setStale(domain === 'invites'); setLoading(false); setError('')
       if (domain !== 'invites') return
     }
     if (!silent) {
@@ -242,11 +244,13 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       if (!hasCachedValue) setError('This section has not been saved on this phone yet. Connect to load it; Coach saves information automatically.')
       return
     }
+    if (domain === 'invites') setInvitesRefreshing(true)
     try {
-      const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user)), { force: domain === 'invites' || !reuseFresh })
+      const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user), domain === 'invites' ? { timeoutMs: 30000 } : {}), { force: domain === 'invites' || !reuseFresh })
       setData(next)
       setStale(false)
       setError('')
+      if (domain === 'invites') setInvitesRefreshedAt(new Date())
       try {
         const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
         await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
@@ -254,9 +258,10 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
         setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
       }
     } catch (loadError) {
-      if (domain === 'invites' && (dataRef.current || recent !== undefined)) setStale(true)
+      if (domain === 'invites' && (dataRef.current || recent !== undefined || hasCachedValue)) setStale(true)
       if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
     } finally {
+      if (domain === 'invites') setInvitesRefreshing(false)
       if (!silent) setLoading(false)
     }
   }, [context, domain, offlinePolicy.cache, user])
@@ -295,7 +300,10 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
         {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'development' ? 'Saved information. Private drafts work offline.' : 'Offline and read-only'}</Text> : null}
         {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
       </View> : <>
-        {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Showing saved invitations. Reconnect to refresh.</Text> : null}
+        {domain === 'invites' && data ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
+          <Text accessibilityLiveRegion="polite" style={[styles.helper, { flex: 1 }]}>{invitesRefreshing ? 'Checking latest invitations...' : stale ? 'Showing saved invitations. Latest check failed.' : `Updated ${invitesRefreshedAt?.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) || 'just now'}`}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Refresh invitations" disabled={invitesRefreshing} onPress={() => void load({ silent: true })} style={{ minHeight: 44, minWidth: 72, alignItems: 'center', justifyContent: 'center', opacity: invitesRefreshing ? 0.5 : 1 }}><Text style={{ color: palette.accentText, fontWeight: '700' }}>Refresh</Text></Pressable>
+        </View> : confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'invites' ? 'Showing saved invitations. Reconnect to refresh.' : 'Offline and read-only'}</Text> : null}
         {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
       </>}
       {loading ? <View style={styles.panel}><BrandLoader size="large" /><Text style={styles.body}>{`Loading ${TITLES[domain]}...`}</Text></View> : null}
