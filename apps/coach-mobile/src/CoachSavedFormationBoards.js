@@ -28,7 +28,7 @@ function SavedFormationSnapshot({ board }) {
   </View>
 }
 
-export function CoachSavedFormationBoards({ context, match, palette, user }) {
+export function CoachSavedFormationBoards({ context, match, onEdit, palette, user }) {
   const scope = getCoachFormationRouteScope(user, context, match.id)
   const current = useRef({ scope, user, match })
   current.current = { scope, user, match }
@@ -84,6 +84,6 @@ export function CoachSavedFormationBoards({ context, match, palette, user }) {
         {board.canDelete && canEditCoachFormationBoard(user) ? <Pressable accessibilityRole="button" accessibilityLabel={`Delete saved formation ${board.title}`} disabled={Boolean(busyId)} onPress={() => remove(board)} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons color={palette.textPrimary} name="delete-outline" size={23} /></Pressable> : null}
       </View>)}
     </View> : null}
-    {selected ? <CoachFormationWorkspace onBack={() => setSelectedId('')} palette={palette}><SavedFormationSnapshot board={selected} /></CoachFormationWorkspace> : null}
+    {selected ? <CoachFormationWorkspace onBack={() => setSelectedId('')} palette={palette}><View style={{ flex: 1 }}><SavedFormationSnapshot board={selected} />{onEdit && canEditCoachFormationBoard(user) && selected.canEdit !== false && !selected.isLocked ? <Pressable accessibilityRole="button" accessibilityLabel={`Edit saved formation ${selected.title}`} onPress={() => { setSelectedId(''); onEdit(selected.id) }} style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center', borderTopColor: palette.border, borderTopWidth: 1 }}><Text style={{ color: palette.textPrimary, fontWeight: '700' }}>Edit formation</Text></Pressable> : null}</View></CoachFormationWorkspace> : null}
   </View>
 }

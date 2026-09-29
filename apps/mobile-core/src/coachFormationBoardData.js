@@ -69,7 +69,6 @@ export async function saveCoachFormationBoard(user, board, draft, title) {
 
 export async function saveCoachMatchFormationBoard(user, match, board, draft, title, shared = false) {
   assertFormationWrite(user)
-  if (board?.isLocked) throw new Error('Saved boards cannot be edited. Create a new board for a different lineup.')
   if (!normalize(match?.id)) throw new Error('Choose a match before saving a lineup.')
   if (board?.linkedMatchDayId && board.linkedMatchDayId !== match.id) throw new Error('This lineup belongs to another match.')
   const payload = board
