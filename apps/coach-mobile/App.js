@@ -1,3 +1,4 @@
+import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
 import 'react-native-url-polyfill/auto'
 import { sanitizeCoachChatOfflineValue } from '../mobile-core/src/coachPhase31ECore'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
@@ -132,6 +133,7 @@ function formatDateTime(value, fallback = 'To be confirmed') {
 }
 
 function LoginScreen() {
+  const [creatingAccount, setCreatingAccount] = useState(false)
   const { authError, requestPasswordReset, signIn } = useMobileAuth()
   const handleSignIn = useCallback(async (email, password) => {
     try {
@@ -141,14 +143,16 @@ function LoginScreen() {
     }
   }, [signIn])
 
+  if (creatingAccount) return <MobileSignupScreen appRole="coach" logoSource={require('./assets/football-player-logo.png')} onBack={() => setCreatingAccount(false)} />
   return (
     <MobileLoginScreen
       authError={authError}
-      copy="Use the same active Coach account you use on the website."
+      onCreateAccount={() => setCreatingAccount(true)}
+      copy="Sign in with your Football Player account or create a free Match Day account."
       emailPlaceholder="coach@example.com"
       kicker="Football Player Coach"
       logoSource={require('./assets/football-player-logo.png')}
-      meta="Restricted club access."
+      meta="Already invited by a club? Open your invitation email to join."
       requestPasswordReset={requestPasswordReset}
       signIn={handleSignIn}
       title="Your team. Your match day."

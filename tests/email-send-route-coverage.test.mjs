@@ -2,18 +2,19 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {readdir,readFile} from 'node:fs/promises'
 const functionsRoot=new URL('../netlify/functions/',import.meta.url)
-async function sources(dir,prefix='') {const result=[];for(const e of await readdir(dir,{withFileTypes:true})){if(e.isDirectory()) result.push(...await sources(new URL(`${e.name}/`,dir),`${prefix}${e.name}/`));else if(/\.(?:[cm]?js|ts)$/.test(e.name))result.push([`${prefix}${e.name}`,await readFile(new URL(e.name,dir),'utf8')])}return result}
+async function sources(dir,prefix='') {const result=[];for(const e of await readdir(dir,{withFileTypes:true})){if(e.isDirectory()) result.push(...await sources(new URL(`${e.name}/`,dir),`${prefix}${e.name}/`));else if(/\.(?:[cm]?[jt]s)$/.test(e.name))result.push([`${prefix}${e.name}`,await readFile(new URL(e.name,dir),'utf8')])}return result}
 const sendRoutes={
+ 'invite-coach.mts':'delegate:lib/_coach-referral.js','lib/_coach-referral.js':'coach',
  'calendar-change-notifications.js':'parent','create-fan-account.js':'delegate:lib/_fan-account.js','create-parent-account.js':'parent','email-diagnostics.js':'both','fans.js':'parent','lib/_fan-account.js':'parent','lib/_squad-decision-notifications.js':'parent','platform-club-access.js':'coach','platform-create-club.js':'coach','process-billing-access-reminders.js':'coach','retry-failed-emails.js':'parent','send-contact-request.js':'both','send-demo-request.js':'both','send-parent-email.js':'parent','send-parent-password-reset.js':'parent','send-parent-portal-invite.js':'parent','send-password-reset.js':'dynamic','send-poll-result-notifications.js':'parent','send-staff-invite.js':'coach','submit-tester-feedback.js':'both',
 }
 test('every production email-provider caller has an audited app audience or explicit delegate',async()=>{
  const files=await sources(functionsRoot)
  const actual=files.filter(([name,s])=>name!=='lib/_email-provider.js'&&/import\s*\{[^}]*\bsendEmail\b[^}]*\}\s*from\s*['"][^'"]*_email-provider\.js['"]/.test(s)).map(([name])=>name).sort()
- const expected=Object.keys(sendRoutes).filter(n=>n!=='lib/_fan-account.js').sort()
+ const expected=Object.keys(sendRoutes).filter(n=>!['lib/_fan-account.js','lib/_coach-referral.js'].includes(n)).sort()
  assert.deepEqual(actual,expected,'A new provider caller needs audience classification in this independent inventory.')
  for(const [name,role]of Object.entries(sendRoutes)){
   const code=files.find(([n])=>n===name)?.[1];assert.ok(code,name)
-  if(role.startsWith('delegate:')){assert.ok(code.includes('_fan-account.js'));continue}
+  if(role.startsWith('delegate:')){assert.ok(code.includes(role.slice(9).split('/').pop()));continue}
   assert.match(code,/emailAppRole/,`${name} must preserve app audience at its send boundary`)
   if(role!=='dynamic')assert.match(code,new RegExp(`emailAppRole\\s*:\\s*['"]${role}['"]`),`${name} app audience differs from the audited recipient role`)
  }

@@ -205,6 +205,7 @@ export function LockedScreen({ errorMessage, logoSource, onUnlock }) {
 
 export function MobileLoginScreen({
   authError,
+  onCreateAccount,
   copy,
   emailPlaceholder,
   kicker,
@@ -277,7 +278,7 @@ export function MobileLoginScreen({
           <Text style={styles.screenTitle}>{title}</Text>
           <Text style={styles.screenCopy}>{copy}</Text>
 
-          <View style={styles.simpleCard}>
+          <View style={{ gap: 14 }}>
             <TextField
               autoComplete="email"
               keyboardType="email-address"
@@ -310,6 +311,7 @@ export function MobileLoginScreen({
             {recoveryMessage ? <Text style={styles.meta}>{recoveryMessage}</Text> : null}
           </View>
 
+          {onCreateAccount ? <PrimaryButton onPress={onCreateAccount} variant="secondary">Create account</PrimaryButton> : null}
           <Text style={styles.meta}>{meta}</Text>
           <LegalFooter />
         </View>
@@ -319,6 +321,7 @@ export function MobileLoginScreen({
 }
 
 export function TextField({
+  light = false,
   autoComplete,
   autoCapitalize = 'none',
   blurOnSubmit,
@@ -340,9 +343,10 @@ export function TextField({
   const actionLabel = secureTextEntry ? (showPassword ? 'Hide' : 'Show') : rightActionLabel
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, light && { color: '#142b25' }]}>{label}</Text>
       <View style={actionLabel ? styles.inputRow : null}>
         <TextInput
+          accessibilityLabel={label}
           ref={inputRef}
           autoComplete={autoComplete}
           autoCapitalize={autoCapitalize}
@@ -352,11 +356,12 @@ export function TextField({
           onChangeText={onChangeText}
           onSubmitEditing={onSubmitEditing}
           placeholder={placeholder}
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={light ? '#60736b' : colors.muted}
           returnKeyType={returnKeyType}
           secureTextEntry={secureTextEntry && !showPassword}
           style={[
             styles.input,
+            light && { color: '#142b25', backgroundColor: '#ffffff', borderColor: '#84988d' },
             actionLabel ? styles.inputWithAction : null,
             multiline ? styles.multilineInput : null,
           ]}
@@ -365,8 +370,9 @@ export function TextField({
         />
         {actionLabel ? (
           <Pressable accessibilityRole="button" accessibilityLabel={secureTextEntry ? `${actionLabel} ${label || 'password'}` : actionLabel}
-            onPress={secureTextEntry ? () => setShowPassword((value) => !value) : onRightActionPress} style={styles.inputAction}>
-            <Text style={styles.inputActionText}>{actionLabel}</Text>
+            onPress={secureTextEntry ? () => setShowPassword((value) => !value) : onRightActionPress} style={[styles.inputAction, light && { backgroundColor: '#eef3f0' }]}>
+
+            <Text style={[styles.inputActionText, light && { color: '#214c86' }]}>{actionLabel}</Text>
           </Pressable>
         ) : null}
       </View>

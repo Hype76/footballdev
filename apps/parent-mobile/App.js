@@ -1,3 +1,5 @@
+import { UnlinkedParentScreen } from './src/UnlinkedParentScreen'
+import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
 import { focusParentFormationBoard } from './src/parentFormationFocus'
 import { UserFeedbackScreen } from '../mobile-core/src/UserFeedbackScreen'
 import { MatchResultIcon } from './src/MatchResultIcon'
@@ -303,6 +305,7 @@ function formatTime(value, isTbc = false) {
 }
 
 function LoginScreen() {
+  const [creatingAccount, setCreatingAccount] = useState(false)
   const { authError, requestPasswordReset, signIn } = useMobileAuth()
 
   const handleSignIn = useCallback(async (email, password) => {
@@ -313,10 +316,12 @@ function LoginScreen() {
     }
   }, [signIn])
 
+  if (creatingAccount) return <MobileSignupScreen appRole="parent" logoSource={require('./assets/football-player-logo.png')} onBack={() => setCreatingAccount(false)} />
   return (
     <MobileLoginScreen
       authError={authError}
-      copy="Use the email and password linked to your family account."
+      onCreateAccount={() => setCreatingAccount(true)}
+      copy="Sign in or create your account. Your team invitation connects you to your player."
       emailPlaceholder="parent@example.com"
       kicker="Parent access"
       logoSource={require('./assets/football-player-logo.png')}
@@ -2647,12 +2652,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
   const homeFixtures = getParentHomeFixtureCards(homeModel)
   const scorerMatches = getParentScorerMatches(matches.items)
   if (!link?.id) {
-    return (
-      <EmptyPanel
-        message="Your account is signed in, but no active player link is available. Ask your club to check the family link."
-        title="No player linked"
-      />
-    )
+    return <UnlinkedParentScreen />
   }
 
   if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} backLabel="Back to Home" event={selectedEvent} invitations={invitations} onRespond={onRespond} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} themeTokens={themeTokens} />
