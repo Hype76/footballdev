@@ -1382,6 +1382,16 @@ try {
     ],
   })
 
+  await runScenario('expired confirmation link explains which email to open', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await page.goto(`${mainBaseUrl}/sign-in#error=access_denied&error_code=otp_expired`, { waitUntil: 'domcontentloaded' })
+    await page.getByText(/That confirmation link is no longer valid\. Open the newest Football Player confirmation email/).waitFor()
+    await page.getByRole('button', { name: 'Parent', exact: true }).click()
+    assert.equal(await page.getByText(/That confirmation link is no longer valid/).count(), 0)
+    await context.close()
+  })
+
   await runScenario('platform admin login opens platform admin view', async () => {
     const context = await browser.newContext()
     await context.addInitScript(() => {

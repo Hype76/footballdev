@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import './auth-redirect-error.js'
 
 const fallbackSupabaseUrl = 'https://placeholder.supabase.co'
 const fallbackSupabaseAnonKey = 'placeholder-anon-key'
