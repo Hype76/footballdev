@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url)
 const config = require('../apps/parent-mobile/app.config.js').expo
 const packageJson = require('../apps/parent-mobile/package.json')
 const app = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+const data = await readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8')
 
 test('accepted calendar subscription can update the installed Parent 1.0.22 app', () => {
   assert.equal(config.version, '1.0.22')
@@ -17,6 +18,7 @@ test('accepted calendar subscription can update the installed Parent 1.0.22 app'
   assert.match(app, /changeParentCalendarFeed/)
   assert.doesNotMatch(app, /webcal:/)
   assert.match(app, /Show secure calendar link/)
+  assert.match(data, /parent-calendar-feed\?parentLinkId=\$\{encodeURIComponent\(link\.id\)\}/)
   assert.match(app, /Press and hold the link below to copy it/)
   assert.doesNotMatch(app, /expo-clipboard|Clipboard\.setStringAsync/)
   assert.equal(packageJson.dependencies['expo-clipboard'], undefined)

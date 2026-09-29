@@ -30,8 +30,8 @@ import {
 import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 import { getCoachCarpoolDefault, setCoachCarpoolDefault } from '../../mobile-core/src/coachCarpoolData'
 
-function Button({ danger = false, disabled = false, label, onPress, secondary = false, styles }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, danger && (secondary ? styles.secondaryDanger : styles.actionDanger), disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={[secondary ? styles.secondaryText : styles.actionText, danger && (secondary ? styles.secondaryDangerText : styles.actionDangerText)]}>{label}</Text></Pressable>
+function Button({ disabled = false, label, onPress, secondary = false, styles }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={secondary ? styles.secondaryText : styles.actionText}>{label}</Text></Pressable>
 }
 
 function Chips({ onChange, options, styles, value }) {
@@ -258,7 +258,6 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCancelled,
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{isEditing ? 'Edit fixture' : 'Create match'}</Text>
         <Text style={styles.body}>{isEditing ? 'Update the fixture details before the match starts.' : 'Create the full Match Day fixture first. Squad and live controls remain available after it is saved.'}</Text>
-        {isEditing ? <Button danger disabled={busy || carpoolSaving} label="Cancel fixture" onPress={confirmCancelFixture} secondary styles={styles} /> : null}
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Fixture</Text>
@@ -322,6 +321,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCancelled,
       {!isEditing ? <Button disabled={busy || carpoolSaving} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
       {!isEditing ? <Button disabled={busy || carpoolSaving || !hasSquadPlayers} label="Add to squad calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
       <Button disabled={busy} label={isEditing ? 'Back without saving' : 'Cancel'} onPress={onCancel} secondary styles={styles} />
+      {isEditing ? <Pressable accessibilityRole="button" accessibilityLabel="Cancel fixture" accessibilityState={{ disabled: busy || carpoolSaving }} disabled={busy || carpoolSaving} onPress={confirmCancelFixture} style={({ pressed }) => [styles.compactAction, (busy || carpoolSaving) && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={styles.dangerText}>Cancel fixture</Text></Pressable> : null}
     </View>
   )
 }

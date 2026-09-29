@@ -63,19 +63,21 @@ test('Parent Results exposes event reports without staff-only final report data'
 })
 
 test('Parent phone exports only its visible completed report and Coach corrections open beside the chosen goal', () => {
-  assert.match(parentApp, /shareParentMobileMatchReportPdf/)
+  assert.match(parentApp, /saveParentMobileMatchReportPdf/)
   assert.match(parentApp, /handleDownloadMatchReport/)
   assert.match(parentMatchReport, /match\.status !== 'full_time'/)
   assert.match(parentMatchReport, /buildCompletedReportPdf\(match, \{ audience: 'parent' \}\)/)
   assert.match(parentMatchReport, /writeAsStringAsync/)
-  assert.match(parentMatchReport, /openMatchReportPdf/)
+  assert.match(parentMatchReport, /StorageAccessFramework\.createFileAsync/)
+  assert.match(parentMatchReport, /FileSystem\.documentDirectory/)
+  assert.match(parentMatchReport, /Sharing\.shareAsync/)
   const timelineStart = coachScreen.indexOf('function TimelinePanel')
   const timelineEnd = coachScreen.indexOf('function ShootoutPanel', timelineStart)
   const timelineSource = coachScreen.slice(timelineStart, timelineEnd)
 
   assert.match(timelineSource, /const isCorrecting = correctEvent\?\.id === event\.id/)
   assert.match(timelineSource, /isCorrecting \? renderGoalCorrection\(\) : null/)
-  assert.ok(timelineSource.indexOf('isCorrecting ? renderGoalCorrection() : null') < timelineSource.indexOf('{undoEvent ?'))
+  assert.ok(timelineSource.indexOf('isCorrecting ? renderGoalCorrection() : null') < timelineSource.indexOf('{undo.canUndo ?'))
 })
 
 test('Parent OTA bundling includes the shared canonical report source', () => {

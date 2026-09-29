@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { loadPlayerAttendance } from './lib/_fan-schedule.js'
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TOKEN = /^[0-9a-f]{64}$/
 const headers = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' }
 const json = (statusCode, body) => ({ statusCode, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -68,8 +68,13 @@ export async function handleParentCalendarFeed(event, { createClient = createSup
     const auth = await client.auth.getUser(token)
     const authUserId = auth.data?.user?.id
     if (auth.error || !authUserId) return json(401, { message: 'Sign in to continue.' })
-    const body = JSON.parse(event.body || '{}')
-    const parentLinkId = String(body.parentLinkId || '')
+    let body = {}
+    try {
+      body = JSON.parse(event.body || '{}')
+    } catch {
+      if (!event.queryStringParameters?.parentLinkId) return json(400, { message: 'Invalid request.' })
+    }
+    const parentLinkId = String(body.parentLinkId || event.queryStringParameters?.parentLinkId || '').trim()
     if (!UUID.test(parentLinkId)) return json(400, { message: 'Choose a linked player.' })
     const link = await one(client.from('parent_player_links').select('id').eq('id', parentLinkId).eq('auth_user_id', authUserId).eq('status', 'active'))
     if (!link) return json(403, { message: 'This player link is unavailable.' })
