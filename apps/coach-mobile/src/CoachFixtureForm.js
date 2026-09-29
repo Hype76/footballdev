@@ -17,7 +17,8 @@ import {
   updateCoachFixtureArrivalPreset,
   updateCoachFixtureKickoff,
 } from '../../mobile-core/src/coachFixtureCore.js'
-import { archiveCoachMatchLocation, createCoachMatchDayFixture, getCoachMatchLocations, updateCoachMatchDayFixture } from '../../mobile-core/src/coachMatchDayData.js'
+import { archiveCoachMatchLocation, cancelCoachMatchDayFixture, createCoachMatchDayFixture, getCoachMatchLocations, updateCoachMatchDayFixture } from '../../mobile-core/src/coachMatchDayData.js'
+import { commitCoachCalendarChangeNotification, prepareCoachMatchCancellationNotification } from '../../mobile-core/src/coachCalendarData.js'
 import { CoachDateTimeField } from './CoachDateTimeField'
 import { readCoachFixturePreferences, writeCoachFixturePreferences } from './coachFixturePreferences'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
@@ -29,8 +30,8 @@ import {
 import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 import { getCoachCarpoolDefault, setCoachCarpoolDefault } from '../../mobile-core/src/coachCarpoolData'
 
-function Button({ disabled = false, label, onPress, secondary = false, styles }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={secondary ? styles.secondaryText : styles.actionText}>{label}</Text></Pressable>
+function Button({ danger = false, disabled = false, label, onPress, secondary = false, styles }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, danger && (secondary ? styles.secondaryDanger : styles.actionDanger), disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={[secondary ? styles.secondaryText : styles.actionText, danger && (secondary ? styles.secondaryDangerText : styles.actionDangerText)]}>{label}</Text></Pressable>
 }
 
 function Chips({ onChange, options, styles, value }) {
@@ -45,7 +46,7 @@ function Toggle({ label, onValueChange, styles, value }) {
   return <View style={styles.row}><Text style={styles.fieldLabel}>{label}</Text><Switch accessibilityLabel={label} onValueChange={onValueChange} value={value === true} /></View>
 }
 
-export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, onUpdated, players, styles, user }) {
+export function CoachFixtureForm({ match = null, matches, onCancel, onCancelled, onCreated, onUpdated, players, styles, user }) {
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -179,6 +180,43 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
     }
   }
 
+  const cancelFixture = async (notifyEveryone) => {
+    if (busy || carpoolSaving || !isEditing) return
+    setBusy(true)
+    setError('')
+    try {
+      const preparation = notifyEveryone ? await prepareCoachMatchCancellationNotification(match) : null
+      const cancelled = await cancelCoachMatchDayFixture(user, match)
+      let notificationMessage = ''
+      if (preparation?.preparationId) {
+        try {
+          const delivery = await commitCoachCalendarChangeNotification(preparation.preparationId)
+          notificationMessage = `${delivery.recipientCount || 0} involved contacts notified.`
+        } catch {
+          notificationMessage = 'The fixture was cancelled, but notifications could not be completed. Check the web Calendar before notifying families.'
+        }
+      }
+      onCancelled?.(cancelled, notificationMessage)
+    } catch (cancelError) {
+      setError(getCoachFriendlyError(cancelError, 'The fixture could not be cancelled.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const confirmCancelFixture = () => {
+    if (busy || carpoolSaving || !isEditing) return
+    Alert.alert(
+      'Cancel this fixture?',
+      `${match.opponent} will be marked as cancelled. This cannot be undone here. Would you like to notify everyone involved?`,
+      [
+        { style: 'cancel', text: 'Go back' },
+        { onPress: () => void cancelFixture(false), text: 'Cancel without notifying' },
+        { onPress: () => void cancelFixture(true), style: 'destructive', text: 'Cancel and notify' },
+      ],
+    )
+  }
+
   const selectLocation = (id) => {
     const location = locations.find((item) => item.id === id)
     if (location) setForm({ ...form, venueAddress: location.address, venueName: location.name })
@@ -282,7 +320,8 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCreated, o
       <Button disabled={busy || carpoolSaving} label={busy ? (isEditing ? 'Saving fixture...' : 'Creating fixture...') : (isEditing ? 'Save fixture changes' : 'Create fixture and request availability')} onPress={save} styles={styles} />
       {!isEditing ? <Button disabled={busy || carpoolSaving} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
       {!isEditing ? <Button disabled={busy || carpoolSaving || !hasSquadPlayers} label="Add to squad calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
-      <Button disabled={busy} label="Cancel" onPress={onCancel} secondary styles={styles} />
+      <Button disabled={busy} label={isEditing ? 'Back without saving' : 'Cancel'} onPress={onCancel} secondary styles={styles} />
+      {isEditing ? <Button danger disabled={busy || carpoolSaving} label="Cancel fixture" onPress={confirmCancelFixture} secondary styles={styles} /> : null}
     </View>
   )
 }

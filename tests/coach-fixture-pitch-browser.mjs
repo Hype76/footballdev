@@ -21,12 +21,14 @@ const entry = `
 `
 const mocks = [
   [/coachCarpoolData$/, `let enabled=true; export const getCoachCarpoolDefault=async()=>enabled; export const setCoachCarpoolDefault=async(user,value)=>{enabled=value;return value};`],
+  [/coachCalendarData(?:\.js)?$/, `export const prepareCoachMatchCancellationNotification=async()=>({preparationId:'prepared'});export const commitCoachCalendarChangeNotification=async()=>({recipientCount:0});`],
   [/coachMatchDayData(?:\.js)?$/, `
     import {validateCoachFixtureForm} from './apps/mobile-core/src/coachFixtureCore.js';
     export const getCoachMatchLocations=async()=>[];
     export const archiveCoachMatchLocation=async()=>{};
     export const createCoachMatchDayFixture=async(user,form)=>({id:'fixture',...validateCoachFixtureForm(form)});
     export const updateCoachMatchDayFixture=async(user,match,form)=>({id:match.id,...validateCoachFixtureForm(form)});
+    export const cancelCoachMatchDayFixture=async(user,match)=>({...match,status:'cancelled'});
   `],
   [/coachFixturePreferences$/, `export const readCoachFixturePreferences=async()=>({duration:90});export const writeCoachFixturePreferences=async()=>{};`],
   [/coachTeamNotificationData$/, `export const getCoachTeamNotificationDisplayName=async()=>'';export const getCoachOwnTeamFixturePreferences=async()=>({found:false});export const saveCoachOwnTeamFixturePreferences=async()=>{};`],

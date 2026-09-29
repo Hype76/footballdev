@@ -279,7 +279,7 @@ function ClubSummary({
       {club.suspendedAt ? (
         <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Suspended: {formatPlatformDate(club.suspendedAt)}</p>
       ) : null}
-      <div className="mt-4 rounded-lg border border-[#fecdca] bg-[#fff8f8] p-4">
+      <div className="platform-archive-notice mt-4 rounded-lg border border-[#fecdca] bg-[#fff8f8] p-4">
         <p className="text-sm font-black text-[#101828]">Need to delete this Club?</p>
         <p className="mt-1 text-sm font-semibold leading-6 text-[#4b5f55]">
           Archive it first. You will be taken straight to the archived record where you can review the totals and permanently delete it with password confirmation.
