@@ -290,7 +290,7 @@ function ScrollSafePressable({ onPress, ...props }) {
 }
 
 
-export function CoachFormationBoard({ context, match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, user }) {
+export function CoachFormationBoard({ context, initialBoardId = '', match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const fullScreen = Boolean(inWorkspace)
   const styles = useMemo(() => createStyles(palette, fullScreen), [palette, fullScreen])
@@ -423,9 +423,10 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
     ])
     if (!isCurrent()) return
     const savedFormation = savedOffline?.resources?.formation
-    const localEntry = findFormationLocalDraft(savedFormation, currentMatch?.id || '')
+    const localEntry = findFormationLocalDraft(savedFormation, currentMatch?.id || '', initialBoardId)
     const localDraft = localEntry?.[1]
     const cacheMatchesRoute = String(savedFormation?.matchDayId || '') === String(currentMatch?.id || '')
+      && (!initialBoardId || savedFormation?.board?.id === initialBoardId)
     const restoredBoardId = localDraft?.board?.id || (cacheMatchesRoute ? savedFormation?.board?.id : '') || ''
     const currentPendingKey = `${currentMatch?.id || ''}:${restoredBoardId || 'new'}`
     const legacyPending = savedFormation?.pendingSave
@@ -466,9 +467,11 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         || nextPresets.find((preset) => preset.key === '11v11-4-4-2')
         || nextPresets.find((preset) => preset.gameFormat === '11v11')
         || nextPresets[0]
-      const cachedBoardId = normalize(savedFormation?.board?.id)
+      const cachedBoardId = cacheMatchesRoute ? normalize(savedFormation?.board?.id) : ''
       const refreshedCachedBoard = cachedBoardId ? nextBoards.find((candidate) => candidate.id === cachedBoardId) || null : null
-      const linkedBoard = currentMatch?.id ? nextBoards.find((candidate) => candidate.linkedMatchDayId === currentMatch.id) || null : refreshedCachedBoard
+      const linkedBoard = currentMatch?.id ? initialBoardId
+        ? nextBoards.find((candidate) => candidate.id === initialBoardId && candidate.linkedMatchDayId === currentMatch.id) || null
+        : nextBoards.find((candidate) => candidate.linkedMatchDayId === currentMatch.id) || null : refreshedCachedBoard
       const pendingThreshold = pendingSave?.startedAt ? new Date(pendingSave.startedAt).getTime() - (2 * 60 * 1000) : 0
       const attemptedDraft = pendingSave || (restored?.board ? { boardId: restored.board.id, draft: restored.draft, title: restored.title } : null)
       const attemptedCreatorId = normalize(attemptedDraft?.createdByProfileId) || currentUser.id
@@ -480,7 +483,10 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       // Keep the restored base version so a concurrent coach edit still conflicts.
       const canonicalRestoredBoard = restored?.board?.id ? nextBoards.find(candidate => candidate.id === restored.board.id) : null
       let nextBoard = recoveredBoard || (canonicalRestoredBoard?.isLocked ? canonicalRestoredBoard : restored ? restored.board || null : linkedBoard)
-      let nextDraft = (nextBoard?.isLocked ? createMobileFormationDraft({ board: nextBoard }) : restored?.draft || pendingSave?.draft)
+      const upgradedLockedBoard = Boolean(nextBoard?.isLocked && canonicalRestoredBoard && !canonicalRestoredBoard.isLocked)
+      if (upgradedLockedBoard) nextBoard = canonicalRestoredBoard
+      if (initialBoardId && !restored && !pendingSave) nextBoard = linkedBoard
+      let nextDraft = (nextBoard?.isLocked || upgradedLockedBoard ? createMobileFormationDraft({ board: nextBoard }) : restored?.draft || pendingSave?.draft)
         || createMobileFormationDraft({ board: nextBoard, gameFormat: matchingPreset?.gameFormat || preference.gameFormat, presetKey: matchingPreset?.key || preference.presetKey })
       let nextPublications = await resolvePublications(nextBoard, currentUser)
       if (!isCurrent()) return
@@ -497,7 +503,8 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       setQueuedRetryPending(Boolean(unresolvedPendingSave))
       setQueuedSaveAcknowledged(Boolean(unresolvedPendingSave?.acknowledged))
       const editorChangedDuringRefresh = showedCachedBoard && editorRevision.current !== refreshRevision
-      const cachedBoardUnavailable = showedCachedBoard && cachedBoardId && !restored && !refreshedCachedBoard
+      const cachedBoardUnavailable = (showedCachedBoard && cachedBoardId && !restored && !refreshedCachedBoard)
+        || (initialBoardId && !linkedBoard)
       setDraftScope(routeScope)
       setBoards(nextBoards)
       setPresets(nextPresets)
@@ -538,7 +545,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
         setError(getCoachFriendlyError(loadError, 'The Formation Board could not be loaded.'))
       }
     } finally { if (isCurrent()) setLoading(false) }
-  }, [preferenceKey, resolvePublications, routeScope, setDraft, setTitle])
+  }, [initialBoardId, preferenceKey, resolvePublications, routeScope, setDraft, setTitle])
 
   useEffect(() => {
     const requests = loadSequence
@@ -703,7 +710,7 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       && new Date(candidate.createdAt || 0).getTime() >= threshold
       && formationMatchesBoard(pendingSave.draft, pendingSave.title, candidate)
     )) || null
-    if (!candidate?.isLocked) return candidate
+    if (!candidate) return null
     const publications = await resolvePublications(candidate, user)
     const publication = getActiveFormationPublication(publications.matchItems, match.id)
     const audienceMatches = pendingSave.shared
@@ -756,10 +763,11 @@ export function CoachFormationBoard({ context, match = null, matches = [], onBac
       requireActiveBoard()
       if (!queuedSave?.acknowledged && !nextBoard) {
         nextBoard = await reconcilePendingBoard(queuedSave || previousPendingSave)
+        if (nextBoard) serverAcknowledged = true
       }
       requireActiveBoard()
       if (!queuedSave?.acknowledged) {
-        if (!nextBoard?.isLocked) nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
+        if (!serverAcknowledged) nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
         serverAcknowledged = true
         requireActiveBoard()
         const acknowledgedPendingSave = { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, expectedVersionNumber: nextBoard.currentVersionNumber }

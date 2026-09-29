@@ -39,7 +39,7 @@ const entry = `
         <Pressable accessibilityLabel="Standard quick action" accessibilityRole="button" onPress={() => { window.__workspaceTest.navPresses += 1 }}><Text>Quick action</Text></Pressable>
       </View>
       {!visible ? <Text accessibilityRole="header">Returned to prior Match Day panel</Text> : null}
-      {!visible ? <CoachSavedFormationBoards context={{id:'context-1',teamId:'team-1',clubId:'club-1'}} match={{id:'match-1'}} palette={palette} user={{id:'coach-1',clubId:'club-1',activeTeamId:'team-1',roleRank:30,hasActivePlanAccess:true}} /> : null}
+      {!visible ? <CoachSavedFormationBoards context={{id:'context-1',teamId:'team-1',clubId:'club-1'}} match={{id:'match-1'}} onEdit={(boardId) => { window.__workspaceTest.editedBoardId = boardId }} palette={palette} user={{id:'coach-1',clubId:'club-1',activeTeamId:'team-1',roleRank:30,hasActivePlanAccess:true}} /> : null}
       {visible ? <CoachFormationWorkspace onBack={handleBack} palette={palette}>
         {({ onMarkerGestureEnd, onMarkerGestureStart, registerBackHandler }) => <CoachFormationBoard
           context={{ id: 'context-1', authorityId: 'authority-1', authoritySource: 'team_staff', clubId: 'club-1', teamId: 'team-1', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
@@ -332,6 +332,10 @@ try {
   assert.equal(await menuToggle.count(), 0, 'Saved snapshot has no editor menu')
   assert.equal(await page.locator('[aria-label^="Add Player at "]').count(), 0)
   await page.screenshot({ path: path.join(outputDir, 'saved-snapshot-viewer.png') })
+  await page.getByRole('button', { name: 'Edit saved formation Match shape', exact: true }).click()
+  assert.equal(await page.evaluate(() => window.__workspaceTest.editedBoardId), 'board-1')
+  await page.getByRole('button', { name: 'View saved formation Match shape', exact: true }).click()
+  await page.getByLabel('Saved formation snapshot', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Close Formation Board', exact: true }).click()
   await page.getByRole('button', { name: 'Delete saved formation Match shape', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => window.__workspaceTest.deleteCalls || 0), 0)
