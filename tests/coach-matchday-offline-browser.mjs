@@ -211,8 +211,8 @@ try {
   await page.evaluate(()=>{window.server={...window.server,status:'scheduled',timerStatus:'not_started',squadDecisions:[],squadNotificationContacts:['squad-a','squad-b'].map(playerId=>({playerId,canNotify:true,hasContact:true,emailRecipientCount:1}))};localStorage.clear();localStorage.setItem('server',JSON.stringify(window.server))})
   await mount()
   await page.getByRole('button',{name:'Squad',exact:true}).click()
-  await page.getByRole('button',{name:'Selected: Squad Alex',exact:true}).click()
-  await page.getByRole('button',{name:'Selected: Squad Bailey',exact:true}).click()
+  await page.getByRole('button',{name:'Choose: Squad Alex',exact:true}).click()
+  await page.getByRole('button',{name:'Choose: Squad Bailey',exact:true}).click()
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).click()
   await page.getByText('Parents notified for 2 players.',{exact:true}).waitFor({timeout:3000}).catch(async error=>{console.error('Notification endpoint calls:',await page.evaluate(()=>window.squadNotifyCalls||0));console.error((await page.locator('body').innerText()).slice(-1800));throw error})
   assert.equal(await page.evaluate(()=>window.squadSaveCalls),1);
