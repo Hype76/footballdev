@@ -55,6 +55,7 @@ import {
 } from './team-actions.js'
 import {
   blockDemoMutation,
+  blockDemoSignupProvisioning,
   isDemoAccountValue,
 } from './demo-guards.js'
 import {
@@ -398,10 +399,15 @@ async function resolveIncompleteClubProfile(authUser, selectedClubId = '', { all
       }
     }
 
-    return createClubAndManagerProfile({
+    await createClubAndManagerProfile({
       authUser,
       clubName: getSignupClubName(authUser),
     })
+    // Profile bootstrap below expects a database row, not the public profile.
+    const { data, error } = await supabase.from('users').select(USER_PROFILE_SELECT).eq('id', authUser.id).maybeSingle()
+    if (error) throw error
+    if (!data?.club_id) throw new Error('Could not load your new workspace. Please sign in again.')
+    return data
   }
 
   if (memberships.length > 1 && !selectedClubId) {
@@ -437,12 +443,12 @@ export function shouldCompleteSignupClubProfile({ authUser, selectedAccessMode =
 }
 
 async function ensureSignupClubProfileWithServer({ authUser, clubName, accessCode = '', planKey = '', forceNewClub = false, signupIntent = false }) {
-  await blockDemoMutation(authUser)
+  blockDemoSignupProvisioning(authUser)
 
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token
 
-  if (!accessToken) {
+  if (!accessToken || sessionData?.session?.user?.id !== authUser.id) {
     throw new Error('Login again before creating your club.')
   }
 
@@ -846,8 +852,6 @@ export async function fetchUserProfile(authUser, options = {}) {
 }
 
 export async function createClubAndManagerProfile({ authUser, clubName, accessCode = '', planKey = '', forceNewClub = false }) {
-  await blockDemoMutation(authUser)
-
   try {
     return await ensureSignupClubProfileWithServer({
       authUser,
