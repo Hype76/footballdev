@@ -1,3 +1,5 @@
+import { useDeviceAppearance } from './useDeviceAppearance'
+import { createParentMobileTheme } from './parentThemeCore'
 import { BrandLoader } from './BrandLoader'
 import { useRef, useState } from 'react'
 import { Image, Platform, Pressable, SafeAreaView, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, TextInput, View } from 'react-native'
@@ -5,7 +7,7 @@ import { colors, screen } from './theme'
 
 const androidStatusBarPadding = Platform.OS === 'android' ? NativeStatusBar.currentHeight || 0 : 0
 
-export function PrimaryButton({ children, disabled = false, loading = false, onPress, variant = 'primary' }) {
+export function PrimaryButton({ children, disabled = false, loading = false, onPress, variant = 'primary', themeTokens }) {
   const isSecondary = variant === 'secondary'
 
   return (
@@ -18,12 +20,13 @@ export function PrimaryButton({ children, disabled = false, loading = false, onP
       style={({ pressed }) => [
         styles.button,
         isSecondary ? styles.secondaryButton : styles.primaryButton,
+        themeTokens && { backgroundColor: isSecondary ? themeTokens.portalBackground : themeTokens.buttonPrimary, borderColor: themeTokens.border },
         pressed && !disabled ? styles.pressed : null,
         (disabled || loading) ? styles.disabled : null,
       ]}
     >
       {loading ? <BrandLoader accessible={false} /> : (
-        <Text style={[styles.buttonText, isSecondary ? styles.secondaryButtonText : null]}>{children}</Text>
+        <Text style={[styles.buttonText, isSecondary ? styles.secondaryButtonText : null, themeTokens && { color: isSecondary ? themeTokens.textPrimary : themeTokens.accentForeground }]}>{children}</Text>
       )}
     </Pressable>
   )
@@ -204,6 +207,7 @@ export function LockedScreen({ errorMessage, logoSource, onUnlock }) {
 }
 
 export function MobileLoginScreen({
+  appRole,
   authError,
   onCreateAccount,
   copy,
@@ -215,6 +219,8 @@ export function MobileLoginScreen({
   signIn,
   title,
 }) {
+  const mode = useDeviceAppearance(appRole)
+  const tokens = createParentMobileTheme({ mode }).tokens
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -264,8 +270,8 @@ export function MobileLoginScreen({
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, styles.androidSafeArea]}>
-      <NativeStatusBar barStyle="light-content" />
+    <SafeAreaView style={[styles.safeArea, styles.androidSafeArea, { backgroundColor: tokens.portalBackground }]}>
+      <NativeStatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} />
       <ScrollView
         contentContainerStyle={styles.loginScroll}
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
@@ -274,12 +280,13 @@ export function MobileLoginScreen({
       >
         <View style={styles.loginShell}>
           <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.kicker}>{kicker}</Text>
-          <Text style={styles.screenTitle}>{title}</Text>
-          <Text style={styles.screenCopy}>{copy}</Text>
+          <Text style={[styles.kicker, { color: tokens.accentText }]}>{kicker}</Text>
+          <Text style={[styles.screenTitle, { color: tokens.textPrimary }]}>{title}</Text>
+          <Text style={[styles.screenCopy, { color: tokens.textSecondary }]}>{copy}</Text>
 
           <View style={{ gap: 14 }}>
             <TextField
+              light={mode === 'light'}
               autoComplete="email"
               keyboardType="email-address"
               label="Email"
@@ -292,6 +299,7 @@ export function MobileLoginScreen({
               value={email}
             />
             <TextField
+              light={mode === 'light'}
               autoComplete="current-password"
               inputRef={passwordInputRef}
               label="Password"
@@ -305,15 +313,15 @@ export function MobileLoginScreen({
               textContentType="password"
               value={password}
             />
-            {authError ? <Text style={styles.error}>{authError}</Text> : null}
-            <PrimaryButton disabled={!canSubmit} loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
-            <PrimaryButton loading={isRecovering} onPress={handlePasswordReset} variant="secondary">Forgot password?</PrimaryButton>
-            {recoveryMessage ? <Text style={styles.meta}>{recoveryMessage}</Text> : null}
+            {authError ? <Text style={[styles.error, { color: tokens.danger }]}>{authError}</Text> : null}
+            <PrimaryButton themeTokens={tokens} disabled={!canSubmit} loading={isSubmitting} onPress={handleLogin}>Log in</PrimaryButton>
+            <PrimaryButton themeTokens={tokens} loading={isRecovering} onPress={handlePasswordReset} variant="secondary">Forgot password?</PrimaryButton>
+            {recoveryMessage ? <Text style={[styles.meta, { color: tokens.textSecondary }]}>{recoveryMessage}</Text> : null}
           </View>
 
-          {onCreateAccount ? <PrimaryButton onPress={onCreateAccount} variant="secondary">Create account</PrimaryButton> : null}
-          <Text style={styles.meta}>{meta}</Text>
-          <LegalFooter />
+          {onCreateAccount ? <PrimaryButton themeTokens={tokens} onPress={onCreateAccount} variant="secondary">Create account</PrimaryButton> : null}
+          <Text style={[styles.meta, { color: tokens.textSecondary }]}>{meta}</Text>
+          <LegalFooter color={tokens.textSecondary} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -344,7 +352,7 @@ export function TextField({
   return (
     <View style={styles.field}>
       <Text style={[styles.label, light && { color: '#142b25' }]}>{label}</Text>
-      <View style={actionLabel ? styles.inputRow : null}>
+      <View style={actionLabel ? [styles.inputRow, light && { backgroundColor: '#ffffff', borderColor: '#84988d' }] : null}>
         <TextInput
           accessibilityLabel={label}
           ref={inputRef}
@@ -708,11 +716,11 @@ export function TabRail({ activeTab, onChange, tabBasis = '30%', tabs }) {
   )
 }
 
-export function LegalFooter() {
+export function LegalFooter({ color } = {}) {
   return (
     <View style={styles.legalFooter}>
-      <Text style={styles.legalFooterText}>Copyright 2026 Football Player.</Text>
-      <Text style={styles.legalFooterText}>Powered by pulseslabs.online</Text>
+      <Text style={[styles.legalFooterText, color && { color }]}>Copyright 2026 Football Player.</Text>
+      <Text style={[styles.legalFooterText, color && { color }]}>Powered by pulseslabs.online</Text>
     </View>
   )
 }

@@ -36,12 +36,12 @@ export async function clearCoachUserLocalState(userId) {
   await AsyncStorage.multiRemove([keys.context, keys.deepLink, keys.offline, keys.notification])
 }
 
-export async function clearCoachAllLocalState(userId = '') {
-  themePreference.reset()
+export async function clearCoachAllLocalState(userId = '', { preserveTheme = false } = {}) {
+  if (!preserveTheme) themePreference.reset()
   if (String(userId || '').trim()) {
     const keys = getCoachLocalStateKeys(userId)
     await Promise.all([
-      AsyncStorage.multiRemove(Object.values(keys)),
+      AsyncStorage.multiRemove(Object.values(keys).filter(key => !preserveTheme || key !== keys.theme)),
       clearNativeNotificationLocalState('coach'),
       clearCoachOfflineState(),
     ])
@@ -49,7 +49,7 @@ export async function clearCoachAllLocalState(userId = '') {
   }
   const keys = await AsyncStorage.getAllKeys()
   await Promise.all([
-    AsyncStorage.multiRemove(keys.filter((key) => key.startsWith('fp.mobile.local.v1.coach.'))),
+    AsyncStorage.multiRemove(keys.filter((key) => key.startsWith('fp.mobile.local.v1.coach.') && (!preserveTheme || key !== getCoachLocalStateKeys().theme))),
     clearNativeNotificationLocalState('coach'),
     clearCoachOfflineState(),
   ])
