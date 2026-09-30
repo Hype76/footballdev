@@ -214,7 +214,7 @@ try {
   await page.getByRole('button',{name:'Selected: Squad Alex',exact:true}).click()
   await page.getByRole('button',{name:'Selected: Squad Bailey',exact:true}).click()
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).click()
-  await page.getByText('Notifications queued for 2 players.',{exact:true}).waitFor({timeout:3000}).catch(async error=>{console.error('Notification endpoint calls:',await page.evaluate(()=>window.squadNotifyCalls||0));console.error((await page.locator('body').innerText()).slice(-1800));throw error})
+  await page.getByText('Parents notified for 2 players.',{exact:true}).waitFor({timeout:3000}).catch(async error=>{console.error('Notification endpoint calls:',await page.evaluate(()=>window.squadNotifyCalls||0));console.error((await page.locator('body').innerText()).slice(-1800));throw error})
   assert.equal(await page.evaluate(()=>window.squadSaveCalls),1);
   assert.equal(await page.evaluate(()=>window.squadNotifyCalls),1,'The screen must call Notify after saving without waiting for a React render')
   await page.evaluate(()=>{
