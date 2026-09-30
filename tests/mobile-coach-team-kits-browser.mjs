@@ -46,6 +46,7 @@ const cacheMock = `
   export function setMobileTeamKits(clubId, teamId, kits){ globalThis.lastKitCache={clubId,teamId,kits}; return kits; }
 `
 const dataMock = `
+  import {normalizeTeamKits} from './src/lib/team-kits.js';
   export async function getCoachTeamKits(){
     globalThis.kitLoadCalls += 1;
     await new Promise(resolve => setTimeout(resolve, 20));
@@ -56,7 +57,8 @@ const dataMock = `
     globalThis.kitSaveCalls += 1;
     await new Promise(resolve => setTimeout(resolve, 60));
     if(globalThis.failNextSave){ globalThis.failNextSave=false; throw new Error('Save failed. Try again.'); }
-    return {home:{colour:values.home.colour,imagePath:null,source:'team'},away:{colour:values.away.colour,imagePath:null,source:'team'}};
+    globalThis.kitTeam = normalizeTeamKits({home_kit_colour:values.home.colour,away_kit_colour:values.away.colour});
+    return globalThis.kitTeam;
   }
 `
 
@@ -84,7 +86,7 @@ const result = await build({
       builder.onResolve({ filter: /mobileKitCache$/ }, () => ({ path: 'cache', namespace: 'kit-mock' }))
       builder.onResolve({ filter: /coachTeamKitsData$/ }, () => ({ path: 'data', namespace: 'kit-mock' }))
       builder.onLoad({ filter: /^cache$/, namespace: 'kit-mock' }, () => ({ contents: cacheMock, loader: 'js' }))
-      builder.onLoad({ filter: /^data$/, namespace: 'kit-mock' }, () => ({ contents: dataMock, loader: 'js' }))
+      builder.onLoad({ filter: /^data$/, namespace: 'kit-mock' }, () => ({ contents: dataMock, loader: 'js', resolveDir: root }))
     },
   }],
 })
@@ -103,8 +105,9 @@ try {
   const homeInput = page.getByLabel('Home kit hex colour')
   const awayInput = page.getByLabel('Away kit hex colour')
   await homeInput.waitFor()
-  assert.equal(await homeInput.inputValue(), '#111827')
-  assert.equal(await awayInput.inputValue(), '#ffffff')
+  assert.equal(await homeInput.inputValue(), '')
+  assert.equal(await awayInput.inputValue(), '')
+  await page.getByLabel('Away kit preview #ffffff', { exact: true }).waitFor()
 
   await page.getByLabel('Home kit #dc2626').click()
   assert.equal(await homeInput.inputValue(), '#dc2626')
@@ -120,6 +123,15 @@ try {
   assert.match(pickedAway, /^#[0-9a-f]{6}$/)
   assert.notEqual(pickedAway, '#ffffff')
   assert.notEqual(pickedAway, '#ff0000')
+  await page.getByLabel(`Away kit preview ${pickedAway}`, { exact: true }).waitFor()
+  await page.getByLabel('Away kit #16a34a').click()
+  await page.getByLabel('Away kit preview #16a34a', { exact: true }).waitFor()
+  assert.equal(await awayInput.inputValue(), '#16a34a')
+  await page.getByLabel('Away kit #ffffff').click()
+  await page.getByLabel('Away kit preview #ffffff', { exact: true }).waitFor()
+  await page.getByLabel('Away kit #dc2626').click()
+  await page.getByLabel('Away kit preview #dc2626', { exact: true }).waitFor()
+  await page.getByLabel('Away kit preview #dc2626', { exact: true }).screenshot({ path: `${output}/away-red-preview.png` })
 
   await page.evaluate(() => { globalThis.failNextSave = true })
   await page.getByRole('button', { name: 'Save kit colours' }).click()
@@ -128,6 +140,28 @@ try {
   await page.getByRole('button', { name: 'Save kit colours' }).evaluate(button => { button.click(); button.click() })
   await page.getByText('Team kit colours saved.').waitFor()
   assert.equal(await page.evaluate(() => globalThis.kitSaveCalls), 2)
+  await page.evaluate(() => window.remount())
+  await page.getByLabel('Away kit preview #dc2626', { exact: true }).waitFor()
+  assert.equal(await awayInput.inputValue(), '#dc2626')
+  await page.getByRole('button', { name: 'Clear away kit colour', exact: true }).click()
+  assert.equal(await awayInput.inputValue(), '')
+  await page.getByLabel('Away kit preview #ffffff', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Save kit colours' }).click()
+  await page.getByText('Team kit colours saved.').waitFor()
+  assert.equal(await page.evaluate(() => globalThis.kitTeam.away === undefined), true)
+  assert.equal(await page.evaluate(() => globalThis.kitTeam.home.colour), '#dc2626')
+  await page.evaluate(() => window.remount())
+  await page.getByRole('button', { name: 'Save kit colours' }).waitFor()
+  assert.equal(await awayInput.inputValue(), '')
+  await page.getByLabel('Away kit preview #ffffff', { exact: true }).waitFor()
+  await homeInput.fill('')
+  await page.getByRole('button', { name: 'Save kit colours' }).click()
+  await page.getByText('Team kit colours saved.').waitFor()
+  assert.deepEqual(await page.evaluate(() => globalThis.kitTeam), {})
+  await page.evaluate(() => { globalThis.kitClub = {}; window.remount() })
+  await page.getByLabel('Away kit preview TBC', { exact: true }).waitFor()
+  assert.equal(await homeInput.inputValue(), '')
+  assert.equal(await awayInput.inputValue(), '')
 
   await page.evaluate(() => { globalThis.failLoad = true; window.remount() })
   await page.getByRole('button', { name: 'Retry loading kit colours' }).waitFor()

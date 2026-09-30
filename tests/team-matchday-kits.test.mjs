@@ -17,6 +17,35 @@ test('continuous picker conversions preserve representative colours', () => {
   }
 })
 
+test('Coach kit save clears blank sides to null without accepting malformed colours', async () => {
+  const dataSource = readFileSync(new URL('../apps/mobile-core/src/coachTeamKitsData.js', import.meta.url), 'utf8')
+  let savedValues
+  const gates = []
+  const query = {
+    update(values) { savedValues = values; return this },
+    eq() { return this },
+    select() { return this },
+    async single() { return { data: savedValues, error: null } },
+  }
+  const save = new Function('assertCoachOperationalMutation', 'assertCoachCapability', 'CAPABILITIES', 'normalizeKitColour', 'normalizeTeamKits', 'supabase', `${dataSource.slice(dataSource.indexOf('export async function saveCoachTeamKits')).replace('export async function', 'async function')}; return saveCoachTeamKits`)(
+    (_user, options) => gates.push(options),
+    (_user, capability) => gates.push(capability),
+    { matchDay: 'matchDay' }, normalizeKitColour, normalizeTeamKits,
+    { from: () => query },
+  )
+  const user = { clubId: 'club-a', activeTeamId: 'team-a' }
+  assert.deepEqual(await save(user, { home: { colour: '#DC2626' }, away: { colour: '' } }), {
+    home: { colour: '#dc2626', imagePath: null, source: 'team' },
+  })
+  assert.deepEqual(savedValues, { home_kit_colour: '#dc2626', away_kit_colour: null })
+  assert.deepEqual(await save(user, { home: { colour: ' ' }, away: { colour: null } }), {})
+  assert.deepEqual(savedValues, { home_kit_colour: null, away_kit_colour: null })
+  assert.deepEqual(gates[0], { minimumRank: 50, requiresTeam: true })
+  assert.equal(gates[1], 'matchDay')
+  await assert.rejects(save(user, { home: { colour: '#bad' }, away: { colour: '' } }), /six-digit colours/)
+  await assert.rejects(save(user, { home: { colour: '' }, away: { colour: 'not a colour' } }), /six-digit colours/)
+})
+
 test('team colours override only the matching side and preserve paid club artwork fallback', () => {
   const clubKits = {
     home: { colour: '#111111', imagePath: 'club/home.png' },
