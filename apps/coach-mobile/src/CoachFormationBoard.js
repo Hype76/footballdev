@@ -312,6 +312,12 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const [removalMode, setRemovalMode] = useState(false)
   const [removalIds, setRemovalIds] = useState([])
   const [shared, setShared] = useState(false)
+  const shareScrollRef = useRef(null)
+  const titleInputTop = useRef(0)
+  const titleInputFocused = useRef(false)
+  const revealTitleInput = () => {
+    if (titleInputFocused.current) shareScrollRef.current?.scrollTo({ y: Math.max(0, titleInputTop.current - 32), animated: true })
+  }
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [activeSlotId, setActiveSlotId] = useState('')
   const [slotSearch, setSlotSearch] = useState('')
@@ -1073,11 +1079,11 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
               {players.map((player) => { const selected = selectedIds.has(player.id); const availability = getMobileFormationPlayerAvailability(player.id, availabilityRows); const placement = draft.placements.find((item) => item.playerId === player.id); return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: !canEdit }} disabled={!canEdit} key={player.id} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} style={[styles.modalPlayer, !canEdit && styles.actionDisabled]}><View><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`}</Text><Text style={styles.body}>{availability.label}{placement ? ' | On pitch' : selected ? ' | Substitute' : ''}</Text></View><MaterialIcons color={selected ? palette.accentText : palette.textSecondary} name={selected ? 'check-circle' : 'radio-button-unchecked'} size={24} /></Pressable> })}
             </ScrollView> : null}
 
-            {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
+            {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled" onLayout={revealTitleInput} ref={shareScrollRef}>
               <Text style={styles.body}>{match ? `${match.teamName} v ${match.opponent}` : 'Open a match to save this board.'}</Text>
               {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation, open the top-right menu and tap Saved.</Text> : null}
               <Text style={styles.label}>Lineup name</Text>
-              <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onChangeText={setTitle} style={styles.input} value={title} />
+              <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onBlur={() => { titleInputFocused.current = false }} onFocus={() => { titleInputFocused.current = true; revealTitleInput() }} onLayout={(event) => { titleInputTop.current = event.nativeEvent.layout.y }} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
               {[{ label: 'Coaches only', value: false }, { label: 'Parents and players', value: true }].map(({ label, value }) => <Pressable aria-checked={shared === value} accessibilityLabel={label} accessibilityRole="radio" accessibilityState={{ checked: shared === value, disabled: !canEdit || busy }} disabled={!canEdit || busy} key={label} onPress={() => setShared(value)} style={[styles.modalPlayer, (!canEdit || busy) && styles.actionDisabled]}><Text style={styles.label}>{label}</Text><MaterialIcons color={shared === value ? palette.accentText : palette.textSecondary} name={shared === value ? 'radio-button-checked' : 'radio-button-unchecked'} size={24} /></Pressable>)}
               {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
