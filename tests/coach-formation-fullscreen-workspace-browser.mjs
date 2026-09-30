@@ -82,7 +82,7 @@ const dataMock = `
   export const getCoachFormationBoards = async () => [{...board,isLocked:Boolean(window.__workspaceTest.lockSaved),canDelete:true}]
   export const getCoachFormationPublications = async () => []
   export const getCoachFormationResourcePublications = async () => []
-  export const saveCoachMatchFormationBoard = async () => ({...board,isLocked:Boolean(window.__workspaceTest.lockSaved)})
+  export const saveCoachMatchFormationBoard = async (user, match, previous, draft, title, shared) => { window.__workspaceTest.lastSave = { title, shared }; return {...board,title,isLocked:Boolean(window.__workspaceTest.lockSaved)} }
   export const deleteCoachFormationBoard = async () => { window.__workspaceTest.deleteCalls = (window.__workspaceTest.deleteCalls || 0) + 1 }
   export const linkCoachFormationBoard = async () => board
   export const publishCoachFormationBoard = async () => ({})
@@ -201,6 +201,27 @@ try {
       const saveButtonBox = await saveButton.boundingBox()
       assert.ok(saveButtonBox && saveButtonBox.y + saveButtonBox.height <= 852 - 34, 'Save action stays above the bottom safe-area inset')
       await page.screenshot({ path: path.join(rootDir, 'outputs/formation-picker-theme/save-safe-area.png') })
+      const coaches = saveDialog.getByRole('radio', { name: 'Coaches only', exact: true })
+      const families = saveDialog.getByRole('radio', { name: 'Parents and players', exact: true })
+      assert.equal(await coaches.isChecked(), true)
+      await families.click()
+      assert.equal(await families.isChecked(), true)
+      assert.equal(await coaches.isChecked(), false)
+      await coaches.click()
+      assert.equal(await coaches.isChecked(), true)
+      await page.setViewportSize({ width: 393, height: 490 })
+      const titleInput = saveDialog.getByRole('textbox', { name: 'Formation plan title', exact: true })
+      await titleInput.focus()
+      await titleInput.fill('Visible while typing')
+      const titleBox = await titleInput.boundingBox()
+      assert.ok(titleBox.y >= 47 && titleBox.y + titleBox.height <= 490 - 34, 'Title stays within the reduced keyboard-sized viewport')
+      await families.click()
+      assert.equal(await families.isChecked(), true, 'Audience changes while the title is focused')
+      await coaches.click()
+      await page.screenshot({ path: path.join(outputDir, 'save-keyboard-height.png') })
+      await titleInput.fill('Match shape')
+      await page.setViewportSize({ width: 393, height: 852 })
+
     }
     await page.getByRole('button', { name: 'Close options', exact: true }).click()
     await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor({ state: 'detached' })
@@ -363,7 +384,9 @@ try {
   await page.getByRole('dialog', { name: 'Choose Player', exact: true }).waitFor({ state: 'detached' })
   await menuToggle.click()
   await boardTools.getByRole('button').filter({ hasText: /Save$/ }).click()
+  await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
   await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+  assert.equal(await page.evaluate(() => window.__workspaceTest.lastSave.shared), true, 'Save sends the selected audience')
   await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'detached' })
   await menuToggle.click()
   assert.equal(await boardTools.getByRole('button').count(), 4, 'Successful save preserves the complete menu')
