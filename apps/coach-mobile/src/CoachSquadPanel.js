@@ -10,7 +10,7 @@ const layout = StyleSheet.create({
   person: { flex: 1, gap: 1, minWidth: 0 },
   name: { fontSize: 13, fontWeight: '800' },
   meta: { fontSize: 11, lineHeight: 16 },
-  controls: { flexDirection: 'row', gap: 3 },
+  controls: { flexDirection: 'row', gap: 3, width: 123 },
   control: { alignItems: 'center', borderBottomWidth: 2, gap: 3, justifyContent: 'center', minHeight: 44, width: 60 },
   label: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
   toolbar: { flexDirection: 'row', gap: 12, marginTop: 12 },
@@ -148,7 +148,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
           const color = control.active ? activeColor : palette.textSecondary
           const textColor = control.key === 'selection' && player.decision === 'selected' ? selectionGreenText : color
           return <Pressable key={control.key} accessibilityRole={control.key === 'notify' && !sent ? 'checkbox' : 'button'} accessibilityLabel={`${control.label}: ${player.playerName}`} accessibilityHint={control.key === 'selection' ? player.decision === 'selected' ? 'Tap to mark this player not selected.' : 'Tap to select this player.' : undefined} aria-checked={control.key === 'notify' && !sent ? picked : undefined} accessibilityState={{ disabled, selected: control.key === 'selection' ? player.decision === 'selected' : control.active, ...(control.key === 'notify' && !sent ? { checked: picked } : {}) }} disabled={disabled} onPress={control.onPress} style={[layout.control, { backgroundColor: 'transparent', borderBottomColor: control.active ? activeColor : 'transparent', opacity: disabled && !control.active ? 0.4 : 1 }]}><MaterialIcons name={control.icon} size={20} color={color} /><Text style={[layout.label, { color: textColor }]}>{control.label}</Text></Pressable>
-        })}{!player.canNotify && !sent ? <View accessible={false} style={layout.control} /> : null}</View>
+        })}</View>
       </View>
     })}
   </View>
