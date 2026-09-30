@@ -16,6 +16,7 @@ const layout = StyleSheet.create({
   toolbar: { flexDirection: 'row', gap: 12, marginTop: 12 },
   toolbarButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 6 },
   send: { alignItems: 'center', borderRadius: 10, justifyContent: 'center', minHeight: 48, marginVertical: 8, padding: 10 },
+  saveActions: { flexDirection: 'row', gap: 12 },
 })
 
 export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify, onPendingChange, palette, players, styles, templateStore }) {
@@ -101,13 +102,9 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
     const recipients = await save()
     if (recipients?.length) await send(recipients)
   }
-  const saveButtons = pendingCount ? <View>
-    <Pressable accessibilityRole="button" disabled={locked} onPress={saveAndNotify} style={[layout.send, { backgroundColor: palette.selected }]}><Text style={{ color: palette.selectedForeground, fontWeight: '800' }}>Save and send notifications</Text></Pressable>
-    <Text accessibilityLiveRegion="polite" style={styles.body}>{pendingCount} unsaved {pendingCount === 1 ? 'change' : 'changes'}</Text>
-    <Pressable accessibilityRole="button" disabled={locked} onPress={save} style={layout.toolbarButton}><Text style={{ color: palette.accentText, fontWeight: '700' }}>{deciding ? 'Saving selections...' : `Save selections (${pendingCount})`}</Text></Pressable>
-    <Pressable accessibilityRole="button" disabled={busy || sending || deciding} onPress={() => { setDrafts({}); setSummary('Unsaved changes discarded.') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText }]}>Discard changes</Text></Pressable>
-  </View> : null
-  const sendButton = <Pressable accessibilityRole="button" disabled={locked || pendingCount > 0 || chosenPlayers.length === 0} onPress={() => send()} style={[layout.send, { backgroundColor: palette.selected, opacity: locked || pendingCount || !chosenPlayers.length ? 0.4 : 1 }]}><Text style={{ color: palette.selectedForeground, fontWeight: '800' }}>{sending ? 'Sending...' : `Send notifications (${chosenPlayers.length})`}</Text></Pressable>
+  const mainActionDisabled = locked || (!pendingCount && chosenPlayers.length === 0)
+  const saveDisabled = locked || pendingCount === 0
+  const discardDisabled = busy || sending || deciding || pendingCount === 0
   return <View>
     <Text style={styles.cardTitle}>Squad</Text>
     <Text style={styles.body}>{squad.summary.selected} selected · {squad.summary.notSelected} not selected · {squad.summary.undecided + squad.summary.waiting} to choose</Text>
@@ -127,10 +124,12 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
       <Pressable accessibilityRole="button" disabled={locked || available.length === 0} onPress={() => { setChosen(Object.fromEntries(available.map((player) => [player.id, player.decisionRevision]))); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !available.length ? 0.4 : 1 }]}>Tick all unsent</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={locked || chosenPlayers.length === 0} onPress={() => { setChosen({}); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !chosenPlayers.length ? 0.4 : 1 }]}>Clear</Text></Pressable>
     </View>
-    {saveProgress ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Saving squad...</Text></View> : sending ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Sending parent notifications...</Text></View> : null}
-    {saveButtons}
-    {!pendingCount ? sendButton : null}
-    {summary ? <Text accessibilityLiveRegion="polite" style={styles.body}>{summary}</Text> : null}
+    <Pressable accessibilityRole="button" disabled={mainActionDisabled} onPress={() => pendingCount ? saveAndNotify() : send()} style={[layout.send, { backgroundColor: palette.selected, opacity: mainActionDisabled ? 0.4 : 1 }]}><Text style={{ color: palette.selectedForeground, fontWeight: '800' }}>{sending ? 'Sending...' : pendingCount ? 'Save and send notifications' : `Send notifications (${chosenPlayers.length})`}</Text></Pressable>
+    <Text accessibilityLiveRegion="polite" style={styles.body}>{pendingCount ? `${pendingCount} unsaved ${pendingCount === 1 ? 'change' : 'changes'}` : 'No unsaved changes'}</Text>
+    <View style={layout.saveActions}>
+      <Pressable accessibilityRole="button" disabled={saveDisabled} onPress={save} style={[layout.toolbarButton, { opacity: saveDisabled ? 0.4 : 1 }]}><Text style={{ color: palette.accentText, fontWeight: '700' }}>{`Save selections (${pendingCount})`}</Text></Pressable>
+      <Pressable accessibilityRole="button" disabled={discardDisabled} onPress={() => { setDrafts({}); setSummary('Unsaved changes discarded.') }} style={[layout.toolbarButton, { opacity: discardDisabled ? 0.4 : 1 }]}><Text style={[styles.body, { color: palette.accentText }]}>Discard changes</Text></Pressable>
+    </View>
     {squad.rows.map((player) => {
       const decided = ['selected', 'not_selected'].includes(player.decision)
       const sent = !drafts[player.id] && wasSent(player)
@@ -151,5 +150,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
         })}</View>
       </View>
     })}
+    {saveProgress ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Saving squad...</Text></View> : sending ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Sending parent notifications...</Text></View> : null}
+    {summary ? <Text accessibilityLiveRegion="polite" style={styles.body}>{summary}</Text> : null}
   </View>
 }
