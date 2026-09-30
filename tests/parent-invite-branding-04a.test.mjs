@@ -10,6 +10,29 @@ const sendInviteFunctionUrl = new URL('../netlify/functions/send-parent-portal-i
 const createParentAccountUrl = new URL('../netlify/functions/create-parent-account.js', import.meta.url)
 const emailBuilderUrl = new URL('../src/lib/email-builder.js', import.meta.url)
 
+test('Matchday invite buttons use green and white without changing other plans or links', async () => {
+  for (const planKey of ['matchday', 'team', 'club', undefined]) {
+    for (const existingParentPortalUser of [false, true]) {
+      const inviteLink = inviteFixture({ clubName: 'Tigers', playerName: 'Alex Taylor', teamName: 'Tigers', inviteToken: 'trusted-token' })
+      inviteLink.clubs.plan_key = planKey
+      const email = await buildAuthoritativeParentInviteEmail({ inviteLink, existingParentPortalUser })
+      const action = email.html.match(/<a href="[^"]+"[^>]*>/)?.[0]
+      assert.ok(action)
+      if (planKey === 'matchday') {
+        assert.match(action, /background: #15803d/)
+        assert.match(action, /color: #ffffff/)
+        assert.match(email.html, /prefers-color-scheme: dark/)
+        assert.match(email.html, /\[data-ogsc\]/)
+        assert.doesNotMatch(action, /#f7d74b/)
+      } else {
+        assert.match(action, /background: #f7d74b; color: #142018;/)
+        assert.doesNotMatch(email.html, /fp-matchday-invite-action/)
+      }
+      assert.match(action, existingParentPortalUser ? /parent-login\?parentInvite=trusted-token/ : /parent-invite\/trusted-token/)
+    }
+  }
+})
+
 function inviteFixture({
   clubLogoUrl,
   clubName,
@@ -160,7 +183,7 @@ test('Parent invite delivery renders only server-authoritative relationship and 
 
   assert.match(
     sendInviteFunction,
-    /invite_token, players:player_id \(player_name, section, status, archived_at\), teams:team_id \(name\), clubs:club_id \(name, contact_email, logo_url\)/,
+    /invite_token, players:player_id \(player_name, section, status, archived_at\), teams:team_id \(name\), clubs:club_id \(name, contact_email, logo_url, plan_key\)/,
   )
   assert.match(sendInviteFunction, /\['trial', 'squad'\]\.includes\(playerSection\)/)
   assert.match(sendInviteFunction, /playerStatus === 'archived'/)

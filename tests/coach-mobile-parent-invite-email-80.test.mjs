@@ -183,6 +183,24 @@ function parentInviteFixture({ linkOverrides = {}, playerOverrides = {} } = {}) 
   return { recipientEmail, row, tables }
 }
 
+test('scheduled Matchday invites use the current club plan for button colours', async () => {
+  const fixture = parentInviteFixture()
+  fixture.tables.clubs[0].plan_key = 'matchday'
+  const preparation = await prepareScheduledParentPortalInviteRow(fixture.row, {
+    fetchImpl: async () => reachableImageResponse(),
+    supabaseClient: createSupabaseFixture(fixture.tables),
+  })
+  assert.equal(preparation.skipped, false)
+  assert.match(preparation.email.html, /background: #15803d/)
+  fixture.tables.clubs[0].plan_key = 'team'
+  const upgraded = await prepareScheduledParentPortalInviteRow(fixture.row, {
+    fetchImpl: async () => reachableImageResponse(),
+    supabaseClient: createSupabaseFixture(fixture.tables),
+  })
+  assert.match(upgraded.email.html, /background: #f7d74b/)
+  assert.doesNotMatch(upgraded.email.html, /fp-matchday-invite-action/)
+})
+
 test('scheduled Parent Portal invites are rebuilt from current authoritative data', async () => {
   const fixture = parentInviteFixture()
   const supabaseClient = createSupabaseFixture(fixture.tables)
