@@ -65,6 +65,10 @@ test('manager can save exact-team colours when Matchday is enabled', async () =>
   await db.query(`update public.teams set home_kit_colour = '#2563eb', away_kit_colour = '#ffffff' where id = $1`, [TEAM_A])
   const result = await db.query(`select home_kit_colour, away_kit_colour from public.teams where id = $1`, [TEAM_A])
   assert.deepEqual(result.rows[0], { home_kit_colour: '#2563eb', away_kit_colour: '#ffffff' })
+  await db.query(`update public.teams set away_kit_colour = null where id = $1`, [TEAM_A])
+  assert.deepEqual((await db.query(`select home_kit_colour, away_kit_colour from public.teams where id = $1`, [TEAM_A])).rows[0], { home_kit_colour: '#2563eb', away_kit_colour: null })
+  await db.query(`update public.teams set home_kit_colour = null where id = $1`, [TEAM_A])
+  assert.deepEqual((await db.query(`select home_kit_colour, away_kit_colour from public.teams where id = $1`, [TEAM_A])).rows[0], { home_kit_colour: null, away_kit_colour: null })
   await db.close()
 })
 
@@ -77,8 +81,11 @@ test('kit writes deny lower rank, cross-team scope, disabled entitlement, null c
   ]
   for (const [context, message] of cases) {
     const db = await setup()
+    await actor(db)
+    await db.query(`update public.teams set home_kit_colour = '#dc2626', away_kit_colour = '#ffffff' where id = $1`, [TEAM_A])
     await actor(db, context)
     await assert.rejects(db.query(`update public.teams set home_kit_colour = '#2563eb' where id = $1`, [TEAM_A]), new RegExp(message))
+    await assert.rejects(db.query(`update public.teams set home_kit_colour = null, away_kit_colour = null where id = $1`, [TEAM_A]), new RegExp(message))
     await db.close()
   }
   const db = await setup()

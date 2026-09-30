@@ -31,7 +31,7 @@ const mocks = [
     export const cancelCoachMatchDayFixture=async(user,match)=>({...match,status:'cancelled'});
   `],
   [/coachFixturePreferences$/, `export const readCoachFixturePreferences=async()=>({duration:90});export const writeCoachFixturePreferences=async()=>{};`],
-  [/coachTeamNotificationData$/, `export const getCoachTeamNotificationDisplayName=async()=>'';export const getCoachOwnTeamFixturePreferences=async()=>({found:false});export const saveCoachOwnTeamFixturePreferences=async()=>{};`],
+  [/coachTeamNotificationData$/, `import {resolveTeamNotificationDisplayName} from './src/lib/team-notification-display.js';export const getCoachTeamNotificationDisplayName=async()=>resolveTeamNotificationDisplayName({name:'Tigers'});export const getCoachOwnTeamFixturePreferences=async()=>({found:false});export const saveCoachOwnTeamFixturePreferences=async()=>{};`],
   [/CoachDateTimeField$/, `export const CoachDateTimeField=({label,onChange,value})=><input aria-label={label} value={value} onChange={event=>onChange(event.target.value)}/>;`],
   [/coachFriendlyErrors$/, `export const getCoachFriendlyError=error=>error.message;`],
 ]
@@ -50,14 +50,19 @@ try {
   page.on('pageerror',error=>errors.push(error.message))
   await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>')
   await page.addScriptTag({content:bundle.outputFiles[0].text})
+  await page.getByLabel('Your Team notification name',{exact:true}).waitFor()
+  assert.equal(await page.getByLabel('Your Team notification name',{exact:true}).inputValue(), 'Tigers')
   await page.getByLabel('Opponent',{exact:true}).fill('FP TEST Visitors')
   await page.getByRole('button',{name:'League',exact:true}).click()
   await page.getByLabel('Match date',{exact:true}).fill('2099-09-20')
   await page.getByRole('button',{name:'3G',exact:true}).click()
   await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='3g')
+  assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tigers')
   await page.evaluate(()=>window.reopen())
   await page.getByText('Edit fixture',{exact:true}).waitFor()
+  assert.equal(await page.getByLabel('Your Team notification name',{exact:true}).inputValue(), 'Tigers')
+  await page.getByLabel('Your Team notification name',{exact:true}).fill('Tiger squad')
   const cancelFixture=page.getByRole('button',{name:'Cancel fixture',exact:true})
   const backWithoutSaving=page.getByRole('button',{name:'Back without saving',exact:true})
   assert.ok((await cancelFixture.boundingBox())?.y > (await backWithoutSaving.boundingBox())?.y)
@@ -69,6 +74,7 @@ try {
   await page.evaluate(()=>{window.saved=null})
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='3g')
+  assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tiger squad')
   await page.getByRole('button',{name:'4G',exact:true}).click()
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='4g')
@@ -81,6 +87,7 @@ try {
   await page.waitForFunction(()=>window.saved?.carpoolEnabled===false);
   await page.evaluate(()=>window.newFixture());
   await page.getByText('Create match',{exact:true}).waitFor();
+  assert.equal(await page.getByLabel('Your Team notification name',{exact:true}).inputValue(), 'Tigers')
   assert.equal(await page.getByRole('switch',{name:'Car pool',exact:true}).isChecked(),false);
   await page.getByRole('switch',{name:'Car pool',exact:true}).check();
   await page.evaluate(()=>window.newFixture());

@@ -417,7 +417,7 @@ try {
     await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.getByLabel('Formation plan title', { exact: true }).fill('Board B revised')
-    await page.getByRole('button', { name: 'Parents and players', exact: true }).click()
+    await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
     await page.getByRole('button', { name: 'Save to match', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.saveCalls > 0)
     assert.equal(await page.evaluate(() => window.__formationTest.serverBoards.find(item => item.id === 'board-b')?.title), 'Board B revised')
@@ -444,7 +444,7 @@ try {
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     if (process.env.FORMATION_ASYNC_SCENARIO === 'queue-resume') {
       await page.getByLabel('Formation plan title', { exact: true }).fill('Queued lineup')
-      await page.getByRole('button', { name: 'Parents and players', exact: true }).click()
+      await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
     }
     if (process.env.FORMATION_ASYNC_SCENARIO === 'conflict') {
       await page.getByLabel('Formation plan title', { exact: true }).fill('Conflicted lineup')
@@ -457,7 +457,7 @@ try {
         await page.getByRole('button', { name: 'Close options', exact: true }).click()
         await page.getByRole('button', { name: 'Save', exact: true }).click()
         await page.getByLabel('Formation plan title', { exact: true }).fill('Later unsaved title')
-        await page.getByRole('button', { name: 'Coaches only', exact: true }).click()
+        await page.getByRole('radio', { name: 'Coaches only', exact: true }).click()
         await page.getByRole('button', { name: 'Close options', exact: true }).click()
         await page.getByRole('button', { name: 'Resume connection', exact: true }).dblclick()
         await page.waitForFunction(() => window.__formationTest.saveCalls === 2)
@@ -522,7 +522,7 @@ try {
       await page.waitForTimeout(600)
       await page.screenshot({ path: path.join(rootDir, 'outputs', 'match-formations', 'save-to-match-preview.png') })
     }
-    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') await page.getByRole('button', { name: 'Parents and players', exact: true }).click()
+    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
     await page.getByRole('button', { name: 'Save to match', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
     await page.waitForTimeout(120)

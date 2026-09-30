@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Image, Pressable, Text, TextInput, View } from 'react-native'
-import { DEFAULT_TEAM_KIT_COLOURS, hexToHsv, hsvToHex, mergeTeamKits, normalizeKitColour } from '../../../src/lib/team-kits.js'
+import { DEFAULT_TEAM_KIT_COLOURS, hexToHsv, hsvToHex, normalizeKitColour } from '../../../src/lib/team-kits.js'
 import { loadMobileClubKits, setMobileTeamKits } from '../../mobile-core/src/mobileKitCache'
 import { getCoachTeamKits, saveCoachTeamKits } from '../../mobile-core/src/coachTeamKitsData'
 
@@ -43,26 +43,29 @@ function ContinuousColourPicker({ hsv, label, onChange, palette }) {
   </View>
 }
 
-function KitColourRow({ canEdit, colour, label, onChange, palette }) {
-  const [hsv, setHsv] = useState(() => hexToHsv(colour))
+function KitColourRow({ canEdit, colour, fallbackColour, label, onChange, palette }) {
+  const previewColour = normalizeKitColour(colour) || (!colour.trim() ? normalizeKitColour(fallbackColour) : null)
+  const [picker, setPicker] = useState(() => ({ colour: previewColour, hsv: hexToHsv(previewColour || DEFAULT_TEAM_KIT_COLOURS.home) }))
+  const hsv = picker.colour === previewColour ? picker.hsv : hexToHsv(previewColour || DEFAULT_TEAM_KIT_COLOURS.home)
   const selectColour = value => {
     const normalized = normalizeKitColour(value)
     if (normalized) {
       const next = hexToHsv(normalized)
-      setHsv(current => next.s === 0 ? { ...next, h: current.h } : next)
+      setPicker({ colour: normalized, hsv: next.s === 0 ? { ...next, h: hsv.h } : next })
     }
     onChange(value)
   }
   const selectHsv = next => {
-    setHsv(next)
-    onChange(hsvToHex(next))
+    const colourValue = hsvToHex(next)
+    setPicker({ colour: colourValue, hsv: next })
+    onChange(colourValue)
   }
   return <View style={{ borderTopColor: palette.border, borderTopWidth: 1, gap: 10, paddingVertical: 14 }}>
     <View style={{ alignItems: 'center', flexDirection: 'row', gap: 12 }}>
-      <Image accessible={false} source={require('../../mobile-core/assets/formation-shirt-white.png')} resizeMode="contain" style={{ height: 58, tintColor: colour.toLowerCase() === '#ffffff' ? undefined : colour, width: 58 }} />
+      <Image key={previewColour || 'tbc'} accessibilityLabel={`${label} preview ${previewColour || 'TBC'}`} source={previewColour ? require('../../mobile-core/assets/formation-shirt-white.png') : require('../../mobile-core/assets/kit-tbc.png')} resizeMode="contain" style={{ height: 58, tintColor: previewColour || undefined, width: 58 }} />
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={{ color: palette.textPrimary, fontSize: 16, fontWeight: '700' }}>{label}</Text>
-        <TextInput accessibilityLabel={`${label} hex colour`} autoCapitalize="none" autoCorrect={false} editable={canEdit} maxLength={7} onChangeText={selectColour} placeholder="#1d4ed8" placeholderTextColor={palette.textMuted} style={{ borderBottomColor: palette.border, borderBottomWidth: 1, color: palette.textPrimary, minHeight: 44, paddingVertical: 8 }} value={colour} />
+        <TextInput accessibilityLabel={`${label} hex colour`} autoCapitalize="none" autoCorrect={false} editable={canEdit} maxLength={7} onChangeText={selectColour} placeholder="Blank uses club kit" placeholderTextColor={palette.textMuted} style={{ borderBottomColor: palette.border, borderBottomWidth: 1, color: palette.textPrimary, minHeight: 44, paddingVertical: 8 }} value={colour} />
       </View>
     </View>
     {canEdit ? <View accessibilityLabel={`${label} colour picker`} accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -71,11 +74,13 @@ function KitColourRow({ canEdit, colour, label, onChange, palette }) {
       </Pressable>)}
     </View> : null}
     {canEdit ? <ContinuousColourPicker hsv={hsv} label={label} onChange={selectHsv} palette={palette} /> : null}
+    {canEdit && colour ? <Pressable accessibilityRole="button" accessibilityLabel={`Clear ${label.toLowerCase()} colour`} onPress={() => onChange('')} style={{ alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44 }}><Text style={{ color: palette.accent, fontWeight: '700' }}>Clear colour</Text></Pressable> : null}
   </View>
 }
 
 export function CoachTeamKitSettings({ palette, user }) {
-  const [colours, setColours] = useState(DEFAULT_TEAM_KIT_COLOURS)
+  const [colours, setColours] = useState({ home: '', away: '' })
+  const [clubColours, setClubColours] = useState({ home: '', away: '' })
   const [status, setStatus] = useState('loading')
   const [message, setMessage] = useState('')
   const [loadFailed, setLoadFailed] = useState(false)
@@ -91,10 +96,10 @@ export function CoachTeamKitSettings({ palette, user }) {
     try {
       const [teamKits, clubKits] = await Promise.all([getCoachTeamKits(user), loadMobileClubKits(user.clubId)])
       if (operation !== operationRef.current) return
-      const kits = mergeTeamKits(teamKits, clubKits)
+      setClubColours({ home: clubKits.home?.colour || '', away: clubKits.away?.colour || '' })
       setColours({
-        home: kits.home?.colour || DEFAULT_TEAM_KIT_COLOURS.home,
-        away: kits.away?.colour || DEFAULT_TEAM_KIT_COLOURS.away,
+        home: teamKits.home?.colour || '',
+        away: teamKits.away?.colour || '',
       })
       setLoadFailed(false)
       setStatus('ready')
@@ -124,7 +129,7 @@ export function CoachTeamKitSettings({ palette, user }) {
       })
       if (operation !== operationRef.current) return
       setMobileTeamKits(user.clubId, user.activeTeamId, kits)
-      setColours({ home: kits.home.colour, away: kits.away.colour })
+      setColours({ home: kits.home?.colour || '', away: kits.away?.colour || '' })
       setMessage('Team kit colours saved.')
       setStatus('ready')
     } catch (error) {
@@ -137,10 +142,10 @@ export function CoachTeamKitSettings({ palette, user }) {
   }
 
   return <View style={{ gap: 2 }}>
-    <Text style={{ color: palette.textSecondary, lineHeight: 20 }}>Choose the shirts shown for this team in Matchday. Your club's current kit stays in use until team colours are saved.</Text>
+    <Text style={{ color: palette.textSecondary, lineHeight: 20 }}>Choose the shirts shown for this team in Matchday. Leave a colour blank to use the club kit, or TBC if no club kit is set. Save to apply changes.</Text>
     {status === 'loading' ? <Text accessibilityLiveRegion="polite" style={{ color: palette.textSecondary, lineHeight: 20 }}>Loading team kit colours...</Text> : <>
-      <KitColourRow canEdit={canInteract} colour={colours.home} label="Home kit" onChange={value => update('home', value)} palette={palette} />
-      <KitColourRow canEdit={canInteract} colour={colours.away} label="Away kit" onChange={value => update('away', value)} palette={palette} />
+      <KitColourRow canEdit={canInteract} colour={colours.home} fallbackColour={clubColours.home} label="Home kit" onChange={value => update('home', value)} palette={palette} />
+      <KitColourRow canEdit={canInteract} colour={colours.away} fallbackColour={clubColours.away} label="Away kit" onChange={value => update('away', value)} palette={palette} />
     </>}
     {!canEdit ? <Text style={{ color: palette.textSecondary, lineHeight: 20 }}>A Team Manager or Club Admin can change these colours.</Text> : null}
     {message ? <Text accessibilityLiveRegion="polite" style={{ color: status === 'error' ? palette.danger : palette.textPrimary, lineHeight: 20 }}>{message}</Text> : null}

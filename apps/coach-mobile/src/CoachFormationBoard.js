@@ -3,7 +3,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { Component, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, AppState, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, Vibration, View } from 'react-native'
+import { Alert, AppState, Image, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, Vibration, View } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import {
   applyMobileFormationPreset,
@@ -88,6 +88,7 @@ function createStyles(palette, fullScreen = false) {
     input: { backgroundColor: palette.surfaceRaised, borderBottomColor: palette.border, borderBottomWidth: 1, color: palette.textPrimary, fontSize: 15, minHeight: 50, paddingHorizontal: 4, paddingVertical: 10 },
     label: { color: palette.textPrimary, fontSize: 14, fontWeight: '900' },
     modalBackdrop: { backgroundColor: 'rgba(0,0,0,0.62)', flex: 1, justifyContent: 'flex-end' },
+    modalKeyboardArea: { flex: 1, justifyContent: 'flex-end' },
     modalPanel: { backgroundColor: palette.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, gap: 12, maxHeight: '88%', padding: 16, paddingBottom: 24 },
     modalPlayer: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingVertical: 10 },
     emptySlot: { alignItems: 'center', backgroundColor: 'rgba(4,45,25,0.7)', borderColor: 'rgba(255,255,255,0.9)', borderRadius: 25, borderStyle: 'dashed', borderWidth: 2, height: 46, justifyContent: 'center', position: 'absolute', transform: [{ translateX: -23 }, { translateY: -23 }], width: 46, zIndex: 4 },
@@ -311,6 +312,12 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const [removalMode, setRemovalMode] = useState(false)
   const [removalIds, setRemovalIds] = useState([])
   const [shared, setShared] = useState(false)
+  const shareScrollRef = useRef(null)
+  const titleInputTop = useRef(0)
+  const titleInputFocused = useRef(false)
+  const revealTitleInput = () => {
+    if (titleInputFocused.current) shareScrollRef.current?.scrollTo({ y: Math.max(0, titleInputTop.current - 32), animated: true })
+  }
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
   const [activeSlotId, setActiveSlotId] = useState('')
   const [slotSearch, setSlotSearch] = useState('')
@@ -1042,6 +1049,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       <Modal accessibilityViewIsModal animationType="slide" onRequestClose={closeSheet} transparent visible={Boolean(activeSheet)}>
         <SafeAreaProvider>
         <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.modalBackdrop}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalKeyboardArea}>
           <View accessibilityLabel={`${activeSheet || 'Formation Board'} options`} role="dialog" style={styles.modalPanel}>
             <View style={styles.sheetHandle} />
             <View style={styles.rowBetween}>
@@ -1071,14 +1079,13 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
               {players.map((player) => { const selected = selectedIds.has(player.id); const availability = getMobileFormationPlayerAvailability(player.id, availabilityRows); const placement = draft.placements.find((item) => item.playerId === player.id); return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: !canEdit }} disabled={!canEdit} key={player.id} onPress={() => setDraft(toggleMobileFormationSquadPlayer(draft, player))} style={[styles.modalPlayer, !canEdit && styles.actionDisabled]}><View><Text style={styles.label}>{`${player.shirtNumber ? `#${player.shirtNumber} ` : ''}${player.playerName}`}</Text><Text style={styles.body}>{availability.label}{placement ? ' | On pitch' : selected ? ' | Substitute' : ''}</Text></View><MaterialIcons color={selected ? palette.accentText : palette.textSecondary} name={selected ? 'check-circle' : 'radio-button-unchecked'} size={24} /></Pressable> })}
             </ScrollView> : null}
 
-            {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled">
+            {activeSheet === 'share' ? <ScrollView contentContainerStyle={styles.stack} keyboardShouldPersistTaps="handled" onLayout={revealTitleInput} ref={shareScrollRef}>
               <Text style={styles.body}>{match ? `${match.teamName} v ${match.opponent}` : 'Open a match to save this board.'}</Text>
               {match ? <Text style={styles.body}>Find saved lineups in Match Day, open this match, then choose Formation, open the top-right menu and tap Saved.</Text> : null}
               <Text style={styles.label}>Lineup name</Text>
-              <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onChangeText={setTitle} style={styles.input} value={title} />
+              <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onBlur={() => { titleInputFocused.current = false }} onFocus={() => { titleInputFocused.current = true; revealTitleInput() }} onLayout={(event) => { titleInputTop.current = event.nativeEvent.layout.y }} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
-              <Choice disabled={!canEdit || busy} label="Coaches only" onPress={() => setShared(false)} selected={!shared} styles={styles} />
-              <Choice disabled={!canEdit || busy} label="Parents and players" onPress={() => setShared(true)} selected={shared} styles={styles} />
+              {[{ label: 'Coaches only', value: false }, { label: 'Parents and players', value: true }].map(({ label, value }) => <Pressable aria-checked={shared === value} accessibilityLabel={label} accessibilityRole="radio" accessibilityState={{ checked: shared === value, disabled: !canEdit || busy }} disabled={!canEdit || busy} key={label} onPress={() => setShared(value)} style={[styles.modalPlayer, (!canEdit || busy) && styles.actionDisabled]}><Text style={styles.label}>{label}</Text><MaterialIcons color={shared === value ? palette.accentText : palette.textSecondary} name={shared === value ? 'radio-button-checked' : 'radio-button-unchecked'} size={24} /></Pressable>)}
               {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
               {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>{queuedSaveAcknowledged ? 'Saved to this match. Refreshing the saved lineup is pending. Keep this board open to retry the refresh automatically.' : 'Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.'}</Text> : null}
               {notice.startsWith(`${title} saved to this match.`) ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
@@ -1095,6 +1102,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
               {showBoards ? matchBoards.map((item) => <Pressable accessibilityRole="button" key={item.id} onPress={() => { closeSheet(); confirmDraftReplacement(() => applyBoard(item)) }} style={styles.savedBoard}><Text style={styles.label}>{item.title}</Text><Text style={styles.body}>Saved to this match | Version {item.currentVersionNumber}</Text></Pressable>) : null}
             </ScrollView> : null}
           </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
         </SafeAreaProvider>
       </Modal>
