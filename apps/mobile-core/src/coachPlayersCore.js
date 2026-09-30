@@ -8,12 +8,12 @@ function normalize(value) {
   return String(value ?? '').trim()
 }
 
-function normalizeWords(value) {
-  return normalize(value)
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ')
+const POSITION_ABBREVIATIONS = new Set(['GK', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'SW', 'DM', 'CDM', 'CM', 'AM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'CF', 'ST', 'SS'])
+
+function normalizePosition(value) {
+  const position = normalize(value)
+  const abbreviation = position.toUpperCase()
+  return POSITION_ABBREVIATIONS.has(abbreviation) ? abbreviation : position
 }
 
 function normalizeContacts(value, fallbackName = '', fallbackEmail = '', contactType = 'parent') {
@@ -87,7 +87,7 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
     parentAppInstallationStatusAvailable: parentAppInstallation.available,
     parentAppInstalledContactCount: parentAppInstallation.installedCount,
     playerName: normalizePersonName(row.player_name ?? row.playerName) || 'Unnamed player',
-    positions: (Array.isArray(row.positions) ? row.positions : []).map(normalize).filter(Boolean),
+    positions: (Array.isArray(row.positions) ? row.positions : []).map(normalizePosition).filter(Boolean),
     section: COACH_PLAYER_SECTIONS.includes(normalize(row.section)) ? normalize(row.section) : 'Trial',
     shirtNumber: normalize(row.shirt_number ?? row.shirtNumber),
     status: normalize(row.status || 'active').toLowerCase() || 'active',
@@ -188,7 +188,7 @@ export function buildCoachPlayerPayload({ context, form }) {
     parent_name: primaryContact.name,
     player_name: playerName,
     positions: (Array.isArray(form?.positions) ? form.positions : normalize(form?.positions).split(','))
-      .map(normalizeWords)
+      .map(normalizePosition)
       .filter(Boolean),
     section,
     shirt_number: normalize(form?.shirtNumber),
