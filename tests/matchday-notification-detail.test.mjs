@@ -42,7 +42,7 @@ test('detailed match notifications use the event minute, added time, player deta
   assert.equal(goal.detailedBody, "Goal: Alex Morgan #9 at 45+2'. Assist: Jamie Smith #8. 2 - 1 v Visitors.")
   assert.equal(goal.tag, 'match-day-match-detail-goal')
   assert.equal(redCard.detailedBody, "Red: Casey Jones #4 at 71'. 2 - 1 v Visitors.")
-  assert.equal(fullTime.detailedBody, 'Full time: U16 G 2 - 1 Visitors.')
+  assert.equal(fullTime.detailedBody, 'Full time: U16 Green 2 - 1 Visitors.')
 })
 
 test('fan notifications persist and deliver the same detailed match event copy', () => {
