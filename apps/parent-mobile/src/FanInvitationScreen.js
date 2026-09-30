@@ -1,12 +1,18 @@
+import { parentThemePreference } from './displayThemePreference'
+import { resolveDeviceThemeMode } from '../../mobile-core/src/deviceThemeCore'
 import { useEffect, useRef, useState } from 'react'
-import { Image, Linking, Pressable, ScrollView, Text, View } from 'react-native'
+import { Image, Linking, Pressable, ScrollView, Text, View, useColorScheme } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { supabase } from '../../mobile-core/src/supabase'
 import { useMobileAuth } from '../../mobile-core/src/auth'
 import { fanBrandingLink, fanBrandTheme } from '../../../src/lib/fan-branding'
 import { fanAccessSummary } from '../../../src/lib/fans'
 
-export function FanInvitationScreen({ token, session, onSignIn, onClose, onAccepted, themeMode = 'light' }) {
+export function FanInvitationScreen({ token, session, onSignIn, onClose, onAccepted, themeMode }) {
+  const [savedMode, setSavedMode] = useState(parentThemePreference.peek)
+  const systemTheme = useColorScheme()
+  useEffect(() => { let active = true; parentThemePreference.read().then(() => { if (active) setSavedMode(parentThemePreference.peek()) }).catch(() => {}); return () => { active = false } }, [])
+  const resolvedMode = resolveDeviceThemeMode(themeMode || savedMode, systemTheme)
   const { refreshUserProfile } = useMobileAuth()
   const actor = session?.user?.id || ''
   const identity = `${actor}:${token}`
@@ -38,7 +44,7 @@ export function FanInvitationScreen({ token, session, onSignIn, onClose, onAccep
   }, [actor, identity, token, attempt])
   const invite = data?.identity === identity ? data.value : null
   const brand = fanBrandingLink(invite)
-  const tokens = fanBrandTheme(invite || {}, themeMode).tokens
+  const tokens = fanBrandTheme(invite || {}, resolvedMode).tokens
   const valid = () => mounted.current && current.current === identity && epoch.current === generation
   const run = async action => {
     if (operation.current) return

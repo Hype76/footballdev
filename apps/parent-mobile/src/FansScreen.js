@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, AppState, Image, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native'
+import { Alert, AppState, Image, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, useWindowDimensions, useColorScheme, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Crypto from 'expo-crypto'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import Constants from 'expo-constants'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { parentThemePreference } from './displayThemePreference'
+import { resolveDeviceThemeMode } from '../../mobile-core/src/deviceThemeCore'
 import { fanBrandingLink, fanBrandTheme } from '../../../src/lib/fan-branding'
 import QRCode from 'qrcode/lib/core/qrcode'
 import { supabase, getAccessToken } from '../../mobile-core/src/supabase'
@@ -103,8 +104,9 @@ export async function clearFanNotificationDevice() {
   if (token) await request({ action: 'unregister_device', token }).catch(() => {})
 }
 export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, selectedParentLinkId, onSelectedParentLinkChange, scrollViewRef }) {
-  const [savedMode, setSavedMode] = useState('dark')
-  useEffect(() => { let active = true; AsyncStorage.getItem('fp.parent.display-theme.v1').then((value) => { if (active && ['light', 'dark'].includes(value)) setSavedMode(value) }).catch(() => {}); return () => { active = false } }, [])
+  const [savedMode, setSavedMode] = useState(parentThemePreference.peek)
+  const systemTheme = useColorScheme()
+  useEffect(() => { let active = true; parentThemePreference.read().then(() => { if (active) setSavedMode(parentThemePreference.peek()) }).catch(() => {}); return () => { active = false } }, [])
   const { user, signOut, refreshUserProfile } = useMobileAuth()
   const state = useFans({ rpc, request })
   const { clearView, reload, open } = state
@@ -113,8 +115,8 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const [matchdayPolicy, setMatchdayPolicy] = useState(null)
   const parent = parents.find((p) => p.id === (selectedParentLinkId ?? parentId)) || parents[0]
   const brandSource = state.connections.find((c) => c.id === state.view?.connectionId) || parent || state.connections.find((c) => !c.is_owner && c.status === 'active')
-  const displayMode = themeMode || savedMode
-  const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode, matchdayPolicy).tokens : themeTokens || DEFAULT_PARENT_MOBILE_THEME.tokens, [brandSource, displayMode, matchdayPolicy, themeTokens])
+  const displayMode = resolveDeviceThemeMode(themeMode || savedMode, systemTheme)
+  const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode, matchdayPolicy).tokens : themeTokens || fanBrandTheme({}, displayMode, matchdayPolicy).tokens, [brandSource, displayMode, matchdayPolicy, themeTokens])
   const styles = useMemo(() => createStyles(tokens), [tokens])
   const [form, setForm] = useState(null)
   const [confirm, setConfirm] = useState(null)

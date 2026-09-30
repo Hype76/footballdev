@@ -1,3 +1,6 @@
+import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
+import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
+import { parentThemePreference } from './src/displayThemePreference'
 import { UnlinkedParentScreen } from './src/UnlinkedParentScreen'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
 import { focusParentFormationBoard } from './src/parentFormationFocus'
@@ -48,6 +51,7 @@ import {
   ToastAndroid,
   useWindowDimensions,
   View,
+  useColorScheme,
 } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
@@ -201,7 +205,6 @@ const resourceFallbacks = {
   resources: 'Resources could not be loaded.',
 }
 
-const PARENT_THEME_STORAGE_KEY = 'fp.parent.display-theme.v1'
 const PARENT_NOTIFICATION_RESPONSE_HISTORY_PREFIX = 'fp.parent.notification-responses.v1'
 const PARENT_NOTIFICATION_RESPONSE_HISTORY_LIMIT = 32
 const defaultParentThemeContext = {
@@ -320,6 +323,7 @@ function LoginScreen() {
   if (creatingAccount) return <MobileSignupScreen appRole="parent" logoSource={require('./assets/football-player-logo.png')} onBack={() => setCreatingAccount(false)} />
   return (
     <MobileLoginScreen
+      appRole="parent"
       authError={authError}
       onCreateAccount={() => setCreatingAccount(true)}
       copy="Sign in or create your account. Your team invitation connects you to your player."
@@ -382,7 +386,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [notificationResponseHistoryReady, setNotificationResponseHistoryReady] = useState(false)
   const [communicationPreference, setCommunicationPreference] = useState({ communicationChannel: 'both', updatedAt: '' })
   const [chatMessages, setChatMessages] = useState({ error: '', items: [], loading: false })
-  const [displayTheme, setDisplayTheme] = useState('dark')
+  const [themePreference, setThemePreference] = useState(parentThemePreference.peek)
+  const systemTheme = useColorScheme()
+  const displayTheme = resolveDeviceThemeMode(themePreference, systemTheme)
   const [dismissedItems, setDismissedItems] = useState({ development: [], invitations: [], matches: [], messages: [], polls: [], resources: [] })
   const [moreSection, setMoreSection] = useState('')
   const lastBackAtRef = useRef(0)
@@ -964,9 +970,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
   useEffect(() => {
     let mounted = true
-    void AsyncStorage.getItem(PARENT_THEME_STORAGE_KEY)
-      .then((value) => {
-        if (mounted && ['dark', 'light'].includes(value)) setDisplayTheme(value)
+    void parentThemePreference.read()
+      .then(() => {
+        if (mounted) setThemePreference(parentThemePreference.peek())
       })
       .catch(() => {})
     return () => { mounted = false }
@@ -1888,9 +1894,13 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     }
   }
   async function handleDisplayThemeChange(theme) {
-    if (!['dark', 'light'].includes(theme)) return
-    setDisplayTheme(theme)
-    await AsyncStorage.setItem(PARENT_THEME_STORAGE_KEY, theme)
+    if (!['system', 'dark', 'light'].includes(theme)) return
+    setThemePreference(theme)
+    try {
+      await parentThemePreference.write(theme)
+    } catch {
+      setNotice({ tone: 'error', message: 'Theme preference could not be saved on this device.' })
+    }
   }
 
   async function handlePasswordChange(currentPassword, nextPassword) {
@@ -2390,7 +2400,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 selectedLink={selectedLink}
                 onBiometricChange={handleBiometricChange}
                 onAppBadgeEnabledChange={handleAppBadgeEnabledChange}
-                displayTheme={displayTheme}
+                displayTheme={themePreference}
                 communicationPreference={communicationPreference}
                 notificationState={notificationState}
                 notificationStateStatus={notificationStateStatus}
@@ -3207,24 +3217,8 @@ function SettingsScreen({
 
       <SettingsSection id="display" label="Display" iconKey="settings.appearance">
       <InfoPanel iconKey="settings.appearance" title="Display">
-        <Text style={styles.bodyText}>Choose the app appearance on this device.</Text>
-        <View style={styles.notificationChoices}>
-          {['dark', 'light'].map((theme) => {
-            const selected = displayTheme === theme
-            return (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selected }}
-                key={theme}
-                onPress={() => onDisplayThemeChange(theme)}
-                style={({ pressed }) => [styles.notificationChoice, selected && styles.notificationChoiceSelected, pressed && styles.pressed]}
-              >
-                <ParentIcon color={selected ? palette.accentText : palette.textMuted} iconKey={theme === 'dark' ? 'dark-mode' : 'light-mode'} size={28} />
-                <Text style={[styles.notificationChoiceTitle, selected && styles.notificationChoiceTitleSelected]}>{labelize(theme)}</Text>
-              </Pressable>
-            )
-          })}
-        </View>
+        <Text style={styles.bodyText}>System follows this device's appearance. Your choice is remembered on this device.</Text>
+        <DeviceThemeChoices value={displayTheme} onChange={onDisplayThemeChange} palette={palette} />
       </InfoPanel>
       </SettingsSection>
 

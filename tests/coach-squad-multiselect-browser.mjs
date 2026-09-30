@@ -43,6 +43,8 @@ try {
   await mount()
   assert.equal(await page.getByRole('button',{name:'Choose: Player 0',exact:true}).count(),1)
   assert.equal(await page.getByRole('button',{name:'Not selected: Player 0',exact:true}).count(),0,'Undecided players must not be marked not selected')
+  const aligned = await Promise.all([0, 2].map(id => page.getByRole('button', {name: `Choose: Player ${id}`, exact: true}).boundingBox()))
+  assert.equal(aligned[0].x, aligned[1].x, 'Selection stays in its column for players without contact details')
   await choose(0);await choose(1,false);await choose(2)
   assert.deepEqual(await page.evaluate(()=>window.calls),[],'Tapping several decisions must not save or reload')
   await page.getByText('3 unsaved changes',{exact:true}).first().waitFor()

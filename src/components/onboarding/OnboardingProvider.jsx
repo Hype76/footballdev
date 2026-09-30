@@ -411,7 +411,7 @@ function OnboardingActionModal({
   })
   const [selectedLogoFile, setSelectedLogoFile] = useState(null)
   const [themeForm, setThemeForm] = useState({
-    mode: user?.themeMode || 'light',
+    mode: user?.themeMode || 'system',
     accent: user?.themeAccent || 'green',
     buttonStyle: user?.themeButtonStyle || 'solid',
   })
@@ -504,7 +504,7 @@ function OnboardingActionModal({
         setStaffUsers(assignableStaffUsers)
         setTeamAssignments(nextAssignments)
         setThemeForm({
-          mode: currentThemeTeam?.themeMode || user.themeMode || 'light',
+          mode: currentThemeTeam?.themeMode || user.themeMode || 'system',
           accent: clubSettings?.themeAccent || user.themeAccent || 'green',
           buttonStyle: clubSettings?.themeButtonStyle || user.themeButtonStyle || 'solid',
         })

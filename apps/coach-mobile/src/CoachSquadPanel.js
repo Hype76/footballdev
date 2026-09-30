@@ -10,7 +10,7 @@ const layout = StyleSheet.create({
   person: { flex: 1, gap: 1, minWidth: 0 },
   name: { fontSize: 13, fontWeight: '800' },
   meta: { fontSize: 11, lineHeight: 16 },
-  controls: { flexDirection: 'row', gap: 3 },
+  controls: { flexDirection: 'row', gap: 3, width: 123 },
   control: { alignItems: 'center', borderBottomWidth: 2, gap: 3, justifyContent: 'center', minHeight: 44, width: 60 },
   label: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
   toolbar: { flexDirection: 'row', gap: 12, marginTop: 12 },

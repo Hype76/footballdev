@@ -1,3 +1,5 @@
+import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
+import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
 import 'react-native-url-polyfill/auto'
 import { sanitizeCoachChatOfflineValue } from '../mobile-core/src/coachPhase31ECore'
@@ -35,6 +37,7 @@ import {
   Text,
   ToastAndroid,
   View,
+  useColorScheme,
 } from 'react-native'
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthProvider, useMobileAuth } from '../mobile-core/src/auth'
@@ -146,6 +149,7 @@ function LoginScreen() {
   if (creatingAccount) return <MobileSignupScreen appRole="coach" logoSource={require('./assets/football-player-logo.png')} onBack={() => setCreatingAccount(false)} />
   return (
     <MobileLoginScreen
+      appRole="coach"
       authError={authError}
       onCreateAccount={() => setCreatingAccount(true)}
       copy="Sign in with your Football Player account or create a free Match Day account."
@@ -182,7 +186,9 @@ function CoachHome() {
   const [chatNotificationTarget, setChatNotificationTarget] = useState(null)
   const [contextReady, setContextReady] = useState(false)
   const [contextOwnerUserId, setContextOwnerUserId] = useState('')
-  const [displayTheme, setDisplayTheme] = useState(peekCoachThemeMode)
+  const [themePreference, setThemePreference] = useState(peekCoachThemeMode)
+  const systemTheme = useColorScheme()
+  const displayTheme = resolveDeviceThemeMode(themePreference, systemTheme)
   const [homeState, setHomeState] = useState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
@@ -633,7 +639,7 @@ function CoachHome() {
 
   useEffect(() => {
     let mounted = true
-    void readCoachThemeMode().then(() => { if (mounted) setDisplayTheme(peekCoachThemeMode()) }).catch(() => {})
+    void readCoachThemeMode().then(() => { if (mounted) setThemePreference(peekCoachThemeMode()) }).catch(() => {})
     return () => { mounted = false }
   }, [])
 
@@ -827,9 +833,8 @@ function CoachHome() {
     setSelectedContextId(nextContext.id)
   }, [activeContext, activeRoute, contextResolution.contexts, moreRoute, resetContextDomainState])
 
-  const toggleTheme = useCallback(async (enabled) => {
-    const next = enabled ? 'light' : 'dark'
-    setDisplayTheme(next)
+  const toggleTheme = useCallback(async (next) => {
+    setThemePreference(next)
     try {
       await writeCoachThemeMode(next)
     } catch {
@@ -956,7 +961,7 @@ function CoachHome() {
               reloadHome={loadHome}
               quickAction={quickActionRequest}
               quickActionVisibility={quickActionVisibility}
-              themeMode={displayTheme}
+              themeMode={themePreference}
               user={selectedMobileUser}
             />
             </View>
@@ -1290,9 +1295,8 @@ function SettingsScreen({
       </SettingsSection>
       <SettingsSection id="display" label="Display" iconKey="settings.appearance">
       <Section compact iconKey="settings.appearance" title="Appearance">
-        <SettingRow copy="Choose a lighter appearance for this device." label={`Light mode ${themeMode === 'light' ? 'on' : 'off'}`}>
-          <Switch accessibilityLabel="Toggle light mode" onValueChange={onToggleTheme} value={themeMode === 'light'} />
-        </SettingRow>
+        <Text style={styles.bodyText}>System follows this device's appearance. Your choice is remembered on this device.</Text>
+        <DeviceThemeChoices value={themeMode} onChange={onToggleTheme} palette={palette} />
         <SettingRow copy={quickActionVisibility?.error || 'Hide the floating + button when taking screenshots. Remembered on this device.'} label="Show quick-action + button">
           <Switch accessibilityLabel="Show quick-action + button" disabled={!quickActionVisibility?.ready || quickActionVisibility.saving} onValueChange={quickActionVisibility?.toggle} value={quickActionVisibility?.enabled ?? true} />
         </SettingRow>
@@ -1704,7 +1708,7 @@ function AppContent() {
 }
 
 async function clearCoachBeforeSignOut() {
-  await clearCoachAllLocalState()
+  await clearCoachAllLocalState('', { preserveTheme: true })
 }
 
 export default function App() {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
@@ -11,9 +12,10 @@ await mkdir(output, { recursive: true })
 const result = await build({
   stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client';
     import {MobileSignupScreen} from './apps/mobile-core/src/MobileSignupScreen';
+    import {MobileLoginScreen} from './apps/mobile-core/src/ui';
     import {createParentMobileTheme} from './apps/mobile-core/src/parentThemeCore.js';
     import {UnlinkedParentScreen} from './apps/parent-mobile/src/UnlinkedParentScreen';
-    function App(){const [dark,setDark]=React.useState(false);window.setDark=setDark;const [mode,setMode]=React.useState('coach');window.setMode=setMode;return mode==='unlinked'?<div style={{padding:20}}><UnlinkedParentScreen themeTokens={createParentMobileTheme({mode:dark?'dark':'light'}).tokens}/></div>:<MobileSignupScreen key={mode} appRole={mode} logoSource={{uri:'https://example.test/logo.png'}} onBack={()=>{window.back=true}}/>}createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: root, loader: 'jsx' },
+    function App(){const [dark,setDark]=React.useState(false);window.setDark=setDark;const [mode,setMode]=React.useState('coach');window.setMode=setMode;return mode==='login'?<MobileLoginScreen appRole="parent" title="Test login" copy="Sign in to Football Player" kicker="Football Player" logoSource={{uri:'https://example.test/logo.png'}} meta="Account access" signIn={async()=>{}} requestPasswordReset={async()=>{}}/>:mode==='unlinked'?<div style={{padding:20}}><UnlinkedParentScreen themeTokens={createParentMobileTheme({mode:dark?'dark':'light'}).tokens}/></div>:<MobileSignupScreen key={mode} appRole={mode} logoSource={{uri:'https://example.test/logo.png'}} onBack={()=>{window.back=true}}/>}createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: root, loader: 'jsx' },
   bundle: true, write: false, jsx: 'automatic', platform: 'browser', mainFields: ['browser', 'module', 'main'],
   loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths: [modules],
   alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') },
@@ -55,6 +57,13 @@ try {
   assert.equal(await page.evaluate(() => window.signup), undefined)
   await page.getByLabel('Confirm password', { exact: true }).fill('SafeSignup!42')
   await page.screenshot({ path: `${output}/coach-signup.png`, fullPage: true })
+  await assertRenderedTextContrast(page, 'signup light')
+  const lightTitle = await page.getByText('Create your account', {exact:true}).evaluate(el=>getComputedStyle(el).color)
+  await page.emulateMedia({colorScheme:'dark'})
+  await page.waitForFunction(light=>getComputedStyle([...document.querySelectorAll('div')].find(el=>el.textContent==='Create your account')).color!==light, lightTitle)
+  await assertRenderedTextContrast(page, 'signup dark')
+  await page.screenshot({path:`${output}/coach-signup-dark.png`,fullPage:true})
+  await page.emulateMedia({colorScheme:'light'})
   await page.getByRole('button', { name: 'Create account', exact: true }).click()
   await page.getByText('Check your email', { exact: true }).waitFor()
   await page.getByText(/Open the newest confirmation email sent to coach@example\.test/).waitFor()
@@ -82,6 +91,14 @@ try {
   assert.equal(await page.evaluate(() => window.signup.options.data.account_type), 'parent')
   assert.equal(await page.evaluate(() => window.signup.options.emailRedirectTo), 'https://parent.footballplayer.online/sign-in')
   assert.equal(await page.evaluate(() => window.signup.options.data.club_name), undefined)
+  await page.evaluate(() => window.setMode('login'))
+  await page.getByText('Test login', {exact:true}).waitFor()
+  await assertRenderedTextContrast(page, 'login light')
+  const loginLight = await page.getByText('Test login',{exact:true}).evaluate(el=>getComputedStyle(el).color)
+  await page.emulateMedia({colorScheme:'dark'})
+  await page.waitForFunction(light=>getComputedStyle([...document.querySelectorAll('div')].find(el=>el.textContent==='Test login')).color!==light,loginLight)
+  await assertRenderedTextContrast(page,'login dark')
+  await page.emulateMedia({colorScheme:'light'})
   await page.evaluate(() => window.setMode('unlinked'))
   await page.getByRole('button', { name: 'Invite your Coach', exact: true }).click()
   await fill('Coach email address', 'coach@example.test')
