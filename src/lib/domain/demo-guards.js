@@ -32,3 +32,15 @@ export async function blockDemoMutation(account) {
     assertBillingActionAllowed(account, BILLING_ACTION_CATEGORIES.staffMutation)
   }
 }
+
+export function blockDemoSignupProvisioning(authUser) {
+  if (isDemoAccountValue(authUser)) {
+    throw new Error(DEMO_MUTATION_ERROR_MESSAGE)
+  }
+
+  if (!authUser?.id || !authUser.email_confirmed_at) {
+    throw new Error('Confirm your email and sign in before creating your workspace.')
+  }
+  // A new account has no workspace role or billing context yet. The signup
+  // endpoint verifies the session and authorises the requested plan itself.
+}

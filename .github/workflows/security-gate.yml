@@ -87,6 +87,8 @@ jobs:
         run: node --test tests/parent-gameplay-notifications-followup.test.mjs tests/parent-scorer-handover-controller.test.mjs
       - name: Matchday automatic parent invitations and chat isolation
         run: node --test tests/coach-parent-auto-invite.test.mjs tests/coach-parent-invite-status.test.mjs tests/parent-chat-plan-disabled-link-sync-pglite.test.mjs
+      - name: Confirmed signup workspace provisioning
+        run: node --test tests/signup-workspace-provisioning.test.mjs tests/public-signup-recovery.test.mjs && node tests/signup-confirmation-browser.mjs
       - name: M3 monitoring tests
         run: npm run security:monitoring
       - name: Existing security controls
