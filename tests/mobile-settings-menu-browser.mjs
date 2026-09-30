@@ -31,6 +31,7 @@ for (const app of ['parent', 'coach']) {
     import {ParentPlayerAccessControls} from './apps/parent-mobile/src/ParentPlayerAccessControls.js';
     import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
     import {PasswordInput} from './apps/mobile-core/src/PasswordInput.js';
+    import {DeviceThemeChoices} from './apps/mobile-core/src/DeviceThemeChoices.js';
     import {IconSettings, SettingsSection} from './apps/mobile-core/src/IconSettings.js';
     import {NotificationCategorySettings} from './apps/mobile-core/src/NotificationCategorySettings.js';
     import {MOBILE_SETTING_LOAD_STATES} from './apps/mobile-core/src/deviceSettingsCore.js';
@@ -85,7 +86,7 @@ function App(){
     notificationSettingsFocusRequest:focus,onNotificationSettingsFocus:()=>{setFocus(null);window.scrollTo(0,0)},
     onPasswordChange:record('password'),onDisplayNameChange:record('name'),onSignOut:record('signout'),
     onRemoveOwnPlayerAccess:record('remove-access'),
-    onDisplayThemeChange:setMode,onToggleTheme:()=>setMode(mode==='dark'?'light':'dark'),
+    onDisplayThemeChange:setMode,onToggleTheme:setMode,
     onBiometricChange:record('biometric'),onToggleBiometrics:record('biometric'),onAppBadgeEnabledChange:record('badge'),onToggleAppBadge:record('badge'),
     onNotificationModeChange:record('push'),onCommunicationChannelChange:record('communication'),onRestoreDismissedItems:record('restore'),
     onRetryNotificationState:record('retry'),onRefreshNotificationState:record('retry'),onRetryBiometricState:record('retry'),onRefreshBiometricState:record('retry'),...overrides};
@@ -148,6 +149,16 @@ try {
         }
       }
     }
+    await open('Display')
+    assert.equal(await page.getByRole('radio').count(), 3, 'Appearance offers System, Light and Dark')
+    for (const choice of ['Light', 'Dark', 'System']) {
+      await page.getByRole('radio', {name: choice, exact: true}).click()
+      await page.waitForFunction(value => document.querySelector(`[role="radio"][aria-label="${value}"]`)?.getAttribute('aria-checked') === 'true', choice)
+      assert.equal(await page.locator('[data-app]').getAttribute('data-mode'), choice.toLowerCase(), 'Settings passes the chosen preference')
+    }
+    await page.screenshot({path:`${out}/${app}-system.png`,fullPage:true})
+    await back()
+    await page.evaluate(() => window.setMode('dark'))
     for (const accent of ['#2ba7aa', '#000000', '#ffffff', '#777777', '#000080', '#ffff00', 'green', 'blue', 'red', 'purple', 'yellow']) {
       await page.evaluate(accent => window.setAccent(accent), accent)
       for (const mode of ['dark', 'light']) {
