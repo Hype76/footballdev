@@ -24,16 +24,25 @@ createRoot(document.getElementById('root')).render(<App/>);
 const result = await build({ stdin:{contents:entry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},
   alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},
   define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},
-  plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export default ()=>null;',loader:'jsx'}))}}] })
+  plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export default ({name,color})=><span data-icon={name} style={{color}} />;',loader:'jsx'}))}}] })
 const browser=await chromium.launch({headless:true})
 try {
   const page=await browser.newPage({viewport:{width:320,height:850}})
   const errors=[];page.on('pageerror',error=>errors.push(error.message))
   await page.route('http://localhost:9877/**',route=>route.fulfill({contentType:'text/html',body:'<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div></body></html>'}))
   const mount=async()=>{await page.goto('http://localhost:9877/');await page.addScriptTag({content:result.outputFiles[0].text})}
-  const choose=(id,selected=true)=>page.getByRole('button',{name:(selected?'Selected: ':'Not selected: ')+'Player '+id,exact:true}).click()
+  const choose=async(id,selected=true)=>{
+    const target=(selected?'Selected: ':'Not selected: ')+'Player '+id
+    for(let attempt=0;attempt<2;attempt++) {
+      if(await page.getByRole('button',{name:target,exact:true}).count()) return
+      await page.getByRole('button',{name:new RegExp('^(Choose|Selected|Not selected): Player '+id+'$')}).click()
+    }
+    await page.getByRole('button',{name:target,exact:true}).waitFor()
+  }
   const save=()=>page.getByRole('button',{name:/^Save selections/}).first().click()
   await mount()
+  assert.equal(await page.getByRole('button',{name:'Choose: Player 0',exact:true}).count(),1)
+  assert.equal(await page.getByRole('button',{name:'Not selected: Player 0',exact:true}).count(),0,'Undecided players must not be marked not selected')
   await choose(0);await choose(1,false);await choose(2)
   assert.deepEqual(await page.evaluate(()=>window.calls),[],'Tapping several decisions must not save or reload')
   await page.getByText('3 unsaved changes',{exact:true}).first().waitFor()
@@ -93,18 +102,28 @@ try {
     const themed = await build({ stdin:{contents:entry.replace("mode:'dark'", `mode:'${mode}'`),resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},
       alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},
       define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},
-      plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export default ()=>null;',loader:'jsx'}))}}] })
+      plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export default ({name,color})=><span data-icon={name} style={{color}} />;',loader:'jsx'}))}}] })
     await page.goto('http://localhost:9877/'); await page.addScriptTag({content:themed.outputFiles[0].text})
     await choose(0); await choose(1,false)
     const {createCoachTheme} = await import('../apps/coach-mobile/src/coachThemeCore.js')
     const palette = createCoachTheme({mode}).tokens
-    for (const [id, selected, expected] of [[0,true,palette.success],[1,false,palette.danger]]) {
+    const {themeContrastRatio} = await import('../apps/mobile-core/src/themeContrast.js')
+    for (const [id, selected] of [[0,true],[1,false]]) {
       const control=page.getByRole('button',{name:(selected?'Selected: ':'Not selected: ')+'Player '+id,exact:true})
-      const colors=await control.evaluate((el)=>({border:getComputedStyle(el).borderBottomColor,text:getComputedStyle(el.lastElementChild).color}))
-      const rgb=expected.match(/\w\w/g).map(hex=>parseInt(hex,16)).join(', ')
-      assert.equal(colors.border,`rgb(${rgb})`,`${mode} active underline`)
-      assert.equal(colors.text,`rgb(${rgb})`,`${mode} active label`)
+      assert.equal(await page.getByRole('button',{name:new RegExp('^(Choose|Selected|Not selected): Player '+id+'$')}).count(),1,'Only one squad status control per player')
+      const colors=await control.evaluate((el)=>({border:getComputedStyle(el).borderBottomColor,text:getComputedStyle(el.lastElementChild).color,icon:getComputedStyle(el.querySelector('[data-icon]')).color}))
+      assert.equal(await control.locator('[data-icon]').getAttribute('data-icon'),selected?'check-circle':'cancel',`${mode} icon must match the decision`)
+      assert.equal(colors.border,colors.icon)
+      const asHex=rgb=>'#'+rgb.match(/\d+/g).map(n=>Number(n).toString(16).padStart(2,'0')).join('')
+      assert.ok(themeContrastRatio(asHex(colors.icon),palette.background)>=3,`${mode} icon contrast`)
+      assert.ok(themeContrastRatio(asHex(colors.text),palette.background)>=4.5,`${mode} label contrast`)
+      if(selected && mode==='light') assert.ok(themeContrastRatio(asHex(colors.icon),'#000000')>themeContrastRatio(palette.success,'#000000'),'Selected icon must be brighter than the previous green')
+      if(!selected) assert.equal(asHex(colors.icon),palette.danger)
     }
+    await page.getByRole('button',{name:'Selected: Player 0',exact:true}).click()
+    assert.equal(await page.getByRole('button',{name:'Not selected: Player 0',exact:true}).locator('[data-icon="cancel"]').count(),1,'One tap must replace the tick with the cross')
+    await page.getByRole('button',{name:'Not selected: Player 0',exact:true}).click()
+    assert.equal(await page.getByRole('button',{name:'Selected: Player 0',exact:true}).locator('[data-icon="check-circle"]').count(),1,'One tap must restore selection')
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=320),true)
     await page.screenshot({path:`output/playwright/squad-selection-${mode}.png`,fullPage:true})
   }
