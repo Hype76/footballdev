@@ -13,8 +13,9 @@ window.calls=[];window.notices=[];window.fail='';window.delay=20;
 const players=Array.from({length:7},(_,i)=>({id:String(i),playerName:i===6?'A long player name for mobile layout':'Player '+i}));
 const base={id:'fixture',squadDecisions:[],squadNotificationContacts:players.map(p=>({playerId:p.id,canNotify:p.id!=='2',hasContact:p.id!=='2',emailRecipientCount:p.id==='2'?0:1}))};
 function App(){const [match,setMatch]=React.useState(base),[busy,setBusy]=React.useState(false),[allowed,setAllowed]=React.useState(true),[visible,setVisible]=React.useState(true);const server=React.useRef(base);
-window.refresh=()=>setMatch(m=>({...m}));window.allow=setAllowed;window.show=setVisible;
-return <div style={{padding:12,background:'#071108',color:'white'}}><div style={{display:visible?'block':'none'}}><CoachSquadPanel actions={{canSetSquad:allowed}} busy={busy} match={match} players={players} palette={createCoachTheme({mode:'dark'}).tokens} styles={{cardTitle:{color:"white",fontSize:20,fontWeight:"700"},body:{color:"white"},meta:{color:"#cbd5e1"}}}
+const palette=createCoachTheme({mode:'dark'}).tokens;
+window.refresh=()=>setMatch(m=>({...m}));window.allow=setAllowed;window.show=setVisible;window.loadNotified=()=>setMatch(m=>({...m,squadDecisions:m.squadDecisions.map(d=>({...d,notifiedAt:'now'}))}));
+return <div style={{padding:12,background:palette.background,color:palette.textPrimary}}><div style={{display:visible?'block':'none'}}><CoachSquadPanel actions={{canSetSquad:allowed}} busy={busy} match={match} players={players} palette={palette} styles={{cardTitle:{color:palette.textPrimary,fontSize:20,fontWeight:"700"},body:{color:palette.textPrimary},meta:{color:palette.textSecondary}}}
 onSetDecisions={async(choices)=>{window.calls.push(choices.map(({player,decision})=>({id:player.id,decision})));setBusy(true);await new Promise(r=>setTimeout(r,window.delay));if(choices.some(({player})=>window.fail===player.id)){setBusy(false);throw Error('Failed save')};const ids=new Set(choices.map(({player})=>player.id));const next={...server.current,squadDecisions:[...server.current.squadDecisions.filter(d=>!ids.has(d.playerId)),...choices.map(({player,decision})=>({playerId:player.id,status:decision,decisionRevision:player.id+'-'+decision,decidedAt:'now'}))]};server.current=next;setMatch(next);setBusy(false);return next;}}
 
 onNotify={async(rows)=>{window.notices.push(rows.map(r=>r.id));return rows.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}} /></div></div>}
@@ -50,8 +51,11 @@ try {
   assert.equal((await page.evaluate(()=>window.calls)).length,1)
   assert.deepEqual(await page.evaluate(()=>window.notices),[],'Saving must not send messages')
   await page.getByRole('button',{name:'Send notifications (2)',exact:true}).first().click()
-  await page.getByText('Notifications queued for 2 players.',{exact:true}).waitFor()
-  assert.equal(await page.getByRole('button',{name:'Queued: Player 0',exact:true}).isDisabled(),true)
+  await page.getByText('Parents notified for 2 players.',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Notified: Player 0',exact:true}).isDisabled(),true)
+  await page.evaluate(()=>window.loadNotified())
+  assert.equal(await page.getByRole('button',{name:'Notified: Player 1',exact:true}).isDisabled(),true,'Saved notification state must show Notified after refresh')
+  assert.equal(await page.getByRole('button',{name:/^Queued:/}).count(),0)
   assert.equal(await page.getByRole('button',{name:/^Sent:/}).count(),0,'Saved requests must not claim phone delivery')
   await choose(0,false);await choose(0,true)
   assert.equal(await page.getByRole('button',{name:/^Save selections/}).count(),0,'Reverting a choice should remove its pending change')
@@ -77,7 +81,7 @@ try {
   await mount(); await choose(0); await choose(1, false)
   await page.getByRole('checkbox',{name:'Notify: Player 1',exact:true}).click()
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).first().click()
-  await page.getByText('Notifications queued for 1 player.',{exact:true}).waitFor()
+  await page.getByText('Parents notified for 1 player.',{exact:true}).waitFor()
   assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.map(p=>p.id))),[['0','1']])
   assert.deepEqual(await page.evaluate(()=>window.notices),[['0']],'Unchecked draft must not be notified')
   await mount(); await choose(0); await choose(1)
@@ -85,6 +89,25 @@ try {
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).first().click()
   await page.getByText(/0 saved\. Remaining selections/).waitFor()
   assert.deepEqual(await page.evaluate(()=>window.notices),[],'An uncertain save must prevent the combined send')
+  for (const mode of ['light', 'dark']) {
+    const themed = await build({ stdin:{contents:entry.replace("mode:'dark'", `mode:'${mode}'`),resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},
+      alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},
+      define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},
+      plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export default ()=>null;',loader:'jsx'}))}}] })
+    await page.goto('http://localhost:9877/'); await page.addScriptTag({content:themed.outputFiles[0].text})
+    await choose(0); await choose(1,false)
+    const {createCoachTheme} = await import('../apps/coach-mobile/src/coachThemeCore.js')
+    const palette = createCoachTheme({mode}).tokens
+    for (const [id, selected, expected] of [[0,true,palette.success],[1,false,palette.danger]]) {
+      const control=page.getByRole('button',{name:(selected?'Selected: ':'Not selected: ')+'Player '+id,exact:true})
+      const colors=await control.evaluate((el)=>({border:getComputedStyle(el).borderBottomColor,text:getComputedStyle(el.lastElementChild).color}))
+      const rgb=expected.match(/\w\w/g).map(hex=>parseInt(hex,16)).join(', ')
+      assert.equal(colors.border,`rgb(${rgb})`,`${mode} active underline`)
+      assert.equal(colors.text,`rgb(${rgb})`,`${mode} active label`)
+    }
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=320),true)
+    await page.screenshot({path:`output/playwright/squad-selection-${mode}.png`,fullPage:true})
+  }
   assert.deepEqual(errors,[])
   console.log('PASS: rapid selection, draft retention, mobile width, explicit save, separate notifications, undo, discard, partial failure, retry and role lock')
 } finally { await browser.close() }

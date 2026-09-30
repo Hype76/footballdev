@@ -88,7 +88,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
       setChosen((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !byPlayer[id]?.sent)))
       const sentCount = outcomes.filter((item) => item.sent).length
       const failedCount = recipients.length - sentCount
-      setSummary(`Notifications queued for ${sentCount} ${sentCount === 1 ? 'player' : 'players'}.${failedCount ? ` ${failedCount} could not be queued. See the details below.` : ''}`)
+      setSummary(`Parents notified for ${sentCount} ${sentCount === 1 ? 'player' : 'players'}.${failedCount ? ` ${failedCount} could not be notified. See the details below.` : ''}`)
     } catch {
       setSummary('Notifications could not be confirmed. Try again; saved notifications will not be duplicated.')
     } finally { sendingRef.current = false; setSending(false) }
@@ -123,7 +123,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
       <Pressable accessibilityRole="button" disabled={locked || available.length === 0} onPress={() => { setChosen(Object.fromEntries(available.map((player) => [player.id, player.decisionRevision]))); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !available.length ? 0.4 : 1 }]}>Tick all unsent</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={locked || chosenPlayers.length === 0} onPress={() => { setChosen({}); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !chosenPlayers.length ? 0.4 : 1 }]}>Clear</Text></Pressable>
     </View>
-    {saveProgress ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Saving squad...</Text></View> : sending ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Queuing parent notifications...</Text></View> : null}
+    {saveProgress ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Saving squad...</Text></View> : sending ? <View accessibilityLiveRegion="polite" style={styles.row}><ActivityIndicator color={palette.accentText} /><Text style={styles.body}>Sending parent notifications...</Text></View> : null}
     {saveButtons}
     {!pendingCount ? sendButton : null}
     {summary ? <Text accessibilityLiveRegion="polite" style={styles.body}>{summary}</Text> : null}
@@ -135,14 +135,15 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
       const controls = [
         { key: 'selected', label: 'Selected', icon: 'check-circle-outline', active: player.decision === 'selected', onPress: () => setDecision(player, 'selected') },
         { key: 'not_selected', label: 'Not selected', icon: 'cancel', active: player.decision === 'not_selected', onPress: () => setDecision(player, 'not_selected') },
-        { key: 'notify', label: sent ? 'Queued' : 'Notify', icon: sent ? 'notifications-active' : picked ? 'check-box' : 'check-box-outline-blank', active: sent || picked, onPress: () => { setChosen((current) => ({ ...current, [player.id]: drafts[player.id] ? (picked ? 'skip' : 'draft') : picked ? '' : player.decisionRevision })); setSummary('') } },
+        { key: 'notify', label: sent ? 'Notified' : 'Notify', icon: sent ? 'notifications-active' : picked ? 'check-box' : 'check-box-outline-blank', active: sent || picked, onPress: () => { setChosen((current) => ({ ...current, [player.id]: drafts[player.id] ? (picked ? 'skip' : 'draft') : picked ? '' : player.decisionRevision })); setSummary('') } },
       ].filter((control) => control.key !== 'notify' || player.canNotify || sent)
       return <View key={player.id} style={[layout.row, { borderBottomColor: palette.border }]}>
         <View style={layout.person}><Text style={[layout.name, { color: player.notificationContactState === 'no_contact' ? palette.danger || '#ef4444' : palette.textPrimary }]}>{player.playerName}</Text>{player.notificationContactState === 'no_contact' ? <Text accessibilityLabel={`${player.playerName}: No contact details`} style={[layout.meta, { color: palette.danger || '#ef4444' }]}>No contact details</Text> : player.notificationContactState === 'disabled' ? <Text style={[layout.meta, { color: palette.textSecondary }]}>Notifications are switched off.</Text> : player.notificationContactState === 'unknown' ? <Text style={[layout.meta, { color: palette.textSecondary }]}>Contact details need refreshing.</Text> : null}{result?.message && !sent ? <Text style={[layout.meta, { color: palette.textPrimary }]}>{result.message}</Text> : null}</View>
         <View style={layout.controls}>{controls.map((control) => {
           const disabled = locked || (control.key === 'notify' ? sent || !decided || (!drafts[player.id] && !player.decisionRevision) : control.active)
-          const color = control.active ? palette.accentText : palette.textPrimary
-          return <Pressable key={control.key} accessibilityRole={control.key === 'notify' && !sent ? 'checkbox' : 'button'} accessibilityLabel={`${control.label}: ${player.playerName}`} aria-checked={control.key === 'notify' && !sent ? picked : undefined} accessibilityState={{ disabled, selected: control.active, ...(control.key === 'notify' && !sent ? { checked: picked } : {}) }} disabled={disabled} onPress={control.onPress} style={[layout.control, { backgroundColor: 'transparent', borderBottomColor: control.active ? palette.accentText : 'transparent', opacity: disabled && !control.active ? 0.4 : 1 }]}><MaterialIcons name={control.icon} size={20} color={color} /><Text style={[layout.label, { color }]}>{control.label}</Text></Pressable>
+          const activeColor = control.key === 'selected' ? palette.success : control.key === 'not_selected' ? palette.danger : palette.accentText
+          const color = control.active ? activeColor : palette.textSecondary
+          return <Pressable key={control.key} accessibilityRole={control.key === 'notify' && !sent ? 'checkbox' : 'button'} accessibilityLabel={`${control.label}: ${player.playerName}`} aria-checked={control.key === 'notify' && !sent ? picked : undefined} accessibilityState={{ disabled, selected: control.active, ...(control.key === 'notify' && !sent ? { checked: picked } : {}) }} disabled={disabled} onPress={control.onPress} style={[layout.control, { backgroundColor: 'transparent', borderBottomColor: control.active ? activeColor : 'transparent', opacity: disabled && !control.active ? 0.4 : 1 }]}><MaterialIcons name={control.icon} size={20} color={color} /><Text style={[layout.label, { color }]}>{control.label}</Text></Pressable>
         })}</View>
       </View>
     })}
