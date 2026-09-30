@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
-const migration = await readFile(new URL('../supabase/migrations/20260930160800_matchday_squad_save_without_parent_chat.sql', import.meta.url), 'utf8')
+const migration = await readFile(new URL('../supabase/migrations/20260930162515_matchday_squad_save_without_parent_chat.sql', import.meta.url), 'utf8')
 const original = await readFile(new URL('../supabase/migrations/20260714120000_parent_portal_chat_v1.sql', import.meta.url), 'utf8')
 const start = original.indexOf('create or replace function public.parent_chat_sync_squad_decision()')
 const baseline = original.slice(start, original.indexOf('$$;', start) + 3)
