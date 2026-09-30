@@ -182,9 +182,16 @@ test('Player filters and payload remain fixed to the active Team context', () =>
   const payload = buildCoachPlayerPayload({ context: teamContext, form: { contactType: 'parent', parentEmail: 'PARENT@EXAMPLE.COM', parentName: 'Parent', playerName: '  alex  smith ', positions: 'left wing, striker', section: 'Squad', teamId: 'attacker' } })
   assert.equal(payload.player_name, 'Alex Smith')
   assert.equal(payload.team_id, 'team-test')
-  assert.deepEqual(payload.positions, ['Left Wing', 'Striker'])
+  assert.deepEqual(payload.positions, ['left wing', 'striker'])
   const selectedUserPayload = buildCoachPlayerPayload({ context: { ...teamContext, activeTeamId: teamContext.teamId, activeTeamName: teamContext.teamName, teamId: undefined, teamName: undefined }, form: { playerName: 'Taylor Player', section: 'Trial' } })
   assert.equal(selectedUserPayload.team_id, 'team-test')
+})
+
+test('Player positions preserve capitalisation and repair recognised abbreviations', () => {
+  const positions = ['CM', 'Cm', 'cm', 'gk', 'CDM', 'rwb', 'Left Wing', 'STRIKER', 'Custom Role']
+  const expected = ['CM', 'CM', 'CM', 'GK', 'CDM', 'RWB', 'Left Wing', 'STRIKER', 'Custom Role']
+  assert.deepEqual(normalizeCoachPlayer({positions}).positions, expected)
+  assert.deepEqual(buildCoachPlayerPayload({context:teamContext,form:{playerName:'Alex Player',section:'Squad',positions:positions.join(', ')}}).positions, expected)
 })
 
 test('Player mutation policy blocks payment, wrong role, archive, and Team transfer', () => {
