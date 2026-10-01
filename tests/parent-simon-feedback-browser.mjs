@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 const root = process.cwd()
-const modules = path.join(root, 'apps/coach-mobile/node_modules')
+const modules = path.join(root, 'apps/parent-mobile/node_modules')
 const output = 'output/playwright/parent-simon-feedback'
 const appSource = await readFile('apps/parent-mobile/App.js', 'utf8')
 const portalSource = await readFile('apps/parent-mobile/src/ParentPortalScreens.js', 'utf8')
