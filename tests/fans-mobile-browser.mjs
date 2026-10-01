@@ -15,7 +15,7 @@ const app = await readFile('apps/parent-mobile/App.js', 'utf8')
 const handler = app.slice(app.indexOf('  function handleChildChange('), app.indexOf('  async function handleOpenMessage('))
 const sectionReset = app.match(/setMoreSection\(\(section\) => section === 'fans' \? section : ''\)/)?.[0]
 assert.ok(sectionReset, 'Authority refresh preserves the Fans route')
-assert.match(app, /renderedActiveTab === 'more' && renderedMoreSection && renderedMoreSection !== 'fans' \? <BackButton/, 'Embedded Fans uses the More tab instead of a duplicate Back row')
+assert.match(app, /renderedActiveTab === 'more' && renderedMoreSection \? <BackButton/, 'Embedded Fans retains the shared Back to More action')
 assert.match(app, /selectedParentLinkId=\{selectedLink\?\.id\} onSelectedParentLinkChange=\{\(linkId\) => handleChildChange\(linkId, \{ stayOnFans: true \}\)\}/)
 const mocks = {
   auth: `export const useMobileAuth=()=>({user:window.user,refreshUserProfile:async()=>window.remount(),signOut:async()=>{if(window.failSignOut)throw Error('Could not sign out. Try again.');window.signedOut=(window.signedOut||0)+1}});`,

@@ -46,12 +46,20 @@ export async function saveParentMobileMatchReportPdf(match = {}) {
   }
 
   if (!FileSystem.documentDirectory) throw new Error('This device cannot prepare the match report PDF.')
+  if (!await Sharing.isAvailableAsync()) throw new Error('This device cannot save or share the PDF.')
   const destination = `${FileSystem.documentDirectory}${filename}`
-  await FileSystem.writeAsStringAsync(destination, pdfBase64, { encoding: FileSystem.EncodingType.Base64 })
-  const savedFile = await FileSystem.getInfoAsync(destination)
-  if (!savedFile.exists || Number(savedFile.size || 0) < pdfBytes.length) throw new Error('The match report PDF could not be prepared.')
-  if (!await Sharing.isAvailableAsync()) throw new Error('This device cannot save the PDF to Files.')
+  try {
+    await FileSystem.writeAsStringAsync(destination, pdfBase64, { encoding: FileSystem.EncodingType.Base64 })
+    const savedFile = await FileSystem.getInfoAsync(destination)
+    if (!savedFile.exists || Number(savedFile.size || 0) !== pdfBytes.length) throw new Error('The match report PDF could not be prepared.')
+    const savedBase64 = await FileSystem.readAsStringAsync(destination, { encoding: FileSystem.EncodingType.Base64 })
+    if (savedBase64 !== pdfBase64) throw new Error('The match report PDF could not be prepared.')
+  } catch (error) {
+    await FileSystem.deleteAsync(destination, { idempotent: true }).catch(() => {})
+    throw error
+  }
   await Sharing.shareAsync(destination, { dialogTitle: 'Save match report to Files', mimeType: 'application/pdf', UTI: 'com.adobe.pdf' })
 
+  // iOS resolves sharing after both completion and cancellation, without a save result.
   return { filename, saved: false }
 }
