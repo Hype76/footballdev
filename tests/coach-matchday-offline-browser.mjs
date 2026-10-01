@@ -30,7 +30,7 @@ const entry = `
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
-const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions'])
+const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions','runCoachMatchDayTimerAction','saveCoachMatchDayFinalReport'])
 const dataMock = `
   import {projectMatchDayCommand} from './apps/mobile-core/src/matchDayOutboxCore.js';
   export const createCoachMatchDayCommandId=()=>crypto.randomUUID();
@@ -38,6 +38,16 @@ const dataMock = `
   const requireSignal=()=>{if(!window.online){window.failedRefresh=(window.failedRefresh||0)+1;throw new Error('Waiting for a connection.');}};
   export async function getCoachMatchDayList(){requireSignal();return [window.server]}
   export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));return window.server}
+  export async function runCoachMatchDayTimerAction(user,match,action){
+    if(action!=='conclude') throw new Error('Unexpected timer action: '+action);
+    window.concludeCalls=(window.concludeCalls||0)+1;
+    if(window.concludeFailure==='rejected') throw new Error('Conclusion rejected');
+    window.server={...window.server,concludedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    localStorage.setItem('server',JSON.stringify(window.server));
+    if(window.concludeFailure==='response-lost') throw new Error('Conclusion response lost');
+    return window.server;
+  }
+  export async function saveCoachMatchDayFinalReport(user,match,notes){window.server={...window.server,updatedAt:new Date().toISOString(),finalReport:{staffNotes:notes,updatedAt:new Date().toISOString()}};localStorage.setItem('server',JSON.stringify(window.server));return window.server;}
   export async function setCoachMatchDaySquadDecision(user,match,id,decision){await new Promise(resolve=>setTimeout(resolve,30));window.server={...window.server,squadDecisions:[...window.server.squadDecisions.filter(row=>row.playerId!==id),{playerId:id,status:decision,decisionRevision:id+'-revision',decidedAt:'now'}]};return window.server;}
   export async function setCoachMatchDaySquadDecisions(user,match,choices){window.squadSaveCalls=(window.squadSaveCalls||0)+1;for(const {player,decision} of choices) await setCoachMatchDaySquadDecision(user,match,player.id,decision);return window.server;}
   export async function notifyCoachMatchDaySquadDecisions(user,match,choices){window.squadNotifyCalls=(window.squadNotifyCalls||0)+1;return choices.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}
@@ -63,7 +73,7 @@ const mocks = [
     export async function saveCoachOfflineResources(user,context,resources){localStorage.setItem('resources',JSON.stringify({resources}));}
     export async function readCoachMatchDayOutbox(){return window.readJournal()}
     export async function getPendingCoachMatchDays(){return window.readJournal()?.pending.length?[{contextId:'context',matchId:'fixture'}]:[]}
-    export async function updateCoachMatchDayOutbox(user,context,match,change){const value=change(window.readJournal());localStorage.setItem('journal',JSON.stringify(value));return value;}`],
+    export async function updateCoachMatchDayOutbox(user,context,match,change){if(window.failJournalWrites) throw new Error('Device storage is unavailable');const value=change(window.readJournal());localStorage.setItem('journal',JSON.stringify(value));return value;}`],
   [/\/config$/, 'export const getMobileRuntimeConfig=()=>({isProduction:true,isUsable:true});'],
   [/BrandLoader$/, 'export const BrandLoader=()=>null;'],
   [/CoachFormationBoard$/, 'export const CoachFormationBoard=()=>null;'],
@@ -87,6 +97,57 @@ try {
   const mount = async()=>{await page.goto('http://localhost:9876/');await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
+  if(process.argv.includes('--conclude-only')) {
+    for (const failure of ['none','cache-failure','response-lost','rejected']) {
+      await page.evaluate(()=>{
+        const fullTime={...window.server,status:'full_time',timerStatus:'full_time',currentMatchPhase:'full_time',updatedAt:new Date(Date.now()-60000).toISOString(),concludedAt:'',homeScore:1,awayScore:0,events:[],finalReport:null};
+        localStorage.clear();localStorage.setItem('server',JSON.stringify(fullTime));
+      });
+      await mount();
+      await page.waitForFunction(()=>window.readJournal()?.baseMatch?.status==='full_time');
+      await page.getByRole('button',{name:'Review and conclude',exact:true}).click();
+      await page.getByRole('button',{name:'Conclude match',exact:true}).waitFor();
+      await page.evaluate(value=>{window.failJournalWrites=value==='cache-failure';window.concludeFailure=value},failure);
+      await page.getByRole('button',{name:'Conclude match',exact:true}).click();
+      await page.getByRole('button',{name:'Cancel',exact:true}).click();
+      assert.equal(await page.evaluate(()=>window.concludeCalls||0),0,'Cancelling must not conclude the fixture');
+      await page.getByRole('button',{name:'Conclude match',exact:true}).click();
+      await page.getByRole('button',{name:'Confirm',exact:true}).click();
+      await page.waitForFunction(()=>window.concludeCalls===1);
+      if(failure==='rejected') {
+        await page.getByText(/The server confirmed it was not saved/).waitFor();
+        assert.equal(await page.getByText('Match concluded',{exact:true}).count(),0);
+        assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).count(),1);
+        continue;
+      }
+      await page.getByText('Match concluded',{exact:true}).waitFor({timeout:4000});
+      assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).count(),0);
+      assert.equal(await page.getByText('Review the score and match events below, then conclude the match.',{exact:true}).count(),0);
+      assert.equal(await page.getByText('Match concluded',{exact:true}).getAttribute('aria-live'),'polite');
+      if(failure==='cache-failure') assert.equal(await page.evaluate(()=>window.readJournal().baseMatch.concludedAt),'','Regression keeps the stale journal to prove server state remains visible');
+      await page.getByLabel('Coach notes',{exact:true}).fill('Keep the saved report editable after conclusion.');
+      await page.getByRole('button',{name:'Save final report',exact:true}).click();
+      await page.getByRole('button',{name:'Confirm',exact:true}).click();
+      await page.waitForFunction(()=>window.server.finalReport?.staffNotes==='Keep the saved report editable after conclusion.');
+      await page.getByRole('button',{name:'Confirm',exact:true}).waitFor({state:'hidden'});
+      assert.equal(await page.getByText('Match concluded',{exact:true}).count(),1);
+      if(failure==='none') {
+        await mkdir('output/playwright/coach-conclusion',{recursive:true});
+        for(const mode of ['light','dark']) for(const width of [320,390]) {
+          await page.evaluate(value=>window.setMode(value),mode);await page.setViewportSize({width,height:844});
+          assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+          await page.screenshot({path:`output/playwright/coach-conclusion/concluded-${mode}-${width}.png`,fullPage:true});
+        }
+        await mount();
+        await page.getByRole('button',{name:'More match options',exact:true}).click();
+        await page.getByRole('button',{name:'Report',exact:true}).click();
+        await page.getByText('Match concluded',{exact:true}).waitFor();
+        assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).count(),0);
+      }
+    }
+    assert.deepEqual(errors,[]);
+    console.log('PASS Coach conclusion: cancel, success, cache failure, lost response reconciliation, rejected save, report editing, reload, light/dark and 320/390 px.');
+  } else {
   if(!process.argv.includes('--squad-only')) {
   await page.getByRole('button',{name:'Goal',exact:true}).waitFor().catch(async error=>{console.error((await page.locator('body').innerText()).slice(0,2500));throw error})
   await page.evaluate(()=>window.setSignal(false))
@@ -248,4 +309,5 @@ try {
   assert.equal(await page.evaluate(()=>window.server.events.at(-1).playerName),'Other: Paul');
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
+  }
 } finally {await browser.close()}
