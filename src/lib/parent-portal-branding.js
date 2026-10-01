@@ -7,7 +7,7 @@ import { CAPABILITIES, getFeatureAccess } from './paywall-access.js'
 
 export const DEFAULT_PARENT_PORTAL_BRANDING = {
   mode: 'system',
-  accent: 'yellow',
+  accent: 'green',
   buttonStyle: 'solid',
 }
 

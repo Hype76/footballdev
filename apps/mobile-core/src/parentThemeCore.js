@@ -72,13 +72,13 @@ export function normalizeParentThemeMode(value) {
   return normalizeText(value).toLowerCase() === 'light' ? 'light' : 'dark'
 }
 
-export function normalizeParentThemeAccent(value, fallback = 'yellow') {
+export function normalizeParentThemeAccent(value, fallback = 'green') {
   const normalized = normalizeText(value).toLowerCase()
   if (THEME_ACCENTS.has(normalized) || HEX_ACCENT_PATTERN.test(normalized)) return normalized
   const normalizedFallback = normalizeText(fallback).toLowerCase()
   return THEME_ACCENTS.has(normalizedFallback) || HEX_ACCENT_PATTERN.test(normalizedFallback)
     ? normalizedFallback
-    : 'yellow'
+    : 'green'
 }
 
 export function normalizeParentButtonStyle(value) {
@@ -100,17 +100,18 @@ export const getParentThemeContrastRatio = themeContrastRatio
 
 function resolveAccentPalette(accent, mode) {
   if (HEX_ACCENT_PATTERN.test(accent)) return { accent, button: accent }
-  return WEB_ACCENT_PALETTES[mode][accent] || WEB_ACCENT_PALETTES[mode].yellow
+  return WEB_ACCENT_PALETTES[mode][accent] || WEB_ACCENT_PALETTES[mode].green
 }
 
 export function resolveParentMobileBranding(selectedLink = null) {
-  const modernPlan = ['matchday', 'team', 'club'].includes(normalizeText(selectedLink?.planKey).toLowerCase())
-  const accessContext = { ...selectedLink, teamId: selectedLink?.teamId }
+  const planKey = normalizeText(selectedLink?.planKey || selectedLink?.plan_key).toLowerCase()
+  const modernPlan = ['matchday', 'team', 'club'].includes(planKey)
+  const accessContext = { ...selectedLink, planKey, teamId: selectedLink?.teamId }
   const logoAllowed = !modernPlan || getFeatureAccess(accessContext, CAPABILITIES.basicLogoBranding).allowed
   const coloursAllowed = !modernPlan || getFeatureAccess(accessContext, CAPABILITIES.customColoursBranding).allowed
   const source = { ...selectedLink, ...(coloursAllowed ? {} : { themeAccent: '', themeButtonStyle: '' }), ...(logoAllowed ? {} : { clubLogoUrl: '' }) }
   return {
-    accent: normalizeParentThemeAccent(source?.themeAccent, 'yellow'),
+    accent: normalizeParentThemeAccent(source?.themeAccent),
     buttonStyle: normalizeParentButtonStyle(source?.themeButtonStyle),
     clubLogoUrl: normalizeParentLogoUrl(source?.clubLogoUrl),
     sourceClubId: normalizeText(selectedLink?.clubId),
