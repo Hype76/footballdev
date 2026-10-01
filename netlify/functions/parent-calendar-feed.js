@@ -17,14 +17,16 @@ const formatIcsTime = value => {
 const calendarTime = (item, key, timeKey) => {
   if (item[key]) {
     const parts = getParentProductDateTimeParts(item[key])
-    if (parts.isValid && parts.hasTime) return parts.instant
+    if (parts.isValid && parts.date && parts.hasTime) return parts.instant
       ? { value: formatIcsTime(item[key]), utc: true }
       : { value: `${parts.date.replace(/-/g, '')}T${parts.time.replace(':', '')}00`, utc: false }
     if (parts.isValid && parts.isAllDay) return { value: parts.date.replace(/-/g, ''), allDay: true }
   }
   const date = String(item.date || '')
-  if (!getParentProductDateTimeParts(date).isValid) return { value: '' }
-  const parts = getParentProductDateTimeParts(String(item[timeKey] || '').replace(/Z$/i, ''))
+  if (!getParentProductDateTimeParts(date).isAllDay) return { value: '' }
+  const rawTime = String(item[timeKey] || '').replace(/Z$/i, '')
+  const parts = getParentProductDateTimeParts(rawTime)
+  if (rawTime && !parts.hasTime) return { value: '' }
   return parts.hasTime
     ? { value: `${date.replace(/-/g, '')}T${parts.time.replace(':', '')}00`, utc: false }
     : { value: date.replace(/-/g, ''), allDay: true }

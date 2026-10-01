@@ -108,6 +108,16 @@ test('long UTF-8 calendar text and identities fold safely to 75 octets', () => {
   assert.ok(unfolded(body).includes(`SUMMARY:${title}`))
 })
 
+test('malformed dates and times cannot create malformed calendar events', () => {
+  const body = buildAcceptedCalendarFeed([
+    { id: 'time-as-date', date: '10:00', time: '10:00', response: 'available' },
+    { id: 'time-as-timestamp', starts_at: '10:00', response: 'available' },
+    { id: 'impossible-date', date: '2026-02-31', time: '10:00', response: 'available' },
+    { id: 'impossible-time', date: '2026-10-17', time: '25:00', response: 'available' },
+  ], 'link')
+  assert.doesNotMatch(body, /BEGIN:VEVENT/)
+})
+
 test('feed handler reflects changed and cancelled attendance on subsequent reads', async () => {
   const records = { parent_calendar_feed_tokens: { auth_user_id: 'user', parent_link_id: 'link' }, parent_player_links: { id: 'link', player_id: 'player', club_id: 'club', team_id: 'team' }, players: { id: 'player', team_id: 'team' }, clubs: { id: 'club', name: 'Test club' } }
   const createClient = () => ({ from: table => {
