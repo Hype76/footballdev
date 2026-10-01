@@ -67,6 +67,7 @@ import { CoachGuestScorer } from './CoachGuestScorer'
 import { CoachSquadPanel } from './CoachSquadPanel'
 import { createCoachSquadTemplateStore } from '../../mobile-core/src/coachSquadTemplateData'
 import { useCoachMatchDayOutbox } from './useCoachMatchDayOutbox'
+import { selectCoachMatchDayDisplayMatch } from './coachMatchDayDisplayCore'
 import { canCorrectMatchDayCommand, MATCH_DAY_OFFLINE_MAX_AGE, OFFLINE_MATCH_TIMER_ACTIONS } from '../../mobile-core/src/matchDayOutboxCore'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 
@@ -563,7 +564,7 @@ function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, match,
       <Text selectable style={styles.score}>{report.result.finalScore}</Text>
       {report.result.shootoutScore ? <Text style={styles.body}>Shootout {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
       {match.status === 'full_time' && !match.concludedAt ? <><Text style={styles.body}>Review the score and match events below, then conclude the match.</Text>{concludeBlockedReason ? <Text style={styles.body}>{concludeBlockedReason}</Text> : null}<Button disabled={busy || !canConclude} label="Conclude match" onPress={onConclude} styles={styles} /></> : null}
-      {match.concludedAt ? <Text style={styles.body}>Match concluded</Text> : null}
+      {match.concludedAt ? <Text accessibilityLiveRegion="polite" style={styles.fieldLabel}>Match concluded</Text> : null}
     </View>
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Match summary</Text>
@@ -610,8 +611,8 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const [stale, setStale] = useState(false)
   const [reconciling, setReconciling] = useState(false)
   const outbox = useCoachMatchDayOutbox({ user, context, matchId: serverMatch?.id })
-  const match = outbox.projected || serverMatch
   const pendingCount = outbox.journal?.pending?.length || 0
+  const match = selectCoachMatchDayDisplayMatch(serverMatch, outbox.projected, pendingCount)
   const refreshOutbox = outbox.refresh
   const offlineReady = Boolean(outbox.journal?.baseMatch && Date.now() - Date.parse(outbox.journal.verifiedAt) < MATCH_DAY_OFFLINE_MAX_AGE)
   useEffect(() => {

@@ -81,6 +81,7 @@ try {
  assert.equal(await page.getByLabel('Private calendar link',{exact:true}).count(),0)
  await button('How to add your calendar').click()
  await page.getByText(/In iPhone Calendar/).waitFor()
+ await page.getByText(/Events added individually to your own calendar are separate copies/).waitFor()
  await button('How to add your calendar').click()
  await button('Manage calendar link').click()
  await button('Replace calendar link').click()

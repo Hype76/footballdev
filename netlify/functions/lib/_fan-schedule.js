@@ -175,7 +175,7 @@ export async function loadFanSchedule(client, scope, now = new Date(), { feature
     const sessions = await rows(client.from('assessment_sessions').select('id,title,session_date,start_time,end_time,location,status').in('id', assessmentIds).eq('club_id', scope.fan.club_id).neq('status', 'cancelled'))
     schedule.push(...sessions.map((session) => ({ id: session.id, title: session.title || 'Assessment', date: session.session_date, time: session.start_time, end_time: session.end_time, location: session.location, event_type: 'assessment', status: session.status })))
   }
-  schedule.push(...matches.map((match) => ({ id: match.id, title: getMatchDayDisplayName(match), date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, location: match.venue_name, home_away: match.home_away, selected_player_names: match.selected_player_names, event_type: 'match_day', status: match.status })))
+  schedule.push(...matches.map((match) => ({ id: match.id, title: getMatchDayDisplayName(match), date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, updated_at: match.updated_at, location: match.venue_name, home_away: match.home_away, selected_player_names: match.selected_player_names, event_type: 'match_day', status: match.status })))
   if (includePast) {
     const earliest = getParentProductDateTimeParts(new Date(now.getTime() - 90 * 86400000)).date
     return schedule.filter(item => getParentProductDateTimeParts(item.starts_at || item.date).date >= earliest && !['cancelled', 'postponed'].includes(item.status))

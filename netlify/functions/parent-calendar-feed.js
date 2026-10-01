@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto'
+import { Buffer } from 'node:buffer'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { loadPlayerAttendance } from './lib/_fan-schedule.js'
+import { getParentProductDateTimeParts } from '../../apps/mobile-core/src/parentDateTimeCore.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TOKEN = /^[0-9a-f]{64}$/
@@ -13,12 +15,41 @@ const formatIcsTime = value => {
   return Number.isNaN(date.getTime()) ? '' : date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
 }
 const calendarTime = (item, key, timeKey) => {
-  if (item[key]) return { value: formatIcsTime(item[key]), utc: true }
+  if (item[key]) {
+    const parts = getParentProductDateTimeParts(item[key])
+    if (parts.isValid && parts.hasTime) return parts.instant
+      ? { value: formatIcsTime(item[key]), utc: true }
+      : { value: `${parts.date.replace(/-/g, '')}T${parts.time.replace(':', '')}00`, utc: false }
+    if (parts.isValid && parts.isAllDay) return { value: parts.date.replace(/-/g, ''), allDay: true }
+  }
   const date = String(item.date || '')
-  const time = String(item[timeKey] || item.time || '00:00').replace(/[^0-9:]/g, '')
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) && /^\d{2}:\d{2}(?::\d{2})?$/.test(time)
-    ? { value: `${date.replace(/-/g, '')}T${time.replace(/:/g, '').padEnd(6, '0')}`, utc: false }
-    : { value: '', utc: false }
+  if (!getParentProductDateTimeParts(date).isValid) return { value: '' }
+  const parts = getParentProductDateTimeParts(String(item[timeKey] || '').replace(/Z$/i, ''))
+  return parts.hasTime
+    ? { value: `${date.replace(/-/g, '')}T${parts.time.replace(':', '')}00`, utc: false }
+    : { value: date.replace(/-/g, ''), allDay: true }
+}
+
+function calendarEnd(item, start) {
+  const supplied = item.ends_at || item.end_time ? calendarTime(item, 'ends_at', 'end_time') : null
+  if (supplied?.value && supplied.allDay === start.allDay && supplied.utc === start.utc && supplied.value > start.value) return supplied
+  const raw = start.value
+  const date = start.utc ? new Date(item.starts_at) : new Date(`${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${start.allDay ? '00:00' : `${raw.slice(9, 11)}:${raw.slice(11, 13)}`}:00Z`)
+  const duration = Number(item.duration_minutes)
+  date.setUTCMinutes(date.getUTCMinutes() + (start.allDay ? 1440 : Number.isFinite(duration) && duration > 0 ? duration : 120))
+  const value = formatIcsTime(date)
+  return { ...start, value: start.allDay ? value.slice(0, 8) : start.utc ? value : value.replace(/Z$/, '') }
+}
+
+function foldIcsLine(line) {
+  let result = '', size = 0
+  for (const character of line) {
+    const bytes = Buffer.byteLength(character)
+    if (size + bytes > 75) { result += '\r\n '; size = 1 }
+    result += character
+    size += bytes
+  }
+  return result
 }
 
 export function buildAcceptedCalendarFeed(items, parentLinkId) {
@@ -26,17 +57,20 @@ export function buildAcceptedCalendarFeed(items, parentLinkId) {
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Football Player//Accepted calendar//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Football Player accepted events', 'BEGIN:VTIMEZONE', 'TZID:Europe/London', 'BEGIN:DAYLIGHT', 'DTSTART:19700329T010000', 'TZOFFSETFROM:+0000', 'TZOFFSETTO:+0100', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU', 'END:DAYLIGHT', 'BEGIN:STANDARD', 'DTSTART:19701025T020000', 'TZOFFSETFROM:+0100', 'TZOFFSETTO:+0000', 'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU', 'END:STANDARD', 'END:VTIMEZONE']
   for (const item of items) {
     if (!['available', 'yes', 'accepted', 'attending'].includes(String(item.response || '').toLowerCase())) continue
+    if (['cancelled', 'postponed'].includes(String(item.status || '').toLowerCase()) || item.cancelled_at || item.deleted_at) continue
     const start = calendarTime(item, 'starts_at', 'time')
     if (!start.value) continue
-    const end = calendarTime(item, 'ends_at', 'end_time')
-    lines.push('BEGIN:VEVENT', `UID:${escapeIcs(parentLinkId)}-${escapeIcs(item.id)}@footballplayer.online`, `DTSTAMP:${now}`, `${start.utc ? 'DTSTART' : 'DTSTART;TZID=Europe/London'}:${start.value}`)
-    if (end.value && end.value > start.value) lines.push(`${end.utc ? 'DTEND' : 'DTEND;TZID=Europe/London'}:${end.value}`)
-    lines.push(`SUMMARY:${escapeIcs(item.title || 'Football Player event')}`)
+    const end = calendarEnd(item, start)
+    const property = (name, value) => `${name}${value.allDay ? ';VALUE=DATE' : value.utc ? '' : ';TZID=Europe/London'}:${value.value}`
+    lines.push('BEGIN:VEVENT', `UID:${escapeIcs(parentLinkId)}-${escapeIcs(item.id)}@footballplayer.online`, `DTSTAMP:${now}`, property('DTSTART', start), property('DTEND', end))
+    const modified = item.updated_at ? formatIcsTime(item.updated_at) : ''
+    if (modified) lines.push(`LAST-MODIFIED:${modified}`)
+    lines.push(`SUMMARY:${escapeIcs(item.title || 'Football Player event')}${start.allDay && item.event_type === 'match_day' ? ' (Time TBC)' : ''}`, 'STATUS:CONFIRMED')
     if (item.location) lines.push(`LOCATION:${escapeIcs(item.location)}`)
     lines.push('END:VEVENT')
   }
   lines.push('END:VCALENDAR')
-  return `${lines.join('\r\n')}\r\n`
+  return `${lines.map(foldIcsLine).join('\r\n')}\r\n`
 }
 
 async function one(query) {
