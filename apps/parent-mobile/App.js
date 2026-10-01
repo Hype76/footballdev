@@ -1605,10 +1605,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
     try {
       const result = await saveParentMobileMatchReportPdf(match)
-      if (result.saved) setNotice({ message: 'Match report PDF saved to your selected folder.', tone: 'success' })
-      else if (Platform.OS === 'ios') setNotice({ message: 'To keep the PDF in Files, choose Save to Files in the iPhone sheet.', tone: 'info' })
+      if (result.saved) setNotice({ message: 'Match report PDF saved to your selected folder.', tone: 'success', compact: true })
     } catch (error) {
-      setNotice({ message: getParentFriendlyError(error, 'The match report PDF could not be prepared.'), tone: 'warning' })
+      setNotice({ message: getParentFriendlyError(error, 'The match report PDF could not be prepared.'), tone: 'warning', compact: true })
     } finally {
       setActiveActionId('')
     }
@@ -2344,7 +2343,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 visibleKeys={['updates', 'invites', 'results', 'fans', 'development', 'resources', 'polls', 'feedback', 'bug', 'profile', 'settings', 'partners'].filter((key) => parentRouteAllowed(key))}
               />
             ) : null}
-            {renderedActiveTab === 'more' && renderedMoreSection && renderedMoreSection !== 'fans' ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
             {renderedActiveTab === 'more' && ['feedback', 'bug'].includes(renderedMoreSection) ? <UserFeedbackScreen key={renderedMoreSection} type={renderedMoreSection} appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 16 }} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'profile' ? <ParentProfileScreen key={`profile-${user.id}-${user.displayName || user.name || ''}`} activeActionId={activeActionId} isOffline={isOffline} isSyncing={isSyncing} onDisplayNameChange={handleDisplayNameChange} user={user} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'partners' ? <PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
@@ -3145,7 +3144,11 @@ function SettingsScreen({
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
   const [calendarFeed, setCalendarFeed] = useState({ userId: '', linkId: '', url: '' })
+  const [visibleCalendarLink, setVisibleCalendarLink] = useState(null)
+  const [calendarHelpExpanded, setCalendarHelpExpanded] = useState(false)
+  const [calendarManageExpanded, setCalendarManageExpanded] = useState(false)
   const calendarFeedUrl = calendarFeed.userId === user?.id && calendarFeed.linkId === selectedLink?.id ? calendarFeed.url : ''
+  const calendarLinkVisible = visibleCalendarLink?.userId === user?.id && visibleCalendarLink?.linkId === selectedLink?.id
   const [calendarBusy, setCalendarBusy] = useState(false)
   const [calendarError, setCalendarError] = useState('')
   const [calendarNotice, setCalendarNotice] = useState('')
@@ -3162,6 +3165,7 @@ function SettingsScreen({
     return () => { current = false }
   }, [selectedLink, user])
   async function showPhoneCalendarLink() {
+    if (calendarBusy) return
     setCalendarBusy(true)
     setCalendarError('')
     setCalendarNotice('')
@@ -3171,6 +3175,7 @@ function SettingsScreen({
       const url = storedUrl || await changeParentCalendarFeed(user, selectedLink, 'generate')
       if (!/^https:\/\//i.test(url)) throw new Error('The calendar subscription link is invalid. Replace it and try again.')
       setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
+      setVisibleCalendarLink({ userId: user.id, linkId: selectedLink.id })
       setCalendarNotice('Press and hold the link below to copy it.')
     } catch (error) {
       setCalendarError(error.message)
@@ -3179,12 +3184,15 @@ function SettingsScreen({
     }
   }
   async function changeCalendarSubscription(action) {
+    if (calendarBusy || isOffline || !selectedLink?.id) return
     setCalendarBusy(true)
     setCalendarError('')
     setCalendarNotice('')
     try {
       const url = await changeParentCalendarFeed(user, selectedLink, action)
       setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
+      setVisibleCalendarLink(null)
+      setCalendarNotice(action === 'revoke' ? 'Calendar link revoked.' : 'Calendar link replaced. Add the new link in your calendar app.')
     } catch (error) {
       setCalendarError(error.message)
     } finally {
@@ -3401,16 +3409,19 @@ function SettingsScreen({
       </SettingsSection>
 
       <SettingsSection id="calendar-sync" label="Calendar sync" iconKey="action.calendar">
-        <Text style={styles.helperText}>Add accepted events for {selectedLink?.playerName || 'the selected player'} to your calendar. Unanswered, declined and cancelled events stay out. Your calendar app controls when updates appear.</Text>
-        <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label="Show secure calendar link" onPress={() => { void showPhoneCalendarLink() }} secondary />
-        <Text style={styles.helperText}>{Platform.OS === 'ios' ? 'In iPhone Calendar, choose Calendars, Add Calendar, then Add Subscription Calendar and paste the link.' : 'In Google Calendar on a computer, choose Other calendars, then From URL. The added calendar can then sync to your phone.'}</Text>
-        <Text style={styles.helperText}>This private link shows a rolling 90 day view. Keep it private. Replacing it stops the previous link working; to remove a calendar from your phone, unsubscribe in your calendar app.</Text>
-        {calendarFeedUrl ? <Text selectable style={styles.bodyText}>{calendarFeedUrl}</Text> : null}
-        {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy} label="Share subscription link" onPress={() => { void Share.share({ message: calendarFeedUrl, url: calendarFeedUrl }).catch((error) => setCalendarError(error.message)) }} secondary /> : null}
-        <PrimaryAction disabled={calendarBusy || isOffline || !selectedLink?.id} label={calendarFeedUrl ? 'Replace subscription link' : 'Generate subscription link'} onPress={() => { void changeCalendarSubscription('generate') }} secondary />
-        {calendarFeedUrl ? <PrimaryAction disabled={calendarBusy || isOffline} label="Revoke subscription link" onPress={() => { void changeCalendarSubscription('revoke') }} secondary /> : null}
-        {calendarNotice ? <Text style={styles.helperText}>{calendarNotice}</Text> : null}
-        {calendarError ? <Text style={styles.errorText}>{calendarError}</Text> : null}
+        <Text accessibilityRole="header" style={styles.cardTitle}>Calendar sync</Text>
+        <Text style={styles.helperText}>Accepted events for {selectedLink?.playerName || 'the selected player'}, updated in your calendar.</Text>
+        <View style={styles.calendarActions}>
+          <PrimaryAction iconKey="link" disabled={calendarBusy || isOffline || !selectedLink?.id} label={calendarLinkVisible && calendarFeedUrl ? 'Hide secure calendar link' : 'Show secure calendar link'} onPress={() => { if (calendarLinkVisible) { setVisibleCalendarLink(null); setCalendarNotice('') } else { void showPhoneCalendarLink() } }} secondary />
+          {calendarLinkVisible && calendarFeedUrl ? <Text selectable accessibilityLabel="Private calendar link" style={styles.bodyText}>{calendarFeedUrl}</Text> : null}
+          {calendarFeedUrl ? <PrimaryAction iconKey="fan.share" disabled={calendarBusy} label="Share calendar link" onPress={() => { void Share.share({ message: calendarFeedUrl, url: calendarFeedUrl }).catch((error) => setCalendarError(error.message)) }} secondary /> : null}
+          <Pressable accessibilityRole="button" accessibilityState={{ expanded: calendarHelpExpanded }} onPress={() => setCalendarHelpExpanded((value) => !value)} style={styles.calendarDisclosure}><ParentIcon iconKey="help-outline" color={palette.accentText} size={23} /><Text style={styles.calendarActionText}>How to add your calendar</Text><ParentIcon iconKey={calendarHelpExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} color={palette.accentText} size={22} /></Pressable>
+          {calendarHelpExpanded ? <View style={styles.infoStack}><Text style={styles.helperText}>{Platform.OS === 'ios' ? 'In iPhone Calendar, choose Calendars, Add Calendar, then Add Subscription Calendar and paste the link.' : 'In Google Calendar on a computer, choose Other calendars, then From URL. The added calendar can then sync to your phone.'}</Text><Text style={styles.helperText}>Only accepted events appear in the rolling 90 day view. Unanswered, declined and cancelled events stay out. Your calendar app controls when updates appear. Keep the link private.</Text><Text style={styles.helperText}>To remove the calendar from your phone, remove it in your calendar app.</Text></View> : null}
+          {calendarFeedUrl ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: calendarManageExpanded }} onPress={() => setCalendarManageExpanded((value) => !value)} style={styles.calendarDisclosure}><ParentIcon iconKey="settings" color={palette.accentText} size={23} /><Text style={styles.calendarActionText}>Manage calendar link</Text><ParentIcon iconKey={calendarManageExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} color={palette.accentText} size={22} /></Pressable> : null}
+          {calendarFeedUrl && calendarManageExpanded ? <View style={styles.infoStack}><Text style={styles.helperText}>Replacing or revoking this link stops the previous link working.</Text><PrimaryAction iconKey="refresh" disabled={calendarBusy || isOffline} label="Replace calendar link" onPress={() => Alert.alert('Replace calendar link?', 'The previous link will stop working. Add the new link in your calendar app.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Replace link', onPress: () => { void changeCalendarSubscription('generate') } }])} secondary /><PrimaryAction iconKey="link-off" disabled={calendarBusy || isOffline} label="Revoke calendar link" onPress={() => Alert.alert('Revoke calendar link?', 'This stops calendar updates through the current link.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Revoke link', style: 'destructive', onPress: () => { void changeCalendarSubscription('revoke') } }])} secondary /></View> : null}
+        </View>
+        {calendarNotice ? <Text accessibilityLiveRegion="polite" style={styles.helperText}>{calendarNotice}</Text> : null}
+        {calendarError ? <Text accessibilityLiveRegion="polite" style={styles.errorText}>{calendarError}</Text> : null}
       </SettingsSection>
 
       </IconSettings>
@@ -3574,7 +3585,7 @@ function PrimaryAction({ disabled = false, iconKey, label, loading = false, onPr
 function BackButton({ label, onPress }) {
   const { styles } = useParentTheme()
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
       <Text style={styles.backButtonText}>{label}</Text>
     </Pressable>
   )
@@ -3777,6 +3788,9 @@ function createParentAppStyles(tokens) {
   childOptionTeamActive: { color: palette.accentText },
   chatRouteContent: { flex: 1, gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   compactCopy: { flex: 1, gap: 3, minWidth: 0 },
+  calendarActions: { borderTopColor: palette.border, borderTopWidth: 1, gap: 4, paddingTop: 4 },
+  calendarDisclosure: { alignItems: 'center', flexDirection: 'row', gap: 10, minHeight: 44, paddingVertical: 8 },
+  calendarActionText: { color: palette.accentText, flex: 1, fontSize: 14, fontWeight: '800' },
   compactRow: { alignItems: 'center', flexDirection: 'row', gap: 11, minHeight: 58 },
   contentColumn: { alignSelf: 'center', maxWidth: 680, width: '100%' },
   detailScore: { color: palette.accentText, fontSize: 40, fontWeight: '900', letterSpacing: -1 },

@@ -116,6 +116,8 @@ jobs:
         run: npm run test:v1-stabilise
       - name: Install Parent encryption test dependencies
         run: npm ci --prefix apps/parent-mobile --include=optional
+      - name: Parent calendar, Fans back navigation and PDF saving
+        run: node --test tests/parent-simon-feedback.test.mjs tests/parent-calendar-ota-compat.test.mjs tests/parent-match-report-save.test.mjs && node tests/parent-simon-feedback-browser.mjs
       - name: Fans layout and app invitation handoff
         run: >-
           node --test tests/fan-app-handoff.test.mjs tests/fan-app-link.test.mjs &&
