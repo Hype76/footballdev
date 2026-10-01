@@ -75,7 +75,7 @@ BackHandler.addEventListener=(event,handler)=>{backHandler=handler;return {remov
 window.hardwareBack=()=>backHandler?.()||false;
 const record=name=>(...args)=>{window.calls.push({name,args});return Promise.resolve()};
 function App(){
-  const [app,setApp]=React.useState('parent'),[mode,setMode]=React.useState('dark'),[focus,setFocus]=React.useState(null),[overrides,setOverrides]=React.useState({}),[accent,setAccent]=React.useState('#2ba7aa');
+  const [app,setApp]=React.useState('parent'),[mode,setMode]=React.useState('dark'),[focus,setFocus]=React.useState(null),[overrides,setOverrides]=React.useState({}),[accent,setAccent]=React.useState(undefined);
   window.showApp=value=>{setApp(value);setOverrides({});setFocus(null)};window.setMode=setMode;window.setAccent=setAccent;
   window.openBell=()=>setFocus({id:Date.now()});window.override=setOverrides;
   const props={user:{id:'synthetic',displayName:'Alex',email:'alex@example.invalid'},context:{role:'coach',roleRank:30,roleLabel:'Coach',teamId:'synthetic-team',teamName:'U17',clubName:'Demo FC'},
@@ -159,7 +159,7 @@ try {
     await page.screenshot({path:`${out}/${app}-system.png`,fullPage:true})
     await back()
     await page.evaluate(() => window.setMode('dark'))
-    for (const accent of ['#2ba7aa', '#000000', '#ffffff', '#777777', '#000080', '#ffff00', 'green', 'blue', 'red', 'purple', 'yellow']) {
+    for (const accent of [undefined, '#2ba7aa', '#000000', '#ffffff', '#777777', '#000080', '#ffff00', 'green', 'blue', 'red', 'purple', 'yellow']) {
       await page.evaluate(accent => window.setAccent(accent), accent)
       for (const mode of ['dark', 'light']) {
         await page.evaluate(mode => window.setMode(mode), mode)

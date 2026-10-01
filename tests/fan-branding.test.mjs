@@ -27,7 +27,7 @@ test('Matchday Fan branding hides stored club customisation unless the trusted p
   const source = { club_id: 'club', club_logo_url: 'https://example.test/club.png', plan_key: 'matchday', theme_accent: '#123abc' }
   const restricted = fanBrandingLink(source, { flags: { basicLogoBranding: false, customColoursBranding: false } })
   assert.equal(restricted.clubLogoUrl, '')
-  assert.equal(restricted.themeAccent, 'yellow')
+  assert.equal(restricted.themeAccent, 'green')
 
   const enabled = fanBrandingLink(source, { flags: { basicLogoBranding: true, customColoursBranding: true } })
   assert.equal(enabled.clubLogoUrl, source.club_logo_url)
