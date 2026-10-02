@@ -17,6 +17,8 @@ async function setup() {
     create role anon;
     create role authenticated;
     create role service_role;
+    create table public.clubs (id uuid primary key, plan_key text);
+    insert into public.clubs values ('${CLUB_A}', 'team'), ('${CLUB_B}', 'club');
     create table public.teams (
       id uuid primary key,
       club_id uuid not null,
@@ -46,6 +48,12 @@ async function setup() {
     grant select, insert, update on public.teams to authenticated;
   `)
   await db.exec(await readFile(migrationUrl, 'utf8'))
+  const scopes = await readFile(new URL('../supabase/migrations/20260918104253_matchday_tier_entitlement_security.sql', import.meta.url), 'utf8')
+  for (const name of ['normalize_subscription_plan_key', 'workspace_scope_for_plan_key']) {
+    const start = scopes.indexOf('create or replace function public.' + name)
+    await db.exec(scopes.slice(start, scopes.indexOf('$;', start) + 3))
+  }
+  await db.exec(await readFile(new URL('../supabase/migrations/20261002115841_club_managed_team_kits.sql', import.meta.url), 'utf8'))
   return db
 }
 
@@ -100,5 +108,35 @@ test('initial team creation cannot seed colours without Matchday entitlement', a
   await actor(db, { matchday: false, team: newTeam })
   await assert.rejects(db.query(`insert into public.teams (id, club_id, name, home_kit_colour) values ($1, $2, 'C', '#2563eb')`, [newTeam, CLUB_A]), /plan_capability_not_available/)
   await db.query(`insert into public.teams (id, club_id, name) values ('00000000-0000-4000-8000-000000000014', $1, 'D')`, [CLUB_A])
+  await db.close()
+})
+
+
+test('club scopes block manager and admin override writes, clears and seeds; saved data survives upgrade and transfer', async () => {
+  const db=await setup()
+  await actor(db)
+  await db.query("update public.teams set home_kit_colour='#dc2626', away_kit_colour='#ffffff' where id=$1", [TEAM_A])
+  for (const plan of ['club','small_club','development_club','large_club','pilot']) {
+    await db.query('update public.clubs set plan_key=$1 where id=$2', [plan, CLUB_A])
+    for (const role of ['manager','admin','super_admin']) {
+      await actor(db,{role})
+      for (const value of ['#2563eb',null]) {
+        await assert.rejects(db.query('update public.teams set home_kit_colour=$1 where id=$2',[value,TEAM_A]), /team_kits_managed_by_club_admin/)
+      }
+    }
+    await db.query('update public.teams set home_kit_colour=home_kit_colour, name=name where id=$1',[TEAM_A])
+    const seeded='00000000-0000-4000-8000-000000000088'
+    await actor(db,{team:seeded})
+    await assert.rejects(db.query("insert into public.teams(id,club_id,name,home_kit_colour) values($1,$2,'seed','#2563eb')",[seeded,CLUB_A]), /team_kits_managed_by_club_admin/)
+  }
+  assert.deepEqual((await db.query('select home_kit_colour,away_kit_colour from public.teams where id=$1',[TEAM_A])).rows[0], {home_kit_colour:'#dc2626',away_kit_colour:'#ffffff'})
+  await db.query('update public.teams set club_id=$1 where id=$2',[CLUB_B,TEAM_A])
+  await actor(db,{club:CLUB_B})
+  await assert.rejects(db.query("update public.teams set home_kit_colour='#2563eb' where id=$1",[TEAM_A]), /team_kits_managed_by_club_admin/)
+  for (const plan of ['matchday','team','single_team','individual','legacy_unknown']) {
+    await db.query('update public.clubs set plan_key=$1 where id=$2',[plan,CLUB_B])
+    await db.query("update public.teams set home_kit_colour='#2563eb' where id=$1",[TEAM_A])
+    await db.query("update public.teams set home_kit_colour='#dc2626' where id=$1",[TEAM_A])
+  }
   await db.close()
 })

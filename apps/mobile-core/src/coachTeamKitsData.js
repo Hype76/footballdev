@@ -1,5 +1,5 @@
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
-import { normalizeKitColour, normalizeTeamKits } from '../../../src/lib/team-kits.js'
+import { isClubManagedTeamKit, normalizeKitColour, normalizeTeamKits } from '../../../src/lib/team-kits.js'
 import { assertCoachCapability, assertCoachOperationalMutation, assertCoachOperationalRead } from './coachOperationalData'
 import { supabase } from './supabase'
 
@@ -17,6 +17,7 @@ export async function getCoachTeamKits(user) {
 export async function saveCoachTeamKits(user, values) {
   assertCoachOperationalMutation(user, { minimumRank: 50, requiresTeam: true })
   assertCoachCapability(user, CAPABILITIES.matchDay)
+  if (isClubManagedTeamKit(user)) throw new Error('Managed by your Club Admin')
   const homeValue = String(values?.home?.colour ?? '').trim()
   const awayValue = String(values?.away?.colour ?? '').trim()
   const home = normalizeKitColour(homeValue)
