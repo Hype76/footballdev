@@ -6,6 +6,7 @@ import { parseFanAppLink } from '../../mobile-core/src/fanAppLinkCore'
 const pendingKey = 'fp.parent.pending-fan-invitation.v1'
 export function useFanAppLink() {
   const [route, setRoute] = useState(null)
+  const [ready, setReady] = useState(false)
   const revision = useRef(0)
   const storage = useRef(Promise.resolve())
   const save = useCallback(next => {
@@ -20,13 +21,16 @@ export function useFanAppLink() {
     const subscription = Linking.addEventListener('url', event => {
       const next = parseFanAppLink(event.url)
       if (next) select(next)
+      setReady(true)
     })
     Promise.all([Linking.getInitialURL().catch(() => null), SecureStore.getItemAsync(pendingKey).catch(() => null)]).then(([initial, saved]) => {
-      if (!active || revision.current !== initialRevision) return
+      if (!active) return
+      if (revision.current !== initialRevision) { setReady(true); return }
       const next = parseFanAppLink(initial) || parseFanAppLink(saved)
       if (next) select(next)
+      setReady(true)
     })
     return () => { active = false; subscription.remove() }
   }, [select])
-  return { route, close: useCallback(() => select(null), [select]), accepted: useCallback(() => select({ kind: 'fans' }), [select]) }
+  return { route, ready, close: useCallback(() => select(null), [select]), accepted: useCallback(() => select({ kind: 'fans' }), [select]) }
 }
