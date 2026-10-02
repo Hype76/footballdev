@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { readWorkspaceInviteLocation } from '../src/lib/workspace-invite-location.js'
+import { clearWorkspaceInviteLocation, readWorkspaceInviteLocation } from '../src/lib/workspace-invite-location.js'
 
 const location = (value) => new URL(value, 'https://example.test')
 
@@ -34,4 +34,10 @@ test('new links take precedence and a bare URL never recovers another invitation
   assert.equal(readWorkspaceInviteLocation(location('/workspace-invite?token=synthetic-new#token=synthetic-old'), 'synthetic-legacy').token, 'synthetic-new')
   assert.equal(readWorkspaceInviteLocation(location('/workspace-invite#token=synthetic-second')).token, 'synthetic-second')
   assert.deepEqual(readWorkspaceInviteLocation(location('/workspace-invite')), { token: '', replacement: null })
+})
+
+test('retiring an invitation removes all credential forms while preserving unrelated location data', () => {
+  assert.deepEqual(clearWorkspaceInviteLocation(location('/workspace-invite/synthetic-legacy?token=synthetic-query&source=tutorial#token=synthetic-fragment&step=setup'), 'synthetic-legacy'), {
+    pathname: '/workspace-invite', search: '?source=tutorial', hash: '#step=setup',
+  })
 })

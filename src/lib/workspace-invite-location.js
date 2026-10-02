@@ -20,3 +20,15 @@ export function readWorkspaceInviteLocation(location, legacyToken = '') {
 
   return { token, replacement }
 }
+
+export function clearWorkspaceInviteLocation(location, legacyToken = '') {
+  const query = new URLSearchParams(location.search)
+  const fragment = new URLSearchParams(location.hash.replace(/^#/, ''))
+  query.delete('token')
+  fragment.delete('token')
+  return {
+    pathname: legacyToken ? location.pathname.replace(/\/[^/]+\/?$/, '') : location.pathname,
+    search: query.toString() ? `?${query}` : '',
+    hash: fragment.toString() ? `#${fragment}` : '',
+  }
+}

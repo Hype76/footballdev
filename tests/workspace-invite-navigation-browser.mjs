@@ -37,6 +37,7 @@ try {
       }
       const { token } = request.postDataJSON()
       lookupTokens.push(token)
+      if (token === 'synthetic-expired') return route.fulfill({ status: 410, json: { success: false, message: 'Club invite is no longer available.' } })
       return route.fulfill({ json: token ? {
         success: true,
         invite: { workspaceName: 'Synthetic workspace', invitedEmail: 'owner@example.test', planKey: 'large_club', roleLabel: 'Club Admin', billingMode: 'unpaid' },
@@ -98,6 +99,15 @@ try {
     assert.equal(lookupTokens.at(-1), '')
     assert.equal(await page.evaluate(() => Object.values({ ...localStorage, ...sessionStorage }).some((value) => value.includes('synthetic-'))), false)
     console.log('PASS bare URL cannot recover an unrelated invite and no token storage')
+    await page.goto(`${origin}/workspace-invite#token=synthetic-expired`)
+    await page.getByText('Club invite is no longer available.', { exact: true }).waitFor()
+    assert.equal(new URL(page.url()).hash, '')
+    assert.equal(await page.evaluate(() => JSON.stringify(history.state).includes('synthetic-expired')), false)
+    const terminalLookupCount = lookupTokens.length
+    await page.reload()
+    await page.getByText('Club invite is no longer available.', { exact: true }).waitFor()
+    assert.equal(lookupTokens.length, terminalLookupCount)
+    console.log('PASS terminal expiry removes credential without retrying or consuming invite')
   }
   assert.equal(mutationCount, 0)
   console.log('PASS no acceptance or other function mutations')

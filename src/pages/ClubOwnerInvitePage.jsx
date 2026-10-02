@@ -6,7 +6,7 @@ import { APP_DOWNLOAD_LINKS } from '../lib/app-download-links.js'
 import { supabase } from '../lib/supabase-client.js'
 import { recordSuccessfulLoginAnalytics } from '../lib/domain/platform-analytics.js'
 import { assertPasswordPolicy, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
-import { readWorkspaceInviteLocation } from '../lib/workspace-invite-location.js'
+import { clearWorkspaceInviteLocation, readWorkspaceInviteLocation } from '../lib/workspace-invite-location.js'
 
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
@@ -33,6 +33,19 @@ export function ClubOwnerInvitePage() {
 
   useEffect(() => {
     let isCurrent = true
+    const outcome = !token && location.state?.workspaceInviteOutcome
+
+    if (outcome) {
+      setInvite(outcome.invite || null)
+      setSuccessMessage(outcome.successMessage || '')
+      setSignInEmail(outcome.signInEmail || '')
+      setErrorMessage(outcome.errorMessage || '')
+      setPassword('')
+      setConfirmPassword('')
+      setIsPasswordVisible(false)
+      setIsLoading(false)
+      return
+    }
 
     async function loadInvite() {
       setIsLoading(true)
@@ -47,12 +60,22 @@ export function ClubOwnerInvitePage() {
       try {
         const response = await fetch('/.netlify/functions/get-club-owner-invite', {
           method: 'POST',
+          cache: 'no-store',
+          referrerPolicy: 'no-referrer',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),
         })
         const result = await response.json().catch(() => ({}))
 
         if (!response.ok || result.success === false) {
+          if (isCurrent && [409, 410].includes(response.status)) {
+            setErrorMessage(result.message || 'Workspace invite is no longer available.')
+            navigate(clearWorkspaceInviteLocation(location, legacyToken), {
+              replace: true,
+              state: { ...location.state, workspaceInviteOutcome: { errorMessage: result.message || 'Workspace invite is no longer available.' } },
+            })
+            return
+          }
           throw new Error(result.message || 'Workspace invite could not be loaded.')
         }
 
@@ -78,7 +101,7 @@ export function ClubOwnerInvitePage() {
     return () => {
       isCurrent = false
     }
-  }, [token])
+  }, [token, location, legacyToken, navigate])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -114,6 +137,8 @@ export function ClubOwnerInvitePage() {
 
         const response = await fetch('/.netlify/functions/create-club-owner-account', {
           method: 'POST',
+          cache: 'no-store',
+          referrerPolicy: 'no-referrer',
           headers,
           body: JSON.stringify({ token, password: accessToken ? undefined : password }),
         })
@@ -138,8 +163,26 @@ export function ClubOwnerInvitePage() {
       }
 
       if (!response.ok || result.success === false) {
+        if ([409, 410].includes(response.status) && result.code === 'invitation_not_available') {
+          navigate(clearWorkspaceInviteLocation(location, legacyToken), {
+            replace: true,
+            state: { ...location.state, workspaceInviteOutcome: { errorMessage: result.message } },
+          })
+          return
+        }
         throw new Error(result.message || `${invite.roleLabel || 'Workspace'} access could not be created.`)
       }
+
+      // Acceptance is confirmed. Remove the credential before sign-in or app
+      // handoff; only non-credential display data remains in this history entry.
+      const acceptedEmail = result.email || invite.invitedEmail
+      const acceptedMessage = invite.planKey === 'matchday'
+        ? 'Your Matchday access is ready in the Football Player Coach app.'
+        : `${invite.roleLabel || 'Workspace'} access created. Sign in to continue setup.`
+      navigate(clearWorkspaceInviteLocation(location, legacyToken), {
+        replace: true,
+        state: { ...location.state, workspaceInviteOutcome: { invite, successMessage: acceptedMessage, signInEmail: acceptedEmail } },
+      })
 
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: result.email || invite.invitedEmail,
@@ -197,9 +240,9 @@ export function ClubOwnerInvitePage() {
             <p className="mt-6 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-4 text-sm font-semibold text-[#4b5f55]">
               Opening workspace invite...
             </p>
-          ) : errorMessage && !invite ? (
+          ) : !invite ? (
             <div className="mt-6">
-              <NoticeBanner title="Workspace invite not opened" message={errorMessage} />
+              <NoticeBanner title="Workspace invite not opened" message={errorMessage || 'Opening workspace invite...'} />
             </div>
           ) : (
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
