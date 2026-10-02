@@ -7,7 +7,7 @@ import { formatUkDateTime } from '../../../src/lib/date-format.js'
 const checked=result=>{if(result.error)throw result.error;return result.data}
 const digest=value=>createHash('sha256').update(value).digest('hex')
 
-export function createCoachReminderTransport({client,email=sendEmail,push=sendExpoPushMessages,inbox=writeParentNotificationInbox,assertPlan}) {
+export function createCoachReminderTransport({client,email=sendEmail,push=sendExpoPushMessages,inbox=writeParentNotificationInbox,assertPlan,signal,telemetryClient}) {
   return {async send(notification){
     const {job,event}=notification.deliveryContext || {}
     let target=notification.deliveryContext?.target
@@ -56,7 +56,7 @@ export function createCoachReminderTransport({client,email=sendEmail,push=sendEx
       if(coach)query=query.eq('club_id',job.clubId)
       const devices=checked(await query) || []
       if(devices.length && await refresh() && (coach || target.appAllowed)){
-        const receipt=await push(devices.map(device=>({to:device.expo_push_token,title,body:device.detail_level==='detailed'?body:'Open Football Player to review a team availability update.',data,sound:'default'})),{client})
+        const receipt=await push(devices.map(device=>({to:device.expo_push_token,title,body:device.detail_level==='detailed'?body:'Open Football Player to review a team availability update.',data,sound:'default'})),{client,signal})
         if(receipt.failed)throw new Error('Reminder push acceptance is uncertain. Reconciliation is required.')
         receipts.push(`push:${key}:${receipt.sent}`)
       }
@@ -65,7 +65,7 @@ export function createCoachReminderTransport({client,email=sendEmail,push=sendEx
     // new unsolicited Coach email preference or fallback channel.
     if(!coach && await refresh() && target.emailAllowed && target.email){
       const response=await email({from:createFromAddress('Football Player'),to:[target.email],subject:title,text:body,emailAppRole:'parent'},
-        {idempotencyKey:`coach-reminder:${key}:email`,context:{emailType:'availability_follow_up',clubId:job.clubId,teamId:job.teamId,logicalKey:key}})
+        {idempotencyKey:`coach-reminder:${key}:email`,signal,telemetryClient,context:{emailType:'availability_follow_up',clubId:job.clubId,teamId:job.teamId,logicalKey:key}})
       const providerId=response?.data?.id
       if(!providerId)throw new Error('Reminder email acceptance is uncertain.')
       receipts.push(`email:${providerId}`)

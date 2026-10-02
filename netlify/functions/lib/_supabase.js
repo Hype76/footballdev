@@ -54,10 +54,11 @@ export function resolveSupabaseEnvironment(event = {}, { publicOnly = false } = 
   return { supabaseUrl, serviceRoleKey, useStaging: false }
 }
 
-export function createSupabaseAdminClient(event = {}) {
+export function createSupabaseAdminClient(event = {}, options = {}) {
   const { supabaseUrl, serviceRoleKey } = resolveSupabaseEnvironment(event)
 
   return createClient(supabaseUrl, serviceRoleKey, {
+    ...options,
     auth: {
       persistSession: false,
       autoRefreshToken: false,

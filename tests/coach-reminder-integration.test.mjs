@@ -8,6 +8,11 @@ import {authorizeProcessorRequest} from '../netlify/functions/lib/_processor-aut
 import {createCoachReminderTransport} from '../netlify/functions/lib/_coach-reminder-transport.js'
 import processor from '../netlify/functions/process-team-coach-reminders.js'
 import {runCoachReminderProcessor} from '../netlify/functions/lib/_coach-reminder-processor.js'
+import {createCoachReminderDeadline} from '../netlify/functions/lib/_coach-reminder-deadline.js'
+import {createClient} from '@supabase/supabase-js'
+import {sendEmail} from '../netlify/functions/lib/_email-provider.js'
+import {Resend} from 'resend'
+import {sendExpoPushMessages} from '../netlify/functions/lib/_expo-push.js'
 import {normalizeCoachReminderContext} from '../netlify/functions/lib/_coach-reminder-repository.js'
 import {readCoachReminderProjections,projectCoachReminderMatches,applyCoachReminderProjection,findCoachReminderProjection,coachReminderInvitationOccurrence} from '../src/lib/coach-reminder-read-model.js'
 
@@ -105,7 +110,7 @@ function nativeLoader(file,start,end,dependencies){
  return new Function(...Object.keys(dependencies),body+`;return ${start.match(/function (\w+)/)[1]}`)(...Object.values(dependencies))
 }
 
-function processorProgressFixture({count=3,slowPlanning=false,slowScan=false}={}){
+function processorProgressFixture({count=3,slowPlanning=false,slowScan=false,slowJobs=false,slowOutbox=false}={}){
  let elapsed=0,phase=0,cursor=0
  const jobs=new Map(),notifications=new Map(),planned=[],sent=[],limits=[],base=Date.parse('2026-10-04T00:00:00Z')
  const clock=()=>new Date(base+elapsed).toISOString()
@@ -118,9 +123,9 @@ function processorProgressFixture({count=3,slowPlanning=false,slowScan=false}={}
    discoverCandidates:async(limit=30)=>{limits.push(limit);if(slowScan)elapsed+=19;if(cursor>=count){cursor=0;return []}const rows=Array.from({length:Math.min(limit,count-cursor)},(_,i)=>({id:cursor+i}));cursor+=rows.length;return rows},
    planCandidate:async(candidate,now)=>{planned.push(candidate.id);if(slowPlanning)elapsed+=19;return planAvailabilityAutomation({...context(candidate.id),now}).map(job=>({...job,testCandidate:candidate.id}))},
    storeJobs:async(values)=>{for(const job of values)if(!jobs.has(job.key))jobs.set(job.key,{...job,state:'pending'})},
-   pendingJobs:async limit=>[...jobs.values()].filter(job=>job.state==='pending').slice(0,limit).map(job=>({job_key:job.key})),
+   pendingJobs:async limit=>{if(slowJobs)elapsed+=19;return [...jobs.values()].filter(job=>job.state==='pending').slice(0,limit).map(job=>({job_key:job.key}))},
    withLockedJob:async(key,run)=>{const job=jobs.get(key);return run({getJob:async()=>job,loadCurrentContext:async()=>context(job.testCandidate),insertEffectOnce:async()=>{},insertNotificationOnce:async notification=>{if(!notifications.has(notification.idempotencyKey))notifications.set(notification.idempotencyKey,{...notification,state:'pending'})},finish:async value=>{job.state=value.state}})},
-   pendingNotifications:async()=>[...notifications.entries()].filter(([,notification])=>notification.state==='pending').map(([key])=>({delivery_key:key})),
+   pendingNotifications:async()=>{if(slowOutbox)elapsed+=19;return [...notifications.entries()].filter(([,notification])=>notification.state==='pending').map(([key])=>({delivery_key:key}))},
    claimNotification:async key=>({notification:notifications.get(key),leaseToken:'lease'}),validateNotification:async()=>({valid:true}),
    acceptNotification:async key=>{notifications.get(key).state='accepted'},holdNotification:async()=>assert.fail('No provider error expected'),
  }
@@ -134,6 +139,67 @@ test('durable phase rotation delivers existing jobs despite discovery exhausting
  for(let run=0;run<3;run++)await runCoachReminderProcessor({...fixture,budgetMs:18})
  assert.equal(fixture.sent.length,1)
  assert.equal([...fixture.jobs.values()][0].state,'completed')
+})
+
+for(const slow of ['slowJobs','slowOutbox'])test(`priority phase progresses after a slow ${slow} list while hard-deadline reserve remains`,async()=>{
+ const fixture=processorProgressFixture({[slow]:true})
+ await fixture.seed()
+ for(let run=0;run<9;run++)await runCoachReminderProcessor({...fixture,budgetMs:18,hardBudgetMs:25,itemReserveMs:5})
+ assert.equal(fixture.sent.length,3);assert.equal(new Set(fixture.sent).size,3)
+ assert.ok([...fixture.jobs.values()].every(job=>job.state==='completed'))
+})
+
+test('priority phase cannot start an item after its hard-deadline reserve is consumed',async()=>{
+ const fixture=processorProgressFixture()
+ await fixture.seed()
+ fixture.repository.nextPhase=async()=>1
+ fixture.repository.pendingJobs=async()=>{fixture.clock=()=>new Date('2026-10-04T00:00:00.021Z').toISOString();return [{job_key:[...fixture.jobs.keys()][0]}]}
+ const result=await runCoachReminderProcessor({...fixture,clock:()=>fixture.clock(),budgetMs:18,hardBudgetMs:25,itemReserveMs:5})
+ assert.equal(result.interrupted,true);assert.equal(result.processed,0);assert.equal(fixture.sent.length,0)
+ assert.equal([...fixture.jobs.values()][0].state,'pending')
+})
+
+test('request hard deadline aborts actual Supabase SDK list reads without starting work',async()=>{
+ let requested=0
+ const deadline=createCoachReminderDeadline({timeoutMs:15,fetchImpl:async(url,init)=>{requested++;return new Promise((resolve,reject)=>init.signal.addEventListener('abort',()=>reject(init.signal.reason),{once:true}))}})
+ try{
+   const client=deadline.client(createClient('https://synthetic.invalid','synthetic-public-key',{auth:{persistSession:false},global:{fetch:deadline.fetch}}))
+   const response=await client.from('team_coach_reminder_jobs').select('job_key')
+   assert.ok(response.error);assert.equal(requested,1);assert.equal(deadline.signal.aborted,true)
+   await assert.rejects(deadline.fetch('https://synthetic.invalid'),/hard deadline/)
+   assert.equal(requested,1,'No request is started after cancellation')
+ }finally{deadline.close()}
+})
+
+test('request hard deadline cancels SDK Retry-After backoff as well as fetch',async()=>{
+ let requested=0
+ const deadline=createCoachReminderDeadline({timeoutMs:15,fetchImpl:async()=>{requested++;return new Response('{}',{status:503,headers:{'Retry-After':'3600'}})}})
+ const started=performance.now()
+ try{
+   const client=deadline.client(createClient('https://synthetic.invalid','synthetic-public-key',{auth:{persistSession:false},global:{fetch:deadline.fetch}}))
+   const response=await client.from('team_coach_reminder_outbox').select('delivery_key')
+   assert.ok(response.error);assert.equal(requested,1);assert.equal(deadline.signal.aborted,true)
+   assert.ok(performance.now()-started<1000,'An hour-long SDK delay must be cancelled by the request deadline')
+ }finally{deadline.close()}
+})
+
+test('Resend and Expo receive the same abort signal and uncertain delivery stays held',async()=>{
+ const previousFetch=globalThis.fetch,controller=new AbortController(),seen=[]
+ globalThis.fetch=async(url,init)=>{seen.push({url,signal:init.signal});controller.abort(new Error('fixture deadline'));init.signal.throwIfAborted()}
+ try{
+   await assert.rejects(sendEmail({from:'Football Player <feedback@footballplayer.online>',to:['parent@example.test'],subject:'Fixture',text:'Fixture'},
+     {env:{RESEND_API_KEY:'re_synthetic',RESEND_FROM_EMAIL:'feedback@footballplayer.online'},resendClient:new Resend('re_synthetic'),telemetryClient:false,signal:controller.signal,idempotencyKey:'stable-fixture-key'}))
+   await assert.rejects(sendExpoPushMessages([{to:'ExpoPushToken[synthetic]',title:'Fixture'}],{signal:controller.signal}),/fixture deadline/)
+   assert.equal(seen.length,2);assert.ok(seen.every(call=>call.signal.aborted))
+   const fixture=processorProgressFixture();await fixture.seed()
+   await runCoachReminderProcessor(fixture)
+   const key=[...fixture.notifications.keys()][0];fixture.notifications.get(key).state='pending'
+   fixture.repository.nextPhase=async()=>2
+   let holds=0;fixture.repository.holdNotification=async()=>{holds++;fixture.notifications.get(key).state='held'}
+   const result=await runCoachReminderProcessor({...fixture,transport:{send:async()=>{throw new Error('aborted after unknown acceptance')}}})
+   assert.equal(holds,1);assert.equal(result.held,1);assert.equal(result.delivered,0)
+   await runCoachReminderProcessor(fixture);assert.equal(holds,1,'Held sends are not replayed')
+ }finally{globalThis.fetch=previousFetch}
 })
 
 test('an interrupted planning invocation leaves the next durable priority for queued jobs and delivery',async()=>{
