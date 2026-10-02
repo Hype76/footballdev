@@ -6,8 +6,9 @@ export function reminderPostgrest(db){
     try{
       const values=Object.values(args).map(value=>value && typeof value==='object'&&!Array.isArray(value)?JSON.stringify(value):value)
       const parameters=Object.keys(args).map((key,index)=>`${identifier(key)}=>$${index+1}`).join(',')
-      const result=await db.query(`select public.${identifier(name)}(${parameters}) value`,values)
-      return {data:result.rows[0]?.value,error:null}
+      const tableResult=name==='event_player_eligible_recipients'
+      const result=await db.query(tableResult?`select * from public.${identifier(name)}(${parameters})`:`select public.${identifier(name)}(${parameters}) value`,values)
+      return {data:tableResult?result.rows:result.rows[0]?.value,error:null}
     }catch(error){return {data:null,error}}
   },from(table){
     let action='select',fields='*',rows,filters=[],params=[],single=false,sort='',limit='',options={}

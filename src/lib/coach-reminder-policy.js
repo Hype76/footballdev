@@ -248,6 +248,7 @@ export function evaluateCoachReminderJob({ job, policy, event, invitation, recip
   if (['available', 'unavailable'].includes(invitation.responseStatus)) return skip('already_answered')
   if (!['pending', 'maybe'].includes(invitation.responseStatus)) return skip('response_unknown')
   const automatic = options.deadlineMode === 'automatic_not_attending' && invitation.responseStatus === 'pending'
+  if (options.deadlineMode === 'automatic_not_attending' && invitation.parentResponderActive !== true) return skip('no_linked_parent')
   return {
     state: 'completed', reason: automatic ? 'automatic_not_attending' : 'excluded_from_planning',
     effect: {
@@ -277,6 +278,7 @@ export function projectCoachAvailability({ event, invitation, effect, policy, no
     || !Number.isFinite(ms(now)) || ms(now) >= ms(event.startsAt)
     || (invitation.responseRevision !== effect.responseRevision && status !== 'maybe')) return result
   if (explicit && status !== 'maybe') return result
+  if (policy.options.deadlineMode === 'automatic_not_attending' && invitation.parentResponderActive !== true) return result
   if (!explicit && effect.status === 'unavailable') return {
     status: 'unavailable', provenance: 'coach_deadline_automation', planningExcluded: true, automatic: true,
   }

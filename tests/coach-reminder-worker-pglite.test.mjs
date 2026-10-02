@@ -12,7 +12,7 @@ test('worker commits effect, outbox and completion atomically in PostgreSQL; rol
       options: { ...DEFAULT_COACH_REMINDER_POLICY, deadlineMode: 'automatic_not_attending', deadlineAfterHours: 48 } },
     event: { id: 'e', revision: '1', clubId: 'club', teamId: 'team', kind: 'MATCH', status: 'scheduled', startsAt: '2026-10-10T12:00:00Z' },
     invitation: { id: 'i', revision: '1', responseRevision: '1', clubId: 'club', teamId: 'team', eventId: 'e', playerId: 'player',
-      createdAt: '2026-10-01T01:00:00Z', deliveredAt: '2026-10-01T02:00:00Z', memberActive: true, responseStatus: 'pending' },
+      createdAt: '2026-10-01T01:00:00Z', deliveredAt: '2026-10-01T02:00:00Z', memberActive: true, parentResponderActive:true, responseStatus: 'pending' },
     recipients: [{ id: 'parent', audience: 'availability', clubId: 'club', teamId: 'team', playerId: 'player', active: true, authorized: true, notificationsEnabled: true }],
     authorityActive: true, now: '2026-10-04T00:00:00Z',
   }

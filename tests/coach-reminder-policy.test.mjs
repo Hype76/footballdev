@@ -21,13 +21,30 @@ function fixture() {
   const event = { id: 'event', revision: 'e1', clubId: 'club', teamId: 'team', kind: 'MATCH', status: 'scheduled',
     startsAt: '2026-10-08T14:00:00Z', timeZone: 'Europe/London', createdAt: '2026-10-01T10:00:00Z' }
   const invitation = { id: 'invite', revision: 'i1', responseRevision: 'r1', clubId: 'club', teamId: 'team', eventId: 'event',
-    playerId: 'player', memberActive: true, createdAt: '2026-10-01T10:00:00Z', deliveredAt: '2026-10-01T12:00:00Z', responseStatus: 'pending' }
+    playerId: 'player', memberActive: true, parentResponderActive:true, createdAt: '2026-10-01T10:00:00Z', deliveredAt: '2026-10-01T12:00:00Z', responseStatus: 'pending' }
   const recipients = [{ id: 'parent', clubId: 'club', teamId: 'team', playerId: 'player', audience: 'availability', active: true, authorized: true, notificationsEnabled: true }]
   return { policy, event, invitation, recipients, now: '2026-10-04T12:00:00Z', authorityActive: true, squadSelected: false }
 }
 const planned = context => planAvailabilityAutomation(context)
 const reminder = context => planned(context).find(job => job.action === 'availability_reminder')
 const deadline = context => planned(context).find(job => job.action === 'availability_deadline')
+
+test('automatic deadlines require linked Parent authority independently of notification preferences',()=>{
+  const f=fixture(),job=deadline(f)
+  const effect=evaluateCoachReminderJob({...f,job}).effect
+  f.recipients=[]
+  assert.equal(evaluateCoachReminderJob({...f,job}).effect.status,'unavailable')
+  for(const active of [false,undefined]){
+    f.invitation.parentResponderActive=active
+    assert.equal(evaluateCoachReminderJob({...f,job}).reason,'no_linked_parent')
+    assert.deepEqual(projectCoachAvailability({...f,effect}),{status:'pending',provenance:'no_response',planningExcluded:false,automatic:false})
+  }
+  for(const status of ['available','unavailable']){
+    f.invitation.responseStatus=status;f.invitation.responseSource='coach'
+    const projection=projectCoachAvailability({...f,effect})
+    assert.equal(projection.status,status);assert.equal(projection.provenance,'coach');assert.equal(projection.automatic,false)
+  }
+})
 
 test('all automation starts off; configuration is strict and offers all three modes', () => {
   const f = fixture()

@@ -232,6 +232,7 @@ declare
   event_value jsonb; policy_value jsonb; enrolment_value jsonb; response_value jsonb;
   release_value jsonb; invite_value jsonb; team_value uuid; club_value uuid; recipient_emails jsonb; coaches_value jsonb;
   member_active boolean := false; squad_picked boolean := false; authority_active boolean := false;
+  parent_responder_active boolean := false;
 begin
   if job_value->>'kind'='MATCH' then
     select jsonb_build_object('id',id,'club_id',club_id,'team_id',team_id,'status',status,'deleted_at',deleted_at,
@@ -260,6 +261,14 @@ begin
   if nullif(job_value->>'enrolmentId','') is not null then
     select to_jsonb(e) into enrolment_value from public.team_coach_reminder_enrolments e where id=(job_value->>'enrolmentId')::uuid;
     if enrolment_value is not null then
+      -- Link authority is independent of email/app notification preferences.
+      -- Use the existing event-contact authority, including account eligibility,
+      -- and retain this value in the raw commit CAS snapshot.
+      select exists(select 1 from public.event_player_eligible_recipients(
+        club_id_value=>club_value,team_id_value=>team_value,
+        player_ids_value=>array[(enrolment_value->>'player_id')::uuid]) recipient
+        where recipient.recipient_type='parent' and recipient.parent_link_id is not null)
+      into parent_responder_active;
       select jsonb_build_object('id',id,'invited_at',invited_at,'invite_status',invite_status,'cancelled_at',cancelled_at)
       into invite_value from public.calendar_event_invites where id=(enrolment_value->>'invitation_id')::uuid
         and club_id=club_value and team_id=team_value and player_id=(enrolment_value->>'player_id')::uuid
@@ -318,7 +327,7 @@ begin
   where staff.team_id=team_value and staff.role_rank>=20 and usr.status='active' and usr.club_id=club_value
     and membership.role=usr.role and membership.role_rank=usr.role_rank and membership.role_rank>=20
     and membership.role not in ('parent_portal','super_admin','adult_player');
-  return jsonb_build_object('policy',policy_value,'release',release_value,'event',event_value,'enrolment',enrolment_value,
+  return jsonb_build_object('parentResponderActive',parent_responder_active,'policy',policy_value,'release',release_value,'event',event_value,'enrolment',enrolment_value,
     'invitation',invite_value,'response',response_value,'memberActive',member_active,'squadSelected',squad_picked,'authorityActive',authority_active,
     'recipientEmails',recipient_emails,'coaches',coaches_value);
 end;
@@ -349,6 +358,9 @@ begin
     raise exception 'reminder_commit_invalid' using errcode='22023';
   end if;
   if effect_value is not null then
+    if effect_value->>'status'='unavailable' and not coalesce((context_current_value->>'parentResponderActive')::boolean,false) then
+      return jsonb_build_object('committed',false,'reason','no_linked_parent');
+    end if;
     if effect_value->>'jobKey' is distinct from job_key_value or effect_value->>'provenance' is distinct from 'coach_deadline_automation'
       or state_value<>'completed' or effect_value->>'clubId' is distinct from job.club_id::text
       or effect_value->>'teamId' is distinct from job.team_id::text then
@@ -478,6 +490,11 @@ begin
  if not found then return false; end if;
  context_value:=public.team_coach_reminder_context_v1(jsonb_build_object('kind',enrolment.kind,'eventId',enrolment.event_id,'enrolmentId',enrolment.id,'occurrenceDate',coalesce(enrolment.occurrence_date::text,'')));
  event_value:=context_value->'event';
+ -- Retain historical automatic effects for audit, but stop applying them when
+ -- the last eligible Parent disappears. Explicit Coach/Parent answers remain
+ -- canonical; this does not rewrite attendance or clear manual decisions.
+ if context_value->'policy'->'options'->>'deadlineMode'='automatic_not_attending'
+  and not coalesce((context_value->>'parentResponderActive')::boolean,false) then return false; end if;
  if not coalesce((context_value->>'authorityActive')::boolean,false) or not coalesce((context_value->>'memberActive')::boolean,false)
   or not coalesce((context_value->'policy'->>'opted_in')::boolean,false)
   or enrolment.policy_id::text is distinct from context_value->'policy'->>'id' or enrolment.policy_revision::text is distinct from context_value->'policy'->>'revision'

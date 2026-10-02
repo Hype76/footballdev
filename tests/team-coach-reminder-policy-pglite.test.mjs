@@ -131,6 +131,8 @@ test('actual context RPC and atomic commit reject changed replies; release gate,
     create table match_day_availability_requests(id uuid,match_day_id uuid,player_id uuid,club_id uuid,team_id uuid,recipient_email text,sent_at timestamptz,created_at timestamptz,token_revoked_at timestamptz,status text);
     create table match_day_player_squad_decisions(match_day_id uuid,club_id uuid,team_id uuid,status text);
     create table mobile_notification_preferences(auth_user_id uuid,app text,invites boolean);
+    create function event_player_eligible_recipients(club_id_value uuid,team_id_value uuid,player_ids_value uuid[])
+      returns table(recipient_type text,parent_link_id uuid) language sql as $$select 'parent'::text,'${id(36)}'::uuid$$;
     update team_coach_reminder_policies set effective_from='2026-10-01',configured_at='2026-10-01';
     insert into match_days values('${event}','${club}','${team}','scheduled',null,'2026-10-10','13:00',false,'2026-10-01T01:00Z',true,'involved_players');
     insert into calendar_event_invites values('${invite}','${club}','${team}','${player}','${event}',null,'2026-10-01T01:00Z','invited',null);
@@ -216,8 +218,8 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
       from calendar_event_invites i join parent_player_links link on link.id=l and link.player_id=i.player_id and link.auth_user_id=auth.uid()
       left join training_availability_requests request on request.calendar_event_id=i.calendar_event_id
       where i.cancelled_at is null and i.invite_status<>'cancelled'$$;
-    create function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns jsonb language sql as $$
-      select coalesce(jsonb_agg(jsonb_build_object('player_id',player_id,'parent_link_id',id,'recipient_email','parent@example.test','recipient_type','parent')),'[]')
+    create function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns table(player_id uuid,parent_link_id uuid,recipient_email text,recipient_type text) language sql as $$
+      select player_id,id,'parent@example.test','parent'
       from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'$$;
     insert into players values('${player}','${club}','active');
     insert into player_team_memberships values('${player}','${club}','${team}','active',null);
@@ -345,8 +347,8 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     await db.exec(`insert into training_availability_request_players values('${id(93)}','${id(92)}','${club}','${team}','${player}','parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent')`)
     // One remaining authorised delivered source keeps this shared invitation valid.
     await db.exec(`alter table parent_player_links add column email text default 'parent@example.test';
-      create or replace function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns jsonb language sql as $$
-        select coalesce(jsonb_agg(jsonb_build_object('player_id',player_id,'parent_link_id',id,'recipient_email',email,'recipient_type','parent')),'[]')
+      create or replace function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns table(player_id uuid,parent_link_id uuid,recipient_email text,recipient_type text) language sql as $$
+        select player_id,id,email,'parent'
         from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'$$;
       insert into parent_player_links values('${id(97)}','${id(98)}','${player}','${club}','active','second-parent@example.test');
       insert into training_availability_request_players values('${id(94)}','${id(92)}','${club}','${team}','${player}','second-parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent');
@@ -375,11 +377,45 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     assert.equal((await db.query('select count(*)::int n from team_coach_reminder_outbox where job_key=any($1::text[])',[keys])).rows[0].n,0)
     assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[pending.id])).rows[0].value,false)
   })
+  await t.test('last linked Parent disables TRAINING history and queued MATCH deadlines without changing manual answers',async()=>{
+    const project=async enrol=>(await db.query('select app_private.coach_reminder_projection_v1($1) value',[enrol])).rows[0].value
+    const planning=async enrol=>(await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[enrol])).rows[0].value
+    assert.equal((await project(monthly.id)).automatic,true)
+    await db.exec(`update parent_player_links set status='revoked' where id='${link}'`)
+    assert.equal((await project(monthly.id)).automatic,true,'A second eligible linked Parent preserves automatic provenance')
+    await db.exec(`update parent_communication_preferences set communication_channel='email_only';
+      insert into mobile_notification_preferences values('${id(98)}','parent',false)`)
+    assert.equal((await project(monthly.id)).automatic,true,'Channel/category opt-out does not revoke Parent authority')
+    const newMatch=id(110),newRequest=id(111)
+    await db.exec(`insert into match_days values('${newMatch}','${club}','${team}','scheduled',null,((clock_timestamp() at time zone 'Europe/London')+interval '3 days')::date,'13:00',false,clock_timestamp(),true,'involved_players');
+      insert into calendar_event_invites values('${id(112)}','${club}','${team}','${player}','${newMatch}',null,clock_timestamp(),'invited',null);
+      insert into match_day_availability_requests values('${newRequest}','${newMatch}','${player}','${club}','${team}','second-parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'pending')`)
+    const enrol=(await db.query('select * from team_coach_reminder_enrolments where event_id=$1',[newMatch])).rows[0]
+    const candidate={kind:'MATCH',clubId:club,teamId:team,eventId:newMatch,playerId:player,enrolmentId:enrol.id}
+    const jobs=await repository.planCandidate(candidate,new Date().toISOString());await repository.storeJobs(jobs)
+    const deadline=jobs.find(job=>job.action==='availability_deadline')
+    const before=(await db.query('select team_coach_reminder_context_v1($1) value',[JSON.stringify(deadline)])).rows[0].value
+    await db.exec(`update parent_player_links set status='revoked'`)
+    const cas=(await db.query("select commit_team_coach_reminder_job_v1($1,$2,null,'[]'::jsonb,'completed','unanswered') value",[deadline.key,JSON.stringify(before)])).rows[0].value
+    assert.equal(cas.committed,false);assert.equal(cas.reason,'context_changed')
+    assert.equal((await processCoachReminderJob({repository,jobKey:deadline.key,now:new Date().toISOString()})).reason,'no_linked_parent')
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_effects where job_key=$1',[deadline.key])).rows[0].n,0)
+    assert.equal(await project(monthly.id),null);assert.equal(await planning(monthly.id),false)
+    assert.equal(await project(enrol.id),null);assert.equal(await planning(enrol.id),false)
+    const oldSends=sends.length
+    await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport})
+    assert.equal(sends.length,oldSends,'Previously queued effects cannot send after all links are revoked')
+    await db.exec(`insert into match_day_player_availability values('${id(113)}','${newMatch}','${club}','${player}','available',clock_timestamp(),clock_timestamp(),null);
+      insert into match_day_player_squad_decisions values('${newMatch}','${club}','${team}','${player}','selected')`)
+    assert.equal((await db.query('select status from match_day_player_availability where match_day_id=$1',[newMatch])).rows[0].status,'available')
+    assert.equal(await planning(enrol.id),false,'A manual Coach answer and squad selection remain valid')
+  })
   await db.exec('delete from parent_player_links')
   await actor(parent)
   assert.deepEqual((await db.query('select get_team_coach_reminder_projections_v1($1,$2,$3) value',['MATCH',[event],link])).rows[0].value,[])
   await db.exec('reset role')
   await t.test('emergency stop clears both release fields and removes database projections and planning guards',async()=>{
+    await db.exec(`insert into parent_player_links values('${link}','${parent}','${player}','${club}','active','parent@example.test')`)
     const previousFlag=process.env.ENABLE_COACH_REMINDER_AUTOMATION
     try{
       delete process.env.ENABLE_COACH_REMINDER_AUTOMATION

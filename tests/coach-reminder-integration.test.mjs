@@ -116,7 +116,7 @@ function processorProgressFixture({count=3,slowPlanning=false,slowScan=false,slo
  const clock=()=>new Date(base+elapsed).toISOString()
  const context=id=>({policy:{id:'policy',revision:'1',clubId:'club',teamId:'team',optedIn:true,configuredAt:'2026-10-01T00:00:00Z',effectiveFrom:'2026-10-01T00:00:00Z',options:{...DEFAULT_COACH_REMINDER_POLICY,deadlineMode:'automatic_not_attending',deadlineAfterHours:2}},
    event:{id:`event-${id}`,revision:'1',clubId:'club',teamId:'team',kind:'MATCH',status:'scheduled',startsAt:'2026-10-10T12:00:00Z'},
-   invitation:{id:`invite-${id}`,revision:'1',responseRevision:'1',clubId:'club',teamId:'team',eventId:`event-${id}`,playerId:`player-${id}`,createdAt:'2026-10-01T01:00:00Z',deliveredAt:'2026-10-01T02:00:00Z',memberActive:true,responseStatus:'pending'},
+   invitation:{id:`invite-${id}`,revision:'1',responseRevision:'1',clubId:'club',teamId:'team',eventId:`event-${id}`,playerId:`player-${id}`,createdAt:'2026-10-01T01:00:00Z',deliveredAt:'2026-10-01T02:00:00Z',memberActive:true,parentResponderActive:true,responseStatus:'pending'},
    recipients:[{id:`parent-${id}`,audience:'availability',clubId:'club',teamId:'team',playerId:`player-${id}`,active:true,authorized:true,notificationsEnabled:true}],authorityActive:true})
  const repository={
    nextPhase:async()=>{const result=phase;phase=(phase+1)%3;return result},
