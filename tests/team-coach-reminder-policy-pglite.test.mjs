@@ -142,6 +142,7 @@ test('actual context RPC and atomic commit reject changed replies; release gate,
     insert into match_day_availability_requests values('${id(35)}','${event}','${player}','${club}','${team}','parent@example.test','2026-10-01T02:00Z','2026-10-01T01:00Z',null,'pending');
     insert into team_coach_reminder_enrolments(id,club_id,team_id,policy_id,policy_revision,kind,event_id,player_id,invitation_id,request_id,source_created_at,first_delivered_at)
       select '${enrolment}',club_id,team_id,id,revision,'MATCH','${event}','${player}','${invite}','${id(35)}','2026-10-01T01:00Z','2026-10-01T02:00Z' from team_coach_reminder_policies;
+    insert into team_coach_reminder_enrolment_sources values('${enrolment}','${id(35)}');
   `)
   const job={ key:'job',kind:'MATCH',eventId:event,enrolmentId:enrolment,clubId:club,teamId:team,action:'availability_reminder',playerId:player }
   const context=async()=>(await db.query('select team_coach_reminder_context_v1($1) value',[JSON.stringify(job)])).rows[0].value
@@ -436,18 +437,22 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     await db.exec(`update match_day_availability_requests set created_at=clock_timestamp(),sent_at=clock_timestamp() where id='${id(111)}';
       update training_availability_request_players set email_sent_at=clock_timestamp() where request_id='${id(92)}'`)
     assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments')).rows[0].n,count,'Old request identities cannot reopen retired windows')
-    const freshRequest=id(120),freshSource=id(121)
-    await db.exec(`insert into training_availability_requests select '${freshRequest}',club_id,team_id,calendar_event_id,occurrence_date,occurrence_starts_at,status from training_availability_requests where id='${id(92)}';
-      insert into training_availability_request_players values('${freshSource}','${freshRequest}','${club}','${team}','${player}','parent@example.test',null,clock_timestamp(),null,'sent')`)
-    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0].n,0,'Queued invitation is not a confirmed response window')
+    const freshRequest=id(92),freshSource=id(121)
+    const originalWindows=(await db.query('select count(*)::int n from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0].n
+    await db.exec(`insert into parent_player_links(id,auth_user_id,player_id,club_id,status,email) values('${id(125)}','${id(126)}','${player}','${club}','active','new-parent@example.test');
+      insert into training_availability_request_players values('${freshSource}','${freshRequest}','${club}','${team}','${player}','new-parent@example.test',null,clock_timestamp(),null,'sent')`)
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0].n,originalWindows,'Queued invitation is not a confirmed response window')
     await db.exec(`update training_availability_request_players set email_sent_at=clock_timestamp() where id='${freshSource}'`)
-    const fresh=(await db.query('select * from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0]
+    const fresh=(await db.query('select * from team_coach_reminder_enrolments where request_id=$1 order by response_window desc limit 1',[freshRequest])).rows[0]
     const candidate={kind:'TRAINING',eventId:id(90),enrolmentId:fresh.id,clubId:club,teamId:team,playerId:player,occurrenceDate:'2099-03-03'}
     const jobs=await repository.planCandidate(candidate,new Date().toISOString())
     const deadline=jobs.find(job=>job.action==='availability_deadline');assert.ok(deadline)
     assert.equal(Date.parse(deadline.dueAt)-fresh.first_delivered_at.getTime(),2*3600000)
-    await db.exec(`insert into training_availability_request_players values('${id(122)}','${freshRequest}','${club}','${team}','${player}','second-parent@example.test',clock_timestamp(),clock_timestamp(),null,'sent')`)
-    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0].n,1,'Multiple Parents share one immutable first-delivery response window')
+    await db.exec(`insert into parent_player_links(id,auth_user_id,player_id,club_id,status,email) values('${id(127)}','${id(128)}','${player}','${club}','active','second-new-parent@example.test');
+      insert into training_availability_request_players values('${id(122)}','${freshRequest}','${club}','${team}','${player}','second-new-parent@example.test',clock_timestamp(),clock_timestamp(),null,'sent')`)
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0].n,originalWindows+1,'Multiple Parents share one immutable first-delivery response window')
+    await db.exec(`update training_availability_request_players set created_at=clock_timestamp(),email_sent_at=clock_timestamp() where id='${id(93)}'`)
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolment_sources where enrolment_id=$1 and source_id=$2',[fresh.id,id(93)])).rows[0].n,0,'Old source identity cannot join a fresh window after its timestamps change')
     const history=async()=>(await db.query("select jsonb_build_object('effects',(select jsonb_agg(to_jsonb(e) order by job_key) from team_coach_reminder_effects e),'jobs',(select jsonb_agg(to_jsonb(j) order by job_key) from team_coach_reminder_jobs j),'outbox',(select jsonb_agg(to_jsonb(o) order by delivery_key) from team_coach_reminder_outbox o)) value")).rows[0].value
     const beforeHistory=await history()
     await db.exec(`begin;update parent_player_links set status='revoked';update parent_player_links set status='active';commit`)

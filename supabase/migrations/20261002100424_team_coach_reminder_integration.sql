@@ -229,6 +229,15 @@ alter table public.team_coach_reminder_retirements enable row level security;
 revoke all on public.team_coach_reminder_retirements from public,anon,authenticated;
 grant select,insert on public.team_coach_reminder_retirements to service_role;
 create index team_coach_reminder_enrolments_responder_idx on public.team_coach_reminder_enrolments(club_id,team_id,player_id);
+create table public.team_coach_reminder_enrolment_sources (
+  enrolment_id uuid not null references public.team_coach_reminder_enrolments(id) on delete cascade,
+  source_id uuid not null,
+  primary key(enrolment_id,source_id)
+);
+alter table public.team_coach_reminder_enrolment_sources enable row level security;
+revoke all on public.team_coach_reminder_enrolment_sources from public,anon,authenticated;
+grant select,insert on public.team_coach_reminder_enrolment_sources to service_role;
+create index team_coach_reminder_sources_identity_idx on public.team_coach_reminder_enrolment_sources(source_id,enrolment_id);
 -- One short transaction gate serializes responder writes and deadline commits.
 -- Updating it also forces stale repeatable-read transactions to retry, rather
 -- than accepting a pre-lock authority snapshot. Default OFF creates no writes.
@@ -319,8 +328,9 @@ begin
         from public.match_day_availability_requests where match_day_id=(job_value->>'eventId')::uuid
           and player_id=(enrolment_value->>'player_id')::uuid and club_id=club_value and team_id=team_value
           and sent_at is not null and token_revoked_at is null and status not in ('expired','cancelled')
+          and id in(select source_id from public.team_coach_reminder_enrolment_sources where enrolment_id=(enrolment_value->>'id')::uuid)
           and created_at >= greatest((policy_value->>'effective_from')::timestamptz,(release_value->>'activated_at')::timestamptz);
-        if not exists(select 1 from public.match_day_availability_requests where id=(enrolment_value->>'request_id')::uuid
+        if not exists(select 1 from public.match_day_availability_requests where id in(select source_id from public.team_coach_reminder_enrolment_sources where enrolment_id=(enrolment_value->>'id')::uuid)
           and club_id=club_value and team_id=team_value and match_day_id=(job_value->>'eventId')::uuid
           and player_id=(enrolment_value->>'player_id')::uuid and token_revoked_at is null
           and status not in ('expired','cancelled')) then member_active:=false; end if;
@@ -332,6 +342,7 @@ begin
         from public.training_availability_request_players where request_id=(enrolment_value->>'request_id')::uuid
           and player_id=(enrolment_value->>'player_id')::uuid and club_id=club_value and team_id=team_value
           and email_sent_at is not null and token_revoked_at is null and status not in ('cancelled','expired')
+          and id in(select source_id from public.team_coach_reminder_enrolment_sources where enrolment_id=(enrolment_value->>'id')::uuid)
           and created_at >= greatest((policy_value->>'effective_from')::timestamptz,(release_value->>'activated_at')::timestamptz);
         if not exists(select 1 from public.training_availability_requests request
           where request.id=(enrolment_value->>'request_id')::uuid and request.club_id=club_value and request.team_id=team_value
@@ -339,6 +350,7 @@ begin
             and request.status<>'cancelled') then member_active:=false; end if;
         if not exists(select 1 from public.training_availability_request_players source
           where source.request_id=(enrolment_value->>'request_id')::uuid and source.player_id=(enrolment_value->>'player_id')::uuid
+            and source.id in(select source_id from public.team_coach_reminder_enrolment_sources where enrolment_id=(enrolment_value->>'id')::uuid)
             and source.club_id=club_value and source.team_id=team_value and source.email_sent_at is not null
             and source.token_revoked_at is null and source.status not in ('cancelled','expired')
             and source.created_at >= greatest((policy_value->>'effective_from')::timestamptz,(release_value->>'activated_at')::timestamptz))
@@ -503,6 +515,7 @@ returns trigger language plpgsql security definer set search_path=pg_catalog,pub
 declare policy public.team_coach_reminder_policies%rowtype; release_time timestamptz;
  delivered timestamptz; kind_value text; event_value uuid; occurrence_value date; invite_value uuid; request_value uuid;
  enrolment_value uuid; window_value bigint;
+ retirement_cutoff timestamptz;
 begin
  select activated_at into release_time from public.team_coach_reminder_release_control where enabled;
  if release_time is null then return new; end if;
@@ -524,11 +537,16 @@ begin
    join public.team_coach_reminder_enrolments e on e.id=r.enrolment_id
    where e.club_id=new.club_id and e.team_id=new.team_id and e.player_id=new.player_id
      and e.kind=kind_value and e.event_id=event_value and e.occurrence_date is not distinct from occurrence_value
-     and (e.request_id=request_value or new.created_at<=r.retired_at)) then return new; end if;
+     and (exists(select 1 from public.team_coach_reminder_enrolment_sources s where s.enrolment_id=e.id and s.source_id=new.id)
+       or new.created_at<=r.retired_at)) then return new; end if;
  select id into invite_value from public.calendar_event_invites where club_id=new.club_id and team_id=new.team_id
   and player_id=new.player_id and cancelled_at is null and invite_status<>'cancelled'
   and ((kind_value='MATCH' and match_day_id=event_value) or(kind_value='TRAINING' and calendar_event_id=event_value));
  if invite_value is null then return new; end if;
+ select max(r.retired_at) into retirement_cutoff from public.team_coach_reminder_retirements r
+  join public.team_coach_reminder_enrolments e on e.id=r.enrolment_id
+  where e.club_id=new.club_id and e.team_id=new.team_id and e.player_id=new.player_id
+    and e.kind=kind_value and e.event_id=event_value and e.occurrence_date is not distinct from occurrence_value;
  -- Multiple Parent recipients share the current response window and its first
  -- delivery. Only retirement plus a fresh request can advance the window.
  select e.id into enrolment_value from public.team_coach_reminder_enrolments e
@@ -543,6 +561,33 @@ begin
   insert into public.team_coach_reminder_enrolments(club_id,team_id,policy_id,policy_revision,kind,event_id,occurrence_date,player_id,invitation_id,request_id,source_created_at,first_delivered_at,response_window)
   values(new.club_id,new.team_id,policy.id,policy.revision,kind_value,event_value,occurrence_value,new.player_id,invite_value,request_value,new.created_at,delivered,window_value)
   returning id into enrolment_value;
+ end if;
+ -- Snapshot confirmed recipient source identities into the shared window. For
+ -- a later window, old sources remain retired even if their timestamps change.
+ if kind_value='MATCH' then
+  insert into public.team_coach_reminder_enrolment_sources(enrolment_id,source_id)
+  select enrolment_value,s.id from public.match_day_availability_requests s
+   where s.club_id=new.club_id and s.team_id=new.team_id and s.player_id=new.player_id and s.match_day_id=event_value
+    and s.sent_at is not null and s.token_revoked_at is null and s.status not in ('cancelled','expired')
+    and s.created_at>=greatest(policy.effective_from,release_time)
+    and (retirement_cutoff is null or s.created_at>retirement_cutoff)
+    and not exists(select 1 from public.team_coach_reminder_enrolment_sources old_source
+      join public.team_coach_reminder_retirements retired on retired.enrolment_id=old_source.enrolment_id
+      join public.team_coach_reminder_enrolments old_enrolment on old_enrolment.id=old_source.enrolment_id
+      where old_source.source_id=s.id and old_enrolment.kind=kind_value)
+  on conflict do nothing;
+ else
+  insert into public.team_coach_reminder_enrolment_sources(enrolment_id,source_id)
+  select enrolment_value,s.id from public.training_availability_request_players s
+   where s.club_id=new.club_id and s.team_id=new.team_id and s.player_id=new.player_id and s.request_id=request_value
+    and s.email_sent_at is not null and s.token_revoked_at is null and s.status not in ('cancelled','expired')
+    and s.created_at>=greatest(policy.effective_from,release_time)
+    and (retirement_cutoff is null or s.created_at>retirement_cutoff)
+    and not exists(select 1 from public.team_coach_reminder_enrolment_sources old_source
+      join public.team_coach_reminder_retirements retired on retired.enrolment_id=old_source.enrolment_id
+      join public.team_coach_reminder_enrolments old_enrolment on old_enrolment.id=old_source.enrolment_id
+      where old_source.source_id=s.id and old_enrolment.kind=kind_value)
+  on conflict do nothing;
  end if;
  if policy.options->>'deadlineMode'='automatic_not_attending'
   and not exists(select 1 from public.event_player_eligible_recipients(club_id_value=>new.club_id,team_id_value=>new.team_id,player_ids_value=>array[new.player_id]) recipient
