@@ -4,7 +4,10 @@ import { chromium } from 'playwright'
 
 const port = 4897
 const origin = `http://127.0.0.1:${port}`
-const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
+const serverArgs = ['node_modules/vite/bin/vite.js']
+if (process.env.INVITE_BROWSER_PREVIEW === 'true') serverArgs.push('preview')
+serverArgs.push('--host', '127.0.0.1', '--port', String(port), '--strictPort')
+const server = spawn(process.execPath, serverArgs, {
   env: { ...process.env, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' },
   stdio: ['ignore', 'pipe', 'pipe'],
 })
@@ -97,3 +100,4 @@ try {
   await browser?.close()
   server.kill()
 }
+
