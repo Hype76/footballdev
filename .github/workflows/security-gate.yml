@@ -92,7 +92,7 @@ jobs:
       - name: M3 monitoring tests
         run: npm run security:monitoring
       - name: Workspace invite reload and navigation
-        run: node --test tests/workspace-invite-location.test.mjs && node tests/workspace-invite-navigation-browser.mjs
+        run: node --test tests/workspace-invite-location.test.mjs tests/workspace-invite-cache-policy.test.mjs && node tests/workspace-invite-navigation-browser.mjs
       - name: Existing security controls
         run: >-
           node --test
@@ -272,6 +272,10 @@ jobs:
         run: npm run build:live
       - name: Verify build environment and artifact identity
         run: npm run verify:build-env && npm run security:artifact-manifest
+      - name: Verify invitation cache policy in production worker
+        env:
+          INVITE_CACHE_BUILT: 'true'
+        run: node --test tests/workspace-invite-cache-policy.test.mjs
       - name: Verify responsive player contact layout
         run: npx playwright install --with-deps chromium && node tests/player-contact-layout-browser.mjs
       - name: Verify resource editing and retained assignments
