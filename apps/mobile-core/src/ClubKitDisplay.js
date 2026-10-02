@@ -13,6 +13,8 @@ export function ClubKitDisplay({ clubId, teamId, shirtChoice, textStyle, clubKit
   const [loadedImage, setLoadedImage] = useState('')
   const [preview, setPreview] = useState(null)
   const [previewFailed, setPreviewFailed] = useState(false)
+  // Forget the old preview as identity changes so A -> B -> A cannot reopen it.
+  if (preview && preview.cacheKey !== cacheKey) setPreview(null)
   useEffect(() => {
     if (!teamId && clubKits !== undefined) return
     let active = true

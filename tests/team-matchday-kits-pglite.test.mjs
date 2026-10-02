@@ -9,7 +9,7 @@ const CLUB_B = '00000000-0000-4000-8000-000000000002'
 const TEAM_A = '00000000-0000-4000-8000-000000000011'
 const TEAM_B = '00000000-0000-4000-8000-000000000012'
 
-async function setup() {
+async function setup({ realEntitlements = false } = {}) {
   const db = new PGlite()
   await db.exec(`
     create schema auth;
@@ -52,6 +52,21 @@ async function setup() {
   for (const name of ['normalize_subscription_plan_key', 'workspace_scope_for_plan_key']) {
     const start = scopes.indexOf('create or replace function public.' + name)
     await db.exec(scopes.slice(start, scopes.indexOf('$;', start) + 3))
+  }
+  if (realEntitlements) {
+    await db.exec(`alter table public.clubs add column plan_status text default 'active', add column is_plan_comped boolean default false;
+      create table public.matchday_plan_config(singleton boolean primary key, flags jsonb);`)
+    const active = await readFile(new URL('../supabase/migrations/20260508133000_enforce_active_plan_access.sql', import.meta.url), 'utf8')
+    const definitions = [
+      [active, 'public.is_club_plan_access_active'],
+      ...['public.canonical_subscription_plan_key', 'app_private.matchday_default_flags', 'app_private.plan_capability_key', 'public.can_use_plan_feature'].map(name => [scopes, name]),
+    ]
+    for (const [source, name] of definitions) {
+      const start = source.indexOf('create or replace function ' + name + '(')
+      assert.ok(start >= 0, name)
+      await db.exec(source.slice(start, source.indexOf('$$;', start) + 3))
+    }
+    await db.exec('insert into public.matchday_plan_config values(true, app_private.matchday_default_flags())')
   }
   await db.exec(await readFile(new URL('../supabase/migrations/20261002115841_club_managed_team_kits.sql', import.meta.url), 'utf8'))
   return db
@@ -133,10 +148,38 @@ test('club scopes block manager and admin override writes, clears and seeds; sav
   await db.query('update public.teams set club_id=$1 where id=$2',[CLUB_B,TEAM_A])
   await actor(db,{club:CLUB_B})
   await assert.rejects(db.query("update public.teams set home_kit_colour='#2563eb' where id=$1",[TEAM_A]), /team_kits_managed_by_club_admin/)
-  for (const plan of ['matchday','team','single_team','individual','legacy_unknown']) {
+  // This focused trigger test stubs entitlement; real tier restrictions are below.
+  for (const plan of ['matchday','team','single_team']) {
     await db.query('update public.clubs set plan_key=$1 where id=$2',[plan,CLUB_B])
     await db.query("update public.teams set home_kit_colour='#2563eb' where id=$1",[TEAM_A])
     await db.query("update public.teams set home_kit_colour='#dc2626' where id=$1",[TEAM_A])
   }
   await db.close()
+})
+
+test('real entitlement helpers under authenticated role preserve allowed standalone tiers and deny individual/unknown', async () => {
+  const db = await setup({ realEntitlements: true })
+  try {
+    await actor(db)
+    for (const plan of ['team', 'single_team', 'matchday', 'individual', 'legacy_unknown', 'club', 'small_club', 'development_club', 'large_club', 'pilot']) {
+      await db.query('update public.clubs set plan_key=$1 where id=$2', [plan, CLUB_A])
+      await db.exec('set role authenticated')
+      try {
+        assert.equal((await db.query('select current_user as role')).rows[0].role, 'authenticated')
+        const write = () => db.query("update public.teams set home_kit_colour='#2563eb' where id=$1", [TEAM_A])
+        if (['individual', 'legacy_unknown'].includes(plan)) {
+          await assert.rejects(write(), /plan_capability_not_available/)
+        } else if (['team', 'single_team', 'matchday'].includes(plan)) {
+          await write()
+          await db.query('update public.teams set home_kit_colour=null where id=$1', [TEAM_A])
+        } else {
+          await assert.rejects(write(), /team_kits_managed_by_club_admin/)
+        }
+        assert.equal((await db.query('select home_kit_colour from public.teams where id=$1', [TEAM_A])).rows[0].home_kit_colour, null)
+      } finally { await db.exec('reset role') }
+    }
+    await db.query("update public.clubs set plan_key='team',plan_status='expired' where id=$1", [CLUB_A])
+    await db.exec('set role authenticated')
+    await assert.rejects(db.query("update public.teams set home_kit_colour='#2563eb' where id=$1", [TEAM_A]), /plan_capability_not_available/)
+  } finally { await db.close() }
 })

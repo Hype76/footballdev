@@ -10,14 +10,17 @@ const mocks = {
   './biometrics': 'export const getBiometricEnabled=async()=>false; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   './config': 'export const getMobileRuntimeConfig=()=>({isUsable:true})',
   './notifications': 'export const revokeNativePushDevice=async()=>{}',
-  './profile': `export async function fetchMobileProfile(user) { window.profileCalls++; if(window.insideAuthCallback) throw Error('profile called inside auth lock'); if(window.hangProfile) return new Promise(()=>{}); return {id:user.id, role:'parent_portal'} }`,
+  './profile': `export async function fetchMobileProfile(user) { window.profileCalls++; if(window.insideAuthCallback) throw Error('profile called inside auth lock'); if(window.hangProfile) return new Promise(()=>{}); return {id:user.id, role:'parent_portal', planKey:window.serverPlan || 'team'} }`,
   './supabase': `export const supabase={auth:window.mockAuth}; export const clearMobileSessionStorage=async()=>{}; export const getAccessToken=async()=>''; export const isSupabaseConfigured=true; export const mobileConfigError=''; export const mobileSessionStorageError=''; export const readSavedMobileSession=async()=>window.savedSession||null`,
   './mobileResourceCache': 'export const mobileResourceCache={clear(){}}',
 }
 const result = await build({
   stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import {AuthProvider,useMobileAuth} from './apps/mobile-core/src/auth.js';
-    function State(){const a=useMobileAuth(); window.authState=a; window.historyStates.push(a.startupState); return <p>{a.startupState}</p>}
-    createRoot(document.getElementById('root')).render(<AuthProvider appRole={window.testRole || 'parent'} offlineProfileStore={window.offlineStore}><State/></AuthProvider>)`, resolveDir: root, loader: 'jsx' },
+    import {isClubManagedTeamKit} from './src/lib/team-kits.js';
+    function State(){const a=useMobileAuth(); window.authState=a; window.kitManaged=isClubManagedTeamKit(a.user); window.historyStates.push(a.startupState); return <p>{a.startupState}</p>}
+    const appRoot=createRoot(document.getElementById('root')); let incarnation=0;
+    window.restart=()=>appRoot.render(<AuthProvider key={incarnation++} appRole={window.testRole || 'parent'} offlineProfileStore={window.offlineStore}><State/></AuthProvider>);
+    window.restart();`, resolveDir: root, loader: 'jsx' },
   bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx' },
   alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' },
@@ -112,6 +115,35 @@ try {
     await offline.waitForFunction(()=>window.authState?.startupState==='READY_SIGNED_OUT')
     assert.equal(await offline.evaluate(()=>window.cacheCleared),true)
     await offline.close()
+  }
+  for (const role of ['parent', 'coach']) {
+    const upgrade = await browser.newPage()
+    await upgrade.setContent('<div id="root"></div>')
+    await upgrade.evaluate(role => {
+      window.testRole=role;window.serverPlan='team';window.profileCalls=0;window.historyStates=[]
+      window.cachedProfile={id:'upgraded-user',role:'coach',planKey:'team'}
+      window.savedSession={user:{id:'upgraded-user'},access_token:'synthetic-only'}
+      window.offlineStore={read:async()=>window.cachedProfile,write:async profile=>(window.cachedProfile=profile),clear:async()=>{}}
+      window.mockAuth={startAutoRefresh(){},stopAutoRefresh(){},getSession:async()=>({data:{session:window.savedSession}}),onAuthStateChange(fn){window.authEvent=fn;return {data:{subscription:{unsubscribe(){}}}}}}
+    }, role)
+    await upgrade.addScriptTag({content:result.outputFiles[0].text})
+    await upgrade.waitForFunction(()=>window.authState?.user&&!window.authState.user.isOfflineProfile)
+    assert.equal(await upgrade.evaluate(()=>window.kitManaged),false)
+    await upgrade.evaluate(()=>{window.serverPlan='club';window.authEvent('TOKEN_REFRESHED',window.savedSession)})
+    await upgrade.waitForTimeout(100)
+    assert.equal(await upgrade.evaluate(()=>window.kitManaged),false,'same-account token renewal does not refresh plan authority')
+    await upgrade.evaluate(()=>window.authState.refreshUserProfile())
+    await upgrade.waitForFunction(()=>window.kitManaged===true)
+    assert.equal(await upgrade.evaluate(()=>window.cachedProfile.planKey),'club','explicit profile refresh persists new scope')
+    await upgrade.evaluate(()=>{window.serverPlan='team';window.restart()})
+    await upgrade.waitForFunction(()=>window.authState?.user?.planKey==='team'&&!window.authState.user.isOfflineProfile)
+    assert.equal(await upgrade.evaluate(()=>window.kitManaged),false,'startup reload resolves current plan')
+    await upgrade.evaluate(()=>{window.serverPlan='club';window.hangProfile=true;window.restart()})
+    await upgrade.waitForFunction(()=>window.authState?.user?.isOfflineProfile===true)
+    assert.equal(await upgrade.evaluate(()=>window.kitManaged),false,'offline stale profile cannot know the server upgrade')
+    await upgrade.evaluate(()=>{window.hangProfile=false;window.authEvent('TOKEN_REFRESHED',window.savedSession)})
+    await upgrade.waitForFunction(()=>window.kitManaged===true&&!window.authState.user.isOfflineProfile)
+    await upgrade.close()
   }
   console.log('PASS: actual AuthProvider handles login, token refresh, repeated sign-in, hung profile, account switching, recovery and sign-out without auth-lock calls.')
 } finally { await browser.close() }
