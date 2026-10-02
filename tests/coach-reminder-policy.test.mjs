@@ -36,9 +36,13 @@ test('automatic deadlines require linked Parent authority independently of notif
   assert.equal(evaluateCoachReminderJob({...f,job}).effect.status,'unavailable')
   for(const active of [false,undefined]){
     f.invitation.parentResponderActive=active
-    assert.equal(evaluateCoachReminderJob({...f,job}).reason,'no_linked_parent')
+    assert.equal(evaluateCoachReminderJob({...f,job}).reason,'no_eligible_responder')
     assert.deepEqual(projectCoachAvailability({...f,effect}),{status:'pending',provenance:'no_response',planningExcluded:false,automatic:false})
   }
+  f.invitation.adultResponderActive=true
+  assert.equal(evaluateCoachReminderJob({...f,job}).effect.status,'unavailable','An existing eligible adult self-responder retains automation')
+  assert.equal(projectCoachAvailability({...f,effect}).automatic,true)
+  f.invitation.adultResponderActive=false
   for(const status of ['available','unavailable']){
     f.invitation.responseStatus=status;f.invitation.responseSource='coach'
     const projection=projectCoachAvailability({...f,effect})

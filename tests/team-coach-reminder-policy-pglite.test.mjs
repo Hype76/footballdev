@@ -349,7 +349,9 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     await db.exec(`alter table parent_player_links add column email text default 'parent@example.test';
       create or replace function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns table(player_id uuid,parent_link_id uuid,recipient_email text,recipient_type text) language sql as $$
         select player_id,id,email,'parent_guardian'
-        from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'$$;
+        from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'
+        union all select player_id,null::uuid,'adult@example.test','player'
+        from adult_fixture_links where club_id=club_id_value and team_id=team_id_value and player_id=any(player_ids_value) and active$$;
       insert into parent_player_links values('${id(97)}','${id(98)}','${player}','${club}','active','second-parent@example.test');
       insert into training_availability_request_players values('${id(94)}','${id(92)}','${club}','${team}','${player}','second-parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent');
       update training_availability_request_players set token_revoked_at=clock_timestamp() where id='${id(93)}'`)
@@ -398,10 +400,17 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     await db.exec(`update parent_player_links set status='revoked'`)
     const cas=(await db.query("select commit_team_coach_reminder_job_v1($1,$2,null,'[]'::jsonb,'completed','unanswered') value",[deadline.key,JSON.stringify(before)])).rows[0].value
     assert.equal(cas.committed,false);assert.equal(cas.reason,'context_changed')
-    assert.equal((await processCoachReminderJob({repository,jobKey:deadline.key,now:new Date().toISOString()})).reason,'no_linked_parent')
+    assert.equal((await processCoachReminderJob({repository,jobKey:deadline.key,now:new Date().toISOString()})).reason,'no_eligible_responder')
     assert.equal((await db.query('select count(*)::int n from team_coach_reminder_effects where job_key=$1',[deadline.key])).rows[0].n,0)
     assert.equal(await project(monthly.id),null);assert.equal(await planning(monthly.id),false)
     assert.equal(await project(enrol.id),null);assert.equal(await planning(enrol.id),false)
+    await db.exec(`update adult_fixture_links set active=true where user_id='${id(80)}'`)
+    const adultContext=await repository.loadContext(candidate)
+    assert.equal(adultContext.invitation.parentResponderActive,false)
+    assert.equal(adultContext.invitation.adultResponderActive,true,'Verified adult authority is distinct from an absent Parent')
+    assert.equal((await project(monthly.id)).automatic,true,'Existing eligible adult self-response automation is preserved')
+    await db.exec('update adult_fixture_links set active=false')
+    assert.equal(await project(monthly.id),null)
     const oldSends=sends.length
     await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport})
     assert.equal(sends.length,oldSends,'Previously queued effects cannot send after all links are revoked')

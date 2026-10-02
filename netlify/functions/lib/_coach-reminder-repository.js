@@ -23,6 +23,7 @@ export function normalizeCoachReminderContext(raw, job) {
     responseRevision:hash(response || 'no_response'),clubId:enrolment.club_id,teamId:enrolment.team_id,eventId:enrolment.event_id,
     occurrenceDate:enrolment.occurrence_date || '',playerId:enrolment.player_id,createdAt:enrolment.source_created_at,deliveredAt:enrolment.first_delivered_at,
     parentResponderActive:raw.parentResponderActive === true,
+    adultResponderActive:raw.adultResponderActive === true,
     memberActive:raw.memberActive === true && enrolment.policy_id===policy.id && Number(enrolment.policy_revision)===Number(policy.revision)
       && Date.parse(enrolment.source_created_at)>=Date.parse(policy.effectiveFrom),
     revoked:!invite || invite.invite_status==='cancelled' || Boolean(invite.cancelled_at),
