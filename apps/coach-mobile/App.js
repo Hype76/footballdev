@@ -61,7 +61,7 @@ import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMob
 import { UserFeedbackScreen } from '../mobile-core/src/UserFeedbackScreen'
 import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
-import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary } from '../mobile-core/src/coachPhase31GCore'
+import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState } from '../mobile-core/src/coachPhase31GCore'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
@@ -450,27 +450,25 @@ function CoachHome() {
       try {
         const invites = await readMobileResource(selectedMobileUser, 'coach:phase31e:invites',
           () => getCoachInvitesAndAvailability(selectedMobileUser), { force: true })
-        if (isCurrent()) setHomeState(current => ({
-          ...current,
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'invites', {
           pendingAvailability: countPendingCoachAvailability(invites.all, new Date(), 7),
-          errors: (current.errors || []).filter(error => !error.startsWith('invites:')),
         }))
       } catch {
-        if (isCurrent()) setHomeState(current => ({
-          ...current,
-          errors: [...(current.errors || []).filter(error => !error.startsWith('invites:')), 'invites:unavailable'],
-        }))
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'invites', {}, 'unavailable'))
       }
       return
     }
     if (chatOnly) {
       const requestId = requestIdRef.current
       const chatRefreshId = ++chatRefreshIdRef.current
-      const rooms = await readMobileResource(selectedMobileUser, 'coach:phase31e:chat',
-        () => getCoachChatRooms(selectedMobileUser), { force: true })
-      if (requestId === requestIdRef.current && chatRefreshId === chatRefreshIdRef.current) setHomeState((current) => ({
-        ...current, ...buildCoachChatSummary(rooms),
-      }))
+      const isCurrent = () => requestId === requestIdRef.current && chatRefreshId === chatRefreshIdRef.current
+      try {
+        const rooms = await readMobileResource(selectedMobileUser, 'coach:phase31e:chat',
+          () => getCoachChatRooms(selectedMobileUser), { force: true })
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', buildCoachChatSummary(rooms)))
+      } catch {
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', {}, 'unavailable'))
+      }
       return
     }
     const requestId = ++requestIdRef.current
@@ -500,12 +498,12 @@ function CoachHome() {
     try {
       const primary = await readMobileResource(selectedMobileUser, primaryCacheKey,
         () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
-          if (requestId === requestIdRef.current && !savedHome) setHomeState(current => preserveCoachAvailabilitySummary({ ...current, ...partial, loading: false }, current))
+          if (requestId === requestIdRef.current && !savedHome) setHomeState(current => preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...partial, loading: false }, current), current))
         }), { force: refresh })
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
       const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
-      setHomeState((current) => preserveCoachAvailabilitySummary({ ...current, ...primarySnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat }, current))
+      setHomeState((current) => preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...primarySnapshot }, current), current))
       setLastUpdatedAt(savedAt)
       lastHomeRefreshAtRef.current = Date.now()
       void saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
@@ -519,7 +517,7 @@ function CoachHome() {
         .then(value => ({ value }), error => ({ error }))
       if (requestId !== requestIdRef.current) return
       if (attentionResult.error) {
-        setHomeState((current) => ({ ...current, partial: true }))
+        setHomeState(current => updateCoachHomeSourceState(current, 'attention', {}, 'unavailable'))
         return
       }
       const completeSnapshot = {
@@ -529,7 +527,7 @@ function CoachHome() {
       setHomeState((current) => {
         const next = chatRefreshId === chatRefreshIdRef.current
           ? completeSnapshot
-          : { ...completeSnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat }
+          : preserveCoachChatSummary(completeSnapshot, current)
         return availabilityRefreshId === availabilityRefreshIdRef.current ? next : preserveCoachAvailabilitySummary(next, current)
       })
       const savedSections = { home: completeSnapshot }
