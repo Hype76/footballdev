@@ -24,13 +24,15 @@ export function ToastProvider({ children }) {
     window.setTimeout(() => {
       dismissToast(toastId)
     }, 3500)
+    return toastId
   }, [dismissToast])
 
   const value = useMemo(
     () => ({
       showToast,
+      dismissToast,
     }),
-    [showToast],
+    [showToast, dismissToast],
   )
 
   return (

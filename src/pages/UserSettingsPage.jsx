@@ -8,6 +8,7 @@ import { PrivilegedMfaSection } from '../components/user-settings/PrivilegedMfaS
 import { SetupChecklistSettingsSection } from '../components/user-settings/SetupChecklistSettingsSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
+import { createLatestThemeSave } from '../lib/latest-theme-save.js'
 import { createInitialPasswordState } from '../hooks/user-settings/userSettingsUtils.js'
 import { canManageClubSettings, canManageTeamSettings, isClubAdmin, isDemoAccount, isParentPortalUser, useAuth } from '../lib/auth.js'
 import {
@@ -48,7 +49,9 @@ import {
 
 export function UserSettingsPage() {
   const { authUser, resetPassword, updateCurrentUserDetails, user } = useAuth()
-  const { showToast } = useToast()
+  const { showToast, dismissToast } = useToast()
+  const themeSaveRef = useRef(createLatestThemeSave())
+  const themeToastRef = useRef(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const isDemoSettings = isDemoAccount(user)
   const isParentSettings = isParentPortalUser(user)
@@ -112,6 +115,15 @@ export function UserSettingsPage() {
     roleRank: user?.roleRank,
   }), [user?.activeTeamId, user?.role, user?.roleRank])
   const canChooseAttendanceVisibility = canChooseTrainingAttendanceVisibility(attendanceVisibilityUser)
+
+  useEffect(() => {
+    const themeSave = themeSaveRef.current
+    return () => {
+      themeSave.cancel()
+      if (themeToastRef.current) dismissToast(themeToastRef.current)
+      themeToastRef.current = null
+    }
+  }, [authUser?.id, user?.id, dismissToast])
 
   useEffect(() => {
     setUsername(user?.username || user?.name || '')
@@ -376,38 +388,34 @@ export function UserSettingsPage() {
     }
   }
 
-  const persistUserThemePreference = async (nextThemeMode) => {
-    if (isDemoSettings) {
-      return
-    }
-
-    try {
-      const updatedProfile = await updateOwnThemeSettings({
-        authUser,
-        mode: nextThemeMode,
-      })
-      updateCurrentUserDetails({
-        themeMode: updatedProfile.themeMode,
-      })
-    } catch (error) {
-      console.error(error)
-      showToast({
-        title: 'Theme not saved',
-        message: 'Your display preference could not be updated right now.',
-        tone: 'error',
-      })
-    }
-  }
-
   const handleThemeModeChange = (nextThemeMode) => {
+    if (themeToastRef.current) dismissToast(themeToastRef.current)
+    themeToastRef.current = null
     const nextPreferences = saveThemePreferences({
       mode: nextThemeMode,
       accent: savedThemeAccent,
       buttonStyle: savedThemeButtonStyle,
     })
     setThemeMode(nextPreferences.mode)
-    showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
-    void persistUserThemePreference(nextPreferences.mode)
+    if (isDemoSettings) {
+      themeToastRef.current = showToast({ title: 'Theme updated', message: 'Your display preference has been saved on this device.' })
+      return
+    }
+    void themeSaveRef.current.save({
+      persist: () => updateOwnThemeSettings({ authUser, mode: nextPreferences.mode }),
+      onSuccess: (updatedProfile) => {
+        updateCurrentUserDetails({ themeMode: updatedProfile.themeMode })
+        themeToastRef.current = showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
+      },
+      onError: (error) => {
+        console.error(error)
+        themeToastRef.current = showToast({
+          title: 'Theme not saved',
+          message: 'Your display preference could not be updated right now. It is only applied on this device.',
+          tone: 'error',
+        })
+      },
+    })
   }
 
   const handleAttendanceVisibilityChange = async (enabled) => {
