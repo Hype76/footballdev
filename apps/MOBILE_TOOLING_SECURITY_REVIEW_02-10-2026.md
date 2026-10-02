@@ -46,6 +46,8 @@ Fresh `expo export --platform all --source-maps --clear` exports use production 
 
 All six source-map inventories contain **none** of brace-expansion, image-size, js-yaml, node-forge or undici. Runtime-facing expo/expo-updates, and Coach datetimepicker, may ship while their vulnerable tooling children do not. The evidence JSON records package membership, bundle/map hashes and exact residual advisory URLs; full normalized module inventories are in the local archive.
 
+All exports were repeated after the root install completed, using two workers. Coach bundle/map hashes were identical; Parent retained the same module counts and audited-package membership but produced different bundle/map hashes. The evidence JSON contains the final complete-environment hashes and source commit. No claim of byte-identical exports across the two environments/worker settings is made.
+
 Installed expo-updates uses `SecKeyVerifySignature` in iOS CodeSigningConfiguration.swift and `Signature.getInstance("SHA256withRSA")` in Android CodeSigningConfiguration.kt. This supports a distinction between native signature checks and Node tooling; it does not prove every native/runtime path safe or prove code signing is configured for deployed binaries.
 
 The standalone inventory check is separate from audit/release gates:

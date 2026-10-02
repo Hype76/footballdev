@@ -1,6 +1,8 @@
 {
-  "collectedAt": "2026-10-02T13:59:05.980Z",
+  "collectedAt": "2026-10-02T14:09:43.271Z",
   "baseCommit": "b40b5935e46a49caf22b84bbbb02f36975a3f1ff",
+  "exportSourceCommit": "6aae5d6f72ac44d5aa0bd7055a0e98328c7ca320",
+  "exportEnvironment": "Complete clean root and mobile installations; final exports use two workers.",
   "node": "22.21.0",
   "npm": "11.7.0",
   "apps": {
@@ -402,9 +404,9 @@
       ],
       "exports": [
         {
-          "sourceMap": "_expo/static/js/android/index-789a16b9e3a65c991c08d1901c48dee5.hbc.map",
-          "sourceMapSha256": "66041fe47ad71960043d1dab7b2229a589e4c1df64cdc0ff07176a622d58dbfa",
-          "bundleSha256": "4a7e8a4bcffa329ca06847024e6a4e7ff7fff4d7a894f00110d8d6b554779d66",
+          "sourceMap": "_expo/static/js/android/index-c206bdf5c20e909fbd55d4cd8bfd0350.hbc.map",
+          "sourceMapSha256": "b6a9b880b2941e507981d3c6be42dd06759dabebbb5332a6be1ef483850bb6ed",
+          "bundleSha256": "4c6121989637e06286175cab49fabf8fe439fbc15f7358cb7b1b6c6f87e46b62",
           "moduleCount": 1020,
           "roots": {
             "brace-expansion": {
@@ -438,9 +440,9 @@
           }
         },
         {
-          "sourceMap": "_expo/static/js/ios/index-694f18ff926f746d0ffbac5ca1c234cd.hbc.map",
-          "sourceMapSha256": "db1895f1fa2dd76ad24a03c326ddcdde2b797dcb5c408ea1557ededd7dc44da9",
-          "bundleSha256": "96834746b67181fb8a74a5c7de1869d6ff67b5be851a849fe2e70014a5fd92c7",
+          "sourceMap": "_expo/static/js/ios/index-b9fc462ddb0756fabdf72c449f3a64c8.hbc.map",
+          "sourceMapSha256": "dc80ffaa52021f81463a16f067b7ed543d82f745a98715a9eedd433ba2b4f4ac",
+          "bundleSha256": "e384bcfcd06ee946ae351c4dc6023d9397f98f64528c0ea5211089add3c5f866",
           "moduleCount": 1020,
           "roots": {
             "brace-expansion": {
@@ -474,9 +476,9 @@
           }
         },
         {
-          "sourceMap": "_expo/static/js/web/index-0931ab74e7020be262fd5c128003b603.js.map",
-          "sourceMapSha256": "2d6d908a1212ef6c61a14ad8ec1c94012b2901cea1fc91af64ea10db1315ea2f",
-          "bundleSha256": "6e46ab54adf79fef8e9089c744c8d5b741be16d551030ea7b4094a135d1f518f",
+          "sourceMap": "_expo/static/js/web/index-0b4116afc69fc4834a893dc7216e3108.js.map",
+          "sourceMapSha256": "cbf97a1070ae39819feeb3ac9269de22b863b9817bcf60fba5ba6b25bcb267c8",
+          "bundleSha256": "b8585e3e8ccdef6398a94a28ba1a6a3d687d6d7fd45eb21b434f6a6233b4f9cf",
           "moduleCount": 813,
           "roots": {
             "brace-expansion": {
