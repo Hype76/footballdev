@@ -96,6 +96,7 @@ function getResponseSourceLabel(value) {
     parent: 'Parent',
     staff_on_behalf: 'Coach on behalf',
     token: 'Secure response link',
+    coach_deadline_automation: 'Automatic team deadline',
   }[normalizeStatus(value)] || 'Not recorded'
 }
 
@@ -129,7 +130,7 @@ function normalizeManagerRow(row, eventType) {
     responseLabel: getEventResponseCategoryLabel(category, eventType),
     selectionLabel: match ? (selected ? 'Selected' : 'Not selected') : '',
     deliveryLabel: getDeliveryLabel(row),
-    responseSourceLabel: getResponseSourceLabel(row.responseSource),
+    responseSourceLabel: row.availabilityAutomationLabel || getResponseSourceLabel(row.responseSource),
     respondedAt: row.respondedAt || '',
     warningLabel: category === EVENT_RESPONSE_FILTERS.deliveryIssue
       ? normalizeText(row.deliveryError) || 'Delivery needs attention'

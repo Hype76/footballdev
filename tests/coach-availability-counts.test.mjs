@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { readCoachMatchAvailability } from '../apps/mobile-core/src/coachAvailabilityData.js'
 import { getCoachAvailabilityMatches, normalizeCoachInvite, collapseCoachInvitesByPlayer, summarizeCoachInvites } from '../apps/mobile-core/src/coachPhase31ECore.js'
+import {readCoachReminderProjections,applyCoachReminderProjection,findCoachReminderProjection} from '../src/lib/coach-reminder-read-model.js'
 
 const user = { clubId: 'club', activeTeamId: 'team' }
 const fixture = (id, overrides = {}) => ({ id, teamId: 'team', status: 'scheduled', matchDate: '2099-09-19', ...overrides })
@@ -63,6 +64,23 @@ test('actual Coach loader counts each player once and merges responses from late
     assert.equal(counts.unavailable, 1, match.id)
     assert.equal(counts.awaiting, 2, match.id)
   }
+})
+
+test('enabled Coach loader projects only the overdue Player while preserving duplicate collapse and explicit answers',async()=>{
+  const source=await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js',import.meta.url),'utf8')
+  const body=source.slice(source.indexOf('export async function getCoachInvitesAndAvailability('),source.indexOf('export async function setCoachInviteAvailabilityOnBehalf(')).replace('export ','')
+  const {matches,tables}=largeDataset(),client=database(tables),calls=[]
+  client.rpc=async(name,args)=>{calls.push({name,args});return {data:args.kind_value==='MATCH'?[{eventId:'match-0',playerId:'player-15',status:'unavailable',automatic:true,provenance:'coach_deadline_automation',planningExcluded:true}]:[],error:null}}
+  const load=new Function('process','supabase','assertCoachOperationalRead','getCoachMatchDayList','readCoachMatchAvailability','getCoachPlayerList','normalize','normalizeCoachInvite','readCoachReminderProjections','applyCoachReminderProjection','findCoachReminderProjection',`${body};return getCoachInvitesAndAvailability`)(
+    {env:{EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION:'true'}},client,()=>{},async()=>matches,readCoachMatchAvailability,async()=>[],value=>String(value||'').trim(),normalizeCoachInvite,readCoachReminderProjections,applyCoachReminderProjection,findCoachReminderProjection)
+  const result=await load(user),players=collapseCoachInvitesByPlayer(result.match.filter(row=>row.eventId==='match-0'))
+  assert.equal(players.length,17)
+  const counts=summarizeCoachInvites(players)
+  assert.equal(counts.available,14);assert.equal(counts.unavailable,2);assert.equal(counts.awaiting,1)
+  const automatic=players.find(row=>row.playerId==='player-15')
+  assert.equal(automatic.availabilityProvenance,'coach_deadline_automation');assert.equal(automatic.availabilityAutomatic,true)
+  assert.deepEqual(calls.map(call=>call.args.kind_value),['MATCH','TRAINING'])
+  assert.ok(calls.every(call=>call.name==='get_team_coach_reminder_projections_v1'))
 })
 
 for (const table of ['match_day_availability_requests', 'match_day_player_availability']) test(`failed later ${table} page rejects instead of showing partial totals`, async () => {

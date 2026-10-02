@@ -220,6 +220,7 @@ function ClubAdminHomeView({
 
   return (
     <div data-testid="manager-home" className="manager-home-theme space-y-5">
+      {import.meta.env.VITE_ENABLE_COACH_REMINDER_POLICY_SETTINGS==='true' && user?.activeTeamId && Number(user.roleRank)>=20 ? <Link className="inline-flex min-h-11 items-center font-bold" to="/app/coach-reminder-settings">Team reminder settings</Link>:null}
       <section
         data-testid="manager-home-header"
         className="rounded-xl bg-[var(--shell-card)] px-5 py-5 shadow-sm shadow-black/10 sm:px-6 lg:flex lg:items-center lg:justify-between lg:gap-8 lg:px-8"

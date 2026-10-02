@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto'
+import {readCoachReminderProjections,projectCoachReminderMatches} from '../../../src/lib/coach-reminder-read-model.js'
 import { normalizeExtraTimeHalfMinutes, normalizeExtraTimePeriodCount, normalizeMatchDayConclusionRule } from '../../../src/lib/matchday-extended-ops.js'
 import { assertMatchDayShirtChoice, assertNewMatchHomeAway, assertValidMatchDurationMinutes, normalizeLegacyMatchHomeAway, normalizeMatchClockMode, normalizeMatchDayShirtChoice, normalizeMatchDurationMinutes } from '../../../src/lib/matchday-model.js'
 import { normalizeTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
@@ -394,7 +395,10 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
     if (stateError) throw stateError
     presentationState = (states || [])[0] || null
   }
-  return { ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}), clubName: user.clubName }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
+  const normalizedMatch={ ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}), clubName: user.clubName }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
+  if(process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION!=='true')return normalizedMatch
+  const projections=await readCoachReminderProjections(supabase,'MATCH',[matchDayId],{enabled:true})
+  return projectCoachReminderMatches([normalizedMatch],projections)[0]
 }
 
 async function prepareMutation(user, match, minimumRank = 20) {

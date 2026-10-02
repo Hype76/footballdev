@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto'
+import {readCoachReminderProjections,applyCoachReminderProjection,findCoachReminderProjection} from '../../../src/lib/coach-reminder-read-model.js'
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
 import {
   buildCoachCalendarEvents,
@@ -48,6 +49,8 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
   if (requestPlayersResult.error) throw requestPlayersResult.error
   if (responsesResult.error) throw responsesResult.error
   const responses = new Map((responsesResult.data || []).map((row) => [`${row.request_id}:${row.player_id}`, row]))
+  const remindersEnabled=process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION==='true'
+  const reminderProjections=remindersEnabled ? await readCoachReminderProjections(supabase,'TRAINING',eventIds,{enabled:true}) : []
   const invitesByOccurrence = {}
   for (const row of requestPlayersResult.data || []) {
     const eventId = normalize(row.calendar_event_id)
@@ -59,11 +62,12 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
     const summaryKey = occurrenceDate ? `${eventId}:${occurrenceDate}` : eventId
     const response = responses.get(`${row.request_id}:${row.player_id}`)
     if (!invitesByOccurrence[summaryKey]) invitesByOccurrence[summaryKey] = []
-    invitesByOccurrence[summaryKey].push(normalizeCoachInvite({
+    const normalizedInvite=normalizeCoachInvite({
       ...row,
       ...response,
       occurrence_date: occurrenceDate,
-    }, 'training'))
+    }, 'training')
+    invitesByOccurrence[summaryKey].push(remindersEnabled ? applyCoachReminderProjection(normalizedInvite,findCoachReminderProjection(reminderProjections,{eventId,playerId:row.player_id,occurrenceDate})) : normalizedInvite)
   }
   return Object.fromEntries(Object.entries(invitesByOccurrence).map(([summaryKey, invites]) => {
     const collapsed = collapseCoachInvitesByPlayer(invites)
@@ -79,6 +83,7 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
         respondedAt: invite.respondedAt,
         respondedByName: invite.respondedByName,
         status: invite.status,
+        ...(invite.availabilityAutomationLabel?{availabilityAutomationLabel:invite.availabilityAutomationLabel,availabilityAutomatic:invite.availabilityAutomatic,planningExcluded:invite.planningExcluded}:{}),
       })),
     }]
   }))

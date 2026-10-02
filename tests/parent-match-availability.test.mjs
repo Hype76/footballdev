@@ -3,6 +3,7 @@ import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { parse } from '@babel/parser'
 import { canChangeParentMatchAvailability, getParentMatchAttendanceInvitation, getParentMatchAvailability, getParentMatchSquadStatus } from '../apps/parent-mobile/src/parentMatchAvailability.js'
+import {readCoachReminderProjections,projectCoachReminderMatches} from '../src/lib/coach-reminder-read-model.js'
 const link = { id: 'parent', playerId: 'child', linkType: 'parent' }
 const match = { id: 'match', status: 'scheduled' }
 const invitation = { parentLinkId: 'parent', childId: 'child', eventId: 'match', invitationType: 'match_attendance', sourceRecordId: 'request', invitationState: 'active', canRespond: true }
@@ -65,4 +66,23 @@ test('match loader merges fixture squad arrays using stable IDs and does not req
   calls.length=0
   await getParentPortalMatchDays({link:{...link,linkType:'player'}})
   assert.equal(calls.includes('get_parent_portal_match_squad_transport'),false)
+})
+
+test('Parent match loader keeps default-off reads intact and enables only selected-link reminder projections',async()=>{
+  const calls=[],original={id:'match',availabilityStatus:'pending'}
+  const supabase={rpc:async(name,args)=>{
+    calls.push({name,args})
+    return {data:name==='get_parent_portal_match_days'?[original]:name==='get_team_coach_reminder_projections_v1'?[{eventId:'match',playerId:'child',status:'unavailable',automatic:true,provenance:'coach_deadline_automation',planningExcluded:true}]:[],error:null}
+  }}
+  const runtime={env:{}}
+  const load=new Function('process','supabase','readCoachReminderProjections','projectCoachReminderMatches',`const requireSelectedLink=user=>user.link,normalizeParentMatchDay=row=>row;${functionSource('getParentPortalMatchDays')};return getParentPortalMatchDays;`)(runtime,supabase,readCoachReminderProjections,projectCoachReminderMatches)
+  const [disabled]=await load({link})
+  assert.equal(disabled.availabilityStatus,'pending');assert.equal(disabled.availabilityAutomatic,undefined)
+  assert.equal(calls.some(call=>call.name==='get_team_coach_reminder_projections_v1'),false)
+  runtime.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION='true'
+  const [enabled]=await load({link})
+  assert.equal(enabled.availabilityStatus,'unavailable');assert.equal(enabled.availabilityProvenance,'coach_deadline_automation')
+  const projection=calls.find(call=>call.name==='get_team_coach_reminder_projections_v1')
+  assert.equal(projection.args.parent_link_id_value,link.id);assert.deepEqual(projection.args.event_ids,['match'])
+  assert.equal(original.availabilityStatus,'pending')
 })

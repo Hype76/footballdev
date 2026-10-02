@@ -75,10 +75,10 @@ export function CoachMatchInviteTable({ coachAttendance = [], currentCoachId = '
       {visible.map(invite => {
         const item = response(invite), progress = getCoachInviteDeliveryProgress(invite), selected = selectedPlayerIds.includes(invite.playerId)
         return <View key={invite.id} style={[styles.row, selected && styles.selected]}>
-          <Pressable accessibilityRole="checkbox" accessibilityLabel={`${invite.playerName}, ${item.label}, ${progressLabels(invite)}`} accessibilityState={{ checked: selected, disabled: selectionDisabled }} disabled={selectionDisabled} onPress={() => onToggleSelection(invite.playerId)} style={styles.selectRow}>
+          <Pressable accessibilityRole="checkbox" accessibilityLabel={`${invite.playerName}, ${item.label}, ${invite.availabilityAutomationLabel || ''}, ${progressLabels(invite)}`} accessibilityState={{ checked: selected, disabled: selectionDisabled || (!selected && invite.planningExcluded===true) }} disabled={selectionDisabled || (!selected && invite.planningExcluded===true)} onPress={() => onToggleSelection(invite.playerId)} style={styles.selectRow}>
             <View style={[styles.number, largeText && styles.numberLargeText]}>{selected ? <MaterialIcons name="check-box" size={18} color={palette.accentText} /> : <Text style={styles.numberText}>{playerById.get(invite.playerId)?.shirtNumber || ''}</Text>}</View>
             <View style={styles.player}><Text numberOfLines={1} style={styles.playerName}>{invite.playerName}</Text>{invite.transportNeedsLift || invite.transportCanOfferLift ? <MaterialIcons name="directions-car" size={15} color={invite.transportNeedsLift ? palette.danger : palette.accentText} accessibilityLabel={invite.transportNeedsLift ? 'Needs a lift' : 'Offering a lift'} /> : null}</View>
-            <View style={[styles.response, largeText && styles.responseLargeText]}><MaterialIcons name={item.icon} size={18} color={item.color} accessible={false} /><Text numberOfLines={1} style={[styles.responseText, { color: item.color }]}>{item.label}</Text></View>
+            <View style={[styles.response, largeText && styles.responseLargeText]}><MaterialIcons name={item.icon} size={18} color={item.color} accessible={false} /><Text numberOfLines={1} style={[styles.responseText, { color: item.color }]}>{invite.availabilityAutomatic?'Auto unavailable':item.label}</Text></View>
             <View accessibilityLabel={progressLabels(invite)} style={[styles.message, largeText && styles.messageLargeText]}>{[progress.sent, progress.seen].map((active, index) => <MaterialIcons key={index} name={active ? 'check' : 'radio-button-unchecked'} size={17} color={active ? palette.success : palette.textMuted} accessible={false} />)}</View>
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel={`${invite.playerName} invitation details`} onPress={() => setDetailsId(invite.id)} style={styles.info}><MaterialIcons name="info-outline" size={19} color={palette.textSecondary} /></Pressable>
@@ -90,6 +90,7 @@ export function CoachMatchInviteTable({ coachAttendance = [], currentCoachId = '
     <Modal visible={Boolean(details) || detailsId === 'legend'} transparent animationType="fade" onRequestClose={() => setDetailsId(null)}>
       <View style={styles.modalBackdrop}><View accessibilityViewIsModal style={styles.modalCard}><ScrollView>
         <Text accessibilityRole="header" style={styles.detailTitle}>{details?.playerName || 'Message status key'}</Text>
+        {details?.availabilityAutomationLabel?<Text style={styles.detailText}>{details.availabilityAutomationLabel}. Explicit parent answers remain unchanged.</Text>:null}
         {details && onLoadHistory ? <View>
           <Text style={styles.detailTitle}>Invite history</Text>
           {history ? <>

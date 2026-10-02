@@ -534,7 +534,7 @@ export function buildEventResponseReadModel({
           : hasActiveAvailabilityRequest
             ? 'awaiting_response'
             : 'not_invited'
-      const responseSource = getAuditSource(auditEvents, playerId)
+      const responseSource = (availability?.availabilityAutomatic ? 'coach_deadline_automation' : '') || getAuditSource(auditEvents, playerId)
         || getEventLogResponseSource(matchDay, playerId)
         || (availability?.selectedByParentLinkId ? 'parent' : '')
         || (request?.respondedAt && normalizeStatus(request?.recipientType) === 'player' ? 'adult_player' : '')
@@ -567,6 +567,7 @@ export function buildEventResponseReadModel({
           ? 'Invitation not sent'
           : getResponseLabel(eventType, responseState),
         responseSource,
+        ...(availability?.availabilityAutomationLabel ? {availabilityAutomationLabel:availability.availabilityAutomationLabel,planningExcluded:availability.planningExcluded,availabilityAutomatic:availability.availabilityAutomatic} : {}),
         respondedAt: availability?.selectedAt || request?.respondedAt || next.respondedAt,
         matchSelectionState,
         selectionSource: getSelectionSource(matchDay, playerId, decision),
@@ -618,7 +619,7 @@ export function buildEventResponseReadModel({
           : recipientStatus === 'cancelled' || recipientStatus === 'expired'
             ? 'not_sent'
             : 'queued'
-      const responseSource = getAuditSource(auditEvents, playerId)
+      const responseSource = (detail.availabilityAutomatic ? 'coach_deadline_automation' : '') || getAuditSource(auditEvents, playerId)
         || normalizeStatus(detail.responseSource)
         || (detail.parentLinkId ? 'parent' : '')
         || (detail.respondedAt && normalizeStatus(detail.recipientType) === 'player' ? 'adult_player' : '')
@@ -639,6 +640,7 @@ export function buildEventResponseReadModel({
         responseState,
         responseLabel: getResponseLabel(eventType, responseState),
         responseSource,
+        ...(detail.availabilityAutomationLabel ? {availabilityAutomationLabel:detail.availabilityAutomationLabel,planningExcluded:detail.planningExcluded,availabilityAutomatic:detail.availabilityAutomatic} : {}),
         respondedAt: detail.respondedAt || next.respondedAt,
         warningState: deliveryState === 'failed' ? 'delivery_issue' : '',
         player: {
@@ -732,6 +734,7 @@ export function buildEventResponseReadModel({
               ? withDelivery.hasActiveAvailabilityRequest === true
               : normalizeStatus(withDelivery.invitationState) !== 'not_sent'),
           canSelectForSquad: eventType === 'match'
+            && withDelivery.planningExcluded !== true
             && matchSelectionState !== 'selected',
           invitationAction,
         },

@@ -213,6 +213,7 @@ export async function sendEmail(emailPayload, {
   publicMessage = DEFAULT_PUBLIC_FAILURE_MESSAGE,
   resendClient = null,
   telemetryClient = null,
+  signal,
 } = {}) {
   const config = assertEmailProviderConfig({ env, publicMessage })
   const payload = addEmailAppAccess(normalizeResendPayload(emailPayload))
@@ -269,7 +270,7 @@ export async function sendEmail(emailPayload, {
     )
     const response = await resend.emails.send(
       safePayload,
-      providerIdempotencyKey ? { idempotencyKey: providerIdempotencyKey } : undefined,
+      providerIdempotencyKey || signal ? { ...(providerIdempotencyKey ? { idempotencyKey: providerIdempotencyKey } : {}), ...(signal ? { signal } : {}) } : undefined,
     )
     const providerError = getProviderResponseError(response)
 

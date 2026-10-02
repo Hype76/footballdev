@@ -1,4 +1,5 @@
 import { supabase } from '../supabase-client.js'
+import {readCoachReminderProjections,applyCoachReminderProjection,findCoachReminderProjection,coachReminderInvitationOccurrence} from '../coach-reminder-read-model.js'
 
 const ATTENDANCE_RESPONSE_OPTIONS = [
   { value: 'available', label: 'Available' },
@@ -636,7 +637,9 @@ export async function getParentPortalInvitationState({ parentLinkId } = {}) {
     throw error
   }
 
-  return (data ?? []).map(normalizeParentInvitation)
+  const invitations=(data ?? []).map(normalizeParentInvitation)
+  const projections=(await Promise.all(['MATCH','TRAINING'].map(kind=>readCoachReminderProjections(supabase,kind,invitations.map(invite=>invite.eventId),{enabled:import.meta.env?.VITE_ENABLE_COACH_REMINDER_AUTOMATION==='true',parentLinkId:normalizedParentLinkId})))).flat()
+  return invitations.map(invite=>applyCoachReminderProjection(invite,findCoachReminderProjection(projections,{eventId:invite.eventId,playerId:invite.childId,occurrenceDate:coachReminderInvitationOccurrence(invite)}),{statusKey:'responseState'}))
 }
 
 export async function respondToParentPortalInvitation({ parentLinkId, invitation, responseState } = {}) {

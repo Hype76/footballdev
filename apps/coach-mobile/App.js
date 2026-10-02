@@ -17,6 +17,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
+import {CoachTeamReminderSettings} from './src/CoachTeamReminderSettings'
 import { StatusBar } from 'expo-status-bar'
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { PartnersBanner, PartnersScreen } from '../mobile-core/src/PartnersScreen'
@@ -1370,6 +1371,7 @@ function SettingsScreen({
         <CoachOfflineReadiness key={`${user.id}:${context.id}`} user={user} context={context} styles={styles} />
       </Section>
       </SettingsSection>
+      {process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_POLICY_SETTINGS==='true' && context.teamId && Number(context.roleRank)>=20 ? <SettingsSection id="team-reminders" label="Team reminders" iconKey="settings.notifications"><CoachTeamReminderSettings clubId={context.clubId || user.clubId} teamId={context.teamId} apiBaseUrl={config.apiBaseUrl} palette={palette} /></SettingsSection>:null}
       <SettingsSection id="app" label="App info" iconKey="settings.app">
       <Section compact iconKey="settings.app" title="About the app">
         <InfoRow label="Club" value={context.clubName} />
