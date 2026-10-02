@@ -541,7 +541,7 @@ assertIncludes(mobileEasEnvListGuard, 'This command does not request sensitive v
 assertIncludes(mobileEasEnvListGuard, 'Required profile values before native builds:', 'Mobile EAS env list guard')
 assertIncludes(mobileEasEnvListGuard, 'Do not set MOBILE_NATIVE_BUILD_CONFIRMED=true until the selected test or production profile matches every required value.', 'Mobile EAS env list guard')
 assertIncludes(mobileEasAuth, 'Expo EAS login is required before this mobile external command can run.', 'Mobile EAS auth helper')
-assertIncludes(mobileEasAuth, 'npx eas-cli login', 'Mobile EAS auth helper')
+assertIncludes(mobileEasAuth, 'npm run mobile:publisher:install', 'Mobile EAS auth helper')
 assertIncludes(mobileEasAuthCheck, 'Expo EAS login check passed.', 'Mobile EAS auth check')
 assertIncludes(mobileLocalEnv, 'loadMobileLocalEnv', 'Mobile local env loader')
 assertIncludes(mobileLocalEnv, ".env.local", 'Mobile local env loader')

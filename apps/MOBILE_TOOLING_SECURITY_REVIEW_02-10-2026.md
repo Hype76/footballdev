@@ -37,7 +37,7 @@ A coherent follow-up integration must update the complete 14-package @expo/metro
 
 ## Actual exported JavaScript membership
 
-Fresh `expo export --platform all --source-maps --clear` exports use production bundling, Hermes for iOS/Android and a local noncredential environment. They are security-analysis artifacts, not authenticated production-environment release artifacts.
+The initial exports below used local noncredential configuration. The review correction adds a clean-source producer for production-environment exports through the exact locked EAS installation; final hash-bound results are recorded separately below.
 
 | App | Android modules | iOS modules | Web modules |
 | --- | --- | --- | --- |
@@ -53,10 +53,10 @@ Installed expo-updates uses `SecKeyVerifySignature` in iOS CodeSigningConfigurat
 The standalone inventory check is separate from audit/release gates:
 
 ```text
-node apps/scripts/mobile-security-inventory.mjs <source-map-export-directory> <inventory.json>
+node apps/scripts/mobile-security-inventory.mjs <export-directory> <manifest.json> <inventory.json> <expected-commit> <expected-runtime> <expected-platforms-csv> <trusted-manifest-sha256> <expected-appVersion> <expected-runtime-policy>
 ```
 
-It fails if maps/module inventories are absent, handles indexed maps, identifies nested/scoped packages and records source-map and bundle hashes. Tests are added to existing CI. It never changes npm audit exit status or creates an advisory acceptance.
+It requires complete paired bundles/maps, trusted manifest and metadata hashes, expected source/runtime/appVersion/policy/platforms and resolved native runtimes. Missing, duplicate, extra, swapped or tampered artifacts fail closed. It handles indexed maps and nested/scoped package paths. Tests are added to existing CI. It never changes npm audit exit status or creates an advisory acceptance.
 
 ## Publisher assessment
 
@@ -64,7 +64,7 @@ Official registry stable EAS CLI is exactly **24.8.0**. A separate clean review 
 
 node-forge 1.4.0 has [no patched version for GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv). Expo's certificate tooling calls certificate/CSR/public-key verification and signing helpers. EAS imports that tooling for code signing and also uses forge through credential-format tooling. An audit is not proof those branches are exercised by the current configuration, but this is real Node-side reachability and not a handset library claim.
 
-The current guarded publisher still uses unpinned `npx eas-cli`; it is unchanged. Version 24.8.0 is a deterministic reviewed CLI reference, not a patched/safe publisher or a reproducible dependency graph by itself. A future locked publisher installation and shared exact executable policy should cover authentication, env:exec and update together, retain the existing login/account/credential storage and every guard, and receive its own dependency/security review. Do not import this vulnerable graph into the root app just to pin a version. No invented forge patch, crypto replacement, credential changes, code-signing changes or gate bypass is proposed.
+The OTA guard now binds whoami, env:exec and update to one isolated `apps/mobile-publisher` installation. Install with `npm run mobile:publisher:install`: npm ci uses the committed exact dependency graph with integrity hashes and no lifecycle scripts. Before each command the adapter verifies the installed graph, package versions, full artifact tree digest and local installation receipt against the committed lock and current Node/platform. Existing credential storage is preserved. The receipt detects later changes; it is not an independent signed attestation against a compromised host. The graph retains vulnerabilities and is separate from root/app dependency trees. Other build/submission commands are outside this OTA assessment. TypeScript 5.9.3 is explicitly pinned to satisfy the graph's TypeScript 5 peer range; the first inherited lock's TypeScript 7 clean-install failure was corrected and the resulting graph re-audited. No crypto, advisory suppression or credential/security setting changes were made.
 
 ## Existing native runtime parity and Parent 1.0.23 delivery
 
@@ -78,7 +78,7 @@ Only the eight audited tooling lock entries changed from current main; native mo
 
 PR 162's six existing Hermes exports were read and every on-disk bundle SHA256 and both platform runtime resolutions verified against its manifests for source `f50a9e61c525749e09cfb726d0bb71e4b5df444c`. They belong to PR 162, not this tooling branch, and contain no source maps. Do not claim this branch's inventories establish PR 162 bundle membership. Existing build/channel evidence confirms Parent 1.0.23 on both platforms/project 7e0906f3-64f4-42d9-b45d-0ee68f599baa/production: Android 570a221d-2a65-456c-9656-cd3593c693d9; iOS 3ac2b600-1024-4d6d-a140-35cbfc45a7f8. Corresponding 1.0.22 and Coach evidence is recorded in sanitized JSON.
 
-**No Parent 1.0.23 publishing option was implemented.** Its prepared copies select an explicit runtime while retaining appVersion metadata 1.0.22. The current guard/release checks attest tracked appVersion 1.0.22 and exact origin/main; they do not attest that generated alternate configuration. Native-binary/handset evidence and the metadata discrepancy remain unresolved. Simply adding a runtime override or invoking EAS on those copies would evade that provenance boundary. EAS update offers --input-dir/--skip-bundler, not a --runtime-version flag.
+**No Parent 1.0.23 publishing option was implemented.** Prior prepared copies selected explicit runtime 1.0.23 with appVersion metadata 1.0.22. Expo permits differing explicit runtime and appVersion; that inequality alone is not a blocker. The reviewed native source includes a compatible superset of the current native requirements. The current guard/release checks attest tracked appVersion 1.0.22 and exact origin/main; they do not attest that generated alternate configuration. A narrow target-specific provenance and matching metadata implementation remains to be integrated and reviewed; device acceptance remains separate. Simply adding a runtime override or invoking EAS on those copies would evade that provenance boundary. EAS update offers --input-dir/--skip-bundler, not a --runtime-version flag.
 
 Proposed reviewed design: introduce an allowlisted target descriptor for existing Parent 1.0.23 only, with project/channel, both completed native build IDs, baseline source/native dependency/plugin/asset hashes and expected appVersion metadata. Validate current native requirements are a permitted subset of that binary's inputs, fail closed on additions/changes/unknown evidence, and obtain the reviewed metadata policy. Retain confirmation/message validation, clean exact origin/main, EAS account/environment boundary, every root/mobile release/security gate and final artifact/source hashes. Only then construct an isolated export configuration from that verified exact source and assert Expo's resolved runtime for both platforms. Recheck descriptors, source and artifact hashes immediately before a guarded EAS invocation; preserve credentials and channel state. Keep arbitrary runtime/path selection unavailable. Add positive and tampered-source/config/project/native-dependency/artifact tests. This is a design for review, not publication clearance.
 
@@ -88,6 +88,6 @@ Clean installs passed for root and both apps. Affected tests: 102 passed. Both D
 
 C: was full during the first Coach install. Only this task's newly created worktree/toolchain/cache/evidence were relocated to E:, and that task's Git metadata repaired. Clean installs then passed. No other worktree, feature branch or archive was changed. Initial checks attempted during root installation lacked eslint/vite/metadata; all were rerun successfully after installation completed.
 
-Safe recommendation: review these compatible tooling patches as an OTA-compatible dependency preparation. They do not require or justify a native/store build; the five audited roots are absent from the validated handset exports. Retain image-size and publisher risks visibly; do not claim a clean mobile/publisher audit. Parent 1.0.23 guarded delivery, final integrated production exports, native/handset checks and publisher risk review remain release blockers. No merge, OTA, native build, production deploy, live data/migration, credentials/settings change or real message was performed.
+Safe recommendation: these compatible tooling patches preserve the existing native runtimes and can proceed through OTA release review for Coach 1.0.25 and Parent 1.0.22 after final production artifacts, exact-head CI and device acceptance are verified. Unresolved audits must remain visible, but their presence alone is not proof of an exploitable unsigned OTA operation. Assess the exact command/configuration and trusted input boundaries. The separate Parent 1.0.23 target implementation need not block preparation of those two tracked runtimes. Its native superset supports compatibility review, while target provenance and device acceptance still need completing. No clean-audit or blanket publisher safety claim is made. No merge, OTA, native build, production deploy, live data/migration, credentials/settings change or real message was performed.
 
 Machine-readable evidence: `security/mobile-tooling-review-02-10-2026.json`. Local full evidence: `E:/FP-MOBILE-SECURITY-02102026-TASK8/evidence/`.

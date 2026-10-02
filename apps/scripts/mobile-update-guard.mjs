@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertEasLogin } from './mobile-eas-auth.mjs'
+import { publisherInvocation } from './mobile-eas-publisher.mjs'
 import { mobileApps } from './mobile-apps.mjs'
 import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
@@ -77,12 +78,12 @@ const updateEnvironment = {
 
 console.log(`Validating the resolved ${appRole} ${productionProfile} update environment without printing values.`)
 const resolvedEnvironmentCommand = `node ../scripts/mobile-resolved-environment-check.mjs ${appRole} ${productionProfile}`
-const resolvedEnvironmentArgument = process.platform === 'win32' ? `"${resolvedEnvironmentCommand}"` : resolvedEnvironmentCommand
-execFileSync('npx', ['eas-cli', 'env:exec', 'production', resolvedEnvironmentArgument, '--non-interactive'], {
+const environmentPublisher = publisherInvocation(['env:exec', 'production', resolvedEnvironmentCommand, '--non-interactive'])
+execFileSync(environmentPublisher.command, environmentPublisher.args, {
   cwd: resolve(repoRoot, app.path),
   env: updateEnvironment,
   stdio: 'inherit',
-  shell: process.platform === 'win32',
+  shell: false,
 })
 
 console.log(`Running the mobile release gate before updating ${app.expectedName}.`)
@@ -93,24 +94,23 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 })
 
 console.log(`Publishing the guarded ${app.expectedName} ${updatePlatform} production update from ${headCommit}.`)
-const updateMessageArgument = process.platform === 'win32' ? `"${updateMessage}"` : updateMessage
-execFileSync('npx', [
-  'eas-cli',
+const updatePublisher = publisherInvocation([
   'update',
   '--channel',
   'production',
   '--environment',
   'production',
   '--message',
-  updateMessageArgument,
+  updateMessage,
   '--platform',
   updatePlatform,
   '--clear-cache',
   '--non-interactive',
   '--json',
-], {
+])
+execFileSync(updatePublisher.command, updatePublisher.args, {
   cwd: resolve(repoRoot, app.path),
   env: updateEnvironment,
   stdio: 'inherit',
-  shell: process.platform === 'win32',
+  shell: false,
 })
