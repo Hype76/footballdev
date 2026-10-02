@@ -2,5 +2,5 @@
 // self-contained: invitation URLs must never become persistent cache keys.
 export function shouldCacheAppNavigation({ request, url }) {
   return request.mode === 'navigate'
-    && !/^\/(?:workspace|club)-invite(?:\/|$)/.test(url.pathname)
+    && !/^\/(?:workspace|club)-invite(?:\/|$)/i.test(url.pathname)
 }

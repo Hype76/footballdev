@@ -4,7 +4,7 @@ import test from 'node:test'
 import vm from 'node:vm'
 import { shouldCacheAppNavigation } from '../src/lib/workspace-invite-cache-policy.js'
 
-const sensitivePaths = ['/workspace-invite?token=synthetic-query', '/workspace-invite/synthetic-path', '/workspace-invite/', '/club-invite#token=synthetic-fragment', '/club-invite/synthetic-path']
+const sensitivePaths = ['/workspace-invite?token=synthetic-query', '/workspace-invite/synthetic-path', '/workspace-invite/', '/club-invite#token=synthetic-fragment', '/club-invite/synthetic-path', '/WORKSPACE-INVITE?token=synthetic-case', '/Club-Invite/synthetic-path']
 const otherPaths = ['/coach', '/parent-portal', '/parent-invite/synthetic-parent', '/workspace-invite-other']
 const input = (path, mode = 'navigate') => ({ request: { mode }, url: new URL(path, 'https://fixture.test') })
 
