@@ -6,6 +6,54 @@ Finding closed in candidate: `FP-SPR-014`
 
 ## Dependency boundary
 
+### Netlify tooling update, 02:10:2026
+
+The root build graph no longer installs `netlify-cli`. Its local image server
+pulled in `@netlify/images@2.0.1 -> ipx@3.1.1 -> listhen@1.10.1 -> node-forge@1.4.0`.
+The full root audit reported six High findings rooted in
+[GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv).
+At verification, node-forge's latest published version was still 1.4.0 and
+[upstream PR 1152](https://github.com/digitalbazaar/forge/pull/1152) was open.
+The latest stable Netlify CLI 27.10.2 and images 2.0.3 retained this chain;
+IPX 4 was only available as a prerelease. No unsupported override or advisory
+exception was introduced.
+
+`npm run functions:build` now calls Netlify's official
+`@netlify/zip-it-and-ship-it@16.2.3` directly. The same bundler API is used by
+Netlify CLI and Netlify production builds. It reads the existing function
+configuration from `netlify.toml`, retains per-function Chromium externals and
+schedule metadata, and writes a fresh archive and manifest for every function.
+The required Functions build check also inspects the resulting archives.
+All seven required check names and the full-graph dependency review fallback
+remain in place. The security policy is unchanged.
+
+The root lock shrinks from 1,654 to 934 package entries: 721 entries removed,
+one added, and only the retained bundler version changes. The candidate root
+audit and unchanged supply-chain gate report zero vulnerabilities. These results
+supersede the historical development advisory inventory below.
+
+The `deploy:live` CLI shortcut is retired along with the dependency. Release
+through the existing Git-connected Netlify build after separate release approval:
+merge the reviewed commit to `main`, verify the Netlify production deploy's
+commit identity and Ready state, then verify the site and functions. Netlify
+continues to use the existing `netlify.toml` build, redirects, headers, scheduled
+functions and PDF packaging. Do not install a global CLI or use `npx netlify`
+to sidestep the audited dependency graph. A manual upload release would require
+a separately reviewed supported workflow. Local Vite development is unchanged;
+full Netlify local dev/image emulation is unavailable in this candidate.
+
+This root audit does not cover the separate Coach and Parent Expo lockfiles.
+Their existing advisories and release gates must be assessed independently;
+successful exports do not establish that their dependency graphs are clear.
+No mobile lockfile, runtime version, production provider setting or release
+permission is changed by this tooling update.
+
+Rollback: revert the tooling commit, including the lockfile, CI invocation and
+packaging verifier, as one change. This restores the vulnerable CLI graph and
+the security checks should block release again. Retain the last verified
+production deployment and OTA groups while reviewing a safe roll-forward.
+
+
 The application uses npm 11 with lockfile version 3 and Node 22. The package manager and supported engine range are declared in `package.json`. `package-lock.json` is authoritative for the build. The gate rejects Git, linked and non-registry package resolutions.
 
 The only runtime remote import is the Supabase Edge Function import `https://esm.sh/@supabase/supabase-js@2.110.8`. It is exact-version pinned and allowlisted. No unpinned Git dependency is present.
