@@ -452,7 +452,7 @@ test('createPlatformClubResult reports configuration error and keeps invite link
   assert.equal(parsed.body.invite.deliveryPolicy, 'production')
   assert.equal(parsed.body.invite.deliveryReason, 'missing_email_configuration')
   assert.match(parsed.body.invite.deliveryMessage, /production email is not configured/)
-  assert.match(parsed.body.invite.url, /\/workspace-invite\?token=/)
+  assert.match(parsed.body.invite.url, /\/workspace-invite#token=/)
   assert.match(parsed.body.warning, /production email is not configured/)
   assert.equal(mock.calls.some((call) => call.table === 'clubs' && call.action === 'insert'), true)
   assert.equal(mock.calls.some((call) => call.name === 'create_workspace_owner_invite_v3'), true)
@@ -480,7 +480,7 @@ test('createPlatformClubResult preserves manual invite link when email provider 
   assert.equal(parsed.body.invite.deliveryAttempted, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'failed')
   assert.equal(parsed.body.invite.deliveryReason, 'provider_rejected')
-  assert.match(parsed.body.invite.url, /\/workspace-invite\?token=/)
+  assert.match(parsed.body.invite.url, /\/workspace-invite#token=/)
   assert.match(parsed.body.warning, /could not be sent/)
 })
 
@@ -506,7 +506,7 @@ test('createPlatformClubResult represents provider timeouts as failed delivery w
   assert.equal(parsed.body.invite.deliveryAttempted, true)
   assert.equal(parsed.body.invite.deliveryStatus, 'failed')
   assert.equal(parsed.body.invite.deliveryReason, 'provider_timeout')
-  assert.match(parsed.body.invite.url, /\/workspace-invite\?token=/)
+  assert.match(parsed.body.invite.url, /\/workspace-invite#token=/)
   assert.match(parsed.body.warning, /could not be sent/)
 })
 

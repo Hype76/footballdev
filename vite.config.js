@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { shouldCacheAppNavigation } from './src/lib/workspace-invite-cache-policy.js'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -28,6 +29,7 @@ export default defineConfig(({ mode }) => {
           'icons/favicon-48.png',
           'icons/mstile-150.png',
           'push-sw.js',
+          'workspace-invite-cache-cleanup.js',
         ],
         manifest: {
           name: 'Football Player',
@@ -69,7 +71,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          importScripts: ['push-sw.js'],
+          importScripts: ['push-sw.js', 'workspace-invite-cache-cleanup.js'],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg}'],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
@@ -77,7 +79,7 @@ export default defineConfig(({ mode }) => {
           navigateFallback: null,
           runtimeCaching: [
             {
-              urlPattern: ({ request }) => request.mode === 'navigate',
+              urlPattern: shouldCacheAppNavigation,
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'app-navigation',
