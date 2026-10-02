@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import { readFile, mkdir } from 'node:fs/promises'
-import path from 'node:path'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
@@ -9,7 +8,7 @@ import { chromium } from 'playwright'
 const source = await readFile('src/pages/UserSettingsPage.jsx', 'utf8')
 const stubs = {
   '../lib/auth.js': `export const useAuth=()=>window.testAuth; export const isDemoAccount=u=>!!u?.demo; export const isParentPortalUser=()=>false; export const isClubAdmin=()=>false; export const canManageClubSettings=()=>false; export const canManageTeamSettings=()=>false;`,
-  '../lib/supabase.js': `export const updateOwnThemeSettings=({authUser,mode})=>new Promise((resolve,reject)=>window.requests.push({account:authUser.id,mode,resolve:()=>{window.server[authUser.id]=mode;sessionStorage.setItem("test-server",JSON.stringify(window.server));resolve({themeMode:mode})},reject:()=>reject(new Error('offline'))})); export const requestLoginEmailChange=()=>{}; export const requestPasswordReauthentication=()=>{}; export const updateClubDisplaySettings=()=>{}; export const updateOwnUserSettings=()=>{}; export const updateSignedInPassword=()=>{};`,
+  '../lib/supabase.js': `export const updateOwnThemeSettings=({authUser,user,mode})=>{if(!window.themeRepro && (!user || user.id!==authUser.id || user.role!=="coach")) throw new Error("Missing matching theme profile"); return new Promise((resolve,reject)=>window.requests.push({account:authUser.id,mode,resolve:()=>{window.server[authUser.id]=mode;sessionStorage.setItem("test-server",JSON.stringify(window.server));resolve({themeMode:mode})},reject:()=>reject(new Error('offline'))}));}; export const requestLoginEmailChange=()=>{}; export const requestPasswordReauthentication=()=>{}; export const updateClubDisplaySettings=()=>{}; export const updateOwnUserSettings=()=>{}; export const updateSignedInPassword=()=>{};`,
   '../lib/onboarding.js': `export const buildOnboardingPlan=()=>({steps:[]}); export const getOnboardingProgress=()=>({}); export const loadOnboardingSnapshot=async()=>({}); export const openOnboarding=()=>{};`,
   '../lib/supabase-client.js': 'export const supabase={};',
   '../lib/training-attendance-visibility.js': 'export const canChooseTrainingAttendanceVisibility=()=>false; export const getTrainingAttendanceVisibility=()=>{}; export const setTrainingAttendanceVisibility=()=>{};',
@@ -21,7 +20,7 @@ for (const match of source.matchAll(/import \{ (\w+) \} from '(\.\.\/components\
   if (match[1] !== 'DisplaySettingsSection') stubs[match[2]] = `export const ${match[1]}=()=>null;`
 }
 const entry = `import React from 'react'; import {createRoot} from 'react-dom/client'; import {MemoryRouter} from 'react-router-dom'; import {UserSettingsPage} from './src/pages/UserSettingsPage.jsx'; import {ToastProvider} from './src/components/ui/Toast.jsx';
-window.requests=[]; window.server=JSON.parse(sessionStorage.getItem("test-server")||"{}"); window.updates=[];
+window.themeRepro=${process.env.THEME_SAVE_REPRO === '1'}; window.requests=[]; window.server=JSON.parse(sessionStorage.getItem("test-server")||"{}"); window.updates=[];
 const root=createRoot(document.getElementById('root'));
 window.setAccount=(id,themeMode=window.server[id]||'system',demo=false)=>{window.testAuth={authUser:id?{id}:null,user:id?{id,themeMode,demo,role:'coach'}:null,updateCurrentUserDetails:p=>{window.updates.push({id,...p});window.testAuth.user={...window.testAuth.user,...p};window.renderApp()},resetPassword:()=>{}};window.renderApp()};
 window.renderApp=()=>root.render(<React.StrictMode><ToastProvider><MemoryRouter initialEntries={['/user-settings?area=display']}><UserSettingsPage/></MemoryRouter></ToastProvider></React.StrictMode>);

@@ -402,7 +402,7 @@ export function UserSettingsPage() {
       return
     }
     void themeSaveRef.current.save({
-      persist: () => updateOwnThemeSettings({ authUser, mode: nextPreferences.mode }),
+      persist: () => updateOwnThemeSettings({ authUser, user, mode: nextPreferences.mode }),
       onSuccess: (updatedProfile) => {
         updateCurrentUserDetails({ themeMode: updatedProfile.themeMode })
         themeToastRef.current = showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })

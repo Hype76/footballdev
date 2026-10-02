@@ -115,7 +115,7 @@ jobs:
       - name: V1 regression firewall
         run: npm run test:v1-stabilise
       - name: Theme save notification and account boundary regression
-        run: node --test tests/theme-save-notifications.test.mjs && node tests/theme-save-notifications-browser.mjs
+        run: node --test tests/theme-save-notifications.test.mjs tests/theme-save-persistence.test.mjs && node tests/theme-save-notifications-browser.mjs
       - name: Install Parent encryption test dependencies
         run: npm ci --prefix apps/parent-mobile --include=optional
       - name: Parent calendar, Fans back navigation and PDF saving
