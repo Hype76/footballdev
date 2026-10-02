@@ -1,6 +1,6 @@
 export function notificationPermissionState(permission, platform, channel) {
   const iosStatus = permission?.ios?.status
-  const quiet = platform === 'ios' && (iosStatus === 3 || permission?.ios?.allowsAlert === false)
+  const quiet = platform === 'ios' && iosStatus === 3
   const granted = platform === 'ios'
     ? [2, 3, 4].includes(iosStatus)
     : permission?.granted === true

@@ -101,3 +101,9 @@ test('Settings return restores permission without registering an already active 
  const f=fixture({state:{...off,registered:true,enabled:true,permissionStatus:'denied',canAskAgain:false}});await f.controller.act();await f.controller.appState('background');
  f.setData({state:{...off,registered:true,enabled:true,permissionGranted:true,visibleAlertsReady:true}});await f.controller.appState('active');assert.equal(f.calls.setup,0)
 })
+
+test('iOS authorized permission with alerts disabled is distinct from provisional quiet delivery',()=>{
+ const state={...notificationPermissionState({status:'granted',ios:{status:2,allowsAlert:false}},'ios'),registered:true,enabled:true};
+ assert.equal(state.permissionGranted,true);assert.equal(state.quietDelivery,false);assert.equal(state.visibleAlertsReady,false);
+ assert.match(getParentNotificationStatusLabel(state),/Visible alerts are off/);assert.equal(notificationSetupChoice(state),'Open phone settings')
+})
