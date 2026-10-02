@@ -1069,16 +1069,25 @@
       "sourceCommit": "d3a9ab95aa103ca6baac35bb8addf42eec12e4d8"
     }
   ],
-  "parent123PublisherImplemented": false,
+  "parent123PublisherImplemented": true,
   "parent123Blockers": [
-    "Narrow allowlisted target provenance/matching metadata implementation and review remain separate; explicit runtime/appVersion inequality alone is permitted by Expo and is not a blocker. Reviewed 1.0.23 binary contains a compatible native superset.",
-    "Device acceptance and any release approval remain pending. Current tracked Coach1.0.25 and Parent1.0.22 preparation can proceed independently."
+    "Fresh exact-source production export verification and terminal CI required before review completion.",
+    "OS signature trust, physical-device acceptance and separately authorised release remain pending."
   ],
   "limits": [
     "Exports use production bundling/Hermes with local noncredential environment; not authenticated EAS production-environment release artifacts.",
     "No inventory of PR162 source maps was possible: those six independently prepared bundles did not include source maps. Their hashes/runtime resolutions were verified read-only; this branch has four native and two web source-map inventories.",
-    "No physical-handset or native-binary verification performed.",
     "Archived Coach baseline full/omit-dev both11; fresh pre-install full10/omit-dev11 differ by propagated minimatch. Lock hashes match archived evidence; raw fresh responses retained.",
-    "No gate, advisory, credential, signing setting, tracked native configuration or runtime policy weakened or changed."
-  ]
+    "No gate, advisory, credential, signing setting, tracked native configuration or runtime policy weakened or changed.",
+    "Existing Parent1.0.23 binary byte hashes and compiled update settings verified read-only; OS signatures and physical-device behavior not verified. Historical inventories are not final-source clearance."
+  ],
+  "integratedMainCommit": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
+  "reviewedByteGuard": {
+    "descriptor": "apps/mobile-targets/parent-1.0.23.json",
+    "allPayloadBytes": true,
+    "privateProductionConfiguration": true,
+    "finalRevalidationAfterReleaseAndPublisherGates": true,
+    "skipBundler": true,
+    "publicationExecuted": false
+  }
 }

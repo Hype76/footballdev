@@ -88,7 +88,9 @@
     "security:monitoring": "node --test tests/security-m3-monitoring.test.mjs tests/security-m3-monitoring-pglite.test.mjs",
     "security:artifact-manifest": "node scripts/security-artifact-manifest.mjs",
     "security:m3": "npm run security:supply-chain && npm run security:secret-scan && npm run security:migrations && npm run security:monitoring",
-    "mobile:publisher:install": "node apps/scripts/mobile-publisher-install.mjs"
+    "mobile:publisher:install": "node apps/scripts/mobile-publisher-install.mjs",
+    "mobile:ota-prepare": "node apps/scripts/mobile-ota-prepare.mjs",
+    "mobile:native-baseline:fetch": "node apps/scripts/mobile-native-baseline-fetch.mjs"
   },
   "dependencies": {
     "@sparticuz/chromium": "^148.0.0",

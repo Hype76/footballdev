@@ -27,5 +27,5 @@ test('adapter only permits the three reviewed command paths',()=>{for(const cmd 
 test('OTA guard binds auth/environment/update and retains release controls',()=>{
  const guard=readFileSync(new URL('../apps/scripts/mobile-update-guard.mjs',import.meta.url),'utf8')
  assert.ok(guard.includes("publisherInvocation(['env:exec'"));assert.ok(guard.includes("const updatePublisher = publisherInvocation(["));assert.ok(!guard.includes("execFileSync('npx'"))
- for(const token of ['MOBILE_OTA_UPDATE_CONFIRMED','MOBILE_OTA_UPDATE_MESSAGE','--porcelain','origin/main','assertEasLogin()','mobile:release-check','--channel','--environment','--clear-cache'])assert.ok(guard.includes(token),token)
+ for(const token of ['MOBILE_OTA_UPDATE_CONFIRMED','MOBILE_OTA_UPDATE_MESSAGE','--porcelain','origin/main','assertEasLogin()','mobile:release-check','MOBILE_OTA_REVIEWED_MANIFEST_SHA256'])assert.ok(guard.includes(token),token)
 })
