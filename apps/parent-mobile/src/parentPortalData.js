@@ -406,7 +406,8 @@ export async function getParentPortalMatchDays(user) {
       formationPlanError,
     })
   })
-  const projections=await readCoachReminderProjections(supabase,'MATCH',matches.map(match=>match.id),{enabled:process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION==='true',parentLinkId:link.id})
+  if(process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION!=='true')return matches
+  const projections=await readCoachReminderProjections(supabase,'MATCH',matches.map(match=>match.id),{enabled:true,parentLinkId:link.id})
   return projectCoachReminderMatches(matches,projections,{parentView:true})
 }
 
