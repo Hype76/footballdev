@@ -210,9 +210,12 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     create function get_own_adult_player_account_state() returns table(player_id uuid,club_id uuid,team_id uuid,access_granted boolean) language sql as $$select player_id,club_id,team_id,active from adult_fixture_links where user_id=auth.uid()$$;
     create function get_own_adult_player_invitation_state() returns table(event_id uuid,invitation_type text,event_start timestamptz) language sql as $$select i.match_day_id,'match_attendance',null::timestamptz from calendar_event_invites i join adult_fixture_links l on l.player_id=i.player_id and l.user_id=auth.uid() and l.active where i.match_day_id is not null$$;
     create function current_user_can_access_parent_link(l uuid,p uuid) returns boolean language sql as $$select exists(select 1 from parent_player_links where id=l and player_id=p and auth_user_id=auth.uid() and status='active')$$;
-    create function get_parent_portal_invitation_summary(l uuid) returns table(event_id uuid,child_id uuid,source_event_type text) language sql as $$
-      select coalesce(i.match_day_id,i.calendar_event_id),i.player_id,case when i.match_day_id is not null then 'match_day' else 'training' end
-      from calendar_event_invites i join parent_player_links link on link.id=l and link.player_id=i.player_id and link.auth_user_id=auth.uid() where i.cancelled_at is null and i.invite_status<>'cancelled'$$;
+    create function get_parent_portal_invitation_summary(l uuid) returns table(event_id uuid,child_id uuid,source_event_type text,invitation_type text,event_start timestamptz) language sql as $$
+      select coalesce(i.match_day_id,i.calendar_event_id),i.player_id,case when i.match_day_id is not null then 'match_day' else 'calendar_event' end,
+        case when i.match_day_id is not null then 'match_attendance' else 'training_attendance' end,request.occurrence_starts_at
+      from calendar_event_invites i join parent_player_links link on link.id=l and link.player_id=i.player_id and link.auth_user_id=auth.uid()
+      left join training_availability_requests request on request.calendar_event_id=i.calendar_event_id
+      where i.cancelled_at is null and i.invite_status<>'cancelled'$$;
     create function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns jsonb language sql as $$
       select coalesce(jsonb_agg(jsonb_build_object('player_id',player_id,'parent_link_id',id,'recipient_email','parent@example.test','recipient_type','parent')),'[]')
       from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'$$;
@@ -301,6 +304,16 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
   assert.ok(trainingEnrolment)
   await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport})
   assert.equal((await db.query("select count(*)::int n from team_coach_reminder_effects where payload->>'eventId'=$1",[training])).rows[0].n,1)
+  await t.test('Parent training projection uses canonical calendar_event source and the authorised occurrence',async()=>{
+    await actor(parent)
+    const read=async()=>(await db.query('select get_team_coach_reminder_projections_v1($1,$2,$3) value',['TRAINING',[training],link])).rows[0].value
+    assert.equal((await read()).length,1);assert.equal((await read())[0].automatic,true)
+    await db.exec('reset role')
+    await db.query("update training_availability_requests set occurrence_starts_at=occurrence_starts_at+interval '1 day' where id=$1",[trainingRequest])
+    await actor(parent);assert.deepEqual(await read(),[],'An invitation for a different occurrence cannot authorise this projection')
+    await db.exec('reset role')
+    await db.query("update training_availability_requests set occurrence_starts_at=occurrence_starts_at-interval '1 day' where id=$1",[trainingRequest])
+  })
   await db.exec(`update training_availability_requests set status='cancelled' where id='${trainingRequest}'`)
   assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[trainingEnrolment.id])).rows[0].value,null)
   // Existing training generation rolls a 31 January monthly event to 3 March.

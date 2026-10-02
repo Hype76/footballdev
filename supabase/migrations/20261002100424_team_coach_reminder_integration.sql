@@ -571,7 +571,10 @@ begin
     and (parent_link_id_value is null or link.id=parent_link_id_value)
     and public.current_user_can_access_parent_link(link.id,link.player_id)
     and exists(select 1 from public.get_parent_portal_invitation_summary(link.id) invitation
-      where invitation.event_id=e.event_id and invitation.child_id=e.player_id and invitation.source_event_type=case when e.kind='MATCH' then 'match_day' else 'training' end))
+      where invitation.event_id=e.event_id and invitation.child_id=e.player_id
+        and invitation.source_event_type=case when e.kind='MATCH' then 'match_day' else 'calendar_event' end
+        and invitation.invitation_type=case when e.kind='MATCH' then 'match_attendance' else 'training_attendance' end
+        and (e.kind='MATCH' or (invitation.event_start at time zone 'Europe/London')::date=e.occurrence_date)))
    or (parent_link_id_value is null and exists(select 1 from public.get_own_adult_player_account_state() adult
     where adult.access_granted and adult.player_id=e.player_id and adult.club_id=e.club_id and adult.team_id=e.team_id)
     and exists(select 1 from public.get_own_adult_player_invitation_state() invitation where invitation.event_id=e.event_id

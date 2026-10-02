@@ -34,6 +34,8 @@ Local PostgreSQL fixtures exercise actual source triggers, context/commit/claim 
 
 The dedicated reminder workflow runs policy/database/integration tests, lint, web settings browsers, native settings browser and both mobile web exports. Existing security gates are preserved. Detailed local pass counts and baseline failures are in PR #159; security failures are not waived.
 
+A separate synthetic PGlite authorization rehearsal loads selected real repository authority, eligibility, Parent invitation/response functions (including historical renames), source table evolution, grants and read RLS. It reproduced a Parent TRAINING projection contract error: the canonical invitation source is calendar_event with training_attendance, rather than training. The corrected SQL also requires the exact London occurrence date. This scoped rehearsal supplements the minimal integration fixtures; it does not establish full installed-schema/provider compatibility or multi-session database concurrency.
+
 ## Separately authorised release requirements
 
 1. Review and apply 20261002100424_team_coach_reminder_integration.sql. Confirm existing production schema/source-delivery contracts in a non-sending release smoke test. Release control remains disabled after migration.
