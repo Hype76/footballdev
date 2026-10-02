@@ -8,8 +8,8 @@ test('worker commits effect, outbox and completion atomically in PostgreSQL; rol
   const db = new PGlite()
   t.after(() => db.close())
   const context = {
-    policy: { id: 'p', revision: '1', clubId: 'club', teamId: 'team', effectiveFrom: '2026-10-01T00:00:00Z',
-      options: { ...DEFAULT_COACH_REMINDER_POLICY, deadlineMode: 'automatic_not_attending' } },
+    policy: { id: 'p', revision: '1', clubId: 'club', teamId: 'team', optedIn: true, configuredAt: '2026-10-01T00:00:00Z', effectiveFrom: '2026-10-01T00:00:00Z',
+      options: { ...DEFAULT_COACH_REMINDER_POLICY, deadlineMode: 'automatic_not_attending', deadlineAfterHours: 48 } },
     event: { id: 'e', revision: '1', clubId: 'club', teamId: 'team', kind: 'MATCH', status: 'scheduled', startsAt: '2026-10-10T12:00:00Z' },
     invitation: { id: 'i', revision: '1', responseRevision: '1', clubId: 'club', teamId: 'team', eventId: 'e', playerId: 'player',
       createdAt: '2026-10-01T01:00:00Z', deliveredAt: '2026-10-01T02:00:00Z', memberActive: true, responseStatus: 'pending' },

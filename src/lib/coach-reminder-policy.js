@@ -8,11 +8,11 @@ export const COACH_DEADLINE_MODES = Object.freeze({
 
 export const DEFAULT_COACH_REMINDER_POLICY = Object.freeze({
   reminderEnabled: false,
-  reminderAfterHours: 24,
+  reminderAfterHours: null,
   deadlineMode: 'reminders_only',
-  deadlineAfterHours: 48,
+  deadlineAfterHours: null,
   squadReminderEnabled: false,
-  squadDaysBefore: 2,
+  squadDaysBefore: null,
 })
 
 const explicitAnswers = new Set(['available', 'unavailable', 'maybe'])
@@ -36,16 +36,39 @@ export function normalizeCoachReminderPolicy(input = {}) {
   if (!Object.prototype.hasOwnProperty.call(COACH_DEADLINE_MODES, value.deadlineMode)) fail('Choose a recognised deadline option.')
   const normalized = {
     reminderEnabled: value.reminderEnabled,
-    reminderAfterHours: integer(value.reminderAfterHours, 1, 720, 'Reminder hours'),
+    reminderAfterHours: optionalTiming(value.reminderAfterHours, value.reminderEnabled, 720, 'Reminder hours'),
     deadlineMode: value.deadlineMode,
-    deadlineAfterHours: integer(value.deadlineAfterHours, 1, 720, 'Deadline hours'),
+    deadlineAfterHours: optionalTiming(value.deadlineAfterHours, value.deadlineMode !== 'reminders_only', 720, 'Deadline hours'),
     squadReminderEnabled: value.squadReminderEnabled,
-    squadDaysBefore: integer(value.squadDaysBefore, 1, 30, 'Squad reminder days'),
+    squadDaysBefore: optionalTiming(value.squadDaysBefore, value.squadReminderEnabled, 30, 'Squad reminder days'),
   }
   if (normalized.reminderEnabled && normalized.deadlineMode !== 'reminders_only'
     && normalized.reminderAfterHours >= normalized.deadlineAfterHours) fail('The reminder must be earlier than the deadline.')
   return normalized
 }
+
+function optionalTiming(value, required, maximum, label) {
+  if (!required && (value === null || value === undefined || value === '')) return null
+  return integer(value, 1, maximum, label)
+}
+
+export function buildTeamCoachReminderConfiguration({ options, optedIn }) {
+  if (typeof optedIn !== 'boolean') fail('Choose whether to enable the team policy.')
+  const normalized = normalizeCoachReminderPolicy(options)
+  if (optedIn && !normalized.reminderEnabled && normalized.deadlineMode === 'reminders_only' && !normalized.squadReminderEnabled) {
+    fail('Choose at least one automatic reminder or deadline option before enabling the team policy.')
+  }
+  return { options: normalized, optedIn }
+}
+
+// Persisted decisions are the stopping condition confirmed by Simon. Draft
+// client selections are deliberately not passed into this predicate.
+export function isCoachReminderSquadPicked(savedDecisions = []) {
+  return savedDecisions.some(decision => decision.status === 'selected')
+}
+
+const policyReady = (policy, now) => policy.optedIn === true && Number.isFinite(ms(policy.configuredAt))
+  && Number.isFinite(ms(policy.effectiveFrom)) && ms(policy.configuredAt) <= ms(now) && ms(policy.effectiveFrom) <= ms(now)
 
 function localParts(timestamp, timeZone) {
   const values = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
@@ -57,12 +80,7 @@ function localParts(timestamp, timeZone) {
 
 const partsTimestamp = ([year, month, day, hour, minute, second]) => Date.UTC(year, month - 1, day, hour, minute, second)
 
-// Calendar days preserve the event's local wall time across DST. An ambiguous or
-// nonexistent local time is blocked for review, rather than silently picking one.
-export function calendarDaysBefore(startsAt, days, timeZone) {
-  integer(days, 1, 30, 'Squad reminder days')
-  if (!Number.isFinite(ms(startsAt)) || !timeZone) fail('An explicit event start and timezone are required.')
-  const target = partsTimestamp(localParts(ms(startsAt), timeZone)) - days * 86400000
+function uniqueLocalInstant(target, timeZone) {
   const candidates = new Set()
   for (const offsetHours of [-36, -12, 0, 12, 36]) {
     const probe = target + offsetHours * 3600000
@@ -70,20 +88,40 @@ export function calendarDaysBefore(startsAt, days, timeZone) {
     const candidate = target - offset
     if (partsTimestamp(localParts(candidate, timeZone)) === target) candidates.add(candidate)
   }
-  if (candidates.size !== 1) fail('The squad reminder falls at an ambiguous or nonexistent local time. Choose an explicit time before scheduling.')
-  return iso([...candidates][0])
+  return candidates.size === 1 ? iso([...candidates][0]) : ''
+}
+
+export function coachReminderLocalStart(date, time, timeZone = 'Europe/London') {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(`${date}T${time}`)
+  if (!match) return ''
+  const parts=match.slice(1).map(value=>Number(value || 0)),target=partsTimestamp(parts)
+  const probe=new Date(target)
+  if (probe.getUTCFullYear()!==parts[0] || probe.getUTCMonth()+1!==parts[1] || probe.getUTCDate()!==parts[2]
+    || parts[3]>23 || parts[4]>59 || parts[5]>59) return ''
+  return uniqueLocalInstant(target,timeZone)
+}
+
+// Calendar days preserve the event's local wall time across DST. An ambiguous or
+// nonexistent local time is blocked for review, rather than silently picking one.
+export function calendarDaysBefore(startsAt, days, timeZone) {
+  integer(days, 1, 30, 'Squad reminder days')
+  if (!Number.isFinite(ms(startsAt)) || !timeZone) fail('An explicit event start and timezone are required.')
+  const target = partsTimestamp(localParts(ms(startsAt), timeZone)) - days * 86400000
+  const result=uniqueLocalInstant(target,timeZone)
+  if (!result) fail('The squad reminder falls at an ambiguous or nonexistent local time. Choose an explicit time before scheduling.')
+  return result
 }
 
 function supportedEvent(event) {
   return event && ['MATCH', 'TRAINING'].includes(event.kind)
     && event.id && event.clubId && event.teamId && event.revision
     && (event.kind !== 'TRAINING' || /^\d{4}-\d{2}-\d{2}$/.test(event.occurrenceDate || ''))
-    && !event.cancelled && !event.deleted && !closedStates.has(event.status)
+    && !event.kickoffTimeTbc && !event.cancelled && !event.deleted && !closedStates.has(event.status)
     && Number.isFinite(ms(event.startsAt))
 }
 
 function policySnapshot(policy) {
-  if (!policy?.id || !policy.revision || !policy.clubId || !policy.teamId || !Number.isFinite(ms(policy.effectiveFrom))) fail('A persisted scoped policy revision and activation time are required.')
+  if (!policy?.id || !policy.revision || !policy.clubId || !policy.teamId) fail('A persisted scoped policy revision is required.')
   return normalizeCoachReminderPolicy(policy.options)
 }
 
@@ -116,6 +154,7 @@ function makeJob({ policy, event, invitation, action, dueAt }) {
 export function planAvailabilityAutomation({ policy, event, invitation, now }) {
   const options = policySnapshot(policy)
   if (!Number.isFinite(ms(now))) fail('An explicit clock is required.')
+  if (!policyReady(policy, now)) return []
   if (!supportedEvent(event) || !policyScopeMatches(policy, event) || ms(event.startsAt) <= ms(now)) return []
   if (!invitation?.id || !invitation.revision || !invitation.playerId
     || !matchesScope(invitation, { ...event, eventId: event.id })
@@ -139,6 +178,7 @@ export function planAvailabilityAutomation({ policy, event, invitation, now }) {
 export function planSquadAutomation({ policy, event, now }) {
   const options = policySnapshot(policy)
   if (!Number.isFinite(ms(now))) fail('An explicit clock is required.')
+  if (!policyReady(policy, now)) return []
   if (!options.squadReminderEnabled || !supportedEvent(event) || !policyScopeMatches(policy, event) || event.kind !== 'MATCH'
     || ms(event.startsAt) <= ms(now) || !Number.isFinite(ms(event.createdAt))
     || ms(event.createdAt) < ms(policy.effectiveFrom)) return []
@@ -166,6 +206,7 @@ export function evaluateCoachReminderJob({ job, policy, event, invitation, recip
   const options = policySnapshot(policy)
   if (!Number.isFinite(ms(now)) || !Number.isFinite(ms(job?.dueAt))) fail('An explicit valid clock and due time are required.')
   if (authorityActive !== true) return skip('authority_removed')
+  if (!policyReady(policy, now)) return skip('not_configured_or_opted_in')
   if (job.policyId !== policy.id || job.policyRevision !== policy.revision) return skip('policy_changed')
   if (!supportedEvent(event) || !policyScopeMatches(policy, event) || job.kind !== event.kind || job.eventId !== event.id
     || job.eventRevision !== event.revision || job.startsAt !== event.startsAt
@@ -228,17 +269,19 @@ export function projectCoachAvailability({ event, invitation, effect, policy, no
   const explicit = explicitAnswers.has(status)
   const result = { status, provenance: explicit ? invitation.responseSource || 'explicit_response' : 'no_response',
     planningExcluded: status === 'unavailable', automatic: false }
-  if (!effect || effect.provenance !== 'coach_deadline_automation' || !supportedEvent(event) || invitation?.memberActive !== true || invitation.cancelled || invitation.revoked
+  if (!effect || !policy || !policyReady(policy, now) || effect.provenance !== 'coach_deadline_automation' || !supportedEvent(event) || invitation?.memberActive !== true || invitation.cancelled || invitation.revoked
     || event.id !== effect.eventId || event.revision !== effect.eventRevision
     || !matchesScope(invitation, effect) || invitation.id !== effect.invitationId
     || invitation.revision !== effect.invitationRevision || invitation.playerId !== effect.playerId
     || effect.policyId !== policy?.id || effect.policyRevision !== policy?.revision
     || !Number.isFinite(ms(now)) || ms(now) >= ms(event.startsAt)
-    || invitation.responseRevision !== effect.responseRevision) return result
+    || (invitation.responseRevision !== effect.responseRevision && status !== 'maybe')) return result
   if (explicit && status !== 'maybe') return result
   if (!explicit && effect.status === 'unavailable') return {
     status: 'unavailable', provenance: 'coach_deadline_automation', planningExcluded: true, automatic: true,
   }
+  // A late Maybe is still the parent's answer. It stops reminders and clears
+  // automatic Not attending, but remains uncertain under the strict deadline.
   return { ...result, planningExcluded: effect.planningExcluded === true }
 }
 

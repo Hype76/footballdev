@@ -1,8 +1,8 @@
 import { useId } from 'react'
 import { COACH_DEADLINE_MODES, DEFAULT_COACH_REMINDER_POLICY } from '../../lib/coach-reminder-policy.js'
 
-// Controlled editor, deliberately not mounted in account settings until policy
-// ownership is decided. It performs no persistence or communication itself.
+// Controlled editor for the shared team policy. It performs no persistence or
+// communication itself; the settings container handles explicit saves.
 export function CoachReminderOptions({ value = DEFAULT_COACH_REMINDER_POLICY, onChange, disabled = false, error = '' }) {
   const options = { ...DEFAULT_COACH_REMINDER_POLICY, ...value }
   const helpId = useId()
@@ -18,7 +18,7 @@ export function CoachReminderOptions({ value = DEFAULT_COACH_REMINDER_POLICY, on
       {options.reminderEnabled ? (
         <label className="flex min-h-11 items-center justify-between gap-3 border-b py-2">
           Hours after the invitation is delivered
-          <input aria-label="Reminder hours" type="number" min="1" max="720" step="1" value={options.reminderAfterHours}
+          <input aria-label="Reminder hours" type="number" min="1" max="720" step="1" value={options.reminderAfterHours ?? ''}
             onChange={event => update('reminderAfterHours', event.target.value)} className="min-h-11 w-24 border px-2" />
         </label>
       ) : null}
@@ -31,7 +31,7 @@ export function CoachReminderOptions({ value = DEFAULT_COACH_REMINDER_POLICY, on
       {options.deadlineMode !== 'reminders_only' ? (
         <label className="flex min-h-11 items-center justify-between gap-3 border-b py-2">
           Deadline hours after delivery
-          <input aria-label="Deadline hours" type="number" min="1" max="720" step="1" value={options.deadlineAfterHours}
+          <input aria-label="Deadline hours" type="number" min="1" max="720" step="1" value={options.deadlineAfterHours ?? ''}
             onChange={event => update('deadlineAfterHours', event.target.value)} className="min-h-11 w-24 border px-2" />
         </label>
       ) : null}
@@ -42,7 +42,7 @@ export function CoachReminderOptions({ value = DEFAULT_COACH_REMINDER_POLICY, on
       {options.squadReminderEnabled ? (
         <label className="flex min-h-11 items-center justify-between gap-3 border-b py-2">
           Calendar days before the match
-          <input aria-label="Squad reminder days" type="number" min="1" max="30" step="1" value={options.squadDaysBefore}
+          <input aria-label="Squad reminder days" type="number" min="1" max="30" step="1" value={options.squadDaysBefore ?? ''}
             onChange={event => update('squadDaysBefore', event.target.value)} className="min-h-11 w-24 border px-2" />
         </label>
       ) : null}

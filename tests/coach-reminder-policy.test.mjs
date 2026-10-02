@@ -3,12 +3,21 @@ import test from 'node:test'
 import {
   DEFAULT_COACH_REMINDER_POLICY, normalizeCoachReminderPolicy, calendarDaysBefore,
   planAvailabilityAutomation, planSquadAutomation, evaluateCoachReminderJob, projectCoachAvailability, validateCoachReminderNotification,
+  buildTeamCoachReminderConfiguration, isCoachReminderSquadPicked, coachReminderLocalStart,
 } from '../src/lib/coach-reminder-policy.js'
 import { processCoachReminderJob, deliverCoachReminderNotification } from '../netlify/functions/lib/_coach-reminder-worker.js'
 
+test('local kickoff conversion rejects invalid, ambiguous and nonexistent times across London DST',()=>{
+  assert.equal(coachReminderLocalStart('2026-10-10','13:00:00'),'2026-10-10T12:00:00.000Z')
+  assert.equal(coachReminderLocalStart('2026-12-10','13:00'),'2026-12-10T13:00:00.000Z')
+  for(const [date,time] of [['2026-10-25','01:30'],['2026-03-29','01:30'],['2026-02-30','12:00'],['2026-10-10','24:00'],['','']]) {
+    assert.equal(coachReminderLocalStart(date,time),'')
+  }
+})
+
 function fixture() {
-  const policy = { id: 'policy', revision: 'p1', clubId: 'club', teamId: 'team', effectiveFrom: '2026-10-01T09:00:00Z',
-    options: { ...DEFAULT_COACH_REMINDER_POLICY, reminderEnabled: true, deadlineMode: 'automatic_not_attending', squadReminderEnabled: true } }
+  const policy = { id: 'policy', revision: 'p1', clubId: 'club', teamId: 'team', optedIn: true, configuredAt: '2026-10-01T09:00:00Z', effectiveFrom: '2026-10-01T09:00:00Z',
+    options: { ...DEFAULT_COACH_REMINDER_POLICY, reminderEnabled: true, reminderAfterHours: 24, deadlineMode: 'automatic_not_attending', deadlineAfterHours: 48, squadReminderEnabled: true, squadDaysBefore: 2 } }
   const event = { id: 'event', revision: 'e1', clubId: 'club', teamId: 'team', kind: 'MATCH', status: 'scheduled',
     startsAt: '2026-10-08T14:00:00Z', timeZone: 'Europe/London', createdAt: '2026-10-01T10:00:00Z' }
   const invitation = { id: 'invite', revision: 'i1', responseRevision: 'r1', clubId: 'club', teamId: 'team', eventId: 'event',
@@ -26,15 +35,39 @@ test('all automation starts off; configuration is strict and offers all three mo
   assert.deepEqual(planned(f), [])
   assert.deepEqual(planSquadAutomation(f), [])
   for (const patch of [{ reminderEnabled: 'false' }, { squadReminderEnabled: 1 }, { deadlineMode: 'hard' },
-    { reminderAfterHours: '' }, { reminderAfterHours: false }, { reminderAfterHours: 1.5 },
+    { reminderEnabled: true, reminderAfterHours: '' }, { reminderAfterHours: false }, { reminderAfterHours: 1.5 },
     { deadlineAfterHours: 0 }, { squadDaysBefore: 31 }, { reminderAfterHours: 721 },
     { reminderEnabled: true, deadlineMode: 'exclude_from_planning', reminderAfterHours: 48, deadlineAfterHours: 48 }]) {
     assert.throws(() => normalizeCoachReminderPolicy(patch))
   }
   for (const deadlineMode of ['reminders_only', 'exclude_from_planning', 'automatic_not_attending']) {
-    assert.equal(normalizeCoachReminderPolicy({ deadlineMode }).deadlineMode, deadlineMode)
+    assert.equal(normalizeCoachReminderPolicy({ deadlineMode, deadlineAfterHours: 48 }).deadlineMode, deadlineMode)
   }
   assert.equal(normalizeCoachReminderPolicy({ reminderAfterHours: '24' }).reminderAfterHours, 24)
+})
+
+test('blank timings cannot activate any option, and explicit opt-in is required for every job', () => {
+  assert.equal(DEFAULT_COACH_REMINDER_POLICY.reminderAfterHours,null)
+  for(const options of [{ reminderEnabled:true },{ deadlineMode:'automatic_not_attending' },{ squadReminderEnabled:true }]) {
+    assert.throws(()=>buildTeamCoachReminderConfiguration({ options,optedIn:true }))
+  }
+  assert.throws(()=>buildTeamCoachReminderConfiguration({ options:DEFAULT_COACH_REMINDER_POLICY,optedIn:true }),/Choose at least one/)
+  for(const patch of [{ optedIn:false },{ configuredAt:null },{ effectiveFrom:null },{ configuredAt:'2027-01-01T00:00:00Z' }]) {
+    const f=fixture(),job=deadline(f);Object.assign(f.policy,patch)
+    assert.deepEqual(planned(f),[]);assert.deepEqual(planSquadAutomation(f),[])
+    assert.equal(evaluateCoachReminderJob({ ...f,job }).reason,'not_configured_or_opted_in')
+  }
+  const f=fixture();f.event.kickoffTimeTbc=true
+  assert.deepEqual(planned(f),[]);assert.deepEqual(planSquadAutomation(f),[])
+})
+
+test('a saved picked squad stops team reminders; each response leaving awaiting stops individual reminders', () => {
+  assert.equal(isCoachReminderSquadPicked([]),false)
+  assert.equal(isCoachReminderSquadPicked([{ status:'undecided' },{ status:'not_selected' }]),false)
+  assert.equal(isCoachReminderSquadPicked([{ status:'selected' }]),true)
+  const f=fixture(),job=planSquadAutomation(f)[0]
+  f.now=job.dueAt;f.squadSelected=isCoachReminderSquadPicked([{ status:'selected' }])
+  assert.equal(evaluateCoachReminderJob({ ...f,job }).reason,'squad_selected')
 })
 
 test('immutable first confirmed delivery starts the elapsed clock; queue creation does not', () => {
@@ -169,7 +202,7 @@ test('late explicit replies win immediately; changes to event/policy/invitation 
     const latest = structuredClone(f)
     Object.assign(latest.invitation, { responseStatus, responseSource: 'parent', responseRevision: 'r2' })
     assert.deepEqual(projectCoachAvailability({ ...latest, effect }), {
-      status: responseStatus, provenance: 'parent', planningExcluded: responseStatus === 'unavailable', automatic: false,
+      status: responseStatus, provenance: 'parent', planningExcluded: responseStatus !== 'available', automatic: false,
     })
   }
   for (const change of [f => { f.event.revision = 'e2' }, f => { f.policy.revision = 'p2' },

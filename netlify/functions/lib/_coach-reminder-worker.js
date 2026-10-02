@@ -1,8 +1,8 @@
 import { evaluateCoachReminderJob } from '../../../src/lib/coach-reminder-policy.js'
 
-// A persistence adapter must implement this as ONE transaction under a job lock:
-// current authority/event/invitation reads, effect/outbox inserts, and completion.
-// There is deliberately no default adapter, scheduler, or production endpoint.
+// The durable adapter compares its context snapshot against authoritative reads
+// inside the commit transaction under a job lock. Changed sources abort commit.
+// There is deliberately no scheduler or sending production endpoint.
 export async function processCoachReminderJob({ repository, jobKey, now }) {
   if (!repository?.withLockedJob) throw new Error('A transactional reminder repository is required.')
   return repository.withLockedJob(jobKey, async transaction => {

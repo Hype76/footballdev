@@ -20,6 +20,7 @@ jobs:
       - run: npm install --global npm@11.7.0
       - run: npm ci --include=optional
       - run: npx playwright install --with-deps chromium
-      - run: node --test tests/coach-reminder-policy.test.mjs tests/coach-reminder-worker-pglite.test.mjs
-      - run: npx eslint src/lib/coach-reminder-policy.js netlify/functions/lib/_coach-reminder-worker.js src/components/coach-reminders/CoachReminderOptions.jsx
+      - run: node --test tests/coach-reminder-policy.test.mjs tests/coach-reminder-worker-pglite.test.mjs tests/team-coach-reminder-policy-pglite.test.mjs tests/team-coach-reminder-policy-api.test.mjs
+      - run: npx eslint src/lib/coach-reminder-policy.js src/lib/coach-reminder-settings.js src/lib/team-coach-reminder-settings-store.js src/lib/domain/coach-reminder-settings.js netlify/functions/lib/_coach-reminder-worker.js netlify/functions/lib/_team-coach-reminder-policy.js netlify/functions/lib/_coach-reminder-recipients.js netlify/functions/lib/_coach-reminder-repository.js netlify/functions/team-coach-reminder-policy.js src/components/coach-reminders/*.jsx src/pages/CoachReminderSettingsPage.jsx
       - run: node tests/coach-reminder-options-browser.mjs
+      - run: node tests/team-coach-reminder-settings-browser.mjs

@@ -39,8 +39,10 @@ try {
   assert.equal(await page.getByLabel('Deadline option').inputValue(), 'reminders_only')
   assert.equal(await page.getByLabel('Reminder hours').count(), 0)
   await automatic.check()
+  assert.equal(await page.getByLabel('Reminder hours').inputValue(), '', 'No elapsed time is invented')
   await page.getByLabel('Reminder hours').fill('12')
   await page.getByLabel('Deadline option').selectOption('exclude_from_planning')
+  assert.equal(await page.getByLabel('Deadline hours').inputValue(), '', 'The Coach must configure the deadline')
   await page.getByLabel('Deadline hours').fill('6')
   await page.getByRole('alert').filter({ hasText: 'The reminder must be earlier' }).waitFor()
   await page.getByLabel('Deadline hours').fill('48')
@@ -48,6 +50,7 @@ try {
   await page.getByLabel('Deadline option').selectOption('automatic_not_attending')
   await page.getByText('Automatic not attending is labelled as a coach deadline action. Explicit answers stay unchanged.').waitFor()
   await squad.check()
+  assert.equal(await page.getByLabel('Squad reminder days').inputValue(), '', 'The Coach must configure days before')
   await page.getByLabel('Squad reminder days').fill('3')
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 850 })
