@@ -107,3 +107,11 @@ test('iOS authorized permission with alerts disabled is distinct from provisiona
  assert.equal(state.permissionGranted,true);assert.equal(state.quietDelivery,false);assert.equal(state.visibleAlertsReady,false);
  assert.match(getParentNotificationStatusLabel(state),/Visible alerts are off/);assert.equal(notificationSetupChoice(state),'Open phone settings')
 })
+
+test('cached enabled registration cannot claim permission is on when off, unavailable or unverified',()=>{
+ const registered={registered:true,enabled:true};
+ assert.equal(getParentNotificationStatusLabel(registered),'Phone permission not verified');
+ assert.equal(getParentNotificationStatusLabel({...registered,permissionGranted:false,permissionStatus:'undetermined',canAskAgain:true}),'Phone permission is off');
+ assert.equal(getParentNotificationStatusLabel({...registered,permissionGranted:false,permissionStatus:'unavailable'}),'Phone notifications unavailable on this device');
+ assert.equal(getParentNotificationStatusLabel({...registered,permissionGranted:true,permissionStatus:'granted'}),'Push alerts enabled')
+})
