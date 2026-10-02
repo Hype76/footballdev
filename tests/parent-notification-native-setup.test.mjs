@@ -63,3 +63,12 @@ test('actual loader detects blocking of the native default matchday channel', as
  const f=fixture();Object.assign(f.permission,{granted:true,status:'granted'});f.dep.Notifications.getNotificationChannelAsync=async id=>({importance:id==='matchday'?0:4});
  const state=await f.client.loadParentNotificationState(f.options);assert.equal(state.channelBlocked,true);assert.equal(state.visibleAlertsReady,false);assert.equal(state.permissionGranted,true)
 })
+
+test('account cancellation during asynchronous authentication prevents registration',async()=>{
+ const f=fixture();const delay=[];
+ // Build another client from the actual source with an authentication callback that changes account.
+ const dep={...f.dep,async getAccessToken(){f.cancel();delay.push('auth');return 'old-account-token'}};
+ const currentSource=(await readFile(new URL('../apps/parent-mobile/src/notifications.js',import.meta.url),'utf8')).replace(/^import[\s\S]*?from ['"][^'"]+['"]\r?\n/gm,'').replace(/^export /gm,'');
+ const client=new Function(...Object.keys(dep),currentSource+'\nreturn {enableParentNotifications};')(...Object.values(dep));
+ await assert.rejects(client.enableParentNotifications(f.options));assert.equal(delay.length,1);assert.equal(f.events.includes('POST'),false)
+})
