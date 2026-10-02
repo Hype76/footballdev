@@ -198,6 +198,20 @@ test('an existing recipient account must prove the exact invited identity', asyn
   assert.equal(mock.calls.some((call) => call.name === 'accept_workspace_owner_invite_v3'), false)
 })
 
+test('an authenticated existing parent account accepts club access without replacing its identity or password', async () => {
+  const existingUser = { id: AUTH_USER_ID, email: 'owner@example.test', user_metadata: { account_type: 'parent' } }
+  const mock = createMockSupabase(createInvite('large_club'), { existingUsers: [existingUser], bearerUser: existingUser })
+  mock.client.auth.admin.updateUserById = () => { throw new Error('Existing password must never be reset') }
+  const result = parse(await createWorkspaceOwnerAccountResult(event(
+    { token: 'synthetic-existing-owner' }, { authorization: 'Bearer synthetic-existing-session' },
+  ), { supabaseAdmin: mock.client }))
+  assert.equal(result.statusCode, 200)
+  assert.equal(result.body.roleLabel, 'Club Admin')
+  assert.equal(mock.calls.find((call) => call.name === 'accept_workspace_owner_invite_v3').payload.p_auth_user_id, AUTH_USER_ID)
+  assert.equal(mock.calls.some((call) => ['createUser', 'deleteUser'].includes(call.action)), false)
+  assert.equal(existingUser.user_metadata.account_type, 'parent')
+})
+
 test('Matchday password rejection is actionable and the invitation can be retried without consuming it', async () => {
   const mock = createMockSupabase(createInvite('matchday'))
   const createUser = mock.client.auth.admin.createUser
