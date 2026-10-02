@@ -2,7 +2,7 @@
   "collectedAt": "2026-10-02T14:09:43.271Z",
   "baseCommit": "b40b5935e46a49caf22b84bbbb02f36975a3f1ff",
   "exportSourceCommit": "6aae5d6f72ac44d5aa0bd7055a0e98328c7ca320",
-  "exportEnvironment": "Complete clean root and mobile installations; final exports use two workers.",
+  "exportEnvironment": "Historical local noncredential exports below; final hash-bound production evidence supplied separately in refreshed archive and PR description",
   "node": "22.21.0",
   "npm": "11.7.0",
   "apps": {
@@ -674,7 +674,26 @@
         ]
       }
     ],
-    "guard": "Unpinned npx eas-cli remains unchanged. Exact reviewed CLI version is recorded; no safe publisher claim and no new credentials/access/settings."
+    "guard": "Unpinned npx eas-cli remains unchanged. Exact reviewed CLI version is recorded; no safe publisher claim and no new credentials/access/settings.",
+    "reviewCorrection": {
+      "lockedInstallImplemented": true,
+      "commands": [
+        "whoami",
+        "env:exec",
+        "update"
+      ],
+      "packagePath": "apps/mobile-publisher",
+      "lockSha256": "7078f090ef057107b68b605ac3c99db9da80224293e869f4d1400f2bd8027f42",
+      "node": "v22.21.0",
+      "typescriptPeer": "5.9.3",
+      "audit": {
+        "high": 9,
+        "moderate": 11,
+        "low": 1
+      },
+      "unsignedCertificateBranchProof": "Returns undefined before parsing/verification/signing, zero instrumented calls; resolved PRIVATE production configs have no certificate/metadata",
+      "limits": "No all-publisher/credential safety claim; root/app gates unchanged; no release performed"
+    }
   },
   "nativeParity": [
     {
@@ -1052,9 +1071,8 @@
   ],
   "parent123PublisherImplemented": false,
   "parent123Blockers": [
-    "Tracked Parent appVersion remains 1.0.22 with appVersion policy; existing 1.0.23 exports use copied explicit runtime overrides.",
-    "Source/lock parity and project/channel/build evidence exist; independent native-binary/handset evidence and appVersion metadata review remain outstanding.",
-    "Do not make an export-copy runtime override an implicit publishing bypass."
+    "Narrow allowlisted target provenance/matching metadata implementation and review remain separate; explicit runtime/appVersion inequality alone is permitted by Expo and is not a blocker. Reviewed 1.0.23 binary contains a compatible native superset.",
+    "Device acceptance and any release approval remain pending. Current tracked Coach1.0.25 and Parent1.0.22 preparation can proceed independently."
   ],
   "limits": [
     "Exports use production bundling/Hermes with local noncredential environment; not authenticated EAS production-environment release artifacts.",

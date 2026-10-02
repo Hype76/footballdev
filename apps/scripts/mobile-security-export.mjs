@@ -25,6 +25,8 @@ const require = createRequire(resolve(project, 'package.json'))
 const { getConfig } = require('expo/config')
 const { resolveRuntimeVersionAsync } = require('expo-updates/utils/build/resolveRuntimeVersionAsync.js')
 const config = getConfig(project, {isPublicConfig: true}).exp
+// EAS update checks private config: public Expo config removes signing fields.
+const privateConfig = getConfig(project, {isPublicConfig: false}).exp
 assert.equal(config.runtimeVersion?.policy, 'appVersion', 'This producer preserves the tracked appVersion policy')
 assert.equal(config.version, expectedRuntime, 'Requested runtime does not match tracked config')
 assert.equal(require('./package.json').version, expectedRuntime, 'Requested runtime does not match tracked package')
@@ -45,7 +47,7 @@ const artifacts = ['ios', 'android', 'web'].map((platform) => {
   const sourceMap = `${bundle}.map`
   return {platform, bundle, sourceMap, bundleSha256: sha256(readFileSync(resolve(output, bundle))), sourceMapSha256: sha256(readFileSync(resolve(output, sourceMap)))}
 })
-const manifest = {schemaVersion: 1, role, sourceCommit: expectedCommit, sourceInputsSha256, sourceBeforeAndAfterVerified: true, appVersion: config.version, runtimeVersion: expectedRuntime, runtimePolicy: 'appVersion', resolvedRuntimeVersions, metadataSha256: sha256(metadataBytes), command, environmentScope: 'Validated store-live boundary inside locked publisher production env:exec', codeSigningCertificatePresent: Boolean(config.updates?.codeSigningCertificate), codeSigningMetadataPresent: Boolean(config.updates?.codeSigningMetadata), artifacts}
+const manifest = {schemaVersion: 1, role, sourceCommit: expectedCommit, sourceInputsSha256, sourceBeforeAndAfterVerified: true, appVersion: config.version, runtimeVersion: expectedRuntime, runtimePolicy: 'appVersion', resolvedRuntimeVersions, metadataSha256: sha256(metadataBytes), command, environmentScope: 'Validated store-live boundary; locked production env:exec invocation recorded in external publisher-operation-binding.json', codeSigningCertificatePresent: Boolean(privateConfig.updates?.codeSigningCertificate), codeSigningMetadataPresent: Boolean(privateConfig.updates?.codeSigningMetadata), artifacts}
 const manifestPath = resolve(output, 'security-export-manifest.json'), manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2) + '\n')
 writeFileSync(manifestPath, manifestBytes)
 const manifestSha256 = sha256(manifestBytes)
