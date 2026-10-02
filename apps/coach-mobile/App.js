@@ -1303,7 +1303,7 @@ function SettingsScreen({
       </Section>
       </SettingsSection>
       {user.activeTeamId && isMobileRouteAllowed(user, 'matchday', user?.matchdayPolicy) ? <SettingsSection id="kits" label="Team kits" iconKey="matchday">
-        <CoachTeamKitSettings key={`${user.clubId}:${user.activeTeamId}`} palette={palette} user={user} />
+        <CoachTeamKitSettings key={`${user.clubId}:${user.activeTeamId}:${user.planKey}:${user.roleRank}`} palette={palette} user={user} />
       </SettingsSection> : null}
       <SettingsSection id="security" label="Security" iconKey="settings.security">
       <Section compact iconKey="settings.security" title="Device security">

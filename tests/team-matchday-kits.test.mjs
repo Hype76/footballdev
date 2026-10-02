@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { hexToHsv, hsvToHex, mergeTeamKits, mobileTeamKitCacheKey, normalizeKitColour, normalizeTeamKits } from '../src/lib/team-kits.js'
+import { hexToHsv, hsvToHex, isClubManagedTeamKit, mergeTeamKits, mobileTeamKitCacheKey, normalizeKitColour, normalizeTeamKits } from '../src/lib/team-kits.js'
 
 test('team kit colours are normalized without inventing missing overrides', () => {
   assert.equal(normalizeKitColour(' #1D4ED8 '), '#1d4ed8')
@@ -27,10 +27,10 @@ test('Coach kit save clears blank sides to null without accepting malformed colo
     select() { return this },
     async single() { return { data: savedValues, error: null } },
   }
-  const save = new Function('assertCoachOperationalMutation', 'assertCoachCapability', 'CAPABILITIES', 'normalizeKitColour', 'normalizeTeamKits', 'supabase', `${dataSource.slice(dataSource.indexOf('export async function saveCoachTeamKits')).replace('export async function', 'async function')}; return saveCoachTeamKits`)(
+  const save = new Function('assertCoachOperationalMutation', 'assertCoachCapability', 'CAPABILITIES', 'normalizeKitColour', 'normalizeTeamKits', 'isClubManagedTeamKit', 'supabase', `${dataSource.slice(dataSource.indexOf('export async function saveCoachTeamKits')).replace('export async function', 'async function')}; return saveCoachTeamKits`)(
     (_user, options) => gates.push(options),
     (_user, capability) => gates.push(capability),
-    { matchDay: 'matchDay' }, normalizeKitColour, normalizeTeamKits,
+    { matchDay: 'matchDay' }, normalizeKitColour, normalizeTeamKits, isClubManagedTeamKit,
     { from: () => query },
   )
   const user = { clubId: 'club-a', activeTeamId: 'team-a' }
@@ -44,6 +44,11 @@ test('Coach kit save clears blank sides to null without accepting malformed colo
   assert.equal(gates[1], 'matchDay')
   await assert.rejects(save(user, { home: { colour: '#bad' }, away: { colour: '' } }), /six-digit colours/)
   await assert.rejects(save(user, { home: { colour: '' }, away: { colour: 'not a colour' } }), /six-digit colours/)
+  const beforeClubSave = savedValues
+  for (const planKey of ['club', 'small_club', 'development_club', 'large_club', 'pilot']) {
+    await assert.rejects(save({ ...user, planKey }, { home: { colour: '#2563eb' } }), /Managed by your Club Admin/)
+    assert.equal(savedValues, beforeClubSave)
+  }
 })
 
 test('team colours override only the matching side and preserve paid club artwork fallback', () => {
@@ -69,6 +74,8 @@ test('coach and parent displays pass exact team context and settings avoid an ey
   const display = readFileSync(new URL('../apps/mobile-core/src/ClubKitDisplay.js', import.meta.url), 'utf8')
   assert.match(coach, /teamId=\{context\.teamId \|\| user\.activeTeamId\}/)
   assert.match(parent, /teamId=\{selectedMatch\.teamId/)
+  assert.match(coach, /kitContext=\{context\}/)
+  assert.match(parent, /kitContext=\{link\}/)
   assert.match(settings, /colour picker/)
   assert.doesNotMatch(settings, /eyedropper/i)
   assert.match(display, /kit\.source === 'team'/)

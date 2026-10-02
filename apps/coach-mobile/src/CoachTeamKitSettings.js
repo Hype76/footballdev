@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Image, Pressable, Text, TextInput, View } from 'react-native'
-import { DEFAULT_TEAM_KIT_COLOURS, hexToHsv, hsvToHex, normalizeKitColour } from '../../../src/lib/team-kits.js'
+import { DEFAULT_TEAM_KIT_COLOURS, hexToHsv, hsvToHex, isClubManagedTeamKit, normalizeKitColour } from '../../../src/lib/team-kits.js'
+import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { loadMobileClubKits, setMobileTeamKits } from '../../mobile-core/src/mobileKitCache'
 import { getCoachTeamKits, saveCoachTeamKits } from '../../mobile-core/src/coachTeamKitsData'
 
@@ -86,13 +87,15 @@ export function CoachTeamKitSettings({ palette, user }) {
   const [loadFailed, setLoadFailed] = useState(false)
   const operationRef = useRef(0)
   const savingRef = useRef(false)
-  const canEdit = Number(user?.roleRank || 0) >= 50 && user?.hasActivePlanAccess === true
+  const clubManaged = isClubManagedTeamKit(user)
+  const canEdit = !clubManaged && Number(user?.roleRank || 0) >= 50 && user?.hasActivePlanAccess === true
   const canInteract = canEdit && !loadFailed && status !== 'saving'
 
   const load = useCallback(async (isRetry = false) => {
     const operation = ++operationRef.current
     if (isRetry) setStatus('loading')
     setMessage('')
+    if (isClubManagedTeamKit(user)) { setStatus('ready'); return }
     try {
       const [teamKits, clubKits] = await Promise.all([getCoachTeamKits(user), loadMobileClubKits(user.clubId)])
       if (operation !== operationRef.current) return
@@ -117,7 +120,7 @@ export function CoachTeamKitSettings({ palette, user }) {
 
   const update = (type, value) => setColours(current => ({ ...current, [type]: value }))
   const save = async () => {
-    if (savingRef.current || loadFailed) return
+    if (!canInteract || savingRef.current || loadFailed) return
     savingRef.current = true
     const operation = ++operationRef.current
     setMessage('')
@@ -128,7 +131,7 @@ export function CoachTeamKitSettings({ palette, user }) {
         away: { colour: normalizeKitColour(colours.away) || colours.away },
       })
       if (operation !== operationRef.current) return
-      setMobileTeamKits(user.clubId, user.activeTeamId, kits)
+      setMobileTeamKits(user.clubId, user.activeTeamId, kits, user)
       setColours({ home: kits.home?.colour || '', away: kits.away?.colour || '' })
       setMessage('Team kit colours saved.')
       setStatus('ready')
@@ -140,6 +143,12 @@ export function CoachTeamKitSettings({ palette, user }) {
       if (operation === operationRef.current) savingRef.current = false
     }
   }
+
+  if (clubManaged) return <View style={{ gap: 2 }}>
+    <Text style={{ color: palette.textSecondary, lineHeight: 20 }}>Managed by your Club Admin</Text>
+    <ClubKitDisplay clubId={user.clubId} shirtChoice="home" textStyle={{ color: palette.textPrimary }} />
+    <ClubKitDisplay clubId={user.clubId} shirtChoice="away" textStyle={{ color: palette.textPrimary }} />
+  </View>
 
   return <View style={{ gap: 2 }}>
     <Text style={{ color: palette.textSecondary, lineHeight: 20 }}>Choose the shirts shown for this team in Matchday. Leave a colour blank to use the club kit, or TBC if no club kit is set. Save to apply changes.</Text>
