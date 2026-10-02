@@ -2,7 +2,7 @@
 
 Endpoint: `POST https://footballplayer.online/.netlify/functions/send-contact-request`
 
-The only additional browser origin is `https://football-player-new-website-draft.jasonkeegansl.chatgpt.site`. Existing production origins `https://footballplayer.online` and `https://www.footballplayer.online` and originless callers remain supported. No wildcard, credentials, client-controlled recipient, migration or additional service is introduced. CORS is a browser policy, not authentication.
+The only additional browser origin is `https://football-player-new-website-draft.jasonkeegansl.chatgpt.site`. Existing production origins `https://footballplayer.online` and `https://www.footballplayer.online` and originless callers remain supported. Same-origin requests to the endpoint host also remain supported, including local and deploy-preview forms; those origins cannot call the production endpoint across origins. No wildcard, credentials, client-controlled recipient, migration or additional service is introduced. CORS is a browser policy, not authentication.
 
 Send JSON with `Content-Type: application/json` and omit credentials:
 

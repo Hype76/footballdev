@@ -42,6 +42,15 @@ test('first party and originless existing callers retain optional message and no
     assert.equal(calls.length, 1)
   }
 })
+test('same-origin preview forms work without widening production cross-origin access', async () => {
+  const previewOrigin = 'https://deploy-preview-160--footballplayer-online.netlify.app'
+  const { handler, calls } = setup()
+  const req = new Request(`${previewOrigin}/.netlify/functions/send-contact-request`, { method: 'POST', headers: { origin: previewOrigin, 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Visitor', email: 'visitor@example.test' }) })
+  assert.equal((await handler(req)).status, 200)
+  assert.equal(calls.length, 1)
+  assert.equal((await invoke({}, valid, { origin: previewOrigin })).result.status, 403)
+})
+
 test('exact origin allowlist rejects lookalikes, null, subdomains and arbitrary caller origins', async () => {
   for (const bad of ['null', 'https://evil.example', origin + '.evil.example', origin + '/', 'http://footballplayer.online', 'https://sub.footballplayer.online']) {
     const { result, calls } = await invoke({}, valid, { origin: bad })

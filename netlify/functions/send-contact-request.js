@@ -147,7 +147,9 @@ export function createContactHandler({ send = sendEmail, env = process.env, rate
     const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', Vary: 'Origin' }
     const json = (status, payload, extra = {}) => new Response(JSON.stringify(payload), { status, headers: { ...headers, ...extra } })
     const fail = (status, message, extra) => json(status, { success: false, message }, extra)
-    if (origin && !ALLOWED_ORIGINS.has(origin)) return fail(403, 'Origin is not allowed')
+    // Preserve same-origin preview/local forms without granting cross-origin access to them.
+    const sameOrigin = origin === new URL(request.url).origin
+    if (origin && !sameOrigin && !ALLOWED_ORIGINS.has(origin)) return fail(403, 'Origin is not allowed')
     if (origin) {
       headers['Access-Control-Allow-Origin'] = origin
       headers['Access-Control-Expose-Headers'] = 'Retry-After'
