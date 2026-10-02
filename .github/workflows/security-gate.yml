@@ -91,6 +91,8 @@ jobs:
         run: node --test tests/signup-workspace-provisioning.test.mjs tests/public-signup-recovery.test.mjs && node tests/signup-confirmation-browser.mjs
       - name: M3 monitoring tests
         run: npm run security:monitoring
+      - name: Workspace invite reload and navigation
+        run: node --test tests/workspace-invite-location.test.mjs && node tests/workspace-invite-navigation-browser.mjs
       - name: Existing security controls
         run: >-
           node --test

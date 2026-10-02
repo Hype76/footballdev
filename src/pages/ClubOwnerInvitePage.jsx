@@ -1,29 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.webp'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { APP_DOWNLOAD_LINKS } from '../lib/app-download-links.js'
 import { supabase } from '../lib/supabase-client.js'
 import { recordSuccessfulLoginAnalytics } from '../lib/domain/platform-analytics.js'
 import { assertPasswordPolicy, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
+import { readWorkspaceInviteLocation } from '../lib/workspace-invite-location.js'
 
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
 const primaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function ClubOwnerInvitePage() {
   const { token: legacyToken } = useParams()
-  const [token] = useState(() => {
-    const queryParameters = new URLSearchParams(window.location.search)
-    const queryToken = queryParameters.get('token') || ''
-    const hashParameters = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-    const fragmentToken = hashParameters.get('token') || ''
-
-    if (queryToken || fragmentToken) {
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-
-    return queryToken || fragmentToken || legacyToken || ''
-  })
+  const location = useLocation()
+  const { token } = readWorkspaceInviteLocation(location, legacyToken)
   const navigate = useNavigate()
   const [invite, setInvite] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -36,10 +27,16 @@ export function ClubOwnerInvitePage() {
   const [signInEmail, setSignInEmail] = useState('')
 
   useEffect(() => {
+    const { replacement } = readWorkspaceInviteLocation(location, legacyToken)
+    if (replacement) navigate(replacement, { replace: true, state: location.state })
+  }, [location, legacyToken, navigate])
+
+  useEffect(() => {
     let isCurrent = true
 
     async function loadInvite() {
       setIsLoading(true)
+      setInvite(null)
       setErrorMessage('')
 
       try {
