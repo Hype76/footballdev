@@ -43,7 +43,7 @@ function processorEvent({
   }
 }
 
-test('workspace-owner invitation values are random, digest-only at rest and query-delivered', () => {
+test('workspace-owner invitation values are random, digest-only at rest and fragment-delivered', () => {
   const firstValue = generateInvitationValue()
   const secondValue = generateInvitationValue()
   const digest = digestInvitationValue(firstValue)
@@ -54,8 +54,9 @@ test('workspace-owner invitation values are random, digest-only at rest and quer
   assert.match(firstValue, /^[A-Za-z0-9_-]+$/)
   assert.match(digest, /^[0-9a-f]{64}$/)
   assert.notEqual(digest, firstValue)
-  assert.equal(url, `https://footballplayer.online/workspace-invite?token=${encodeURIComponent(firstValue)}`)
-  assert.doesNotMatch(url, /#token=/)
+  assert.equal(url, `https://footballplayer.online/workspace-invite#token=${encodeURIComponent(firstValue)}`)
+  assert.equal(new URL(url).search, '')
+  assert.equal(new URL(url).pathname, '/workspace-invite')
 })
 
 test('club-owner migration transforms legacy values and removes plaintext authority', async () => {

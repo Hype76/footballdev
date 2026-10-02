@@ -20,7 +20,7 @@ export function digestInvitationValue(value) {
 
 export function buildWorkspaceOwnerInviteUrl(baseUrl, invitationValue) {
   const origin = String(baseUrl ?? '').trim().replace(/\/$/, '')
-  return `${origin}/workspace-invite?token=${encodeURIComponent(invitationValue)}`
+  return `${origin}/workspace-invite#token=${encodeURIComponent(invitationValue)}`
 }
 
 export function buildClubOwnerInviteUrl(baseUrl, invitationValue) {

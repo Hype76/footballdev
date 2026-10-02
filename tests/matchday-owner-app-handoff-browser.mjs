@@ -5,7 +5,7 @@ import { APP_DOWNLOAD_LINKS } from '../src/lib/app-download-links.js'
 
 const result = await build({
   stdin: {
-    contents: `import React from 'react';import{createRoot}from'react-dom/client';import{BrowserRouter,Routes,Route}from'react-router-dom';import{ClubOwnerInvitePage}from'./src/pages/ClubOwnerInvitePage.jsx';createRoot(document.getElementById('root')).render(<BrowserRouter><Routes><Route path='/workspace-owner-invite/:token' element={<ClubOwnerInvitePage/>}/><Route path='/billing' element={<h1>Billing destination</h1>}/></Routes></BrowserRouter>);`,
+    contents: `import React from 'react';import{createRoot}from'react-dom/client';import{BrowserRouter,Routes,Route}from'react-router-dom';import{ClubOwnerInvitePage}from'./src/pages/ClubOwnerInvitePage.jsx';createRoot(document.getElementById('root')).render(<BrowserRouter><Routes><Route path='/workspace-invite/:token' element={<ClubOwnerInvitePage/>}/><Route path='/workspace-invite' element={<ClubOwnerInvitePage/>}/><Route path='/billing' element={<h1>Billing destination</h1>}/></Routes></BrowserRouter>);`,
     resolveDir: process.cwd(),
     loader: 'jsx',
   },
@@ -67,12 +67,12 @@ async function openInvite({ planKey, signInFails = false }) {
       redirectPath: planKey === 'matchday' ? '/coach' : '/billing',
     }),
   }))
-  await context.route('https://fixture.test/workspace-owner-invite/**', route => route.fulfill({
+  await context.route('https://fixture.test/workspace-invite**', route => route.fulfill({
     contentType: 'text/html',
     body: `<main id="root"></main><script>${result.outputFiles[0].text}</script>`,
   }))
   const page = await context.newPage()
-  await page.goto('https://fixture.test/workspace-owner-invite/fixture-token')
+  await page.goto('https://fixture.test/workspace-invite/fixture-token')
   await page.getByLabel('Create password').fill('Kestrel!River92Orbit')
   await page.getByLabel('Confirm password').fill('Kestrel!River92Orbit')
   await page.getByRole('button', { name: 'Create Team Admin access' }).click()
@@ -83,7 +83,9 @@ try {
   for (const signInFails of [false, true]) {
     const { context, page } = await openInvite({ planKey: 'matchday', signInFails })
     await page.getByRole('heading', { name: 'Continue in the Coach app' }).waitFor()
-    assert.equal(new URL(page.url()).pathname, '/workspace-owner-invite/fixture-token')
+    assert.equal(new URL(page.url()).pathname, '/workspace-invite')
+    assert.equal(new URL(page.url()).hash, '')
+    assert.equal((await page.evaluate(() => JSON.stringify(history.state))).includes('fixture-token'), false)
     assert.equal(await page.getByRole('link', { name: 'Open Coach app' }).getAttribute('href'), 'footballplayercoach://')
     assert.equal(await page.getByRole('link', { name: 'Download for iPhone' }).getAttribute('href'), APP_DOWNLOAD_LINKS.coach.apple)
     assert.equal(await page.getByRole('link', { name: 'Download for Android' }).getAttribute('href'), APP_DOWNLOAD_LINKS.coach.android)
@@ -92,6 +94,10 @@ try {
       assert.doesNotMatch(href, /fixture-token|Kestrel|coach%40example/)
     }
     assert.equal(await page.evaluate(() => window.signInCalls.length), 1)
+    await page.reload()
+    await page.getByRole('heading', { name: 'Continue in the Coach app' }).waitFor()
+    assert.equal(new URL(page.url()).hash, '')
+    assert.equal(await page.evaluate(() => window.signInCalls.length), 0)
     await context.close()
   }
 
