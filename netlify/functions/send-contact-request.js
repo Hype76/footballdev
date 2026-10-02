@@ -1,34 +1,88 @@
 import process from 'node:process'
-import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
+import { createHash } from 'node:crypto'
+import { Buffer } from 'node:buffer'
+import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
-const CONTACT_REQUEST_RECIPIENT = String(process.env.CONTACT_REQUEST_RECIPIENT || 'support@jelumalabs.com').trim()
+const DRAFT_ORIGIN = 'https://football-player-new-website-draft.jasonkeegansl.chatgpt.site'
+const ALLOWED_ORIGINS = new Set([DRAFT_ORIGIN, 'https://footballplayer.online', 'https://www.footballplayer.online'])
+const MAX_BODY_BYTES = 16 * 1024
+const WINDOW_MS = 180_000
+const FAILURE_MESSAGE = 'Contact request could not be sent. Please try again in a moment.'
 
-function jsonResponse(statusCode, payload) {
-  return {
-    statusCode,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }
-}
-
-function successResponse(payload = {}) {
-  return jsonResponse(200, { success: true, ...payload })
-}
-
-function failureResponse(statusCode, message) {
-  return jsonResponse(statusCode, { success: false, message })
+export const config = {
+  path: '/.netlify/functions/send-contact-request',
+  rateLimit: { windowLimit: 12, windowSize: 180, aggregateBy: ['ip', 'domain'] },
 }
 
 function isValidEmail(value) {
-  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(String(value ?? '').trim())
+  return /^[^\s@<>(),;:"\\]+@[^\s@<>(),;:"\\]+\.[^\s@<>(),;:"\\]+$/.test(value)
 }
 
-function cleanText(value) {
-  return String(value ?? '')
-    .replace(/[<>{}[\]`\\]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+function digest(value) {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+// An immediate, bounded warm-instance guard complements Netlify's distributed limit.
+// It is not a durable or globally strict limit. Never trust client forwarding headers.
+export function createContactRateGuard({ now = Date.now, maxEntries = 4096 } = {}) {
+  const entries = new Map()
+  return (ip) => {
+    const time = now()
+    for (const [key, entry] of entries) if (entry.expires <= time) entries.delete(key)
+    const key = digest(ip || 'unknown')
+    let entry = entries.get(key)
+    if (!entry) {
+      if (entries.size >= maxEntries) return 180
+      entry = { count: 0, expires: time + WINDOW_MS }
+      entries.set(key, entry)
+    }
+    if (entry.count >= 3) return Math.max(1, Math.ceil((entry.expires - time) / 1000))
+    entry.count += 1
+    return 0
+  }
+}
+
+async function readBoundedJson(request) {
+  const declared = request.headers.get('content-length')
+  if (declared && (!/^\d+$/.test(declared) || Number(declared) > MAX_BODY_BYTES)) {
+    throw Object.assign(new Error('Request is too large'), { status: 413 })
+  }
+  const reader = request.body?.getReader()
+  if (!reader) throw Object.assign(new Error('A JSON object is required'), { status: 400 })
+  const chunks = []
+  let size = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel()
+      throw Object.assign(new Error('Request is too large'), { status: 413 })
+    }
+    chunks.push(Buffer.from(value))
+  }
+  try {
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error()
+    return body
+  } catch {
+    throw Object.assign(new Error('A JSON object is required'), { status: 400 })
+  }
+}
+
+function field(body, key, max, { required = false, multiline = false } = {}) {
+  const raw = body[key] ?? ''
+  if (typeof raw !== 'string' || raw.length > max ||
+      [...raw].some((character) => {
+        const code = character.charCodeAt(0)
+        return (code < 32 || code === 127) && !(multiline && [9, 10, 13].includes(code))
+      })) {
+    throw Object.assign(new Error(`Invalid ${key}`), { status: 400 })
+  }
+  const value = raw.trim()
+  if (required && !value) throw Object.assign(new Error(`${key} is required`), { status: 400 })
+  return value
 }
 
 function escapeHtml(value) {
@@ -40,12 +94,13 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;')
 }
 
-function buildContactRequestHtml({ name, email, phone, message, sourcePath }) {
+function buildContactRequestHtml({ name, email, phone, message, sourcePath, clubTeam }) {
   const rows = [
     ['Name', name],
     ['Email', email],
     ['Phone number', phone || 'Not provided'],
     ['Page', sourcePath || 'Not recorded'],
+    ...(clubTeam ? [['Club/team', clubTeam]] : []),
   ]
 
   return `
@@ -86,54 +141,81 @@ function buildContactRequestHtml({ name, email, phone, message, sourcePath }) {
   `
 }
 
-export async function handler(event) {
-  if (event.httpMethod !== 'POST') {
-    return failureResponse(405, 'Method Not Allowed')
-  }
-
-  try {
-    const body = JSON.parse(event.body || '{}')
-    const name = cleanText(body.name)
-    const email = cleanText(body.email).toLowerCase()
-    const phone = cleanText(body.phone)
-    const message = cleanText(body.message)
-    const sourcePath = cleanText(body.sourcePath)
-
-    if (!name) {
-      return failureResponse(400, 'Name is required')
+export function createContactHandler({ send = sendEmail, env = process.env, rateGuard = createContactRateGuard() } = {}) {
+  return async (request, context = {}) => {
+    const origin = request.headers.get('origin')
+    const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', Vary: 'Origin' }
+    const json = (status, payload, extra = {}) => new Response(JSON.stringify(payload), { status, headers: { ...headers, ...extra } })
+    const fail = (status, message, extra) => json(status, { success: false, message }, extra)
+    if (origin && !ALLOWED_ORIGINS.has(origin)) return fail(403, 'Origin is not allowed')
+    if (origin) {
+      headers['Access-Control-Allow-Origin'] = origin
+      headers['Access-Control-Expose-Headers'] = 'Retry-After'
+      headers['Cross-Origin-Resource-Policy'] = 'cross-origin'
     }
-
-    if (!email || !isValidEmail(email)) {
-      return failureResponse(400, 'A valid email is required')
+    if (request.method === 'OPTIONS') {
+      const method = request.headers.get('access-control-request-method')
+      const requestedHeaders = (request.headers.get('access-control-request-headers') || '')
+        .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
+      if (method !== 'POST' || requestedHeaders.some((value) => value !== 'content-type')) {
+        return fail(403, 'Preflight is not allowed')
+      }
+      return new Response(null, { status: 204, headers: { ...headers,
+        'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '600', Vary: 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers' } })
     }
-
-    const html = buildContactRequestHtml({
-      name,
-      email,
-      phone,
-      message,
-      sourcePath,
-    })
-
-    const response = await sendEmail({
-      emailAppRole: 'both',
-      from: createFromAddress('Football Player Contact'),
-      to: [CONTACT_REQUEST_RECIPIENT],
-      reply_to: email,
-      subject: `Website Contact: ${name}`,
-      html,
-    }, {
-      context: {
-        emailType: 'system_support_email',
-        actorEmail: email,
-        targetEntityType: 'public_contact_request',
-      },
-      publicMessage: 'Contact request could not be sent. Please try again in a moment.',
-    })
-
-    return successResponse({ id: response?.data?.id || response?.id || '' })
-  } catch (error) {
-    console.error(error)
-    return failureResponse(error.statusCode || 500, getPublicEmailErrorMessage(error, 'Contact request could not be sent. Please try again in a moment.'))
+    if (request.method !== 'POST') return fail(405, 'Method Not Allowed', { Allow: 'POST, OPTIONS' })
+    if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') || '')) return fail(415, 'Content-Type must be application/json')
+    const retryAfter = rateGuard(context.ip)
+    if (retryAfter) return fail(429, 'Too many contact requests. Please wait and try again.', { 'Retry-After': String(retryAfter) })
+    let values
+    let submissionId
+    try {
+      const body = await readBoundedJson(request)
+      values = {
+        name: field(body, 'name', 120, { required: true }),
+        email: field(body, 'email', 254, { required: true }).toLowerCase(),
+        phone: field(body, 'phone', 50),
+        message: field(body, 'message', 5000, { multiline: true, required: origin === DRAFT_ORIGIN }),
+        sourcePath: field(body, 'sourcePath', 1024),
+        clubTeam: field(body, 'clubTeam', 160),
+      }
+      if (!isValidEmail(values.email)) return fail(400, 'A valid email is required')
+      if (field(body, 'website', 200)) return fail(400, 'Contact request could not be accepted')
+      submissionId = field(body, 'submissionId', 64)
+      if (submissionId && !/^[a-zA-Z0-9_-]{16,64}$/.test(submissionId)) return fail(400, 'Invalid submissionId')
+      if (origin === DRAFT_ORIGIN && !submissionId) return fail(400, 'submissionId is required')
+    } catch (error) {
+      return fail(error.status || 400, error.status ? error.message : 'Invalid request body')
+    }
+    const recipient = String(env.CONTACT_REQUEST_RECIPIENT || 'support@jelumalabs.com').trim()
+    if (!isValidEmail(recipient)) return fail(503, 'Contact service is not configured')
+    try {
+      // Resend retains keys for 24 hours. Retries must retain the ID and complete payload.
+      // Legacy callers without an ID deduplicate identical normalized submissions for that period.
+      const idempotencyKey = `contact-${digest(JSON.stringify([recipient, submissionId, values]))}`
+      const response = await send({
+        emailAppRole: 'both',
+        from: createFromAddress('Football Player Contact', env),
+        to: [recipient],
+        reply_to: values.email,
+        subject: `Website Contact: ${values.name}`,
+        html: buildContactRequestHtml(values),
+      }, {
+        env,
+        idempotencyKey,
+        context: { emailType: 'system_support_email', actorEmail: values.email, targetEntityType: 'public_contact_request' },
+        publicMessage: FAILURE_MESSAGE,
+      })
+      const id = response?.data?.id || response?.id
+      if (!id || response?.error) return fail(502, FAILURE_MESSAGE)
+      return json(200, { success: true, id })
+    } catch (error) {
+      // Never echo or log provider internals or visitor content at this public boundary.
+      const status = [429, 500, 502, 503, 504].includes(error.statusCode) ? error.statusCode : 502
+      return fail(status, FAILURE_MESSAGE)
+    }
   }
 }
+
+export default createContactHandler()
