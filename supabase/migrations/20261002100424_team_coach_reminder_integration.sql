@@ -1,5 +1,5 @@
--- Additive, inert policy persistence only. No attendance changes, backfill,
--- invitation enrolment, queues, triggers on existing records or cron activation.
+-- Additive, default-OFF persistence and dormant source hooks. No attendance
+-- changes, backfill, existing invitation enrolment, sends or cron activation.
 create or replace function app_private.valid_team_coach_reminder_options(value jsonb)
 returns boolean language plpgsql immutable
 set search_path = pg_catalog
@@ -214,8 +214,39 @@ create table public.team_coach_reminder_enrolments (
   request_id uuid not null,
   source_created_at timestamptz not null,
   first_delivered_at timestamptz not null,
-  unique nulls not distinct(policy_id,policy_revision,kind,event_id,occurrence_date,player_id,invitation_id)
+  response_window bigint not null default 1 check(response_window>0),
+  unique nulls not distinct(policy_id,policy_revision,kind,event_id,occurrence_date,player_id,invitation_id,response_window)
 );
+-- Retirement belongs to the delivered response window, not the current link
+-- snapshot. Relinking, resending and changing a policy cannot revive it.
+create table public.team_coach_reminder_retirements (
+  enrolment_id uuid primary key references public.team_coach_reminder_enrolments(id) on delete cascade,
+  retired_at timestamptz not null default clock_timestamp(),
+  reason text not null check(reason='no_eligible_responder'),
+  source_table text not null
+);
+alter table public.team_coach_reminder_retirements enable row level security;
+revoke all on public.team_coach_reminder_retirements from public,anon,authenticated;
+grant select,insert on public.team_coach_reminder_retirements to service_role;
+create index team_coach_reminder_enrolments_responder_idx on public.team_coach_reminder_enrolments(club_id,team_id,player_id);
+-- One short transaction gate serializes responder writes and deadline commits.
+-- Updating it also forces stale repeatable-read transactions to retry, rather
+-- than accepting a pre-lock authority snapshot. Default OFF creates no writes.
+create table app_private.coach_reminder_authority_gate (
+  singleton boolean primary key default true check(singleton),
+  revision bigint not null default 0
+);
+insert into app_private.coach_reminder_authority_gate(singleton) values(true);
+alter table app_private.coach_reminder_authority_gate enable row level security;
+revoke all on app_private.coach_reminder_authority_gate from public,anon,authenticated;
+grant select,update on app_private.coach_reminder_authority_gate to service_role;
+grant usage on schema app_private to service_role;
+create or replace function app_private.lock_coach_reminder_authority_v1()
+returns void language sql volatile security definer set search_path=pg_catalog,public as $$
+  update app_private.coach_reminder_authority_gate set revision=revision+1 where singleton;
+$$;
+revoke all on function app_private.lock_coach_reminder_authority_v1() from public,anon,authenticated;
+grant execute on function app_private.lock_coach_reminder_authority_v1() to service_role;
 alter table public.team_coach_reminder_enrolments enable row level security;
 revoke all on public.team_coach_reminder_enrolments from public,anon,authenticated;
 grant select,insert on public.team_coach_reminder_enrolments to service_role;
@@ -329,7 +360,8 @@ begin
   where staff.team_id=team_value and staff.role_rank>=20 and usr.status='active' and usr.club_id=club_value
     and membership.role=usr.role and membership.role_rank=usr.role_rank and membership.role_rank>=20
     and membership.role not in ('parent_portal','super_admin','adult_player');
-  return jsonb_build_object('parentResponderActive',parent_responder_active,'adultResponderActive',adult_responder_active,'policy',policy_value,'release',release_value,'event',event_value,'enrolment',enrolment_value,
+  return jsonb_build_object('deadlineRetired',exists(select 1 from public.team_coach_reminder_retirements where enrolment_id=(enrolment_value->>'id')::uuid),
+    'parentResponderActive',parent_responder_active,'adultResponderActive',adult_responder_active,'policy',policy_value,'release',release_value,'event',event_value,'enrolment',enrolment_value,
     'invitation',invite_value,'response',response_value,'memberActive',member_active,'squadSelected',squad_picked,'authorityActive',authority_active,
     'recipientEmails',recipient_emails,'coaches',coaches_value);
 end;
@@ -352,6 +384,7 @@ begin
   select * into job from public.team_coach_reminder_jobs where job_key=job_key_value for update;
   if not found then return jsonb_build_object('committed',false,'reason','missing'); end if;
   if job.state <> 'pending' then return jsonb_build_object('committed',true,'duplicate',true); end if;
+  if job.payload->>'action'='availability_deadline' then perform app_private.lock_coach_reminder_authority_v1(); end if;
   context_current_value := public.team_coach_reminder_context_v1(job.payload);
   if context_snapshot_value is distinct from context_current_value then
     return jsonb_build_object('committed',false,'reason','context_changed');
@@ -359,7 +392,14 @@ begin
   if state_value not in ('completed','skipped') or jsonb_typeof(notifications_value) is distinct from 'array' then
     raise exception 'reminder_commit_invalid' using errcode='22023';
   end if;
+  if job.payload->>'action'='availability_deadline' and coalesce((context_current_value->>'deadlineRetired')::boolean,false)
+    and (effect_value is not null or jsonb_array_length(notifications_value)>0) then
+    return jsonb_build_object('committed',false,'reason','deadline_retired');
+  end if;
   if effect_value is not null then
+    if coalesce((context_current_value->>'deadlineRetired')::boolean,false) then
+      return jsonb_build_object('committed',false,'reason','deadline_retired');
+    end if;
     if effect_value->>'status'='unavailable' and not (coalesce((context_current_value->>'parentResponderActive')::boolean,false)
       or coalesce((context_current_value->>'adultResponderActive')::boolean,false)) then
       return jsonb_build_object('committed',false,'reason','no_eligible_responder');
@@ -409,12 +449,60 @@ grant execute on function public.claim_team_coach_reminder_notification_v1(text)
 
 
 -- REMINDER_SOURCE_INTEGRATION
+-- Observe loss at its source, within the mutation transaction. Nondeferred
+-- statement triggers see all rows of a bulk write and capture an unlink even
+-- when the same transaction relinks before the worker next runs.
+create or replace function app_private.coach_reminder_authority_mutation_v1()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+begin
+ if not exists(select 1 from public.team_coach_reminder_release_control where enabled)
+   and not exists(select 1 from public.team_coach_reminder_enrolments e
+   join public.team_coach_reminder_policies p on p.id=e.policy_id and p.revision=e.policy_revision
+   where p.opted_in and p.options->>'deadlineMode'='automatic_not_attending'
+     and not exists(select 1 from public.team_coach_reminder_retirements r where r.enrolment_id=e.id)) then return null; end if;
+ if tg_when='BEFORE' then
+  perform app_private.lock_coach_reminder_authority_v1();
+ else
+  insert into public.team_coach_reminder_retirements(enrolment_id,reason,source_table)
+  select e.id,'no_eligible_responder',tg_table_schema||'.'||tg_table_name
+  from public.team_coach_reminder_enrolments e
+  join public.team_coach_reminder_policies p on p.id=e.policy_id and p.revision=e.policy_revision
+  where p.opted_in and p.options->>'deadlineMode'='automatic_not_attending'
+   and not exists(select 1 from public.team_coach_reminder_retirements r where r.enrolment_id=e.id)
+   and not exists(select 1 from public.event_player_eligible_recipients(club_id_value=>e.club_id,team_id_value=>e.team_id,player_ids_value=>array[e.player_id]) recipient
+     where recipient.parent_link_id is not null or recipient.recipient_type='player')
+  on conflict do nothing;
+ end if;
+ return null;
+end $$;
+revoke all on function app_private.coach_reminder_authority_mutation_v1() from public,anon,authenticated;
+create trigger coach_reminder_parent_authority_before before insert or update of auth_user_id,email,status,club_id,team_id,player_id or delete on public.parent_player_links
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_parent_authority_after after insert or update of auth_user_id,email,status,club_id,team_id,player_id or delete on public.parent_player_links
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_adult_authority_before before insert or update of user_id,status,verified_at,revoked_at,club_id,team_id,player_id or delete on public.adult_player_account_links
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_adult_authority_after after insert or update of user_id,status,verified_at,revoked_at,club_id,team_id,player_id or delete on public.adult_player_account_links
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_player_authority_before before insert or update of club_id,status,archived_at,contact_type,parent_email,parent_contacts or delete on public.players
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_player_authority_after after insert or update of club_id,status,archived_at,contact_type,parent_email,parent_contacts or delete on public.players
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_membership_authority_before before insert or update of club_id,team_id,player_id,status,ended_at or delete on public.player_team_memberships
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_membership_authority_after after insert or update of club_id,team_id,player_id,status,ended_at or delete on public.player_team_memberships
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_account_authority_before before insert or update of email,email_confirmed_at,banned_until,deleted_at or delete on auth.users
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
+create trigger coach_reminder_account_authority_after after insert or update of email,email_confirmed_at,banned_until,deleted_at or delete on auth.users
+ for each statement execute function app_private.coach_reminder_authority_mutation_v1();
 -- Future-only delivery capture. Release remains disabled; no backfill or cron.
 alter table public.coach_mobile_notification_events add column coach_reminder_delivery_key text unique;
 create or replace function app_private.capture_coach_reminder_delivery_v1()
 returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
 declare policy public.team_coach_reminder_policies%rowtype; release_time timestamptz;
  delivered timestamptz; kind_value text; event_value uuid; occurrence_value date; invite_value uuid; request_value uuid;
+ enrolment_value uuid; window_value bigint;
 begin
  select activated_at into release_time from public.team_coach_reminder_release_control where enabled;
  if release_time is null then return new; end if;
@@ -428,13 +516,41 @@ begin
    where id=new.request_id and club_id=new.club_id and team_id=new.team_id and status<>'cancelled';
  end if;
  if delivered is null or delivered < greatest(policy.effective_from,release_time) or new.token_revoked_at is not null then return new; end if;
+ perform app_private.lock_coach_reminder_authority_v1();
+ -- Only a newly created, confirmed-delivered request can open another window.
+ -- Resends of the old request, timestamps updated in place, and policy toggles
+ -- cannot erase retirement. The calendar invitation itself may be retained.
+ if exists(select 1 from public.team_coach_reminder_retirements r
+   join public.team_coach_reminder_enrolments e on e.id=r.enrolment_id
+   where e.club_id=new.club_id and e.team_id=new.team_id and e.player_id=new.player_id
+     and e.kind=kind_value and e.event_id=event_value and e.occurrence_date is not distinct from occurrence_value
+     and (e.request_id=request_value or new.created_at<=r.retired_at)) then return new; end if;
  select id into invite_value from public.calendar_event_invites where club_id=new.club_id and team_id=new.team_id
   and player_id=new.player_id and cancelled_at is null and invite_status<>'cancelled'
   and ((kind_value='MATCH' and match_day_id=event_value) or(kind_value='TRAINING' and calendar_event_id=event_value));
  if invite_value is null then return new; end if;
- insert into public.team_coach_reminder_enrolments(club_id,team_id,policy_id,policy_revision,kind,event_id,occurrence_date,player_id,invitation_id,request_id,source_created_at,first_delivered_at)
- values(new.club_id,new.team_id,policy.id,policy.revision,kind_value,event_value,occurrence_value,new.player_id,invite_value,request_value,new.created_at,delivered)
- on conflict do nothing;
+ -- Multiple Parent recipients share the current response window and its first
+ -- delivery. Only retirement plus a fresh request can advance the window.
+ select e.id into enrolment_value from public.team_coach_reminder_enrolments e
+ where e.policy_id=policy.id and e.policy_revision=policy.revision and e.kind=kind_value and e.event_id=event_value
+  and e.occurrence_date is not distinct from occurrence_value and e.player_id=new.player_id and e.invitation_id=invite_value
+  and not exists(select 1 from public.team_coach_reminder_retirements r where r.enrolment_id=e.id)
+ order by e.response_window desc limit 1;
+ if enrolment_value is null then
+  select coalesce(max(response_window),0)+1 into window_value from public.team_coach_reminder_enrolments
+   where policy_id=policy.id and policy_revision=policy.revision and kind=kind_value and event_id=event_value
+    and occurrence_date is not distinct from occurrence_value and player_id=new.player_id and invitation_id=invite_value;
+  insert into public.team_coach_reminder_enrolments(club_id,team_id,policy_id,policy_revision,kind,event_id,occurrence_date,player_id,invitation_id,request_id,source_created_at,first_delivered_at,response_window)
+  values(new.club_id,new.team_id,policy.id,policy.revision,kind_value,event_value,occurrence_value,new.player_id,invite_value,request_value,new.created_at,delivered,window_value)
+  returning id into enrolment_value;
+ end if;
+ if policy.options->>'deadlineMode'='automatic_not_attending'
+  and not exists(select 1 from public.event_player_eligible_recipients(club_id_value=>new.club_id,team_id_value=>new.team_id,player_ids_value=>array[new.player_id]) recipient
+    where recipient.parent_link_id is not null or recipient.recipient_type='player') then
+  insert into public.team_coach_reminder_retirements(enrolment_id,reason,source_table)
+  values(enrolment_value,'no_eligible_responder',tg_table_schema||'.'||tg_table_name)
+  on conflict do nothing;
+ end if;
  return new;
 end $$;
 revoke all on function app_private.capture_coach_reminder_delivery_v1() from public,anon,authenticated;
@@ -492,6 +608,7 @@ begin
  select * into enrolment from public.team_coach_reminder_enrolments where id=enrolment_id;
  if not found then return false; end if;
  context_value:=public.team_coach_reminder_context_v1(jsonb_build_object('kind',enrolment.kind,'eventId',enrolment.event_id,'enrolmentId',enrolment.id,'occurrenceDate',coalesce(enrolment.occurrence_date::text,'')));
+ if coalesce((context_value->>'deadlineRetired')::boolean,false) then return false; end if;
  event_value:=context_value->'event';
  -- Retain historical automatic effects for audit, but stop applying them when
  -- no eligible Parent or verified adult self-responder remains. Explicit answers remain

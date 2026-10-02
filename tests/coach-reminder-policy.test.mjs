@@ -50,6 +50,26 @@ test('automatic deadlines require linked Parent authority independently of notif
   }
 })
 
+test('retired deadlines never reapply after relink, adult eligibility or policy strictness changes; explicit answers still win',()=>{
+  const f=fixture(),job=deadline(f),effect=evaluateCoachReminderJob({...f,job}).effect
+  f.invitation.deadlineRetired=true
+  for(const mode of ['automatic_not_attending','exclude_from_planning']){
+    f.policy.options.deadlineMode=mode
+    f.invitation.adultResponderActive=true
+    assert.equal(deadline(f),undefined)
+    assert.equal(evaluateCoachReminderJob({...f,job}).reason,'deadline_retired')
+    assert.deepEqual(projectCoachAvailability({...f,effect}),{status:'pending',provenance:'no_response',planningExcluded:false,automatic:false})
+    const notification={...evaluateCoachReminderJob({...fixture(),job}).notifications[0],jobKey:job.key,action:job.action,responseRevision:f.invitation.responseRevision,effectProvenance:effect.provenance}
+    assert.equal(validateCoachReminderNotification({...f,job,notification}).valid,false)
+  }
+  for(const status of ['available','unavailable','maybe']){
+    f.invitation.responseStatus=status;f.invitation.responseSource='staff_on_behalf'
+    const projected=projectCoachAvailability({...f,effect})
+    assert.equal(projected.status,status);assert.equal(projected.automatic,false)
+    assert.equal(projected.provenance,'staff_on_behalf');assert.equal(projected.planningExcluded,status==='unavailable')
+  }
+})
+
 test('all automation starts off; configuration is strict and offers all three modes', () => {
   const f = fixture()
   f.policy.options = normalizeCoachReminderPolicy()

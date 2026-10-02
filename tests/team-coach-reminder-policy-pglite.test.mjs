@@ -230,6 +230,10 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     insert into calendar_event_invites values('${invite}','${club}','${team}','${player}','${event}',null,clock_timestamp(),'invited',null);
     insert into match_day_player_availability values('${id(35)}','${event}','${club}','${player}','pending',null,clock_timestamp(),null);
   `)
+  await db.exec(`alter table players add column archived_at timestamptz,add column contact_type text,add column parent_email text,add column parent_contacts jsonb;
+    alter table parent_player_links add column team_id uuid default '${team}',add column email text default 'parent@example.test';
+    create table adult_player_account_links(user_id uuid,status text,verified_at timestamptz,revoked_at timestamptz,club_id uuid,team_id uuid,player_id uuid);
+    create table auth.users(id uuid,email text,email_confirmed_at timestamptz,banned_until timestamptz,deleted_at timestamptz);`)
   await db.exec(integrationSql)
   assert.equal((await db.query('select next_team_coach_reminder_processor_phase_v1() value')).rows[0].value,0)
   assert.equal((await db.query('select processor_phase from team_coach_reminder_scan_cursor')).rows[0].processor_phase,0)
@@ -346,13 +350,13 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[monthly.id])).rows[0].value,null)
     await db.exec(`insert into training_availability_request_players values('${id(93)}','${id(92)}','${club}','${team}','${player}','parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent')`)
     // One remaining authorised delivered source keeps this shared invitation valid.
-    await db.exec(`alter table parent_player_links add column email text default 'parent@example.test';
+    await db.exec(`
       create or replace function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns table(player_id uuid,parent_link_id uuid,recipient_email text,recipient_type text) language sql as $$
         select player_id,id,email,'parent_guardian'
         from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'
         union all select player_id,null::uuid,'adult@example.test','player'
         from adult_fixture_links where club_id=club_id_value and team_id=team_id_value and player_id=any(player_ids_value) and active$$;
-      insert into parent_player_links values('${id(97)}','${id(98)}','${player}','${club}','active','second-parent@example.test');
+      insert into parent_player_links(id,auth_user_id,player_id,club_id,status,email) values('${id(97)}','${id(98)}','${player}','${club}','active','second-parent@example.test');
       insert into training_availability_request_players values('${id(94)}','${id(92)}','${club}','${team}','${player}','second-parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent');
       update training_availability_request_players set token_revoked_at=clock_timestamp() where id='${id(93)}'`)
     const remainingParent=await repository.loadContext(candidate)
@@ -400,7 +404,7 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     await db.exec(`update parent_player_links set status='revoked'`)
     const cas=(await db.query("select commit_team_coach_reminder_job_v1($1,$2,null,'[]'::jsonb,'completed','unanswered') value",[deadline.key,JSON.stringify(before)])).rows[0].value
     assert.equal(cas.committed,false);assert.equal(cas.reason,'context_changed')
-    assert.equal((await processCoachReminderJob({repository,jobKey:deadline.key,now:new Date().toISOString()})).reason,'no_eligible_responder')
+    assert.equal((await processCoachReminderJob({repository,jobKey:deadline.key,now:new Date().toISOString()})).reason,'deadline_retired')
     assert.equal((await db.query('select count(*)::int n from team_coach_reminder_effects where job_key=$1',[deadline.key])).rows[0].n,0)
     assert.equal(await project(monthly.id),null);assert.equal(await planning(monthly.id),false)
     assert.equal(await project(enrol.id),null);assert.equal(await planning(enrol.id),false)
@@ -408,7 +412,7 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     const adultContext=await repository.loadContext(candidate)
     assert.equal(adultContext.invitation.parentResponderActive,false)
     assert.equal(adultContext.invitation.adultResponderActive,true,'Verified adult authority is distinct from an absent Parent')
-    assert.equal((await project(monthly.id)).automatic,true,'Existing eligible adult self-response automation is preserved')
+    assert.equal(await project(monthly.id),null,'New adult eligibility cannot revive a previously retired window')
     await db.exec('update adult_fixture_links set active=false')
     assert.equal(await project(monthly.id),null)
     const oldSends=sends.length
@@ -423,12 +427,42 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
   await actor(parent)
   assert.deepEqual((await db.query('select get_team_coach_reminder_projections_v1($1,$2,$3) value',['MATCH',[event],link])).rows[0].value,[])
   await db.exec('reset role')
+  await t.test('durable retirement survives relink, old-source resends and policy changes; fresh delivered requests open independent windows',async()=>{
+    await db.exec(`insert into parent_player_links(id,auth_user_id,player_id,club_id,status,email) values('${link}','${parent}','${player}','${club}','active','parent@example.test')`)
+    const before=(await db.query('select * from team_coach_reminder_retirements order by enrolment_id')).rows
+    assert.ok(before.some(row=>row.enrolment_id===monthly.id))
+    assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[monthly.id])).rows[0].value,null)
+    const count=(await db.query('select count(*)::int n from team_coach_reminder_enrolments')).rows[0].n
+    await db.exec(`update match_day_availability_requests set created_at=clock_timestamp(),sent_at=clock_timestamp() where id='${id(111)}';
+      update training_availability_request_players set email_sent_at=clock_timestamp() where request_id='${id(92)}'`)
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments')).rows[0].n,count,'Old request identities cannot reopen retired windows')
+    const freshRequest=id(120),freshSource=id(121)
+    await db.exec(`insert into training_availability_requests select '${freshRequest}',club_id,team_id,calendar_event_id,occurrence_date,occurrence_starts_at,status from training_availability_requests where id='${id(92)}';
+      insert into training_availability_request_players values('${freshSource}','${freshRequest}','${club}','${team}','${player}','parent@example.test',null,clock_timestamp(),null,'sent')`)
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0].n,0,'Queued invitation is not a confirmed response window')
+    await db.exec(`update training_availability_request_players set email_sent_at=clock_timestamp() where id='${freshSource}'`)
+    const fresh=(await db.query('select * from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0]
+    const candidate={kind:'TRAINING',eventId:id(90),enrolmentId:fresh.id,clubId:club,teamId:team,playerId:player,occurrenceDate:'2099-03-03'}
+    const jobs=await repository.planCandidate(candidate,new Date().toISOString())
+    const deadline=jobs.find(job=>job.action==='availability_deadline');assert.ok(deadline)
+    assert.equal(Date.parse(deadline.dueAt)-fresh.first_delivered_at.getTime(),2*3600000)
+    await db.exec(`insert into training_availability_request_players values('${id(122)}','${freshRequest}','${club}','${team}','${player}','second-parent@example.test',clock_timestamp(),clock_timestamp(),null,'sent')`)
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments where request_id=$1',[freshRequest])).rows[0].n,1,'Multiple Parents share one immutable first-delivery response window')
+    const history=async()=>(await db.query("select jsonb_build_object('effects',(select jsonb_agg(to_jsonb(e) order by job_key) from team_coach_reminder_effects e),'jobs',(select jsonb_agg(to_jsonb(j) order by job_key) from team_coach_reminder_jobs j),'outbox',(select jsonb_agg(to_jsonb(o) order by delivery_key) from team_coach_reminder_outbox o)) value")).rows[0].value
+    const beforeHistory=await history()
+    await db.exec(`begin;update parent_player_links set status='revoked';update parent_player_links set status='active';commit`)
+    assert.deepEqual(await history(),beforeHistory,'Retirement does not rewrite jobs, audit effects or held/accepted outbox history')
+    assert.equal((await repository.loadContext(candidate)).invitation.deadlineRetired,true,'Unlink and relink between worker runs retire the window in the source transaction')
+    assert.equal((await repository.planCandidate(candidate,new Date().toISOString())).some(job=>job.action==='availability_deadline'),false)
+    assert.deepEqual((await db.query('select * from team_coach_reminder_retirements where enrolment_id<>$1 order by enrolment_id',[fresh.id])).rows,before,'Prior audit history remains immutable')
+    assert.equal((await db.query('select status from match_day_player_availability where match_day_id=$1',[id(110)])).rows[0].status,'available','Explicit Coach answer remains canonical')
+    assert.equal((await db.query('select status from match_day_player_squad_decisions where match_day_id=$1',[id(110)])).rows[0].status,'selected','Saved squad is preserved')
+  })
   await t.test('emergency stop clears both release fields and removes database projections and planning guards',async()=>{
-    await db.exec(`insert into parent_player_links values('${link}','${parent}','${player}','${club}','active','parent@example.test')`)
     const previousFlag=process.env.ENABLE_COACH_REMINDER_AUTOMATION
     try{
       delete process.env.ENABLE_COACH_REMINDER_AUTOMATION
-      assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[monthly.id])).rows[0].value,true,'Worker environment alone does not disable SQL read guards')
+      assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[monthly.id])).rows[0].value,false,'Relinking cannot restore a retired SQL planning guard')
       await assert.rejects(db.exec('update team_coach_reminder_release_control set enabled=false'),/check constraint/)
       await db.exec('update team_coach_reminder_release_control set enabled=false,activated_at=null')
       assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[monthly.id])).rows[0].value,false)

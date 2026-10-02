@@ -171,7 +171,7 @@ export function planAvailabilityAutomation({ policy, event, invitation, now }) {
     if (ms(dueAt) < ms(event.startsAt)) jobs.push(makeJob({ policy, event, invitation, action, dueAt }))
   }
   if (options.reminderEnabled && invitation.responseStatus === 'pending') add('availability_reminder', options.reminderAfterHours)
-  if (options.deadlineMode !== 'reminders_only') add('availability_deadline', options.deadlineAfterHours)
+  if (options.deadlineMode !== 'reminders_only' && invitation.deadlineRetired !== true) add('availability_deadline', options.deadlineAfterHours)
   return jobs
 }
 
@@ -229,6 +229,9 @@ export function evaluateCoachReminderJob({ job, policy, event, invitation, recip
     || job.deliveredAt !== invitation.deliveredAt || job.playerId !== invitation.playerId
     || !matchesScope(job, invitation) || invitation.memberActive !== true
     || invitation.cancelled || invitation.revoked) return skip('invitation_or_membership_changed')
+  if (job.action === 'availability_deadline' && invitation.deadlineRetired === true) {
+    return skip(['available', 'unavailable'].includes(invitation.responseStatus) ? 'already_answered' : 'deadline_retired')
+  }
   const planned = planAvailabilityAutomation({ policy, event,
     invitation: { ...invitation, responseStatus: 'pending' }, now })
     .find(item => item.key === job.key && item.notificationKey === job.notificationKey && item.dueAt === job.dueAt)
@@ -246,6 +249,7 @@ export function evaluateCoachReminderJob({ job, policy, event, invitation, recip
   if (job.action !== 'availability_deadline') return skip('unknown_action')
   if (options.deadlineMode === 'reminders_only') return skip('disabled')
   if (['available', 'unavailable'].includes(invitation.responseStatus)) return skip('already_answered')
+  if (invitation.deadlineRetired === true) return skip('deadline_retired')
   if (!['pending', 'maybe'].includes(invitation.responseStatus)) return skip('response_unknown')
   const automatic = options.deadlineMode === 'automatic_not_attending' && invitation.responseStatus === 'pending'
   if (options.deadlineMode === 'automatic_not_attending' && invitation.parentResponderActive !== true && invitation.adultResponderActive !== true) return skip('no_eligible_responder')
@@ -270,6 +274,7 @@ export function projectCoachAvailability({ event, invitation, effect, policy, no
   const explicit = explicitAnswers.has(status)
   const result = { status, provenance: explicit ? invitation.responseSource || 'explicit_response' : 'no_response',
     planningExcluded: status === 'unavailable', automatic: false }
+  if (invitation?.deadlineRetired === true) return result
   if (!effect || !policy || !policyReady(policy, now) || effect.provenance !== 'coach_deadline_automation' || !supportedEvent(event) || invitation?.memberActive !== true || invitation.cancelled || invitation.revoked
     || event.id !== effect.eventId || event.revision !== effect.eventRevision
     || !matchesScope(invitation, effect) || invitation.id !== effect.invitationId
