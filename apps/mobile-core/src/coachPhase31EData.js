@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto'
+import {readCoachReminderProjections,applyCoachReminderProjection,findCoachReminderProjection} from '../../../src/lib/coach-reminder-read-model.js'
 import { sameDevelopmentSave } from './developmentOfflineCore'
 import { wakeChatMobileNotificationProcessor } from '../../../src/lib/chat-notification-wake'
 import { CAPABILITIES, getPlanLimit } from '../../../src/lib/paywall-access.js'
@@ -624,11 +625,13 @@ export async function getCoachInvitesAndAvailability(user) {
     response,
   ]))
   const calendar = (calendarResult.data || []).map((row) => normalizeCoachInvite({ ...row, title: row.calendar_events?.title, cancelled_at: row.calendar_events?.cancelled_at, recurrence_frequency: row.calendar_events?.recurrence_frequency }, 'calendar'))
+  const reminderProjections=(await Promise.all(['MATCH','TRAINING'].map(kind=>readCoachReminderProjections(supabase,kind,[...matches.map(match=>match.id),...trainingEventIds],{enabled:process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION==='true'})))).flat()
   const training = trainingRows.map((row) => {
     const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
     const event = trainingEvents.get(normalize(request?.calendar_event_id))
     const response = trainingResponses.get(`${normalize(row.request_id)}:${normalize(row.player_id)}`)
-    return normalizeCoachInvite({ ...row, ...response, calendar_event_id: request?.calendar_event_id, occurrence_date: request?.occurrence_date, occurrence_starts_at: request?.occurrence_starts_at, title: event?.title, cancelled_at: event?.cancelled_at, recurrence_frequency: event?.recurrence_frequency }, 'training')
+    const invite=normalizeCoachInvite({ ...row, ...response, calendar_event_id: request?.calendar_event_id, occurrence_date: request?.occurrence_date, occurrence_starts_at: request?.occurrence_starts_at, title: event?.title, cancelled_at: event?.cancelled_at, recurrence_frequency: event?.recurrence_frequency }, 'training')
+    return applyCoachReminderProjection(invite,findCoachReminderProjection(reminderProjections,{eventId:invite.eventId,playerId:invite.playerId,occurrenceDate:invite.occurrenceDate}))
   })
   const matchAvailabilityByPlayer = new Map((matchAvailabilityResult.data || []).map((row) => [
     `${normalize(row.match_day_id)}:${normalize(row.player_id)}`,
@@ -637,7 +640,8 @@ export async function getCoachInvitesAndAvailability(user) {
   const match = (matchResult.data || []).map((row) => {
     const fixture = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days
     const response = matchAvailabilityByPlayer.get(`${normalize(row.match_day_id)}:${normalize(row.player_id)}`)
-    return normalizeCoachInvite({ ...row, availability_status: response?.status, responded_at: row.responded_at, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
+    const invite=normalizeCoachInvite({ ...row, availability_status: response?.status, responded_at: row.responded_at, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
+    return applyCoachReminderProjection(invite,findCoachReminderProjection(reminderProjections,{eventId:invite.eventId,playerId:invite.playerId}))
   })
   const trainingCoaches = (trainingCoachResult.data || []).map((row) => Object.freeze({
     id: normalize(row.id),

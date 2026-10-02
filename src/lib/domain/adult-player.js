@@ -1,4 +1,5 @@
 import { supabase } from '../supabase-client.js'
+import {readCoachReminderProjections,applyCoachReminderProjection,coachReminderInvitationOccurrence} from '../coach-reminder-read-model.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -33,7 +34,9 @@ export async function getOwnAdultPlayerInvitations() {
     throw new Error('Your invitations could not be loaded. Refresh and try again.')
   }
 
-  return (Array.isArray(data) ? data : []).map(normalizeAdultPlayerInvitation)
+  const invitations=(Array.isArray(data) ? data : []).map(normalizeAdultPlayerInvitation)
+  const projections=(await Promise.all(['MATCH','TRAINING'].map(kind=>readCoachReminderProjections(supabase,kind,invitations.map(invite=>invite.eventId),{enabled:import.meta.env?.VITE_ENABLE_COACH_REMINDER_AUTOMATION==='true'})))).flat()
+  return invitations.map(invite=>applyCoachReminderProjection(invite,projections.find(item=>item.eventId===invite.eventId && (item.occurrenceDate || '')===coachReminderInvitationOccurrence(invite)),{statusKey:'responseState'}))
 }
 
 export async function respondToOwnAdultPlayerInvitation({ invitation, responseState } = {}) {

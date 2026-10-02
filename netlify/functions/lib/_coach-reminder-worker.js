@@ -2,7 +2,7 @@ import { evaluateCoachReminderJob } from '../../../src/lib/coach-reminder-policy
 
 // The durable adapter compares its context snapshot against authoritative reads
 // inside the commit transaction under a job lock. Changed sources abort commit.
-// There is deliberately no scheduler or sending production endpoint.
+// Scheduling and live activation are separate release actions.
 export async function processCoachReminderJob({ repository, jobKey, now }) {
   if (!repository?.withLockedJob) throw new Error('A transactional reminder repository is required.')
   return repository.withLockedJob(jobKey, async transaction => {
@@ -15,6 +15,7 @@ export async function processCoachReminderJob({ repository, jobKey, now }) {
     if (result.effect) await transaction.insertEffectOnce(result.effect)
     for (const notification of result.notifications) {
       await transaction.insertNotificationOnce({ ...notification, jobKey, action: job.action,
+        responseRevision:context.invitation?.responseRevision || '',
         effectProvenance: result.effect?.provenance || null })
     }
     await transaction.finish({ state: result.state, reason: result.reason, completedAt: now })
@@ -35,7 +36,8 @@ export async function deliverCoachReminderNotification({ repository, transport, 
       await repository.skipNotification(claim, current.reason)
       return { state: 'skipped', reason: current.reason }
     }
-    const receipt = await transport.send({ ...notification, idempotencyKey: notification.idempotencyKey })
+    const receipt = await transport.send({ ...notification, idempotencyKey: notification.idempotencyKey,deliveryContext:current.deliveryContext })
+    if(receipt?.skipped){await repository.skipNotification(claim,receipt.reason);return {state:'skipped',reason:receipt.reason}}
     if (!receipt?.accepted || !receipt.providerId) throw new Error('Provider acceptance is uncertain.')
     await repository.acceptNotification(notificationKey, leaseToken, receipt)
     return { state: 'accepted', providerId: receipt.providerId }

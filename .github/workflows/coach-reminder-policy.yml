@@ -1,4 +1,4 @@
-name: Coach reminder policy draft
+name: Coach reminder options
 
 on:
   pull_request:
@@ -20,7 +20,23 @@ jobs:
       - run: npm install --global npm@11.7.0
       - run: npm ci --include=optional
       - run: npx playwright install --with-deps chromium
-      - run: node --test tests/coach-reminder-policy.test.mjs tests/coach-reminder-worker-pglite.test.mjs tests/team-coach-reminder-policy-pglite.test.mjs tests/team-coach-reminder-policy-api.test.mjs
-      - run: npx eslint src/lib/coach-reminder-policy.js src/lib/coach-reminder-settings.js src/lib/team-coach-reminder-settings-store.js src/lib/domain/coach-reminder-settings.js netlify/functions/lib/_coach-reminder-worker.js netlify/functions/lib/_team-coach-reminder-policy.js netlify/functions/lib/_coach-reminder-recipients.js netlify/functions/lib/_coach-reminder-repository.js netlify/functions/team-coach-reminder-policy.js src/components/coach-reminders/*.jsx src/pages/CoachReminderSettingsPage.jsx
+      - run: node --test tests/coach-reminder-policy.test.mjs tests/coach-reminder-worker-pglite.test.mjs tests/team-coach-reminder-policy-pglite.test.mjs tests/team-coach-reminder-policy-api.test.mjs tests/coach-reminder-integration.test.mjs
+      - run: npm run lint
       - run: node tests/coach-reminder-options-browser.mjs
       - run: node tests/team-coach-reminder-settings-browser.mjs
+  reminder-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.17.0
+          cache: npm
+      - run: npm install --global npm@11.7.0
+      - run: npm ci --include=optional
+      - run: npm ci --prefix apps/coach-mobile --include=optional
+      - run: npm ci --prefix apps/parent-mobile --include=optional
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/coach-reminder-mobile-browser.mjs
+      - run: npm run mobile:export:web

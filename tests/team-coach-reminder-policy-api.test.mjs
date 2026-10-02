@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createTeamCoachReminderPolicyHandler } from '../netlify/functions/lib/_team-coach-reminder-policy.js'
-import { handler as disabledHandler } from '../netlify/functions/team-coach-reminder-policy.js'
+import disabledHandler from '../netlify/functions/team-coach-reminder-policy.js'
 import { DEFAULT_COACH_REMINDER_POLICY } from '../src/lib/coach-reminder-policy.js'
 import { createTeamCoachReminderSettingsStore } from '../src/lib/team-coach-reminder-settings-store.js'
 import { resolveCoachAvailabilityReminderRecipients } from '../netlify/functions/lib/_coach-reminder-recipients.js'
@@ -23,7 +23,7 @@ function fixture() {
 test('default release gate blocks before constructing clients; read never creates a policy',async()=>{
   const f=fixture();f.state.enabled=false
   assert.equal((await f.handler(f.event(f.save))).statusCode,503);assert.deepEqual(f.state.calls,[])
-  assert.equal((await disabledHandler(f.event(f.save))).statusCode,503)
+  assert.equal((await disabledHandler(new Request('http://localhost/.netlify/functions/team-coach-reminder-policy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(f.save)}))).status,503)
   f.state.enabled=true
   const loaded=JSON.parse((await f.handler(f.event({ action:'get',teamId:team }))).body)
   assert.equal(loaded.policy.revision,0);assert.equal(loaded.policy.optedIn,false);assert.equal(loaded.policy.options.reminderAfterHours,null)

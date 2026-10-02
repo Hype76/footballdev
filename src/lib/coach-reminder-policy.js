@@ -159,7 +159,7 @@ export function planAvailabilityAutomation({ policy, event, invitation, now }) {
   if (!invitation?.id || !invitation.revision || !invitation.playerId
     || !matchesScope(invitation, { ...event, eventId: event.id })
     || invitation.cancelled || invitation.revoked || invitation.memberActive !== true
-    || invitation.responseStatus !== 'pending' || !invitation.responseRevision) return []
+    || !['pending','maybe'].includes(invitation.responseStatus) || !invitation.responseRevision) return []
   // Immutable first delivery is supplied by the delivery ledger. Resends do not
   // reset it. Neither old invitation records nor merely queued sends are enrolled.
   if (!Number.isFinite(ms(invitation.createdAt)) || ms(invitation.createdAt) < ms(policy.effectiveFrom)
@@ -170,7 +170,7 @@ export function planAvailabilityAutomation({ policy, event, invitation, now }) {
     const dueAt = iso(ms(invitation.deliveredAt) + hours * 3600000)
     if (ms(dueAt) < ms(event.startsAt)) jobs.push(makeJob({ policy, event, invitation, action, dueAt }))
   }
-  if (options.reminderEnabled) add('availability_reminder', options.reminderAfterHours)
+  if (options.reminderEnabled && invitation.responseStatus === 'pending') add('availability_reminder', options.reminderAfterHours)
   if (options.deadlineMode !== 'reminders_only') add('availability_deadline', options.deadlineAfterHours)
   return jobs
 }
@@ -289,6 +289,7 @@ export function validateCoachReminderNotification({ notification, ...context }) 
   if (!notification || notification.jobKey !== context.job?.key || notification.action !== context.job.action) {
     return { valid: false, reason: 'notification_scope_changed' }
   }
+  if(context.job.action!=='squad_reminder' && notification.responseRevision!==context.invitation?.responseRevision)return {valid:false,reason:'response_changed'}
   const decision = evaluateCoachReminderJob(context)
   const eligible = decision.notifications.find(item => item.idempotencyKey === notification.idempotencyKey
     && item.recipientId === notification.recipientId && item.audience === notification.audience)

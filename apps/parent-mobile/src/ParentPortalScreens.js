@@ -279,6 +279,7 @@ function Button({ compact = false, danger = false, disabled = false, expanded, i
 }
 
 function invitationResponsePresentation(invitation = {}) {
+  if(invitation.availabilityAutomatic)return {iconKey:'attendance.unavailable',label:'Automatic Not attending',tone:'danger'}
   const state = normalizeText(invitation.responseState).toLowerCase()
   if (['accepted', 'available', 'attending', 'yes'].includes(state)) return { iconKey: 'attendance.available', label: invitation.invitationType === 'match_role' ? 'Yes' : 'Attending', tone: 'success' }
   if (state === 'maybe') return { iconKey: 'attendance.maybe', label: 'Maybe', tone: 'warning' }
@@ -327,7 +328,8 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
       <View style={styles.inviteResponseLabel}>
         <ParentIcon color={invitationToneColor(colors, response.tone)} iconKey={sectionIcon} size={21} />
         <View style={styles.inviteSectionCopy}>
-          <Text style={styles.inviteSectionTitle}>{label}</Text>
+            <Text style={styles.inviteSectionTitle}>{label}</Text>
+            {invitation.availabilityAutomationLabel ? <Text style={styles.meta}>{invitation.availabilityAutomationLabel}. You can correct your answer.</Text> : null}
           {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text accessibilityLabel={`${isVolunteer ? VOLUNTEER_ROLE_STATUS_LABEL : 'Squad status'}: ${labelize(invitation.selectionState)}`} numberOfLines={1} style={styles.meta}>{isVolunteer ? 'Role' : 'Squad'}: {labelize(invitation.selectionState)}</Text> : null}
           {!options.length ? <Text style={[styles.meta, { color: invitationToneColor(colors, response.tone) }]}>{response.label}</Text> : null}
           {lockReason ? <Text style={styles.warning}>{lockReason}</Text> : null}

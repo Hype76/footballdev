@@ -20,6 +20,7 @@ export function canChangeParentMatchAvailability(match, invitation, link = {}, n
 }
 
 export function getParentMatchAvailability(match = {}, invitation, link = {}, now = Date.now()) {
+  if(match.availabilityAutomatic)return {label:'Automatic Not attending',tone:'danger',icon:'cancel'}
   const status = text(match.availabilityStatus)
   if (['available', 'yes'].includes(status)) return { label: 'Available', tone: 'success', icon: 'check-circle' }
   if (['unavailable', 'no'].includes(status)) return { label: 'Not available', tone: 'danger', icon: 'cancel' }

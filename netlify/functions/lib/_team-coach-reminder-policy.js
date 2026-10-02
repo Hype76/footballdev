@@ -5,7 +5,7 @@ const uuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{
 const json = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(body) })
 const reject = (message, statusCode = 400) => { throw Object.assign(new Error(message), { statusCode }) }
 
-export function createTeamCoachReminderPolicyHandler({ enabled, createClients, loadAuthority }) {
+export function createTeamCoachReminderPolicyHandler({ enabled, createClients, loadAuthority,isDeliveryEnabled=async()=>false }) {
   return async event => {
     // Check before constructing any client, so absent/default flags cannot write
     // to a database or silently create new policy rows on a read.
@@ -56,7 +56,7 @@ export function createTeamCoachReminderPolicyHandler({ enabled, createClients, l
         row = loaded.data
       }
       return json(200, { success: true, policy: normalizeTeamCoachReminderPolicy(row, { clubId: profile.club_id, teamId: body.teamId }),
-        duplicate, deliveryEnabled: false, squadCompletionReady: true })
+        duplicate, deliveryEnabled: await isDeliveryEnabled(adminClient), squadCompletionReady: true })
     } catch (error) {
       if (error.code === '40001') return json(409, { success: false, message: 'Another Coach updated this team’s reminder settings. Reload them before saving.' })
       if (error.code === '42501') return json(403, { success: false, message: 'Authorised team Coach access is required.' })

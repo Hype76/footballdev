@@ -5789,6 +5789,7 @@ function MatchDayCard({
                           <p className="mt-1 text-xs font-semibold text-[#4b5f55]">
                             {row.selectedAt ? 'Parent availability response recorded' : 'Awaiting parent response'}
                           </p>
+                          {row.availabilityAutomationLabel?<p className="mt-1 text-xs font-bold" role="status">{row.availabilityAutomationLabel}. Parents can correct their answer.</p>:null}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <span className="inline-flex w-fit rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-1 text-xs font-black text-[#101828]">
@@ -5814,7 +5815,7 @@ function MatchDayCard({
                       ) : null}
                       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label={`Squad decision for ${row.playerName || 'player'}`}>
                         {MATCH_DAY_SQUAD_DECISION_OPTIONS.map((option) => {
-                          const blockReason = getSquadDecisionChangeBlockReason({
+                          const blockReason = row.planningExcluded && option.value==='selected' ? 'An Attending response is required under the team deadline policy.' : getSquadDecisionChangeBlockReason({
                             availabilityStatus: row.status,
                             decision: option.value,
                             matchStatus: match.status,

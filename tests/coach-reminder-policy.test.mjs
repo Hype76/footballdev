@@ -102,7 +102,7 @@ test('no retroactive enrolment, stale delivery, removed player, or already answe
     f => { f.invitation.cancelled = true }, f => { f.invitation.revoked = true },
     f => { f.invitation.teamId = 'other' }, f => { f.policy.teamId = 'other' },
     f => { f.invitation.responseStatus = 'available' }, f => { f.invitation.responseStatus = 'unavailable' },
-    f => { f.invitation.responseStatus = 'maybe' }, f => { f.invitation.responseStatus = 'unexpected' },
+    f => { f.invitation.responseStatus = 'unexpected' },
     f => { f.invitation.responseRevision = '' }, f => { f.invitation.deliveredAt = '2027-01-01T00:00:00Z' }]) {
     const f = fixture(); update(f); assert.deepEqual(planned(f), [])
   }
@@ -110,6 +110,8 @@ test('no retroactive enrolment, stale delivery, removed player, or already answe
   assert.deepEqual(planSquadAutomation(f), [])
   assert.throws(() => planned({ ...f, now: '' }), /clock/)
   assert.throws(() => planned({ ...f, policy: { ...f.policy, revision: '' } }), /persisted/)
+  f.invitation.responseStatus='maybe'
+  assert.deepEqual(planned(f).map(job=>job.action),['availability_deadline'],'An early Maybe stops reminders but retains the strict planning deadline')
 })
 
 test('past, started, cancelled, deleted, and closed events cannot enrol or run', () => {
@@ -260,12 +262,12 @@ test('altered due times, keys, and old-record jobs are rejected even when suppli
 test('delivery revalidation suppresses late answers, opt-out, cancellation, reschedule and revoked scope', () => {
   const f = fixture(); const job = deadline(f)
   const decision = evaluateCoachReminderJob({ ...f, job })
-  const notification = { ...decision.notifications[0], jobKey: job.key, action: job.action, effectProvenance: decision.effect.provenance }
+  const notification = { ...decision.notifications[0], jobKey: job.key, action: job.action, effectProvenance: decision.effect.provenance,responseRevision:f.invitation.responseRevision }
   assert.equal(validateCoachReminderNotification({ ...f, job, notification }).valid, true)
   for (const change of [f => { f.invitation.responseStatus = 'available' }, f => { f.invitation.responseStatus = 'maybe' },
     f => { f.recipients[0].notificationsEnabled = false }, f => { f.recipients[0].active = false },
     f => { f.event.cancelled = true }, f => { f.event.revision = 'e2' }, f => { f.policy.revision = 'p2' },
-    f => { f.invitation.memberActive = false }, f => { f.authorityActive = false }, f => { f.now = f.event.startsAt }]) {
+    f => { f.invitation.memberActive = false }, f => { f.invitation.responseRevision='new reset to awaiting' }, f => { f.authorityActive = false }, f => { f.now = f.event.startsAt }]) {
     const latest = structuredClone(f); change(latest)
     assert.equal(validateCoachReminderNotification({ ...latest, job, notification }).valid, false)
   }

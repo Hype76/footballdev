@@ -235,12 +235,12 @@ declare
 begin
   if job_value->>'kind'='MATCH' then
     select jsonb_build_object('id',id,'club_id',club_id,'team_id',team_id,'status',status,'deleted_at',deleted_at,
-      'match_date',match_date,'kickoff_time',kickoff_time,'kickoff_time_tbc',kickoff_time_tbc,'created_at',created_at)
+      'match_date',match_date,'kickoff_time',kickoff_time,'kickoff_time_tbc',kickoff_time_tbc,'created_at',created_at,'parent_visible',parent_visible,'parent_audience',parent_audience)
     into event_value from public.match_days where id=(job_value->>'eventId')::uuid;
   elsif job_value->>'kind'='TRAINING' then
     select jsonb_build_object('id',id,'club_id',club_id,'team_id',team_id,'event_type',event_type,'cancelled_at',cancelled_at,
       'starts_at',starts_at,'ends_at',ends_at,'recurrence_frequency',recurrence_frequency,'recurrence_until',recurrence_until,
-      'deleted_occurrence_dates',deleted_occurrence_dates,'created_at',created_at)
+      'deleted_occurrence_dates',deleted_occurrence_dates,'created_at',created_at,'parent_visible',parent_visible,'parent_audience',parent_audience)
     into event_value from public.calendar_events where id=(job_value->>'eventId')::uuid;
   else return null; end if;
   if event_value is null then return null; end if;
@@ -349,7 +349,7 @@ begin
       raise exception 'reminder_effect_invalid' using errcode='22023';
     end if;
     insert into public.team_coach_reminder_effects(job_key,club_id,team_id,payload)
-    values(job.job_key,job.club_id,job.team_id,effect_value) on conflict do nothing;
+    values(job.job_key,job.club_id,job.team_id,effect_value || jsonb_build_object('sourceContext',context_current_value)) on conflict do nothing;
   end if;
   for notification in select value from jsonb_array_elements(notifications_value) loop
     if notification->>'jobKey' is distinct from job_key_value or coalesce(notification->>'idempotencyKey','')='' then
@@ -385,3 +385,227 @@ end;
 $$;
 revoke all on function public.claim_team_coach_reminder_notification_v1(text) from public,anon,authenticated;
 grant execute on function public.claim_team_coach_reminder_notification_v1(text) to service_role;
+
+
+-- REMINDER_SOURCE_INTEGRATION
+-- Future-only delivery capture. Release remains disabled; no backfill or cron.
+alter table public.coach_mobile_notification_events add column coach_reminder_delivery_key text unique;
+create or replace function app_private.capture_coach_reminder_delivery_v1()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+declare policy public.team_coach_reminder_policies%rowtype; release_time timestamptz;
+ delivered timestamptz; kind_value text; event_value uuid; occurrence_value date; invite_value uuid; request_value uuid;
+begin
+ select activated_at into release_time from public.team_coach_reminder_release_control where enabled;
+ if release_time is null then return new; end if;
+ select * into policy from public.team_coach_reminder_policies where team_id=new.team_id and club_id=new.club_id and opted_in;
+ if not found or new.created_at < greatest(policy.effective_from,release_time) then return new; end if;
+ if tg_table_name='match_day_availability_requests' then
+  delivered:=new.sent_at; kind_value:='MATCH';event_value:=new.match_day_id;request_value:=new.id;
+ else
+  delivered:=new.email_sent_at;kind_value:='TRAINING';request_value:=new.request_id;
+  select calendar_event_id,occurrence_date into event_value,occurrence_value from public.training_availability_requests
+   where id=new.request_id and club_id=new.club_id and team_id=new.team_id and status<>'cancelled';
+ end if;
+ if delivered is null or delivered < greatest(policy.effective_from,release_time) or new.token_revoked_at is not null then return new; end if;
+ select id into invite_value from public.calendar_event_invites where club_id=new.club_id and team_id=new.team_id
+  and player_id=new.player_id and cancelled_at is null and invite_status<>'cancelled'
+  and ((kind_value='MATCH' and match_day_id=event_value) or(kind_value='TRAINING' and calendar_event_id=event_value));
+ if invite_value is null then return new; end if;
+ insert into public.team_coach_reminder_enrolments(club_id,team_id,policy_id,policy_revision,kind,event_id,occurrence_date,player_id,invitation_id,request_id,source_created_at,first_delivered_at)
+ values(new.club_id,new.team_id,policy.id,policy.revision,kind_value,event_value,occurrence_value,new.player_id,invite_value,request_value,new.created_at,delivered)
+ on conflict do nothing;
+ return new;
+end $$;
+revoke all on function app_private.capture_coach_reminder_delivery_v1() from public,anon,authenticated;
+create trigger coach_reminder_match_delivery after insert or update of sent_at on public.match_day_availability_requests
+ for each row execute function app_private.capture_coach_reminder_delivery_v1();
+create trigger coach_reminder_training_delivery after insert or update of email_sent_at on public.training_availability_request_players
+ for each row execute function app_private.capture_coach_reminder_delivery_v1();
+
+create table public.team_coach_reminder_scan_cursor(singleton boolean primary key default true check(singleton),cursor_value text not null default '');
+insert into public.team_coach_reminder_scan_cursor values(true,'');
+alter table public.team_coach_reminder_scan_cursor enable row level security;
+revoke all on public.team_coach_reminder_scan_cursor from public,anon,authenticated;
+grant select,update on public.team_coach_reminder_scan_cursor to service_role;
+create or replace function public.scan_team_coach_reminder_candidates_v1(batch_size integer default 30)
+returns jsonb language plpgsql security invoker set search_path=pg_catalog,public as $$
+declare cursor_key text; result jsonb; next_key text;
+begin
+ if not exists(select 1 from public.team_coach_reminder_release_control where enabled) then return '[]'::jsonb; end if;
+ select cursor_value into cursor_key from public.team_coach_reminder_scan_cursor where singleton for update;
+ with candidates as (
+  select 'A:'||e.id as scan_key,jsonb_build_object('kind',e.kind,'eventId',e.event_id,'occurrenceDate',coalesce(e.occurrence_date::text,''),'clubId',e.club_id,'teamId',e.team_id,'playerId',e.player_id,'enrolmentId',e.id,'action','availability_reminder') payload
+  from public.team_coach_reminder_enrolments e join public.team_coach_reminder_policies p on p.id=e.policy_id and p.revision=e.policy_revision and p.opted_in
+  where (e.kind='MATCH' and exists(select 1 from public.match_days m where m.id=e.event_id and m.match_date>=(clock_timestamp() at time zone 'Europe/London')::date and m.deleted_at is null and m.status in ('scheduled','scorer_request')))
+   or (e.kind='TRAINING' and e.occurrence_date>=(clock_timestamp() at time zone 'Europe/London')::date)
+  union all
+  select 'S:'||m.id,jsonb_build_object('kind','MATCH','eventId',m.id,'clubId',m.club_id,'teamId',m.team_id,'action','squad_reminder')
+  from public.match_days m join public.team_coach_reminder_policies p on p.team_id=m.team_id and p.club_id=m.club_id and p.opted_in
+  cross join public.team_coach_reminder_release_control r
+  where (p.options->>'squadReminderEnabled')::boolean and m.created_at>=greatest(p.effective_from,r.activated_at)
+   and m.match_date>=(clock_timestamp() at time zone 'Europe/London')::date and m.deleted_at is null and m.status in ('scheduled','scorer_request')
+ ), page as(select * from candidates where scan_key>cursor_key order by scan_key limit greatest(1,least(batch_size,100)))
+ select coalesce(jsonb_agg(payload order by scan_key),'[]'::jsonb),max(scan_key) into result,next_key from page;
+ update public.team_coach_reminder_scan_cursor set cursor_value=coalesce(next_key,'') where singleton;
+ return result;
+end $$;
+revoke all on function public.scan_team_coach_reminder_candidates_v1(integer) from public,anon,authenticated;
+grant execute on function public.scan_team_coach_reminder_candidates_v1(integer) to service_role;
+
+create or replace function app_private.coach_reminder_planning_excluded_v1(enrolment_id uuid)
+returns boolean language plpgsql security definer set search_path=pg_catalog,public as $$
+declare enrolment public.team_coach_reminder_enrolments%rowtype; context_value jsonb; start_time timestamptz; event_value jsonb;
+ first_date date; local_time time; month_offset integer; valid_occurrence boolean;
+begin
+ select * into enrolment from public.team_coach_reminder_enrolments where id=enrolment_id;
+ if not found then return false; end if;
+ context_value:=public.team_coach_reminder_context_v1(jsonb_build_object('kind',enrolment.kind,'eventId',enrolment.event_id,'enrolmentId',enrolment.id,'occurrenceDate',coalesce(enrolment.occurrence_date::text,'')));
+ event_value:=context_value->'event';
+ if not coalesce((context_value->>'authorityActive')::boolean,false) or not coalesce((context_value->>'memberActive')::boolean,false)
+  or not coalesce((context_value->'policy'->>'opted_in')::boolean,false)
+  or enrolment.policy_id::text is distinct from context_value->'policy'->>'id' or enrolment.policy_revision::text is distinct from context_value->'policy'->>'revision'
+  or coalesce(context_value->'policy'->'options'->>'deadlineMode','reminders_only')='reminders_only'
+  or enrolment.source_created_at<greatest((context_value->'policy'->>'effective_from')::timestamptz,(context_value->'release'->>'activated_at')::timestamptz)
+  or enrolment.first_delivered_at+make_interval(hours=>(context_value->'policy'->'options'->>'deadlineAfterHours')::integer)>clock_timestamp()
+  or coalesce(context_value->'response'->>'status','pending') not in ('pending','maybe')
+  or context_value->'invitation' is null or context_value->'invitation'->>'invite_status'='cancelled' or context_value->'invitation'->>'cancelled_at' is not null then return false; end if;
+ if enrolment.kind='MATCH' then
+  if event_value->>'status' not in ('scheduled','scorer_request') or event_value->>'deleted_at' is not null or (event_value->>'kickoff_time_tbc')::boolean then return false; end if;
+  start_time:=((event_value->>'match_date')::date+(event_value->>'kickoff_time')::time) at time zone 'Europe/London';
+  if start_time is null or (start_time at time zone 'Europe/London')::time<>(event_value->>'kickoff_time')::time
+   or ((start_time+interval '1 hour') at time zone 'Europe/London')=(start_time at time zone 'Europe/London')
+   or ((start_time-interval '1 hour') at time zone 'Europe/London')=(start_time at time zone 'Europe/London') then return false; end if;
+ else
+  if event_value->>'cancelled_at' is not null or event_value->>'event_type'<>'training'
+   or coalesce(event_value->'deleted_occurrence_dates','[]'::jsonb) ? enrolment.occurrence_date::text then return false; end if;
+  first_date:=((event_value->>'starts_at')::timestamptz at time zone 'Europe/London')::date;
+  local_time:=((event_value->>'starts_at')::timestamptz at time zone 'Europe/London')::time;
+  valid_occurrence:=enrolment.occurrence_date=first_date;
+  if enrolment.occurrence_date>first_date and enrolment.occurrence_date<=coalesce((event_value->>'recurrence_until')::date,first_date) then
+   case lower(coalesce(event_value->>'recurrence_frequency','none'))
+    when 'weekly' then valid_occurrence:=((enrolment.occurrence_date-first_date)%7)=0;
+    when 'fortnightly' then valid_occurrence:=((enrolment.occurrence_date-first_date)%14)=0;
+    when 'monthly' then
+     month_offset:=(extract(year from enrolment.occurrence_date)::integer-extract(year from first_date)::integer)*12+extract(month from enrolment.occurrence_date)::integer-extract(month from first_date)::integer;
+     valid_occurrence:=month_offset>0 and (first_date+make_interval(months=>month_offset))::date=enrolment.occurrence_date;
+    else valid_occurrence:=false;
+   end case;
+  end if;
+  if not coalesce(valid_occurrence,false) then return false; end if;
+  start_time:=(enrolment.occurrence_date+local_time) at time zone 'Europe/London';
+  if (start_time at time zone 'Europe/London')::time<>local_time
+   or ((start_time+interval '1 hour') at time zone 'Europe/London')=(start_time at time zone 'Europe/London')
+   or ((start_time-interval '1 hour') at time zone 'Europe/London')=(start_time at time zone 'Europe/London') then return false; end if;
+ end if;
+ return coalesce(start_time>clock_timestamp(),false);
+end $$;
+revoke all on function app_private.coach_reminder_planning_excluded_v1(uuid) from public,anon,authenticated;
+
+create or replace function app_private.coach_reminder_projection_v1(enrolment_id uuid)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare effect jsonb; job jsonb; context_value jsonb; status_value text; automatic_value boolean; enrolment public.team_coach_reminder_enrolments%rowtype; fallback jsonb;
+begin
+ if not app_private.coach_reminder_planning_excluded_v1(enrolment_id) then return null; end if;
+ select * into enrolment from public.team_coach_reminder_enrolments where id=enrolment_id;
+ job:=jsonb_build_object('kind',enrolment.kind,'eventId',enrolment.event_id,'enrolmentId',enrolment.id,'occurrenceDate',coalesce(enrolment.occurrence_date::text,''),'playerId',enrolment.player_id);
+ context_value:=public.team_coach_reminder_context_v1(job);
+ fallback:=jsonb_build_object('eventId',enrolment.event_id,'kind',enrolment.kind,'occurrenceDate',coalesce(enrolment.occurrence_date::text,''),'playerId',enrolment.player_id,
+  'status',coalesce(context_value->'response'->>'status','pending'),'automatic',false,'provenance',coalesce(context_value->'response'->>'response_source','no_response'),'planningExcluded',true);
+ select e.payload,j.payload into effect,job from public.team_coach_reminder_effects e join public.team_coach_reminder_jobs j on j.job_key=e.job_key
+ where j.payload->>'enrolmentId'=enrolment_id::text order by e.created_at desc limit 1;
+ if effect is null then
+  return fallback;
+ end if;
+ context_value:=public.team_coach_reminder_context_v1(job);
+ status_value:=coalesce(context_value->'response'->>'status','pending');
+ if not coalesce((context_value->>'authorityActive')::boolean,false) or not coalesce((context_value->>'memberActive')::boolean,false)
+  or not coalesce((context_value->'policy'->>'opted_in')::boolean,false)
+  or effect->>'policyId' is distinct from context_value->'policy'->>'id'
+  or effect->>'policyRevision' is distinct from context_value->'policy'->>'revision'
+  or context_value->'event' is distinct from effect->'sourceContext'->'event'
+  or context_value->'invitation'->>'id' is distinct from effect->'sourceContext'->'invitation'->>'id'
+  or context_value->'invitation'->>'invited_at' is distinct from effect->'sourceContext'->'invitation'->>'invited_at'
+  or context_value->'invitation'->>'invite_status'='cancelled' or context_value->'invitation'->>'cancelled_at' is not null
+  or clock_timestamp()>=(job->>'startsAt')::timestamptz or status_value not in ('pending','maybe')
+  or(status_value='pending' and context_value->'response' is distinct from effect->'sourceContext'->'response') then return fallback; end if;
+ automatic_value:=status_value='pending' and effect->>'status'='unavailable';
+ return jsonb_build_object('eventId',job->>'eventId','kind',job->>'kind','occurrenceDate',job->>'occurrenceDate','playerId',job->>'playerId',
+  'status',case when automatic_value then 'unavailable' else status_value end,'automatic',automatic_value,
+  'provenance',case when automatic_value then 'coach_deadline_automation' else coalesce(context_value->'response'->>'response_source','explicit_response') end,
+  'planningExcluded',true,'appliedAt',effect->>'appliedAt');
+end $$;
+revoke all on function app_private.coach_reminder_projection_v1(uuid) from public,anon,authenticated;
+
+create or replace function public.get_team_coach_reminder_projections_v1(kind_value text,event_ids uuid[],parent_link_id_value uuid default null)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare enrolment record; projection jsonb; result jsonb:='[]'::jsonb;
+begin
+ if auth.uid() is null or kind_value not in ('MATCH','TRAINING') or cardinality(event_ids)>100 then raise exception 'reminder_scope_invalid' using errcode='42501'; end if;
+ if not exists(select 1 from public.team_coach_reminder_release_control where enabled) then return result; end if;
+ for enrolment in select e.* from public.team_coach_reminder_enrolments e where e.kind=kind_value and e.event_id=any(event_ids)
+  and ((parent_link_id_value is null and app_private.can_manage_team_coach_reminders(e.club_id,e.team_id)) or exists(select 1 from public.parent_player_links link
+   where link.player_id=e.player_id and link.club_id=e.club_id and link.auth_user_id=auth.uid() and link.status='active'
+    and (parent_link_id_value is null or link.id=parent_link_id_value)
+    and public.current_user_can_access_parent_link(link.id,link.player_id)
+    and exists(select 1 from public.get_parent_portal_invitation_summary(link.id) invitation
+      where invitation.event_id=e.event_id and invitation.child_id=e.player_id and invitation.source_event_type=case when e.kind='MATCH' then 'match_day' else 'training' end))
+   or (parent_link_id_value is null and exists(select 1 from public.get_own_adult_player_account_state() adult
+    where adult.access_granted and adult.player_id=e.player_id and adult.club_id=e.club_id and adult.team_id=e.team_id)
+    and exists(select 1 from public.get_own_adult_player_invitation_state() invitation where invitation.event_id=e.event_id
+     and invitation.invitation_type=case when e.kind='MATCH' then 'match_attendance' else 'training_attendance' end
+     and (e.kind='MATCH' or (invitation.event_start at time zone 'Europe/London')::date=e.occurrence_date)))) loop
+  projection:=app_private.coach_reminder_projection_v1(enrolment.id);
+  if projection is not null then result:=result||jsonb_build_array(projection); end if;
+ end loop;
+ return result;
+end $$;
+revoke all on function public.get_team_coach_reminder_projections_v1(text,uuid[],uuid) from public,anon;
+grant execute on function public.get_team_coach_reminder_projections_v1(text,uuid[],uuid) to authenticated;
+
+create or replace function app_private.guard_coach_reminder_squad_planning_v1()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+declare enrolment uuid;
+begin
+ if new.status<>'selected' or not exists(select 1 from public.team_coach_reminder_release_control where enabled) then return new; end if;
+ for enrolment in select id from public.team_coach_reminder_enrolments where kind='MATCH' and event_id=new.match_day_id and player_id=new.player_id and club_id=new.club_id and team_id=new.team_id loop
+  if app_private.coach_reminder_planning_excluded_v1(enrolment) then
+   raise exception 'This Player needs an Attending response before selection under the team deadline policy.' using errcode='22023';
+  end if;
+ end loop;
+ return new;
+end $$;
+revoke all on function app_private.guard_coach_reminder_squad_planning_v1() from public,anon,authenticated;
+create trigger coach_reminder_squad_planning before insert or update of status on public.match_day_player_squad_decisions
+ for each row execute function app_private.guard_coach_reminder_squad_planning_v1();
+create or replace function app_private.guard_coach_reminder_formation_planning_v1()
+returns trigger language plpgsql security definer set search_path=pg_catalog,public as $$
+declare match_id uuid; placements_value jsonb; bench_value jsonb; excluded uuid;
+begin
+ if not exists(select 1 from public.team_coach_reminder_release_control where enabled) then return new; end if;
+ if tg_table_name='formation_board_versions' then
+  select linked_match_day_id into match_id from public.formation_boards where id=new.board_id;
+  placements_value:=new.placements;bench_value:=new.bench;
+ elsif tg_table_name='formation_board_match_publications' then
+  match_id:=new.match_day_id;
+  select placements,bench into placements_value,bench_value from public.formation_board_versions where id=new.board_version_id;
+ else
+  match_id:=new.linked_match_day_id;
+  select placements,bench into placements_value,bench_value from public.formation_board_versions where id=new.current_version_id;
+ end if;
+ if match_id is null then return new; end if;
+ for excluded in select e.id from public.team_coach_reminder_enrolments e
+  where e.kind='MATCH' and e.event_id=match_id and e.club_id=new.club_id and e.team_id=new.team_id
+   and exists(select 1 from jsonb_array_elements(coalesce(placements_value,'[]'::jsonb)||coalesce(bench_value,'[]'::jsonb)) player where player->>'playerId'=e.player_id::text) loop
+  if app_private.coach_reminder_planning_excluded_v1(excluded) then
+   raise exception 'This Player needs an Attending response before being included in the match plan under the team deadline policy.' using errcode='22023';
+  end if;
+ end loop;
+ return new;
+end $$;
+revoke all on function app_private.guard_coach_reminder_formation_planning_v1() from public,anon,authenticated;
+create trigger coach_reminder_formation_version before insert on public.formation_board_versions
+ for each row execute function app_private.guard_coach_reminder_formation_planning_v1();
+create trigger coach_reminder_formation_link before insert or update of linked_match_day_id,current_version_id on public.formation_boards
+ for each row execute function app_private.guard_coach_reminder_formation_planning_v1();
+create trigger coach_reminder_formation_publication before insert on public.formation_board_match_publications
+ for each row execute function app_private.guard_coach_reminder_formation_planning_v1();

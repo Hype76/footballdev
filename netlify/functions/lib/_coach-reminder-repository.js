@@ -17,7 +17,7 @@ export function normalizeCoachReminderContext(raw, job) {
   const occurrence=training ? buildOccurrences(eventRow).find(item=>item.occurrenceDate===job.occurrenceDate) : null
   const event={ id:eventRow.id,clubId:eventRow.club_id,teamId:eventRow.team_id,kind:training && eventRow.event_type!=='training' ? 'OTHER' : job.kind,
     revision:hash(eventRow),status:eventRow.status || 'scheduled',cancelled:Boolean(eventRow.cancelled_at),deleted:Boolean(eventRow.deleted_at),
-    startsAt:training ? occurrence?.occurrenceStartsAt.toISOString() || '' : eventRow.kickoff_time_tbc ? '' : coachReminderLocalStart(eventRow.match_date,eventRow.kickoff_time),
+    startsAt:training ? occurrence ? coachReminderLocalStart(occurrence.occurrenceDate,new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(eventRow.starts_at))) : '' : eventRow.kickoff_time_tbc ? '' : coachReminderLocalStart(eventRow.match_date,eventRow.kickoff_time),
     kickoffTimeTbc:eventRow.kickoff_time_tbc === true,timeZone:'Europe/London',occurrenceDate:job.occurrenceDate || '',createdAt:eventRow.created_at }
   const invitation=enrolment ? { id:enrolment.id,revision:hash([invite?.id,invite?.invited_at]),
     responseRevision:hash(response || 'no_response'),clubId:enrolment.club_id,teamId:enrolment.team_id,eventId:enrolment.event_id,
@@ -36,7 +36,7 @@ export function createCoachReminderRepository(client) {
     let recipients=[]
     if (job.action==='squad_reminder') {
       recipients=(raw?.coaches || []).map(coach=>({ ...coach,clubId:job.clubId,teamId:job.teamId,audience:'coach',active:true,authorized:true }))
-    } else if (context.invitation?.memberActive) {
+    } else if (context.invitation?.memberActive && raw?.event?.parent_visible===true && raw?.event?.parent_audience!=='none') {
       const emails=new Set(raw?.recipientEmails || [])
       recipients=(await resolveCoachAvailabilityReminderRecipients(client,{ clubId:job.clubId,teamId:job.teamId,playerId:job.playerId }))
         .filter(recipient=>emails.has(recipient.email))
@@ -72,7 +72,15 @@ export function createCoachReminderRepository(client) {
       const stored=checked(await client.from('team_coach_reminder_jobs').select('payload').eq('job_key',claim.notification.jobKey).maybeSingle())
       if (!stored) return { valid:false,reason:'job_removed' }
       const current=await load(stored.payload)
-      return validateCoachReminderNotification({ ...current.context,job:stored.payload,notification:claim.notification,now })
+      const decision=validateCoachReminderNotification({ ...current.context,job:stored.payload,notification:claim.notification,now })
+      const target=current.context.recipients.find(recipient=>recipient.id===claim.notification.recipientId)
+      return { ...decision,deliveryContext:decision.valid ? { job:stored.payload,target,event:current.context.event,
+        refresh:async()=>{
+          const fresh=await load(stored.payload)
+          const valid=validateCoachReminderNotification({ ...fresh.context,job:stored.payload,notification:claim.notification,now:new Date().toISOString() })
+          return { ...valid,target:fresh.context.recipients.find(recipient=>recipient.id===claim.notification.recipientId) }
+        },
+      } : null }
     },
     async skipNotification(claim,reason) { checked(await client.from('team_coach_reminder_outbox').update({ state:'skipped',reason,lease_token:null,lease_until:null }).eq('delivery_key',claim.deliveryKey).eq('lease_token',claim.leaseToken)) },
     async acceptNotification(key,leaseToken,receipt) {
@@ -89,5 +97,8 @@ export function createCoachReminderRepository(client) {
       const jobs=candidate.action==='squad_reminder' ? planSquadAutomation({ ...current.context,now }) : planAvailabilityAutomation({ ...current.context,now })
       return jobs.map(job=>({ ...job,enrolmentId:candidate.enrolmentId || '' }))
     },
+    async discoverCandidates() { return checked(await client.rpc('scan_team_coach_reminder_candidates_v1',{batch_size:30})) || [] },
+    async pendingJobs(limit=30,now=new Date().toISOString()) { return checked(await client.from('team_coach_reminder_jobs').select('job_key').eq('state','pending').lte('payload->>dueAt',now).order('created_at').limit(limit)) || [] },
+    async pendingNotifications(limit=30) { return checked(await client.from('team_coach_reminder_outbox').select('delivery_key').eq('state','pending').order('created_at').limit(limit)) || [] },
   }
 }

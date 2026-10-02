@@ -3225,6 +3225,7 @@ function ParentMatchListItem({ isSelected, match, onSelect }) {
       </span>
       <span className="mt-2 flex flex-wrap gap-2 text-xs font-black text-[#4b5f55]">
         <span>{getParentAvailabilityStatusLabel(match.availabilityStatus)}</span>
+        {match.availabilityAutomationLabel?<span>{match.availabilityAutomationLabel}</span>:null}
         <span>{String(match.status || 'scheduled').replace(/_/g, ' ')}</span>
         <ClubKitDisplay clubId={match.clubId} shirtChoice={match.shirtChoice} />
       </span>
@@ -3417,6 +3418,7 @@ function ParentInvitationResponseBlock({ activeInvitationId, invitation, onRespo
         <div>
           <p className="text-sm font-black text-[#101828]">{getParentInvitationTypeLabel(invitation)}</p>
           <p className="mt-1 text-xs font-semibold text-[#60756a]">Player: {invitation.childName}</p>
+          {invitation.availabilityAutomationLabel?<p className="mt-1 text-xs font-bold">{invitation.availabilityAutomationLabel}. You can correct your answer.</p>:null}
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="w-fit rounded-full border border-[#d7e5dc] bg-[#f7faf8] px-2 py-1 text-xs font-black text-[#047857]">
