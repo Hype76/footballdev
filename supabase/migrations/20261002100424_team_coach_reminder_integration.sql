@@ -226,7 +226,8 @@ create table public.team_coach_reminder_retirements (
   source_table text not null
 );
 alter table public.team_coach_reminder_retirements enable row level security;
-revoke all on public.team_coach_reminder_retirements from public,anon,authenticated;
+-- Discard broad installed defaults before granting append-only worker access.
+revoke all on public.team_coach_reminder_retirements from public,anon,authenticated,service_role;
 grant select,insert on public.team_coach_reminder_retirements to service_role;
 create index team_coach_reminder_enrolments_responder_idx on public.team_coach_reminder_enrolments(club_id,team_id,player_id);
 create table public.team_coach_reminder_enrolment_sources (
@@ -235,7 +236,7 @@ create table public.team_coach_reminder_enrolment_sources (
   primary key(enrolment_id,source_id)
 );
 alter table public.team_coach_reminder_enrolment_sources enable row level security;
-revoke all on public.team_coach_reminder_enrolment_sources from public,anon,authenticated;
+revoke all on public.team_coach_reminder_enrolment_sources from public,anon,authenticated,service_role;
 grant select,insert on public.team_coach_reminder_enrolment_sources to service_role;
 create index team_coach_reminder_sources_identity_idx on public.team_coach_reminder_enrolment_sources(source_id,enrolment_id);
 -- One short transaction gate serializes responder writes and deadline commits.
@@ -247,7 +248,7 @@ create table app_private.coach_reminder_authority_gate (
 );
 insert into app_private.coach_reminder_authority_gate(singleton) values(true);
 alter table app_private.coach_reminder_authority_gate enable row level security;
-revoke all on app_private.coach_reminder_authority_gate from public,anon,authenticated;
+revoke all on app_private.coach_reminder_authority_gate from public,anon,authenticated,service_role;
 grant select,update on app_private.coach_reminder_authority_gate to service_role;
 grant usage on schema app_private to service_role;
 create or replace function app_private.lock_coach_reminder_authority_v1()
@@ -257,7 +258,7 @@ $$;
 revoke all on function app_private.lock_coach_reminder_authority_v1() from public,anon,authenticated;
 grant execute on function app_private.lock_coach_reminder_authority_v1() to service_role;
 alter table public.team_coach_reminder_enrolments enable row level security;
-revoke all on public.team_coach_reminder_enrolments from public,anon,authenticated;
+revoke all on public.team_coach_reminder_enrolments from public,anon,authenticated,service_role;
 grant select,insert on public.team_coach_reminder_enrolments to service_role;
 alter table public.team_coach_reminder_release_control enable row level security;
 alter table public.team_coach_reminder_jobs enable row level security;

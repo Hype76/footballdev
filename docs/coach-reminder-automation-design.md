@@ -46,6 +46,8 @@ A separate synthetic PGlite authorization rehearsal loads selected real reposito
 
 ## Separately authorised release requirements
 
+The delivered-window enrolment, retirement and confirmed-source ledgers revoke inherited `service_role` table defaults before granting only SELECT and INSERT. Workers cannot update, delete or truncate these ledgers; the existing foreign-key cleanup cascades remain intact. The private serialization gate separately permits SELECT and UPDATE. Regression tests reproduce broad installed table defaults and assert effective privileges and denied destructive operations. This local correction does not change production privileges and does not indicate authenticated-user exposure or an observed exploit.
+
 1. Review and apply 20261002100424_team_coach_reminder_integration.sql. Confirm existing production schema/source-delivery contracts in a non-sending release smoke test. Release control remains disabled after migration.
 2. Deploy dormant web/API/worker code. Settings use ENABLE_COACH_REMINDER_POLICY_SETTINGS, VITE_ENABLE_COACH_REMINDER_POLICY_SETTINGS and EXPO_PUBLIC_ENABLE_COACH_REMINDER_POLICY_SETTINGS. Automation uses ENABLE_COACH_REMINDER_AUTOMATION, VITE_ENABLE_COACH_REMINDER_AUTOMATION and EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION. All are unset/off in this PR.
 3. Release only JavaScript OTA updates compatible with installed Coach/Parent runtimes. Verify the installed-device correction and notification navigation flows. No native rebuild or app-store submission is required or authorised.

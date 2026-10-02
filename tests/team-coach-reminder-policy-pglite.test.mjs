@@ -21,6 +21,8 @@ async function setup(t) {
   await db.exec(`
     create schema auth; create schema app_private;
     create role anon; create role authenticated; create role service_role bypassrls;
+    alter default privileges in schema public grant all on tables to anon,authenticated,service_role;
+    alter default privileges in schema app_private grant all on tables to service_role;
     create table users(id uuid primary key,club_id uuid,role text,role_rank integer,status text,email text);
     create table clubs(id uuid primary key,status text);
     create table teams(id uuid primary key,club_id uuid,archived_at timestamptz);
@@ -45,6 +47,28 @@ async function setup(t) {
     'select save_team_coach_reminder_policy_v1($1,$2,$3,$4,$5,$6) result',[club,target,expected,request,JSON.stringify(opts),optedIn])).rows[0].result
   return { db, actor, save }
 }
+
+test('broad installed table defaults are replaced with append-only ledger and gate privileges', async t => {
+  const { db } = await setup(t)
+  for (const table of ['public.team_coach_reminder_enrolments','public.team_coach_reminder_retirements','public.team_coach_reminder_enrolment_sources','app_private.coach_reminder_authority_gate']) {
+    const allowed = table.startsWith('app_private.') ? ['SELECT','UPDATE'] : ['SELECT','INSERT']
+    for (const role of ['service_role','anon','authenticated']) {
+      for (const privilege of ['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) {
+        const { rows } = await db.query('select has_table_privilege($1,$2,$3) permitted',[role,table,privilege])
+        assert.equal(rows[0].permitted,role === 'service_role' && allowed.includes(privilege),`${role} ${privilege} ${table}`)
+      }
+    }
+  }
+  await db.exec('set role service_role')
+  for (const table of ['team_coach_reminder_enrolments','team_coach_reminder_retirements','team_coach_reminder_enrolment_sources']) {
+    await assert.rejects(db.exec(`delete from public.${table}`), /permission denied/)
+    await assert.rejects(db.exec(`truncate public.${table}`), /permission denied/)
+    const column = table === 'team_coach_reminder_enrolments' ? 'id' : 'enrolment_id'
+    await assert.rejects(db.exec(`update public.${table} set ${column}=${column}`), /permission denied/)
+  }
+  await db.exec('select app_private.lock_coach_reminder_authority_v1()')
+  assert.equal((await db.query('select revision from app_private.coach_reminder_authority_gate')).rows[0].revision,1)
+})
 
 test('migration is inert; shared team policy requires explicit complete timing and opt-in', async t => {
   const { db, actor, save } = await setup(t)
