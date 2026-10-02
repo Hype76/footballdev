@@ -267,7 +267,7 @@ begin
       select exists(select 1 from public.event_player_eligible_recipients(
         club_id_value=>club_value,team_id_value=>team_value,
         player_ids_value=>array[(enrolment_value->>'player_id')::uuid]) recipient
-        where recipient.recipient_type='parent' and recipient.parent_link_id is not null)
+        where recipient.parent_link_id is not null)
       into parent_responder_active;
       select jsonb_build_object('id',id,'invited_at',invited_at,'invite_status',invite_status,'cancelled_at',cancelled_at)
       into invite_value from public.calendar_event_invites where id=(enrolment_value->>'invitation_id')::uuid

@@ -219,7 +219,7 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
       left join training_availability_requests request on request.calendar_event_id=i.calendar_event_id
       where i.cancelled_at is null and i.invite_status<>'cancelled'$$;
     create function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns table(player_id uuid,parent_link_id uuid,recipient_email text,recipient_type text) language sql as $$
-      select player_id,id,'parent@example.test','parent'
+      select player_id,id,'parent@example.test','parent_guardian'
       from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'$$;
     insert into players values('${player}','${club}','active');
     insert into player_team_memberships values('${player}','${club}','${team}','active',null);
@@ -348,7 +348,7 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     // One remaining authorised delivered source keeps this shared invitation valid.
     await db.exec(`alter table parent_player_links add column email text default 'parent@example.test';
       create or replace function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns table(player_id uuid,parent_link_id uuid,recipient_email text,recipient_type text) language sql as $$
-        select player_id,id,email,'parent'
+        select player_id,id,email,'parent_guardian'
         from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'$$;
       insert into parent_player_links values('${id(97)}','${id(98)}','${player}','${club}','active','second-parent@example.test');
       insert into training_availability_request_players values('${id(94)}','${id(92)}','${club}','${team}','${player}','second-parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent');
