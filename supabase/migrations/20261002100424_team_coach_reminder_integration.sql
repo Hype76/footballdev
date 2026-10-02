@@ -295,6 +295,12 @@ begin
           where request.id=(enrolment_value->>'request_id')::uuid and request.club_id=club_value and request.team_id=team_value
             and request.calendar_event_id=(job_value->>'eventId')::uuid and request.occurrence_date=(job_value->>'occurrenceDate')::date
             and request.status<>'cancelled') then member_active:=false; end if;
+        if not exists(select 1 from public.training_availability_request_players source
+          where source.request_id=(enrolment_value->>'request_id')::uuid and source.player_id=(enrolment_value->>'player_id')::uuid
+            and source.club_id=club_value and source.team_id=team_value and source.email_sent_at is not null
+            and source.token_revoked_at is null and source.status not in ('cancelled','expired')
+            and source.created_at >= greatest((policy_value->>'effective_from')::timestamptz,(release_value->>'activated_at')::timestamptz))
+          then member_active:=false; end if;
         if exists(select 1 from public.event_player_occurrence_exclusions where calendar_event_id=(job_value->>'eventId')::uuid
           and player_id=(enrolment_value->>'player_id')::uuid and (scope='occurrence' and effective_from_date=(job_value->>'occurrenceDate')::date
             or scope='this_and_future' and effective_from_date <= (job_value->>'occurrenceDate')::date)) then member_active:=false; end if;
@@ -422,11 +428,22 @@ create trigger coach_reminder_match_delivery after insert or update of sent_at o
 create trigger coach_reminder_training_delivery after insert or update of email_sent_at on public.training_availability_request_players
  for each row execute function app_private.capture_coach_reminder_delivery_v1();
 
-create table public.team_coach_reminder_scan_cursor(singleton boolean primary key default true check(singleton),cursor_value text not null default '');
-insert into public.team_coach_reminder_scan_cursor values(true,'');
+create table public.team_coach_reminder_scan_cursor(singleton boolean primary key default true check(singleton),cursor_value text not null default '',processor_phase integer not null default 0 check(processor_phase between 0 and 2));
+insert into public.team_coach_reminder_scan_cursor(singleton,cursor_value) values(true,'');
 alter table public.team_coach_reminder_scan_cursor enable row level security;
 revoke all on public.team_coach_reminder_scan_cursor from public,anon,authenticated;
 grant select,update on public.team_coach_reminder_scan_cursor to service_role;
+create or replace function public.next_team_coach_reminder_processor_phase_v1()
+returns integer language plpgsql security invoker set search_path=pg_catalog,public as $$
+declare phase integer;
+begin
+ if not exists(select 1 from public.team_coach_reminder_release_control where enabled) then return 0; end if;
+ select processor_phase into phase from public.team_coach_reminder_scan_cursor where singleton for update;
+ update public.team_coach_reminder_scan_cursor set processor_phase=(phase+1)%3 where singleton;
+ return phase;
+end $$;
+revoke all on function public.next_team_coach_reminder_processor_phase_v1() from public,anon,authenticated;
+grant execute on function public.next_team_coach_reminder_processor_phase_v1() to service_role;
 create or replace function public.scan_team_coach_reminder_candidates_v1(batch_size integer default 30)
 returns jsonb language plpgsql security invoker set search_path=pg_catalog,public as $$
 declare cursor_key text; result jsonb; next_key text;

@@ -97,7 +97,8 @@ export function createCoachReminderRepository(client) {
       const jobs=candidate.action==='squad_reminder' ? planSquadAutomation({ ...current.context,now }) : planAvailabilityAutomation({ ...current.context,now })
       return jobs.map(job=>({ ...job,enrolmentId:candidate.enrolmentId || '' }))
     },
-    async discoverCandidates() { return checked(await client.rpc('scan_team_coach_reminder_candidates_v1',{batch_size:30})) || [] },
+    async nextPhase() { return checked(await client.rpc('next_team_coach_reminder_processor_phase_v1',{})) },
+    async discoverCandidates(limit=30) { return checked(await client.rpc('scan_team_coach_reminder_candidates_v1',{batch_size:limit})) || [] },
     async pendingJobs(limit=30,now=new Date().toISOString()) { return checked(await client.from('team_coach_reminder_jobs').select('job_key').eq('state','pending').lte('payload->>dueAt',now).order('created_at').limit(limit)) || [] },
     async pendingNotifications(limit=30) { return checked(await client.from('team_coach_reminder_outbox').select('delivery_key').eq('state','pending').order('created_at').limit(limit)) || [] },
   }

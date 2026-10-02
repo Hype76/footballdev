@@ -6,6 +6,7 @@ import { DEFAULT_COACH_REMINDER_POLICY } from '../src/lib/coach-reminder-policy.
 import { normalizeCoachReminderContext } from '../netlify/functions/lib/_coach-reminder-repository.js'
 import {createCoachReminderRepository} from '../netlify/functions/lib/_coach-reminder-repository.js'
 import {runCoachReminderProcessor} from '../netlify/functions/lib/_coach-reminder-processor.js'
+import {processCoachReminderJob} from '../netlify/functions/lib/_coach-reminder-worker.js'
 import {createCoachReminderTransport} from '../netlify/functions/lib/_coach-reminder-transport.js'
 import {reminderPostgrest} from './helpers/reminder-postgrest.mjs'
 
@@ -225,10 +226,19 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
     insert into match_day_player_availability values('${id(35)}','${event}','${club}','${player}','pending',null,clock_timestamp(),null);
   `)
   await db.exec(integrationSql)
+  assert.equal((await db.query('select next_team_coach_reminder_processor_phase_v1() value')).rows[0].value,0)
+  assert.equal((await db.query('select processor_phase from team_coach_reminder_scan_cursor')).rows[0].processor_phase,0)
   // An already-existing delivery is never backfilled by migration/activation.
   await db.exec(`insert into match_day_availability_requests values('${request}','${event}','${player}','${club}','${team}','parent@example.test',clock_timestamp(),clock_timestamp()-interval '1 day',null,'pending')`)
   assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments')).rows[0].n,0)
   await db.exec("update team_coach_reminder_policies set configured_at=clock_timestamp()-interval '5 hours',effective_from=clock_timestamp()-interval '5 hours'; update team_coach_reminder_release_control set enabled=true,activated_at=clock_timestamp()-interval '5 hours'")
+  await db.exec('grant select on all tables in schema public to service_role; set role service_role')
+  const phases=await Promise.all(Array.from({length:4},()=>db.query('select next_team_coach_reminder_processor_phase_v1() value')))
+  assert.deepEqual(phases.map(result=>result.rows[0].value),[0,1,2,0])
+  await db.exec('reset role; update team_coach_reminder_scan_cursor set processor_phase=0')
+  await actor(parent)
+  await assert.rejects(db.query('select next_team_coach_reminder_processor_phase_v1()'),/permission denied/)
+  await db.exec('reset role')
   await db.exec(`update match_day_availability_requests set sent_at=clock_timestamp() where id='${request}'`)
   assert.equal((await db.query('select count(*)::int n from team_coach_reminder_enrolments')).rows[0].n,0)
   await db.exec(`insert into match_day_availability_requests values('${id(36)}','${event}','${player}','${club}','${team}','parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'pending')`)
@@ -238,7 +248,9 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
   const client=reminderPostgrest(db),repository=createCoachReminderRepository(client),sends=[]
   const transport=createCoachReminderTransport({client,assertPlan:async()=>{},email:async(payload,opts)=>{sends.push({payload,opts});return {data:{id:'fixture-provider'}}},
     inbox:async args=>{sends.push({inbox:args});return {available:1,inserted:1}},push:async()=>{throw Error('Fixture has no devices; no push call is allowed')}})
+  await db.exec('set role service_role')
   const result=await runCoachReminderProcessor({repository,transport})
+  await db.exec('reset role')
   assert.equal(result.held,0);assert.equal(result.delivered,1)
   assert.equal(sends.length,2);assert.match(sends[0].inbox.body,/automatically marked/)
   assert.equal(sends[1].payload.emailAppRole,'parent');assert.match(sends[1].opts.idempotencyKey,/coach-reminder:/)
@@ -301,7 +313,72 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
   assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[monthly.id])).rows[0].value,true)
   await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport})
   assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[monthly.id])).rows[0].value.automatic,true)
+  await t.test('revoking every delivered training source suppresses planning, effects and queued delivery',async()=>{
+    const candidate={kind:'TRAINING',clubId:club,teamId:team,playerId:player,eventId:id(90),enrolmentId:monthly.id,occurrenceDate:'2099-03-03'}
+    const queued=(await db.query("select outbox.payload from team_coach_reminder_outbox outbox join team_coach_reminder_jobs job on job.job_key=outbox.job_key where job.payload->>'enrolmentId'=$1 limit 1",[monthly.id])).rows[0].payload
+    for(const change of ["token_revoked_at=clock_timestamp()","status='cancelled'","status='expired'",`team_id='${otherTeam}'`,`club_id='${id(99)}'`]){
+      await db.exec(`update training_availability_request_players set ${change} where id='${id(93)}'`)
+      const context=(await db.query('select team_coach_reminder_context_v1($1) value',[JSON.stringify(candidate)])).rows[0].value
+      assert.equal(context.memberActive,false,change)
+      assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[monthly.id])).rows[0].value,false)
+      assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[monthly.id])).rows[0].value,null)
+      assert.deepEqual(await repository.planCandidate(candidate,new Date().toISOString()),[])
+      assert.equal((await repository.validateNotification({notification:queued},new Date().toISOString())).valid,false)
+      await db.exec(`update training_availability_request_players set token_revoked_at=null,status='sent',team_id='${team}',club_id='${club}' where id='${id(93)}'`)
+    }
+    await db.exec(`delete from training_availability_request_players where id='${id(93)}'`)
+    assert.equal((await repository.loadContext(candidate)).invitation.memberActive,false)
+    assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[monthly.id])).rows[0].value,null)
+    await db.exec(`insert into training_availability_request_players values('${id(93)}','${id(92)}','${club}','${team}','${player}','parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent')`)
+    // One remaining authorised delivered source keeps this shared invitation valid.
+    await db.exec(`alter table parent_player_links add column email text default 'parent@example.test';
+      create or replace function event_player_eligible_recipients(club_id_value uuid,player_ids_value uuid[],team_id_value uuid) returns jsonb language sql as $$
+        select coalesce(jsonb_agg(jsonb_build_object('player_id',player_id,'parent_link_id',id,'recipient_email',email,'recipient_type','parent')),'[]')
+        from parent_player_links where club_id=club_id_value and player_id=any(player_ids_value) and status='active'$$;
+      insert into parent_player_links values('${id(97)}','${id(98)}','${player}','${club}','active','second-parent@example.test');
+      insert into training_availability_request_players values('${id(94)}','${id(92)}','${club}','${team}','${player}','second-parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent');
+      update training_availability_request_players set token_revoked_at=clock_timestamp() where id='${id(93)}'`)
+    const remainingParent=await repository.loadContext(candidate)
+    assert.equal(remainingParent.invitation.memberActive,true)
+    assert.deepEqual(remainingParent.recipients.map(recipient=>recipient.parentLinkId),[id(97)])
+    assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[monthly.id])).rows[0].value.automatic,true)
+    await db.exec(`update training_availability_request_players set status='cancelled' where id='${id(94)}'`)
+    assert.equal((await repository.loadContext(candidate)).invitation.memberActive,false)
+    await db.exec(`delete from training_availability_request_players where id='${id(94)}'; update training_availability_request_players set token_revoked_at=null where id='${id(93)}'`)
+    // Revocation after jobs are stored must stop effects and messages at commit.
+    await db.exec(`insert into training_availability_requests values('${id(95)}','${club}','${team}','${id(90)}','2099-04-03','2099-04-03T13:00:00Z','sent');
+      insert into training_availability_request_players values('${id(96)}','${id(95)}','${club}','${team}','${player}','parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent')`)
+    const pending=(await db.query('select * from team_coach_reminder_enrolments where request_id=$1',[id(95)])).rows[0]
+    const pendingCandidate={kind:'TRAINING',clubId:club,teamId:team,playerId:player,eventId:id(90),enrolmentId:pending.id,occurrenceDate:'2099-04-03'}
+    const jobs=await repository.planCandidate(pendingCandidate,new Date().toISOString())
+    assert.equal(jobs.length,2);await repository.storeJobs(jobs)
+    const beforeRevocation=(await db.query('select team_coach_reminder_context_v1($1) value',[JSON.stringify(jobs[0])])).rows[0].value
+    await db.exec(`update training_availability_request_players set token_revoked_at=clock_timestamp() where id='${id(96)}'`)
+    const racedCommit=(await db.query("select commit_team_coach_reminder_job_v1($1,$2,null,'[]'::jsonb,'completed','unanswered') value",[jobs[0].key,JSON.stringify(beforeRevocation)])).rows[0].value
+    assert.equal(racedCommit.committed,false);assert.equal(racedCommit.reason,'context_changed')
+    for(const job of jobs)assert.equal((await processCoachReminderJob({repository,jobKey:job.key,now:new Date().toISOString()})).state,'skipped')
+    const keys=jobs.map(job=>job.key)
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_effects where job_key=any($1::text[])',[keys])).rows[0].n,0)
+    assert.equal((await db.query('select count(*)::int n from team_coach_reminder_outbox where job_key=any($1::text[])',[keys])).rows[0].n,0)
+    assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[pending.id])).rows[0].value,false)
+  })
   await db.exec('delete from parent_player_links')
   await actor(parent)
   assert.deepEqual((await db.query('select get_team_coach_reminder_projections_v1($1,$2,$3) value',['MATCH',[event],link])).rows[0].value,[])
+  await db.exec('reset role')
+  await t.test('emergency stop clears both release fields and removes database projections and planning guards',async()=>{
+    const previousFlag=process.env.ENABLE_COACH_REMINDER_AUTOMATION
+    try{
+      delete process.env.ENABLE_COACH_REMINDER_AUTOMATION
+      assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[monthly.id])).rows[0].value,true,'Worker environment alone does not disable SQL read guards')
+      await assert.rejects(db.exec('update team_coach_reminder_release_control set enabled=false'),/check constraint/)
+      await db.exec('update team_coach_reminder_release_control set enabled=false,activated_at=null')
+      assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[monthly.id])).rows[0].value,false)
+      assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[monthly.id])).rows[0].value,null)
+      const before=(await db.query('select processor_phase from team_coach_reminder_scan_cursor')).rows[0].processor_phase
+      assert.equal(await repository.nextPhase(),0)
+      assert.equal((await db.query('select processor_phase from team_coach_reminder_scan_cursor')).rows[0].processor_phase,before)
+      assert.equal((await db.query('select status from match_day_player_availability')).rows[0].status,'available')
+    }finally{if(previousFlag===undefined)delete process.env.ENABLE_COACH_REMINDER_AUTOMATION;else process.env.ENABLE_COACH_REMINDER_AUTOMATION=previousFlag}
+  })
 })

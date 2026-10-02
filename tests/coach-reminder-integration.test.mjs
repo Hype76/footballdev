@@ -3,6 +3,8 @@ import test from 'node:test'
 import {readFileSync} from 'node:fs'
 import {normalizeCoachInvite,collapseCoachInvitesByPlayer,summarizeCoachInvites} from '../apps/mobile-core/src/coachPhase31ECore.js'
 import {normalizeCoachCalendarFormDate} from '../apps/mobile-core/src/coachCalendarCore.js'
+import {DEFAULT_COACH_REMINDER_POLICY,planAvailabilityAutomation} from '../src/lib/coach-reminder-policy.js'
+import {authorizeProcessorRequest} from '../netlify/functions/lib/_processor-auth.js'
 import {createCoachReminderTransport} from '../netlify/functions/lib/_coach-reminder-transport.js'
 import processor from '../netlify/functions/process-team-coach-reminders.js'
 import {runCoachReminderProcessor} from '../netlify/functions/lib/_coach-reminder-processor.js'
@@ -21,6 +23,21 @@ function channelFixture({removed=false,optOut=false,devices=[]}={}){
 }
 test('disabled processor fails closed before authentication, database or provider construction',async()=>{
  assert.equal((await processor(new Request('http://localhost/processor',{method:'POST'}))).status,503)
+})
+
+test('reminder scheduler requires authenticated POST JSON and rejects native schedule payloads before client construction',async()=>{
+ const previousFlag=process.env.ENABLE_COACH_REMINDER_AUTOMATION,previousSecret=process.env.FOOTBALL_PLAYER_SCHEDULER_SECRET
+ try{
+   process.env.ENABLE_COACH_REMINDER_AUTOMATION='true';process.env.FOOTBALL_PLAYER_SCHEDULER_SECRET='local-fixture-secret'
+   const headers={'content-type':'application/json',authorization:'Bearer local-fixture-secret'}
+   assert.equal(authorizeProcessorRequest({httpMethod:'POST',headers,body:'{}'}).ok,true)
+   assert.equal((await processor(new Request('http://localhost/processor',{headers}))).status,405)
+   assert.equal((await processor(new Request('http://localhost/processor',{method:'POST',headers:{'content-type':'application/json','x-netlify-event':'schedule'},body:JSON.stringify({next_run:'2026-10-04T00:00:00Z'})}))).status,401)
+   for(const body of ['{"next_run":"2026-10-04T00:00:00Z"}','null','[]','"value"'])assert.equal((await processor(new Request('http://localhost/processor',{method:'POST',headers,body}))).status,400)
+ }finally{
+   if(previousFlag===undefined)delete process.env.ENABLE_COACH_REMINDER_AUTOMATION;else process.env.ENABLE_COACH_REMINDER_AUTOMATION=previousFlag
+   if(previousSecret===undefined)delete process.env.FOOTBALL_PLAYER_SCHEDULER_SECRET;else process.env.FOOTBALL_PLAYER_SCHEDULER_SECRET=previousSecret
+ }
 })
 test('delivery obeys existing app/email preferences and removed links; secure keys do not expose contact data',async()=>{
  const app=channelFixture(),appOnly=notification();appOnly.deliveryContext.target.emailAllowed=false
@@ -57,7 +74,7 @@ test('processor interruption leaves durable jobs for a later run and uses one ex
  let clock=0,stores=0,queries=[]
  const repository={discoverCandidates:async()=>[1,2],planCandidate:async()=>{clock=20;return [{}]},storeJobs:async()=>{stores++},pendingJobs:async(limit,now)=>{queries.push([limit,now]);return []},pendingNotifications:async()=>[]}
  const result=await runCoachReminderProcessor({repository,transport:{},clock:()=>new Date(clock).toISOString(),budgetMs:10})
- assert.equal(result.interrupted,true);assert.equal(stores,1);assert.equal(queries[0][1],new Date(20).toISOString())
+ assert.equal(result.interrupted,true);assert.equal(stores,1);assert.equal(queries.length,0,'No further stage queries after the budget is consumed')
 })
 test('read projection preserves explicit/request records, scopes children and recurrence, and makes no RPC when off',async()=>{
  let calls=0;const client={rpc:async()=>{calls++;return {data:[],error:null}}}
@@ -87,6 +104,66 @@ function nativeLoader(file,start,end,dependencies){
  const body=source.slice(from,to).replace('export ','')
  return new Function(...Object.keys(dependencies),body+`;return ${start.match(/function (\w+)/)[1]}`)(...Object.values(dependencies))
 }
+
+function processorProgressFixture({count=3,slowPlanning=false,slowScan=false}={}){
+ let elapsed=0,phase=0,cursor=0
+ const jobs=new Map(),notifications=new Map(),planned=[],sent=[],limits=[],base=Date.parse('2026-10-04T00:00:00Z')
+ const clock=()=>new Date(base+elapsed).toISOString()
+ const context=id=>({policy:{id:'policy',revision:'1',clubId:'club',teamId:'team',optedIn:true,configuredAt:'2026-10-01T00:00:00Z',effectiveFrom:'2026-10-01T00:00:00Z',options:{...DEFAULT_COACH_REMINDER_POLICY,deadlineMode:'automatic_not_attending',deadlineAfterHours:2}},
+   event:{id:`event-${id}`,revision:'1',clubId:'club',teamId:'team',kind:'MATCH',status:'scheduled',startsAt:'2026-10-10T12:00:00Z'},
+   invitation:{id:`invite-${id}`,revision:'1',responseRevision:'1',clubId:'club',teamId:'team',eventId:`event-${id}`,playerId:`player-${id}`,createdAt:'2026-10-01T01:00:00Z',deliveredAt:'2026-10-01T02:00:00Z',memberActive:true,responseStatus:'pending'},
+   recipients:[{id:`parent-${id}`,audience:'availability',clubId:'club',teamId:'team',playerId:`player-${id}`,active:true,authorized:true,notificationsEnabled:true}],authorityActive:true})
+ const repository={
+   nextPhase:async()=>{const result=phase;phase=(phase+1)%3;return result},
+   discoverCandidates:async(limit=30)=>{limits.push(limit);if(slowScan)elapsed+=19;if(cursor>=count){cursor=0;return []}const rows=Array.from({length:Math.min(limit,count-cursor)},(_,i)=>({id:cursor+i}));cursor+=rows.length;return rows},
+   planCandidate:async(candidate,now)=>{planned.push(candidate.id);if(slowPlanning)elapsed+=19;return planAvailabilityAutomation({...context(candidate.id),now}).map(job=>({...job,testCandidate:candidate.id}))},
+   storeJobs:async(values)=>{for(const job of values)if(!jobs.has(job.key))jobs.set(job.key,{...job,state:'pending'})},
+   pendingJobs:async limit=>[...jobs.values()].filter(job=>job.state==='pending').slice(0,limit).map(job=>({job_key:job.key})),
+   withLockedJob:async(key,run)=>{const job=jobs.get(key);return run({getJob:async()=>job,loadCurrentContext:async()=>context(job.testCandidate),insertEffectOnce:async()=>{},insertNotificationOnce:async notification=>{if(!notifications.has(notification.idempotencyKey))notifications.set(notification.idempotencyKey,{...notification,state:'pending'})},finish:async value=>{job.state=value.state}})},
+   pendingNotifications:async()=>[...notifications.entries()].filter(([,notification])=>notification.state==='pending').map(([key])=>({delivery_key:key})),
+   claimNotification:async key=>({notification:notifications.get(key),leaseToken:'lease'}),validateNotification:async()=>({valid:true}),
+   acceptNotification:async key=>{notifications.get(key).state='accepted'},holdNotification:async()=>assert.fail('No provider error expected'),
+ }
+ const transport={send:async notification=>{sent.push(notification.idempotencyKey);return {accepted:true,providerId:`receipt-${sent.length}`}}}
+ return {repository,transport,clock,jobs,notifications,planned,sent,limits,seed:async()=>repository.storeJobs(await repository.planCandidate({id:0},clock()))}
+}
+
+test('durable phase rotation delivers existing jobs despite discovery exhausting every budget',async()=>{
+ const fixture=processorProgressFixture({slowScan:true})
+ await fixture.seed()
+ for(let run=0;run<3;run++)await runCoachReminderProcessor({...fixture,budgetMs:18})
+ assert.equal(fixture.sent.length,1)
+ assert.equal([...fixture.jobs.values()][0].state,'completed')
+})
+
+test('an interrupted planning invocation leaves the next durable priority for queued jobs and delivery',async()=>{
+ const fixture=processorProgressFixture()
+ await fixture.seed()
+ const plan=fixture.repository.planCandidate
+ let interrupt=true
+ fixture.repository.planCandidate=async(...args)=>{if(interrupt){interrupt=false;throw new Error('Planning interrupted')}return plan(...args)}
+ await assert.rejects(runCoachReminderProcessor(fixture),/Planning interrupted/)
+ await runCoachReminderProcessor(fixture)
+ assert.equal(fixture.sent.length,1)
+ assert.equal([...fixture.jobs.values()][0].state,'completed')
+})
+
+test('slow planning advances one candidate at a time and eventually delivers every invitation without duplicates',async()=>{
+ const fixture=processorProgressFixture({slowPlanning:true})
+ for(let run=0;run<7;run++)await runCoachReminderProcessor({...fixture,budgetMs:18})
+ assert.deepEqual([...new Set(fixture.planned)].sort(),[0,1,2])
+ assert.equal(fixture.sent.length,3);assert.equal(new Set(fixture.sent).size,3)
+ assert.ok([...fixture.jobs.values()].every(job=>job.state==='completed'))
+})
+
+test('a stable 900-candidate scan visits every source within 31 bounded runs and drains delivery',async()=>{
+ const fixture=processorProgressFixture({count:900})
+ for(let run=0;run<31;run++)await runCoachReminderProcessor({...fixture})
+ assert.equal(new Set(fixture.planned).size,900)
+ assert.ok(fixture.planned.length<=31*30,'Each invocation plans at most 30 candidates')
+ for(let run=0;run<3;run++)await runCoachReminderProcessor({...fixture})
+ assert.equal(fixture.sent.length,900);assert.equal(new Set(fixture.sent).size,900)
+})
 
 test('native training summaries retain default-off reads and scope enabled projections to the exact occurrence',async()=>{
  const occurrence='2099-03-03',rows=[{id:'invite',request_id:'request',calendar_event_id:'event',player_id:'child',player_name:'Child',status:'sent',email_sent_at:'2099-01-01T12:00:00Z',training_availability_requests:{occurrence_date:occurrence}}],calls=[]

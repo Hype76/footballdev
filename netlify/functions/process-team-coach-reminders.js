@@ -9,6 +9,7 @@ export default async function(request){
   if((globalThis.Netlify?.env?.get?.('ENABLE_COACH_REMINDER_AUTOMATION') || process.env.ENABLE_COACH_REMINDER_AUTOMATION)!=='true')return Response.json({success:false,message:'Team reminders are disabled.'},{status:503})
   const auth=authorizeProcessorRequest({httpMethod:request.method,headers:Object.fromEntries(request.headers),body:await request.text()})
   if(!auth.ok)return new Response(auth.response.body,{status:auth.response.statusCode,headers:auth.response.headers})
+  if(!auth.body || typeof auth.body!=='object' || Array.isArray(auth.body))return Response.json({success:false,message:'Use an empty JSON object.'},{status:400})
   const {createSupabaseAdminClient}=await import('./lib/_supabase.js')
   const client=createSupabaseAdminClient()
   const release=await client.from('team_coach_reminder_release_control').select('enabled').eq('singleton',true).single()
