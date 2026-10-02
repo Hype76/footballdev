@@ -46,8 +46,8 @@ export function assertPayloads(root,expected) {
  const declared=new Set(expected.map(x=>x.path)),metadata=JSON.parse(readFileSync(resolve(root,'metadata.json')))
  for(const platform of ['ios','android']){
   const group=metadata.fileMetadata?.[platform];assert.ok(group,'Native metadata missing')
-  assert.ok(declared.has(group.bundle),'Native bundle missing from payload hashes')
-  for(const asset of group.assets||[]){const path=typeof asset==='string'?asset:asset.path;assert.ok(declared.has(path),'Metadata asset missing from payload hashes: '+path)}
+  assert.ok(declared.has(group.bundle.replaceAll('\\','/')),'Native bundle missing from payload hashes')
+  for(const asset of group.assets||[]){const path=typeof asset==='string'?asset:asset.path;assert.ok(declared.has(path.replaceAll('\\','/')),'Metadata asset missing from payload hashes: '+path)}
  }
 }
 export function loadNativeDescriptor(root) {
