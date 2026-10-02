@@ -43,6 +43,7 @@ export function createCoachReminderTransport({client,email=sendEmail,push=sendEx
     }
     const receipts=[]
     if(appAllowed && userId){
+      if(!await refresh())return {skipped:true,reason:'recipient_or_response_changed'}
       if(coach){
         checked(await client.from('coach_mobile_notification_events').upsert({coach_reminder_delivery_key:key,auth_user_id:userId,user_profile_id:userId,club_id:job.clubId,team_id:job.teamId,
           intent_type:'coach_update',title,body,data,status:'sent',sent_at:new Date().toISOString()},

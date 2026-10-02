@@ -19,10 +19,10 @@ import {readCoachReminderProjections,projectCoachReminderMatches,applyCoachRemin
 const notification=(changes={})=>({idempotencyKey:'stable-key',audience:'availability',deliveryContext:{
  job:{action:'availability_reminder',kind:'MATCH',clubId:'club',teamId:'team',eventId:'event',playerId:'player'},
  target:{id:'recipient',parentLinkId:'link',email:'parent@example.test',emailAllowed:true,appAllowed:true},event:{startsAt:'2026-10-10T12:00:00Z'},...changes}})
-function channelFixture({removed=false,optOut=false,devices=[]}={}){
+function channelFixture({removed=false,optOut=false,devices=[],assertPlan=async()=>{}}={}){
  const calls=[],client={from(table){const query={select(){return this},eq(){return this},neq(){return this},maybeSingle(){return this},
   upsert(row,options){calls.push({table,row,options});return this},then(resolve){return Promise.resolve(resolve({error:null,data:table==='parent_player_links'?removed?null:{id:'link',auth_user_id:'parent'}:table==='mobile_notification_preferences'?{invites:!optOut}:table.endsWith('_push_installations')?devices:[]}))}};return query}}
- const transport=createCoachReminderTransport({client,assertPlan:async()=>{},inbox:async args=>{calls.push({inbox:args});return {available:1}},
+ const transport=createCoachReminderTransport({client,assertPlan,inbox:async args=>{calls.push({inbox:args});return {available:1}},
   email:async(payload,options)=>{calls.push({email:payload,options});return {data:{id:'provider'}}},push:async messages=>{calls.push({push:messages});return {sent:messages.length,failed:0}}})
  return {calls,transport}
 }
@@ -71,9 +71,17 @@ test('missing delivery context and uncertain provider acceptance cannot claim su
 })
 test('a late answer between accepted app delivery and email suppresses the later channel',async()=>{
  const fixture=channelFixture(),value=notification();let reads=0
- value.deliveryContext.refresh=async()=>({valid:++reads===1,target:value.deliveryContext.target})
+ value.deliveryContext.refresh=async()=>({valid:++reads<=2,target:value.deliveryContext.target})
  const receipt=await fixture.transport.send(value)
  assert.equal(receipt.accepted,true);assert.equal(fixture.calls.length,1);assert.ok(fixture.calls[0].inbox)
+})
+
+test('retirement during plan validation suppresses inbox, push and email even if Parent links are active again',async()=>{
+ let retired=false
+ const fixture=channelFixture({assertPlan:async()=>{retired=true}}),value=notification()
+ value.deliveryContext.refresh=async()=>({valid:!retired,target:value.deliveryContext.target})
+ assert.deepEqual(await fixture.transport.send(value),{skipped:true,reason:'recipient_or_response_changed'})
+ assert.equal(fixture.calls.length,0)
 })
 test('processor interruption leaves durable jobs for a later run and uses one explicit clock',async()=>{
  let clock=0,stores=0,queries=[]
