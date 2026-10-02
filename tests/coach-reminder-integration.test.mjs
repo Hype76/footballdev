@@ -24,13 +24,14 @@ test('delivery obeys existing app/email preferences and removed links; secure ke
  await app.transport.send(appOnly);assert.equal(app.calls.length,1);assert.ok(app.calls[0].inbox)
  const email=channelFixture(),emailOnly=notification();emailOnly.deliveryContext.target.appAllowed=false
  await email.transport.send(emailOnly);assert.equal(email.calls.length,1);assert.ok(email.calls[0].email)
+ assert.equal(email.calls[0].email.emailAppRole,'parent')
  assert.doesNotMatch(email.calls[0].options.idempotencyKey,/parent@example|link/)
  const optedOut=channelFixture({optOut:true});assert.equal((await optedOut.transport.send(appOnly)).skipped,true);assert.equal(optedOut.calls.length,0)
  const removed=channelFixture({removed:true});assert.equal((await removed.transport.send(notification())).reason,'recipient_removed');assert.equal(removed.calls.length,0)
 })
 test('Coach delivery uses scoped durable inbox and existing push contract; no Coach email fallback',async()=>{
  const fixture=channelFixture({devices:[{expo_push_token:'ExpoPushToken[fixture]',detail_level:'minimal'}]})
- const coach=notification({target:{id:'coach'},job:{kind:'MATCH',action:'squad_reminder',eventId:'event',clubId:'club',teamId:'team'}});coach.audience='coach'
+ const coach=notification({target:{id:'coach',email:'coach@example.test',emailAllowed:true},job:{kind:'MATCH',action:'squad_reminder',eventId:'event',clubId:'club',teamId:'team'}});coach.audience='coach'
  await fixture.transport.send(coach)
  assert.equal(fixture.calls[0].table,'coach_mobile_notification_events');assert.equal(fixture.calls[0].row.intent_type,'coach_update')
  assert.equal(fixture.calls[0].options.ignoreDuplicates,true);assert.equal(fixture.calls[1].push[0].data.route,'matchday')
