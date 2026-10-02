@@ -82,11 +82,16 @@ try {
     await opened()
     assert.equal(lookupTokens.at(-1), 'synthetic-legacy')
     console.log('PASS back and forward remount')
+    await page.getByPlaceholder('Create a password').fill('SyntheticPassword123!')
+    await page.getByPlaceholder('Confirm password').fill('SyntheticPassword123!')
     const secondLookup = page.waitForResponse((response) => response.url().endsWith('get-club-owner-invite'))
     await page.evaluate(() => { window.history.pushState(null, '', '/workspace-invite#token=synthetic-second'); window.dispatchEvent(new PopStateEvent('popstate')) })
     await page.waitForFunction(() => window.location.hash === '#token=synthetic-second')
     await secondLookup
     assert.equal(lookupTokens.at(-1), 'synthetic-second')
+    await opened()
+    assert.equal(await page.getByPlaceholder('Create a password').inputValue(), '')
+    assert.equal(await page.getByPlaceholder('Confirm password').inputValue(), '')
     console.log('PASS same-component second invite')
     await page.goto(`${origin}/workspace-invite`)
     await page.getByText('Workspace invite could not be opened.', { exact: true }).waitFor()
@@ -100,4 +105,3 @@ try {
   await browser?.close()
   server.kill()
 }
-

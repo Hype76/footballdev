@@ -37,6 +37,11 @@ export function ClubOwnerInvitePage() {
     async function loadInvite() {
       setIsLoading(true)
       setInvite(null)
+      setPassword('')
+      setConfirmPassword('')
+      setIsPasswordVisible(false)
+      setSuccessMessage('')
+      setSignInEmail('')
       setErrorMessage('')
 
       try {
