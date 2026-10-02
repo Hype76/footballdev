@@ -14,7 +14,9 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 const club = id(1), team = id(2), otherTeam = id(3), coach = id(4), secondCoach = id(5), parent = id(6)
 const options = { ...DEFAULT_COACH_REMINDER_POLICY, reminderEnabled: true, reminderAfterHours: 12 }
 const migration = await readFile('supabase/migrations/20261002100424_team_coach_reminder_integration.sql','utf8')
-const [sql,integrationSql] = migration.split('-- REMINDER_SOURCE_INTEGRATION')
+const [sql,integrationSection] = migration.split('-- REMINDER_SOURCE_INTEGRATION')
+// The full installed-schema adult response chain is exercised separately.
+const integrationSql = integrationSection.split('-- ADULT_SELF_RESPONSE_AUTHORITY')[0]
 
 async function setup(t) {
   const db = new PGlite(); t.after(() => db.close())

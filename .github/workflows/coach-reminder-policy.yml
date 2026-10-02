@@ -20,7 +20,7 @@ jobs:
       - run: npm install --global npm@11.7.0
       - run: npm ci --include=optional
       - run: npx playwright install --with-deps chromium
-      - run: node --test tests/coach-reminder-policy.test.mjs tests/coach-reminder-worker-pglite.test.mjs tests/team-coach-reminder-policy-pglite.test.mjs tests/team-coach-reminder-policy-api.test.mjs tests/coach-reminder-integration.test.mjs
+      - run: node --test tests/coach-reminder-policy.test.mjs tests/coach-reminder-worker-pglite.test.mjs tests/team-coach-reminder-policy-pglite.test.mjs tests/team-coach-reminder-policy-api.test.mjs tests/coach-reminder-integration.test.mjs tests/adult-self-response-authority-pglite.test.mjs tests/adult-player-account-foundation-pglite.test.mjs tests/adult-player-responses-pglite.test.mjs
       - run: npm run lint
       - run: node tests/coach-reminder-options-browser.mjs
       - run: node tests/team-coach-reminder-settings-browser.mjs
