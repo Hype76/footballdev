@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import {readFileSync} from 'node:fs'
+import {normalizeCoachInvite,collapseCoachInvitesByPlayer,summarizeCoachInvites} from '../apps/mobile-core/src/coachPhase31ECore.js'
+import {normalizeCoachCalendarFormDate} from '../apps/mobile-core/src/coachCalendarCore.js'
 import {createCoachReminderTransport} from '../netlify/functions/lib/_coach-reminder-transport.js'
 import processor from '../netlify/functions/process-team-coach-reminders.js'
 import {runCoachReminderProcessor} from '../netlify/functions/lib/_coach-reminder-processor.js'
 import {normalizeCoachReminderContext} from '../netlify/functions/lib/_coach-reminder-repository.js'
-import {readCoachReminderProjections,projectCoachReminderMatches,findCoachReminderProjection,coachReminderInvitationOccurrence} from '../src/lib/coach-reminder-read-model.js'
+import {readCoachReminderProjections,projectCoachReminderMatches,applyCoachReminderProjection,findCoachReminderProjection,coachReminderInvitationOccurrence} from '../src/lib/coach-reminder-read-model.js'
 
 const notification=(changes={})=>({idempotencyKey:'stable-key',audience:'availability',deliveryContext:{
  job:{action:'availability_reminder',kind:'MATCH',clubId:'club',teamId:'team',eventId:'event',playerId:'player'},
@@ -76,4 +79,44 @@ test('training canonical reschedules invalidate removed occurrences and ambiguou
  assert.equal(normalizeCoachReminderContext({event:{...event,starts_at:'2026-10-19T12:00:00Z',ends_at:'2026-10-19T13:00:00Z'}},job).event.startsAt,'')
  const revised=normalizeCoachReminderContext({event:{...event,starts_at:'2026-10-18T12:00:00Z',ends_at:'2026-10-18T13:00:00Z'}},job)
  assert.equal(revised.event.startsAt,'2026-10-25T13:00:00.000Z')
+})
+
+function nativeLoader(file,start,end,dependencies){
+ const source=readFileSync(file,'utf8'),from=source.indexOf(start),to=source.indexOf(end,from)
+ assert.ok(from>=0 && to>from)
+ const body=source.slice(from,to).replace('export ','')
+ return new Function(...Object.keys(dependencies),body+`;return ${start.match(/function (\w+)/)[1]}`)(...Object.values(dependencies))
+}
+
+test('native training summaries retain default-off reads and scope enabled projections to the exact occurrence',async()=>{
+ const occurrence='2099-03-03',rows=[{id:'invite',request_id:'request',calendar_event_id:'event',player_id:'child',player_name:'Child',status:'sent',email_sent_at:'2099-01-01T12:00:00Z',training_availability_requests:{occurrence_date:occurrence}}],calls=[]
+ const supabase={from(table){const query={select(){return this},eq(){return this},in(){return this},then(resolve){resolve({data:table==='training_availability_request_players'?rows:[]})}};return query},rpc:async(name,args)=>{calls.push({name,args});return {data:[{eventId:'event',playerId:'child',occurrenceDate:occurrence,status:'unavailable',automatic:true,provenance:'coach_deadline_automation',planningExcluded:true}]}}}
+ const runtime={env:{}},dependencies={process:runtime,supabase,normalize:value=>String(value||'').trim(),normalizeCoachInvite,normalizeCoachCalendarFormDate,collapseCoachInvitesByPlayer,summarizeCoachInvites,readCoachReminderProjections,applyCoachReminderProjection,findCoachReminderProjection}
+ const load=nativeLoader('apps/mobile-core/src/coachCalendarData.js','async function getTrainingAvailabilityByEventId(','async function getInvolvedPlayerIdsByEventId(',dependencies)
+ const disabled=await load({clubId:'club'},['event'])
+ assert.equal(disabled[`event:${occurrence}`].awaiting,1);assert.equal(calls.length,0)
+ runtime.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION='true'
+ const enabled=await load({clubId:'club'},['event'])
+ assert.equal(enabled[`event:${occurrence}`].unavailable,1);assert.equal(enabled[`event:${occurrence}`].details[0].availabilityAutomatic,true)
+ assert.deepEqual(calls[0].args,{kind_value:'TRAINING',event_ids:['event'],parent_link_id_value:null})
+ rows[0].training_availability_requests.occurrence_date='2099-04-03'
+ const later=await load({clubId:'club'},['event'])
+ assert.equal(later['event:2099-04-03'].awaiting,1);assert.equal(later['event:2099-04-03'].details[0].availabilityAutomatic,undefined)
+ assert.equal(rows[0].status,'sent')
+})
+
+test('native Parent invitations perform no default-off projection reads and scope enabled reads to the selected link',async()=>{
+ const original={eventId:'event',childId:'child',responseState:'pending',invitationType:'match_attendance'},calls=[],runtime={env:{}}
+ const supabase={rpc:async(name,args)=>{calls.push({name,args});return {data:name==='get_parent_portal_invitation_summary'?[original]:name==='get_team_coach_reminder_projections_v1' && args.kind_value==='MATCH'?[{eventId:'event',playerId:'child',status:'unavailable',automatic:true,provenance:'coach_deadline_automation',planningExcluded:true}]:[]}}}
+ const dependencies={process:runtime,supabase,requireSelectedLink:user=>user.link,normalizeText:value=>String(value||'').trim(),prepareParentInvitations:rows=>rows,readCoachReminderProjections,applyCoachReminderProjection,findCoachReminderProjection,coachReminderInvitationOccurrence}
+ const load=nativeLoader('apps/parent-mobile/src/parentPortalData.js','export async function getParentInvitations(','export async function setParentMatchTransport(',dependencies)
+ const user={link:{id:'selected-link'}}
+ const [disabled]=await load(user)
+ assert.equal(disabled.responseState,'pending');assert.equal(calls.length,3)
+ runtime.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION='true'
+ const [enabled]=await load(user)
+ assert.equal(enabled.responseState,'unavailable');assert.equal(enabled.availabilityProvenance,'coach_deadline_automation')
+ const projections=calls.filter(call=>call.name==='get_team_coach_reminder_projections_v1')
+ assert.deepEqual(projections.map(call=>call.args.kind_value),['MATCH','TRAINING']);assert.ok(projections.every(call=>call.args.parent_link_id_value==='selected-link'))
+ assert.equal(original.responseState,'pending')
 })

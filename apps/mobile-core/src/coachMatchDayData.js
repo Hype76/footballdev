@@ -396,7 +396,8 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
     presentationState = (states || [])[0] || null
   }
   const normalizedMatch={ ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}), clubName: user.clubName }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
-  const projections=await readCoachReminderProjections(supabase,'MATCH',[matchDayId],{enabled:process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION==='true'})
+  if(process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION!=='true')return normalizedMatch
+  const projections=await readCoachReminderProjections(supabase,'MATCH',[matchDayId],{enabled:true})
   return projectCoachReminderMatches([normalizedMatch],projections)[0]
 }
 

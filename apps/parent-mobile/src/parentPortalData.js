@@ -442,7 +442,8 @@ export async function getParentInvitations(user) {
       ? shirtsById.get(String(row.event_id ?? row.eventId))
       : undefined,
   })))
-  const projections=(await Promise.all(['MATCH','TRAINING'].map(kind=>readCoachReminderProjections(supabase,kind,invitations.map(invite=>invite.eventId),{enabled:process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION==='true',parentLinkId:link.id})))).flat()
+  if(process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION!=='true')return invitations
+  const projections=(await Promise.all(['MATCH','TRAINING'].map(kind=>readCoachReminderProjections(supabase,kind,invitations.map(invite=>invite.eventId),{enabled:true,parentLinkId:link.id})))).flat()
   return invitations.map(invite=>applyCoachReminderProjection(invite,findCoachReminderProjection(projections,{eventId:invite.eventId,playerId:invite.childId,occurrenceDate:coachReminderInvitationOccurrence(invite)}),{statusKey:'responseState'}))
 }
 

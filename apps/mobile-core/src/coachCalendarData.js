@@ -49,7 +49,8 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
   if (requestPlayersResult.error) throw requestPlayersResult.error
   if (responsesResult.error) throw responsesResult.error
   const responses = new Map((responsesResult.data || []).map((row) => [`${row.request_id}:${row.player_id}`, row]))
-  const reminderProjections=await readCoachReminderProjections(supabase,'TRAINING',eventIds,{enabled:process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION==='true'})
+  const remindersEnabled=process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION==='true'
+  const reminderProjections=remindersEnabled ? await readCoachReminderProjections(supabase,'TRAINING',eventIds,{enabled:true}) : []
   const invitesByOccurrence = {}
   for (const row of requestPlayersResult.data || []) {
     const eventId = normalize(row.calendar_event_id)
@@ -66,7 +67,7 @@ async function getTrainingAvailabilityByEventId(user, eventIds) {
       ...response,
       occurrence_date: occurrenceDate,
     }, 'training')
-    invitesByOccurrence[summaryKey].push(applyCoachReminderProjection(normalizedInvite,findCoachReminderProjection(reminderProjections,{eventId,playerId:row.player_id,occurrenceDate})))
+    invitesByOccurrence[summaryKey].push(remindersEnabled ? applyCoachReminderProjection(normalizedInvite,findCoachReminderProjection(reminderProjections,{eventId,playerId:row.player_id,occurrenceDate})) : normalizedInvite)
   }
   return Object.fromEntries(Object.entries(invitesByOccurrence).map(([summaryKey, invites]) => {
     const collapsed = collapseCoachInvitesByPlayer(invites)
