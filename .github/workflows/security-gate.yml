@@ -301,9 +301,9 @@ jobs:
       - name: Clean install
         run: npm ci --include=optional
       - name: Build all Netlify functions
-        run: npx --no-install netlify functions:build --src netlify/functions --functions .netlify/functions-internal
+        run: npm run functions:build
       - name: Verify function packaging
-        run: node --test tests/netlify-functions-packaging.test.mjs tests/scheduled-emails-bundle.test.mjs
+        run: node --test tests/netlify-functions-packaging.test.mjs tests/scheduled-emails-bundle.test.mjs tests/netlify-built-functions.test.mjs
 
   scope-ownership:
     name: Scope ownership
