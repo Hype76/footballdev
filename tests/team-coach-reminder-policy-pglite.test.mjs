@@ -53,7 +53,7 @@ test('broad installed table defaults are replaced with append-only ledger and ga
   for (const table of ['public.team_coach_reminder_enrolments','public.team_coach_reminder_retirements','public.team_coach_reminder_enrolment_sources','app_private.coach_reminder_authority_gate']) {
     const allowed = table.startsWith('app_private.') ? ['SELECT','UPDATE'] : ['SELECT','INSERT']
     for (const role of ['service_role','anon','authenticated']) {
-      for (const privilege of ['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) {
+      for (const privilege of ['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER','MAINTAIN']) {
         const { rows } = await db.query('select has_table_privilege($1,$2,$3) permitted',[role,table,privilege])
         assert.equal(rows[0].permitted,role === 'service_role' && allowed.includes(privilege),`${role} ${privilege} ${table}`)
       }
