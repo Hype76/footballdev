@@ -29,6 +29,7 @@ export function getMobileNotificationIndicator(state, loadState = MOBILE_SETTING
     && state.enabled
     && state.registered
     && state.permissionGranted
+    && state.visibleAlertsReady !== false
     && preferenceEnabled
     && String(state.detailLevel || '').trim().toLowerCase() !== 'off'
   )

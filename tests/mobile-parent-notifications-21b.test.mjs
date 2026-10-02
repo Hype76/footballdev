@@ -28,6 +28,7 @@ test('Parent can repair stale or permission-blocked registration without pausing
     const state = { enabled: true, registered: true, detailLevel: 'minimal', permissionGranted }
     const requestRef = { current: 4 }
     const dependencies = {
+      user: { id: 'parent' }, AsyncStorage: { async setItem() {} }, notificationExplainerKey: () => 'parent-test',
       activeActionId: '', selectedLink: { id: 'parent-link' }, notificationState: state,
       notificationStateStatus: status, MOBILE_SETTING_LOAD_STATES: { READY: 'ready', STALE: 'stale' },
       notificationStateRequestRef: requestRef, config: { apiBaseUrl: 'test', easProjectId: 'project' },
@@ -148,7 +149,7 @@ test('legacy privacy remains compatible while Parent settings use independent no
     permissionStatus: 'undetermined',
     registered: true,
   })
-  assert.equal(getParentNotificationStatusLabel({ enabled: true, registered: true }), 'Push alerts enabled')
+  assert.equal(getParentNotificationStatusLabel({ enabled: true, registered: true }), 'Phone permission not verified')
   assert.match(app, /<NotificationCategorySettings/)
   assert.match(app, /Enable push alerts on this device/)
   assert.doesNotMatch(app, /label: 'Minimal'|label: 'Detailed'/)
