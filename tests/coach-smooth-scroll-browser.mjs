@@ -37,7 +37,7 @@ const callbacks = ['scrollContentToTop', 'focusNotificationSettings'].map(name =
 }).join('\n')
 const entry = `
 import React,{useRef,useMemo,useCallback,useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
-import {View,Text,Image,Pressable,ScrollView,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform} from 'react-native';
+import {View,Text,Image,Pressable,ScrollView,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState} from 'react-native';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';

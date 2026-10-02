@@ -1384,10 +1384,29 @@ function SettingsScreen({
 
 function CoachHeader({ context, notificationState, notificationStateStatus, onOpenNotificationSettings, user }) {
   const { branding, styles } = useCoachTheme()
-  const source = branding.logoUrl ? { uri: branding.logoUrl } : require('./assets/football-player-logo.png')
+  const logoKey = `${context.id || context.clubId}:${branding.logoUrl}`
+  const [logoState, setLogoState] = useState({ key: logoKey, failed: false })
+  if (logoState.key !== logoKey) setLogoState({ key: logoKey, failed: false })
+  const showClubLogo = Boolean(branding.logoUrl && (logoState.key !== logoKey || !logoState.failed))
+  useEffect(() => {
+    // Returning to the app gives a failed remote logo another chance to load.
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') setLogoState({ key: logoKey, failed: false })
+    })
+    return () => subscription.remove()
+  }, [logoKey])
+  const source = showClubLogo ? { uri: branding.logoUrl } : require('./assets/football-player-logo.png')
   return (
     <View style={styles.header}>
-      <Image accessibilityLabel={`${context.clubName} logo`} source={source} style={styles.logo} />
+      <Image
+        key={showClubLogo ? logoKey : 'football-player'}
+        accessibilityIgnoresInvertColors
+        accessibilityLabel={showClubLogo ? `${context.clubName} logo` : 'Football Player logo'}
+        onError={showClubLogo ? () => setLogoState(previous => previous.key === logoKey ? { key: logoKey, failed: true } : previous) : undefined}
+        resizeMode="contain"
+        source={source}
+        style={styles.logo}
+      />
       <View style={styles.headerCopy}>
         <Text numberOfLines={1} style={styles.headerTitle}>{context.clubName}</Text>
         <Text numberOfLines={1} style={styles.headerMeta}>{context.teamName || 'Club context'} | {user.roleLabel}</Text>
