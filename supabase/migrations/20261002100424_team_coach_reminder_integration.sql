@@ -455,7 +455,7 @@ grant execute on function public.scan_team_coach_reminder_candidates_v1(integer)
 create or replace function app_private.coach_reminder_planning_excluded_v1(enrolment_id uuid)
 returns boolean language plpgsql security definer set search_path=pg_catalog,public as $$
 declare enrolment public.team_coach_reminder_enrolments%rowtype; context_value jsonb; start_time timestamptz; event_value jsonb;
- first_date date; local_time time; month_offset integer; valid_occurrence boolean;
+ first_date date; local_time time; cursor_date date; month_steps integer:=0; valid_occurrence boolean;
 begin
  select * into enrolment from public.team_coach_reminder_enrolments where id=enrolment_id;
  if not found then return false; end if;
@@ -486,8 +486,14 @@ begin
     when 'weekly' then valid_occurrence:=((enrolment.occurrence_date-first_date)%7)=0;
     when 'fortnightly' then valid_occurrence:=((enrolment.occurrence_date-first_date)%14)=0;
     when 'monthly' then
-     month_offset:=(extract(year from enrolment.occurrence_date)::integer-extract(year from first_date)::integer)*12+extract(month from enrolment.occurrence_date)::integer-extract(month from first_date)::integer;
-     valid_occurrence:=month_offset>0 and (first_date+make_interval(months=>month_offset))::date=enrolment.occurrence_date;
+     -- Match the existing training generator's iterative Date.setUTCMonth
+     -- rollover, including 31 January -> 3 March, rather than SQL month clamp.
+     cursor_date:=first_date;
+     while cursor_date<enrolment.occurrence_date and month_steps<400 loop
+      cursor_date:=(date_trunc('month',cursor_date::timestamp)+interval '1 month')::date+extract(day from cursor_date)::integer-1;
+      month_steps:=month_steps+1;
+     end loop;
+     valid_occurrence:=cursor_date=enrolment.occurrence_date;
     else valid_occurrence:=false;
    end case;
   end if;

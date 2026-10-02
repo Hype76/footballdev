@@ -291,6 +291,16 @@ test('integrated delivery capture, discovery, worker, channel transport, provena
   assert.equal((await db.query("select count(*)::int n from team_coach_reminder_effects where payload->>'eventId'=$1",[training])).rows[0].n,1)
   await db.exec(`update training_availability_requests set status='cancelled' where id='${trainingRequest}'`)
   assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[trainingEnrolment.id])).rows[0].value,null)
+  // Existing training generation rolls a 31 January monthly event to 3 March.
+  // Database planning and worker projections must agree on that occurrence.
+  await db.exec(`insert into calendar_events values('${id(90)}','${club}','${team}','training',null,'2099-01-31T13:00:00Z','2099-01-31T14:00:00Z','monthly','2099-05-03','[]',clock_timestamp(),true,'involved_players');
+    insert into calendar_event_invites values('${id(91)}','${club}','${team}','${player}',null,'${id(90)}',clock_timestamp(),'invited',null);
+    insert into training_availability_requests values('${id(92)}','${club}','${team}','${id(90)}','2099-03-03','2099-03-03T13:00:00Z','sent');
+    insert into training_availability_request_players values('${id(93)}','${id(92)}','${club}','${team}','${player}','parent@example.test',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '4 hours',null,'sent')`)
+  const monthly=(await db.query('select * from team_coach_reminder_enrolments where event_id=$1',[id(90)])).rows[0]
+  assert.equal((await db.query('select app_private.coach_reminder_planning_excluded_v1($1) value',[monthly.id])).rows[0].value,true)
+  await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport});await runCoachReminderProcessor({repository,transport})
+  assert.equal((await db.query('select app_private.coach_reminder_projection_v1($1) value',[monthly.id])).rows[0].value.automatic,true)
   await db.exec('delete from parent_player_links')
   await actor(parent)
   assert.deepEqual((await db.query('select get_team_coach_reminder_projections_v1($1,$2,$3) value',['MATCH',[event],link])).rows[0].value,[])
