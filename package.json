@@ -24,7 +24,7 @@
     "test:platform-access": "node --test tests/platform-club-access-management.test.mjs tests/platform-club-access-migration-pglite.test.mjs",
     "test:platform-analytics": "node --test tests/platform-analytics.test.mjs tests/platform-analytics-processor.test.mjs tests/platform-analytics-migration-pglite.test.mjs tests/netlify-functions-packaging.test.mjs",
     "onboarding:videos": "node scripts/generate-onboarding-videos.mjs",
-    "deploy:live": "npm run build:live && npm run verify:build-env && netlify deploy --prod --dir=dist",
+    "functions:build": "node scripts/build-netlify-functions.mjs",
     "lint": "eslint .",
     "test:email": "node --test tests/email-provider.test.mjs tests/email-send-events-rls.test.mjs",
     "test:data-transfer": "node --test tests/data-transfer-plan.test.mjs tests/data-transfer-workbook.test.mjs tests/data-transfer-tabular.test.mjs tests/data-transfer-export.test.mjs tests/data-transfer-hardening.test.mjs tests/data-transfer-permission-corrective.test.mjs tests/data-transfer-migration-pglite.test.mjs tests/data-transfer-recovery.test.mjs tests/data-transfer-themes.test.mjs",
@@ -119,7 +119,8 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "jsqr": "1.4.0",
-    "netlify-cli": "^27.4.3",
+    "@netlify/zip-it-and-ship-it": "16.2.3",
+    "toml": "4.2.0",
     "playwright": "^1.60.0",
     "vite": "^7.3.6",
     "vite-plugin-pwa": "^1.2.0"
