@@ -213,6 +213,7 @@ function usePortalStyles(themeTokens) {
       seatChoice: { alignItems: 'center', justifyContent: 'center', minHeight: 40, minWidth: 40 },
       seatChoiceText: { color: colors.muted, fontSize: 13, fontWeight: '900' },
       meta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+      fixtureDate: { flexShrink: 1, marginLeft: 'auto', textAlign: 'right' },
       moreGrid: { borderBottomColor: colors.border, borderBottomWidth: 1, borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 5 },
       moreIconBadge: { alignItems: 'center', backgroundColor: colors.danger, borderColor: colors.card, borderRadius: 999, borderWidth: 2, justifyContent: 'center', minHeight: 19, minWidth: 19, paddingHorizontal: 4, position: 'absolute', right: 0, top: -4 },
       moreIconBadgeText: { color: colors.dangerForeground, fontSize: 10, fontWeight: '900', lineHeight: 13 },
@@ -671,7 +672,7 @@ function MatchCard({ colors, invitations, link, match, onOpen, styles }) {
       {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
       <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
         <ParentIcon color={colors.text} iconKey="football" size={34} />
-        <View style={styles.compactCopy}><View style={styles.row}>{match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}<Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
+        <View style={styles.compactCopy}><View style={styles.row}>{match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}<Text style={[styles.meta, styles.fixtureDate]}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />}
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}

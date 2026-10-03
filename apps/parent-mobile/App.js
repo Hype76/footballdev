@@ -3758,7 +3758,7 @@ function createParentAppStyles(tokens) {
   brandName: { color: palette.text, fontSize: 17, fontWeight: '900' },
   brandRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   card: { backgroundColor: 'transparent', borderBottomColor: palette.border, borderBottomWidth: 1, gap: 8, paddingHorizontal: 0, paddingVertical: 11 },
-  cardDate: { color: palette.textMuted, flexShrink: 1, fontSize: 12, fontWeight: '700', textAlign: 'right' },
+  cardDate: { color: palette.textMuted, flexShrink: 1, fontSize: 12, fontWeight: '700', marginLeft: 'auto', textAlign: 'right' },
   cardFooter: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginTop: 4 },
   cardLink: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
   cardMeta: { color: palette.textMuted, fontSize: 14, fontWeight: '700', lineHeight: 20 },
