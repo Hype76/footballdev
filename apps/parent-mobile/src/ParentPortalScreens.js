@@ -250,7 +250,7 @@ function usePortalStyles(themeTokens) {
       chatScreen: { flex: 1 },
       chatHeader: { borderBottomColor: colors.border, borderBottomWidth: 1, gap: 5, paddingBottom: 10 },
       chatList: { flex: 1 },
-      chatListContent: { flexGrow: 1, gap: 8, justifyContent: 'flex-end', paddingVertical: 12 },
+      chatListContent: { flexGrow: 1, gap: 8, paddingVertical: 12 },
       chatRoomContent: { gap: 10, paddingBottom: 16 },
       composer: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 8, padding: 8 },
       composerField: { flex: 1, maxHeight: 110, minHeight: 46 },
