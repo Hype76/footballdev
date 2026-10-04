@@ -716,6 +716,7 @@ function GoalPlayerPicker({ allowClear = false, disabled, label, onSelect, onSel
 
 function getGoalDetailsError(side, scorerName, minute, isOwnGoal = false, stoppageMinute = '') {
   if ((isOwnGoal ? side === 'opponent' : side === 'club') && !normalizeText(scorerName).replace(/^Other:\s*/i, '').trim()) return 'Choose a scorer or type their name.'
+  if (!normalizeText(minute)) return 'Enter the goal minute before recording the goal.'
   if (normalizeText(minute) && (!Number.isInteger(Number(minute)) || Number(minute) < 0)) return 'Enter a whole match minute of 0 or more.'
   if (normalizeText(stoppageMinute) && (!Number.isInteger(Number(stoppageMinute)) || Number(stoppageMinute) < 0 || Number(stoppageMinute) > 30)) return 'Enter added time from 0 to 30 minutes.'
   return ''
@@ -1207,10 +1208,10 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
           {matchStarted ? <View style={styles.card}>
             <Text style={styles.fieldLabel}>Score</Text>
             <Text accessibilityLiveRegion="polite" style={styles.gameDayScore}>{presentation?.displayScore || `${selectedMatch.homeScore || 0} - ${selectedMatch.awayScore || 0}`}</Text>
-            {!selectedMatch.isFanView ? <View style={styles.gameDayStats}>
+            <View style={styles.gameDayStats}>
               <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Match timer</Text><Text accessibilityLiveRegion="polite" style={styles.gameDayStatValue}>{formatMatchAddedTimeClock(selectedMatch, now)}</Text></View>
               <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Period</Text><Text style={styles.gameDayStatValue}>{presentation?.phaseLabel || 'Pre-match'}</Text></View>
-            </View> : null}
+            </View>
           </View> : null}
           {!selectedMatch.isFanView && !isCompleted ? <View style={styles.section}>
             <View style={styles.row}><View style={{ gap: 6, flexShrink: 1 }}><Text style={styles.fieldLabel}>Availability</Text><MatchStatusBadge colors={colors} status={getParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)} prefix="Availability" styles={styles} /></View>

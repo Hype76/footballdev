@@ -377,7 +377,7 @@ try {
       await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
       if(title==='Game Day'){
-        await page.evaluate(() => { window.responses.matches.events = [
+        await page.evaluate(() => { Object.assign(window.responses.matches.matches[0], { timer_status: 'running', timer_elapsed_seconds: 2100, timer_started_at: new Date(Date.now()-60000).toISOString(), match_duration_minutes: 70, current_match_phase: 'second_half', status: 'second_half' }); window.responses.matches.events = [
           { id: 'assisted-goal', event_type: 'goal', team_side: 'club', minute: 70, scorer_name: 'Alex Scorer', assist_name: 'Jamie Assist', home_score: 1, away_score: 0, created_at: '2026-09-24T19:10:00Z' },
           { id: 'solo-goal', event_type: 'goal', team_side: 'club', minute: 80, scorer_name: 'Sam Solo', home_score: 2, away_score: 0, created_at: '2026-09-24T19:20:00Z' },
         ] })
@@ -388,6 +388,8 @@ try {
           await page.getByRole('heading',{name:'Demo FC v Away Club',exact:true}).waitFor();
           await page.getByLabel('Match type: League',{exact:true}).waitFor();
           await page.getByLabel('Surface: 3G',{exact:true}).waitFor();
+          await page.getByText('Match timer',{exact:true}).waitFor();
+          assert.equal(await page.getByText('36:00',{exact:true}).count(),1,'Fan detail uses the Parent clock from saved elapsed and start');
           assert.equal(await page.getByText('Goal Alex Scorer',{exact:true}).locator('..').getByText('Assist: Jamie Assist',{exact:true}).count(),1,'Recorded assist appears on its own line below the Fan goal')
           assert.equal(await page.getByText('Goal Sam Solo',{exact:true}).locator('..').getByText(/^Assist:/).count(),0,'Goals without a recorded assist have no assist line')
           if(mode==='light' && choice==='home') {

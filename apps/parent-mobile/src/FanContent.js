@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { formatMatchAddedTimeClock } from '../../../src/lib/matchday-event-time'
 import { Pressable, Text, View } from 'react-native'
 import { buildParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
 import { upcomingFanSchedule } from '../../../src/lib/fan-schedule'
@@ -12,6 +14,12 @@ import { FanAttendanceScreen } from './FanAttendanceScreen'
 import { PlayerStatsScreen } from './PlayerStatsScreen'
 
 export function FanContent({ connection, view, content, formation, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
+  const [clockNow, setClockNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (view.action !== 'matches') return undefined
+    const timer = setInterval(() => setClockNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [view.action])
   const link = { playerName: connection?.player_name, teamName: connection?.team_name, clubName: connection?.club_name }
   const resource = (items) => ({ items, loading: false, error: '' })
   const addToCalendar = (item) => onOpenLink(getParentGoogleCalendarUrl(item))
@@ -34,7 +42,7 @@ export function FanContent({ connection, view, content, formation, onCloseFormat
       {(isPlayer ? [{ label: 'Upcoming', items: matches.filter(item => ['scheduled', 'scorer_request'].includes(item.status)).sort((a, b) => Date.parse(a.matchDate) - Date.parse(b.matchDate)) }, { label: 'Live matches', items: matches.filter(item => isFanGameDayMatch(item) && item.status !== 'full_time') }, { label: 'Results', items: matches.filter(item => item.status === 'full_time') }] : [{ label: 'Live matches', items: matches.filter(item => item.status !== 'full_time') }, { label: 'Results', items: matches.filter(item => item.status === 'full_time') }]).map(group => <View key={group.label} style={{ gap: 12 }}>
         <Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 20, fontWeight: '700' }}>{group.label}</Text>
       {!group.items.length ? <Text style={{ color: themeTokens.textSecondary }}>No shared {group.label.toLowerCase()}.</Text> : group.items.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Open ${getMatchDayDisplayName(item)}`} onPress={() => onOpen('matches', { matchId: item.id })} style={{ borderBottomWidth: 1, borderBottomColor: themeTokens.border, minHeight: 64, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={{ flex: 1, gap: 6 }}><Text style={{ color: themeTokens.textPrimary, fontSize: 16, fontWeight: '700' }}>{getMatchDayDisplayName(item)}</Text><Text style={{ color: themeTokens.textSecondary }}>{formatParentProductDateTime(item.matchDate, { year: 'numeric' })}</Text>{isFanGameDayMatch(item) ? <Text style={{ color: themeTokens.textPrimary, fontSize: 24, fontWeight: '800' }}>{item.homeScore ?? 0} - {item.awayScore ?? 0}</Text> : null}</View>
+          <View style={{ flex: 1, gap: 6 }}><Text style={{ color: themeTokens.textPrimary, fontSize: 16, fontWeight: '700' }}>{getMatchDayDisplayName(item)}</Text><Text style={{ color: themeTokens.textSecondary }}>{formatParentProductDateTime(item.matchDate, { year: 'numeric' })}</Text>{isFanGameDayMatch(item) ? <Text style={{ color: themeTokens.textPrimary, fontSize: 24, fontWeight: '800' }}>{item.homeScore ?? 0} - {item.awayScore ?? 0}</Text> : null}{isFanGameDayMatch(item) ? <Text accessibilityLabel="Match timer" style={{ color: themeTokens.textSecondary }}>Match timer {formatMatchAddedTimeClock(item, clockNow)}</Text> : null}</View>
           <ParentIcon iconKey="action.open" color={themeTokens.accentText} size={24} />
         </Pressable>)}
       </View>)}

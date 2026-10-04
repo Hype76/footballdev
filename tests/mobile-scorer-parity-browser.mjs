@@ -130,6 +130,14 @@ try {
       await page.getByText(/opponent receives the goal|goal counts for the opponent/).waitFor()
       await assertRenderedTextContrast(page, `${app} ${mode} ${accent} scorer`)
       await page.screenshot({ path: `output/playwright/mobile-scorer/${app}-${mode}-own-goal.png` })
+      if (app === 'parent') {
+        const before = await page.evaluate(() => window.calls.length)
+        await page.getByLabel('Goal minute', { exact: true }).fill('')
+        await page.getByRole('button', { name: 'Record goal', exact: true }).click()
+        await page.getByText('Enter the goal minute before recording the goal.', { exact: true }).waitFor()
+        assert.equal(await page.evaluate(() => window.calls.length), before)
+        await page.getByLabel('Goal minute', { exact: true }).fill('6')
+      }
       await page.getByRole('button', { name: 'Record goal', exact: true }).click()
       let saved = await page.evaluate(() => window.calls.at(-1).value)
       assert.equal(saved.teamSide, 'opponent')
