@@ -195,8 +195,9 @@ function isPermissionGranted(permission) {
   ].includes(permission?.ios?.status)
 }
 
-async function request({ apiBaseUrl, body, method, path }) {
+async function request({ apiBaseUrl, body, method, path, isCurrent = () => true }) {
   const accessToken = await getAccessToken()
+  if (!isCurrent()) throw new Error('Notification setup is no longer current.')
   if (!accessToken) throw new Error('Sign in before changing notifications.')
   if (!apiBaseUrl) throw new Error('Notifications are not ready for this build.')
 
@@ -338,6 +339,7 @@ export async function enableParentNotifications({ apiBaseUrl, detailLevel: reque
     return request({
       apiBaseUrl,
       method: 'POST',
+      isCurrent,
       path: getInstallationPath(apiBaseUrl),
       body: {
         appVersion: Application.nativeApplicationVersion || '',
