@@ -30,7 +30,7 @@ test('new, mixed, untraceable, cyclic and uncovered advisory paths fail closed',
   for (const mutate of [
     a => a.vulnerabilities.braces.via.push({ ...advisory, url: 'https://github.com/advisories/GHSA-new-unknown' }),
     a => a.vulnerabilities.braces.via.push('missing-package'),
-    a => a.vulnerabilities.braces.via.push('micromatch'),
+    a => a.vulnerabilities.braces.via.push('braces'),
     a => { a.vulnerabilities.braces.via = ['micromatch'] },
     a => { a.vulnerabilities.braces.via = [] },
     a => { a.vulnerabilities.braces.nodes.push('node_modules/extra/node_modules/braces') },
@@ -60,6 +60,26 @@ test('missing, invalid, API-error and inconsistent audit data cannot be accepted
     const altered = fixture(); altered.metadata.vulnerabilities.high = value
     assert.throws(() => evaluateAudit(altered, lock, scope, policy), /count/)
   }
+})
+test('the real Metro cross-package cycle remains fully traceable to reviewed roots', () => {
+  const audit = fixture(), metroLock = clone(lock)
+  for (const [name, via] of Object.entries({ metro: ['metro-config', 'metro-file-map', 'metro-transform-worker'], 'metro-config': ['metro'], 'metro-transform-worker': ['metro'], 'metro-file-map': ['micromatch'] })) {
+    audit.vulnerabilities[name] = { severity: 'high', via, nodes: ['node_modules/' + name] }
+    metroLock.packages['node_modules/' + name] = { version: '0.83.8' }
+  }
+  audit.metadata.vulnerabilities.high = 6
+  audit.metadata.vulnerabilities.total = 6
+  const result = evaluateAudit(audit, metroLock, scope, policy)
+  assert.deepEqual(result.failures, [])
+  assert.equal(result.acceptedSourceRemediations.length, 6)
+  const closed = clone(audit)
+  closed.vulnerabilities['metro-file-map'].via = ['metro-config']
+  closed.vulnerabilities.metro.via = ['metro-config', 'metro-file-map', 'metro-transform-worker']
+  assert.ok(evaluateAudit(closed, metroLock, scope, policy).failures.some(x => x.includes('Untraceable')))
+  const missing = clone(audit); missing.vulnerabilities['metro-config'].via.push('missing-entry')
+  const rejected = evaluateAudit(missing, metroLock, scope, policy)
+  assert.ok(rejected.failures.length > 0)
+  assert.deepEqual(rejected.acceptedSourceRemediations, [])
 })
 test('all owned physical copies, complete package contents and lock identities are verified', () => {
   // This is an integration check against freshly installed, actually patched dependencies.

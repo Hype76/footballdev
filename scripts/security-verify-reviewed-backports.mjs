@@ -196,16 +196,29 @@ export async function verifyUpstream(record, payload) {
 export function evaluateAudit(audit, lock, scope, record) {
   assert.ok(audit && audit.auditReportVersion === 2 && !audit.error && audit.vulnerabilities && typeof audit.vulnerabilities === 'object' && !Array.isArray(audit.vulnerabilities) && audit.metadata?.vulnerabilities, 'Invalid full audit data')
   const accepted = [], failures = [], observed = new Set()
-  const roots = (name, seen = new Set()) => {
-    if (seen.has(name)) { failures.push(`Cyclic audit graph: ${scope}/${name}`); return [] }
-    seen.add(name)
-    const finding = audit.vulnerabilities[name]
-    if (!finding || !Array.isArray(finding.via) || !finding.via.length) { failures.push(`Missing audit graph entry: ${scope}/${name}`); return [] }
-    return finding.via.flatMap(via => {
-      if (typeof via === 'string') return roots(via, new Set(seen))
-      if (!via || typeof via !== 'object' || Array.isArray(via)) { failures.push(`Invalid advisory object: ${scope}/${name}`); return [] }
-      return [{ ...via, owner: name }]
-    })
+  const roots = (start) => {
+    // npm's Metro findings contain legitimate cross-package cycles. Walk the
+    // complete reachable closure once, without dropping any unknown edge.
+    const pending = [start], visited = new Set(), leaves = []
+    while (pending.length) {
+      const name = pending.pop()
+      if (visited.has(name)) continue
+      visited.add(name)
+      const finding = audit.vulnerabilities[name]
+      if (!finding || !Array.isArray(finding.via) || !finding.via.length) {
+        failures.push(`Missing audit graph entry: ${scope}/${name}`)
+        continue
+      }
+      for (const via of finding.via) {
+        if (typeof via === 'string') {
+          if (via === name) failures.push(`Self-referencing audit finding: ${scope}/${name}`)
+          else pending.push(via)
+        } else if (!via || typeof via !== 'object' || Array.isArray(via)) {
+          failures.push(`Invalid advisory object: ${scope}/${name}`)
+        } else leaves.push({ ...via, owner: name })
+      }
+    }
+    return leaves
   }
   for (const [name, finding] of Object.entries(audit.vulnerabilities)) {
     assert.ok(finding && typeof finding === 'object' && !Array.isArray(finding), 'Invalid finding object')
