@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseline": "1f635088b522079c119048e3ca996c93f0e106f1",
+  "baseline": "8755d067bff9cf3cd33e1f7124f7bd021404bcd5",
   "expiresAt": "2026-10-11T22:59:59Z",
   "sourceRevisions": {
     "braces72": {
@@ -227,18 +227,23 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "7a3659286ccc353fab53ee89f66a93fb2fb5e0d1d8dbd90219371c1f83282ebb",
+    "scripts/security-verify-reviewed-backports.mjs": "aecff721cb5f33a796edc05f5517edfa923edec7d639e302dd4ab5b0f31ab52d",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
-    "tests/security-reviewed-backports.test.mjs": "180c6263a03a2db3275974362eeded6a5a568ea9ea2bed8da25517110c5fcba6"
+    "tests/security-reviewed-backports.test.mjs": "5bccc2dc3f5c6f4b331f410228960e337a25b5f810094e9683d31ed675926388",
+    "scripts/security-provision-reviewed-backports.mjs": "8718b28d2c1c7c3f288a1f19b8bea025c70286dc09fd0114aea23e68177c0981",
+    "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
+    ".github/workflows/security-gate.yml": "7c70f8c94e779b1ce11c67ec23ad671f365936a94c471aae7d51f94a62f89e93",
+    "apps/scripts/mobile-release-check.mjs": "026b0d3117b8d268be368851f2ebfeb82363f8a738765c15b1a6a906479b56c1",
+    "package.json": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7"
   },
   "payloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
   "adoptionProposalSha256": "b7aa86bbcfc622f60ff9f8fee8bdf983339201a715440e01205d3a22ca707695",
   "nativeInputs": [
     {
       "path": "package.json",
-      "normalisedUtf8Sha256": "066f403f6d665f003b5c3ea0e025d52865d07d3636278f58a529e4eba798ab09",
+      "normalisedUtf8Sha256": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7",
       "unchanged": true
     },
     {
@@ -457,5 +462,21 @@
       "tests/parent-chat-layout-browser.mjs": "18f9a8b15bfbf4c1e284bfae5776b239671c0a90116772784da132b71581fccd"
     }
   },
-  "dependencyRemediationSha256": "bf3888ea9863eb1bbc4913e4115a0b0b456522724098d47ce697af855f638fb2"
+  "dependencyRemediationSha256": "bf3888ea9863eb1bbc4913e4115a0b0b456522724098d47ce697af855f638fb2",
+  "releasePreparation": {
+    "previousCandidate": "6c390d00d760bfacd7f4c5ca15653348085a789a",
+    "baseline": "8755d067bff9cf3cd33e1f7124f7bd021404bcd5",
+    "approvedScope": "One-file Parent branding test-factory repair and narrow checked-in exact-patch CI/mobile provisioning; no product behaviour or native/runtime change",
+    "changedSourceHashes": {
+      "tests/matchday-club-name.test.mjs": "90d64ab3a754a8d8a8712ce1c7f63036e888b3457f9409d1fbb3edea944073f3"
+    },
+    "externalTrustInputs": [
+      "FOOTBALL_REVIEW_RECEIPT_BASE64",
+      "FOOTBALL_REVIEW_RECEIPT_SHA256"
+    ],
+    "externalConfigurationStatus": "Parent-approved protected repository variable configuration is required later; no remote configuration performed",
+    "expiryAndAdvisoryScopeUnchanged": true,
+    "publicationApproved": false
+  },
+  "releasePreparationSha256": "43f80d26dc6a02f1e5efa5f9d6a1631a6b6ec0477d9e78a4ae8d83b4ab7ae801"
 }

@@ -46,8 +46,12 @@ export function inventory(directory) {
 export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   assert.equal(record.schemaVersion, 1)
-  assert.equal(record.baseline, '1f635088b522079c119048e3ca996c93f0e106f1')
+  assert.equal(record.baseline, '8755d067bff9cf3cd33e1f7124f7bd021404bcd5')
   assert.equal(record.expiresAt, '2026-10-11T22:59:59Z')
+  assert.equal(record.releasePreparationSha256, '43f80d26dc6a02f1e5efa5f9d6a1631a6b6ec0477d9e78a4ae8d83b4ab7ae801', 'Release preparation scope drift')
+  assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
+  assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
+  for (const [file, expected] of Object.entries(record.releasePreparation.changedSourceHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved harness source drift: ' + file)
   assert.match(record.adoptionProposalSha256 || '', /^[a-f0-9]{64}$/)
   assert.equal(hash(Buffer.from(JSON.stringify(record.dependencyRemediation, null, 2) + '\n')), record.dependencyRemediationSha256, 'Dependency remediation pins drift')
   for (const [file, expected] of Object.entries(record.dependencyRemediation.changedSourceHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved dependency/test source drift: ' + file)
