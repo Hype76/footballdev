@@ -1,3 +1,5 @@
+import { NotificationExplainer } from './src/NotificationExplainer'
+import { notificationExplainerKey } from './src/notificationExplainerCore'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { parentThemePreference } from './src/displayThemePreference'
@@ -1155,12 +1157,14 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       void enableParentNotifications({
         apiBaseUrl: config.apiBaseUrl,
         devicePushToken,
+        requestPermission: false,
+        isCurrent: () => currentAccountRef.current === user?.id,
         easProjectId: config.easProjectId,
         parentLinkId: selectedLink.id,
       }).then(setNotificationState).catch(() => {})
     })
     return () => subscription.remove()
-  }, [notificationState.enabled, selectedLink?.id])
+  }, [notificationState.enabled, selectedLink?.id, user?.id])
 
   useEffect(() => {
     const request = lastNotificationResponse?.notification?.request
@@ -1983,11 +1987,12 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
               easProjectId: config.easProjectId,
               parentLinkId: selectedLink.id,
             })
+      if (mode === 'off' || nextState.enabled) await AsyncStorage.setItem(`${notificationExplainerKey(user.id, config.apiBaseUrl)}.paused`, mode === 'off' ? '1' : '0')
       setNotificationState(nextState)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice({
         message: nextState.enabled
-          ? 'Parent push alerts are enabled on this device.'
+          ? nextState.visibleAlertsReady === false ? 'Phone permission is on, but visible alerts need attention in phone settings.' : 'Parent push alerts are enabled on this device.'
           : nextState.message || 'Notifications are off. The rest of the app is unchanged.',
         tone: nextState.enabled ? 'success' : 'warning',
       })
@@ -2272,6 +2277,18 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             />
             {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
 
+            <NotificationExplainer
+              key={user.id + selectedLink?.id}
+              accountId={user.id} linkId={selectedLink?.id} config={config} palette={palette}
+              onState={setNotificationState}
+              settingsOpen={!isOffline && renderedActiveTab === 'more' && renderedMoreSection === 'settings'}
+              homeReady={Boolean(lastUpdatedAt) && renderedActiveTab === 'home' && !isOffline && !isProfileLoading && !authError
+                && parentRouteAllowed('matchday') && parentRouteAllowed('invites')
+                && !activeActionId && !childSwitcherOpen && notificationResponseHistoryReady
+                && !pendingNotificationRoomId && !notificationResponseProcessingRef.current
+                && (!lastNotificationResponse || notificationResponseIdRef.current === lastNotificationResponse.notification?.request?.identifier)
+                && Object.values(resources).every(resource => !resource.loading && !resource.error)}
+            />
             {renderedActiveTab === 'home' ? (
               <HomeScreen
                 userId={selectedMobileUser?.id}
@@ -3335,7 +3352,7 @@ function SettingsScreen({
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>Unable to confirm push alerts. Retry the check or enable alerts again. Your saved preference has not been changed.</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>Notification status could not be read. No setting has been changed.</Text> : null}
         {communicationPreference.communicationChannel === 'email' ? <Text style={styles.helperText}>Your communication choice is Email. Choose App notifications or Both in Email &amp; app to receive push alerts.</Text> : null}
-        {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
+        {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' && !notificationState.canAskAgain ? (
           <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
         ) : null}
         {notificationStateKnown && notificationState.message ? <Text style={styles.helperText}>{notificationState.message}</Text> : null}
@@ -3638,6 +3655,7 @@ function AppContent() {
       />
     )
   }
+  if (!fanLink.ready) return <LoadingScreen message="Checking app invitation..." />
   if (fanLink.route?.kind === 'invite') return <FanInvitationScreen key={`${session.user.id}:${fanLink.route.token}`} token={fanLink.route.token} session={session} onSignIn={() => setFanSignInRoute(fanLink.route)} onClose={fanLink.close} onAccepted={fanLink.accepted} />
   if (fanLink.route?.kind === 'fans') return <FansScreen onBack={fanLink.close} />
   if (user?.parentPortalLinks?.length && user.parentPortalLinks.every((link) => link.linkType === 'fan')) return <FansScreen />

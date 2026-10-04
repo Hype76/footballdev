@@ -138,6 +138,7 @@ export function normalizeParentNotificationState(value = {}) {
     permissionGranted: Boolean(value.permissionGranted),
     permissionStatus,
     registered,
+    ...(value.visibleAlertsReady !== undefined ? { visibleAlertsReady: Boolean(value.visibleAlertsReady), quietDelivery: Boolean(value.quietDelivery), channelBlocked: Boolean(value.channelBlocked) } : {}),
   }
 }
 
@@ -158,7 +159,11 @@ export function getParentAppBadgeUpdate({ authenticated = false, resourcesLoaded
 
 export function getParentNotificationStatusLabel(value = {}) {
   const state = normalizeParentNotificationState(value)
-  if (!state.permissionGranted && state.permissionStatus === 'denied') return 'Blocked in device settings'
+  if (state.permissionStatus === 'ephemeral') return state.visibleAlertsReady ? 'Temporary phone permission; alerts currently allowed' : 'Temporary phone permission; review phone settings'
+  if (state.quietDelivery) return 'Quiet delivery; review phone settings'
+  if (state.channelBlocked || (state.permissionGranted && state.visibleAlertsReady === false)) return 'Visible alerts are off in phone settings'
+  if (state.permissionGranted && !state.registered) return 'Phone permission on; finish setup'
+  if (!state.permissionGranted && state.permissionStatus === 'denied') return state.canAskAgain ? 'Phone permission is off' : 'Blocked in device settings'
   if (!state.enabled) return 'Off'
   return 'Push alerts enabled'
 }
