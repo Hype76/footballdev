@@ -231,7 +231,7 @@
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
-    "tests/security-reviewed-backports.test.mjs": "24a817cfd30209aa6e51af4b4695b9424fdc618dbadda783f2670f2e30a16ea4"
+    "tests/security-reviewed-backports.test.mjs": "4efb43fd1681e8c773e8a31629fc7f6d96898857e91f33f93cd2007b46d2e5fe"
   },
   "payloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
   "adoptionProposalSha256": "b7aa86bbcfc622f60ff9f8fee8bdf983339201a715440e01205d3a22ca707695",

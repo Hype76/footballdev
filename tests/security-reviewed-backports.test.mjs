@@ -14,7 +14,7 @@ const scope = 'apps/parent-mobile'
 const lock = { packages: { 'node_modules/braces': { version: '3.0.3' }, 'node_modules/micromatch': { version: '4.0.8' } } }
 const advisory = { url: 'https://github.com/advisories/GHSA-vfj7-8cjw-p6xm', severity: 'high' }
 const fixture = () => ({ auditReportVersion: 2, vulnerabilities: {
-  braces: { severity: 'high', via: [advisory], nodes: ['node_modules/braces'] },
+  braces: { severity: 'high', via: [{ ...advisory }], nodes: ['node_modules/braces'] },
   micromatch: { severity: 'high', via: ['braces'], nodes: ['node_modules/micromatch'] },
 }, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 2, critical: 0, total: 2 } } })
 
@@ -80,6 +80,11 @@ test('the real Metro cross-package cycle remains fully traceable to reviewed roo
   const rejected = evaluateAudit(missing, metroLock, scope, policy)
   assert.ok(rejected.failures.length > 0)
   assert.deepEqual(rejected.acceptedSourceRemediations, [])
+  const hiddenAdvisory = clone(audit)
+  hiddenAdvisory.vulnerabilities['metro-transform-worker'].via.push({ ...advisory, url: 'https://github.com/advisories/GHSA-new-unknown' })
+  const hiddenRejected = evaluateAudit(hiddenAdvisory, metroLock, scope, policy)
+  assert.ok(hiddenRejected.failures.some(x => x.includes('GHSA-new-unknown')))
+  assert.deepEqual(hiddenRejected.acceptedSourceRemediations, [])
 })
 test('all owned physical copies, complete package contents and lock identities are verified', () => {
   // This is an integration check against freshly installed, actually patched dependencies.
