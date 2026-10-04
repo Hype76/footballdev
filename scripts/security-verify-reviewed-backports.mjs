@@ -12,6 +12,8 @@ const implementationFiles = [
   'scripts/security-verify-reviewed-backports.mjs', 'security/patches/braces-3.0.3.patch',
   'security/patches/node-forge-1.4.0.patch', 'security/patches/reviewed-source-manifest.json',
   'tests/security-reviewed-backports.test.mjs',
+  'scripts/security-provision-reviewed-backports.mjs', 'tests/security-reviewed-provisioning.test.mjs',
+  '.github/workflows/security-gate.yml', 'apps/scripts/mobile-release-check.mjs', 'package.json',
 ]
 const safe = (root, relative) => {
   assert.ok(relative && !relative.includes('\\') && !relative.split('/').includes('..') && !path.isAbsolute(relative), 'Unsafe relative path')
@@ -27,7 +29,9 @@ export function artifactPath(root, name) {
   if (!fs.existsSync(directory)) fs.mkdirSync(directory)
   safe(root, '.security-artifacts')
   const file = path.join(directory, name)
-  if (fs.existsSync(file)) safe(root, '.security-artifacts/' + name)
+  let entry
+  try { entry = fs.lstatSync(file) } catch (error) { if (error.code !== 'ENOENT') throw error }
+  if (entry) safe(root, '.security-artifacts/' + name)
   return file
 }
 export function inventory(directory) {
@@ -142,10 +146,12 @@ export function verifyCopies(root, record, mode = 'patched') {
 }
 export function verifyReview(root, record, source, trustedReceiptSha256 = process.env.FOOTBALL_REVIEW_RECEIPT_SHA256) {
   const file = artifactPath(root, 'implementation-review.json')
+  return verifyReviewBytes(root, record, source, fs.readFileSync(file), trustedReceiptSha256)
+}
+export function verifyReviewBytes(root, record, source, bytes, trustedReceiptSha256 = process.env.FOOTBALL_REVIEW_RECEIPT_SHA256) {
   // This pin is supplied by the trusted caller from the independent review result.
   // A self-authored local receipt, by itself, never authorises acceptance.
   assert.match(trustedReceiptSha256 || '', /^[a-f0-9]{64}$/, 'Trusted independent-review receipt SHA256 is required')
-  const bytes = fs.readFileSync(file)
   assert.equal(hash(bytes), trustedReceiptSha256, 'Independent-review receipt is not the externally approved identity')
   const review = JSON.parse(bytes)
   assert.equal(review.status, 'ACCEPTED_LOCAL_IMPLEMENTATION')
@@ -154,6 +160,7 @@ export function verifyReview(root, record, source, trustedReceiptSha256 = proces
   assert.equal(review.recordSha256, hash(fs.readFileSync(path.join(root, 'security/reviewed-source-remediations.json'))), 'Review record drift')
   assert.equal(review.proposalSha256, record.adoptionProposalSha256, 'Review proposal identity mismatch')
   assert.equal(review.dependencyRemediationSha256, record.dependencyRemediationSha256, 'Review dependency-remediation identity mismatch')
+  assert.equal(review.releasePreparationSha256, record.releasePreparationSha256, 'Review release-preparation identity mismatch')
   assert.equal(review.payloadSha256, record.payloadSha256, 'Review payload identity mismatch')
   assert.deepEqual(review.implementationHashes, record.implementationHashes, 'Review implementation identity mismatch')
   assert.deepEqual(review.nativeInputs, record.nativeInputs, 'Review native input identity mismatch')

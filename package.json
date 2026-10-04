@@ -81,6 +81,7 @@
     "mobile:submit:parent:ios:store-test": "npm --prefix apps/parent-mobile run submit:ios:store-test",
     "mobile:submit:parent:ios:store-live": "npm --prefix apps/parent-mobile run submit:ios:store-live",
     "preview": "vite preview",
+    "security:provision": "node scripts/security-provision-reviewed-backports.mjs",
     "security:supply-chain": "node scripts/security-supply-chain-gate.mjs && npm audit --omit=dev --audit-level=low",
     "security:secret-scan": "node scripts/security-secret-scan.mjs",
     "security:sbom": "node scripts/security-sbom.mjs",
