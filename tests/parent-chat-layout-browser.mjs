@@ -103,6 +103,12 @@ try {
   assert.deepEqual(await page.evaluate(() => window.calls), [['send', 'Synthetic multiline\nmessage']])
   assert.equal(await page.getByLabel('Parent Chat message').inputValue(), '')
   await page.evaluate(() => window.offline(true))
+  // React commits the simulated connection change after evaluate returns.
+  // Observe that commit before asserting the same disabled-input contract.
+  await page.waitForFunction(() => {
+    const composer = document.querySelector('[aria-label="Parent Chat message"]')
+    return composer && (composer.readOnly || composer.disabled)
+  }, null, { timeout: 2000 })
   assert.equal(await page.getByLabel('Parent Chat message').isEditable(), false)
   await page.evaluate(() => { window.offline(false); window.canPost(false) })
   await page.waitForFunction(() => !document.querySelector('[aria-label="Parent Chat message"]'))
