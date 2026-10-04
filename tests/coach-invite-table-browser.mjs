@@ -40,6 +40,7 @@ try{
  await boxes().first().click()
  await page.getByRole('button',{name:'Mark unavailable',exact:true}).click()
  await page.getByRole('heading',{name:'Mark player unavailable?',exact:true}).waitFor()
+ await page.getByText(/It does not sign in as or impersonate the Parent or Player/).waitFor()
  assert.deepEqual(await page.evaluate(()=>window.availabilityWrites),[])
  await page.evaluate(()=>window.failAvailability=true)
  await page.getByRole('button',{name:'Confirm response',exact:true}).click()

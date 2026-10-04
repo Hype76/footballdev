@@ -1132,7 +1132,7 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
         <View style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
           <View accessibilityViewIsModal style={[styles.card, { backgroundColor: palette.surface, gap: 16 }]}>
             <Text accessibilityRole="header" style={styles.cardTitle}>{availabilityConfirm?.status === 'available' ? 'Accept on behalf of player?' : 'Mark player unavailable?'}</Text>
-            <Text style={styles.body}>{availabilityConfirm?.invite.playerName} will be marked {availabilityConfirm?.status === 'available' ? 'Available' : 'Unavailable'} for {availabilityConfirm?.invite.title}. This records a staff response. Squad selection stays the same.</Text>
+            <Text style={styles.body}>{availabilityConfirm?.invite.playerName} will be marked {availabilityConfirm?.status === 'available' ? 'Available' : 'Unavailable'} for {availabilityConfirm?.invite.title}. This records a staff response. It does not sign in as or impersonate the Parent or Player. Squad selection stays the same.</Text>
             {availabilityError ? <Text accessibilityLiveRegion="polite" style={styles.danger}>{availabilityError}</Text> : null}
             <Button disabled={Boolean(bulkAction) || stale} destructive={availabilityConfirm?.status === 'unavailable'} label={bulkAction ? 'Saving response...' : 'Confirm response'} onPress={() => recordAvailabilityOnBehalf(availabilityConfirm.status)} styles={styles} />
             <Button disabled={Boolean(bulkAction)} label="Cancel response change" onPress={() => setAvailabilityConfirm(null)} secondary styles={styles} />
