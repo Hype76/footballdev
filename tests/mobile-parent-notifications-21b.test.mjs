@@ -149,7 +149,7 @@ test('legacy privacy remains compatible while Parent settings use independent no
     permissionStatus: 'undetermined',
     registered: true,
   })
-  assert.equal(getParentNotificationStatusLabel({ enabled: true, registered: true }), 'Push alerts enabled')
+  assert.equal(getParentNotificationStatusLabel({ enabled: true, registered: true }), 'Phone permission not verified')
   assert.match(app, /<NotificationCategorySettings/)
   assert.match(app, /Enable push alerts on this device/)
   assert.doesNotMatch(app, /label: 'Minimal'|label: 'Detailed'/)
