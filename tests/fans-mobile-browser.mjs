@@ -19,7 +19,7 @@ assert.match(app, /renderedActiveTab === 'more' && renderedMoreSection \? <BackB
 assert.match(app, /selectedParentLinkId=\{selectedLink\?\.id\} onSelectedParentLinkChange=\{\(linkId\) => handleChildChange\(linkId, \{ stayOnFans: true \}\)\}/)
 const mocks = {
   auth: `export const useMobileAuth=()=>({user:window.user,refreshUserProfile:async()=>window.remount(),signOut:async()=>{if(window.failSignOut)throw Error('Could not sign out. Try again.');window.signedOut=(window.signedOut||0)+1}});`,
-  supabase: `export const getAccessToken=async()=> {if(window.holdPhoneAuth)await new Promise(resolve=>{window.releasePhoneAuth=resolve});return 'synthetic'}; export const supabase={auth:{getSession:async()=>({data:{session:{user:window.user}}})},rpc:async(name,args)=>({data:await window.rpc(name,args)}),from:()=>{window.directKitReads=(window.directKitReads||0)+1;throw Error('Fan has no direct club access')},storage:{from:()=>({getPublicUrl:key=>({data:{publicUrl:'http://localhost:9877/kits/'+key}})})}};`,
+  supabase: `export const getAccessToken=async()=> {if(window.holdPhoneAuth){window.holdPhoneAuth=false;await new Promise(resolve=>{window.releasePhoneAuth=resolve})}return 'synthetic'}; export const supabase={auth:{getSession:async()=>({data:{session:{user:window.user}}})},rpc:async(name,args)=>({data:await window.rpc(name,args)}),from:()=>{window.directKitReads=(window.directKitReads||0)+1;throw Error('Fan has no direct club access')},storage:{from:()=>({getPublicUrl:key=>({data:{publicUrl:'http://localhost:9877/kits/'+key}})})}};`,
   config: `export const getMobileRuntimeConfig=()=>({apiBaseUrl:'http://localhost:9877'});`,
   'expo-crypto': `export const randomUUID=()=>crypto.randomUUID();`,
   'expo-notifications': `const listeners=new Set();window.rotatePhoneToken=token=>{window.currentPhoneToken=token;for(const listener of listeners)listener({type:'ios',data:'native-rotated'})};export const addPushTokenListener=listener=>{listeners.add(listener);return {remove:()=>listeners.delete(listener)}};export const useLastNotificationResponse=()=>null;export const getPermissionsAsync=async()=>window.phonePermission||{status:'denied'};export const requestPermissionsAsync=async()=>{window.phonePrompts=(window.phonePrompts||0)+1;return getPermissionsAsync()};export const getExpoPushTokenAsync=async()=>({data:window.currentPhoneToken||'ExpoPushToken[synthetic]'});`,
@@ -66,9 +66,9 @@ window.readRequests=[];window.responses={};window.failRead=false;window.delayRea
 window.emailRequests=0;window.fetch=async(_url,options)=>{
  const body=JSON.parse(options.body);if(body.action==='send_invitation'){window.emailRequests++;return {ok:true,status:200,json:async()=>({success:true})}}
  if(['device_status','register_device','unregister_device'].includes(body.action)){window.phoneRequests.push(body)}
- if(body.action==='device_status')return {ok:true,status:200,json:async()=>({registered:window.phoneRegistered===true&&window.registeredPhoneToken===body.token})};
- if(body.action==='register_device'){if(window.failPhoneRegistration)return {ok:false,status:503,json:async()=>({message:'Phone registration failed. Try again.'})};window.phoneRegistered=true;window.registeredPhoneToken=body.token;return {ok:true,status:200,json:async()=>({success:true})}}
- if(body.action==='unregister_device'){if(window.registeredPhoneToken===body.token)window.phoneRegistered=false;return {ok:true,status:200,json:async()=>({success:true})}}
+ if(body.action==='device_status')return {ok:true,status:200,json:async()=>({registered:window.phoneRegistered===true&&window.registeredPhoneToken===body.token&&window.registeredPhoneAccount===window.user.id})};
+ if(body.action==='register_device'){if(window.failPhoneRegistration)return {ok:false,status:503,json:async()=>({message:'Phone registration failed. Try again.'})};window.phoneRegistered=true;window.registeredPhoneToken=body.token;window.registeredPhoneAccount=window.user.id;return {ok:true,status:200,json:async()=>({success:true})}}
+ if(body.action==='unregister_device'){if(window.registeredPhoneToken===body.token&&window.registeredPhoneAccount===window.user.id)window.phoneRegistered=false;return {ok:true,status:200,json:async()=>({success:true})}}
  window.readRequests.push(body);const payload=window.responses[body.action]||{};const fail=window.failRead;
  if(window.delayRead)await new Promise(resolve=>{window.finishRead=resolve});
  return {ok:!fail,status:fail?503:200,json:async()=>fail?{message:'Could not load shared items. Try again.'}:payload};
@@ -283,6 +283,12 @@ try {
   await page.evaluate(()=>{window.phoneRegistered=false;window.background()});
   await page.waitForFunction(()=>window.phoneRegistered===true);
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
+  await page.evaluate(()=>{window.phoneToken=null;window.phoneRegistered=false;window.remount()});
+  await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
+  await page.getByText('Phone notifications are paused in this app.').waitFor();
+  assert.equal(await page.evaluate(()=>window.phoneRegistered),false,'A pause made by an older rollback client survives returning to the fix');
+  await button('Enable phone notifications').click();
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
   await button('Turn off phone notifications').click();
   await page.getByText('Phone notifications are paused in this app.').waitFor();
   await page.evaluate(()=>{window.background();window.rotatePhoneToken('ExpoPushToken[paused]')});
@@ -303,16 +309,16 @@ try {
   await page.evaluate(()=>{window.failPhoneRegistration=false});
   await button('Retry phone notifications').click();
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
-  const beforeSwitch = await page.evaluate(()=>window.phoneRequests.length);
   const originalPhoneAccount = await page.evaluate(()=>window.user.id);
   await page.evaluate(()=>{window.holdPhoneAuth=true;window.background()});
   await page.waitForFunction(()=>typeof window.releasePhoneAuth==='function');
   await page.evaluate(()=>{window.user={...window.user,id:'another-fan'};window.remount()});
   await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
   await page.getByText('This device is not registered for phone notifications.').waitFor();
+  const afterSwitch = await page.evaluate(()=>window.phoneRequests.length);
   await page.evaluate(()=>{window.holdPhoneAuth=false;window.releasePhoneAuth()});
   await page.getByText('This device is not registered for phone notifications.').waitFor();
-  assert.equal(await page.evaluate(()=>window.phoneRequests.length),beforeSwitch,'A stale authenticated request cannot send after the account changes');
+  assert.equal(await page.evaluate(()=>window.phoneRequests.length),afterSwitch,'A stale authenticated request cannot send after the account changes');
   await page.evaluate(id=>{window.user={...window.user,id};window.remount()},originalPhoneAccount);
   await page.waitForFunction(()=>window.phoneRegistered===true);
   await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();

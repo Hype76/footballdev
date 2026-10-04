@@ -34,7 +34,7 @@ async function readPreference(services, key) {
   const raw = await checked(services, () => services.secureStore.getItemAsync(key))
   if (!raw) return null
   const value = JSON.parse(raw)
-  if (typeof value.enabled !== 'boolean' || !Array.isArray(value.tokens) || !value.tokens.every(token => typeof token === 'string')) {
+  if (typeof value.enabled !== 'boolean' || !Array.isArray(value.tokens) || !value.tokens.every(token => typeof token === 'string') || (value.legacyToken !== undefined && typeof value.legacyToken !== 'string')) {
     throw new Error('Phone notification preferences could not be checked.')
   }
   return value
@@ -60,7 +60,7 @@ async function restore(services, key, preference, permission, devicePushToken) {
   const token = (await checked(services, () => services.notifications.getExpoPushTokenAsync(tokenOptions))).data
   if (!token) throw new Error('Phone notification registration could not be checked.')
   // Record attempted registrations before network writes so pause/logout can clean up lost responses.
-  preference = { enabled: true, tokens: [...new Set([...preference.tokens, token])] }
+  preference = { ...preference, enabled: true, tokens: [...new Set([...preference.tokens, token])] }
   await save(services, key, preference)
   const current = await checked(services, () => services.request({ action: 'device_status', token }))
   if (current.registered !== true) {
@@ -68,14 +68,26 @@ async function restore(services, key, preference, permission, devicePushToken) {
     const confirmation = await checked(services, () => services.request({ action: 'device_status', token }))
     if (confirmation.registered !== true) throw new Error('Phone notification registration could not be confirmed. Please try again.')
   }
-  await removeTokens(services, key, preference, preference.tokens.filter(previous => previous !== token))
-  await checked(services, () => services.secureStore.deleteItemAsync(LEGACY_KEY))
+  preference = await removeTokens(services, key, preference, preference.tokens.filter(previous => previous !== token))
+  // Retain the verified pointer for a rollback to the older client. It cannot grant
+  // another account consent because legacy migration still requires server ownership.
+  await checked(services, () => services.secureStore.setItemAsync(LEGACY_KEY, token))
+  await save(services, key, { ...preference, legacyToken: token })
   return { status: 'enabled', canAskAgain: true, quiet: permission.ios?.status === 3 }
 }
 
 export function readFanDeviceNotifications(services, devicePushToken) {
   return serial(services, async key => {
     let preference = await readPreference(services, key)
+    if (preference?.enabled && preference.legacyToken) {
+      const legacyToken = await checked(services, () => services.secureStore.getItemAsync(LEGACY_KEY))
+      if (!legacyToken) {
+        // The older app clears this pointer when paused or signed out. Never
+        // restore a saved opt-in over that later choice after rolling forward.
+        preference = { ...preference, enabled: false }
+        await save(services, key, preference)
+      }
+    }
     if (preference?.enabled === false) {
       await removeTokens(services, key, preference, preference.tokens)
       return { status: 'paused', canAskAgain: true }
@@ -121,8 +133,9 @@ export function disableFanDeviceNotifications(services) {
     const preference = { enabled: false, tokens: [...new Set([...(previous?.tokens || []), ...(legacy ? [legacy] : [])])] }
     // Persist the explicit opt-out even if unregister temporarily fails.
     await save(services, key, preference)
-    await removeTokens(services, key, preference, preference.tokens)
+    // Older clients do not understand the scoped opt-out record.
     await checked(services, () => services.secureStore.deleteItemAsync(LEGACY_KEY))
+    await removeTokens(services, key, preference, preference.tokens)
     return { status: 'paused', canAskAgain: true }
   })
 }

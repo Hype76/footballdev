@@ -40,9 +40,9 @@ test('legacy registration migrates only after ownership readback, then replaces 
   state.storage.set('fan-notification-device', 'ExpoPushToken[old]')
   state.registered.add('account-a:ExpoPushToken[old]')
   assert.equal((await read(services)).status, 'enabled')
-  assert.deepEqual(preference(), { enabled: true, tokens: [state.token] })
+  assert.deepEqual(preference(), { enabled: true, tokens: [state.token], legacyToken: state.token })
   assert.deepEqual([...state.registered], [`account-a:${state.token}`])
-  assert.equal(state.storage.has('fan-notification-device'), false)
+  assert.equal(state.storage.get('fan-notification-device'), state.token)
   assert.equal(state.prompts, 0)
 })
 
@@ -65,6 +65,7 @@ test('token rotation converts the native token and removes previous registered t
   assert.deepEqual(state.tokenReads.at(-1), { projectId: 'project-test', devicePushToken: nativeToken })
   assert.deepEqual([...state.registered], [`account-a:${state.token}`])
   assert.deepEqual(preference().tokens, [state.token])
+  assert.equal(state.storage.get('fan-notification-device'), state.token, 'Rollback readers receive the verified current token')
 })
 
 test('an explicit pause survives restart and token change', async () => {
@@ -77,6 +78,21 @@ test('an explicit pause survives restart and token change', async () => {
   assert.equal(preference().enabled, false)
   assert.equal(state.tokenReads.length, tokenReads)
   assert.equal(state.registered.size, 0)
+  assert.equal(state.storage.has('fan-notification-device'), false, 'Rollback readers cannot restore a deliberate pause')
+})
+
+test('a pause in the older rollback client is respected when returning to the fix', async () => {
+  const { state, services, preference } = fixture()
+  await enable(services)
+  const oldClientToken = state.storage.get('fan-notification-device')
+  assert.equal((await services.request({ action: 'device_status', token: oldClientToken })).registered, true)
+  await services.request({ action: 'unregister_device', token: oldClientToken })
+  state.storage.delete('fan-notification-device')
+  const tokenReads = state.tokenReads.length
+  assert.equal((await read(services)).status, 'paused')
+  assert.equal(preference().enabled, false)
+  assert.equal(state.tokenReads.length, tokenReads)
+  assert.equal(state.registered.size, 0)
 })
 
 test('failed unregister retains the opt-out and token ledger, then retries cleanup without enabling', async () => {
@@ -85,6 +101,7 @@ test('failed unregister retains the opt-out and token ledger, then retries clean
   state.failUnregister = true
   await assert.rejects(disable(services), /Could not disable/)
   assert.deepEqual(preference(), { enabled: false, tokens: [state.token] })
+  assert.equal(state.storage.has('fan-notification-device'), false, 'Even failed cleanup keeps the rollback reader paused')
   state.failUnregister = false
   assert.equal((await read(services)).status, 'paused')
   assert.equal(state.registered.size, 0)
@@ -139,8 +156,14 @@ test('server readback must confirm registration before reporting enabled', async
 test('account and API environment each isolate stored consent', async () => {
   const { state, services } = fixture()
   await enable(services)
-  assert.equal((await read({ ...services, userId: 'account-b' })).status, 'not_registered')
-  assert.equal((await read({ ...services, apiBaseUrl: 'https://other.test' })).status, 'not_registered')
+  const tokenReads = state.tokenReads.length
+  const otherScopeRequest = async body => {
+    assert.equal(body.action, 'device_status', 'An unregistered account/environment cannot register without consent')
+    return { registered: false }
+  }
+  assert.equal((await read({ ...services, userId: 'account-b', request: otherScopeRequest })).status, 'not_registered')
+  assert.equal((await read({ ...services, apiBaseUrl: 'https://other.test', request: otherScopeRequest })).status, 'not_registered')
+  assert.equal(state.tokenReads.length, tokenReads)
   assert.equal((await read({ ...services, apiBaseUrl: services.apiBaseUrl + '/' })).status, 'enabled')
   assert.equal(state.prompts, 0)
 })
