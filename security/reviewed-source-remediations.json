@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
+  "baseline": "1f635088b522079c119048e3ca996c93f0e106f1",
   "expiresAt": "2026-10-11T22:59:59Z",
   "sourceRevisions": {
     "braces72": {
@@ -201,7 +201,7 @@
     },
     {
       "scope": "apps/coach-mobile",
-      "normalisedUtf8Sha256": "16df00ab4f6d324af76ce1355d971d1730cbdb5ba7bd6310d41aac2c003ae62f"
+      "normalisedUtf8Sha256": "fb4cbbac28a81eee8acc13c0f4ea6b8129f4d7d4f0744a8eda3a6b51ea016c6a"
     }
   ],
   "patches": [
@@ -227,11 +227,11 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "45895f9e966a97dc78cd55c6defbd70ad8a0f27118dd3f7b8b70ce4360a1bef0",
+    "scripts/security-verify-reviewed-backports.mjs": "7a3659286ccc353fab53ee89f66a93fb2fb5e0d1d8dbd90219371c1f83282ebb",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
-    "tests/security-reviewed-backports.test.mjs": "4efb43fd1681e8c773e8a31629fc7f6d96898857e91f33f93cd2007b46d2e5fe"
+    "tests/security-reviewed-backports.test.mjs": "180c6263a03a2db3275974362eeded6a5a568ea9ea2bed8da25517110c5fcba6"
   },
   "payloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
   "adoptionProposalSha256": "b7aa86bbcfc622f60ff9f8fee8bdf983339201a715440e01205d3a22ca707695",
@@ -273,12 +273,12 @@
     },
     {
       "path": "apps/coach-mobile/package.json",
-      "normalisedUtf8Sha256": "3b44fc39dcaf105568514427036acf8f1a9f3cd4633ac5148d8e78ee89503501",
+      "normalisedUtf8Sha256": "9a482c2b1bfcfce0813f71ab3ccffcd9a2f416e579e4b033b68edce8fe84cfaa",
       "unchanged": true
     },
     {
       "path": "apps/coach-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "16df00ab4f6d324af76ce1355d971d1730cbdb5ba7bd6310d41aac2c003ae62f",
+      "normalisedUtf8Sha256": "fb4cbbac28a81eee8acc13c0f4ea6b8129f4d7d4f0744a8eda3a6b51ea016c6a",
       "unchanged": true
     },
     {
@@ -291,5 +291,171 @@
       "normalisedUtf8Sha256": "06bc1dbdd079d8ba6e9ec23abbaa21a0ddfc8a9f890bd707b9d241b4b20b0cd2",
       "unchanged": true
     }
-  ]
+  ],
+  "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
+  "dependencyRemediation": {
+    "baseline": "1f635088b522079c119048e3ca996c93f0e106f1",
+    "originalReviewedHead": "da51884f9364faa786a58aa063b8e631b02c253d",
+    "scope": [
+      "apps/coach-mobile/package.json",
+      "apps/coach-mobile/package-lock.json",
+      "tests/parent-chat-layout-browser.mjs"
+    ],
+    "reason": "Parent-authorised compatible official Coach tooling updates and observed Chat test render-commit timing repair.",
+    "additionalAdvisoryAcceptanceAllowed": false,
+    "nativeDirectDependenciesAndRuntimeChanged": false,
+    "nativePackages": [
+      {
+        "path": "node_modules/@react-native-async-storage/async-storage",
+        "name": "@react-native-async-storage/async-storage",
+        "version": "2.2.0",
+        "integrity": "sha512-gvRvjR5JAaUZF8tv2Kcq/Gbt3JHwbKFYfmb445rhOj6NUMx3qPLixmDx5pZAyb9at1bYvJ4/eTUipU5aki45xw=="
+      },
+      {
+        "path": "node_modules/@react-native-community/datetimepicker",
+        "name": "@react-native-community/datetimepicker",
+        "version": "8.4.4",
+        "integrity": "sha512-bc4ZixEHxZC9/qf5gbdYvIJiLZ5CLmEsC3j+Yhe1D1KC/3QhaIfGDVdUcid0PdlSoGOSEq4VlB93AWyetEyBSQ=="
+      },
+      {
+        "path": "node_modules/expo",
+        "name": "expo",
+        "version": "54.0.37",
+        "integrity": "sha512-afzbtO4i/K9ZCrzyLgEOaXW56w/yuAK61JkCOMrw/S/VFCAp6YwKWA494X5mIcrVmRAmclv/ec7ga8ndTkzhxw=="
+      },
+      {
+        "path": "node_modules/expo-application",
+        "name": "expo-application",
+        "version": "7.0.8",
+        "integrity": "sha512-qFGyxk7VJbrNOQWBbE09XUuGuvkOgFS9QfToaK2FdagM2aQ+x3CvGV2DuVgl/l4ZxPgIf3b/MNh9xHpwSwn74Q=="
+      },
+      {
+        "path": "node_modules/expo-asset",
+        "name": "expo-asset",
+        "version": "12.0.13",
+        "integrity": "sha512-x/p7WvQUnkn6K43b9eL6SPeq5Vnf1E8BDe9bDrWrvMqzyUvJnUFvl+ctg3034s/+UHe7Ne2pAmc0+yzbl8CrDQ=="
+      },
+      {
+        "path": "node_modules/expo-constants",
+        "name": "expo-constants",
+        "version": "18.0.14",
+        "integrity": "sha512-BUZm9mkl/TX7zNaN0N4C83ws7mEnesCFiKhqK+rMZwTD2+Q4wWB2kBltqnC/LrCRaMyRi40XxhCRVwuKnJkxXQ=="
+      },
+      {
+        "path": "node_modules/expo-crypto",
+        "name": "expo-crypto",
+        "version": "15.0.9",
+        "integrity": "sha512-SNWKa2fXx7v9gkp1h/7nqXY5XN7qgNDn3yRc2aO0gWGbeMbvob/haMxxsPFe9f51aqH5NjNCqHf2kvLhvAd8KQ=="
+      },
+      {
+        "path": "node_modules/expo-device",
+        "name": "expo-device",
+        "version": "8.0.10",
+        "integrity": "sha512-jd5BxjaF7382JkDMaC+P04aXXknB2UhWaVx5WiQKA05ugm/8GH5uaz9P9ckWdMKZGQVVEOC8MHaUADoT26KmFA=="
+      },
+      {
+        "path": "node_modules/expo-eas-client",
+        "name": "expo-eas-client",
+        "version": "1.0.8",
+        "integrity": "sha512-5or11NJhSeDoHHI6zyvQDW2cz/yFyE+1Cz8NTs5NK8JzC7J0JrkUgptWtxyfB6Xs/21YRNifd3qgbBN3hfKVgA=="
+      },
+      {
+        "path": "node_modules/expo-font",
+        "name": "expo-font",
+        "version": "14.0.12",
+        "integrity": "sha512-QQzunE2Mxk45AsCWm3tK7OpVljbtVnKD58q4/qliev+cbye1IOduUnRIdD+P7DyButw17G9MTX795kgaQiz5hQ=="
+      },
+      {
+        "path": "node_modules/expo-json-utils",
+        "name": "expo-json-utils",
+        "version": "0.15.0",
+        "integrity": "sha512-duRT6oGl80IDzH2LD2yEFWNwGIC2WkozsB6HF3cDYNoNNdUvFk6uN3YiwsTsqVM/D0z6LEAQ01/SlYvN+Fw0JQ=="
+      },
+      {
+        "path": "node_modules/expo-keep-awake",
+        "name": "expo-keep-awake",
+        "version": "15.0.8",
+        "integrity": "sha512-YK9M1VrnoH1vLJiQzChZgzDvVimVoriibiDIFLbQMpjYBnvyfUeHJcin/Gx1a+XgupNXy92EQJLgI/9ZuXajYQ=="
+      },
+      {
+        "path": "node_modules/expo-local-authentication",
+        "name": "expo-local-authentication",
+        "version": "17.0.9",
+        "integrity": "sha512-Ro2m6JJ7ebaDCMsnh6CeXKqXUdK5xP2lnrJlAopUO2DGqX5693BWC14ANFihFWL6qEV7IIV4hGpdU5RYyBCbuQ=="
+      },
+      {
+        "path": "node_modules/expo-manifests",
+        "name": "expo-manifests",
+        "version": "1.0.11",
+        "integrity": "sha512-6zItytTewN37Cjhp3glUg0ozrgW2GwB8x9wtfzUNoJIMmxO38nnGdTLMaotYhRqdf5PP2Dzdmej1HDHXVNUpRw=="
+      },
+      {
+        "path": "node_modules/expo-modules-autolinking",
+        "name": "expo-modules-autolinking",
+        "version": "3.0.27",
+        "integrity": "sha512-Ge216xmfXcba+aUQssfmUo9Hf92wXX3xcXJmOsC/wpuV5B5ozm4BTkRKpoCXEkdD8eJVmFy7ATS8yD3upFOPQA=="
+      },
+      {
+        "path": "node_modules/expo-modules-core",
+        "name": "expo-modules-core",
+        "version": "3.0.30",
+        "integrity": "sha512-a6IrpAn/Jbmwxi9L+hMmXKpNqnkUpoF7WHOpn02rVLyax2J0gB1vvCVE5rNydplEnt41Q6WxQwvcOjZaIkcSUg=="
+      },
+      {
+        "path": "node_modules/expo-notifications",
+        "name": "expo-notifications",
+        "version": "0.32.17",
+        "integrity": "sha512-lwwzn7tImuzTzn9PAglZlS2VfZEvsfFGJTK9Eb8I4cqkGh2DI23YJFJH+WPEIu4QhDvk5JeBjklenJ8IZbmA4A=="
+      },
+      {
+        "path": "node_modules/expo-secure-store",
+        "name": "expo-secure-store",
+        "version": "15.0.8",
+        "integrity": "sha512-lHnzvRajBu4u+P99+0GEMijQMFCOYpWRO4dWsXSuMt77+THPIGjzNvVKrGSl6mMrLsfVaKL8BpwYZLGlgA+zAw=="
+      },
+      {
+        "path": "node_modules/expo-structured-headers",
+        "name": "expo-structured-headers",
+        "version": "5.0.0",
+        "integrity": "sha512-RmrBtnSphk5REmZGV+lcdgdpxyzio5rJw8CXviHE6qH5pKQQ83fhMEcigvrkBdsn2Efw2EODp4Yxl1/fqMvOZw=="
+      },
+      {
+        "path": "node_modules/expo-updates",
+        "name": "expo-updates",
+        "version": "29.0.20",
+        "integrity": "sha512-9ChWpBaQ1oIIwRRuhFSpwNOJvXeWyTYawcfDLFV0UZBgOwtxgTGdCYbFm4qHAjptmKAPFHHL9bIDgokgkOW9Sg=="
+      },
+      {
+        "path": "node_modules/expo-updates-interface",
+        "name": "expo-updates-interface",
+        "version": "2.0.0",
+        "integrity": "sha512-pTzAIufEZdVPKql6iMi5ylVSPqV1qbEopz9G6TSECQmnNde2nwq42PxdFBaUEd8IZJ/fdJLQnOT3m6+XJ5s7jg=="
+      },
+      {
+        "path": "node_modules/expo/node_modules/expo-file-system",
+        "name": "expo-file-system",
+        "version": "19.0.24",
+        "integrity": "sha512-hZs0Ng+coNjx7YJ8MPwfJpoU1SRul6OZ9LZycFzozUeoR+denbyr944YrMP9NVn+Zf1tdC7p0K0zgah3ZySOYg=="
+      },
+      {
+        "path": "node_modules/react-native",
+        "name": "react-native",
+        "version": "0.81.5",
+        "integrity": "sha512-1w+/oSjEXZjMqsIvmkCRsOc8UBYv163bTWKTI8+1mxztvQPhCRYGTvZ/PL1w16xXHneIj/SLGfxWg2GWN2uexw=="
+      },
+      {
+        "path": "node_modules/react-native-safe-area-context",
+        "name": "react-native-safe-area-context",
+        "version": "5.6.2",
+        "integrity": "sha512-4XGqMNj5qjUTYywJqpdWZ9IG8jgkS3h06sfVjfw5yZQZfWnRFXczi0GnYyFyCc2EBps/qFmoCH8fez//WumdVg=="
+      }
+    ],
+    "lockImpactSha256": "da8ffc891f567e50452c19bbc9bf6168087ad1799daf78c272e9873eeae4624e",
+    "changedSourceHashes": {
+      "apps/coach-mobile/package.json": "9a482c2b1bfcfce0813f71ab3ccffcd9a2f416e579e4b033b68edce8fe84cfaa",
+      "apps/coach-mobile/package-lock.json": "fb4cbbac28a81eee8acc13c0f4ea6b8129f4d7d4f0744a8eda3a6b51ea016c6a",
+      "tests/parent-chat-layout-browser.mjs": "18f9a8b15bfbf4c1e284bfae5776b239671c0a90116772784da132b71581fccd"
+    }
+  },
+  "dependencyRemediationSha256": "bf3888ea9863eb1bbc4913e4115a0b0b456522724098d47ce697af855f638fb2"
 }

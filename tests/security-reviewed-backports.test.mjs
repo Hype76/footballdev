@@ -160,7 +160,7 @@ test('an exact pinned review receipt cannot bless dirty tracked source', () => {
     fs.mkdirSync(path.join(directory, 'security'))
     const recordBytes = Buffer.from(JSON.stringify(policy))
     fs.writeFileSync(path.join(directory, 'security/reviewed-source-remediations.json'), recordBytes)
-    const receipt = Buffer.from(JSON.stringify({ status: 'ACCEPTED_LOCAL_IMPLEMENTATION', reviewer: 'test-only', reviewedAt: new Date().toISOString(), head, recordSha256: hash(recordBytes), proposalSha256: policy.adoptionProposalSha256, payloadSha256: policy.payloadSha256, implementationHashes: policy.implementationHashes, nativeInputs: policy.nativeInputs, expiresAt: policy.expiresAt }))
+    const receipt = Buffer.from(JSON.stringify({ status: 'ACCEPTED_LOCAL_IMPLEMENTATION', reviewer: 'test-only', reviewedAt: new Date().toISOString(), head, recordSha256: hash(recordBytes), proposalSha256: policy.adoptionProposalSha256, dependencyRemediationSha256: policy.dependencyRemediationSha256, payloadSha256: policy.payloadSha256, implementationHashes: policy.implementationHashes, nativeInputs: policy.nativeInputs, expiresAt: policy.expiresAt }))
     fs.writeFileSync(artifactPath(directory, 'implementation-review.json'), receipt)
     fs.writeFileSync(path.join(directory, 'source.txt'), 'drift\n')
     assert.throws(() => verifyReview(directory, policy, { head }, hash(receipt)), /tracked working changes/)
