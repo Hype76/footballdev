@@ -1,7 +1,8 @@
+import { loadRecord, verifySource, verifyCopies, verifyReview, verifyInstallation, verifyUpstream, evaluateAudit, artifactPath } from './security-verify-reviewed-backports.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -10,6 +11,7 @@ const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), '
 const lock = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'))
 const policy = JSON.parse(await readFile(path.join(root, 'security', 'supply-chain-policy.json'), 'utf8'))
 const failures = []
+assert.deepEqual(policy.advisoryExceptions, [], 'Generic advisory exceptions must remain empty')
 
 assert.equal(lock.lockfileVersion, 3, 'package-lock.json must remain lockfileVersion 3')
 
@@ -94,104 +96,55 @@ for (const approvedImport of policy.approvedRemoteImports) {
 }
 
 const npmExecutable = process.env.npm_execpath
-const auditCommand = npmExecutable ? process.execPath : process.platform === 'win32' ? 'npm.cmd' : 'npm'
-const auditArgs = npmExecutable ? [npmExecutable, 'audit', '--json'] : ['audit', '--json']
-const auditResult = spawnSync(auditCommand, auditArgs, {
-  cwd: root,
-  encoding: 'utf8',
-  maxBuffer: 25 * 1024 * 1024,
-})
-
-let audit
+assert.ok(npmExecutable, 'Run through the repository-pinned npm script so its CLI is identified.')
+const rawAudits = []
+const sourceReports = []
+let validAuditScopes = 0
+let zeroFindingScopes = 0
+let remediation
+let verified = false
 try {
-  audit = JSON.parse(String(auditResult.stdout || ''))
-} catch {
-  failures.push('Full dependency audit did not return valid JSON.')
-  audit = { vulnerabilities: {}, metadata: { vulnerabilities: {} } }
+  remediation = loadRecord(root)
+  const source = verifySource(root, remediation.record)
+  const copies = verifyCopies(root, remediation.record)
+  const review = verifyReview(root, remediation.record, source)
+  const installation = verifyInstallation(root, remediation.record, source, copies, review)
+  const upstream = await verifyUpstream(remediation.record, remediation.payload)
+  sourceReports.push({ source, copies: copies.map(({ relative, treeSha256 }) => ({ relative, treeSha256 })), review, installation, upstream })
+  verified = true
+} catch (error) {
+  failures.push('Reviewed source remediation failed: ' + error.message)
 }
-
-const advisoryExceptions = new Map(
-  (policy.advisoryExceptions || []).map((exception) => [String(exception.id || '').toUpperCase(), exception]),
-)
+let audit = { metadata: { vulnerabilities: {} } }
 const observedAdvisories = new Set()
-const vulnerabilities = audit.vulnerabilities || {}
-
-function advisoryIdFromUrl(url) {
-  return String(url || '').match(/GHSA-[a-z0-9-]+/i)?.[0]?.toUpperCase() || ''
-}
-
-function rootAdvisoriesFor(packageName, visited = new Set()) {
-  if (visited.has(packageName)) return []
-  visited.add(packageName)
-
-  const vulnerability = vulnerabilities[packageName]
-  if (!vulnerability) return []
-
-  const roots = []
-  for (const via of vulnerability.via || []) {
-    if (typeof via === 'string') {
-      roots.push(...rootAdvisoriesFor(via, visited))
-      continue
-    }
-
-    const id = advisoryIdFromUrl(via.url)
-    if (id) roots.push({ id, severity: String(via.severity || vulnerability.severity || '').toLowerCase() })
-  }
-  return roots
-}
-
-for (const [packageName, vulnerability] of Object.entries(vulnerabilities)) {
-  const roots = rootAdvisoriesFor(packageName)
-  if (roots.length === 0) {
-    failures.push(`Audit finding has no traceable advisory: ${packageName}`)
-  }
-
-  for (const node of vulnerability.nodes || []) {
-    const entry = lock.packages?.[node]
-    if (!entry || entry.dev !== true) {
-      failures.push(`Audit finding is not confined to development dependencies: ${packageName} at ${node}`)
-    }
-  }
-
-  for (const rootAdvisory of roots) {
-    observedAdvisories.add(rootAdvisory.id)
-    const exception = advisoryExceptions.get(rootAdvisory.id)
-    if (!exception) {
-      failures.push(`Undocumented development advisory: ${rootAdvisory.id}`)
-      continue
-    }
-
-    if (exception.productionReachable !== false) {
-      failures.push(`Advisory exception must be unreachable from production: ${rootAdvisory.id}`)
-    }
-    if (String(exception.severity || '').toLowerCase() !== rootAdvisory.severity) {
-      failures.push(`Advisory severity does not match policy: ${rootAdvisory.id}`)
-    }
-    if (!exception.owner || !exception.packageChain || !exception.compensatingControl) {
-      failures.push(`Advisory exception is incomplete: ${rootAdvisory.id}`)
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(exception.reviewBy || '')
-      || !/^\d{4}-\d{2}-\d{2}$/.test(exception.expires || '')) {
-      failures.push(`Advisory exception dates are invalid: ${rootAdvisory.id}`)
-    } else if (new Date(`${exception.expires}T23:59:59Z`) < new Date()) {
-      failures.push(`Advisory exception has expired: ${rootAdvisory.id}`)
-    }
+for (const scope of ['.', 'apps/parent-mobile', 'apps/coach-mobile']) {
+  const auditResult = spawnSync(process.execPath, [npmExecutable, 'audit', '--json'], {
+    cwd: path.resolve(root, scope), encoding: 'utf8', maxBuffer: 25 * 1024 * 1024,
+    timeout: 120000,
+  })
+  const raw = { scope, exitStatus: auditResult.status, signal: auditResult.signal, error: auditResult.error?.message || null, stdout: String(auditResult.stdout || ''), stderr: String(auditResult.stderr || '') }
+  rawAudits.push(raw)
+  try {
+    assert.ok(!raw.error && raw.signal === null && [0, 1].includes(raw.exitStatus), 'Audit command did not complete normally')
+    const data = JSON.parse(raw.stdout)
+    const scopeLock = JSON.parse(await readFile(path.resolve(root, scope, 'package-lock.json'), 'utf8'))
+    const result = evaluateAudit(data, scopeLock, scope, remediation?.record || { eligibleAdvisories: {}, targets: [] })
+    assert.equal(raw.exitStatus, Object.keys(data.vulnerabilities).length ? 1 : 0, 'Audit exit status contradicts findings')
+    validAuditScopes += 1
+    if (Object.keys(data.vulnerabilities).length === 0) zeroFindingScopes += 1
+    if (scope === '.') audit = data
+    for (const id of result.observedAdvisories) observedAdvisories.add(id)
+    failures.push(...result.failures)
+    sourceReports.push({ scope, ...result, acceptedSourceRemediations: verified ? result.acceptedSourceRemediations : [], sourceVerificationPassed: verified })
+    if (!verified && Object.keys(data.vulnerabilities).length) failures.push('No advisory acceptance without complete source and independent review verification: ' + scope)
+  } catch (error) {
+    failures.push('Full audit invalid for ' + scope + ': ' + error.message)
   }
 }
 
-for (const advisoryId of advisoryExceptions.keys()) {
-  if (!observedAdvisories.has(advisoryId)) {
-    failures.push(`Stale advisory exception must be removed: ${advisoryId}`)
-  }
-}
-
-if (Number(audit.metadata?.vulnerabilities?.critical || 0) > 0) {
-  failures.push('Critical development advisories are not accepted.')
-}
-
-const artifacts = path.join(root, '.security-artifacts')
-await mkdir(artifacts, { recursive: true })
-await writeFile(path.join(artifacts, 'dependency-inventory.json'), `${JSON.stringify({
+await writeFile(artifactPath(root, 'raw-audits.json'), JSON.stringify(rawAudits, null, 2) + '\n')
+await writeFile(artifactPath(root, 'reviewed-source-results.json'), JSON.stringify({ generatedAt: new Date().toISOString(), registryAuditCompletedAndValid: validAuditScopes === 3, registryAuditIsClean: validAuditScopes === 3 && zeroFindingScopes === 3, sourceReports, failures }, null, 2) + '\n')
+await writeFile(artifactPath(root, 'dependency-inventory.json'), `${JSON.stringify({
   generatedAt: new Date().toISOString(),
   direct: {
     production: packageJson.dependencies || {},
@@ -209,7 +162,7 @@ await writeFile(path.join(artifacts, 'dependency-inventory.json'), `${JSON.strin
   policyReview: policy.review,
   audit: {
     vulnerabilities: audit.metadata?.vulnerabilities || {},
-    documentedDevelopmentAdvisories: [...observedAdvisories].sort(),
+    observedRegistryAdvisories: [...observedAdvisories].sort(),
   },
 }, null, 2)}\n`)
 
@@ -218,5 +171,5 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`- ${failure}`)
   process.exitCode = 1
 } else {
-  console.log(`Supply-chain gate passed: ${Object.keys(lock.packages || {}).length - 1} locked package entries, ${lifecycle.length} approved install lifecycle entries, ${remoteImports.length} pinned remote import, ${observedAdvisories.size} documented development advisories.`)
+  console.log(`Supply-chain gate passed: ${Object.keys(lock.packages || {}).length - 1} locked package entries, ${lifecycle.length} approved install lifecycle entries, ${remoteImports.length} pinned remote import, ${observedAdvisories.size} registry advisories accepted only against verified temporary source remediation. Raw audit findings and exit statuses remain visible.`)
 }

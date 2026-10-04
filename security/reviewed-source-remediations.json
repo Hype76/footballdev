@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 1,
+  "baseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
+  "expiresAt": "2026-10-11T22:59:59Z",
+  "sourceRevisions": {
+    "braces72": {
+      "repository": "micromatch/braces",
+      "number": 72,
+      "url": "https://github.com/micromatch/braces/pull/72",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-10-04T15:14:51Z",
+      "baseSha": "e53730e6f935498326c72d768889ac194eedc0e0",
+      "headSha": "28d440b5dd449dbf1fe6f3506cf94ecca4d02660",
+      "headRepo": "FSDevelop/braces",
+      "headRef": "fix/limit-nesting-depth"
+    },
+    "forge1152": {
+      "repository": "digitalbazaar/forge",
+      "number": 1152,
+      "url": "https://github.com/digitalbazaar/forge/pull/1152",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-10-02T08:20:43Z",
+      "baseSha": "7a43db987bd0ecdc5b41f6d73f58ba6ca5bf9ae1",
+      "headSha": "ceba34402e329f0365134f23fe19898756527d65",
+      "headRepo": "Krysthyan/forge",
+      "headRef": "fix/cve-2026-85393-digestalgorithm-element-count"
+    },
+    "forge1157": {
+      "repository": "digitalbazaar/forge",
+      "number": 1157,
+      "url": "https://github.com/digitalbazaar/forge/pull/1157",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-10-04T08:09:28Z",
+      "baseSha": "723240415b25120d47146f982809fa69344ab890",
+      "headSha": "683ab3344899cc08a581e4d5675a33e87aff7b04",
+      "headRepo": "itsalexfer/forge",
+      "headRef": "fix/reject-nonempty-digest-null"
+    }
+  },
+  "eligibleAdvisories": {
+    "braces": [
+      "GHSA-vfj7-8cjw-p6xm"
+    ],
+    "node-forge": [
+      "GHSA-86w9-cpqp-85rv"
+    ]
+  },
+  "targets": [
+    {
+      "scope": ".",
+      "packagePath": "node_modules/braces",
+      "name": "braces",
+      "version": "3.0.3",
+      "registryIntegrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+      "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77",
+      "files": [
+        {
+          "path": "lib/compile.js",
+          "originalSha256": "dc98f22eee3d511785d92a00758d5f0d48efed5f5813bdecc2de430c529b5c9f",
+          "patchedSha256": "b651f7715e6db8942ce61d3394357b4d81c8ece88240aa31a458ea1165edd195"
+        },
+        {
+          "path": "lib/constants.js",
+          "originalSha256": "c18ac5adb57308f1ce42a28552da3a31f5d83709743ebd9a636336813a744d4b",
+          "patchedSha256": "f9fb688959232eee3e6ad7906a5b0e3234815db49ee857ef86983d65b917dc7c"
+        },
+        {
+          "path": "lib/expand.js",
+          "originalSha256": "41ccc196ebfa7b7781a634e721eb744e4e7bcb54cba427a7e3d6806a1b9e58f7",
+          "patchedSha256": "7ea3e14c2b2b256ef244fd3d83b8fcaa20aa2232b4e6d768c3bb6ab567f66cf5"
+        },
+        {
+          "path": "lib/parse.js",
+          "originalSha256": "e572166565f15fa6ad9865ae49d678218e32aabfd1b3720f6d0d43d39800d310",
+          "patchedSha256": "72aabaadaa555cdfbd07fbd7c7f743373e4dc8eec04a97550cc57bbeec30eb6c"
+        },
+        {
+          "path": "lib/stringify.js",
+          "originalSha256": "379f22d77bfa1478341ccd49c5e4267464aabcbba03558bab332aac23fc6f23a",
+          "patchedSha256": "49dc2d8bafa74f34715a18a845bcb82ce66caaf3bab4cf117998e06b1f9a50a9"
+        }
+      ]
+    },
+    {
+      "scope": "apps/parent-mobile",
+      "packagePath": "node_modules/braces",
+      "name": "braces",
+      "version": "3.0.3",
+      "registryIntegrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+      "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77",
+      "files": [
+        {
+          "path": "lib/compile.js",
+          "originalSha256": "dc98f22eee3d511785d92a00758d5f0d48efed5f5813bdecc2de430c529b5c9f",
+          "patchedSha256": "b651f7715e6db8942ce61d3394357b4d81c8ece88240aa31a458ea1165edd195"
+        },
+        {
+          "path": "lib/constants.js",
+          "originalSha256": "c18ac5adb57308f1ce42a28552da3a31f5d83709743ebd9a636336813a744d4b",
+          "patchedSha256": "f9fb688959232eee3e6ad7906a5b0e3234815db49ee857ef86983d65b917dc7c"
+        },
+        {
+          "path": "lib/expand.js",
+          "originalSha256": "41ccc196ebfa7b7781a634e721eb744e4e7bcb54cba427a7e3d6806a1b9e58f7",
+          "patchedSha256": "7ea3e14c2b2b256ef244fd3d83b8fcaa20aa2232b4e6d768c3bb6ab567f66cf5"
+        },
+        {
+          "path": "lib/parse.js",
+          "originalSha256": "e572166565f15fa6ad9865ae49d678218e32aabfd1b3720f6d0d43d39800d310",
+          "patchedSha256": "72aabaadaa555cdfbd07fbd7c7f743373e4dc8eec04a97550cc57bbeec30eb6c"
+        },
+        {
+          "path": "lib/stringify.js",
+          "originalSha256": "379f22d77bfa1478341ccd49c5e4267464aabcbba03558bab332aac23fc6f23a",
+          "patchedSha256": "49dc2d8bafa74f34715a18a845bcb82ce66caaf3bab4cf117998e06b1f9a50a9"
+        }
+      ]
+    },
+    {
+      "scope": "apps/parent-mobile",
+      "packagePath": "node_modules/node-forge",
+      "name": "node-forge",
+      "version": "1.4.0",
+      "registryIntegrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==",
+      "originalTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
+      "patchedTreeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf",
+      "files": [
+        {
+          "path": "lib/rsa.js",
+          "originalSha256": "fd4740238145ec26470eb3f06a627c72039538ce1307dbdce40521f94dfd0a50",
+          "patchedSha256": "22cdfb3220439533211cf00ff7c7e6605607761d77a2c3c263411d4c70798c4f"
+        }
+      ]
+    },
+    {
+      "scope": "apps/coach-mobile",
+      "packagePath": "node_modules/braces",
+      "name": "braces",
+      "version": "3.0.3",
+      "registryIntegrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+      "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77",
+      "files": [
+        {
+          "path": "lib/compile.js",
+          "originalSha256": "dc98f22eee3d511785d92a00758d5f0d48efed5f5813bdecc2de430c529b5c9f",
+          "patchedSha256": "b651f7715e6db8942ce61d3394357b4d81c8ece88240aa31a458ea1165edd195"
+        },
+        {
+          "path": "lib/constants.js",
+          "originalSha256": "c18ac5adb57308f1ce42a28552da3a31f5d83709743ebd9a636336813a744d4b",
+          "patchedSha256": "f9fb688959232eee3e6ad7906a5b0e3234815db49ee857ef86983d65b917dc7c"
+        },
+        {
+          "path": "lib/expand.js",
+          "originalSha256": "41ccc196ebfa7b7781a634e721eb744e4e7bcb54cba427a7e3d6806a1b9e58f7",
+          "patchedSha256": "7ea3e14c2b2b256ef244fd3d83b8fcaa20aa2232b4e6d768c3bb6ab567f66cf5"
+        },
+        {
+          "path": "lib/parse.js",
+          "originalSha256": "e572166565f15fa6ad9865ae49d678218e32aabfd1b3720f6d0d43d39800d310",
+          "patchedSha256": "72aabaadaa555cdfbd07fbd7c7f743373e4dc8eec04a97550cc57bbeec30eb6c"
+        },
+        {
+          "path": "lib/stringify.js",
+          "originalSha256": "379f22d77bfa1478341ccd49c5e4267464aabcbba03558bab332aac23fc6f23a",
+          "patchedSha256": "49dc2d8bafa74f34715a18a845bcb82ce66caaf3bab4cf117998e06b1f9a50a9"
+        }
+      ]
+    },
+    {
+      "scope": "apps/coach-mobile",
+      "packagePath": "node_modules/node-forge",
+      "name": "node-forge",
+      "version": "1.4.0",
+      "registryIntegrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==",
+      "originalTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
+      "patchedTreeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf",
+      "files": [
+        {
+          "path": "lib/rsa.js",
+          "originalSha256": "fd4740238145ec26470eb3f06a627c72039538ce1307dbdce40521f94dfd0a50",
+          "patchedSha256": "22cdfb3220439533211cf00ff7c7e6605607761d77a2c3c263411d4c70798c4f"
+        }
+      ]
+    }
+  ],
+  "scopeLocks": [
+    {
+      "scope": "root",
+      "normalisedUtf8Sha256": "de40c881732c19ceca2a16d19631a568d9a82fd7191feed61c0966051ce2bda3"
+    },
+    {
+      "scope": "apps/parent-mobile",
+      "normalisedUtf8Sha256": "cc4eab886ad2d0e7e8549d49922d741bb2337c82dcf8a3b96e71eef59dfd7eb9"
+    },
+    {
+      "scope": "apps/coach-mobile",
+      "normalisedUtf8Sha256": "16df00ab4f6d324af76ce1355d971d1730cbdb5ba7bd6310d41aac2c003ae62f"
+    }
+  ],
+  "patches": [
+    {
+      "file": "patches/braces-3.0.3.patch",
+      "sha256": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699"
+    },
+    {
+      "file": "patches/node-forge-1.4.0.patch",
+      "sha256": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4"
+    }
+  ],
+  "approval": {
+    "scope": "Local adoption and bounded source-remediation implementation only; no publication.",
+    "receivedOn": "2026-10-04",
+    "authority": "Project approval authority verified by parent"
+  },
+  "maintenance": {
+    "owner": "Steve",
+    "replacement": "Replace with a safely verified maintained official release; no automatic renewal.",
+    "recheck": "Fresh official advisory and upstream PR semantic check before every gate/release run."
+  },
+  "implementationHashes": {
+    "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
+    "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
+    "scripts/security-verify-reviewed-backports.mjs": "9561744fa51e1feef04a3dbaeb4cc80bbba57c5f5368eb8851ba79364bc25a64",
+    "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
+    "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
+    "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
+    "tests/security-reviewed-backports.test.mjs": "3ce216b78bb14cf2133c7b53bf6b5366d507259876febc043fdeca7fa78001ca"
+  },
+  "payloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
+  "adoptionProposalSha256": "b7aa86bbcfc622f60ff9f8fee8bdf983339201a715440e01205d3a22ca707695",
+  "nativeInputs": [
+    {
+      "path": "package.json",
+      "normalisedUtf8Sha256": "066f403f6d665f003b5c3ea0e025d52865d07d3636278f58a529e4eba798ab09",
+      "unchanged": true
+    },
+    {
+      "path": "package-lock.json",
+      "normalisedUtf8Sha256": "de40c881732c19ceca2a16d19631a568d9a82fd7191feed61c0966051ce2bda3",
+      "unchanged": true
+    },
+    {
+      "path": "apps/mobile-core/appConfig.cjs",
+      "normalisedUtf8Sha256": "d3352dac9e7bdaa8371fa6ae123b7b059ed41696d56abaa9f7c0fd1603928337",
+      "unchanged": true
+    },
+    {
+      "path": "apps/parent-mobile/package.json",
+      "normalisedUtf8Sha256": "3f49b2cbb7706b94777da566e09160dab98d192a999db1fb263bf0dc1bb301a7",
+      "unchanged": true
+    },
+    {
+      "path": "apps/parent-mobile/package-lock.json",
+      "normalisedUtf8Sha256": "cc4eab886ad2d0e7e8549d49922d741bb2337c82dcf8a3b96e71eef59dfd7eb9",
+      "unchanged": true
+    },
+    {
+      "path": "apps/parent-mobile/app.config.js",
+      "normalisedUtf8Sha256": "f88ce53014459b01f1a68dc502b7c59b28a123ec70a637fb8ae96eaf259f7a20",
+      "unchanged": true
+    },
+    {
+      "path": "apps/parent-mobile/eas.json",
+      "normalisedUtf8Sha256": "7f2e7d74ce7c720e36f36ce74fb610b9f94b185d5cbc9f953176e03fb2d8f507",
+      "unchanged": true
+    },
+    {
+      "path": "apps/coach-mobile/package.json",
+      "normalisedUtf8Sha256": "3b44fc39dcaf105568514427036acf8f1a9f3cd4633ac5148d8e78ee89503501",
+      "unchanged": true
+    },
+    {
+      "path": "apps/coach-mobile/package-lock.json",
+      "normalisedUtf8Sha256": "16df00ab4f6d324af76ce1355d971d1730cbdb5ba7bd6310d41aac2c003ae62f",
+      "unchanged": true
+    },
+    {
+      "path": "apps/coach-mobile/app.config.js",
+      "normalisedUtf8Sha256": "b9b79960dcc3350b9c8356290bfd1ce08205103cfec07b9c0ab062febebc4a99",
+      "unchanged": true
+    },
+    {
+      "path": "apps/coach-mobile/eas.json",
+      "normalisedUtf8Sha256": "06bc1dbdd079d8ba6e9ec23abbaa21a0ddfc8a9f890bd707b9d241b4b20b0cd2",
+      "unchanged": true
+    }
+  ]
+}
