@@ -94,6 +94,7 @@ import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-
 import { getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
 import { isMatchdayPlan, isMobileCapabilityAllowed, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
 import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
+import { withParentMatchReportBranding } from './src/parentMatchReportBranding.js'
 import ParentIcon from './src/ParentIcon'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
 import { projectParentScorerOutbox } from './src/parentScorerOutboxCore'
@@ -238,13 +239,7 @@ function prepareResourceItems(name, items) {
 function prepareParentResourceItems(name, items, selectedLink = null) {
   const normalizedItems = Array.isArray(items) ? items : []
   if (name === 'matches') {
-    const selectedClubId = String(selectedLink?.clubId || '').trim()
-    return normalizedItems.map((match) => {
-      const existingClubName = String(match?.clubName ?? match?.club_name ?? '').trim()
-      const matchClubId = String(match?.clubId ?? match?.club_id ?? '').trim()
-      const canUseSelectedClub = !matchClubId || (Boolean(selectedClubId) && matchClubId === selectedClubId)
-      return { ...match, clubName: existingClubName || (canUseSelectedClub ? selectedLink?.clubName : '') }
-    })
+    return normalizedItems.map(match => withParentMatchReportBranding(match, selectedLink))
   }
   return prepareResourceItems(name, normalizedItems)
 }
@@ -452,6 +447,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [parentLinks, selectedLink, user],
   )
+  const reportScopeRef = useRef('')
+  const reportInFlightRef = useRef(false)
+  reportScopeRef.current = `${user?.id || ''}:${selectedLink?.id || ''}`
   const parentPlanContext = useMemo(() => selectedLink || user, [selectedLink, user])
   const parentRouteAllowed = useCallback((route) => {
     const normalizedRoute = String(route || '').trim().toLowerCase()
@@ -1602,17 +1600,23 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   async function handleDownloadMatchReport(match) {
-    if (activeActionId || !match) return
+    if (activeActionId || reportInFlightRef.current || !match) return
+    if (match.clubId !== selectedLink?.clubId || match.teamId !== selectedLink?.teamId) return
+    reportInFlightRef.current = true
+    const reportScope = reportScopeRef.current
+    const isCurrent = () => reportScope === reportScopeRef.current
 
     setActiveActionId(`match-report:${match.id}`)
     setNotice(null)
 
     try {
-      const result = await saveParentMobileMatchReportPdf(match)
-      if (result.saved) setNotice({ message: 'Match report PDF saved to your selected folder.', tone: 'success', compact: true })
+      const reportMatch = withParentMatchReportBranding(match, selectedLink, matchdayPlanConfig)
+      const result = await saveParentMobileMatchReportPdf(reportMatch, { isCurrent, storageOrigin: config.supabaseUrl })
+      if (isCurrent() && result.saved) setNotice({ message: 'Match report PDF saved to your selected folder.', tone: 'success', compact: true })
     } catch (error) {
-      setNotice({ message: getParentFriendlyError(error, 'The match report PDF could not be prepared.'), tone: 'warning', compact: true })
+      if (isCurrent()) setNotice({ message: getParentFriendlyError(error, 'The match report PDF could not be prepared.'), tone: 'warning', compact: true })
     } finally {
+      reportInFlightRef.current = false
       setActiveActionId('')
     }
   }

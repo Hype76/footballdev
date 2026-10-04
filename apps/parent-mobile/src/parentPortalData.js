@@ -13,6 +13,7 @@ import { subscribeToMobileChatRoom } from '../../mobile-core/src/chatRealtime'
 import { normalizePersonName } from '../../../src/lib/person-name.js'
 import { canRemoveOwnParentAccess, validateParentAccessRemovalResult } from '../../mobile-core/src/parentAccessRemovalCore'
 import { mergeMatchDayCommandSnapshot } from '../../mobile-core/src/matchDayOutboxCore'
+import { withParentMatchReportBranding } from './parentMatchReportBranding.js'
 
 export async function revokeOwnParentPlayerAccess(user, link) {
   if (!user?.id || user.isOfflineProfile || !canRemoveOwnParentAccess(link)
@@ -391,10 +392,10 @@ export async function getParentPortalMatchDays(user) {
   return (baseResult.data || []).map((row) => {
     const extended = extendedById.get(String(row.id)) || {}
     const eventContext = new Map((extended.event_contexts ?? extended.eventContexts ?? []).map((event) => [String(event.id), event]))
-    return normalizeParentMatchDay({
+    return withParentMatchReportBranding(normalizeParentMatchDay({
       ...row,
       ...extended,
-      club_name: String(extended.club_name ?? extended.clubName ?? row.club_name ?? row.clubName ?? '').trim() || link.clubName,
+      club_name: String(extended.club_name ?? extended.clubName ?? row.club_name ?? row.clubName ?? '').trim(),
       events: (row.events || []).map((event) => ({ ...event, ...(eventContext.get(String(event.id)) || {}) })),
       is_scorer: scorerIds.has(String(row.id)),
       scorer_review_requested_at: reviewById.get(String(row.id)) || '',
@@ -403,7 +404,7 @@ export async function getParentPortalMatchDays(user) {
       squad_transport: transportById.get(String(row.id)) || [],
       formationPlans: formationPlansByMatchId.get(String(row.id)) || [],
       formationPlanError,
-    })
+    }), link)
   })
 }
 

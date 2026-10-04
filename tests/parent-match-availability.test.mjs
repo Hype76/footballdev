@@ -58,7 +58,7 @@ test('match loader merges fixture squad arrays using stable IDs and does not req
     const data={get_parent_portal_match_days:[{id:'match'}],get_parent_portal_match_squad_transport:[{match_day_id:'match',squad_players:[{player_id:'one',player_name:'Same name',needs_lift:true},{player_id:'two',player_name:'Same name',can_offer_lift:true}]}],get_parent_portal_confirmed_teams:[{match_day_id:'match',selected_player_names:['Same name','Same name']}]}
     return {data:data[name]||[]}
   }}
-  const getParentPortalMatchDays=new Function('supabase',`const requireSelectedLink=user=>user.link,normalizeParentMatchDay=row=>row;${functionSource('getParentPortalMatchDays')};return getParentPortalMatchDays;`)(supabase)
+  const getParentPortalMatchDays=new Function('supabase','withParentMatchReportBranding',`const requireSelectedLink=user=>user.link,normalizeParentMatchDay=row=>row;${functionSource('getParentPortalMatchDays')};return getParentPortalMatchDays;`)(supabase, (row) => row)
   const [result]=await getParentPortalMatchDays({link})
   assert.deepEqual(result.squad_transport.map(player=>player.player_id),['one','two'])
   assert.equal(result.selected_player_names.length,2)

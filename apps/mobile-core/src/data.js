@@ -84,6 +84,10 @@ export function normalizeMatchDay(row) {
   return {
     clubId: row.club_id ?? row.clubId ?? '',
     clubName: normalizeText(row.club_name ?? row.clubName),
+    clubLogoUrl: normalizeText(row.club_logo_url ?? row.clubLogoUrl),
+    themeAccent: normalizeText(row.theme_accent ?? row.themeAccent),
+    planKey: normalizeText(row.plan_key ?? row.planKey),
+    planStatus: normalizeText(row.plan_status ?? row.planStatus),
     arrivalTime: row.arrival_time ?? row.arrivalTime ?? '',
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
     availabilityRespondedAt: row.availability_responded_at ?? row.availabilityRespondedAt ?? '',
