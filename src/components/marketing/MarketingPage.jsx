@@ -7,6 +7,7 @@ import { createReferenceScope } from './reference-scope.js'
 import { MarketingContactDialog } from './MarketingContactDialog.jsx'
 import { mountMarketingPricing } from './marketing-pricing.js'
 import './marketing-reference.css'
+import './marketing-inline-pages.css'
 const modules = import.meta.glob(['./reference-*.js', '!./reference-scope.js'])
 const paths = {"app.js":"./reference-app.js","development-builder.js":"./reference-development-builder.js","development.js":"./reference-development.js","footer-qr.js":"./reference-footer-qr.js","kit-preview.js":"./reference-kit-preview.js","offer-share.js":"./reference-offer-share.js","pricing-info.js":"./reference-pricing-info.js","tutorials.js":"./reference-tutorials.js"}
 export function MarketingPage({ page = 'home' }) {
@@ -23,7 +24,7 @@ export function MarketingPage({ page = 'home' }) {
     return () => { active = false; disposePricing(); scope.dispose(); root.innerHTML = ''; document.title = priorTitle }
   }, [reference, page])
   useEffect(() => { const open = () => setContactOpen(true); window.addEventListener('football-player:open-contact', open); return () => window.removeEventListener('football-player:open-contact', open) }, [])
-  return <div className="marketing-reference" onClick={event => { if (event.target.closest('[data-contact-open]')) setContactOpen(true) }}>
+  return <div className={`marketing-reference marketing-page-${page}`} onClick={event => { if (event.target.closest('[data-contact-open]')) setContactOpen(true) }}>
     <PlatformBannerNotice ariaLabel="Platform announcement" bannerKey={PUBLIC_SITE_BANNER_KEY} />
     <div ref={host} />
     <MarketingContactDialog open={contactOpen} onClose={() => setContactOpen(false)} />

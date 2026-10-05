@@ -17,7 +17,14 @@ export function mountMarketingPricing(root) {
     const card = plans[index]
     if (!card) return
     const price = card.querySelector('.plan-price')
-    if (price) price.textContent = plan.isFree ? 'Free' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(plan.monthlyPricePence / 100) + ' / month'
+    if (price) {
+      price.textContent = plan.isFree ? 'Free' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(plan.monthlyPricePence / 100)
+      if (!plan.isFree) {
+        const cycle = document.createElement('small')
+        cycle.textContent = ' / month'
+        price.append(cycle)
+      }
+    }
     if (plan.isFree) card.querySelector('.button').href = PUBLIC_FREE_SIGNUP_PATH
   })
   const controller = new AbortController()
