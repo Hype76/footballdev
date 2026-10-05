@@ -519,6 +519,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     [selectedLink?.id, selectedMobileUser?.id],
   )
   const attendanceOutbox = useAttendanceOutbox({
+    subscribeNetwork: listener => NetInfo.addEventListener(listener),
     scope: JSON.stringify(['parent', selectedMobileUser?.id, selectedLink?.id, selectedLink?.playerId, selectedLink?.clubId, selectedLink?.teamId]),
     read: () => readParentAttendanceCommands(selectedMobileUser, selectedLink),
     update: change => updateParentAttendanceCommands(selectedMobileUser, selectedLink, change),

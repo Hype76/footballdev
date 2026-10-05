@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
-import NetInfo from '@react-native-community/netinfo'
 import * as Crypto from 'expo-crypto'
 import { createAttendanceOutbox, projectAttendanceChoice } from './attendanceOutboxCore'
 import { executeAttendanceCommand } from './attendanceCommandData'
@@ -18,13 +17,13 @@ export function useAttendanceUiGuard(scope) {
   }, [scope])
 }
 
-export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed }) {
+export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, subscribeNetwork }) {
   const [state, setState] = useState({ scope, commands: [], provisional: [], error: '' })
   const current = useRef(null)
   // Scope ownership changes only when React commits. An abandoned render must
   // never invalidate the committed account or revive an earlier scope's work.
   useLayoutEffect(() => {
-    const token = { scope, active: true, online: false, lastSaved: '' }
+    const token = { scope, active: true, online: true, lastSaved: '' }
     const isCurrent = () => token.active && current.current === token
     token.isCurrent = isCurrent
     token.engine = createAttendanceOutbox({ scope, isCurrent, makeId: () => Crypto.randomUUID(),
@@ -51,8 +50,8 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed }
   }, [scope])
   useLayoutEffect(() => {
     const token = current.current
-    if (token?.active && token.scope === scope) Object.assign(token, { read, update, notify, onConfirmed })
-  }, [scope, read, update, notify, onConfirmed])
+    if (token?.active && token.scope === scope) Object.assign(token, { read, update, notify, onConfirmed, subscribeNetwork })
+  }, [scope, read, update, notify, onConfirmed, subscribeNetwork])
   useEffect(() => {
     const token = current.current
     if (!token?.isCurrent() || token.scope !== scope) return undefined
@@ -62,12 +61,15 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed }
         if (token.isCurrent()) setState(previous => ({ ...previous, scope, error: 'Saved attendance could not be opened. Reopen this workspace before responding.' }))
       })
     }
+    // Parent supplies its existing native listener. Coach has no NetInfo native
+    // module: foreground, periodic and explicit retries remain safe and durable.
+    token.online = !token.subscribeNetwork
     void recover()
-    const network = NetInfo.addEventListener(value => {
+    const network = token.subscribeNetwork?.(value => {
       if (!token.isCurrent()) return
       token.online = value.isConnected === true && value.isInternetReachable !== false
       if (token.online) void recover()
-    })
+    }) || (() => {})
     const app = AppState.addEventListener('change', value => { if (value === 'active') void recover() })
     const interval = setInterval(() => { if (token.online && AppState.currentState === 'active') void recover() }, 30000)
     return () => { network(); app.remove(); clearInterval(interval) }

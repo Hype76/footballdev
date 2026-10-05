@@ -113,7 +113,7 @@ function attendanceHookFixture() {
     AppState:{currentState:'active',addEventListener:()=>({remove(){}})},NetInfo:{addEventListener:callback=>{networks.push(callback);return ()=>{}}},
     setInterval:()=>1,clearInterval:()=>{},
   })
-  const render=options=>{cursor=0;pending=[];api=hook(options);return api}
+  const render=options=>{cursor=0;pending=[];api=hook({subscribeNetwork:callback=>{networks.push(callback);return ()=>{}},...options});return api}
   const commit=()=>{for(const kind of ['layout','passive'])for(const item of pending.filter(x=>x.kind===kind)){
     const old=effects[item.i];if(old&&item.deps.every((value,i)=>Object.is(value,old.deps[i])))continue
     old?.cleanup?.();effects[item.i]={...item,cleanup:item.callback()}
@@ -152,5 +152,14 @@ test('actual outbox late durable acceptance and old network callback cannot muta
  f.render(hookScope('b'));f.commit();f.render(hookScope('a'));f.commit();await new Promise(resolve=>setImmediate(resolve))
  const count=f.writes.length;oldNetwork({isConnected:true,isInternetReachable:true});gate.resolve([]);await saving;await new Promise(resolve=>setImmediate(resolve))
  assert.equal(f.writes.length,count);assert.equal(f.writes.at(-1).commands.length,0)
+ f.unmount()
+})
+
+test('actual Coach outbox works without a Parent-only native network listener',async()=>{
+ const source=fs.readFileSync(new URL('../apps/mobile-core/src/useAttendanceOutbox.js',import.meta.url),'utf8')
+ assert.doesNotMatch(source,/from ['"]@react-native-community\/netinfo['"]/)
+ const f=attendanceHookFixture(),storage={commands:[]}
+ const api=f.render({...hookScope('coach',storage),subscribeNetwork:undefined});f.commit()
+ const result=await api.enqueue(preparation,'available');assert.equal(result.scope,'coach');assert.equal(storage.commands.length,1)
  f.unmount()
 })
