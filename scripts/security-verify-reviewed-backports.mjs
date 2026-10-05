@@ -58,7 +58,7 @@ export function loadRecord(root) {
   assert.equal(record.schemaVersion, 1)
   assert.equal(record.baseline, '7ccbc41591569a7b7723a4fba7b28fbfa44cf50b')
   assert.equal(record.expiresAt, '2026-10-11T22:59:59Z')
-  assert.equal(record.releasePreparationSha256, 'c8f79520461b0e99be45900a2affad78e64133c2e117e5496bf56547eb9ee91e', 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, '0db2f754262e91f096291e91c61989398e769af2128596e1e2a1b74d9476d30e', 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
