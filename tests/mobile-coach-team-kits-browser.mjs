@@ -24,6 +24,8 @@ const entry = `
   const baseUser = {id:'user-a',clubId:'club-a',activeTeamId:'team-a',role:'head_manager',roleRank:70,hasActivePlanAccess:true,planKey:'matchday'};
   function App() {
     const [mode, setMode] = React.useState('light');
+    const [planKey, setPlanKey] = React.useState('matchday');
+    window.setPlanKey = setPlanKey;
     const [rank, setRank] = React.useState(70);
     const [instance, setInstance] = React.useState(0);
     window.setMode = setMode;
@@ -33,7 +35,7 @@ const entry = `
     return <div data-mode={mode} data-rank={rank}>
       <View style={{backgroundColor:theme.tokens.background,minHeight:'100%',padding:16}}>
         <View style={{alignSelf:'center',maxWidth:720,width:'100%'}}>
-          <CoachTeamKitSettings key={instance} palette={theme.tokens} user={{...baseUser,roleRank:rank}} />
+          <CoachTeamKitSettings key={instance} palette={theme.tokens} user={{...baseUser,roleRank:rank,planKey}} />
         </View>
       </View>
     </div>;
@@ -83,6 +85,8 @@ const result = await build({
   plugins: [{
     name: 'kit-data-mocks',
     setup(builder) {
+      builder.onResolve({ filter: /ClubKitDisplay$/ }, () => ({ path: 'display', namespace: 'kit-mock' }))
+      builder.onLoad({ filter: /^display$/, namespace: 'kit-mock' }, () => ({ contents: 'export function ClubKitDisplay(){return null}', loader: 'js' }))
       builder.onResolve({ filter: /mobileKitCache$/ }, () => ({ path: 'cache', namespace: 'kit-mock' }))
       builder.onResolve({ filter: /coachTeamKitsData$/ }, () => ({ path: 'data', namespace: 'kit-mock' }))
       builder.onLoad({ filter: /^cache$/, namespace: 'kit-mock' }, () => ({ contents: cacheMock, loader: 'js' }))
@@ -186,6 +190,14 @@ try {
       await page.screenshot({ path: `${output}/${mode}-${width}.png`, fullPage: true })
     }
   }
+  for (const plan of ['club', 'small_club', 'development_club', 'large_club', 'pilot']) {
+    await page.evaluate(planKey => window.setPlanKey(planKey), plan)
+    await page.getByText('Managed by your Club Admin').waitFor()
+    assert.equal(await page.getByRole('button', {name:'Save kit colours'}).count(), 0)
+    assert.equal(await page.getByLabel('Home kit hex colour').count(), 0)
+  }
+  await page.evaluate(() => window.setPlanKey('team'))
+  await page.getByRole('button', {name:'Save kit colours'}).waitFor()
   assert.deepEqual(errors, [])
   console.log('PASS: rendered Coach team kit settings supports continuous colour selection, save retry, double-tap protection, read-only roles, and 320/390px light/dark layouts.')
 } finally {

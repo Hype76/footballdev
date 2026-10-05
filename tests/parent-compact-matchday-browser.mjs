@@ -23,6 +23,7 @@ const childChange = appSource.slice(appSource.indexOf('  function handleChildCha
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replaceAll('../assets/', './apps/mobile-core/assets/'))
 const entry = `
+import {isClubManagedTeamKit,mobileTeamKitCacheKey} from './src/lib/team-kits.js';
 import {FormationPitchLines,FormationPlayerArtwork,FormationSubArtwork,formationVisualStyles} from './apps/mobile-core/src/FormationBoardVisuals.js';
 import {getFormationMarkerVisualPosition} from './apps/mobile-core/src/formationVisualCore.js';
 import {focusParentFormationBoard} from './apps/parent-mobile/src/parentFormationFocus.js';

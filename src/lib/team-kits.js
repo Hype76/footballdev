@@ -1,4 +1,13 @@
 import { KIT_TYPES } from './club-kits.js'
+import { getWorkspaceScopeKey } from './workspace-scope.js'
+
+export function teamKitWorkspaceScope(context) {
+  return getWorkspaceScopeKey(typeof context === 'object' ? context?.planKey ?? context?.plan_key : context)
+}
+
+export function isClubManagedTeamKit(context) {
+  return teamKitWorkspaceScope(context) === 'club'
+}
 
 export const DEFAULT_TEAM_KIT_COLOURS = Object.freeze({ home: '#1d4ed8', away: '#ffffff' })
 export const TEAM_KIT_HEX_PATTERN = /^#[0-9a-f]{6}$/i
@@ -42,15 +51,15 @@ export function normalizeTeamKits(row = {}) {
   }))
 }
 
-export function mergeTeamKits(teamKits = {}, clubKits = {}) {
+export function mergeTeamKits(teamKits = {}, clubKits = {}, context) {
   return Object.fromEntries(KIT_TYPES.flatMap(type => {
-    const kit = teamKits[type] || clubKits[type]
+    const kit = isClubManagedTeamKit(context) ? clubKits[type] : teamKits[type] || clubKits[type]
     return kit ? [[type, kit]] : []
   }))
 }
 
-export function mobileTeamKitCacheKey(clubId, teamId) {
-  return `${String(clubId || '').trim()}:${String(teamId || '').trim()}`
+export function mobileTeamKitCacheKey(clubId, teamId, context) {
+  return `${String(clubId || '').trim()}:${String(teamId || '').trim()}:${teamKitWorkspaceScope(context)}`
 }
 
 export async function readTeamKits(client, clubId, teamId) {
