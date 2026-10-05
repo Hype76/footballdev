@@ -6,17 +6,28 @@ import { chromium } from 'playwright'
 await fs.mkdir('output', { recursive: true })
 await fs.writeFile('output/marketing-final-test.html', `<html><body><div id="root"></div><script type="module">import React from 'react';import {createRoot} from 'react-dom/client';import {MarketingPage} from '/src/components/marketing/MarketingPage.jsx';import '/src/index.css';createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode,null,React.createElement(MarketingPage,{page:new URLSearchParams(location.search).get('page')})));</script></body></html>`)
 process.env.VITE_PAYMENTS_DISABLED = 'false'
+process.env.VITE_SUPABASE_URL = 'https://stats.example.invalid'
+process.env.VITE_SUPABASE_ANON_KEY = ''
+process.env.VITE_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_synthetic'
 const server = await createServer({ server: { host: '127.0.0.1', port: 0 } })
 await server.listen()
 const origin = 'http://127.0.0.1:' + server.httpServer.address().port
 const browser = await chromium.launch({ headless: true }), page = await browser.newPage()
 const errors = [], checkouts = []
 let releaseCheckout
+let statsRequests = 0, statsStatus = 200
+let statsRows = [{ matches_recorded: 71, goals_recorded: 168, alerts_sent: 5272, teams_active: 39, clubs_active: 15, updated_at: '2026-10-05T19:00:00.068223Z' }]
 page.on('pageerror', error => errors.push(error.message))
 page.on('console', message => { if (message.type() === 'error' && message.text().includes('Marketing interaction failed')) errors.push(message.text()) })
 await page.addInitScript(() => { Object.defineProperty(navigator, 'clipboard', { value: { writeText: async value => { window.copiedOffer = value } } }) })
 await page.route('**/*', async route => {
   const request = route.request(), url = new URL(request.url())
+  if (url.hostname === 'stats.example.invalid' && url.pathname === '/rest/v1/marketing_matchday_stats') {
+    assert.equal(request.method(), 'GET')
+    assert.equal(request.headers().apikey, 'sb_publishable_synthetic')
+    statsRequests++
+    return route.fulfill({ status: statsStatus, json: statsRows })
+  }
   if (url.origin !== origin) return route.abort()
   if (url.pathname === '/.netlify/functions/get-live-promotion') return route.fulfill({ json: { success: true, promotion: { code: 'SYNTHETIC', promotionCodeId: 'promo_synthetic', percentOff: 10, duration: 'once' } } })
   if (url.pathname === '/.netlify/functions/create-checkout-session') {
@@ -82,6 +93,40 @@ try {
     assert.equal(columns, width === 390 ? 1 : 2)
     await page.screenshot({ path: `output/final-how-to-${width}.png`, fullPage: true })
   }
+  await page.evaluate(() => sessionStorage.removeItem('fp-v3-stats'))
+  statsRequests = 0
+  await open('home')
+  assert.deepEqual(await page.locator('[data-stat]').allTextContents(), ['71', '168', '5,272', '39', '15'])
+  assert.equal(await page.locator('.stat-grid').isVisible(), true)
+  assert.match(await page.locator('[data-stats-status]').textContent(), /Updated 5 Oct.*20:00.*BST/)
+  for (const name of ['matchday', 'teams', 'clubs']) {
+    await open(name)
+    assert.deepEqual(await page.locator('[data-stat]').allTextContents(), ['71', '168', '5,272', '39', '15'])
+  }
+  assert.equal(statsRequests, 1, 'Four route loads reuse the five-minute session cache')
+  await page.evaluate(() => {
+    const cached = JSON.parse(sessionStorage.getItem('fp-v3-stats'))
+    cached.cachedAt = Date.now() - 300001
+    sessionStorage.setItem('fp-v3-stats', JSON.stringify(cached))
+  })
+  statsRows = [{ matches_recorded: 0, goals_recorded: 0, alerts_sent: 0, teams_active: 0, clubs_active: 0, updated_at: '2026-10-05T19:00:00.068223Z' }]
+  await open('home')
+  assert.equal(statsRequests, 2, 'Expired totals are refreshed')
+  assert.deepEqual(await page.locator('[data-stat]').allTextContents(), ['0', '0', '0', '0', '0'])
+  await page.evaluate(() => sessionStorage.removeItem('fp-v3-stats'))
+  statsRows = [{ matches_recorded: null, goals_recorded: 'invalid', alerts_sent: '', teams_active: false, updated_at: 'invalid' }]
+  await open('home')
+  assert.deepEqual(await page.locator('[data-stat]').allTextContents(), Array(5).fill('Unavailable'))
+  assert.equal(await page.locator('[data-stats-status]').textContent(), 'Football Player activity')
+  for (const scenario of [{ rows: [], status: 200 }, { rows: { message: 'Synthetic unavailable' }, status: 503 }]) {
+    await page.evaluate(() => sessionStorage.removeItem('fp-v3-stats'))
+    statsRows = scenario.rows
+    statsStatus = scenario.status
+    await open('home')
+    assert.equal(await page.locator('.stat-grid').isVisible(), true)
+    assert.deepEqual(await page.locator('[data-stat]').allTextContents(), Array(5).fill('Unavailable'))
+    assert.match(await page.locator('[data-stats-status]').textContent(), /temporarily unavailable/)
+  }
   assert.deepEqual(errors, [])
-  console.log('PASS final chooser and pricing at 3 widths, styled plan layout and table contrast, tooltips, canonical Team checkout and promotion, duplicate prevention/error recovery, 39/250 counter and public sharing, Teams laptop and How To responsive layout. All writes mocked.')
+  console.log('PASS final marketing interactions and layout; stats publishable-key fallback, five real counters on four routes, UK timestamp, zero/invalid/missing/unavailable states and cache reuse/expiry. All writes mocked.')
 } finally { await browser.close(); await server.close() }
