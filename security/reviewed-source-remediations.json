@@ -83,7 +83,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "ff5401ae730e5255c432e04ab6d06f77259015daa6c7ffa606cc6e9523ed75df",
     "scripts/security-apply-reviewed-backports.mjs": "075edac2062922ee3bc039a05dd40c42312932248cd7eb762480a49a0bc9594e",
-    "scripts/security-verify-reviewed-backports.mjs": "ba5c05fd9a838d3f8bb85b524cac0dc8052cc41cc27b581d78b601aa3036765b",
+    "scripts/security-verify-reviewed-backports.mjs": "feba00cb7f98b03bbf02a33cd35a556c19a9c54d0fcaa672104cc8de78dd2f31",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/reviewed-source-manifest.json": "8366c186bcd6a755e4b971858cfeb392ccd84b3e7fc0aabfaf24427308a70b97",
@@ -119,7 +119,7 @@
       "netlify/functions/lib/_fan-schedule.js": "e4d15197d2745b2d8e75238db20c0ec09149fd10f9797e9339af1f4841f17bc0",
       "src/app/router.jsx": "21ceff28fd2c3653edeb9847efeecc35a82a15e33577d8f218c8278ab68b216a",
       "src/components/marketing/MarketingContactDialog.jsx": "4484e669f0003bcaa3c7eb00745cf2ca19d96d029c7e1c0202e08723bf87afeb",
-      "src/components/marketing/MarketingPage.jsx": "ca922724598a05ce7252d4331a4d935e33f682198a48c4b62dc9468d66444219",
+      "src/components/marketing/MarketingPage.jsx": "0945464c47c839340927a4bf34f7bcf20d194df64849f7a27d1ae37a9bd5f4be",
       "src/components/marketing/marketing-reference.css": "3ca1346a01a54bce003ea4809c31f27da252e3f41bacc3df6754569ad2816b11",
       "src/components/marketing/reference-app.js": "80d58a145148277600c937bca16fd3480cb55079f107bf4d7e352779541e0ac9",
       "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
@@ -140,8 +140,9 @@
       "tests/matchday-parent-calendar-safety.test.mjs": "54f1dcfbb00bac4e1b317e89a6e04c6d6391c72abc2e7f56d87772682b5e75b6",
       "tests/public-parent-login-maintenance-banner.test.mjs": "a44406d4752ceba8354edd15fa6ee5290580bebdd943b1954b9cc778a29d15bc",
       "tests/public-signup-recovery.test.mjs": "c5fd4909e7b2effa2b8371df8e76b4d9a5c278edea538e2f3d0142204af2c514",
-      "src/components/marketing/marketing-pricing.js": "9ae56c12ea2349b3ab11ec0624eaa2975643e6fb6e5bc77f93fb13477d742a16",
-      "tests/marketing-final-integration-browser.mjs": "e29f69c316942f2c474408aeee80cc4237840232bc3c5d3ec62d3bd7d75a2fd1"
+      "src/components/marketing/marketing-pricing.js": "cc7f7c04ac35d651fc12340ae96ea3aad83b31be50256b18168973faf0687831",
+      "tests/marketing-final-integration-browser.mjs": "402b2ab59e1c323ccf2746909295ab694278c344477d13de0361636e75af76ed",
+      "src/components/marketing/marketing-inline-pages.css": "6a4a6523c2c9d9ded3dd6b865b5ecfc5f501ae4098262e6374e09405f77f3ce8"
     },
     "binarySourceHashes": {
       "public/marketing-v70/assets/about-grassroots.jpg": "6bca767739fbb9c811c907dae43ce3ed3f24a22364997e15d6eca6501b4da2f5",
@@ -214,5 +215,5 @@
       "public/marketing-v70/vendor/jspdf.umd.min.js": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54"
     }
   },
-  "releasePreparationSha256": "ce75f87fa3f5da47c47d1f93095a4fd1071066dad6c50b188f0cb17513e1ea58"
+  "releasePreparationSha256": "c8f79520461b0e99be45900a2affad78e64133c2e117e5496bf56547eb9ee91e"
 }
