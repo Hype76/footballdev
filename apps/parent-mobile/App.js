@@ -13,6 +13,9 @@ import { getParentMatchResult } from './src/matchResult'
 import { PartnersScreen } from './src/PartnersScreen'
 import 'react-native-url-polyfill/auto'
 import { useParentHomeSections } from './src/useParentHomeSections'
+import { TeamLeagueLinkRow } from '../mobile-core/src/TeamLeagueLink'
+import { supabase as leagueSupabase } from '../mobile-core/src/supabase'
+import { parentPlayerTeamLeagueScope } from '../../src/lib/team-league-link.js'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
 import { openVenueDirections } from '../mobile-core/src/venueDirections'
 import { PasswordInput } from '../mobile-core/src/PasswordInput'
@@ -2328,6 +2331,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             />
             {renderedActiveTab === 'home' ? (
               <HomeScreen
+                leagueUser={selectedMobileUser}
                 userId={selectedMobileUser?.id}
                 onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })}
                 themeTokens={themeModel.tokens}
@@ -2706,8 +2710,8 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, selectedMatch, themeTokens, onOpenEventDetails }) {
-  const { styles } = useParentTheme()
+function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, selectedMatch, themeTokens, onOpenEventDetails }) {
+  const { palette, styles } = useParentTheme()
   const homeSections = useParentHomeSections(userId)
   const [selectedEventKey, setSelectedEventKey] = useState('')
   const [detailPlayerId, setDetailPlayerId] = useState(link?.id)
@@ -2745,6 +2749,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
         <SummaryButton disabled={!nextDirectionsUrl} iconKey="parent.directions" label="Directions" onPress={() => onOpenLink?.(nextDirectionsUrl, 'directions')} />
       </View>
 
+      {leagueUser?.id ? <TeamLeagueLinkRow client={leagueSupabase} palette={palette} scope={parentPlayerTeamLeagueScope(leagueUser, link, isOffline)} styles={styles} /> : null}
       {scorerMatches.map((match) => (
         <View key={`scoring:${match.id}`} style={styles.sectionStack}>
           <Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>
@@ -3261,7 +3266,6 @@ function SettingsScreen({
   const notificationStateKnown = [MOBILE_SETTING_LOAD_STATES.READY, MOBILE_SETTING_LOAD_STATES.STALE].includes(notificationStateStatus)
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const [settingsRootY, setSettingsRootY] = useState(null)
-
 
   return (
     <View onLayout={(event) => setSettingsRootY(event.nativeEvent.layout.y)} style={styles.screenStack}>

@@ -6,7 +6,8 @@ import { chromium } from 'playwright'
 const root=process.cwd(),modules=path.join(root,'apps/parent-mobile/node_modules')
 const app=await readFile('apps/parent-mobile/App.js','utf8')
 const paletteFunction=app.slice(app.indexOf('function createParentAppPalette('),app.indexOf('function createParentAppStyles('))
-const entry=`
+const entry=`import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+
 import React,{useState} from 'react';import{createRoot}from'react-dom/client';
 import{ParentPlayerAccessControls}from'./apps/parent-mobile/src/ParentPlayerAccessControls.js';
 import{createParentMobileTheme}from'./apps/mobile-core/src/parentThemeCore.js';

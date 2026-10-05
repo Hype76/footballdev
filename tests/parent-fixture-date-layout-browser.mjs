@@ -24,7 +24,8 @@ if (baseline) {
   app = app.replace("marginLeft: 'auto', textAlign: 'right'", "textAlign: 'right'")
   portal = portal.replace('style={[styles.meta, styles.fixtureDate]}', 'style={styles.meta}')
 }
-const entry = `
+const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+
 import React,{useState,useMemo} from 'react';import{createRoot}from'react-dom/client';
 import{View,Text,Pressable,StyleSheet,Platform}from'react-native';
 import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME}from'./apps/mobile-core/src/parentThemeCore.js';

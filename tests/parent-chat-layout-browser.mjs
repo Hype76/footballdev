@@ -22,7 +22,7 @@ if (baseline) portal = portal.replace('chatListContent: { flexGrow: 1, gap: 8, p
 const app = await extract('apps/parent-mobile/App.js', ['createParentAppPalette', 'createParentAppStyles'])
 const shortBody = 'Monday training has moved pitches, we are now meeting beside the main entrance. Please bring both kits.'
 const longBody = `${'Training details and travel arrangements. '.repeat(40)}FINAL FULL MESSAGE TEXT`
-const entry = `
+const entry = `import {getParentBadgeColours,getParentStatusColours} from './apps/mobile-core/src/parentStatusColours.js';
 import React,{useState,useEffect,useMemo,useRef} from 'react';import{createRoot}from'react-dom/client';
 import{View,Text,Pressable,StyleSheet,Platform,FlatList,TextInput,ScrollView,AppState,Switch}from'react-native';
 import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME}from'./apps/mobile-core/src/parentThemeCore.js';

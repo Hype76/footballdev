@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { CreateStaffLoginSection } from '../components/teams/CreateStaffLoginSection.jsx'
 import { CreateTeamSection } from '../components/teams/CreateTeamSection.jsx'
 import { TeamStaffAllocationsSection } from '../components/teams/TeamStaffAllocationsSection.jsx'
+import { TeamLeagueLinkSettings } from '../components/teams/TeamLeagueLinkSettings.jsx'
 import { TeamBrandingOffer } from '../components/teams/TeamBrandingOffer.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -953,6 +954,7 @@ export function TeamManagementPage() {
 
       {canManageOwnedTeam && selectedTeam?.id && <TeamBrandingOffer key={selectedTeam.id} teamId={selectedTeam.id} teamName={selectedTeam.name} isPlatformAdmin={user?.role === 'super_admin'} />}
       <TeamStaffAllocationsSection
+        leagueSettings={<TeamLeagueLinkSettings user={user} teamId={selectedTeam?.id} />}
         availableStaff={filteredAvailableStaffForSelectedTeam}
         canDeleteTeam={isClubAdminUser}
         canManageStaffAllocations={canManageOwnedTeam}

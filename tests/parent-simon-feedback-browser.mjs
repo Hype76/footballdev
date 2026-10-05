@@ -20,6 +20,7 @@ function extract(source, names) {
 }
 const backCondition = appSource.match(/\{renderedActiveTab === 'more' && renderedMoreSection \? <BackButton[^\n]+/)[0]
 const source = `
+import {getParentBadgeColours,getParentStatusColours} from './apps/mobile-core/src/parentStatusColours.js';
 import React,{useState,useEffect,useMemo,useContext,createContext} from 'react';
 import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform,TextInput,Switch} from 'react-native';

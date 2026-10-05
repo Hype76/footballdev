@@ -105,6 +105,8 @@ import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackground
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
 import { CoachTeamKitSettings } from './src/CoachTeamKitSettings'
+import { TeamLeagueLinkRow, TeamLeagueLinkSettings } from '../mobile-core/src/TeamLeagueLink'
+import { coachTeamLeagueScope, teamLeagueScopeKey } from '../../src/lib/team-league-link.js'
 import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
 import { countPendingCoachDevelopmentDrafts } from './src/offline'
 import {
@@ -695,7 +697,6 @@ function CoachHome() {
     return () => { work.cancel(); received.remove(); resumed.remove() }
   }, [activeContext, contextOwnedByCurrentUser, selectedMobileUser])
 
-
   useEffect(() => {
     void initializeCoachNotifications().catch(() => {})
   }, [])
@@ -1024,7 +1025,7 @@ function CoachNotificationsScreen(props) {
 }
 
 function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
-  const { styles } = useCoachTheme()
+  const { palette, styles } = useCoachTheme()
   const nextMatch = homeState.nextMatch
   const nextSession = homeState.nextSession
   const nextCalendar = homeState.nextCalendar
@@ -1037,6 +1038,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <Pressable accessibilityRole="button" accessibilityLabel="Retry unavailable overview information" onPress={() => reloadHome({ refresh: true })} style={{ paddingVertical: 8 }}><Text style={styles.helperText}>Some overview information could not refresh. Tap to retry.</Text></Pressable> : null}
       <View style={styles.iconList}>
+        {user?.id && context.teamId ? <TeamLeagueLinkRow client={coachSupabase} coach palette={palette} scope={coachTeamLeagueScope(user, context.teamId)} styles={styles} /> : null}
         {canOpen('calendar') ? <HomeNextRow
           iconKey="route.calendar"
           label="Next Calendar item"
@@ -1299,6 +1301,9 @@ function SettingsScreen({
         </SettingRow> : null}
       </Section>
       </SettingsSection>
+      {context.teamId ? <SettingsSection id="team-league" label="Team" iconKey="more.team">
+        <TeamLeagueLinkSettings key={teamLeagueScopeKey(coachTeamLeagueScope(user, context.teamId))} client={coachSupabase} palette={palette} scope={coachTeamLeagueScope(user, context.teamId)} />
+      </SettingsSection> : null}
       <SettingsSection id="display" label="Display" iconKey="settings.appearance">
       <Section compact iconKey="settings.appearance" title="Appearance">
         <Text style={styles.bodyText}>System follows this device's appearance. Your choice is remembered on this device.</Text>

@@ -36,7 +36,8 @@ const parent = await readFile('apps/parent-mobile/src/ParentPortalScreens.js', '
 const coach = await readFile('apps/coach-mobile/src/CoachMatchDayScreen.js', 'utf8')
 const section = (source, start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)))
 const modules = path.join(process.cwd(), 'apps/parent-mobile/node_modules')
-const shared = `
+const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from './apps/mobile-core/src/parentStatusColours.js';
+
   import React, { useState, useMemo, useEffect } from 'react'
   import { createRoot } from 'react-dom/client'
   import { flushSync } from 'react-dom'

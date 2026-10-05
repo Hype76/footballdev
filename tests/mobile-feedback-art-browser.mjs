@@ -13,7 +13,8 @@ async function extract(file, names) {
 }
 const portal = await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MoreScreen', 'usePortalStyles', 'colorsFor'])
 const guest = await extract('apps/coach-mobile/src/CoachGuestScorer.js', ['CoachGuestScorer'])
-const entry = `
+const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+
 import React,{useState,useMemo} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Image,Pressable,StyleSheet,Platform,Keyboard} from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';

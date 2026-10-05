@@ -15,7 +15,8 @@ const normalizer=data.slice(data.indexOf('function normalizeText('),data.indexOf
 const parentStyles=parent.slice(parent.indexOf('function colorsFor('),parent.indexOf('\nfunction ',parent.indexOf('function usePortalStyles(')+10))
 const matchStatusBadge=parent.slice(parent.indexOf('function MatchStatusBadge('),parent.indexOf('\nfunction MatchCard(',parent.indexOf('function MatchStatusBadge(')))
 const hero=parent.slice(parent.indexOf('        <View style={[styles.gameDayHero,'),parent.indexOf('          {selectedMatch.notes ?'))+'</View>'
-const entry=`import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
+const entry=`import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
 import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {formatUkDate} from './src/lib/date-format.js';
 import {PitchTypeIcon} from './apps/parent-mobile/src/PitchTypeIcon.js';
