@@ -1,5 +1,7 @@
+import { mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../../mobile-core/src/matchDayParticipantRoster.js'
 import { validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event.js'
 import * as Crypto from 'expo-crypto'
+import { prepareAttendanceChoices } from '../../mobile-core/src/attendanceCommandData'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
 import * as SecureStore from 'expo-secure-store'
@@ -45,7 +47,7 @@ function createRequestId(value = '') {
   return Crypto.randomUUID()
 }
 
-async function sendCoachTrainingAvailabilityResponsePushSafely({ parentLinkId, requestPlayerId, respondedAt }) {
+export async function sendCoachTrainingAvailabilityResponsePushSafely({ parentLinkId, requestPlayerId, respondedAt }) {
   try {
     const config = getMobileRuntimeConfig('parent')
     const accessToken = await getAccessToken()
@@ -246,6 +248,9 @@ export function normalizeParentResource(row = {}) {
 
 function normalizeParentMatchEvent(row = {}) {
   return {
+    scorerPlayerId: normalizeText(row.scorer_player_id ?? row.scorerPlayerId),
+    assistPlayerId: normalizeText(row.assist_player_id ?? row.assistPlayerId),
+    participantIdentityVersion: row.participant_identity_version ?? row.participantIdentityVersion ?? null,
     assistName: normalizePersonName(row.assist_name ?? row.assistName),
     assistShirtNumber: normalizeText(row.assist_shirt_number ?? row.assistShirtNumber),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
@@ -330,6 +335,7 @@ export function normalizeParentMatchDay(row = {}) {
     isScorer: match.isScorer && !(row.scorer_review_requested_at ?? row.scorerReviewRequestedAt),
     clockMode: normalizeText(row.match_clock_mode ?? row.clockMode) || 'fixed',
     conclusionRule: normalizeText(row.match_conclusion_rule ?? row.conclusionRule) || 'normal_time',
+    ...(Array.isArray(row.eventParticipants) ? { eventParticipants: row.eventParticipants } : {}),
     confirmedTeam: Array.isArray(row.selected_player_names ?? row.selectedPlayerNames)
       ? (row.selected_player_names ?? row.selectedPlayerNames).map(normalizePersonName).filter(Boolean)
       : [],
@@ -389,6 +395,17 @@ export async function getParentPortalMatchDays(user) {
     formationPlansByMatchId.set(matchId, plans)
   }
   const formationPlanError = formationPlanResult.error ? 'The match plan could not be refreshed. Try again later.' : ''
+  const participantsById = new Map()
+  const identitiesById = new Map()
+  await Promise.all([...scorerIds].map(async matchId => {
+    const base = (baseResult.data || []).find(row => String(row.id) === matchId)
+    if (!base || reviewById.get(matchId)) return
+    const match = normalizeParentMatchDay(base)
+    const roster = await supabase.rpc('get_match_day_event_participants', { match_day_id_value: matchId, parent_link_id_value: link.id })
+    if (roster.error) throw roster.error
+    participantsById.set(matchId, normalizeMatchDayParticipantRoster(roster.data, match))
+    identitiesById.set(matchId, roster.data)
+  }))
   return (baseResult.data || []).map((row) => {
     const extended = extendedById.get(String(row.id)) || {}
     const eventContext = new Map((extended.event_contexts ?? extended.eventContexts ?? []).map((event) => [String(event.id), event]))
@@ -396,10 +413,11 @@ export async function getParentPortalMatchDays(user) {
       ...row,
       ...extended,
       club_name: String(extended.club_name ?? extended.clubName ?? row.club_name ?? row.clubName ?? '').trim(),
-      events: (row.events || []).map((event) => ({ ...event, ...(eventContext.get(String(event.id)) || {}) })),
+      events: (identitiesById.has(String(row.id)) ? mergeMatchDayParticipantEventIdentities(row.events || [], identitiesById.get(String(row.id)), normalizeParentMatchDay(row)) : row.events || []).map((event) => ({ ...event, ...(eventContext.get(String(event.id)) || {}) })),
       is_scorer: scorerIds.has(String(row.id)),
       scorer_review_requested_at: reviewById.get(String(row.id)) || '',
       shirt_choice: shirtsById.get(String(row.id)),
+      ...(participantsById.has(String(row.id)) ? { eventParticipants: participantsById.get(String(row.id)) } : {}),
       selected_player_names: teamById.get(String(row.id)) || [],
       squad_transport: transportById.get(String(row.id)) || [],
       formationPlans: formationPlansByMatchId.get(String(row.id)) || [],
@@ -432,13 +450,21 @@ export async function getParentInvitations(user) {
   if (transportResult.error) throw transportResult.error
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
   const transportByRequestId = new Map((transportResult.data || []).map((row) => [String(row.request_id ?? row.requestId), row]))
-  return prepareParentInvitations((invitationResult.data || []).map((row) => ({
+  const invitations = prepareParentInvitations((invitationResult.data || []).map((row) => ({
     ...row,
     ...(transportByRequestId.get(String(row.source_record_id ?? row.sourceRecordId)) || {}),
     shirt_choice: normalizeText(row.source_event_type ?? row.sourceEventType).toLowerCase() === 'match_day'
       ? shirtsById.get(String(row.event_id ?? row.eventId))
       : undefined,
   })))
+  const preparations = await prepareAttendanceChoices(invitations.map(invitation => {
+    if (!isParentInvitationActionable(invitation) || !['match_attendance', 'training_attendance'].includes(invitation.invitationType)) return null
+    return { route: invitation.invitationType === 'match_attendance' ? 'parent_match' : 'parent_training',
+      target: invitation.invitationType === 'match_attendance'
+        ? { parentLinkId: link.id, requestId: invitation.sourceRecordId }
+        : { parentLinkId: link.id, requestPlayerId: invitation.sourceRecordId } }
+  }))
+  return invitations.map((invitation, index) => ({ ...invitation, attendancePreparation: preparations[index] }))
 }
 
 export async function setParentMatchTransport(user, invitation, mode, seatsOffered = 0) {
@@ -830,7 +856,7 @@ export async function applyParentScorerCommand(user, command, baseMatch) {
   if (!baseMatch || baseMatch.id !== command.matchId || baseMatch.clubId !== link.clubId || baseMatch.teamId !== link.teamId) {
     throw new Error('This saved match is outside your current Parent access.')
   }
-  const result = await scorerRpc('apply_parent_match_day_command', {
+  const result = await scorerRpc(command.payload?.participantRosterVersion === 1 ? 'apply_parent_match_day_command_v2' : 'apply_parent_match_day_command', {
     command_id_value: command.id,
     match_day_id_value: command.matchId,
     parent_link_id_value: link.id,
@@ -946,7 +972,9 @@ export async function addParentScorerGoal(user, matchId, goal = {}) {
 
 export async function correctParentScorerGoal(user, match, event, goal = {}, reason = '') {
   const link = requireSelectedLink(user)
-  return scorerRpc('correct_match_day_goal_v2', {
+  return scorerRpc('correct_match_day_goal_v3', {
+    scorer_player_id_value: normalizeText(goal.scorerPlayerId) || null,
+    assist_player_id_value: goal.isOwnGoal ? null : normalizeText(goal.assistPlayerId) || null,
     is_own_goal_value: goal.isOwnGoal ?? event.isOwnGoal ?? false,
     stoppage_minute_value: goal.stoppageMinute === '' ? null : Number(goal.stoppageMinute ?? event.stoppageMinute) || null,
     assist_name_value: normalizeText(goal.assistName ?? event.assistName),

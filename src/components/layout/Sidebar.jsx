@@ -1,4 +1,5 @@
 import { UserFeedbackLinks } from './UserFeedbackLinks.jsx'
+import { getScopedTeamBranding } from '../../lib/team-branding-display.js'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.webp'
@@ -183,7 +184,8 @@ export function Sidebar({ isOpen, onClose }) {
   } = useAuth()
   const navigate = useNavigate()
   const displayUser = user
-  const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
+  const scopedBranding = getScopedTeamBranding(displayUser)
+  const logoUrl = (scopedBranding ? scopedBranding.logoUrl : displayUser?.clubLogoUrl) || fallbackLogo
   const isParentPortal = isParentPortalUser(displayUser)
   const isCoachOnly = Boolean(displayUser) && !isParentPortal && !isSuperAdmin(displayUser) && Number(displayUser?.roleRank ?? 0) < 50
   const canUseTeamWorkflow = hasTeamWorkflowContext(displayUser)

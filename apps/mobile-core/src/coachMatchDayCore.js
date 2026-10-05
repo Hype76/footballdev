@@ -55,6 +55,8 @@ export function isCoachMatchDayGoalCorrectionApplied(match, eventId, goal = {}, 
   const event = (match?.events || []).find((item) => normalize(item.id) === normalize(eventId))
   if (!event || event.eventStatus === 'voided') return false
   return sameText(event.teamSide, goal.teamSide)
+    && (!Object.prototype.hasOwnProperty.call(goal, 'scorerPlayerId') || normalize(event.scorerPlayerId) === normalize(goal.scorerPlayerId))
+    && (!Object.prototype.hasOwnProperty.call(goal, 'assistPlayerId') || normalize(event.assistPlayerId) === normalize(goal.assistPlayerId))
     && sameText(event.scorerName, goal.scorerName)
     && sameText(event.scorerShirtNumber, goal.scorerShirtNumber)
     && sameText(event.assistName, goal.assistName)
@@ -270,6 +272,7 @@ function normalizePlayerChoice(player = {}) {
 }
 
 export function getCoachMatchDaySelectedPlayers(players = [], match = {}) {
+  if (Array.isArray(match.eventParticipants)) return match.eventParticipants.filter(player => player.teamId === match.teamId)
   const selectedPlayerIds = new Set(
     (match?.squadDecisions || [])
       .filter((decision) => normalizeMatchDaySquadDecision(decision?.status) === 'selected')
@@ -317,6 +320,7 @@ export function filterCoachMatchDayPlayerChoices(players = [], query = '') {
 export function pickCoachMatchDayLinkedPlayer(form = {}, fieldPrefix = 'player', player = {}) {
   return {
     ...form,
+    [`${fieldPrefix}PlayerId`]: player?.id || '',
     [`${fieldPrefix}Name`]: normalize(player?.playerName ?? player?.player_name),
     [`${fieldPrefix}ShirtNumber`]: normalize(player?.shirtNumber ?? player?.shirt_number),
   }
@@ -332,7 +336,7 @@ export function updateCoachMatchDayLinkedPlayer(form = {}, fieldPrefix = 'player
           : normalize(player?.playerName).toLowerCase() === normalizedValue
       ))
     : []
-  const next = { ...form, [valueKey]: value }
+  const next = { ...form, [valueKey]: value, [`${fieldPrefix}PlayerId`]: '' }
   return matches.length === 1 ? pickCoachMatchDayLinkedPlayer(next, fieldPrefix, matches[0]) : next
 }
 
@@ -377,10 +381,11 @@ export function validateCoachMatchDayEventParticipants(payload, selectedPlayers 
     if (type === 'other' || type === 'coach' && payload.eventType !== 'substitution') continue
     const name = normalize(payload[`${prefix}Name`]).toLowerCase()
     const shirt = normalize(payload[`${prefix}ShirtNumber`])
-    const matches = selectedPlayers.filter(player => normalize(player.playerName).toLowerCase() === name && (!shirt || normalize(player.shirtNumber) === shirt))
+    const identity = normalize(payload[`${prefix}PlayerId`])
+    const matches = selectedPlayers.filter(player => (!identity || player.id === identity) && normalize(player.playerName).toLowerCase() === name && (!shirt || normalize(player.shirtNumber) === shirt))
     if (matches.length !== 1) throw new Error(`Choose a selected squad player${prefix === 'playerOn' ? ' coming on' : ''}, or choose Other for a match-only participant.`)
   }
-  if (payload.eventType === 'substitution' && normalize(payload.playerName).toLowerCase() === normalize(payload.playerOnName).toLowerCase() && normalize(payload.playerShirtNumber) === normalize(payload.playerOnShirtNumber)) throw new Error('Choose a different player coming on.')
+  if (payload.eventType === 'substitution' && (payload.playerPlayerId && payload.playerOnPlayerId ? payload.playerPlayerId === payload.playerOnPlayerId : normalize(payload.playerName).toLowerCase() === normalize(payload.playerOnName).toLowerCase() && normalize(payload.playerShirtNumber) === normalize(payload.playerOnShirtNumber))) throw new Error('Choose a different player coming on.')
   return payload
 }
 
@@ -423,6 +428,11 @@ export function validateCoachMatchDayEventForm(form = {}) {
     playerOnParticipantType,
     scorerName: scorerSide === 'club' ? formatCoachMatchDayParticipantName(scorerParticipantType, form.scorerName) : normalize(form.scorerName),
     scorerParticipantType,
+    participantRosterVersion: 1,
+    scorerPlayerId: scorerSide === 'club' && scorerParticipantType === 'player' ? form.scorerPlayerId || '' : '',
+    assistPlayerId: teamSide === 'club' && !form.isOwnGoal ? form.assistPlayerId || '' : '',
+    playerPlayerId: teamSide === 'club' && participantType === 'player' ? form.playerPlayerId || '' : '',
+    playerOnPlayerId: teamSide === 'club' && playerOnParticipantType === 'player' ? form.playerOnPlayerId || '' : '',
     teamSide,
   }
 }

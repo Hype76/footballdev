@@ -72,6 +72,30 @@ test('Team plan retains logo entitlement and current custom-colour policy', () =
   assert.equal(prepared.themeAccent, link.themeAccent)
 })
 
+test('Scoped Matchday promotion embeds the selected team badge without widening plan capabilities', async () => {
+  const selected = { ...link, planKey: 'matchday', teamBrandingDisplay: {
+    clubId: link.clubId, teamId: link.teamId, source: 'team', logoAllowed: true,
+    coloursAllowed: true, logoUrl: link.clubLogoUrl, accent: 'blue', buttonStyle: 'solid',
+  } }
+  const prepared = withParentMatchReportBranding(match, selected)
+  assert.equal(prepared.planKey, 'matchday')
+  assert.equal(prepared.clubLogoUrl, link.clubLogoUrl)
+  const branding = await prepareParentPdfLogo(prepared, { storageOrigin: origin, fetchLogo: async () => response(png) })
+  const pdf = Buffer.from(buildCompletedReportPdf(prepared, { audience: 'parent', branding, accessContext: prepared })).toString('latin1')
+  assert.match(pdf, /\/DCTDecode/)
+  assert.doesNotMatch(pdf, /PRIVATE_COACH_NOTE|PRIVATE_EVENT_NOTE/)
+  for (const changed of [{ teamId: 'another' }, { clubId: 'another' }]) {
+    const denied = withParentMatchReportBranding(match, { ...selected, ...changed })
+    assert.equal(denied.clubLogoUrl, '')
+    assert.equal(denied.teamBrandingDisplay, null)
+  }
+  const expired = withParentMatchReportBranding(match, { ...selected, teamBrandingDisplay: {
+    ...selected.teamBrandingDisplay, expiresAt: '2020-01-01T00:00:00Z', baseLogoAllowed: false, baseColoursAllowed: false,
+  } })
+  assert.equal(expired.clubLogoUrl, '')
+  assert.equal(expired.themeAccent, '')
+})
+
 test('An absent selected Parent link safely clears cached branding', () => {
   const prepared = withParentMatchReportBranding({ ...match, clubLogoData: 'cached', themeAccent: 'red' }, null)
   assert.equal(prepared.clubLogoUrl, '')

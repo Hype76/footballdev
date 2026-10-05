@@ -16,3 +16,23 @@ export function matchesHardeningMigrationScope(base, entries) {
   return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
     && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === hardeningMigrationScope.hashes[path])
 }
+
+// Combined V1 local candidate only. Exact bytes and current-main base remain
+// mandatory; this static validation does not authorise migration application.
+export const completeV1MigrationScope = {
+  "base": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
+  "hashes": {
+    "supabase/migrations/20261003060000_first_250_branding_preparation.sql": "188aa136e4c87fdec3f3a52f084e2fa1eabee6ae43cf30c7cba46dee099d9201",
+    "supabase/migrations/20261004152308_atomic_match_day_participation_renewal.sql": "0f72132d9c6ff68aea9ce39b0b8ae65b3298e8f4d2023a9e7a1748e7c5136827",
+    "supabase/migrations/20261004153000_matchday_unconfigured_participant_roster.sql": "5a66fdb5bd2a19bf2e8486b35aba538943995dd99e9d01f13db3d6d4355f0b9a",
+    "supabase/migrations/20261005085925_mobile_attendance_durable_commands.sql": "b3fe9b2893a9d8082d3af15ac76a8fffe258b811d2bb7460def0c6b9324038f0"
+  }
+}
+
+export function matchesCompleteV1MigrationScope(base, entries) {
+  if (base !== completeV1MigrationScope.base) return false
+  const expected = Object.keys(completeV1MigrationScope.hashes).sort()
+  if (entries.length !== expected.length) return false
+  return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
+    && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === completeV1MigrationScope.hashes[path])
+}

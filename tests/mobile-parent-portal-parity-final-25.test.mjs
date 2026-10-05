@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import { getParentParitySummary, PARENT_PARITY_MATRIX } from '../apps/parent-mobile/src/parentParityMatrix.js'
 import { resolveParentNotificationOpen } from '../apps/mobile-core/src/parentNotificationsCore.js'
+import { DEVICE_THEME_MODES, resolveDeviceThemeMode } from '../apps/mobile-core/src/deviceThemeCore.js'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const [app, screens, data, offline, environment, developmentApi, resourceApi, fileAccessMigration, fileAccessTeamScopeMigration] = await Promise.all([
@@ -71,7 +72,9 @@ test('offline cache includes Parent resources and saves scorer actions for repla
   assert.match(app, /queueParentScorerAction/)
   assert.match(app, /syncParentScorerOutboxes/)
   assert.match(screens, /Game Day actions save on this phone and sync when connected/)
-  assert.match(screens, /Responses need a connection/)
+  assert.match(screens, /offlineBlocked = isOffline && !invitation\.attendancePreparation/)
+  assert.match(screens, /saved on phone, waiting for confirmation/)
+  assert.match(screens, /receipt\?\.durable/)
 })
 
 test('normalizers preserve response authority and safe display fields', () => {
@@ -111,13 +114,20 @@ test('test API adapters fail closed to the approved project and use Parent RLS f
   assert.match(fileAccessTeamScopeMigration, /item\.storage_path = storage\.objects\.name/)
 })
 
-test('settings include password reauthentication, biometrics, notifications and light or dark display', () => {
+test('settings include password reauthentication, biometrics, notifications and light or dark display', async () => {
   assert.match(data, /signInWithPassword/)
   assert.match(data, /updateUser\(\{ password: nextPassword \}\)/)
   assert.match(app, /Biometric app lock/)
   assert.match(app, /NotificationCategorySettings/)
   assert.match(app, /Pause all push alerts on this device/)
   assert.match(app, /Enable push alerts on this device/)
-  assert.match(app, /\['dark', 'light'\]/)
-  assert.match(app, /PARENT_THEME_STORAGE_KEY/)
+    assert.match(app, /<DeviceThemeChoices/)
+    assert.deepEqual(DEVICE_THEME_MODES, ['system', 'light', 'dark'])
+    assert.equal(resolveDeviceThemeMode('system', 'light'), 'light')
+    assert.equal(resolveDeviceThemeMode('system', 'dark'), 'dark')
+    assert.equal(resolveDeviceThemeMode('light', 'dark'), 'light')
+    assert.equal(resolveDeviceThemeMode('dark', 'light'), 'dark')
+  assert.match(app, /parentThemePreference/)
+  const preference = await fs.readFile(`${root}/apps/parent-mobile/src/displayThemePreference.js`, 'utf8')
+  assert.match(preference, /PARENT_THEME_STORAGE_KEY = 'fp\.parent\.display-theme\.v1'/)
 })

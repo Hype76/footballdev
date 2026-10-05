@@ -1,3 +1,4 @@
+import { getParentBadgeColours, PARENT_FAN_SIGN_IN_COLOURS, PARENT_POLL_SEPARATOR_COLOUR } from '../mobile-core/src/parentStatusColours'
 import { NotificationExplainer } from './src/NotificationExplainer'
 import { notificationExplainerKey } from './src/notificationExplainerCore'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
@@ -96,6 +97,10 @@ import { isMatchdayPlan, isMobileCapabilityAllowed, isMobileRouteAllowed } from 
 import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
 import { withParentMatchReportBranding } from './src/parentMatchReportBranding.js'
 import ParentIcon from './src/ParentIcon'
+import { useAttendanceOutbox } from '../mobile-core/src/useAttendanceOutbox'
+import { AttendancePendingRows } from '../mobile-core/src/AttendancePendingRows'
+import { readParentAttendanceCommands, updateParentAttendanceCommands } from './src/offline'
+import { sendCoachTrainingAvailabilityResponsePushSafely } from './src/parentPortalData'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
 import { projectParentScorerOutbox } from './src/parentScorerOutboxCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
@@ -513,7 +518,18 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     () => selectedMobileUser?.id && selectedLink?.id ? `fp.parent.dismissed.v1.${selectedMobileUser.id}.${selectedLink.id}` : '',
     [selectedLink?.id, selectedMobileUser?.id],
   )
-  const visibleInvitations = resources.invitations.items
+  const attendanceOutbox = useAttendanceOutbox({
+    scope: JSON.stringify(['parent', selectedMobileUser?.id, selectedLink?.id, selectedLink?.playerId, selectedLink?.clubId, selectedLink?.teamId]),
+    read: () => readParentAttendanceCommands(selectedMobileUser, selectedLink),
+    update: change => updateParentAttendanceCommands(selectedMobileUser, selectedLink, change),
+    notify: async (command, receipt) => Boolean(await sendCoachTrainingAvailabilityResponsePushSafely({
+      parentLinkId: command.preparation.target.parentLinkId,
+      requestPlayerId: command.preparation.target.requestPlayerId,
+      respondedAt: receipt.result.respondedAt,
+    })),
+    onConfirmed: () => loadParentData(),
+  })
+  const visibleInvitations = resources.invitations.items.map(attendanceOutbox.project)
   const visibleMatches = resources.matches.items.map((match) => {
     const journal = scorerOutboxes[match.id]
     const projected = journal?.pending?.length ? projectParentScorerOutbox(journal) : match
@@ -1524,6 +1540,21 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   async function handleInvitationResponse(invitation, responseState) {
+    if (invitation?.attendancePreparation && ['match_attendance', 'training_attendance'].includes(invitation.invitationType)) {
+      if (invitation.attendancePending || activeActionId || !isParentInvitationActionable(invitation)
+        || selectedLink?.linkType !== 'parent' || invitation.parentLinkId !== selectedLink.id || invitation.childId !== selectedLink.playerId) return false
+      const scope = parentSyncScopeRef.current
+      const generation = parentActionScopeRef.current
+      const current = () => scope === parentSyncScopeRef.current && generation === parentActionScopeRef.current
+      try {
+        await attendanceOutbox.enqueue(invitation.attendancePreparation, responseState, invitation.eventTitle || 'Attendance')
+        return current() ? { durable: true } : false
+      } catch (error) {
+        if (current()) setNotice({ message: getParentFriendlyError(error, 'This answer could not be saved on this phone. Try again before closing.'), tone: 'error' })
+        return false
+      }
+    }
+    // Older servers/caches keep the existing synchronous path. Never simulate durable acceptance.
     if (isOffline || activeActionId) return
     const actionScope = parentSyncScopeRef.current
     const actionGeneration = parentActionScopeRef.current
@@ -1883,7 +1914,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     setNotice(null)
     try {
       const payload = action === 'timer' || action === 'extended' ? { action: value }
-        : action === 'correct-goal' ? { eventId: value.event.id, goal: value.goal, reason: value.reason }
+        : action === 'correct-goal' ? { participantRosterVersion: 1, eventId: value.event.id, goal: value.goal, reason: value.reason }
           : action === 'void-goal' ? { eventId: value.event.id, reason: value.reason }
           : value || {}
       const queued = await queueParentScorerAction(selectedMobileUser, selectedLink, match, action, payload)
@@ -2280,6 +2311,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
               summary={syncSummary}
             />
             {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
+            <AttendancePendingRows outbox={attendanceOutbox} onRefresh={async () => { if (isOffline) return false; const result = await loadParentData(); return result?.failed === 0 && !result?.stale }} styles={styles} />
 
             <NotificationExplainer
               key={user.id + selectedLink?.id}
@@ -2629,8 +2661,7 @@ function CompactIconAction({ disabled = false, iconKey, label, onPress, selected
 function HomeStatusBadges({ badges = [] }) {
   const { palette } = useParentTheme()
   return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>{badges.map((badge) => {
-    const dark = Number.parseInt(String(palette.background || '#ffffff').slice(1, 3), 16) < 128
-    const [color, backgroundColor] = ({ success: dark ? ['#86efac', '#14532d'] : ['#167000', '#e1f3e1'], danger: dark ? ['#fca5a5', '#7f1d1d'] : ['#b91c1c', '#fee2e2'], warning: dark ? ['#fcd34d', '#713f12'] : ['#995900', '#fff0d0'], accent: dark ? ['#bfdbfe', '#1e3a8a'] : ['#1d4ed8', '#dbeafe'] })[badge.tone] || (dark ? ['#d1d5db', '#374151'] : ['#4b5563', '#e5e7eb'])
+    const [color, backgroundColor] = getParentBadgeColours(palette, badge.tone)
     return <View key={badge.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 4, backgroundColor }}><ParentIcon color={color} iconKey={badge.icon} size={16} /><Text style={{ color, fontSize: 11, fontWeight: '700' }}>{badge.label}</Text></View>
   })}</View>
 }
@@ -2992,7 +3023,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
         const rankedResults = rankParentPollResults(poll.options, poll.votes)
 
         return (
-          <View key={poll.id} style={{ gap: 12, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#94a3a0' }}>
+          <View key={poll.id} style={{ gap: 12, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: PARENT_POLL_SEPARATOR_COLOUR }}>
             <View style={styles.cardTopRow}>
               <Badge label={poll.status === 'open' && !poll.isExpired ? 'Open' : 'Closed'} tone={poll.status === 'open' && !poll.isExpired ? 'accent' : 'neutral'} />
               {poll.closesAt ? <Text style={styles.cardDate}>Closes {formatDateTime(poll.closesAt)}</Text> : null}
@@ -3647,7 +3678,7 @@ function AppContent() {
   }
   if (!session?.user) {
     if (fanLink.route?.kind === 'invite' && !signingInForFan) return <FanInvitationScreen token={fanLink.route.token} session={session} onSignIn={() => setFanSignInRoute(fanLink.route)} onClose={fanLink.close} onAccepted={fanLink.accepted} />
-    if (fanLink.route?.kind === 'invite') return <View style={{ flex: 1 }}><Pressable accessibilityRole="button" accessibilityLabel="Back to Fan invitation" onPress={() => setFanSignInRoute(null)} style={{ minHeight: 48, padding: 14, backgroundColor: '#f3f7f5' }}><Text style={{ color: '#173f35', fontWeight: '700' }}>Back to Fan invitation</Text></Pressable><LoginScreen /></View>
+    if (fanLink.route?.kind === 'invite') return <View style={{ flex: 1 }}><Pressable accessibilityRole="button" accessibilityLabel="Back to Fan invitation" onPress={() => setFanSignInRoute(null)} style={{ minHeight: 48, padding: 14, backgroundColor: PARENT_FAN_SIGN_IN_COLOURS.background }}><Text style={{ color: PARENT_FAN_SIGN_IN_COLOURS.text, fontWeight: '700' }}>Back to Fan invitation</Text></Pressable><LoginScreen /></View>
     return <LoginScreen />
   }
   if (isLocked) {

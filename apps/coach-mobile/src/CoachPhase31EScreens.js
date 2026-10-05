@@ -29,6 +29,7 @@ import {
   getCoachResources,
   markCoachChatRead,
   previewCoachInviteRemoval,
+  previewCoachInviteResend,
   recordCoachInviteIntent,
   removeCoachInviteFromEvent,
   removeCoachResourceSharing,
@@ -70,6 +71,9 @@ import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
+import { useAttendanceOutbox, useAttendanceUiGuard } from '../../mobile-core/src/useAttendanceOutbox'
+import { AttendancePendingRows } from '../../mobile-core/src/AttendancePendingRows'
+import { readCoachAttendanceCommands, updateCoachAttendanceCommands } from './offline'
 import { expiryDurationToIso } from '../../../src/lib/expiry-duration.js'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
@@ -215,7 +219,12 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const visibleError = useConfirmedConnectionMessage(error)
   const offlinePolicy = getCoachPhase31EOfflinePolicy(domain)
 
+  const captureLoadScope = useAttendanceUiGuard(JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role, domain]))
+  const attendanceLoadGeneration = useRef(0)
   const load = useCallback(async ({ silent = false, reuseFresh = false } = {}) => {
+    const scopeCurrent = captureLoadScope()
+    const generation = ++attendanceLoadGeneration.current
+    const current = () => scopeCurrent() && generation === attendanceLoadGeneration.current
     const loader = LOADERS[domain]
     if (!loader) return
     const memoryKey = `coach:phase31e:${domain}`
@@ -231,6 +240,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       if (domain === 'chat') setData(null)
     }
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
+    if (!current()) return false
     const savedValue = cached?.resources?.[`phase31e:${domain}`]
     const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
     const hasCachedValue = offlinePolicy.cache && hasUsableCoachPhase31ECache(domain, savedValue, cachedValue)
@@ -247,6 +257,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     if (domain === 'invites') setInvitesRefreshing(true)
     try {
       const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user), domain === 'invites' ? { timeoutMs: 30000 } : {}), { force: domain === 'invites' || !reuseFresh })
+      if (!current()) return false
       setData(next)
       setStale(false)
       setError('')
@@ -255,16 +266,19 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
         const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
         await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
       } catch {
-        setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
+        if (current()) setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
       }
+      return current()
     } catch (loadError) {
+      if (!current()) return false
       if (domain === 'invites' && (dataRef.current || recent !== undefined || hasCachedValue)) setStale(true)
       if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
+      return false
     } finally {
-      if (domain === 'invites') setInvitesRefreshing(false)
-      if (!silent) setLoading(false)
+      if (current() && domain === 'invites') setInvitesRefreshing(false)
+      if (current() && !silent) setLoading(false)
     }
-  }, [context, domain, offlinePolicy.cache, user])
+  }, [captureLoadScope, context, domain, offlinePolicy.cache, user])
 
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
 
@@ -868,9 +882,21 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   )
 }
 
-function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, setNotice, stale, styles, user }) {
+function InvitesDomain({ data: serverData, context, load, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, setNotice, stale, styles, user }) {
+  const attendanceOutbox = useAttendanceOutbox({
+    scope: JSON.stringify(['coach', user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.role, context.teamId]),
+    read: () => readCoachAttendanceCommands(user, context),
+    update: change => updateCoachAttendanceCommands(user, context, change),
+    onConfirmed: () => load({ silent: true }),
+  })
+  const data = { ...serverData, match: (serverData.match || []).map(attendanceOutbox.project), training: (serverData.training || []).map(attendanceOutbox.project), trainingCoaches: (serverData.trainingCoaches || []).map(attendanceOutbox.project) }
   const loadInviteHistory = useCallback((invite) => getCoachInviteHistory(user, invite), [user])
   const [availabilityConfirm, setAvailabilityConfirm] = useState(null)
+  const confirmRef = useRef(null)
+  confirmRef.current = availabilityConfirm
+  const attendanceScope = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role])
+  const captureAttendanceScope = useAttendanceUiGuard(attendanceScope)
+  useEffect(() => { setAvailabilityConfirm(null); setSelectedPlayerIds([]); setBulkAction(''); availabilitySaving.current = false }, [attendanceScope])
   const [availabilityError, setAvailabilityError] = useState('')
   const availabilitySaving = useRef(false)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([])
@@ -946,7 +972,19 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
   const [followUpMessage, setFollowUpMessage] = useState('Please could you confirm whether you can attend? Thank you.')
   const [followUpNotice, setFollowUpNotice] = useState('')
   const followUpAttempt = useRef(null)
+  const resendAttempt = useRef(null)
+  const [pendingResend, setPendingResend] = useState(null)
+  const resendContext = JSON.stringify([user.id, user.clubId, user.activeTeamId])
+  const currentResendContext = useRef(resendContext)
+  currentResendContext.current = resendContext
   const respondToTrainingAsCoach = async (attendance, status) => {
+    if (attendance.attendancePreparation) {
+      if (attendance.coachUserId !== user.id || attendance.teamId !== user.activeTeamId || attendance.attendancePending) throw new Error('Choose your own current Training invitation.')
+      const current = captureAttendanceScope()
+      if (attendance.cancelled || Date.parse(attendance.occurrenceStartsAt) <= Date.now()) throw new Error('This Training response window has closed.')
+      await attendanceOutbox.enqueue(attendance.attendancePreparation, status, attendance.title || 'Training attendance')
+      return current() ? { durable: true } : { stale: true }
+    }
     const result = await submitOwnTrainingCoachAttendance(user, attendance, status)
     await load()
     await reloadHome?.()
@@ -981,29 +1019,60 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
     await load()
     await reloadHome?.({ refresh: true })
   }
-  const recordSelectedResends = async (invites) => {
+  const recordSelectedResends = async (units, context) => {
+    if (context !== currentResendContext.current || stale || bulkAction) return
     setBulkAction('resend')
-    const results = await Promise.allSettled(invites.map((invite) => recordCoachInviteIntent(user, invite, 'resend')))
-    const successful = results.filter((result) => result.status === 'fulfilled')
-    const failedPlayerIds = results.flatMap((result, index) => result.status === 'rejected' ? [invites[index].playerId] : [])
-    const recipientCount = successful.reduce((total, result) => total + Number(result.value?.recipientCount || 0), 0)
-    setSelectedPlayerIds(failedPlayerIds)
-    const resultNotice = failedPlayerIds.length
-      ? `${successful.length} of ${invites.length} Player Invitation${invites.length === 1 ? '' : 's'} resent. ${failedPlayerIds.length} failed and remain selected so you can review them.`
-      : config.isProduction
-        ? `${invites.length} Player Invitation${invites.length === 1 ? '' : 's'} resent to ${recipientCount} server-resolved recipient${recipientCount === 1 ? '' : 's'}.`
-        : `${invites.length} resend intent${invites.length === 1 ? '' : 's'} recorded. External delivery remains disabled.`
-    try { await refreshAfterBulkAction(); setNotice(resultNotice) } catch (error) { setNotice(`${failedPlayerIds.length ? `${successful.length} of ${invites.length} Invitations were resent. ` : 'Invitations were resent. '}The latest availability could not be refreshed: ${getCoachFriendlyError(error)}`) }
+    const results = await Promise.allSettled(units.map(({ invite, key, preview }) => recordCoachInviteIntent(user, invite, 'resend', {
+      idempotencyKey: key, renewalRequired: preview.renewalRequired === true,
+      expectedRenewalRequests: preview.expectedRenewalRequests,
+    })))
+    const failed = units.filter((_, index) => results[index].status === 'rejected')
+    setPendingResend(failed.length ? { context, units: failed } : null)
+    if (!failed.length) resendAttempt.current = null
+    setSelectedPlayerIds(failed.map(unit => unit.invite.playerId))
+    const recipientCount = results.filter(result => result.status === 'fulfilled')
+      .reduce((total, result) => total + Number(result.value?.recipientCount || 0), 0)
+    const copy = failed.length ? 'Some resend results could not be confirmed. Retry using the same request keys.'
+      : config.isProduction ? `Invitations queued to ${recipientCount} eligible contacts. Saved responses are preserved.` : 'Resend intent recorded. External delivery remains disabled.'
+    try { await refreshAfterBulkAction(); setNotice(copy) }
+    catch (error) { setNotice(`${copy} ${getCoachFriendlyError(error)}`) }
     finally { setBulkAction('') }
   }
-  const resendInvites = (invites) => {
-    if (!config.isProduction) return void recordSelectedResends(invites)
-    Alert.alert(`Resend ${invites.length} Invitation${invites.length === 1 ? '' : 's'}?`, 'This queues the approved Invitations to each Player\'s server-resolved eligible contacts. Existing response identity and any saved response are preserved.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Resend', onPress: () => void recordSelectedResends(invites) },
-    ])
+  const resendInvites = async (invites, retryUnits = null) => {
+    if (bulkAction || stale || !invites.length || (!retryUnits && pendingResend?.context === resendContext)) return
+    const context = resendContext
+    const signature = JSON.stringify([context, ...invites.map(invite => [invite.kind, invite.eventId, invite.occurrenceDate, invite.playerId])])
+    if (resendAttempt.current?.signature !== signature) resendAttempt.current = { signature, keys: {} }
+    const units = retryUnits || invites.map(invite => {
+      const target = JSON.stringify([invite.kind, invite.eventId, invite.occurrenceDate, invite.playerId])
+      resendAttempt.current.keys[target] ||= createCoachFollowUpKey()
+      return { invite, key: resendAttempt.current.keys[target] }
+    })
+    setBulkAction('preview_resend')
+    try {
+      const previews = await Promise.all(units.map(unit => previewCoachInviteResend(user, unit.invite, { idempotencyKey: unit.key })))
+      if (context !== currentResendContext.current) return
+      const remaining = units.flatMap((unit, index) => previews[index].alreadyCompleted ? [] : [{ ...unit, preview: previews[index] }])
+      if (!remaining.length) {
+        setPendingResend(null); setSelectedPlayerIds([]); resendAttempt.current = null
+        await refreshAfterBulkAction(); setNotice('The previous resend completed. No additional invitations were queued.')
+        return
+      }
+      // Stable keys survive unknown HTTP outcomes. Only a fresh preview is confirmed.
+      setPendingResend({ context, units: remaining })
+      const count = remaining.reduce((total, unit) => total + Number(unit.preview.recipientCount || 0), 0)
+      const addresses = remaining.flatMap(unit => unit.preview.recipients || []).map(recipient => recipient.address).join(', ')
+      const confirm = () => void recordSelectedResends(remaining, context)
+      if (!config.isProduction) { setBulkAction(''); confirm(); return }
+      Alert.alert('Confirm invitation resend?', `Queue ${count} emails to ${addresses || 'eligible contacts'}. Saved availability and history are preserved.`, [
+        { text: 'Cancel', style: 'cancel', onPress: () => setPendingResend(null) },
+        { text: 'Resend', onPress: confirm },
+      ])
+    } catch (error) {
+      setNotice(getCoachFriendlyError(error))
+    } finally { setBulkAction('') }
   }
-  const resend = () => resendInvites([...selectedInvites])
+  const resend = () => void resendInvites([...selectedInvites])
   const commitSelectedRemovals = async (invites, confirmInProgress) => {
     setBulkAction('remove')
     const results = await Promise.allSettled(invites.map((invite) => removeCoachInviteFromEvent(user, invite, { confirmInProgress })))
@@ -1098,25 +1167,38 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
   ])
   const recordAvailabilityOnBehalf = async (availabilityStatus) => {
     const invite = availabilityConfirm?.invite
-    if (!invite || bulkAction || availabilitySaving.current || stale) return
+    if (!invite || bulkAction || availabilitySaving.current || (stale && !invite.attendancePreparation) || invite.attendancePending) return
+    const liveScope = captureAttendanceScope()
+    const confirmation = availabilityConfirm
+    const current = () => liveScope() && confirmRef.current === confirmation
     availabilitySaving.current = true
     setAvailabilityError('')
     setBulkAction(availabilityStatus)
     try {
+      if (invite.attendancePreparation) {
+        if (Number(user.roleRank || 0) < 20 || invite.teamId !== user.activeTeamId || invite.clubId !== user.clubId || invite.cancelled || invite.stale) throw new Error('Choose an active invitation in your current Team.')
+        await attendanceOutbox.enqueue(invite.attendancePreparation, availabilityStatus, invite.title || 'Player attendance')
+        if (!current()) return
+        setAvailabilityConfirm(null)
+        setSelectedPlayerIds([])
+        return
+      }
       const result = await setCoachInviteAvailabilityOnBehalf(user, invite, availabilityStatus)
+      if (!current()) return
       setAvailabilityConfirm(null)
       setSelectedPlayerIds([])
       await refreshAfterBulkAction()
+      if (!liveScope()) return
       const label = availabilityStatus === 'available' ? 'Available' : 'Unavailable'
       setNotice(result.changed
         ? `${invite.playerName} is now ${label}. This was recorded as you acting on behalf. Squad selection is unchanged.`
         : `${invite.playerName} is already ${label}. Squad selection is unchanged.`)
     } catch (error) {
+      if (!current()) return
       setAvailabilityError(getCoachFriendlyError(error, 'The Player availability response could not be recorded.'))
       setNotice(getCoachFriendlyError(error, 'The Player availability response could not be recorded.'))
     } finally {
-      availabilitySaving.current = false
-      setBulkAction('')
+      if (liveScope()) { availabilitySaving.current = false; setBulkAction('') }
     }
   }
   const confirmAvailabilityOnBehalf = (availabilityStatus) => {
@@ -1134,16 +1216,16 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
             <Text accessibilityRole="header" style={styles.cardTitle}>{availabilityConfirm?.status === 'available' ? 'Accept on behalf of player?' : 'Mark player unavailable?'}</Text>
             <Text style={styles.body}>{availabilityConfirm?.invite.playerName} will be marked {availabilityConfirm?.status === 'available' ? 'Available' : 'Unavailable'} for {availabilityConfirm?.invite.title}. This records a staff response. It does not sign in as or impersonate the Parent or Player. Squad selection stays the same.</Text>
             {availabilityError ? <Text accessibilityLiveRegion="polite" style={styles.danger}>{availabilityError}</Text> : null}
-            <Button disabled={Boolean(bulkAction) || stale} destructive={availabilityConfirm?.status === 'unavailable'} label={bulkAction ? 'Saving response...' : 'Confirm response'} onPress={() => recordAvailabilityOnBehalf(availabilityConfirm.status)} styles={styles} />
+            <Button disabled={Boolean(bulkAction) || (stale && !availabilityConfirm?.invite.attendancePreparation)} destructive={availabilityConfirm?.status === 'unavailable'} label={bulkAction ? availabilityConfirm?.invite.attendancePreparation ? 'Saving on phone...' : 'Saving response...' : 'Confirm response'} onPress={() => recordAvailabilityOnBehalf(availabilityConfirm.status)} styles={styles} />
             <Button disabled={Boolean(bulkAction)} label="Cancel response change" onPress={() => setAvailabilityConfirm(null)} secondary styles={styles} />
           </View>
         </View>
       </Modal>
       {selectedAvailabilityInvite ? <View style={styles.row}>
-        <Button disabled={selectionDisabled || selectedAvailabilityInvite.status === 'available' || Number(user.roleRank || 0) < 20} label={bulkAction === 'available' ? 'Recording Available...' : 'Accept on behalf of player'} onPress={() => confirmAvailabilityOnBehalf('available')} styles={styles} />
-        <Button destructive disabled={selectionDisabled || selectedAvailabilityInvite.status === 'unavailable' || Number(user.roleRank || 0) < 20} label={bulkAction === 'unavailable' ? 'Recording Unavailable...' : 'Mark unavailable'} onPress={() => confirmAvailabilityOnBehalf('unavailable')} styles={styles} />
+        <Button disabled={Boolean(bulkAction) || (selectionDisabled && !selectedAvailabilityInvite.attendancePreparation) || selectedAvailabilityInvite.attendancePending || selectedAvailabilityInvite.status === 'available' || Number(user.roleRank || 0) < 20} label={bulkAction === 'available' ? 'Recording Available...' : 'Accept on behalf of player'} onPress={() => confirmAvailabilityOnBehalf('available')} styles={styles} />
+        <Button destructive disabled={Boolean(bulkAction) || (selectionDisabled && !selectedAvailabilityInvite.attendancePreparation) || selectedAvailabilityInvite.attendancePending || selectedAvailabilityInvite.status === 'unavailable' || Number(user.roleRank || 0) < 20} label={bulkAction === 'unavailable' ? 'Recording Unavailable...' : 'Mark unavailable'} onPress={() => confirmAvailabilityOnBehalf('unavailable')} styles={styles} />
       </View> : <Text style={styles.body}>Select one Player to record availability on their behalf.</Text>}
-      <Button disabled={!selectedCanBeResent || selectionDisabled || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} />
+      <Button disabled={!selectedCanBeResent || selectionDisabled || pendingResend?.context === resendContext || Number(user.roleRank || 0) < 50} label={bulkAction === 'resend' ? 'Resending Invitations...' : `Resend ${selectedInvites.length} invite${selectedInvites.length === 1 ? '' : 's'}`} onPress={resend} secondary styles={styles} />
       <Button disabled={!canFollowUpSelectedCoachInvites(selectedInvites) || selectionDisabled || Number(user.roleRank || 0) < 20} label="Send follow-up message" onPress={() => { setFollowUp([...selectedInvites]); setFollowUpNotice(''); followUpAttempt.current = null }} secondary styles={styles} />
       <Modal visible={Boolean(followUp)} transparent animationType="fade" onRequestClose={() => { if (!bulkAction) setFollowUp(null) }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: palette.background }}>
@@ -1158,8 +1240,9 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
           {followUpNotice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{followUpNotice}</Text> : null}
         </KeyboardAvoidingView>
       </Modal>
+      {pendingResend?.context === resendContext ? <Button disabled={Boolean(bulkAction) || stale || Number(user.roleRank || 0) < 50} label="Review previous resend result" onPress={() => void resendInvites(pendingResend.units.map(unit => unit.invite), pendingResend.units)} secondary styles={styles} /> : null}
       <Button destructive disabled={selectionDisabled || Number(user.roleRank || 0) < 20} label={bulkAction === 'remove' ? 'Removing Players...' : `Remove ${selectedInvites.length} from event`} onPress={openRemovalConfirmation} styles={styles} />
-      {!selectedCanBeResent ? <Text style={styles.body}>Resend is available only when every selected Player is awaiting a response.</Text> : null}
+      {!selectedCanBeResent ? <Text style={styles.body}>Resend can be reviewed for unanswered invitations or restored match participation. The server checks current recipient access.</Text> : null}
     </View>
   ) : null
   const renderTrainingAvailability = (group) => {
@@ -1172,7 +1255,7 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
           <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{group.title || 'Training'}</Text><Text style={styles.helper}>{group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}</Text>{!expanded ? <Text style={styles.helper}>Attending {trainingSummary.attending} · Awaiting {trainingSummary.awaitingResponse}</Text> : null}</View>
         </Pressable>
         {expanded ? <>
-          <CoachMatchInviteTable coachAttendance={selectedTrainingCoachAttendance} currentCoachId={user.id} onCoachRespond={respondToTrainingAsCoach} onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          <CoachMatchInviteTable coachAttendance={selectedTrainingCoachAttendance} currentCoachId={user.id} onCoachRespond={respondToTrainingAsCoach} onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={Boolean(bulkAction) || (stale && !activeInvites.some(invite => invite.attendancePreparation))} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
           {renderSelectedInviteActions()}
         </> : null}
       </View>
@@ -1201,7 +1284,7 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
             </> : <Text style={styles.body}>Every active Player already has a request.</Text>}
             {uncertainAttempt ? <Button disabled={creating || stale} label="Reconcile last request" onPress={() => void reconcile()} secondary styles={styles} /> : null}
           </View> : null}
-          <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={selectionDisabled} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={Boolean(bulkAction) || (stale && !activeInvites.some(invite => invite.attendancePreparation))} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
           {renderSelectedInviteActions()}
         </> : null}
       </View>
@@ -1209,6 +1292,7 @@ function InvitesDomain({ data, load, onNavigate, onCaptureScrollPosition, onRest
   }
   return (
     <View key={matchId || trainingKey || 'event-list'} onLayout={restorePendingScrollPosition} style={styles.stack}>
+      <AttendancePendingRows outbox={attendanceOutbox} onRefresh={() => load({ silent: true })} styles={styles} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
         <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={backToEvents} style={{ minHeight: 44, width: 32, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="chevron-left" size={28} color={palette.textPrimary} /></Pressable>
         <Text accessibilityRole="header" style={{ flex: 1, color: palette.textPrimary, fontSize: 23, fontWeight: '800' }}>{trainingKey ? 'Training Invites' : 'Match Invites'}</Text>

@@ -1,24 +1,26 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { isMatchDayParticipantRosterCurrent, mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../apps/mobile-core/src/matchDayParticipantRoster.js'
 
 function section(file, start, end) {
   const source = readFileSync(file, 'utf8'), from = source.indexOf(start), to = source.indexOf(end, from)
   assert.ok(from >= 0 && to > from)
   return source.slice(from, to).replaceAll('export ', '')
 }
-test('instrumented live Coach refresh preserves the six-request authority and presentation path', async () => {
+test('instrumented live Coach refresh adds one authorised roster read to the authority and presentation path', async () => {
   const calls = []
-  const match = { id: 'match', status: 'live' }
+  const match = { id: 'match', teamId: 'team', status: 'live', matchDate: new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/London' }) }
   const query = new Proxy({}, { get: (_target, name) => name === 'then'
     ? (resolve) => { calls.push('match_days'); resolve({ data: [match] }) }
     : () => query })
   const supabase = { from: () => query, rpc: async (name) => {
     calls.push(name)
-    return { data: name === 'get_staff_match_day_detail' ? match : [] }
+    return { data: name === 'get_staff_match_day_detail' ? match : name === 'get_match_day_event_participants' ? { matchId: 'match', teamId: 'team', players: [] } : [] }
   } }
   const dependencies = {
     supabase, LIST_SELECT: 'fixture columns', scoped: (value) => value,
+    isMatchDayParticipantRosterCurrent, mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster,
     assertCoachMatchDayAccess: () => {}, assertCoachOperationalRead: () => {},
     normalize: (value) => String(value || '').trim(), normalizeCoachMatchDay: (value) => value,
     normalizePlayerForUser: (value) => value,
@@ -36,6 +38,10 @@ test('instrumented live Coach refresh preserves the six-request authority and pr
   await Promise.all([api.getCoachMatchDayList(user), api.getCoachPlayerList(user)])
   const detail = await api.getCoachMatchDayDetail(user, 'match')
   assert.equal(detail.status, 'live')
-  assert.deepEqual(calls.sort(), ['match_days','get_match_day_presentation_states','get_team_players','get_team_parent_app_installation_status','get_staff_match_day_detail','volunteer eligibility'].sort())
-  assert.equal(calls.length * 4, 24, 'four 15-second refreshes use 24 reads per minute before retries')
+  assert.deepEqual(detail.eventParticipants, [])
+  assert.deepEqual(calls.sort(), ['match_days','get_match_day_presentation_states','get_team_players','get_team_parent_app_installation_status','get_staff_match_day_detail','get_match_day_event_participants','volunteer eligibility'].sort())
+  assert.equal(calls.length * 4, 28, 'four 15-second refreshes use 28 reads per minute before retries')
+  const original = supabase.rpc
+  supabase.rpc = (name, args) => name === 'get_match_day_event_participants' ? { error: new Error('Roster unavailable') } : original(name,args)
+  await assert.rejects(api.getCoachMatchDayDetail(user,'match'), /Roster unavailable/)
 })

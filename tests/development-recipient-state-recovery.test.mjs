@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
+import { parse } from '@babel/parser'
 
 import {
   getDevelopmentParentRecipientCandidates,
@@ -483,7 +484,7 @@ test('non-Development parent and staff email payloads remain unchanged', async (
   )
 })
 
-test('queue, immediate delivery and failed-email retry all reauthorize Development recipients', async () => {
+test('queue, immediate delivery and failed-email retry all reauthorize Development recipients', async (t) => {
   const functionSource = await source('../netlify/functions/send-parent-email.js')
   const retrySource = await source('../netlify/functions/retry-failed-emails.js')
 
@@ -495,10 +496,63 @@ test('queue, immediate delivery and failed-email retry all reauthorize Developme
     functionSource,
     /export async function sendPreparedParentEmail[\s\S]*reauthorizePreparedDevelopmentParentEmail\([\s\S]*createPendingEmailLog/,
   )
-  assert.match(
-    retrySource,
-    /reauthorizePreparedDevelopmentParentEmail\([\s\S]*const resendPayload = authorizedPreparedEmail\.emailPayload[\s\S]*sendEmail\(resendPayload/,
-  )
+  const declaration = parse(retrySource, { sourceType: 'module' }).program.body
+    .find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'processFailedEmails')?.declaration
+  assert.ok(declaration, 'the actual retry processor remains exported')
+  async function replay({ rejected = false, requiredFeature = 'parentEmails', cc = [] } = {}) {
+    const calls = [], sends = [], failed = [], unlocked = []
+    const row = { id: 'synthetic-log', idempotency_key: 'stable-key', payload: { clubId, requiredFeature, actorId: 'synthetic-actor' } }
+    const authorizedPayload = { to: ['current.parent@example.test'], cc, html: '<a href="https://example.test/action/original-token">Respond</a>', emailAppRole: 'coach' }
+    const dependencies = {
+      getMissingEnvVars: () => [], ensureResendWebhookConfigured: async () => {},
+      getFailedEmailLogs: async () => [row], lockEmailLogForRetry: async value => value,
+      getClubPlanProfile: async value => { assert.equal(value, clubId); return {} },
+      assertTrustedSystemPlanFeature: (profile, feature) => { assert.equal(profile.role, 'system'); assert.equal(feature, requiredFeature) },
+      getStoredResendPayload: () => ({ to: ['former.parent@example.test'], html: 'stale' }),
+      supabaseAdmin: {}, randomUUID: () => 'synthetic-worker',
+      reauthorizePreparedDevelopmentParentEmail: async (_client, prepared) => {
+        calls.push('reauthorize')
+        assert.deepEqual(prepared.recipients, ['former.parent@example.test'])
+        assert.equal(prepared.storedPayload, row.payload)
+        if (rejected) throw Object.assign(new Error('Synthetic recipient revoked'), { code: 'DEVELOPMENT_NO_RECIPIENT' })
+        return { emailPayload: authorizedPayload }
+      },
+      sendEmail: async (payload, options) => { calls.push('send'); sends.push({ payload, options }); return { id: 'synthetic-delivery' } },
+      markEmailLogSent: async value => { assert.equal(value, row); calls.push('sent') },
+      markEmailLogFailed: async (_row, error) => failed.push(error.code),
+      unlockEmailLogForRetry: async value => unlocked.push(value.id),
+      console: { error() {} },
+    }
+    const processor = new Function(...Object.keys(dependencies), `${retrySource.slice(declaration.start, declaration.end)}; return processFailedEmails`)(...Object.values(dependencies))
+    const result = await processor()
+    return { result, calls, sends, failed, unlocked, authorizedPayload }
+  }
+  await t.test('retry uses freshly authorized recipients and Parent/Coach audience without changing the action', async () => {
+    const r = await replay({ cc: ['coach.copy@example.test'] })
+    assert.deepEqual(r.calls, ['reauthorize', 'send', 'sent'])
+    assert.equal(r.result.payload.success, 1)
+    assert.deepEqual(r.sends[0].payload.to, ['current.parent@example.test'])
+    assert.deepEqual(r.sends[0].payload.cc, ['coach.copy@example.test'])
+    assert.equal(r.sends[0].payload.emailAppRole, 'parent')
+    assert.equal(r.sends[0].payload.emailCcAppRole, 'coach')
+    assert.equal(r.sends[0].payload.html, r.authorizedPayload.html)
+    assert.equal(r.sends[0].options.idempotencyKey, 'fp-retry-stable-key')
+    assert.deepEqual(r.unlocked, ['synthetic-log'])
+  })
+  await t.test('revoked retry recipient blocks the provider and unlocks the retained failed row', async () => {
+    const r = await replay({ rejected: true })
+    assert.deepEqual(r.calls, ['reauthorize'])
+    assert.equal(r.sends.length, 0)
+    assert.equal(r.result.payload.failed, 1)
+    assert.deepEqual(r.failed, ['DEVELOPMENT_NO_RECIPIENT'])
+    assert.deepEqual(r.unlocked, ['synthetic-log'])
+  })
+  await t.test('non-Parent retry retains its audience and a Parent without CC has no Coach copy', async () => {
+    const coach = await replay({ requiredFeature: 'coachEmail' })
+    assert.equal(coach.sends[0].payload, coach.authorizedPayload)
+    const parent = await replay()
+    assert.equal(parent.sends[0].payload.emailCcAppRole, undefined)
+  })
 })
 
 test('no-recipient result is shown only when the refreshed authoritative query has zero eligible links', async () => {

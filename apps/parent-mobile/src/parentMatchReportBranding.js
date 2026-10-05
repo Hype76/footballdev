@@ -1,5 +1,6 @@
 import { isMobileCapabilityAllowed } from '../../mobile-core/src/matchdayPolicyCore.js'
 import { getFeatureAccess } from '../../../src/lib/paywall-access.js'
+import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 
 const text = value => String(value ?? '').trim()
 
@@ -16,17 +17,19 @@ export function withParentMatchReportBranding(match = {}, link = {}, matchdayPol
   const allowed = capability => sameTeam && Boolean(planKey)
     && isMobileCapabilityAllowed(context, capability, matchdayPolicy)
     && (!modern || getFeatureAccess(context, capability).allowed)
-  const logoAllowed = allowed('basicLogoBranding')
-  const coloursAllowed = allowed('customColoursBranding')
+  const display = sameTeam ? getScopedTeamBranding(link) : null
+  const logoAllowed = display ? display.logoAllowed : allowed('basicLogoBranding')
+  const coloursAllowed = display ? display.coloursAllowed : allowed('customColoursBranding')
   return {
     ...match,
     clubName: text(match.clubName ?? match.club_name) || (sameClub ? text(link.clubName) : ''),
-    clubLogoUrl: logoAllowed ? text(link.clubLogoUrl) : '',
-    themeAccent: coloursAllowed ? text(link.themeAccent) : '',
+    clubLogoUrl: logoAllowed ? text(display ? display.logoUrl : link.clubLogoUrl) : '',
+    themeAccent: coloursAllowed ? text(display ? display.accent : link.themeAccent) : '',
     // Clear cached image bytes and entitlements before binding the current link.
     clubLogoData: '', club_logo_data: '', club_logo_url: '', theme_accent: '', clubAccent: '', club_accent: '',
     planKey: sameTeam && planKey ? planKey : 'matchday',
     planStatus: sameTeam ? text(link.planStatus) : '',
     matchdayPolicy: sameTeam ? matchdayPolicy : null,
+    teamBrandingDisplay: display,
   }
 }

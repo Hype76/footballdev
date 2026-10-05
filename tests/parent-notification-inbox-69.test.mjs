@@ -16,12 +16,21 @@ test('Parent inbox dedupe keys are stable per source, intent, and Parent link', 
     data: { matchDayId: 'match-1', type: 'yellow_card' },
     intentType: 'matchday_update',
     parentLinkId: 'link-1',
-  }), 'matchday_update:link-1:match-1')
+  }), 'matchday_update:link-1:match-1:yellow_card')
   assert.equal(getParentNotificationDedupeKey({
     data: { notificationId: 'notification-1', resourceId: 'resource-1' },
     intentType: 'resource_shared',
     parentLinkId: 'link-1',
   }), 'resource_shared:link-1:notification-1')
+})
+
+test('different match event types and Parent links retain distinct inbox identities', () => {
+  const key = (type, parentLinkId = 'link-1') => getParentNotificationDedupeKey({
+    data: { matchDayId: 'match-1', type }, intentType: 'matchday_update', parentLinkId,
+  })
+  assert.equal(key('yellow_card'), key('yellow_card'))
+  assert.notEqual(key('yellow_card'), key('red_card'))
+  assert.notEqual(key('yellow_card'), key('yellow_card', 'link-2'))
 })
 
 test('Parent inbox writes one canonical event per link without needing an installation', async () => {

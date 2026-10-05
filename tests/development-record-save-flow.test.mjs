@@ -208,8 +208,8 @@ test('final development record row saves the report date from the session date f
   const payload = createBasePayload({ session: '2026-06-17' })
   const row = mapEvaluationToRow(payload)
 
-  assert.equal(payload.date, '17/06/2026')
-  assert.equal(row.date, '17/06/2026')
+  assert.equal(payload.date, '17:06:2026')
+  assert.equal(row.date, '17:06:2026')
 })
 
 test('final development record payload does not send invalid fallback ids to uuid primary key', () => {

@@ -1,6 +1,8 @@
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
+import { CoachTeamBrandingSetup } from './src/CoachTeamBrandingSetup'
+import { isCoachBrandingReturn } from '../../src/lib/team-branding-onboarding.js'
 import 'react-native-url-polyfill/auto'
 import { sanitizeCoachChatOfflineValue } from '../mobile-core/src/coachPhase31ECore'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
@@ -165,7 +167,7 @@ function LoginScreen() {
 }
 
 function CoachHome() {
-  const { authError, isProfileLoading, signOut, user } = useMobileAuth()
+  const { authError, isProfileLoading, refreshUserProfile, signOut, user } = useMobileAuth()
   const signOutWithPendingCheck = async () => {
     let count
     try { count = (await countPendingCoachMatchDayActions(user.id)) + (await countPendingCoachDevelopmentDrafts(user.id)) }
@@ -773,6 +775,7 @@ function CoachHome() {
 
   useEffect(() => {
     const openUrl = ({ url }) => {
+      if (isCoachBrandingReturn(url)) return
       try {
         const parsed = new URL(url)
         openCoachTarget({
@@ -900,6 +903,11 @@ function CoachHome() {
             )}
             ref={contentScrollRef}
           >
+            <CoachTeamBrandingSetup
+              context={activeContext} user={selectedMobileUser} apiBaseUrl={config.apiBaseUrl}
+              palette={palette} prompt={activeRoute === 'home'} refreshUserProfile={refreshUserProfile}
+              visible={activeRoute === 'home' || (activeRoute === 'more' && moreRoute === 'settings')}
+            />
             {!isMatchInvitesRoute ? <View testID="coach-scroll-header">
               <CoachHeader
                 context={activeContext}

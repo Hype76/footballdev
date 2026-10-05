@@ -1,3 +1,5 @@
+import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
+
 export const COACH_CONTEXT_SCHEMA_VERSION = 1
 
 export const COACH_STAFF_ROLES = Object.freeze({
@@ -116,6 +118,7 @@ export function normalizeCoachContext(rawContext) {
     teamAccent: normalizeText(rawContext?.teamAccent),
     teamButtonStyle: normalizeText(rawContext?.teamButtonStyle),
     teamId,
+    teamBrandingDisplay: getScopedTeamBranding(rawContext),
     teamName: normalizeText(rawContext?.teamName),
     teamStatus: normalizeStatus(rawContext?.teamStatus),
     type,
@@ -179,6 +182,7 @@ export function applyCoachContext(profile, context) {
     activeCoachContextId: context.id,
     activeTeamId: context.teamId,
     activeTeamName: context.teamName,
+    teamBrandingDisplay: getScopedTeamBranding(context),
     clubId: context.clubId,
     clubLogoUrl: context.clubLogoUrl,
     clubName: context.clubName,

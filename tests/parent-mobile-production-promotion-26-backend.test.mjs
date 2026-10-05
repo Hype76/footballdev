@@ -43,7 +43,8 @@ test('native Parent send paths use server-owned audience and privacy-safe prefer
     assert.match(source, /from\('parent_mobile_push_installations'\)/)
     assert.match(source, /\.eq\('status', 'active'\)/)
     assert.match(source, /\.eq\('enabled', true\)/)
-    assert.match(source, /device\.detail_level === 'detailed'/)
+    if (source === parentPush) assert.match(source, /device\.detail_level === 'detailed'/)
+    else assert.match(source, /buildMatchDayNativeMessage\(\{ device, notificationCopy, nativePayload \}\)/)
     assert.match(source, /writeParentNotificationInbox/)
   }
   assert.match(notificationInbox, /from\('parent_mobile_notification_events'\)/)

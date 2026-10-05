@@ -44,9 +44,10 @@ const screen = ast.program.body.find(node => node.type === 'ExportNamedDeclarati
 const callback = screen.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'load').declarations[0].init.arguments[0]
 
 function loadHarness({ saveError, loadError, cachedValue, offline = false } = {}) {
-  const state = { data: null, error: '', notice: '', loading: true, stale: false, invitesRefreshing: false, invitesRefreshedAt: null, saves: 0, reads: 0, timeoutMs: null }
+  const state = { data: null, error: '', notice: '', loading: true, stale: false, invitesRefreshing: false, invitesRefreshedAt: null, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
   const next = { invites: [{ playerId: 'synthetic-player', status: 'maybe' }] }
   const environment = {
+    captureLoadScope: () => () => state.scopeCurrent, attendanceLoadGeneration: { current: 0 },
     domain: 'invites', context: { id: 'team:test' }, user: { id: 'coach', isOfflineProfile: offline },
     LOADERS: { invites: async () => { state.reads += 1; if (loadError) throw loadError; return next } },
     TITLES: { invites: 'Invites' }, dataRef: { current: null }, offlinePolicy: { cache: true },
@@ -100,4 +101,11 @@ test('offline and failed-network fallback keep cached data read-only', async () 
     assert.equal(state.invitesRefreshing, false)
     if (options.offline) assert.equal(state.reads, 0)
   }
+})
+
+test('actual Coach loader cannot publish late response or cache error into switched attendance scope', async () => {
+ const harness = loadHarness({ saveError: new Error('Synthetic late cache failure') })
+ // Invalidate the captured scope while its first asynchronous cache read yields.
+ const loading = harness.load();harness.state.scopeCurrent = false;await loading
+ assert.equal(harness.state.data, null);assert.equal(harness.state.error, '');assert.equal(harness.state.notice, '');assert.equal(harness.state.saves, 0)
 })

@@ -116,7 +116,9 @@ test('saved locations are scoped through prior team fixtures and normalized safe
   assert.match(locationSource, /\.select\('location_id, venue_name, venue_address'\)/)
   assert.match(locationSource, /scopeMatchDayQueryToActiveTeam\(usageQuery, user\)/)
   assert.match(locationSource, /\.from\('match_locations'\)/)
-  assert.match(locationSource, /\.in\('id', locationIds\)/)
+  assert.match(locationSource, /from\('match_locations'\)[\s\S]*\.eq\('club_id', user\.clubId\)/)
+  assert.match(locationSource, /savedRows\.filter\(\(row\) => !row\.archived_at\)/)
+  assert.match(locationSource, /!archivedIdentities\.has\(/)
 
   const locations = normalizeMatchLocations([
     { id: '1', name: '  Home Ground ', address: ' 1 Main Road ', notes: 'First' },

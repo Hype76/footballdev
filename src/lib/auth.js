@@ -1,6 +1,7 @@
 import { createContext, createElement, useContext, useEffect, useRef, useState } from 'react'
 import { DEMO_ROLE_STORAGE_KEY, getDemoRole, isDemoEmail, isDemoUser } from './demo.js'
 import { supabase } from './supabase-client.js'
+import { loadTeamBrandingDisplay } from './team-branding-display.js'
 import {
   areUsersEquivalent,
   claimStripeCheckoutForProfile,
@@ -292,6 +293,19 @@ function RuntimeAuthProvider({ children }) {
   useEffect(() => {
     userRef.current = user
   }, [user])
+
+  useEffect(() => {
+    let active = true
+    const actorId = user?.id, clubId = user?.clubId, teamId = user?.activeTeamId
+    if (actorId && clubId && teamId) {
+      loadTeamBrandingDisplay(supabase, { clubId, teamId }).then(context => {
+        if (!active) return
+        setUser(current => current?.id === actorId && current.clubId === clubId && current.activeTeamId === teamId
+          ? { ...current, teamBrandingDisplay: context.teamBrandingDisplay || null } : current)
+      }).catch(() => { /* Keep existing resource authority and fail closed display behaviour. */ })
+    }
+    return () => { active = false }
+  }, [user?.id, user?.clubId, user?.activeTeamId])
 
   useEffect(() => {
     demoRoleKeyRef.current = demoRoleKey

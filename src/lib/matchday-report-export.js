@@ -13,6 +13,7 @@ import {
 } from './pdf-branding.js'
 import { createThemeColorTokens } from './theme.js'
 import { CAPABILITIES, getFeatureAccess } from './paywall-access.js'
+import { getScopedTeamBranding } from './team-branding-display.js'
 
 const CSV_HEADINGS = [
   'Club',
@@ -870,17 +871,22 @@ function getLogoBytes(branding = {}) {
 
 export function buildCompletedReportBranding(match = {}, override = {}) {
   const accessContext = override.accessContext || match
+  const scoped = getScopedTeamBranding(accessContext)
+  const matchTeamId = match.teamId || match.team_id
+  const matchClubId = match.clubId || match.club_id
+  const display = scoped && scoped.teamId === matchTeamId && scoped.clubId === matchClubId ? scoped : null
+  if (scoped && !display) throw new Error('Report branding does not match the authorised team.')
   const explicitPlanKey = String(accessContext.planKey || accessContext.plan_key || '').trim().toLowerCase()
   const fallback = createPdfBrandingFallback({
     clubName: getClubName(match),
     teamName: firstText(match.teamName, match.team_name, match.teams?.name),
   }, getMatchDate(match))
   const isModernPlan = ['matchday', 'team', 'club'].includes(explicitPlanKey)
-  const customBrandingAllowed = !explicitPlanKey || !isModernPlan || getFeatureAccess({ ...accessContext, teamId: accessContext.teamId || accessContext.team_id }, CAPABILITIES.basicLogoBranding).allowed
-  const customColoursAllowed = !explicitPlanKey || !isModernPlan || getFeatureAccess(accessContext, CAPABILITIES.customColoursBranding).allowed
-  const themeAccent = customColoursAllowed ? firstText(match.themeAccent, match.theme_accent, match.clubAccent, match.club_accent) || 'green' : 'green'
+  const customBrandingAllowed = display ? display.logoAllowed : !explicitPlanKey || !isModernPlan || getFeatureAccess({ ...accessContext, teamId: accessContext.teamId || accessContext.team_id }, CAPABILITIES.basicLogoBranding).allowed
+  const customColoursAllowed = display ? display.coloursAllowed : !explicitPlanKey || !isModernPlan || getFeatureAccess(accessContext, CAPABILITIES.customColoursBranding).allowed
+  const themeAccent = display ? display.accent || 'green' : customColoursAllowed ? firstText(match.themeAccent, match.theme_accent, match.clubAccent, match.club_accent) || 'green' : 'green'
   const tokens = createThemeColorTokens(themeAccent, 'light')
-  const clubLogoData = customBrandingAllowed ? firstText(override.clubLogoData, match.clubLogoData, match.club_logo_data) : ''
+  const clubLogoData = customBrandingAllowed ? display ? firstText(override.clubLogoData) : firstText(override.clubLogoData, match.clubLogoData, match.club_logo_data) : ''
 
   return validatePdfBranding({
     ...fallback,
@@ -1008,8 +1014,10 @@ function loadPdfLogoImage(objectUrl) {
   })
 }
 
-async function resolveBrowserPdfBranding(match = {}) {
-  const logoUrl = firstText(match.clubLogoUrl, match.club_logo_url)
+async function resolveBrowserPdfBranding(match = {}, accessContext) {
+  const scoped = getScopedTeamBranding(accessContext)
+  if (scoped && (scoped.teamId !== (match.teamId || match.team_id) || scoped.clubId !== (match.clubId || match.club_id))) throw new Error('Report branding does not match the authorised team.')
+  const logoUrl = scoped ? scoped.logoUrl : firstText(match.clubLogoUrl, match.club_logo_url)
   if (!logoUrl || typeof document === 'undefined' || typeof fetch !== 'function' || typeof Image === 'undefined') {
     return {}
   }
@@ -1046,7 +1054,7 @@ async function resolveBrowserPdfBranding(match = {}) {
 }
 
 export async function downloadCompletedReportPdf(match = {}, options = {}) {
-  const branding = await resolveBrowserPdfBranding(match)
+  const branding = await resolveBrowserPdfBranding(match, options.accessContext)
   const bytes = buildCompletedReportPdf(match, { ...options, branding })
   const filename = getCompletedReportFilename(match, 'pdf')
   downloadBlob(new Blob([bytes], { type: 'application/pdf' }), filename)

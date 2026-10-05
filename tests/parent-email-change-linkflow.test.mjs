@@ -166,7 +166,8 @@ test('parent email link-flow masks PostgreSQL 23505 unique constraint errors', (
 test('parent settings no longer calls parent email link-flow or Supabase Auth update', async () => {
   const source = await readFile(parentPortalPageUrl, 'utf8')
 
-  assert.match(source, /Display name and email changes are managed by the club\./)
+  assert.match(source, /The club manages contact details\./)
+  assert.match(source, /Email address<\/p>[\s\S]*\{email\}[\s\S]*Read-only<\/p>/)
   assert.doesNotMatch(source, /const handleEmailSubmit = async/)
   assert.doesNotMatch(source, /prepareParentPortalEmailChange/)
   assert.doesNotMatch(source, /requestLoginEmailChange/)
@@ -193,7 +194,8 @@ test('parent email helper remains server-side only and masks raw duplicate Auth 
   assert.match(functionSource, /classifyParentEmailChange/)
   assert.match(rulesSource, /link-existing-parent/)
   assert.match(rulesSource, /hasSameUniqueEmailLink/)
-  assert.match(pageSource, /Display name and email changes are managed by the club\./)
+  assert.match(pageSource, /The club manages contact details\./)
+  assert.match(pageSource, /Email address<\/p>[\s\S]*\{email\}[\s\S]*Read-only<\/p>/)
   assert.doesNotMatch(pageSource, /parentPortalUnsafeEmailMessage/)
   assert.doesNotMatch(pageSource, /parent_player_links_unique_email/)
   assert.doesNotMatch(pageSource, /prepareParentPortalEmailChange/)

@@ -39,7 +39,7 @@ test('Coach invites include upcoming Training availability and canonical request
 
   assert.match(dataSource, /calendar_event_id: request\?\.calendar_event_id/)
   assert.match(screenSource, /Choose an upcoming Match or Training session to see its availability/)
-  assert.match(screenSource, /Training \| \{group\.occurrenceDate/)
+  assert.match(screenSource, /group\.occurrenceDate \? new Date\(`/)
   assert.match(screenSource, /Existing request identity is reused/)
   assert.match(screenSource, /Players who already have a request or response are excluded and cannot be resent/)
 })

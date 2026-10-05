@@ -14,6 +14,7 @@ import {
   resolveEligibleMatchDayInvitationContacts,
 } from './lib/_match-day-actionable-invitation.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
+import { hasMatchDayParticipationRenewal, isMatchDayParticipationRenewal } from './lib/_match-day-invitation-renewal.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -686,13 +687,41 @@ export async function handler(event) {
       }))
     }
 
-    if (targetedInvitationAction) {
+    const { data: match, error: matchError } = await supabase
+      .from('match_days')
+      .select('*, teams:team_id (name, notification_display_name), clubs:club_id (name, logo_url)')
+      .eq('id', matchDayId)
+      .eq('club_id', profile.club_id)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (matchError) {
+      throw matchError
+    }
+
+    if (!match?.id) {
+      throw Object.assign(new Error('Fixture was not found.'), { statusCode: 404 })
+    }
+
+    if (targetedInvitationAction && invitationAction === 'resend') {
+      const { data: completed, error: completedError } = await adminSupabase.from('event_player_invitation_actions')
+        .select('result').eq('idempotency_key', invitationActionKey).eq('actor_id', profile.id)
+        .eq('club_id', match.club_id).eq('team_id', match.team_id).eq('event_id', match.id)
+        .eq('player_id', playerIds[0]).eq('source_type', 'match-day').eq('action', 'resend').eq('status', 'completed').maybeSingle()
+      if (completedError) throw completedError
+      if (completed?.result?.renewalRequired === true) return json(200, { ...completed.result, duplicate: true })
+    }
+
+    if (targetedInvitationAction && body.renewalOnly !== true) {
       const { data: priorActions, error: priorActionError } = await adminSupabase
         .from('scheduled_email_queue')
         .select('id')
-        .eq('club_id', profile.club_id)
+        .eq('club_id', match.club_id)
+        .eq('team_id', match.team_id)
         .contains('payload', {
-          eventPlayerInvitationAction: {
+          actorId: profile.id,
+          matchDayAvailability: { matchDayId: match.id, playerId: playerIds[0] },
+          eventPlayerInvitationAction: { action: invitationAction, sourceType: 'match-day', playerId: playerIds[0],
             idempotencyKey: invitationActionKey,
           },
         })
@@ -712,22 +741,6 @@ export async function handler(event) {
           playerId: playerIds[0],
         })
       }
-    }
-
-    const { data: match, error: matchError } = await supabase
-      .from('match_days')
-      .select('*, teams:team_id (name, notification_display_name), clubs:club_id (name, logo_url)')
-      .eq('id', matchDayId)
-      .eq('club_id', profile.club_id)
-      .is('deleted_at', null)
-      .maybeSingle()
-
-    if (matchError) {
-      throw matchError
-    }
-
-    if (!match?.id) {
-      throw Object.assign(new Error('Fixture was not found.'), { statusCode: 404 })
     }
 
     const volunteerTemplates = await getVolunteerRequestTemplates(adminSupabase, match)
@@ -767,6 +780,7 @@ export async function handler(event) {
     const missingContacts = []
     const createdPlayerIds = new Set()
     const duplicatePlayerIds = new Set()
+    const renewalRequiredPlayerIds = new Set()
     const loadedPlayerIds = new Set((players ?? []).map((player) => String(player.id)))
     let duplicateQueueCount = 0
     let lastQueuedAt = ''
@@ -795,7 +809,7 @@ export async function handler(event) {
       const [requestResult, responseResult] = await Promise.all([
         adminSupabase
           .from('match_day_availability_requests')
-          .select('id, status, token_hash, token_revoked_at, token_version, recipient_email, recipient_type, parent_link_id')
+          .select('id, channel, status, token_hash, token_revoked_at, token_revoked_reason, token_version, recipient_email, recipient_type, parent_link_id')
           .eq('match_day_id', match.id)
           .eq('club_id', match.club_id)
           .eq('team_id', match.team_id)
@@ -818,7 +832,36 @@ export async function handler(event) {
       const hasCurrentResponse = responseResult.data?.id
         && ['available', 'maybe', 'unavailable'].includes(normalizeText(responseResult.data.status).toLowerCase())
 
-      if (targetedInvitationAction && hasCurrentResponse) {
+      const participationRenewal = hasMatchDayParticipationRenewal(invitationAction, playerRequests, contacts)
+
+      if (targetedInvitationAction && contacts.some(contact => playerRequests.some(request =>
+        normalizeEmail(request.recipient_email) === normalizeEmail(contact.email)
+        && request.recipient_type === contact.type && request.token_revoked_at
+        && !(invitationAction === 'resend' && isMatchDayParticipationRenewal(request, contact))))) {
+        throw Object.assign(new Error('This withdrawn invitation cannot be renewed by an availability resend.'), { statusCode: 409 })
+      }
+
+      if (participationRenewal) {
+        if (['cancelled', 'postponed', 'full_time'].includes(normalizeText(match.status).toLowerCase()) || match.concluded_at) {
+          throw Object.assign(new Error('This fixture is closed for invitation renewal.'), { statusCode: 409 })
+        }
+        const { data: activeInvite, error: inviteError } = await adminSupabase
+          .from('calendar_event_invites')
+          .select('id')
+          .eq('match_day_id', match.id)
+          .eq('club_id', match.club_id)
+          .eq('team_id', match.team_id)
+          .eq('player_id', player.id)
+          .neq('invite_status', 'cancelled')
+          .is('cancelled_at', null)
+          .maybeSingle()
+        if (inviteError) throw inviteError
+        if (!activeInvite?.id) {
+          throw Object.assign(new Error('Add this Player back to the fixture before renewing the availability invitation.'), { statusCode: 409 })
+        }
+      }
+
+      if (targetedInvitationAction && hasCurrentResponse && !participationRenewal) {
         throw Object.assign(new Error('This Player already has a valid availability response. The reusable response link remains available without another email.'), { statusCode: 409 })
       }
 
@@ -828,6 +871,97 @@ export async function handler(event) {
 
       if (['resend', 'retry'].includes(invitationAction) && playerRequests.length === 0) {
         throw Object.assign(new Error('There is no existing availability invitation for this action.'), { statusCode: 409 })
+      }
+
+      if (body.renewalOnly === true && !participationRenewal) {
+        throw Object.assign(new Error('Renewal scope changed. Preview again.'), { statusCode: 409 })
+      }
+      if (participationRenewal) {
+        const renewable = contacts.flatMap(contact => {
+          const request = playerRequests.find(candidate => isMatchDayParticipationRenewal(candidate, contact))
+          return request ? [{ contact, request }] : []
+        })
+        const supplied = Array.isArray(body.expectedRenewalRequests) ? body.expectedRenewalRequests : []
+        if (supplied.length !== renewable.length || new Set(supplied.map(row => row.requestId)).size !== supplied.length
+          || renewable.some(({ request }) => !supplied.some(row => row.requestId === request.id
+            && row.expectedTokenVersion === request.token_version && (row.parentLinkId || null) === (request.parent_link_id || null)))) {
+          throw Object.assign(new Error('Renewal recipients changed. Preview again before confirming.'), { statusCode: 409 })
+        }
+        const recipientUnits = []
+        for (const { contact, request } of renewable) {
+          const parentLinkId = contact.parentLinkId || null
+          const { token, tokenHash } = createInvitationToken()
+        const responseUrl = `${appOrigin}/.netlify/functions/match-day-availability-confirm?token=${token}`
+        const email = buildMatchDayActionableInvitationEmail({
+          appOrigin,
+          match,
+          player,
+          recipient: contact,
+          responseUrl,
+          volunteerTemplates,
+        })
+        const payload = {
+          visibleInEmailQueue: false,
+          resendPayload: {
+            emailAppRole: 'parent',
+            from: createFromAddress('Football Player'),
+            to: [contact.email],
+            subject: email.subject,
+            html: email.html,
+            text: email.text,
+          },
+          displayName: 'Football Player',
+          teamName: resolveMatchDayNotificationTeamName(match),
+          clubName: normalizeText(match.clubs?.name),
+          playerName: normalizeText(player.player_name),
+          parentName: normalizeText(contact.name),
+          clubId: match.club_id,
+          teamId: match.team_id || null,
+          actorId: profile.id,
+          actorEmail: normalizeEmail(profile.email),
+          actorRole: profile.role || '',
+          requiredFeature: 'parentEmails',
+          communicationLog: {
+            clubId: match.club_id,
+            playerId: player.id,
+            userId: profile.id,
+            userName: normalizeText(profile.display_name || profile.name || profile.email),
+            userEmail: normalizeEmail(profile.email),
+            recipientEmail: contact.email,
+            metadata: {
+              type: 'match_day_availability',
+              matchDayId: match.id,
+              matchDayAvailabilityRequestId: request.id,
+              invitationAction: targetedInvitationAction ? invitationAction : 'initial_send',
+            },
+          },
+          matchDayAvailability: {
+            matchDayId: match.id,
+            requestId: request.id,
+            playerId: player.id,
+            parentLinkId: parentLinkId || '',
+            purpose: 'availability_request_notification',
+            rawToken: token,
+            tokenHash,
+          },
+          ...(targetedInvitationAction ? {
+            eventPlayerInvitationAction: {
+              action: invitationAction,
+              idempotencyKey: invitationActionKey,
+              playerId: player.id,
+              sourceType: 'match-day',
+            },
+          } : {}),
+        }
+          recipientUnits.push({ requestId: request.id, expectedTokenVersion: request.token_version,
+            parentLinkId, rawToken: token, tokenHash, payload })
+        }
+        const { data: result, error: renewalError } = await supabase.rpc('renew_match_day_participation_invitations', {
+          idempotency_key_value: invitationActionKey, match_day_id_value: match.id,
+          player_id_value: player.id, recipient_units_value: recipientUnits,
+        })
+        if (renewalError) throw Object.assign(new Error(renewalError.message || 'Participation renewal failed.'), { statusCode: renewalError.code === '42501' ? 403 : 409 })
+        return json(200, result)
       }
 
       const activeRecipientKeys = new Set(contacts.map((contact) => `${normalizeEmail(contact.email)}:${contact.type}`))
@@ -863,9 +997,17 @@ export async function handler(event) {
           && request.recipient_type === contact.type
         )) || null
 
+        if (targetedInvitationAction && existingRequest?.token_revoked_at) {
+          throw Object.assign(new Error('This withdrawn invitation cannot be renewed by an availability resend.'), { statusCode: 409 })
+        }
+
         let existingQueues = []
 
         if (existingRequest?.id) {
+          if (!targetedInvitationAction && existingRequest.token_revoked_at) {
+            renewalRequiredPlayerIds.add(String(player.id))
+            continue
+          }
           const { data: loadedQueues, error: existingQueueError } = await adminSupabase
             .from('scheduled_email_queue')
             .select('id, status, payload')
@@ -918,17 +1060,14 @@ export async function handler(event) {
                 parent_link_id: parentLinkId,
                 recipient_name: contact.name,
                 status: existingRequest.status === 'expired' ? 'pending' : existingRequest.status,
-                ...(existingRequest.token_revoked_at ? {
-                  token_hash: tokenHash,
-                  token_revoked_at: null,
-                  token_revoked_by: null,
-                  token_revoked_reason: null,
-                  token_revoked_source: null,
-                  token_version: Number(existingRequest.token_version || 1) + 1,
-                } : {}),
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existingRequest.id)
+              .eq('match_day_id', match.id)
+              .eq('club_id', match.club_id)
+              .eq('team_id', match.team_id)
+              .eq('player_id', player.id)
+              .eq('token_version', existingRequest.token_version)
           : supabase
               .from('match_day_availability_requests')
               .upsert({
@@ -1094,8 +1233,8 @@ export async function handler(event) {
     }
 
     const existingPlayerIds = [...duplicatePlayerIds]
-      .filter((playerId) => !createdPlayerIds.has(playerId))
-    const resolvedPlayerIds = new Set([...createdPlayerIds, ...existingPlayerIds])
+      .filter((playerId) => !createdPlayerIds.has(playerId) && !renewalRequiredPlayerIds.has(playerId))
+    const resolvedPlayerIds = new Set([...createdPlayerIds, ...existingPlayerIds].filter(playerId => !renewalRequiredPlayerIds.has(playerId)))
     const unresolvedPlayerIds = playerIds
       .map(String)
       .filter((playerId) => !resolvedPlayerIds.has(playerId))
@@ -1113,6 +1252,7 @@ export async function handler(event) {
       missingContactCount: unresolvedPlayerIds.length,
       missingContacts,
       unresolvedPlayerIds,
+      renewalRequiredPlayerIds: [...renewalRequiredPlayerIds],
       duplicateCount: duplicateQueueCount,
       duplicateQueueCount,
       duplicate: false,

@@ -53,7 +53,7 @@ test('a linked Parent with no staff profile can notify Coaches after a saved tra
   const success = await handler(event)
   assert.equal(success.statusCode,200,success.body)
   assert.equal(JSON.parse(success.body).success,true)
-  assert.equal(recipientLookup,1)
+  assert.equal(recipientLookup,0, 'Canonical training notification intents own delivery; response wake-up must not send another native alert')
   suspended = true
   assert.equal((await handler(event)).statusCode,403)
   suspended = false
@@ -62,5 +62,5 @@ test('a linked Parent with no staff profile can notify Coaches after a saved tra
   wrongChild = false
   stale = true
   assert.equal((await handler(event)).statusCode,409)
-  assert.equal(recipientLookup,1)
+  assert.equal(recipientLookup,0)
 })

@@ -1,5 +1,6 @@
 import { contrastSafeColor, mixThemeColor, readableThemeTokens, themeContrastRatio, themeForeground } from '../../mobile-core/src/themeContrast.js'
 import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
+import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 
 const ACCENTS = new Set(['yellow', 'blue', 'green', 'red', 'purple'])
 const HEX_PATTERN = /^#[0-9a-f]{6}$/
@@ -46,6 +47,9 @@ export function normalizeCoachLogoUrl(value) {
 }
 
 export function resolveCoachBranding(context = null) {
+  const scoped = getScopedTeamBranding(context)
+  if (scoped) return Object.freeze({ accent: normalizeAccent(scoped.accent, 'green'),
+    buttonStyle: scoped.buttonStyle, logoUrl: scoped.logoUrl, source: scoped.source })
   const modernPlan = ['matchday', 'team', 'club'].includes(normalize(context?.planKey).toLowerCase())
   const accessContext = { ...context, teamId: context?.activeTeamId || context?.teamId }
   const logoAllowed = !modernPlan || getFeatureAccess(accessContext, CAPABILITIES.basicLogoBranding).allowed

@@ -3,17 +3,20 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import { sendExpoPushMessages } from '../netlify/functions/lib/_expo-push.js'
+import { getCoachInviteDeliveryProgress } from '../apps/mobile-core/src/coachPhase31ECore.js'
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8')
 
 test('availability creation selects every Player without an existing request by default', async () => {
-  const screen = await read('../apps/coach-mobile/src/CoachPhase31EScreens.js')
-  assert.match(screen, /\{matchRequestPlayerCount\} Player\{matchRequestPlayerCount === 1 \? '' : 's'\} shown below already/)
+  const screen = (await Promise.all(['CoachPhase31EScreens.js', 'CoachMatchInviteTable.js'].map(file => read(`../apps/coach-mobile/src/${file}`)))).join('\n')
+  assert.match(screen, /\{matchRequestPlayerCount\} Players have a request\. \{availablePlayers\.length\} current Team Players have no request/)
   assert.match(screen, /\{availablePlayers\.length\} current Team Player/)
   assert.match(screen, /Choose \$\{availablePlayers\.length\} Team Players with no request/)
   assert.match(screen, /setPlayerIds\(next \? availablePlayers\.map\(\(player\) => player\.id\) : \[\]\)/)
   assert.match(screen, /Players who already have a request or response are excluded and cannot be resent from this action/)
-  assert.match(screen, /Seen turns green only after a Parent or Player response is recorded/)
+  assert.match(screen, /\[progress\.sent, progress\.seen\]\.map\(\(active, index\)[\s\S]*color=\{active \? palette\.success : palette\.textMuted\}/)
+  assert.equal(getCoachInviteDeliveryProgress({ status: 'pending' }).seen, false)
+  assert.equal(getCoachInviteDeliveryProgress({ status: 'available', respondedAt: '2026-10-05T09:00:00Z' }).seen, true)
   assert.match(screen, /selectedCanBeResent/)
   assert.match(screen, /Review and send \$\{playerIds\.length\} request/)
 })

@@ -59,7 +59,7 @@ test('club admin calendar keeps a selected team in team scope and otherwise uses
   assert.match(source, /clubWideOnly=\{isClubWideCalendar\}/)
   assert.match(source, /Club-wide events shared across the club\./)
   assert.match(source, /EVENT_TYPE_OPTIONS\.filter\(\(option\) => !\['training', 'match'\]\.includes\(option\.value\)\)/)
-  assert.match(source, /const eventType = \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType/)
+  assert.match(source, /const eventType = isMatchday \? 'match' : \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType/)
   assert.match(source, /eventType,/)
   assert.match(source, /const safeTeamId = isClubWideCalendar \? '' : getSafeCalendarTeamId\(user, calendarForm\.teamId\)/)
   assert.match(source, /parentAudience: isClubWideShareableCalendarEvent\(\{ form, safeTeamId, user \}\) \? 'all_club_parents' : form\.parentAudience/)

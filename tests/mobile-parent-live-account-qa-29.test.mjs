@@ -124,19 +124,19 @@ test('branding follows the selected child and sanitizes crest URLs', () => {
 
 test('mobile profile hydrates the canonical Club and Team branding fields', () => {
   assert.match(profileSource, /teams:team_id \(name, theme_mode, theme_accent, theme_button_style\)/)
-  assert.match(profileSource, /clubs:club_id \(name, logo_url, theme_accent, theme_button_style\)/)
+  assert.match(profileSource, /clubs:club_id \(name, logo_url, theme_accent, theme_button_style, plan_key, plan_status\)/)
   for (const field of ['clubLogoUrl', 'themeAccent', 'themeButtonStyle', 'themeMode']) {
     assert.match(profileSource, new RegExp(`${field}:`))
   }
   assert.match(appSource, /ClubBrandLogo/)
-  assert.match(appSource, /createParentMobileTheme\(\{ mode: displayTheme, selectedLink \}\)/)
+  assert.match(appSource, /createParentMobileTheme\(\{ mode: displayTheme, selectedLink: selectedLink \? \{ \.\.\.selectedLink, matchdayPolicy: matchdayPlanConfig \} : selectedLink \}\)/)
 })
 
 test('Calendar parity combines shared events, fixtures, and invitation-only events without duplicates', () => {
   const events = buildParentCalendarEvents({
     calendarEvents: [{ id: 'event-training', eventType: 'training', startsAt: '2026-08-10T17:30:00+01:00', title: 'Training' }],
     invitations: [
-      { childName: 'Child', eventId: 'event-training', eventStart: '2026-08-10T17:30:00+01:00', eventTitle: 'Training', invitationId: 'invite-training', responseState: 'available', teamName: 'U12' },
+      { childName: 'Child', eventId: 'event-training', eventStart: '2026-08-10T17:30:00+01:00', eventTitle: 'Training', invitationId: 'invite-training', invitationType: 'training_attendance', responseState: 'available', teamName: 'U12' },
       { childName: 'Child', eventId: 'event-general', eventStart: '2026-08-11T18:00:00+01:00', eventTitle: 'Club evening', invitationId: 'invite-general', responseState: 'awaiting_response', teamName: 'U12' },
     ],
     matches: [{ arrivalTime: '09:15:00', id: 'match-1', kickoffTime: '10:00:00', matchDate: '2026-08-12', opponent: 'Visitors', status: 'scheduled', teamName: 'U12' }],
@@ -167,9 +167,10 @@ test('Calendar screen provides native Month and Agenda views, action filters, gr
   assert.match(appSource, /calendarEvents: valueFor\('calendar'\)/)
   assert.match(appSource, /invitations: valueFor\('invitations'\)/)
   assert.match(appSource, /matches: valueFor\('matches'\)/)
-  for (const copy of ['Month', 'Agenda', 'Needs response', 'Next 30 days', 'Previous 30 days', 'All upcoming', 'History', 'Response:']) {
+  for (const copy of ['Month', 'Agenda', 'Needs response', 'Next 30 days', 'Previous 30 days', 'All upcoming', 'History']) {
     assert.match(screenSource, new RegExp(copy))
   }
+  assert.match(screenSource, /event\.responseState \? labelize\(event\.responseState\) : ''/)
   assert.match(screenSource, /formatParentProductDateTime/)
   assert.match(screenSource, /formatParentProductTime/)
 })

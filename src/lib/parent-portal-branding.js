@@ -4,6 +4,7 @@ import {
   normalizeThemeMode,
 } from './theme.js'
 import { CAPABILITIES, getFeatureAccess } from './paywall-access.js'
+import { getScopedTeamBranding } from './team-branding-display.js'
 
 export const DEFAULT_PARENT_PORTAL_BRANDING = {
   mode: 'system',
@@ -21,6 +22,9 @@ function sameClub(left, right) {
 
 export function resolveParentPortalDisplayLink(selectedLink, matchdayPolicy) {
   if (!selectedLink) return selectedLink
+  const scoped = getScopedTeamBranding(selectedLink)
+  if (scoped) return { ...selectedLink, clubLogoUrl: scoped.logoUrl, themeAccent: scoped.accent,
+    themeButtonStyle: scoped.buttonStyle }
   const planKey = String(selectedLink.planKey || selectedLink.plan_key || '').trim().toLowerCase()
   if (!['matchday', 'team', 'club'].includes(planKey)) return selectedLink
   const context = { ...selectedLink, matchdayPolicy, planKey }

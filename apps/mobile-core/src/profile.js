@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import { getSelectedParentLink } from './parentLinks'
 import { applyCoachContext, normalizeCoachContext, resolveCoachStaffContext } from './coachContextCore'
 import { normalizePersonName } from '../../../src/lib/person-name.js'
+import { loadTeamBrandingDisplay } from '../../../src/lib/team-branding-display.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -212,7 +213,8 @@ async function fetchStaffContexts(authUserId) {
     contexts.push(...(teams || []).map((team) => normalizeAdminTeamContext(team, membership)).filter(Boolean))
   }
 
-  return contexts.filter((context, index, values) => values.findIndex((candidate) => candidate.id === context.id) === index)
+  return Promise.all(contexts.filter((context, index, values) => values.findIndex((candidate) => candidate.id === context.id) === index)
+    .map(context => loadTeamBrandingDisplay(supabase, context)))
 }
 
 function normalizeParentLink(row) {
@@ -333,7 +335,7 @@ async function fetchParentProfile(authUser) {
   if (fans.error) throw fans.error
   links.push(...(fans.data || []).filter((row) => !row.is_owner && row.status === 'active' && ['fan', 'player'].includes(row.relationship_type)).map(normalizeFanProfileLink))
 
-  return normalizeParentProfile(authUser, links)
+  return normalizeParentProfile(authUser, await Promise.all(links.map(link => loadTeamBrandingDisplay(supabase, link))))
 }
 
 export async function fetchMobileProfile(authUser, appRole) {

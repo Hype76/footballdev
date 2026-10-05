@@ -9,6 +9,7 @@ import {
   getCoachOfflineResources,
   setCoachOfflineProfile,
   setCoachOfflineResources,
+  recoverCoachOfflineCacheSpace,
 } from '../../mobile-core/src/coachOfflineCore'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { APPROVED_MOBILE_PRODUCTION, APPROVED_MOBILE_TEST } from '../../mobile-core/src/environmentBoundary'
@@ -306,8 +307,15 @@ export async function updateCoachDevelopmentDraft(userId, context, key, change) 
     else delete items[key]
     const next = { ...document, developmentDrafts: { ...document.developmentDrafts,
       [context.id]: { authority: outboxAuthority(context), items } } }
-    if (getCoachCacheByteLength(next) > COACH_PHASE_31F_MAX_CACHE_BYTES) throw new Error('This change could not be saved on this phone. Reconnect and sync to free space.')
-    return next
+    try {
+      return recoverCoachOfflineCacheSpace(next, { retainContextId: context.id,
+        retainResourceKeys: ['phase31e:development', 'development', 'players'] })
+    } catch (error) {
+      if (error.message !== 'offline_cache_payload_too_large') throw error
+      const capacityError = new Error('This edit could not fit within the app\'s saved-data limit. Keep this screen open and retry after syncing existing work. Do not clear app data.')
+      capacityError.code = 'offline_cache_payload_too_large'
+      throw capacityError
+    }
   })
   return result
 }
@@ -333,4 +341,25 @@ export async function readCoachOfflineReadiness(userId, context) {
     pending: Object.values(document.matchDayOutboxes || {}).flatMap(entries => Object.values(entries)).reduce((total, journal) => total + (journal.pending?.length || 0), 0)
       + Object.values(document.developmentDrafts || {}).flatMap(entry => Object.values(entry.items || {})).filter(draft => draft.status !== 'synced').length,
   }
+}
+
+export async function readCoachAttendanceCommands(user, context) {
+  const guard = store.captureScopeGuard(user.id)
+  const { document } = await store.read(user.id)
+  guard()
+  assertOutboxContext(document, user.id, context)
+  return document.attendanceCommands || []
+}
+
+export async function updateCoachAttendanceCommands(user, context, change) {
+  const guard = store.captureScopeGuard(user.id)
+  const document = await store.update(user.id, previous => {
+    guard()
+    assertOutboxContext(previous, user.id, context)
+    const next = { ...previous, attendanceCommands: change(previous.attendanceCommands || []) }
+    if (getCoachCacheByteLength(next) > COACH_PHASE_31F_MAX_CACHE_BYTES) throw new Error('This answer could not be saved on the phone. Sync existing work first.')
+    return next
+  })
+  guard()
+  return document.attendanceCommands
 }
