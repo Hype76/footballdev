@@ -101,7 +101,7 @@ test('actual own-Coach handler returns stale receipt after local completion in d
   const result=run({coachUserId:'coach',teamId:'team',attendancePreparation:{},occurrenceStartsAt:'2099-01-01T12:00:00Z'},'available');current=false;gate.resolve({});assert.deepEqual(await result,{stale:true})
 })
 
-function attendanceHookFixture() {
+function attendanceHookFixture(execute = async () => { throw new Error('Unexpected network execution') }) {
   const refs=[], states=[], effects=[], writes=[], networks=[]
   let cursor=0, pending=[], api, id=0
   const useRef=value=>{const i=cursor++;return refs[i]??= {current:value}}
@@ -109,7 +109,7 @@ function attendanceHookFixture() {
   const effect=(kind, callback,deps)=>{const i=cursor++;pending.push({i,kind,callback,deps})}
   const hook=bind(extracted('../apps/mobile-core/src/useAttendanceOutbox.js','useAttendanceOutbox'),'useAttendanceOutbox',{
     useRef,useState,useLayoutEffect:(callback,deps)=>effect('layout',callback,deps),useEffect:(callback,deps)=>effect('passive',callback,deps),
-    createAttendanceOutbox,projectAttendanceChoice,Crypto:{randomUUID:()=>String(++id)},executeAttendanceCommand:async()=>{throw new Error('Unexpected network execution')},
+    createAttendanceOutbox,projectAttendanceChoice,Crypto:{randomUUID:()=>String(++id)},executeAttendanceCommand:execute,
     AppState:{currentState:'active',addEventListener:()=>({remove(){}})},NetInfo:{addEventListener:callback=>{networks.push(callback);return ()=>{}}},
     setInterval:()=>1,clearInterval:()=>{},
   })
@@ -161,5 +161,15 @@ test('actual Coach outbox works without a Parent-only native network listener',a
  const f=attendanceHookFixture(),storage={commands:[]}
  const api=f.render({...hookScope('coach',storage),subscribeNetwork:undefined});f.commit()
  const result=await api.enqueue(preparation,'available');assert.equal(result.scope,'coach');assert.equal(storage.commands.length,1)
+ f.unmount()
+})
+
+test('actual Coach adapter retains failed durable commands and confirms explicit recovery without native additions',async()=>{
+ let attempts=0
+ const f=attendanceHookFixture(async()=>{if(++attempts===1)throw new Error('Synthetic offline network');return {outcome:'saved',current:{revision:1,status:'available',respondedAt:'2026-10-05T10:00:00Z'}}}),storage={commands:[]}
+ const api=f.render({...hookScope('coach',storage),subscribeNetwork:undefined});f.commit()
+ await api.enqueue(preparation,'available');await new Promise(resolve=>setImmediate(resolve))
+ assert.equal(storage.commands.length,1);assert.equal(storage.commands[0].status,'retryable');assert.equal(storage.commands[0].attempts,1)
+ await api.retry();assert.equal(attempts,2);assert.equal(storage.commands.length,1);assert.equal(storage.commands[0].status,'saved')
  f.unmount()
 })
