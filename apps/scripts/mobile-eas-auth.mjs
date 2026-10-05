@@ -1,10 +1,12 @@
 import { execFileSync } from 'node:child_process'
+import { publisherInvocation } from './mobile-eas-publisher.mjs'
 
 export function assertEasLogin() {
   try {
-    const accountName = execFileSync('npx', ['eas-cli', 'whoami'], {
+    const publisher = publisherInvocation(['whoami'])
+    const accountName = execFileSync(publisher.command, publisher.args, {
       encoding: 'utf8',
-      shell: process.platform === 'win32',
+      shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
 
@@ -16,7 +18,7 @@ export function assertEasLogin() {
     return accountName
   } catch {
     console.error('Expo EAS login is required before this mobile external command can run.')
-    console.error('Run npx eas-cli login and sign in to the correct Expo account, then rerun the guarded mobile command.')
+    console.error('Install the reviewed publisher with npm run mobile:publisher:install and retain the existing Expo account login, then rerun the guarded mobile command.')
     process.exit(1)
   }
 }

@@ -2,16 +2,22 @@ import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertEasLogin } from './mobile-eas-auth.mjs'
+import { publisherInvocation } from './mobile-eas-publisher.mjs'
 import { mobileApps } from './mobile-apps.mjs'
 import { loadMobileLocalEnv } from './mobile-local-env.mjs'
+import { targetPaths } from './mobile-ota-provenance.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const [appRole, updatePlatform = 'all'] = process.argv.slice(2)
+const [appRole, updatePlatform = 'all', targetId = 'tracked'] = process.argv.slice(2)
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const supportedUpdatePlatforms = new Set(['all', 'ios', 'android'])
 const updateConfirmed = String(process.env.MOBILE_OTA_UPDATE_CONFIRMED || '').trim().toLowerCase() === 'true'
 const updateMessage = String(process.env.MOBILE_OTA_UPDATE_MESSAGE || '').trim()
 const productionProfile = 'store-live'
+const reviewedManifestSha256 = String(process.env.MOBILE_OTA_REVIEWED_MANIFEST_SHA256 || '').trim().toLowerCase()
+if (!/^[a-f0-9]{64}$/.test(reviewedManifestSha256)) throw new Error('MOBILE_OTA_REVIEWED_MANIFEST_SHA256 must identify the reviewed complete export')
+if (process.argv.slice(2).length > 3) throw new Error('Unsupported extra publication arguments')
+targetPaths(repoRoot, appRole, targetId, '0'.repeat(40))
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -38,7 +44,7 @@ if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,119}$/.test(updateMessage)) {
   process.exit(1)
 }
 
-const gitStatus = execFileSync('git', ['status', '--porcelain'], {
+const gitStatus = execFileSync('git', ['-c', `safe.directory=${repoRoot.replaceAll('\\', '/')}`, 'status', '--porcelain'], {
   cwd: repoRoot,
   encoding: 'utf8',
 }).trim()
@@ -48,16 +54,16 @@ if (gitStatus) {
   process.exit(1)
 }
 
-execFileSync('git', ['fetch', 'origin', '--prune'], {
+execFileSync('git', ['-c', `safe.directory=${repoRoot.replaceAll('\\', '/')}`, 'fetch', 'origin', '--prune'], {
   cwd: repoRoot,
   stdio: 'inherit',
 })
 
-const headCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+const headCommit = execFileSync('git', ['-c', `safe.directory=${repoRoot.replaceAll('\\', '/')}`, 'rev-parse', 'HEAD'], {
   cwd: repoRoot,
   encoding: 'utf8',
 }).trim()
-const originMainCommit = execFileSync('git', ['rev-parse', 'origin/main'], {
+const originMainCommit = execFileSync('git', ['-c', `safe.directory=${repoRoot.replaceAll('\\', '/')}`, 'rev-parse', 'origin/main'], {
   cwd: repoRoot,
   encoding: 'utf8',
 }).trim()
@@ -76,13 +82,13 @@ const updateEnvironment = {
 }
 
 console.log(`Validating the resolved ${appRole} ${productionProfile} update environment without printing values.`)
-const resolvedEnvironmentCommand = `node ../scripts/mobile-resolved-environment-check.mjs ${appRole} ${productionProfile}`
-const resolvedEnvironmentArgument = process.platform === 'win32' ? `"${resolvedEnvironmentCommand}"` : resolvedEnvironmentCommand
-execFileSync('npx', ['eas-cli', 'env:exec', 'production', resolvedEnvironmentArgument, '--non-interactive'], {
+const resolvedEnvironmentCommand = `node ../scripts/mobile-ota-worker.mjs verify ${appRole} ${targetId} ${headCommit} ${reviewedManifestSha256}`
+const environmentPublisher = publisherInvocation(['env:exec', 'production', resolvedEnvironmentCommand, '--non-interactive'])
+execFileSync(environmentPublisher.command, environmentPublisher.args, {
   cwd: resolve(repoRoot, app.path),
   env: updateEnvironment,
   stdio: 'inherit',
-  shell: process.platform === 'win32',
+  shell: false,
 })
 
 console.log(`Running the mobile release gate before updating ${app.expectedName}.`)
@@ -92,25 +98,12 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
   shell: process.platform === 'win32',
 })
 
-console.log(`Publishing the guarded ${app.expectedName} ${updatePlatform} production update from ${headCommit}.`)
-const updateMessageArgument = process.platform === 'win32' ? `"${updateMessage}"` : updateMessage
-execFileSync('npx', [
-  'eas-cli',
-  'update',
-  '--channel',
-  'production',
-  '--environment',
-  'production',
-  '--message',
-  updateMessageArgument,
-  '--platform',
-  updatePlatform,
-  '--clear-cache',
-  '--non-interactive',
-  '--json',
-], {
+console.log(`Revalidating reviewed ${app.expectedName} ${targetId} bytes before the guarded update.`)
+const publishCommand = `node ../scripts/mobile-ota-worker.mjs publish ${appRole} ${targetId} ${headCommit} ${reviewedManifestSha256} ${updatePlatform} "${updateMessage}"`
+const updatePublisher = publisherInvocation(['env:exec', 'production', publishCommand, '--non-interactive'])
+execFileSync(updatePublisher.command, updatePublisher.args, {
   cwd: resolve(repoRoot, app.path),
   env: updateEnvironment,
   stdio: 'inherit',
-  shell: process.platform === 'win32',
+  shell: false,
 })

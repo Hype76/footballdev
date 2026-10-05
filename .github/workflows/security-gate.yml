@@ -101,6 +101,8 @@ jobs:
         run: node --test tests/coach-parent-auto-invite.test.mjs tests/coach-parent-invite-status.test.mjs tests/parent-chat-plan-disabled-link-sync-pglite.test.mjs tests/matchday-squad-chat-plan-pglite.test.mjs
       - name: Confirmed signup workspace provisioning
         run: node --test tests/signup-workspace-provisioning.test.mjs tests/public-signup-recovery.test.mjs && node tests/signup-confirmation-browser.mjs
+      - name: Mobile source-map inventory validation
+        run: node --test tests/mobile-security-inventory.test.mjs tests/mobile-eas-publisher.test.mjs tests/mobile-ota-provenance.test.mjs
       - name: M3 monitoring tests
         run: npm run security:monitoring
       - name: Workspace invite reload and navigation

@@ -1,0 +1,1093 @@
+{
+  "collectedAt": "2026-10-02T14:09:43.271Z",
+  "baseCommit": "b40b5935e46a49caf22b84bbbb02f36975a3f1ff",
+  "exportSourceCommit": "6aae5d6f72ac44d5aa0bd7055a0e98328c7ca320",
+  "exportEnvironment": "Historical local noncredential exports below; final hash-bound production evidence supplied separately in refreshed archive and PR description",
+  "node": "22.21.0",
+  "npm": "11.7.0",
+  "apps": {
+    "coach": {
+      "baselineLockSha256": "3aadbc707ec10cae0e925df411b94b6e4e8dd06a4a7ac925a10539757bad0ab7",
+      "patchedLockSha256": "7774b74cb7b44ff375a8aac33e623d6f53a64ebb3c037c8722aa7706991662c4",
+      "archivedBaseline": {
+        "full": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 11,
+          "critical": 0,
+          "total": 11
+        },
+        "omitDev": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 11,
+          "critical": 0,
+          "total": 11
+        }
+      },
+      "freshBefore": {
+        "full": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 10,
+          "critical": 0,
+          "total": 10
+        },
+        "omitDev": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 11,
+          "critical": 0,
+          "total": 11
+        }
+      },
+      "after": {
+        "full": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 7,
+          "critical": 0,
+          "total": 7
+        },
+        "omitDev": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 7,
+          "critical": 0,
+          "total": 7
+        }
+      },
+      "residualFindings": [
+        {
+          "name": "@expo/cli",
+          "severity": "high",
+          "nodes": [
+            "node_modules/expo/node_modules/@expo/cli"
+          ],
+          "via": [
+            "@expo/code-signing-certificates",
+            "node-forge"
+          ]
+        },
+        {
+          "name": "@expo/code-signing-certificates",
+          "severity": "high",
+          "nodes": [
+            "node_modules/@expo/code-signing-certificates"
+          ],
+          "via": [
+            "node-forge"
+          ]
+        },
+        {
+          "name": "@react-native-community/datetimepicker",
+          "severity": "high",
+          "nodes": [
+            "node_modules/@react-native-community/datetimepicker"
+          ],
+          "via": [
+            "expo"
+          ]
+        },
+        {
+          "name": "expo",
+          "severity": "high",
+          "nodes": [
+            "node_modules/expo"
+          ],
+          "via": [
+            "@expo/cli"
+          ]
+        },
+        {
+          "name": "expo-updates",
+          "severity": "high",
+          "nodes": [
+            "node_modules/expo-updates"
+          ],
+          "via": [
+            "@expo/code-signing-certificates"
+          ]
+        },
+        {
+          "name": "image-size",
+          "severity": "high",
+          "nodes": [
+            "node_modules/image-size"
+          ],
+          "via": [
+            {
+              "name": "image-size",
+              "title": "image-size: JXL and HEIF parsers allow denial of service through infinite loops",
+              "url": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+              "range": ">=1.2.0 <=2.0.2"
+            },
+            {
+              "name": "image-size",
+              "title": "image-size: ICNS parser allows denial of service through an infinite loop",
+              "url": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+              "range": ">=0.6.3 <=2.0.2"
+            }
+          ]
+        },
+        {
+          "name": "node-forge",
+          "severity": "high",
+          "nodes": [
+            "node_modules/node-forge"
+          ],
+          "via": [
+            {
+              "name": "node-forge",
+              "title": "node-forge RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements",
+              "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+              "range": "<=1.4.0"
+            }
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "sourceMap": "_expo/static/js/android/index-b358435b203e390a7846b39af5a8bb95.hbc.map",
+          "sourceMapSha256": "15cacdd62a6c0cd4358013ab9b0117125d94b24b25a95cca1367677cb5d063c2",
+          "bundleSha256": "26c79e5054878552e438902069f56f764a1702e9af86a724c05aab319369edcc",
+          "moduleCount": 1053,
+          "roots": {
+            "brace-expansion": {
+              "shipped": false,
+              "modules": []
+            },
+            "image-size": {
+              "shipped": false,
+              "modules": []
+            },
+            "js-yaml": {
+              "shipped": false,
+              "modules": []
+            },
+            "node-forge": {
+              "shipped": false,
+              "modules": []
+            },
+            "undici": {
+              "shipped": false,
+              "modules": []
+            }
+          },
+          "propagatedPackageMembership": {
+            "@expo/cli": true,
+            "@expo/code-signing-certificates": false,
+            "@react-native-community/datetimepicker": true,
+            "expo": true,
+            "expo-updates": true,
+            "image-size": false,
+            "node-forge": false
+          }
+        },
+        {
+          "sourceMap": "_expo/static/js/ios/index-bc74aaee50e76e002c57d48809b1ec36.hbc.map",
+          "sourceMapSha256": "5fc0e8586aec007f5e306efb38733a22fcad3b5ded4e603845da4b6757009b5e",
+          "bundleSha256": "cc9bd6be96ba634290f27fcbe434e061f5e691cf6147bf34ca578ccdc6cdb37f",
+          "moduleCount": 1045,
+          "roots": {
+            "brace-expansion": {
+              "shipped": false,
+              "modules": []
+            },
+            "image-size": {
+              "shipped": false,
+              "modules": []
+            },
+            "js-yaml": {
+              "shipped": false,
+              "modules": []
+            },
+            "node-forge": {
+              "shipped": false,
+              "modules": []
+            },
+            "undici": {
+              "shipped": false,
+              "modules": []
+            }
+          },
+          "propagatedPackageMembership": {
+            "@expo/cli": true,
+            "@expo/code-signing-certificates": false,
+            "@react-native-community/datetimepicker": true,
+            "expo": true,
+            "expo-updates": true,
+            "image-size": false,
+            "node-forge": false
+          }
+        },
+        {
+          "sourceMap": "_expo/static/js/web/index-80232810b188234f7a657e4a93d74cf0.js.map",
+          "sourceMapSha256": "626a22856276de72e53eea88234054e071d45c4f81ca4ed2d49cb6ad05440fb7",
+          "bundleSha256": "e64d268ddd8331dc69cae74050a59d2802a149a97df7995a254c9b54a400bb5b",
+          "moduleCount": 848,
+          "roots": {
+            "brace-expansion": {
+              "shipped": false,
+              "modules": []
+            },
+            "image-size": {
+              "shipped": false,
+              "modules": []
+            },
+            "js-yaml": {
+              "shipped": false,
+              "modules": []
+            },
+            "node-forge": {
+              "shipped": false,
+              "modules": []
+            },
+            "undici": {
+              "shipped": false,
+              "modules": []
+            }
+          },
+          "propagatedPackageMembership": {
+            "@expo/cli": true,
+            "@expo/code-signing-certificates": false,
+            "@react-native-community/datetimepicker": true,
+            "expo": true,
+            "expo-updates": true,
+            "image-size": false,
+            "node-forge": false
+          }
+        }
+      ]
+    },
+    "parent": {
+      "baselineLockSha256": "f35f9b2c352353ee9c5b62c9d620b036925a5ce5263081d25002723a4bf03a06",
+      "patchedLockSha256": "72ab2c2ee305d7e3952064665490aa8c60ea1f35b9488e42ba99106bb536c67e",
+      "archivedBaseline": {
+        "full": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 10,
+          "critical": 0,
+          "total": 10
+        },
+        "omitDev": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 10,
+          "critical": 0,
+          "total": 10
+        }
+      },
+      "freshBefore": {
+        "full": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 10,
+          "critical": 0,
+          "total": 10
+        },
+        "omitDev": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 10,
+          "critical": 0,
+          "total": 10
+        }
+      },
+      "after": {
+        "full": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 6,
+          "critical": 0,
+          "total": 6
+        },
+        "omitDev": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 6,
+          "critical": 0,
+          "total": 6
+        }
+      },
+      "residualFindings": [
+        {
+          "name": "@expo/cli",
+          "severity": "high",
+          "nodes": [
+            "node_modules/expo/node_modules/@expo/cli"
+          ],
+          "via": [
+            "@expo/code-signing-certificates",
+            "node-forge"
+          ]
+        },
+        {
+          "name": "@expo/code-signing-certificates",
+          "severity": "high",
+          "nodes": [
+            "node_modules/@expo/code-signing-certificates"
+          ],
+          "via": [
+            "node-forge"
+          ]
+        },
+        {
+          "name": "expo",
+          "severity": "high",
+          "nodes": [
+            "node_modules/expo"
+          ],
+          "via": [
+            "@expo/cli"
+          ]
+        },
+        {
+          "name": "expo-updates",
+          "severity": "high",
+          "nodes": [
+            "node_modules/expo-updates"
+          ],
+          "via": [
+            "@expo/code-signing-certificates"
+          ]
+        },
+        {
+          "name": "image-size",
+          "severity": "high",
+          "nodes": [
+            "node_modules/image-size"
+          ],
+          "via": [
+            {
+              "name": "image-size",
+              "title": "image-size: JXL and HEIF parsers allow denial of service through infinite loops",
+              "url": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+              "range": ">=1.2.0 <=2.0.2"
+            },
+            {
+              "name": "image-size",
+              "title": "image-size: ICNS parser allows denial of service through an infinite loop",
+              "url": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+              "range": ">=0.6.3 <=2.0.2"
+            }
+          ]
+        },
+        {
+          "name": "node-forge",
+          "severity": "high",
+          "nodes": [
+            "node_modules/node-forge"
+          ],
+          "via": [
+            {
+              "name": "node-forge",
+              "title": "node-forge RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements",
+              "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+              "range": "<=1.4.0"
+            }
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "sourceMap": "_expo/static/js/android/index-c206bdf5c20e909fbd55d4cd8bfd0350.hbc.map",
+          "sourceMapSha256": "b6a9b880b2941e507981d3c6be42dd06759dabebbb5332a6be1ef483850bb6ed",
+          "bundleSha256": "4c6121989637e06286175cab49fabf8fe439fbc15f7358cb7b1b6c6f87e46b62",
+          "moduleCount": 1020,
+          "roots": {
+            "brace-expansion": {
+              "shipped": false,
+              "modules": []
+            },
+            "image-size": {
+              "shipped": false,
+              "modules": []
+            },
+            "js-yaml": {
+              "shipped": false,
+              "modules": []
+            },
+            "node-forge": {
+              "shipped": false,
+              "modules": []
+            },
+            "undici": {
+              "shipped": false,
+              "modules": []
+            }
+          },
+          "propagatedPackageMembership": {
+            "@expo/cli": true,
+            "@expo/code-signing-certificates": false,
+            "expo": true,
+            "expo-updates": true,
+            "image-size": false,
+            "node-forge": false
+          }
+        },
+        {
+          "sourceMap": "_expo/static/js/ios/index-b9fc462ddb0756fabdf72c449f3a64c8.hbc.map",
+          "sourceMapSha256": "dc80ffaa52021f81463a16f067b7ed543d82f745a98715a9eedd433ba2b4f4ac",
+          "bundleSha256": "e384bcfcd06ee946ae351c4dc6023d9397f98f64528c0ea5211089add3c5f866",
+          "moduleCount": 1020,
+          "roots": {
+            "brace-expansion": {
+              "shipped": false,
+              "modules": []
+            },
+            "image-size": {
+              "shipped": false,
+              "modules": []
+            },
+            "js-yaml": {
+              "shipped": false,
+              "modules": []
+            },
+            "node-forge": {
+              "shipped": false,
+              "modules": []
+            },
+            "undici": {
+              "shipped": false,
+              "modules": []
+            }
+          },
+          "propagatedPackageMembership": {
+            "@expo/cli": true,
+            "@expo/code-signing-certificates": false,
+            "expo": true,
+            "expo-updates": true,
+            "image-size": false,
+            "node-forge": false
+          }
+        },
+        {
+          "sourceMap": "_expo/static/js/web/index-0b4116afc69fc4834a893dc7216e3108.js.map",
+          "sourceMapSha256": "cbf97a1070ae39819feeb3ac9269de22b863b9817bcf60fba5ba6b25bcb267c8",
+          "bundleSha256": "b8585e3e8ccdef6398a94a28ba1a6a3d687d6d7fd45eb21b434f6a6233b4f9cf",
+          "moduleCount": 813,
+          "roots": {
+            "brace-expansion": {
+              "shipped": false,
+              "modules": []
+            },
+            "image-size": {
+              "shipped": false,
+              "modules": []
+            },
+            "js-yaml": {
+              "shipped": false,
+              "modules": []
+            },
+            "node-forge": {
+              "shipped": false,
+              "modules": []
+            },
+            "undici": {
+              "shipped": false,
+              "modules": []
+            }
+          },
+          "propagatedPackageMembership": {
+            "@expo/cli": true,
+            "@expo/code-signing-certificates": false,
+            "expo": true,
+            "expo-updates": true,
+            "image-size": false,
+            "node-forge": false
+          }
+        }
+      ]
+    }
+  },
+  "publisher": {
+    "version": "24.8.0",
+    "registryStableVersion": "24.8.0",
+    "verifiedVersionOutput": "eas-cli/24.8.0 win32-x64 node-v22.21.0",
+    "nodeForgeVersion": "1.4.0",
+    "audit": {
+      "info": 0,
+      "low": 1,
+      "moderate": 11,
+      "high": 9,
+      "critical": 0,
+      "total": 21
+    },
+    "rootFindings": [
+      {
+        "name": "ajv",
+        "severity": "moderate",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-2g4f-4pwh-qvx6",
+            "title": "ajv has ReDoS when using `$data` option",
+            "range": ">=7.0.0-alpha.0 <8.18.0"
+          }
+        ]
+      },
+      {
+        "name": "diff",
+        "severity": "low",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-73rr-hh4g-fpgx",
+            "title": "jsdiff has a Denial of Service vulnerability in parsePatch and applyPatch",
+            "range": ">=6.0.0 <8.0.3"
+          }
+        ]
+      },
+      {
+        "name": "joi",
+        "severity": "high",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-q7cg-457f-vx79",
+            "title": "joi has an uncaught RangeError on deeply nested input through recursive `link()` schemas",
+            "range": "<17.13.4"
+          },
+          {
+            "url": "https://github.com/advisories/GHSA-6w3j-5fw6-r9vr",
+            "title": "joi: Prototype pollution via a `__proto__` language key in custom messages",
+            "range": ">=17.2.0 <17.13.6"
+          },
+          {
+            "url": "https://github.com/advisories/GHSA-gg4h-3hg2-grpc",
+            "title": "joi: object().rename() with a template target can set the validated object's prototype",
+            "range": ">=16.0.0 <17.13.5"
+          },
+          {
+            "url": "https://github.com/advisories/GHSA-6h2x-m376-mqjq",
+            "title": "joi: Quadratic regular-expression backtracking in `Joi.string().isoDate()`",
+            "range": ">=17.2.0 <17.13.7"
+          }
+        ]
+      },
+      {
+        "name": "minimatch",
+        "severity": "high",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-3ppc-4f35-3m26",
+            "title": "minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern",
+            "range": ">=5.0.0 <5.1.7"
+          },
+          {
+            "url": "https://github.com/advisories/GHSA-7r86-cg39-jmmj",
+            "title": "minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments",
+            "range": ">=5.0.0 <5.1.8"
+          },
+          {
+            "url": "https://github.com/advisories/GHSA-23c5-xmqv-rm74",
+            "title": "minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions",
+            "range": ">=5.0.0 <5.1.8"
+          }
+        ]
+      },
+      {
+        "name": "nanoid",
+        "severity": "high",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+            "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+            "range": "<3.3.16"
+          },
+          {
+            "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+            "title": "nanoid: custom generators can loop indefinitely when size is zero",
+            "range": "<3.3.18"
+          },
+          {
+            "url": "https://github.com/advisories/GHSA-xwg4-73v4-xw9w",
+            "title": "nanoid: Integer Overflow or Wraparound",
+            "range": "<3.3.12"
+          }
+        ]
+      },
+      {
+        "name": "node-forge",
+        "severity": "high",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+            "title": "node-forge RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements",
+            "range": "<=1.4.0"
+          }
+        ]
+      },
+      {
+        "name": "tar",
+        "severity": "high",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-r292-9mhp-454m",
+            "title": "node-tar: Uncontrolled recursion in mapHas/filesFilter allows uncatchable stack-overflow DoS via crafted long-path tar with member selection",
+            "range": "<=7.5.20"
+          }
+        ]
+      },
+      {
+        "name": "ts-deepmerge",
+        "severity": "moderate",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-87mf-gv2c-c62c",
+            "title": "ts-deepmerge: Prototype Method Override leads to DoS",
+            "range": "<8.0.0"
+          }
+        ]
+      },
+      {
+        "name": "uuid",
+        "severity": "moderate",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+            "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+            "range": "<11.1.1"
+          }
+        ]
+      },
+      {
+        "name": "yaml",
+        "severity": "moderate",
+        "advisories": [
+          {
+            "url": "https://github.com/advisories/GHSA-48c2-rrv3-qjmp",
+            "title": "yaml is vulnerable to Stack Overflow via deeply nested YAML collections",
+            "range": ">=2.0.0 <2.8.3"
+          }
+        ]
+      }
+    ],
+    "guard": "Unpinned npx eas-cli remains unchanged. Exact reviewed CLI version is recorded; no safe publisher claim and no new credentials/access/settings.",
+    "reviewCorrection": {
+      "lockedInstallImplemented": true,
+      "commands": [
+        "whoami",
+        "env:exec",
+        "update"
+      ],
+      "packagePath": "apps/mobile-publisher",
+      "lockSha256": "7078f090ef057107b68b605ac3c99db9da80224293e869f4d1400f2bd8027f42",
+      "node": "v22.21.0",
+      "typescriptPeer": "5.9.3",
+      "audit": {
+        "high": 9,
+        "moderate": 11,
+        "low": 1
+      },
+      "unsignedCertificateBranchProof": "Returns undefined before parsing/verification/signing, zero instrumented calls; resolved PRIVATE production configs have no certificate/metadata",
+      "limits": "No all-publisher/credential safety claim; root/app gates unchanged; no release performed"
+    }
+  },
+  "nativeParity": [
+    {
+      "role": "coach",
+      "runtime": "1.0.25",
+      "servedCommit": "00067db408d69ac4cb60dcafe4e5150d7fc2c578",
+      "addedDependencies": [],
+      "changedDependencies": [],
+      "removedDependencies": [],
+      "configurationDiff": [],
+      "lockChanges": [
+        {
+          "path": "node_modules/@expo/xcpretty/node_modules/js-yaml",
+          "before": "4.3.1",
+          "after": "4.3.2"
+        },
+        {
+          "path": "node_modules/@react-native/codegen/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/brace-expansion",
+          "before": "5.0.9",
+          "after": "5.0.12"
+        },
+        {
+          "path": "node_modules/expo/node_modules/brace-expansion",
+          "before": "2.1.4",
+          "after": "2.1.7"
+        },
+        {
+          "path": "node_modules/react-native/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/rimraf/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/test-exclude/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/undici",
+          "before": "6.28.0",
+          "after": "6.28.1"
+        }
+      ],
+      "nativeModuleVersionsUnchanged": true,
+      "scope": "Source/lock parity only; native binary and physical handset verification not established."
+    },
+    {
+      "role": "parent",
+      "runtime": "1.0.22",
+      "servedCommit": "8b931bc7333afbd4b9a8882e5f0f20930a2e9d30",
+      "addedDependencies": [],
+      "changedDependencies": [],
+      "removedDependencies": [],
+      "configurationDiff": [],
+      "lockChanges": [
+        {
+          "path": "node_modules/@expo/xcpretty/node_modules/js-yaml",
+          "before": "4.3.1",
+          "after": "4.3.2"
+        },
+        {
+          "path": "node_modules/@react-native/codegen/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/brace-expansion",
+          "before": "5.0.9",
+          "after": "5.0.12"
+        },
+        {
+          "path": "node_modules/expo/node_modules/brace-expansion",
+          "before": "2.1.4",
+          "after": "2.1.7"
+        },
+        {
+          "path": "node_modules/react-native/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/rimraf/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/test-exclude/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/undici",
+          "before": "6.28.0",
+          "after": "6.28.1"
+        }
+      ],
+      "nativeModuleVersionsUnchanged": true,
+      "scope": "Source/lock parity only; native binary and physical handset verification not established."
+    },
+    {
+      "role": "parent",
+      "runtime": "1.0.23",
+      "servedCommit": "461305128dcad533d856f8912878ede781d844c6",
+      "addedDependencies": [],
+      "changedDependencies": [],
+      "removedDependencies": [
+        "expo-calendar",
+        "expo-clipboard"
+      ],
+      "configurationDiff": [
+        "apps/parent-mobile/app.config.js"
+      ],
+      "lockChanges": [
+        {
+          "path": "node_modules/@expo/xcpretty/node_modules/js-yaml",
+          "before": "4.3.1",
+          "after": "4.3.2"
+        },
+        {
+          "path": "node_modules/@react-native/codegen/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/brace-expansion",
+          "before": "5.0.9",
+          "after": "5.0.12"
+        },
+        {
+          "path": "node_modules/expo/node_modules/brace-expansion",
+          "before": "2.1.4",
+          "after": "2.1.7"
+        },
+        {
+          "path": "node_modules/react-native/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/rimraf/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/test-exclude/node_modules/brace-expansion",
+          "before": "1.1.18",
+          "after": "1.1.21"
+        },
+        {
+          "path": "node_modules/undici",
+          "before": "6.28.0",
+          "after": "6.28.1"
+        }
+      ],
+      "nativeModuleVersionsUnchanged": true,
+      "scope": "Source/lock parity only; native binary and physical handset verification not established."
+    }
+  ],
+  "pr162Exports": [
+    {
+      "role": "coach",
+      "runtime": "1.0.25",
+      "platform": "ios",
+      "sourceCommit": "f50a9e61c525749e09cfb726d0bb71e4b5df444c",
+      "appVersion": "1.0.25",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5",
+      "bundleSha256": "eb3b5cee4781e938ddb1de4b4c784205d26b3b5e983de969775748e137260a7e",
+      "scope": "Verified existing PR162 export provenance, not exports of this tooling branch."
+    },
+    {
+      "role": "coach",
+      "runtime": "1.0.25",
+      "platform": "android",
+      "sourceCommit": "f50a9e61c525749e09cfb726d0bb71e4b5df444c",
+      "appVersion": "1.0.25",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5",
+      "bundleSha256": "24feff7b8b62290761b0c6422bf8964193792f933c31de12a91df4ae1cab712c",
+      "scope": "Verified existing PR162 export provenance, not exports of this tooling branch."
+    },
+    {
+      "role": "parent",
+      "runtime": "1.0.22",
+      "platform": "ios",
+      "sourceCommit": "f50a9e61c525749e09cfb726d0bb71e4b5df444c",
+      "appVersion": "1.0.22",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "bundleSha256": "75b3b62a1db612721e8f0c1935ea642fa9fbb105c0effe61a9d338395fdfcb0e",
+      "scope": "Verified existing PR162 export provenance, not exports of this tooling branch."
+    },
+    {
+      "role": "parent",
+      "runtime": "1.0.22",
+      "platform": "android",
+      "sourceCommit": "f50a9e61c525749e09cfb726d0bb71e4b5df444c",
+      "appVersion": "1.0.22",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "bundleSha256": "a4d9bfdb505e544429637ac2bf7bd327e71f7feda4386cbdac9832a28e8abd36",
+      "scope": "Verified existing PR162 export provenance, not exports of this tooling branch."
+    },
+    {
+      "role": "parent",
+      "runtime": "1.0.23",
+      "platform": "ios",
+      "sourceCommit": "f50a9e61c525749e09cfb726d0bb71e4b5df444c",
+      "appVersion": "1.0.22",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "bundleSha256": "ca7ff66f9591c5f5caa71b684ea4b2b0c7cd7fc8da64fc1d77f88077a272a694",
+      "scope": "Verified existing PR162 export provenance, not exports of this tooling branch."
+    },
+    {
+      "role": "parent",
+      "runtime": "1.0.23",
+      "platform": "android",
+      "sourceCommit": "f50a9e61c525749e09cfb726d0bb71e4b5df444c",
+      "appVersion": "1.0.22",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "bundleSha256": "c33263cd35252c636e6ac9c9c4926b787ce3b6c12228ffffe90b71d0049b0780",
+      "scope": "Verified existing PR162 export provenance, not exports of this tooling branch."
+    }
+  ],
+  "existingBuildEvidence": [
+    {
+      "role": "coach",
+      "id": "cddf2b5b-b82e-443f-8b20-e016ad24a022",
+      "status": "FINISHED",
+      "platform": "IOS",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5",
+      "channel": "production",
+      "appVersion": "1.0.25",
+      "runtime": "1.0.25",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "997ee5714e9149d6e0bb07945b35e1526566d7d0"
+    },
+    {
+      "role": "coach",
+      "id": "ce78ae16-efb0-46eb-8278-94e6c876912e",
+      "status": "FINISHED",
+      "platform": "ANDROID",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5",
+      "channel": "production",
+      "appVersion": "1.0.25",
+      "runtime": "1.0.25",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "997ee5714e9149d6e0bb07945b35e1526566d7d0"
+    },
+    {
+      "role": "coach",
+      "id": "4c98873e-90f3-4cc0-8b1c-de348e04d12c",
+      "status": "FINISHED",
+      "platform": "ANDROID",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5",
+      "channel": "production",
+      "appVersion": "1.0.25",
+      "runtime": "1.0.25",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "d3a9ab95aa103ca6baac35bb8addf42eec12e4d8"
+    },
+    {
+      "role": "coach",
+      "id": "6cdca2cc-60c7-4f97-bcdf-44064525a63b",
+      "status": "FINISHED",
+      "platform": "IOS",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5",
+      "channel": "production",
+      "appVersion": "1.0.25",
+      "runtime": "1.0.25",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "d3a9ab95aa103ca6baac35bb8addf42eec12e4d8"
+    },
+    {
+      "role": "coach",
+      "id": "123c5152-2086-468a-beb6-738611953483",
+      "status": "FINISHED",
+      "platform": "IOS",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5",
+      "channel": "production",
+      "appVersion": "1.0.24",
+      "runtime": "1.0.24",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "eec630e996afd02cbda8e70f4e9a6a2d3269031b"
+    },
+    {
+      "role": "coach",
+      "id": "85f9f631-b54e-4a76-9488-dc55bdb55273",
+      "status": "FINISHED",
+      "platform": "ANDROID",
+      "projectId": "347965b1-f32f-47b1-8c86-7aa910fe2cb5",
+      "channel": "production",
+      "appVersion": "1.0.24",
+      "runtime": "1.0.24",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "eec630e996afd02cbda8e70f4e9a6a2d3269031b"
+    },
+    {
+      "role": "parent",
+      "id": "570a221d-2a65-456c-9656-cd3593c693d9",
+      "status": "FINISHED",
+      "platform": "ANDROID",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "channel": "production",
+      "appVersion": "1.0.23",
+      "runtime": "1.0.23",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "461305128dcad533d856f8912878ede781d844c6"
+    },
+    {
+      "role": "parent",
+      "id": "3ac2b600-1024-4d6d-a140-35cbfc45a7f8",
+      "status": "FINISHED",
+      "platform": "IOS",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "channel": "production",
+      "appVersion": "1.0.23",
+      "runtime": "1.0.23",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "461305128dcad533d856f8912878ede781d844c6"
+    },
+    {
+      "role": "parent",
+      "id": "eb33fd72-b83f-49e5-8435-a56030d70131",
+      "status": "FINISHED",
+      "platform": "IOS",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "channel": "production",
+      "appVersion": "1.0.22",
+      "runtime": "1.0.22",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "997ee5714e9149d6e0bb07945b35e1526566d7d0"
+    },
+    {
+      "role": "parent",
+      "id": "da8420f2-1edd-46fc-9261-e14ac6958696",
+      "status": "FINISHED",
+      "platform": "ANDROID",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "channel": "production",
+      "appVersion": "1.0.22",
+      "runtime": "1.0.22",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "997ee5714e9149d6e0bb07945b35e1526566d7d0"
+    },
+    {
+      "role": "parent",
+      "id": "2e229997-5cbd-4a26-9f38-9011a1fa493b",
+      "status": "FINISHED",
+      "platform": "ANDROID",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "channel": "production",
+      "appVersion": "1.0.22",
+      "runtime": "1.0.22",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "d3a9ab95aa103ca6baac35bb8addf42eec12e4d8"
+    },
+    {
+      "role": "parent",
+      "id": "24cbf183-6f8a-43c7-997d-5d68322f5d44",
+      "status": "FINISHED",
+      "platform": "IOS",
+      "projectId": "7e0906f3-64f4-42d9-b45d-0ee68f599baa",
+      "channel": "production",
+      "appVersion": "1.0.22",
+      "runtime": "1.0.22",
+      "sdkVersion": "54.0.0",
+      "sourceCommit": "d3a9ab95aa103ca6baac35bb8addf42eec12e4d8"
+    }
+  ],
+  "parent123PublisherImplemented": true,
+  "parent123Blockers": [
+    "Fresh exact-source production export verification and terminal CI required before review completion.",
+    "OS signature trust, physical-device acceptance and separately authorised release remain pending."
+  ],
+  "limits": [
+    "Exports use production bundling/Hermes with local noncredential environment; not authenticated EAS production-environment release artifacts.",
+    "No inventory of PR162 source maps was possible: those six independently prepared bundles did not include source maps. Their hashes/runtime resolutions were verified read-only; this branch has four native and two web source-map inventories.",
+    "Archived Coach baseline full/omit-dev both11; fresh pre-install full10/omit-dev11 differ by propagated minimatch. Lock hashes match archived evidence; raw fresh responses retained.",
+    "No gate, advisory, credential, signing setting, tracked native configuration or runtime policy weakened or changed.",
+    "Existing Parent1.0.23 binary byte hashes and compiled update settings verified read-only; OS signatures and physical-device behavior not verified. Historical inventories are not final-source clearance."
+  ],
+  "integratedMainCommit": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
+  "reviewedByteGuard": {
+    "descriptor": "apps/mobile-targets/parent-1.0.23.json",
+    "allPayloadBytes": true,
+    "privateProductionConfiguration": true,
+    "finalRevalidationAfterReleaseAndPublisherGates": true,
+    "skipBundler": true,
+    "publicationExecuted": false
+  }
+}
