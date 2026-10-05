@@ -1,0 +1,32 @@
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import pages from './reference-pages.json'
+import { PlatformBannerNotice } from '../platform/PlatformBannerNotice.jsx'
+import { PUBLIC_SITE_BANNER_KEY } from '../../lib/platform-banner-config.js'
+import { PUBLIC_FREE_SIGNUP_PATH } from '../../lib/public-signup.js'
+import { createReferenceScope } from './reference-scope.js'
+import { MarketingContactDialog } from './MarketingContactDialog.jsx'
+import './marketing-reference.css'
+const modules = import.meta.glob(['./reference-*.js', '!./reference-scope.js'])
+const paths = {"app.js":"./reference-app.js","development-builder.js":"./reference-development-builder.js","development.js":"./reference-development.js","footer-qr.js":"./reference-footer-qr.js","kit-preview.js":"./reference-kit-preview.js","offer-share.js":"./reference-offer-share.js","pricing-info.js":"./reference-pricing-info.js","tutorials.js":"./reference-tutorials.js"}
+const LivePricing = lazy(() => import('../../pages/PublicPricingPage.jsx').then(module => ({ default: module.PublicPricingContent })))
+export function MarketingPage({ page = 'home' }) {
+  const reference = pages[page] || pages.home, host = useRef(null)
+  const [contactOpen, setContactOpen] = useState(false), [pricingSlot, setPricingSlot] = useState(null)
+  useLayoutEffect(() => {
+    const root = host.current; let active = true
+    root.innerHTML = reference.html
+    root.querySelectorAll('a[href="/sign-in?mode=signup&plan=matchday"]').forEach(link => { link.href = PUBLIC_FREE_SIGNUP_PATH })
+    const scope = createReferenceScope(root), priorTitle = document.title
+    document.title = reference.title
+    setPricingSlot(root.querySelector('[data-live-pricing-slot]'))
+    void (async () => { for (const name of reference.scripts) { const module = await modules[paths[name]]?.(); if (!active) return; module?.default(scope) } })().catch(error => { if (active) console.error('Marketing interaction failed', error) })
+    return () => { active = false; scope.dispose(); root.innerHTML = ''; document.title = priorTitle }
+  }, [reference])
+  useEffect(() => { const open = () => setContactOpen(true); window.addEventListener('football-player:open-contact', open); return () => window.removeEventListener('football-player:open-contact', open) }, [])
+  return <div className="marketing-reference" onClick={event => { if (event.target.closest('[data-contact-open]')) setContactOpen(true) }}>
+    <PlatformBannerNotice ariaLabel="Platform announcement" bannerKey={PUBLIC_SITE_BANNER_KEY} />
+    <div ref={host} />{pricingSlot ? createPortal(<Suspense fallback={<p>Loading current plans...</p>}><LivePricing embedded /></Suspense>, pricingSlot) : null}
+    <MarketingContactDialog open={contactOpen} onClose={() => setContactOpen(false)} />
+  </div>
+}

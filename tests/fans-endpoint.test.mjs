@@ -53,6 +53,28 @@ function fixture() {
   return { tables, client, read, selections }
 }
 
+test('Fans receive authoritative clock state only for accessible Game Day fixtures', async () => {
+  const { client, tables, selections } = fixture()
+  tables.fan_connections[0].permissions.game_day = true
+  const timing = { phase_started_at: '2026-10-04T09:00:00Z', timer_started_at: '2026-10-04T09:00:00Z',
+    timer_paused_at: null, timer_elapsed_seconds: 2100, timer_status: 'running', match_duration_minutes: 70,
+    match_clock_mode: 'fixed', current_match_phase: 'second_half', extra_time_half_minutes: 10, concluded_at: null }
+  const match = { id: id(9), club_id: id(6), team_id: id(7), parent_visible: true, parent_audience: 'all_team_parents',
+    match_date: new Date().toISOString().slice(0, 10), status: 'second_half', ...timing }
+  tables.match_days = [match, { ...match, id: id(10), club_id: id(99) }, { ...match, id: id(11), parent_visible: false },
+    { ...match, id: id(12), team_id: id(99) }, { ...match, id: id(13), status: 'scheduled' }]
+  const call = () => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer test' },
+    body: JSON.stringify({ action: 'matches', connectionId: id(1) }) }, { createClient: () => client })
+  const response = await call()
+  assert.equal(response.statusCode, 200)
+  const matches = JSON.parse(response.body).matches
+  assert.deepEqual(matches.map(row => row.id), [id(9)])
+  for (const [field, value] of Object.entries(timing)) assert.equal(matches[0][field], value, field)
+  assert.ok(selections.some(row => row.table === 'match_days' && row.columns.includes('timer_started_at')))
+  tables.fan_connections[0].permissions.game_day = false
+  assert.equal((await call()).statusCode, 403)
+})
+
 test('Fan resources retain saved categories and dates without exposing private storage fields',async()=>{
   const {client,tables,selections}=fixture()
   tables.fan_connections[0].permissions={schedule:false,game_day:false,development:true,resources:true}

@@ -1,3 +1,4 @@
+import { MarketingPage } from '../components/marketing/MarketingPage.jsx'
 import { useEffect, useState } from 'react'
 import fallbackLogo from '../assets/football-player-logo.webp'
 import { DemoRequestModal } from '../components/login/DemoRequestModal.jsx'
@@ -30,7 +31,7 @@ const fitNotes = [
   ['Need rollout help?', 'Speak to us about Large Club.'],
 ]
 
-export function PublicPricingPage() {
+export function PublicPricingContent({ embedded = false }) {
   usePublicThemeScope()
 
   const paymentsDisabled = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
@@ -185,9 +186,8 @@ export function PublicPricingPage() {
   }
 
   return (
-    <main className={publicPageClass}>
-      <PublicScrollProgress />
-      <LoginHeader logo={fallbackLogo} />
+    <main className={embedded ? 'marketing-pricing-content' : publicPageClass}>
+      {!embedded ? <><PublicScrollProgress /><LoginHeader logo={fallbackLogo} /></> : null}
 
       <section className={publicSectionClass}>
         <div className="grid gap-7 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
@@ -305,3 +305,5 @@ export function PublicPricingPage() {
     </main>
   )
 }
+
+export function PublicPricingPage() { return <MarketingPage page="pricing" /> }

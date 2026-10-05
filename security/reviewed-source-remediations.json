@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "baseline": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
+  "expiresAt": "2026-10-11T22:59:59Z",
+  "sourceRevisions": {
+    "braces72": {
+      "repository": "micromatch/braces",
+      "number": 72,
+      "url": "https://github.com/micromatch/braces/pull/72",
+      "state": "closed",
+      "merged": false,
+      "updatedAt": "2026-10-05T08:58:19Z",
+      "baseSha": "e53730e6f935498326c72d768889ac194eedc0e0",
+      "headSha": "28d440b5dd449dbf1fe6f3506cf94ecca4d02660",
+      "headRepo": "FSDevelop/braces",
+      "headRef": "fix/limit-nesting-depth"
+    }
+  },
+  "eligibleAdvisories": {
+    "braces": [
+      "GHSA-vfj7-8cjw-p6xm"
+    ]
+  },
+  "targets": [
+    {
+      "scope": ".",
+      "packagePath": "node_modules/braces",
+      "name": "braces",
+      "version": "3.0.3",
+      "registryIntegrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+      "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77",
+      "files": [
+        {
+          "path": "lib/compile.js",
+          "originalSha256": "dc98f22eee3d511785d92a00758d5f0d48efed5f5813bdecc2de430c529b5c9f",
+          "patchedSha256": "b651f7715e6db8942ce61d3394357b4d81c8ece88240aa31a458ea1165edd195"
+        },
+        {
+          "path": "lib/constants.js",
+          "originalSha256": "c18ac5adb57308f1ce42a28552da3a31f5d83709743ebd9a636336813a744d4b",
+          "patchedSha256": "f9fb688959232eee3e6ad7906a5b0e3234815db49ee857ef86983d65b917dc7c"
+        },
+        {
+          "path": "lib/expand.js",
+          "originalSha256": "41ccc196ebfa7b7781a634e721eb744e4e7bcb54cba427a7e3d6806a1b9e58f7",
+          "patchedSha256": "7ea3e14c2b2b256ef244fd3d83b8fcaa20aa2232b4e6d768c3bb6ab567f66cf5"
+        },
+        {
+          "path": "lib/parse.js",
+          "originalSha256": "e572166565f15fa6ad9865ae49d678218e32aabfd1b3720f6d0d43d39800d310",
+          "patchedSha256": "72aabaadaa555cdfbd07fbd7c7f743373e4dc8eec04a97550cc57bbeec30eb6c"
+        },
+        {
+          "path": "lib/stringify.js",
+          "originalSha256": "379f22d77bfa1478341ccd49c5e4267464aabcbba03558bab332aac23fc6f23a",
+          "patchedSha256": "49dc2d8bafa74f34715a18a845bcb82ce66caaf3bab4cf117998e06b1f9a50a9"
+        }
+      ]
+    }
+  ],
+  "scopeLocks": [
+    {
+      "scope": "root",
+      "normalisedUtf8Sha256": "de40c881732c19ceca2a16d19631a568d9a82fd7191feed61c0966051ce2bda3"
+    }
+  ],
+  "patches": [
+    {
+      "file": "patches/braces-3.0.3.patch",
+      "sha256": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699"
+    }
+  ],
+  "approval": {
+    "scope": "Root-only Fans clock preparation; exact-head independent acceptance required",
+    "publicationApproved": false
+  },
+  "maintenance": {
+    "owner": "Steve",
+    "replacement": "Replace with a safely verified maintained official release; no automatic renewal.",
+    "recheck": "Fresh official advisory and upstream PR semantic check before every gate/release run."
+  },
+  "implementationHashes": {
+    "scripts/security-supply-chain-gate.mjs": "ff5401ae730e5255c432e04ab6d06f77259015daa6c7ffa606cc6e9523ed75df",
+    "scripts/security-apply-reviewed-backports.mjs": "075edac2062922ee3bc039a05dd40c42312932248cd7eb762480a49a0bc9594e",
+    "scripts/security-verify-reviewed-backports.mjs": "b89661dfaaa7a2346f8a0ed1e03fbdb6cc020d42ee4d286dec41d18ff40dd545",
+    "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
+    "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
+    "security/patches/reviewed-source-manifest.json": "8366c186bcd6a755e4b971858cfeb392ccd84b3e7fc0aabfaf24427308a70b97",
+    "tests/security-reviewed-backports.test.mjs": "013a1a35379f2077915a9343f86945c77ce45ff48a834e1896c1cbd632e0d922",
+    ".github/workflows/security-gate.yml": "31568ca6481da9d1f8557d41b00d7d02caed2e612a62400f0cc182b094a5ecee",
+    "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
+    "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265"
+  },
+  "payloadSha256": "8366c186bcd6a755e4b971858cfeb392ccd84b3e7fc0aabfaf24427308a70b97",
+  "adoptionProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
+  "nativeInputs": [
+    {
+      "path": "package.json",
+      "normalisedUtf8Sha256": "066f403f6d665f003b5c3ea0e025d52865d07d3636278f58a529e4eba798ab09",
+      "unchanged": true
+    },
+    {
+      "path": "package-lock.json",
+      "normalisedUtf8Sha256": "de40c881732c19ceca2a16d19631a568d9a82fd7191feed61c0966051ce2bda3",
+      "unchanged": true
+    }
+  ],
+  "originalApplicationBaseline": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
+  "dependencyRemediation": {
+    "changedSourceHashes": {},
+    "scope": "No dependency version or lock change"
+  },
+  "dependencyRemediationSha256": "cb5bba28b6d768321e5a2af2942b3d28186750e685787ac412f1939cbe288038",
+  "releasePreparation": {
+    "baseline": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
+    "scope": "Approved public marketing reference port and Fans web clock; root-only source qualification; no mobile, SQL or V2 changes",
+    "changedSourceHashes": {
+      "netlify/functions/lib/_fan-schedule.js": "e4d15197d2745b2d8e75238db20c0ec09149fd10f9797e9339af1f4841f17bc0",
+      "src/app/router.jsx": "1f02466b67224e9194c558541ed79480fe05c251b391ca55c567e42d3a1c4ee8",
+      "src/components/marketing/MarketingContactDialog.jsx": "4484e669f0003bcaa3c7eb00745cf2ca19d96d029c7e1c0202e08723bf87afeb",
+      "src/components/marketing/MarketingPage.jsx": "16e7de1cc0968d9205b604c01f0450e07e98b6bfaa2248cac803b61d801f702d",
+      "src/components/marketing/marketing-reference.css": "3ca1346a01a54bce003ea4809c31f27da252e3f41bacc3df6754569ad2816b11",
+      "src/components/marketing/reference-app.js": "80d58a145148277600c937bca16fd3480cb55079f107bf4d7e352779541e0ac9",
+      "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
+      "src/components/marketing/reference-development.js": "0b1374f92b7e7bb8d8c1feb0d4108cf5a434b3695c2833d1eb29be6a5d5770d2",
+      "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
+      "src/components/marketing/reference-kit-preview.js": "8ec3acd5ec0736cf5fa806999426b6eb6e7de84826618189d320e75d31e51373",
+      "src/components/marketing/reference-offer-share.js": "6e5a87fbe8f13714b78dce6855304a1ca538a3389a02f9e3d0101dc57eea128a",
+      "src/components/marketing/reference-pages.json": "682c0926f663ad306f9ab813a14cbd057d5632877dd36ff78777d6ed15d52a50",
+      "src/components/marketing/reference-pricing-info.js": "9eb2842471a3c6f364a16b208e20c4b840229ab63cd88d9f6155af6f2cf40f1c",
+      "src/components/marketing/reference-scope.js": "51b710b4b021aeec8180f31b0e88927891f78c3792225c80812ed3a3c85d5143",
+      "src/components/marketing/reference-tutorials.js": "f7e5b9ba262c5c93fa1b97719eec5e19071bf0e5abca610f7be16dc67445f4ac",
+      "src/pages/FansPage.jsx": "e3bd7dacd5818f7035c2f7b0b3ef4a4661dfbed3f82322de8187314b3d81a004",
+      "src/pages/PublicLandingPage.jsx": "089f9b406b471fc2e72ede30006dccdf053eb9f3afde8270143e1e37de5cd505",
+      "src/pages/PublicPricingPage.jsx": "1b28dc970cebd79ac1f38776aa4929e74369d8702cd4d8daea984d3d03a04adb",
+      "tests/fans-endpoint.test.mjs": "2adf3f09c2ecf5f9f8f46f604ae85ef4cdbd4df58a30d15142949358d5d5f261",
+      "tests/fans-web-redesign-browser.mjs": "831c62c29495c511dbb37e143f90bec7c6bb44a23e5cd01a55bd3d70c3ac2c06",
+      "tests/marketing-reference-browser.mjs": "31fd95ac0af8082c8d818d2c28aa77d217e628a63df1c18413183eb4ecccaeb9",
+      "tests/matchday-parent-calendar-safety.test.mjs": "54f1dcfbb00bac4e1b317e89a6e04c6d6391c72abc2e7f56d87772682b5e75b6",
+      "tests/public-parent-login-maintenance-banner.test.mjs": "a44406d4752ceba8354edd15fa6ee5290580bebdd943b1954b9cc778a29d15bc",
+      "tests/public-signup-recovery.test.mjs": "c5fd4909e7b2effa2b8371df8e76b4d9a5c278edea538e2f3d0142204af2c514"
+    },
+    "binarySourceHashes": {
+      "public/marketing-v70/assets/about-grassroots.jpg": "6bca767739fbb9c811c907dae43ce3ed3f24a22364997e15d6eca6501b4da2f5",
+      "public/marketing-v70/assets/app-store-badge.svg": "a26fc5b38380272c92e9019a2eb8b45542a66814b3e2b203772db8904b9fb99f",
+      "public/marketing-v70/assets/calendar-desktop.png": "17282cf45bd95a76e814c994b3963c7233f159b5e6593c7e7b754f4745f03d62",
+      "public/marketing-v70/assets/cambourne-away-kit.png": "767d09ba8cb7c74e4d67c0849956e6f7b2c3076c0fb08842d16261997a0e7a79",
+      "public/marketing-v70/assets/cambourne-home-kit.png": "aa55926eb39ec9fe496c1ad345737f441e099d0cef45170afc63a4f18f26a546",
+      "public/marketing-v70/assets/club-hero-light.png": "f05cf06c76f6a029f666379a15fc913d93b10058400211288e2040ecba5b4823",
+      "public/marketing-v70/assets/club-home.png": "285f99a6765d62ea2245b713581c63489ab34f34c546bbb5f9bc31e75b218dbb",
+      "public/marketing-v70/assets/club-teams-light.png": "f05cf06c76f6a029f666379a15fc913d93b10058400211288e2040ecba5b4823",
+      "public/marketing-v70/assets/coach-android-qr.png": "08d48e4080271c83aa98e3de6d9fa71fcd30ed92547a7d756441e46a488a2ab8",
+      "public/marketing-v70/assets/coach-dark.png": "fff3ab98a2f863ba72f376bc035ffd105333b68573265d715088397bc097bf59",
+      "public/marketing-v70/assets/coach-ios-qr.png": "92b288a93b9a7157942b0606826cecd85f1aede670a31a6d03d98e9485cd816f",
+      "public/marketing-v70/assets/coach-light.png": "0d267ce9b0d1120ffa400d9fa6dd1b498ff6205653f74138bf10d1252e319a72",
+      "public/marketing-v70/assets/development-mobile.png": "7f2dbf6513442841d92fa825390eca0b09a908aa99526086592bd3bc0d1e9354",
+      "public/marketing-v70/assets/development-parent.png": "c93479b4ba1bc4a3c6d3697ff292f364af392038fa7274c724c8aff97730cb81",
+      "public/marketing-v70/assets/development-web-updated.png": "342b6911965a4150e0a797d98e9ce62c4ea52f8b87609ce84a0195b9c37109b9",
+      "public/marketing-v70/assets/development-web.png": "a9ca8acfb5e4e7ef19fe7c4922308f53a1a5336243d66228715bb476e54d215f",
+      "public/marketing-v70/assets/fixture-mobile.png": "a4ebd5b2adae5131e3df104be5770bb121f3bbcbd464ef3ae4734fd9ca2e0a41",
+      "public/marketing-v70/assets/fonts/LICENSE.txt": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb",
+      "public/marketing-v70/assets/fonts/NotoSans-Bold.ttf": "c976e4b1b99edc88775377fcc21692ca4bfa46b6d6ca6522bfda505b28ff9d6a",
+      "public/marketing-v70/assets/fonts/NotoSans-Regular.ttf": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5",
+      "public/marketing-v70/assets/fp-logo.png": "325c083198d6623516161d5357d22c31c3be3f69159aea47e734b9a93613df2e",
+      "public/marketing-v70/assets/google-play-badge.png": "f72611e2df8e88204009fd896d05d5e8e83c77009c63943bbffa169559934849",
+      "public/marketing-v70/assets/ground.png": "d717b50e94e8d889b42eca9b7b3d6e60e42fb1019ed2999ec98ef420cc03af2b",
+      "public/marketing-v70/assets/invite-mobile.png": "a699d2e437ef7c1fbd8c7d0e082e033b98a6f7e3a4e751b3162680fdea8329e0",
+      "public/marketing-v70/assets/lineup-mobile.png": "c9774944f99807d0c9cc42459d62d1a955c0feebf8ea0f1bfbf9c4d7d96e751f",
+      "public/marketing-v70/assets/live-mobile.png": "69d6ffbed545566e5391c05abb01a76d28f86cc4914a641b7bb5eb6a6f58efcf",
+      "public/marketing-v70/assets/match-notifications.png": "7d173bfc8edec5aec881691c3bc60bb0ae02300293a1da94b7126bfdf47ec4d6",
+      "public/marketing-v70/assets/match-report-cover.png": "8f3bac7446ddc868a93b2286ef84ac57acb6488387030b0b8db50dbe54c288b8",
+      "public/marketing-v70/assets/match-report-example.pdf": "6e3b12752b2f009739121070196f9fa15331f5bbad3232a56622b095ce158328",
+      "public/marketing-v70/assets/matchday-away-kit-example.png": "79c260cc3a96e7b1240fc9ee22bb29e37365dec042721a8dc0e1af4901bf8425",
+      "public/marketing-v70/assets/matchday-home-kit-example.png": "9d5271d458633576b76e1b38b3f421f220aa458b48a2e8a93308182c2a216b12",
+      "public/marketing-v70/assets/parent-android-qr.png": "57dc30242e071dde392d41e56f61cfc796530532b34bad02f3dc68960c4d03d9",
+      "public/marketing-v70/assets/parent-development-preview.png": "9acea99f8262a4ad6231c0d86df753f453629bbd2268d5e854360234352f84ef",
+      "public/marketing-v70/assets/parent-ios-qr.png": "68b85313ab897c61b6d2f26e1212bef12eb71ebf6d6e0f7239968a10cf74e847",
+      "public/marketing-v70/assets/parent-matchday.png": "ce6d704529c7f19e18f01de6a2e286290a473884848776aac51ecae658250e84",
+      "public/marketing-v70/assets/promotion-coach.png": "c36f77dfd29afc480db805c6bad008c2d7ea22bc0edfab37a14287b0e0d67157",
+      "public/marketing-v70/assets/promotion-football.svg": "8a1c0e55d221486ac6f7c4d89fa1811b5cd744e5e3ac54d14a04ebd4ec1c34c9",
+      "public/marketing-v70/assets/promotion-parent.png": "f98a741022bc2298ce518f2fd214b94892f4a3dfb88f221c5e18fe85f82960f6",
+      "public/marketing-v70/assets/setup-conclude.png": "23865b682d14239182579e864c30e672f6af3fe4922295138ee8f1cd2f2d9f46",
+      "public/marketing-v70/assets/setup-fixture.png": "9dfd14ce17c9801a731096342f435a8b88738340f9d5365ec002f8d2355aaf07",
+      "public/marketing-v70/assets/setup-game.png": "4808497281eb2dca1125f30945ef5e2690deaed51b2679d93e766027be4ae324",
+      "public/marketing-v70/assets/setup-players.png": "d6c7ef3d99059c50407f7d026493aebef538d8492168e05ebd4e9cb535e8812e",
+      "public/marketing-v70/assets/setup-squad.png": "4888739f32e39ded912506b7818894b8ce3e19f32296d43ad6465e099be0402a",
+      "public/marketing-v70/assets/setup-team.png": "40f47ce98c20bea64824c35b4426445008481fc24c8ed51f59ddc20071a03e17",
+      "public/marketing-v70/assets/teams-availability-light.png": "47ebb3556973b6f2bd07a416efacde79277b1c31a055eae5f38122cfc3732441",
+      "public/marketing-v70/assets/teams-manager-light.png": "041cd090282502adbce16b9cd6f078ebaa2409f83318fa8126a9fbb44e10377b",
+      "public/marketing-v70/assets/tutorials/add-a-player-poster.jpg": "1fb3379361e22e6bc1cf05b276044ff4a96a1db5efb05243746a3511af7db506",
+      "public/marketing-v70/assets/tutorials/add-a-player.mp4": "aa8fae14f779d3c8b94498e9afb33512678b8b798674643a5b668939f5c38cac",
+      "public/marketing-v70/assets/tutorials/club-add-team-invite-admin-poster.jpg": "1c15ac4cc07db1fc12cc8ef1f3d3993256b21fb2e02c473adf1149329aff89a7",
+      "public/marketing-v70/assets/tutorials/club-add-team-invite-admin.en.vtt": "cea15ac2a2a4cda75c43d4cb00fbc72e0ccc77faf54b62de3d9f9957dc7ca00d",
+      "public/marketing-v70/assets/tutorials/club-add-team-invite-admin.mp4": "65623a462c4e051e0cc84779723e47e8f129f46a4bb71e7de4eb8c07b57263ac",
+      "public/marketing-v70/assets/tutorials/club-adding-custom-kit-poster-v2.jpg": "771ac92c574cbb96dcba695e8f94cca8c44cd012a97212634f3bc44031c0b080",
+      "public/marketing-v70/assets/tutorials/club-adding-custom-kit-v2.mp4": "d8b22d55057b26d6a9f4f5c19db6dc33dc2856ffc0cd4d6a906eee5627915be6",
+      "public/marketing-v70/assets/tutorials/club-adding-custom-kit.en.vtt": "a2da0b3c92cda0403b2e653b9f9f470533233b23cbf7fc11cd2de42c0fa1c49f",
+      "public/marketing-v70/assets/tutorials/how-to-create-a-fixture-poster.png": "9ae5e3aff1aceb0f65f5a9c0631319805b4802c8b93140326c06da629f4c340a",
+      "public/marketing-v70/assets/tutorials/how-to-create-a-fixture.mp4": "adb098fee0974a0aa4947001deb1fd29142e644bc406d3089be4647b9cba8de8",
+      "public/marketing-v70/assets/tutorials/how-to-use-formation-board-poster.jpg": "2740375312b2620b8ad34913f251226aecc357834c466a92c87b661e9c68432f",
+      "public/marketing-v70/assets/tutorials/how-to-use-formation-board.mp4": "8388bc951e1a9932e4072200c89658c11b7a7486a426006181c9a592d3172985",
+      "public/marketing-v70/assets/tutorials/parent-account-setup-poster.png": "42238b2fa3a9c94dadfd298a403709de41c4e34100e239360faefe01ca29f225",
+      "public/marketing-v70/assets/tutorials/parent-account-setup.mp4": "b0b8d7d82217629068964c937241fe7eaf6c0e22188a4dfa0f553e931bfe1d39",
+      "public/marketing-v70/assets/tutorials/parents-switching-players-and-teams-poster.jpg": "c713b85a29347e928faa582936167056f53312dbfb6b59d83c22a2a89a8aa0ea",
+      "public/marketing-v70/assets/tutorials/parents-switching-players-and-teams-private.mp4": "44caf10b9d8996d8263655a120fc7cd084981048b299b71658690825ef31ffa1",
+      "public/marketing-v70/assets/tutorials/parents-switching-players-and-teams.vtt": "8a40fad84e04daa525e58afb0ea271de66485e7c42e918030f449fe8b7e6db4f",
+      "public/marketing-v70/assets/tutorials/set-up-a-team-poster.jpg": "dc827f829b91c07ebaca82411fe2b714c30e1be74b1270845fc926ce676cdb94",
+      "public/marketing-v70/assets/tutorials/set-up-a-team.mp4": "784b8b73b1b37a6af9153b613489cdf975ac66e570c321fcd643f6d12b6ecb64",
+      "public/marketing-v70/development-pdf.js": "c92b09c1056a081f9a44f62ba6786d06797e529750355ca5abf8ec738bbd2b56",
+      "public/marketing-v70/vendor/jspdf-LICENSE.txt": "dc388ec35ff463288cdde3588a36fd4ed12a45deff053243b37309acc9ef583b",
+      "public/marketing-v70/vendor/jspdf.umd.min.js": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54"
+    }
+  },
+  "releasePreparationSha256": "d2a1daf909bd8ca340e634183bf25b7074f2ca23a9b8a6e9da1d61419f6be2a0"
+}

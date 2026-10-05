@@ -115,7 +115,11 @@ test('every public Start free route uses the canonical signup entry point', asyn
   ].map(readRepoFile))
 
   for (const source of publicSources) {
-    assert.match(source, /PUBLIC_FREE_SIGNUP_PATH/)
+    if (source.includes('MarketingPage') && !source.includes('PUBLIC_FREE_SIGNUP_PATH')) {
+      const marketing = await readRepoFile('src/components/marketing/MarketingPage.jsx')
+      assert.match(marketing, /link.href = PUBLIC_FREE_SIGNUP_PATH/)
+      assert.match(source, /<MarketingPage page="home" \/>/)
+    } else assert.match(source, /PUBLIC_FREE_SIGNUP_PATH/)
   }
 
   const loginPage = await readRepoFile('src/pages/LoginPage.jsx')
