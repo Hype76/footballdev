@@ -12,8 +12,8 @@ export function createReferenceScope(root) {
     const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value
   } })
   const scopedWindow = new Proxy(window, { get(target, key) {
-    if (key === 'FP_OFFER_SHARE') return { publicOfferUrl: '', publicOfferLive: false }
-    if (key === 'FP_STATS') { const url = import.meta.env.VITE_SUPABASE_URL, key = import.meta.env.VITE_SUPABASE_ANON_KEY; return url && key ? { endpoint: url + '/rest/v1/marketing_matchday_stats?select=matches_recorded,goals_recorded,alerts_sent,teams_active,clubs_active,updated_at&id=eq.true', key } : null }
+    if (key === 'FP_OFFER_SHARE') return { publicOfferUrl: 'https://footballplayer.online/matchday/#first-250', publicOfferLive: true }
+    if (key === 'FP_STATS') { const url = import.meta.env.VITE_SUPABASE_URL, key = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY; return url && key ? { endpoint: url + '/rest/v1/marketing_matchday_stats?select=matches_recorded,goals_recorded,alerts_sent,teams_active,clubs_active,updated_at&id=eq.true', key } : null }
     if (key === 'document') return scopedDocument
     if (key === 'addEventListener') return (...args) => listen(target, ...args)
     const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value

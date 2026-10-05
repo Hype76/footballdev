@@ -1624,6 +1624,7 @@ function RequirePlatformAdminAccess() {
 }
 
 export const router = createBrowserRouter([
+  { path: '/sign-in/choose', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="sign-in" /></PageSuspense> }] },
   { path: '/matchday', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="matchday" /></PageSuspense> }] },
   { path: '/for-teams', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="teams" /></PageSuspense> }] },
   { path: '/development', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="development" /></PageSuspense> }] },
