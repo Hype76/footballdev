@@ -14,6 +14,8 @@ concurrency:
 env:
   NODE_VERSION: 22.17.0
   NPM_VERSION: 11.7.0
+  FOOTBALL_REVIEW_RECEIPT_SHA256: ${{ vars.FOOTBALL_FANS_CLOCK_REVIEW_RECEIPT_SHA256 }}
+  FOOTBALL_REVIEW_RECEIPT_BASE64: ${{ vars.FOOTBALL_FANS_CLOCK_REVIEW_RECEIPT_BASE64 }}
 
 jobs:
   supply-chain:
@@ -23,6 +25,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -32,6 +37,8 @@ jobs:
         run: npm install --global npm@${NPM_VERSION}
       - name: Clean install
         run: npm ci --include=optional
+      - name: Verify and provision independently reviewed root backport
+        run: node scripts/security-provision-root-backport.mjs
       - name: Dependency, lifecycle and license gate
         run: npm run security:supply-chain
       - name: High-confidence secret scan
@@ -70,6 +77,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -79,6 +89,8 @@ jobs:
         run: npm install --global npm@${NPM_VERSION}
       - name: Clean install
         run: npm ci --include=optional
+      - name: Verify and provision independently reviewed root backport
+        run: node scripts/security-provision-root-backport.mjs
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Season awards, calendar poll results and compact team pagination
@@ -259,6 +271,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -268,6 +283,8 @@ jobs:
         run: npm install --global npm@${NPM_VERSION}
       - name: Clean install
         run: npm ci --include=optional
+      - name: Verify and provision independently reviewed root backport
+        run: node scripts/security-provision-root-backport.mjs
       - name: Build production artifact
         run: npm run build:live
       - name: Verify build environment and artifact identity
@@ -297,6 +314,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -306,6 +326,8 @@ jobs:
         run: npm install --global npm@${NPM_VERSION}
       - name: Clean install
         run: npm ci --include=optional
+      - name: Verify and provision independently reviewed root backport
+        run: node scripts/security-provision-root-backport.mjs
       - name: Build all Netlify functions
         run: npm run functions:build
       - name: Verify function packaging
@@ -318,6 +340,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -336,6 +361,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -345,6 +373,8 @@ jobs:
         run: npm install --global npm@${NPM_VERSION}
       - name: Clean install
         run: npm ci --include=optional
+      - name: Verify and provision independently reviewed root backport
+        run: node scripts/security-provision-root-backport.mjs
       - name: Review dependency changes
         id: github-dependency-review
         continue-on-error: true

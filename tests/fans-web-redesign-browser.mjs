@@ -5,9 +5,10 @@ import { createServer } from 'vite'
 const port = 43129
 const origin = `http://127.0.0.1:${port}`
 Object.assign(process.env, { VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true', VITE_APP_URL: origin, VITE_PARENT_APP_URL: origin, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' })
-const server = await createServer({ cacheDir: 'node_modules/.vite-fans-redesign', optimizeDeps: { entries: ['index.html'] }, server: { host: '127.0.0.1', port, strictPort: true }, mode: 'development' })
+const server = await createServer({ cacheDir: 'output/playwright/.vite-fans-clock', optimizeDeps: { entries: ['index.html'] }, server: { host: '127.0.0.1', port, strictPort: true }, mode: 'development' })
 await server.listen()
 const browser = await chromium.launch({ headless: true })
+let clockState = { timer_started_at: '2026-10-04T09:00:00Z', timer_status: 'running', timer_elapsed_seconds: 2100, current_match_phase: 'second_half', match_duration_minutes: 70, match_clock_mode: 'fixed' }
 const connections = []
 const creates = []
 let emailRequests = 0
@@ -56,7 +57,7 @@ try {
     if (url.pathname === '/.netlify/functions/fans') {
       const action = route.request().postDataJSON().action
       if (action === 'schedule') return route.fulfill({ status:200,contentType:'application/json',body:JSON.stringify({schedule:[{id:'training',title:'Shared Fan training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]}) })
-      if(action === 'matches') return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({matches:[{id:'match1',opponent:'Away United',club_name:'Cambourne Town FC',home_away:'home',match_date:'2026-10-20',kickoff_time:'10:00',status:'scheduled'}]})})
+      if(action === 'matches') return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({matches:[{id:'match1',opponent:'Away United',club_name:'Cambourne Town FC',home_away:'home',match_date:'2026-10-20',kickoff_time:'10:00',status:'second_half',...clockState}]})})
       assert.equal(action,'send_invitation')
       emailRequests++
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' })
@@ -91,10 +92,32 @@ try {
     }
   }
   await page.setViewportSize({width:390,height:844})
+  await page.clock.install({time:new Date('2026-10-04T09:01:00Z')})
   await page.locator('.fans-following').filter({hasText:'Jenson Bailey'}).getByRole('button',{name:'Game Day',exact:true}).click()
   await page.getByRole('heading',{name:'Game Day',exact:true}).waitFor()
   await page.getByText('Cambourne Town FC v Away United',{exact:true}).waitFor()
   assert.equal(await page.locator('.fans-following').count(),0)
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'36:00'}).waitFor()
+  await page.clock.runFor(2000)
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'36:02'}).waitFor()
+  clockState = { ...clockState, timer_started_at: null, timer_status: 'paused', timer_elapsed_seconds: 2162 }
+  await page.getByRole('button',{name:/Cambourne Town FC v Away United/}).click()
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'36:02'}).waitFor()
+  await page.clock.runFor(2000)
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'36:02'}).waitFor()
+  clockState = { ...clockState, timer_status: 'half_time', timer_elapsed_seconds: 2220, status: 'half_time', current_match_phase: 'half_time' }
+  await page.getByRole('button',{name:/Cambourne Town FC v Away United/}).click()
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'35+2:00'}).waitFor()
+  clockState = { ...clockState, timer_status: 'running', timer_started_at: '2026-10-04T09:01:04Z', timer_elapsed_seconds: 2100, status: 'second_half', current_match_phase: 'second_half' }
+  await page.getByRole('button',{name:/Cambourne Town FC v Away United/}).click()
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'35:00'}).waitFor()
+  await page.clock.runFor(1000)
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'35:01'}).waitFor()
+  clockState = { ...clockState, timer_status: 'full_time', timer_started_at: null, timer_elapsed_seconds: 3891, status: 'full_time', current_match_phase: 'full_time' }
+  await page.getByRole('button',{name:/Cambourne Town FC v Away United/}).click()
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'64:51'}).waitFor()
+  await page.clock.runFor(2000)
+  await page.getByLabel('Match timer',{exact:true}).filter({hasText:'64:51'}).waitFor()
   await page.screenshot({path:'output/playwright/fans-local/redesign-gameday-phone.png',fullPage:true})
   await page.getByRole('button',{name:'Back to players',exact:true}).click()
   await page.getByRole('button',{name:'Schedule',exact:true}).click()

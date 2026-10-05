@@ -107,6 +107,8 @@ const PollsPage = lazyRoute(() => import('../pages/PollsPage.jsx'), 'PollsPage')
 const PublicFeaturesPage = lazyRoute(() => import('../pages/PublicFeaturesPage.jsx'), 'PublicFeaturesPage')
 const PublicLandingPage = lazyRoute(() => import('../pages/PublicLandingPage.jsx'), 'PublicLandingPage')
 const PublicParentsPage = lazyRoute(() => import('../pages/PublicParentsPage.jsx'), 'PublicParentsPage')
+function PublicCompareRedirect() { const { search, hash } = useLocation(); return <Navigate to={'/' + search + hash} replace /> }
+const MarketingPage = lazyRoute(() => import('../components/marketing/MarketingPage.jsx'), 'MarketingPage')
 const PublicPricingPage = lazyRoute(() => import('../pages/PublicPricingPage.jsx'), 'PublicPricingPage')
 const ResetPasswordPage = lazyRoute(() => import('../pages/ResetPasswordPage.jsx'), 'ResetPasswordPage')
 const ResourceLibraryPage = lazyRoute(() => import('../pages/ResourceLibraryPage.jsx'), 'ResourceLibraryPage')
@@ -1622,6 +1624,14 @@ function RequirePlatformAdminAccess() {
 }
 
 export const router = createBrowserRouter([
+  { path: '/matchday', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="matchday" /></PageSuspense> }] },
+  { path: '/for-teams', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="teams" /></PageSuspense> }] },
+  { path: '/development', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="development" /></PageSuspense> }] },
+  { path: '/clubs', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="clubs" /></PageSuspense> }] },
+  { path: '/how-to', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="how-to" /></PageSuspense> }] },
+  { path: '/articles', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="articles" /></PageSuspense> }] },
+  { path: '/about-us', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="about-us" /></PageSuspense> }] },
+  { path: '/compare', element: <PublicOnly />, children: [{ index: true, element: <PublicCompareRedirect /> }] },
   {
     path: '/auth-session-bridge',
     element: <WorkspaceSessionBridge />,

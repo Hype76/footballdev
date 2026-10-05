@@ -14,6 +14,8 @@ import { FormationBoardPitch } from '../components/formation-board/FormationBoar
 import { FanBrandScope, FanClubBrand } from '../components/parent-portal/FanBrand.jsx'
 import { formatParentProductDateTime, formatParentProductTime } from '../../apps/mobile-core/src/parentDateTimeCore.js'
 import { upcomingFanSchedule } from '../lib/fan-schedule.js'
+import { isFanGameDayMatch } from '../lib/fan-game-day.js'
+import { formatMatchAddedTimeClock } from '../lib/matchday-event-time.js'
 import { useMatchdayPolicy } from '../lib/use-matchday-policy.js'
 import './fans.css'
 
@@ -122,6 +124,11 @@ function FansWorkspace({ user, signOut, parentId, setParentId }) {
   </main></FanBrandScope>
 }
 function FanContent({ state, run }) {
+  const [clockNow, setClockNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setClockNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
   const data = state.content
   const connection = state.connections.find((item) => item.id === state.view.connectionId)
   const title = { schedule: 'Schedule', matches: 'Game Day', development: 'Development records', resources: 'Resources', notifications: 'Notifications' }[state.view.action] || 'Shared updates'
@@ -134,7 +141,7 @@ function FanContent({ state, run }) {
   })
   const board = resource?.formationBoard
   return <section className="fans-content"><button className="fans-back" onClick={state.clearView}>Back to players</button><header className="fans-content-heading"><small>{connection?.player_name}{connection?.team_name ? ` · ${connection.team_name}` : ''}</small><h2>{title}</h2><p>{state.view.action === 'matches' ? 'Fixtures and match updates shared through Game Day access.' : 'Updates shared with you by this player’s parent.'}</p></header>{state.contentError ? <div><p role="alert">{state.contentError}</p><button onClick={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})}>Try again</button></div> : !data ? <p role="status">Loading...</p> : <>
-    {(data.matches || []).map((m) => <button className="fans-person" key={m.id} onClick={() => state.open(state.view.connectionId, 'matches', { matchId: m.id })}><FanIcon name="game_day" /><span><strong>{m.home_away === 'away' ? `${m.opponent} v ${m.club_name || connection?.club_name || 'Our club'}` : `${m.club_name || connection?.club_name || 'Our club'} v ${m.opponent}`}</strong>{m.home_score != null && m.away_score != null ? <span className="fans-score">{m.home_score} : {m.away_score}</span> : null}<small>{formatParentProductDateTime(m.match_date, { year: 'numeric' })} · {m.kickoff_time_tbc ? 'Time TBC' : formatParentProductTime(m.kickoff_time)} · {m.status}</small></span></button>)}
+    {(data.matches || []).map((m) => <button className="fans-person" key={m.id} onClick={() => state.open(state.view.connectionId, 'matches', { matchId: m.id })}><FanIcon name="game_day" /><span><strong>{m.home_away === 'away' ? `${m.opponent} v ${m.club_name || connection?.club_name || 'Our club'}` : `${m.club_name || connection?.club_name || 'Our club'} v ${m.opponent}`}</strong>{m.home_score != null && m.away_score != null ? <span className="fans-score">{m.home_score} : {m.away_score}</span> : null}<small>{formatParentProductDateTime(m.match_date, { year: 'numeric' })} · {m.kickoff_time_tbc ? 'Time TBC' : formatParentProductTime(m.kickoff_time)} · {m.status}</small>{isFanGameDayMatch(m) ? <small aria-label="Match timer">Match timer {formatMatchAddedTimeClock(m, clockNow)}</small> : null}</span></button>)}
     {(data.events || []).map((e) => <p key={e.id}>{e.minute == null ? '' : `${e.minute} min · `}{e.event_type.replaceAll('_', ' ')} · {e.home_score} : {e.away_score}</p>)}
     {upcomingFanSchedule(data.schedule || []).map((e) => <div className="fans-person" key={e.id}><FanIcon name="schedule" /><div><strong>{e.title}</strong><small>{formatParentProductDateTime(e.starts_at || (e.time ? `${e.date}T${e.time}` : e.date), { year: 'numeric' })}</small><small>{e.location}{e.recurrence_frequency && e.recurrence_frequency !== 'none' ? ` · Repeats ${e.recurrence_frequency}${e.recurrence_until ? ` until ${formatParentProductDateTime(e.recurrence_until, { year: 'numeric' })}` : ''}` : ''}</small></div></div>)}
     {(data.notifications || []).map((n) => <article className="fans-update" key={n.id}><strong>{n.title}</strong><p>{n.body}</p></article>)}
