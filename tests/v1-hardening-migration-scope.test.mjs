@@ -39,4 +39,6 @@ test('actual migration gate rejects valid-named untracked SQL before it can esca
  assert.equal(run().status,0)
  writeFileSync(path.join(root,'supabase','migrations','20260102000000_unreviewed.sql'),'select 2;\n')
  const result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/Untracked migration is outside the reviewed source inventory/)
+ writeFileSync(path.join(root,'.git','info','exclude'),'supabase/migrations/20260102000000_unreviewed.sql\n')
+ const ignored=run();assert.notEqual(ignored.status,0);assert.match(ignored.stderr,/Untracked migration is outside the reviewed source inventory/)
 })

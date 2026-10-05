@@ -131,7 +131,7 @@ async function validateReconciliationManifest(base, changed) {
 }
 
 try {
-  const untracked = gitLines(['ls-files', '--others', '--exclude-standard', '--', 'supabase/migrations'])
+  const untracked = gitLines(['ls-files', '--others', '--', 'supabase/migrations'])
   for (const file of untracked.filter(file => file.endsWith('.sql'))) failures.push(`Untracked migration is outside the reviewed source inventory: ${file}`)
   const mainTip = gitText(['rev-parse', 'origin/main'])
   const base = gitText(['merge-base', 'HEAD', 'origin/main'])
