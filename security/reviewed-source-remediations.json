@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "f259a6715eb4942b6472c38e89c3d890da7f499f8e387f6c026bc7f3dc0b9b7e",
+    "scripts/security-verify-reviewed-backports.mjs": "991dc2c5eec0c3c3d5991929af7c6ac6817e59a54afa9b80c5775ba4885c40c4",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -692,20 +692,20 @@
       "src/components/marketing/marketing-inline-pages.css": "1574b258376b986536a1f8ca1edd7125ff58d1b7f32d484794a11a6a69b1d7c2",
       "src/components/marketing/marketing-pricing.js": "cc7f7c04ac35d651fc12340ae96ea3aad83b31be50256b18168973faf0687831",
       "src/components/marketing/marketing-reference.css": "3ca1346a01a54bce003ea4809c31f27da252e3f41bacc3df6754569ad2816b11",
-      "src/components/marketing/reference-app.js": "c8ae012f2d1de7d1319604e131ee5d791fb5a65cff75ea47f3d8f3da4b625ea1",
+      "src/components/marketing/reference-app.js": "b85d16481fccbf21a5f578864d9e3ec056ee82eab15d6ebb078402333fb5f9e2",
       "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
       "src/components/marketing/reference-development.js": "0b1374f92b7e7bb8d8c1feb0d4108cf5a434b3695c2833d1eb29be6a5d5770d2",
       "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
       "src/components/marketing/reference-kit-preview.js": "8ec3acd5ec0736cf5fa806999426b6eb6e7de84826618189d320e75d31e51373",
       "src/components/marketing/reference-offer-share.js": "6e5a87fbe8f13714b78dce6855304a1ca538a3389a02f9e3d0101dc57eea128a",
-      "src/components/marketing/reference-pages.json": "a1832b9be526293bcecd50da66aae56d08f85ab122fa257445a77988ab7a2b39",
+      "src/components/marketing/reference-pages.json": "9df649f1b2433842046af9c276980280585f9db02f4c3cf7a791513a0925e368",
       "src/components/marketing/reference-pricing-info.js": "fc89aa2f710b2e26d90ab50b39f2af8687c5a44ced16e0dd1d930dafc95da44f",
       "src/components/marketing/reference-scope.js": "caec651fbe6d7d77bb6b88a4f60538de81c66b81de3d424ff056d51a7a1b86d1",
       "src/components/marketing/reference-tutorials.js": "f7e5b9ba262c5c93fa1b97719eec5e19071bf0e5abca610f7be16dc67445f4ac",
       "src/components/pwa/InstallAppButton.jsx": "064c15a547cc985df972b736005dc15e53c105227813764e792da7643e8353d2",
       "src/pages/PublicLandingPage.jsx": "089f9b406b471fc2e72ede30006dccdf053eb9f3afde8270143e1e37de5cd505",
       "src/pages/PublicPricingPage.jsx": "1b28dc970cebd79ac1f38776aa4929e74369d8702cd4d8daea984d3d03a04adb",
-      "tests/marketing-final-integration-browser.mjs": "2b60d8998107e6d153c302fbbaae32fd348d8dcc87fe6acce086c617da7a73e5",
+      "tests/marketing-final-integration-browser.mjs": "72af87dea73f339d49e6213322a90058ec5f34d247d1c07c6a7397ff3f4e94a2",
       "tests/marketing-reference-browser.mjs": "69c0815e4f5038a1c9a8d5adfaf6a8cc6c029b236884bb7a4ee705d2df85d4ab",
       "tests/privileged-functions-postgres.test.mjs": "d67ef17d225af5604096c9d71193bfc7c4b391dd28f1c29ab4fb1852c22cc64f",
       "tests/public-parent-login-maintenance-banner.test.mjs": "8e07b8c6fe343b8f9727d3eef07f7d29f0925d6e3c42d1bd700bba6352e7f751",
@@ -717,16 +717,21 @@
       "apps/coach-mobile/package-lock.json": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479",
       "eslint.config.js": "811b16ea3d232a02f5c2f2ceca259c34b48820c198023c65ab73ab65fa80e01c",
       "tests/marketing-pdf-text.test.mjs": "552de48dcda0681d48bd9a3fec59227bce5b464ddd747b3dac49aeee3876d161",
-      "src/pages/LoginPage.jsx": "83f39c06103ea2e546514d5e460bf74533bef5595d30d04035e6f38d61c2a52f",
-      "src/components/login/LoginAuthPanel.jsx": "8a3170f8a259f579125bfad7aa41db1b9d3bed95b90ac3558379a105c10570fa",
-      "src/components/login/WebsiteAuthHeader.jsx": "e38f77bcfc10f6b36e3751aa384ef5a0bcef4fb3bf5da8dea082675d2e3294f6",
-      "src/components/login/website-auth.css": "18cac1d690e1c77f23bc5c5644a1635b89a0663cd3ab02696195503c4e6be72d",
+      "src/pages/LoginPage.jsx": "74d853c94e6ae3960f8a554be944c482010ffb6bd7bb7509f630e7e8e17c619f",
+      "src/components/login/LoginAuthPanel.jsx": "c822f4b5a2f2441b34246842a258e5ef552f474b430abcbbfc24ae4033536e50",
+      "src/components/login/WebsiteAuthHeader.jsx": "f7d2fcadbead30e7cb78c78441d17b9f52859474315ebcbe43c7a019dd3a2fc4",
+      "src/components/login/website-auth.css": "b2a3ce29360f243bfea5e6f94789b7c3b09d94b63f37acf76fad4213df6ffa7e",
       "src/lib/parent-auth-intent.js": "7ee3c69e21abc40a589eda974c08358c8dca90570f3e2b22442d9b06829e2672",
       "tests/parent-auth-intent.test.mjs": "7778b55613d1e3564ac57f1d9e2d56ba4f1359e95762f25132a8f2834d0c0c69",
       "tests/auth-access-browser.mjs": "a5b80ee8127fb05111384812e2cdbc4af9d52221726d2433a342842ad596ce54",
       "tests/stripe-billing-recovery-browser.mjs": "f6161608e6d93212879ea6e3c9ed04247a1329bad9fcca1ad27dce36ff0918b3",
       "tests/feedback-forms-polish-browser.mjs": "34e1935b78f60a84defcb3f23cd34a3907c79779852328f3b893bfe500e45b19",
-      "tests/parent-own-access-web-browser.mjs": "b06045706e4a661a96aa77d509c64a001b95939e43c5a3cc8135ee9893299cf3"
+      "tests/parent-own-access-web-browser.mjs": "b06045706e4a661a96aa77d509c64a001b95939e43c5a3cc8135ee9893299cf3",
+      "src/pages/GdprPage.jsx": "cbf41bb59f783f135a554d00ade8057b38907413355f35ec6ece6d4906e060f8",
+      "src/pages/PublicFeaturesPage.jsx": "00c452725b07a55669401fcfde5d63e8fb3a418d986a44a6760178a2a572691c",
+      "src/pages/PublicParentsPage.jsx": "5aeaffdbe5d915a4af02c276bf0cbf38a4d534c423d933af3c585ef706a8aa12",
+      "src/pages/ResetPasswordPage.jsx": "c2a8706842c9313404e701f5bb38cc5b7a7136d379968433bd12f2b5d8e9ba45",
+      "src/pages/TermsPage.jsx": "e5535e4f06ddeb2894cf934c61163b9fea8571ea4585d997d307fc21d311c7fd"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -810,7 +815,8 @@
       "public/marketing-v70/assets/tutorials/set-up-a-team.mp4": "784b8b73b1b37a6af9153b613489cdf975ac66e570c321fcd643f6d12b6ecb64",
       "public/marketing-v70/development-pdf.js": "130c7b8fea7844154bede3988d16478e9abd6cc2b2448790272aa155c76f1ddb",
       "public/marketing-v70/vendor/jspdf-LICENSE.txt": "dc388ec35ff463288cdde3588a36fd4ed12a45deff053243b37309acc9ef583b",
-      "public/marketing-v70/vendor/jspdf.umd.min.js": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54"
+      "public/marketing-v70/vendor/jspdf.umd.min.js": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54",
+      "public/marketing-v70/assets/parent-logo.png": "abd6a4f008c3b9488386d2f680b6d939f1c744b4fe54703a3fdd7dfa0a776600"
     },
     "combinedProvenance": {
       "currentMain": "2a18b4e50d4987c2651faa612a6318293ea946e2",
@@ -857,9 +863,48 @@
         "exceptionReason": "Four official JavaScript tooling dependency manifests and locks updated only for compression1.8.2, source-map-js1.2.2 and argparse2.0.1; no app or native configuration source differences",
         "nativeIdentityEvidence": "output/official-js-lock-impact.json",
         "additionalSourceDriftAllowed": false
+      },
+      "authImagePresentation": {
+        "baseline": "3b961a8f6c7c4b0787a82fd462f9bc4b628d2c22",
+        "scope": [
+          "src/pages/LoginPage.jsx",
+          "src/components/login/website-auth.css",
+          "public/marketing-v70/assets/parent-logo.png"
+        ],
+        "reason": "Enlarge existing phone preview without crop and use existing blueParentappicon forParentaccess",
+        "iconCopy": {
+          "from": "apps/parent-mobile/assets/icon.png",
+          "to": "public/marketing-v70/assets/parent-logo.png",
+          "rawSha256": "abd6a4f008c3b9488386d2f680b6d939f1c744b4fe54703a3fdd7dfa0a776600",
+          "bytesIdenticalToExistingNativeIcon": true,
+          "nativeAssetUnchanged": true
+        },
+        "authBehaviorAndDependenciesChanged": false,
+        "publicationApproved": false
+      },
+      "publicWebsiteCopyCorrection": {
+        "baseline": "3b961a8f6c7c4b0787a82fd462f9bc4b628d2c22",
+        "scope": [
+          "src/components/login/LoginAuthPanel.jsx",
+          "src/components/login/WebsiteAuthHeader.jsx",
+          "src/components/login/website-auth.css",
+          "src/components/marketing/reference-app.js",
+          "src/components/marketing/reference-pages.json",
+          "src/pages/GdprPage.jsx",
+          "src/pages/LoginPage.jsx",
+          "src/pages/PublicFeaturesPage.jsx",
+          "src/pages/PublicParentsPage.jsx",
+          "src/pages/ResetPasswordPage.jsx",
+          "src/pages/TermsPage.jsx",
+          "tests/marketing-final-integration-browser.mjs"
+        ],
+        "reason": "User-approved public website sentence-case review; ordinary coach/parent lower case, official app names, role labels, proper nouns preserved",
+        "copyReviewedBy": "/root/combined_independent_review",
+        "applicationAuthBehaviorNativeDependenciesAndPolicyUnchanged": true,
+        "publicationApproved": false
       }
     }
   },
-  "releasePreparationSha256": "4cc3f044b57df3d6b85d49e86a718b95a84db75a0bd30d853b694856a1cf1f0a",
+  "releasePreparationSha256": "e12f9526c8795e07aae8f7e7bc1ebcb33312d1dda4936ce8d21959e6a8de79fb",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

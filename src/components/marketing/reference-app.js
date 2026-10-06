@@ -84,7 +84,7 @@ if(demo){
   if(type==='goal'){if(phase==='half')return;dismissGoalCue();picker.hidden=false;screen.inert=true;goal.setAttribute('aria-expanded','true');picker.querySelector('[data-cancel-scorer]').focus();return}
   if(type==='opposition'){if(phase==='half')return;away++;feedback.textContent='Goal recorded for Oakfield U14.';notify('Opposition goal',`Oakfield U14 scored (${minute}′). Riverside U14 v Oakfield U14. Score ${home} - ${away}.`)}
   if(type==='half'){if(phase==='first'){phase='half';minute=40;feedback.textContent='Half-time recorded.';notify('Half-time',`It is half-time for Riverside U14 v Oakfield U14. Score ${home} - ${away}.`)}else if(phase==='half'){phase='second';minute=41;feedback.textContent='Second half started.';notify('Second half started',`The second half has started for Riverside U14 v Oakfield U14. Score ${home} - ${away}.`)}}
-  if(type==='full'){phase='finished';feedback.textContent='Full-time. Ready for the Coach to review.';notify('Full time',`The match is full time for Riverside U14 v Oakfield U14. Score ${home} - ${away}.`)}
+  if(type==='full'){phase='finished';feedback.textContent='Full-time. Ready for the coach to review.';notify('Full time',`The match is full time for Riverside U14 v Oakfield U14. Score ${home} - ${away}.`)}
   update();
  }));
  picker.querySelector('[data-cancel-scorer]').addEventListener('click',()=>closePicker());

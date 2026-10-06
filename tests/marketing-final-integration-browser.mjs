@@ -140,7 +140,7 @@ try {
     assert.equal(await page.locator('.laptop-scene .image-caption').textContent(), 'Screens from Football Player in a web browser')
     await page.locator('.laptop-scene').screenshot({ path: `output/feedback-club-laptop-${width}.png` })
     await open('home')
-    assert.equal(await page.locator('.demo-intro p').first().textContent(), 'Tap "Goal" on the Coach’s phone below, then choose a scorer and watch the update arrive on the parent’s phone.')
+    assert.equal(await page.locator('.demo-intro p').first().textContent(), 'Tap "Goal" on the coach’s phone below, then choose a scorer and watch the update arrive on the parent’s phone.')
     await page.locator('[data-view="club"]').click()
     assert.equal(await page.locator('[data-view-kind]').getAttribute('data-view-kind'), 'desktop')
     assert.equal(await page.locator('[data-view-caption]').textContent(), 'Screens from Football Player in a web browser')
