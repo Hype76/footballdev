@@ -32,6 +32,12 @@ test('every public landing and login page renders the shared notice header', asy
   const pageSources = await Promise.all(publicPageUrls.map((pageUrl) => readFile(pageUrl, 'utf8')))
 
   for (const source of pageSources) {
+    if (source.includes('WebsiteAuthHeader')) {
+      const header = await readFile(new URL('../src/components/login/WebsiteAuthHeader.jsx', import.meta.url), 'utf8')
+      assert.match(header, /PlatformBannerNotice ariaLabel="Platform announcement" bannerKey=\{PUBLIC_SITE_BANNER_KEY\}/)
+      assert.match(source, /<WebsiteAuthHeader \/>/)
+      continue
+    }
     if (source.includes('MarketingPage')) {
       const marketing = await readFile(new URL('../src/components/marketing/MarketingPage.jsx', import.meta.url), 'utf8')
       assert.match(marketing, /PlatformBannerNotice ariaLabel="Platform announcement" bannerKey=\{PUBLIC_SITE_BANNER_KEY\}/)

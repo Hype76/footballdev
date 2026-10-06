@@ -319,8 +319,8 @@ async function prepareContext(browser, { couponFailure = false, viewport }) {
 }
 
 async function signInAndOpenBilling(page) {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
-  await page.getByLabel('Email').fill(fixtureEmail)
+  await page.goto(`${baseUrl}/sign-in/coach`, { waitUntil: 'domcontentloaded' })
+  await page.getByLabel('Email', { exact: true }).fill(fixtureEmail)
   await page.getByLabel('Password').fill(fixturePassword)
   await page.getByRole('button', { name: 'Log in' }).click()
   await page.waitForURL('**/platform-admin', { timeout: 15000 })

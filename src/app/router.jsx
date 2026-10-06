@@ -210,6 +210,17 @@ function ParentSignInRedirect() {
   return <Navigate to={targetPath} replace />
 }
 
+function DedicatedSignInPage({ role }) {
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  const requestedMode = String(params.get('tab') ?? params.get('mode') ?? params.get('access') ?? '').trim().toLowerCase()
+  const coachIntent = ['signup', 'sign-up', 'club', 'team', 'login'].includes(requestedMode) || params.has('plan') || params.has('checkout')
+  if (role === 'parent' && !String(params.get('parentInvite') ?? '').trim() && coachIntent) {
+    return <Navigate to={`/sign-in/coach${location.search}${location.hash}`} replace />
+  }
+  return <LoginPage role={role} />
+}
+
 function NavigateToParentInvite() {
   return <Navigate to={window.location.pathname.replace(/^\/invite\//, '/parent-invite/')} replace />
 }
@@ -1717,6 +1728,16 @@ export const router = createBrowserRouter([
             ),
           },
         ],
+  },
+  {
+    path: '/sign-in/coach',
+    element: <PublicOnly />,
+    children: [{ index: true, element: <PageSuspense><DedicatedSignInPage role="coach" /></PageSuspense> }],
+  },
+  {
+    path: '/sign-in/parent',
+    element: <PublicOnly />,
+    children: [{ index: true, element: <PageSuspense><DedicatedSignInPage role="parent" /></PageSuspense> }],
   },
   {
     path: '/sign-in',

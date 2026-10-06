@@ -7,6 +7,7 @@ import {
   hasActiveParentPortalLink,
   isIntentionalParentAccessContext,
   isParentIntentPath,
+  isParentInviteSignInIntent,
   normalizeParentIntentPath,
   resolveAccessModeForRoute,
 } from '../src/lib/parent-auth-intent.js'
@@ -19,6 +20,8 @@ const authSourceUrl = new URL('../src/lib/auth.js', import.meta.url)
 const netlifyRedirectsUrl = new URL('../public/_redirects', import.meta.url)
 
 test('parent intent paths include login portal and legacy parent entry points', () => {
+  assert.equal(isParentIntentPath('/sign-in/parent'), true)
+  assert.equal(isParentIntentPath('/sign-in/coach'), false)
   assert.equal(isParentIntentPath('/parent-login'), true)
   assert.equal(isParentIntentPath('/parents-login'), true)
   assert.equal(isParentIntentPath('/parent/sign-in'), true)
@@ -32,6 +35,14 @@ test('parent intent paths include login portal and legacy parent entry points', 
   assert.equal(isParentIntentPath('/friends-family'), true)
   assert.equal(isParentIntentPath('/sign-in'), false)
   assert.equal(normalizeParentIntentPath('parent-login?next=/parent-portal'), '/parent-login')
+})
+
+test('signed parent invitations retain intent on both fresh sign-in routes and legacy links', () => {
+  for (const pathname of ['/sign-in', '/sign-in/parent', '/sign-in/coach']) {
+    assert.equal(isParentInviteSignInIntent({ pathname, search: '?parentInvite=signed-token' }), true)
+    assert.equal(isParentInviteSignInIntent({ pathname, search: '?plan=matchday' }), false)
+  }
+  assert.equal(isParentInviteSignInIntent({ pathname: '/coach', search: '?parentInvite=signed-token' }), false)
 })
 
 test('parent portal access requires parent role and an active link in the loaded profile', () => {
