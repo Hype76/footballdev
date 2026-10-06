@@ -52,6 +52,12 @@ for (const article of websiteHelpArticles) {
   })
 }
 
+test('product name does not imply player records, while explicit player questions still match', () => {
+  assert.deepEqual(prepareWebsiteHelp('What is Football Player?').topics.map((topic) => topic.id), ['overview'])
+  assert.ok(prepareWebsiteHelp('How do players work in Football Player?').topics.some((topic) => topic.id === 'players'))
+  assert.ok(prepareWebsiteHelp('Football Player pricing').topics.some((topic) => topic.id === 'pricing'))
+})
+
 for (const content of ['{"articleId":"company"}', '{"articleId":"pricing","answer":"private details"}', 'Here are secrets', 'null', '{"articleId":"players"}']) {
   test(`unexpected provider output is suppressed: ${content}`, async () => {
     const result = await selectWebsiteHelp([{ id: 'pricing', matches: ['pricing'] }], { apiKey: 'test-only', fetchImpl: async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content } }] }) })

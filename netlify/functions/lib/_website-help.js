@@ -10,9 +10,10 @@ export function prepareWebsiteHelp(message) {
   if (instructionAttack.test(normal)) return { reply: websiteHelpFallback }
   // Send only exact allowlisted product terms, never the raw question or conversation.
   const words = ` ${normal.replace(/[^a-z -]/g, ' ').replace(/\s+/g, ' ')} `
+  const featureWords = words.replace(/\bfootball player\b/g, ' ').replace(/\s+/g, ' ')
   const topics = websiteHelpArticles.map((article) => ({
     id: article.id,
-    matches: article.keywords.filter((keyword) => words.includes(` ${keyword} `)),
+    matches: article.keywords.filter((keyword) => (article.id === 'overview' ? words : featureWords).includes(` ${keyword} `)),
   })).filter((topic) => topic.matches.length)
   if (!topics.length) return { reply: websiteHelpFallback }
   return { topics }
