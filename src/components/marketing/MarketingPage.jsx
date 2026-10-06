@@ -18,6 +18,7 @@ export function MarketingPage({ page = 'home' }) {
     root.innerHTML = reference.html
     root.querySelectorAll('a[href="/sign-in?mode=signup&plan=matchday"]').forEach(link => { link.href = PUBLIC_FREE_SIGNUP_PATH })
     root.querySelectorAll('.signin-new a[href="/sign-in"]').forEach(link => { link.href = PUBLIC_FREE_SIGNUP_PATH })
+    root.querySelectorAll('.signin-joining-help').forEach(link => { link.setAttribute('data-contact-open', '') })
     root.querySelectorAll('.main-nav a').forEach(link => {
       if (link.textContent.trim() === 'Contact') link.setAttribute('data-contact-open', '')
     })
