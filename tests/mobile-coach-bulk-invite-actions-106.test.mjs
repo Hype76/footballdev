@@ -29,7 +29,7 @@ test('bulk resend requires every selected Player to be awaiting a response', () 
 })
 
 test('Coach availability screen exposes accessible bulk resend and removal controls', async () => {
-  const screen = await readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8')
+  const screen = (await Promise.all(['CoachPhase31EScreens.js', 'CoachMatchInviteTable.js'].map(file => readFile(new URL(`../apps/coach-mobile/src/${file}`, import.meta.url), 'utf8')))).join('\n')
   assert.match(screen, /accessibilityRole="checkbox"/)
   assert.match(screen, /accessibilityState=\{\{ checked: selected, disabled: selectionDisabled \}\}/)
   assert.match(screen, /Resend \$\{selectedInvites\.length\} invite/)

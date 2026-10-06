@@ -103,7 +103,7 @@ test('Coach Poll results refresh without replacing the visible workspace', async
   assert.match(screen, /setInterval\(refreshResults, 15000\)/)
   assert.match(screen, /AppState\.addEventListener\('change'/)
   assert.match(pollsSource, /label="Refresh results"/)
-  assert.match(screen, /if \(!silent\) setLoading\(false\)/)
+  assert.match(screen, /if \(current\(\) && !silent\) setLoading\(false\)/)
 })
 
 test('release guards and native versions cover both apps', async () => {

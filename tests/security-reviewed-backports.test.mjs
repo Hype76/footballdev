@@ -10,7 +10,7 @@ import { prepareWrites } from '../scripts/security-apply-reviewed-backports.mjs'
 const root = process.cwd()
 const policy = JSON.parse(fs.readFileSync(path.join(root, 'security/reviewed-source-remediations.json')))
 const clone = value => JSON.parse(JSON.stringify(value))
-const scope = '.'
+const scope = 'apps/parent-mobile'
 const lock = { packages: { 'node_modules/braces': { version: '3.0.3' }, 'node_modules/micromatch': { version: '4.0.8' } } }
 const advisory = { url: 'https://github.com/advisories/GHSA-vfj7-8cjw-p6xm', severity: 'high' }
 const fixture = () => ({ auditReportVersion: 2, vulnerabilities: {
@@ -89,7 +89,7 @@ test('the real Metro cross-package cycle remains fully traceable to reviewed roo
 test('all owned physical copies, complete package contents and lock identities are verified', () => {
   // This is an integration check against freshly installed, actually patched dependencies.
   const record = loadRecord(root).record
-  assert.equal(verifyCopies(root, record).length, 1)
+  assert.equal(verifyCopies(root, record).length, 5)
 })
 test('an additional nested vulnerable package and an unpatched copy stop verification', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'football-backport-check-'))
@@ -102,13 +102,13 @@ test('an additional nested vulnerable package and an unpatched copy stop verific
       const relative = (item.scope === 'root' ? '' : item.scope + '/') + 'package-lock.json'
       fs.copyFileSync(path.join(root, relative), path.join(directory, relative))
     }
-    assert.equal(verifyCopies(directory, policy).length, 1)
+    assert.equal(verifyCopies(directory, policy).length, 5)
     const extra = path.join(directory, 'node_modules/braces/node_modules/braces')
     fs.mkdirSync(extra, { recursive: true })
     fs.writeFileSync(path.join(extra, 'package.json'), JSON.stringify({ name: 'braces', version: '3.0.3' }))
     assert.throws(() => verifyCopies(directory, policy), /copy set/)
     fs.rmSync(path.join(directory, 'node_modules/braces/node_modules'), { recursive: true })
-    const source = path.join(directory, 'node_modules/braces/lib/compile.js')
+    const source = path.join(directory, 'apps/parent-mobile/node_modules/braces/lib/compile.js')
     fs.appendFileSync(source, '\n// drift\n')
     assert.throws(() => verifyCopies(directory, policy), /tree drift/)
   } finally {
@@ -166,7 +166,6 @@ test('an exact pinned review receipt cannot bless dirty tracked source', () => {
     assert.throws(() => verifyReview(directory, policy, { head }, hash(receipt)), /tracked working changes/)
   } finally { fs.rmSync(directory, { recursive: true, force: true }) }
 })
-
 
 test('root provisioner rejects a substituted external receipt before any artifact mutation', () => {
   const snapshot = () => fs.existsSync('.security-artifacts') ? fs.readdirSync('.security-artifacts').sort().map(name => [name, hash(fs.readFileSync('.security-artifacts/' + name))]) : []

@@ -4,6 +4,7 @@ import test from 'node:test'
 import { getMobileChatMessagesFingerprint } from '../apps/mobile-core/src/mobileChatCore.js'
 
 const coachDataUrl = new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url)
+const coachAvailabilityDataUrl = new URL('../apps/mobile-core/src/coachAvailabilityData.js', import.meta.url)
 const coachScreenUrl = new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url)
 const parentAppUrl = new URL('../apps/parent-mobile/App.js', import.meta.url)
 const parentDataUrl = new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url)
@@ -51,9 +52,10 @@ test('Parent and Coach open rooms refresh on Realtime, foreground, and a bounded
 })
 
 test('Coach mobile exposes staff on-behalf actions through the canonical secured RPCs', async () => {
-  const [screen, data] = await Promise.all([
+  const [screen, data, availability] = await Promise.all([
     readFile(coachScreenUrl, 'utf8'),
     readFile(coachDataUrl, 'utf8'),
+    readFile(coachAvailabilityDataUrl, 'utf8'),
   ])
 
   assert.match(screen, /Accept on behalf of player/)
@@ -63,7 +65,9 @@ test('Coach mobile exposes staff on-behalf actions through the canonical secured
   assert.match(data, /accept_event_player_availability_on_behalf/)
   assert.match(data, /mark_event_player_unavailable_on_behalf/)
   assert.match(data, /assertCanonicalMutation\(user, \{ minimumRank: 20, requiresTeam: true \}\)/)
-  assert.match(data, /from\('match_day_player_availability'\)/)
+  assert.match(data, /readCoachMatchAvailability\(supabase, user, matches\)/)
+  assert.match(availability, /scoped\('match_day_player_availability'/)
+  assert.match(availability, /\.eq\('club_id', user\.clubId\)\.eq\('team_id', user\.activeTeamId\)\.in\('match_day_id', matchIds\)/)
   const actionSource = data.slice(data.indexOf('export async function setCoachInviteAvailabilityOnBehalf'))
   assert.doesNotMatch(actionSource, /sendEmail|sendSms|sendParentMobilePushNotification|service_role/i)
 })

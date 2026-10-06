@@ -147,6 +147,10 @@ test('Match Day push keeps web delivery when the optional mobile table is unavai
         return queryResult(mobileResult)
       }
 
+      if (table === 'mobile_notification_preferences') {
+        return queryResult({ data: [], error: null })
+      }
+
       if (table === 'parent_mobile_notification_events') {
         return queryResult({ data: null, error: null })
       }

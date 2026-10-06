@@ -53,7 +53,7 @@ test('actual Coach loader counts each player once and merges responses from late
   const source = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
   const body = source.slice(source.indexOf('export async function getCoachInvitesAndAvailability('), source.indexOf('export async function setCoachInviteAvailabilityOnBehalf(')).replace('export ', '')
   const { matches, tables } = largeDataset(), client = database(tables)
-  const load = new Function('supabase', 'assertCoachOperationalRead', 'getCoachMatchDayList', 'readCoachMatchAvailability', 'getCoachPlayerList', 'normalize', 'normalizeCoachInvite', `${body}; return getCoachInvitesAndAvailability`)(client, () => {}, async () => matches, readCoachMatchAvailability, async () => [], value => String(value || '').trim(), normalizeCoachInvite)
+  const load = new Function('supabase', 'assertCoachOperationalRead', 'getCoachMatchDayList', 'readCoachMatchAvailability', 'getCoachPlayerList', 'normalize', 'normalizeCoachInvite', 'prepareAttendanceChoices', `${body}; return getCoachInvitesAndAvailability`)(client, () => {}, async () => matches, readCoachMatchAvailability, async () => [], value => String(value || '').trim(), normalizeCoachInvite, async choices => choices.map(() => null))
   const result = await load(user)
   for (const match of matches) {
     const players = collapseCoachInvitesByPlayer(result.match.filter(row => row.eventId === match.id))

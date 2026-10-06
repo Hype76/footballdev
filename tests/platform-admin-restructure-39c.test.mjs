@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { platformNavigation } from '../src/app/navigation.js'
 
 import { getPlanBreakdown, getPlatformDashboardStats } from '../src/lib/platform-admin-stats.js'
 
@@ -73,9 +74,10 @@ test('focused routes sit behind the existing Platform Admin route guard', async 
     'platform-billing-options',
   ]) {
     assert.match(guardedRoutes, new RegExp(`path: '${path}'`))
-    assert.match(sidebarSource, new RegExp(`path: '/${path}'`))
+    assert.ok(platformNavigation.some(item => item.path === `/${path}`), `central navigation preserves ${path}`)
   }
   assert.match(sidebarSource, /path: '\/platform-feedback'/)
+  assert.match(sidebarSource, /import \{ clubNavigation, platformNavigation, primaryNavigation \} from '\.\.\/\.\.\/app\/navigation\.js'/)
 })
 
 test('overview no longer stacks full management systems and feedback remains authoritative elsewhere', async () => {

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../../lib/auth.js'
 import { getClubPlanGateUser } from '../../lib/domain/plan-gates.js'
+import { loadTeamBrandingDisplay } from '../../lib/team-branding-display.js'
+import { supabase } from '../../lib/supabase-client.js'
 import {
   downloadCompletedReportCsv,
   downloadCompletedReportPdf,
@@ -18,7 +20,9 @@ export function CompletedMatchReportExportActions({ audience = 'parent', match }
     setErrorMessage('')
     try {
       if (format === 'pdf') {
-        const accessContext = await getClubPlanGateUser({ user, clubId: match.clubId || match.club_id })
+        const planContext = await getClubPlanGateUser({ user, clubId: match.clubId || match.club_id })
+        const accessContext = await loadTeamBrandingDisplay(supabase, { ...planContext,
+          clubId: match.clubId || match.club_id, teamId: match.teamId || match.team_id })
         await downloadCompletedReportPdf(match, { audience, accessContext })
       }
       else downloadCompletedReportCsv(match, { audience })

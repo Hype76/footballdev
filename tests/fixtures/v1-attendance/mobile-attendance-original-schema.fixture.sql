@@ -1,0 +1,34 @@
+-- TEST FIXTURE ONLY. Extend the minimal synthetic schema in the command tests.
+-- Real original RPC bodies can then execute against synthetic rows. Authority
+-- helpers and bearer-token currentness below remain explicit controlled seams.
+create role service_role;
+create table auth.users(id uuid primary key, raw_user_meta_data jsonb default '{}');
+create table public.clubs(id uuid primary key,status text default 'active');
+alter table public.users add column if not exists name text, add column if not exists username text, add column if not exists email text, add column if not exists role_label text;
+alter table public.players add column if not exists player_name text;
+alter table public.parent_player_links add column if not exists email text;
+alter table public.match_days add column if not exists status text default 'scheduled', add column if not exists deleted_at timestamptz, add column if not exists concluded_at timestamptz, add column if not exists match_date date, add column if not exists request_scorer boolean default false, add column if not exists request_linesman boolean default false, add column if not exists request_referee boolean default false;
+alter table public.calendar_events add column if not exists cancelled_at timestamptz;
+alter table public.match_day_availability_requests add column if not exists parent_link_id uuid, add column if not exists recipient_email text, add column if not exists token_hash text, add column if not exists status text default 'pending', add column if not exists expires_at timestamptz, add column if not exists sent_at timestamptz, add column if not exists token_revoked_at timestamptz, add column if not exists responded_at timestamptz, add column if not exists player_name text, add column if not exists updated_at timestamptz, add column if not exists volunteer_scorer_response text, add column if not exists volunteer_linesman_response text, add column if not exists volunteer_referee_response text, add column if not exists volunteer_responded_at timestamptz, add column if not exists transport_needs_lift boolean default false, add column if not exists transport_can_offer_lift boolean default false, add column if not exists transport_seats_offered integer default 0, add column if not exists transport_responded_at timestamptz;
+alter table public.training_availability_request_players add column if not exists calendar_event_id uuid, add column if not exists parent_link_id uuid, add column if not exists status text default 'pending', add column if not exists response_deadline_at timestamptz, add column if not exists responded_at timestamptz, add column if not exists updated_at timestamptz, add column if not exists created_at timestamptz default now(), add column if not exists token_hash text, add column if not exists recipient_name text, add column if not exists recipient_email text, add column if not exists player_name text;
+alter table public.match_day_player_availability add column if not exists club_id uuid, add column if not exists team_id uuid, add column if not exists player_name text, add column if not exists selected_by_parent_link_id uuid, add column if not exists selected_by_request_id uuid, add column if not exists selected_by_email text, add column if not exists updated_at timestamptz;
+alter table public.training_availability_responses add column if not exists request_player_id uuid, add column if not exists club_id uuid, add column if not exists team_id uuid, add column if not exists calendar_event_id uuid, add column if not exists parent_link_id uuid, add column if not exists responded_by_name text, add column if not exists responded_by_email text, add column if not exists updated_at timestamptz;
+alter table public.training_coach_attendance add column if not exists occurrence_starts_at timestamptz, add column if not exists updated_at timestamptz;
+create table public.match_day_player_squad_decisions(match_day_id uuid,club_id uuid,team_id uuid,player_id uuid,status text);
+create table public.calendar_event_invites(match_day_id uuid,club_id uuid,team_id uuid,player_id uuid,invite_status text);
+create table public.match_day_role_assignments(match_day_id uuid,role text);
+create table public.match_day_player_availability_history(id uuid default gen_random_uuid(),match_day_id uuid,club_id uuid,team_id uuid,player_id uuid,request_id uuid,parent_link_id uuid,player_name text,previous_status text,status text,selected_by_name text,selected_by_email text);
+create table public.match_day_event_log(id uuid default gen_random_uuid(),club_id uuid,team_id uuid,match_day_id uuid,player_id uuid,actor_user_id uuid,actor_display_name text,actor_role text,event_type text,event_label text,previous_value text,new_value text,metadata jsonb,created_at timestamptz);
+create table public.audit_logs(id uuid default gen_random_uuid(),club_id uuid,actor_id uuid,action text,entity_type text,entity_id uuid,metadata jsonb,created_at timestamptz);
+
+-- Controlled authority seams: existing original RPC auth/profile/window checks
+-- still execute, but these helpers do not stand in for real RLS integration.
+create or replace function public.current_user_can_access_parent_link(uuid,uuid) returns boolean language sql stable as $$select coalesce(nullif(current_setting('test.authority',true),'')::boolean,true)$$;
+create or replace function public.can_manage_match_day(uuid) returns boolean language sql stable as $$select coalesce(nullif(current_setting('test.authority',true),'')::boolean,true)$$;
+create or replace function public.current_user_can_access_team(uuid,uuid) returns boolean language sql stable as $$select coalesce(nullif(current_setting('test.authority',true),'')::boolean,true)$$;
+create function public.is_match_day_action_token_current_internal(token_value text) returns boolean language sql stable security definer set search_path='' as $$
+ select coalesce(nullif(current_setting('test.token_authority',true),'')::boolean,true) and exists(select 1 from public.match_day_availability_requests r where r.token_hash=token_value and r.token_revoked_at is null and r.status not in ('cancelled','expired') and r.expires_at>now())
+$$;
+create function public.is_training_availability_token_current_internal(token_value text) returns boolean language sql stable security definer set search_path='' as $$
+ select coalesce(nullif(current_setting('test.token_authority',true),'')::boolean,true) and exists(select 1 from public.training_availability_request_players p join public.training_availability_requests r on r.id=p.request_id join public.calendar_events e on e.id=r.calendar_event_id where p.token_hash=token_value and p.status not in ('cancelled','expired') and r.status not in ('cancelled','expired') and e.cancelled_at is null and r.occurrence_starts_at>now() and coalesce(p.response_deadline_at,r.occurrence_starts_at)>=now())
+$$;

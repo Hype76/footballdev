@@ -22,7 +22,8 @@ import { FanContent } from './FanContent'
 import { FanPlayerCard } from './FanPlayerCard'
 import { UserFeedbackScreen } from '../../mobile-core/src/UserFeedbackScreen'
 import { PartnersBanner, PartnersScreen } from './PartnersScreen'
-import { readFanDeviceNotifications, enableFanDeviceNotifications, disableFanDeviceNotifications } from './fanDeviceNotifications'
+import { disableFanDeviceNotifications } from './fanDeviceNotifications'
+import { useFanDeviceNotifications } from './useFanDeviceNotifications'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 import { mixThemeColor, themeForeground } from '../../mobile-core/src/themeContrast'
 import { loadMatchdayPlanConfig } from '../../mobile-core/src/matchdayPlanData'
@@ -39,8 +40,9 @@ function FanSwitch({ value, disabled = false, accessibilityLabel, onValueChange,
 }
 
 async function rpc(name, args = {}) { const { data, error } = await supabase.rpc(name, args); if (error) throw error; return data }
-async function request(body) {
+async function request(body, isCurrent = () => true) {
   const token = await getAccessToken()
+  if (!isCurrent()) throw new Error('The notification account changed. Please try again.')
   const origin = getMobileRuntimeConfig('parent').apiBaseUrl.replace(/\/$/, '')
   return fetchFansJson(`${origin}/.netlify/functions/fans`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
 }
@@ -99,9 +101,9 @@ function Qr({ value }) {
   </View>
 }
 export async function clearFanNotificationDevice() {
-  const token = await SecureStore.getItemAsync('fan-notification-device')
-  await SecureStore.deleteItemAsync('fan-notification-device')
-  if (token) await request({ action: 'unregister_device', token }).catch(() => {})
+  const { data } = await supabase.auth.getSession()
+  const userId = data?.session?.user?.id
+  if (userId) await disableFanDeviceNotifications({ userId, apiBaseUrl: getMobileRuntimeConfig('parent').apiBaseUrl, secureStore: SecureStore, request })
 }
 export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, selectedParentLinkId, onSelectedParentLinkChange, scrollViewRef }) {
   const [savedMode, setSavedMode] = useState(parentThemePreference.peek)
@@ -128,7 +130,12 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   const [signOutConfirm, setSignOutConfirm] = useState(false)
   const [joining, setJoining] = useState(false)
   const [invitationLink, setInvitationLink] = useState('')
-  const [deviceNotifications, setDeviceNotifications] = useState({ status: 'checking' })
+  const { deviceNotifications, refresh: refreshDeviceNotifications, enable: enableDeviceNotifications, disable: disableDeviceNotifications } = useFanDeviceNotifications({
+    userId: user?.isOfflineProfile ? '' : user?.id,
+    apiBaseUrl: getMobileRuntimeConfig('parent').apiBaseUrl,
+    projectId: Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId,
+    request,
+  })
   const localScrollRef = useRef(null)
   useEffect(() => {
     (scrollViewRef || localScrollRef).current?.scrollTo({ y: 0, animated: false })
@@ -226,29 +233,11 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
   useEffect(() => {
     if (section !== 'settings') return undefined
     let active = true
-    let generation = 0
-    const refresh = async () => {
-      const current = ++generation
-      if (Platform.OS === 'web') { setDeviceNotifications({ status: 'web' }); return }
-      setDeviceNotifications({ status: 'checking' })
-      try {
-        const next = await readFanDeviceNotifications({ notifications: Notifications, secureStore: SecureStore, request })
-        if (active && current === generation) setDeviceNotifications(next)
-      } catch { if (active && current === generation) setDeviceNotifications({ status: 'unknown' }) }
-    }
-    void refresh()
-    const listener = AppState.addEventListener('change', status => { if (status === 'active') void refresh() })
-    return () => { active = false; listener.remove() }
-  }, [section, busy, user?.id])
-  const enableDevice = () => run(async () => {
-    const projectId = Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId
-    const next = await enableFanDeviceNotifications({ notifications: Notifications, secureStore: SecureStore, request, projectId })
-    setDeviceNotifications(next)
-  })
-  const disableDevice = () => run(async () => {
-    const next = await disableFanDeviceNotifications({ secureStore: SecureStore, request })
-    setDeviceNotifications(next)
-  })
+    void Promise.resolve().then(() => { if (active) void refreshDeviceNotifications().catch(() => {}) })
+    return () => { active = false }
+  }, [section, refreshDeviceNotifications])
+  const enableDevice = () => run(enableDeviceNotifications)
+  const disableDevice = () => run(disableDeviceNotifications)
   const openResource = (resource) => run(async () => {
     const currentView = state.view
     const result = await request({ action: 'open_resource', connectionId: currentView.connectionId, resourceId: resource.id })
@@ -283,9 +272,9 @@ export function FansScreen({ embedded = false, themeTokens, themeMode, onBack, s
       {state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
       {followed.some(c => c.permissions.game_day) ? <View style={{ gap: 8 }}>
         <Text style={styles.label}>Phone notifications</Text>
-        <Text accessibilityLiveRegion="polite" style={styles.helper}>{({ checking: 'Checking phone notifications...', enabled: 'Phone notifications are enabled on this device.', off: 'Phone notifications are off on this device.', not_registered: 'This device is not registered for phone notifications.', unknown: 'Phone notification status could not be checked.', web: 'Phone notifications are available in the mobile app.' })[deviceNotifications.status]}</Text>
+        <Text accessibilityLiveRegion="polite" style={styles.helper}>{({ checking: 'Checking phone notifications...', enabled: deviceNotifications.quiet ? 'Phone notifications are enabled with quiet delivery in phone settings.' : 'Phone notifications are enabled on this device.', paused: 'Phone notifications are paused in this app.', off: 'Phone notifications are off in phone settings.', not_registered: 'This device is not registered for phone notifications.', unknown: 'Phone notification status could not be checked. Retry to check your saved choice.', web: 'Phone notifications are available in the mobile app.' })[deviceNotifications.status]}</Text>
         <Text style={styles.helper}>The Game Day switch on each player chooses which alerts you follow. Phone notifications also need permission and registration on this device.</Text>
-        {deviceNotifications.status === 'enabled' ? <Action icon="notifications" label="Turn off phone notifications" disabled={busy} onPress={disableDevice} /> : deviceNotifications.status === 'off' && deviceNotifications.canAskAgain === false ? <Action icon="settings" label="Open phone settings" disabled={busy} onPress={() => run(() => Linking.openSettings())} /> : ['off', 'not_registered', 'unknown'].includes(deviceNotifications.status) ? <Action icon="notifications" label={deviceNotifications.status === 'unknown' ? 'Retry phone notifications' : 'Enable phone notifications'} disabled={busy} onPress={enableDevice} /> : null}
+        {deviceNotifications.status === 'enabled' ? <Action icon="notifications" label="Turn off phone notifications" disabled={busy} onPress={disableDevice} /> : deviceNotifications.status === 'off' && deviceNotifications.canAskAgain === false ? <Action icon="settings" label="Open phone settings" disabled={busy} onPress={() => run(() => Linking.openSettings())} /> : deviceNotifications.status === 'unknown' ? <Action icon="notifications" label="Retry phone notifications" disabled={busy} onPress={() => run(() => refreshDeviceNotifications())} /> : ['off', 'paused', 'not_registered'].includes(deviceNotifications.status) ? <Action icon="notifications" label="Enable phone notifications" disabled={busy} onPress={enableDevice} /> : null}
       </View> : null}
       <Action icon="person-add" label="Open a Fan invitation" onPress={() => { setJoining(true); setInvitationLink('') }} />
       <Text accessibilityRole="header" style={styles.heading}>Linked players</Text>

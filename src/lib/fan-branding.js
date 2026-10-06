@@ -6,6 +6,8 @@ export function fanBrandingLink(source = {}, matchdayPolicy) {
     clubId: source.club_id || source.clubId || '',
     clubLogoUrl: source.club_logo_url || source.clubLogoUrl || '',
     id: source.id || '',
+    teamId: source.teamId || source.team_id || '',
+    teamBrandingDisplay: source.teamBrandingDisplay,
     matchdayPolicy,
     planKey: source.plan_key || source.planKey || '',
     themeAccent: source.theme_accent || source.themeAccent || 'green',
@@ -15,6 +17,8 @@ export function fanBrandingLink(source = {}, matchdayPolicy) {
   return {
     id: selectedLink.id,
     clubId: selectedLink.clubId,
+    teamId: selectedLink.teamId,
+    teamBrandingDisplay: selectedLink.teamBrandingDisplay,
     clubName: source.club_name || source.clubName || '',
     clubLogoUrl: branding.clubLogoUrl,
     matchdayPolicy,

@@ -18,7 +18,7 @@ test('dark theme maps Match Day amber and cream panels to dark-compatible surfac
 
 test('Match Day availability request success copy avoids invite queue wording', async () => {
   const source = await readFile(matchDayPageUrl, 'utf8')
-  const handlerStart = source.indexOf('const handleConfirmCreateMatch = async () => {')
+  const handlerStart = source.indexOf("const handleConfirmCreateMatch = async ({ calendarTarget = '' } = {}) => {")
   const handlerEnd = source.indexOf('const handleStatusChange = async', handlerStart)
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)

@@ -19,7 +19,8 @@ const components = names.map(name => {
   assert.ok(node, `Actual Parent component ${name} exists`)
   return source.slice(node.start, node.end)
 }).join('\n')
-const entry = `
+const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+
 import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform} from 'react-native';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
@@ -65,7 +66,7 @@ await mkdir(output, { recursive: true })
 try {
   const page = await browser.newPage({ viewport: { width: 320, height: 844 } })
   const errors = []
-  page.on('pageerror', error => errors.push(error.message))
+  page.on('pageerror', error => {errors.push(error.message); console.error(error.message)})
   await page.setContent('<body style="margin:0"><div id="root"></div>')
   await page.addScriptTag({ content: result.outputFiles[0].text })
   const patch = value => page.evaluate(value => window.patch(value), value)

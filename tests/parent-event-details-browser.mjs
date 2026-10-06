@@ -9,7 +9,9 @@ async function extract(file,names){const source=await readFile(file,'utf8');cons
 const home=await extract('apps/parent-mobile/App.js',['HomeScreen','HomeCollapsibleSection','CalendarCard','HomeStatusBadges','useParentTheme','createParentAppPalette','createParentAppStyles','SectionHeading','SummaryButton'])
 const portal=await extract('apps/parent-mobile/src/ParentPortalScreens.js',['ChatScreen','CoachReminderAttendance','ResourcesScreen','CalendarScreen','CalendarEventCard','CalendarEventDetail','InvitationResponseControl','IconChoice','invitationResponsePresentation','invitationToneColor','volunteerIconKey','colorsFor','usePortalStyles','Button','IconAction','normalizeText','labelize','formatCalendarDay'])
 const invitationCore=await extract('apps/parent-mobile/src/parentPortalData.js',['getInvitationResponseOptions','isParentInvitationActionable'])
-const entry=`
+const entry=`import {useAttendanceUiGuard} from './apps/mobile-core/src/useAttendanceOutbox.js';
+import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+
 import {useParentHomeSections} from './apps/parent-mobile/src/useParentHomeSections.js';
 import React,{useState,useEffect,useMemo,useContext,createContext,useRef} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform,BackHandler,ScrollView,FlatList,TextInput,AppState,useWindowDimensions} from 'react-native';

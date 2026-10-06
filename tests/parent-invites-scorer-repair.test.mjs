@@ -81,6 +81,6 @@ test('goals omit Coach, invitations omit hide controls, and creation sends no se
   assert.doesNotMatch(page, /type: 'scorer_request'/)
   assert.doesNotMatch(portal.slice(portal.indexOf('function MatchCard'), portal.indexOf('function GoalPlayerPicker')), /action\.hide|onDismiss/)
   assert.doesNotMatch(app, /resources\.matches\.items\.filter.*dismissedItems/)
-  assert.match(app, /notificationType = 'live'/)
-  assert.match(app, /if \(changeSaved\)\s*\{[\s\S]*?return true/)
+  assert.match(app, /await queueParentScorerAction\(selectedMobileUser, selectedLink, match, action, payload\)/)
+  assert.match(app, /setScorerOutboxes[\s\S]*Saved on this phone[\s\S]*if \(!isOffline\) void runParentSync\(\)[\s\S]*return true/)
 })

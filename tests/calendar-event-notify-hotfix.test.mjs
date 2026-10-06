@@ -20,8 +20,8 @@ const [migration, authoritativeScopeMigration, sessionsPage, calendarDomain, inv
 
 test('reproduces the released Match Day edit omission before proving the repaired branch', () => {
   const matchBranch = sessionsPage.slice(
-    sessionsPage.indexOf("} else if (sourceType === 'match-day')"),
-    sessionsPage.indexOf("} else {", sessionsPage.indexOf("} else if (sourceType === 'match-day')") + 1),
+    sessionsPage.lastIndexOf("} else if (sourceType === 'match-day')"),
+    sessionsPage.indexOf("} else {", sessionsPage.lastIndexOf("} else if (sourceType === 'match-day')") + 1),
   )
 
   assert.match(matchBranch, /getCalendarParentVisibility\(\{ form: calendarForm, safeTeamId, user \}\)/)

@@ -34,7 +34,7 @@ function isProtectedCoachOfflineResource(resourceKey) {
   return normalize(resourceKey).replace(/^phase31e:/, '') === 'formation'
 }
 
-function recoverCoachOfflineCacheSpace(document, { retainContextId = '', retainResourceKeys = [] } = {}) {
+export function recoverCoachOfflineCacheSpace(document, { retainContextId = '', retainResourceKeys = [] } = {}) {
   if (getCoachCacheByteLength(document) <= COACH_PHASE_31F_MAX_CACHE_BYTES) return document
   const retainedKeys = new Set(retainResourceKeys.map(normalize))
   const contexts = Object.fromEntries(Object.entries(document.contexts || {}).map(([contextId, entry]) => [contextId, {
@@ -48,7 +48,9 @@ function recoverCoachOfflineCacheSpace(document, { retainContextId = '', retainR
     savedAt: resourceTimestamp(entry.resourceMetadata?.[resourceKey]),
   })).filter((candidate) => getCoachOfflineReadPolicy(candidate.resourceKey).cache
     && !(candidate.contextId === retainContextId && retainedKeys.has(normalize(candidate.resourceKey)))
-    && !isProtectedCoachOfflineResource(candidate.resourceKey)))
+    && !isProtectedCoachOfflineResource(candidate.resourceKey)
+    && !(['development', 'players'].includes(normalize(candidate.resourceKey).replace(/^phase31e:/, ''))
+      && Object.values(document.developmentDrafts?.[candidate.contextId]?.items || {}).some(draft => draft.status !== 'synced'))))
     .sort((left, right) => left.savedAt - right.savedAt || left.contextId.localeCompare(right.contextId) || left.resourceKey.localeCompare(right.resourceKey))
   const next = { ...document, contexts }
   for (const candidate of candidates) {

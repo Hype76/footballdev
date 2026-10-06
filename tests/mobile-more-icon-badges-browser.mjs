@@ -12,7 +12,8 @@ const section = (start, end) => screens.slice(screens.indexOf(start), screens.in
 const rootModules = path.join(root, 'node_modules')
 const parentModules = path.join(root, 'apps/parent-mobile/node_modules')
 const result = await build({
-  stdin: { resolveDir: root, loader: 'jsx', contents: `
+  stdin: { resolveDir: root, loader: 'jsx', contents: `import {getParentStatusColours} from './apps/mobile-core/src/parentStatusColours.js';
+
     import React, { useMemo } from 'react'
     import { createRoot } from 'react-dom/client'
     import { Pressable, StyleSheet, Text, View } from 'react-native'

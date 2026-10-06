@@ -18,7 +18,7 @@ test('Calendar-only route renders its reschedule notification choice', async () 
   assert.notEqual(historyRoute, -1)
   assert.match(calendarRouteSource, /<CalendarEventModal[\s\S]*\{calendarChangeConfirmModal\}/)
   assert.match(sessions, /if \(activeEvent\?\.sourceId && !decision\)[\s\S]*setCalendarChangePrompt/)
-  assert.match(sessions, /onSecondaryAction=\{\(\) => resumeCalendarChange\(false\)\}/)
+  assert.match(sessions, /onSecondaryAction=\{calendarChangePrompt\?\.partialScope \? undefined : \(\) => resumeCalendarChange\(false\)\}/)
 })
 
 test('synthetic history identifiers are not sent to UUID-backed response evidence queries', () => {

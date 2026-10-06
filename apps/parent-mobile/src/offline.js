@@ -371,3 +371,22 @@ export function syncParentOfflineCommands(user, { explicitRetry = false } = {}) 
   activeSyncs.set(user.id, activeSync)
   return activeSync
 }
+
+export async function readParentAttendanceCommands(user, link) {
+  const guard = store.captureScopeGuard(user.id)
+  const document = await readDocument(user.id)
+  guard()
+  if (document?.userScope !== user.id || !document.profile?.value?.parentPortalLinks?.some(item => item.id === link.id && item.playerId === link.playerId && item.linkType === 'parent')) throw new Error('Choose the original Parent account before opening saved attendance.')
+  return document.attendanceCommands || []
+}
+
+export async function updateParentAttendanceCommands(user, link, change) {
+  const guard = store.captureScopeGuard(user.id)
+  const updated = await updateDocument(user.id, document => {
+    guard()
+    if (document?.userScope !== user.id || !document.profile?.value?.parentPortalLinks?.some(item => item.id === link.id && item.playerId === link.playerId && item.linkType === 'parent')) throw new Error('Choose the original Parent account before saving attendance.')
+    return { ...document, attendanceCommands: change(document.attendanceCommands || []) }
+  })
+  guard()
+  return updated.attendanceCommands
+}

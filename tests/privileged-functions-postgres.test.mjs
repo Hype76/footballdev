@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const databaseUrl = String(process.env.PRIVILEGED_FUNCTIONS_TEST_DATABASE_URL ?? '').trim()
@@ -106,6 +107,14 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
   skip: shouldRun ? false : 'Set PRIVILEGED_FUNCTIONS_TEST_DATABASE_URL to an isolated disposable PostgreSQL database.',
   timeout: 120000,
 }, async () => {
+  const config = readFileSync(new URL('../supabase/config.toml', import.meta.url), 'utf8')
+  const apiSection = config.match(/^\[api\][ \t]*\r?\n([\s\S]*?)(?=^\[|(?![\s\S]))/m)?.[1]
+  assert.ok(apiSection, 'The API schema configuration must be present.')
+  for (const field of ['schemas', 'extra_search_path']) {
+    const configured = apiSection.match(new RegExp(`^${field} = (\\[[^\\n]+\\])`, 'm'))?.[1]
+    assert.ok(configured, `The API ${field} configuration must be present.`)
+    assert.equal(JSON.parse(configured).includes('app_private'), false)
+  }
   await runPsql(`
     begin;
     delete from public.audit_logs where club_id in ('${ids.clubA}', '${ids.clubB}', '${ids.clubC}');
@@ -133,6 +142,8 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
       '${ids.adminA}', '${ids.managerA}', '${ids.coachA}', '${ids.parentA}',
       '${ids.disabledA}', '${ids.removedA}', '${ids.ownerB}', '${ids.ownerC}'
     );
+    update public.clubs set archived_at = timezone('utc', now())
+    where id in ('${ids.clubA}', '${ids.clubB}', '${ids.clubC}');
     delete from public.clubs where id in ('${ids.clubA}', '${ids.clubB}', '${ids.clubC}');
     insert into public.clubs(id, name) values
       ('${ids.clubA}', 'Authority Test A'),
@@ -172,12 +183,18 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
       ('${ids.teamA1}', '${ids.clubA}', 'Team A1'),
       ('${ids.teamA2}', '${ids.clubA}', 'Team A2'),
       ('${ids.teamB1}', '${ids.clubB}', 'Team B1');
+    commit;
+  `)
 
+  const seededA = await runPsql(authenticatedSql(ids.adminA, `select public.seed_default_club_roles();`))
+  assert.match(seededA.stdout, /\b5\b/)
+
+  await runPsql(`
+    begin;
     insert into public.team_staff(team_id, user_id) values
       ('${ids.teamA1}', '${ids.managerA}'),
       ('${ids.teamA1}', '${ids.coachA}'),
-      ('${ids.teamA1}', '${ids.disabledA}'),
-      ('${ids.teamB1}', '${ids.ownerB}');
+      ('${ids.teamA1}', '${ids.disabledA}');
 
     insert into public.players(id, club_id, team_id, player_name, section, team)
     values ('${ids.playerA}', '${ids.clubA}', '${ids.teamA1}', 'Player A', 'Squad', 'Team A1');
@@ -200,12 +217,12 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
       ('public.seed_default_club_roles_for_actor(uuid,uuid,text)'),
       ('public.create_club_role(text,text,integer)'),
       ('public.upsert_match_location_for_team(uuid,text,text,text)'),
-      ('public.create_team_poll(uuid,text,text,text,text,jsonb,timestamp with time zone,boolean,integer,boolean,boolean,boolean,boolean,uuid)'),
+      ('public.create_team_poll(uuid,uuid,text,text,text,text,jsonb,timestamp with time zone,boolean,integer,boolean,boolean,boolean,boolean,uuid)'),
       ('public.set_team_poll_status(uuid,text)'),
       ('public.delete_team_poll(uuid)'),
       ('public.submit_staff_poll_vote(uuid,text)'),
       ('public.get_parent_portal_polls(uuid)'),
-      ('public.submit_parent_portal_poll_vote(uuid,uuid,text)'),
+      ('public.submit_parent_portal_poll_vote(uuid,uuid,text,boolean)'),
       ('public.create_match_day_motm_poll(uuid)'),
       ('public.create_match_day_motm_poll_on_full_time()')
     )
@@ -230,10 +247,57 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
         or has_table_privilege('authenticated', 'public.polls', 'insert,update,delete')
         or has_table_privilege('authenticated', 'public.poll_votes', 'insert,update,delete')
         or has_table_privilege('authenticated', 'public.club_roles', 'insert,update,delete'),
-      'private_schema_exposed',
-        has_schema_privilege('authenticated', 'app_private', 'usage')
-        or has_schema_privilege('anon', 'app_private', 'usage')
-        or has_schema_privilege('service_role', 'app_private', 'usage'),
+      'private_schema_usage', jsonb_build_object(
+        'anon', has_schema_privilege('anon', 'app_private', 'usage'),
+        'authenticated', has_schema_privilege('authenticated', 'app_private', 'usage'),
+        'service_role', has_schema_privilege('service_role', 'app_private', 'usage')
+      ),
+      'private_schema_create',
+        has_schema_privilege('authenticated', 'app_private', 'create')
+        or has_schema_privilege('anon', 'app_private', 'create')
+        or has_schema_privilege('service_role', 'app_private', 'create'),
+      'private_schema_public_privileges', exists (
+        select 1 from pg_namespace private_schema,
+          lateral aclexplode(coalesce(private_schema.nspacl, acldefault('n', private_schema.nspowner))) schema_acl
+        where private_schema.nspname = 'app_private' and schema_acl.grantee = 0
+      ),
+      'private_sensitive_execute', exists (
+        select 1 from (values ('anon'), ('authenticated'), ('service_role')) caller(role_name)
+        cross join (values
+          ('app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer)'),
+          ('app_private.seed_default_club_roles_impl(uuid,uuid,text,text,text)')
+        ) sensitive(signature)
+        where has_function_privilege(caller.role_name, sensitive.signature, 'execute')
+      ),
+      'private_sensitive_public_execute', exists (
+        select 1 from pg_proc sensitive_proc,
+          lateral aclexplode(coalesce(sensitive_proc.proacl, acldefault('f', sensitive_proc.proowner))) function_acl
+        where sensitive_proc.oid in (
+          'app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer)'::regprocedure,
+          'app_private.seed_default_club_roles_impl(uuid,uuid,text,text,text)'::regprocedure
+        ) and function_acl.grantee = 0 and function_acl.privilege_type = 'EXECUTE'
+      ),
+      'old_parent_vote_exists', to_regprocedure('public.submit_parent_portal_poll_vote(uuid,uuid,text)') is not null,
+      'retired_poll_api_execute', exists (
+        select 1 from (values ('anon'), ('authenticated'), ('service_role')) caller(role_name)
+        cross join (values
+          ('public.create_team_poll(uuid,text,text,text,text,jsonb,timestamp with time zone,boolean,integer,boolean,boolean,boolean,boolean,uuid)'),
+          ('public.create_team_poll_workflow42_legacy(uuid,uuid,text,text,text,text,jsonb,timestamp with time zone,boolean,integer,boolean,boolean,boolean,boolean,uuid)'),
+          ('public.submit_staff_poll_vote_workflow42_legacy(uuid,text)'),
+          ('public.submit_parent_portal_poll_vote_workflow42_legacy(uuid,uuid,text)')
+        ) retired(signature)
+        where has_function_privilege(caller.role_name, retired.signature, 'execute')
+      ),
+      'retired_poll_api_public_execute', exists (
+        select 1 from pg_proc retired_proc,
+          lateral aclexplode(coalesce(retired_proc.proacl, acldefault('f', retired_proc.proowner))) function_acl
+        where retired_proc.oid in (
+          'public.create_team_poll(uuid,text,text,text,text,jsonb,timestamp with time zone,boolean,integer,boolean,boolean,boolean,boolean,uuid)'::regprocedure,
+          'public.create_team_poll_workflow42_legacy(uuid,uuid,text,text,text,text,jsonb,timestamp with time zone,boolean,integer,boolean,boolean,boolean,boolean,uuid)'::regprocedure,
+          'public.submit_staff_poll_vote_workflow42_legacy(uuid,text)'::regprocedure,
+          'public.submit_parent_portal_poll_vote_workflow42_legacy(uuid,uuid,text)'::regprocedure
+        ) and function_acl.grantee = 0 and function_acl.privilege_type = 'EXECUTE'
+      ),
       'service_wrapper_granted', has_function_privilege(
         'service_role', 'public.seed_default_club_roles_for_actor(uuid,uuid,text)', 'execute'
       ),
@@ -253,7 +317,15 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
   assert.match(metadata.stdout, /"old_location_exists": false/)
   assert.match(metadata.stdout, /"old_seed_exists": false/)
   assert.match(metadata.stdout, /"authenticated_direct_writes": false/)
-  assert.match(metadata.stdout, /"private_schema_exposed": false/)
+  const privateMetadata = JSON.parse(metadata.stdout.trim())
+  assert.deepEqual(privateMetadata.private_schema_usage, { anon: false, authenticated: true, service_role: true })
+  assert.equal(privateMetadata.private_schema_create, false)
+  assert.equal(privateMetadata.private_schema_public_privileges, false)
+  assert.equal(privateMetadata.private_sensitive_execute, false)
+  assert.equal(privateMetadata.private_sensitive_public_execute, false)
+  assert.equal(privateMetadata.old_parent_vote_exists, false)
+  assert.equal(privateMetadata.retired_poll_api_execute, false)
+  assert.equal(privateMetadata.retired_poll_api_public_execute, false)
   assert.match(metadata.stdout, /"service_wrapper_granted": true/)
   assert.match(metadata.stdout, /"service_user_wrapper_granted": false/)
   assert.match(metadata.stdout, /"internal_trigger_granted": false/)
@@ -312,8 +384,6 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
     select app_private.actor_can_manage_team_resource('${ids.managerA}', '${ids.clubA}', '${ids.teamA1}', 20);
   `), /permission denied/)
 
-  const seededA = await runPsql(authenticatedSql(ids.adminA, `select public.seed_default_club_roles();`))
-  assert.match(seededA.stdout, /\b5\b/)
   const reseededA = await runPsql(authenticatedSql(ids.adminA, `select public.seed_default_club_roles();`))
   assert.match(reseededA.stdout, /\b0\b/)
   await runPsql(authenticatedSql(ids.adminA, `
@@ -373,13 +443,17 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
   assert.match(seedState.stdout, /"distinct_role_count": 5/)
   assert.match(seedState.stdout, /"custom_a_preserved": 1/)
   assert.match(seedState.stdout, /"seed_audits": 2/)
+  await runPsql(`
+    insert into public.team_staff(team_id, user_id)
+    values ('${ids.teamB1}', '${ids.ownerB}');
+  `)
   await expectDatabaseDenial(serviceSql(`
     select public.seed_default_club_roles_for_actor('${ids.clubA}', '${ids.ownerB}', 'signup_workspace');
   `), /role_seed_not_permitted/)
 
   const createStaffPollSql = `
     select (public.create_team_poll(
-      '${ids.teamA1}', 'Availability', 'Choose one', 'staff', 'text',
+      '${ids.teamA1}', '${ids.teamA1}', 'Availability', 'Choose one', 'staff', 'text',
       '[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}]'::jsonb,
       null, false, null, true, true, false, false, '${ids.staffPollRequest}'
     )).id;
@@ -391,17 +465,19 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
   assert.equal(retriedStaffPoll.stdout.match(/[0-9a-f-]{36}/i)?.[0], staffPollId)
   await expectDatabaseDenial(authenticatedSql(ids.managerA, `
     select public.create_team_poll(
-      '${ids.teamA1}', 'Conflicting retry', '', 'staff', 'text',
+      '${ids.teamA1}', '${ids.teamA1}', 'Conflicting retry', '', 'staff', 'text',
       '[{"id":"yes","label":"Yes"},{"id":"no","label":"No"}]'::jsonb,
       null, false, null, true, true, false, false, '${ids.staffPollRequest}'
     );
   `), /poll_request_conflict/)
   await expectDatabaseDenial(authenticatedSql(ids.parentA, createStaffPollSql), /poll_change_not_permitted/)
   await expectDatabaseDenial(authenticatedSql(ids.managerA, createStaffPollSql.replace(ids.teamA1, ids.teamA2)), /poll_change_not_permitted/)
+  await expectDatabaseDenial(authenticatedSql(ids.managerA,
+    createStaffPollSql.replace(`'${ids.teamA1}', '${ids.teamA1}'`, `'${ids.teamA1}', '${ids.teamA2}'`)), /poll_change_not_permitted/)
 
   const createParentPollSql = `
     select (public.create_team_poll(
-      '${ids.teamA1}', 'Player of the Match', '', 'parents', 'awards',
+      '${ids.teamA1}', '${ids.teamA1}', 'Player of the Match', '', 'parents', 'awards',
       '[{"id":"player-a","label":"Player A","playerId":"${ids.playerA}"},{"id":"other","label":"Other"}]'::jsonb,
       null, false, null, true, true, true, false, '${ids.parentPollRequest}'
     )).id;
@@ -413,11 +489,17 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
     select count(*) from public.get_parent_portal_polls('${ids.parentLinkA}') where id = '${parentPollId}';
   `))
   assert.match(parentList.stdout, /\r?\n1\r?\n/)
-  await runPsql(authenticatedSql(ids.parentA, `
+  await expectDatabaseDenial(authenticatedSql(ids.parentA, `
     select public.submit_parent_portal_poll_vote('${ids.parentLinkA}', '${parentPollId}', 'other');
+  `), /Confirm "I watched the match" before voting/)
+  await expectDatabaseDenial(authenticatedSql(ids.parentA, `
+    select public.submit_parent_portal_poll_vote('${ids.parentLinkA}', '${parentPollId}', 'other', false);
+  `), /Confirm "I watched the match" before voting/)
+  await runPsql(authenticatedSql(ids.parentA, `
+    select public.submit_parent_portal_poll_vote('${ids.parentLinkA}', '${parentPollId}', 'other', true);
   `))
   const parentRetry = await runPsql(authenticatedSql(ids.parentA, `
-    select public.submit_parent_portal_poll_vote('${ids.parentLinkA}', '${parentPollId}', 'other');
+    select public.submit_parent_portal_poll_vote('${ids.parentLinkA}', '${parentPollId}', 'other', true);
   `))
   assert.match(parentRetry.stdout, /[0-9a-f-]{36}/i)
   await expectDatabaseDenial(authenticatedSql(ids.parentA, `
@@ -470,10 +552,13 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
   assert.match(deniedVote.stderr, /poll_vote_not_permitted/)
   assert.doesNotMatch(deniedVote.stderr, /deadlock detected/i)
 
+  await expectDatabaseDenial(authenticatedSql(ids.managerA, `
+    update public.match_days set status = 'full_time' where id = '${ids.matchA}';
+  `), /Use an authorised Match Day action/)
   await runPsql(authenticatedSql(ids.managerA, `
-    update public.match_days
-    set status = 'full_time'
-    where id = '${ids.matchA}';
+    select public.set_match_day_player_squad_decision_v2('${ids.matchA}', '${ids.playerA}', 'selected', null);
+    select public.set_match_day_timer_state('${ids.matchA}', 'start');
+    select public.set_match_day_timer_state('${ids.matchA}', 'full_time');
     select motm_poll_id from public.match_days where id = '${ids.matchA}';
   `))
   const matchPollState = await runPsql(`
@@ -486,7 +571,7 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
   assert.match(matchPollState.stdout, /"linked": 1/)
   assert.match(matchPollState.stdout, /"audit_count": 1/)
   await runPsql(authenticatedSql(ids.managerA, `
-    update public.match_days set status = 'full_time' where id = '${ids.matchA}';
+    select public.set_match_day_timer_state('${ids.matchA}', 'full_time');
   `))
   const matchPollRetry = await runPsql(`
     select count(*) from public.audit_logs
@@ -496,7 +581,7 @@ test('real PostgreSQL authority, grant, atomicity, idempotency and concurrency g
 
   const rolledBackCreate = await runPsql(authenticatedSql(ids.managerA, `
     select public.create_team_poll(
-      '${ids.teamA1}', 'Rollback Poll', '', 'staff', 'text',
+      '${ids.teamA1}', '${ids.teamA1}', 'Rollback Poll', '', 'staff', 'text',
       '[{"id":"one","label":"One"},{"id":"two","label":"Two"}]'::jsonb,
       null, false, null, true, true, false, false, '${ids.rollbackPollRequest}'
     );

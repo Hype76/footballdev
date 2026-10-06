@@ -43,6 +43,8 @@ for (const app of ['parent', 'coach']) {
     import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
     import {useQuickActionVisibility} from './apps/coach-mobile/src/useQuickActionVisibility.js';
     import {CoachQuickActions} from './apps/coach-mobile/src/CoachQuickActions.js';
+    import {TeamLeagueLinkSettings} from './apps/mobile-core/src/TeamLeagueLink.js';
+    import {coachTeamLeagueScope,teamLeagueScopeKey} from './src/lib/team-league-link.js';
     const Application={nativeApplicationVersion:'1.0.22',nativeBuildVersion:'44'}, Constants={};
     const config={isProduction:true,isUsable:true,buildProfile:'store-live'};
     const getBuildClassification=()=> 'Production build';
@@ -65,7 +67,8 @@ for (const app of ['parent', 'coach']) {
     }
   `
 }
-const entry = `
+const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+
 import React from 'react'; import {createRoot} from 'react-dom/client';
 import {BackHandler} from 'react-native';
 import Parent from 'preview:parent'; import Coach from 'preview:coach';

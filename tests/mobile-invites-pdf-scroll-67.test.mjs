@@ -61,7 +61,8 @@ test('Parent Home removes read notifications from the feed and its offline cache
     readSource('../apps/parent-mobile/src/offline.js'),
   ])
 
-  assert.match(appSource, /prepareParentUpdates\(notifications\.items\)\.filter\(\(notification\) => !notification\.isRead\)/)
+  assert.match(appSource, /const visible = updates\.filter\(\(item\) => !unreadOnly \|\| !item\.isRead\)/)
+  assert.match(appSource, /const unreadNotificationCount = countUnreadNonChatNotifications\(resources\.notifications\.items\)/)
   assert.match(appSource, /markParentOfflineNotificationRead/)
   assert.match(offlineSource, /export async function markParentOfflineNotificationRead/)
   assert.match(offlineSource, /notifications:\s*applyParentNotificationAction/)

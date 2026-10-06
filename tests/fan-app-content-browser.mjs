@@ -7,7 +7,8 @@ const source=await readFile('apps/parent-mobile/App.js','utf8')
 const extracted=source.slice(source.indexOf('function AppContent() {'),source.indexOf('function StartupRecoveryScreen('))
 assert.ok(extracted.includes('fanLink.route'))
 const root=process.cwd(), modules=path.join(root,'apps/parent-mobile/node_modules')
-const contents=`import React,{useState,useEffect} from 'react';import{createRoot}from'react-dom/client';import{useFanAppLink as realUseFanAppLink}from'./apps/parent-mobile/src/useFanAppLink.js';
+const contents=`import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+import React,{useState,useEffect} from 'react';import{createRoot}from'react-dom/client';import{useFanAppLink as realUseFanAppLink}from'./apps/parent-mobile/src/useFanAppLink.js';
 const Notifications={useLastNotificationResponse:()=>null};const MOBILE_STARTUP_STATES={BOOTING:'boot',RESTORING_SESSION:'restore',RECOVERABLE_ERROR:'error'};
 function useFanAppLink(){const link=realUseFanAppLink();window.link=link;return link}function useMobileAuth(){return window.auth}
 const View=({children})=><div>{children}</div>,Text=({children})=><span>{children}</span>,Pressable=({children,onPress})=><button onClick={onPress}>{children}</button>;

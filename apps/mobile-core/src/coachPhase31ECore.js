@@ -526,7 +526,7 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
     transportSeatsOffered: Number(row.transport_seats_offered ?? row.transportSeatsOffered ?? 0) || 0,
     deliveryState, deliveryStatus, lastError, note: normalize(row.note), respondedByName: normalize(row.responded_by_name ?? row.respondedByName), responseSource,
     recurrenceFrequency, recurring: recurrenceFrequency !== 'none',
-    participationRemoved: normalize(row.token_revoked_reason) === 'event_participation_removed',
+    participationRemoved: Boolean(row.token_revoked_at) && normalize(row.token_revoked_reason) === 'event_participation_removed',
     stale: deleted || status === 'stale', cancelled,
   })
 }
@@ -646,12 +646,15 @@ export function collapseCoachInvitesByPlayer(rows = []) {
     }
     const priorityDifference = getCoachInviteStatusPriority(invite?.status) - getCoachInviteStatusPriority(current?.status)
     const deliveryPriorityDifference = getCoachInviteDeliveryPriority(invite?.deliveryStatus) - getCoachInviteDeliveryPriority(current?.deliveryStatus)
+    const participationRemoved = current.participationRemoved === true || invite.participationRemoved === true
     if (
       priorityDifference > 0
       || (priorityDifference === 0 && deliveryPriorityDifference > 0)
       || (priorityDifference === 0 && deliveryPriorityDifference === 0 && getCoachInviteSortTime(invite) > getCoachInviteSortTime(current))
     ) {
-      invitesByPlayer.set(key, invite)
+      invitesByPlayer.set(key, Object.freeze({ ...invite, participationRemoved }))
+    } else {
+      invitesByPlayer.set(key, Object.freeze({ ...current, participationRemoved }))
     }
   }
   return Object.freeze([...invitesByPlayer.values()])
@@ -684,7 +687,10 @@ export function getSelectedCoachInvites(invites = [], selectedPlayerIds = []) {
 
 export function canResendSelectedCoachInvites(invites = []) {
   const selected = Array.isArray(invites) ? invites : []
-  return selected.length > 0 && selected.every((invite) => ['awaiting', 'pending'].includes(normalize(invite?.status).toLowerCase()) && !invite?.stale && !invite?.cancelled)
+  // A withdrawal enables read-only preview. The server revalidates every recipient.
+  return selected.length > 0 && selected.every((invite) =>
+    (['awaiting', 'pending'].includes(normalize(invite?.status).toLowerCase())
+      || (invite?.kind === 'match' && invite?.participationRemoved === true)) && !invite?.stale && !invite?.cancelled)
 }
 
 export function canFollowUpSelectedCoachInvites(invites = []) {

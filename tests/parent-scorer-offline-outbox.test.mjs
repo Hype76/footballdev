@@ -9,6 +9,22 @@ const base = { id: 'match', clubId: 'club', teamId: 'team', updatedAt: startAt, 
   matchDurationMinutes: 80, events: [], shootoutEvents: [], isScorer: true }
 const journal = () => ({ baseMatch: base, pending: [], verifiedAt: startAt, error: '' })
 
+test('a new goal cannot enter the offline journal with a missing match minute', () => {
+  for (const minute of ['', ' ', null, undefined, -1, 1.5]) {
+    assert.throws(() => appendParentScorerCommand(journal(), {
+      id: 'missing-minute', kind: 'goal', capturedAt: startAt,
+      payload: { teamSide: 'club', scorerName: 'FP TEST', minute },
+    }), /goal minute/)
+  }
+  for (const minute of [0, '0', 18, '18']) {
+    const saved = appendParentScorerCommand(journal(), {
+      id: 'timed-goal', kind: 'goal', capturedAt: startAt,
+      payload: { teamSide: 'club', scorerName: 'FP TEST', minute },
+    })
+    assert.equal(saved.pending[0].payload.minute, minute)
+  }
+})
+
 test('offline start, goal, score and handover project immediately in capture order', () => {
   let saved = appendParentScorerCommand(journal(), { id: 'start', kind: 'start', capturedAt: startAt })
   saved = appendParentScorerCommand(saved, { id: 'goal', kind: 'goal', capturedAt: '2026-09-26T11:05:00Z',
@@ -25,14 +41,14 @@ test('offline start, goal, score and handover project immediately in capture ord
   assert.equal(projected.isScorer, true)
   assert.equal(saved.pending[1].previousCommandId, 'start')
   assert.equal(saved.pending[1].expectedUpdatedAt, null)
-  assert.throws(() => appendParentScorerCommand(saved, { id: 'later', kind: 'goal', payload: { teamSide: 'club' } }), /sent to the Coach/)
+  assert.throws(() => appendParentScorerCommand(saved, { id: 'later', kind: 'goal', capturedAt: '2026-09-26T11:08:00Z', payload: { teamSide: 'club' } }), /sent to the Coach/)
 })
 
 test('offline queue refuses stale fixtures, invalid actions and clock reversal', () => {
   assert.throws(() => appendParentScorerCommand({ ...journal(), verifiedAt: '2026-09-24T11:00:00Z' },
     { id: 'start', kind: 'start', capturedAt: startAt }), /over 24 hours/)
   assert.throws(() => appendParentScorerCommand(journal(), { id: 'bad', kind: 'timer', payload: { action: 'delete' }, capturedAt: startAt }), /unavailable/)
-  const first = appendParentScorerCommand(journal(), { id: 'first', kind: 'goal', payload: { teamSide: 'club' },
+  const first = appendParentScorerCommand(journal(), { id: 'first', kind: 'goal', payload: { teamSide: 'club', minute: 6 },
     capturedAt: '2026-09-26T11:05:00Z' })
   assert.throws(() => appendParentScorerCommand(first, { id: 'second', kind: 'goal', payload: { teamSide: 'club' },
     capturedAt: '2026-09-26T11:04:00Z' }), /device clock changed/)

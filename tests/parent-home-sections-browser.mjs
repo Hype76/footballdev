@@ -10,7 +10,8 @@ const source = await readFile('apps/parent-mobile/App.js', 'utf8')
 const nodes = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body
 const names = ['HomeScreen', 'HomeCollapsibleSection', 'SectionHeading', 'SummaryButton', 'createParentAppPalette', 'createParentAppStyles']
 const selected = names.map(name => { const node = nodes.find(node => node.type === 'FunctionDeclaration' && node.id.name === name); assert.ok(node, name); return source.slice(node.start, node.end) }).join('\n')
-const entry = `
+const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+
 import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform,useWindowDimensions} from 'react-native';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';

@@ -20,10 +20,10 @@ test('Parent Chat keeps the Android composer above the keyboard in the focused r
   assert.match(screens, /Back to Chat rooms/)
 })
 
-test('Coach Player writes use the canonical Basic Development Records capability', async () => {
+test('Coach Player writes use the canonical Players capability and gate Trial promotion separately', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachPlayersData.js', import.meta.url), 'utf8')
-  assert.match(source, /assertCoachCapability\(user, CAPABILITIES\.basicDevelopmentRecords\)/)
-  assert.doesNotMatch(source, /CAPABILITIES\.players/)
+  assert.match(source, /assertCoachCapability\(user, CAPABILITIES\.players\)/)
+  assert.match(source, /if \(payload\.section === 'Trial'\) assertCoachCapability\(user, CAPABILITIES\.trialPlayers\)/)
 })
 
 test('Coach Sessions exposes recurring training invitations and keeps assessment Sessions separate', async () => {

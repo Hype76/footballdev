@@ -61,7 +61,7 @@ test('Parent Chat uses newest room activity first and oldest-to-newest conversat
   ], [{ authorType: 'club_staff', body: 'Club update', createdAt: '2026-08-12T10:00:00Z', id: 'announcement-1', readAt: '', senderName: 'Demo FC', source: 'club_announcement' }])
   assert.deepEqual(rooms.map((room) => room.id), ['newer', 'club-announcements', 'older'])
   assert.equal(rooms.find((room) => room.id === 'club-announcements').canPost, false)
-  assert.match(getParentChatRoomContext(rooms[0]), /U17 v United/)
+  assert.match(getParentChatRoomContext(rooms[0]), /Match squad \| 20 Aug 2026 at 18:30/)
   const messages = prepareParentChatMessages([
     { body: 'Second', createdAt: '2026-08-13T10:01:00Z', id: '2' },
     { body: 'First', createdAt: '2026-08-13T10:00:00Z', id: '1' },
@@ -105,7 +105,7 @@ test('mobile UX wiring preserves sessions, updates automatically, deep-links res
     readFile(new URL('../apps/parent-mobile/src/notifications.js', import.meta.url), 'utf8'),
   ])
   assert.match(parentApp, /communicationPreference/)
-  assert.match(parentApp, /selectedRoomId === 'club-announcements'/)
+  assert.match(parentApp, /selectedRoom=\{selectedRoom\}/)
   assert.match(parentApp, /parent_accept/)
   assert.match(parentApp, /targetInvitationId/)
   assert.match(parentApp, /handleRestoreDismissedItems/)
@@ -147,7 +147,7 @@ test('notification fan-out retries failed app delivery without duplicating accep
   assert.match(formation, /const \[savedPreference, savedOffline\]/)
   assert.match(formation, /const \[nextPresets, nextBoards\]/)
   assert.match(formation, /pendingSave\?\.draft/)
-  assert.match(formation, /pendingSave: unresolvedPendingSave/)
+  assert.match(formation, /pendingForWrite = unresolvedPendingSave/)
   assert.match(formation, /reconcilePendingBoard/)
   assert.match(formation, /Retry save/)
   assert.match(navigation, /label: 'Formation Boards'/)

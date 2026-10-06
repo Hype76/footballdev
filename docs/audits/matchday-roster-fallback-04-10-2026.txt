@@ -1,0 +1,202 @@
+Football Player V1: local Match Day participant fallback candidate
+04:10:2026. Local review only, separate from Fans clock/notification/release work.
+
+Request
+If the Coach forgets to configure the match squad, an authorised scorer should
+choose active players in that exact Team, including Trial players, for goals,
+assists, cards and substitutions. Selected participants retain player IDs so
+names shared by two players do not cause incorrect statistics credit.
+
+Conservative policy
+The server enables fallback only when BOTH:
+ - no match_day_player_squad_decisions row exists for the fixture; and
+ - no squad/selection/removal event log or event_player_removal_commands record
+   exists for the fixture.
+Every decision row, including waiting or undecided, disables fallback. These
+states cannot safely be interpreted as forgotten configuration. Explicit selected
+rows remain authoritative; not_selected/withdrawn players do not become eligible.
+If a once-configured squad is later emptied, its history disables fallback.
+This deliberately covers fewer empty-squad cases than an empty-array heuristic.
+No automatic selection, availability, invitation or notification is performed.
+Deleting decision rows AND their audit history administratively would lose that
+distinction; no such mutation or history inference is part of this candidate.
+
+Eligibility and privacy
+The shared private relation requires the fixture's exact club AND team, active
+status, archived_at null, a nonblank name and section Squad or Trial. Trial
+requires the existing club trialPlayers plan capability. Missing players,
+transferred players, inactive/archived players and other sections are excluded.
+Roster reads require authenticated exact-match current-day staff or the current
+selected Parent scorer, an active same-club/team link, the existing scorer
+authority/handover check, and an available unconcluded fixture. The getter also
+enforces existing fixtures and players plan capabilities. Ordinary Parent, Fan,
+Player and guest requests cannot use the new RPC. Existing guest flow is
+unchanged. No player-table or other-team RLS access is widened.
+Only ID, player name, shirt number and team ID are returned for participants;
+minimal event ID/link/version data is included under the same scorer/staff scope
+so existing event response builders cannot drop identities. Match/team envelope
+validation remains in the clients. Failed or malformed loads throw; an empty
+verified result does not trigger a local roster fallback. Existing previously
+verified offline data retains the IDs, subject to server validation on reconnect.
+
+Local implementation
+New read RPC: get_match_day_event_participants(uuid,uuid).
+New goal RPC: record_match_day_goal_v4, validates IDs and canonicalises names
+from that exact eligible roster before using the existing score writer.
+New card/substitution RPC: record_match_day_scorer_event_v2, retains actor,
+lifecycle, idempotency and Coach-only match-participant checks, using IDs and the
+same eligible relation for linked players.
+New Parent journal RPC: apply_parent_match_day_command_v2, retains existing
+capture/revision/idempotency checks and notification journal handling. New
+participant payloads use this version; older queued payloads use the old API.
+New Coach journal RPC: apply_coach_match_day_command_v2, keeps the existing
+Coach/team permission, capture, revision, chaining and replay constraints while
+dispatching participant actions to the same identity-aware goal/event writers.
+Coach/Parent read paths load the scoped roster, and pickers store participant
+IDs. Manual edits clear stale IDs; same-name substitutions are allowed when
+the actual IDs differ. Opponent/Other participants do not acquire Team IDs.
+
+Proposed local migration adds scorer_player_id, assist_player_id and
+participant_identity_version to match_day_events, with player foreign keys.
+get_end_season_stats and app_private.end_season_stats_range prefer IDs for new
+events, retain historical name matching only for legacy identity-version-null
+events, and include entitled active Trial players in the scoped totals.
+New unlinked Other goal names do not receive automatic player-stat credit.
+Own goals and voided events retain the existing exclusion rules. The server
+checks IDs again at write time, so roster snapshots cannot authorise stale IDs.
+Parent and Coach correction forms now retain IDs, resolve a linked person's
+current name after a rename, support explicit re-selection (including duplicate
+names) and allow clearing a link. Parent manual text edits clear its ID; Coach
+linked fields require a unique current choice before retaining an ID. Linked
+correction names/shirts must exactly match the current eligible server person;
+mismatches are rejected before the original score/audit writer executes.
+New RPCs correct_match_day_goal_v3 and correct_coach_match_day_goal_v2 retain
+original authority and score/audit handling, and record before/after IDs. Coach
+lost-response reconciliation checks IDs, so duplicate names cannot mask failure.
+Correcting an old name-only event does not infer an ID. Explicit re-selection
+links it; deliberately unlinked text gets identity version 1 and no name credit.
+Old correction calls clear unchanged IDs after name, shirt, side or own-goal
+changes, retaining identity version to prevent accidental name-only credit.
+Saved Coach card/substitution corrections clear IDs when changing participant
+type, and re-selection uses the shared roster and the existing outbox repair.
+Both stats APIs now count corrected as well as active goals. Tests reproduced
+the inherited active-only exclusion, then verified identity swaps, clearing,
+own-goal reversal, removal/replay and player deletion remove/restore only the
+correct credit. No historical event backfill is performed.
+Old clients/old RPCs retain their existing selected-squad/name behaviour. This
+candidate does not silently enable fallback in the old Guest or web scorers.
+
+Validation
+PASS 78 existing targeted tests: scoring authority/lifecycle, Parent goal details,
+offline commands/outbox, tenant isolation, Parent data/account safety and season
+date-range tests. Log ../roster-regression-tests.txt.
+PASS 15 final tests: ten new database/client tests and five existing Parent
+outbox tests. Log ../roster-final-unit.txt.
+The pre-existing handover test used an implicit current timestamp against its
+old fixture, failing on unchanged base. Its test-only capture now specifies the
+intended fixture time; no production behaviour or assertion was weakened.
+Baseline proof: ../roster-baseline-outbox-test.txt.
+New tests run the entire proposed SQL migration in PGlite, plus existing goal
+writer. Checks cover Squad/Trial entitlement, inactive/archive/transfer/club/team,
+every decision status, selection/removal history, duplicate-name IDs, both stats
+APIs, rename stability, revoked/link-mismatch/scorer/handover/date/conclusion,
+anonymous access denial, cards/subs, offline journal preservation, actual Parent
+API replay, stale exclusion rejection and account-owner replay rejection.
+The Coach command API is also executed with goal and substitution IDs, a chained
+command, lost-response replay and a forbidden Parent actor.
+Authority helpers in the new minimal DB fixture are test doubles; the existing
+78-test group separately exercises repository authority and tenant boundaries.
+PASS rendered Coach/Parent scorer harness with configured squad empty and
+server roster supplied, including card/substitution ID assertions, own goals,
+captured time and responsive light/dark themes.
+Log ../roster-scorer-browser-final.txt. Synthetic screenshots in
+output/playwright/mobile-scorer.
+PASS Coach offline scoring browser, Parent reconnect, airplane recovery and auth
+refresh/account switching. Logs ../roster-browser-results.json and named logs.
+PASS complete lint: ../roster-lint-final.txt. PASS local web production build and
+post-build access lock: ../roster-build.txt. Git diff --check passed.
+PASS 29 updated contract/cost tests: ../roster-updated-contract-tests.txt.
+The first wider workflow-selected unit run found two obsolete test contracts:
+the old RPC version literal and an instrumented refresh harness missing the new
+imported helper. They now test the ID-aware RPCs and actual roster helper.
+The current-day Coach refresh gains one match-scoped roster read, raising the
+measured path from six to seven reads (24 to 28/min at a 15-second interval).
+That extra read is explicit and tested; failed roster loading is also tested.
+
+Limits and rollout
+Final correction follow-up evidence:
+PASS final wider workflow-selected unit run: 993 tests, 992 passed, zero failed,
+one existing official-Go-runtime-dependent skip. No skipped check was waived.
+Log ../roster-ci-unit-correction-final.txt.
+PASS 105 focused aggregate tests including 16 new roster/correction tests and
+existing scoring authority, tenant, offline command, full-time correction,
+penalty and stats regressions. Log ../roster-correction-aggregate-final.txt.
+PASS rendered Parent/Coach renamed-player retention, manual unlinking,
+duplicate-name re-selection, saved card Other clearing and substitution ID swap.
+Log ../roster-correction-browser.txt; screenshots output/playwright/mobile-scorer.
+PASS all four offline/reconnect/airplane/auth browser checks on this follow-up.
+Logs ../roster-correction-*-browser.txt. PASS complete final ESLint and local web
+build/Parent access lock, logs ../roster-lint-correction-final.txt and
+../roster-build-correction-final.txt. Final aggregate/lint/build evidence is
+recorded separately in ../roster-verification-04-10-2026.txt.
+
+Separate source/security pass reviewed the private roster relation, getter,
+identity-aware writers, journals, correction wrappers and both stats functions.
+It checked exact club/team/status/section/Trial entitlement; all decision/history
+states; latest team-access helper and current scorer/handover/date helper; exact
+assignment/link ownership; fixture/event locks; anonymous/private RPC grants;
+unchanged table/RLS access; score writer delegation and ID-aware replay. Nullable
+permission/plan/date results now fail closed, and chosen assignment ownership is
+checked explicitly. New minimal-fixture authority helpers remain doubles; the
+existing regression group exercises repository authority and tenant rules.
+This is a second source review by the implementing agent, not another reviewer.
+
+Subsequent independent review
+The separately spawned read-only reviewer roster_security_review inspected exact
+afd989107f83f91ff4de4b15845124c3df8efbdd against the original baseline. It found a
+blocking integration defect: actual Parent App handleScorerAction queued goal
+corrections without the new version marker, selecting the old journal, and even
+the new journal's correction branch still called the old ID-less writer. A
+duplicate-name/shirt re-selection or explicit unlinking could retain old credit.
+This was reported before repair. Parent App now sets participantRosterVersion 1;
+the v2 correction journal calls correct_match_day_goal_v3 with nested goal IDs,
+and flattens its returned event for the actual adapter's replacement/normalization.
+PASS 22 targeted repair tests using actual Parent App handler extraction, actual
+command adapter routed to the PGlite journal, ID swap/unlinking, flat event merge,
+changed-payload rejection and exactly-once journal replay, plus existing offline
+command/outbox checks. Log ../roster-review-repair-tests.txt. Changed-file lint
+passed, ../roster-review-repair-lint.txt. The earlier wide aggregate was run on
+afd9891; it was not repeated for this bounded integration repair.
+The separate reviewer then inspected this runtime repair against afd9891 and
+confirmed marker/IDs survive queue copying, route to the intended writer, replace
+the old event before real normalization, persist swaps/unlinking and preserve
+exact-payload replay protection. No further concrete defect found in that path.
+Both review passes were read-only; reviewer ran no tests or network/live actions.
+Review report: ../roster-independent-review-04-10-2026.txt.
+Inherited limitation recorded by the reviewer: old direct goal_v3 returns a
+matching request without comparing its other details. The v4 wrapper rejects ID
+changes, but otherwise retains that direct-RPC behaviour. Its comment is now
+accurate. Journal APIs independently compare the complete payload; no older
+direct-RPC redesign is included here.
+
+Migration comparison gate remains blocked: the shared local clone's origin is
+v1-audit, whose origin is the dirty source. That source's existing remote is
+https://github.com/Hype76/footballdev.git. A normal read-only fetch of main into
+this isolated clone's refs/remotes/origin/main failed to connect to github.com
+port 443. No retry, escalation, alternate route or gate waiver was attempted.
+The available baseline remains 7ccbc41591569a7b7723a4fba7b28fbfa44cf50b; current
+remote main cannot be established here. Log ../roster-migration-fetch.txt.
+
+No full Linux CI or new clean dependency install, live database integration,
+real iOS/Android, Metro/native export, provider delivery or production smoke.
+Existing reused dependencies and the previously documented npm-registry access
+denial remain environment limits; no denied registry action was retried here.
+Web build and synthetic browser evidence do not certify native readiness.
+The roster getter's current-day client precheck uses Europe/London, consistent
+with current V1 scheduling; a wider non-UK deployment should use server time.
+No live migration, SQL mutation, notification send, push, merge, deployment, OTA,
+binary or store action. No unrelated candidate or dirty source changed.
+Any live rollout requires separate explicit authorisation, successful migration/
+security/compatibility gates and controlled server-first then client validation.
+The existing release hold still applies. The migration is a reviewable proposal,
+not an instruction or approval to execute against production.

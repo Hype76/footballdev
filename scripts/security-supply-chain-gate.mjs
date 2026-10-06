@@ -117,7 +117,7 @@ try {
 }
 let audit = { metadata: { vulnerabilities: {} } }
 const observedAdvisories = new Set()
-for (const scope of ['.']) {
+for (const scope of ['.', 'apps/parent-mobile', 'apps/coach-mobile']) {
   const auditResult = spawnSync(process.execPath, [npmExecutable, 'audit', '--json'], {
     cwd: path.resolve(root, scope), encoding: 'utf8', maxBuffer: 25 * 1024 * 1024,
     timeout: 120000,
@@ -143,7 +143,7 @@ for (const scope of ['.']) {
 }
 
 await writeFile(artifactPath(root, 'raw-audits.json'), JSON.stringify(rawAudits, null, 2) + '\n')
-await writeFile(artifactPath(root, 'reviewed-source-results.json'), JSON.stringify({ generatedAt: new Date().toISOString(), registryAuditCompletedAndValid: validAuditScopes === 1, registryAuditIsClean: validAuditScopes === 1 && zeroFindingScopes === 1, sourceReports, failures }, null, 2) + '\n')
+await writeFile(artifactPath(root, 'reviewed-source-results.json'), JSON.stringify({ generatedAt: new Date().toISOString(), registryAuditCompletedAndValid: validAuditScopes === 3, registryAuditIsClean: validAuditScopes === 3 && zeroFindingScopes === 3, sourceReports, failures }, null, 2) + '\n')
 await writeFile(artifactPath(root, 'dependency-inventory.json'), `${JSON.stringify({
   generatedAt: new Date().toISOString(),
   direct: {

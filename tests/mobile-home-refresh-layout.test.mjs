@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { isMatchdayPlan, isMobileRouteAllowed } from '../apps/mobile-core/src/matchdayPolicyCore.js'
 import { parse } from '@babel/parser'
-import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary } from '../apps/mobile-core/src/coachPhase31GCore.js'
+import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState } from '../apps/mobile-core/src/coachPhase31GCore.js'
 import { normalizeCoachInvite } from '../apps/mobile-core/src/coachPhase31ECore.js'
 import { createParentHomePreferences } from '../apps/parent-mobile/src/parentHomePreferencesCore.js'
 
@@ -33,7 +33,7 @@ function harness() {
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
     readMobileResource: async (user, key, loader, options) => { reads.push({ user, key, options }); return loader() },
     getCoachInvitesAndAvailability: async () => ({ all: [invite('one'), invite('two', { status: 'available' })] }),
-    getCoachChatRooms: async () => [], countPendingCoachAvailability, buildCoachChatSummary, preserveCoachAvailabilitySummary,
+    getCoachChatRooms: async () => [], countPendingCoachAvailability, buildCoachChatSummary, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState,
     setIsRefreshing() {}, peekMobileResource: () => undefined, readCoachOfflineResources: async () => null,
     activeContext: {}, user: { id: 'coach' }, getCoachPhase31GPrimaryHomeSnapshot: async () => ({ pendingAvailability: 0 }),
     setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachOfflineResources: async () => {},
@@ -123,7 +123,7 @@ test('Home re-entry, foreground timer and trusted-app notification refresh avail
 })
 
 test('removed participation is excluded from pending while its response and delivery history remain intact', () => {
-  const removed = normalizeCoachInvite({ id: 'removed', player_id: 'one', calendar_event_id: 'training', occurrence_date: '2099-01-01', status: 'sent', email_sent_at: '2026-01-01', token_revoked_reason: 'event_participation_removed' }, 'training')
+  const removed = normalizeCoachInvite({ id: 'removed', player_id: 'one', calendar_event_id: 'training', occurrence_date: '2099-01-01', status: 'sent', email_sent_at: '2026-01-01', token_revoked_at: '2026-01-02', token_revoked_reason: 'event_participation_removed' }, 'training')
   assert.equal(removed.status, 'awaiting')
   assert.equal(removed.sentAt, '2026-01-01')
   assert.equal(countPendingCoachAvailability([removed, invite('two')]), 1)

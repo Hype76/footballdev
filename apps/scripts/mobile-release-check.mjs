@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
 const checks = [
+  ['node', ['scripts/security-provision-reviewed-backports.mjs', '--no-install']],
   ['npm', ['run', 'lint']],
   ['npm', ['run', 'build']],
   ['npm', ['run', 'mobile:config']],

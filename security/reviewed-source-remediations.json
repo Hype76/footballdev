@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "baseline": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
+  "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
   "expiresAt": "2026-10-11T22:59:59Z",
   "sourceRevisions": {
     "braces72": {
@@ -14,11 +14,38 @@
       "headSha": "28d440b5dd449dbf1fe6f3506cf94ecca4d02660",
       "headRepo": "FSDevelop/braces",
       "headRef": "fix/limit-nesting-depth"
+    },
+    "forge1152": {
+      "repository": "digitalbazaar/forge",
+      "number": 1152,
+      "url": "https://github.com/digitalbazaar/forge/pull/1152",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-10-02T08:20:43Z",
+      "baseSha": "7a43db987bd0ecdc5b41f6d73f58ba6ca5bf9ae1",
+      "headSha": "ceba34402e329f0365134f23fe19898756527d65",
+      "headRepo": "Krysthyan/forge",
+      "headRef": "fix/cve-2026-85393-digestalgorithm-element-count"
+    },
+    "forge1157": {
+      "repository": "digitalbazaar/forge",
+      "number": 1157,
+      "url": "https://github.com/digitalbazaar/forge/pull/1157",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-10-04T08:09:28Z",
+      "baseSha": "723240415b25120d47146f982809fa69344ab890",
+      "headSha": "683ab3344899cc08a581e4d5675a33e87aff7b04",
+      "headRepo": "itsalexfer/forge",
+      "headRef": "fix/reject-nonempty-digest-null"
     }
   },
   "eligibleAdvisories": {
     "braces": [
       "GHSA-vfj7-8cjw-p6xm"
+    ],
+    "node-forge": [
+      "GHSA-86w9-cpqp-85rv"
     ]
   },
   "targets": [
@@ -57,23 +84,140 @@
           "patchedSha256": "49dc2d8bafa74f34715a18a845bcb82ce66caaf3bab4cf117998e06b1f9a50a9"
         }
       ]
+    },
+    {
+      "scope": "apps/parent-mobile",
+      "packagePath": "node_modules/braces",
+      "name": "braces",
+      "version": "3.0.3",
+      "registryIntegrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+      "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77",
+      "files": [
+        {
+          "path": "lib/compile.js",
+          "originalSha256": "dc98f22eee3d511785d92a00758d5f0d48efed5f5813bdecc2de430c529b5c9f",
+          "patchedSha256": "b651f7715e6db8942ce61d3394357b4d81c8ece88240aa31a458ea1165edd195"
+        },
+        {
+          "path": "lib/constants.js",
+          "originalSha256": "c18ac5adb57308f1ce42a28552da3a31f5d83709743ebd9a636336813a744d4b",
+          "patchedSha256": "f9fb688959232eee3e6ad7906a5b0e3234815db49ee857ef86983d65b917dc7c"
+        },
+        {
+          "path": "lib/expand.js",
+          "originalSha256": "41ccc196ebfa7b7781a634e721eb744e4e7bcb54cba427a7e3d6806a1b9e58f7",
+          "patchedSha256": "7ea3e14c2b2b256ef244fd3d83b8fcaa20aa2232b4e6d768c3bb6ab567f66cf5"
+        },
+        {
+          "path": "lib/parse.js",
+          "originalSha256": "e572166565f15fa6ad9865ae49d678218e32aabfd1b3720f6d0d43d39800d310",
+          "patchedSha256": "72aabaadaa555cdfbd07fbd7c7f743373e4dc8eec04a97550cc57bbeec30eb6c"
+        },
+        {
+          "path": "lib/stringify.js",
+          "originalSha256": "379f22d77bfa1478341ccd49c5e4267464aabcbba03558bab332aac23fc6f23a",
+          "patchedSha256": "49dc2d8bafa74f34715a18a845bcb82ce66caaf3bab4cf117998e06b1f9a50a9"
+        }
+      ]
+    },
+    {
+      "scope": "apps/parent-mobile",
+      "packagePath": "node_modules/node-forge",
+      "name": "node-forge",
+      "version": "1.4.0",
+      "registryIntegrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==",
+      "originalTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
+      "patchedTreeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf",
+      "files": [
+        {
+          "path": "lib/rsa.js",
+          "originalSha256": "fd4740238145ec26470eb3f06a627c72039538ce1307dbdce40521f94dfd0a50",
+          "patchedSha256": "22cdfb3220439533211cf00ff7c7e6605607761d77a2c3c263411d4c70798c4f"
+        }
+      ]
+    },
+    {
+      "scope": "apps/coach-mobile",
+      "packagePath": "node_modules/braces",
+      "name": "braces",
+      "version": "3.0.3",
+      "registryIntegrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==",
+      "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77",
+      "files": [
+        {
+          "path": "lib/compile.js",
+          "originalSha256": "dc98f22eee3d511785d92a00758d5f0d48efed5f5813bdecc2de430c529b5c9f",
+          "patchedSha256": "b651f7715e6db8942ce61d3394357b4d81c8ece88240aa31a458ea1165edd195"
+        },
+        {
+          "path": "lib/constants.js",
+          "originalSha256": "c18ac5adb57308f1ce42a28552da3a31f5d83709743ebd9a636336813a744d4b",
+          "patchedSha256": "f9fb688959232eee3e6ad7906a5b0e3234815db49ee857ef86983d65b917dc7c"
+        },
+        {
+          "path": "lib/expand.js",
+          "originalSha256": "41ccc196ebfa7b7781a634e721eb744e4e7bcb54cba427a7e3d6806a1b9e58f7",
+          "patchedSha256": "7ea3e14c2b2b256ef244fd3d83b8fcaa20aa2232b4e6d768c3bb6ab567f66cf5"
+        },
+        {
+          "path": "lib/parse.js",
+          "originalSha256": "e572166565f15fa6ad9865ae49d678218e32aabfd1b3720f6d0d43d39800d310",
+          "patchedSha256": "72aabaadaa555cdfbd07fbd7c7f743373e4dc8eec04a97550cc57bbeec30eb6c"
+        },
+        {
+          "path": "lib/stringify.js",
+          "originalSha256": "379f22d77bfa1478341ccd49c5e4267464aabcbba03558bab332aac23fc6f23a",
+          "patchedSha256": "49dc2d8bafa74f34715a18a845bcb82ce66caaf3bab4cf117998e06b1f9a50a9"
+        }
+      ]
+    },
+    {
+      "scope": "apps/coach-mobile",
+      "packagePath": "node_modules/node-forge",
+      "name": "node-forge",
+      "version": "1.4.0",
+      "registryIntegrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==",
+      "originalTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
+      "patchedTreeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf",
+      "files": [
+        {
+          "path": "lib/rsa.js",
+          "originalSha256": "fd4740238145ec26470eb3f06a627c72039538ce1307dbdce40521f94dfd0a50",
+          "patchedSha256": "22cdfb3220439533211cf00ff7c7e6605607761d77a2c3c263411d4c70798c4f"
+        }
+      ]
     }
   ],
   "scopeLocks": [
     {
       "scope": "root",
       "normalisedUtf8Sha256": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6"
+    },
+    {
+      "scope": "apps/parent-mobile",
+      "normalisedUtf8Sha256": "cc4eab886ad2d0e7e8549d49922d741bb2337c82dcf8a3b96e71eef59dfd7eb9"
+    },
+    {
+      "scope": "apps/coach-mobile",
+      "normalisedUtf8Sha256": "fb4cbbac28a81eee8acc13c0f4ea6b8129f4d7d4f0744a8eda3a6b51ea016c6a"
     }
   ],
   "patches": [
     {
       "file": "patches/braces-3.0.3.patch",
       "sha256": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699"
+    },
+    {
+      "file": "patches/node-forge-1.4.0.patch",
+      "sha256": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4"
     }
   ],
   "approval": {
-    "scope": "Root-only Fans clock preparation; exact-head independent acceptance required",
-    "publicationApproved": false
+    "scope": "Local adoption and bounded source-remediation implementation only; no publication.",
+    "receivedOn": "2026-10-04",
+    "authority": "Project approval authority verified by parent"
   },
   "maintenance": {
     "owner": "Steve",
@@ -81,47 +225,435 @@
     "recheck": "Fresh official advisory and upstream PR semantic check before every gate/release run."
   },
   "implementationHashes": {
-    "scripts/security-supply-chain-gate.mjs": "ff5401ae730e5255c432e04ab6d06f77259015daa6c7ffa606cc6e9523ed75df",
-    "scripts/security-apply-reviewed-backports.mjs": "075edac2062922ee3bc039a05dd40c42312932248cd7eb762480a49a0bc9594e",
-    "scripts/security-verify-reviewed-backports.mjs": "96b515257077daa1451b138286d53ab9a92fdb53575d7507e8deb77cf7945e26",
-    "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
+    "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
+    "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
+    "scripts/security-verify-reviewed-backports.mjs": "71f3c87e778f2e7814384427dcef12e8d9d74e4a8c124d049ebe0fd71b5598db",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
-    "security/patches/reviewed-source-manifest.json": "8366c186bcd6a755e4b971858cfeb392ccd84b3e7fc0aabfaf24427308a70b97",
-    "tests/security-reviewed-backports.test.mjs": "013a1a35379f2077915a9343f86945c77ce45ff48a834e1896c1cbd632e0d922",
-    ".github/workflows/security-gate.yml": "31568ca6481da9d1f8557d41b00d7d02caed2e612a62400f0cc182b094a5ecee",
+    "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
+    "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
+    "tests/security-reviewed-backports.test.mjs": "450bae9fc7f52016df87395a45327a31057dd4c8d3baff1bdf0b631588ac004b",
+    "scripts/security-provision-reviewed-backports.mjs": "8718b28d2c1c7c3f288a1f19b8bea025c70286dc09fd0114aea23e68177c0981",
+    "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
+    ".github/workflows/security-gate.yml": "7c70f8c94e779b1ce11c67ec23ad671f365936a94c471aae7d51f94a62f89e93",
+    "apps/scripts/mobile-release-check.mjs": "026b0d3117b8d268be368851f2ebfeb82363f8a738765c15b1a6a906479b56c1",
+    "package.json": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7",
+    "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
     "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265"
   },
-  "payloadSha256": "8366c186bcd6a755e4b971858cfeb392ccd84b3e7fc0aabfaf24427308a70b97",
-  "adoptionProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
+  "payloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
+  "adoptionProposalSha256": "b7aa86bbcfc622f60ff9f8fee8bdf983339201a715440e01205d3a22ca707695",
   "nativeInputs": [
     {
       "path": "package.json",
-      "normalisedUtf8Sha256": "066f403f6d665f003b5c3ea0e025d52865d07d3636278f58a529e4eba798ab09",
+      "normalisedUtf8Sha256": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7",
       "unchanged": true
     },
     {
       "path": "package-lock.json",
       "normalisedUtf8Sha256": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6",
-      "unchanged": false
+      "unchanged": false,
+      "reason": "Previously reviewed source-map-js 1.2.2 prerequisite from current main, native app inputs unchanged"
+    },
+    {
+      "path": "apps/mobile-core/appConfig.cjs",
+      "normalisedUtf8Sha256": "d3352dac9e7bdaa8371fa6ae123b7b059ed41696d56abaa9f7c0fd1603928337",
+      "unchanged": true
+    },
+    {
+      "path": "apps/parent-mobile/package.json",
+      "normalisedUtf8Sha256": "3f49b2cbb7706b94777da566e09160dab98d192a999db1fb263bf0dc1bb301a7",
+      "unchanged": true
+    },
+    {
+      "path": "apps/parent-mobile/package-lock.json",
+      "normalisedUtf8Sha256": "cc4eab886ad2d0e7e8549d49922d741bb2337c82dcf8a3b96e71eef59dfd7eb9",
+      "unchanged": true
+    },
+    {
+      "path": "apps/parent-mobile/app.config.js",
+      "normalisedUtf8Sha256": "f88ce53014459b01f1a68dc502b7c59b28a123ec70a637fb8ae96eaf259f7a20",
+      "unchanged": true
+    },
+    {
+      "path": "apps/parent-mobile/eas.json",
+      "normalisedUtf8Sha256": "7f2e7d74ce7c720e36f36ce74fb610b9f94b185d5cbc9f953176e03fb2d8f507",
+      "unchanged": true
+    },
+    {
+      "path": "apps/coach-mobile/package.json",
+      "normalisedUtf8Sha256": "9a482c2b1bfcfce0813f71ab3ccffcd9a2f416e579e4b033b68edce8fe84cfaa",
+      "unchanged": true
+    },
+    {
+      "path": "apps/coach-mobile/package-lock.json",
+      "normalisedUtf8Sha256": "fb4cbbac28a81eee8acc13c0f4ea6b8129f4d7d4f0744a8eda3a6b51ea016c6a",
+      "unchanged": true
+    },
+    {
+      "path": "apps/coach-mobile/app.config.js",
+      "normalisedUtf8Sha256": "b9b79960dcc3350b9c8356290bfd1ce08205103cfec07b9c0ab062febebc4a99",
+      "unchanged": true
+    },
+    {
+      "path": "apps/coach-mobile/eas.json",
+      "normalisedUtf8Sha256": "06bc1dbdd079d8ba6e9ec23abbaa21a0ddfc8a9f890bd707b9d241b4b20b0cd2",
+      "unchanged": true
     }
   ],
-  "originalApplicationBaseline": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
+  "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
   "dependencyRemediation": {
+    "baseline": "1f635088b522079c119048e3ca996c93f0e106f1",
+    "originalReviewedHead": "da51884f9364faa786a58aa063b8e631b02c253d",
+    "scope": [
+      "apps/coach-mobile/package.json",
+      "apps/coach-mobile/package-lock.json",
+      "tests/parent-chat-layout-browser.mjs"
+    ],
+    "reason": "Parent-authorised compatible official Coach tooling updates and observed Chat test render-commit timing repair.",
+    "additionalAdvisoryAcceptanceAllowed": false,
+    "nativeDirectDependenciesAndRuntimeChanged": false,
+    "nativePackages": [
+      {
+        "path": "node_modules/@react-native-async-storage/async-storage",
+        "name": "@react-native-async-storage/async-storage",
+        "version": "2.2.0",
+        "integrity": "sha512-gvRvjR5JAaUZF8tv2Kcq/Gbt3JHwbKFYfmb445rhOj6NUMx3qPLixmDx5pZAyb9at1bYvJ4/eTUipU5aki45xw=="
+      },
+      {
+        "path": "node_modules/@react-native-community/datetimepicker",
+        "name": "@react-native-community/datetimepicker",
+        "version": "8.4.4",
+        "integrity": "sha512-bc4ZixEHxZC9/qf5gbdYvIJiLZ5CLmEsC3j+Yhe1D1KC/3QhaIfGDVdUcid0PdlSoGOSEq4VlB93AWyetEyBSQ=="
+      },
+      {
+        "path": "node_modules/expo",
+        "name": "expo",
+        "version": "54.0.37",
+        "integrity": "sha512-afzbtO4i/K9ZCrzyLgEOaXW56w/yuAK61JkCOMrw/S/VFCAp6YwKWA494X5mIcrVmRAmclv/ec7ga8ndTkzhxw=="
+      },
+      {
+        "path": "node_modules/expo-application",
+        "name": "expo-application",
+        "version": "7.0.8",
+        "integrity": "sha512-qFGyxk7VJbrNOQWBbE09XUuGuvkOgFS9QfToaK2FdagM2aQ+x3CvGV2DuVgl/l4ZxPgIf3b/MNh9xHpwSwn74Q=="
+      },
+      {
+        "path": "node_modules/expo-asset",
+        "name": "expo-asset",
+        "version": "12.0.13",
+        "integrity": "sha512-x/p7WvQUnkn6K43b9eL6SPeq5Vnf1E8BDe9bDrWrvMqzyUvJnUFvl+ctg3034s/+UHe7Ne2pAmc0+yzbl8CrDQ=="
+      },
+      {
+        "path": "node_modules/expo-constants",
+        "name": "expo-constants",
+        "version": "18.0.14",
+        "integrity": "sha512-BUZm9mkl/TX7zNaN0N4C83ws7mEnesCFiKhqK+rMZwTD2+Q4wWB2kBltqnC/LrCRaMyRi40XxhCRVwuKnJkxXQ=="
+      },
+      {
+        "path": "node_modules/expo-crypto",
+        "name": "expo-crypto",
+        "version": "15.0.9",
+        "integrity": "sha512-SNWKa2fXx7v9gkp1h/7nqXY5XN7qgNDn3yRc2aO0gWGbeMbvob/haMxxsPFe9f51aqH5NjNCqHf2kvLhvAd8KQ=="
+      },
+      {
+        "path": "node_modules/expo-device",
+        "name": "expo-device",
+        "version": "8.0.10",
+        "integrity": "sha512-jd5BxjaF7382JkDMaC+P04aXXknB2UhWaVx5WiQKA05ugm/8GH5uaz9P9ckWdMKZGQVVEOC8MHaUADoT26KmFA=="
+      },
+      {
+        "path": "node_modules/expo-eas-client",
+        "name": "expo-eas-client",
+        "version": "1.0.8",
+        "integrity": "sha512-5or11NJhSeDoHHI6zyvQDW2cz/yFyE+1Cz8NTs5NK8JzC7J0JrkUgptWtxyfB6Xs/21YRNifd3qgbBN3hfKVgA=="
+      },
+      {
+        "path": "node_modules/expo-font",
+        "name": "expo-font",
+        "version": "14.0.12",
+        "integrity": "sha512-QQzunE2Mxk45AsCWm3tK7OpVljbtVnKD58q4/qliev+cbye1IOduUnRIdD+P7DyButw17G9MTX795kgaQiz5hQ=="
+      },
+      {
+        "path": "node_modules/expo-json-utils",
+        "name": "expo-json-utils",
+        "version": "0.15.0",
+        "integrity": "sha512-duRT6oGl80IDzH2LD2yEFWNwGIC2WkozsB6HF3cDYNoNNdUvFk6uN3YiwsTsqVM/D0z6LEAQ01/SlYvN+Fw0JQ=="
+      },
+      {
+        "path": "node_modules/expo-keep-awake",
+        "name": "expo-keep-awake",
+        "version": "15.0.8",
+        "integrity": "sha512-YK9M1VrnoH1vLJiQzChZgzDvVimVoriibiDIFLbQMpjYBnvyfUeHJcin/Gx1a+XgupNXy92EQJLgI/9ZuXajYQ=="
+      },
+      {
+        "path": "node_modules/expo-local-authentication",
+        "name": "expo-local-authentication",
+        "version": "17.0.9",
+        "integrity": "sha512-Ro2m6JJ7ebaDCMsnh6CeXKqXUdK5xP2lnrJlAopUO2DGqX5693BWC14ANFihFWL6qEV7IIV4hGpdU5RYyBCbuQ=="
+      },
+      {
+        "path": "node_modules/expo-manifests",
+        "name": "expo-manifests",
+        "version": "1.0.11",
+        "integrity": "sha512-6zItytTewN37Cjhp3glUg0ozrgW2GwB8x9wtfzUNoJIMmxO38nnGdTLMaotYhRqdf5PP2Dzdmej1HDHXVNUpRw=="
+      },
+      {
+        "path": "node_modules/expo-modules-autolinking",
+        "name": "expo-modules-autolinking",
+        "version": "3.0.27",
+        "integrity": "sha512-Ge216xmfXcba+aUQssfmUo9Hf92wXX3xcXJmOsC/wpuV5B5ozm4BTkRKpoCXEkdD8eJVmFy7ATS8yD3upFOPQA=="
+      },
+      {
+        "path": "node_modules/expo-modules-core",
+        "name": "expo-modules-core",
+        "version": "3.0.30",
+        "integrity": "sha512-a6IrpAn/Jbmwxi9L+hMmXKpNqnkUpoF7WHOpn02rVLyax2J0gB1vvCVE5rNydplEnt41Q6WxQwvcOjZaIkcSUg=="
+      },
+      {
+        "path": "node_modules/expo-notifications",
+        "name": "expo-notifications",
+        "version": "0.32.17",
+        "integrity": "sha512-lwwzn7tImuzTzn9PAglZlS2VfZEvsfFGJTK9Eb8I4cqkGh2DI23YJFJH+WPEIu4QhDvk5JeBjklenJ8IZbmA4A=="
+      },
+      {
+        "path": "node_modules/expo-secure-store",
+        "name": "expo-secure-store",
+        "version": "15.0.8",
+        "integrity": "sha512-lHnzvRajBu4u+P99+0GEMijQMFCOYpWRO4dWsXSuMt77+THPIGjzNvVKrGSl6mMrLsfVaKL8BpwYZLGlgA+zAw=="
+      },
+      {
+        "path": "node_modules/expo-structured-headers",
+        "name": "expo-structured-headers",
+        "version": "5.0.0",
+        "integrity": "sha512-RmrBtnSphk5REmZGV+lcdgdpxyzio5rJw8CXviHE6qH5pKQQ83fhMEcigvrkBdsn2Efw2EODp4Yxl1/fqMvOZw=="
+      },
+      {
+        "path": "node_modules/expo-updates",
+        "name": "expo-updates",
+        "version": "29.0.20",
+        "integrity": "sha512-9ChWpBaQ1oIIwRRuhFSpwNOJvXeWyTYawcfDLFV0UZBgOwtxgTGdCYbFm4qHAjptmKAPFHHL9bIDgokgkOW9Sg=="
+      },
+      {
+        "path": "node_modules/expo-updates-interface",
+        "name": "expo-updates-interface",
+        "version": "2.0.0",
+        "integrity": "sha512-pTzAIufEZdVPKql6iMi5ylVSPqV1qbEopz9G6TSECQmnNde2nwq42PxdFBaUEd8IZJ/fdJLQnOT3m6+XJ5s7jg=="
+      },
+      {
+        "path": "node_modules/expo/node_modules/expo-file-system",
+        "name": "expo-file-system",
+        "version": "19.0.24",
+        "integrity": "sha512-hZs0Ng+coNjx7YJ8MPwfJpoU1SRul6OZ9LZycFzozUeoR+denbyr944YrMP9NVn+Zf1tdC7p0K0zgah3ZySOYg=="
+      },
+      {
+        "path": "node_modules/react-native",
+        "name": "react-native",
+        "version": "0.81.5",
+        "integrity": "sha512-1w+/oSjEXZjMqsIvmkCRsOc8UBYv163bTWKTI8+1mxztvQPhCRYGTvZ/PL1w16xXHneIj/SLGfxWg2GWN2uexw=="
+      },
+      {
+        "path": "node_modules/react-native-safe-area-context",
+        "name": "react-native-safe-area-context",
+        "version": "5.6.2",
+        "integrity": "sha512-4XGqMNj5qjUTYywJqpdWZ9IG8jgkS3h06sfVjfw5yZQZfWnRFXczi0GnYyFyCc2EBps/qFmoCH8fez//WumdVg=="
+      }
+    ],
+    "lockImpactSha256": "da8ffc891f567e50452c19bbc9bf6168087ad1799daf78c272e9873eeae4624e",
     "changedSourceHashes": {
-      "package-lock.json": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6"
-    },
-    "scope": "Root transitive source-map-js 1.2.1 to official registry 1.2.2 for GHSA-68fv-2mgg-jv7q; only version, resolved URL and integrity changed; no package.json or mobile lock changes"
+      "apps/coach-mobile/package.json": "9a482c2b1bfcfce0813f71ab3ccffcd9a2f416e579e4b033b68edce8fe84cfaa",
+      "apps/coach-mobile/package-lock.json": "fb4cbbac28a81eee8acc13c0f4ea6b8129f4d7d4f0744a8eda3a6b51ea016c6a",
+      "tests/parent-chat-layout-browser.mjs": "5ba0eb3c64e1d1d2dc35425bd24828afc7dd509aba2e752618184ed771a1f29a"
+    }
   },
-  "dependencyRemediationSha256": "70851c51754507a37996f387c6dbd3944c8303493577a664c8fd540c28ae3db7",
+  "dependencyRemediationSha256": "94984eb6e9f29615eaf9a110a71c79ab5ebd37223e2ff10ee32c2313e02cd394",
   "releasePreparation": {
-    "baseline": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
-    "scope": "Approved public marketing reference port and Fans web clock; root-only source qualification; no mobile, SQL or V2 changes",
+    "previousCandidate": "84e3671573f83cd24586637b76f86e8921c1a80d",
+    "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
+    "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
+    "approvedScope": "DRAFT ONLY: combined V1 local product and regression preparation, bounded four-migration validation, and honest same-byte closed/unmerged braces status refresh; parent approval and fresh independent exact-HEAD receipt required before activation",
     "changedSourceHashes": {
-      "netlify/functions/lib/_fan-schedule.js": "e4d15197d2745b2d8e75238db20c0ec09149fd10f9797e9339af1f4841f17bc0",
-      "src/app/router.jsx": "21ceff28fd2c3653edeb9847efeecc35a82a15e33577d8f218c8278ab68b216a",
+      "apps/coach-mobile/App.js": "c6aeb635513ad65dc1cbfec5d61bf3c2b1c6d97640b4a300a0e64afb2b05b755",
+      "apps/coach-mobile/src/CoachMatchDayScreen.js": "7821eb0ad4eca5b52097ef82282cdfc6c0976de3a2b927bdeaad9c8bd2956a52",
+      "apps/coach-mobile/src/CoachMatchInviteTable.js": "01857bae300d5d17d33a85d3d66dc28397dc4fee4a1ca25ce1fbadeff5d9479e",
+      "apps/coach-mobile/src/CoachPhase31EScreens.js": "facffb6395e5b76ffc634d90bb55b1d36a2df9c39a4e1c2534b75e849fe6c99c",
+      "apps/coach-mobile/src/CoachTeamBrandingSetup.js": "553f6e28e16474cd914f250aca17e0ffb83bbd8190a1a059cc22fc406e57bfc1",
+      "apps/coach-mobile/src/DevelopmentOfflineEditor.js": "8209ec72e0fd01facb6a281276c659a6c1e3f1300437ee28c4645d7266f8976e",
+      "apps/coach-mobile/src/coachDevelopmentSync.js": "9f8ba95b76dd53625a1946fb5007cb366689c677fa6b7af5bad34e59822f279d",
+      "apps/coach-mobile/src/coachThemeCore.js": "b10b1675fc530b4af884ebce4b2fe4402a1d07d68a4d2a686c0911ce6737b74a",
+      "apps/coach-mobile/src/offline.js": "4284df79e19eb85fd9a3ce469c15fbebe45755416964ab6de2a52f8b2e271d5a",
+      "apps/mobile-core/src/AttendancePendingRows.js": "1931716ee5b35accc2e842cb53937fea6f84a13a2bd758fe48efe9c8e0d77579",
+      "apps/mobile-core/src/TeamLeagueLink.js": "60a9df6729e261a2d574ddcd440ceafeba63b46068931003d8da474d637dcd4e",
+      "apps/mobile-core/src/attendanceCommandData.js": "69bcff81df8a89c6e74a97676493c83b2ccd169fa5318fe160077640a2fc8f47",
+      "apps/mobile-core/src/attendanceOutboxCore.js": "03783a41834672338eee9d224e43deb46d1c974fb3e44f0b41a81b6433df9700",
+      "apps/mobile-core/src/coachContextCore.js": "37b7fdd7b718ad05e351ee3c9f7b37e7d672422747b294361eb43ccfbf302853",
+      "apps/mobile-core/src/coachMatchDayCore.js": "b51d0884dd4e675865590db7fe0274639315c0c77ec30bfe27bc37bf2197bd45",
+      "apps/mobile-core/src/coachMatchDayData.js": "4f178e9187697c1bb9e763486fdced8d9295d1375135f870f435d39abd5b18ec",
+      "apps/mobile-core/src/coachOfflineCore.js": "0726d23f218e743a6c5c718947a479eddfb8d6d184d60f27fb480582029117d9",
+      "apps/mobile-core/src/coachPhase31ECore.js": "92c96e482a5d3696e806a7c751ba5e8071905f5921a6be8e5f5dad2f89417286",
+      "apps/mobile-core/src/coachPhase31EData.js": "ad7427df2251934a945bf25446543b177590befb71f10be35ca87f36a4b9c248",
+      "apps/mobile-core/src/developmentSaveStatusCore.js": "2240219fb866c6c3cb7028b032ac577713e5ecb4ceae53cd398c355dc0073f65",
+      "apps/mobile-core/src/matchDayParticipantRoster.js": "ac179cee3b6b949728a03b31de122218aab06e4ae1b111903e6e4ab2adad0ff2",
+      "apps/mobile-core/src/parentStatusColours.js": "e8c86edfb1da8eeb001c2acd47ba18f37e9021bae49fb683dc8923927deaca7a",
+      "apps/mobile-core/src/parentThemeCore.js": "5899bdc6847451e0c6b1d4aa32f00114fbd6cdb1841cefabe0acaf5da4830800",
+      "apps/mobile-core/src/profile.js": "772018633568bab13054924c63f63e06dce4cffca84e4c8e9ba6ff7da3582362",
+      "apps/mobile-core/src/useAttendanceOutbox.js": "e8340032a51320a61d7479589bb8aa74c96e749ff1a53860cd5f2a83d0c6771c",
+      "apps/mobile-core/src/useTeamLeagueLink.js": "90d3df0b7dd17770e42518c6ab7484a2d85cfe065ae79792ec6cfd8a00bd84d7",
+      "apps/parent-mobile/App.js": "e7388920b1bc81623fc320b024161b6e09ca7b3c427f4a9e067cb812dc94c4af",
+      "apps/parent-mobile/src/ParentPortalScreens.js": "923b582003025145fa2fafa98d9072e61554cbacc0961fd4ac2db27b4e9fb7a4",
+      "apps/parent-mobile/src/offline.js": "f20fe5d72078474d6976e2b59b783dbedf1b7bdfff22db30620ca6ca4377f3ce",
+      "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
+      "apps/parent-mobile/src/parentPortalData.js": "7e9489557a5fb71c9d45b3b4c98d47238449ac7b71bb028865e19439a43afd1c",
+      "apps/scripts/mobile-prestore-check.mjs": "d433f1890c8aab4b7b8c0598b5aaf4bc06f7f9c99ee2ef5d01d3c53f8ad3ce14",
+      "docs/audits/matchday-roster-fallback-04-10-2026.txt": "77153166e52831ca6c3ebdc642cbe347b716da4d9f59717bb3ced0508aa21777",
+      "docs/audits/st-neots-clock-04-10-2026-evidence.json": "4bc58012bd9914f7e9779030fae0c8c5bae79149d5e090257e1ab0b92015e7ff",
+      "docs/audits/st-neots-clock-04-10-2026-queries.sql": "aecb758ed3508110ae6dc09619c1ca7ae1fd70a32322c25211c8c08c9c183213",
+      "docs/audits/st-neots-clock-04-10-2026.txt": "624c257e2f4f4e1ff7024e76119cfc69eca6795f5e0fffe7b4b642501910fa05",
+      "docs/planning/first-250-branding-preparation-03-10-2026.md": "ffcc8074de3c80a0d8eb3c7aa47992853a12332d7294ef34c4f79a367458c77e",
+      "docs/planning/first-250-local-readiness-05-10-2026.md": "eac3dbd37779ac3f07e46f00f43614603d1cb65030159b37dcb5cab9988baf0d",
+      "docs/planning/first-250-phone-onboarding-preparation-04-10-2026.md": "43c867d8063338176c8380757854dcb1379cacbb048c98862e38412bcead0e44",
+      "docs/planning/team-current-league-url-validation.md": "18db44110207499c27a5f71ccfa969369505c18633497b216f3066cacf55d19a",
+      "netlify/functions/lib/_first-250-branding.js": "1a58e8b034b69b2fcbb33cfa98d011f2470a142c6194d9f96236c5871ff59647",
+      "netlify/functions/lib/_match-day-invitation-renewal.js": "2015989236a6035034c99c63d4407c515f63c2a4963a07f00e9ba0318233debe",
+      "netlify/functions/lib/_team-branding-management.js": "7b5e6713dde08829d4cdcb6937fe97fd15d684c46113aacb5786d45e307d40c4",
+      "netlify/functions/manage-team-branding.js": "ad9cb0aa265e519edb3487340cdd33d4dfa29c41512eed261a2933cd68dc6485",
+      "netlify/functions/send-event-player-invitation.js": "eb85bb419b5b5fa6b203b8c25d9799d5cc22262ffd71db447bc05e2730301b4b",
+      "netlify/functions/send-match-day-availability-requests.js": "e459879b19edf41d6b78b95f0d49241d8ac568431093bb24e3bc9c2c36c5d160",
+      "scripts/security-migration-gate.mjs": "e789dfa4fccffc12064374ea680cde5d4e7ef67a4b0362348b452a05f5af25b9",
+      "scripts/v1-hardening-migration-scope.mjs": "8ba08c43eb762d3fd4fe36a2acb247c38869ff178ff02f7dafdd9aa029a2f7dd",
+      "src/app/router.jsx": "2452c7151488ce2ad41a2bb2edebcb0424a453853ba7f53317018c02e33cc927",
+      "src/components/layout/Layout.jsx": "738462749b904567ccad61faf93c441b7f3b6da87bb507171e892b5c7dae65ac",
+      "src/components/layout/Sidebar.jsx": "ce4f73f93d5b7c0e514c9e05e8c339faeaa9a63b3704492320e4fcd555571c12",
+      "src/components/match-day/CompletedMatchReportExportActions.jsx": "df732533bfc721f678a5c8221028f6681a6fa42dea3d442238096886fd94ae98",
+      "src/components/teams/TeamBrandingOffer.jsx": "1b20e325e1073a8e331b5584cd9e85c3aef4cbb61f5b5ba98125cae23ff671ad",
+      "src/components/teams/TeamLeagueLinkSettings.jsx": "6503e07cdc7a5cb00d81d973df86a43cac1680d5eaa4d661e116a91040e30493",
+      "src/components/teams/TeamStaffAllocationsSection.jsx": "cb23589486b18d3beece3e4ff0fe664e85c960eebec47834cbf3879c460d055e",
+      "src/lib/auth.js": "b816553679799744472452fb39ee290cd009a058cff2cf46fba8febefc9e84ad",
+      "src/lib/domain/core.js": "34c6c1672a062e5fa3681a243b7f939b120c3f8a1f9d5b9160d06b3dc4517de0",
+      "src/lib/fan-branding.js": "3ef52ae06ec1b8f5c225a7411a8e550e1ab1cf057e50741490d75d37e61ddf95",
+      "src/lib/matchday-report-export.js": "5066a5188afecefb5d2077fc3e9a6414934455f888b9ae330b91afce677b8c26",
+      "src/lib/matchday-scorer-event.js": "46846fcb473ee6e942774cdb290c3fb092e91291284d9a71cfd1bf055780cb68",
+      "src/lib/parent-portal-branding.js": "0a698d087b8e89e2462e746e6ce1a75aadce0aa82da0c67c3f78f70c92ee7754",
+      "src/lib/team-branding-display.js": "cdb6c38e2de8b195fb0fe14bea35228e233a4780964fe86cf03eef3ea171bf32",
+      "src/lib/team-branding-onboarding.js": "220dcf50b07267e5844370376cc96317b2e99d3ce649fdf4d675f3a125300c17",
+      "src/lib/team-league-link.js": "d119c6c38325ef8f56d369817cc422b8d3e61c7155abe521f23aef1d56369892",
+      "src/pages/TeamBrandingSetupPage.jsx": "96a7a7766632a7874661aa69b65e17327c9019baabca9cca1946917185ee5c26",
+      "src/pages/TeamManagementPage.jsx": "74a03ad4b23db0b103e9aa076bb97eda90e4ae96cfe6da19146edf5e08c9a824",
+      "supabase/migrations/20261003060000_first_250_branding_preparation.sql": "188aa136e4c87fdec3f3a52f084e2fa1eabee6ae43cf30c7cba46dee099d9201",
+      "supabase/migrations/20261004152308_atomic_match_day_participation_renewal.sql": "0f72132d9c6ff68aea9ce39b0b8ae65b3298e8f4d2023a9e7a1748e7c5136827",
+      "supabase/migrations/20261004153000_matchday_unconfigured_participant_roster.sql": "5a66fdb5bd2a19bf2e8486b35aba538943995dd99e9d01f13db3d6d4355f0b9a",
+      "supabase/migrations/20261005085925_mobile_attendance_durable_commands.sql": "b3fe9b2893a9d8082d3af15ac76a8fffe258b811d2bb7460def0c6b9324038f0",
+      "tests/app-speed-regression-75.test.mjs": "c96c8fe7cd00be9919e49bf2d5280a92c19c53c9040634e853beaa9038f7d1de",
+      "tests/atomic-renewal-schema-rls.test.mjs": "2b63783123c593349de279fa00ec05346a0753e1834646298089157df4a1a10e",
+      "tests/atomic-renewal.test.mjs": "efc8c747dd0da65d96edf2da0ffb9bd8039c4e9b69e05e550a41ac9810fda62c",
+      "tests/attendance-migration-contract.mjs": "5da866fa3575c537494dde373f67f5fd1dcc140ba2123bef18a609e8362a3478",
+      "tests/attendance-outbox.test.mjs": "9f8ef3d62df4adbd144785b4f685a4b22b118d134501e59864df0a38c4c52398",
+      "tests/attendance-ui-handlers.test.mjs": "c84ce0a5be1a11d6f4ade3ffb671ac50e512f8a180c3b4e4e11dafd5af7f9b8d",
+      "tests/calendar-datetime-integrity.test.mjs": "8eb50e461db77e004d62fb4e49a6bf11860394dbe3f602abc40afaf5c6f559db",
+      "tests/calendar-event-notify-hotfix.test.mjs": "cdea6e62337aa14190fe36b1ccdf54d1f9e03c6ea4b1082cc8d11157eb56c79f",
+      "tests/calendar-mobile-modal-layout.test.mjs": "13ad59d6b4452e917239a964a6aca391825cbce810dcd306b286e1275628cb4c",
+      "tests/club-calendar-parents.test.mjs": "018c4b27d772495d20d6c4d3b404c906bf349cb0e392ac43f3e21d82be78e055",
+      "tests/coach-availability-counts.test.mjs": "7e21c508a3a2b518bbf5a676a19f98b058afce3e172f6c4dc2b5490da823f4b1",
+      "tests/coach-branding-return-browser.mjs": "86d8d4482e2f2cd6f65d40636304e2959251f885ae1267a3562cd3997e18c0d0",
+      "tests/coach-cache-memory.test.mjs": "03b96a06df4ba67de71a27c30357df35e50f8ed6d05931e3a39786a1e7713550",
+      "tests/coach-invite-table-browser.mjs": "3d96596d902e6e607d138398f418f37add536dcbb2ea2fdc2a6979d8a8612c09",
+      "tests/coach-renewal.test.mjs": "beede291eca1615496d8b3ad72e3ffd7e65b7b42fe83515c6bf2bd4b9a92e086",
+      "tests/coach-smooth-scroll-browser.mjs": "482276d408bb2e0094e2e5bd873c5003420597c4ca9941334ad000c7d0ab64be",
+      "tests/data-transfer-hardening.test.mjs": "5b62949488bea2e51dd60c1dc15805cff874d0096ec0679b359fda421d0f813d",
+      "tests/development-recipient-state-recovery.test.mjs": "ac082ab6dbfb9c00ae2144815b28f0bc1a4bf2dc7c9ff132e3bed0fd2684b98b",
+      "tests/development-record-save-flow.test.mjs": "99fde1769683b5aeea8d6c38a614fbccc598f39f8ce487d92f741abe7af19ea9",
+      "tests/development-save-repair.test.mjs": "74bbdcd7377fd91a9094f6e94fbc4ff746295448d414bbe3b6f114fb56316249",
+      "tests/development-scores-filenames-10c.test.mjs": "5f978755f5ab8db6387b7a4cd65599b1918fcd9fadb6156ae42f20f298f5bd7d",
+      "tests/event-response-read-model-06a.test.mjs": "72a657e0074e4653dd0cd0c0b0548ccea8cf50ba106758235233ca04638c4db8",
+      "tests/fan-app-content-browser.mjs": "1ef7c42247b139e043bf4bd72c43c16d9e9d3d32924c2d6848901d3a1ac5773f",
+      "tests/first-250-branding-pglite.test.mjs": "503a8b4554fad561ee1a11419493b116025a9e52d55bb4bbb9431fee7cd09c03",
+      "tests/first-250-branding-postgres.mjs": "7f52a617c3cba72b62e265354409bba0719408dcf901210174e33234389b61f0",
+      "tests/first-250-branding.test.mjs": "3d42e0948dabc8d91d2f4e4a9e44b49219a5690612e780259bffda42700e8ccb",
+      "tests/fixture-save-calendar-targets-129.test.mjs": "5f3bc14558a6dea9474563a78e2a0ac7e97c19e4d00b27bce889f7cbf7a969fb",
+      "tests/fixtures/v1-attendance/mobile-attendance-original-rpcs.fixture.sql": "5420a2aa4008c0d8537c21afa1d3d217d708f52052365c159b161fd8fe31638d",
+      "tests/fixtures/v1-attendance/mobile-attendance-original-schema.fixture.sql": "6cd084f442b9aa76a3100fd3567146aace3d8c75484c9e99a6887b421953c288",
+      "tests/fixtures/v1-development/DevelopmentOfflineEditor.fixture.txt": "c4ddf21d90477ec1d38db6ce52b015917d49ba95b620eac9188d9961d5bf0502",
+      "tests/fixtures/v1-development/coachDevelopmentSync.fixture.txt": "67470d1d952cbd123a018f4a1a5a782212af83e779e8050a86c748af4b147bdc",
+      "tests/fixtures/v1-development/offline.fixture.txt": "50c640702bc4ba7fa3ea2872d2415be5ae8ea1c459a82851ee056694ff845366",
+      "tests/hidden-feature-batch1-resurface.test.mjs": "2e06baee19d6cb11ecf0e6d80d07decd13ae3eb4611f095e2121cc1aa665db35",
+      "tests/match-day-participation-renewal.test.mjs": "7b16ef552fc9946cc3d544ecf1c4176fa728cbd16b63970ccb6e11fbd17417d3",
+      "tests/matchday-assist-mobile-notifications-99.test.mjs": "8beacc126241e72c246b9ef15fdc70fa79e796f8b9a8db40c2a98aeab5dc54ed",
+      "tests/matchday-gamemode-modal-controls.test.mjs": "874afe9e99b387155ad76be543eaaaeb9d4071eca2ff9235f013e240293261fd",
+      "tests/matchday-loading-location-fix.test.mjs": "a120dd9faebfb5cfa1e9fb1e6934bca8f847b29f06980a46253067a0b6dc8a48",
+      "tests/matchday-mobile-polish.test.mjs": "d3d5988dc97006b09cd8a32e233c5665ebe239e42811176facd2926b77d1962d",
+      "tests/matchday-push-optional-mobile-table.test.mjs": "575901630c1bb6c275d8d74b450efd4dd07f288066a5575e81d2e70e2336ba15",
+      "tests/matchday-stale-state-refresh.test.mjs": "415d5d5ac00cbf9c8091938826f524284f4eef3a9b5b7844daca5730c32d64f0",
+      "tests/matchday-unconfigured-roster-client.test.mjs": "36c69d5e7ae7c86130be3b330b0e1f2aaa5d80d5e5ad83fc1190b0fce23a230b",
+      "tests/matchday-unconfigured-roster-db.test.mjs": "dfd53dd770c7d17b048a07dbd23f48c2eb404289aa9f472df644482af3bb7202",
+      "tests/mobile-action-dock-system-29d.test.mjs": "62730ff90f7d1ce7bf6f83e16b0a90ff7b8010e3a9a1d48f8d4df696d78c03a8",
+      "tests/mobile-attendance-command.test.mjs": "35da3e258d2333395d7ef00a3cfbf2e0b11d300ee1e8098ec6a210c6cdf165f4",
+      "tests/mobile-attendance-legacy-intent.test.mjs": "5bbfc1461c97a5fca809e565fdd6d3daf8a81f95bacc4fd68040bdf137e36299",
+      "tests/mobile-chat-sessions-poll-60.test.mjs": "fbf42402a21b93f65d6e39094db96bfe58775b5df813115bb44a3bb2bf8bcdec",
+      "tests/mobile-coach-bulk-invite-actions-106.test.mjs": "7d1f9f990f78da29d304ae38764b9c459a555d3b876abb27c1dbc35aa9814673",
+      "tests/mobile-coach-comms-corrective-36.test.mjs": "5212e93139f6e1cfbdfb4c4947c946e710d25b363c492c3fa6bd45e3232808d6",
+      "tests/mobile-coach-live-qa-corrective-35.test.mjs": "fa368bb1640a19d7f4f5e46d326e1310bc23346aa8652da1f42800625c11928c",
+      "tests/mobile-coach-matchday-31d.test.mjs": "f1ab801dcefc46469f7c2e88009a50b927ee08582595110b9a83a489e5c043cc",
+      "tests/mobile-coach-parity-closure-31g.test.mjs": "5117ee173ee7d8a0098261409a9c010e48bbd57448af3c74e9e17787ca9e5504",
+      "tests/mobile-compaction-attention-65.test.mjs": "ae6bab0116931827ffd3d9fcff8d0bd8998a289386175874bb77ef5ddb064e56",
+      "tests/mobile-connection-invites-72.test.mjs": "d4e2b3d9ef105c9ba70e4f2c82d3391b2cd3afa0874d901b630b320b919d7a6f",
+      "tests/mobile-eas-test-boundary-07.test.mjs": "7b006768b746380b07d708588c4edcaf4b30ad66e4ae5364d9e086c51498433d",
+      "tests/mobile-event-details-browser.mjs": "eaf49bfd014dc9223e3261ab0ebf7e574a80c36fe357178c648f5673e53f897b",
+      "tests/mobile-feedback-art-browser.mjs": "6450fa15547f9a8c69eebc1a547c8a610d0e7ec04d5999a875b64d0a36b173a1",
+      "tests/mobile-feedback-corrective-61.test.mjs": "7b686987deb699abae8822d929aa3da852d1005d07fb15141cb3f6fda8f3e57e",
+      "tests/mobile-home-polish-browser.mjs": "057f6c843cc3db83b3817cfe6f70edecf80f3d01bded8e71204306a0368d81be",
+      "tests/mobile-home-refresh-layout.test.mjs": "24311aef45c5e1358b31d88f1a361f4301128ad59225569256950bb6d4e9eb09",
+      "tests/mobile-invites-pdf-scroll-67.test.mjs": "57b440fe63f5d5e48fbe7377e38917cf465e8c4f4b6da7abf1707a4d867aa5c2",
+      "tests/mobile-more-icon-badges-browser.mjs": "4ae03b35369334f11f086387af5225f4dda3f4a9ae7cbe3f616ba2ec2bef71dc",
+      "tests/mobile-notifications-profile-66.test.mjs": "6ac2fd7e1ce96803e2647519ed5cbbbfb4da011941b4b021059bbfbb712777aa",
+      "tests/mobile-offline-development-browser.mjs": "8179d1e699792c1d381ac11d71be249f671befd5b8d31e80d845f24a376dfd21",
+      "tests/mobile-parent-dropdown-browser.mjs": "8f7ad8bfae15bfc05d85a4ca8812f4d4110fdddd3166a393bffac8b00b0d3b3c",
+      "tests/mobile-parent-experience-52.test.mjs": "3ad280c0c01849c2e158d15203dfe0bed55132cde3f22f7a8a21ff5b5ca3effb",
+      "tests/mobile-parent-live-account-qa-29.test.mjs": "69047075fce596d8b7b23c83105ac9756f17bd2d24c3ad5e5b6aef0eb9ebcc6b",
+      "tests/mobile-parent-portal-parity-final-25.test.mjs": "cd0c4554b9b491c1fc1524515e27094c59a3943e309f427a203969f39f779f4b",
+      "tests/mobile-scorer-parity-browser.mjs": "a72f2a6eb0d2c98f7efe91b3b1171b943825fcfab20bad1345f2fe351dc25012",
+      "tests/mobile-settings-menu-browser.mjs": "57c72d93d03339500762a5ce3c94cba5af2971c058ebbde5a607893f5f09d769",
+      "tests/netlify-functions-packaging.test.mjs": "dd6c655a7298c60cffeeba8a74abae9efb7d0d22cfe07ffe33385ee055d16b12",
+      "tests/parent-access-removal-browser.mjs": "f0f12a72bb78f1926595b4029c1190bb606a86fe414bfa62103f0cd3ef64f61a",
+      "tests/parent-assessment-calendar-corrective-38.test.mjs": "113eb0a1a343ea21a60be402ebc97e88ed0c0714105f6cbeac3a39162e8570f0",
+      "tests/parent-chat-layout-browser.mjs": "5ba0eb3c64e1d1d2dc35425bd24828afc7dd509aba2e752618184ed771a1f29a",
+      "tests/parent-compact-matchday-browser.mjs": "ef2087b97031e5ed6b354f8cfbb63da09dfac2fb92aa58954b81c04b628dbe14",
+      "tests/parent-email-change-linkflow.test.mjs": "7ee5082c4645a11f6ad7f2ac47f1f1f5be22cef1528378924e331ff1410ae322",
+      "tests/parent-event-details-browser.mjs": "af41fcc4d35fd30e19827458d765ea23495f30f254aea17dc83133d0242606bc",
+      "tests/parent-fixture-date-layout-browser.mjs": "fa4e29b6e29bf039a0499bd6d583f32de8cbf7d007c75275822cea4821bbc256",
+      "tests/parent-gameplay-notifications-followup.test.mjs": "d1a6632199f418e3ab37b65e263202333734ffd5606f09b9c8cfb6ec6c6d59d7",
+      "tests/parent-home-sections-browser.mjs": "2adf341020b2a48ce1c9e705c90f919ae512c60302d1f59094780c0e05fbb4d8",
+      "tests/parent-home-status-actions-browser.mjs": "a537b372f687e2ceb92c87c1deeafe1b77fd3cb3fa3ef132da80298ac6b0a8ae",
+      "tests/parent-invites-scorer-repair.test.mjs": "68e4f137040ab638310535bec567354836a5e22d912cd30d4f7a9c502986560a",
+      "tests/parent-match-report-branding.test.mjs": "4beddcfb550e8e8927e23ddfda1271dc7d46ed137cf68eedee8d450e551c9395",
+      "tests/parent-mobile-match-request-visibility-34e.test.mjs": "5584e677b5a1bd5a27df3725c293d9da951bc97a6fa6d6ddfd2dc8de787203af",
+      "tests/parent-mobile-production-promotion-26-backend.test.mjs": "3eb4ce94cd8410798ac7eec535042c8bd87b7ef9b7317258942803574f08627c",
+      "tests/parent-notification-inbox-69.test.mjs": "49155b4edf37157dadd610b58041a5e0063856f7e876fbd4cbfdcbd233ae90b9",
+      "tests/parent-portal-signout.test.mjs": "e6b35dff8a0439eea7baed49082a53cdf90dabe5d246c813690efecbdd091253",
+      "tests/parent-results-order.test.mjs": "0487f6e96d954dc73503996e91ddb9ee8fa90021fddc25f9c47d4070f27a7e9d",
+      "tests/parent-simon-feedback-browser.mjs": "48d3a1dc6c2565fea9d8b880afb7ce8fe3bf426a063e2a60509c9ba79c346c3b",
+      "tests/parent-training-notification-authority-followup.test.mjs": "96900ae87011054a0b7f29c1ce88dde1e0070561dceeaa1799588e27a4fc0b8a",
+      "tests/paywall-access-model.test.mjs": "b242a7fbbbc0d6b0a175bed36e08e1e5525f84274563d1840ddf49b62cedef50",
+      "tests/paywall-plan-normalization.test.mjs": "fec83ba36059a2b9f661cc29402392833b2ca67a816ec078b28b0fd09aab9fce",
+      "tests/paywall-ui-alignment.test.mjs": "f7451e012aadc53bc9ce5f62c4d78fd0e1f8893ac5d4eb020d39d318e3cf364b",
+      "tests/phone-branding-onboarding-browser.mjs": "1625bfda56f546ecb3b23fd6571df1fd68c4cadae062202ab199ce8021b6f6ba",
+      "tests/phone-branding-onboarding.test.mjs": "82e3f24e29b4a263efffd895476abc72e039d6b28aa68580e8582e43859820b5",
+      "tests/pilot-plan-preservation.test.mjs": "18aa3b7237ae7b713a8eee4b652a43971c136b10014bbad6e25cbf8c72312379",
+      "tests/platform-admin-restructure-39c.test.mjs": "ddb693449d3ea4ad0664312f85f7c70c11c0146e49970b801c032ac3d65d54dd",
+      "tests/player-profile-chat-history-13c.test.mjs": "9d005844a71908b2353a0d1ee02f9116206932f4ad7b5495aa67244346621155",
+      "tests/poll-watched-browser.mjs": "84e9ff9be939cdd2e23f17ed6a0726f18b2a05266b9a18d48fff2aadbdddd7da",
+      "tests/sidebar-howto-cleanup.test.mjs": "30d320963b8bb5591c889e83fb9878d0069b666e258e2775dd7bb0765b9450b4",
+      "tests/team-branding-management.test.mjs": "0eb72e09fc559810d37d11d7ffb1eefd330b71dac9eba07941fcd313ea96b316",
+      "tests/team-league-link-browser.mjs": "5bac0ff7d934412d2a7a918a2c2e82f8f7a05bd7f3b559c0fa7529534674d1d6",
+      "tests/team-league-link-sql.test.mjs": "8075c3ae4f469e6830c7debbcc639c2735f0a626a3bac622b551647f25cdf5af",
+      "tests/team-league-link.test.mjs": "bfb5264fbce299ec29cacae7328a7336f3b8573cd069bde21d75062a6a51604f",
+      "tests/training-rsvp-chat-dnd-73.test.mjs": "8ac926ea06eec576ac540498aa9768b6240fe897d34b06c78a2d68816b15c809",
+      "tests/v1-coach-refresh-cost.test.mjs": "1b944a3dcc8bd1a64231549e198b15a66bad48db470f9201cdcaa0ea3eef2918",
+      "tests/v1-hardening-migration-scope.test.mjs": "9aa1c0a6a53723efd06423ab9240415146a68ba45745ff320e6b52d6919b3a48",
+      "package-lock.json": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6",
       "src/components/marketing/MarketingContactDialog.jsx": "4484e669f0003bcaa3c7eb00745cf2ca19d96d029c7e1c0202e08723bf87afeb",
-      "src/components/marketing/MarketingPage.jsx": "0945464c47c839340927a4bf34f7bcf20d194df64849f7a27d1ae37a9bd5f4be",
+      "src/components/marketing/MarketingPage.jsx": "f768249bae1ff43163c9d85a3b533a01df3fbb45d36c66eb2881c1c9dbfe7d75",
+      "src/components/marketing/marketing-inline-pages.css": "6d807f25a473783d0358deba78b9f9fa09679932de004b79b3dc672e0bdaaa27",
+      "src/components/marketing/marketing-pricing.js": "cc7f7c04ac35d651fc12340ae96ea3aad83b31be50256b18168973faf0687831",
       "src/components/marketing/marketing-reference.css": "3ca1346a01a54bce003ea4809c31f27da252e3f41bacc3df6754569ad2816b11",
       "src/components/marketing/reference-app.js": "c8ae012f2d1de7d1319604e131ee5d791fb5a65cff75ea47f3d8f3da4b625ea1",
       "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
@@ -129,25 +661,34 @@
       "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
       "src/components/marketing/reference-kit-preview.js": "8ec3acd5ec0736cf5fa806999426b6eb6e7de84826618189d320e75d31e51373",
       "src/components/marketing/reference-offer-share.js": "6e5a87fbe8f13714b78dce6855304a1ca538a3389a02f9e3d0101dc57eea128a",
-      "src/components/marketing/reference-pages.json": "3d8052a6b1047995db5ee4757fb8ce1bb9e14c36f7e198c7e7243b181cb0a842",
-      "src/components/marketing/reference-pricing-info.js": "9eb2842471a3c6f364a16b208e20c4b840229ab63cd88d9f6155af6f2cf40f1c",
+      "src/components/marketing/reference-pages.json": "bf0879d5f8680426e1f2725d60d769903d40493f441311c6159758525ad1a685",
+      "src/components/marketing/reference-pricing-info.js": "fc89aa2f710b2e26d90ab50b39f2af8687c5a44ced16e0dd1d930dafc95da44f",
       "src/components/marketing/reference-scope.js": "caec651fbe6d7d77bb6b88a4f60538de81c66b81de3d424ff056d51a7a1b86d1",
       "src/components/marketing/reference-tutorials.js": "f7e5b9ba262c5c93fa1b97719eec5e19071bf0e5abca610f7be16dc67445f4ac",
-      "src/pages/FansPage.jsx": "e3bd7dacd5818f7035c2f7b0b3ef4a4661dfbed3f82322de8187314b3d81a004",
+      "src/components/pwa/InstallAppButton.jsx": "064c15a547cc985df972b736005dc15e53c105227813764e792da7643e8353d2",
       "src/pages/PublicLandingPage.jsx": "089f9b406b471fc2e72ede30006dccdf053eb9f3afde8270143e1e37de5cd505",
       "src/pages/PublicPricingPage.jsx": "1b28dc970cebd79ac1f38776aa4929e74369d8702cd4d8daea984d3d03a04adb",
-      "tests/fans-endpoint.test.mjs": "2adf3f09c2ecf5f9f8f46f604ae85ef4cdbd4df58a30d15142949358d5d5f261",
-      "tests/fans-web-redesign-browser.mjs": "831c62c29495c511dbb37e143f90bec7c6bb44a23e5cd01a55bd3d70c3ac2c06",
+      "tests/marketing-final-integration-browser.mjs": "d905e249816fb074a69c7d4049d60218e46c69254de04916a2e1b7815faad6c5",
       "tests/marketing-reference-browser.mjs": "69c0815e4f5038a1c9a8d5adfaf6a8cc6c029b236884bb7a4ee705d2df85d4ab",
-      "tests/matchday-parent-calendar-safety.test.mjs": "54f1dcfbb00bac4e1b317e89a6e04c6d6391c72abc2e7f56d87772682b5e75b6",
+      "tests/privileged-functions-postgres.test.mjs": "d67ef17d225af5604096c9d71193bfc7c4b391dd28f1c29ab4fb1852c22cc64f",
       "tests/public-parent-login-maintenance-banner.test.mjs": "a44406d4752ceba8354edd15fa6ee5290580bebdd943b1954b9cc778a29d15bc",
       "tests/public-signup-recovery.test.mjs": "c5fd4909e7b2effa2b8371df8e76b4d9a5c278edea538e2f3d0142204af2c514",
-      "src/components/marketing/marketing-pricing.js": "cc7f7c04ac35d651fc12340ae96ea3aad83b31be50256b18168973faf0687831",
-      "tests/marketing-final-integration-browser.mjs": "ea00e9f316cc95c8156652b243b55db5460c48c243b7cdd567066231838c1cc8",
-      "src/components/marketing/marketing-inline-pages.css": "a4de3ee353d52aedee6a2621ddf37515f7fbd7d0a211fe49ffc10da3666065a4",
-      "src/components/pwa/InstallAppButton.jsx": "064c15a547cc985df972b736005dc15e53c105227813764e792da7643e8353d2",
-      "package-lock.json": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6"
+      "supabase/migrations/20261006062722_team_current_league_url.sql": "417ff09057a6fef38016e7268644e23c268724e5cf322cf2406123ee2eb5cb70"
     },
+    "externalTrustInputs": [
+      "FOOTBALL_REVIEW_RECEIPT_BASE64",
+      "FOOTBALL_REVIEW_RECEIPT_SHA256"
+    ],
+    "externalConfigurationStatus": "Parent approval of revised closed/unmerged local backport treatment and protected remote validation configuration remains required; draft is not active",
+    "upstreamStatusChange": {
+      "source": "braces72",
+      "from": "open",
+      "to": "closed",
+      "merged": false,
+      "bytesUnchanged": true
+    },
+    "expiryAndAdvisoryScopeUnchanged": true,
+    "publicationApproved": false,
     "binarySourceHashes": {
       "public/marketing-v70/assets/about-grassroots.jpg": "6bca767739fbb9c811c907dae43ce3ed3f24a22364997e15d6eca6501b4da2f5",
       "public/marketing-v70/assets/app-store-badge.svg": "a26fc5b38380272c92e9019a2eb8b45542a66814b3e2b203772db8904b9fb99f",
@@ -217,7 +758,32 @@
       "public/marketing-v70/development-pdf.js": "c92b09c1056a081f9a44f62ba6786d06797e529750355ca5abf8ec738bbd2b56",
       "public/marketing-v70/vendor/jspdf-LICENSE.txt": "dc388ec35ff463288cdde3588a36fd4ed12a45deff053243b37309acc9ef583b",
       "public/marketing-v70/vendor/jspdf.umd.min.js": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54"
+    },
+    "combinedProvenance": {
+      "currentMain": "2a18b4e50d4987c2651faa612a6318293ea946e2",
+      "finalMobile": "ec2288c01cd22801d96aa26329fab2b6ed0d0b05",
+      "databaseTestCorrection": "05a1e29ed21a5f41a17b5a60d16816f6bd070352",
+      "reviewStatus": "FRESH_INDEPENDENT_REVIEW_REQUIRED_NO_EXISTING_RECEIPT_ACCEPTED",
+      "rootDependencyPrerequisite": {
+        "name": "source-map-js",
+        "from": "1.2.1",
+        "to": "1.2.2",
+        "advisory": "GHSA-68fv-2mgg-jv7q"
+      },
+      "first250Activation": "OFF_PENDING_AUTHORITATIVE_39_ID_COHORT_MAPPING",
+      "leaguePromotion": {
+        "from": "supabase/migration-drafts/20261003175613_team_current_league_url_draft.sql",
+        "to": "supabase/migrations/20261006062722_team_current_league_url.sql",
+        "originalRawSha256": "d04cb3fd0ef661de38c2026b9ca1f2619c8b43bee51876915600474419abf197",
+        "promotedSha256": "417ff09057a6fef38016e7268644e23c268724e5cf322cf2406123ee2eb5cb70",
+        "bodySha256": "7036db229872109edd2280dc49e342f525a982bd205de2398b3099026578d0f3",
+        "bodyUnchanged": true,
+        "headerOnlyChange": true,
+        "productionApplicationApproved": false
+      },
+      "websiteFeedback": "Reviewed exact five-file screenshot correction postimages copied from website agent; final exact candidate review still required"
     }
   },
-  "releasePreparationSha256": "7415071871640b35005c661f9a9c59a2f3f621fbcb57da6c2e520035d3a4747b"
+  "releasePreparationSha256": "5b6108424f3d5dae5de3c0d4f72a374d7bb6527ccea2fa9b183cbaf6e47e4f42",
+  "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

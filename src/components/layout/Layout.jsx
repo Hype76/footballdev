@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { getScopedTeamBranding } from '../../lib/team-branding-display.js'
 import { Link, Navigate, Outlet, useLocation, useMatches } from 'react-router-dom'
 import { canCreateEvaluation, canCreateFormationBoard, canManagePolls, isAdultPlayerUser, isClubAdmin, isParentPortalUser, isSuperAdmin, useAuth } from '../../lib/auth.js'
 import {
@@ -116,7 +117,8 @@ export function Layout() {
       return
     }
 
-    const hasSavedTheme = Boolean(user.themeMode || user.themeAccent || user.themeButtonStyle)
+    const scoped = getScopedTeamBranding(user)
+    const hasSavedTheme = Boolean(scoped || user.themeMode || user.themeAccent || user.themeButtonStyle)
 
     if (!hasSavedTheme) {
       return
@@ -124,12 +126,12 @@ export function Layout() {
 
     const timeoutId = window.setTimeout(() => {
       setThemeMode(normalizeThemeMode(user.themeMode || getStoredThemeMode()))
-      setThemeAccent(normalizeThemeAccent(user.themeAccent || getStoredThemeAccent()))
-      setThemeButtonStyle(normalizeThemeButtonStyle(user.themeButtonStyle || getStoredThemeButtonStyle()))
+      setThemeAccent(normalizeThemeAccent(scoped ? scoped.accent || 'green' : user.themeAccent || getStoredThemeAccent()))
+      setThemeButtonStyle(normalizeThemeButtonStyle(scoped ? scoped.buttonStyle : user.themeButtonStyle || getStoredThemeButtonStyle()))
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [user?.id, user?.themeAccent, user?.themeButtonStyle, user?.themeMode])
+  }, [user])
 
   useEffect(() => {
     document.documentElement.classList.remove(

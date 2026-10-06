@@ -25,6 +25,9 @@ export function appendParentScorerCommand(journal, { id, kind, payload = {}, cap
   if (previous && captured < Date.parse(previous.capturedAt)) throw new Error('The device clock changed. Check its time before recording another action.')
   if (kind === 'request-review' && journal.pending.some(command => command.kind === 'request-review')) throw new Error('This match has already been sent for review on this device.')
   if (journal.pending.some(command => command.kind === 'request-review')) throw new Error('This match has been sent to the Coach for review.')
+  if (kind === 'goal' && (String(payload.minute ?? '').trim() === '' || !Number.isInteger(Number(payload.minute)) || Number(payload.minute) < 0)) {
+    throw new Error('Enter a whole goal minute of 0 or more before recording the goal.')
+  }
   const command = { id, matchId: journal.baseMatch.id, kind, payload: JSON.parse(JSON.stringify(payload)), capturedAt,
     expectedUpdatedAt: previous ? null : journal.baseMatch.updatedAt, previousCommandId: previous?.id || null }
   return { ...journal, pending: [...journal.pending, command], error: '' }

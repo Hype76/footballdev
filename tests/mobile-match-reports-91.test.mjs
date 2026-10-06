@@ -66,7 +66,7 @@ test('Parent phone exports only its visible completed report and Coach correctio
   assert.match(parentApp, /saveParentMobileMatchReportPdf/)
   assert.match(parentApp, /handleDownloadMatchReport/)
   assert.match(parentMatchReport, /match\.status !== 'full_time'/)
-  assert.match(parentMatchReport, /buildCompletedReportPdf\(match, \{ audience: 'parent' \}\)/)
+  assert.match(parentMatchReport, /buildCompletedReportPdf\(match, \{ audience: 'parent', branding, accessContext: match \}\)/)
   assert.match(parentMatchReport, /writeAsStringAsync/)
   assert.match(parentMatchReport, /StorageAccessFramework\.createFileAsync/)
   assert.match(parentMatchReport, /FileSystem\.documentDirectory/)

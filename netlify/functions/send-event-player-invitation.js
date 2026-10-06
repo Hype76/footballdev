@@ -13,6 +13,7 @@ import {
 } from './process-training-availability-requests.js'
 import { handler as sendMatchDayAvailabilityRequests } from './send-match-day-availability-requests.js'
 import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
+import { hasMatchDayParticipationRenewal, isMatchDayParticipationRenewal } from './lib/_match-day-invitation-renewal.js'
 
 const ACTIONS = new Set(['send', 'resend', 'retry'])
 const SOURCE_TYPES = new Set(['calendar', 'match-day'])
@@ -194,7 +195,7 @@ async function loadRecipientPreview({
     throw Object.assign(new Error('This Player has been removed from the selected event occurrence.'), { statusCode: 409 })
   }
 
-  const contacts = await resolveEligibleEventInvitationContacts(adminSupabase, {
+  let contacts = await resolveEligibleEventInvitationContacts(adminSupabase, {
     clubId: scopedEvent.club_id,
     playerIds: [playerId],
     teamId: scopedEvent.team_id,
@@ -210,12 +211,14 @@ async function loadRecipientPreview({
 
   let lastSentAt = ''
   let requestState = 'not_sent'
+  let renewalRequired = false
+  let expectedRenewalRequests = []
 
   if (sourceType === 'match-day') {
     const [requestResult, responseResult] = await Promise.all([
       adminSupabase
         .from('match_day_availability_requests')
-        .select('id, status, sent_at, created_at, token_revoked_at, recipient_email, recipient_type')
+        .select('id, channel, status, sent_at, created_at, token_revoked_at, token_revoked_reason, token_version, parent_link_id, recipient_email, recipient_type')
         .eq('match_day_id', scopedEvent.id)
         .eq('club_id', scopedEvent.club_id)
         .eq('team_id', scopedEvent.team_id)
@@ -239,8 +242,24 @@ async function loadRecipientPreview({
     const hasCurrentResponse = currentResponse?.id
       && ['available', 'maybe', 'unavailable'].includes(normalizeText(currentResponse.status).toLowerCase())
 
-    if (hasCurrentResponse && !followUpMessage) {
+    const participationRenewal = hasMatchDayParticipationRenewal(action, requests, contacts)
+    if (!followUpMessage && contacts.some(contact => requests.some(request =>
+      normalizeText(request.recipient_email).toLowerCase() === normalizeText(contact.email).toLowerCase()
+      && request.recipient_type === contact.type && request.token_revoked_at
+      && !isMatchDayParticipationRenewal(request, contact)))) {
+      throw Object.assign(new Error('This withdrawn invitation cannot be renewed by an availability resend.'), { statusCode: 409 })
+    }
+    if (participationRenewal && !followUpMessage) {
+      renewalRequired = true
+      contacts = contacts.filter(contact => requests.some(request => isMatchDayParticipationRenewal(request, contact)))
+      expectedRenewalRequests = requests.filter(request => contacts.some(contact => isMatchDayParticipationRenewal(request, contact)))
+        .map(request => ({ requestId: request.id, expectedTokenVersion: request.token_version, parentLinkId: request.parent_link_id || null }))
+    }
+    if (hasCurrentResponse && !followUpMessage && !participationRenewal) {
       throw Object.assign(new Error('This Player already has a valid availability response. The reusable response link remains available without another email.'), { statusCode: 409 })
+    }
+    if (hasCurrentResponse && !followUpMessage && participationRenewal) {
+      contacts = contacts.filter(contact => requests.some(request => isMatchDayParticipationRenewal(request, contact)))
     }
 
     if (action === 'send' && requests.length > 0) {
@@ -260,6 +279,8 @@ async function loadRecipientPreview({
   }
 
   return {
+    renewalRequired,
+    expectedRenewalRequests,
     lastSentAt,
     playerId,
     recipientCount: contacts.length,
@@ -749,6 +770,27 @@ export async function handler(event) {
       supabase,
       token,
     })
+    // A completed resend remains replayable after it restores usable authority.
+    // Scope the read to the same authenticated actor and exact event/player/action.
+    if (sourceType === 'match-day' && action === 'resend' && !followUpMessage) {
+      const { data: completedAction, error: completedError } = await adminSupabase
+        .from('event_player_invitation_actions')
+        .select('result')
+        .eq('idempotency_key', idempotencyKey)
+        .eq('actor_id', profile.id)
+        .eq('club_id', scopedEvent.club_id)
+        .eq('team_id', scopedEvent.team_id)
+        .eq('source_type', sourceType)
+        .eq('event_id', eventId)
+        .eq('player_id', playerId)
+        .eq('action', action)
+        .eq('status', 'completed')
+        .maybeSingle()
+      if (completedError) throw completedError
+      if (completedAction && !completedAction.result?.followUpFingerprint) {
+        return json(200, { ...completedAction.result, preview, alreadyCompleted: true, duplicate: true, success: true })
+      }
+    }
     const recipientPreview = await loadRecipientPreview({
       action,
       followUpMessage,
@@ -768,6 +810,18 @@ export async function handler(event) {
     }
 
     await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
+
+    if (recipientPreview.renewalRequired || body.renewalOnly === true) {
+      if (!recipientPreview.renewalRequired || action !== 'resend' || sourceType !== 'match-day' || followUpMessage) {
+        throw Object.assign(new Error('Renewal scope changed. Preview again.'), { statusCode: 409 })
+      }
+      // The RPC owns the ledger, all token changes, queues and audit in one transaction.
+      // Do not create a processing ledger row or a failure row outside that transaction.
+      return await sendMatchDayAvailabilityRequests({ ...event, body: JSON.stringify({
+        idempotencyKey, invitationAction: action, matchDayId: eventId, playerIds: [playerId],
+        renewalOnly: true, expectedRenewalRequests: body.expectedRenewalRequests,
+      }) })
+    }
 
     const actionCommand = await beginAction({
       followUpFingerprint,

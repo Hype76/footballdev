@@ -1,5 +1,6 @@
 import { contrastSafeColor, mixThemeColor, readableThemeTokens, themeContrastRatio, themeForeground } from './themeContrast.js'
 import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
+import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 
 const THEME_ACCENTS = new Set(['yellow', 'blue', 'green', 'red', 'purple'])
 const HEX_ACCENT_PATTERN = /^#[0-9a-f]{6}$/
@@ -104,6 +105,9 @@ function resolveAccentPalette(accent, mode) {
 }
 
 export function resolveParentMobileBranding(selectedLink = null) {
+  const scoped = getScopedTeamBranding(selectedLink)
+  if (scoped) return { accent: normalizeParentThemeAccent(scoped.accent), buttonStyle: scoped.buttonStyle,
+    clubLogoUrl: scoped.logoUrl, sourceClubId: selectedLink.clubId, sourceLinkId: normalizeText(selectedLink.id) }
   const planKey = normalizeText(selectedLink?.planKey || selectedLink?.plan_key).toLowerCase()
   const modernPlan = ['matchday', 'team', 'club'].includes(planKey)
   const accessContext = { ...selectedLink, planKey, teamId: selectedLink?.teamId }
