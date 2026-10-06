@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "a15c3d680cf69705e7e476bb5cfa4e10faffca34d56e859040c1447ed5a47f0b",
+    "scripts/security-verify-reviewed-backports.mjs": "17b232a4cdeed71ec5782d523564a8033628c036aced83b396b26aa983dd9bc3",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -761,7 +761,8 @@
       "tests/team-matchday-kits.test.mjs": "d409c39cef13fae772fd970e45ae63138dcb0afe00bdf3b36dd69b92a4d18ef0",
       "tests/website-help-browser.mjs": "7bdcd91b6d044998a767f7cce979d7bb418b8eb06bc4caf582dffee406799fc8",
       "tests/website-help-live-check.mjs": "55c170d838441be3bf43bf3fa30404d4829a4c6e64f411e99dc2862c30c366da",
-      "tests/website-help.test.mjs": "4a00504e760b6162dd64b91754c7538d75b7c18a5959038a72cac81867aa4832"
+      "tests/website-help.test.mjs": "4a00504e760b6162dd64b91754c7538d75b7c18a5959038a72cac81867aa4832",
+      "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -986,7 +987,8 @@
           "tests/team-matchday-kits.test.mjs",
           "tests/website-help-browser.mjs",
           "tests/website-help-live-check.mjs",
-          "tests/website-help.test.mjs"
+          "tests/website-help.test.mjs",
+          "tests/netlify-built-functions.test.mjs"
         ],
         "authorisation": "Steve requested Club20 signup, 14-day trial, cancel anytime, accounts quote form, larger centred contact form, product-only website help and Club Admin-only Club kit editing",
         "nativeDependenciesAssetsAndConfigurationUnchanged": true,
@@ -1008,10 +1010,11 @@
           "originalSixPriceBindingsAndCustomerSubscriptionsUnchanged": true
         },
         "independentExactCandidateReviewRequired": true,
-        "releaseChecksAndLiveVerificationPending": true
+        "releaseChecksAndLiveVerificationPending": true,
+        "modernFunctionPackagingTest": "Require JavaScript js/mjs/cjs archive content plus modern entry and compiled handler; verify actual compiled website-help route and rate-limit metadata"
       }
     }
   },
-  "releasePreparationSha256": "6833a0ad616480c931f274a4ac2341b7a6e84bb3315bd884f1bbbb428339fa14",
+  "releasePreparationSha256": "cb2364bf517c61011d859e4f950e996bdccecf2e549a5e84fd915cfb67dec6c4",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

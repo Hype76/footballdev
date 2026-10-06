@@ -17,9 +17,21 @@ test('every top-level function has exactly one fresh deployable archive', async 
     assert.equal(entry.runtime, 'js')
     assert.equal(entry.runtimeVersion, 'nodejs22.x')
     const archive = await JSZip.loadAsync(await readFile(entry.path))
-    assert.ok(Object.keys(archive.files).some((name) => name.endsWith('.js')))
+    assert.ok(Object.values(archive.files).some((file) => !file.dir && /\.(?:js|mjs|cjs)$/.test(file.name)), `Executable JavaScript missing: ${entry.name}`)
+    if (['website-help', 'create-billing-portal-session'].includes(entry.name)) {
+      assert.ok(archive.file('___netlify-entry-point.mjs'), `Modern entry point missing: ${entry.name}`)
+      assert.ok(Object.keys(archive.files).some((name) => name === `${entry.name}.mjs` || name.endsWith(`/${entry.name}.mjs`)), `Compiled handler missing: ${entry.name}`)
+    }
     assert.ok(!Object.keys(archive.files).some((name) => /node_modules\/(?:node-forge|netlify-cli)\//.test(name)))
   }
+})
+
+test('website help rate limiting and route survive modern bundling', () => {
+  const entry = byName.get('website-help')
+  assert.equal(entry.trafficRules.action.type, 'rate_limit')
+  assert.deepEqual(entry.trafficRules.action.config.rateLimitConfig, { windowLimit: 10, windowSize: 60, algorithm: 'sliding_window' })
+  assert.deepEqual(entry.trafficRules.action.config.aggregate.keys, [{ type: 'ip' }, { type: 'domain' }])
+  assert.ok(entry.routes.some((route) => route.pattern === '/api/website-help'))
 })
 
 test('scheduled function metadata survives bundling', () => {
