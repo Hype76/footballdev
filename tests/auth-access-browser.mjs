@@ -822,23 +822,18 @@ async function prepareDemoPage(context, response = { status: 200, body: { succes
 }
 
 async function signIn(page, email, baseUrl = mainBaseUrl, access = 'club') {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.goto(`${baseUrl}/sign-in/${access === 'parent' ? 'parent' : 'coach'}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 60000 })
-  if (access === 'parent') {
-    await page.getByRole('button', { name: 'Parent' }).click()
-  } else {
-    await page.getByRole('button', { name: 'Coach' }).click()
-  }
+  await page.getByRole('heading', { name: access === 'parent' ? 'Parent sign in' : 'Coach and club sign in', exact: true }).waitFor({ state: 'visible' })
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
-  await page.locator('form').evaluate((form) => form.requestSubmit())
+  await page.locator('form').filter({ has: page.getByPlaceholder('Enter password') }).evaluate((form) => form.requestSubmit())
 }
 
 async function parentSignIn(page, email, baseUrl = parentBaseUrl) {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.goto(`${baseUrl}/sign-in/parent`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 60000 })
-  await page.getByRole('button', { name: 'Parent' }).click()
-  await page.getByRole('heading', { name: 'Sign in to parent access' }).waitFor({ state: 'visible', timeout: 60000 })
+  await page.getByRole('heading', { name: 'Parent sign in', exact: true }).waitFor({ state: 'visible', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
   await page.waitForFunction(
@@ -850,7 +845,7 @@ async function parentSignIn(page, email, baseUrl = parentBaseUrl) {
     { expectedEmail: email, expectedPassword: fixturePassword },
     { timeout: 15000 },
   )
-  await page.locator('form').evaluate((form) => form.requestSubmit())
+  await page.locator('form').filter({ has: page.getByPlaceholder('Enter password') }).evaluate((form) => form.requestSubmit())
 }
 
 async function assertVisibleText(page, text, timeout = 15000) {
@@ -1226,26 +1221,39 @@ async function auditStandaloneTheme(page, { label }) {
         / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
     }
 
+    function effectiveBackground(element) {
+      const layers = []
+      for (let node = element; node; node = node.parentElement) {
+        const channels = getComputedStyle(node).backgroundColor.match(/[\d.]+/g)?.map(Number)
+        if (channels?.length >= 3) layers.push({ rgb: channels.slice(0, 3), alpha: channels[3] ?? 1 })
+      }
+      let rgb = [255, 255, 255]
+      for (const layer of layers.reverse()) {
+        rgb = rgb.map((channel, index) => layer.rgb[index] * layer.alpha + channel * (1 - layer.alpha))
+      }
+      return `rgb(${rgb.join(', ')})`
+    }
+
     const heading = document.querySelector('main h1, main h2')
     const panel = heading?.closest('section, div')
     const button = document.querySelector('main button:not([disabled])')
     return {
       buttonRatio: button
-        ? contrastRatio(getComputedStyle(button).color, getComputedStyle(button).backgroundColor)
+        ? contrastRatio(getComputedStyle(button).color, effectiveBackground(button))
         : null,
       documentOverflows: document.documentElement.scrollWidth > window.innerWidth,
       headingRatio: heading && panel
-        ? contrastRatio(getComputedStyle(heading).color, getComputedStyle(panel).backgroundColor)
+        ? contrastRatio(getComputedStyle(heading).color, effectiveBackground(panel))
         : null,
     }
   })
 
   assert.equal(audit.documentOverflows, false, `${label} stays within the viewport`)
   if (audit.headingRatio) {
-    assert.ok(audit.headingRatio >= 4.5, `${label} heading contrast is at least 4.5`)
+    assert.ok(audit.headingRatio >= 4.5, `${label} heading contrast ${audit.headingRatio.toFixed(2)} is at least 4.5`)
   }
   if (audit.buttonRatio) {
-    assert.ok(audit.buttonRatio >= 4.5, `${label} button contrast is at least 4.5`)
+    assert.ok(audit.buttonRatio >= 4.5, `${label} button contrast ${audit.buttonRatio.toFixed(2)} is at least 4.5`)
   }
 }
 
@@ -1387,7 +1395,7 @@ try {
     const { page } = await preparePage(context)
     await page.goto(`${mainBaseUrl}/sign-in#error=access_denied&error_code=otp_expired`, { waitUntil: 'domcontentloaded' })
     await page.getByText(/That confirmation link is no longer valid\. Open the newest Football Player confirmation email/).waitFor()
-    await page.getByRole('button', { name: 'Parent', exact: true }).click()
+    await page.getByRole('link', { name: 'Parent? Sign in here', exact: true }).click()
     assert.equal(await page.getByText(/That confirmation link is no longer valid/).count(), 0)
     await context.close()
   })
@@ -1852,9 +1860,11 @@ try {
       const context = await browser.newContext(viewport.options)
       const { getResetRequests, page } = await prepareDemoPage(context)
       await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-      const demoButton = page.getByRole('button', { name: /^Open demo account$/i })
-      await demoButton.waitFor({ state: 'visible', timeout: 15000 })
-      await demoButton.click()
+      const demoButton = page.getByRole('button', { name: /^Open demo account$/i, includeHidden: true })
+      await demoButton.waitFor({ state: 'attached', timeout: 15000 })
+      assert.equal(await demoButton.isVisible(), false, 'Demo entry is retained but hidden')
+      assert.equal(await page.getByRole('button', { name: /^Open demo account$/i }).count(), 0, 'Demo entry is absent from accessible controls')
+      await demoButton.evaluate(element => element.click())
       await page.waitForURL('**/coach', { timeout: 15000 })
       await assertVisibleText(page, 'Club-wide view')
 
@@ -2360,7 +2370,7 @@ try {
     await waitForPathname(page, '/sign-in')
     assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     assert.equal(new URL(page.url()).searchParams.get('tab'), null)
-    await page.getByRole('button', { name: 'Coach' }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByRole('heading', { name: 'Coach and club sign in', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Choose where to continue', { exact: true }).count(), 0)
     await context.close()
@@ -2375,7 +2385,7 @@ try {
     await waitForPathname(page, '/sign-in')
     assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
-    await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByRole('heading', { name: 'Parent sign in', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Account details unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Team workspace unavailable', { exact: true }).count(), 0)
     assert.equal(await page.getByText('Choose where to continue', { exact: true }).count(), 0)
@@ -2426,10 +2436,10 @@ try {
     const { page } = await preparePage(context)
     await seedSelectedAccessMode(page, 'parent')
     await page.goto(`${mainBaseUrl}/sign-in`, { waitUntil: 'commit', timeout: 60000 })
-    await page.getByRole('button', { name: 'Coach' }).click()
+    await page.getByRole('heading', { name: 'Coach and club sign in', exact: true }).waitFor({ state: 'visible' })
     await page.getByPlaceholder('you@club.com').fill('coach.fixture@footballplayer.test')
     await page.getByPlaceholder('Enter password').fill('WrongFixturePass123!')
-    await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+    await page.locator('form').filter({ has: page.getByPlaceholder('Enter password') }).getByRole('button', { name: /^Log in$/i }).click()
     await assertVisibleText(page, 'Fixture login failed.')
     await waitForPathname(page, '/sign-in')
     assert.equal(await page.getByText('Login again before creating your club').count(), 0)
@@ -2442,10 +2452,10 @@ try {
     const { page } = await preparePage(context)
     await seedSelectedAccessMode(page, 'team')
     await page.goto(`${mainBaseUrl}/sign-in?tab=parent`, { waitUntil: 'commit', timeout: 60000 })
-    await page.getByRole('button', { name: 'Parent' }).click()
+    await page.getByRole('heading', { name: 'Parent sign in', exact: true }).waitFor({ state: 'visible' })
     await page.getByPlaceholder('you@club.com').fill('parent.fixture@footballplayer.test')
     await page.getByPlaceholder('Enter password').fill('WrongFixturePass123!')
-    await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+    await page.locator('form').filter({ has: page.getByPlaceholder('Enter password') }).getByRole('button', { name: /^Log in$/i }).click()
     await assertVisibleText(page, 'Fixture login failed.')
     await waitForPathname(page, '/sign-in')
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
@@ -2461,7 +2471,7 @@ try {
     await waitForPathname(page, '/sign-in')
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     assert.equal(new URL(page.url()).searchParams.get('parentInvite'), 'fixture-token')
-    await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByRole('heading', { name: 'Parent sign in', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
     await context.close()
   })
 
@@ -2471,7 +2481,7 @@ try {
     await page.goto(`${mainBaseUrl}/sign-in?tab=parent&parentInvite=fixture-parent-invite`, { waitUntil: 'domcontentloaded', timeout: 60000 })
     await page.getByPlaceholder('you@club.com').fill('parent.fixture@footballplayer.test')
     await page.getByPlaceholder('Enter password').fill(fixturePassword)
-    await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+    await page.locator('form').filter({ has: page.getByPlaceholder('Enter password') }).getByRole('button', { name: /^Log in$/i }).click()
     await page.waitForURL('**/parent-portal?*', { timeout: 15000 })
     const finalUrl = new URL(page.url())
 
@@ -2573,7 +2583,7 @@ try {
     await waitForPathname(page, '/sign-in')
     assert.equal(await page.evaluate(() => window.sessionStorage.getItem('auth-access-browser-fixture-email')), null)
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
-    await page.getByRole('button', { name: 'Parent' }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByRole('heading', { name: 'Parent sign in', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
     assert.equal(await page.getByText('Choose an available workspace', { exact: true }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Open Team / Coach' }).count(), 0)
     await context.close()

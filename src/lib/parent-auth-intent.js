@@ -9,6 +9,7 @@ export { SELECTED_ACCESS_MODE_STORAGE_KEY } from './login-access-intent.js'
 export const PARENT_ACCESS_MODE = 'parent'
 
 const parentIntentPaths = new Set([
+  '/sign-in/parent',
   '/parent-login',
   '/parents-login',
   '/parent/sign-in',
@@ -65,7 +66,7 @@ export function buildParentInviteSuccessPath(parentLinkId = '') {
 }
 
 export function isParentInviteSignInIntent({ pathname = '', search = '' } = {}) {
-  return normalizeParentIntentPath(pathname) === '/sign-in' && Boolean(getParentInviteToken(search))
+  return ['/sign-in', '/sign-in/coach', '/sign-in/parent'].includes(normalizeParentIntentPath(pathname)) && Boolean(getParentInviteToken(search))
 }
 
 export function isIntentionalParentAccessContext({

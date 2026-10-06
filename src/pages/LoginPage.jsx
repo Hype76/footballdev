@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import fallbackLogo from '../assets/football-player-logo.webp'
-import landingHeroImage from '../assets/landing-hero-football-club.webp'
 import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
-import { LoginHeader } from '../components/login/LoginHeader.jsx'
+import { WebsiteAuthHeader } from '../components/login/WebsiteAuthHeader.jsx'
+import '../components/login/website-auth.css'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
 import { useAuth } from '../lib/auth.js'
 import { clearAuthRedirectError, readAuthRedirectError } from '../lib/auth-redirect-error.js'
@@ -78,7 +77,7 @@ function getRequestedLoginMode(params) {
   return ''
 }
 
-export function LoginPage() {
+export function LoginPage({ role = 'coach' }) {
   usePublicThemeScope()
 
   const { authError, resetPassword, session, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
@@ -87,7 +86,7 @@ export function LoginPage() {
   const parentInviteRedirectStartedRef = useRef(false)
   const demoSubmitLockRef = useRef(false)
   const submitLockRef = useRef(false)
-  const [mode, setMode] = useState('login')
+  const [mode, setMode] = useState(role === 'parent' ? 'parent-login' : 'login')
   const [formData, setFormData] = useState(initialFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
@@ -124,6 +123,8 @@ export function LoginPage() {
       }
     } else if (requestedLoginMode) {
       setMode(requestedLoginMode)
+    } else {
+      setMode(role === 'parent' ? 'parent-login' : 'login')
     }
 
     if (publicFreePlanKey) {
@@ -161,7 +162,7 @@ export function LoginPage() {
         setLocalMessage(`${selectedPlanName} test access selected. Payments are disabled on staging.`)
       }
     }
-  }, [paymentsDisabled, session?.user])
+  }, [paymentsDisabled, session?.user, role])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -250,7 +251,7 @@ export function LoginPage() {
         }
       } else {
         if (isDemoEmail(formData.email)) {
-          throw new Error('Use the Open demo account button for demo access.')
+          throw new Error('Demo access is not available from this sign-in form.')
         }
 
         await signInWithPassword({
@@ -283,7 +284,7 @@ export function LoginPage() {
     setLocalMessage('')
 
     try {
-      await resetPassword(formData.email, 'coach')
+      await resetPassword(formData.email, role === 'parent' || parentInviteToken || mode === 'parent-login' ? 'parent' : 'coach')
       setLocalMessage('Password reset email sent if that account exists.')
     } catch (error) {
       console.error(error)
@@ -293,41 +294,22 @@ export function LoginPage() {
     }
   }
 
+  const parentAccess = role === 'parent' || Boolean(parentInviteToken) || mode === 'parent-login'
   return (
-    <main className="min-h-screen overflow-hidden bg-[#06110a] text-white">
-      <div className="fixed inset-0">
-        <img src={landingHeroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-[#06110a]/78" />
-      </div>
-
-      <div className="relative flex min-h-screen w-full flex-col">
-        <LoginHeader logo={fallbackLogo} />
-
-        <div className="mx-auto grid w-full max-w-7xl flex-1 gap-8 px-4 py-7 pb-[max(5rem,env(safe-area-inset-bottom))] sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-center lg:px-8 lg:py-10">
-          <section className="order-2 max-w-2xl lg:order-1">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#c6ff1a]">Sign in</p>
-            <h1 className="mt-4 max-w-3xl text-4xl font-black leading-[1.04] tracking-tight text-white sm:text-5xl xl:text-6xl">
-              Welcome back to Football Player.
-            </h1>
-            <p className="mt-5 max-w-xl text-base font-semibold leading-7 text-white/76 sm:text-lg sm:leading-8">
-              Sign in to manage training, match day, parent updates, and player records from the right club or team workspace.
-            </p>
-
-            <div className="mt-7 grid max-w-2xl gap-3 sm:grid-cols-3">
-              {[
-                'Training and fixtures stay connected',
-                'Parent updates come from saved records',
-                'Player history stays with the player',
-              ].map((item) => (
-                <div key={item} className="border-t border-white/18 pt-3">
-                  <span className="mb-3 block h-1.5 w-8 rounded-full bg-[#c6ff1a]" />
-                  <p className="text-sm font-black leading-5 text-white">{item}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <div className="order-1 lg:order-2">
+    <div className="website-auth">
+      <WebsiteAuthHeader />
+      <main className="website-auth-main">
+        <section className="website-auth-intro">
+          <p className="website-auth-eyebrow">{parentAccess ? 'Parent access' : mode === 'signup' ? 'Get started' : 'Coach and club access'}</p>
+          <h1>{parentAccess ? 'Stay close to the game.' : mode === 'signup' ? 'Your team starts here.' : 'Back to your football.'}</h1>
+          <p>{parentAccess ? 'Fixtures, availability and match updates for your linked player, all in one place.' : 'Manage your team, prepare for match day and keep everyone connected.'}</p>
+          <figure className="website-auth-image">
+            <img src={parentAccess ? '/marketing-v70/assets/parent-matchday.png' : '/marketing-v70/assets/coach-light.png'} alt={parentAccess ? 'Parent fixture and player availability preview' : 'Coach team overview preview'} />
+            <figcaption>Football Player {parentAccess ? 'Parent' : 'Coach'} app</figcaption>
+          </figure>
+          <a href={parentAccess ? '/sign-in/coach' : '/sign-in/parent'}>{parentAccess ? 'Coach or club admin? Sign in here' : 'Parent? Sign in here'}</a>
+        </section>
+        <div className="website-auth-form-column">
             <LoginAuthPanel
               authError={authError}
               formData={formData}
@@ -335,8 +317,9 @@ export function LoginPage() {
               isSubmitting={isSubmitting}
               localError={localError}
               localMessage={localMessage}
-              logo={fallbackLogo}
+              logo="/marketing-v70/assets/fp-logo.png"
               mode={mode}
+              role={parentAccess ? 'parent' : 'coach'}
               onChange={handleChange}
               onDemoLogin={handleDemoLogin}
               onModeChange={handleModeChange}
@@ -347,9 +330,9 @@ export function LoginPage() {
               paymentsDisabled={paymentsDisabled}
               signupBoxRef={signupBoxRef}
             />
-          </div>
         </div>
-      </div>
-    </main>
+      </main>
+      <footer className="website-auth-footer"><span>Football Player · Jeluma Labs</span><a href="/gdpr">Privacy and GDPR</a></footer>
+    </div>
   )
 }
