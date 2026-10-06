@@ -1,0 +1,42 @@
+name: Coach reminder options
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reminder-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.17.0
+          cache: npm
+      - run: npm install --global npm@11.7.0
+      - run: npm ci --include=optional
+      - run: npx playwright install --with-deps chromium
+      - run: node --test tests/coach-reminder-policy.test.mjs tests/coach-reminder-worker-pglite.test.mjs tests/team-coach-reminder-policy-pglite.test.mjs tests/team-coach-reminder-policy-api.test.mjs tests/coach-reminder-integration.test.mjs tests/adult-self-response-authority-pglite.test.mjs tests/adult-player-account-foundation-pglite.test.mjs tests/adult-player-responses-pglite.test.mjs
+      - run: npm run lint
+      - run: node tests/coach-reminder-options-browser.mjs
+      - run: node tests/team-coach-reminder-settings-browser.mjs
+  reminder-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.17.0
+          cache: npm
+      - run: npm install --global npm@11.7.0
+      - run: npm ci --include=optional
+      - run: npm ci --prefix apps/coach-mobile --include=optional
+      - run: npm ci --prefix apps/parent-mobile --include=optional
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/coach-reminder-mobile-browser.mjs
+      - run: npm run mobile:export:web

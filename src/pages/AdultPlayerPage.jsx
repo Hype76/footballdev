@@ -39,6 +39,7 @@ function formatEventDate(value) {
 }
 
 function responseLabel(invitation) {
+  if(invitation.availabilityAutomatic)return 'Automatic Not attending'
   const labels = invitation.invitationType === 'training_attendance'
     ? trainingResponses
     : matchResponses
@@ -64,6 +65,7 @@ function InvitationCard({ invitation, isSaving, onRespond }) {
           <p className="mt-2 text-sm font-semibold text-slate-600">{formatEventDate(invitation.eventStart)}</p>
           {invitation.eventLocation ? <p className="mt-1 text-sm text-slate-600">{invitation.eventLocation}</p> : null}
           {invitation.teamName ? <p className="mt-1 text-sm text-slate-500">{invitation.teamName}</p> : null}
+          {invitation.availabilityAutomationLabel ? <p className="mt-1 text-sm text-slate-500">{invitation.availabilityAutomationLabel}. You can correct your answer.</p> : null}
         </div>
         <div className="shrink-0 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-800">
           {responseLabel(invitation)}

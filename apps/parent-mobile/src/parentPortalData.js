@@ -1,4 +1,5 @@
 import { validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event.js'
+import {readCoachReminderProjections,projectCoachReminderMatches,applyCoachReminderProjection,findCoachReminderProjection,coachReminderInvitationOccurrence} from '../../../src/lib/coach-reminder-read-model.js'
 import * as Crypto from 'expo-crypto'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
@@ -388,7 +389,7 @@ export async function getParentPortalMatchDays(user) {
     formationPlansByMatchId.set(matchId, plans)
   }
   const formationPlanError = formationPlanResult.error ? 'The match plan could not be refreshed. Try again later.' : ''
-  return (baseResult.data || []).map((row) => {
+  const matches=(baseResult.data || []).map((row) => {
     const extended = extendedById.get(String(row.id)) || {}
     const eventContext = new Map((extended.event_contexts ?? extended.eventContexts ?? []).map((event) => [String(event.id), event]))
     return normalizeParentMatchDay({
@@ -405,6 +406,9 @@ export async function getParentPortalMatchDays(user) {
       formationPlanError,
     })
   })
+  if(process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION!=='true')return matches
+  const projections=await readCoachReminderProjections(supabase,'MATCH',matches.map(match=>match.id),{enabled:true,parentLinkId:link.id})
+  return projectCoachReminderMatches(matches,projections,{parentView:true})
 }
 
 export async function getParentPortalMatchDayPlayers(user) {
@@ -431,13 +435,16 @@ export async function getParentInvitations(user) {
   if (transportResult.error) throw transportResult.error
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
   const transportByRequestId = new Map((transportResult.data || []).map((row) => [String(row.request_id ?? row.requestId), row]))
-  return prepareParentInvitations((invitationResult.data || []).map((row) => ({
+  const invitations=prepareParentInvitations((invitationResult.data || []).map((row) => ({
     ...row,
     ...(transportByRequestId.get(String(row.source_record_id ?? row.sourceRecordId)) || {}),
     shirt_choice: normalizeText(row.source_event_type ?? row.sourceEventType).toLowerCase() === 'match_day'
       ? shirtsById.get(String(row.event_id ?? row.eventId))
       : undefined,
   })))
+  if(process.env.EXPO_PUBLIC_ENABLE_COACH_REMINDER_AUTOMATION!=='true')return invitations
+  const projections=(await Promise.all(['MATCH','TRAINING'].map(kind=>readCoachReminderProjections(supabase,kind,invitations.map(invite=>invite.eventId),{enabled:true,parentLinkId:link.id})))).flat()
+  return invitations.map(invite=>applyCoachReminderProjection(invite,findCoachReminderProjection(projections,{eventId:invite.eventId,playerId:invite.childId,occurrenceDate:coachReminderInvitationOccurrence(invite)}),{statusKey:'responseState'}))
 }
 
 export async function setParentMatchTransport(user, invitation, mode, seatsOffered = 0) {

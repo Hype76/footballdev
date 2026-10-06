@@ -1,4 +1,5 @@
 import { supabase } from '../supabase-client.js'
+import {readCoachReminderProjections,findCoachReminderProjection,applyCoachReminderProjection} from '../coach-reminder-read-model.js'
 import { createAuditLog } from './audit.js'
 import { blockDemoMutation } from './demo-guards.js'
 
@@ -169,11 +170,11 @@ export function normalizeTrainingAvailabilityDetail(row = {}) {
   const request = Array.isArray(row.training_availability_requests)
     ? row.training_availability_requests[0]
     : row.training_availability_requests
-  const responseStatus = normalizeText(response?.status).toLowerCase()
+  const responseStatus = normalizeText(row.coachReminderProjection?.status ?? response?.status).toLowerCase()
   const state = getTrainingAvailabilityChipState(responseStatus)
-  const hasFinalPlayerResponse = ['available', 'unavailable', 'maybe'].includes(responseStatus)
+  const hasFinalPlayerResponse = ['available', 'unavailable', 'maybe'].includes(normalizeText(response?.status).toLowerCase())
 
-  return {
+  return applyCoachReminderProjection({
     requestId: row.request_id ?? row.requestId ?? request?.id ?? '',
     requestPlayerId: row.id ?? row.requestPlayerId ?? '',
     calendarEventId: row.calendar_event_id ?? row.calendarEventId ?? '',
@@ -195,7 +196,7 @@ export function normalizeTrainingAvailabilityDetail(row = {}) {
     respondedAt: response?.responded_at ?? row.responded_at ?? row.respondedAt ?? '',
     respondedByName: normalizeText(response?.responded_by_name ?? row.responded_by_name ?? row.respondedByName),
     responseSource: normalizeText(response?.response_source ?? row.response_source ?? row.responseSource),
-  }
+  },row.coachReminderProjection,{statusKey:'responseStatus'})
 }
 
 export async function getTrainingAvailabilitySettingsForEvents({ user, eventIds = [] } = {}) {
@@ -267,10 +268,13 @@ export async function getTrainingAvailabilitySummaryForEvents({ user, eventIds =
     ]),
   )
   const rowsByEventId = new Map()
+  const reminderProjections=await readCoachReminderProjections(supabase,'TRAINING',normalizedEventIds,{enabled:import.meta.env?.VITE_ENABLE_COACH_REMINDER_AUTOMATION==='true'})
 
   for (const requestPlayer of requestPlayers ?? []) {
+    const request=Array.isArray(requestPlayer.training_availability_requests)?requestPlayer.training_availability_requests[0]:requestPlayer.training_availability_requests
     const row = {
       ...requestPlayer,
+      coachReminderProjection:findCoachReminderProjection(reminderProjections,{eventId:requestPlayer.calendar_event_id,playerId:requestPlayer.player_id,occurrenceDate:request?.occurrence_date || ''}),
       training_availability_responses: responseByRequestPlayer.get(
         `${normalizeText(requestPlayer.request_id)}:${normalizeText(requestPlayer.player_id)}`,
       ) ?? null,

@@ -1,5 +1,7 @@
 import { validateMotmExpiryHours } from '../expiry-duration.js'
+import { readCoachReminderProjections,projectCoachReminderMatches } from '../coach-reminder-read-model.js'
 import { supabase } from '../supabase-client.js'
+
 import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
 import { createAuditLog } from './audit.js'
@@ -44,6 +46,10 @@ export { sortMatchDayPresentation } from '../matchday-presentation.js'
 export { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../matchday-display.js'
 export { buildMatchDayParentVisibility } from '../matchday-parent-visibility.js'
 
+async function attachReminderMatchState(matches,parentLinkId){
+  const projections=await readCoachReminderProjections(supabase,'MATCH',matches.map(match=>match.id),{enabled:import.meta.env?.VITE_ENABLE_COACH_REMINDER_AUTOMATION==='true',parentLinkId})
+  return projectCoachReminderMatches(matches,projections,{parentView:Boolean(parentLinkId)})
+}
 export const MATCH_DAY_STATUS_OPTIONS = [
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'scorer_request', label: 'Scorer request' },
@@ -1165,7 +1171,7 @@ export async function getMatchDays({ user } = {}) {
     throw error
   }
 
-  return attachMatchDayPresentationStates((data ?? []).map((row) => normalizeMatchDay({ ...row, clubName: user.clubName })))
+  return attachReminderMatchState(await attachMatchDayPresentationStates((data ?? []).map((row) => normalizeMatchDay({ ...row, clubName: user.clubName }))))
 }
 
 export async function getMatchDay({ user, matchDayId, includeScorerEligibility = false, accessToken = '' } = {}) {
@@ -1193,7 +1199,7 @@ export async function getMatchDay({ user, matchDayId, includeScorerEligibility =
 
   if (!includeScorerEligibility) {
     const [match] = await attachMatchDayPresentationStates([normalizeMatchDay({ ...data, clubName: user.clubName })])
-    return match
+    return (await attachReminderMatchState([match]))[0]
   }
 
   let resolvedAccessToken = normalizeText(accessToken || user?.accessToken)
@@ -1239,7 +1245,7 @@ export async function getMatchDay({ user, matchDayId, includeScorerEligibility =
     }),
   }
   const [match] = await attachMatchDayPresentationStates([normalizeMatchDay({ ...matchWithEligibility, clubName: user.clubName })])
-  return match
+  return (await attachReminderMatchState([match]))[0]
 }
 
 export async function setMatchDayPlayerSquadDecision({ matchDayId, playerId, decision, expectedDecidedAt = null }) {
@@ -2154,7 +2160,7 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
     }
   })
 
-  return attachMatchDayPresentationStates(matches)
+  return attachReminderMatchState(await attachMatchDayPresentationStates(matches),normalizedParentLinkId)
 }
 
 export async function getParentPortalMatchDayPlayers({ parentLinkId }) {

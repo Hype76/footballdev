@@ -69,6 +69,7 @@ const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'Billing
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const DataTransferPage = lazyRoute(() => import('../pages/DataTransferPage.jsx'), 'DataTransferPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
+const CoachReminderSettingsPage = lazyRoute(() => import('../pages/CoachReminderSettingsPage.jsx'), 'CoachReminderSettingsPage')
 const ClubOwnerInvitePage = lazyRoute(() => import('../pages/ClubOwnerInvitePage.jsx'), 'ClubOwnerInvitePage')
 const WorkspaceTeamTransferPage = lazyRoute(() => import('../pages/WorkspaceTeamTransferPage.jsx'), 'WorkspaceTeamTransferPage')
 const AssessmentsMenuPage = lazyRoute(() => import('../pages/CoachActionMenuPages.jsx'), 'AssessmentsMenuPage')
@@ -2064,6 +2065,11 @@ export const router = createBrowserRouter([
               title: 'User Settings',
             },
           },
+          ...(import.meta.env.VITE_ENABLE_COACH_REMINDER_POLICY_SETTINGS === 'true' ? [{
+            path: 'coach-reminder-settings',
+            element: <PageSuspense><CoachReminderSettingsPage /></PageSuspense>,
+            handle: { title: 'Team Reminders' },
+          }] : []),
           {
             element: <RequireParentPortalAccess />,
             children: [
