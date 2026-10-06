@@ -1,6 +1,8 @@
 /* eslint-disable */
 /* Ported trusted v70 reference; DOM and lifecycle access are scoped by React. */
+import { mountFirst250Counter } from './first250-counter.js'
 export default function mountReference(scope) {
+scope.onDispose(mountFirst250Counter(scope));
 const { document, window, fetch, addEventListener, matchMedia, IntersectionObserver, setTimeout, clearTimeout, setInterval, clearInterval } = scope;
 const menu=document.querySelector('.menu-toggle');
 const nav=document.querySelector('.main-nav');

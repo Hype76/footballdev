@@ -33,6 +33,7 @@ await page.route('**/*', async route => {
     return route.fulfill({ status: statsStatus, json: statsRows })
   }
   if (url.origin !== origin) return route.abort()
+  if (url.pathname === '/.netlify/functions/manage-team-branding') { assert.equal(request.method(), 'GET'); return route.fulfill({ json: { status: 'active', capacity: 250, reserved: 39, remaining: 211 } }) }
   if (url.pathname === '/.netlify/functions/get-live-promotion') return route.fulfill({ json: { success: true, promotion: { code: 'SYNTHETIC', promotionCodeId: 'promo_synthetic', percentOff: 10, duration: 'once' } } })
   if (url.pathname === '/.netlify/functions/create-checkout-session') {
     checkouts.push(request.postDataJSON())
@@ -121,10 +122,11 @@ try {
   await page.getByRole('status').filter({ hasText: 'Synthetic checkout unavailable' }).waitFor()
   assert.equal(await page.locator('[data-marketing-checkout="team"]').getAttribute('aria-disabled'), null)
   await open('matchday')
+  await page.waitForFunction(() => document.querySelector('.promotion-total strong')?.textContent === '39')
   assert.equal(await page.locator('.promotion-total strong').textContent(), '39')
   assert.equal(await page.locator('.promotion-football-grid .promotion-slot').count(), 250)
   assert.equal(await page.locator('.promotion-football-grid .promotion-slot.is-filled').count(), 39)
-  assert.match(await page.locator('.promotion-summary').textContent(), /39 teams already onboard.*211 places remaining/)
+  assert.match(await page.locator('.promotion-summary').textContent(), /39 teams reserved.*211 places remaining/)
   await page.getByRole('button', { name: 'Share with fellow coaches', exact: true }).click()
   assert.equal(await page.locator('#offer-share-url').inputValue(), 'https://footballplayer.online/matchday/#first-250')
   await page.locator('[data-offer-share="copy"]').click()

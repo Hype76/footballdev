@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "a39443246b04cbb09ccd15365237fdbc7acc3efff790d99e735cb22cfa4f0278",
+    "scripts/security-verify-reviewed-backports.mjs": "4c6d4a86fc9163244cee3606face1eaa196394d911d23f4a08a400118f419f5e",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -692,20 +692,20 @@
       "src/components/marketing/marketing-inline-pages.css": "3050af5465d6d45d919d9a41b679265469a66b4826707a8da7a44e5b91beedc6",
       "src/components/marketing/marketing-pricing.js": "a81038cee2a590e82e8efa4b9e5caee147da174e21d2f0bf2d205e6d963cffea",
       "src/components/marketing/marketing-reference.css": "5c43eda52c37b254ebc1ac2f8863a604b5c72033872e972b7e940a117c26b00d",
-      "src/components/marketing/reference-app.js": "b85d16481fccbf21a5f578864d9e3ec056ee82eab15d6ebb078402333fb5f9e2",
+      "src/components/marketing/reference-app.js": "f82fc65660cbafb09addc47426592ecee590187a9022d7a0939681896ca713d4",
       "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
       "src/components/marketing/reference-development.js": "0b1374f92b7e7bb8d8c1feb0d4108cf5a434b3695c2833d1eb29be6a5d5770d2",
       "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
       "src/components/marketing/reference-kit-preview.js": "8ec3acd5ec0736cf5fa806999426b6eb6e7de84826618189d320e75d31e51373",
       "src/components/marketing/reference-offer-share.js": "6e5a87fbe8f13714b78dce6855304a1ca538a3389a02f9e3d0101dc57eea128a",
-      "src/components/marketing/reference-pages.json": "3fde1839cb3c37594e78b53209a2637cf30328350a83505b48760dd40e1f48ab",
+      "src/components/marketing/reference-pages.json": "65b38fbe4dbe3ab362435b3123cd2cedbdfe92f87f2eea07d5e9509ad853af10",
       "src/components/marketing/reference-pricing-info.js": "fc89aa2f710b2e26d90ab50b39f2af8687c5a44ced16e0dd1d930dafc95da44f",
-      "src/components/marketing/reference-scope.js": "caec651fbe6d7d77bb6b88a4f60538de81c66b81de3d424ff056d51a7a1b86d1",
+      "src/components/marketing/reference-scope.js": "cdf489f900f8634529e226ca7f2337cfa60ce29f5aeabbce0f4a29ca8779408f",
       "src/components/marketing/reference-tutorials.js": "f7e5b9ba262c5c93fa1b97719eec5e19071bf0e5abca610f7be16dc67445f4ac",
       "src/components/pwa/InstallAppButton.jsx": "064c15a547cc985df972b736005dc15e53c105227813764e792da7643e8353d2",
       "src/pages/PublicLandingPage.jsx": "089f9b406b471fc2e72ede30006dccdf053eb9f3afde8270143e1e37de5cd505",
       "src/pages/PublicPricingPage.jsx": "1b28dc970cebd79ac1f38776aa4929e74369d8702cd4d8daea984d3d03a04adb",
-      "tests/marketing-final-integration-browser.mjs": "cd4097a596b387bb6ff23a4ae0726c61a16968efa8ae70ba4279322a3d4b0f84",
+      "tests/marketing-final-integration-browser.mjs": "327da60cd7dd8da6380eab94aca7b07769166c0a57f19f754b47f39e727ba0d2",
       "tests/marketing-reference-browser.mjs": "69c0815e4f5038a1c9a8d5adfaf6a8cc6c029b236884bb7a4ee705d2df85d4ab",
       "tests/privileged-functions-postgres.test.mjs": "d67ef17d225af5604096c9d71193bfc7c4b391dd28f1c29ab4fb1852c22cc64f",
       "tests/public-parent-login-maintenance-banner.test.mjs": "8e07b8c6fe343b8f9727d3eef07f7d29f0925d6e3c42d1bd700bba6352e7f751",
@@ -762,7 +762,9 @@
       "tests/website-help-browser.mjs": "7bdcd91b6d044998a767f7cce979d7bb418b8eb06bc4caf582dffee406799fc8",
       "tests/website-help-live-check.mjs": "55c170d838441be3bf43bf3fa30404d4829a4c6e64f411e99dc2862c30c366da",
       "tests/website-help.test.mjs": "6218fb11f8dc6f227ae32010c45cfce25ed05ea51bcb75472d3dc9b1bfe59cd3",
-      "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6"
+      "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6",
+      "src/components/marketing/first250-counter.js": "5eb1a38b03c092d239d487f53372b4f5c1050e3d6663a9679a9062223c5c2c04",
+      "tests/first250-counter-browser.mjs": "0d0d5748aca27aa3166be93de796f5ec6fce0d04f10f70fd761a5e39ce7a330b"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1023,9 +1025,38 @@
         "releaseChecksAndLiveVerificationPending": true,
         "modernFunctionPackagingTest": "Require JavaScript js/mjs/cjs archive content plus modern entry and compiled handler; verify actual compiled website-help route and rate-limit metadata",
         "helpProviderDiagnostics": "Private server logs expose only missing-key state or bounded provider HTTP status; no question, history, credential or provider response body"
+      },
+      "publicFirst250Launch": {
+        "baseline": "79bcf17ecab8c1ee5b27344eee54ab937c80ee17",
+        "scope": [
+          "src/components/marketing/first250-counter.js",
+          "src/components/marketing/reference-app.js",
+          "src/components/marketing/reference-pages.json",
+          "src/components/marketing/reference-scope.js",
+          "tests/first250-counter-browser.mjs",
+          "tests/marketing-final-integration-browser.mjs"
+        ],
+        "capacity": 250,
+        "existingPlaces": 39,
+        "newPlaces": 211,
+        "newClaimsRequireCanonicalMatchday": true,
+        "qualification": {
+          "acceptedParentLinkedActivePlayers": 7,
+          "completedMatches": 10,
+          "calendarMonths": 3,
+          "clockStarts": "offer_claim",
+          "timezone": "Europe/London"
+        },
+        "cohortDecision": "https://jelumalabs.slack.com/archives/C0C5N2XEQHM/p1791206085493349",
+        "pinnedMappingSha256": "dc7233c3a8829d096efbd9e8bb2edb85965825e618e5529d05db80b4d3eb2d8f",
+        "nativeQualificationSha256": "ff6b82f5ca8c686400d17404d198b6106c14af4a923b351d476839ce12bb6d38",
+        "activationSqlSha256": "13ccf9d2430bb1a9d735c09005f843f174907b42e5fc991de89497eb3f713f11",
+        "termsVersion": "first250-matchday-v1-20261006",
+        "nativeInputsDependenciesAndPreviousScopeUnchanged": true,
+        "publicationRequiresExactFullGates": true
       }
     }
   },
-  "releasePreparationSha256": "e403370583e76d8820150b50da4c06b068b9339ae2dfce1eb8e6b616bd4c1d28",
+  "releasePreparationSha256": "34f78a04de430f44bbff83bbb75cc0417ab73008533f251f69ea02c215d88476",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

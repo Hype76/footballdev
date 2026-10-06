@@ -24,5 +24,6 @@ export function createReferenceScope(root) {
     fetch: (url, options) => { if (options?.method && options.method !== 'GET') throw new Error('Reference interactions are read only'); return fetch(url, options) },
     setTimeout: (callback, delay) => { const timer = window.setTimeout(() => { if (active) callback() }, delay); timeouts.add(timer); return timer }, clearTimeout: timer => window.clearTimeout(timer),
     setInterval: (callback, delay) => { const timer = window.setInterval(() => { if (active) callback() }, delay); intervals.add(timer); return timer }, clearInterval: timer => window.clearInterval(timer),
+    onDispose: callback => cleanup.push(callback),
     dispose: () => { active = false; cleanup.forEach(fn => fn()); timeouts.forEach(timer => window.clearTimeout(timer)); intervals.forEach(timer => window.clearInterval(timer)); root.parentElement?.classList.remove('js-motion') } }
 }
