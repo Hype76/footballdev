@@ -62,7 +62,7 @@
   "scopeLocks": [
     {
       "scope": "root",
-      "normalisedUtf8Sha256": "de40c881732c19ceca2a16d19631a568d9a82fd7191feed61c0966051ce2bda3"
+      "normalisedUtf8Sha256": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6"
     }
   ],
   "patches": [
@@ -83,7 +83,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "ff5401ae730e5255c432e04ab6d06f77259015daa6c7ffa606cc6e9523ed75df",
     "scripts/security-apply-reviewed-backports.mjs": "075edac2062922ee3bc039a05dd40c42312932248cd7eb762480a49a0bc9594e",
-    "scripts/security-verify-reviewed-backports.mjs": "9bdf958f2dfaef5316f906a4e78bad2ac1e0af3b89bfa6310c58c788933fb830",
+    "scripts/security-verify-reviewed-backports.mjs": "96b515257077daa1451b138286d53ab9a92fdb53575d7507e8deb77cf7945e26",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/reviewed-source-manifest.json": "8366c186bcd6a755e4b971858cfeb392ccd84b3e7fc0aabfaf24427308a70b97",
@@ -102,16 +102,18 @@
     },
     {
       "path": "package-lock.json",
-      "normalisedUtf8Sha256": "de40c881732c19ceca2a16d19631a568d9a82fd7191feed61c0966051ce2bda3",
-      "unchanged": true
+      "normalisedUtf8Sha256": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6",
+      "unchanged": false
     }
   ],
   "originalApplicationBaseline": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
   "dependencyRemediation": {
-    "changedSourceHashes": {},
-    "scope": "No dependency version or lock change"
+    "changedSourceHashes": {
+      "package-lock.json": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6"
+    },
+    "scope": "Root transitive source-map-js 1.2.1 to official registry 1.2.2 for GHSA-68fv-2mgg-jv7q; only version, resolved URL and integrity changed; no package.json or mobile lock changes"
   },
-  "dependencyRemediationSha256": "cb5bba28b6d768321e5a2af2942b3d28186750e685787ac412f1939cbe288038",
+  "dependencyRemediationSha256": "70851c51754507a37996f387c6dbd3944c8303493577a664c8fd540c28ae3db7",
   "releasePreparation": {
     "baseline": "7ccbc41591569a7b7723a4fba7b28fbfa44cf50b",
     "scope": "Approved public marketing reference port and Fans web clock; root-only source qualification; no mobile, SQL or V2 changes",
@@ -121,7 +123,7 @@
       "src/components/marketing/MarketingContactDialog.jsx": "4484e669f0003bcaa3c7eb00745cf2ca19d96d029c7e1c0202e08723bf87afeb",
       "src/components/marketing/MarketingPage.jsx": "0945464c47c839340927a4bf34f7bcf20d194df64849f7a27d1ae37a9bd5f4be",
       "src/components/marketing/marketing-reference.css": "3ca1346a01a54bce003ea4809c31f27da252e3f41bacc3df6754569ad2816b11",
-      "src/components/marketing/reference-app.js": "f8a7cac9d5c6b2871ab3f652ba29df5f96d2b006d475375b4ea593bbe865dc15",
+      "src/components/marketing/reference-app.js": "c8ae012f2d1de7d1319604e131ee5d791fb5a65cff75ea47f3d8f3da4b625ea1",
       "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
       "src/components/marketing/reference-development.js": "0b1374f92b7e7bb8d8c1feb0d4108cf5a434b3695c2833d1eb29be6a5d5770d2",
       "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
@@ -141,8 +143,10 @@
       "tests/public-parent-login-maintenance-banner.test.mjs": "a44406d4752ceba8354edd15fa6ee5290580bebdd943b1954b9cc778a29d15bc",
       "tests/public-signup-recovery.test.mjs": "c5fd4909e7b2effa2b8371df8e76b4d9a5c278edea538e2f3d0142204af2c514",
       "src/components/marketing/marketing-pricing.js": "cc7f7c04ac35d651fc12340ae96ea3aad83b31be50256b18168973faf0687831",
-      "tests/marketing-final-integration-browser.mjs": "ff7fe0fd0c53233df94aef50a234c0eadf53798504bc7f7d617e7a77c646569f",
-      "src/components/marketing/marketing-inline-pages.css": "6a4a6523c2c9d9ded3dd6b865b5ecfc5f501ae4098262e6374e09405f77f3ce8"
+      "tests/marketing-final-integration-browser.mjs": "ea00e9f316cc95c8156652b243b55db5460c48c243b7cdd567066231838c1cc8",
+      "src/components/marketing/marketing-inline-pages.css": "a4de3ee353d52aedee6a2621ddf37515f7fbd7d0a211fe49ffc10da3666065a4",
+      "src/components/pwa/InstallAppButton.jsx": "064c15a547cc985df972b736005dc15e53c105227813764e792da7643e8353d2",
+      "package-lock.json": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6"
     },
     "binarySourceHashes": {
       "public/marketing-v70/assets/about-grassroots.jpg": "6bca767739fbb9c811c907dae43ce3ed3f24a22364997e15d6eca6501b4da2f5",
@@ -215,5 +219,5 @@
       "public/marketing-v70/vendor/jspdf.umd.min.js": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54"
     }
   },
-  "releasePreparationSha256": "0db2f754262e91f096291e91c61989398e769af2128596e1e2a1b74d9476d30e"
+  "releasePreparationSha256": "7415071871640b35005c661f9a9c59a2f3f621fbcb57da6c2e520035d3a4747b"
 }

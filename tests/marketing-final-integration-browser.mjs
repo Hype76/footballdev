@@ -4,7 +4,7 @@ import { createServer } from 'vite'
 import { chromium } from 'playwright'
 
 await fs.mkdir('output', { recursive: true })
-await fs.writeFile('output/marketing-final-test.html', `<html><body><div id="root"></div><script type="module">import React from 'react';import {createRoot} from 'react-dom/client';import {MarketingPage} from '/src/components/marketing/MarketingPage.jsx';import '/src/index.css';createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode,null,React.createElement(MarketingPage,{page:new URLSearchParams(location.search).get('page')})));</script></body></html>`)
+await fs.writeFile('output/marketing-final-test.html', `<html><body><div id="root"></div><script type="module">import React from 'react';import {createRoot} from 'react-dom/client';import {MarketingPage} from '/src/components/marketing/MarketingPage.jsx';import GlobalInstallAppButton from '/src/components/pwa/GlobalInstallAppButton.jsx';import '/src/index.css';createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode,null,React.createElement(MarketingPage,{page:new URLSearchParams(location.search).get('page')}),React.createElement(GlobalInstallAppButton)));</script></body></html>`)
 process.env.VITE_PAYMENTS_DISABLED = 'false'
 process.env.VITE_SUPABASE_URL = 'https://stats.example.invalid'
 process.env.VITE_SUPABASE_ANON_KEY = ''
@@ -19,7 +19,11 @@ let statsRequests = 0, statsStatus = 200
 let statsRows = [{ matches_recorded: 71, goals_recorded: 168, alerts_sent: 5272, teams_active: 39, clubs_active: 15, updated_at: '2026-10-05T19:00:00.068223Z' }]
 page.on('pageerror', error => errors.push(error.message))
 page.on('console', message => { if (message.type() === 'error' && message.text().includes('Marketing interaction failed')) errors.push(message.text()) })
-await page.addInitScript(() => { Object.defineProperty(navigator, 'clipboard', { value: { writeText: async value => { window.copiedOffer = value } } }) })
+await page.addInitScript(() => {
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText: async value => { window.copiedOffer = value } } })
+  // Older Safari can fetch with AbortController but has no AbortSignal.timeout.
+  Object.defineProperty(AbortSignal, 'timeout', { value: undefined, configurable: true })
+})
 await page.route('**/*', async route => {
   const request = route.request(), url = new URL(request.url())
   if (url.hostname === 'stats.example.invalid' && url.pathname === '/rest/v1/marketing_matchday_stats') {
@@ -57,11 +61,27 @@ try {
     else assert.ok(planPositions[2].y > planPositions[0].y)
     assert.match(await page.locator('.plan-card').nth(1).textContent(), /£7\.99/)
     assert.match(await page.locator('.plan-card').nth(2).textContent(), /£59\.99[\s\S]*20 teams/)
+    await page.locator('.compare-scroll').scrollIntoViewIfNeeded()
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     await page.getByRole('button', { name: 'About Teams included', exact: true }).click()
     assert.equal(await page.locator('#feature-tip-1').isVisible(), true)
     assert.equal(await page.locator('.compare-table tbody th').first().evaluate(element => getComputedStyle(element).color), 'rgb(16, 28, 53)')
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth))
     await page.keyboard.press('Escape')
+    const comparison = page.locator('.compare-scroll')
+    await comparison.scrollIntoViewIfNeeded()
+    const original = await page.locator('.compare-table thead th').first().boundingBox()
+    const feature = await page.locator('.compare-table tbody th').first().boundingBox()
+    await comparison.evaluate(element => { element.scrollTop = 150; element.scrollLeft = 180 })
+    const pinned = await page.locator('.compare-table thead th').first().boundingBox()
+    const pinnedFeature = await page.locator('.compare-table tbody th').first().boundingBox()
+    assert.ok(Math.abs(pinned.y - original.y) < 2, 'Comparison heading stays fixed while rows scroll')
+    assert.ok(Math.abs(pinned.x - original.x) < 2, 'Feature heading stays fixed while plans scroll')
+    assert.ok(Math.abs(pinnedFeature.x - feature.x) < 2, 'Feature column stays fixed while plans scroll')
+    assert.ok(await comparison.evaluate(element => element.scrollHeight > element.clientHeight), 'Comparison rows can scroll vertically')
+    assert.ok((await page.locator('.compare-table tbody tr').first().boundingBox()).height < 100, 'Rows are compact')
+    await comparison.screenshot({ path: `output/mobile-comparison-pinned-${width}.png` })
+    await comparison.evaluate(element => { element.scrollTop = 0; element.scrollLeft = 0 })
     await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo({ top: 0, behavior: 'instant' }) })
     await page.screenshot({ path: `output/final-pricing-${width}.png`, fullPage: true })
   }
@@ -96,6 +116,8 @@ try {
   await page.evaluate(() => sessionStorage.removeItem('fp-v3-stats'))
   statsRequests = 0
   await open('home')
+  await page.evaluate(() => window.dispatchEvent(new Event('beforeinstallprompt')))
+  assert.equal(await page.getByRole('button', { name: 'Install App', exact: true }).count(), 0)
   assert.deepEqual(await page.locator('[data-stat]').allTextContents(), ['71', '168', '5,272', '39', '15'])
   assert.equal(await page.locator('.stat-grid').isVisible(), true)
   assert.match(await page.locator('[data-stats-status]').textContent(), /Updated 5 Oct.*20:00.*BST/)
@@ -126,6 +148,12 @@ try {
     assert.equal(await page.locator('.stat-grid').isVisible(), true)
     assert.deepEqual(await page.locator('[data-stat]').allTextContents(), Array(5).fill('Unavailable'))
     assert.match(await page.locator('[data-stats-status]').textContent(), /temporarily unavailable/)
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 900 })
+      const fitted = await page.locator('[data-stat]').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth + 1))
+      assert.ok(fitted, 'Unavailable labels fit their statistics cells')
+      await page.locator('.stats').screenshot({ path: `output/mobile-unavailable-stats-${width}.png` })
+    }
   }
   assert.deepEqual(errors, [])
   console.log('PASS final marketing interactions and layout; stats publishable-key fallback, five real counters on four routes, UK timestamp, zero/invalid/missing/unavailable states and cache reuse/expiry. All writes mocked.')
