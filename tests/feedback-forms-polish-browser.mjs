@@ -73,11 +73,11 @@ async function stopServer(server) {
 }
 
 async function signIn(page, email = 'manager.fixture@footballplayer.test', access = 'club') {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
-  await page.getByRole('button', { name: access === 'parent' ? 'Parent' : 'Coach' }).click()
-  await page.getByPlaceholder('you@club.com').fill(email)
-  await page.getByPlaceholder('Enter password').fill('FixturePass123!')
-  await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+  await page.goto(`${baseUrl}/sign-in/${access === 'parent' ? 'parent' : 'coach'}`, { waitUntil: 'domcontentloaded' })
+  const authForm = page.locator('form').filter({ has: page.getByPlaceholder('Enter password') })
+  await authForm.getByLabel('Email', { exact: true }).fill(email)
+  await authForm.getByPlaceholder('Enter password').fill('FixturePass123!')
+  await authForm.getByRole('button', { name: /^Log in$/i }).click()
 }
 
 const starterTemplates = [
