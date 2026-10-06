@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "17b232a4cdeed71ec5782d523564a8033628c036aced83b396b26aa983dd9bc3",
+    "scripts/security-verify-reviewed-backports.mjs": "c4802067548ecf59f15b0c25230447c315d67ea02a96cbca55b94222f847f7cb",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -738,10 +738,10 @@
       "netlify/functions/create-checkout-session.js": "944e32c8fcde4c1c306d66df360071f84a65896bef652e98f7cb8a53b8f0aa78",
       "netlify/functions/get-billing-summary.js": "14a267d780f92f08ef6e0ecd235b1b2fba1bcf2794377655a135d82efe2284fd",
       "netlify/functions/lib/_stripe-billing.js": "43e6b67bd09f930c18270e6d29e628bcce20479e442da896dd46a147e2c4c9e5",
-      "netlify/functions/lib/_website-help.js": "ad69bed936c9462f491ef6f23edc0c6d95cd3ecd78bbbd48f14f3f0bdea6f965",
+      "netlify/functions/lib/_website-help.js": "237ad06ab7690d3899f6228e66a0b8e473a61b79535e575e9f4c213648c9f287",
       "netlify/functions/send-contact-request.js": "f66b62a92a6640cc733c4e9255ecd6e8a3b46c06e0db57f2f4e274a6d47cfdcd",
       "netlify/functions/stripe-webhook.js": "ba80a3ac27edf489428ae0e97377f3177c3ba4a83a64f4aae9498cb459060816",
-      "netlify/functions/website-help.mts": "2cd543479a5210f2b46d55ebd843fa6239a8f0f720bc54461f10558267c4eaf1",
+      "netlify/functions/website-help.mts": "57e5a3941d8d674b54fe3fd449a6a46fd63488682323cfc9cb673546be83dfef",
       "src/components/login/WebsiteHelpChat.jsx": "96e58c58699af40f91dad2faa241f2314ed31e97dddfe7ae9d174afb41bd6076",
       "src/components/marketing/MarketingClubQuoteDialog.jsx": "9529fc143e9704348c94d00b9b39c59e784da7bcdff09a760b7be1fba6f70e0b",
       "src/lib/plans.js": "88381baf584c21f6e784a4b3cea181c541d8bbd241aec16aa5d58015de22fb89",
@@ -761,7 +761,7 @@
       "tests/team-matchday-kits.test.mjs": "d409c39cef13fae772fd970e45ae63138dcb0afe00bdf3b36dd69b92a4d18ef0",
       "tests/website-help-browser.mjs": "7bdcd91b6d044998a767f7cce979d7bb418b8eb06bc4caf582dffee406799fc8",
       "tests/website-help-live-check.mjs": "55c170d838441be3bf43bf3fa30404d4829a4c6e64f411e99dc2862c30c366da",
-      "tests/website-help.test.mjs": "4a00504e760b6162dd64b91754c7538d75b7c18a5959038a72cac81867aa4832",
+      "tests/website-help.test.mjs": "786a1800a00aa541777d90f048c79a039743bfd8b11e1b49af6e449763a1e05c",
       "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6"
     },
     "externalTrustInputs": [
@@ -1011,10 +1011,11 @@
         },
         "independentExactCandidateReviewRequired": true,
         "releaseChecksAndLiveVerificationPending": true,
-        "modernFunctionPackagingTest": "Require JavaScript js/mjs/cjs archive content plus modern entry and compiled handler; verify actual compiled website-help route and rate-limit metadata"
+        "modernFunctionPackagingTest": "Require JavaScript js/mjs/cjs archive content plus modern entry and compiled handler; verify actual compiled website-help route and rate-limit metadata",
+        "helpProviderDiagnostics": "Private server logs expose only missing-key state or bounded provider HTTP status; no question, history, credential or provider response body"
       }
     }
   },
-  "releasePreparationSha256": "cb2364bf517c61011d859e4f950e996bdccecf2e549a5e84fd915cfb67dec6c4",
+  "releasePreparationSha256": "f2a302acf76287ccf2c4ce396d861b288a0a803db0d14a14043f4afcb62bd8b5",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

@@ -120,13 +120,21 @@ test('missing key and emergency disable return approved fallback', async () => {
 test('provider errors never disclose error bodies or credentials', async () => {
   const previousKey = process.env.OPENAI_API_KEY
   const originalFetch = globalThis.fetch
+  const originalWarn = console.warn
+  const warnings = []
   try {
+    console.warn = (...values) => warnings.push(values)
     process.env.OPENAI_API_KEY = 'test-only'
     globalThis.fetch = async () => new Response('Private provider error with secret', { status: 500 })
     const result = await (await websiteHelp(request({ message: 'pricing' }))).json()
     assert.deepEqual(result, { ...websiteHelpFallback, unavailable: true })
     assert.ok(!JSON.stringify(result).includes('secret'))
+    assert.deepEqual(warnings, [['Website help provider unavailable.', 500]])
+    assert.ok(!JSON.stringify(warnings).includes('secret'))
+    assert.ok(!JSON.stringify(warnings).includes('test-only'))
+    assert.ok(!JSON.stringify(warnings).includes('pricing'))
   } finally {
+    console.warn = originalWarn
     globalThis.fetch = originalFetch
     if (previousKey === undefined) delete process.env.OPENAI_API_KEY
     else process.env.OPENAI_API_KEY = previousKey

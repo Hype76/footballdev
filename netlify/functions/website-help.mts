@@ -22,11 +22,16 @@ export default async function websiteHelp(request: Request) {
     const prepared = prepareWebsiteHelp(body.message)
     if (prepared.reply) return reply(prepared.reply)
     const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) return reply({ ...websiteHelpFallback, unavailable: true })
+    if (!apiKey) {
+      console.warn('Website help unavailable: server key is not configured.')
+      return reply({ ...websiteHelpFallback, unavailable: true })
+    }
     try {
       return reply(await selectWebsiteHelp(prepared.topics, { apiKey }))
-    } catch {
-      // Do not log raw questions, provider errors or secrets.
+    } catch (error) {
+      // Record only a bounded HTTP status, never questions, provider bodies or secrets.
+      const status = error && typeof error === 'object' && 'providerStatus' in error ? error.providerStatus : undefined
+      console.warn('Website help provider unavailable.', Number.isInteger(status) && status >= 400 && status <= 599 ? status : 'request_failed')
       return reply({ ...websiteHelpFallback, unavailable: true })
     }
   } catch {

@@ -36,7 +36,7 @@ export async function selectWebsiteHelp(topics, { apiKey, fetchImpl = fetch } = 
       response_format: { type: 'json_schema', json_schema: { name: 'football_player_help', strict: true, schema: { type: 'object', properties: { articleId: { type: 'string', enum: [...ids, 'unavailable'] } }, required: ['articleId'], additionalProperties: false } } },
     }),
   })
-  if (!response.ok) throw new Error('Help provider unavailable')
+  if (!response.ok) throw Object.assign(new Error('Help provider unavailable'), { providerStatus: response.status })
   const data = await response.json()
   const content = data.choices?.[0]?.message?.content
   if (data.choices?.[0]?.finish_reason !== 'stop' || typeof content !== 'string') return websiteHelpFallback
