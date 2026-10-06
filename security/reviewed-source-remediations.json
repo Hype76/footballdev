@@ -193,15 +193,15 @@
   "scopeLocks": [
     {
       "scope": "root",
-      "normalisedUtf8Sha256": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6"
+      "normalisedUtf8Sha256": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40"
     },
     {
       "scope": "apps/parent-mobile",
-      "normalisedUtf8Sha256": "06e6beb27fc1d2e107ab8415cfc51ad1af19a8b00317310006513b7057197ffb"
+      "normalisedUtf8Sha256": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1"
     },
     {
       "scope": "apps/coach-mobile",
-      "normalisedUtf8Sha256": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479"
+      "normalisedUtf8Sha256": "a7ce21f4d179f562dbe49c887e7ee28b13cefb744704e3af4b28cc77d1888322"
     }
   ],
   "patches": [
@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "a39443246b04cbb09ccd15365237fdbc7acc3efff790d99e735cb22cfa4f0278",
+    "scripts/security-verify-reviewed-backports.mjs": "d42473e4b3e8985f5c97b4c6f33b4487f5fe8d435c219a15d096ab83ba2571a7",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -236,7 +236,7 @@
     "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
     ".github/workflows/security-gate.yml": "30f95d25ace383a89c2f1d6796137dde08af56b20f8bcf2e978a98f6dfc3c315",
     "apps/scripts/mobile-release-check.mjs": "026b0d3117b8d268be368851f2ebfeb82363f8a738765c15b1a6a906479b56c1",
-    "package.json": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7",
+    "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
     "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265"
@@ -246,14 +246,15 @@
   "nativeInputs": [
     {
       "path": "package.json",
-      "normalisedUtf8Sha256": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7",
-      "unchanged": true
+      "normalisedUtf8Sha256": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
+      "unchanged": false,
+      "reason": "Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
     },
     {
       "path": "package-lock.json",
-      "normalisedUtf8Sha256": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6",
+      "normalisedUtf8Sha256": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40",
       "unchanged": false,
-      "reason": "Previously reviewed source-map-js 1.2.2 prerequisite from current main, native app inputs unchanged"
+      "reason": "Previously reviewed source-map-js 1.2.2 prerequisite from current main, native app inputs unchanged; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
     },
     {
       "path": "apps/mobile-core/appConfig.cjs",
@@ -262,15 +263,15 @@
     },
     {
       "path": "apps/parent-mobile/package.json",
-      "normalisedUtf8Sha256": "22e577c071c5ec44689d64202c7d8c6ed4fe51041b78509c8a381a1642179e11",
+      "normalisedUtf8Sha256": "d40865452a4fb69ff1251f223928afd6927952c7f9e7e1b06b92eb8b7706e3e0",
       "unchanged": false,
-      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0"
+      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
     },
     {
       "path": "apps/parent-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "06e6beb27fc1d2e107ab8415cfc51ad1af19a8b00317310006513b7057197ffb",
+      "normalisedUtf8Sha256": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1",
       "unchanged": false,
-      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0"
+      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
     },
     {
       "path": "apps/parent-mobile/app.config.js",
@@ -284,15 +285,15 @@
     },
     {
       "path": "apps/coach-mobile/package.json",
-      "normalisedUtf8Sha256": "51ac793feae7bd8c44150f1633e5f1f1b967e1a287bc819afaed4915554aecb2",
+      "normalisedUtf8Sha256": "0fba8826940d3e162f55b5304396c1bd0d99abdcf84347133872e81647464e4e",
       "unchanged": false,
-      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0"
+      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
     },
     {
       "path": "apps/coach-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479",
+      "normalisedUtf8Sha256": "a7ce21f4d179f562dbe49c887e7ee28b13cefb744704e3af4b28cc77d1888322",
       "unchanged": false,
-      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0"
+      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
     },
     {
       "path": "apps/coach-mobile/app.config.js",
@@ -314,7 +315,9 @@
       "apps/coach-mobile/package-lock.json",
       "tests/parent-chat-layout-browser.mjs",
       "apps/parent-mobile/package.json",
-      "apps/parent-mobile/package-lock.json"
+      "apps/parent-mobile/package-lock.json",
+      "package.json",
+      "package-lock.json"
     ],
     "reason": "Parent-authorised compatible official Coach tooling updates and observed Chat test render-commit timing repair.",
     "additionalAdvisoryAcceptanceAllowed": false,
@@ -465,13 +468,15 @@
         "integrity": "sha512-4XGqMNj5qjUTYywJqpdWZ9IG8jgkS3h06sfVjfw5yZQZfWnRFXczi0GnYyFyCc2EBps/qFmoCH8fez//WumdVg=="
       }
     ],
-    "lockImpactSha256": "da8ffc891f567e50452c19bbc9bf6168087ad1799daf78c272e9873eeae4624e",
+    "lockImpactSha256": "d6f3d9e1a0f877643ed90ac381c7838a170159c327ff5903c7dafb895b8516a6",
     "changedSourceHashes": {
-      "apps/coach-mobile/package.json": "51ac793feae7bd8c44150f1633e5f1f1b967e1a287bc819afaed4915554aecb2",
-      "apps/coach-mobile/package-lock.json": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479",
+      "apps/coach-mobile/package.json": "0fba8826940d3e162f55b5304396c1bd0d99abdcf84347133872e81647464e4e",
+      "apps/coach-mobile/package-lock.json": "a7ce21f4d179f562dbe49c887e7ee28b13cefb744704e3af4b28cc77d1888322",
       "tests/parent-chat-layout-browser.mjs": "5ba0eb3c64e1d1d2dc35425bd24828afc7dd509aba2e752618184ed771a1f29a",
-      "apps/parent-mobile/package.json": "22e577c071c5ec44689d64202c7d8c6ed4fe51041b78509c8a381a1642179e11",
-      "apps/parent-mobile/package-lock.json": "06e6beb27fc1d2e107ab8415cfc51ad1af19a8b00317310006513b7057197ffb"
+      "apps/parent-mobile/package.json": "d40865452a4fb69ff1251f223928afd6927952c7f9e7e1b06b92eb8b7706e3e0",
+      "apps/parent-mobile/package-lock.json": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1",
+      "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
+      "package-lock.json": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40"
     },
     "compatibleOfficialJavaScriptPrerequisite": {
       "baseline": "ec2288c01cd22801d96aa26329fab2b6ed0d0b05",
@@ -501,9 +506,166 @@
       ],
       "lockImpactSha256": "fb4aafdfcd49ecc78cf63ac45befdbeb0c54385474f64f26b89bdc56da69bba3",
       "additionalAdvisoryAcceptanceAllowed": false
+    },
+    "first250SecurityPrerequisite": {
+      "baseline": "36f7039f635a4669b79bda31bb68cc4dc7bb992a",
+      "reason": "Required current CI advisory repair confined to official sharp0.35.5 server imaging and shell-quote1.11.0 mobile JavaScript tooling; no extra advisory acceptance",
+      "scope": [
+        "package.json",
+        "package-lock.json",
+        "apps/parent-mobile/package.json",
+        "apps/parent-mobile/package-lock.json",
+        "apps/coach-mobile/package.json",
+        "apps/coach-mobile/package-lock.json"
+      ],
+      "versions": {
+        "sharp": {
+          "from": "0.35.4",
+          "to": "0.35.5",
+          "rootDependenciesAndOverride": true,
+          "serverLibvips": {
+            "from": "1.3.3",
+            "to": "1.3.4"
+          }
+        },
+        "shellQuote": {
+          "from": "1.10.0",
+          "to": "1.11.0",
+          "mobileOverridesOnly": true
+        }
+      },
+      "changedSourceHashes": {
+        "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
+        "package-lock.json": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40",
+        "apps/parent-mobile/package.json": "d40865452a4fb69ff1251f223928afd6927952c7f9e7e1b06b92eb8b7706e3e0",
+        "apps/parent-mobile/package-lock.json": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1",
+        "apps/coach-mobile/package.json": "0fba8826940d3e162f55b5304396c1bd0d99abdcf84347133872e81647464e4e",
+        "apps/coach-mobile/package-lock.json": "a7ce21f4d179f562dbe49c887e7ee28b13cefb744704e3af4b28cc77d1888322"
+      },
+      "lockDeltaSha256": "d6f3d9e1a0f877643ed90ac381c7838a170159c327ff5903c7dafb895b8516a6",
+      "mobileNativeProof": [
+        {
+          "scope": "apps/parent-mobile",
+          "comparedWith": "36f7039f635a4669b79bda31bb68cc4dc7bb992a",
+          "packageIdentities": 97,
+          "versionResolvedIntegrityUnchanged": true,
+          "sha256": "39f3fcbe4d78721bf0d107a9f6dd75a5a9dd22005e3c9daed9563d874233b24d",
+          "directDependencySectionsUnchanged": true,
+          "runtimeConfigurationUnchanged": true
+        },
+        {
+          "scope": "apps/coach-mobile",
+          "comparedWith": "36f7039f635a4669b79bda31bb68cc4dc7bb992a",
+          "packageIdentities": 95,
+          "versionResolvedIntegrityUnchanged": true,
+          "sha256": "c82d8e1ae1ee55e3af9bdf6cdb4ee659eda6ff486b9a78f66f5da1c3ee7cafa6",
+          "directDependencySectionsUnchanged": true,
+          "runtimeConfigurationUnchanged": true
+        }
+      ],
+      "priorReviewedInputs": {
+        "nativeInputs": [
+          {
+            "path": "package.json",
+            "normalisedUtf8Sha256": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7",
+            "unchanged": true
+          },
+          {
+            "path": "package-lock.json",
+            "normalisedUtf8Sha256": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6",
+            "unchanged": false,
+            "reason": "Previously reviewed source-map-js 1.2.2 prerequisite from current main, native app inputs unchanged"
+          },
+          {
+            "path": "apps/parent-mobile/package.json",
+            "normalisedUtf8Sha256": "22e577c071c5ec44689d64202c7d8c6ed4fe51041b78509c8a381a1642179e11",
+            "unchanged": false,
+            "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0"
+          },
+          {
+            "path": "apps/parent-mobile/package-lock.json",
+            "normalisedUtf8Sha256": "06e6beb27fc1d2e107ab8415cfc51ad1af19a8b00317310006513b7057197ffb",
+            "unchanged": false,
+            "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0"
+          },
+          {
+            "path": "apps/coach-mobile/package.json",
+            "normalisedUtf8Sha256": "51ac793feae7bd8c44150f1633e5f1f1b967e1a287bc819afaed4915554aecb2",
+            "unchanged": false,
+            "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0"
+          },
+          {
+            "path": "apps/coach-mobile/package-lock.json",
+            "normalisedUtf8Sha256": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479",
+            "unchanged": false,
+            "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0"
+          }
+        ],
+        "dependencySourceHashes": {
+          "apps/parent-mobile/package.json": "22e577c071c5ec44689d64202c7d8c6ed4fe51041b78509c8a381a1642179e11",
+          "apps/parent-mobile/package-lock.json": "06e6beb27fc1d2e107ab8415cfc51ad1af19a8b00317310006513b7057197ffb",
+          "apps/coach-mobile/package.json": "51ac793feae7bd8c44150f1633e5f1f1b967e1a287bc819afaed4915554aecb2",
+          "apps/coach-mobile/package-lock.json": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479"
+        },
+        "releaseSourceHashes": {
+          "package-lock.json": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6",
+          "apps/parent-mobile/package.json": "22e577c071c5ec44689d64202c7d8c6ed4fe51041b78509c8a381a1642179e11",
+          "apps/parent-mobile/package-lock.json": "06e6beb27fc1d2e107ab8415cfc51ad1af19a8b00317310006513b7057197ffb",
+          "apps/coach-mobile/package.json": "51ac793feae7bd8c44150f1633e5f1f1b967e1a287bc819afaed4915554aecb2",
+          "apps/coach-mobile/package-lock.json": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479"
+        },
+        "rootManifestImplementationHash": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7",
+        "lockImpactSha256": "da8ffc891f567e50452c19bbc9bf6168087ad1799daf78c272e9873eeae4624e",
+        "scopeLocks": [
+          {
+            "scope": "root",
+            "normalisedUtf8Sha256": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6"
+          },
+          {
+            "scope": "apps/parent-mobile",
+            "normalisedUtf8Sha256": "06e6beb27fc1d2e107ab8415cfc51ad1af19a8b00317310006513b7057197ffb"
+          },
+          {
+            "scope": "apps/coach-mobile",
+            "normalisedUtf8Sha256": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479"
+          }
+        ]
+      },
+      "additionalAdvisoryAcceptanceAllowed": false,
+      "mobileNativeDirectDependenciesAndRuntimeChanged": false,
+      "serverNativeImageArtifactsChanged": true,
+      "publicationRequiresFullRequiredGatesAndIndependentReceipt": true,
+      "lockDeltaSummary": [
+        {
+          "lock": "package-lock.json",
+          "changedEntries": 28,
+          "packageFamilies": [
+            "sharp",
+            "@img/sharp platform artifacts",
+            "@img/sharp-libvips"
+          ],
+          "unexpectedDrift": false
+        },
+        {
+          "lock": "apps/parent-mobile/package-lock.json",
+          "changedEntries": 1,
+          "packageFamilies": [
+            "shell-quote"
+          ],
+          "unexpectedDrift": false
+        },
+        {
+          "lock": "apps/coach-mobile/package-lock.json",
+          "changedEntries": 1,
+          "packageFamilies": [
+            "shell-quote"
+          ],
+          "unexpectedDrift": false
+        }
+      ]
     }
   },
-  "dependencyRemediationSha256": "e9eea6246365fd0acecfc1602ca5802f528786586a86b18c39c404a21f9cae07",
+  "dependencyRemediationSha256": "23bc11d0a2217dca4f0c46c65943f9d8139081c4298aee0ef45ceb7ab443be4b",
   "releasePreparation": {
     "previousCandidate": "84e3671573f83cd24586637b76f86e8921c1a80d",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
@@ -686,35 +848,35 @@
       "tests/training-rsvp-chat-dnd-73.test.mjs": "8ac926ea06eec576ac540498aa9768b6240fe897d34b06c78a2d68816b15c809",
       "tests/v1-coach-refresh-cost.test.mjs": "1b944a3dcc8bd1a64231549e198b15a66bad48db470f9201cdcaa0ea3eef2918",
       "tests/v1-hardening-migration-scope.test.mjs": "9aa1c0a6a53723efd06423ab9240415146a68ba45745ff320e6b52d6919b3a48",
-      "package-lock.json": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6",
+      "package-lock.json": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40",
       "src/components/marketing/MarketingContactDialog.jsx": "9a797f3feebfe2a967f490b804bd38ff73be71852bd6de003a323a276fb4d364",
       "src/components/marketing/MarketingPage.jsx": "69770ae9a2a4e27de486f1d3c05a8c79ec9802799a5e88e57919bd3af14bb345",
       "src/components/marketing/marketing-inline-pages.css": "3050af5465d6d45d919d9a41b679265469a66b4826707a8da7a44e5b91beedc6",
       "src/components/marketing/marketing-pricing.js": "a81038cee2a590e82e8efa4b9e5caee147da174e21d2f0bf2d205e6d963cffea",
       "src/components/marketing/marketing-reference.css": "5c43eda52c37b254ebc1ac2f8863a604b5c72033872e972b7e940a117c26b00d",
-      "src/components/marketing/reference-app.js": "b85d16481fccbf21a5f578864d9e3ec056ee82eab15d6ebb078402333fb5f9e2",
+      "src/components/marketing/reference-app.js": "f82fc65660cbafb09addc47426592ecee590187a9022d7a0939681896ca713d4",
       "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
       "src/components/marketing/reference-development.js": "0b1374f92b7e7bb8d8c1feb0d4108cf5a434b3695c2833d1eb29be6a5d5770d2",
       "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
       "src/components/marketing/reference-kit-preview.js": "8ec3acd5ec0736cf5fa806999426b6eb6e7de84826618189d320e75d31e51373",
       "src/components/marketing/reference-offer-share.js": "6e5a87fbe8f13714b78dce6855304a1ca538a3389a02f9e3d0101dc57eea128a",
-      "src/components/marketing/reference-pages.json": "3fde1839cb3c37594e78b53209a2637cf30328350a83505b48760dd40e1f48ab",
+      "src/components/marketing/reference-pages.json": "65b38fbe4dbe3ab362435b3123cd2cedbdfe92f87f2eea07d5e9509ad853af10",
       "src/components/marketing/reference-pricing-info.js": "fc89aa2f710b2e26d90ab50b39f2af8687c5a44ced16e0dd1d930dafc95da44f",
-      "src/components/marketing/reference-scope.js": "caec651fbe6d7d77bb6b88a4f60538de81c66b81de3d424ff056d51a7a1b86d1",
+      "src/components/marketing/reference-scope.js": "cdf489f900f8634529e226ca7f2337cfa60ce29f5aeabbce0f4a29ca8779408f",
       "src/components/marketing/reference-tutorials.js": "f7e5b9ba262c5c93fa1b97719eec5e19071bf0e5abca610f7be16dc67445f4ac",
       "src/components/pwa/InstallAppButton.jsx": "064c15a547cc985df972b736005dc15e53c105227813764e792da7643e8353d2",
       "src/pages/PublicLandingPage.jsx": "089f9b406b471fc2e72ede30006dccdf053eb9f3afde8270143e1e37de5cd505",
       "src/pages/PublicPricingPage.jsx": "1b28dc970cebd79ac1f38776aa4929e74369d8702cd4d8daea984d3d03a04adb",
-      "tests/marketing-final-integration-browser.mjs": "cd4097a596b387bb6ff23a4ae0726c61a16968efa8ae70ba4279322a3d4b0f84",
+      "tests/marketing-final-integration-browser.mjs": "327da60cd7dd8da6380eab94aca7b07769166c0a57f19f754b47f39e727ba0d2",
       "tests/marketing-reference-browser.mjs": "69c0815e4f5038a1c9a8d5adfaf6a8cc6c029b236884bb7a4ee705d2df85d4ab",
       "tests/privileged-functions-postgres.test.mjs": "d67ef17d225af5604096c9d71193bfc7c4b391dd28f1c29ab4fb1852c22cc64f",
       "tests/public-parent-login-maintenance-banner.test.mjs": "8e07b8c6fe343b8f9727d3eef07f7d29f0925d6e3c42d1bd700bba6352e7f751",
       "tests/public-signup-recovery.test.mjs": "c5fd4909e7b2effa2b8371df8e76b4d9a5c278edea538e2f3d0142204af2c514",
       "supabase/migrations/20261006062722_team_current_league_url.sql": "417ff09057a6fef38016e7268644e23c268724e5cf322cf2406123ee2eb5cb70",
-      "apps/parent-mobile/package.json": "22e577c071c5ec44689d64202c7d8c6ed4fe51041b78509c8a381a1642179e11",
-      "apps/parent-mobile/package-lock.json": "06e6beb27fc1d2e107ab8415cfc51ad1af19a8b00317310006513b7057197ffb",
-      "apps/coach-mobile/package.json": "51ac793feae7bd8c44150f1633e5f1f1b967e1a287bc819afaed4915554aecb2",
-      "apps/coach-mobile/package-lock.json": "415dcdda070e01bc16c9eb5ca81b35d072b9bb33e2fa86cd6a35a50ebba9a479",
+      "apps/parent-mobile/package.json": "d40865452a4fb69ff1251f223928afd6927952c7f9e7e1b06b92eb8b7706e3e0",
+      "apps/parent-mobile/package-lock.json": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1",
+      "apps/coach-mobile/package.json": "0fba8826940d3e162f55b5304396c1bd0d99abdcf84347133872e81647464e4e",
+      "apps/coach-mobile/package-lock.json": "a7ce21f4d179f562dbe49c887e7ee28b13cefb744704e3af4b28cc77d1888322",
       "eslint.config.js": "811b16ea3d232a02f5c2f2ceca259c34b48820c198023c65ab73ab65fa80e01c",
       "tests/marketing-pdf-text.test.mjs": "552de48dcda0681d48bd9a3fec59227bce5b464ddd747b3dac49aeee3876d161",
       "src/pages/LoginPage.jsx": "74d853c94e6ae3960f8a554be944c482010ffb6bd7bb7509f630e7e8e17c619f",
@@ -762,7 +924,10 @@
       "tests/website-help-browser.mjs": "7bdcd91b6d044998a767f7cce979d7bb418b8eb06bc4caf582dffee406799fc8",
       "tests/website-help-live-check.mjs": "55c170d838441be3bf43bf3fa30404d4829a4c6e64f411e99dc2862c30c366da",
       "tests/website-help.test.mjs": "6218fb11f8dc6f227ae32010c45cfce25ed05ea51bcb75472d3dc9b1bfe59cd3",
-      "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6"
+      "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6",
+      "src/components/marketing/first250-counter.js": "5eb1a38b03c092d239d487f53372b4f5c1050e3d6663a9679a9062223c5c2c04",
+      "tests/first250-counter-browser.mjs": "0d0d5748aca27aa3166be93de796f5ec6fce0d04f10f70fd761a5e39ce7a330b",
+      "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1023,9 +1188,57 @@
         "releaseChecksAndLiveVerificationPending": true,
         "modernFunctionPackagingTest": "Require JavaScript js/mjs/cjs archive content plus modern entry and compiled handler; verify actual compiled website-help route and rate-limit metadata",
         "helpProviderDiagnostics": "Private server logs expose only missing-key state or bounded provider HTTP status; no question, history, credential or provider response body"
+      },
+      "publicFirst250Launch": {
+        "baseline": "79bcf17ecab8c1ee5b27344eee54ab937c80ee17",
+        "scope": [
+          "src/components/marketing/first250-counter.js",
+          "src/components/marketing/reference-app.js",
+          "src/components/marketing/reference-pages.json",
+          "src/components/marketing/reference-scope.js",
+          "tests/first250-counter-browser.mjs",
+          "tests/marketing-final-integration-browser.mjs"
+        ],
+        "capacity": 250,
+        "existingPlaces": 39,
+        "newPlaces": 211,
+        "newClaimsRequireCanonicalMatchday": true,
+        "qualification": {
+          "acceptedParentLinkedActivePlayers": 7,
+          "completedMatches": 10,
+          "calendarMonths": 3,
+          "clockStarts": "offer_claim",
+          "timezone": "Europe/London"
+        },
+        "cohortDecision": "https://jelumalabs.slack.com/archives/C0C5N2XEQHM/p1791206085493349",
+        "pinnedMappingSha256": "dc7233c3a8829d096efbd9e8bb2edb85965825e618e5529d05db80b4d3eb2d8f",
+        "nativeQualificationSha256": "ff6b82f5ca8c686400d17404d198b6106c14af4a923b351d476839ce12bb6d38",
+        "activationSqlSha256": "13ccf9d2430bb1a9d735c09005f843f174907b42e5fc991de89497eb3f713f11",
+        "termsVersion": "first250-matchday-v1-20261006",
+        "nativeInputsDependenciesAndPreviousScopeUnchanged": false,
+        "publicationRequiresExactFullGates": true,
+        "previousOfferSourceScopeUnchanged": true,
+        "mobileNativeDirectDependenciesAndRuntimeUnchanged": true,
+        "dependencyPrerequisiteKey": "publicFirst250DependencyPrerequisite"
+      },
+      "publicFirst250DependencyPrerequisite": {
+        "baseline": "36f7039f635a4669b79bda31bb68cc4dc7bb992a",
+        "scope": [
+          "package.json",
+          "package-lock.json",
+          "apps/parent-mobile/package.json",
+          "apps/parent-mobile/package-lock.json",
+          "apps/coach-mobile/package.json",
+          "apps/coach-mobile/package-lock.json"
+        ],
+        "dependencyRemediationField": "first250SecurityPrerequisite",
+        "prerequisiteSha256": "577cd2284d5cf7278e05b889254dc731403827f50da079efac8566ea91e1c103",
+        "mobileNativeDirectDependenciesAndRuntimeChanged": false,
+        "serverNativeImageArtifactsChanged": true,
+        "additionalAdvisoryAcceptanceAllowed": false
       }
     }
   },
-  "releasePreparationSha256": "e403370583e76d8820150b50da4c06b068b9339ae2dfce1eb8e6b616bd4c1d28",
+  "releasePreparationSha256": "ce31fcce07129fa5f3dafdaf6b76817165129a161b0269cbfafecddb3fe42e37",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

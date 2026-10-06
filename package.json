@@ -104,7 +104,7 @@
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.18.2",
     "resend": "^6.18.0",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "stripe": "^22.1.1",
     "tailwindcss": "^4.2.2",
     "web-push": "^3.6.7"
@@ -128,7 +128,7 @@
   },
   "overrides": {
     "@humanfs/node@<0.16.8": "0.16.8",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "@babel/plugin-transform-modules-systemjs@>=7.12.0 <=7.29.3": "7.29.4",
     "brace-expansion@<1.1.21": "1.1.21",
     "brace-expansion@>=2.0.0 <2.1.7": "2.1.7",
