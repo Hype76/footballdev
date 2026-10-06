@@ -6,3 +6,25 @@
 /* Restore the reference body-table colour under the application table theme. */
 .marketing-reference.marketing-page-pricing .compare-table tbody th{color:#101c35}
 .marketing-reference.marketing-page-pricing .plan-card ul{list-style:disc}
+
+/* Keep failed totals inside their cells, including large-text phone settings. */
+.marketing-reference .stat-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.marketing-reference .stat{min-width:0}
+.marketing-reference .stat strong{overflow-wrap:anywhere}
+.marketing-reference .stat strong[data-unavailable]{font-size:1rem;letter-spacing:normal;line-height:1.4}
+@media(max-width:620px){.marketing-reference .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Both axes scroll within the comparison; its headings stay in view. */
+.marketing-reference.marketing-page-pricing .compare-scroll{max-height:70vh;max-height:70dvh;overflow:auto;border-radius:8px;overscroll-behavior:contain;isolation:isolate}
+.marketing-reference.marketing-page-pricing .compare-table{border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:560px}
+.marketing-reference.marketing-page-pricing .compare-table th,.marketing-reference.marketing-page-pricing .compare-table td{min-width:0;padding:10px 12px;font-size:.875rem;line-height:1.4}
+.marketing-reference.marketing-page-pricing .compare-table th:first-child{width:160px;min-width:0}
+.marketing-reference.marketing-page-pricing .compare-table .info-column{width:44px;min-width:0;padding:0}
+.marketing-reference.marketing-page-pricing .compare-table tbody tr{height:auto}
+.marketing-reference.marketing-page-pricing .compare-table tbody th{position:sticky;left:0;z-index:2;background:#fff}
+.marketing-reference.marketing-page-pricing .compare-table tbody .info-column{position:sticky;left:160px;z-index:2;background:#fff;border-right:1px solid #b6c7cf}
+.marketing-reference.marketing-page-pricing .compare-table tbody tr:nth-child(even)>th,.marketing-reference.marketing-page-pricing .compare-table tbody tr:nth-child(even)>.info-column{background:#f1f5fa}
+.marketing-reference.marketing-page-pricing .compare-table thead th{position:sticky;top:0;z-index:3;font-size:.875rem}
+.marketing-reference.marketing-page-pricing .compare-table thead th:first-child{left:0;z-index:4}
+.marketing-reference.marketing-page-pricing .compare-table thead .info-column{left:160px;z-index:4;border-right:1px solid #b6c7cf}
+.marketing-reference.marketing-page-pricing .feature-info{width:44px;height:44px;border:0;background:transparent}
