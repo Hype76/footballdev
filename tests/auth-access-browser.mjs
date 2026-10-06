@@ -2190,6 +2190,41 @@ try {
       const context = await browser.newContext(viewport.options)
       const { page } = await preparePage(context)
       const consoleErrors = []
+      const networkFailures = []
+      const pendingRequests = new Map()
+      const matrixStartedAt = Date.now()
+      let matrixStage = 'sign-in'
+      const diagnosticUrl = (raw) => {
+        const url = new URL(raw)
+        for (const key of [...url.searchParams.keys()]) {
+          if (/token|code|key|secret|password/i.test(key)) url.searchParams.set(key, '[redacted]')
+        }
+        return url.toString()
+      }
+      context.on('request', (request) => pendingRequests.set(request, { method: request.method(), url: diagnosticUrl(request.url()), resourceType: request.resourceType(), stage: matrixStage, startedMs: Date.now() - matrixStartedAt }))
+      context.on('requestfinished', (request) => pendingRequests.delete(request))
+      context.on('requestfailed', (request) => {
+        networkFailures.push({ ...pendingRequests.get(request), error: request.failure()?.errorText || 'Unknown', failedMs: Date.now() - matrixStartedAt, failedStage: matrixStage })
+        pendingRequests.delete(request)
+      })
+      const waitForFixtureApiReads = async () => {
+        const startedAt = Date.now()
+        let quietSince = null
+        while (Date.now() - startedAt < 15000) {
+          const apiRequests = [...pendingRequests.values()].filter((request) => {
+            const url = new URL(request.url)
+            return url.hostname === 'fixture.supabase.test'
+              || url.pathname.startsWith('/.netlify/functions/')
+              || url.pathname === '/api/parent-development/history'
+          })
+          if (apiRequests.length === 0) {
+            quietSince ??= Date.now()
+            if (Date.now() - quietSince >= 200) return
+          } else quietSince = null
+          await wait(50)
+        }
+        throw new Error(`Parent fixture API reads did not settle within 15000ms at ${matrixStage}: ${JSON.stringify([...pendingRequests.values()])}`)
+      }
       page.on('console', (message) => {
         if (message.type() === 'error') consoleErrors.push(message.text())
       })
@@ -2201,6 +2236,8 @@ try {
       assert.equal(await page.getByRole('option', { name: /Second Fixture Child/ }).count(), 1)
 
       for (const route of parentThemeRoutes) {
+        await waitForFixtureApiReads()
+        matrixStage = route.label
         await page.goto(`${mainBaseUrl}${route.path}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
         await page.getByTestId(route.scopeTestId).waitFor({ state: 'visible', timeout: 15000 })
         await page.waitForTimeout(150)
@@ -2237,6 +2274,10 @@ try {
         }
       }
 
+      await waitForFixtureApiReads()
+      if (consoleErrors.length) {
+        console.error('Parent theme network diagnostics', JSON.stringify({ viewport: viewport.name, matrixStage, elapsedMs: Date.now() - matrixStartedAt, failures: networkFailures, pending: [...pendingRequests.values()] }))
+      }
       assert.deepEqual(consoleErrors, [])
       await context.close()
     })

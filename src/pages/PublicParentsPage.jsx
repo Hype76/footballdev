@@ -42,7 +42,7 @@ const steps = [
   },
   {
     title: 'Parents get a clear update linked to their player.',
-    copy: 'Families see the information they need without entering Coach tools.',
+    copy: 'Families see the information they need without entering coach tools.',
   },
   {
     title: 'Replies stay connected to the right team and player.',
@@ -77,7 +77,7 @@ export function PublicParentsPage() {
               Clear parent updates, controlled by the club.
             </h1>
             <p className={`mt-5 max-w-2xl ${publicSubheadingClass}`}>
-              Coaches share updates from the records they already keep. Parents get clear information about training, match day, availability, and player progress without needing access to Coach tools.
+              Coaches share updates from the records they already keep. Parents get clear information about training, match day, availability, and player progress without needing access to coach tools.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <a href="/sign-in" className={publicPrimaryButtonClass}>Parent login</a>
@@ -164,7 +164,7 @@ export function PublicParentsPage() {
             <p className={publicEyebrowClass}>Club record first</p>
             <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">Parents get the update. Coaches keep the records.</h2>
             <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-white/70">
-              The player record remains the source of truth for Coaches, while parent access receives only the parts families need.
+              The player record remains the source of truth for coaches, while parent access receives only the parts families need.
             </p>
             <ul className="mt-5 grid gap-2">
               {['Updates come from saved records', 'Coaches keep the full history', 'Parents only see what the club shares'].map((bullet) => (
@@ -175,7 +175,7 @@ export function PublicParentsPage() {
               ))}
             </ul>
           </div>
-          <PublicScreenshot image={playersListImage} alt="Player register used by Coaches before parent updates" />
+          <PublicScreenshot image={playersListImage} alt="Player register used by coaches before parent updates" />
         </article>
       </section>
 

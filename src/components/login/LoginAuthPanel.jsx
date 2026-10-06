@@ -44,7 +44,7 @@ export function LoginAuthPanel({
   const modeCopy = {
     login: {
       title: 'Coach and club sign in',
-      body: 'For Club Admins, Team Admins, managers, and Coaches.',
+      body: 'For club admins, team admins, managers, and coaches.',
       submitLabel: 'Log in',
     },
     'parent-login': {
@@ -84,9 +84,9 @@ export function LoginAuthPanel({
 
         <div className="website-auth-mode-actions">
           <button type="button" disabled={isSubmitting} aria-pressed={mode !== 'signup'} onClick={() => onModeChange(parentInviteMode || role === 'parent' || mode === 'parent-login' ? 'parent-login' : 'login')}>Sign in</button>
-          {role !== 'parent' || parentInviteMode ? <button type="button" disabled={isSubmitting} aria-pressed={mode === 'signup'} onClick={() => onModeChange('signup')}>Sign Up</button> : null}
+          {role !== 'parent' || parentInviteMode ? <button type="button" disabled={isSubmitting} aria-pressed={mode === 'signup'} onClick={() => onModeChange('signup')}>Sign up</button> : null}
         </div>
-        {role === 'parent' && !parentInviteMode ? <p className="website-auth-join-note">New here? Open the invitation from your team to create your Parent account and link your player.</p> : null}
+        {role === 'parent' && !parentInviteMode ? <p className="website-auth-join-note">New here? Open the invitation from your team to create your parent account and link your player.</p> : null}
 
         <form className="mt-5 space-y-3" onSubmit={onSubmit}>
           {mode === 'signup' && !parentInviteMode ? (

@@ -29,7 +29,7 @@ const featureGroups = [
     label: 'Run',
     features: [
       ['Match day', 'Prepare squads, collect replies, record results, and keep follow-up visible.'],
-      ['Parent updates', 'Send focused updates from saved records without opening Coach tools to families.'],
+      ['Parent updates', 'Send focused updates from saved records without opening coach tools to families.'],
     ],
   },
   {
@@ -75,7 +75,7 @@ const screenshotSections = [
   },
   {
     label: 'Parents and match day',
-    title: 'Share the right update without opening the Coach workspace.',
+    title: 'Share the right update without opening the coach workspace.',
     copy: 'Coaches keep control of the records. Parents get the updates, replies, and information the club chooses to share.',
     bullets: [
       'Availability and match day replies',
@@ -109,7 +109,7 @@ export function PublicFeaturesPage() {
           </div>
           <div className="max-w-2xl lg:justify-self-end">
             <p className={publicSubheadingClass}>
-              Bring training, fixtures, availability, parent updates, player records, and development history into one workspace your Coaches can actually use.
+              Bring training, fixtures, availability, parent updates, player records, and development history into one workspace your coaches can actually use.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <a href={PUBLIC_FREE_SIGNUP_PATH} className={publicPrimaryButtonClass}>Start free</a>

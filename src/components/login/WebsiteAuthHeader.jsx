@@ -3,7 +3,7 @@ import { MarketingContactDialog } from '../marketing/MarketingContactDialog.jsx'
 import { PlatformBannerNotice } from '../platform/PlatformBannerNotice.jsx'
 import { PUBLIC_SITE_BANNER_KEY } from '../../lib/platform-banner-config.js'
 
-const links = [['/matchday/', 'Match Day'], ['/for-teams/', 'Teams'], ['/development/', 'Development'], ['/clubs/', 'Clubs'], ['/pricing/', 'Plans'], ['/how-to/', 'How To'], ['/articles/', 'Articles'], ['/about-us/', 'About us']]
+const links = [['/matchday/', 'Match Day'], ['/for-teams/', 'Teams'], ['/development/', 'Development'], ['/clubs/', 'Clubs'], ['/pricing/', 'Plans'], ['/how-to/', 'How to'], ['/articles/', 'Articles'], ['/about-us/', 'About us']]
 
 export function WebsiteAuthHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
