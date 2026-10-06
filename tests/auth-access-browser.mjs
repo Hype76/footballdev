@@ -2471,7 +2471,7 @@ try {
     await waitForPathname(page, '/sign-in')
     assert.equal(new URL(page.url()).searchParams.get('tab'), 'parent')
     assert.equal(new URL(page.url()).searchParams.get('parentInvite'), 'fixture-token')
-    await page.getByRole('heading', { name: 'Parent sign in', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
+    await page.getByRole('heading', { name: 'Sign in to parent access', exact: true }).waitFor({ state: 'visible', timeout: 15000 })
     await context.close()
   })
 

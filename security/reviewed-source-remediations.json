@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "db984492609c6e7cdd92b094ef4ce1137dd03879fb433fd4bf1e9197e3b1385b",
+    "scripts/security-verify-reviewed-backports.mjs": "3507f179ebb3d4761cc5fd417f696aa97a78398f45a0f323e862e2e1165a50e7",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -723,7 +723,7 @@
       "src/components/login/website-auth.css": "18cac1d690e1c77f23bc5c5644a1635b89a0663cd3ab02696195503c4e6be72d",
       "src/lib/parent-auth-intent.js": "7ee3c69e21abc40a589eda974c08358c8dca90570f3e2b22442d9b06829e2672",
       "tests/parent-auth-intent.test.mjs": "7778b55613d1e3564ac57f1d9e2d56ba4f1359e95762f25132a8f2834d0c0c69",
-      "tests/auth-access-browser.mjs": "699ea4d3a01338f44c9ef71621848da57255f14eabc63fc2b749a29757123642"
+      "tests/auth-access-browser.mjs": "a5b80ee8127fb05111384812e2cdbc4af9d52221726d2433a342842ad596ce54"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -857,6 +857,6 @@
       }
     }
   },
-  "releasePreparationSha256": "70d60a3e478bd881f314e3af42f3ea130b740f4176836d3008dd2f973a0f9e62",
+  "releasePreparationSha256": "28d513b310c30594c1d6bf301ac14b805294abbb41d7068141e48894938c40b4",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
