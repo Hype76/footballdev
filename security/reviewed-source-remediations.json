@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "6d1a76d40ce437e0e2a463eb7a6c9b2c6ff0a51472676a14708d1dbe7877d8d1",
+    "scripts/security-verify-reviewed-backports.mjs": "7a21ff66f12bac6e3f45203e71f09866983dee35c77bb088f7885ef7582527e9",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -688,8 +688,8 @@
       "tests/v1-hardening-migration-scope.test.mjs": "9aa1c0a6a53723efd06423ab9240415146a68ba45745ff320e6b52d6919b3a48",
       "package-lock.json": "1cc996fa2e49242ab133956cf8bf84cbe1ed8032367068cd68b0584c64900be6",
       "src/components/marketing/MarketingContactDialog.jsx": "4484e669f0003bcaa3c7eb00745cf2ca19d96d029c7e1c0202e08723bf87afeb",
-      "src/components/marketing/MarketingPage.jsx": "f768249bae1ff43163c9d85a3b533a01df3fbb45d36c66eb2881c1c9dbfe7d75",
-      "src/components/marketing/marketing-inline-pages.css": "6d807f25a473783d0358deba78b9f9fa09679932de004b79b3dc672e0bdaaa27",
+      "src/components/marketing/MarketingPage.jsx": "0e43cf22a85b187152c7fec51546982fd4b45b2b62d81945ad892ad44986f2ef",
+      "src/components/marketing/marketing-inline-pages.css": "1574b258376b986536a1f8ca1edd7125ff58d1b7f32d484794a11a6a69b1d7c2",
       "src/components/marketing/marketing-pricing.js": "cc7f7c04ac35d651fc12340ae96ea3aad83b31be50256b18168973faf0687831",
       "src/components/marketing/marketing-reference.css": "3ca1346a01a54bce003ea4809c31f27da252e3f41bacc3df6754569ad2816b11",
       "src/components/marketing/reference-app.js": "c8ae012f2d1de7d1319604e131ee5d791fb5a65cff75ea47f3d8f3da4b625ea1",
@@ -698,14 +698,14 @@
       "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
       "src/components/marketing/reference-kit-preview.js": "8ec3acd5ec0736cf5fa806999426b6eb6e7de84826618189d320e75d31e51373",
       "src/components/marketing/reference-offer-share.js": "6e5a87fbe8f13714b78dce6855304a1ca538a3389a02f9e3d0101dc57eea128a",
-      "src/components/marketing/reference-pages.json": "bf0879d5f8680426e1f2725d60d769903d40493f441311c6159758525ad1a685",
+      "src/components/marketing/reference-pages.json": "f922e88444ab60db4a1d629dfde10bd6fa059342a17000dd8d4952566af9c7a0",
       "src/components/marketing/reference-pricing-info.js": "fc89aa2f710b2e26d90ab50b39f2af8687c5a44ced16e0dd1d930dafc95da44f",
       "src/components/marketing/reference-scope.js": "caec651fbe6d7d77bb6b88a4f60538de81c66b81de3d424ff056d51a7a1b86d1",
       "src/components/marketing/reference-tutorials.js": "f7e5b9ba262c5c93fa1b97719eec5e19071bf0e5abca610f7be16dc67445f4ac",
       "src/components/pwa/InstallAppButton.jsx": "064c15a547cc985df972b736005dc15e53c105227813764e792da7643e8353d2",
       "src/pages/PublicLandingPage.jsx": "089f9b406b471fc2e72ede30006dccdf053eb9f3afde8270143e1e37de5cd505",
       "src/pages/PublicPricingPage.jsx": "1b28dc970cebd79ac1f38776aa4929e74369d8702cd4d8daea984d3d03a04adb",
-      "tests/marketing-final-integration-browser.mjs": "d905e249816fb074a69c7d4049d60218e46c69254de04916a2e1b7815faad6c5",
+      "tests/marketing-final-integration-browser.mjs": "ceb1151e631baf7d260e380160711995868dffdb2b36678003af022fd7f73049",
       "tests/marketing-reference-browser.mjs": "69c0815e4f5038a1c9a8d5adfaf6a8cc6c029b236884bb7a4ee705d2df85d4ab",
       "tests/privileged-functions-postgres.test.mjs": "d67ef17d225af5604096c9d71193bfc7c4b391dd28f1c29ab4fb1852c22cc64f",
       "tests/public-parent-login-maintenance-banner.test.mjs": "a44406d4752ceba8354edd15fa6ee5290580bebdd943b1954b9cc778a29d15bc",
@@ -850,6 +850,6 @@
       }
     }
   },
-  "releasePreparationSha256": "936ecd92a723eb4130cc9e8893b983013a71cce40a38fb26b80d70554b718418",
+  "releasePreparationSha256": "389e635ad0be7621514aa82caa23f5591d9f18b4de494da2cf9f8f94c9901218",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
