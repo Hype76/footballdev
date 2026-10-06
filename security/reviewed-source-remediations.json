@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "a63db511d4be5817c34bb52523b0a76b243b3b2c01762fd9e1c9c509a26a8a1a",
+    "scripts/security-verify-reviewed-backports.mjs": "a39443246b04cbb09ccd15365237fdbc7acc3efff790d99e735cb22cfa4f0278",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -537,7 +537,7 @@
       "apps/mobile-core/src/useAttendanceOutbox.js": "e8340032a51320a61d7479589bb8aa74c96e749ff1a53860cd5f2a83d0c6771c",
       "apps/mobile-core/src/useTeamLeagueLink.js": "90d3df0b7dd17770e42518c6ab7484a2d85cfe065ae79792ec6cfd8a00bd84d7",
       "apps/parent-mobile/App.js": "e7388920b1bc81623fc320b024161b6e09ca7b3c427f4a9e067cb812dc94c4af",
-      "apps/parent-mobile/src/ParentPortalScreens.js": "923b582003025145fa2fafa98d9072e61554cbacc0961fd4ac2db27b4e9fb7a4",
+      "apps/parent-mobile/src/ParentPortalScreens.js": "d213d3da2ff78c6792ee81dbaa69df853548896a01d83e23c83b246c92d54277",
       "apps/parent-mobile/src/offline.js": "f20fe5d72078474d6976e2b59b783dbedf1b7bdfff22db30620ca6ca4377f3ce",
       "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
       "apps/parent-mobile/src/parentPortalData.js": "7e9489557a5fb71c9d45b3b4c98d47238449ac7b71bb028865e19439a43afd1c",
@@ -884,7 +884,7 @@
         "reason": "Equivalent character-code control filtering and focused ASCII/unicode PDF tests"
       },
       "mobileSourceQualification": {
-        "applicationAndNativeConfigurationSource": "Frozen ec2288 application source retained except the exact authorised Coach kit JavaScript and shared permission helper delta; native configuration and assets retained",
+        "applicationAndNativeConfigurationSource": "Frozen ec2288 application source retained except the exact authorised Coach kit JavaScript and shared permission helper delta; native configuration and assets retained; exact authorised Parent Resources category-count JSX removal from bc300bb9, native configuration and imports unchanged",
         "exceptions": [
           "apps/coach-mobile/package-lock.json",
           "apps/coach-mobile/package.json",
@@ -904,6 +904,16 @@
           "purpose": "Club tier master kit editing restricted to Club Admin; known standalone authority retained",
           "nativeImportsAdded": false,
           "parentPublicationRequired": false
+        },
+        "authorisedParentJavaScriptCorrection": {
+          "baseline": "bc300bb9879acdc159c888073ca3cd2553296cfb",
+          "scope": [
+            "apps/parent-mobile/src/ParentPortalScreens.js"
+          ],
+          "description": "Remove presentation-only resource category totals; categories, ordering, filtering, item opening, hiding and offline behaviour preserved.",
+          "runtimeVersion": "1.0.22",
+          "nativeInputsUnchanged": true,
+          "publicationRequiresFullGates": true
         }
       },
       "authImagePresentation": {
@@ -1016,6 +1026,6 @@
       }
     }
   },
-  "releasePreparationSha256": "6b4548a2fd96604b5204d22a4a4a4defabf6a6c379ba9d657d5b81341d5a22ab",
+  "releasePreparationSha256": "e403370583e76d8820150b50da4c06b068b9339ae2dfce1eb8e6b616bd4c1d28",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
