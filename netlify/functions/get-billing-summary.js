@@ -124,6 +124,7 @@ export async function handler(event) {
           billingConfigurationUpdatedBy: club.billing_configuration_updated_by || '',
           billingAccessState: billingAccess.accessState,
           payerAuthorized: billingAccess.payerAuthorized,
+          cancellationAuthorized: Boolean(billingAccess.payerAuthorized && caller.role !== 'super_admin' && club.workspace_owner_user_id && caller.id === club.workspace_owner_user_id && !club.archived_at),
           stripeCustomerId: club.stripe_customer_id || '',
           stripeSubscriptionId: club.stripe_subscription_id || '',
           stripePriceId: club.stripe_price_id || '',

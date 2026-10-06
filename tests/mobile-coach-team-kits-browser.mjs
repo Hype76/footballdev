@@ -25,6 +25,8 @@ const entry = `
   function App() {
     const [mode, setMode] = React.useState('light');
     const [rank, setRank] = React.useState(70);
+    const [access, setAccess] = React.useState({planKey:'matchday', role:'head_manager'});
+    window.setKitAccess = value => { setAccess(value); setInstance(current => current + 1); };
     const [instance, setInstance] = React.useState(0);
     window.setMode = setMode;
     window.setRank = value => { setRank(value); setInstance(current => current + 1); };
@@ -33,7 +35,7 @@ const entry = `
     return <div data-mode={mode} data-rank={rank}>
       <View style={{backgroundColor:theme.tokens.background,minHeight:'100%',padding:16}}>
         <View style={{alignSelf:'center',maxWidth:720,width:'100%'}}>
-          <CoachTeamKitSettings key={instance} palette={theme.tokens} user={{...baseUser,roleRank:rank}} />
+          <CoachTeamKitSettings key={instance} palette={theme.tokens} user={{...baseUser,...access,roleRank:rank}} />
         </View>
       </View>
     </div>;
@@ -171,12 +173,30 @@ try {
   await page.getByRole('button', { name: 'Save kit colours' }).waitFor()
 
   await page.evaluate(() => window.setRank(20))
-  await page.getByText('A Team Manager or Club Admin can change these colours.').waitFor()
+  await page.getByText('A Club Admin manages kits for a Club plan. A Team Admin manages kits for a standalone team.').waitFor()
   assert.equal(await page.getByRole('button', { name: 'Save kit colours' }).count(), 0)
   assert.equal(await page.getByLabel('Home kit hue').count(), 0)
 
   await page.evaluate(() => window.setRank(70))
   await page.getByRole('button', { name: 'Save kit colours' }).waitFor()
+  for (const planKey of ['club', 'small_club', 'development_club', 'large_club', 'pilot']) {
+    await page.evaluate(planKey => window.setKitAccess({planKey, role:'manager'}), planKey)
+    await page.getByText('A Club Admin manages kits for a Club plan. A Team Admin manages kits for a standalone team.').waitFor()
+    assert.equal(await page.getByRole('button', {name:'Save kit colours'}).count(), 0)
+    assert.equal(await page.getByLabel('Home kit hue').count(), 0)
+    await page.evaluate(planKey => window.setKitAccess({planKey, role:'admin'}), planKey)
+    await page.getByRole('button', {name:'Save kit colours'}).waitFor()
+  }
+  for (const access of [
+    {planKey:'team', role:'manager'},
+    {planKey:'individual', role:'manager'},
+    {planKey:'coach_free', role:'manager'},
+    {planKey:'team', role:'super_admin'},
+    {planKey:'individual', role:'super_admin'},
+  ]) {
+    await page.evaluate(access => window.setKitAccess(access), access)
+    await page.getByRole('button', {name:'Save kit colours'}).waitFor()
+  }
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
     for (const mode of ['light', 'dark']) {

@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer'
 import { supabaseAdmin } from './lib/_supabase.js'
 import {
   getSubscriptionPlanDetails,
+  getCheckoutSubscriptionPlanDetails,
   getSubscriptionPeriodEnd,
   json,
   normalizePlanKey,
@@ -228,7 +229,7 @@ async function upsertCheckoutRecord({
 async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload) {
   const subscriptionId = getStringId(checkoutSession.subscription)
   const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null
-  const details = getSubscriptionPlanDetails(subscription)
+  const details = getCheckoutSubscriptionPlanDetails(subscription, checkoutSession.metadata)
   const priceId = details.priceId
   const pricePlan = details
   const metadataPlanKey = normalizePlanKey(checkoutSession.metadata?.planKey || checkoutSession.metadata?.planName)

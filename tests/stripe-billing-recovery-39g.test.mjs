@@ -149,7 +149,7 @@ test('checkout, subscription reads, plan changes and webhooks retain their safet
   assert.doesNotMatch(sources.webhook, /message:\s*error\.message/)
 })
 
-test('customer portal remains an external read-only configuration check, not an unsafe application mutation', async () => {
+test('billing configuration remains externally provisioned; cancellation sessions use the dedicated owner endpoint', async () => {
   const sources = await readSources()
   const billingSources = [
     sources.checkout,
@@ -162,6 +162,9 @@ test('customer portal remains an external read-only configuration check, not an 
 
   assert.doesNotMatch(billingSources, /billingPortal\.configurations\.(?:create|update)|billing_portal\/configurations/)
   assert.doesNotMatch(billingSources, /billingPortal\.sessions\.create/)
+  const cancellationSource = await readFile(new URL('../netlify/functions/create-billing-portal-session.mts', import.meta.url), 'utf8')
+  assert.doesNotMatch(cancellationSource, /billingPortal\.configurations\.(?:create|update)|subscriptions\.(?:update|cancel)/)
+  assert.match(cancellationSource, /billingPortal\.sessions\.create/)
 })
 
 test('approved post-deployment smoke recipients include Steve and remain internal-only', () => {

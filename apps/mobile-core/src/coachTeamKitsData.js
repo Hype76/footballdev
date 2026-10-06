@@ -1,3 +1,4 @@
+import { canManageTeamKitColours } from '../../../src/lib/team-kit-permissions.js'
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
 import { normalizeKitColour, normalizeTeamKits } from '../../../src/lib/team-kits.js'
 import { assertCoachCapability, assertCoachOperationalMutation, assertCoachOperationalRead } from './coachOperationalData'
@@ -17,6 +18,7 @@ export async function getCoachTeamKits(user) {
 export async function saveCoachTeamKits(user, values) {
   assertCoachOperationalMutation(user, { minimumRank: 50, requiresTeam: true })
   assertCoachCapability(user, CAPABILITIES.matchDay)
+  if (!canManageTeamKitColours(user)) throw new Error('Only a Club Admin can change kits for a Club plan. Team Admins can change kits for a standalone team.')
   const homeValue = String(values?.home?.colour ?? '').trim()
   const awayValue = String(values?.away?.colour ?? '').trim()
   const home = normalizeKitColour(homeValue)

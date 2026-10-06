@@ -243,7 +243,9 @@ export const PLAN_OPTIONS = [
 const PLAN_BY_KEY = Object.fromEntries(PLAN_OPTIONS.map((plan) => [plan.key, plan]))
 export const PLAN_KEY_SET = new Set(PLAN_OPTIONS.map((plan) => plan.key))
 export const TEAM_LIMIT_OVERRIDE_MAX = 500
-export const PUBLIC_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => ['matchday', 'team', 'club'].includes(plan.key)))
+export const PUBLIC_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => ['matchday', 'team', 'club'].includes(plan.key)).map((plan) => plan.key === 'club'
+  ? { ...plan, offerKey: 'club_20', limits: { ...plan.limits, teams: 20 } }
+  : plan))
 export const INTERNAL_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => plan.isInternal === true))
 export const ADMIN_ASSIGNABLE_PLAN_OPTIONS = Object.freeze(PLAN_OPTIONS.filter((plan) => plan.state === PLAN_STATES.active && !plan.isDeprecated))
 

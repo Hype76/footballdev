@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Image, Pressable, Text, TextInput, View } from 'react-native'
+import { canManageTeamKitColours } from '../../../src/lib/team-kit-permissions.js'
 import { DEFAULT_TEAM_KIT_COLOURS, hexToHsv, hsvToHex, normalizeKitColour } from '../../../src/lib/team-kits.js'
 import { loadMobileClubKits, setMobileTeamKits } from '../../mobile-core/src/mobileKitCache'
 import { getCoachTeamKits, saveCoachTeamKits } from '../../mobile-core/src/coachTeamKitsData'
@@ -86,7 +87,7 @@ export function CoachTeamKitSettings({ palette, user }) {
   const [loadFailed, setLoadFailed] = useState(false)
   const operationRef = useRef(0)
   const savingRef = useRef(false)
-  const canEdit = Number(user?.roleRank || 0) >= 50 && user?.hasActivePlanAccess === true
+  const canEdit = canManageTeamKitColours(user)
   const canInteract = canEdit && !loadFailed && status !== 'saving'
 
   const load = useCallback(async (isRetry = false) => {
@@ -117,7 +118,7 @@ export function CoachTeamKitSettings({ palette, user }) {
 
   const update = (type, value) => setColours(current => ({ ...current, [type]: value }))
   const save = async () => {
-    if (savingRef.current || loadFailed) return
+    if (!canEdit || savingRef.current || loadFailed) return
     savingRef.current = true
     const operation = ++operationRef.current
     setMessage('')
@@ -147,7 +148,7 @@ export function CoachTeamKitSettings({ palette, user }) {
       <KitColourRow canEdit={canInteract} colour={colours.home} fallbackColour={clubColours.home} label="Home kit" onChange={value => update('home', value)} palette={palette} />
       <KitColourRow canEdit={canInteract} colour={colours.away} fallbackColour={clubColours.away} label="Away kit" onChange={value => update('away', value)} palette={palette} />
     </>}
-    {!canEdit ? <Text style={{ color: palette.textSecondary, lineHeight: 20 }}>A Team Manager or Club Admin can change these colours.</Text> : null}
+    {!canEdit ? <Text style={{ color: palette.textSecondary, lineHeight: 20 }}>A Club Admin manages kits for a Club plan. A Team Admin manages kits for a standalone team.</Text> : null}
     {message ? <Text accessibilityLiveRegion="polite" style={{ color: status === 'error' ? palette.danger : palette.textPrimary, lineHeight: 20 }}>{message}</Text> : null}
     {loadFailed ? <Pressable accessibilityRole="button" onPress={() => load(true)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: palette.accent, fontWeight: '700' }}>Retry loading kit colours</Text></Pressable> : null}
     {canEdit && !loadFailed ? <Pressable accessibilityRole="button" disabled={status === 'loading' || status === 'saving'} onPress={save} style={({ pressed }) => ({ alignItems: 'center', alignSelf: 'flex-start', backgroundColor: palette.accent, borderRadius: 8, justifyContent: 'center', minHeight: 44, opacity: pressed || status === 'saving' ? 0.7 : 1, paddingHorizontal: 18 })}>

@@ -1,6 +1,8 @@
 export const TEAM_MONTHLY_PENCE = 799
 export const TEAM_ANNUAL_PENCE = 7990
 export const CLUB_BASE_MONTHLY_PENCE = 5999
+export const CLUB_20_OFFER_KEY = 'club_20'
+export const CLUB_20_INCLUDED_TEAMS = 20
 export const CLUB_BASE_INCLUDED_TEAMS = 10
 export const CLUB_ADDITIONAL_BLOCK_SIZE = 10
 export const CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE = 4990
@@ -31,12 +33,15 @@ function validateCapacity(planKey, teamCapacity) {
   return teamCapacity
 }
 
-export function quoteSubscription({ planKey, teamCapacity, billingCycle }) {
+export function quoteSubscription({ planKey, teamCapacity, billingCycle, offerKey = '' }) {
   if (!PLAN_KEYS.has(planKey)) invalid('Unsupported subscription plan.')
   if (!BILLING_CYCLES.has(billingCycle)) invalid('Billing cycle must be monthly or annual.')
 
+  if (offerKey && (offerKey !== CLUB_20_OFFER_KEY || planKey !== 'club' || teamCapacity !== CLUB_20_INCLUDED_TEAMS)) {
+    invalid('Unsupported subscription offer or capacity.')
+  }
   const includedTeams = validateCapacity(planKey, teamCapacity)
-  const additionalTeamBlocks = planKey === 'club'
+  const additionalTeamBlocks = planKey === 'club' && offerKey !== CLUB_20_OFFER_KEY
     ? (includedTeams - CLUB_BASE_INCLUDED_TEAMS) / CLUB_ADDITIONAL_BLOCK_SIZE
     : 0
   const monthlyPence = planKey === 'matchday'
