@@ -201,7 +201,11 @@ jobs:
       - name: Matchday mobile feature visibility
         run: npm run mobile:prestore && node --test tests/mobile-matchday-plan.test.mjs tests/parent-fan-selected-plan-gates.test.mjs && node tests/mobile-notification-settings-browser.mjs && node tests/mobile-coach-plan-access-browser.mjs
       - name: Team kit colours and permissions
-        run: node --test tests/team-matchday-kits.test.mjs tests/team-matchday-kits-pglite.test.mjs && node tests/mobile-coach-team-kits-browser.mjs
+        run: node --test tests/team-matchday-kits.test.mjs tests/team-matchday-kits-pglite.test.mjs tests/club-team-kit-authority-pglite.test.mjs && node tests/mobile-coach-team-kits-browser.mjs
+      - name: Public Club offer, cancellation and quote boundaries
+        run: node --experimental-strip-types --test tests/club-20-offer.test.mjs tests/billing-portal-session.test.mjs tests/public-club-quote.test.mjs && node tests/public-club-offer-browser.mjs && node tests/billing-cancel-browser.mjs
+      - name: Public website help privacy and integration
+        run: node --experimental-strip-types --test tests/website-help.test.mjs && node tests/website-help-browser.mjs
       - name: Formation board save and recovery regression
         run: >-
           node --test tests/formation-board-creation-repair.test.mjs

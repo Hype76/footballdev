@@ -45,7 +45,11 @@ export function mountMarketingPricing(root) {
     const plan = PUBLIC_PLAN_OPTIONS.find(item => item.key === link.dataset.marketingCheckout)
     if (!plan || !plan.isPaid) return
     if (String(import.meta.env.VITE_PAYMENTS_DISABLED).toLowerCase() === 'true') {
-      window.location.assign(`/sign-in?mode=login&plan=${encodeURIComponent(plan.key)}`)
+      if (plan.offerKey === 'club_20') {
+        status.textContent = 'Club checkout is currently unavailable. Contact us for help choosing your 20-team Club plan.'
+        return
+      }
+      window.location.assign(`/sign-in?mode=login&plan=${encodeURIComponent(plan.key)}${plan.offerKey ? `&offer=${encodeURIComponent(plan.offerKey)}` : ''}`)
       return
     }
     busy = true
@@ -54,7 +58,7 @@ export function mountMarketingPricing(root) {
     try {
       const response = await fetch('/.netlify/functions/create-checkout-session', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
-        body: JSON.stringify({ planName: plan.name, planKey: plan.key, billingCycle: 'monthly', teamCapacity: plan.limits.teams, livePromotionCodeId: promotion?.promotionCodeId || undefined }),
+        body: JSON.stringify({ planName: plan.name, planKey: plan.key, offerKey: plan.offerKey || undefined, billingCycle: 'monthly', teamCapacity: plan.limits.teams, livePromotionCodeId: promotion?.promotionCodeId || undefined }),
       })
       const result = await response.json().catch(() => ({}))
       if (!response.ok || result.success === false || !result.url) throw new Error(result.message || 'Checkout could not be started. Please try again.')

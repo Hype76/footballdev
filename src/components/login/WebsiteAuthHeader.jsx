@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { MarketingContactDialog } from '../marketing/MarketingContactDialog.jsx'
+import { WebsiteHelpChat } from './WebsiteHelpChat.jsx'
 import { PlatformBannerNotice } from '../platform/PlatformBannerNotice.jsx'
 import { PUBLIC_SITE_BANNER_KEY } from '../../lib/platform-banner-config.js'
 
@@ -32,5 +33,6 @@ export function WebsiteAuthHeader() {
       </div>
     </header>
     <MarketingContactDialog open={contactOpen} onClose={() => setContactOpen(false)} />
+    <WebsiteHelpChat />
   </>
 }

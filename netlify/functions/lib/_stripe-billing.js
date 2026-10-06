@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { normalizePlanKey as normalizeCanonicalPlanKey } from '../../../src/lib/plans.js'
-import { CLUB_BASE_MONTHLY_PENCE, CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE, TEAM_MONTHLY_PENCE, TEAM_ANNUAL_PENCE, CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE, quoteSubscription } from '../../../src/lib/subscription-pricing.js'
+import { CLUB_20_OFFER_KEY, CLUB_20_INCLUDED_TEAMS, CLUB_BASE_MONTHLY_PENCE, CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE, TEAM_MONTHLY_PENCE, TEAM_ANNUAL_PENCE, CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE, quoteSubscription } from '../../../src/lib/subscription-pricing.js'
 
 export const PLAN_BY_NAME = {
   'Single Team': 'single_team',
@@ -49,6 +49,30 @@ const MODERN_BLOCK_ENV_BY_CYCLE = {
   annual: 'STRIPE_CLUB_BLOCK_ANNUAL_PRICE_ID',
 }
 
+const CLUB_20_PRICE_ENV_BY_CYCLE = {
+  monthly: 'STRIPE_PRICE_CLUB_20_MONTHLY',
+  annual: 'STRIPE_PRICE_CLUB_20_ANNUAL',
+}
+
+function getClub20PriceEntries() {
+  const entries = Object.entries(CLUB_20_PRICE_ENV_BY_CYCLE).map(([billingCycle, envName]) => ({
+    planKey: 'club', offerKey: CLUB_20_OFFER_KEY, billingCycle,
+    priceId: String(process.env[envName] ?? '').trim(),
+  })).filter((entry) => entry.priceId)
+  const previousIds = [...getConfiguredPriceEntries().map((entry) => entry.priceId),
+    ...Object.values(MODERN_PRICE_ENV_BY_PLAN_AND_CYCLE).flatMap((cycles) => Object.values(cycles).map((envName) => String(process.env[envName] ?? '').trim())),
+    ...Object.values(MODERN_BLOCK_ENV_BY_CYCLE).map((envName) => String(process.env[envName] ?? '').trim())].filter(Boolean)
+  if (new Set(entries.map((entry) => entry.priceId)).size !== entries.length || entries.some((entry) => previousIds.includes(entry.priceId))) {
+    throw new RangeError('Club offer prices must be distinct from existing subscription prices.')
+  }
+  return entries
+}
+
+function configuredOfferPrice(billingCycle, offerKey) {
+  if (offerKey !== CLUB_20_OFFER_KEY) throw new RangeError('Unsupported subscription offer.')
+  return getClub20PriceEntries().find((entry) => entry.billingCycle === billingCycle)?.priceId || ''
+}
+
 function getConfiguredPriceEntries() {
   return Object.entries(PRICE_ENV_BY_PLAN_AND_CYCLE)
     .flatMap(([planKey, cycleMap]) => Object.entries(cycleMap).map(([billingCycle, envName]) => ({
@@ -72,7 +96,7 @@ export function getPriceMap() {
     const priceId = String(process.env[envName] ?? '').trim()
     return priceId ? [priceId, { planKey, billingCycle }] : []
   })).filter(Boolean)
-  return Object.fromEntries([...legacy, ...modern])
+  return Object.fromEntries([...legacy, ...modern, ...getClub20PriceEntries().map(({ priceId, ...details }) => [priceId, details])])
 }
 
 export function getCheckoutPriceId(planKey, billingCycle) {
@@ -93,12 +117,12 @@ function configuredBlockPrice(billingCycle) {
   return String(process.env[MODERN_BLOCK_ENV_BY_CYCLE[billingCycle] ?? ''] ?? '').trim()
 }
 
-export function getCheckoutLineItems(planKey, billingCycle, teamCapacity) {
+export function getCheckoutLineItems(planKey, billingCycle, teamCapacity, offerKey = '') {
   const normalizedPlanKey = normalizePlanKey(planKey)
   const normalizedCycle = String(billingCycle ?? '').trim().toLowerCase()
   if (!['team', 'club'].includes(normalizedPlanKey)) throw new RangeError('Unsupported modern subscription plan.')
-  const quote = quoteSubscription({ planKey: normalizedPlanKey, billingCycle: normalizedCycle, teamCapacity })
-  const basePriceId = configuredModernPrice(normalizedPlanKey, normalizedCycle)
+  const quote = quoteSubscription({ planKey: normalizedPlanKey, billingCycle: normalizedCycle, teamCapacity, offerKey })
+  const basePriceId = offerKey ? configuredOfferPrice(normalizedCycle, offerKey) : configuredModernPrice(normalizedPlanKey, normalizedCycle)
   if (!basePriceId) throw new RangeError('The configured base subscription price is missing.')
   const items = [{ price: basePriceId, quantity: 1 }]
   if (normalizedPlanKey === 'club' && quote.additionalTeamBlocks > 0) {
@@ -109,9 +133,10 @@ export function getCheckoutLineItems(planKey, billingCycle, teamCapacity) {
   return items
 }
 
-export async function validateCheckoutPrices(stripe, lineItems, planKey, billingCycle, teamCapacity) {
+export async function validateCheckoutPrices(stripe, lineItems, planKey, billingCycle, teamCapacity, offerKey = '') {
   const normalizedPlanKey = normalizePlanKey(planKey)
-  const quote = quoteSubscription({ planKey: normalizedPlanKey, billingCycle, teamCapacity })
+  const quote = quoteSubscription({ planKey: normalizedPlanKey, billingCycle, teamCapacity, offerKey })
+  if (offerKey && JSON.stringify(lineItems) !== JSON.stringify(getCheckoutLineItems(normalizedPlanKey, billingCycle, teamCapacity, offerKey))) throw new RangeError('Checkout line items do not match the approved offer.')
   const expected = normalizedPlanKey === 'team'
     ? [billingCycle === 'annual' ? TEAM_ANNUAL_PENCE : TEAM_MONTHLY_PENCE]
     : [billingCycle === 'annual' ? CLUB_BASE_MONTHLY_PENCE * 10 : CLUB_BASE_MONTHLY_PENCE, ...(quote.additionalTeamBlocks ? [billingCycle === 'annual' ? CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE : CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE] : [])]
@@ -184,6 +209,13 @@ export function getSubscriptionPlanDetails(subscription) {
     throw new RangeError('Subscription line items are invalid.')
   }
 
+  const offerEntries = getClub20PriceEntries()
+  const offerBase = entries.find((entry) => offerEntries.some((offer) => offer.priceId === entry.priceId))
+  if (offerBase) {
+    if (entries.length !== 1 || offerBase.quantity !== 1) throw new RangeError('Club twenty-team offer must contain exactly one base price with quantity one.')
+    const offer = offerEntries.find((entry) => entry.priceId === offerBase.priceId)
+    return { planKey: 'club', billingCycle: offer.billingCycle, priceId: offerBase.priceId, teamCapacity: CLUB_20_INCLUDED_TEAMS, offerKey: CLUB_20_OFFER_KEY }
+  }
   const modernBaseEntries = entries.filter((entry) => Object.values(MODERN_PRICE_ENV_BY_PLAN_AND_CYCLE).some((cycles) => Object.values(cycles).map((env) => String(process.env[env] ?? '').trim()).includes(entry.priceId)))
   if (modernBaseEntries.length === 0) {
     const legacy = priceMap[entries[0].priceId]
@@ -202,6 +234,15 @@ export function getSubscriptionPlanDetails(subscription) {
   const blocks = blockEntries[0]?.quantity ?? 0
   if (planKey === 'club' && blocks > 49) throw new RangeError('Subscription capacity blocks are invalid.')
   return { planKey, billingCycle, priceId: base.priceId, teamCapacity: planKey === 'club' ? 10 + blocks * 10 : 1 }
+}
+
+export function getCheckoutSubscriptionPlanDetails(subscription, metadata = {}) {
+  const details = getSubscriptionPlanDetails(subscription)
+  const metadataPlanKey = normalizePlanKey(metadata.planKey || metadata.planName)
+  if (metadataPlanKey && metadataPlanKey !== details.planKey) throw new RangeError('Checkout metadata plan does not match the configured Stripe price.')
+  if (metadata.offerKey && metadata.offerKey !== details.offerKey) throw new RangeError('Checkout metadata offer does not match the configured Stripe price.')
+  if (metadata.teamCapacity !== undefined && metadata.teamCapacity !== null && metadata.teamCapacity !== '' && Number(metadata.teamCapacity) !== details.teamCapacity) throw new RangeError('Checkout metadata capacity does not match the configured Stripe price.')
+  return details
 }
 
 export function getSubscriptionPeriodEnd(subscription) {

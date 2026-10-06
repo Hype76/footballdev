@@ -5,6 +5,8 @@ import { PUBLIC_SITE_BANNER_KEY } from '../../lib/platform-banner-config.js'
 import { PUBLIC_FREE_SIGNUP_PATH } from '../../lib/public-signup.js'
 import { createReferenceScope } from './reference-scope.js'
 import { MarketingContactDialog } from './MarketingContactDialog.jsx'
+import { MarketingClubQuoteDialog } from './MarketingClubQuoteDialog.jsx'
+import { WebsiteHelpChat } from '../login/WebsiteHelpChat.jsx'
 import { mountMarketingPricing } from './marketing-pricing.js'
 import './marketing-reference.css'
 import './marketing-inline-pages.css'
@@ -13,6 +15,7 @@ const paths = {"app.js":"./reference-app.js","development-builder.js":"./referen
 export function MarketingPage({ page = 'home' }) {
   const reference = pages[page] || pages.home, host = useRef(null)
   const [contactOpen, setContactOpen] = useState(false)
+  const [quoteOpen, setQuoteOpen] = useState(false)
   useLayoutEffect(() => {
     const root = host.current; let active = true
     root.innerHTML = reference.html
@@ -29,9 +32,11 @@ export function MarketingPage({ page = 'home' }) {
     return () => { active = false; disposePricing(); scope.dispose(); root.innerHTML = ''; document.title = priorTitle }
   }, [reference, page])
   useEffect(() => { const open = () => setContactOpen(true); window.addEventListener('football-player:open-contact', open); return () => window.removeEventListener('football-player:open-contact', open) }, [])
-  return <div className={`marketing-reference marketing-page-${page}`} onClick={event => { if (event.target.closest('[data-contact-open]')) { event.preventDefault(); setContactOpen(true) } }}>
+  return <div className={`marketing-reference marketing-page-${page}`} onClick={event => { if (event.target.closest('[data-club-quote-open]')) { event.preventDefault(); setQuoteOpen(true) } else if (event.target.closest('[data-contact-open]')) { event.preventDefault(); setContactOpen(true) } }}>
     <PlatformBannerNotice ariaLabel="Platform announcement" bannerKey={PUBLIC_SITE_BANNER_KEY} />
     <div ref={host} />
     <MarketingContactDialog open={contactOpen} onClose={() => setContactOpen(false)} />
+    <MarketingClubQuoteDialog open={quoteOpen} onClose={() => setQuoteOpen(false)} />
+    <WebsiteHelpChat />
   </div>
 }

@@ -10,6 +10,13 @@ const topLevelFunctions = readdirSync(functionsDir, { withFileTypes: true })
   .map((entry) => basename(entry.name, '.js'))
   .sort()
 
+test('owner cancellation endpoint is a deployable modern Netlify function', () => {
+  const source = readFileSync(join(functionsDir, 'create-billing-portal-session.mts'), 'utf8')
+  assert.match(source, /export default createBillingPortalHandler\(\)/)
+  assert.match(source, /new Response\(/)
+  assert.doesNotMatch(source, /export async function handler\(event\)/)
+})
+
 test('Report Issue feedback endpoints remain deployable top-level Netlify functions', () => {
   assert.ok(topLevelFunctions.includes('submit-tester-feedback'))
   assert.ok(topLevelFunctions.includes('_t-tester-feedback'))

@@ -2,6 +2,7 @@ import process from 'node:process'
 import { arePaymentsDisabled, getCheckoutLineItems, getCheckoutPriceId, isSelfServiceCheckoutPlanKey, json, validateCheckoutPrices } from './lib/_stripe-billing.js'
 import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtime.js'
 import { getPlanName, normalizePlanKey } from '../../src/lib/plans.js'
+import { CLUB_20_OFFER_KEY, CLUB_20_INCLUDED_TEAMS } from '../../src/lib/subscription-pricing.js'
 import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 
 function cleanString(value) {
@@ -53,6 +54,7 @@ export async function createCheckoutSession(stripe, params, livePromotionCodeId 
         clubName: params.clubName,
         workspaceScope: params.workspaceScope,
         teamCapacity: params.teamCapacity,
+        ...(params.offerKey ? { offerKey: params.offerKey } : {}),
       },
     },
     metadata: {
@@ -62,6 +64,7 @@ export async function createCheckoutSession(stripe, params, livePromotionCodeId 
       clubName: params.clubName,
       workspaceScope: params.workspaceScope,
       teamCapacity: params.teamCapacity,
+      ...(params.offerKey ? { offerKey: params.offerKey } : {}),
     },
   }
 
@@ -89,8 +92,10 @@ export async function handler(event) {
     const billingCycle = cleanString(body.billingCycle || 'monthly').toLowerCase()
     const customerEmail = cleanString(body.customerEmail)
     const clubName = cleanString(body.clubName)
+    const offerKey = body.offerKey ?? ''
+    if (typeof offerKey !== 'string' || (offerKey && (offerKey !== CLUB_20_OFFER_KEY || planKey !== 'club'))) throw new RangeError('Unsupported subscription offer.')
     const isModernPlan = ['team', 'club'].includes(planKey)
-    const teamCapacity = isModernPlan ? (body.teamCapacity ?? (planKey === 'club' ? 10 : 1)) : undefined
+    const teamCapacity = isModernPlan ? (body.teamCapacity ?? (offerKey === CLUB_20_OFFER_KEY ? CLUB_20_INCLUDED_TEAMS : planKey === 'club' ? 10 : 1)) : undefined
 
     if (!planKey) {
       return json(400, { success: false, message: 'Choose a valid billing plan.' })
@@ -111,7 +116,7 @@ export async function handler(event) {
       return json(400, { success: false, message: 'Choose a supported billing plan.' })
     }
     const priceId = isModernPlan ? '' : getCheckoutPriceId(planKey, billingCycle)
-    const lineItems = isModernPlan ? getCheckoutLineItems(planKey, billingCycle, teamCapacity) : undefined
+    const lineItems = isModernPlan ? getCheckoutLineItems(planKey, billingCycle, teamCapacity, offerKey) : undefined
 
     if (!isModernPlan && !priceId) {
       return json(400, { success: false, message: 'This plan is not available for checkout yet' })
@@ -119,7 +124,7 @@ export async function handler(event) {
 
     const appUrl = (process.env.VITE_APP_URL || process.env.URL || 'https://footballplayer.online').replace(/\/$/, '')
     const stripe = createStripeServerClient()
-    if (isModernPlan) await validateCheckoutPrices(stripe, lineItems, planKey, billingCycle, teamCapacity)
+    if (isModernPlan) await validateCheckoutPrices(stripe, lineItems, planKey, billingCycle, teamCapacity, offerKey)
     const livePromotionCodeId = await getValidatedLivePromotionCodeId(stripe, body.livePromotionCodeId)
 
     const checkoutParams = {
@@ -133,6 +138,7 @@ export async function handler(event) {
       workspaceScope: workspaceScope.key,
       teamCapacity,
       lineItems,
+      offerKey,
     }
     let session
     let promotionApplied = Boolean(livePromotionCodeId)

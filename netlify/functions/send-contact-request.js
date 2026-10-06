@@ -3,6 +3,7 @@ import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/
 import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
 const CONTACT_REQUEST_RECIPIENT = String(process.env.CONTACT_REQUEST_RECIPIENT || 'support@jelumalabs.com').trim()
+const CLUB_QUOTE_RECIPIENT = 'accounts@jelumalabs.com'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -86,18 +87,26 @@ function buildContactRequestHtml({ name, email, phone, message, sourcePath }) {
   `
 }
 
-export async function handler(event) {
+export async function handleContactRequest(event, emailSender = sendEmail) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed')
   }
 
   try {
     const body = JSON.parse(event.body || '{}')
+    if (body.enquiryType != null && !['contact', 'club_quote'].includes(body.enquiryType)) return failureResponse(400, 'Invalid enquiry type')
+    const isClubQuote = body.enquiryType === 'club_quote'
     const name = cleanText(body.name)
     const email = cleanText(body.email).toLowerCase()
     const phone = cleanText(body.phone)
     const message = cleanText(body.message)
     const sourcePath = cleanText(body.sourcePath)
+    const clubName = cleanText(body.clubName)
+    const teamCount = body.teamCount
+
+    if (isClubQuote && cleanText(body.website)) return failureResponse(400, 'Your quote request could not be sent.')
+    if (isClubQuote && (!clubName || clubName.length > 160 || name.length > 120 || email.length > 254 || message.length > 5000 || sourcePath.length > 500)) return failureResponse(400, 'Enter your club details within the field limits')
+    if (isClubQuote && (!Number.isInteger(teamCount) || teamCount < 21 || teamCount > 10000)) return failureResponse(400, 'Enter a whole number of teams between 21 and 10000')
 
     if (!name) {
       return failureResponse(400, 'Name is required')
@@ -111,16 +120,16 @@ export async function handler(event) {
       name,
       email,
       phone,
-      message,
+      message: isClubQuote ? `Club: ${clubName}\nTeams requested: ${teamCount}\nContact: ${name}\nReply email: ${email}\n\n${message || 'No additional notes'}` : message,
       sourcePath,
     })
 
-    const response = await sendEmail({
+    const response = await emailSender({
       emailAppRole: 'both',
       from: createFromAddress('Football Player Contact'),
-      to: [CONTACT_REQUEST_RECIPIENT],
+      to: [isClubQuote ? CLUB_QUOTE_RECIPIENT : CONTACT_REQUEST_RECIPIENT],
       reply_to: email,
-      subject: `Website Contact: ${name}`,
+      subject: isClubQuote ? `Club quote: ${clubName} (${teamCount} teams)` : `Website Contact: ${name}`,
       html,
     }, {
       context: {
@@ -131,9 +140,15 @@ export async function handler(event) {
       publicMessage: 'Contact request could not be sent. Please try again in a moment.',
     })
 
-    return successResponse({ id: response?.data?.id || response?.id || '' })
+    const id = response?.data?.id || response?.id || ''
+    if (!id) return failureResponse(502, 'Your enquiry could not be sent. Please try again.')
+    return successResponse({ id })
   } catch (error) {
     console.error(error)
     return failureResponse(error.statusCode || 500, getPublicEmailErrorMessage(error, 'Contact request could not be sent. Please try again in a moment.'))
   }
+}
+
+export async function handler(event) {
+  return handleContactRequest(event)
 }

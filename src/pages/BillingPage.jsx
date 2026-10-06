@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { SectionCard } from '../components/ui/SectionCard.jsx'
@@ -88,6 +88,8 @@ export function BillingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [isStartingCheckout, setIsStartingCheckout] = useState(false)
+  const [isOpeningPortal, setIsOpeningPortal] = useState(false)
+  const portalBusy = useRef(false)
   const [modernPlanKey, setModernPlanKey] = useState('club')
   const [modernQuote, setModernQuote] = useState(() => quoteSubscription({ planKey: 'club', teamCapacity: 10, billingCycle: 'monthly' }))
 
@@ -215,6 +217,29 @@ export function BillingPage() {
     } catch (error) {
       setErrorMessage(error.message || 'Checkout could not be started.')
       setIsStartingCheckout(false)
+    }
+  }
+
+  const openCancellation = async () => {
+    if (portalBusy.current) return
+    portalBusy.current = true
+    setIsOpeningPortal(true)
+    setErrorMessage('')
+    try {
+      const response = await fetch('/.netlify/functions/create-billing-portal-session', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const result = await response.json().catch(() => ({}))
+        if (!response.ok || result.success !== true || !result.url) throw new Error(result.message || 'Subscription management could not be opened.')
+      const url = new URL(result.url)
+      if (url.protocol !== 'https:' || url.hostname !== 'billing.stripe.com') throw new Error('Subscription management returned an unexpected address.')
+      window.location.assign(result.url)
+    } catch (error) {
+      setErrorMessage(error.message || 'Subscription management could not be opened.')
+        portalBusy.current = false
+      setIsOpeningPortal(false)
     }
   }
 
@@ -376,6 +401,15 @@ export function BillingPage() {
           </div>
         )}
       </SectionCard>
+
+      {!isLoading && !isManagedBilling && visibleClub?.stripeSubscriptionId && visibleClub?.cancellationAuthorized === true ? (
+        <div className="flex flex-wrap items-center justify-between gap-4 border-y border-[#d7e5dc] py-4">
+          <p className="max-w-2xl text-sm leading-6 text-[#4b5f55]">Cancel anytime. Cancel during your free trial to avoid the first charge. Paid access continues until the end of your current billing period.</p>
+          <button type="button" disabled={isOpeningPortal} onClick={() => void openCancellation()} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-bold text-[#101828] disabled:opacity-60">
+            {isOpeningPortal ? 'Opening subscription management...' : 'Cancel subscription'}
+          </button>
+        </div>
+      ) : null}
 
       {hasRealBilling ? (
         <SectionCard
