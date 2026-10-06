@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "991dc2c5eec0c3c3d5991929af7c6ac6817e59a54afa9b80c5775ba4885c40c4",
+    "scripts/security-verify-reviewed-backports.mjs": "3867d399bf1d493741d0fa873724269f0cb1a3dcbe6f84af849aa48e43dc570f",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -723,7 +723,7 @@
       "src/components/login/website-auth.css": "b2a3ce29360f243bfea5e6f94789b7c3b09d94b63f37acf76fad4213df6ffa7e",
       "src/lib/parent-auth-intent.js": "7ee3c69e21abc40a589eda974c08358c8dca90570f3e2b22442d9b06829e2672",
       "tests/parent-auth-intent.test.mjs": "7778b55613d1e3564ac57f1d9e2d56ba4f1359e95762f25132a8f2834d0c0c69",
-      "tests/auth-access-browser.mjs": "a5b80ee8127fb05111384812e2cdbc4af9d52221726d2433a342842ad596ce54",
+      "tests/auth-access-browser.mjs": "a8624d8eae01f5b15ce276040c354668142f52b05dede925e84a773214fc7acb",
       "tests/stripe-billing-recovery-browser.mjs": "f6161608e6d93212879ea6e3c9ed04247a1329bad9fcca1ad27dce36ff0918b3",
       "tests/feedback-forms-polish-browser.mjs": "34e1935b78f60a84defcb3f23cd34a3907c79779852328f3b893bfe500e45b19",
       "tests/parent-own-access-web-browser.mjs": "b06045706e4a661a96aa77d509c64a001b95939e43c5a3cc8135ee9893299cf3",
@@ -905,6 +905,6 @@
       }
     }
   },
-  "releasePreparationSha256": "e12f9526c8795e07aae8f7e7bc1ebcb33312d1dda4936ce8d21959e6a8de79fb",
+  "releasePreparationSha256": "6744166de7292817a8c3533c527e90693ac5ce7d56cef50430c00fdf613c5d89",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
