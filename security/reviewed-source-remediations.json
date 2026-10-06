@@ -234,7 +234,7 @@
     "tests/security-reviewed-backports.test.mjs": "450bae9fc7f52016df87395a45327a31057dd4c8d3baff1bdf0b631588ac004b",
     "scripts/security-provision-reviewed-backports.mjs": "8718b28d2c1c7c3f288a1f19b8bea025c70286dc09fd0114aea23e68177c0981",
     "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
-    ".github/workflows/security-gate.yml": "7cbdc5672e48884a9463c59e97d75513dec26bcf7059f6e8ca045234b70d9b1a",
+    ".github/workflows/security-gate.yml": "30f95d25ace383a89c2f1d6796137dde08af56b20f8bcf2e978a98f6dfc3c315",
     "apps/scripts/mobile-release-check.mjs": "026b0d3117b8d268be368851f2ebfeb82363f8a738765c15b1a6a906479b56c1",
     "package.json": "b4aa98c6e8dffbd46faf304e8ba5b12b369592c16fef95545dfea96fb7bad3e7",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
