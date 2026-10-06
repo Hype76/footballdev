@@ -1,0 +1,119 @@
+Football Player V1 match audit, 04:10:2026
+
+Scope: read-only production evidence and isolated local fixes/tests only. No push,
+merge, deployment, database mutation, customer message, store action or credential
+transmission. This candidate is separate from the notification repair and today's
+conditional 16:00 BST release. V2 was not changed.
+
+Slack source: channel C0C5N2XEQHM, thread 1791113168.694149.
+https://app.slack.com/archives/C0C5N2XEQHM/p1791113168694149
+The repeated 'half time end' wording is ambiguous. Milestones below interpret it
+as kick-off, first-half end, second-half start and full-time.
+
+Fixture selection: one match on this date matched club/team/opponent 'neot' in
+the authorised FootballDev project hvapkizujvsahvgspser. St Neots versus Haverhill
+Rovers, scheduled kick-off 10:00, recorded result 3-0, status full_time, not yet
+concluded. Fixture ID 652b9a48-773a-4dcd-ae0e-bc46fb2b70b3.
+Scheduled kick-off is not used as actual start evidence.
+
+Recorded timeline (same date throughout; Europe/London is BST, UTC+01:00):
+Milestone         Client BST       Client UTC       Server transaction UTC
+Start             10:07:26.102     09:07:26.102      09:07:26.621313
+First-half end    10:44:26.640     09:44:26.640      09:44:26.996764
+Second-half start 10:58:31.207     09:58:31.207      09:58:31.559261
+Full-time         11:33:30.663     10:33:30.663      10:33:31.218258
+
+Source: private.parent_scorer_match_day_commands captured_at and created_at,
+corroborated by public.match_day_event_log action and previous/new state.
+Server created_at is a server transaction timestamp (now()), not an independently
+measured network-arrival or whistle time. Client captured_at is a device-supplied
+action timestamp. Clock actions are submitted after their confirmation controls.
+These cannot prove the exact referee whistle, scorer reaction delay or device
+clock accuracy. The journal records all relevant actions, with processing offsets
+0.345556 to 0.777285 seconds. No substantial delayed offline sync is evidenced
+for this fixture. Offline replay remains supported by the code.
+
+Additional clock actions:
+Pause  11:09:46.646 BST / 10:09:46.646 UTC; server 10:09:46.991556 UTC.
+Resume 11:14:54.156 BST / 10:14:54.156 UTC; server 10:14:54.523999 UTC.
+The app clock excluded 5:07.510 between these client actions. Whether actual
+play continued during that interval is unknown; no referee telemetry was found.
+
+Derived durations, clearly distinct from wall-clock milestone evidence:
+First-half action interval: 37:00.538.
+Half-time interval: 14:04.567.
+Second-half action interval: 34:59.456.
+Both half intervals excluding the break: 71:59.994.
+The fixed 70-minute setting starts the second-half clock at 35:00. The audit
+shows elapsed reset from 2220 seconds at half-time to 2100 at second-half resume.
+It therefore discards roughly two first-half added minutes from this cumulative
+display, and excludes the second-half pause. The final stored elapsed is 3891
+seconds, 64:51. Fixed second-half baseline 35:00 plus about 29:51 counted running
+time explains the final clock. This does not prove a 70-minute referee duration.
+No changes to timer semantics were made.
+
+First goal:
+Event ID 47f5e0ce-63b3-47d2-9ad9-7b85ccb18d0c.
+Command/request ID bbc52ef4-f403-4fb6-a011-9bd30c170cb9.
+Client submission capture: 10:24:47.119 BST / 09:24:47.119 UTC.
+Server event and audit: 10:24:47.656013 BST / 09:24:47.656013 UTC.
+Command payload minute and stoppageMinute were empty strings. Event minute and
+stoppage_minute are null, first_half, active, event_sequence 471, score 1-0.
+No correction exists. The server goal_v3 RPC stores its supplied minute as-is.
+The Parent form allowed an empty minute, and its offline journal accepted it.
+The Goal-button capture itself is not persisted: the form captures a match minute
+on opening; the command captured_at is generated when queueParentScorerAction
+submits the completed form. Thus 10:24:47.119 is not proven goal occurrence time.
+It is not safe to backfill a minute from receipt time. Whether the user cleared
+the minute or initially received a missing capture cannot be established.
+
+Local candidate:
+Isolated clone at C:/Users/pulse/Documents/Codex/2026-10-04/task-2/v1-audit.
+Branch audit/st-neots-clock-20261004, base 7ccbc41591569a7b7723a4fba7b28fbfa44cf50b.
+GitHub read-only main check confirmed the same SHA. The source repository's dirty
+and older checkout was preserved. No linked worktree metadata was mutated.
+Only the existing dependency directories were read through local junctions;
+browser outputs/cache are inside this candidate. There were no repository skill
+files beyond root AGENTS.md; local historical memory was used for discovery.
+
+Changes:
+The server Fans match response now includes durable clock state, duration/mode
+and phase after existing connection/club/team/audience/plan checks. No auth or
+RLS grants changed. Fan mobile lists and shared Parent detail screen show the
+same Parent formatter. Fan web lists/details tick with that formatter. Existing
+polling reloads authoritative state. Fan/Player scoring remains unavailable.
+Parent goal entry reports a missing minute and rejects submission; the new-goal
+offline journal guard also rejects blank, fractional or negative minutes, while
+preserving supplied zero/valid minutes. Existing pending commands and historical
+null goals are not rewritten. Old clients and direct server RPC callers can
+still submit null minutes until a separately reviewed server validation change.
+
+Verification:
+Regression group: 88/88 tests passed. Additional isolation/scorer group: 33/33.
+Offline account-scope/dual-routing group: 43/43. Total 164, no skipped tests.
+Parent scorer journal missing-minute case failed before guard, then passed.
+The existing handover test used today's implicit time against an old fixture;
+its capture was made explicit to test handover instead of fixture expiration.
+The clock-reversal fixture now supplies a valid goal minute.
+Scorer browser: Parent and Coach scoring, own goals, cards, substitutions,
+captured minute, blank-minute rejection, responsive layouts and themes passed.
+Fans mobile browser: Parent clock in Fan detail, permissions, Player/Fan
+conversion, retries, notification registration, switching and stale reads passed.
+Dual-access browser: actual AppContent authentication/invitation, lock and
+Parent/Fan route transitions passed.
+Fans web browser: late join, live tick, pause/freeze, half-time, resume, full-time
+freeze, permission filtering, views, settings and sign-out checked locally.
+Changed web/server ESLint and git diff --check passed.
+Exact commands/logs are retained alongside the candidate in task-2.
+
+Initial sandbox browser launches/read resolution failed with EPERM/access errors.
+The same synthetic harnesses subsequently ran through approved escalation; no
+auto-review rejection occurred, and no alternate credential/network route was used.
+No remaining permission blocker. Not run: full project CI/security/release gates,
+production builds, mobile OTA/native build, physical iOS/Android scoring or
+offline/reconnect, real notification delivery, production deployment verification.
+This is local preparation evidence only, not release readiness.
+
+Remaining evidence needed for actual whistle/goal occurrence: independent match
+video with a trusted time reference, referee notes/watch, or corroborated scorer
+observation. None was supplied. Parent handles Slack follow-up and Activity Log.

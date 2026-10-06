@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useAttendanceUiGuard } from '../../mobile-core/src/useAttendanceOutbox'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { getCoachInviteDeliveryProgress, getCoachInviteStatusLabel } from '../../mobile-core/src/coachPhase31ECore'
@@ -118,17 +119,21 @@ function TrainingCoachAttendanceTable({ attendance, currentCoachId, onRespond, p
     : row.status === 'unavailable'
       ? { color: palette.danger, icon: 'cancel', label: 'Not attending' }
       : { color: contrastSafeColor('#38a3ff', [palette.surface, palette.surfaceRaised], themeForeground(palette.background) === '#000000' ? 'light' : 'dark', 4.5), icon: 'schedule', label: 'Awaiting' }
+  const responseViewScope = JSON.stringify([currentCoachId, details?.id, details?.teamId, details?.occurrenceDate])
+  const captureResponseView = useAttendanceUiGuard(responseViewScope)
+  useEffect(() => { setSaving(false); setError('') }, [responseViewScope])
   const respond = async status => {
-    if (!details || saving || !onRespond) return
+    if (!details || saving || !onRespond || details.attendancePending) return
+    const current = captureResponseView()
     setSaving(true)
     setError('')
     try {
-      await onRespond(details, status)
-      setDetailsId('')
+      const receipt = await onRespond(details, status)
+      if (current() && !receipt?.stale) setDetailsId('')
     } catch (responseError) {
-      setError(responseError?.message || 'Your Training attendance could not be saved.')
+      if (current()) setError(responseError?.message || 'Your Training attendance could not be saved.')
     } finally {
-      setSaving(false)
+      if (current()) setSaving(false)
     }
   }
   return <View style={styles.section}>
@@ -142,7 +147,7 @@ function TrainingCoachAttendanceTable({ attendance, currentCoachId, onRespond, p
         <View style={styles.info} />
       </View>
       {attendance.map(row => {
-        const item = response(row)
+        const item = row.attendancePending ? { ...response(row), label: 'Pending' } : response(row)
         const sent = Boolean(row.notificationSentAt || row.notificationStatus === 'sent')
         const seen = Boolean(row.respondedAt || row.status !== 'pending')
         return <View key={row.id} style={styles.row}>

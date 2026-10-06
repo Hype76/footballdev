@@ -35,9 +35,11 @@ const callbacks = ['scrollContentToTop', 'focusNotificationSettings'].map(name =
   const declaration = home.body.body.find(n => n.type === 'VariableDeclaration' && n.declarations[0].id.name === name)
   return source.slice(declaration.start, declaration.end)
 }).join('\n')
-const entry = `
+const entry = `import {CoachTeamBrandingSetup} from './apps/coach-mobile/src/CoachTeamBrandingSetup.js';
+const refreshUserProfile=async()=>{};
+
 import React,{useRef,useMemo,useCallback,useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
-import {View,Text,Image,Pressable,ScrollView,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform} from 'react-native';
+import {View,Text,Image,Pressable,ScrollView,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState} from 'react-native';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
@@ -70,7 +72,7 @@ useEffect(()=>{scrollContentToTop()},[activeRoute,scrollContentToTop]);
 return <View style={[styles.appShell,{height:'100vh'}]}>${shellSource}</View>;
 }
 window.corrections=[];createRoot(document.getElementById('root')).render(<App/>);`
-const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' } })
+const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths:[modules], conditions:['browser'], mainFields:['browser','module','main'], resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'} })
 const out = 'output/playwright/coach-smooth-scroll'
 await mkdir(out, { recursive: true })
 const browser = await chromium.launch({ headless: true })
@@ -80,7 +82,7 @@ try {
       const context = await browser.newContext({ viewport: { width, height: 850 }, isMobile: true, hasTouch: true })
       const page = await context.newPage()
       const errors = []
-      page.on('pageerror', e => errors.push(e.message))
+      page.on('pageerror', e => { errors.push(e.message); console.error(e.message) })
       await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}input{max-width:100%;box-sizing:border-box}</style><div id="root"></div>')
       await page.evaluate(count => { window.contextCount = count }, contextCount)
       await page.addScriptTag({ content: result.outputFiles[0].text })

@@ -338,7 +338,7 @@ test('Parent Home, Calendar, Invites, and detail paths share derived terminal st
   assert.match(app, /formatParentProductTime/)
   assert.match(screens, /formatParentProductDateTime/)
   assert.match(screens, /formatParentProductTime/)
-  assert.match(screens, /getParentInvitationDisplayState/)
+  assert.match(screens, /getParentInvitationLockReason\(invitation\)/)
   assert.match(screens, /isParentInvitationActionable/)
   assert.match(data, /\['active', 'offered'\]\.includes\(invitationState\)/)
   assert.match(data, /This invitation is no longer available for response/)

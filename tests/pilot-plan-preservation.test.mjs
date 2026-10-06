@@ -100,11 +100,11 @@ test('Platform Admin flows preserve Pilot as forced free access', () => {
 
   assert.match(manageClubsSection, /getAdminAssignablePlanOptions/)
   assert.match(platformSection, /getAdminAssignablePlanOptions/)
-  assert.match(manageClubsSection, /form\.planKey === PLAN_KEYS\.pilot/)
+  assert.match(manageClubsSection, /disabled=\{\[PLAN_KEYS\.individual, PLAN_KEYS\.matchday, PLAN_KEYS\.pilot\]\.includes\(form\.planKey\)\}/)
   assert.match(platformPage, /fieldName === 'planKey' && value === PLAN_KEYS\.pilot[\s\S]*billingMode: 'unpaid'/)
   assert.match(platformPage, /fieldName === 'planKey' && value === PLAN_KEYS\.pilot[\s\S]*isPlanComped: true[\s\S]*planStatus: 'active'/)
   assert.match(createClubFunction, /billingMode === 'paid' && planKey === 'pilot'/)
-  assert.match(createClubFunction, /billingMode === 'unpaid' \|\| planKey === 'pilot'/)
+  assert.match(createClubFunction, /body\.billingMode === 'unpaid' \|\| \['matchday', 'pilot'\]\.includes\(planKey\)/)
   assert.match(updateBillingFunction, /const nextPlanStatus = nextPlanKey === 'pilot' \? 'active' : nextIsPlanComped/)
   assert.match(updateBillingFunction, /const nextIsPlanComped = nextPlanKey === 'pilot'/)
 })

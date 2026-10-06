@@ -92,9 +92,9 @@ test('parent invite management supports active Trial and Squad players without e
 test('parent polls use parent-safe copy and selected-child context', async () => {
   const source = await readFile(parentPollsPageUrl, 'utf8')
 
-  assert.match(source, /Select the right child/)
+  assert.match(source, /Select the right player/)
   assert.match(source, /No parent polls are open for this player right now/)
-  assert.match(source, /Own child not available/)
+  assert.match(source, /isOwnChildOption \? 'Unavailable'/)
   assert.match(source, /selectedLink\.id/)
   assert.doesNotMatch(source, /recovery phase|debug mode|\brpc\b|\brls\b/i)
 })

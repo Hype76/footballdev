@@ -40,9 +40,9 @@ test('Parent scorer goals preserve assist fields and request the shared Parent p
 
   assert.match(data, /assist_name_value: normalizeText\(goal\.assistName\)/)
   assert.match(data, /sendParentScorerMatchDayPush[\s\S]*send-match-day-push/)
-  assert.match(app, /const savedEvent = await addParentScorerGoal[\s\S]*notificationType = 'goal'[\s\S]*notificationEventId = savedEvent\?\.id/)
-  assert.match(app, /notifySavedScorerAction\(notificationType, notificationEventId,/)
-  assert.match(app, /sendParentScorerMatchDayPush\(selectedMobileUser, match\.id, type, eventId\)/)
+  assert.match(app, /await queueParentScorerAction\(selectedMobileUser, selectedLink, match, action, payload\)/)
+  assert.match(data, /const result = await scorerRpc[\s\S]*send-parent-scorer-command-notification[\s\S]*body: JSON\.stringify\(\{ commandId: command\.id \}\)/)
+  assert.match(data, /result\.savedEvent && \['goal', 'event', 'score', 'correct-goal'\]\.includes\(command\.kind\)/)
   assert.match(parentScreen, /buildCompletedMatchEventPresentation\(event, selectedMatch/)
   assert.match(coachScreen, /buildCompletedMatchEventPresentation\(event, match/)
 })

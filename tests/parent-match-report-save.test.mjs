@@ -112,3 +112,30 @@ test('Reports are unavailable before full time', async () => {
   await assert.rejects(saveParentMobileMatchReportPdf({ status: 'in_progress' }), /after full time/)
   assert.equal(globalThis.__pdfOps.written, undefined)
 })
+
+test('A context switch before preparation cancels without showing a save picker', async () => {
+  globalThis.__pdfOps = { granted: true }
+  const { saveParentMobileMatchReportPdf } = await loadSaver('android')
+  assert.deepEqual(await saveParentMobileMatchReportPdf({ status: 'full_time' }, { isCurrent: () => false }), { filename: 'report.pdf', saved: false })
+  assert.equal(globalThis.__pdfOps.created, undefined)
+  assert.equal(globalThis.__pdfOps.written, undefined)
+})
+
+test('Switching context while the Android folder picker is open prevents a write', async () => {
+  globalThis.__pdfOps = { granted: true }
+  const { saveParentMobileMatchReportPdf } = await loadSaver('android')
+  let checks = 0
+  assert.deepEqual(await saveParentMobileMatchReportPdf({ status: 'full_time' }, { isCurrent: () => ++checks < 3 }), { filename: 'report.pdf', saved: false })
+  assert.equal(globalThis.__pdfOps.created, undefined)
+})
+
+test('A verified Android save can be repeated after cancellation or write failure', async () => {
+  globalThis.__pdfOps = { granted: false }
+  const { saveParentMobileMatchReportPdf } = await loadSaver('android')
+  await saveParentMobileMatchReportPdf({ status: 'full_time' })
+  globalThis.__pdfOps.granted = true
+  globalThis.__pdfOps.writeError = true
+  await assert.rejects(saveParentMobileMatchReportPdf({ status: 'full_time' }), /Write failed/)
+  globalThis.__pdfOps.writeError = false
+  assert.equal((await saveParentMobileMatchReportPdf({ status: 'full_time' })).saved, true)
+})

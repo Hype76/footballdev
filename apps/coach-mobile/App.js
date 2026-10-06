@@ -1,6 +1,8 @@
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
+import { CoachTeamBrandingSetup } from './src/CoachTeamBrandingSetup'
+import { isCoachBrandingReturn } from '../../src/lib/team-branding-onboarding.js'
 import 'react-native-url-polyfill/auto'
 import { sanitizeCoachChatOfflineValue } from '../mobile-core/src/coachPhase31ECore'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
@@ -61,7 +63,7 @@ import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMob
 import { UserFeedbackScreen } from '../mobile-core/src/UserFeedbackScreen'
 import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../mobile-core/src/coachPhase31GData'
-import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary } from '../mobile-core/src/coachPhase31GCore'
+import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState } from '../mobile-core/src/coachPhase31GCore'
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
@@ -103,6 +105,8 @@ import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackground
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
 import { CoachTeamKitSettings } from './src/CoachTeamKitSettings'
+import { TeamLeagueLinkRow, TeamLeagueLinkSettings } from '../mobile-core/src/TeamLeagueLink'
+import { coachTeamLeagueScope, teamLeagueScopeKey } from '../../src/lib/team-league-link.js'
 import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
 import { countPendingCoachDevelopmentDrafts } from './src/offline'
 import {
@@ -165,7 +169,7 @@ function LoginScreen() {
 }
 
 function CoachHome() {
-  const { authError, isProfileLoading, signOut, user } = useMobileAuth()
+  const { authError, isProfileLoading, refreshUserProfile, signOut, user } = useMobileAuth()
   const signOutWithPendingCheck = async () => {
     let count
     try { count = (await countPendingCoachMatchDayActions(user.id)) + (await countPendingCoachDevelopmentDrafts(user.id)) }
@@ -450,27 +454,25 @@ function CoachHome() {
       try {
         const invites = await readMobileResource(selectedMobileUser, 'coach:phase31e:invites',
           () => getCoachInvitesAndAvailability(selectedMobileUser), { force: true })
-        if (isCurrent()) setHomeState(current => ({
-          ...current,
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'invites', {
           pendingAvailability: countPendingCoachAvailability(invites.all, new Date(), 7),
-          errors: (current.errors || []).filter(error => !error.startsWith('invites:')),
         }))
       } catch {
-        if (isCurrent()) setHomeState(current => ({
-          ...current,
-          errors: [...(current.errors || []).filter(error => !error.startsWith('invites:')), 'invites:unavailable'],
-        }))
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'invites', {}, 'unavailable'))
       }
       return
     }
     if (chatOnly) {
       const requestId = requestIdRef.current
       const chatRefreshId = ++chatRefreshIdRef.current
-      const rooms = await readMobileResource(selectedMobileUser, 'coach:phase31e:chat',
-        () => getCoachChatRooms(selectedMobileUser), { force: true })
-      if (requestId === requestIdRef.current && chatRefreshId === chatRefreshIdRef.current) setHomeState((current) => ({
-        ...current, ...buildCoachChatSummary(rooms),
-      }))
+      const isCurrent = () => requestId === requestIdRef.current && chatRefreshId === chatRefreshIdRef.current
+      try {
+        const rooms = await readMobileResource(selectedMobileUser, 'coach:phase31e:chat',
+          () => getCoachChatRooms(selectedMobileUser), { force: true })
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', buildCoachChatSummary(rooms)))
+      } catch {
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', {}, 'unavailable'))
+      }
       return
     }
     const requestId = ++requestIdRef.current
@@ -500,12 +502,12 @@ function CoachHome() {
     try {
       const primary = await readMobileResource(selectedMobileUser, primaryCacheKey,
         () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
-          if (requestId === requestIdRef.current && !savedHome) setHomeState(current => preserveCoachAvailabilitySummary({ ...current, ...partial, loading: false }, current))
+          if (requestId === requestIdRef.current && !savedHome) setHomeState(current => preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...partial, loading: false }, current), current))
         }), { force: refresh })
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
       const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
-      setHomeState((current) => preserveCoachAvailabilitySummary({ ...current, ...primarySnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat }, current))
+      setHomeState((current) => preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...primarySnapshot }, current), current))
       setLastUpdatedAt(savedAt)
       lastHomeRefreshAtRef.current = Date.now()
       void saveCoachOfflineResources(user.id, activeContext, { home: primarySnapshot }).catch(() => {})
@@ -519,7 +521,7 @@ function CoachHome() {
         .then(value => ({ value }), error => ({ error }))
       if (requestId !== requestIdRef.current) return
       if (attentionResult.error) {
-        setHomeState((current) => ({ ...current, partial: true }))
+        setHomeState(current => updateCoachHomeSourceState(current, 'attention', {}, 'unavailable'))
         return
       }
       const completeSnapshot = {
@@ -529,7 +531,7 @@ function CoachHome() {
       setHomeState((current) => {
         const next = chatRefreshId === chatRefreshIdRef.current
           ? completeSnapshot
-          : { ...completeSnapshot, chatRooms: current.chatRooms, unreadChat: current.unreadChat }
+          : preserveCoachChatSummary(completeSnapshot, current)
         return availabilityRefreshId === availabilityRefreshIdRef.current ? next : preserveCoachAvailabilitySummary(next, current)
       })
       const savedSections = { home: completeSnapshot }
@@ -695,7 +697,6 @@ function CoachHome() {
     return () => { work.cancel(); received.remove(); resumed.remove() }
   }, [activeContext, contextOwnedByCurrentUser, selectedMobileUser])
 
-
   useEffect(() => {
     void initializeCoachNotifications().catch(() => {})
   }, [])
@@ -775,6 +776,7 @@ function CoachHome() {
 
   useEffect(() => {
     const openUrl = ({ url }) => {
+      if (isCoachBrandingReturn(url)) return
       try {
         const parsed = new URL(url)
         openCoachTarget({
@@ -902,6 +904,11 @@ function CoachHome() {
             )}
             ref={contentScrollRef}
           >
+            <CoachTeamBrandingSetup
+              context={activeContext} user={selectedMobileUser} apiBaseUrl={config.apiBaseUrl}
+              palette={palette} prompt={activeRoute === 'home'} refreshUserProfile={refreshUserProfile}
+              visible={activeRoute === 'home' || (activeRoute === 'more' && moreRoute === 'settings')}
+            />
             {!isMatchInvitesRoute ? <View testID="coach-scroll-header">
               <CoachHeader
                 context={activeContext}
@@ -1018,7 +1025,7 @@ function CoachNotificationsScreen(props) {
 }
 
 function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
-  const { styles } = useCoachTheme()
+  const { palette, styles } = useCoachTheme()
   const nextMatch = homeState.nextMatch
   const nextSession = homeState.nextSession
   const nextCalendar = homeState.nextCalendar
@@ -1031,6 +1038,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <Pressable accessibilityRole="button" accessibilityLabel="Retry unavailable overview information" onPress={() => reloadHome({ refresh: true })} style={{ paddingVertical: 8 }}><Text style={styles.helperText}>Some overview information could not refresh. Tap to retry.</Text></Pressable> : null}
       <View style={styles.iconList}>
+        {user?.id && context.teamId ? <TeamLeagueLinkRow client={coachSupabase} coach palette={palette} scope={coachTeamLeagueScope(user, context.teamId)} styles={styles} /> : null}
         {canOpen('calendar') ? <HomeNextRow
           iconKey="route.calendar"
           label="Next Calendar item"
@@ -1293,6 +1301,9 @@ function SettingsScreen({
         </SettingRow> : null}
       </Section>
       </SettingsSection>
+      {context.teamId ? <SettingsSection id="team-league" label="Team" iconKey="more.team">
+        <TeamLeagueLinkSettings key={teamLeagueScopeKey(coachTeamLeagueScope(user, context.teamId))} client={coachSupabase} palette={palette} scope={coachTeamLeagueScope(user, context.teamId)} />
+      </SettingsSection> : null}
       <SettingsSection id="display" label="Display" iconKey="settings.appearance">
       <Section compact iconKey="settings.appearance" title="Appearance">
         <Text style={styles.bodyText}>System follows this device's appearance. Your choice is remembered on this device.</Text>
@@ -1384,10 +1395,29 @@ function SettingsScreen({
 
 function CoachHeader({ context, notificationState, notificationStateStatus, onOpenNotificationSettings, user }) {
   const { branding, styles } = useCoachTheme()
-  const source = branding.logoUrl ? { uri: branding.logoUrl } : require('./assets/football-player-logo.png')
+  const logoKey = `${context.id || context.clubId}:${branding.logoUrl}`
+  const [logoState, setLogoState] = useState({ key: logoKey, failed: false })
+  if (logoState.key !== logoKey) setLogoState({ key: logoKey, failed: false })
+  const showClubLogo = Boolean(branding.logoUrl && (logoState.key !== logoKey || !logoState.failed))
+  useEffect(() => {
+    // Returning to the app gives a failed remote logo another chance to load.
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') setLogoState({ key: logoKey, failed: false })
+    })
+    return () => subscription.remove()
+  }, [logoKey])
+  const source = showClubLogo ? { uri: branding.logoUrl } : require('./assets/football-player-logo.png')
   return (
     <View style={styles.header}>
-      <Image accessibilityLabel={`${context.clubName} logo`} source={source} style={styles.logo} />
+      <Image
+        key={showClubLogo ? logoKey : 'football-player'}
+        accessibilityIgnoresInvertColors
+        accessibilityLabel={showClubLogo ? `${context.clubName} logo` : 'Football Player logo'}
+        onError={showClubLogo ? () => setLogoState(previous => previous.key === logoKey ? { key: logoKey, failed: true } : previous) : undefined}
+        resizeMode="contain"
+        source={source}
+        style={styles.logo}
+      />
       <View style={styles.headerCopy}>
         <Text numberOfLines={1} style={styles.headerTitle}>{context.clubName}</Text>
         <Text numberOfLines={1} style={styles.headerMeta}>{context.teamName || 'Club context'} | {user.roleLabel}</Text>

@@ -19,7 +19,8 @@ test('Parent Chat exposes and persists a separate DND switch for every room', as
   ])
 
   assert.match(app, /handleToggleChatRoomNotifications/)
-  assert.match(data, /get_parent_portal_chat_notification_preferences/)
+  assert.match(data, /get_parent_portal_chat_rooms_with_preferences/)
+  assert.match(data, /notificationsMuted: Boolean\(row\.notifications_muted \?\? row\.notificationsMuted\)/)
   assert.match(data, /set_parent_portal_chat_room_notifications/)
   assert.match(screens, /Do not disturb/)
   assert.match(screens, /Notifications muted for this room/)
@@ -31,6 +32,6 @@ test('Parent Chat exposes and persists a separate DND switch for every room', as
 test('Parent Needs response keeps canonical pending Training RSVP invitations actionable', async () => {
   const source = await readFile(new URL('../apps/parent-mobile/src/parentPresentationCore.js', import.meta.url), 'utf8')
 
-  assert.match(source, /needsResponse = future\.filter\(\(item\) => item\.isPending && isInvitationActionable\(item, now\)\)/)
+  assert.match(source, /needsResponse = future\.filter\(\(item\) => item\.invitationType !== 'match_role' && item\.isPending && isInvitationActionable\(item, now\)\)/)
   assert.match(source, /response_required|requiresResponse|canRespond/)
 })

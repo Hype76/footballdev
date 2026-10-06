@@ -44,7 +44,7 @@ test('Mobile view mode has compact Open item and More actions controls without a
   const mobileViewFooter = modalSource.slice(viewFooterStart, desktopFooterStart)
   assert.match(mobileViewFooter, /testId="calendar-mobile-action-bar"/)
   assert.match(mobileViewFooter, /breakpoint="sm"/)
-  assert.match(mobileViewFooter, />Open item</)
+  assert.match(mobileViewFooter, /\{isMatchFixture \? 'Manage volunteer assignments' : isPollDeadline \? 'Open poll' : 'Open item'\}/)
   assert.match(mobileViewFooter, />\s*More actions\s*</)
   assert.doesNotMatch(mobileViewFooter, />Close</)
 })

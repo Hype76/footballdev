@@ -54,7 +54,7 @@ test('sidebar groups V1 navigation without changing routes or visibility gates',
   assert.ok(source.indexOf('title="Match Operations"') < source.indexOf('title="Team Comms"'))
   assert.match(source, /const teamNavigationItems = isCoachOnly \? \[\] : navigationItems\.filter\(\(item\) => !coachNavigationPaths\.includes\(item\.path\)\)/)
   assert.match(source, /if \(item\.path === '\/staff-chat' \|\| item\.path === '\/parent-chat-staff'\) \{[\s\S]*return canUseStaffChat\(displayUser\)/)
-  assert.match(source, /if \(item\.path === '\/resources'\) \{[\s\S]*return canUseResourceLibrary\(displayUser\) \|\| canManageResourceLibrary\(displayUser\)/)
+  assert.match(source, /if \(item\.path === '\/resources'\) \{[\s\S]*return \(canUseResourceLibrary\(displayUser\) \|\| canManageResourceLibrary\(displayUser\)\) && canUseUiFeature\(displayUser, CAPABILITIES\.resourceLibrary\)/)
   assert.match(source, /if \(item\.path === '\/polls'\) \{[\s\S]*return canManagePolls\(displayUser\) && canUseUiFeature\(displayUser, CAPABILITIES\.teamPolls\)/)
   assert.match(source, /if \(item\.path === '\/match-day'\) \{[\s\S]*return canUseTeamWorkflow && canManageMatchDay\(displayUser\) && canUseUiFeature\(displayUser, CAPABILITIES\.matchDay\)/)
   assert.doesNotMatch(source, /item\.path === '\/email-queue'/)

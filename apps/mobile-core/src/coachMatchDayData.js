@@ -3,6 +3,7 @@ import { normalizeExtraTimeHalfMinutes, normalizeExtraTimePeriodCount, normalize
 import { assertMatchDayShirtChoice, assertNewMatchHomeAway, assertValidMatchDurationMinutes, normalizeLegacyMatchHomeAway, normalizeMatchClockMode, normalizeMatchDayShirtChoice, normalizeMatchDurationMinutes } from '../../../src/lib/matchday-model.js'
 import { normalizeTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 import { normalizeMatchDaySquadDecision } from '../../../src/lib/matchday-squad-selection.js'
+import { isMatchDayParticipantRosterCurrent, mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from './matchDayParticipantRoster.js'
 import { validateFinalMatchReportNotes } from '../../../src/lib/matchday-final-report.js'
 import { validateMatchDayEventUndoInput } from '../../../src/lib/matchday-event-undo.js'
 import { validateCoachFixtureForm } from './coachFixtureCore.js'
@@ -26,6 +27,7 @@ function requestId() { return Crypto.randomUUID() }
 function normalizeEvent(row = {}) {
   const teamSide = normalize(row.team_side ?? row.teamSide)
   return {
+    scorerPlayerId: normalize(row.scorer_player_id ?? row.scorerPlayerId), assistPlayerId: normalize(row.assist_player_id ?? row.assistPlayerId), participantIdentityVersion: row.participant_identity_version ?? row.participantIdentityVersion ?? null,
     id: row.id ?? '', matchDayId: row.match_day_id ?? row.matchDayId ?? '', eventType: normalize(row.event_type ?? row.eventType) || 'goal',
     teamSide: teamSide || 'club', teamSideRecorded: row.team_side_recorded === false || row.teamSideRecorded === false ? false : Boolean(teamSide),
     minute: row.minute ?? null, stoppageMinute: row.stoppage_minute ?? row.stoppageMinute ?? null, scorerName: normalize(row.scorer_name ?? row.scorerName), scorerShirtNumber: normalize(row.scorer_shirt_number ?? row.scorerShirtNumber),
@@ -90,6 +92,7 @@ export function normalizeCoachMatchDay(row = {}) {
     presentationPriority: Number(row.presentation_priority ?? row.presentationPriority ?? 99), scheduledKickoffAt: row.scheduled_kickoff_at ?? row.scheduledKickoffAt ?? '', isBeforeKickoff: row.is_before_kickoff === true || row.isBeforeKickoff === true, isToday: row.is_today === true || row.isToday === true, hasPresentationState, serverLocalDate: row.server_local_date ?? row.serverLocalDate ?? '', serverLocalTime: row.server_local_time ?? row.serverLocalTime ?? '',
     playerAvailability: (row.match_day_player_availability ?? row.playerAvailability ?? []).map(normalizeAvailability), squadDecisions: (row.match_day_player_squad_decisions ?? row.squadDecisions ?? []).map(normalizeSquadDecision), availabilityRequests: (row.match_day_availability_requests ?? row.availabilityRequests ?? []).map(normalizeRequest), roleAssignments: (row.match_day_role_assignments ?? row.roleAssignments ?? []).map(normalizeRoleAssignment),
     squadNotificationContacts: (row.squad_notification_contacts ?? row.squadNotificationContacts ?? []).map((contact) => ({ playerId: contact.player_id ?? contact.playerId, canNotify: contact.can_notify === true || contact.canNotify === true, hasContact: contact.has_contact === true || contact.hasContact === true, appRecipientCount: integer(contact.app_recipient_count ?? contact.appRecipientCount), emailRecipientCount: integer(contact.email_recipient_count ?? contact.emailRecipientCount) })),
+    ...(Array.isArray(row.eventParticipants) ? { eventParticipants: row.eventParticipants } : {}),
     events: rawEvents.map(normalizeEvent).sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0)), shootoutEvents: rawKicks.map(normalizeShootoutKick),
     finalReport: finalReportRow ? { matchDayId: finalReportRow.match_day_id ?? finalReportRow.matchDayId ?? '', staffNotes: normalize(finalReportRow.staff_notes ?? finalReportRow.staffNotes), createdByName: normalize(finalReportRow.created_by_name ?? finalReportRow.createdByName), updatedByName: normalize(finalReportRow.updated_by_name ?? finalReportRow.updatedByName), updatedAt: finalReportRow.updated_at ?? finalReportRow.updatedAt ?? '' } : null,
     previousHiddenAt: row.previous_hidden_at ?? row.previousHiddenAt ?? '', deletedAt: row.deleted_at ?? row.deletedAt ?? '', updatedAt: row.updated_at ?? row.updatedAt ?? '', isHydrated: Array.isArray(row.match_day_events),
@@ -394,7 +397,14 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
     if (stateError) throw stateError
     presentationState = (states || [])[0] || null
   }
-  return { ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}), clubName: user.clubName }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
+  const match = { ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}), clubName: user.clubName }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
+  if (isMatchDayParticipantRosterCurrent(match)) {
+    const roster = await supabase.rpc('get_match_day_event_participants', { match_day_id_value: match.id, parent_link_id_value: null })
+    if (roster.error) throw roster.error
+    match.eventParticipants = normalizeMatchDayParticipantRoster(roster.data, match)
+    match.events = mergeMatchDayParticipantEventIdentities(match.events, roster.data, match)
+  }
+  return match
 }
 
 async function prepareMutation(user, match, minimumRank = 20) {
@@ -433,7 +443,7 @@ export function createCoachMatchDayCommandId() { return requestId() }
 
 export async function syncCoachMatchDayCommand(user, command, baseMatch) {
   await prepareMutation(user, baseMatch)
-  const result = await rpc('apply_coach_match_day_command', {
+  const result = await rpc(command.payload?.participantRosterVersion === 1 ? 'apply_coach_match_day_command_v2' : 'apply_coach_match_day_command', {
     command_id_value: command.id, match_day_id_value: command.matchId,
     kind_value: command.kind, payload_value: command.payload, captured_at_value: command.capturedAt,
     expected_updated_at_value: command.expectedUpdatedAt, previous_command_id_value: command.previousCommandId,
@@ -531,10 +541,10 @@ export async function recordCoachMatchDayEvent(user, match, event, commandId = '
   const type = normalize(event?.eventType)
   let savedEvent = null
   if (type === 'goal') {
-    savedEvent = await rpc('record_match_day_goal_v3', { match_day_id_value: match.id, parent_link_id_value: null, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(event.scorerName), scorer_shirt_number_value: normalize(event.scorerShirtNumber), assist_name_value: normalize(event.assistName), assist_shirt_number_value: normalize(event.assistShirtNumber), minute_value: event.minute ?? null, notes_value: normalize(event.notes), is_penalty_goal_value: event.isPenaltyGoal === true, is_own_goal_value: event.isOwnGoal === true, stoppage_minute_value: event.stoppageMinute ? Number(event.stoppageMinute) : null, request_id_value: normalize(commandId) || requestId() })
+    savedEvent = await rpc('record_match_day_goal_v4', { match_day_id_value: match.id, parent_link_id_value: null, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', scorer_player_id_value: normalize(event.scorerPlayerId) || null, assist_player_id_value: event.isOwnGoal ? null : normalize(event.assistPlayerId) || null, scorer_name_value: normalize(event.scorerName), scorer_shirt_number_value: normalize(event.scorerShirtNumber), assist_name_value: normalize(event.assistName), assist_shirt_number_value: normalize(event.assistShirtNumber), minute_value: event.minute ?? null, notes_value: normalize(event.notes), is_penalty_goal_value: event.isPenaltyGoal === true, is_own_goal_value: event.isOwnGoal === true, stoppage_minute_value: event.stoppageMinute ? Number(event.stoppageMinute) : null, request_id_value: normalize(commandId) || requestId() })
   } else {
     if (!STAFF_EVENT_TYPES.has(type)) throw new Error('Choose a supported Match Day event type.')
-    savedEvent = await rpc('record_match_day_scorer_event_v1', { match_day_id_value: match.id, parent_link_id_value: null, stoppage_minute_value: event.stoppageMinute ? Number(event.stoppageMinute) : null, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: normalize(commandId) || requestId() })
+    savedEvent = await rpc('record_match_day_scorer_event_v2', { match_day_id_value: match.id, parent_link_id_value: null, stoppage_minute_value: event.stoppageMinute ? Number(event.stoppageMinute) : null, event_type_value: type, team_side_value: event.teamSide === 'opponent' ? 'opponent' : 'club', minute_value: event.minute ?? null, player_id_value: normalize(event.playerPlayerId) || null, player_on_id_value: normalize(event.playerOnPlayerId) || null, player_name_value: normalize(event.playerName), player_shirt_number_value: normalize(event.playerShirtNumber), player_on_name_value: normalize(event.playerOnName), player_on_shirt_number_value: normalize(event.playerOnShirtNumber), notes_value: normalize(event.notes), request_id_value: normalize(commandId) || requestId() })
   }
   if (type === 'goal' || type === 'yellow_card' || type === 'red_card' || type === 'substitution') await sendCoachMatchDayPush(match, type, savedEvent?.id)
   return getCoachMatchDayDetail(user, match.id)
@@ -549,7 +559,7 @@ export async function correctCoachMatchDayScore(user, match, homeScore, awayScor
 
 export async function correctCoachMatchDayGoal(user, match, event, goal, reason = '') {
   await prepareMutation(user, match)
-  await rpc('correct_coach_match_day_goal_v1', { match_day_id_value: match.id, goal_event_id_value: event.id, team_side_value: goal.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(goal.scorerName), scorer_shirt_number_value: normalize(goal.scorerShirtNumber), assist_name_value: normalize(goal.assistName), assist_shirt_number_value: normalize(goal.assistShirtNumber), minute_value: goal.minute ?? null, notes_value: normalize(goal.notes), correction_reason_value: normalize(reason), is_own_goal_value: goal.isOwnGoal === true, is_penalty_goal_value: goal.isOwnGoal !== true && goal.isPenaltyGoal === true, stoppage_minute_value: goal.stoppageMinute ? Number(goal.stoppageMinute) : null })
+  await rpc('correct_coach_match_day_goal_v2', { scorer_player_id_value: normalize(goal.scorerPlayerId) || null, assist_player_id_value: goal.isOwnGoal ? null : normalize(goal.assistPlayerId) || null, match_day_id_value: match.id, goal_event_id_value: event.id, team_side_value: goal.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(goal.scorerName), scorer_shirt_number_value: normalize(goal.scorerShirtNumber), assist_name_value: normalize(goal.assistName), assist_shirt_number_value: normalize(goal.assistShirtNumber), minute_value: goal.minute ?? null, notes_value: normalize(goal.notes), correction_reason_value: normalize(reason), is_own_goal_value: goal.isOwnGoal === true, is_penalty_goal_value: goal.isOwnGoal !== true && goal.isPenaltyGoal === true, stoppage_minute_value: goal.stoppageMinute ? Number(goal.stoppageMinute) : null })
   return getCoachMatchDayDetail(user, match.id)
 }
 

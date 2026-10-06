@@ -144,10 +144,10 @@ test('Home data composes current authoritative adapters with partial failure con
 })
 
 test('Settings exposes identity, role, context, branding, security, notification, cache, environment, build, and logout state', () => {
-  for (const label of ['Name', 'Email', 'Role', 'Context', 'Branding', 'Accent source', 'Biometric lock', 'Status', 'Encrypted cache', 'Cache ownership', 'Environment', 'Production access', 'Version', 'Build']) {
+  for (const label of ['Name', 'Email', 'Role', 'Context', 'Biometric lock', 'Status', 'Saved information', 'Last refreshed', 'Version', 'Build']) {
     assert.match(app, new RegExp(`label="${label}"`))
   }
-  assert.match(app, /Minimal privacy/)
+  assert.match(app, /NotificationCategorySettings/)
   assert.match(app, /Log out/)
   assert.doesNotMatch(app, /installation identifier|ExpoPushToken|access token|refresh token/i)
 })
@@ -214,9 +214,9 @@ test('multi-context journeys retain Team and Club isolation across all operation
 test('payment_required is application-wide and ordinary Coaches never receive plan purchase control', () => {
   assert.match(app, /activeContext\.paymentAccess\.state === 'payment_required'/)
   assert.match(app, /Viewing remains available, but operational changes are blocked/)
-  assert.match(app, /Payer authority/)
-  assert.match(app, /Ordinary Coaches cannot gain plan purchase control/)
-  assert.match(navigation, /route\.payerOnly/)
+  assert.match(app, /context\.paymentAccess\.payerAuthority/)
+  assert.match(app, /Ask your Team or Club account owner if you want to change plan/)
+  assert.match(navigation, /route\.matchdayOrPayerOnly/)
   assert.match(navigation, /\['club', 'team'\]\.includes\(payerAuthority\)/)
 })
 
@@ -231,7 +231,7 @@ test('archive and membership-loss journeys fail closed without retaining unsafe 
 test('offline end-to-end journey keeps encrypted reads and protected writes without the removed Home warning card', () => {
   assert.doesNotMatch(app, /Offline, stale data|Refresh when online/)
   assert.match(operationalScreens, /Showing saved information\. Connect before making changes/)
-  assert.match(matchDayScreen, /Every change is disabled until a successful refresh/)
+  assert.match(matchDayScreen, /Connect and open this fixture once to prepare offline recording/)
   assert.match(phase31EScreens, /Offline and read-only/)
   assert.doesNotMatch(phase31EScreens, /Unsafe offline replay is disabled/)
 })

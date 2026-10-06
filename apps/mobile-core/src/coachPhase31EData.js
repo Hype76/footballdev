@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto'
+import { prepareAttendanceChoices } from './attendanceCommandData'
 import { sameDevelopmentSave } from './developmentOfflineCore'
 import { wakeChatMobileNotificationProcessor } from '../../../src/lib/chat-notification-wake'
 import { CAPABILITIES, getPlanLimit } from '../../../src/lib/paywall-access.js'
@@ -602,7 +603,7 @@ export async function getCoachInvitesAndAvailability(user) {
     supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at,recurrence_frequency)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*),scheduled_email_queue:email_queue_id(delivery_state,provider_accepted_at,provider_delivered_at,status)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_responses').select('request_id,player_id,status,note,responded_at,responded_by_name,response_source').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('responded_at', { ascending: false }).limit(250),
-    supabase.from('training_coach_attendance').select('id,request_id,club_id,team_id,calendar_event_id,occurrence_date,occurrence_starts_at,coach_user_id,coach_name,status,responded_at,notification_status,notification_sent_at,notification_error').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('occurrence_starts_at', { ascending: true }).limit(250),
+    supabase.from('training_coach_attendance').select('id,request_id,club_id,team_id,calendar_event_id,occurrence_date,occurrence_starts_at,coach_user_id,coach_name,status,responded_at,notification_status,notification_sent_at,notification_error,training_availability_requests:request_id(status),calendar_events:calendar_event_id(cancelled_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('occurrence_starts_at', { ascending: true }).limit(250),
     matchReads,
     getCoachPlayerList(user),
   ])
@@ -654,8 +655,18 @@ export async function getCoachInvitesAndAvailability(user) {
     notificationStatus: normalize(row.notification_status) || 'pending',
     notificationSentAt: normalize(row.notification_sent_at),
     notificationError: normalize(row.notification_error),
+    cancelled: row.training_availability_requests?.status === 'cancelled' || Boolean(row.calendar_events?.cancelled_at),
   }))
-  return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(training), trainingCoaches: Object.freeze(trainingCoaches), match: Object.freeze(match), matches: Object.freeze(matches), players: Object.freeze(players), all: Object.freeze([...match, ...training, ...calendar]) })
+  const rows = [...match, ...training, ...trainingCoaches]
+  const preparations = await prepareAttendanceChoices(rows.map(row => row.coachUserId
+    ? row.coachUserId === user.id && !row.cancelled && Date.parse(row.occurrenceStartsAt) > Date.now() ? { route: 'coach_self_training', target: { attendanceId: row.id } } : null
+    : row.stale || row.cancelled ? null : { route: row.kind === 'match' ? 'coach_player_match' : 'coach_player_training',
+        target: { eventId: row.eventId, playerId: row.playerId, ...(row.kind === 'training' ? { occurrenceDate: row.occurrenceDate } : {}) } }))
+  const prepared = rows.map((row, index) => Object.freeze({ ...row, attendancePreparation: preparations[index] }))
+  const preparedMatch = prepared.slice(0, match.length)
+  const preparedTraining = prepared.slice(match.length, match.length + training.length)
+  const preparedCoaches = prepared.slice(match.length + training.length)
+  return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(preparedTraining), trainingCoaches: Object.freeze(preparedCoaches), match: Object.freeze(preparedMatch), matches: Object.freeze(matches), players: Object.freeze(players), all: Object.freeze([...preparedMatch, ...preparedTraining, ...calendar]) })
 }
 
 export async function setCoachInviteAvailabilityOnBehalf(user, invite, availabilityStatus) {
@@ -747,6 +758,24 @@ export async function createCoachMatchAvailabilityRequests(user, match, playerId
 
 export function createCoachFollowUpKey() { return requestId('coach-follow-up') }
 
+export async function previewCoachInviteResend(user, invite, options = {}) {
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertTeamEntity(user, invite, 'Invitation')
+  if (invite?.stale || invite?.cancelled) throw new Error('This Invitation target is stale or cancelled.')
+  if (!normalize(options.idempotencyKey)) throw new Error('A resend retry key is required.')
+  if (!config.isProduction) return Object.freeze({ recipientCount: 0, recipients: [], renewalRequired: false, expectedRenewalRequests: [], communicationDelivery: 'disabled' })
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error('Sign in again before previewing an Invitation.')
+  const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/send-event-player-invitation'), {
+    method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'resend', eventId: invite.eventId, playerId: invite.playerId,
+      idempotencyKey: options.idempotencyKey, preview: true, occurrenceDate: invite.occurrenceDate || '',
+      sourceType: invite.kind === 'match' ? 'match-day' : 'calendar' }),
+  })
+  if (!ok || result?.success === false) throw Object.assign(new Error(normalize(result?.message) || 'The Invitation could not be previewed.'), { status: response.status })
+  return Object.freeze(result)
+}
+
 export async function recordCoachInviteIntent(user, invite, action, options = {}) {
   assertCanonicalMutation(user, { minimumRank: action === 'follow_up' ? 20 : 50, requiresTeam: true })
   assertTeamEntity(user, invite, 'Invitation')
@@ -768,6 +797,7 @@ export async function recordCoachInviteIntent(user, invite, action, options = {}
         eventId: invite.eventId,
         idempotencyKey: options.idempotencyKey || requestId('coach-invite-resend'),
         ...(action === 'follow_up' ? { followUpMessage } : {}),
+        ...(action === 'resend' ? { renewalOnly: options.renewalRequired === true, expectedRenewalRequests: options.expectedRenewalRequests } : {}),
         occurrenceDate: invite.occurrenceDate || '',
         playerId: invite.playerId,
         preview: false,

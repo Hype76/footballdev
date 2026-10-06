@@ -1,0 +1,148 @@
+{
+  "project": "hvapkizujvsahvgspser",
+  "fixture": "652b9a48-773a-4dcd-ae0e-bc46fb2b70b3",
+  "source": "private.parent_scorer_match_day_commands",
+  "query": "select id,kind,payload->>'action' timer_action,payload->>'minute' recorded_minute,captured_at,created_at,extract(epoch from(created_at-captured_at)) sync_delay_seconds,event_id from private.parent_scorer_match_day_commands where match_day_id='652b9a48-773a-4dcd-ae0e-bc46fb2b70b3' order by captured_at,created_at",
+  "rows": [
+    {
+      "id": "52d04b95-c504-4af4-bf9e-b4fd4b97d451",
+      "kind": "start",
+      "timer_action": null,
+      "recorded_minute": null,
+      "captured_at": "2026-10-04 09:07:26.102+00",
+      "created_at": "2026-10-04 09:07:26.621313+00",
+      "sync_delay_seconds": "0.519313",
+      "event_id": null
+    },
+    {
+      "id": "bbc52ef4-f403-4fb6-a011-9bd30c170cb9",
+      "kind": "goal",
+      "timer_action": null,
+      "recorded_minute": "",
+      "captured_at": "2026-10-04 09:24:47.119+00",
+      "created_at": "2026-10-04 09:24:47.656013+00",
+      "sync_delay_seconds": "0.537013",
+      "event_id": "47f5e0ce-63b3-47d2-9ad9-7b85ccb18d0c"
+    },
+    {
+      "id": "53600e94-d1f1-4aef-94ab-0d62cc74bc0a",
+      "kind": "timer",
+      "timer_action": "half_time",
+      "recorded_minute": null,
+      "captured_at": "2026-10-04 09:44:26.64+00",
+      "created_at": "2026-10-04 09:44:26.996764+00",
+      "sync_delay_seconds": "0.356764",
+      "event_id": null
+    },
+    {
+      "id": "ffb1daf2-0930-4f05-b6ba-11d842eda0a5",
+      "kind": "timer",
+      "timer_action": "resume",
+      "recorded_minute": null,
+      "captured_at": "2026-10-04 09:58:31.207+00",
+      "created_at": "2026-10-04 09:58:31.559261+00",
+      "sync_delay_seconds": "0.352261",
+      "event_id": null
+    },
+    {
+      "id": "1665f323-6523-4e26-a3ca-5207429b7744",
+      "kind": "event",
+      "timer_action": null,
+      "recorded_minute": "42",
+      "captured_at": "2026-10-04 10:05:33.123+00",
+      "created_at": "2026-10-04 10:05:33.481704+00",
+      "sync_delay_seconds": "0.358704",
+      "event_id": "2b71e7ed-0d46-4f2b-9e2c-3bca54c8ba6a"
+    },
+    {
+      "id": "d9f1e92a-5d22-437e-892f-35d067c8234c",
+      "kind": "goal",
+      "timer_action": null,
+      "recorded_minute": "46",
+      "captured_at": "2026-10-04 10:09:24.131+00",
+      "created_at": "2026-10-04 10:09:24.663638+00",
+      "sync_delay_seconds": "0.532638",
+      "event_id": "df1799a2-6da2-48d1-ab0c-378bc9f52e3b"
+    },
+    {
+      "id": "3ee0830e-05b3-47a3-a518-92295428489b",
+      "kind": "timer",
+      "timer_action": "pause",
+      "recorded_minute": null,
+      "captured_at": "2026-10-04 10:09:46.646+00",
+      "created_at": "2026-10-04 10:09:46.991556+00",
+      "sync_delay_seconds": "0.345556",
+      "event_id": null
+    },
+    {
+      "id": "98c308f1-2cbc-4b11-bbe1-e14c1dbf38f4",
+      "kind": "timer",
+      "timer_action": "resume",
+      "recorded_minute": null,
+      "captured_at": "2026-10-04 10:14:54.156+00",
+      "created_at": "2026-10-04 10:14:54.523999+00",
+      "sync_delay_seconds": "0.367999",
+      "event_id": null
+    },
+    {
+      "id": "fdd827b0-a5b6-4edd-8e5d-8b492945384a",
+      "kind": "goal",
+      "timer_action": null,
+      "recorded_minute": "47",
+      "captured_at": "2026-10-04 10:15:13.798+00",
+      "created_at": "2026-10-04 10:15:14.575285+00",
+      "sync_delay_seconds": "0.777285",
+      "event_id": "91594978-07e5-496f-a7ff-9b495c376c3e"
+    },
+    {
+      "id": "ade31baf-078b-446c-85f2-97c216bf5806",
+      "kind": "event",
+      "timer_action": null,
+      "recorded_minute": "54",
+      "captured_at": "2026-10-04 10:22:18.556+00",
+      "created_at": "2026-10-04 10:22:18.92075+00",
+      "sync_delay_seconds": "0.364750",
+      "event_id": "d25144ed-0c7e-40d7-9ebe-b7fc386db1e9"
+    },
+    {
+      "id": "3fbd4d18-f967-4eaa-bd39-2b6f140302ef",
+      "kind": "event",
+      "timer_action": null,
+      "recorded_minute": "54",
+      "captured_at": "2026-10-04 10:22:29.246+00",
+      "created_at": "2026-10-04 10:22:29.802209+00",
+      "sync_delay_seconds": "0.556209",
+      "event_id": "631655c2-8a48-4b66-b0ad-48294ecd8e44"
+    },
+    {
+      "id": "7261197b-f5ee-4be1-ace6-31919e71547a",
+      "kind": "event",
+      "timer_action": null,
+      "recorded_minute": "55",
+      "captured_at": "2026-10-04 10:23:43.369+00",
+      "created_at": "2026-10-04 10:23:43.91752+00",
+      "sync_delay_seconds": "0.548520",
+      "event_id": "08b5aa96-3558-49c2-a3ed-0c852f3ee618"
+    },
+    {
+      "id": "05905652-56ce-42cb-a363-60c7b2d54c07",
+      "kind": "timer",
+      "timer_action": "full_time",
+      "recorded_minute": null,
+      "captured_at": "2026-10-04 10:33:30.663+00",
+      "created_at": "2026-10-04 10:33:31.218258+00",
+      "sync_delay_seconds": "0.555258",
+      "event_id": null
+    },
+    {
+      "id": "4606b226-d36e-4c20-a4ad-64ec67ef6bb6",
+      "kind": "request-review",
+      "timer_action": null,
+      "recorded_minute": null,
+      "captured_at": "2026-10-04 10:34:04.103+00",
+      "created_at": "2026-10-04 10:34:04.661597+00",
+      "sync_delay_seconds": "0.558597",
+      "event_id": null
+    }
+  ]
+}

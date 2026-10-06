@@ -550,13 +550,14 @@ test('created fixture reconciliation is idempotent after canonical reload', () =
 
 test('staff fixture creation handler reconciles locally around canonical load without changing sends', () => {
   const source = readFileSync(new URL('../src/pages/MatchDayPage.jsx', import.meta.url), 'utf8')
-  const handlerStart = source.indexOf('const handleConfirmCreateMatch = async () => {')
+  const handlerStart = source.indexOf("const handleConfirmCreateMatch = async ({ calendarTarget = '' } = {}) => {")
   const handlerEnd = source.indexOf('const handleStatusChange = async', handlerStart)
   const handlerSource = source.slice(handlerStart, handlerEnd)
 
   assert.notEqual(handlerStart, -1)
   assert.notEqual(handlerEnd, -1)
-  assert.match(handlerSource, /const createdMatch = await createMatchDay\(\{[\s\S]*user,[\s\S]*match: \{[\s\S]*\.\.\.form,[\s\S]*scorerRequestMessage: form\.requestScorer \? volunteerRequestMessages\.scorer : '',[\s\S]*\},[\s\S]*\}\)/)
+  assert.match(handlerSource, /const createdMatch = await createMatchDay\(\{[\s\S]*user,[\s\S]*match: \{[\s\S]*\.\.\.submittedForm,[\s\S]*scorerRequestMessage: submittedForm\.requestScorer \? volunteerRequestMessages\.scorer : '',[\s\S]*\},[\s\S]*\}\)/)
+  assert.match(handlerSource, /const submittedForm = normalizedCalendarTarget === 'coach'[\s\S]*parentAudience: 'none', parentVisible: false[\s\S]*normalizedCalendarTarget === 'squad'[\s\S]*parentAudience: 'involved_players', parentVisible: true/)
   assert.match(handlerSource, /const reconcileCreatedMatch = \(currentMatches\) => reconcileCreatedMatchDayInList/)
   assert.match(handlerSource, /setMatches\(reconcileCreatedMatch\)[\s\S]*logFixtureAvailabilityRecipientEvents/)
   assert.match(handlerSource, /logFixtureAvailabilityRecipientEvents[\s\S]*send-match-day-availability-requests/)

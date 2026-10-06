@@ -77,16 +77,32 @@ export function buildCoachChatSummary(groups) {
   return { chatRooms, unreadChat }
 }
 
-// Primary data and slower full refreshes must not replace a newer availability read.
+export function updateCoachHomeSourceState(current, source, patch = {}, failure = '') {
+  const errors = (current.errors || []).filter(error => !error.startsWith(`${source}:`))
+  if (failure) errors.push(`${source}:${failure}`)
+  return { ...current, ...patch, errors, partial: errors.length > 0 }
+}
+
+function preserveCoachHomeSource(next, current, source, patch) {
+  const errors = [
+    ...(next.errors || []).filter(error => !error.startsWith(`${source}:`)),
+    ...(current.errors || []).filter(error => error.startsWith(`${source}:`)),
+  ]
+  return { ...next, ...patch, errors, partial: errors.length > 0 }
+}
+
+// Primary data and slower full refreshes must preserve newer source data and health together.
 export function preserveCoachAvailabilitySummary(next, current) {
-  return {
-    ...next,
+  return preserveCoachHomeSource(next, current, 'invites', {
     pendingAvailability: current.pendingAvailability,
-    errors: [
-      ...(next.errors || []).filter(error => !error.startsWith('invites:')),
-      ...(current.errors || []).filter(error => error.startsWith('invites:')),
-    ],
-  }
+  })
+}
+
+export function preserveCoachChatSummary(next, current) {
+  return preserveCoachHomeSource(next, current, 'chatRooms', {
+    chatRooms: current.chatRooms,
+    unreadChat: current.unreadChat,
+  })
 }
 
 export function buildCoachHomeOperationalSnapshot(input = {}) {

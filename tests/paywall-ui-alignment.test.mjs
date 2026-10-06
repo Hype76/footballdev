@@ -24,7 +24,7 @@ test('route capability mapping keeps Free users on basic records only', () => {
     planStatus: '',
   }
 
-  assert.equal(getRouteCapability('/players'), CAPABILITIES.basicDevelopmentRecords)
+  assert.equal(getRouteCapability('/players'), CAPABILITIES.players)
   assert.equal(canUseRouteFeature(freeUser, '/players'), true)
   assert.equal(canUseRouteFeature(freeUser, '/assess-player'), false)
   assert.equal(canUseRouteFeature(freeUser, '/sessions/start'), false)

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
+import { parse } from '@babel/parser'
 
 const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url)
 
@@ -123,7 +124,23 @@ test('Half Time, Full Time, score overwrite, event void, and reset use app modal
   assert.match(source, /setUndoEventModal\(\{[\s\S]*eventId: timelineEvent\.id/)
   assert.match(source, /function UndoEventModal/)
   assert.match(source, /setPendingMatchAction\(\{[\s\S]*type: 'resetPrevious'/)
-  assert.doesNotMatch(source, /window\.confirm|window\.prompt|window\.alert|confirmMatchDayAction|promptGoalCorrectionInput/)
+  assert.doesNotMatch(source, /window\.prompt|window\.alert|confirmMatchDayAction|promptGoalCorrectionInput/)
+  const dialogs = []
+  function visit(node, ancestors = []) {
+    if (!node || typeof node !== 'object') return
+    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression'
+      && node.callee.object.name === 'window' && node.callee.property.name === 'confirm') {
+      dialogs.push({ node, owner: [...ancestors].reverse().find(parent => parent.type === 'VariableDeclarator')?.id?.name })
+    }
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach(child => visit(child, [...ancestors, node]))
+      else if (value && typeof value === 'object') visit(value, [...ancestors, node])
+    }
+  }
+  visit(parse(source, { sourceType: 'module', plugins: ['jsx'] }))
+  assert.equal(dialogs.length, 1)
+  assert.equal(dialogs[0].owner, 'handleDeleteSavedLocation', 'Live match actions must use app modals; the existing location-library delete confirmation is separate')
+  assert.match(source.slice(dialogs[0].node.start, dialogs[0].node.end), /from saved locations\? Existing fixtures will keep their venue details\./)
 })
 
 test('Hydration stays direct and shows visible paused or resume state', async () => {

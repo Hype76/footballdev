@@ -172,7 +172,7 @@ test('Coach full-time review and timeline corrections stay next to their control
   assert.match(source, /isPenaltyGoal: event\.isPenaltyGoal === true/)
   assert.match(source, /accessibilityLabel="Corrected goal is a penalty"/)
   assert.match(source, /isUndoing \? <View style=\{styles\.stack\}>/)
-  assert.match(data, /rpc\('correct_coach_match_day_goal_v1'.*is_penalty_goal_value:/)
+  assert.match(data, /rpc\('correct_coach_match_day_goal_v2'.*is_penalty_goal_value:/)
   assert.match(data, /rpc\('void_coach_match_day_event_v1'/)
 })
 
@@ -191,7 +191,9 @@ test('backend deltas explicitly refuse invented fixture-linked lineup and extern
 
 test('Match Day live operations use canonical RPC mutations while pre-match fixture details remain editable', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
-  for (const rpc of ['start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'set_match_day_player_squad_decision_v2', 'record_match_day_goal_v3', 'record_match_day_score_correction_v2', 'record_match_day_scorer_event_v1', 'correct_coach_match_day_goal_v1', 'void_coach_match_day_event_v1', 'record_match_day_shootout_kick', 'void_match_day_shootout_kick', 'save_match_day_final_report']) assert.match(source, new RegExp(`['\"]${rpc}['\"]`))
+  for (const rpc of ['start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'set_match_day_player_squad_decision_v2', 'record_match_day_goal_v4', 'record_match_day_score_correction_v2', 'record_match_day_scorer_event_v2', 'correct_coach_match_day_goal_v2', 'void_coach_match_day_event_v1', 'record_match_day_shootout_kick', 'void_match_day_shootout_kick', 'save_match_day_final_report']) assert.match(source, new RegExp(`['\"]${rpc}['\"]`))
+  assert.match(source, /scorer_player_id_value: normalize\(event.scorerPlayerId\)/)
+  assert.match(source, /player_id_value: normalize\(event.playerPlayerId\)/)
   assert.match(source, /select-match-day-volunteer/)
   assert.match(source, /Authorization: `Bearer \$\{accessToken\}`/)
   assert.equal((source.match(/\.from\('match_days'\)\.update\(/g) || []).length, 0)

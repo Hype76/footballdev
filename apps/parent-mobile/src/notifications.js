@@ -1,3 +1,4 @@
+import { notificationPermissionState } from './notificationExplainerCore'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
 import * as Crypto from 'expo-crypto'
@@ -177,16 +178,16 @@ async function getPermissionState() {
     () => Notifications.getPermissionsAsync(),
     { stage: 'permission', timeoutMs: PUSH_NATIVE_STEP_TIMEOUT_MS },
   )
-  return {
-    canAskAgain: permission.canAskAgain !== false,
-    permissionGranted: isPermissionGranted(permission),
-    permissionStatus: normalize(permission.status).toLowerCase() || 'undetermined',
-  }
+  const channels = Platform.OS === 'android' ? await withParentPushStepTimeout(
+    () => Promise.all([CHANNEL_ID, 'matchday'].map(id => Notifications.getNotificationChannelAsync(id))),
+    { stage: 'permission', timeoutMs: PUSH_NATIVE_STEP_TIMEOUT_MS },
+  ) : []
+  const channel = channels.find(value => value?.importance === Notifications.AndroidImportance.NONE) || channels[0]
+  return notificationPermissionState(permission, Platform.OS, channel)
 }
 
 function isPermissionGranted(permission) {
-  if (permission?.granted) return true
-  if (Platform.OS !== 'ios') return false
+  if (Platform.OS !== 'ios') return permission?.granted === true
   return [
     Notifications.IosAuthorizationStatus.AUTHORIZED,
     Notifications.IosAuthorizationStatus.PROVISIONAL,
@@ -194,8 +195,9 @@ function isPermissionGranted(permission) {
   ].includes(permission?.ios?.status)
 }
 
-async function request({ apiBaseUrl, body, method, path }) {
+async function request({ apiBaseUrl, body, method, path, isCurrent = () => true }) {
   const accessToken = await getAccessToken()
+  if (!isCurrent()) throw new Error('Notification setup is no longer current.')
   if (!accessToken) throw new Error('Sign in before changing notifications.')
   if (!apiBaseUrl) throw new Error('Notifications are not ready for this build.')
 
@@ -224,7 +226,8 @@ export async function initializeParentNotifications() {
     { buttonTitle: 'Decline', identifier: 'parent_decline', options: { isDestructive: true, opensAppToForeground: true } },
   ])
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+    // Parent updates and the existing native default channel both carry Parent alerts.
+    for (const id of [CHANNEL_ID, 'matchday']) await Notifications.setNotificationChannelAsync(id, {
       description: 'Parent messages, polls, and Matchday updates.',
       importance: Notifications.AndroidImportance.HIGH,
       lightColor: '#d7ff2f',
@@ -242,6 +245,7 @@ export function addParentPushTokenListener(listener) {
 }
 
 export async function loadParentNotificationState({ apiBaseUrl }) {
+  await initializeParentNotifications()
   const [detailLevel, installationId, permission] = await Promise.all([
     getLocalDetailLevel(apiBaseUrl),
     getInstallationId(apiBaseUrl),
@@ -263,11 +267,14 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
   return mergeParentNotificationPermission(serverState, permission, detailLevel)
 }
 
-export async function enableParentNotifications({ apiBaseUrl, detailLevel: requestedDetailLevel, devicePushToken, easProjectId, parentLinkId }) {
+export async function enableParentNotifications({ apiBaseUrl, detailLevel: requestedDetailLevel, devicePushToken, easProjectId, parentLinkId, isCurrent = () => true, requestPermission = true }) {
   if (!Device.isDevice) {
     throw createSafePushSetupError({ message: 'device unavailable' }, 'device')
   }
 
+  const assertCurrent = () => { if (!isCurrent()) throw new Error('Notification setup is no longer current.') }
+  await initializeParentNotifications()
+  assertCurrent()
   let detailLevel
   try {
     detailLevel = requestedDetailLevel === undefined
@@ -283,7 +290,8 @@ export async function enableParentNotifications({ apiBaseUrl, detailLevel: reque
       () => Notifications.getPermissionsAsync(),
       { stage: 'permission', timeoutMs: PUSH_NATIVE_STEP_TIMEOUT_MS },
     )
-    permission = isPermissionGranted(currentPermission)
+    assertCurrent()
+    permission = isPermissionGranted(currentPermission) || currentPermission.canAskAgain === false || !requestPermission
       ? currentPermission
       : await withParentPushStepTimeout(
           () => Notifications.requestPermissionsAsync({
@@ -300,18 +308,8 @@ export async function enableParentNotifications({ apiBaseUrl, detailLevel: reque
   }
   const permissionGranted = isPermissionGranted(permission)
 
+  assertCurrent()
   if (!permissionGranted) {
-    const installationId = await getInstallationId(apiBaseUrl)
-    await request({
-      apiBaseUrl,
-      method: 'PATCH',
-      path: getInstallationPath(apiBaseUrl),
-      body: {
-        detailLevel,
-        enabled: false,
-        installationId,
-      },
-    }).catch(() => {})
     return normalizeParentNotificationState({
       canAskAgain: permission.canAskAgain !== false,
       detailLevel,
@@ -336,20 +334,24 @@ export async function enableParentNotifications({ apiBaseUrl, detailLevel: reque
     throw createSafePushSetupError(error, 'local')
   }
 
-  const register = (targetInstallationId) => request({
-    apiBaseUrl,
-    method: 'POST',
-    path: getInstallationPath(apiBaseUrl),
-    body: {
-      appVersion: Application.nativeApplicationVersion || '',
-      buildNumber: Application.nativeBuildVersion || '',
-      detailLevel,
-      expoPushToken,
-      installationId: targetInstallationId,
-      parentLinkId,
-      platform: Platform.OS,
-    },
-  })
+  const register = (targetInstallationId) => {
+    assertCurrent()
+    return request({
+      apiBaseUrl,
+      method: 'POST',
+      isCurrent,
+      path: getInstallationPath(apiBaseUrl),
+      body: {
+        appVersion: Application.nativeApplicationVersion || '',
+        buildNumber: Application.nativeBuildVersion || '',
+        detailLevel,
+        expoPushToken,
+        installationId: targetInstallationId,
+        parentLinkId,
+        platform: Platform.OS,
+      },
+    })
+  }
 
   let result
   try {
@@ -370,8 +372,7 @@ export async function enableParentNotifications({ apiBaseUrl, detailLevel: reque
   return normalizeParentNotificationState({
     ...(result.installation || {}),
     canAskAgain: permission.canAskAgain !== false,
-    permissionGranted: true,
-    permissionStatus: normalize(permission.status).toLowerCase() || 'granted',
+    ...await getPermissionState(),
   })
 }
 

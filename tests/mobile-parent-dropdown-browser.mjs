@@ -11,7 +11,8 @@ const selected = ['AppHeader', 'createParentAppPalette', 'createParentAppStyles'
  const node = nodes.find(n => n.type === 'FunctionDeclaration' && n.id.name === name)
  return source.slice(node.start, node.end)
 }).join('\n')
-const entry = `import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{View,Text,Pressable,ScrollView,StyleSheet,Platform}from'react-native';import{DEFAULT_PARENT_MOBILE_THEME}from'./apps/mobile-core/src/parentThemeCore.js';
+const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{View,Text,Pressable,ScrollView,StyleSheet,Platform}from'react-native';import{DEFAULT_PARENT_MOBILE_THEME}from'./apps/mobile-core/src/parentThemeCore.js';
 ${selected}
 const palette=createParentAppPalette(DEFAULT_PARENT_MOBILE_THEME.tokens),styles=createParentAppStyles(DEFAULT_PARENT_MOBILE_THEME.tokens);const useParentTheme=()=>({palette,styles});const ClubBrandLogo=()=>null,NotificationStatusButton=()=>null,ParentIcon=()=>null;
 const links=Array.from({length:8},(_,i)=>({id:'link'+i,playerName:'FP TEST Player '+i,teamName:'Team '+i,clubName:'FP TEST Club'}));

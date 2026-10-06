@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { parse } from '@babel/parser'
+import { withParentMatchReportBranding } from '../apps/parent-mobile/src/parentMatchReportBranding.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts } from '../src/lib/matchday-display.js'
 import { getCoachMatchDayPresentation } from '../apps/mobile-core/src/coachMatchDayCore.js'
 import { normalizeCoachCalendarEvent } from '../apps/mobile-core/src/coachCalendarCore.js'
@@ -65,9 +66,9 @@ test('Parent match fetch applies the selected link club when the RPC omits fixtu
   const calls = []
   const supabase = { rpc: async (name) => {
     calls.push(name)
-    return { data: name === 'get_parent_portal_match_days' ? [{ id: 'fixture', club_name: '', team_name: fixture.teamName, opponent: fixture.opponent, home_away: fixture.homeAway, events: [] }] : [], error: null }
+    return { data: name === 'get_parent_portal_match_days' ? [{ id: 'fixture', club_id: 'cambourne', club_name: '', team_name: fixture.teamName, opponent: fixture.opponent, home_away: fixture.homeAway, events: [] }] : [], error: null }
   } }
-  const getParentPortalMatchDays = new Function('supabase', 'normalizeMatchDay', 'normalizePersonName', `
+  const getParentPortalMatchDays = new Function('supabase', 'normalizeMatchDay', 'normalizePersonName', 'withParentMatchReportBranding', `
     const requireSelectedLink = user => user.link
     const normalizeText = ${normalizeText.toString()}
     ${declarationSource(parentPortalDataSource, 'normalizeParentFormationPlayers')}
@@ -76,7 +77,7 @@ test('Parent match fetch applies the selected link club when the RPC omits fixtu
     ${declarationSource(parentPortalDataSource, 'normalizeParentMatchDay')}
     ${declarationSource(parentPortalDataSource, 'getParentPortalMatchDays')}
     return getParentPortalMatchDays
-  `)(supabase, normalizeMatchDay, normalizePersonName)
+  `)(supabase, normalizeMatchDay, normalizePersonName, withParentMatchReportBranding)
 
   const [match] = await getParentPortalMatchDays({ link: { id: 'cambourne-link', clubId: 'cambourne', clubName: fixture.clubName, linkType: 'parent' } })
   assert.equal(match.clubName, fixture.clubName)
@@ -86,10 +87,10 @@ test('Parent match fetch applies the selected link club when the RPC omits fixtu
 })
 
 test('older cached Parent fixtures use the selected link club without crossing club boundaries', () => {
-  const prepareParentResourceItems = new Function('prepareResourceItems', `
+  const prepareParentResourceItems = new Function('prepareResourceItems', 'withParentMatchReportBranding', `
     ${declarationSource(parentAppSource, 'prepareParentResourceItems')}
     return prepareParentResourceItems
-  `)((name, items) => items)
+  `)((name, items) => items, withParentMatchReportBranding)
   const selectedLink = { clubId: 'cambourne', clubName: fixture.clubName }
   const cachedSource = { id: 'cached', clubId: 'cambourne', teamName: fixture.teamName, opponent: fixture.opponent, homeAway: fixture.homeAway, confirmedTeam: ['Jenson Bailey'], events: [{ id: 'event' }], isFanView: true, isScorer: true, resources: [{ id: 'resource' }], squadTransport: [{ playerId: 'player' }] }
   const [cachedMatch] = prepareParentResourceItems('matches', [cachedSource], selectedLink)

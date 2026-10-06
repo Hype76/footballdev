@@ -184,11 +184,11 @@ test('fixture workflow carries explicit Time TBC without stale arrival or kickof
     kickoffTime: '',
     kickoffTimeTbc: true,
     matchDate: '2026-07-18',
-    matchDurationMinutes: 90,
     notes: '',
     opponent: '',
     parentAudience: 'none',
     parentVisible: false,
+    pitchType: '',
     shirtChoice: 'home',
     teamId: '',
     venueAddress: '',
@@ -309,7 +309,7 @@ test('Time TBC transition does not queue or send new fixture notifications', () 
   const updateEnd = matchDayDomainSource.indexOf('\nexport async function ', updateStart + 1)
   const updateSource = matchDayDomainSource.slice(updateStart, updateEnd)
 
-  assert.doesNotMatch(updateSource, /scheduled_email_queue|send-match-day|sendMatchDay|notification/i)
+  assert.doesNotMatch(updateSource, /scheduled_email_queue|send-match-day|sendMatchDay|supabase\.rpc\(['"](?:notify|send)|\b(?:queue|send|notify)[A-Z]\w*\s*\(/i)
 })
 
 test('no TBC helper uses midnight as a fallback', () => {

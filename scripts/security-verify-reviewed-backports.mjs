@@ -8,16 +8,13 @@ import { pathToFileURL } from 'node:url'
 export const hash = (bytes) => createHash('sha256').update(bytes).digest('hex')
 export const textHash = (bytes) => hash(Buffer.from(bytes.toString('utf8').replaceAll('\r\n', '\n')))
 const implementationFiles = [
-  "scripts/security-supply-chain-gate.mjs",
-  "scripts/security-apply-reviewed-backports.mjs",
-  "scripts/security-verify-reviewed-backports.mjs",
-  "scripts/security-provision-root-backport.mjs",
-  "security/patches/braces-3.0.3.patch",
-  "security/patches/reviewed-source-manifest.json",
-  "tests/security-reviewed-backports.test.mjs",
-  ".github/workflows/security-gate.yml",
-  "security/root-backport-proposal.json",
-  "security/supply-chain-policy.json"
+  'scripts/security-supply-chain-gate.mjs', 'scripts/security-apply-reviewed-backports.mjs',
+  'scripts/security-verify-reviewed-backports.mjs', 'security/patches/braces-3.0.3.patch',
+  'security/patches/node-forge-1.4.0.patch', 'security/patches/reviewed-source-manifest.json',
+  'tests/security-reviewed-backports.test.mjs',
+  'scripts/security-provision-reviewed-backports.mjs', 'tests/security-reviewed-provisioning.test.mjs',
+  '.github/workflows/security-gate.yml', 'apps/scripts/mobile-release-check.mjs', 'package.json',
+  'scripts/security-provision-root-backport.mjs', 'security/root-backport-proposal.json', 'security/supply-chain-policy.json',
 ]
 const safe = (root, relative) => {
   assert.ok(relative && !relative.includes('\\') && !relative.split('/').includes('..') && !path.isAbsolute(relative), 'Unsafe relative path')
@@ -56,21 +53,27 @@ export function verifyReleasePreparation(root, preparation) {
 export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   assert.equal(record.schemaVersion, 1)
-  assert.equal(record.baseline, '7ccbc41591569a7b7723a4fba7b28fbfa44cf50b')
+  assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
   assert.equal(record.expiresAt, '2026-10-11T22:59:59Z')
-  assert.equal(record.releasePreparationSha256, '7415071871640b35005c661f9a9c59a2f3f621fbcb57da6c2e520035d3a4747b', 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "936ecd92a723eb4130cc9e8893b983013a71cce40a38fb26b80d70554b718418", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
   assert.match(record.adoptionProposalSha256 || '', /^[a-f0-9]{64}$/)
-  assert.equal(hash(fs.readFileSync(safe(root,'security/root-backport-proposal.json'))),record.adoptionProposalSha256,'Root proposal drift')
+  assert.equal(hash(fs.readFileSync(safe(root, 'security/root-backport-proposal.json'))), record.rootOnlyProposalSha256, 'Retained root proposal drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.dependencyRemediation, null, 2) + '\n')), record.dependencyRemediationSha256, 'Dependency remediation pins drift')
   for (const [file, expected] of Object.entries(record.dependencyRemediation.changedSourceHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved dependency/test source drift: ' + file)
   assert.ok(Date.now() <= Date.parse(record.expiresAt), 'Reviewed backports have expired')
-  assert.equal(record.targets.length, 1)
+  assert.equal(record.targets.length, 5)
   assert.deepEqual(Object.keys(record.implementationHashes).sort(), [...implementationFiles].sort(), 'Implementation allowlist changed')
-  assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [['.', 'node_modules/braces', 'braces', '3.0.3']], 'Exact reviewed copy/version scope changed')
-  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'] })
+  assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
+    ['.', 'node_modules/braces', 'braces', '3.0.3'],
+    ['apps/parent-mobile', 'node_modules/braces', 'braces', '3.0.3'],
+    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.0'],
+    ['apps/coach-mobile', 'node_modules/braces', 'braces', '3.0.3'],
+    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.0'],
+  ], 'Exact reviewed copy/version scope changed')
+  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': ['GHSA-86w9-cpqp-85rv'] })
   for (const t of record.targets) {
     const trees = t.name === 'braces'
       ? ['ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4', 'b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77']
@@ -79,6 +82,7 @@ export function loadRecord(root) {
   }
   const expectedPatches = {
     'patches/braces-3.0.3.patch': 'e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699',
+    'patches/node-forge-1.4.0.patch': '2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4',
   }
   assert.deepEqual(Object.fromEntries(record.patches.map(p => [p.file, p.sha256])), expectedPatches)
   for (const p of record.patches) assert.equal(hash(fs.readFileSync(safe(root, 'security/' + p.file))), p.sha256, 'Patch bytes changed')
@@ -119,7 +123,7 @@ function discover(root, scope) {
     const metadata = path.join(dir, 'package.json')
     if (fs.existsSync(metadata)) {
       const pkg = JSON.parse(fs.readFileSync(metadata))
-      if (pkg.name === 'braces') copies.push({ scope, packagePath: path.relative(path.resolve(root, scope), dir).replaceAll('\\', '/'), name: pkg.name, version: pkg.version })
+      if (['braces', 'node-forge'].includes(pkg.name)) copies.push({ scope, packagePath: path.relative(path.resolve(root, scope), dir).replaceAll('\\', '/'), name: pkg.name, version: pkg.version })
     }
     if (fs.existsSync(path.join(dir, 'node_modules'))) walk(relative + '/node_modules')
   }
@@ -127,11 +131,11 @@ function discover(root, scope) {
   return copies
 }
 export function verifyCopies(root, record, mode = 'patched') {
-  const scopes = ['.']
+  const scopes = ['.', 'apps/parent-mobile', 'apps/coach-mobile']
   const expected = record.targets.map(({ scope, packagePath, name, version }) => ({ scope, packagePath, name, version }))
   const actual = scopes.flatMap(scope => discover(root, scope))
   const sort = items => items.map(x => JSON.stringify(x)).sort()
-  assert.deepEqual(sort(actual), sort(expected), 'Physical affected-copy set differs from reviewed root copy')
+  assert.deepEqual(sort(actual), sort(expected), 'Physical affected-copy set differs from reviewed five copies')
   const locks = new Map()
   for (const item of record.scopeLocks) {
     const scope = item.scope === 'root' ? '.' : item.scope

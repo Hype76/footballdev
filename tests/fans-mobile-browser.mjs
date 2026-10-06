@@ -19,11 +19,11 @@ assert.match(app, /renderedActiveTab === 'more' && renderedMoreSection \? <BackB
 assert.match(app, /selectedParentLinkId=\{selectedLink\?\.id\} onSelectedParentLinkChange=\{\(linkId\) => handleChildChange\(linkId, \{ stayOnFans: true \}\)\}/)
 const mocks = {
   auth: `export const useMobileAuth=()=>({user:window.user,refreshUserProfile:async()=>window.remount(),signOut:async()=>{if(window.failSignOut)throw Error('Could not sign out. Try again.');window.signedOut=(window.signedOut||0)+1}});`,
-  supabase: `export const getAccessToken=async()=> 'synthetic'; export const supabase={rpc:async(name,args)=>({data:await window.rpc(name,args)}),from:()=>{window.directKitReads=(window.directKitReads||0)+1;throw Error('Fan has no direct club access')},storage:{from:()=>({getPublicUrl:key=>({data:{publicUrl:'http://localhost:9877/kits/'+key}})})}};`,
+  supabase: `export const getAccessToken=async()=> {if(window.holdPhoneAuth){window.holdPhoneAuth=false;await new Promise(resolve=>{window.releasePhoneAuth=resolve})}return 'synthetic'}; export const supabase={auth:{getSession:async()=>({data:{session:{user:window.user}}})},rpc:async(name,args)=>({data:await window.rpc(name,args)}),from:()=>{window.directKitReads=(window.directKitReads||0)+1;throw Error('Fan has no direct club access')},storage:{from:()=>({getPublicUrl:key=>({data:{publicUrl:'http://localhost:9877/kits/'+key}})})}};`,
   config: `export const getMobileRuntimeConfig=()=>({apiBaseUrl:'http://localhost:9877'});`,
   'expo-crypto': `export const randomUUID=()=>crypto.randomUUID();`,
-  'expo-notifications': `export const useLastNotificationResponse=()=>null; export const getPermissionsAsync=async()=>window.phonePermission||{status:'denied'}; export const requestPermissionsAsync=getPermissionsAsync; export const getExpoPushTokenAsync=async()=>({data:'ExpoPushToken[synthetic]'});`,
-  'expo-secure-store': `export const getItemAsync=async()=>window.phoneToken||null; export const deleteItemAsync=async()=>{window.phoneToken=null}; export const setItemAsync=async(_key,value)=>{window.phoneToken=value};`,
+  'expo-notifications': `const listeners=new Set();window.rotatePhoneToken=token=>{window.currentPhoneToken=token;for(const listener of listeners)listener({type:'ios',data:'native-rotated'})};export const addPushTokenListener=listener=>{listeners.add(listener);return {remove:()=>listeners.delete(listener)}};export const useLastNotificationResponse=()=>null;export const getPermissionsAsync=async()=>window.phonePermission||{status:'denied'};export const requestPermissionsAsync=async()=>{window.phonePrompts=(window.phonePrompts||0)+1;return getPermissionsAsync()};export const getExpoPushTokenAsync=async()=>({data:window.currentPhoneToken||'ExpoPushToken[synthetic]'});`,
+  'expo-secure-store': `window.fanPhoneStorage=new Map();export const getItemAsync=async key=>key==='fan-notification-device'?window.phoneToken||null:window.fanPhoneStorage.get(key)||null;export const deleteItemAsync=async key=>{if(key==='fan-notification-device')window.phoneToken=null;else window.fanPhoneStorage.delete(key)};export const setItemAsync=async(key,value)=>{if(key==='fan-notification-device')window.phoneToken=value;else window.fanPhoneStorage.set(key,value)};`,
   'expo-constants': `export default {};`,
   '@react-native-async-storage/async-storage': `export default {getItem:async()=>null,setItem:async()=>{}};`,
   'expo-keep-awake': `export const activateKeepAwakeAsync=async()=>{},deactivateKeepAwake=()=>{},isAvailableAsync=async()=>false;`,
@@ -35,7 +35,8 @@ const entry = `
 import React,{useState,useEffect,useRef} from 'react'; import {createRoot} from 'react-dom/client';
 import {Alert,AppState,Share,Platform} from 'react-native';
 window.phonePlatform=value=>{Platform.OS=value};
-import {FansScreen} from './apps/parent-mobile/src/FansScreen.js';
+import {FansScreen,clearFanNotificationDevice} from './apps/parent-mobile/src/FansScreen.js';
+window.clearPhoneNotifications=clearFanNotificationDevice;
 window.user={id:'parent-test',parentPortalLinks:[{id:'first',playerName:'First Child',clubName:'Demo FC',themeAccent:'#414b92',planKey:'large_club',planStatus:'active'},{id:'second',playerName:'Second Child',clubName:'Demo FC',themeAccent:'#414b92',planKey:'large_club',planStatus:'active'}]};
 window.calls=[];window.rows=[];window.saved='';window.alert=null;
 window.ownerFixture=()=>{
@@ -64,15 +65,16 @@ window.rpc=async(name,args)=>{
 window.readRequests=[];window.responses={};window.failRead=false;window.delayRead=false;
 window.emailRequests=0;window.fetch=async(_url,options)=>{
  const body=JSON.parse(options.body);if(body.action==='send_invitation'){window.emailRequests++;return {ok:true,status:200,json:async()=>({success:true})}}
- if(body.action==='device_status')return {ok:true,status:200,json:async()=>({registered:window.phoneRegistered===true})};
- if(body.action==='register_device'){if(window.failPhoneRegistration)return {ok:false,status:503,json:async()=>({message:'Phone registration failed. Try again.'})};window.phoneRegistered=true;return {ok:true,status:200,json:async()=>({success:true})}}
- if(body.action==='unregister_device'){window.phoneRegistered=false;return {ok:true,status:200,json:async()=>({success:true})}}
+ if(['device_status','register_device','unregister_device'].includes(body.action)){window.phoneRequests.push(body)}
+ if(body.action==='device_status')return {ok:true,status:200,json:async()=>({registered:window.phoneRegistered===true&&window.registeredPhoneToken===body.token&&window.registeredPhoneAccount===window.user.id})};
+ if(body.action==='register_device'){if(window.failPhoneRegistration)return {ok:false,status:503,json:async()=>({message:'Phone registration failed. Try again.'})};window.phoneRegistered=true;window.registeredPhoneToken=body.token;window.registeredPhoneAccount=window.user.id;return {ok:true,status:200,json:async()=>({success:true})}}
+ if(body.action==='unregister_device'){if(window.registeredPhoneToken===body.token&&window.registeredPhoneAccount===window.user.id)window.phoneRegistered=false;return {ok:true,status:200,json:async()=>({success:true})}}
  window.readRequests.push(body);const payload=window.responses[body.action]||{};const fail=window.failRead;
  if(window.delayRead)await new Promise(resolve=>{window.finishRead=resolve});
  return {ok:!fail,status:fail?503:200,json:async()=>fail?{message:'Could not load shared items. Try again.'}:payload};
 };
 Alert.alert=(title,message,buttons)=>{window.alert={title,message,buttons}};
-let appListener;AppState.addEventListener=(_event,fn)=>{appListener=fn;return {remove(){appListener=null}}};window.background=()=>{appListener?.('background');appListener?.('active')};
+window.phoneRequests=[];const appListeners=new Set();AppState.addEventListener=(_event,fn)=>{appListeners.add(fn);return {remove(){appListeners.delete(fn)}}};window.background=()=>{for(const fn of appListeners)fn('background');for(const fn of appListeners)fn('active')};
 Share.share=async()=>{window.background();return {action:'sharedAction'}};
 function App(){
  const [selectedLinkId,setSelectedLinkId]=useState('first'),[activeTab,setActiveTab]=useState('more'),[moreSection,setMoreSection]=useState('fans'),[key,setKey]=useState(0),[mode,setMode]=useState(ownerPreview?'light':'dark');
@@ -262,31 +264,69 @@ try {
   await button('Settings').click();
   await button('Remove my access to Followed Child').waitFor();
   await page.getByText('Phone notifications are available in the mobile app.').waitFor();
-  await page.evaluate(()=>{window.phonePlatform('ios');window.phonePermission={status:'granted',canAskAgain:true}});
-  await button('Back to More').click();await button('Settings').click();
+  await page.evaluate(()=>{window.phonePlatform('ios');window.phonePermission={status:'granted',canAskAgain:true};window.remount()});
+  await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
   await page.getByText('This device is not registered for phone notifications.').waitFor();
   await button('Enable phone notifications').click();
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
   assert.equal(await button('Enable phone notifications').count(),0,'Enabled registration replaces the enable action');
   await button('Turn off phone notifications').waitFor();
   await page.screenshot({path:`${out}/phone-notifications-enabled.png`,fullPage:true});
+  await page.evaluate(()=>{window.phoneRegistered=false;window.remount()});
+  await page.waitForFunction(()=>window.phoneRegistered===true);
+  await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
+  assert.equal(await page.evaluate(()=>window.phonePrompts||0),0,'Restart restores registration without an OS permission prompt');
+  await page.evaluate(()=>window.rotatePhoneToken('ExpoPushToken[rotated]'));
+  await page.waitForFunction(()=>window.registeredPhoneToken==='ExpoPushToken[rotated]'&&window.phoneRequests.some(body=>body.action==='unregister_device'&&body.token==='ExpoPushToken[synthetic]'));
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
+  await page.evaluate(()=>{window.phoneRegistered=false;window.background()});
+  await page.waitForFunction(()=>window.phoneRegistered===true);
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
+  await page.evaluate(()=>{window.phoneToken=null;window.phoneRegistered=false;window.remount()});
+  await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
+  await page.getByText('Phone notifications are paused in this app.').waitFor();
+  assert.equal(await page.evaluate(()=>window.phoneRegistered),false,'A pause made by an older rollback client survives returning to the fix');
+  await button('Enable phone notifications').click();
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
   await button('Turn off phone notifications').click();
-  await page.getByText('This device is not registered for phone notifications.').waitFor();
+  await page.getByText('Phone notifications are paused in this app.').waitFor();
+  await page.evaluate(()=>{window.background();window.rotatePhoneToken('ExpoPushToken[paused]')});
+  await page.getByText('Phone notifications are paused in this app.').waitFor();
+  assert.equal(await page.evaluate(()=>window.phoneRegistered),false,'Foreground and token changes respect the explicit pause');
   await button('Enable phone notifications').waitFor();
   await button('Enable phone notifications').click();
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
   await page.evaluate(()=>{window.phonePermission={status:'denied',canAskAgain:false}});
   await button('Back to More').click();await button('Settings').click();
-  await page.getByText('Phone notifications are off on this device.').waitFor();
+  await page.getByText('Phone notifications are off in phone settings.').waitFor();
   await button('Open phone settings').waitFor();
   await page.evaluate(()=>{window.phonePermission={status:'granted'};window.phoneRegistered=false;window.failPhoneRegistration=true});
   await button('Back to More').click();await button('Settings').click();
-  await button('Enable phone notifications').click();
+  await button('Retry phone notifications').click();
   await page.getByRole('alert').getByText('Phone registration failed. Try again.').waitFor();
   assert.equal(await page.getByText('Phone notifications are enabled on this device.').count(),0,'Registration failure cannot show enabled');
   await page.evaluate(()=>{window.failPhoneRegistration=false});
-  await button('Enable phone notifications').click();
+  await button('Retry phone notifications').click();
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
+  const originalPhoneAccount = await page.evaluate(()=>window.user.id);
+  await page.evaluate(()=>{window.holdPhoneAuth=true;window.background()});
+  await page.waitForFunction(()=>typeof window.releasePhoneAuth==='function');
+  await page.evaluate(()=>{window.user={...window.user,id:'another-fan'};window.remount()});
+  await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
+  await page.getByText('This device is not registered for phone notifications.').waitFor();
+  const afterSwitch = await page.evaluate(()=>window.phoneRequests.length);
+  await page.evaluate(()=>{window.holdPhoneAuth=false;window.releasePhoneAuth()});
+  await page.getByText('This device is not registered for phone notifications.').waitFor();
+  assert.equal(await page.evaluate(()=>window.phoneRequests.length),afterSwitch,'A stale authenticated request cannot send after the account changes');
+  await page.evaluate(id=>{window.user={...window.user,id};window.remount()},originalPhoneAccount);
+  await page.waitForFunction(()=>window.phoneRegistered===true);
+  await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
+  await page.getByText('Phone notifications are enabled on this device.').waitFor();
+  await page.evaluate(async()=>{await window.clearPhoneNotifications();window.remount()});
+  await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
+  await page.getByText('Phone notifications are paused in this app.').waitFor();
+  assert.equal(await page.evaluate(()=>window.phoneRegistered),false,'Sign-out cleanup persists a pause and prevents automatic re-registration');
   await page.evaluate(()=>window.phonePlatform('web'));
 
   await page.evaluate(()=>window.mode('light'));
@@ -337,7 +377,7 @@ try {
       await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
       if(title==='Game Day'){
-        await page.evaluate(() => { window.responses.matches.events = [
+        await page.evaluate(() => { Object.assign(window.responses.matches.matches[0], { timer_status: 'running', timer_elapsed_seconds: 2100, timer_started_at: new Date(Date.now()-60000).toISOString(), match_duration_minutes: 70, current_match_phase: 'second_half', status: 'second_half' }); window.responses.matches.events = [
           { id: 'assisted-goal', event_type: 'goal', team_side: 'club', minute: 70, scorer_name: 'Alex Scorer', assist_name: 'Jamie Assist', home_score: 1, away_score: 0, created_at: '2026-09-24T19:10:00Z' },
           { id: 'solo-goal', event_type: 'goal', team_side: 'club', minute: 80, scorer_name: 'Sam Solo', home_score: 2, away_score: 0, created_at: '2026-09-24T19:20:00Z' },
         ] })
@@ -348,6 +388,8 @@ try {
           await page.getByRole('heading',{name:'Demo FC v Away Club',exact:true}).waitFor();
           await page.getByLabel('Match type: League',{exact:true}).waitFor();
           await page.getByLabel('Surface: 3G',{exact:true}).waitFor();
+          await page.getByText('Match timer',{exact:true}).waitFor();
+          assert.equal(await page.getByText('36:00',{exact:true}).count(),1,'Fan detail uses the Parent clock from saved elapsed and start');
           assert.equal(await page.getByText('Goal Alex Scorer',{exact:true}).locator('..').getByText('Assist: Jamie Assist',{exact:true}).count(),1,'Recorded assist appears on its own line below the Fan goal')
           assert.equal(await page.getByText('Goal Sam Solo',{exact:true}).locator('..').getByText(/^Assist:/).count(),0,'Goals without a recorded assist have no assist line')
           if(mode==='light' && choice==='home') {

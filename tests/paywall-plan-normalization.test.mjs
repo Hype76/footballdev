@@ -20,6 +20,9 @@ import { normalizePlanKey as normalizeStripePlanKey } from '../netlify/functions
 import { shouldPromoteBillPayer } from '../netlify/functions/lib/_billing-role-promotion.js'
 
 const canonicalPlans = [
+  [PLAN_KEYS.matchday, 'Matchday', 'Free'],
+  [PLAN_KEYS.team, 'Team', 'GBP 7.99/month'],
+  [PLAN_KEYS.club, 'Club', 'GBP 59.99/month'],
   [PLAN_KEYS.individual, 'Individual Coach - Free', 'GBP 0'],
   [PLAN_KEYS.singleTeam, 'Single Team', 'GBP 12.99/month'],
   [PLAN_KEYS.smallClub, 'Small Club', 'GBP 34.99/month'],
@@ -52,7 +55,10 @@ test('plan aliases normalize through the explicit compatibility map', () => {
     ['single_team', PLAN_KEYS.singleTeam],
     ['Single Team', PLAN_KEYS.singleTeam],
     ['single-team', PLAN_KEYS.singleTeam],
-    ['club', PLAN_KEYS.smallClub],
+    ['matchday', PLAN_KEYS.matchday],
+    ['match_day', PLAN_KEYS.matchday],
+    ['team', PLAN_KEYS.team],
+    ['club', PLAN_KEYS.club],
     ['small_club', PLAN_KEYS.smallClub],
     ['Small Club', PLAN_KEYS.smallClub],
     ['development_club', PLAN_KEYS.developmentClub],

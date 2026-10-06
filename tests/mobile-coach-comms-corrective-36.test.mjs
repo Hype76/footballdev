@@ -63,7 +63,7 @@ test('Coach Chat notification resolves exact current context and distinct room t
 
 test('Coach Chat and Poll adapters use the new server-owned active-Team authority', () => {
   for (const marker of [
-    'get_staff_chat_conversation_ids',
+    'get_staff_chat_unread_summary',
     'staff_chat_conversation_in_active_context',
     'send_staff_chat_message',
     'active_team_id_value: user.activeTeamId',

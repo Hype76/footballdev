@@ -5,6 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { parse } from '@babel/parser'
 
 import {
   APPROVED_MOBILE_PRODUCTION,
@@ -353,6 +354,31 @@ test('mobile source contains no runtime backend selector', async () => {
     'apps/coach-mobile/App.js',
     'apps/parent-mobile/App.js',
   ]
-  const source = (await Promise.all(files.map((file) => readFile(path.join(repositoryRoot, file), 'utf8')))).join('\n')
-  assert.doesNotMatch(source, /setBackend|selectBackend|backendSelector|userEnteredUrl|AsyncStorage[^\n]*(?:supabase|apiBase)/i)
+  const sources = await Promise.all(files.map((file) => readFile(path.join(repositoryRoot, file), 'utf8')))
+  for (const source of sources) assertNoRuntimeBackendStorage(source)
+})
+
+function assertNoRuntimeBackendStorage(source) {
+  assert.doesNotMatch(source, /setBackend|selectBackend|backendSelector|userEnteredUrl/i)
+  const walk = node => {
+    if (!node || typeof node !== 'object') return
+    if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
+      && node.callee.object?.name === 'AsyncStorage'
+      && ['setItem', 'mergeItem'].includes(node.callee.property?.name)) {
+      const value = node.arguments[1]
+      if (value) assert.doesNotMatch(source.slice(value.start, value.end), /supabaseUrl|apiBaseUrl/i, 'runtime backend URLs must not be persisted as selectable values')
+    }
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach(walk)
+      else if (value && typeof value === 'object') walk(value)
+    }
+  }
+  walk(parse(source, { sourceType: 'module', plugins: ['jsx'] }))
+}
+
+test('backend storage guard permits fixed-environment notification keys but rejects stored endpoint selection', () => {
+  assert.doesNotThrow(() => assertNoRuntimeBackendStorage("AsyncStorage.setItem(notificationExplainerKey(user.id, config.apiBaseUrl), '1')"))
+  assert.throws(() => assertNoRuntimeBackendStorage("AsyncStorage.setItem('backend', config.apiBaseUrl)"), /runtime backend URLs/)
+  assert.throws(() => assertNoRuntimeBackendStorage("AsyncStorage.mergeItem('backend', JSON.stringify({ supabaseUrl }))"), /runtime backend URLs/)
+  assert.throws(() => assertNoRuntimeBackendStorage('const backendSelector = userInput'), { code: 'ERR_ASSERTION' })
 })

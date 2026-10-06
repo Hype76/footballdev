@@ -11,7 +11,7 @@ export function validateScorerMatchEvent(event = {}) {
   if (event.teamSide === 'club' && !playerName) throw new Error('Choose a player from the selected match squad.')
   if (event.eventType === 'substitution') {
     if (event.teamSide === 'club' && !playerOnName) throw new Error('Choose the player coming on.')
-    if (playerName && playerName === playerOnName && String(event.playerShirtNumber || '') === String(event.playerOnShirtNumber || '')) throw new Error('Choose a different player coming on.')
+    if (event.playerPlayerId && event.playerOnPlayerId ? event.playerPlayerId === event.playerOnPlayerId : playerName && playerName === playerOnName && String(event.playerShirtNumber || '') === String(event.playerOnShirtNumber || '')) throw new Error('Choose a different player coming on.')
   }
   return { ...event, minute, stoppageMinute: stoppageMinute || null, playerName, playerOnName }
 }

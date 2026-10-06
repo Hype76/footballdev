@@ -36,12 +36,16 @@ const parent = await readFile('apps/parent-mobile/src/ParentPortalScreens.js', '
 const coach = await readFile('apps/coach-mobile/src/CoachMatchDayScreen.js', 'utf8')
 const section = (source, start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)))
 const modules = path.join(process.cwd(), 'apps/parent-mobile/node_modules')
-const shared = `
+const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from './apps/mobile-core/src/parentStatusColours.js';
+
   import React, { useState, useMemo, useEffect } from 'react'
   import { createRoot } from 'react-dom/client'
   import { flushSync } from 'react-dom'
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'
   import { getGoalScorerSide, setGoalOwnGoal, oppositeMatchSide } from './src/lib/matchday-goal-credit.js'
+  import { createMatchDayGoalCorrectionDraft } from './apps/mobile-core/src/matchDayParticipantRoster.js'
+  import { buildCompletedMatchEventPresentation } from './src/lib/matchday-final-report.js'
+  import { getCoachMatchDayUndoModel, validateCoachMatchDayEventParticipants } from './apps/mobile-core/src/coachMatchDayCore.js'
   import { captureMatchEventTime, formatMatchAddedTimeClock, getMatchEventTime, getMatchClockDescription } from './src/lib/matchday-event-time.js'
   import { isContinuousMatchClock, normalizeMatchDurationMinutes } from './src/lib/matchday-model.js'
   import { canCorrectMatchDayScore, canRecordParentScorerEvent, getMatchDayLifecycleState, getParentScorerTimerActions } from './src/lib/matchday-lifecycle.js'
@@ -55,11 +59,15 @@ const shared = `
   const labelize = label
   const errorMessage = (error) => error.message
   const players = [{ id: 'alex', playerName: 'Alex', shirtNumber: '9', teamId: 'team' }, { id: 'clyde', playerName: 'Clyde Bates', shirtNumber: '4', teamId: 'team' }]
-  const match = { id: 'test-match', teamId: 'team', teamName: 'FP TEST Team', opponent: 'Visitors', homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 10, clockMode: 'fixed', currentMatchPhase: 'second_half', status: 'second_half', timerStatus: 'running', timerStartedAt: '2026-09-03T12:00:00Z', timerElapsedSeconds: 340, events: [], squadDecisions: players.map((player) => ({ playerId: player.id, status: 'selected' })) }
+  const match = { id: 'test-match', teamId: 'team', teamName: 'FP TEST Team', opponent: 'Visitors', homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 10, clockMode: 'fixed', currentMatchPhase: 'second_half', status: 'second_half', timerStatus: 'running', timerStartedAt: '2026-09-03T12:00:00Z', timerElapsedSeconds: 340, events: [], squadDecisions: [], eventParticipants: players }
   Date.now = () => Date.parse('2026-09-03T12:00:00Z')
   window.preMatch = () => {match.status='scheduled';match.timerStatus='not_started';match.currentMatchPhase='pre_match'}
   window.updateMatch = (patch) => Object.assign(match, patch)
   window.calls = []
+  window.prepareCorrection = () => {
+    players[0].playerName = 'Same Name'; players[1].playerName = 'Same Name'
+    Object.assign(match, {status:'live',timerStatus:'running',scorerReviewRequestedAt:'',events:[{id:'correction-goal',eventType:'goal',eventStatus:'active',teamSide:'club',scorerName:'Previous name',scorerPlayerId:'alex',scorerShirtNumber:'9',assistName:'Same Name',assistPlayerId:'clyde',assistShirtNumber:'4',minute:3,isOwnGoal:false,isPenaltyGoal:false}]})
+  }
   const root = createRoot(document.getElementById('root'))
 `
 const parentCode = `${shared}
@@ -78,6 +86,12 @@ const parentCode = `${shared}
   }
   // Finish the requested remount before Playwright can inspect the old theme.
   window.renderPreview = (mode, accent) => flushSync(() => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />))
+  let correctionKey = 0
+  function CorrectionPreview() {
+    const { colors, styles } = usePortalStyles(createParentMobileTheme({mode:'light'}).tokens)
+    return <GoalCorrectionForm events={match.events} match={match} players={players} styles={styles} placeholderColor={colors.muted} onCorrect={value=>window.calls.push({action:'correction',value})} onVoid={()=>{}} />
+  }
+  window.renderCorrection = () => flushSync(() => root.render(<CorrectionPreview key={++correctionKey} />))
 `
 const coachCode = `${shared}
   import { createCoachTheme } from './apps/coach-mobile/src/coachThemeCore.js'
@@ -87,6 +101,8 @@ const coachCode = `${shared}
   const LiveTimeline = () => null
   ${section(coach, 'function createStyles(', 'function MatchList(')}
   ${section(coach, 'function LivePanel(', 'function TimelinePanel(')}
+  ${section(coach, 'function TimelinePanel(', 'function ShootoutPanel(')}
+  ${section(coach, 'function SavedEventCorrection(', 'function LivePanel(')}
   function Preview({ mode, accent }) {
     const [eventForm, onEventForm] = useState(() => createCoachMatchDayEventForm('goal', match))
     const [scoreDraft, setScoreDraft] = useState({ home: '0', away: '0' })
@@ -96,6 +112,16 @@ const coachCode = `${shared}
   }
   // Finish the requested remount before Playwright can inspect the old theme.
   window.renderPreview = (mode, accent) => flushSync(() => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />))
+  let correctionKey = 0
+  window.renderCorrection = () => {
+    const styles = createStyles(createCoachTheme({mode:'light',context:{}}).tokens)
+    flushSync(() => root.render(<TimelinePanel key={++correctionKey} match={match} players={players} styles={styles} onCorrectGoal={(event,goal,reason)=>window.calls.push({action:'correction',value:{event,goal,reason}})} onPrepare={value=>value.run()} onUndo={()=>{}} />))
+  }
+  window.renderSavedCorrection = (eventType) => {
+    const styles = createStyles(createCoachTheme({mode:'light',context:{}}).tokens)
+    const command = {id:'saved',payload:{eventType,teamSide:'club',minute:3,playerName:'Same Name',playerShirtNumber:'9',playerPlayerId:'alex',playerOnName:'Same Name',playerOnShirtNumber:'4',playerOnPlayerId:'clyde'}}
+    flushSync(() => root.render(<SavedEventCorrection key={++correctionKey} command={command} selectedPlayers={players} styles={styles} onCorrect={async(id,value)=>window.calls.push({action:'saved-correction',value})} />))
+  }
 `
 await mkdir('output/playwright/mobile-scorer', { recursive: true })
 const browser = await chromium.launch({ headless: true })
@@ -130,6 +156,14 @@ try {
       await page.getByText(/opponent receives the goal|goal counts for the opponent/).waitFor()
       await assertRenderedTextContrast(page, `${app} ${mode} ${accent} scorer`)
       await page.screenshot({ path: `output/playwright/mobile-scorer/${app}-${mode}-own-goal.png` })
+      if (app === 'parent') {
+        const before = await page.evaluate(() => window.calls.length)
+        await page.getByLabel('Goal minute', { exact: true }).fill('')
+        await page.getByRole('button', { name: 'Record goal', exact: true }).click()
+        await page.getByText('Enter the goal minute before recording the goal.', { exact: true }).waitFor()
+        assert.equal(await page.evaluate(() => window.calls.length), before)
+        await page.getByLabel('Goal minute', { exact: true }).fill('6')
+      }
       await page.getByRole('button', { name: 'Record goal', exact: true }).click()
       let saved = await page.evaluate(() => window.calls.at(-1).value)
       assert.equal(saved.teamSide, 'opponent')
@@ -149,6 +183,8 @@ try {
         saved = await page.evaluate(() => window.calls.at(-1).value)
         assert.equal(saved.eventType, type)
         assert.equal(saved.playerName, 'Clyde Bates')
+        assert.equal(app === 'parent' ? saved.playerId : saved.playerPlayerId, 'clyde')
+        if (type === 'substitution') assert.equal(app === 'parent' ? saved.playerOnId : saved.playerOnPlayerId, 'alex')
         assert.equal(Number(saved.minute), 6)
       }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
@@ -201,8 +237,60 @@ try {
       assert.equal(await page.getByText('Score',{exact:true}).count(),0)
       assert.equal(await page.getByText('Match timer',{exact:true}).count(),0)
     }
+    await page.evaluate(()=>{window.prepareCorrection();window.renderCorrection()})
+    await page.getByRole('button',{name:app==='parent'?/Previous name.*goal 1/: 'Correct goal details',exact:app==='coach'}).click()
+    const scorer=page.getByRole('textbox',{name:app==='parent'?'Corrected scorer name':'Scorer',exact:true})
+    assert.equal(await scorer.inputValue(),'Same Name','A renamed linked player uses the current authoritative name')
+    const save=async()=>{
+      if(app==='coach') await page.getByRole('textbox',{name:'Correction reason',exact:true}).fill('Identity fix')
+      await page.getByRole('button',{name:app==='parent'?'Save goal correction':'Review goal correction',exact:true}).click()
+      return page.evaluate(()=>window.calls.at(-1).value.goal)
+    }
+    let correction=await save()
+    assert.equal(correction.scorerPlayerId,'alex'); assert.equal(correction.assistPlayerId,'clyde')
+    await page.evaluate(()=>window.renderCorrection())
+    await page.getByRole('button',{name:app==='parent'?/Previous name.*goal 1/:'Correct goal details',exact:app==='coach'}).click()
+    await scorer.fill('Unlinked correction')
+    correction=await save()
+    assert.equal(correction.scorerPlayerId,''); assert.equal(correction.assistPlayerId,'clyde')
+    await page.evaluate(()=>window.renderCorrection())
+    await page.getByRole('button',{name:app==='parent'?/Previous name.*goal 1/:'Correct goal details',exact:app==='coach'}).click()
+    if(app==='parent') {
+      await page.getByRole('button',{name:'Same Name | Shirt 9',exact:true}).click()
+      await page.getByRole('button',{name:'Same Name | Shirt 4',exact:true}).first().click()
+      await page.getByRole('button',{name:'Same Name | Shirt 4',exact:true}).last().click()
+      await page.getByRole('button',{name:'Same Name | Shirt 9',exact:true}).last().click()
+    } else {
+      await page.getByRole('button',{name:'Show Scorer choices',exact:true}).click()
+      await page.getByRole('button',{name:'Same Name Shirt 4',exact:true}).click()
+      await page.getByRole('button',{name:'Show Assist choices',exact:true}).click()
+      await page.getByRole('button',{name:'Same Name Shirt 9',exact:true}).click()
+    }
+    correction=await save()
+    assert.equal(correction.scorerPlayerId,'clyde'); assert.equal(correction.assistPlayerId,'alex')
+    await page.screenshot({path:`output/playwright/mobile-scorer/${app}-identity-correction.png`})
+    if(app==='coach') {
+      await page.evaluate(()=>window.renderSavedCorrection('yellow_card'))
+      await page.getByRole('button',{name:'Correct saved event',exact:true}).click()
+      await page.getByRole('button',{name:'Other',exact:true}).click()
+      await page.getByRole('textbox',{name:'Participant name',exact:true}).fill('Match participant')
+      await page.getByRole('button',{name:'Save correction and sync',exact:true}).click()
+      await page.waitForFunction(()=>window.calls.at(-1).action==='saved-correction')
+      assert.equal(await page.evaluate(()=>window.calls.at(-1).value.playerPlayerId),'')
+      assert.equal(await page.evaluate(()=>window.calls.at(-1).value.playerName),'Other: Match participant')
+      await page.evaluate(()=>window.renderSavedCorrection('substitution'))
+      await page.getByRole('button',{name:'Correct saved event',exact:true}).click()
+      await page.getByRole('button',{name:'Show Player off choices',exact:true}).click()
+      await page.getByRole('button',{name:'Same Name Shirt 4',exact:true}).click()
+      await page.getByRole('button',{name:'Show Player on choices',exact:true}).click()
+      await page.getByRole('button',{name:'Same Name Shirt 9',exact:true}).click()
+      await page.getByRole('button',{name:'Save correction and sync',exact:true}).click()
+      await page.waitForFunction(()=>window.calls.at(-1).action==='saved-correction' && window.calls.at(-1).value.eventType==='substitution')
+      assert.equal(await page.evaluate(()=>window.calls.at(-1).value.playerPlayerId),'clyde')
+      assert.equal(await page.evaluate(()=>window.calls.at(-1).value.playerOnPlayerId),'alex')
+    }
     assert.deepEqual(errors, [])
     await page.close()
   }
-  console.log('PASS Parent and Coach rendered controls: own-goal credit, player selection feedback, cards, substitutions and captured time in light/dark themes')
+  console.log('PASS Parent and Coach rendered controls and identity corrections: rename retention, manual clearing, duplicate-player reselection, own-goal credit, cards, substitutions and captured time in light/dark themes')
 } finally { await browser.close() }

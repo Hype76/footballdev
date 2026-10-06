@@ -1,3 +1,6 @@
+import { getParentBadgeColours, PARENT_FAN_SIGN_IN_COLOURS, PARENT_POLL_SEPARATOR_COLOUR } from '../mobile-core/src/parentStatusColours'
+import { NotificationExplainer } from './src/NotificationExplainer'
+import { notificationExplainerKey } from './src/notificationExplainerCore'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { parentThemePreference } from './src/displayThemePreference'
@@ -10,6 +13,9 @@ import { getParentMatchResult } from './src/matchResult'
 import { PartnersScreen } from './src/PartnersScreen'
 import 'react-native-url-polyfill/auto'
 import { useParentHomeSections } from './src/useParentHomeSections'
+import { TeamLeagueLinkRow } from '../mobile-core/src/TeamLeagueLink'
+import { supabase as leagueSupabase } from '../mobile-core/src/supabase'
+import { parentPlayerTeamLeagueScope } from '../../src/lib/team-league-link.js'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
 import { openVenueDirections } from '../mobile-core/src/venueDirections'
 import { PasswordInput } from '../mobile-core/src/PasswordInput'
@@ -92,7 +98,12 @@ import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-
 import { getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
 import { isMatchdayPlan, isMobileCapabilityAllowed, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
 import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
+import { withParentMatchReportBranding } from './src/parentMatchReportBranding.js'
 import ParentIcon from './src/ParentIcon'
+import { useAttendanceOutbox } from '../mobile-core/src/useAttendanceOutbox'
+import { AttendancePendingRows } from '../mobile-core/src/AttendancePendingRows'
+import { readParentAttendanceCommands, updateParentAttendanceCommands } from './src/offline'
+import { sendCoachTrainingAvailabilityResponsePushSafely } from './src/parentPortalData'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
 import { projectParentScorerOutbox } from './src/parentScorerOutboxCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
@@ -236,13 +247,7 @@ function prepareResourceItems(name, items) {
 function prepareParentResourceItems(name, items, selectedLink = null) {
   const normalizedItems = Array.isArray(items) ? items : []
   if (name === 'matches') {
-    const selectedClubId = String(selectedLink?.clubId || '').trim()
-    return normalizedItems.map((match) => {
-      const existingClubName = String(match?.clubName ?? match?.club_name ?? '').trim()
-      const matchClubId = String(match?.clubId ?? match?.club_id ?? '').trim()
-      const canUseSelectedClub = !matchClubId || (Boolean(selectedClubId) && matchClubId === selectedClubId)
-      return { ...match, clubName: existingClubName || (canUseSelectedClub ? selectedLink?.clubName : '') }
-    })
+    return normalizedItems.map(match => withParentMatchReportBranding(match, selectedLink))
   }
   return prepareResourceItems(name, normalizedItems)
 }
@@ -450,6 +455,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [parentLinks, selectedLink, user],
   )
+  const reportScopeRef = useRef('')
+  const reportInFlightRef = useRef(false)
+  reportScopeRef.current = `${user?.id || ''}:${selectedLink?.id || ''}`
   const parentPlanContext = useMemo(() => selectedLink || user, [selectedLink, user])
   const parentRouteAllowed = useCallback((route) => {
     const normalizedRoute = String(route || '').trim().toLowerCase()
@@ -513,7 +521,19 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     () => selectedMobileUser?.id && selectedLink?.id ? `fp.parent.dismissed.v1.${selectedMobileUser.id}.${selectedLink.id}` : '',
     [selectedLink?.id, selectedMobileUser?.id],
   )
-  const visibleInvitations = resources.invitations.items
+  const attendanceOutbox = useAttendanceOutbox({
+    subscribeNetwork: listener => NetInfo.addEventListener(listener),
+    scope: JSON.stringify(['parent', selectedMobileUser?.id, selectedLink?.id, selectedLink?.playerId, selectedLink?.clubId, selectedLink?.teamId]),
+    read: () => readParentAttendanceCommands(selectedMobileUser, selectedLink),
+    update: change => updateParentAttendanceCommands(selectedMobileUser, selectedLink, change),
+    notify: async (command, receipt) => Boolean(await sendCoachTrainingAvailabilityResponsePushSafely({
+      parentLinkId: command.preparation.target.parentLinkId,
+      requestPlayerId: command.preparation.target.requestPlayerId,
+      respondedAt: receipt.result.respondedAt,
+    })),
+    onConfirmed: () => loadParentData(),
+  })
+  const visibleInvitations = resources.invitations.items.map(attendanceOutbox.project)
   const visibleMatches = resources.matches.items.map((match) => {
     const journal = scorerOutboxes[match.id]
     const projected = journal?.pending?.length ? projectParentScorerOutbox(journal) : match
@@ -1155,12 +1175,14 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       void enableParentNotifications({
         apiBaseUrl: config.apiBaseUrl,
         devicePushToken,
+        requestPermission: false,
+        isCurrent: () => currentAccountRef.current === user?.id,
         easProjectId: config.easProjectId,
         parentLinkId: selectedLink.id,
       }).then(setNotificationState).catch(() => {})
     })
     return () => subscription.remove()
-  }, [notificationState.enabled, selectedLink?.id])
+  }, [notificationState.enabled, selectedLink?.id, user?.id])
 
   useEffect(() => {
     const request = lastNotificationResponse?.notification?.request
@@ -1522,6 +1544,21 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   async function handleInvitationResponse(invitation, responseState) {
+    if (invitation?.attendancePreparation && ['match_attendance', 'training_attendance'].includes(invitation.invitationType)) {
+      if (invitation.attendancePending || activeActionId || !isParentInvitationActionable(invitation)
+        || selectedLink?.linkType !== 'parent' || invitation.parentLinkId !== selectedLink.id || invitation.childId !== selectedLink.playerId) return false
+      const scope = parentSyncScopeRef.current
+      const generation = parentActionScopeRef.current
+      const current = () => scope === parentSyncScopeRef.current && generation === parentActionScopeRef.current
+      try {
+        await attendanceOutbox.enqueue(invitation.attendancePreparation, responseState, invitation.eventTitle || 'Attendance')
+        return current() ? { durable: true } : false
+      } catch (error) {
+        if (current()) setNotice({ message: getParentFriendlyError(error, 'This answer could not be saved on this phone. Try again before closing.'), tone: 'error' })
+        return false
+      }
+    }
+    // Older servers/caches keep the existing synchronous path. Never simulate durable acceptance.
     if (isOffline || activeActionId) return
     const actionScope = parentSyncScopeRef.current
     const actionGeneration = parentActionScopeRef.current
@@ -1598,17 +1635,23 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   async function handleDownloadMatchReport(match) {
-    if (activeActionId || !match) return
+    if (activeActionId || reportInFlightRef.current || !match) return
+    if (match.clubId !== selectedLink?.clubId || match.teamId !== selectedLink?.teamId) return
+    reportInFlightRef.current = true
+    const reportScope = reportScopeRef.current
+    const isCurrent = () => reportScope === reportScopeRef.current
 
     setActiveActionId(`match-report:${match.id}`)
     setNotice(null)
 
     try {
-      const result = await saveParentMobileMatchReportPdf(match)
-      if (result.saved) setNotice({ message: 'Match report PDF saved to your selected folder.', tone: 'success', compact: true })
+      const reportMatch = withParentMatchReportBranding(match, selectedLink, matchdayPlanConfig)
+      const result = await saveParentMobileMatchReportPdf(reportMatch, { isCurrent, storageOrigin: config.supabaseUrl })
+      if (isCurrent() && result.saved) setNotice({ message: 'Match report PDF saved to your selected folder.', tone: 'success', compact: true })
     } catch (error) {
-      setNotice({ message: getParentFriendlyError(error, 'The match report PDF could not be prepared.'), tone: 'warning', compact: true })
+      if (isCurrent()) setNotice({ message: getParentFriendlyError(error, 'The match report PDF could not be prepared.'), tone: 'warning', compact: true })
     } finally {
+      reportInFlightRef.current = false
       setActiveActionId('')
     }
   }
@@ -1875,7 +1918,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     setNotice(null)
     try {
       const payload = action === 'timer' || action === 'extended' ? { action: value }
-        : action === 'correct-goal' ? { eventId: value.event.id, goal: value.goal, reason: value.reason }
+        : action === 'correct-goal' ? { participantRosterVersion: 1, eventId: value.event.id, goal: value.goal, reason: value.reason }
           : action === 'void-goal' ? { eventId: value.event.id, reason: value.reason }
           : value || {}
       const queued = await queueParentScorerAction(selectedMobileUser, selectedLink, match, action, payload)
@@ -1983,11 +2026,12 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
               easProjectId: config.easProjectId,
               parentLinkId: selectedLink.id,
             })
+      if (mode === 'off' || nextState.enabled) await AsyncStorage.setItem(`${notificationExplainerKey(user.id, config.apiBaseUrl)}.paused`, mode === 'off' ? '1' : '0')
       setNotificationState(nextState)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice({
         message: nextState.enabled
-          ? 'Parent push alerts are enabled on this device.'
+          ? nextState.visibleAlertsReady === false ? 'Phone permission is on, but visible alerts need attention in phone settings.' : 'Parent push alerts are enabled on this device.'
           : nextState.message || 'Notifications are off. The rest of the app is unchanged.',
         tone: nextState.enabled ? 'success' : 'warning',
       })
@@ -2271,9 +2315,23 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
               summary={syncSummary}
             />
             {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
+            <AttendancePendingRows outbox={attendanceOutbox} onRefresh={async () => { if (isOffline) return false; const result = await loadParentData(); return result?.failed === 0 && !result?.stale }} styles={styles} />
 
+            <NotificationExplainer
+              key={user.id + selectedLink?.id}
+              accountId={user.id} linkId={selectedLink?.id} config={config} palette={palette}
+              onState={setNotificationState}
+              settingsOpen={!isOffline && renderedActiveTab === 'more' && renderedMoreSection === 'settings'}
+              homeReady={Boolean(lastUpdatedAt) && renderedActiveTab === 'home' && !isOffline && !isProfileLoading && !authError
+                && parentRouteAllowed('matchday') && parentRouteAllowed('invites')
+                && !activeActionId && !childSwitcherOpen && notificationResponseHistoryReady
+                && !pendingNotificationRoomId && !notificationResponseProcessingRef.current
+                && (!lastNotificationResponse || notificationResponseIdRef.current === lastNotificationResponse.notification?.request?.identifier)
+                && Object.values(resources).every(resource => !resource.loading && !resource.error)}
+            />
             {renderedActiveTab === 'home' ? (
               <HomeScreen
+                leagueUser={selectedMobileUser}
                 userId={selectedMobileUser?.id}
                 onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })}
                 themeTokens={themeModel.tokens}
@@ -2608,8 +2666,7 @@ function CompactIconAction({ disabled = false, iconKey, label, onPress, selected
 function HomeStatusBadges({ badges = [] }) {
   const { palette } = useParentTheme()
   return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>{badges.map((badge) => {
-    const dark = Number.parseInt(String(palette.background || '#ffffff').slice(1, 3), 16) < 128
-    const [color, backgroundColor] = ({ success: dark ? ['#86efac', '#14532d'] : ['#167000', '#e1f3e1'], danger: dark ? ['#fca5a5', '#7f1d1d'] : ['#b91c1c', '#fee2e2'], warning: dark ? ['#fcd34d', '#713f12'] : ['#995900', '#fff0d0'], accent: dark ? ['#bfdbfe', '#1e3a8a'] : ['#1d4ed8', '#dbeafe'] })[badge.tone] || (dark ? ['#d1d5db', '#374151'] : ['#4b5563', '#e5e7eb'])
+    const [color, backgroundColor] = getParentBadgeColours(palette, badge.tone)
     return <View key={badge.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 4, backgroundColor }}><ParentIcon color={color} iconKey={badge.icon} size={16} /><Text style={{ color, fontSize: 11, fontWeight: '700' }}>{badge.label}</Text></View>
   })}</View>
 }
@@ -2653,8 +2710,8 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, selectedMatch, themeTokens, onOpenEventDetails }) {
-  const { styles } = useParentTheme()
+function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, selectedMatch, themeTokens, onOpenEventDetails }) {
+  const { palette, styles } = useParentTheme()
   const homeSections = useParentHomeSections(userId)
   const [selectedEventKey, setSelectedEventKey] = useState('')
   const [detailPlayerId, setDetailPlayerId] = useState(link?.id)
@@ -2692,6 +2749,7 @@ function HomeScreen({ userId, activeActionId, calendar, homeModel, inviteCount =
         <SummaryButton disabled={!nextDirectionsUrl} iconKey="parent.directions" label="Directions" onPress={() => onOpenLink?.(nextDirectionsUrl, 'directions')} />
       </View>
 
+      {leagueUser?.id ? <TeamLeagueLinkRow client={leagueSupabase} palette={palette} scope={parentPlayerTeamLeagueScope(leagueUser, link, isOffline)} styles={styles} /> : null}
       {scorerMatches.map((match) => (
         <View key={`scoring:${match.id}`} style={styles.sectionStack}>
           <Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>
@@ -2971,7 +3029,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
         const rankedResults = rankParentPollResults(poll.options, poll.votes)
 
         return (
-          <View key={poll.id} style={{ gap: 12, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#94a3a0' }}>
+          <View key={poll.id} style={{ gap: 12, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: PARENT_POLL_SEPARATOR_COLOUR }}>
             <View style={styles.cardTopRow}>
               <Badge label={poll.status === 'open' && !poll.isExpired ? 'Open' : 'Closed'} tone={poll.status === 'open' && !poll.isExpired ? 'accent' : 'neutral'} />
               {poll.closesAt ? <Text style={styles.cardDate}>Closes {formatDateTime(poll.closesAt)}</Text> : null}
@@ -3209,7 +3267,6 @@ function SettingsScreen({
   const notificationStateLoading = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.LOADING
   const [settingsRootY, setSettingsRootY] = useState(null)
 
-
   return (
     <View onLayout={(event) => setSettingsRootY(event.nativeEvent.layout.y)} style={styles.screenStack}>
       <ScreenIntro title="Settings" />
@@ -3335,7 +3392,7 @@ function SettingsScreen({
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>Unable to confirm push alerts. Retry the check or enable alerts again. Your saved preference has not been changed.</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>Notification status could not be read. No setting has been changed.</Text> : null}
         {communicationPreference.communicationChannel === 'email' ? <Text style={styles.helperText}>Your communication choice is Email. Choose App notifications or Both in Email &amp; app to receive push alerts.</Text> : null}
-        {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' ? (
+        {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' && !notificationState.canAskAgain ? (
           <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
         ) : null}
         {notificationStateKnown && notificationState.message ? <Text style={styles.helperText}>{notificationState.message}</Text> : null}
@@ -3626,7 +3683,7 @@ function AppContent() {
   }
   if (!session?.user) {
     if (fanLink.route?.kind === 'invite' && !signingInForFan) return <FanInvitationScreen token={fanLink.route.token} session={session} onSignIn={() => setFanSignInRoute(fanLink.route)} onClose={fanLink.close} onAccepted={fanLink.accepted} />
-    if (fanLink.route?.kind === 'invite') return <View style={{ flex: 1 }}><Pressable accessibilityRole="button" accessibilityLabel="Back to Fan invitation" onPress={() => setFanSignInRoute(null)} style={{ minHeight: 48, padding: 14, backgroundColor: '#f3f7f5' }}><Text style={{ color: '#173f35', fontWeight: '700' }}>Back to Fan invitation</Text></Pressable><LoginScreen /></View>
+    if (fanLink.route?.kind === 'invite') return <View style={{ flex: 1 }}><Pressable accessibilityRole="button" accessibilityLabel="Back to Fan invitation" onPress={() => setFanSignInRoute(null)} style={{ minHeight: 48, padding: 14, backgroundColor: PARENT_FAN_SIGN_IN_COLOURS.background }}><Text style={{ color: PARENT_FAN_SIGN_IN_COLOURS.text, fontWeight: '700' }}>Back to Fan invitation</Text></Pressable><LoginScreen /></View>
     return <LoginScreen />
   }
   if (isLocked) {
@@ -3638,6 +3695,7 @@ function AppContent() {
       />
     )
   }
+  if (!fanLink.ready) return <LoadingScreen message="Checking app invitation..." />
   if (fanLink.route?.kind === 'invite') return <FanInvitationScreen key={`${session.user.id}:${fanLink.route.token}`} token={fanLink.route.token} session={session} onSignIn={() => setFanSignInRoute(fanLink.route)} onClose={fanLink.close} onAccepted={fanLink.accepted} />
   if (fanLink.route?.kind === 'fans') return <FansScreen onBack={fanLink.close} />
   if (user?.parentPortalLinks?.length && user.parentPortalLinks.every((link) => link.linkType === 'fan')) return <FansScreen />
@@ -3758,7 +3816,7 @@ function createParentAppStyles(tokens) {
   brandName: { color: palette.text, fontSize: 17, fontWeight: '900' },
   brandRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   card: { backgroundColor: 'transparent', borderBottomColor: palette.border, borderBottomWidth: 1, gap: 8, paddingHorizontal: 0, paddingVertical: 11 },
-  cardDate: { color: palette.textMuted, flexShrink: 1, fontSize: 12, fontWeight: '700', textAlign: 'right' },
+  cardDate: { color: palette.textMuted, flexShrink: 1, fontSize: 12, fontWeight: '700', marginLeft: 'auto', textAlign: 'right' },
   cardFooter: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginTop: 4 },
   cardLink: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
   cardMeta: { color: palette.textMuted, fontSize: 14, fontWeight: '700', lineHeight: 20 },

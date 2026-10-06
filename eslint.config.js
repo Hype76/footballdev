@@ -5,7 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'dev-dist', '.netlify', 'output', 'apps/*-mobile/dist', 'apps/*-mobile/dist-web-check']),
+  // The official compiled PDF distributable is verified by the immutable binary hash gate.
+  globalIgnores(['dist', 'dev-dist', '.netlify', 'output', 'apps/*-mobile/dist', 'apps/*-mobile/dist-web-check', 'public/marketing-v70/vendor/jspdf.umd.min.js']),
   {
     files: ['apps/*-mobile/app.config.js', 'apps/*-mobile/metro.config.js'],
     languageOptions: {

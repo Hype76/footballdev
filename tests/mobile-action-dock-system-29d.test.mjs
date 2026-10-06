@@ -176,7 +176,7 @@ test('Calendar and Session docks retain primary, secondary, destructive, validat
   assert.match(source.sessions, /attentionKey=\{validationError\?\.message \|\| ''\}/)
   assert.match(source.sessions, />Cancel<\/button>[\s\S]*type="submit"[\s\S]*Save/)
   assert.match(source.sessions, />\s*More\s*<\/button>/)
-  assert.match(source.sessions, /label="Calendar event actions"[\s\S]*>Open item<\/button>/)
+  assert.match(source.sessions, /label="Calendar event actions"[\s\S]*\{isMatchFixture \? 'Manage volunteer assignments' : isPollDeadline \? 'Open poll' : 'Open item'\}/)
   assert.match(source.sessions, /id="calendar-mobile-actions"/)
   assert.match(source.sessions, /role="menuitem"[\s\S]*Cancel fixture/)
   assert.match(source.sessions, /#calendar-modal-validation-summary/)

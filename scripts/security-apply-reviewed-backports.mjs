@@ -46,5 +46,5 @@ try {
   throw error
 }
 fs.writeFileSync(receiptPath, JSON.stringify({ head: source.head, installerSha256: record.implementationHashes['scripts/security-apply-reviewed-backports.mjs'], installedAt: new Date().toISOString(), filesWritten: writes.length, recordSha256: hash(fs.readFileSync(path.join(root, 'security/reviewed-source-remediations.json'))), patches: record.patches, copies: verifyCopies(root, record).map(({ relative, treeSha256 }) => ({ relative, treeSha256 })), publicationApproved: false }, null, 2) + '\n')
-console.log(`Verified the exact root copy; wrote ${writes.length} exact reviewed source files. No release action.`)
+console.log(`Verified all five owned copies; wrote ${writes.length} exact reviewed source files. No release action.`)
 }

@@ -17,6 +17,10 @@ export function MarketingPage({ page = 'home' }) {
     const root = host.current; let active = true
     root.innerHTML = reference.html
     root.querySelectorAll('a[href="/sign-in?mode=signup&plan=matchday"]').forEach(link => { link.href = PUBLIC_FREE_SIGNUP_PATH })
+    root.querySelectorAll('.signin-new a[href="/sign-in"]').forEach(link => { link.href = PUBLIC_FREE_SIGNUP_PATH })
+    root.querySelectorAll('.main-nav a').forEach(link => {
+      if (link.textContent.trim() === 'Contact') link.setAttribute('data-contact-open', '')
+    })
     const scope = createReferenceScope(root), priorTitle = document.title
     document.title = reference.title
     const disposePricing = page === 'pricing' ? mountMarketingPricing(root) : () => {}
@@ -24,7 +28,7 @@ export function MarketingPage({ page = 'home' }) {
     return () => { active = false; disposePricing(); scope.dispose(); root.innerHTML = ''; document.title = priorTitle }
   }, [reference, page])
   useEffect(() => { const open = () => setContactOpen(true); window.addEventListener('football-player:open-contact', open); return () => window.removeEventListener('football-player:open-contact', open) }, [])
-  return <div className={`marketing-reference marketing-page-${page}`} onClick={event => { if (event.target.closest('[data-contact-open]')) setContactOpen(true) }}>
+  return <div className={`marketing-reference marketing-page-${page}`} onClick={event => { if (event.target.closest('[data-contact-open]')) { event.preventDefault(); setContactOpen(true) } }}>
     <PlatformBannerNotice ariaLabel="Platform announcement" bannerKey={PUBLIC_SITE_BANNER_KEY} />
     <div ref={host} />
     <MarketingContactDialog open={contactOpen} onClose={() => setContactOpen(false)} />

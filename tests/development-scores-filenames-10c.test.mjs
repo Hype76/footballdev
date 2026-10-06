@@ -349,7 +349,7 @@ test('email attachment and historical download share only the server-built canon
   assert.doesNotMatch(emailSource, /filename:\s*body\./)
   assert.match(historySource, /buildDevelopmentPdfFilename\(resolvedReportSnapshot\)/)
   assert.match(historySource, /buildDevelopmentPdfContentDisposition\(filename\)/)
-  assert.match(historySource, /select\('id, scores, form_responses, feedback_form_snapshot'\)/)
+  assert.match(historySource, /select\('id, club_id, team_id, player_id, player_name, team, section, session, date, created_at, coach_id, coach, created_by_name, scores, average_score, comments, form_responses, feedback_form_id, feedback_form_name, feedback_form_version, feedback_form_snapshot'\)/)
   assert.doesNotMatch(historySource, /development-report-\$\{date\}/)
   assert.doesNotMatch(panelSource, /numericScore\}\s*\/\s*10/)
 })
