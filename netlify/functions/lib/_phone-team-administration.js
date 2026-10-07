@@ -9,8 +9,10 @@ export function createPhoneTeamAdministrationHandler({ client, getPlanProfile, g
       if (String(event.body || '').length > 4096) return response(413, { message: 'The request is too large.' })
       let body
       try { body = JSON.parse(event.body || '{}') } catch { return response(400, { message: 'Enter the details again.' }) }
-      if (!body || Array.isArray(body) || !UUID.test(body.teamId || '') || !['read', 'save', 'invite'].includes(body.action)
-        || Object.keys(body).some(key => !['action', 'teamId', 'squadEnabled', 'squadHoursBefore', 'availabilityEnabled', 'availabilityHoursBefore', 'email', 'role'].includes(key))) {
+      if (!body || Array.isArray(body) || !UUID.test(body.teamId || '') || !['read', 'save', 'invite', 'roster', 'remove'].includes(body.action)
+        || Object.keys(body).some(key => !['action', 'teamId', 'squadEnabled', 'squadHoursBefore', 'availabilityEnabled', 'availabilityHoursBefore', 'email', 'role', 'assignmentId'].includes(key))
+        || (body.action === 'remove' && !UUID.test(body.assignmentId || ''))
+        || (body.action !== 'remove' && body.assignmentId !== undefined)) {
         return response(400, { message: 'Invalid team request.' })
       }
       if (body.action === 'save' && (typeof body.squadEnabled !== 'boolean' || typeof body.availabilityEnabled !== 'boolean'
@@ -37,6 +39,21 @@ export function createPhoneTeamAdministrationHandler({ client, getPlanProfile, g
         } : {}),
       })
       if (policy.error) throw policy.error
+      if (body.action === 'roster' || body.action === 'remove') {
+        if (!policy.data?.canManage) {
+          if (body.action === 'roster') return response(200, { ...policy.data, coaches: [] })
+          return response(403, { message: 'Only the team admin can manage coaches.' })
+        }
+        const roster = await client.rpc('manage_phone_team_coaches', {
+          actor_value: actorId, team_value: body.teamId,
+          action_value: body.action === 'remove' ? 'remove' : 'read',
+          assignment_value: body.action === 'remove' ? body.assignmentId : null,
+        })
+        if (roster.error) throw roster.error
+        return response(200, { ...policy.data, ...roster.data,
+          ...(body.action === 'remove' ? { message: roster.data.removed ? 'Coach access removed from this team.' : 'Coach access was already removed from this team.' } : {}),
+        })
+      }
       if (body.action !== 'invite') return response(200, policy.data)
       if (!policy.data?.canManage) return response(403, { message: 'Only the team admin can add coaches.' })
       const profile = await getPlanProfile(event, { clubId: policy.data.clubId, teamId: body.teamId })

@@ -7,6 +7,7 @@ export function developmentSaveStatus({ ready, saving, draft, unsaved, error, sy
   if (!ready) return 'Opening saved work...'
   if (saving) return 'Saving on this phone...'
   if (unsaved || error) return 'Some changes have not been saved. Keep this screen open and retry Save private draft.'
+  if (draft?.finalisation) return 'Saved on this phone.'
   if (draft?.status === 'synced') return 'Synced. Private draft saved to your account.'
   if (syncError || draft?.error) return 'Saved on this phone. Sync needs a retry.'
   return draft ? 'Saved on this phone. Waiting to sync.' : 'Changes save on this phone as you work.'

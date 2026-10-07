@@ -25,6 +25,7 @@ import {
   markEmailLogSent,
 } from './lib/_email-log-store.js'
 import { supabaseAdmin } from './lib/_supabase.js'
+import { notifyCoachDevelopmentParents } from './lib/_coach-development-notifications.js'
 import {
   assertPlanFeature,
   canUsePlanFeature,
@@ -1193,6 +1194,15 @@ export async function handler(event) {
         },
       )
 
+      const eligibleNotificationLinks = (report.eligibleRecipients ?? report.recipients ?? []).map(recipient => recipient.linkId)
+      const notificationResult = body.notifyParents === true && eligibleNotificationLinks.length > 0
+        ? await notifyCoachDevelopmentParents(supabaseAdmin, {
+          evaluationId: report.evaluationId,
+          profile: requestUser,
+          selectedParentLinkIds: eligibleNotificationLinks,
+        })
+        : null
+
       return successResponse({
         evaluationId: report.evaluationId,
         reportVersion: report.version,
@@ -1200,6 +1210,7 @@ export async function handler(event) {
         recipientReviewRequired: report.recipientReviewRequired === true,
         eligibleRecipients: report.eligibleRecipients ?? report.recipients ?? [],
         ineligibleRecipients: report.ineligibleRecipients ?? [],
+        ...(notificationResult ? { notificationResult } : {}),
       })
     }
 

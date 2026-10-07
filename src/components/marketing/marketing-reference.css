@@ -164,3 +164,9 @@
 .marketing-reference.js-motion .reveal{opacity:1;transform:none}
 
 @media(max-width:600px){.marketing-reference #marketing-contact-dialog{padding:24px;max-height:calc(100dvh - 32px)}}
+
+/* Align the shirt artwork rather than its unequal transparent image margins. */
+.marketing-reference .kit-gallery .kit-image{position:relative;aspect-ratio:1;padding:0;overflow:hidden}
+.marketing-reference .kit-gallery .kit-image img{position:absolute;left:50%;width:auto;max-width:none;transform:translateX(-50%);object-fit:contain}
+.marketing-reference .kit-gallery img[src*="cambourne-home-kit.png"]{height:calc((100% - 2rem) * 1.19330544);top:calc(1rem - (100% - 2rem) * .12133891)}
+.marketing-reference .kit-gallery img[src*="cambourne-away-kit.png"]{height:calc((100% - 2rem) * 1.105);top:calc(1rem - (100% - 2rem) * .05416667)}

@@ -88,7 +88,7 @@ export async function getCoachPlayerDetail(user, playerId) {
       .single(),
     supabase
       .from('evaluations')
-      .select('id, player_id, date, session, status, average_score, scores, form_responses, comments, created_at')
+      .select('id, player_id, date, session, status, average_score, scores, form_responses, feedback_form_name, feedback_form_snapshot, comments, created_at')
       .eq('club_id', user.clubId)
       .eq('player_id', normalizedPlayerId)
       .order('date', { ascending: false })

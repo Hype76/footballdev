@@ -11,33 +11,34 @@ const source = await readFile('apps/coach-mobile/src/CoachOperationalScreens.js'
 const helpers = source.slice(source.indexOf('function useDomainStyles('), source.indexOf('export function CoachCalendarScreen('))
 const screen = source.slice(source.indexOf('export function CoachPlayersScreen('), source.indexOf('export function CoachSessionsScreen('))
   .replace('  const cancelForm =', '  window.submitPlayerForm = save;\n  const cancelForm =')
+  .replace('  const load = useCallback', '  window.viewedEvaluationId = selectedEvaluation?.id || null;\n  const load = useCallback')
 const entry = `
 import React,{useState,useMemo,useEffect,useCallback,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import {View,Text,StyleSheet,Pressable,TextInput} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
-import {coachPlayerFormFromPlayer,filterCoachPlayers,formatCoachParentAppInstallationStatus,getCoachPlayerMutationPolicy} from './apps/mobile-core/src/coachPlayersCore.js';
+import {coachPlayerFormFromPlayer,filterCoachPlayers,formatCoachParentAppInstallationStatus,getCoachPlayerMutationPolicy,normalizeCoachPlayerEvaluation} from './apps/mobile-core/src/coachPlayersCore.js';
 import {getParentPortalInviteActionForContact,getUnlistedParentAccessLinks} from './src/lib/parent-portal-invite-actions.js';
 import {sendNewMatchdayParentInvites} from './apps/mobile-core/src/coachParentAutoInvite.js';
 import {getCoachParentInviteStatus} from './apps/mobile-core/src/coachParentInviteStatus.js';
 import {formatUkDate} from './src/lib/date-format.js';
 const BrandLoader=()=>null,useConfirmedConnectionIssue=v=>v,useConfirmedConnectionMessage=v=>v,getMobileIconName=()=> 'person',message=e=>e.message;
 const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined,readMobileResource=async(u,k,fn)=>fn(),invalidateMobileResource=()=>{};
-const players=Array.from({length:16},(_,i)=>({id:'player-'+i,playerName:'FP TEST Player '+i,section:'Squad',positions:['Defender'],shirtNumber:String(i+1),status:'active',parentContacts:[{name:'FP TEST Parent',email:'parent@example.test',type:'parent'},{name:'Second Parent',email:'second@example.test',type:'parent'}],parentAppInstallationStatusAvailable:true,parentAppContactCount:2,parentAppInstalledContactCount:1}));
+const players=Array.from({length:16},(_,i)=>({id:'player-'+i,teamId:'team',clubId:'club',playerName:'FP TEST Player '+i,section:'Squad',positions:['Defender'],shirtNumber:String(i+1),status:'active',parentContacts:[{name:'FP TEST Parent',email:'parent@example.test',type:'parent'},{name:'Second Parent',email:'second@example.test',type:'parent'}],parentAppInstallationStatusAvailable:true,parentAppContactCount:2,parentAppInstalledContactCount:1}));
 const getCoachPlayerList=async()=>players.map(p=>({...p}));window.saved=[];window.inviteCalls=[];let parentLinks=[];window.setParentLinks=links=>{parentLinks=links};const saveCoachPlayer=async(u,f,p)=>{window.saved.push(f);if(window.holdSave)await new Promise((resolve,reject)=>{window.resolveSave=resolve;window.rejectSave=()=>reject(new Error('Earlier save failed.'))});const saved={...(p||{id:'created-player',status:'active'}),...f,positions:f.positions?f.positions.split(','):[]};const i=players.findIndex(row=>row.id===saved.id);if(i>=0)players[i]=saved;else players.push(saved);return saved};const sendCoachParentInvite=async(u,id,c)=>{window.inviteCalls.push(c.email);if(window.failInviteEmail===c.email)throw new Error('Invite failed');parentLinks=[...parentLinks.filter(l=>l.email!==c.email),{id:'link-'+c.email,email:c.email,status:'pending',invite_sent_at:'2026-09-21'}];return{success:true}};const getCoachParentLinks=async()=>parentLinks;const revokeCoachParentAccess=async()=>{parentLinks=[]};
 window.requests=[];window.scrollRequests=0;window.pending={};
 const getCoachPlayerDetail=async(user,id)=>{
  window.requests.push(id);
  if(window.hold===id)await new Promise(resolve=>window.pending[id]=resolve);
  if(window.fail){window.fail=false;throw new Error('Player details could not be loaded.');}
- return {player:{...players.find(p=>p.id===id),notes:'Private profile for '+id},parentLinks,matchStats:{year:2026,matchdaySquad:6,goals:3,assists:2},fields:[],sessions:[],evaluations:[{id:'evaluation',date:'2026-09-15',session:'FP TEST Session',averageScore:7,comments:'Development notes'}]};
+ return {player:{...players.find(p=>p.id===id),notes:'Private profile for '+id},parentLinks,matchStats:{year:2026,matchdaySquad:6,goals:3,assists:2},fields:[],sessions:[],evaluations:[normalizeCoachPlayerEvaluation({id:'evaluation-a-'+id,player_id:id,date:'2026-09-15',session:'FP TEST Session',feedback_form_name:'FP TEST Saved Review A',status:'Submitted',average_score:7,comments:{overall:'Development notes'},scores:{Finishing:7,'Restricted manager score':9,'Unknown hidden score':10},form_responses:{rating:7,choices:['near','far'],ready:false,repetitions:0,note:'Exact A response for '+id,restricted:'Restricted private response',invalid:'Malformed rank response',unknown:'Unmatched snapshot response'},feedback_form_snapshot:{fields:[{id:'rating',label:'Finishing',minimumRoleRank:20},{id:'choices',label:'Chosen targets',options:[{value:'near',label:'Near post'},{value:'far',label:'Far post'}]},{id:'ready',label:'Ready'},{id:'repetitions',label:'Repetitions'},{id:'note',label:'Saved review note',options:{invalid:true}},{id:'restricted',label:'Restricted manager score',minimumRoleRank:80},{id:'invalid',label:'Malformed field',minimumRoleRank:'invalid'}]}}),normalizeCoachPlayerEvaluation({id:'evaluation-b-'+id,player_id:id,date:'2026-09-14',session:'FP TEST Session B',status:'Submitted',average_score:5,comments:{overall:'Exact B summary for '+id},scores:{'Legacy finishing':5},form_responses:{legacy:'Exact B response for '+id}}),normalizeCoachPlayerEvaluation({id:'wrong-player-evaluation',player_id:'wrong-player',date:'2026-09-13',session:'Wrong player',scores:{},comments:{}})]};
 };
 ${helpers}
 ${screen}
 const user={id:'coach',clubId:'club',activeTeamId:'team',planKey:'large_club',planStatus:'active',role:'coach',roleRank:30,hasActivePlanAccess:true,paymentAccess:{canMutate:true},matchdayPolicy:{flags:{players:true,parentPortal:true,parentInvitations:true}}};
-function App(){const [mode,setMode]=useState('light'),[readOnly,setReadOnly]=useState(false),[quickAction,setQuickAction]=useState(null),[plan,setPlan]=useState('large_club');window.matchday=()=>{user.planKey='matchday';setPlan('matchday')};window.mode=setMode;window.readOnly=setReadOnly;window.quickAdd=()=>setQuickAction({intent:'create-player'});const handled=useCallback(()=>setQuickAction(null),[]);
- const context=useMemo(()=>({id:'team',clubId:'club',teamId:'team',planKey:plan,matchdayPolicy:user.matchdayPolicy,planStatus:'active',roleRank:30,paymentAccess:{canMutate:!readOnly}}),[readOnly,plan]);
+function App(){const [mode,setMode]=useState('light'),[readOnly,setReadOnly]=useState(false),[quickAction,setQuickAction]=useState(null),[plan,setPlan]=useState('large_club'),[rank,setRank]=useState(30),[team,setTeam]=useState('team'),[account,setAccount]=useState('coach');window.role=value=>{user.roleRank=value;setRank(value)};window.team=value=>{user.activeTeamId=value;setTeam(value)};window.account=value=>{user.id=value;setAccount(value)};window.matchday=()=>{user.planKey='matchday';setPlan('matchday')};window.mode=setMode;window.readOnly=setReadOnly;window.quickAdd=()=>setQuickAction({intent:'create-player'});const handled=useCallback(()=>setQuickAction(null),[]);
+ const context=useMemo(()=>({id:team,authorityId:account,clubId:'club',teamId:team,planKey:plan,matchdayPolicy:user.matchdayPolicy,planStatus:'active',roleRank:rank,paymentAccess:{canMutate:!readOnly}}),[readOnly,plan,rank,team,account]);
  const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;
  return <View style={{minHeight:'100vh',backgroundColor:palette.background,padding:12}}><CoachPlayersScreen context={context} user={user} palette={palette} quickAction={quickAction} onQuickActionHandled={handled} onNavigate={()=>{}} onRequestScrollTop={()=>{window.scrollRequests++;window.scrollTo(0,0)}}/></View>;
 }
@@ -80,7 +81,36 @@ try {
   assert.deepEqual(await page.evaluate(()=>window.inviteCalls),['parent@example.test'])
   await page.getByRole('button',{name:'Resend Parent app invite',exact:true}).waitFor()
   await page.getByRole('button',{name:'Show recent records',exact:true}).click()
-  await page.getByText('15:09:2026 | FP TEST Session | Score 7 | Development notes',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:/Open development record Wrong player/}).count(),0)
+  const loadedRequests=await page.evaluate(()=>window.requests.length)
+  const recordStarted=Date.now();await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).click()
+  await page.getByLabel('Saved development record',{exact:true}).waitFor({timeout:1000});const recordOpenMs=Date.now()-recordStarted;assert.ok(recordOpenMs<1000)
+  assert.equal(await page.evaluate(()=>window.viewedEvaluationId),'evaluation-a-player-12')
+  assert.equal(await page.evaluate(()=>window.requests.length),loadedRequests,'Already loaded saved records open without another network request')
+  for(const copy of ['FP TEST Saved Review A','Exact A response for player-12','Near post, Far post','0'])await page.getByText(copy,{exact:true}).waitFor()
+  await page.getByText('No',{exact:true}).waitFor()
+  for(const hidden of ['Restricted private response','Malformed rank response','Unmatched snapshot response','Restricted manager score','Unknown hidden score'])assert.equal(await page.getByText(hidden,{exact:true}).count(),0)
+  assert.equal(await page.getByLabel('Finishing',{exact:true}).count(),0,'Saved detail never mounts an editable draft')
+  await page.getByRole('button',{name:'Back to recent records',exact:true}).click()
+  await page.getByRole('button',{name:'Open development record FP TEST Session B, 14:09:2026',exact:true}).click()
+  await page.getByText('Exact B response for player-12',{exact:true}).waitFor();await page.getByText('Legacy finishing',{exact:true}).waitFor()
+  assert.equal(await page.evaluate(()=>window.viewedEvaluationId),'evaluation-b-player-12')
+  assert.equal(await page.getByText('Exact A response for player-12',{exact:true}).count(),0)
+  await page.evaluate(()=>window.team('other-team'));await page.getByLabel('Saved development record',{exact:true}).waitFor({state:'hidden',timeout:1000})
+  assert.equal(await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).isDisabled(),true)
+  await page.evaluate(()=>window.team('team'));await page.getByRole('button',{name:'Refresh player details',exact:true}).click()
+  await page.getByRole('button',{name:'Show recent records',exact:true}).click()
+  await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).click()
+  await page.evaluate(()=>window.account('another-coach'));await page.getByLabel('Saved development record',{exact:true}).waitFor({state:'hidden',timeout:1000})
+  assert.equal(await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).isDisabled(),true)
+  await page.evaluate(()=>window.account('coach'));await page.getByRole('button',{name:'Refresh player details',exact:true}).click();await page.getByRole('button',{name:'Show recent records',exact:true}).click()
+  await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).click()
+  await page.evaluate(()=>window.role(0));await page.getByLabel('Saved development record',{exact:true}).waitFor({state:'hidden',timeout:1000})
+  await page.evaluate(()=>window.role(30));await page.getByRole('button',{name:'Refresh player details',exact:true}).click();await page.getByRole('button',{name:'Show recent records',exact:true}).click()
+  await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).click()
+  await page.screenshot({path:'output/playwright/coach-player-profile/saved-record-390.png',fullPage:true})
+  await page.getByRole('button',{name:'Back to recent records',exact:true}).click()
   for(const mode of ['light','dark'])for(const width of [320,390]){
     await page.evaluate(mode=>window.mode(mode),mode);await page.setViewportSize({width,height:844})
     await page.getByRole('button',{name:'Back to Players',exact:true}).waitFor()
@@ -199,5 +229,5 @@ try {
   await page.getByText('FP TEST Edited Automatic Invites',{exact:true}).waitFor()
   assert.equal(await page.evaluate(()=>window.inviteCalls.length),sentBeforeEdit)
   assert.deepEqual(errors,[])
-  console.log('PASS: Coach player profiles preserve contacts, reject duplicate saves, preserve newer Quick Add forms after delayed save success/error, retain filters, reject late detail responses, preserve permissions, and render at 320/390px in light/dark themes.')
+  console.log('PASS: Exact saved development A/B records, selected-player guard, read-only authorised snapshot responses, legacy fallback, team/account/role revocation and immediate open ('+recordOpenMs+'ms). Coach player profiles preserve contacts, reject duplicate saves, preserve newer Quick Add forms after delayed save success/error, retain filters, reject late detail responses, preserve permissions, and render at 320/390px in light/dark themes.')
 } finally {await browser.close()}

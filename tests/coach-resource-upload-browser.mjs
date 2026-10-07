@@ -9,17 +9,35 @@ import { chromium } from 'playwright'
 // Actual handoff components with synthetic native/auth adapters. No real accounts or uploads.
 const root = process.cwd(), require = createRequire(import.meta.url)
 const teamId = '30000000-0000-4000-8000-000000000040', clubId = '10000000-0000-4000-8000-000000000001'
-const user = { id: 'actor', activeTeamId: teamId, clubId, roleRank: 50 }
+const user = { id: 'actor', activeTeamId: teamId, clubId, role: 'manager', roleRank: 50, planKey: 'team', planStatus: 'active', hasActivePlanAccess: true }
 const output = path.join(root, 'output/coach-resource-upload')
 await mkdir(output, { recursive: true })
+const resourcePage = (await readFile('src/pages/ResourceLibraryPage.jsx', 'utf8')).replace(/^import[\s\S]*?from ['"][^'"]+['"]\r?\n/gm, '').replace('export function ResourceLibraryPage', 'function ActualResourceLibraryPage')
+const resourceDomain = await readFile('src/lib/domain/resource-library.js', 'utf8')
+const validation = resourceDomain.slice(resourceDomain.indexOf('export const RESOURCE_LIBRARY_BUCKET'), resourceDomain.indexOf('function assertResourceLibraryAccess')).replaceAll('export ', '')
+const actualUploader = `
+  import React,{useEffect,useMemo,useRef,useState} from 'react';
+  import {ResourceEditor} from './src/components/resources/ResourceEditor.jsx';
+  import {getResourceDisplayTitle,sortResourcesNewestFirst} from './src/lib/resource-date-presentation.js';
+  import {formatUkDateTime} from './src/lib/date-format.js';
+  import {canManageResourceLibrary,canUseResourceLibrary} from './src/lib/auth-permissions.js';
+  const useAuth=()=>({user:window.f.auth.user}),useToast=()=>({showToast:()=>{}}),canCreateFormationBoard=()=>false,canUseFormationBoards=()=>false;
+  const Link=({children})=><span>{children}</span>,Navigate=()=>null;
+  const NoticeBanner=({title,message})=><div role="status">{title} {message}</div>,PageHeader=({title})=><h2>{title}</h2>;
+  const getResourceLibraryItems=async()=>window.f.resources||[],getResourceLibraryPlayers=async()=>[];
+  const uploadResourceLibraryItem=async draft=>{window.f.uploads.push({teamId:draft.teamId,clubId:draft.user.clubId,name:draft.file.name,title:draft.title});const saved={id:'upload-'+window.f.uploads.length,teamId:draft.teamId,clubId:draft.user.clubId,title:draft.title,category:draft.category,resourceType:'file',originalFilename:draft.file.name,links:[]};(window.f.resources||=[]).push(saved);return saved;};
+  ${validation}
+  ${resourcePage}
+  export const ResourceLibraryPage=({scopedUser})=><div data-testid="verified-uploader" data-team-id={scopedUser.activeTeamId}><ActualResourceLibraryPage scopedUser={scopedUser}/></div>;
+`
 const mocks = {
-  native: `import React from 'react';export const View=({children,style})=><div style={style}>{children}</div>;export const Text=({children,style})=><span style={style}>{children}</span>;export const Pressable=({children,onPress,disabled,style})=><button style={style} disabled={disabled} onClick={onPress}>{children}</button>;export const Keyboard={dismiss:()=>{window.f.dismissals=(window.f.dismissals||0)+1;document.activeElement?.blur()}};const listen=(name,fn)=>{(window.f.listeners[name]||=new Set()).add(fn);return{remove:()=>window.f.listeners[name].delete(fn)}};export const Linking={addEventListener:(_,fn)=>listen('url',fn),openURL:async url=>{window.f.opened.push(url);if(window.f.holdOpen)await new Promise((resolve,reject)=>window.f.releaseOpen={resolve,reject});if(window.f.openError)throw Error('failed')}};export const AppState={addEventListener:(_,fn)=>listen('state',fn)};`,
+  native: `import React from 'react';export const View=({children,style})=><div style={style}>{children}</div>;export const Text=({children,style})=><span style={Array.isArray(style)?Object.assign({},...style):style}>{children}</span>;export const Pressable=({children,onPress,disabled,style,accessibilityLabel})=><button aria-label={accessibilityLabel} style={style} disabled={disabled} onClick={onPress}>{children}</button>;export const Keyboard={dismiss:()=>{window.f.dismissals=(window.f.dismissals||0)+1;document.activeElement?.blur()}};const listen=(name,fn)=>{(window.f.listeners[name]||=new Set()).add(fn);return{remove:()=>window.f.listeners[name].delete(fn)}};export const Linking={addEventListener:(_,fn)=>listen('url',fn),openURL:async url=>{window.f.opened.push(url);if(window.f.holdOpen)await new Promise((resolve,reject)=>window.f.releaseOpen={resolve,reject});if(window.f.openError)throw Error('failed')}};export const AppState={addEventListener:(_,fn)=>listen('state',fn)};`,
   config: `export const getMobileRuntimeConfig=()=>({apiBaseUrl:'https://footballplayer.online'});`,
   cache: `export const invalidateMobileResource=(user,key)=>window.f.invalidations.push({user,key});`,
   auth: `import React from 'react';export function useAuth(){const[value,set]=React.useState(window.f.auth);window.changeAuth=v=>set(v);return {...value,signInWithPassword:async()=>window.changeAuth({session:{user:{id:'actor'}},user:window.f.user}),signOut:async()=>window.changeAuth({})}}`,
-  client: `export const supabase={rpc:async(name,args)=>{window.f.checks.push({name,args});if(window.f.holdCheck)await new Promise(resolve=>window.f.releaseCheck=resolve);return{data:window.f.allowed,error:null}},from:()=>({select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:{id:window.f.teamId,club_id:window.f.clubId,name:'Requested team'},error:null})})})})})};`,
+  client: `export const supabase={rpc:async(name,args)=>{window.f.checks.push({name,args});if(window.f.holdCheck)await new Promise(resolve=>window.f.releaseCheck=resolve);return{data:name==='get_phone_resource_upload_scope'?(window.f.authority||{actorId:window.f.user.id,clubId:window.f.clubId,teamId:window.f.teamId,role:window.f.user.role,roleRank:window.f.user.roleRank,roleLabel:'Manager'}):window.f.allowed,error:null}},from:()=>({select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:{id:window.f.teamId,club_id:window.f.clubId,name:'Requested team'},error:null})})})})})};`,
   router: `export const useLocation=()=>({search:window.f.search});`,
-  uploader: `import React from 'react';export const ResourceLibraryPage=({scopedUser})=><div data-testid="verified-uploader">{scopedUser.activeTeamId}:{scopedUser.activeTeamName}</div>;`,
+  uploader: actualUploader,
 }
 async function compile(native) {
   const component = native ? 'CoachResourceUploadAction' : 'CoachResourceUploadPage'
@@ -45,7 +63,7 @@ async function fixture(native, patch = {}, width = 390) {
   await page.route('**/*', route => route.abort())
   await page.setContent('<div id="root"></div>')
   await page.evaluate(({ user, teamId, clubId, patch }) => {
-    window.f = { user, teamId, clubId, allowed: true, search: `?teamId=${teamId}&clubId=${clubId}`, auth: { user, session: { user: { id: user.id } } }, checks: [], loads: 0, opened: [], invalidations: [], listeners: {}, props: { user, stale: false, styles: { divider: { backgroundColor: '#ddd' }, heading: { fontSize: 16 }, helper: { fontSize: 14 } } }, ...patch }
+    window.f = { user, teamId, clubId, allowed: true, search: `?teamId=${teamId}&clubId=${clubId}`, auth: { user, session: { user: { id: user.id } } }, checks: [], uploads: [], resources: [], loads: 0, opened: [], invalidations: [], listeners: {}, props: { user, stale: false, styles: { divider: { backgroundColor: '#ddd' }, heading: { fontSize: 16 }, helper: { fontSize: 14 } } }, ...patch }
     window.emit = (name, value) => { for (const fn of window.f.listeners[name] || []) fn(value) }
   }, { user, teamId, clubId, patch })
   await page.addScriptTag({ content: native ? nativeCode : webCode })
@@ -117,11 +135,26 @@ try {
   await login.getByLabel('Password', { exact: true }).fill('unused-synthetic-password')
   await login.getByRole('button', { name: 'Sign in', exact: true }).click()
   await login.getByTestId('verified-uploader').waitFor()
-  assert.match(await login.getByTestId('verified-uploader').innerText(), new RegExp(teamId))
+  assert.equal(await login.getByTestId('verified-uploader').getAttribute('data-team-id'),teamId)
+  const pickerEvent=login.waitForEvent('filechooser')
+  await login.getByRole('button',{name:'Choose files',exact:true}).click()
+  const picker=await pickerEvent
+  assert.equal(picker.isMultiple(),true,'Real uploader supports multiple phone files/photos')
+  await picker.setFiles([{name:'phone-photo.png',mimeType:'image/png',buffer:Buffer.from('synthetic photo')},{name:'phone-plan.pdf',mimeType:'application/pdf',buffer:Buffer.from('synthetic plan')}])
+  await login.getByText('2 files ready',{exact:true}).waitFor()
+  await login.getByRole('button',{name:'Upload resources (2)',exact:true}).click()
+  await login.getByText('2 resources uploaded.',{exact:false}).waitFor()
+  assert.deepEqual(await login.evaluate(()=>window.f.uploads.map(file=>({teamId:file.teamId,clubId:file.clubId,name:file.name}))),[{teamId,clubId,name:'phone-photo.png'},{teamId,clubId,name:'phone-plan.pdf'}])
+  console.log('PASS: real browser handoff renders the actual ResourceLibraryPage, opens the multiple file picker, validates PNG/PDF and submits both to the pinned team using synthetic upload transport.')
   assert.equal(await login.getByRole('link', { name: 'Return to Coach' }).getAttribute('href'), 'footballplayercoach://resources-return')
   await login.getByRole('button', { name: 'Use another account' }).click()
   await login.getByTestId('verified-uploader').waitFor({ state: 'detached' })
   checks++; await login.close()
+  const requestedAdmin=await fixture(false,{auth:{user:{...user,activeTeamId:'another-team',role:'coach',roleRank:30},session:{user:{id:'actor'}}},authority:{actorId:'actor',clubId,teamId,role:'head_manager',roleRank:70,roleLabel:'Team Admin'}})
+  await requestedAdmin.getByRole('button',{name:'Choose files',exact:true}).waitFor()
+  assert.equal(await requestedAdmin.getByTestId('verified-uploader').getAttribute('data-team-id'),teamId)
+  assert.equal(await requestedAdmin.evaluate(()=>window.f.auth.user.roleRank),30,'Requested-team authority does not mutate the prior browser context')
+  checks++;await requestedAdmin.close()
   for (const patch of [{ allowed: false }, { teamId: 'different' }, { clubId: 'different' }, { auth: { user: { ...user, clubId: 'wrong' }, session: { user: { id: 'actor' } } } }]) {
     const page = await fixture(false, patch)
     await page.getByRole('alert').waitFor()
