@@ -1,9 +1,11 @@
+import { MobileSwitch as Switch } from './MobileSwitch.js'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AppState, Pressable, StyleSheet, Switch, Text, View } from 'react-native'
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
 import { supabase } from './supabase'
 import { GAME_DAY_CHOICES, normalizeNotificationCategories } from './notificationCategories'
 
 const SWITCHES = [
+  { key: 'development', label: 'Development', iconKey: 'more.development', copy: 'Alerts when an assessment or development report is shared with you.' },
   { key: 'invites', label: 'Invites', iconKey: 'more.invites', copy: 'Invitations, availability replies and calendar changes.' },
   { key: 'chats', label: 'Chats', iconKey: 'more.chat', copy: 'Messages, team conversations and polls.' },
   { key: 'resources', label: 'New resources', iconKey: 'more.resources', copy: 'Alerts when a resource is shared with you.' },
@@ -33,7 +35,7 @@ export function NotificationCategorySettings({ allowedKeys, app, userId, palette
     try {
       // RLS selects the authenticated owner; older Coach profile IDs can differ.
       const { data, error } = await preferenceRequest(client.from('mobile_notification_preferences')
-        .select('game_day, invites, chats, resources').eq('app', app).maybeSingle())
+        .select('game_day, invites, chats, resources, development').eq('app', app).maybeSingle())
       if (error) throw error
       if (active.current === request) setState({ preferences: normalizeNotificationCategories({ ...data, gameDay: data?.game_day }), loading: false, saving: false, message: '' })
     } catch {
@@ -87,8 +89,8 @@ export function NotificationCategorySettings({ allowedKeys, app, userId, palette
       <Icon iconKey={choice.iconKey} color={palette.accent} size={28} />
       <View style={styles.copyColumn}><Text style={[styles.label, text]}>{choice.label}</Text></View>
       <Switch accessibilityLabel={choice.label} accessibilityHint={choice.copy} disabled={disabled} value={state.preferences?.[choice.key] === true}
-        onValueChange={value => change(choice.key, value)} trackColor={{ false: palette.borderStrong || palette.border, true: app === 'coach' ? '#34c759' : palette.accentMuted }}
-        thumbColor={state.preferences?.[choice.key] ? app === 'coach' ? '#ffffff' : palette.accent : palette.textMuted} />
+        onValueChange={value => change(choice.key, value)} trackColor={{ false: palette.borderStrong || palette.border, true: '#34c759' }}
+        thumbColor={state.preferences?.[choice.key] ? '#ffffff' : palette.textMuted} />
     </View>)}
     {state.loading || state.saving ? <Text accessibilityLiveRegion="polite" style={[styles.copy, muted]}>{state.saving ? 'Saving your choice...' : 'Checking your saved choices...'}</Text> : null}
     {state.message ? <Text accessibilityLiveRegion="polite" style={[styles.copy, muted]}>{state.message}</Text> : null}

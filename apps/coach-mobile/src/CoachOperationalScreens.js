@@ -1,3 +1,4 @@
+import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { openVenueDirections } from '../../mobile-core/src/venueDirections'
 import { canEditCoachFixture, canRemoveCoachCancelledFixture } from '../../mobile-core/src/coachFixtureEditCore'
 import { removeCoachCancelledFixture } from '../../mobile-core/src/coachMatchDayData'
@@ -8,7 +9,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
-import { Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, Keyboard, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,

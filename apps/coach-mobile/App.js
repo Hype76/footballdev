@@ -1,3 +1,4 @@
+import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
@@ -41,7 +42,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   ToastAndroid,
   View,

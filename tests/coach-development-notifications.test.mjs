@@ -79,13 +79,13 @@ test('unexpected oversized database batch does not contact provider', async () =
 })
 
 test('real Expo adapter filters current installation and maps invalid ticket without leaking provider data', async t => {
-  const { client, calls } = fixture(); const provider = []; let enabled = true; let chats = true
+  const { client, calls } = fixture(); const provider = []; let enabled = true; let development = true
   client.from = table => {
     const query = { select: () => query, eq: () => query, in: () => query,
       abortSignal: signal => { assert.ok(signal instanceof AbortSignal); return query },
       then: resolve => resolve({ data: table === 'parent_mobile_push_installations'
         ? [{ auth_user_id: 'parent-auth', expo_push_token: delivery.to, enabled, status: 'active', detail_level: 'detailed' }]
-        : [{ auth_user_id: 'parent-auth', chats }], error: null }) }
+        : [{ auth_user_id: 'parent-auth', development, chats: false }], error: null }) }
     return query
   }
   const priorFetch = globalThis.fetch; t.after(() => { globalThis.fetch = priorFetch })
@@ -96,10 +96,10 @@ test('real Expo adapter filters current installation and maps invalid ticket wit
   await notifyCoachDevelopmentParents(client, input)
   assert.equal(provider.length, 1); assert.equal(provider[0][0].data.parentLinkId, 'parent-link')
   assert.equal(calls.at(-1).args.invalid_value, true)
-  chats = false
+  development = false
   await notifyCoachDevelopmentParents(client, input)
   assert.equal(provider.length, 1); assert.equal(calls.at(-1).args.skipped_value, true)
-  chats = true
+  development = true
   enabled = false
   await notifyCoachDevelopmentParents(client, input)
   assert.equal(provider.length, 1); assert.equal(calls.at(-1).args.skipped_value, true)
@@ -127,4 +127,22 @@ test('real pre-delivery database query receives deadline abort and remains retry
   await assert.rejects(notifyCoachDevelopmentParents(client, input), retry)
   assert.equal(fetches, 0); assert.equal(calls.at(-1).args.delivered_value, false)
   assert.equal(calls.at(-1).args.invalid_value, false); assert.equal(calls.at(-1).args.skipped_value, false)
+})
+
+test('actual sharing handler notifies eligible recipients for older apps without a notification flag', async () => {
+  const {readFile}=await import('node:fs/promises')
+  const {parse}=await import('@babel/parser')
+  const source=await readFile('netlify/functions/send-parent-email.js','utf8')
+  let branch
+  const visit=node=>{if(!node||typeof node!=='object')return;if(node.type==='IfStatement'&&source.slice(node.test.start,node.test.end).includes("=== 'finalize_development_parent_report'"))branch=node;for(const value of Object.values(node))if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')visit(value)}
+  visit(parse(source,{sourceType:'module'}));assert.ok(branch)
+  const execute=new (Object.getPrototypeOf(async function(){}).constructor)('body','supabaseAdmin','requestUser','finalizeDevelopmentParentReportSnapshot','notifyCoachDevelopmentParents','successResponse',source.slice(branch.start,branch.end))
+  for(const flag of [undefined,false,true]) {
+    const calls=[];const body={action:'finalize_development_parent_report',evaluationId:'evaluation',selectedParentLinkIds:['eligible','removed'],...(flag===undefined?{}:{notifyParents:flag})}
+    const report={evaluationId:'evaluation',version:1,responseItems:[],eligibleRecipients:[{linkId:'eligible'}],ineligibleRecipients:[{linkId:'removed'}]}
+    const result=await execute(body,{},input.profile,async()=>report,async(_client,args)=>{calls.push(args);return {notificationDelivery:'processed'}},value=>value)
+    assert.deepEqual(calls,[{evaluationId:'evaluation',profile:input.profile,selectedParentLinkIds:['eligible']}])
+    assert.equal(result.notificationResult.notificationDelivery,'processed')
+  }
+  await execute({action:'finalize_development_parent_report'}, {}, input.profile,async()=>({evaluationId:'evaluation',responseItems:[],eligibleRecipients:[]}),()=>assert.fail('no authorised recipient'),value=>value)
 })

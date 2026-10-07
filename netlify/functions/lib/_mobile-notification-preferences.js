@@ -28,7 +28,7 @@ export async function filterMobileNotificationMessages(messages, client, { signa
       }
       const users = [...new Set((installations || []).map(row => row.auth_user_id).filter(Boolean))]
       const result = users.length ? await bounded(client.from('mobile_notification_preferences')
-        .select('auth_user_id, game_day, invites, chats, resources').eq('app', app).in('auth_user_id', users)) : { data: [] }
+        .select('auth_user_id, game_day, invites, chats, resources, development').eq('app', app).in('auth_user_id', users)) : { data: [] }
       if (result.error) throw result.error
       const preferences = new Map((result.data || []).map(row => [row.auth_user_id, { ...row, gameDay: row.game_day }]))
       const devices = new Map((installations || []).map(row => [row.expo_push_token, row]))

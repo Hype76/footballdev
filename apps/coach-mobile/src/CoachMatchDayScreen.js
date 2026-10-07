@@ -1,3 +1,4 @@
+import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { CoachSavedFormationBoards } from './CoachSavedFormationBoards'
 import { getMatchDayLifecycleState } from '../../../src/lib/matchday-lifecycle.js'
 import { formatUkDate } from '../../../src/lib/date-format.js'
@@ -11,7 +12,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
-import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation } from '../../../src/lib/matchday-final-report.js'
 import {
   buildCoachFinalMatchReport,

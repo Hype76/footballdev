@@ -1,5 +1,6 @@
+import { MobileSwitch as Switch } from './MobileSwitch.js'
 import { useEffect, useState } from 'react'
-import { AppState, Linking, Pressable, Switch, Text, TextInput, View } from 'react-native'
+import { AppState, Linking, Pressable, Text, TextInput, View } from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { normalizeTeamLeagueUrl } from '../../../src/lib/team-league-link.js'
 import { useTeamLeagueLink } from './useTeamLeagueLink'

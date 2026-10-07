@@ -141,6 +141,8 @@ export function createParentMobileTheme({ mode = 'dark', selectedLink = null } =
     accentMuted,
     accentSoft,
     accentText,
+    nativeSwitchTrackOn: '#34c759',
+    nativeSwitchThumb: '#ffffff',
     notificationFill: '#b91c1c',
     notificationForeground: '#ffffff',
     buttonPrimary: branded.button,

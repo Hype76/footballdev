@@ -1,5 +1,6 @@
+import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, Switch, Text, TextInput, View } from 'react-native'
+import { Pressable, Text, TextInput, View } from 'react-native'
 import { addCoachFromPhone, readCoachTeamAdministration, readCoachTeamCoaches, removeCoachFromTeam, saveCoachTeamReminders } from '../../mobile-core/src/coachTeamAdministration'
 import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 

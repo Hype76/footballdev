@@ -13,7 +13,7 @@ test('Coach suppresses resource announcements while Parent choices remain indepe
 })
 
 test('requested defaults and every Game Day level have independent category behaviour', () => {
-  assert.deepEqual(normalizeNotificationCategories(), { gameDay: 'scores_cards', invites: true, chats: true, resources: true })
+  assert.deepEqual(normalizeNotificationCategories(), { gameDay: 'scores_cards', invites: true, chats: true, resources: true, development: true })
   const scoreTypes = ['goal','score_correction','yellow_card','red_card','live','match_started','half_time','second_half','full_time']
   const fullTypes = ['pause','resume','hydration','conclude','substitution','extra_time','penalty_shootout']
   for (const type of [...scoreTypes, ...fullTypes]) {
@@ -27,7 +27,7 @@ test('requested defaults and every Game Day level have independent category beha
     ['invites',{route:'matchday',type:'scorer_selected'}], ['invites',{route:'matchday',type:'scorer_volunteer'}],
     ['invites',{route:'calendar',type:'calendar_change'}], ['invites',{route:'sessions',type:'training_availability_response'}],
     ['chats',{route:'chat',type:'staff_chat'}], ['chats',{route:'messages',type:'parent_message'}],
-    ['chats',{app:'parent',route:'development',type:'development_report'}],
+    ['development',{app:'parent',route:'development',type:'development_report'}],
     ['chats',{route:'polls',type:'poll_results'}], ['resources',{route:'resources',type:'resource_shared'}],
   ]) {
     assert.equal(allowsMobileNotification({ gameDay:'off' },data),true)
@@ -114,19 +114,33 @@ test('database enforces account isolation, atomic field updates, defaults and st
       grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;
       insert into auth.users values ('00000000-0000-4000-8000-000000000001'),('00000000-0000-4000-8000-000000000002');`)
     await db.exec(await readFile(new URL('../supabase/migrations/20260907124940_mobile_notification_categories.sql',import.meta.url),'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20261007182800_mobile_development_notification_preference.sql',import.meta.url),'utf8'))
     await db.exec("set role authenticated; select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false)")
     const save=async(app,key,value)=>(await db.query('select public.set_mobile_notification_preference($1,$2,$3) as value',[app,key,JSON.stringify(value)])).rows[0].value
-    assert.deepEqual(await save('parent','chats',false),{gameDay:'scores_cards',invites:true,chats:false,resources:true})
-    assert.deepEqual(await save('parent','gameDay','full'),{gameDay:'full',invites:true,chats:false,resources:true})
-    assert.deepEqual(await save('coach','resources',false),{gameDay:'scores_cards',invites:true,chats:true,resources:false})
+    assert.deepEqual(await save('parent','chats',false),{gameDay:'scores_cards',invites:true,chats:false,resources:true,development:true})
+    assert.deepEqual(await save('parent','gameDay','full'),{gameDay:'full',invites:true,chats:false,resources:true,development:true})
+    assert.deepEqual(await save('coach','resources',false),{gameDay:'scores_cards',invites:true,chats:true,resources:false,development:true})
+    assert.equal((await save('parent','development',false)).development,false)
+    assert.equal((await save('parent','invites',false)).development,false)
+    assert.equal((await save('parent','development',true)).chats,false)
     for(const args of [['web','chats',true],['parent','unknown',false],['parent','chats','false'],['coach','gameDay','detailed'],['coach','gameDay',null]]) await assert.rejects(save(...args),/Invalid/)
     await assert.rejects(db.exec("update public.mobile_notification_preferences set chats=true"),/permission denied/)
     await db.exec("select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false)")
     assert.equal((await db.query('select * from public.mobile_notification_preferences')).rows.length,0)
-    assert.deepEqual(await save('parent','invites',false),{gameDay:'scores_cards',invites:false,chats:true,resources:true})
+    assert.deepEqual(await save('parent','invites',false),{gameDay:'scores_cards',invites:false,chats:true,resources:true,development:true})
     await db.exec("select set_config('request.jwt.claim.sub','',false)")
     await assert.rejects(save('parent','chats',true),/Sign in/)
     await db.exec('reset role; set role anon')
     await assert.rejects(save('parent','chats',true),/permission denied/)
   } finally { await db.close() }
+})
+
+test('Development delivery uses its own saved choice independently of Chats and older missing rows', async () => {
+  const data={app:'parent',route:'development',type:'development_report'}
+  assert.equal(allowsMobileNotification({chats:false},data),true)
+  assert.equal(allowsMobileNotification({development:false,chats:true},data),false)
+  const message={to:'ExpoPushToken[one]',data}
+  assert.deepEqual(await filterMobileNotificationMessages([message],database([{auth_user_id:'one',app:'parent',chats:false,development:true}])),[message])
+  assert.deepEqual(await filterMobileNotificationMessages([message],database([{auth_user_id:'one',app:'parent',chats:true,development:false}])),[])
+  assert.deepEqual(await filterMobileNotificationMessages([message],database()),[message])
 })
