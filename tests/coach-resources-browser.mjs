@@ -62,7 +62,7 @@ try {
   await page.addScriptTag({content:result.outputFiles[0].text})
   await page.getByLabel('Search resources',{exact:true}).waitFor()
   // Render and tap the real upload action inside the actual Resources screen.
-  await page.getByText('Open upload ›',{exact:true}).waitFor()
+  await page.getByText('Open upload',{exact:true}).waitFor()
   const uploadButton=page.getByRole('button',{name:'Upload files or photos',exact:true})
   const uploadBounds=await uploadButton.boundingBox()
   assert.ok(uploadBounds.height>=48 && uploadBounds.width>=44,'Upload has a visible accessible tap target')
