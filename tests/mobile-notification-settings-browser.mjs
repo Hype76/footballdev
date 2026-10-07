@@ -43,6 +43,7 @@ try {
     if(app==='parent') assert.equal(await scores.getAttribute('aria-checked'),'true'); else assert.equal(await page.getByRole('radio').count(),0)
     const inviteName=app==='coach'?'Availability & event updates':'Invites', chatName=app==='coach'?'Chats & messages':'Chats';
     for(const name of app==='coach'?[inviteName,chatName]:['Invites','Chats','New resources']) assert.equal(await page.getByRole('switch',{name,exact:true}).isChecked(),true)
+    if(app==='coach')await page.waitForFunction(()=>getComputedStyle(document.querySelector('input[aria-label="Availability & event updates"]').parentElement.children[0]).backgroundColor==='rgb(52, 199, 89)')
     if(app==='parent') { await page.getByRole('radio',{name:'Off',exact:true}).click()
     await page.getByText('Saved.',{exact:true}).waitFor()
     assert.equal(await page.getByRole('switch',{name:inviteName,exact:true}).isChecked(),true)
@@ -61,6 +62,7 @@ try {
     await page.waitForFunction(()=>!document.body.innerText.includes('Checking your saved choices'))
     for(const mode of ['dark','light']) {
       await page.evaluate(mode=>window.setMode(mode),mode)
+      if(app==='coach')await page.waitForFunction(()=>getComputedStyle(document.querySelector('input[aria-label="Availability & event updates"]').parentElement.children[0]).backgroundColor==='rgb(52, 199, 89)')
       await page.screenshot({path:'output/playwright/notification-settings/'+app+'-'+mode+'.png',fullPage:true})
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=390),true)
     }

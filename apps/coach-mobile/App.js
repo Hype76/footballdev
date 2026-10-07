@@ -1378,6 +1378,8 @@ function SettingsScreen({
         <SettingRow copy="Show unread updates on the app icon." label="App icon badge">
           <Switch
             accessibilityLabel="App icon badge"
+            trackColor={{ false: palette.borderStrong || palette.border, true: '#34c759' }}
+            thumbColor="#ffffff"
             disabled={isRegisteringPush}
             onValueChange={onToggleAppBadge}
             value={appBadgeEnabled}

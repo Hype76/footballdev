@@ -70,6 +70,8 @@ grant execute on function public.manage_phone_team_coaches(uuid,uuid,text,uuid) 
 
 -- BEGIN PHONE RESOURCE UPLOAD AUTHORITY
 -- Preserve the existing manager boundary and recognise an actual selected-team admin.
+-- Normalize the earlier private helper owner without widening its execution grants.
+alter function app_private.team_admin_can_manage(uuid,uuid) owner to postgres;
 create or replace function public.current_user_can_manage_resource_library(target_club_id uuid, target_team_id uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
   select auth.uid() is not null

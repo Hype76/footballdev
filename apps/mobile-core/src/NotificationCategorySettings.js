@@ -87,8 +87,8 @@ export function NotificationCategorySettings({ allowedKeys, app, userId, palette
       <Icon iconKey={choice.iconKey} color={palette.accent} size={28} />
       <View style={styles.copyColumn}><Text style={[styles.label, text]}>{choice.label}</Text></View>
       <Switch accessibilityLabel={choice.label} accessibilityHint={choice.copy} disabled={disabled} value={state.preferences?.[choice.key] === true}
-        onValueChange={value => change(choice.key, value)} trackColor={{ false: palette.borderStrong || palette.border, true: palette.accentMuted }}
-        thumbColor={state.preferences?.[choice.key] ? palette.accent : palette.textMuted} />
+        onValueChange={value => change(choice.key, value)} trackColor={{ false: palette.borderStrong || palette.border, true: app === 'coach' ? '#34c759' : palette.accentMuted }}
+        thumbColor={state.preferences?.[choice.key] ? app === 'coach' ? '#ffffff' : palette.accent : palette.textMuted} />
     </View>)}
     {state.loading || state.saving ? <Text accessibilityLiveRegion="polite" style={[styles.copy, muted]}>{state.saving ? 'Saving your choice...' : 'Checking your saved choices...'}</Text> : null}
     {state.message ? <Text accessibilityLiveRegion="polite" style={[styles.copy, muted]}>{state.message}</Text> : null}
