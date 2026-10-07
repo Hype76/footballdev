@@ -5,7 +5,7 @@ const END = '<!-- fp-mobile-verification:end -->'
 export function buildMobileConfirmationEmail(existing) {
   if (typeof existing !== 'string' || !existing.trim()) throw new Error('The existing confirmation template is required.')
   if (existing.startsWith(START) && existing.endsWith(END)) return existing
-  const code = '<div style="font-family:Arial,sans-serif;padding:24px;color:#142a1d;"><h1>Verify your Football Player account</h1><p>Enter this six-digit code in the app to finish creating your account.</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px;">{{ .Token }}</p><p>If you did not request this account, ignore this email.</p></div>'
+  const code = '<div style="font-family:Arial,sans-serif;padding:24px;color:#142a1d;"><h1>Verify your Football Player account</h1><p>Enter this code in the app to finish creating your account.</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px;">{{ .Token }}</p><p>If you did not request this account, ignore this email.</p></div>'
   return `${START}{{ $mode := "" }}{{ with .Data }}{{ $mode = printf "%v" .verification_mode }}{{ end }}{{ if eq $mode "app_code" }}${code}{{ else }}${existing}{{ end }}${END}`
 }
 
@@ -20,7 +20,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     return response.json()
   }
   const current = await read()
-  if (current.mailer_otp_length !== undefined && Number(current.mailer_otp_length) !== 6) throw new Error('Auth code length must match the app before applying this template.')
+  if (current.mailer_otp_length !== undefined && (!Number.isInteger(Number(current.mailer_otp_length)) || Number(current.mailer_otp_length) < 6 || Number(current.mailer_otp_length) > 10)) throw new Error('Auth code length must match the app before applying this template.')
   const key = 'mailer_templates_confirmation_content'
   const value = buildMobileConfirmationEmail(current[key])
   if (process.argv.includes('--apply') && value !== current[key]) {

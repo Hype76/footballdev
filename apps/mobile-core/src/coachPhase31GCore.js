@@ -1,4 +1,5 @@
 import { collapseCoachInvitesByPlayer } from './coachPhase31ECore.js'
+import { mergeUnfinishedDevelopmentDrafts } from './developmentOfflineCore.js'
 
 const normalize = (value) => String(value ?? '').trim()
 const asArray = (value) => Array.isArray(value) ? value : []
@@ -105,6 +106,13 @@ export function preserveCoachChatSummary(next, current) {
   })
 }
 
+export function preserveCoachDevelopmentSummary(next, current) {
+  return preserveCoachHomeSource(next, current, 'development', {
+    developmentDrafts: current.developmentDrafts,
+    developmentRecords: current.developmentRecords,
+  })
+}
+
 export function buildCoachHomeOperationalSnapshot(input = {}) {
   const matches = asArray(input.matches)
   const sessions = asArray(input.sessions)
@@ -113,7 +121,7 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
   const polls = asArray(input.polls)
   const messages = asArray(input.messages)
   const inviteRows = asArray(input.invites?.all)
-  const developmentRecords = asArray(input.development?.records)
+  const developmentDrafts = mergeUnfinishedDevelopmentDrafts(asArray(input.development?.drafts), asArray(input.localDevelopmentDrafts))
   const now = input.now || new Date()
   const nowTime = now instanceof Date ? now.getTime() : timestamp(now) ?? Date.now()
   const pendingAvailability = countPendingCoachAvailability(inviteRows, now, 7)
@@ -157,7 +165,8 @@ export function buildCoachHomeOperationalSnapshot(input = {}) {
     activePolls,
     calendar,
     chatRooms,
-    developmentRecords: input.development?.recordCount ?? developmentRecords.length,
+    developmentDrafts,
+    developmentRecords: developmentDrafts.length,
     errors: asArray(input.errors).map(normalize).filter(Boolean),
     matches,
     messages,
@@ -180,6 +189,7 @@ export function mergeCoachHomeOperationalSnapshots(primary, attention) {
     activePolls: attention.activePolls,
     chatRooms: attention.chatRooms,
     developmentRecords: attention.developmentRecords,
+    developmentDrafts: attention.developmentDrafts,
     errors: Object.freeze([...(primary.errors || []), ...(attention.errors || [])]),
     messages: attention.messages,
     partial: Boolean(primary.partial || attention.partial),

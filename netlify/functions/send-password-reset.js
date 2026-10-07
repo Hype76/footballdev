@@ -238,7 +238,7 @@ export function createPasswordRecoveryHandler({
       const actionLink = data?.properties?.action_link
       const code = body.appOnly ? String(data?.properties?.email_otp || '') : ''
 
-      if (!error && actionLink && (!body.appOnly || /^\d{6}$/.test(code))) {
+      if (!error && actionLink && (!body.appOnly || /^\d{6,10}$/.test(code))) {
         try {
           await sendRecoveryEmail({
             emailAppRole: resolveRecoveryEmailAppRole({ appRole: body.appRole, requestOrigin, accountType: data?.user?.user_metadata?.account_type }),

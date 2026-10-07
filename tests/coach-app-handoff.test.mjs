@@ -70,10 +70,10 @@ test('mobile confirmation selects an app code while preserving the complete web 
 test('mobile recovery sends a code without the web reset link or revealing account existence', async () => {
   process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'synthetic-only'
   const sent = []
-  const client = { rpc: async () => ({ data: { allowed: true } }), auth: { admin: { generateLink: async () => ({ data: { properties: { action_link: 'https://private.example.test', email_otp: '123456' } } }) } } }
+  const client = { rpc: async () => ({ data: { allowed: true } }), auth: { admin: { generateLink: async () => ({ data: { properties: { action_link: 'https://private.example.test', email_otp: '12345678' } } }) } } }
   const handler = createPasswordRecoveryHandler({ createAdminClient: () => client, sendRecoveryEmail: async payload => sent.push(payload), sleep: async () => {} })
   const result = await handler({ httpMethod: 'POST', headers: { origin: 'https://footballplayer.online' }, body: JSON.stringify({ email: 'coach@example.test', appRole: 'coach', appOnly: true }) })
   assert.equal(result.statusCode, 200); assert.equal(sent.length, 1)
-  assert.match(sent[0].html, /123456/); assert.doesNotMatch(sent[0].html, /private\.example|>Reset password<|href=/)
-  assert.doesNotMatch(result.body, /123456|coach@example/)
+  assert.match(sent[0].html, /12345678/); assert.doesNotMatch(sent[0].html, /private\.example|>Reset password<|href=/)
+  assert.doesNotMatch(result.body, /12345678|coach@example/)
 })

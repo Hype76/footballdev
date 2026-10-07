@@ -39,7 +39,7 @@ export async function createMobileAccount({ appRole, name, email, password, team
 
 export async function verifyMobileAccount(email, token) {
   const code = String(token || '').trim()
-  if (!/^\d{6}$/.test(code)) throw new Error('Enter the six-digit code from your newest email.')
+  if (!/^\d{6,10}$/.test(code)) throw new Error('Enter the verification code from your newest email.')
   const { error } = await supabase.auth.verifyOtp({ email: String(email || '').trim().toLowerCase(), token: code, type: 'signup' })
   if (error) throw new Error('That code could not be verified. Use the newest email or request another code.')
 }

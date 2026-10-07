@@ -8,6 +8,7 @@ import {
   filterCoachCalendarEvents,
   formatCoachCalendarEventDateTime,
   getCoachCalendarContextModel,
+  getCoachCalendarEventMarker,
   getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
   groupCoachCalendarEvents,
@@ -127,6 +128,31 @@ test('Calendar builds a Monday-first six-week month grid with event counts and d
   assert.equal(getCoachCalendarMonthKey('2026-08-11'), '2026-08')
   assert.equal(shiftCoachCalendarMonth('2026-08', -1), '2026-07')
   assert.equal(shiftCoachCalendarMonth('2026-12', 1), '2027-01')
+})
+
+test('Calendar month markers distinguish event types and retain every item behind compact overflow', () => {
+  const events = [
+    { id: 'match', calendarDate: '2026-10-07', sourceType: 'match_day' },
+    { id: 'training', calendarDate: '2026-10-07', eventType: 'training' },
+    { id: 'development', calendarDate: '2026-10-07', sourceType: 'assessment_session' },
+    { id: 'meeting', calendarDate: '2026-10-07', eventType: 'meeting' },
+  ]
+  const month = buildCoachCalendarMonth(events, '2026-10', '2026-10-07', new Date('2026-10-07T10:00:00Z'))
+  const day = month.days.find((item) => item.date === '2026-10-07')
+  assert.deepEqual(day.eventMarkers.map((marker) => marker.icon), ['sports-soccer', 'sports'])
+  assert.equal(day.hiddenEventCount, 2)
+  assert.equal(day.events.length, 4)
+  assert.equal(day.eventSummary, 'Match, Training, Development, Calendar event')
+  assert.equal(day.isSelected, true)
+  const emptyDay = month.days.find((item) => item.date === '2026-10-08')
+  assert.deepEqual(emptyDay.eventMarkers, [])
+  assert.equal(emptyDay.hiddenEventCount, 0)
+  assert.equal(emptyDay.eventSummary, '')
+  assert.deepEqual(getCoachCalendarEventMarker({ eventType: 'match' }), { icon: 'sports-soccer', label: 'Match' })
+  assert.deepEqual(getCoachCalendarEventMarker({ eventType: 'tournament' }), { icon: 'sports-soccer', label: 'Match' })
+  assert.deepEqual(getCoachCalendarEventMarker({ eventType: 'development' }), { icon: 'trending-up', label: 'Development' })
+  assert.deepEqual(getCoachCalendarEventMarker({ eventType: 'training', status: 'cancelled' }), { icon: 'cancel', label: 'Cancelled training' })
+  assert.deepEqual(getCoachCalendarEventMarker({ sourceType: 'match_day', status: 'postponed' }), { icon: 'cancel', label: 'Postponed match' })
 })
 
 test('Calendar routes completed sessions to History and exposes explicit authorised Team scope', () => {

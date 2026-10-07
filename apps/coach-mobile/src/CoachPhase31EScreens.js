@@ -5,6 +5,7 @@ import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { getCoachInviteHistory } from '../../mobile-core/src/coachInviteHistoryData'
 import { COACH_RESOURCE_CATEGORIES, groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
+import { mergeUnfinishedDevelopmentDrafts } from '../../mobile-core/src/developmentOfflineCore'
 import { subscribeDevelopmentSync, syncCoachDevelopmentDrafts } from './coachDevelopmentSync'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { CoachResourceUploadAction } from './CoachResourceUploadAction'
@@ -62,7 +63,6 @@ import {
   hasUsableCoachPhase31ECache,
   isCoachMatchAvailabilityRequestCreationApplied,
   isSyntheticCoachTarget,
-  resolveCoachDevelopmentForm,
   sanitizeCoachChatOfflineValue,
   summarizeCoachInvites,
   summarizeCoachPoll,
@@ -71,7 +71,7 @@ import {
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
-import { readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { readCoachDevelopmentDrafts, readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { useAttendanceOutbox, useAttendanceUiGuard } from '../../mobile-core/src/useAttendanceOutbox'
 import { AttendancePendingRows } from '../../mobile-core/src/AttendancePendingRows'
@@ -370,8 +370,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
 }
 
 function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user }) {
-  const [playerId, setPlayerId] = useState(data.players?.[0]?.id || '')
-  const [formId, setFormId] = useState(data.forms?.[0]?.id || '')
+  const [selection, setSelection] = useState({ scope: '', playerId: '', formId: '' })
   const [playerPickerOpen, setPlayerPickerOpen] = useState(false)
   const [formPickerOpen, setFormPickerOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -391,6 +390,28 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
   }, [scope, load, setNotice, closedEditor])
   useEffect(() => {
     const token = lifetime.current
+    if (token.selectionTouched || token.restoredDraft || (token.restoreStarted && token.restoreDrafts === data.drafts)) return
+    token.restoreStarted = true
+    token.restoreDrafts = data.drafts
+    const generation = token.restoreGeneration = (token.restoreGeneration || 0) + 1
+    const current = () => token === lifetime.current && token.active && !token.selectionTouched
+      && token.restoreGeneration === generation
+    void readCoachDevelopmentDrafts(user.id, context).then(local => {
+      if (!current()) return
+      const drafts = mergeUnfinishedDevelopmentDrafts(data.drafts || [], Object.values(local || {}))
+        .filter(draft => data.players?.some(player => player.id === draft.playerId)
+          && data.forms?.some(form => form.id === draft.formId))
+        .sort((left, right) => (Date.parse(right.savedAt || right.lastSavedAt) || 0)
+          - (Date.parse(left.savedAt || left.lastSavedAt) || 0))
+      const draft = drafts[0]
+      token.restoredDraft = Boolean(draft)
+      setSelection({ scope, playerId: draft?.playerId || '', formId: draft?.formId || '' })
+    }).catch(() => {
+      if (current()) token.setNotice('Saved drafts could not be checked. Select a Player and form to open saved work safely.')
+    })
+  }, [scope, user.id, context, data.drafts, data.players, data.forms])
+  useEffect(() => {
+    const token = lifetime.current
     return subscribeDevelopmentSync(event => {
       if (token !== lifetime.current || !token.active || !['finalised', 'finalisation_failed', 'discarded', 'discard_failed'].includes(event?.kind)
         || event.userId !== user.id || event.contextId !== context.id) return
@@ -403,13 +424,18 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
       const copy = event.kind === 'discarded' ? 'Assessment cancelled.' : event.shared === false ? 'Private development record finalised.' : 'Development record finalised and shared.'
       const key = `${scope}:${event.key}`
       setQueued(previous => ({ ...previous, [key]: { ...previous[key], state: 'complete', copy } }))
-      token.setNotice(token.closedEditor ? '' : copy)
+      setSelection(previous => previous.scope === scope && JSON.stringify([previous.playerId, previous.formId]) === event.key
+        ? { scope, playerId: '', formId: '' } : previous)
+      setClosedEditor(previous => previous === key ? '' : previous)
+      token.setNotice(copy)
       void token.load({ silent: true })
     })
   }, [scope, user.id, context.id])
-  const player = data.players?.find((item) => item.id === playerId) || data.players?.[0]
+  const playerId = selection.scope === scope ? selection.playerId : ''
+  const formId = selection.scope === scope ? selection.formId : ''
+  const player = data.players?.find((item) => item.id === playerId)
   const activePlayerId = player?.id || ''
-  const form = resolveCoachDevelopmentForm(data.forms, formId)
+  const form = data.forms?.find((item) => item.id === formId)
   const activeFormId = form?.id || ''
   const records = data.records?.filter((record) => !activePlayerId || record.playerId === activePlayerId) || []
   const selectedKey = JSON.stringify([activePlayerId, activeFormId])
@@ -432,13 +458,15 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
 
   const selectPlayer = (nextPlayer) => {
     if (!nextPlayer?.id) return
-    setPlayerId(nextPlayer.id)
+    lifetime.current.selectionTouched = true
+    setSelection(previous => ({ scope, playerId: nextPlayer.id, formId: previous.scope === scope ? previous.formId : '' }))
     setPlayerPickerOpen(false)
     setHistoryOpen(false)
   }
   const selectDevelopmentForm = (nextForm) => {
     if (!nextForm?.id) return
-    setFormId(nextForm.id)
+    lifetime.current.selectionTouched = true
+    setSelection(previous => ({ scope, playerId: previous.scope === scope ? previous.playerId : '', formId: nextForm.id }))
     setFormPickerOpen(false)
     if (nextForm.id !== activeFormId) setNotice(`${nextForm.name} selected. The form fields have been updated.`)
   }
@@ -448,14 +476,14 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
     <View style={styles.stack}>
       <View style={styles.stack}>
         <Pressable accessibilityLabel="Choose Development Player" accessibilityRole="button" accessibilityState={{ expanded: playerPickerOpen }} aria-expanded={playerPickerOpen} onPress={() => { setPlayerPickerOpen((current) => !current); setFormPickerOpen(false) }} style={styles.developmentSelector}>
-          <MaterialIcons color={styles.status.color} name="person" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.label}>Player</Text><Text numberOfLines={1} style={styles.heading}>{player?.playerName || 'Choose Player'}</Text></View><MaterialIcons color={styles.status.color} name={playerPickerOpen ? 'expand-less' : 'expand-more'} size={27} />
+          <MaterialIcons color={styles.status.color} name="person" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.label}>Player</Text><Text numberOfLines={1} style={styles.heading}>{player?.playerName || 'Select'}</Text></View><MaterialIcons color={styles.status.color} name={playerPickerOpen ? 'expand-less' : 'expand-more'} size={27} />
         </Pressable>
         {playerPickerOpen ? <View>{data.players.map((item) => {
           const selected = item.id === activePlayerId
           return <Pressable accessibilityLabel={`${item.playerName}. ${selected ? 'Selected Player' : 'Choose this Player'}`} accessibilityRole="radio" accessibilityState={{ selected }} key={item.id} onPress={() => selectPlayer(item)} style={styles.developmentChoice}><View style={styles.developmentChoiceCopy}><Text style={styles.label}>{item.playerName}</Text><Text style={styles.helper}>{selected ? 'Selected Player' : 'Choose Player'}</Text></View><MaterialIcons color={styles.status.color} name={selected ? 'check-circle' : 'chevron-right'} size={22} /></Pressable>
         })}</View> : null}
         <Pressable accessibilityLabel="Choose Development form" accessibilityRole="button" accessibilityState={{ expanded: formPickerOpen }} aria-expanded={formPickerOpen} onPress={() => { setFormPickerOpen((current) => !current); setPlayerPickerOpen(false) }} style={styles.developmentSelector}>
-          <MaterialIcons color={styles.status.color} name="description" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.label}>Form</Text><Text numberOfLines={1} style={styles.heading}>{form?.name || 'Choose form'}</Text></View><MaterialIcons color={styles.status.color} name={formPickerOpen ? 'expand-less' : 'expand-more'} size={27} />
+          <MaterialIcons color={styles.status.color} name="description" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.label}>Form</Text><Text numberOfLines={1} style={styles.heading}>{form?.name || 'Select'}</Text></View><MaterialIcons color={styles.status.color} name={formPickerOpen ? 'expand-less' : 'expand-more'} size={27} />
         </Pressable>
         {formPickerOpen ? <View>{data.forms.map((item) => {
           const selected = item.id === activeFormId
@@ -463,12 +491,12 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
         })}</View> : null}
       </View>
       <View style={styles.stack}>
-        <Pressable accessibilityLabel={historyOpen ? 'Hide recent forms' : 'Show recent forms'} accessibilityRole="button" accessibilityState={{ expanded: historyOpen }} aria-expanded={historyOpen} onPress={() => setHistoryOpen((current) => !current)} style={styles.developmentSelector}><MaterialIcons color={styles.status.color} name="history" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.heading}>Recent forms</Text><Text style={styles.helper}>{records.length} saved record{records.length === 1 ? '' : 's'} for {player?.playerName || 'this Player'}</Text></View><MaterialIcons color={styles.status.color} name={historyOpen ? 'expand-less' : 'chevron-right'} size={27} /></Pressable>
+        <Pressable accessibilityLabel={historyOpen ? 'Hide recent forms' : 'Show recent forms'} accessibilityRole="button" accessibilityState={{ expanded: historyOpen }} aria-expanded={historyOpen} onPress={() => setHistoryOpen((current) => !current)} style={styles.developmentSelector}><MaterialIcons color={styles.status.color} name="history" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.heading}>Recent forms</Text><Text style={styles.helper}>{records.length} saved record{records.length === 1 ? '' : 's'}{player ? ` for ${player.playerName}` : ''}</Text></View><MaterialIcons color={styles.status.color} name={historyOpen ? 'expand-less' : 'chevron-right'} size={27} /></Pressable>
         {historyOpen && data.historyLoading ? <Text accessibilityLiveRegion="polite" style={styles.body}>Checking recent records...</Text> : null}
         {historyOpen && data.historyError ? <View style={styles.stack}><Text accessibilityLiveRegion="polite" style={styles.body}>{data.historyError}</Text><Button label="Retry recent records" onPress={() => void load({ silent: true })} secondary styles={styles} /></View> : null}
         {historyOpen ? (records.length ? records.slice(0, 10).map((record) => <Text key={record.id} style={styles.body}>{record.date || 'No date'} | {record.status} | {record.formName || 'Development record'} | {record.averageScore ?? 'No score'}</Text>) : !data.historyLoading && !data.historyError ? <Text style={styles.body}>No Development history for this Player.</Text> : null) : null}
       </View>
-      {editorClosed ? <View style={styles.stack}>
+      {!player || !form ? <Text style={styles.body}>Select a Player and form to start Development.</Text> : editorClosed ? <View style={styles.stack}>
         <Text accessibilityLiveRegion="polite" style={styles.body}>{selectedQueued?.copy || 'Your saved assessment is kept on this phone.'}</Text>
         <Button disabled={selectedQueued?.kind === 'discard' && selectedQueued?.state === 'pending'} label={selectedQueued?.state === 'complete' ? 'Start another assessment' : selectedQueued?.kind === 'discard' ? selectedQueued.state === 'failed' ? 'Retry cancellation' : 'Waiting for cancellation to sync' : 'Open saved assessment'} onPress={() => { if (selectedQueued?.kind === 'discard' && selectedQueued.state === 'failed') void syncCoachDevelopmentDrafts(user, context); else setClosedEditor('') }} secondary styles={styles} />
       </View> : <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId && !(selectedQueued?.state === 'complete' && ['discard', 'discarded'].includes(selectedQueued.kind) && item.id === selectedQueued.draftId))} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onQueued={onQueued} />}

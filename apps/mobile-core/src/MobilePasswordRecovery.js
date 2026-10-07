@@ -35,7 +35,7 @@ export function MobilePasswordRecovery({ appRole, email, onComplete, onCancel, o
         assertPasswordPolicy(password)
         if (password !== confirmation) throw new Error('Your passwords do not match.')
         if (!verified.current) {
-          if (!/^\d{6}$/.test(code.trim())) throw new Error('Enter the six-digit code from your email.')
+          if (!/^\d{6,10}$/.test(code.trim())) throw new Error('Enter the recovery code from your email.')
           const result = await supabase.auth.verifyOtp({ email, token: code.trim(), type: 'recovery' })
           if (result.error || !result.data?.session || result.data.user?.email?.toLowerCase() !== email) throw new Error('This code could not be verified. Check your newest email or request another code.')
           verified.current = true

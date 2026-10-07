@@ -82,13 +82,14 @@ function useDomainStyles(palette) {
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 8, padding: 14 },
     calendar: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 10, padding: 10 },
-    calendarDay: { alignItems: 'center', borderColor: 'transparent', borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 52, paddingVertical: 5 },
+    calendarDay: { alignItems: 'center', borderColor: 'transparent', borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 58, minWidth: 0, paddingVertical: 5 },
     calendarDayOutside: { backgroundColor: palette.background, borderColor: palette.border, borderStyle: 'dashed' },
     calendarDaySelected: { backgroundColor: palette.selected, borderColor: palette.accentText, borderStyle: 'solid' },
     calendarDayToday: { borderColor: palette.accentText },
     calendarDayText: { color: palette.textPrimary, fontSize: 13, fontWeight: '800' },
     calendarDayTextSelected: { color: palette.selectedForeground },
     calendarEventCount: { color: palette.accentText, fontSize: 10, fontWeight: '900', minHeight: 13 },
+    calendarEventMarkers: { alignItems: 'center', flexDirection: 'row', gap: 2, justifyContent: 'center', minHeight: 16 },
     calendarHeader: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
     calendarMonth: { color: palette.textPrimary, flex: 1, fontSize: 17, fontWeight: '900', textAlign: 'center' },
     calendarNav: { alignItems: 'center', backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 40, minWidth: 74, paddingHorizontal: 8 },
@@ -648,9 +649,10 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
           <View key={week[0].date} style={styles.calendarWeek}>
             {week.map((day) => (
               <Pressable
-                accessibilityLabel={`${day.dateLabel}, ${day.events.length} ${day.events.length === 1 ? 'event' : 'events'}`}
+                accessibilityLabel={`${day.dateLabel}, ${day.events.length} ${day.events.length === 1 ? 'event' : 'events'}${day.eventSummary ? `: ${day.eventSummary}` : ''}`}
                 accessibilityRole="button"
                 accessibilityState={{ selected: day.isSelected }}
+                aria-selected={day.isSelected}
                 key={day.date}
                 onPress={() => {
                   setSelectedDate(day.date)
@@ -660,7 +662,10 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
                 style={[styles.calendarDay, !day.inMonth && styles.calendarDayOutside, day.isToday && styles.calendarDayToday, day.isSelected && styles.calendarDaySelected]}
               >
                 <Text style={[styles.calendarDayText, day.isSelected && styles.calendarDayTextSelected]}>{day.dayNumber}</Text>
-                <Text style={[styles.calendarEventCount, day.isSelected && styles.calendarDayTextSelected]}>{day.events.length || ''}</Text>
+                <View accessible={false} style={styles.calendarEventMarkers}>
+                  {day.eventMarkers.map((marker, index) => <MaterialIcons accessible={false} key={`${marker.icon}:${index}`} name={marker.icon} size={14} color={day.isSelected ? palette.selectedForeground : palette.accentText} />)}
+                </View>
+                <Text accessible={false} style={[styles.calendarEventCount, day.isSelected && styles.calendarDayTextSelected]}>{day.hiddenEventCount ? `+${day.hiddenEventCount}` : ''}</Text>
               </Pressable>
             ))}
           </View>
