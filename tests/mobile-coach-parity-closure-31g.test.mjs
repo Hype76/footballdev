@@ -73,7 +73,7 @@ test('Home operational snapshot uses canonical domain results without inventing 
       { id: 'cancelled-training', eventType: 'training', startsAt: '2026-08-24T18:00:00Z', status: 'cancelled', title: 'Cancelled Training' },
     ],
     chatRooms: [{ id: 'r1', unreadCount: 2 }],
-    development: { records: [{ id: 'd1' }, { id: 'd2' }] },
+    development: { drafts: [{ id: 'd1', playerId: 'p1', formId: 'f1', status: 'draft', values: { score: 4 } }, { id: 'd2', playerId: 'p2', formId: 'f1', status: 'draft', notes: 'Continue finishing practice' }] },
     invites: { all: [
       { eventDate: '2026-08-30', eventId: 'm1', id: 'i1', kind: 'match', playerId: 'p1', sentAt: '2026-08-23T09:00:00Z', status: 'pending' },
       { eventDate: '2026-08-30', eventId: 'm1', id: 'i2', kind: 'match', playerId: 'p2', sentAt: '2026-08-23T09:00:00Z', status: 'available' },

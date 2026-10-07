@@ -13,7 +13,8 @@ const empty = extract('function Empty(', '\nexport function CoachPhase31EScreen(
 const entry = `import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';import {createRoot} from 'react-dom/client';
 import {Alert,Keyboard,Pressable,StyleSheet,Text,TextInput,View} from 'react-native';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
-import {resolveCoachDevelopmentForm} from './apps/mobile-core/src/coachPhase31ECore.js';
+import {mergeUnfinishedDevelopmentDrafts} from './apps/mobile-core/src/developmentOfflineCore.js';
+import {readCoachDevelopmentDrafts} from './apps/coach-mobile/src/offline';
 import {DevelopmentOfflineEditor as ActualEditor} from './apps/coach-mobile/src/DevelopmentOfflineEditor.js';
 import {subscribeDevelopmentSync,notifyDevelopmentSync} from './apps/coach-mobile/src/coachDevelopmentSync.js';
 import {useCoachDevelopmentSync} from './apps/coach-mobile/src/useCoachDevelopmentSync.js';
@@ -51,6 +52,15 @@ try {
   page.on('pageerror',error=>errors.push(error.message))
   await page.route('http://localhost:9882/**',route=>route.fulfill({contentType:'text/html',body:'<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>'}))
   await page.goto('http://localhost:9882/');await page.addScriptTag({content:built.outputFiles[0].text})
+  const chooseAssessment=async()=>{
+    await page.getByRole('button',{name:'Choose Development Player',exact:true}).click()
+    await page.getByRole('radio',{name:'Alex. Choose this Player',exact:true}).click()
+    await page.getByRole('button',{name:'Choose Development form',exact:true}).click()
+    await page.getByRole('radio',{name:'Elite attacking review. Choose this form',exact:true}).click()
+    await page.getByLabel('Finishing',{exact:true}).waitFor()
+  }
+  await page.getByText('Select a Player and form to start Development.',{exact:true}).waitFor()
+  await chooseAssessment()
   await page.getByLabel('Finishing',{exact:true}).fill('7')
   await page.getByText('Synced. Private draft saved to your account.',{exact:true}).waitFor()
   const start=await page.evaluate(()=>performance.now())
@@ -76,18 +86,21 @@ try {
   await page.getByText(/Sending needs a retry/).waitFor();assert.equal(await page.getByLabel('Finishing',{exact:true}).isEditable(),false)
   await page.getByRole('button',{name:'Retry sending',exact:true}).click()
   await page.getByRole('button',{name:'Open saved assessment',exact:true}).waitFor({timeout:1000})
-  await page.getByRole('button',{name:'Start another assessment',exact:true}).waitFor()
+  await page.getByText('Development record finalised and shared.',{exact:true}).waitFor()
+  await page.getByText('Select a Player and form to start Development.',{exact:true}).waitFor()
   await page.screenshot({path:'output/playwright/development-background-domain/completed-light-390.png',fullPage:true})
   assert.equal(await page.evaluate(()=>window.loads),1);assert.equal(await page.evaluate(()=>Object.keys(window.finalRecords).length),1)
-  await page.getByRole('button',{name:'Start another assessment',exact:true}).click()
-  await page.getByLabel('Finishing',{exact:true}).waitFor();assert.equal(await page.getByLabel('Finishing',{exact:true}).inputValue(),'')
+  await chooseAssessment()
+  assert.equal(await page.getByLabel('Finishing',{exact:true}).inputValue(),'')
   const priorLoads=await page.evaluate(()=>window.loads)
   await page.evaluate(()=>window.account('other'))
-  await page.getByLabel('Finishing',{exact:true}).waitFor()
+  await page.getByText('Select a Player and form to start Development.',{exact:true}).waitFor()
+  assert.equal(await page.getByLabel('Finishing',{exact:true}).count(),0)
+  await chooseAssessment()
   await page.evaluate(()=>window.emit({kind:'finalised',userId:'coach',contextId:'team',key:JSON.stringify(['one','form']),shared:true}))
   assert.equal(await page.evaluate(()=>window.loads),priorLoads,'Old account completion cannot refresh or close the new account')
   assert.equal(await page.getByRole('button',{name:'Open saved assessment',exact:true}).count(),0)
-  await page.evaluate(()=>window.account('coach'));await page.getByLabel('Finishing',{exact:true}).waitFor()
+  await page.evaluate(()=>window.account('coach'));await page.getByText('Select a Player and form to start Development.',{exact:true}).waitFor();await chooseAssessment()
   await page.evaluate(()=>window.savedCallbacks[0]({kind:'finalisation',shared:true,draftId:'stale',playerId:'one',formId:'form'}))
   assert.equal(await page.getByRole('button',{name:'Open saved assessment',exact:true}).count(),0,'A/B/A callback from an earlier committed scope is ignored')
   await page.getByLabel('Finishing',{exact:true}).fill('6');await page.getByText('Synced. Private draft saved to your account.',{exact:true}).waitFor()
@@ -96,7 +109,16 @@ try {
   await page.waitForFunction(()=>Object.values(JSON.parse(localStorage.getItem('drafts:coach'))).every(d=>!d.finalisation))
   assert.equal(await page.evaluate(()=>window.loads),loadsBeforeExit,'Background completion never updates an exited domain')
   assert.equal(await page.evaluate(()=>Object.keys(window.finalRecords).length),2,'App-level worker continues after leaving the full Development screen')
-  await page.evaluate(()=>window.show(true));await page.getByLabel('Finishing',{exact:true}).waitFor()
+  await page.evaluate(()=>window.show(true));await page.getByText('Select a Player and form to start Development.',{exact:true}).waitFor()
+  await chooseAssessment()
+  await page.getByLabel('Finishing',{exact:true}).fill('8')
+  await page.getByLabel('Coach summary note',{exact:true}).fill('Keep scanning before receiving.')
+  await page.getByText('Synced. Private draft saved to your account.',{exact:true}).waitFor()
+  await page.evaluate(()=>window.show(false));await page.getByText('More',{exact:true}).waitFor()
+  await page.evaluate(()=>window.show(true))
+  await page.getByLabel('Finishing',{exact:true}).waitFor()
+  assert.equal(await page.getByLabel('Finishing',{exact:true}).inputValue(),'8','Unfinished local draft restores the correct selection and rating')
+  assert.equal(await page.getByLabel('Coach summary note',{exact:true}).inputValue(),'Keep scanning before receiving.','Local draft notes survive leaving and reopening Development')
   await mkdir('output/playwright/development-background-domain',{recursive:true})
   for(const mode of ['light','dark'])for(const width of [320,390]){await page.evaluate(value=>window.mode(value),mode);await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:`output/playwright/development-background-domain/${mode}-${width}.png`,fullPage:true})}
   assert.deepEqual(errors,[])

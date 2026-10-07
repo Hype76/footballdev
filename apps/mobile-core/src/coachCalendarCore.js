@@ -189,6 +189,23 @@ export function shiftCoachCalendarMonth(monthKey, amount) {
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
+export function getCoachCalendarEventMarker(event = {}) {
+  const source = normalizeKey(event.sourceType)
+  const type = normalizeKey(event.eventType)
+  const status = normalizeKey(event.status)
+  const marker = source === 'match_day' || type === 'match' || type === 'tournament'
+    ? { icon: 'sports-soccer', label: 'Match' }
+    : type === 'training'
+      ? { icon: 'sports', label: 'Training' }
+      : source === 'assessment_session' || type === 'development'
+        ? { icon: 'trending-up', label: 'Development' }
+        : { icon: 'event', label: 'Calendar event' }
+  if (['cancelled', 'postponed'].includes(status)) {
+    return Object.freeze({ icon: 'cancel', label: `${status === 'cancelled' ? 'Cancelled' : 'Postponed'} ${marker.label.toLowerCase()}` })
+  }
+  return Object.freeze(marker)
+}
+
 export function buildCoachCalendarMonth(events = [], monthKey = getCoachCalendarMonthKey(), selectedDate = '', now = new Date()) {
   const normalizedMonth = getCoachCalendarMonthKey(monthKey)
   const [year, month] = normalizedMonth.split('-').map(Number)
@@ -212,6 +229,9 @@ export function buildCoachCalendarMonth(events = [], monthKey = getCoachCalendar
       dateLabel: new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC', year: 'numeric' }).format(date),
       dayNumber: date.getUTCDate(),
       events: dayEvents,
+      eventMarkers: Object.freeze(dayEvents.slice(0, 2).map(getCoachCalendarEventMarker)),
+      hiddenEventCount: Math.max(0, dayEvents.length - 2),
+      eventSummary: dayEvents.map((event) => getCoachCalendarEventMarker(event).label).join(', '),
       inMonth: key.startsWith(normalizedMonth),
       isSelected: key === selectedDate,
       isToday: key === today,

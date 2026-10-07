@@ -52,6 +52,12 @@ try {
     assert.equal(await page.getByText('Quick access', {exact:true}).count(), 0)
     await page.getByRole('button', {name: /Availability next 7 days/}).click()
     assert.equal(await page.evaluate(() => window.route), 'invites')
+    for (const label of ['Availability', 'Chat', 'Polls', 'Development']) {
+      assert.equal(await page.getByRole('button', { name: label, exact: true }).count(), 0, `${label} duplicate action removed`)
+    }
+    await page.getByRole('button', { name: /^Open development:/ }).click()
+    assert.equal(await page.evaluate(() => window.route), 'development')
+    assert.ok((await page.getByRole('button', { name: /^Open development:/ }).boundingBox()).height >= 44)
     await page.getByRole('button', { name: /^Next match:/ }).click()
     assert.equal(await page.evaluate(() => window.route), 'matchday')
     assert.deepEqual(await page.evaluate(() => window.target), { fixtureId: 'next-fixture' })
@@ -76,7 +82,7 @@ try {
   assert.deepEqual(errors, [])
   await page.evaluate(() => window.plan('matchday'))
   await page.getByText('Next session', { exact: true }).waitFor({ state: 'hidden' })
-  for (const label of ['Chat', 'Unread Chat', 'Polls', 'Active Polls', 'Development', 'Development records']) {
+  for (const label of ['Chat', 'Unread Chat', 'Polls', 'Active Polls', 'Development', 'Open development']) {
     assert.equal(await page.getByText(label, { exact: true }).count(), 0, `${label} must be hidden for Matchday`)
   }
   await page.getByRole('button', { name: /Availability next 7 days/ }).click()
@@ -89,7 +95,7 @@ try {
   assert.equal(await page.getByRole('button', { name: /^Next match:/ }).count(), 0)
   for (const plan of ['team', 'club', 'single_team']) {
     await page.evaluate(value => window.plan(value), plan)
-    await page.getByText('Development records', { exact: true }).waitFor()
+    await page.getByText('Open development', { exact: true }).waitFor()
     await page.getByText('Next session', { exact: true }).waitFor()
   }
   assert.deepEqual(errors, [])

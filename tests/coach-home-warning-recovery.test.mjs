@@ -2,14 +2,15 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import test from 'node:test'
-import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState, mergeCoachHomeOperationalSnapshots } from '../apps/mobile-core/src/coachPhase31GCore.js'
+import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary, preserveCoachChatSummary, preserveCoachDevelopmentSummary, updateCoachHomeSourceState, mergeCoachHomeOperationalSnapshots } from '../apps/mobile-core/src/coachPhase31GCore.js'
+import { mergeUnfinishedDevelopmentDrafts } from '../apps/mobile-core/src/developmentOfflineCore.js'
 import { isMatchdayPlan, isMobileRouteAllowed } from '../apps/mobile-core/src/matchdayPolicyCore.js'
 
 // Execute the real host callback with synthetic loaders, never live user data.
 const source = process.env.COACH_HOME_BASELINE
   ? execFileSync('git', ['show', `${process.env.COACH_HOME_BASELINE}:apps/coach-mobile/App.js`], { encoding: 'utf8' })
   : readFileSync('apps/coach-mobile/App.js', 'utf8')
-const body = source.slice(source.indexOf('async ({ refresh = false, chatOnly = false, availabilityOnly = false } = {}) => {'), source.indexOf('\n  }, [activeContext, selectedMobileUser, user?.id])') + 4)
+const body = source.slice(source.indexOf('async ({ refresh = false, chatOnly = false, availabilityOnly = false'), source.indexOf('\n  }, [activeContext, selectedMobileUser, user?.id])') + 4)
 assert.ok(body.startsWith('async') && body.endsWith('}'))
 const baselineCore = process.env.COACH_HOME_BASELINE
   ? execFileSync('git', ['show', `${process.env.COACH_HOME_BASELINE}:apps/mobile-core/src/coachPhase31GCore.js`], { encoding: 'utf8' })
@@ -27,6 +28,8 @@ function harness(errors = []) {
     selectedMobileUser: { id: 'synthetic-coach', clubId: 'synthetic-club', activeTeamId: 'synthetic-team' },
     isMobileRouteAllowed, isMatchdayPlan,
     requestIdRef: { current: 0 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
+    developmentRefreshIdRef: { current: 0 }, homeStateRef: { current: state },
+    readCoachDevelopmentDrafts: async () => ({}), mergeUnfinishedDevelopmentDrafts, preserveCoachDevelopmentSummary,
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
     readMobileResource: async (user, key, loader, options) => { reads.push({ key, options }); return loader() },
     getCoachInvitesAndAvailability: async () => ({ all: [] }), getCoachChatRooms: async () => [{ id: 'fresh-room', unreadCount: 5 }],
@@ -122,7 +125,9 @@ test('full forced retry clears every source failure and forces primary and atten
   assert.deepEqual(h.state().errors, [])
   assert.equal(h.state().partial, false)
   assert.equal(h.reads[0].options.force, true)
-  assert.deepEqual(h.attentionOptions, [{ force: true }])
+  assert.equal(h.attentionOptions.length, 1)
+  assert.equal(h.attentionOptions[0].force, true)
+  if (!process.env.COACH_HOME_BASELINE) assert.equal(typeof h.attentionOptions[0].readLocalDevelopmentDrafts, 'function')
   assert.ok(source.includes('homeState.partial && !homeState.stale ? <Pressable'))
   assert.ok(source.includes('onPress={() => reloadHome({ refresh: true })}'))
 })
@@ -167,4 +172,25 @@ for (const transition of ['newer full refresh', 'context reset']) test(`late ful
   attention.resolve({ ...healthy(), errors: ['polls:late'], partial: true })
   await old
   assert.equal(h.state(), current)
+})
+
+for (const failure of [false, true]) test(`slow offline Home hydration preserves newer Development ${failure ? 'failure' : 'count'}`, async () => {
+  const h = harness(), cached = deferred(), started = deferred()
+  h.deps.selectedMobileUser.isOfflineProfile = true
+  h.deps.readCoachOfflineResources = () => { started.resolve(); return cached.promise }
+  const full = h.load({ refresh: true })
+  await started.promise
+  h.deps.readCoachDevelopmentDrafts = failure
+    ? async () => { throw new Error('Synthetic authority failure') }
+    : async () => ({ first: { id: 'first', playerId: 'first', formId: 'form', status: 'pending' },
+      second: { id: 'second', playerId: 'second', formId: 'form', status: 'pending' } })
+  await h.load({ developmentOnly: true })
+  const newer = h.state()
+  h.deps.homeStateRef.current = newer
+  cached.resolve({ savedAt: 'older', resources: { home: { ...healthy(),
+    developmentDrafts: [{ id: 'old', playerId: 'old', formId: 'form', status: 'draft' }], developmentRecords: 13 } } })
+  await full
+  assert.equal(h.state().developmentRecords, newer.developmentRecords)
+  assert.deepEqual(h.state().developmentDrafts, newer.developmentDrafts)
+  assert.deepEqual(h.state().errors, newer.errors)
 })

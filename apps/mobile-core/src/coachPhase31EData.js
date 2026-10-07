@@ -105,11 +105,17 @@ async function sendChatWithSafeRetry(name, parameters) {
 
 export async function getCoachDevelopmentSummary(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const { count, error } = await supabase.from('evaluations')
-    .select('id', { count: 'exact', head: true })
+  const { data, error } = await supabase.from('evaluation_drafts')
+    .select('id,player_id,draft_data,status,last_saved_at')
     .eq('club_id', user.clubId).eq('team_id', user.activeTeamId)
+    .eq('created_by_user_id', user.id).eq('status', 'draft').eq('report_type', 'development_record')
   if (error) throw error
-  return { recordCount: count || 0 }
+  return { drafts: (data || []).map(draft => ({
+    id: draft.id, playerId: normalize(draft.player_id),
+    formId: normalize(draft.draft_data?.selectedFeedbackFormId || draft.draft_data?.draftContext?.formId),
+    values: draft.draft_data?.responseValues || {}, notes: draft.draft_data?.notes || '',
+    status: draft.status, savedAt: draft.last_saved_at,
+  })) }
 }
 
 export async function getCoachDevelopmentWorkspace(user, { onWorkspaceReady } = {}) {
@@ -121,7 +127,7 @@ export async function getCoachDevelopmentWorkspace(user, { onWorkspaceReady } = 
     supabase.from('players').select('id,player_name,section,status,team,team_id').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).neq('status', 'archived').order('player_name'),
     supabase.from('feedback_forms').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).is('archived_at', null).order('name'),
     supabase.from('form_fields').select('*').eq('club_id', user.clubId).or(`team_id.eq.${user.activeTeamId},team_id.is.null`).eq('is_enabled', true).order('order_index'),
-    supabase.from('evaluation_drafts').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by_user_id', user.id).eq('status', 'draft').order('last_saved_at', { ascending: false }).limit(25),
+    supabase.from('evaluation_drafts').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by_user_id', user.id).eq('status', 'draft').eq('report_type', 'development_record').order('last_saved_at', { ascending: false }).limit(25),
     supabase.from('feedback_form_starter_templates').select('*').eq('is_current', true).order('age_min').order('name'),
     supabase.from('feedback_form_starter_preferences').select('template_key,hidden').eq('club_id', user.clubId).eq('team_id', user.activeTeamId),
     supabase.from('teams').select('age_group').eq('club_id', user.clubId).eq('id', user.activeTeamId).maybeSingle(),
