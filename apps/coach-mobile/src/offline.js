@@ -322,7 +322,10 @@ export async function updateCoachDevelopmentDraft(userId, context, key, change) 
 
 export function saveLocalCoachDevelopmentDraft(userId, context, input) {
   return updateCoachDevelopmentDraft(userId, context, developmentDraftKey(input.playerId, input.formId),
-    previous => editLocalDevelopmentDraft(previous, { ...input, id: previous?.id || Crypto.randomUUID() }))
+    previous => {
+      if (previous?.finalisation) throw new Error('This record is already queued to finish. Your saved values have been kept.')
+      return editLocalDevelopmentDraft(previous, { ...input, id: previous?.id || Crypto.randomUUID() })
+    })
 }
 
 export async function countPendingCoachDevelopmentDrafts(userId) {

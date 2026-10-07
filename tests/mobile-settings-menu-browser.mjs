@@ -7,6 +7,9 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 // Render the actual app functions and styles, with only native services and data replaced.
+const coachSource = await readFile('apps/coach-mobile/App.js', 'utf8')
+assert.match(coachSource, /label="Add a coach" iconKey="action\.add-player"/, 'Add a coach uses the person-plus icon')
+assert.match(await readFile('apps/mobile-core/src/mobileIconSystem.js', 'utf8'), /'action\.add-player': 'person-add-alt'/)
 const root = process.cwd()
 const modules = path.join(root, 'apps/coach-mobile/node_modules')
 const out = 'output/playwright/settings-menu'
@@ -114,6 +117,8 @@ const result = await build({ stdin: { contents: entry, resolveDir: root, loader:
       export async function readCoachTeamAdministration(user){return {canManage: user.role === 'admin' && Number(user.roleRank) >= 90 || user.role === 'head_manager' && Number(user.roleRank) >= 70,squadEnabled:false,squadHoursBefore:48,availabilityEnabled:false,availabilityHoursBefore:24};}
       export async function saveCoachTeamReminders(){throw new Error('Read-only coach must not save reminders');}
       export async function addCoachFromPhone(){throw new Error('Read-only coach must not invite staff');}
+      export async function readCoachTeamCoaches(user){return {...await readCoachTeamAdministration(user),coaches:[]};}
+      export async function removeCoachFromTeam(){throw new Error('Menu discoverability must not remove staff');}
     ` }))
     builder.onResolve({ filter: /mobileKitCache$/ }, () => ({ path: 'kit-cache', namespace: 'kit-fixture' }))
     builder.onResolve({ filter: /coachTeamKitsData$/ }, () => ({ path: 'kit-data', namespace: 'kit-fixture' }))

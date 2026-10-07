@@ -1313,7 +1313,7 @@ function SettingsScreen({
       {context.teamId ? <SettingsSection id="team-reminders" label="Team reminders" iconKey="settings.notifications">
         <CoachTeamAdministration key={`reminders:${context.id}`} user={user} context={context} palette={palette} styles={styles} section="reminders" />
       </SettingsSection> : null}
-      {context.teamId && Number(context.roleRank) >= 70 ? <SettingsSection id="team-coaches" label="Add a coach" iconKey="more.team">
+      {context.teamId && Number(context.roleRank) >= 70 ? <SettingsSection id="team-coaches" label="Add a coach" iconKey="action.add-player">
         <CoachTeamAdministration key={`settings-coaches:${context.id}`} user={user} context={context} palette={palette} styles={styles} section="coaches" />
       </SettingsSection> : null}
       <SettingsSection id="display" label="Display" iconKey="settings.appearance">

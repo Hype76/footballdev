@@ -2,11 +2,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Pressable, Text, TextInput, View } from 'react-native'
 import { developmentDraftKey, developmentFormFingerprint } from '../../mobile-core/src/developmentOfflineCore'
 import { developmentInputIsSaved, developmentSaveStatus } from '../../mobile-core/src/developmentSaveStatusCore'
-import { finalizeCoachDevelopmentRecord } from '../../mobile-core/src/coachPhase31EData'
 import { readCoachDevelopmentDrafts, saveLocalCoachDevelopmentDraft, updateCoachDevelopmentDraft } from './offline'
 import { notifyDevelopmentSync, subscribeDevelopmentSync, syncCoachDevelopmentDrafts } from './coachDevelopmentSync'
 
-export function DevelopmentOfflineEditor({ context: suppliedContext, form, player, serverDraft, styles, user, stale, onFinalised }) {
+export function DevelopmentOfflineEditor({ context: suppliedContext, form, player, serverDraft, styles, user, stale, onFinalised, onQueued }) {
   const context = useMemo(() => ({ id: suppliedContext.id, authorityId: suppliedContext.authorityId,
     authoritySource: suppliedContext.authoritySource, role: suppliedContext.role, clubId: suppliedContext.clubId, teamId: suppliedContext.teamId }),
   [suppliedContext.id, suppliedContext.authorityId, suppliedContext.authoritySource, suppliedContext.role, suppliedContext.clubId, suppliedContext.teamId])
@@ -32,8 +31,8 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
   }, [scope])
   useLayoutEffect(() => {
     const token = lifetime.current
-    if (token?.active && token.scope === scope) Object.assign(token, { userId: user.id, context, key, serverDraft })
-  }, [scope, user.id, context, key, serverDraft])
+    if (token?.active && token.scope === scope) Object.assign(token, { userId: user.id, context, key, serverDraft, onFinalised })
+  }, [scope, user.id, context, key, serverDraft, onFinalised])
   const capture = () => { const token = lifetime.current; return () => token === lifetime.current && token?.active && token.hydrated === true && token.scope === scope }
   const unsaved = ready && !developmentInputIsSaved(input, draft)
   useEffect(() => {
@@ -43,9 +42,10 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
     inputRef.current = { values: {}, notes: '' }
     setInput(inputRef.current); setDraft(null); setSaving(0); setError(''); setSyncError(''); setFinalising(false); setFinaliseError('')
     const read = async (hydrate = false) => {
+      const generation = token.completedGeneration || 0
       try {
         let next = (await readCoachDevelopmentDrafts(userId, context))[key] || null
-        if (!current()) return
+        if (!current() || generation !== (token.completedGeneration || 0)) return
         if (!next && hydrate && serverDraft) {
           const saved = serverDraft
           next = await updateCoachDevelopmentDraft(userId, context, key, current => current || {
@@ -53,7 +53,7 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
             status: 'synced', savedAt: saved.lastSavedAt, syncedAt: saved.lastSavedAt,
           })
         }
-        if (!current()) return
+        if (!current() || generation !== (token.completedGeneration || 0)) return
         setDraft(previous => previous && next && (previous.revision > next.revision
           || (previous.revision === next.revision && previous.serverVersion > next.serverVersion)) ? previous : next)
         if (next?.status === 'synced' && developmentInputIsSaved(inputRef.current, next)) setSyncError('')
@@ -68,7 +68,15 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
       }
     }
     void read(true)
-    const unsubscribe = subscribeDevelopmentSync(() => void read())
+    const unsubscribe = subscribeDevelopmentSync(event => {
+      if (!current()) return
+      if (event?.kind === 'finalised' && event.userId === userId && event.contextId === context.id && event.key === key) {
+        token.completedGeneration = (token.completedGeneration || 0) + 1
+        inputRef.current = { values: {}, notes: '' }
+        setInput(inputRef.current); setDraft(null); setFinaliseError('')
+        token.onFinalised?.({ shared: event.shared })
+      } else void read()
+    })
     return () => { token.active = false; unsubscribe() }
   }, [scope])
 
@@ -84,7 +92,7 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
       const saved = await saveLocalCoachDevelopmentDraft(user.id, context, { playerId: player.id, formId: form.id, formFingerprint: developmentFormFingerprint(form), ...next })
       if (!current()) return null
       setDraft(previous => previous && previous.revision > saved.revision ? previous : saved)
-      notifyDevelopmentSync()
+      notifyDevelopmentSync({ kind: 'queued' })
       return saved
     } catch (failure) {
       if (current() && token.edit === edit) setError(failure.message || 'This change has not been saved. Keep this screen open and try saving again.')
@@ -98,6 +106,29 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
     setSyncError('')
     return syncCoachDevelopmentDrafts(user, suppliedContext, current).catch(failure => { if (current()) setSyncError(failure.message) })
   }
+  const save = async () => {
+    const current = capture()
+    const saved = await persist(inputRef.current)
+    if (!saved || !current()) return
+    onQueued?.({ kind: 'draft', draftId: saved.id, playerId: player.id, formId: form.id })
+  }
+  const retrySending = async () => {
+    const current = capture()
+    if (!current() || !draft?.finalisation) return
+    setDraft(previous => previous ? { ...previous, finalisationError: '' } : previous)
+    try {
+      const pending = await updateCoachDevelopmentDraft(user.id, context, key, saved => {
+        if (!current()) throw new Error('The selected account or team changed.')
+        return saved?.id === draft.id && saved.finalisation ? { ...saved, finalisationError: '' } : saved
+      })
+      if (!current() || !pending?.finalisation) return
+      notifyDevelopmentSync({ kind: 'queued' })
+      onQueued?.({ kind: 'finalisation', shared: pending.finalisation.shareWithParent !== false,
+        draftId: pending.id, playerId: player.id, formId: form.id })
+    } catch (failure) {
+      if (current()) setFinaliseError(`Your saved record is kept on this phone. ${failure.message || 'Retry sending when connected.'}`)
+    }
+  }
   const finalise = (requestedShare = true) => {
     const current = capture()
     if (!current()) return
@@ -107,7 +138,8 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
       : 'The final record will be available to authorised staff. It will not be shared with Parents. It cannot be edited from this mobile workflow.', [
     { text: 'Cancel', style: 'cancel' },
     { text: shareWithParent ? 'Finalise and share' : 'Finalise privately', onPress: async () => {
-      if (!current() || unsaved || error || draft?.status !== 'synced') return
+      if (!current() || lifetime.current.finalising || unsaved || error || draft?.status !== 'synced') return
+      lifetime.current.finalising = true
       setFinalisingShare(shareWithParent)
       setFinalising(true)
       setFinaliseError('')
@@ -115,23 +147,25 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
         if (!draft.finalisation && draft.formFingerprint && draft.formFingerprint !== developmentFormFingerprint(form)) {
           throw new Error('This form changed since the draft was saved. Review its fields and save the private draft again before finalising.')
         }
-        const pending = await updateCoachDevelopmentDraft(user.id, context, key, saved => saved ? {
-          ...saved, finalisation: saved.finalisation || { requestedAt: new Date().toISOString(), serverVersion: saved.serverVersion, form, player, values: saved.values, notes: saved.notes, shareWithParent },
-        } : null)
+        const pending = await updateCoachDevelopmentDraft(user.id, context, key, saved => {
+          if (!current()) throw new Error('The selected account or team changed. Reopen the saved draft to continue.')
+          if (!saved) return null
+          if (!saved.finalisation && (saved.status !== 'synced' || !developmentInputIsSaved(inputRef.current, saved))) {
+            throw new Error('Your latest changes are still saving. Keep this screen open until they are saved, then retry.')
+          }
+          return { ...saved, finalisationError: '', finalisation: saved.finalisation || {
+            requestedAt: new Date().toISOString(), revision: saved.revision, serverVersion: saved.serverVersion,
+            form, player, values: saved.values, notes: saved.notes, shareWithParent,
+          } }
+        })
         if (!current()) return
         if (!pending) throw new Error('The saved draft could not be found. Your visible work has been kept.')
         setDraft(pending)
-        await finalizeCoachDevelopmentRecord(user, { draftId: pending.id, clientSaveVersion: pending.finalisation.serverVersion,
-          player: pending.finalisation.player, form: pending.finalisation.form, values: pending.finalisation.values, notes: pending.finalisation.notes, shareWithParent: pending.finalisation.shareWithParent !== false })
-        if (!current()) return
-        await updateCoachDevelopmentDraft(user.id, context, key, () => null)
-        if (!current()) return
-        inputRef.current = { values: {}, notes: '' }
-        setInput(inputRef.current); setDraft(null)
-        notifyDevelopmentSync()
-        onFinalised?.({ shared: pending.finalisation.shareWithParent !== false })
-      } catch (failure) { if (current()) setFinaliseError(`Finalising has not been confirmed. Your saved work is kept on this phone. Retry to finish the same record. ${failure.message || ''}`) }
-      finally { if (current()) setFinalising(false) }
+        notifyDevelopmentSync({ kind: 'queued' })
+        onQueued?.({ kind: 'finalisation', shared: pending.finalisation.shareWithParent !== false,
+          draftId: pending.id, playerId: player.id, formId: form.id })
+      } catch (failure) { if (current()) setFinaliseError(`Your saved work is kept on this phone. ${failure.message || 'Retry to finish the same record.'}`) }
+      finally { if (current()) { lifetime.current.finalising = false; setFinalising(false) } }
     } },
   ])
   }
@@ -139,7 +173,7 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
   return <View style={styles.panel}>
     <Text style={styles.heading}>{form.name}</Text>
     <Text accessibilityLiveRegion="polite" style={styles.body}>{developmentSaveStatus({ ready, saving, draft, unsaved, error, syncError })}</Text>
-    {draft?.finalisation ? <Text accessibilityLiveRegion="polite" style={styles.body}>{finalising ? finalisingShare ? 'Finishing the saved record and parent sharing...' : 'Finishing the private record...' : 'Finalising is waiting for confirmation. Retry to finish the same saved record.'}</Text> : null}
+    {draft?.finalisation ? <Text accessibilityLiveRegion="polite" style={styles.body}>{draft.finalisationError || (draft.finalisation.shareWithParent !== false ? 'Saved on this phone. Sharing in the background. You can leave this screen.' : 'Saved on this phone. Finishing in the background. You can leave this screen.')}</Text> : null}
     {finaliseError ? <Text accessibilityLiveRegion="assertive" style={styles.danger}>{finaliseError}</Text> : null}
     {error || syncError || draft?.error ? <Text style={styles.danger}>{error || syncError || draft.error}</Text> : null}
     {ready ? (form.fields || []).filter(field => Number(user.roleRank || 0) >= field.roleRank).map(field => <View key={field.id} style={styles.stack}>
@@ -151,11 +185,11 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
     <Text style={styles.label}>Coach summary note</Text>
     <TextInput accessibilityLabel="Coach summary note" editable={ready && !finalising && !draft?.finalisation} multiline onChangeText={notes => void persist({ ...inputRef.current, notes })} style={[styles.input, styles.inputMultiline]} value={input.notes} />
     <View style={styles.row}>
-      {button('Save private draft', () => void persist(inputRef.current).then(saved => { if (saved) return sync() }), !ready || finalising || !!draft?.finalisation || saving > 0)}
-      {button('Sync now', sync, !draft || unsaved || user.isOfflineProfile || finalising || !!draft?.finalisation || saving > 0)}
-      {button(finalising && !finalisingShare ? 'Saving record...' : 'Finalise privately', () => finalise(false), !ready || stale || user.isOfflineProfile || finalising || saving > 0 || unsaved || !!error || draft?.status !== 'synced' || (draft?.finalisation && draft.finalisation.shareWithParent !== false))}
-      {button(finalising && finalisingShare ? 'Sharing...' : 'Finalise and share', () => finalise(true), !ready || stale || user.isOfflineProfile || finalising || saving > 0 || unsaved || !!error || draft?.status !== 'synced' || draft?.finalisation?.shareWithParent === false)}
+      {button('Save private draft', () => void save(), !ready || finalising || !!draft?.finalisation || saving > 0)}
+      {button(draft?.finalisation ? 'Retry sending' : 'Sync now', () => { if (draft?.finalisation) void retrySending(); else void sync() }, !draft || unsaved || user.isOfflineProfile || finalising || saving > 0)}
+      {button(finalising && !finalisingShare ? 'Saving record...' : 'Finalise privately', () => finalise(false), !ready || stale || user.isOfflineProfile || finalising || saving > 0 || unsaved || !!error || draft?.status !== 'synced' || !!draft?.finalisation)}
+      {button(finalising && finalisingShare ? 'Sharing...' : 'Finalise and share', () => finalise(true), !ready || stale || user.isOfflineProfile || finalising || saving > 0 || unsaved || !!error || draft?.status !== 'synced' || !!draft?.finalisation)}
     </View>
-    <Text style={styles.helper}>Private drafts sync when you reconnect. Finalising and sharing requires a connection.</Text>
+    <Text style={styles.helper}>Saved work syncs in the background. Keep the app signed in so it can finish when connected.</Text>
   </View>
 }

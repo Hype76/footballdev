@@ -122,9 +122,11 @@ test('actual encrypted store retains recovered development and protected queues 
  const cryptoProvider={randomBytes:async n=>new Uint8Array(randomBytes(n)),seal:async({aad,key,nonce,plaintext})=>xchacha20poly1305(key,nonce,new TextEncoder().encode(aad)).encrypt(new TextEncoder().encode(plaintext)),open:async({aad,key,nonce,ciphertext})=>new TextDecoder().decode(xchacha20poly1305(key,nonce,new TextEncoder().encode(aad)).decrypt(ciphertext))}
  const options={appRole:'coach',environment:'test',projectRef:'syntheticdevelopmentaa',storage,keyStore,cryptoProvider}
  const store=createEncryptedOfflineStore(options);store.activate('user');const doc=cache.recoverCoachOfflineCacheSpace({...nearLimit(),extra:'x'.repeat(1500)})
+ doc.developmentDrafts.context.items[key].finalisation={requestedAt:'2026-10-07T12:00:00Z',revision:1,serverVersion:1,form,player:{id:'player'},values:{rating:6},notes:'Durable private note',shareWithParent:true}
  await store.write('user',doc);assert.ok([...raw.values()].every(v=>!v.includes('Scoring')&&!v.includes('"rating":6')))
  const restarted=createEncryptedOfflineStore(options);restarted.activate('user');const before=(await restarted.read('user')).document
  assert.equal(before.developmentDrafts.context.items[key].values.rating,6);assert.deepEqual(before.attendanceCommands,doc.attendanceCommands)
+ assert.deepEqual(before.developmentDrafts.context.items[key].finalisation,doc.developmentDrafts.context.items[key].finalisation);assert.ok([...raw.values()].every(value=>!value.includes('Durable private note')))
  fail=true;await assert.rejects(restarted.update('user',value=>({...value,developmentDrafts:{}})),/Synthetic disk failure/);fail=false
  assert.deepEqual((await restarted.read('user')).document,before)
  const guard=restarted.captureScopeGuard('user');restarted.activate('other');assert.throws(guard,/scope/)

@@ -5,10 +5,11 @@ import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { getCoachInviteHistory } from '../../mobile-core/src/coachInviteHistoryData'
 import { COACH_RESOURCE_CATEGORIES, groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
+import { subscribeDevelopmentSync } from './coachDevelopmentSync'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { CoachResourceUploadAction } from './CoachResourceUploadAction'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
@@ -374,12 +375,60 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
   const [playerPickerOpen, setPlayerPickerOpen] = useState(false)
   const [formPickerOpen, setFormPickerOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [queued, setQueued] = useState({})
+  const [closedEditor, setClosedEditor] = useState('')
+  const lifetime = useRef(null)
+  const scope = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource,
+    context.clubId, context.teamId, context.role, user.roleRank, user.status, user.hasActivePlanAccess])
+  const renderToken = useMemo(() => ({ scope }), [scope])
+  useLayoutEffect(() => {
+    const token = { active: true, renderToken, scope: renderToken.scope }
+    lifetime.current = token
+    return () => { token.active = false }
+  }, [renderToken])
+  useLayoutEffect(() => {
+    if (lifetime.current?.scope === scope) Object.assign(lifetime.current, { load, setNotice, closedEditor })
+  }, [scope, load, setNotice, closedEditor])
+  useEffect(() => {
+    const token = lifetime.current
+    return subscribeDevelopmentSync(event => {
+      if (token !== lifetime.current || !token.active || !['finalised', 'finalisation_failed'].includes(event?.kind)
+        || event.userId !== user.id || event.contextId !== context.id) return
+      if (event.kind === 'finalisation_failed') {
+        const key = `${scope}:${event.key}`
+        setQueued(previous => ({ ...previous, [key]: { ...previous[key], state: 'failed', copy: event.copy } }))
+        token.setNotice('')
+        return
+      }
+      const copy = event.shared === false ? 'Private development record finalised.' : 'Development record finalised and shared.'
+      const key = `${scope}:${event.key}`
+      setQueued(previous => ({ ...previous, [key]: { ...previous[key], state: 'complete', copy } }))
+      token.setNotice(token.closedEditor ? '' : copy)
+      void token.load({ silent: true })
+    })
+  }, [scope, user.id, context.id])
   const player = data.players?.find((item) => item.id === playerId) || data.players?.[0]
   const activePlayerId = player?.id || ''
   const form = resolveCoachDevelopmentForm(data.forms, formId)
   const activeFormId = form?.id || ''
   const records = data.records?.filter((record) => !activePlayerId || record.playerId === activePlayerId) || []
-
+  const selectedKey = JSON.stringify([activePlayerId, activeFormId])
+  const selectedQueued = queued[`${scope}:${selectedKey}`]
+  const editorClosed = closedEditor === `${scope}:${selectedKey}`
+  const callbackToken = renderToken
+  const onQueued = result => {
+    if (callbackToken !== lifetime.current?.renderToken || !lifetime.current.active || callbackToken.scope !== scope) return
+    if (result.kind === 'draft') {
+      setNotice('Private draft saved on this phone. Syncing in the background.')
+      return
+    }
+    const key = `${scope}:${JSON.stringify([result.playerId, result.formId])}`
+    const copy = result.shared === false ? 'Saved on this phone. Finishing in the background.' : 'Saved on this phone. Sharing in the background.'
+    setQueued(previous => ({ ...previous, [key]: { ...result, state: 'pending', copy } }))
+    setClosedEditor(key)
+    Keyboard.dismiss()
+    setNotice('')
+  }
 
   const selectPlayer = (nextPlayer) => {
     if (!nextPlayer?.id) return
@@ -419,7 +468,10 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
         {historyOpen && data.historyError ? <View style={styles.stack}><Text accessibilityLiveRegion="polite" style={styles.body}>{data.historyError}</Text><Button label="Retry recent records" onPress={() => void load({ silent: true })} secondary styles={styles} /></View> : null}
         {historyOpen ? (records.length ? records.slice(0, 10).map((record) => <Text key={record.id} style={styles.body}>{record.date || 'No date'} | {record.status} | {record.formName || 'Development record'} | {record.averageScore ?? 'No score'}</Text>) : !data.historyLoading && !data.historyError ? <Text style={styles.body}>No Development history for this Player.</Text> : null) : null}
       </View>
-      <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId)} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onFinalised={result => { setNotice(result?.shared === false ? 'Private Development record finalised.' : 'Development record finalised and shared.'); void load({ silent: true }) }} />
+      {editorClosed ? <View style={styles.stack}>
+        <Text accessibilityLiveRegion="polite" style={styles.body}>{selectedQueued?.copy || 'Your saved assessment is kept on this phone.'}</Text>
+        <Button label={selectedQueued?.state === 'complete' ? 'Start another assessment' : 'Open saved assessment'} onPress={() => setClosedEditor('')} secondary styles={styles} />
+      </View> : <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId)} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onQueued={onQueued} />}
     </View>
   )
 }

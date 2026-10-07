@@ -13,6 +13,18 @@ export async function readCoachTeamAdministration(user) {
   }), user)
 }
 
+export async function readCoachTeamCoaches(user) {
+  return assertTeamAdministrationScope(await mobileAccountRequest('coach', 'manage-phone-team-administration', {
+    action: 'roster', teamId: user.activeTeamId || user.teamId,
+  }), user)
+}
+
+export async function removeCoachFromTeam(user, assignmentId) {
+  return assertTeamAdministrationScope(await mobileAccountRequest('coach', 'manage-phone-team-administration', {
+    action: 'remove', teamId: user.activeTeamId || user.teamId, assignmentId,
+  }), user)
+}
+
 export async function saveCoachTeamReminders(user, policy) {
   return assertTeamAdministrationScope(await mobileAccountRequest('coach', 'manage-phone-team-administration', {
     action: 'save', teamId: user.activeTeamId || user.teamId,

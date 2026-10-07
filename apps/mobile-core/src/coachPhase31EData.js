@@ -252,7 +252,11 @@ export async function saveCoachDevelopmentDraft(user, { draftId = '', form, play
   return resultFor(data)
 }
 
-export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clientSaveVersion = 0, form, player, sessionId = '', values = {}, notes = '', shareWithParent = false } = {}) {
+export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clientSaveVersion = 0, form, player, sessionId = '', values = {}, notes = '', shareWithParent = false, isCurrent = () => true } = {}) {
+  const assertCurrent = () => {
+    if (!isCurrent()) throw new Error('The selected account or team changed. Your saved record is kept on this phone.')
+  }
+  assertCurrent()
   assertCanonicalMutation(user, { requiresTeam: true })
   assertCoachCapability(user, CAPABILITIES.assessments)
   assertTeamEntity(user, player, 'Player')
@@ -264,14 +268,17 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clien
   let selectedParentLinkIds = []
   if (shareWithParent) {
     const accessToken = await getAccessToken()
+    assertCurrent()
     if (!accessToken) throw new Error('Sign in again before sharing this Development record.')
     const endpoint = joinApiPath(config.apiBaseUrl, '.netlify/functions/send-parent-email')
     parentShareRequest = async (body) => {
+      assertCurrent()
       const { ok, response, result } = await fetchJsonWithTimeout(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
+      assertCurrent()
       if (!ok || result?.success === false) {
         throw Object.assign(new Error(normalize(result?.message) || 'The Development record could not be shared with Parents.'), { status: response.status })
       }
@@ -283,6 +290,7 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clien
   }
   const { data: existingFinal, error: existingFinalError } = await supabase.from('evaluations')
     .select('id').eq('id', draftId).eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('coach_id', user.id).maybeSingle()
+  assertCurrent()
   if (existingFinalError) throw existingFinalError
   const monthStart = new Date()
   monthStart.setUTCDate(1)
@@ -292,6 +300,7 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clien
     .select('id', { count: 'exact', head: true })
     .eq('club_id', user.clubId)
     .gte('created_at', monthStart.toISOString())
+  assertCurrent()
   if (countError) throw countError
   const monthlyLimit = getPlanLimit(user, 'monthlyEvaluations')
   if (!existingFinal && monthlyLimit !== null && Number(monthlyCount || 0) >= monthlyLimit) {
@@ -331,9 +340,11 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clien
     updated_by: user.id,
     ...getCoachEntryIdentity(user, 'updated'),
   }
+  assertCurrent()
   const data = await rpc('finalise_coach_mobile_assessment', {
     draft_id_value: draftId, expected_save_version_value: clientSaveVersion, evaluation_value: evaluation,
   })
+  assertCurrent()
   let sharedRecipientCount = 0
   if (shareWithParent) {
     const report = await parentShareRequest({
@@ -345,10 +356,13 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clien
       selectedParentLinkIds,
       includeAttendance: false,
       includeProgression: true,
+      notifyParents: true,
     })
     sharedRecipientCount = Number(report.eligibleRecipients?.length || selectedParentLinkIds.length)
   }
+  assertCurrent()
   await recordCoachOperationalAudit({ user, action: 'development_record_finalised', entityType: 'evaluation', entityId: data.id, metadata: { teamId: user.activeTeamId, playerId: player.id, formId: form.id, parentShared: shareWithParent, sharedRecipientCount, communicationDelivery: shareWithParent ? 'in_app' : 'disabled' } })
+  assertCurrent()
   return Object.freeze({ ...normalizeCoachDevelopmentRecord(data), sharedRecipientCount })
 }
 

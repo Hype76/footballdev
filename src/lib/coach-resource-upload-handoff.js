@@ -30,10 +30,13 @@ export function canOpenCoachResourceUpload(user, stale = false) {
 
 export async function verifyCoachResourceUploadScope(client, user, scope, actorId) {
   if (!scope || !UUID.test(scope.teamId || '') || !UUID.test(scope.clubId || '') || !actorId || user?.id !== actorId || user.clubId !== scope.clubId) throw new Error('Sign in to the same club account you use in Coach.')
-  const [{ data: allowed, error: accessError }, { data: team, error: teamError }] = await Promise.all([
+  const [{ data: allowed, error: accessError }, { data: authority, error: authorityError }, { data: team, error: teamError }] = await Promise.all([
     client.rpc('current_user_can_manage_resource_library', { target_club_id: scope.clubId, target_team_id: scope.teamId }),
+    client.rpc('get_phone_resource_upload_scope', { target_club_id: scope.clubId, target_team_id: scope.teamId }),
     client.from('teams').select('id,club_id,name').eq('id', scope.teamId).eq('club_id', scope.clubId).maybeSingle(),
   ])
-  if (accessError || teamError || allowed !== true || team?.id !== scope.teamId || team.club_id !== scope.clubId) throw new Error('You do not have resource upload access to this team. Your existing resources have not changed.')
-  return { ...user, activeTeamId: team.id, activeTeamName: team.name }
+  if (accessError || authorityError || teamError || allowed !== true || team?.id !== scope.teamId || team.club_id !== scope.clubId
+    || authority?.actorId !== actorId || authority.clubId !== scope.clubId || authority.teamId !== scope.teamId
+    || !Number.isFinite(Number(authority.roleRank)) || Number(authority.roleRank) < 50 || !['head_manager', 'manager', 'admin'].includes(authority.role)) throw new Error('You do not have resource upload access to this team. Your existing resources have not changed.')
+  return { ...user, activeTeamId: team.id, activeTeamName: team.name, role: authority.role, roleRank: Number(authority.roleRank), roleLabel: authority.roleLabel }
 }

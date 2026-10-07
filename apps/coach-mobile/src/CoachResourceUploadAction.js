@@ -39,7 +39,7 @@ export function CoachResourceUploadAction({ user, stale, load, styles }) {
   }, [allowed, scope])
   async function open() {
     Keyboard.dismiss()
-    if (openingRef.current) return
+    if (!allowed || !canOpenCoachResourceUpload(userRef.current, stale) || openingRef.current) return
     openingRef.current = true; setOpening(true); setNotice('Opening your phone browser...')
     const attempt = generation.current
     const request = ++openRequest.current
@@ -55,7 +55,10 @@ export function CoachResourceUploadAction({ user, stale, load, styles }) {
   }
   if (!allowed) return null
   return <View style={{ borderBottomWidth: 1, borderBottomColor: styles.divider.backgroundColor, paddingVertical: 8 }}>
-    <Pressable accessibilityRole="button" disabled={opening} onPress={() => void open()} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={styles.heading}>{opening ? 'Opening upload...' : 'Upload files or photos'}</Text></Pressable>
-    <Text accessibilityLiveRegion="polite" style={styles.helper}>{notice || 'Upload securely in your phone browser. Your selected team stays the same.'}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel={opening ? 'Opening upload...' : 'Upload files or photos'} accessibilityHint="Opens the secure upload page in your phone browser" accessibilityState={{ disabled: opening }} disabled={opening} onPress={() => void open()} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <Text style={[styles.heading, { flex: 1 }]}>{opening ? 'Opening upload...' : 'Upload files or photos'}</Text>
+      <Text style={styles.heading}>{opening ? 'Opening...' : 'Open upload ›'}</Text>
+    </Pressable>
+    <Text accessibilityLiveRegion="polite" style={styles.helper}>{notice || 'Tap Open upload to choose files or photos in your browser. Sign in with your Coach account if asked. Your selected team stays the same.'}</Text>
   </View>
 }

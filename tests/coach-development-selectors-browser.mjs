@@ -13,12 +13,14 @@ const button = source.slice(source.indexOf('function Button('), source.indexOf('
 const empty = source.slice(source.indexOf('function Empty('), source.indexOf('\nexport function CoachPhase31EScreen('))
 const development = source.slice(source.indexOf('function DevelopmentDomain('), source.indexOf('\nfunction ResourcesDomain('))
 const entry = `
-import React,{useEffect,useState} from 'react'
+import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react'
 import {createRoot} from 'react-dom/client'
 import {Pressable,StyleSheet,Text,TextInput,View} from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js'
 import {resolveCoachDevelopmentForm} from './apps/mobile-core/src/coachPhase31ECore.js'
+const subscribeDevelopmentSync=()=>()=>{}
+const Keyboard={dismiss:()=>{}}
 const DevelopmentOfflineEditor=({form,player,styles})=><View accessibilityLabel="Development editor" style={styles.panel}><Text style={styles.body}>Editor for {player.playerName}</Text>{form.fields.map(field=><TextInput key={field.id} accessibilityLabel={field.label} value="" onChangeText={()=>{}} />)}</View>
 ${styles}
 ${button}

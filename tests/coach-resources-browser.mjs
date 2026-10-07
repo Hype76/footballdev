@@ -9,6 +9,8 @@ const root = process.cwd()
 const modules = path.join(root, 'apps/coach-mobile/node_modules')
 const source = await readFile('apps/coach-mobile/src/CoachPhase31EScreens.js', 'utf8')
 const helpers = source.slice(source.indexOf('function phaseStyles('), source.indexOf('export function CoachPhase31EScreen('))
+const uploadSource = await readFile('apps/coach-mobile/src/CoachResourceUploadAction.js', 'utf8')
+const uploadAction = uploadSource.slice(uploadSource.indexOf('export function CoachResourceUploadAction')).replace('export function', 'function')
 const screen = source.slice(source.indexOf('function ResourcesDomain('), source.indexOf('function ChatDomain('))
 const fixture = [
   {id:'old', title:'Training report 01-09-2026', category:'training', description:'Passing practice', links:[]},
@@ -27,22 +29,27 @@ import {View,Text,StyleSheet,Pressable,TextInput,Switch,Modal,ScrollView} from '
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {COACH_RESOURCE_CATEGORIES,groupCoachResources} from './apps/mobile-core/src/coachResourceBrowseCore.js';
 import {getResourceDisplayTitle} from './src/lib/resource-date-presentation.js';
+import {buildCoachResourceUploadUrl,canOpenCoachResourceUpload,isCoachResourceReturn} from './src/lib/coach-resource-upload-handoff.js';
 const SafeAreaView=View,config={isProduction:true};const Keyboard={dismiss:()=>{window.keyboardDismissals=(window.keyboardDismissals||0)+1;document.activeElement?.blur()}};
-// The actual upload handoff component has its own scope/return browser rehearsal.
-const CoachResourceUploadAction=()=>null;
+const getMobileRuntimeConfig=()=>({apiBaseUrl:'https://footballplayer.online'});
+const invalidateMobileResource=(user,key)=>window.uploadInvalidations.push({user,key});
+const listeners={};const listen=(name,fn)=>{(listeners[name]||=new Set()).add(fn);return{remove:()=>listeners[name].delete(fn)}};
+const AppState={addEventListener:(_,fn)=>listen('state',fn)};
+window.uploadCalls=[];window.uploadInvalidations=[];window.uploadReturn=()=>{for(const fn of listeners.state||[])fn('active')};
+${uploadAction}
 const resources=${JSON.stringify(fixture)};
 window.calls=[];window.created=[];window.playerLoads=0;
 const getCoachPlayerList=async()=>{window.playerLoads++;if(window.failPlayers){window.failPlayers=false;throw new Error('Player loading failed.')}return Array.from({length:22},(_,i)=>({id:'p'+i,playerName:'FP TEST Player '+i}))};
 const getCoachFriendlyError=e=>e.message,getCoachResourceErrorMessage=e=>e.message;
 const getCoachResourceAccessUrl=async()=>{if(window.holdResourceUrl)await new Promise(resolve=>window.releaseResourceUrl=resolve);if(window.failOpen){window.failOpen=false;throw new Error('Resource could not be opened.')}return 'https://example.test/resource'};
-const Linking={canOpenURL:async()=>{if(window.holdCanOpen)await new Promise(resolve=>window.releaseCanOpen=resolve);return true},openURL:async u=>window.calls.push(['open',u])};
+const Linking={addEventListener:(_,fn)=>listen('url',fn),canOpenURL:async()=>{if(window.holdCanOpen)await new Promise(resolve=>window.releaseCanOpen=resolve);return true},openURL:async u=>{if(u.startsWith('https://footballplayer.online/phone-resources'))window.uploadCalls.push(u);else window.calls.push(['open',u])}};
 const createCoachExternalResource=async(u,form)=>{window.created.push(form);if(window.holdCreate)await new Promise(resolve=>window.releaseCreate=resolve);resources.push({id:'created',title:form.title,category:form.category,links:[]})};
 const setCoachResourceSharing=async(u,r,targets)=>{window.calls.push(['share',r.id,targets]);if(window.failShare){window.failShare=false;throw new Error('Sharing failed. Try again.')}r.links.push(...targets.map((t,i)=>({...t,id:'new-link-'+i})));};
 const removeCoachResourceSharing=async(u,r,id)=>{window.calls.push(['remove',r.id,id]);r.links=r.links.filter(l=>l.id!==id)};
 ${helpers}
 ${screen}
 function App(){const [mode,setMode]=useState('light'),[rank,setRank]=useState(50),[stale,setStale]=useState(false),[data,setData]=useState(resources.slice()),[notice,setNotice]=useState('');window.mode=setMode;window.rank=setRank;window.stale=setStale;
-const [route,setRoute]=useState('resources');window.resourceRoute=()=>route;window.showResources=()=>setRoute('resources');const [team,setTeam]=useState('team');window.changeResourceTeam=setTeam;const [planAccess,setPlanAccess]=useState(true);window.revokeResourceAccess=()=>setPlanAccess(false);const user=useMemo(()=>({id:'coach',activeTeamId:team,roleRank:rank,status:'active',hasActivePlanAccess:planAccess,planKey:'team'}),[rank,team,planAccess]);const styles=phaseStyles(createCoachTheme({mode}).tokens);const load=useCallback(async()=>setData(resources.slice()),[]);
+const [route,setRoute]=useState('resources');window.resourceRoute=()=>route;window.showResources=()=>setRoute('resources');const [team,setTeam]=useState('team');window.changeResourceTeam=setTeam;const [planAccess,setPlanAccess]=useState(true);window.revokeResourceAccess=()=>setPlanAccess(false);const user=useMemo(()=>({id:'coach',clubId:'10000000-0000-4000-8000-000000000001',activeTeamId:team==='team'?'30000000-0000-4000-8000-000000000040':'30000000-0000-4000-8000-000000000041',role:'head_manager',roleRank:rank,status:'active',hasActivePlanAccess:planAccess,planKey:'team'}),[rank,team,planAccess]);const styles=phaseStyles(createCoachTheme({mode}).tokens);const load=useCallback(async()=>setData(resources.slice()),[]);
 return <div data-resource-team={team} data-resource-access={String(planAccess)}><View style={{minHeight:'100vh',padding:12,backgroundColor:styles.chatModal.backgroundColor}}><Text>{notice}</Text>{route==='resources'?<><CoachResourcesHeader context={{teamName:'U17',roleLabel:'Team admin'}} onNavigate={setRoute} styles={styles}/><ResourcesDomain data={data} load={load} setNotice={setNotice} stale={stale} styles={styles} user={user}/></>:<Text>More menu</Text>}</View></div>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
@@ -54,6 +61,27 @@ try {
   await page.setContent('<body style="margin:0"><div id="root"></div></body>')
   await page.addScriptTag({content:result.outputFiles[0].text})
   await page.getByLabel('Search resources',{exact:true}).waitFor()
+  // Render and tap the real upload action inside the actual Resources screen.
+  await page.getByText('Open upload ›',{exact:true}).waitFor()
+  const uploadButton=page.getByRole('button',{name:'Upload files or photos',exact:true})
+  const uploadBounds=await uploadButton.boundingBox()
+  assert.ok(uploadBounds.height>=48 && uploadBounds.width>=44,'Upload has a visible accessible tap target')
+  await page.getByLabel('Search resources',{exact:true}).fill('')
+  assert.equal(await page.getByLabel('Search resources',{exact:true}).evaluate(node=>node===document.activeElement),true)
+  await uploadButton.click()
+  await page.getByText('Choose files or photos in your browser, then return to Coach. Sign in there if needed.',{exact:true}).waitFor()
+  assert.equal(await page.evaluate(()=>window.uploadCalls.length),1,'A single tap from the actual resource screen opens the browser')
+  const uploadUrl=new URL(await page.evaluate(()=>window.uploadCalls[0]))
+  assert.equal(uploadUrl.origin,'https://footballplayer.online')
+  assert.equal(uploadUrl.pathname,'/phone-resources')
+  assert.equal(uploadUrl.searchParams.get('teamId'),'30000000-0000-4000-8000-000000000040')
+  assert.equal(uploadUrl.searchParams.get('clubId'),'10000000-0000-4000-8000-000000000001')
+  assert.notEqual(await page.evaluate(()=>document.activeElement?.getAttribute('aria-label')),'Search resources','Keyboard focus has left search')
+  await page.evaluate(()=>window.uploadReturn())
+  await page.getByText('Resources refreshed.',{exact:false}).waitFor()
+  assert.equal(await page.evaluate(()=>window.uploadInvalidations.length),1)
+  assert.equal(await page.evaluate(()=>window.created.length),0,'Handoff does not create, remove or alter resources')
+  console.log('PASS: actual Resources screen upload row is visible, accessible, opens the selected team browser URL in one tap and refreshes without resource writes.')
   assert.equal(await page.getByRole('button',{name:'Open Resource',exact:true}).count(),0)
   assert.equal(await page.evaluate(()=>window.playerLoads),0)
   await page.getByRole('button',{name:'Training resources',exact:true}).click()

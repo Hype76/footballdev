@@ -11,12 +11,12 @@ function chunkMessages(messages, size = 100) {
   return chunks
 }
 
-export async function sendExpoPushMessages(messages, { client } = {}) {
+export async function sendExpoPushMessages(messages, { client, signal } = {}) {
   let eligibleMessages = messages
   if (messages.some(message => ['parent', 'coach'].includes(message.data?.app))) {
     const { filterMobileNotificationMessages } = await import('./_mobile-notification-preferences.js')
     const database = client || (await import('./_supabase.js')).supabaseAdmin
-    eligibleMessages = await filterMobileNotificationMessages(messages, database)
+    eligibleMessages = await filterMobileNotificationMessages(messages, database, { signal })
   }
   const skipped = messages.length - eligibleMessages.length
   const validMessages = eligibleMessages
@@ -39,7 +39,7 @@ export async function sendExpoPushMessages(messages, { client } = {}) {
   const results = await Promise.all(chunkMessages(validMessages).map(async (chunk) => {
     const response = await fetch(EXPO_PUSH_URL, {
       method: 'POST',
-      signal: AbortSignal.timeout(10000),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000),
       headers: {
         Accept: 'application/json',
         'Accept-Encoding': 'gzip, deflate',

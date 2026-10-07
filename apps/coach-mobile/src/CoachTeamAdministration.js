@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, Switch, Text, TextInput, View } from 'react-native'
-import { addCoachFromPhone, readCoachTeamAdministration, saveCoachTeamReminders } from '../../mobile-core/src/coachTeamAdministration'
+import { addCoachFromPhone, readCoachTeamAdministration, readCoachTeamCoaches, removeCoachFromTeam, saveCoachTeamReminders } from '../../mobile-core/src/coachTeamAdministration'
 
 export function CoachTeamAdministration({ user, context, palette, styles, section = 'all' }) {
   const [policy, setPolicy] = useState(null)
@@ -9,6 +9,7 @@ export function CoachTeamAdministration({ user, context, palette, styles, sectio
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('coach')
   const [retry, setRetry] = useState(0)
+  const [confirmRemove, setConfirmRemove] = useState('')
   const generation = useRef(0)
   const savingRef = useRef(false)
   const userRef = useRef(user)
@@ -16,13 +17,14 @@ export function CoachTeamAdministration({ user, context, palette, styles, sectio
   const scope = `${user?.id}:${user?.clubId}:${user?.activeTeamId}:${user?.teamId}:${user?.status}:${user?.hasActivePlanAccess}:${user?.role}:${user?.roleRank}:${context?.teamId}:${context?.role}:${context?.roleRank}`
   useEffect(() => {
     const request = ++generation.current
-    setPolicy(null); savingRef.current = false; setSaving(false); setNotice('Loading team settings...'); setEmail('')
-    readCoachTeamAdministration(userRef.current).then(value => {
+    setPolicy(null); savingRef.current = false; setSaving(false); setNotice('Loading team settings...'); setEmail(''); setConfirmRemove('')
+    const read = section === 'reminders' ? readCoachTeamAdministration : readCoachTeamCoaches
+    read(userRef.current).then(value => {
       if (request === generation.current) { setPolicy(value); setNotice('') }
     }).catch(error => { if (request === generation.current) setNotice(error.message) })
     return () => { generation.current += 1 }
-  }, [scope, retry])
-  const action = async kind => {
+  }, [scope, retry, section])
+  const action = async (kind, assignmentId) => {
     if (savingRef.current || !policy?.canManage) return
     if (kind === 'save' && (![policy.squadHoursBefore, policy.availabilityHoursBefore].every(value => Number.isInteger(value) && value >= 1 && value <= 168))) {
       setNotice('Choose reminder times from 1 to 168 hours.'); return
@@ -30,13 +32,33 @@ export function CoachTeamAdministration({ user, context, palette, styles, sectio
     const request = generation.current
     savingRef.current = true
     setSaving(true)
-    setNotice(kind === 'save' ? 'Saving reminder settings...' : 'Saving coach invitation...')
+    setNotice(kind === 'save' ? 'Saving reminder settings...' : kind === 'remove' ? 'Removing coach access...' : 'Saving coach invitation...')
     try {
-      const result = kind === 'save' ? await saveCoachTeamReminders(user, policy) : await addCoachFromPhone(user, email, role)
+      const result = kind === 'save' ? await saveCoachTeamReminders(user, policy) : kind === 'remove' ? await removeCoachFromTeam(user, assignmentId) : await addCoachFromPhone(user, email, role)
       if (request !== generation.current) return
       if (kind === 'save') { setPolicy(result); setNotice('Reminder settings saved.') }
-      else { setEmail(''); setNotice(result.message) }
-    } catch (error) { if (request === generation.current) setNotice(error.message) }
+      else if (kind === 'remove') { setPolicy(result); setConfirmRemove(''); setNotice(result.message) }
+      else {
+        setEmail(''); setNotice(result.message)
+        try {
+          const refreshed = await readCoachTeamCoaches(userRef.current)
+          if (request === generation.current) setPolicy(refreshed)
+        } catch {
+          if (request === generation.current) setNotice(`${result.message} Refresh this page to update the coach list.`)
+        }
+      }
+    } catch (error) {
+      if (request === generation.current) {
+        setNotice(error.message)
+        if (kind === 'remove') {
+          setConfirmRemove('')
+          try {
+            const refreshed = await readCoachTeamCoaches(userRef.current)
+            if (request === generation.current) setPolicy(refreshed)
+          } catch { if (request === generation.current) setPolicy(null) }
+        }
+      }
+    }
     finally { if (request === generation.current) { savingRef.current = false; setSaving(false) } }
   }
   const body = styles.bodyText || { color: palette.textPrimary, fontSize: 15, lineHeight: 22 }
@@ -63,6 +85,14 @@ export function CoachTeamAdministration({ user, context, palette, styles, sectio
       {policy.canManage ? button(saving ? 'Saving reminders...' : 'Save reminders', () => { void action('save') }, saving) : <Text style={[helper, { paddingVertical: 12 }]}>Only the team admin can change reminders.</Text>}
     </> : null}
     {policy?.canManage && section !== 'reminders' ? <>
+      <Text style={styles.sectionTitle}>Team coaches</Text>
+      {(policy.coaches || []).length ? policy.coaches.map(coach => <View key={coach.id} style={group}>
+        <View style={row}><View style={{ flex: 1, gap: 2 }}><Text style={[body, { fontWeight: '600' }]}>{coach.name}</Text><Text style={helper}>{coach.roleLabel || (coach.role === 'assistant_coach' ? 'Assistant coach' : 'Coach')}</Text>{coach.email && coach.email !== coach.name ? <Text style={helper}>{coach.email}</Text> : null}</View>
+          {coach.canRemove ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${coach.name}`} disabled={saving} onPress={() => setConfirmRemove(coach.id)} style={{ minHeight: 48, minWidth: 64, justifyContent: 'center', alignItems: 'center' }}><Text style={[body, { color: palette.accentText }]}>Remove</Text></Pressable> : null}
+        </View>
+        {coach.accessNote ? <Text style={helper}>{coach.accessNote}</Text> : null}
+        {confirmRemove === coach.id ? <><Text style={helper}>Remove {coach.name} from this team? Their account and other teams stay available.</Text><View style={row}>{button('Cancel removal', () => setConfirmRemove(''), saving)}{button('Remove coach access', () => { void action('remove', coach.id) }, saving)}</View></> : null}
+      </View>) : <Text style={[helper, { paddingVertical: 12 }]}>No coaches have joined this team yet.</Text>}
       <Text style={styles.sectionTitle}>Add a coach</Text>
       <Text style={[helper, { marginBottom: 8 }]}>Invite a coach to this team.</Text>
       <TextInput accessibilityLabel="Coach email address" autoCapitalize="none" autoCorrect={false} editable={!saving} keyboardType="email-address" onChangeText={setEmail} placeholder="Coach email address" placeholderTextColor={palette.textMuted} value={email} style={input} />
