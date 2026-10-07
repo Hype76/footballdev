@@ -210,7 +210,7 @@ jobs:
           tests/workspace-checkout.test.mjs tests/mobile-development-background.test.mjs
           tests/development-save-repair.test.mjs tests/matchday-fixture-controls-db.test.mjs &&
           node tests/coach-app-handoff-browser.mjs && node tests/coach-branding-return-browser.mjs &&
-          node tests/phone-branding-onboarding-browser.mjs && node tests/phone-team-administration-browser.mjs
+          npm run build && node tests/phone-branding-onboarding-browser.mjs && node tests/phone-team-administration-browser.mjs
       - name: Public website help privacy and integration
         run: node --experimental-strip-types --test tests/website-help.test.mjs && node tests/website-help-browser.mjs
       - name: Formation board save and recovery regression

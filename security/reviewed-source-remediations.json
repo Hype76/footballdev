@@ -227,14 +227,14 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "209cf58bc1eb7f55085dcb0e0c19b2a6076b465702ac30ab8aeb92371cff47f7",
+    "scripts/security-verify-reviewed-backports.mjs": "2fb0bf670d3fd80549d8f6b93fe34f645c300908f6cb7c6e96abe36ce1f455d3",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
     "tests/security-reviewed-backports.test.mjs": "450bae9fc7f52016df87395a45327a31057dd4c8d3baff1bdf0b631588ac004b",
     "scripts/security-provision-reviewed-backports.mjs": "8718b28d2c1c7c3f288a1f19b8bea025c70286dc09fd0114aea23e68177c0981",
     "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
-    ".github/workflows/security-gate.yml": "e4a6d8cd90cb4cd98efa279adefe96481fd5d14bffd097d18646504362751154",
+    ".github/workflows/security-gate.yml": "effe3a71dbe22d1e4f33c1579bfc2c9324e202bb0277cd31c3270fff2bd70cf1",
     "apps/scripts/mobile-release-check.mjs": "026b0d3117b8d268be368851f2ebfeb82363f8a738765c15b1a6a906479b56c1",
     "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
@@ -1635,7 +1635,8 @@
           "Durable assessment cancellation and visible authorised cancelled-fixture removal",
           "Selected-account/team Settings cache with background refresh and edit preservation",
           "Integrate PR182 and prevent cancelled draft restoration/counting",
-          "Update obsolete Plan access tests to agreed Club pricing, owner-only Stripe handoff and offline protection"
+          "Update obsolete Plan access tests to agreed Club pricing, owner-only Stripe handoff and offline protection",
+          "Build website CSS before badge browser regression fixture in hosted CI"
         ],
         "authCodeLength": 8,
         "dependenciesNativePatchesExpiryAndPreviousProvenanceUnchanged": true,
@@ -1644,6 +1645,6 @@
       }
     }
   },
-  "releasePreparationSha256": "35bc700dfa1b9087c31908eec4c0a267ac182eabe732280158413b7b96fd3c22",
+  "releasePreparationSha256": "a62ce3357fbd266bc4345813b2033d0c4c34a0ef701b4904ea3865a62e215bd7",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
