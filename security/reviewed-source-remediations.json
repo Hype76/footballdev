@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "2ca678f5fe3940f138f7dc604855337e7de59fe3c650ddbf46c931aeae00ea48",
+    "scripts/security-verify-reviewed-backports.mjs": "5421177233cd0b54a0a4b00ea3637c1b18558e0fe606517e3431517221a0ce22",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1023,7 +1023,8 @@
       "apps/mobile-core/src/MobileSwitch.js": "5f179c49be3b960d0b17a97e7857086e494cbe9f1a6f357b3b23cc075eda9368",
       "apps/parent-mobile/src/FansScreen.js": "749addc44ef57ed4708682aee78d83f481fee2602d951779dcfb61e5584de2b7",
       "supabase/migrations/20261007182800_mobile_development_notification_preference.sql": "f5928d8d7fad784eeea804e629bed7a6c7649e47c158ca7d0982abb54471f8b0",
-      "tests/mobile-auth-refresh-browser.mjs": "35d8d16fa80df11328262f58179a2f6b6bef02ad55443bae0c8f805efc023599"
+      "tests/mobile-auth-refresh-browser.mjs": "35d8d16fa80df11328262f58179a2f6b6bef02ad55443bae0c8f805efc023599",
+      "tests/mobile-parent-airplane-browser.mjs": "02467eccba928130d2336525f8b422a92abdbb23ac84b0ac1d79baa2772aca33"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1673,14 +1674,16 @@
           "tests/mobile-auth-refresh-browser.mjs",
           "tests/mobile-event-details-browser.mjs",
           "tests/mobile-notification-categories.test.mjs",
-          "tests/mobile-notification-settings-browser.mjs"
+          "tests/mobile-notification-settings-browser.mjs",
+          "tests/mobile-parent-airplane-browser.mjs"
         ],
         "reasons": [
           "Parent Development preference independent of Chats and scoped to selected team plan",
           "Shared reports notify authorised recipients without requiring a new app-only request flag",
           "Green enabled switches throughout Coach and Parent with existing native Switch module",
           "Repair directly affected Auth and Calendar browser fixtures",
-          "Accessible darker green meets existing Fan switch contrast requirements and handles web active thumb colour"
+          "Accessible darker green meets existing Fan switch contrast requirements and handles web active thumb colour",
+          "Isolate password recovery UI in the directly affected real Parent offline AuthProvider browser fixture; preserve every offline authority and encryption assertion"
         ],
         "migration": "supabase/migrations/20261007182800_mobile_development_notification_preference.sql",
         "historicalReportsInboxAndPushDeliveriesObserved": 0,
@@ -1691,6 +1694,6 @@
       }
     }
   },
-  "releasePreparationSha256": "cbe9677b0518122fcedb7970d8c8fe8f54f168bde7835cd1ff87c09d1167067a",
+  "releasePreparationSha256": "3c27bce602c3ca0901b282c255e061401536176384bb2ca54c20828c12f86b71",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
