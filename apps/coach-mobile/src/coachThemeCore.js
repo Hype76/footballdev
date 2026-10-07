@@ -81,7 +81,7 @@ export function createCoachTheme({ context = null, mode = 'dark' } = {}) {
   const accentText = contrastSafeColor(accent, surfaces, resolvedMode)
   const tokens = Object.freeze({
     ...readableThemeTokens(base, surfaces, resolvedMode),
-    nativeSwitchTrackOn: '#34c759',
+    nativeSwitchTrackOn: '#15803d',
     nativeSwitchThumb: '#ffffff',
     accent,
     accentText,

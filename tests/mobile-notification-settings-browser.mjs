@@ -43,7 +43,7 @@ try {
     if(app==='parent') assert.equal(await scores.getAttribute('aria-checked'),'true'); else assert.equal(await page.getByRole('radio').count(),0)
     const inviteName=app==='coach'?'Availability & event updates':'Invites', chatName=app==='coach'?'Chats & messages':'Chats';
     for(const name of app==='coach'?[inviteName,chatName]:['Invites','Chats','New resources','Development']) assert.equal(await page.getByRole('switch',{name,exact:true}).isChecked(),true)
-    await page.waitForFunction(()=>[...document.querySelectorAll('input[role="switch"]')].filter(x=>x.checked).every(x=>getComputedStyle(x.parentElement.children[0]).backgroundColor==='rgb(52, 199, 89)'))
+    await page.waitForFunction(()=>[...document.querySelectorAll('input[role="switch"]')].filter(x=>x.checked).every(x=>getComputedStyle(x.parentElement.children[0]).backgroundColor==='rgb(21, 128, 61)'))
     if(app==='parent') { await page.getByRole('radio',{name:'Off',exact:true}).click()
     await page.getByText('Saved.',{exact:true}).waitFor()
     assert.equal(await page.getByRole('switch',{name:inviteName,exact:true}).isChecked(),true)
@@ -73,7 +73,7 @@ try {
     await page.waitForFunction(()=>!document.body.innerText.includes('Checking your saved choices'))
     for(const mode of ['dark','light']) {
       await page.evaluate(mode=>window.setMode(mode),mode)
-      await page.waitForFunction(()=>[...document.querySelectorAll('input[role="switch"]')].filter(x=>x.checked).every(x=>getComputedStyle(x.parentElement.children[0]).backgroundColor==='rgb(52, 199, 89)'))
+      await page.waitForFunction(()=>[...document.querySelectorAll('input[role="switch"]')].filter(x=>x.checked).every(x=>getComputedStyle(x.parentElement.children[0]).backgroundColor==='rgb(21, 128, 61)'))
       await page.screenshot({path:'output/playwright/notification-settings/'+app+'-'+mode+'.png',fullPage:true})
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=390),true)
     }

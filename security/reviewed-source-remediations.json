@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "cd504c7d58e9eb1cbca182a1b1aaec3e9d0926de8f86633689f2e3fb40c3fcaf",
+    "scripts/security-verify-reviewed-backports.mjs": "2ca678f5fe3940f138f7dc604855337e7de59fe3c650ddbf46c931aeae00ea48",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -679,7 +679,7 @@
       "apps/coach-mobile/src/CoachTeamBrandingSetup.js": "2f159548a46a6d283ee024c8d25e2b5d0fc50d01c3dfcfbc510c9cb672bb7316",
       "apps/coach-mobile/src/DevelopmentOfflineEditor.js": "a4f4cf98ed2cf1616286cb473b67c8c6a9c51b2d3f11828043cd0346ca428570",
       "apps/coach-mobile/src/coachDevelopmentSync.js": "1c60450303ea33ebd7aef3959a7e48182ddf4a1ed21293a97d5f63d660c82322",
-      "apps/coach-mobile/src/coachThemeCore.js": "cb962bc06e5dd6850622248866428b36514ae6f74fc091b3a996c18c8ac837fe",
+      "apps/coach-mobile/src/coachThemeCore.js": "abe96fd722c4c22fac3813b901b6b5bbf3460d7852d894e2f29c6e8c3ae61c1d",
       "apps/coach-mobile/src/offline.js": "3d3568043e069ec0e63ba6bc40530306d5c9fcf8cc81a4578a2bf514a8e44735",
       "apps/mobile-core/src/AttendancePendingRows.js": "1931716ee5b35accc2e842cb53937fea6f84a13a2bd758fe48efe9c8e0d77579",
       "apps/mobile-core/src/TeamLeagueLink.js": "b10878f465c1e6e7eb6c3f9e67ed483d17bdfa94e64413304480cde7f86d595d",
@@ -694,7 +694,7 @@
       "apps/mobile-core/src/developmentSaveStatusCore.js": "7a15503a61a0395ec314246c6b2384aebce2d1338342653fdf55046e5dcfad7d",
       "apps/mobile-core/src/matchDayParticipantRoster.js": "ac179cee3b6b949728a03b31de122218aab06e4ae1b111903e6e4ab2adad0ff2",
       "apps/mobile-core/src/parentStatusColours.js": "e8c86edfb1da8eeb001c2acd47ba18f37e9021bae49fb683dc8923927deaca7a",
-      "apps/mobile-core/src/parentThemeCore.js": "cea283e4dd314f503f4e699737d2cbf8a2a7dced601d4a9fb3f4749a786b3c65",
+      "apps/mobile-core/src/parentThemeCore.js": "87c295036aef4bf0e7c81cce7b00389062d25a367ce93bb8bf2e78b71a61bc12",
       "apps/mobile-core/src/profile.js": "772018633568bab13054924c63f63e06dce4cffca84e4c8e9ba6ff7da3582362",
       "apps/mobile-core/src/useAttendanceOutbox.js": "e8340032a51320a61d7479589bb8aa74c96e749ff1a53860cd5f2a83d0c6771c",
       "apps/mobile-core/src/useTeamLeagueLink.js": "90d3df0b7dd17770e42518c6ab7484a2d85cfe065ae79792ec6cfd8a00bd84d7",
@@ -930,7 +930,7 @@
       "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
       "apps/coach-mobile/src/CoachOperationalScreens.js": "474428797af64b1a3353dd1283c7b31366b68b1487d4dc775cb236479bfafdcc",
       "apps/coach-mobile/src/CoachResourceUploadAction.js": "69782d79195192ec0b6dd0739b7bba50b4b147bbfdfb67c5d82de905b926dcce",
-      "apps/coach-mobile/src/CoachTeamAdministration.js": "d086020253b90c42e02998c0ff171fe1d408c9b4bf78743a9d1235496fed5beb",
+      "apps/coach-mobile/src/CoachTeamAdministration.js": "0ac91843c5bb553032c2c36468706426c61e9bf1ec968f9db5e927e6e9c304c9",
       "apps/mobile-core/src/coachTeamAdministration.js": "5f27b93d9c04f9fa2427613dafe73d5dcf7b3cc9e048cd8ca220dfc985967be8",
       "apps/mobile-core/src/durableMobileAction.js": "cc6beef25145e9dfb12633564df3f20743bfbcbf7ba950db57c524c1a04d2e04",
       "netlify/functions/lib/_availability-follow-up.js": "9cd5f19b6a30e35774a2fdc95dfe0abab6e541d33d8eca4882de013c1bb5120b",
@@ -961,7 +961,7 @@
       "tests/shared-appearance-authority-pglite.test.mjs": "d6325f95f63429d03e71480b9aab8b890fa09899377d8d42b3dc65b8369af8b0",
       "tests/v1-offline-transactions.test.mjs": "c8b8ae78d765bc4b8bb8ddc92bdff0ed04e2b1cdd9bdf97549cc3cd8c15abb2f",
       "apps/coach-mobile/src/useCoachDevelopmentSync.js": "7381faec52a3b6423ff5a89b5522aa1e0c2f9d4572e48831728577ca3cc3f0db",
-      "apps/mobile-core/src/NotificationCategorySettings.js": "e50d3f3d1c3de43bc7c28e50bfab0bd94c0dbceffae4dbe6807343ad4557db41",
+      "apps/mobile-core/src/NotificationCategorySettings.js": "1b6a60ca841f60212e5bc742049e90978807e337f13ad36af23485c6e64068b9",
       "apps/mobile-core/src/coachPlayersCore.js": "89a67daa5b0f2c3ae0b4c59636ed1f036ee705f678ca8e71518848c98584fad1",
       "apps/mobile-core/src/coachPlayersData.js": "f4c10a45900fc1bb7e5f0a6a24b4478b104031751871017479c5c1900b872cb3",
       "apps/mobile-core/src/notificationCategories.js": "4857146b7b3b67d0e20bb39a2686356b7a06fca3546aa97aa3f06e0814e67037",
@@ -977,7 +977,7 @@
       "tests/mobile-development-background-domain-browser.mjs": "2eac9cee20de5e41b35e0ea1cfd12ca84d754eae7bea61e042e43ff490afc32c",
       "tests/mobile-development-background.test.mjs": "086e42d96273d69ac4e94bfb351087a59352d260aa6f4b465af11fa7fe754154",
       "tests/mobile-notification-categories.test.mjs": "5c72804fd24633115b2c05bfcc5a4dc06753a2cbb33a412fbe3d2a18e0fb8087",
-      "tests/mobile-notification-settings-browser.mjs": "9768db38e7ca942e21a1e4af3b9f47ec428a4c95c7aac87b2564343bb7c354b6",
+      "tests/mobile-notification-settings-browser.mjs": "b2e29a5daae3566686babf84e7ae7c7b470c4bfb1aa62d3cc4fbb22c1c5c0b15",
       "tests/phone-coach-roster.test.mjs": "abecedbc984ef8749998a1d1ff20ebdaefead085ef84ebb813b41cdda8dd042a",
       "tests/phone-resource-upload-authority.test.mjs": "3d4354dc37e07a1d7e439a76dc292cdd44184ffbca84e881e65130c885f61322",
       "apps/mobile-core/src/coachCalendarCore.js": "550f068ffe4949b6f16626c020b0c361f525b319dc934c556db330158fa9fecc",
@@ -1020,7 +1020,7 @@
       "tests/mobile-matchday-plan.test.mjs": "73c8c1a63f855d506d7d3c79a7cc36fc8250987e4c994976bac8f41030975971",
       "tests/mobile-coach-plan-access-browser.mjs": "9cbf372ccea129ca0516a1e009d6c4944a6e3712bd9e828c6ea6b7b26205db08",
       "apps/coach-mobile/src/CoachFixtureForm.js": "f8e2357c3ef6f0cf57a5e3f487b5936b59b597fdb05a5490d675edb7d0e59418",
-      "apps/mobile-core/src/MobileSwitch.js": "f2eeedd51318c960429983375883b9f71605f15f4726adf9573836bcd6e0136d",
+      "apps/mobile-core/src/MobileSwitch.js": "5f179c49be3b960d0b17a97e7857086e494cbe9f1a6f357b3b23cc075eda9368",
       "apps/parent-mobile/src/FansScreen.js": "749addc44ef57ed4708682aee78d83f481fee2602d951779dcfb61e5584de2b7",
       "supabase/migrations/20261007182800_mobile_development_notification_preference.sql": "f5928d8d7fad784eeea804e629bed7a6c7649e47c158ca7d0982abb54471f8b0",
       "tests/mobile-auth-refresh-browser.mjs": "35d8d16fa80df11328262f58179a2f6b6bef02ad55443bae0c8f805efc023599"
@@ -1657,6 +1657,7 @@
           "apps/coach-mobile/src/CoachOperationalScreens.js",
           "apps/coach-mobile/src/CoachPhase31EScreens.js",
           "apps/coach-mobile/src/CoachTeamAdministration.js",
+          "apps/coach-mobile/src/coachThemeCore.js",
           "apps/mobile-core/src/MobileSwitch.js",
           "apps/mobile-core/src/NotificationCategorySettings.js",
           "apps/mobile-core/src/TeamLeagueLink.js",
@@ -1678,7 +1679,8 @@
           "Parent Development preference independent of Chats and scoped to selected team plan",
           "Shared reports notify authorised recipients without requiring a new app-only request flag",
           "Green enabled switches throughout Coach and Parent with existing native Switch module",
-          "Repair directly affected Auth and Calendar browser fixtures"
+          "Repair directly affected Auth and Calendar browser fixtures",
+          "Accessible darker green meets existing Fan switch contrast requirements and handles web active thumb colour"
         ],
         "migration": "supabase/migrations/20261007182800_mobile_development_notification_preference.sql",
         "historicalReportsInboxAndPushDeliveriesObserved": 0,
@@ -1689,6 +1691,6 @@
       }
     }
   },
-  "releasePreparationSha256": "2f327769112a513362357255d5cd760e532c11fccc3bf6504359c71671683c28",
+  "releasePreparationSha256": "cbe9677b0518122fcedb7970d8c8fe8f54f168bde7835cd1ff87c09d1167067a",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
