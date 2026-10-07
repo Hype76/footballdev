@@ -26,13 +26,13 @@ const entry = `
     const [mode, setMode] = React.useState('light');
     const [rank, setRank] = React.useState(70);
     const [access, setAccess] = React.useState({planKey:'matchday', role:'head_manager'});
-    window.setKitAccess = value => { setAccess(value); setInstance(current => current + 1); };
+    window.setKitAccess = value => { setAccess(value); if (value.roleRank !== undefined) setRank(value.roleRank); setInstance(current => current + 1); };
     const [instance, setInstance] = React.useState(0);
     window.setMode = setMode;
     window.setRank = value => { setRank(value); setInstance(current => current + 1); };
     window.remount = () => setInstance(current => current + 1);
     const theme = createCoachTheme({mode, context:{planKey:'matchday'}});
-    return <div data-mode={mode} data-rank={rank}>
+    return <div data-mode={mode} data-rank={rank} data-role={access.role} data-plan={access.planKey}>
       <View style={{backgroundColor:theme.tokens.background,minHeight:'100%',padding:16}}>
         <View style={{alignSelf:'center',maxWidth:720,width:'100%'}}>
           <CoachTeamKitSettings key={instance} palette={theme.tokens} user={{...baseUser,...access,roleRank:rank}} />
@@ -178,24 +178,44 @@ try {
   assert.equal(await page.getByLabel('Home kit hue').count(), 0)
 
   await page.evaluate(() => window.setRank(70))
+  await page.locator('[data-rank="70"]').waitFor()
   await page.getByRole('button', { name: 'Save kit colours' }).waitFor()
+  async function checkKitAccess(access, allowed) {
+    const savesBefore = await page.evaluate(() => globalThis.kitSaveCalls)
+    await page.evaluate(access => window.setKitAccess(access), access)
+    await page.locator(`[data-plan="${access.planKey}"][data-role="${access.role}"][data-rank="${access.roleRank}"]`).waitFor()
+    if (allowed) {
+      await page.getByRole('button', { name: 'Save kit colours' }).waitFor()
+      await page.getByLabel('Home kit hue').waitFor()
+    } else {
+      await page.getByText('A Club Admin manages kits for a Club plan. A Team Admin manages kits for a standalone team.').waitFor()
+      assert.equal(await page.getByRole('button', { name: 'Save kit colours' }).count(), 0)
+      assert.equal(await page.getByLabel('Home kit hue').count(), 0)
+      assert.equal(await page.getByLabel('Away kit hue').count(), 0)
+      assert.equal(await page.getByLabel('Home kit hex colour').count(), 0)
+      assert.equal(await page.getByLabel('Away kit hex colour').count(), 0)
+    }
+    assert.equal(await page.evaluate(() => globalThis.kitSaveCalls), savesBefore)
+  }
   for (const planKey of ['club', 'small_club', 'development_club', 'large_club', 'pilot']) {
-    await page.evaluate(planKey => window.setKitAccess({planKey, role:'manager'}), planKey)
-    await page.getByText('A Club Admin manages kits for a Club plan. A Team Admin manages kits for a standalone team.').waitFor()
-    assert.equal(await page.getByRole('button', {name:'Save kit colours'}).count(), 0)
-    assert.equal(await page.getByLabel('Home kit hue').count(), 0)
-    await page.evaluate(planKey => window.setKitAccess({planKey, role:'admin'}), planKey)
-    await page.getByRole('button', {name:'Save kit colours'}).waitFor()
+    for (const [role, roleRank] of [['head_manager', 70], ['manager', 50], ['coach', 30], ['admin', 70]]) {
+      await checkKitAccess({ planKey, role, roleRank }, false)
+    }
+    await checkKitAccess({ planKey, role: 'admin', roleRank: 90 }, true)
+  }
+  for (const planKey of ['team', 'single_team']) {
+    for (const [role, roleRank] of [['manager', 50], ['coach', 30], ['super_admin', 100], ['head_manager', 50], ['admin', 70]]) {
+      await checkKitAccess({ planKey, role, roleRank }, false)
+    }
+    await checkKitAccess({ planKey, role: 'head_manager', roleRank: 70 }, true)
+    await checkKitAccess({ planKey, role: 'admin', roleRank: 90 }, true)
   }
   for (const access of [
-    {planKey:'team', role:'manager'},
-    {planKey:'individual', role:'manager'},
-    {planKey:'coach_free', role:'manager'},
-    {planKey:'team', role:'super_admin'},
-    {planKey:'individual', role:'super_admin'},
+    {planKey:'individual', role:'manager', roleRank:50},
+    {planKey:'coach_free', role:'manager', roleRank:50},
+    {planKey:'individual', role:'super_admin', roleRank:100},
   ]) {
-    await page.evaluate(access => window.setKitAccess(access), access)
-    await page.getByRole('button', {name:'Save kit colours'}).waitFor()
+    await checkKitAccess(access, true)
   }
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })

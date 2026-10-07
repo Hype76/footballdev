@@ -43,6 +43,7 @@ for (const app of ['parent', 'coach']) {
     import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
     import {useQuickActionVisibility} from './apps/coach-mobile/src/useQuickActionVisibility.js';
     import {CoachQuickActions} from './apps/coach-mobile/src/CoachQuickActions.js';
+    import {CoachTeamAdministration} from './apps/coach-mobile/src/CoachTeamAdministration.js';
     import {TeamLeagueLinkSettings} from './apps/mobile-core/src/TeamLeagueLink.js';
     import {coachTeamLeagueScope,teamLeagueScopeKey} from './src/lib/team-league-link.js';
     const Application={nativeApplicationVersion:'1.0.22',nativeBuildVersion:'44'}, Constants={};
@@ -105,6 +106,12 @@ const result = await build({ stdin: { contents: entry, resolveDir: root, loader:
   plugins: [{ name: 'settings-preview', setup(builder) {
     builder.onResolve({ filter: /^preview:/ }, args => ({ path: args.path.slice(8), namespace: 'preview' }))
     builder.onLoad({ filter: /.*/, namespace: 'preview' }, args => ({ contents: virtual[args.path], loader: 'jsx', resolveDir: root }))
+    builder.onResolve({ filter: /coachTeamAdministration$/ }, () => ({ path: 'team-administration', namespace: 'administration-fixture' }))
+    builder.onLoad({ filter: /.*/, namespace: 'administration-fixture' }, () => ({ loader: 'js', contents: `
+      export async function readCoachTeamAdministration(){return {canManage:false,squadEnabled:false,squadHoursBefore:48,availabilityEnabled:false,availabilityHoursBefore:24};}
+      export async function saveCoachTeamReminders(){throw new Error('Read-only coach must not save reminders');}
+      export async function addCoachFromPhone(){throw new Error('Read-only coach must not invite staff');}
+    ` }))
     builder.onResolve({ filter: /\/supabase$/ }, () => ({ path: 'supabase', namespace: 'mock' }))
     builder.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({ loader: 'js', contents: `
       export const supabase={from(){window.reads++;return {select(){return this},eq(){return this},maybeSingle(){return {abortSignal:async()=>({data:null})}}}},
@@ -134,6 +141,14 @@ try {
     await page.getByRole('button', { name: labels[0], exact: true }).waitFor()
     assert.equal(await page.evaluate(() => window.hardwareBack()), false, 'Menu releases Android back to app navigation')
     assert.equal(await page.evaluate(() => window.reads), readsBeforeNavigation, 'Notification preferences load only when opened')
+    if (app === 'coach') {
+      await open('Team reminders')
+      await page.getByText('Only the team admin can change reminders.', { exact: true }).waitFor()
+      assert.equal(await page.getByRole('switch', { name: 'Squad selection reminder', exact: true }).isDisabled(), true)
+      assert.equal(await page.getByRole('switch', { name: 'Automatic availability reminder', exact: true }).isDisabled(), true)
+      assert.equal(await page.getByRole('button', { name: 'Save reminders', exact: true }).count(), 0)
+      await back()
+    }
     for (const width of [390, 320, 360]) {
       await page.setViewportSize({ width, height: 740 })
       for (const mode of ['dark', 'light']) {
