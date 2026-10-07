@@ -65,5 +65,6 @@ export function invalidateMobileResource(user, resource) {
 }
 
 function resourceMaxAge(resource) {
+  if (resource.startsWith('coach:team-administration:')) return Infinity
   return /players|resources|development|player-detail/.test(resource) ? 120_000 : DEFAULT_MAX_AGE_MS
 }

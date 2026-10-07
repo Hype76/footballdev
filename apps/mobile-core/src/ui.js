@@ -261,7 +261,7 @@ export function MobileLoginScreen({
 
     try {
       await requestPasswordReset(normalizedEmail)
-      setRecoveryMessage('Check your email for a secure password reset link.')
+      setRecoveryMessage('Check your email for a recovery code to enter in the app.')
     } catch (error) {
       setRecoveryMessage(error?.message || 'Password recovery could not be started. Please try again.')
     } finally {

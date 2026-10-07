@@ -18,7 +18,7 @@ async function getCaller(event) {
   })
 }
 
-export function createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, caller, priceId, lineItems, workspace, targetPlanKey, teamCapacity }) {
+export function createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, caller, priceId, lineItems, workspace, targetPlanKey, teamCapacity, offerKey = '', fromCoach = false }) {
   const scope = getWorkspaceScope(workspace.plan_key)
   const targetScope = getWorkspaceScope(targetPlanKey || workspace.plan_key)
   const metadata = {
@@ -34,12 +34,13 @@ export function createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, 
     targetWorkspaceScope: targetScope.key,
     teamCapacity,
     billingOwnerUserId: caller.id,
+    ...(offerKey ? { offerKey } : {}),
   }
   return stripe.checkout.sessions.create({
     mode: 'subscription',
     line_items: lineItems || [{ price: priceId, quantity: 1 }],
-    success_url: `${appUrl}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/billing?checkout=cancelled`,
+    success_url: fromCoach ? `${appUrl}/app-upgrade?payment=returned` : `${appUrl}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: fromCoach ? `${appUrl}/app-upgrade?payment=cancelled` : `${appUrl}/billing?checkout=cancelled`,
     customer: workspace.stripe_customer_id || undefined,
     customer_email: workspace.stripe_customer_id ? undefined : caller.email,
     allow_promotion_codes: true,
@@ -57,6 +58,7 @@ export async function handler(event) {
     const body = JSON.parse(event.body || '{}')
     const billingCycle = String(body.billingCycle || 'monthly').trim().toLowerCase()
     const requestedPlanKey = String(body.planKey || '').trim().toLowerCase()
+    const offerKey = String(body.offerKey || '').trim().toLowerCase()
     if (!['monthly', 'annual'].includes(billingCycle)) return json(400, { success: false, message: 'Choose a valid billing cycle.' })
 
     const { workspace } = await assertWorkspaceBillingAction({
@@ -78,13 +80,13 @@ export async function handler(event) {
       if (Number(teamCapacity) < currentTeamCount) return json(409, { success: false, message: 'Selected capacity is below the workspace team count.' })
     }
     const priceId = isModernPlan ? '' : getCheckoutPriceId(targetPlanKey, billingCycle)
-    const lineItems = isModernPlan ? getCheckoutLineItems(targetPlanKey, billingCycle, teamCapacity) : undefined
+    const lineItems = isModernPlan ? getCheckoutLineItems(targetPlanKey, billingCycle, teamCapacity, offerKey) : undefined
     if (!isModernPlan && !priceId) return json(400, { success: false, message: 'This plan is not available for checkout yet.' })
 
     const stripe = createStripeServerClient()
-    if (isModernPlan) await validateCheckoutPrices(stripe, lineItems, targetPlanKey, billingCycle, teamCapacity)
+    if (isModernPlan) await validateCheckoutPrices(stripe, lineItems, targetPlanKey, billingCycle, teamCapacity, offerKey)
     const appUrl = (process.env.VITE_APP_URL || process.env.URL || 'https://footballplayer.online').replace(/\/$/, '')
-    const session = await createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, caller, priceId, lineItems, workspace, targetPlanKey, teamCapacity })
+    const session = await createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, caller, priceId, lineItems, workspace, targetPlanKey, teamCapacity, offerKey, fromCoach: body.fromCoach === true })
     await supabaseAdmin.from('audit_logs').insert({
       actor_id: caller.id,
       actor_email: caller.email,

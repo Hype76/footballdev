@@ -42,9 +42,11 @@ test('Actual mobile recovery request carries the configured app role without cha
   assert.ok(body.includes('return payload?.message'))
   for (const appRole of ['parent', 'coach']) {
     const requests = []
-    const fn = new Function('setAuthError', 'getMobileRuntimeConfig', 'appRole', 'fetch', `return async function(email) { ${body} }`)(() => {}, () => ({ apiBaseUrl: 'https://footballplayer.online', appRole }), appRole, async (url, options) => { requests.push({ url, options }); return { ok: true, json: async () => ({ message: 'Recovery requested' }) } })
+    let recoveryEmail = ''
+    const fn = new Function('setAuthError', 'getMobileRuntimeConfig', 'appRole', 'fetch', 'setRecoveryEmail', `return async function(email) { ${body} }`)(() => {}, () => ({ apiBaseUrl: 'https://footballplayer.online', appRole }), appRole, async (url, options) => { requests.push({ url, options }); return { ok: true, json: async () => ({ message: 'Recovery requested' }) } }, email => { recoveryEmail = email })
     assert.equal(await fn(' FAMILY@example.test '), 'Recovery requested')
     assert.equal(requests[0].url, 'https://footballplayer.online/.netlify/functions/send-password-reset')
-    assert.deepEqual(JSON.parse(requests[0].options.body), { email: 'family@example.test', appRole })
+    assert.deepEqual(JSON.parse(requests[0].options.body), { email: 'family@example.test', appRole, appOnly: true })
+    assert.equal(recoveryEmail, 'family@example.test')
   }
 })

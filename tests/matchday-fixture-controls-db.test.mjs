@@ -477,6 +477,27 @@ test('past fixture with a stale live timer can be soft deleted without touching 
   await db.close()
 })
 
+test('future cancelled fixture can be removed through v2 and repeated removal creates one audit', async () => {
+  const db = await createDatabase()
+  const matchId = '40000000-0000-0000-0000-000000000021'
+  try {
+    await db.query(`
+      insert into public.match_days (id, club_id, team_id, opponent, fixture_type, match_date, status)
+      values ($1, $2, $3, 'Cancelled future fixture', 'league', current_date + 7, 'cancelled')
+    `, [matchId, CLUB_A_ID, TEAM_A_ID])
+    const first = await db.query('select public.delete_previous_match_day_v2($1) as result', [matchId])
+    assert.equal(first.rows[0].result.deleted, true)
+    assert.equal(first.rows[0].result.alreadyDeleted, false)
+    const retry = await db.query('select public.delete_previous_match_day_v2($1) as result', [matchId])
+    assert.equal(retry.rows[0].result.alreadyDeleted, true)
+    const stored = await db.query(`select deleted_at,
+      (select count(*)::integer from public.audit_logs where entity_id = $1 and action = 'match_day_previous_game_deleted') as audits
+      from public.match_days where id = $1`, [matchId])
+    assert.ok(stored.rows[0].deleted_at)
+    assert.equal(stored.rows[0].audits, 1)
+  } finally { await db.close() }
+})
+
 test('candidate deletion denies coach, same-club unassigned team, and cross-club fixtures', async () => {
   const db = await createDatabase()
   const coachMatchId = '40000000-0000-0000-0000-000000000002'

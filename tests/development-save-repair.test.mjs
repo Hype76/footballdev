@@ -21,7 +21,7 @@ function document(){return {userScope:'user',profile:{value:{id:'user',coachCont
 function nearLimit(){const doc=document();doc.contexts.context.resources.calendar.payload='c'.repeat(phase.COACH_PHASE_31F_MAX_CACHE_BYTES-phase.getCoachCacheByteLength(doc)-300);return doc}
 function extracted(text,name){const ast=parse(text,{sourceType:'module',plugins:['jsx']});let found;const visit=node=>{if(!node||typeof node!=='object')return;if((node.type==='FunctionDeclaration'||node.type==='VariableDeclarator')&&node.id?.name===name)found=node.type==='FunctionDeclaration'?text.slice(node.start,node.end):`const ${name}=${text.slice(node.init.start,node.init.end)}`;Object.values(node).forEach(v=>Array.isArray(v)?v.forEach(visit):visit(v))};visit(ast);assert.ok(found,name);return found}
 const bind=(text,name,deps)=>new Function(...Object.keys(deps),`${extracted(text,name)};return ${name}`)(...Object.values(deps))
-function updater(initial,baseline=false){let doc=clone(initial),writes=0;const text=read(new URL(baseline?'tests/fixtures/v1-development/offline.fixture.txt':'apps/coach-mobile/src/offline.js',root));const deps={normalize:x=>String(x??'').trim(),store:{update:async(_user,change)=>{const next=change(clone(doc));doc=clone(next);writes++}},getCoachCacheByteLength:phase.getCoachCacheByteLength,COACH_PHASE_31F_MAX_CACHE_BYTES:phase.COACH_PHASE_31F_MAX_CACHE_BYTES,recoverCoachOfflineCacheSpace:cache.recoverCoachOfflineCacheSpace};deps.assertOutboxContext=bind(text,'assertOutboxContext',deps);deps.outboxAuthority=bind(text,'outboxAuthority',deps);return {update:bind(text,'updateCoachDevelopmentDraft',deps),read:()=>clone(doc),writes:()=>writes}}
+function updater(initial,baseline=false){let doc=clone(initial),writes=0;const text=read(new URL(baseline?'tests/fixtures/v1-development/offline.fixture.txt':'apps/coach-mobile/src/offline.js',root));const deps={getCoachOfflineResources:cache.getCoachOfflineResources,setCoachOfflineResources:cache.setCoachOfflineResources,normalize:x=>String(x??'').trim(),store:{update:async(_user,change)=>{const next=change(clone(doc));doc=clone(next);writes++}},getCoachCacheByteLength:phase.getCoachCacheByteLength,COACH_PHASE_31F_MAX_CACHE_BYTES:phase.COACH_PHASE_31F_MAX_CACHE_BYTES,recoverCoachOfflineCacheSpace:cache.recoverCoachOfflineCacheSpace};deps.assertOutboxContext=bind(text,'assertOutboxContext',deps);deps.outboxAuthority=bind(text,'outboxAuthority',deps);return {update:bind(text,'updateCoachDevelopmentDraft',deps),read:()=>clone(doc),writes:()=>writes}}
 function syncEngine(storage,{baseline=false,save=async()=>({clientSaveVersion:1,lastSavedAt:'2026-10-05'}),current=()=>true,workspace=async()=>({players:[{id:'player'}],forms:[form]})}={}){let calls=0;const text=read(new URL(baseline?'tests/fixtures/v1-development/coachDevelopmentSync.fixture.txt':'apps/coach-mobile/src/coachDevelopmentSync.js',root)).replace(/^import .+\r?\n/gm,'').replace(/^export /gm,'');const deps={applyCoachContext:x=>x,getCoachDevelopmentWorkspace:workspace,saveCoachDevelopmentDraft:async(...args)=>{calls++;return save(...args)},...draftCore,developmentSyncFailure:status.developmentSyncFailure,withMobileAsyncTimeout:callback=>callback(),readCoachDevelopmentDrafts:async()=>storage.read().developmentDrafts.context.items,updateCoachDevelopmentDraft:storage.update};const run=new Function(...Object.keys(deps),text+';return syncCoachDevelopmentDrafts')(...Object.values(deps));return {run:()=>run(user,context,current),calls:()=>calls}}
 
 test('baseline reproduces durable draft plus misleading local-save error during sync preparation quota',async()=>{
@@ -141,10 +141,10 @@ test('actual editor commit lifecycle blocks A/B/A edits until fresh hydration an
  const state=value=>{const i=cursor++;states[i]??=value;return [states[i],next=>{states[i]=typeof next==='function'?next(states[i]):next}]}
  const effect=(kind,callback,deps)=>{const i=cursor++;pending.push({i,kind,callback,deps})}
  const gates=[]
- const renderFn=new Function('suppliedContext','form','player','serverDraft','styles','user','stale','onFinalised',
+ const renderFn=new Function('suppliedContext','form','player','serverDraft','styles','user','stale','onFinalised','onQueued',
  'useMemo','useRef','useState','useLayoutEffect','useEffect','developmentDraftKey','developmentFormFingerprint','developmentInputIsSaved','readCoachDevelopmentDrafts','updateCoachDevelopmentDraft','subscribeDevelopmentSync',
  prefix+';return {capture,ready,lifetime,inputRef};')
- const render=scope=>{cursor=0;pending=[];return renderFn(context,form,{id:'player'},null,{}, {id:scope},false,()=>{},fn=>fn(),ref,state,
+ const render=scope=>{cursor=0;pending=[];return renderFn(context,form,{id:'player'},null,{}, {id:scope},false,()=>{},()=>{},fn=>fn(),ref,state,
  (fn,deps)=>effect('layout',fn,deps),(fn,deps)=>effect('passive',fn,deps),draftCore.developmentDraftKey,draftCore.developmentFormFingerprint,status.developmentInputIsSaved,
  ()=>{let resolve;const promise=new Promise(r=>resolve=r);gates.push({resolve});reads.push(scope);return promise},async()=>{},()=>()=>{})}
  const commit=()=>{for(const kind of ['layout','passive'])for(const e of pending.filter(x=>x.kind===kind)){
@@ -163,4 +163,15 @@ test('actual editor commit lifecycle blocks A/B/A edits until fresh hydration an
  gates[1].resolve({[key]:{...initialDraft,notes:'other account'}});await flush();assert.equal(returned.capture()(),false)
  gates[2].resolve({[key]:{...initialDraft,notes:'fresh A'}});await flush();assert.equal(returned.capture()(),true);assert.equal(returned.inputRef.current.notes,'fresh A')
  effects.forEach(e=>e?.cleanup?.());assert.equal(returned.capture()(),false);assert.deepEqual(reads,['a','b','a'])
+})
+
+
+test('confirmed cancellation atomically removes the saved draft and its cached assessment', async()=>{
+ const doc=document();doc.contexts.context={...doc.contexts.context,...context,contextId:context.id};
+ doc.contexts.context.resources['phase31e:development']={forms:[form],drafts:[{id:'draft',playerId:'player',formId:'form'},{id:'other',playerId:'other',formId:'form'}]};
+ doc.developmentDrafts.context.items[key].discardRequested=true;
+ const storage=updater(doc);await storage.update('user',context,key,()=>null);
+ assert.equal(storage.read().developmentDrafts.context.items[key],undefined);
+ assert.deepEqual(storage.read().contexts.context.resources['phase31e:development'].drafts.map(d=>d.id),['other']);
+ assert.deepEqual(storage.read().contexts.context.resources.formation,{private:'keep'});
 })

@@ -348,6 +348,18 @@ export async function updateCoachMatchDayFixture(user, match, form) {
   return normalizeCoachMatchDay({ ...data, clubName: user.clubName })
 }
 
+export async function removeCoachCancelledFixture(user, matchDayId, isCurrent = () => true) {
+  const match = await getCoachMatchDayDetail(user, matchDayId, { includeVolunteerEligibility: false })
+  await prepareMutation(user, match, 50)
+  if (!isCurrent() || match.status !== 'cancelled') throw new Error('Only a cancelled fixture can be removed here. Refresh Calendar and try again.')
+  const { data: sessionData } = await supabase.auth.getSession()
+  if (!isCurrent() || sessionData.session?.user?.id !== user.id) throw new Error('The signed-in account changed. Reopen Calendar.')
+  const { data, error } = await supabase.rpc('delete_previous_match_day_v2', { match_day_id_value: match.id })
+  if (error) throw error
+  if (data?.deleted !== true) throw new Error('Fixture removal could not be confirmed. Refresh Calendar before retrying.')
+  return data
+}
+
 export async function cancelCoachMatchDayFixture(user, match) {
   await prepareMutation(user, match)
   if (match.concludedAt || !['scheduled', 'scorer_request', 'postponed'].includes(normalize(match.status))) {

@@ -15,7 +15,7 @@ import {Alert,Keyboard,Pressable,StyleSheet,Text,TextInput,View} from 'react-nat
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {resolveCoachDevelopmentForm} from './apps/mobile-core/src/coachPhase31ECore.js';
 import {DevelopmentOfflineEditor as ActualEditor} from './apps/coach-mobile/src/DevelopmentOfflineEditor.js';
-import {subscribeDevelopmentSync,notifyDevelopmentSync} from './apps/coach-mobile/src/coachDevelopmentSync.js';
+import {subscribeDevelopmentSync,notifyDevelopmentSync,syncCoachDevelopmentDrafts} from './apps/coach-mobile/src/coachDevelopmentSync.js';
 import {useCoachDevelopmentSync} from './apps/coach-mobile/src/useCoachDevelopmentSync.js';
 const MaterialIcons=()=>null;
 const DevelopmentOfflineEditor=props=>{window.savedCallbacks??=[];window.savedCallbacks.push(props.onQueued);return <ActualEditor {...props} onQueued={event=>{window.acknowledgements.push({...event,at:performance.now()});props.onQueued(event)}}/>};
@@ -38,7 +38,8 @@ let chain=Promise.resolve();const read=user=>JSON.parse(localStorage.getItem('dr
 export const readCoachDevelopmentDrafts=async user=>{await chain;return read(user)};
 export function updateCoachDevelopmentDraft(user,context,key,change){const task=chain.then(()=>{const all=read(user),next=change(all[key]||null);if(next)all[key]=next;else delete all[key];localStorage.setItem('drafts:'+user,JSON.stringify(all));return next});chain=task.catch(()=>{});return task}
 export const saveLocalCoachDevelopmentDraft=(user,context,input)=>updateCoachDevelopmentDraft(user,context,developmentDraftKey(input.playerId,input.formId),previous=>{if(previous?.finalisation)throw Error('Already queued');return editLocalDevelopmentDraft(previous,{...input,id:previous?.id||crypto.randomUUID()})});`
-const transport = `export const getCoachDevelopmentWorkspace=async()=>window.workspace;
+const transport = `export const discardCoachDevelopmentDraft=async()=>{};
+export const getCoachDevelopmentWorkspace=async()=>window.workspace;
 export const saveCoachDevelopmentDraft=async(user,request)=>{await new Promise(r=>setTimeout(r,window.remoteDelay));return {clientSaveVersion:request.clientSaveVersion+1,lastSavedAt:new Date().toISOString()}};
 export const finalizeCoachDevelopmentRecord=async(user,request)=>{if(!request.isCurrent())throw Error('Account changed');window.finalCalls++;window.finalRecords[request.draftId]??={id:request.draftId,account:user.id};await new Promise(r=>setTimeout(r,window.remoteDelay));if(!request.isCurrent())throw Error('Account changed');if(window.failFinal){window.failFinal=false;throw Error('Lost confirmation')};return window.finalRecords[request.draftId]};`
 const mocks = [[/\/offline$/,storage],[/coachContextCore$/,`export const applyCoachContext=user=>user`],[/coachPhase31EData$/,transport]]

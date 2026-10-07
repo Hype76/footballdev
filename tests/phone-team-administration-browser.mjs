@@ -16,10 +16,12 @@ const selected = ['FoundationRoute', 'SettingsScreen', 'ScreenIntro', 'Section',
   return source.slice(node.start, node.end)
 }).join('\n')
 const entry = `
-import React,{useState,useEffect,useMemo,useContext,createContext} from 'react';
+import React,{useState,useEffect,useMemo,useContext,useRef,createContext} from 'react';
 import {createRoot} from 'react-dom/client';
 import {View,Text,TextInput,Switch,Pressable,StyleSheet,Platform,Linking} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import {readCoachTeamAdministration,readCoachTeamCoaches} from './apps/mobile-core/src/coachTeamAdministration';
+import {readMobileResource,peekMobileResource} from './apps/mobile-core/src/mobileResourceCache';
 import {CoachTeamAdministration} from './apps/coach-mobile/src/CoachTeamAdministration.js';
 import {IconSettings,SettingsSection} from './apps/mobile-core/src/IconSettings.js';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
@@ -27,6 +29,7 @@ import {getWorkspaceScope} from './src/lib/workspace-scope.js';
 import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
 import {MOBILE_SETTING_LOAD_STATES} from './apps/mobile-core/src/deviceSettingsCore.js';
 const CoachThemeContext=createContext(null),Application={},Constants={};
+const useMobileAuth=()=>({user:window.fixture.user||{id:'fixture'},refreshUserProfile:async()=>{}});
 const config={isProduction:true},inspectCoachOfflineState=async()=>({hasDocument:true}),canChooseTrainingAttendanceVisibility=()=>false;
 const coachSupabase={},getTrainingAttendanceVisibility=async()=>true,setTrainingAttendanceVisibility=async()=>true;
 const teamLeagueScopeKey=()=>'',coachTeamLeagueScope=()=>({}),isMobileRouteAllowed=()=>false,resolveCoachRoute=()=>false;
@@ -49,7 +52,7 @@ const compiled = await build({ stdin: { contents: entry, resolveDir: root, loade
     b.onResolve({ filter: /^@expo\/vector-icons/ }, () => ({ path: 'icon', namespace: 'fixture' }))
     b.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ loader: 'jsx', contents: args.path === 'icon'
       ? `import React from 'react';import {Text} from 'react-native';export default function Icon({color}){return <Text aria-hidden="true" style={{color}}>*</Text>}`
-      : `export async function mobileAccountRequest(_,name,body){window.calls.push(body);const value={...window.policy};if(body.action==='read'||body.action==='roster')return value;if(window.defer)await new Promise(resolve=>window.resolvePending=resolve);if(body.action==='save')return {...value,...body};if(body.action==='remove'){if(window.rejectRemoval)throw new Error('Only the team admin can manage coaches.');const coaches=value.coaches.filter(c=>c.id!==body.assignmentId);if(window.policy.teamId===body.teamId)window.policy.coaches=coaches;return {...value,coaches,message:'Coach access removed from this team.'}}return {...value,message:'Coach invitation sent.'}}` }))
+      : `export async function mobileAccountRequest(_,name,body){window.calls.push(body);const value={...window.policy};if(body.action==='read'||body.action==='roster'){if(window.deferReads)await new Promise(resolve=>(window.readResolvers??=[]).push(resolve));return value;}if(window.defer)await new Promise(resolve=>window.resolvePending=resolve);if(body.action==='save')return {...value,...body};if(body.action==='remove'){if(window.rejectRemoval)throw new Error('Only the team admin can manage coaches.');const coaches=value.coaches.filter(c=>c.id!==body.assignmentId);if(window.policy.teamId===body.teamId)window.policy.coaches=coaches;return {...value,coaches,message:'Coach access removed from this team.'}}return {...value,message:'Coach invitation sent.'}}` }))
   } }],
 })
 const browser = await chromium.launch({ headless: true }), errors = []
@@ -62,6 +65,7 @@ try {
     await page.route('**/*', request => request.abort())
     await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div></body></html>')
     await page.evaluate(({ mode, route }) => {
+      const actualNow=Date.now;window.cacheTimeOffset=0;Date.now=()=>actualNow()+window.cacheTimeOffset
       window.fixture={mode,route};window.calls=[];window.defer=true;
       window.policy={teamId:'10000000-0000-4000-8000-000000000020',clubId:'10000000-0000-4000-8000-000000000010',canManage:true,squadEnabled:false,squadHoursBefore:48,availabilityEnabled:false,availabilityHoursBefore:48,coaches:[{id:'10000000-0000-4000-8000-000000000031',userId:'10000000-0000-4000-8000-000000000002',name:'Synthetic coach',email:'synthetic@example.com',role:'coach',roleLabel:'Coach',canRemove:true}]}
     }, { mode, route })
@@ -92,6 +96,18 @@ try {
       await page.getByRole('button', { name: 'Back to Settings', exact: true }).click()
       await page.getByRole('button', { name: 'Add a coach', exact: true }).click()
       await page.getByRole('textbox', { name: 'Coach email address', exact: true }).waitFor()
+      await page.evaluate(()=>{window.deferReads=true;window.cacheTimeOffset=90000})
+      await page.getByRole('button',{name:'Back to Settings',exact:true}).click()
+      await page.getByRole('button',{name:'Team reminders',exact:true}).click()
+      await page.getByRole('textbox',{name:'Hours before kick-off',exact:true}).waitFor({timeout:1000})
+      assert.equal(await page.getByText('Loading team settings...',{exact:true}).count(),0)
+      await page.getByRole('textbox',{name:'Hours before kick-off',exact:true}).fill('36')
+      await page.evaluate(()=>{window.deferReads=false;window.readResolvers.forEach(resolve=>resolve())})
+      await page.waitForFunction(()=>window.readResolvers?.length>0)
+      assert.equal(await page.getByRole('textbox',{name:'Hours before kick-off',exact:true}).inputValue(),'36')
+      await page.getByRole('button',{name:'Back to Settings',exact:true}).click()
+      await page.getByRole('button',{name:'Add a coach',exact:true}).click()
+
       assert.equal(await page.getByRole('radio', { name: 'Coach', exact: true }).getAttribute('aria-checked'), 'true')
     } else {
       await page.getByRole('button', { name: 'Remove Synthetic coach', exact: true }).click()

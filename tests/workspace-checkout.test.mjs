@@ -20,6 +20,8 @@ test('existing workspace checkout is bound to workspace authority and has no sec
   assert.equal(request.subscription_data.metadata.clubId, 'club-1')
   assert.equal('trial_period_days' in request.subscription_data, false)
   assert.equal(request.customer_email, 'owner@example.test')
+  assert.equal(request.success_url, 'https://footballplayer.online/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}')
+  assert.equal(request.cancel_url, 'https://footballplayer.online/billing?checkout=cancelled')
 })
 
 test('modern Club workspace checkout carries paid capacity items and source metadata', async () => {
@@ -43,4 +45,24 @@ test('modern Club workspace checkout carries paid capacity items and source meta
   assert.equal(request.metadata.targetWorkspaceScope, 'club')
   assert.equal(request.metadata.teamCapacity, 30)
   assert.equal(request.subscription_data.metadata.targetWorkspaceScope, 'club')
+})
+
+test('Coach Club upgrade preserves the 20-team offer and returns to the app upgrade page', async () => {
+  const { createExistingWorkspaceCheckout } = await import('../netlify/functions/create-workspace-checkout-session.js')
+  let request
+  const stripe = { checkout: { sessions: { create: async (value) => { request = value; return { id: 'cs_coach' } } } } }
+  await createExistingWorkspaceCheckout(stripe, {
+    appUrl: 'https://footballplayer.online', billingCycle: 'annual',
+    caller: { id: 'owner-1', email: 'owner@example.test' },
+    lineItems: [{ price: 'price_club_20_annual', quantity: 1 }],
+    workspace: { id: 'club-1', name: 'FP TEST Team', plan_key: 'matchday' },
+    targetPlanKey: 'club', teamCapacity: 20, offerKey: 'club_20', fromCoach: true,
+  })
+  assert.deepEqual(request.line_items, [{ price: 'price_club_20_annual', quantity: 1 }])
+  assert.equal(request.metadata.offerKey, 'club_20')
+  assert.equal(request.metadata.teamCapacity, 20)
+  assert.equal(request.subscription_data.metadata.offerKey, 'club_20')
+  assert.equal(request.success_url, 'https://footballplayer.online/app-upgrade?payment=returned')
+  assert.equal(request.cancel_url, 'https://footballplayer.online/app-upgrade?payment=cancelled')
+  assert.equal('trial_period_days' in request.subscription_data, false)
 })
