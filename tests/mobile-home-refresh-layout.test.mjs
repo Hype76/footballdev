@@ -3,7 +3,8 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { isMatchdayPlan, isMobileRouteAllowed } from '../apps/mobile-core/src/matchdayPolicyCore.js'
 import { parse } from '@babel/parser'
-import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState } from '../apps/mobile-core/src/coachPhase31GCore.js'
+import { buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary, preserveCoachChatSummary, preserveCoachDevelopmentSummary, updateCoachHomeSourceState } from '../apps/mobile-core/src/coachPhase31GCore.js'
+import { mergeUnfinishedDevelopmentDrafts } from '../apps/mobile-core/src/developmentOfflineCore.js'
 import { normalizeCoachInvite } from '../apps/mobile-core/src/coachPhase31ECore.js'
 import { createParentHomePreferences } from '../apps/parent-mobile/src/parentHomePreferencesCore.js'
 
@@ -30,6 +31,8 @@ function harness() {
     isMatchdayPlan, isMobileRouteAllowed,
     selectedMobileUser: { id: 'coach', clubId: 'club', activeTeamId: 'team' },
     requestIdRef: { current: 1 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
+    developmentRefreshIdRef: { current: 0 }, homeStateRef: { current: state },
+    readCoachDevelopmentDrafts: async () => ({}), mergeUnfinishedDevelopmentDrafts, preserveCoachDevelopmentSummary,
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
     readMobileResource: async (user, key, loader, options) => { reads.push({ user, key, options }); return loader() },
     getCoachInvitesAndAvailability: async () => ({ all: [invite('one'), invite('two', { status: 'available' })] }),

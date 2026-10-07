@@ -236,6 +236,8 @@ jobs:
         run: node --test tests/mobile-home-refresh-layout.test.mjs tests/mobile-expired-attention-counters-90.test.mjs tests/coach-feedback-september.test.mjs && node tests/parent-home-sections-browser.mjs && node tests/mobile-home-polish-browser.mjs && node tests/parent-home-status-actions-browser.mjs && node tests/coach-feedback-browser.mjs
       - name: Lint mobile application hosts
         run: npx eslint apps/parent-mobile/App.js apps/coach-mobile/src/CoachDateTimeField.js apps/coach-mobile/src/CoachGuestScorer.js
+      - name: Coach Home open Development and recovery
+        run: node --test tests/mobile-coach-home-open-development.test.mjs tests/coach-home-warning-recovery.test.mjs tests/mobile-development-unfinished-drafts.test.mjs tests/coach-development-workspace-responsiveness.test.mjs && node tests/mobile-development-background-domain-browser.mjs
       - name: Mobile time, result artwork and Partners navigation
         run: node --test tests/mobile-time-result.test.mjs && node tests/mobile-feedback-art-browser.mjs
       - name: Parent compact Matchday and Agenda
@@ -252,6 +254,8 @@ jobs:
         run: npm run mobile:export:web
       - name: Coach player profile navigation
         run: node tests/coach-player-profile-browser.mjs && node tests/coach-development-selectors-browser.mjs && node tests/coach-sessions-cache-warning-browser.mjs
+      - name: Coach Calendar month markers
+        run: node --test tests/mobile-coach-operational-31c.test.mjs && node tests/coach-calendar-markers-browser.mjs
       - name: Coach contacts, invite history and Resources
         run: node --test tests/coach-parent-contacts.test.mjs tests/coach-invite-history.test.mjs tests/coach-squad-save-performance.test.mjs tests/squad-batch-save-pglite.test.mjs tests/coach-calendar-all-source-resources.test.mjs tests/coach-calendar-resource-targets-pglite.test.mjs tests/parent-derived-event-resources.test.mjs tests/mobile-parent-calendar-attachments-108.test.mjs tests/resource-library-parent-access.test.mjs && node tests/coach-resources-browser.mjs
       - name: Parent access removal and unlisted grants

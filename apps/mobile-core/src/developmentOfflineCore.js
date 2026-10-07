@@ -2,6 +2,26 @@ export function developmentDraftKey(playerId, formId) {
   return JSON.stringify([playerId, formId])
 }
 
+export function isUnfinishedDevelopmentDraft(draft) {
+  return Boolean(draft?.playerId && draft?.formId && !draft.finalisation
+    && ['draft', 'pending', 'synced'].includes(draft.status))
+}
+
+export function mergeUnfinishedDevelopmentDrafts(serverDrafts = [], localDrafts = []) {
+  const merged = new Map()
+  const oldestFirst = (left, right) => (Date.parse(left?.savedAt || left?.lastSavedAt) || 0)
+    - (Date.parse(right?.savedAt || right?.lastSavedAt) || 0)
+  for (const draft of [...serverDrafts].sort(oldestFirst).concat([...localDrafts].sort(oldestFirst))) {
+    if (!draft?.playerId || !draft?.formId) continue
+    const key = developmentDraftKey(draft.playerId, draft.formId)
+    if (draft.id) for (const [savedKey, saved] of merged) {
+      if (saved.id === draft.id) merged.delete(savedKey)
+    }
+    merged.set(key, draft)
+  }
+  return [...merged.values()].filter(isUnfinishedDevelopmentDraft)
+}
+
 export function developmentFormFingerprint(form) {
   return JSON.stringify([form.id, form.version, (form.fields || []).map(field => [field.id, field.type, field.roleRank, field.parentVisible, field.staffPrivate, field.options])])
 }

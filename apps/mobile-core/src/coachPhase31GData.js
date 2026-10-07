@@ -41,16 +41,22 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress) {
   return buildCoachHomeOperationalSnapshot({ ...values, errors })
 }
 
-export async function getCoachPhase31GAttentionSnapshot(user, { force = true } = {}) {
+export async function getCoachPhase31GAttentionSnapshot(user, { force = true, readLocalDevelopmentDrafts = async () => ({}) } = {}) {
   const names = ['development', 'chatRooms', 'polls', 'invites']
   const routes = ['development', 'chat', 'polls', 'invites']
   const results = await Promise.allSettled([
-    () => readMobileResource(user, 'coach:development-summary', () => getCoachDevelopmentSummary(user), { force }),
+    async () => {
+      const [development, localDevelopmentDrafts] = await Promise.all([
+        readMobileResource(user, 'coach:development-open-summary', () => getCoachDevelopmentSummary(user), { force }),
+        readLocalDevelopmentDrafts(),
+      ])
+      return { ...development, localDevelopmentDrafts: Object.values(localDevelopmentDrafts || {}) }
+    },
     () => readMobileResource(user, 'coach:phase31e:chat', () => getCoachChatRooms(user), { force }),
     () => readMobileResource(user, 'coach:phase31e:polls', () => getCoachPolls(user), { force }),
     () => readMobileResource(user, 'coach:phase31e:invites', () => getCoachInvitesAndAvailability(user), { force }),
   ].map((loader, index) => isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? loader() : null))
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)
-  return buildCoachHomeOperationalSnapshot({ ...values, errors })
+  return buildCoachHomeOperationalSnapshot({ ...values, localDevelopmentDrafts: values.development?.localDevelopmentDrafts, errors })
 }

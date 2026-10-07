@@ -43,6 +43,8 @@ test('phone assessment editor becomes usable within one second while history rem
   assert.equal(ready.forms[0].fields[0].label, 'Passing')
   assert.equal(ready.drafts[0].values.score, 7)
   assert.ok(scopes.some(([table, key, value]) => table === 'evaluation_drafts' && key === 'created_by_user_id' && value === 'coach'))
+  assert.ok(scopes.some(([table, key, value]) => table === 'evaluation_drafts' && key === 'report_type' && value === 'development_record'))
+  assert.ok(scopes.some(([table, key, value]) => table === 'evaluation_drafts' && key === 'status' && value === 'draft'))
   finish({ data: [{ id: 'record', player_id: 'player', feedback_form_name: 'Passing assessment' }] })
   const complete = await pending
   assert.equal(complete.historyLoading, false)
