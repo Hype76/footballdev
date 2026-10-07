@@ -3,6 +3,8 @@ import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
 import { CoachTeamBrandingSetup } from './src/CoachTeamBrandingSetup'
 import { isCoachBrandingReturn } from '../../src/lib/team-branding-onboarding.js'
+import { isCoachResourceReturn } from '../../src/lib/coach-resource-upload-handoff.js'
+import { CoachTeamAdministration } from './src/CoachTeamAdministration'
 import 'react-native-url-polyfill/auto'
 import { sanitizeCoachChatOfflineValue } from '../mobile-core/src/coachPhase31ECore'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
@@ -776,7 +778,7 @@ function CoachHome() {
 
   useEffect(() => {
     const openUrl = ({ url }) => {
-      if (isCoachBrandingReturn(url)) return
+      if (isCoachBrandingReturn(url) || isCoachResourceReturn(url)) return
       try {
         const parsed = new URL(url)
         openCoachTarget({
@@ -1086,7 +1088,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
 }
 
 function FoundationRoute({ context, route, ...props }) {
-  const { styles } = useCoachTheme()
+  const { palette, styles } = useCoachTheme()
   const titles = {
     calendar: 'Calendar', chat: 'Chat', club: 'Club', development: 'Development', matchday: 'Match Day', payment: 'Plan access',
     invites: 'Invites and availability', messages: 'Messages', players: 'Players', polls: 'Polls', resources: 'Resources', sessions: 'Sessions', settings: 'Settings', team: 'Team',
@@ -1108,8 +1110,9 @@ function FoundationRoute({ context, route, ...props }) {
             <SecondaryAction label="Sessions" onPress={() => props.onNavigate('sessions')} />
             <SecondaryAction label="Resources" onPress={() => props.onNavigate('resources')} />
           </View>
-          <Text style={styles.helperText}>Coach assignment, squad governance, Team transfer, archive, and destructive administration remain in the authoritative web workflow.</Text>
+          <Text style={styles.helperText}>Team transfer, archive and destructive administration remain in the web portal.</Text>
         </Section>
+        <CoachTeamAdministration key={`coaches:${context.id}`} user={props.user} context={context} palette={palette} styles={styles} section="coaches" />
       </ScreenIntro>
     )
   }
@@ -1303,6 +1306,9 @@ function SettingsScreen({
       </SettingsSection>
       {context.teamId ? <SettingsSection id="team-league" label="Team" iconKey="more.team">
         <TeamLeagueLinkSettings key={teamLeagueScopeKey(coachTeamLeagueScope(user, context.teamId))} client={coachSupabase} palette={palette} scope={coachTeamLeagueScope(user, context.teamId)} />
+      </SettingsSection> : null}
+      {context.teamId ? <SettingsSection id="team-reminders" label="Team reminders" iconKey="settings.notifications">
+        <CoachTeamAdministration key={`reminders:${context.id}`} user={user} context={context} palette={palette} styles={styles} section="reminders" />
       </SettingsSection> : null}
       <SettingsSection id="display" label="Display" iconKey="settings.appearance">
       <Section compact iconKey="settings.appearance" title="Appearance">

@@ -35,7 +35,7 @@ test('Coach kit save clears blank sides to null without accepting malformed colo
     { matchDay: 'matchDay' }, normalizeKitColour, normalizeTeamKits,
     { from: () => query },
   )
-  const user = { clubId: 'club-a', activeTeamId: 'team-a', role: 'manager', roleRank: 50, hasActivePlanAccess: true, planKey: 'team' }
+  const user = { clubId: 'club-a', activeTeamId: 'team-a', role: 'head_manager', roleRank: 70, hasActivePlanAccess: true, planKey: 'team' }
   assert.deepEqual(await save(user, { home: { colour: '#DC2626' }, away: { colour: '' } }), {
     home: { colour: '#dc2626', imagePath: null, source: 'team' },
   })
@@ -87,7 +87,12 @@ test('Coach kit gate follows Club workspace scope and preserves standalone team 
     assert.equal(canManageTeamKitColours({ ...user, planKey }), false, planKey)
     assert.equal(canManageTeamKitColours({ ...user, planKey, role: 'admin', roleRank: 100 }), true, planKey)
   }
-  for (const planKey of ['team', 'single_team', 'matchday', 'individual', 'coach_free', 'individual_coach']) {
+  for (const planKey of ['team', 'single_team']) {
+    assert.equal(canManageTeamKitColours({ ...user, planKey }), false, planKey)
+    assert.equal(canManageTeamKitColours({ ...user, planKey, role: 'head_manager', roleRank: 70 }), true, planKey)
+    assert.equal(canManageTeamKitColours({ ...user, planKey, role: 'admin', roleRank: 90 }), true, planKey)
+  }
+  for (const planKey of ['matchday', 'individual', 'coach_free', 'individual_coach']) {
     assert.equal(canManageTeamKitColours({ ...user, planKey }), true, planKey)
   }
   assert.equal(canManageTeamKitColours({ ...user, planKey: 'team', roleRank: 20 }), false)
@@ -95,7 +100,7 @@ test('Coach kit gate follows Club workspace scope and preserves standalone team 
   assert.equal(canManageTeamKitColours({ ...user, planKey: 'team', activeTeamId: null }), false)
   assert.equal(canManageTeamKitColours({ ...user, planKey: 'unrecognised' }), false)
   assert.equal(canManageTeamKitColours({ ...user, planKey: 'coach_pro' }), false, 'Unrecognised legacy key remains fail closed')
-  assert.equal(canManageTeamKitColours({ ...user, planKey: 'team', role: 'super_admin' }), true)
+  assert.equal(canManageTeamKitColours({ ...user, planKey: 'team', role: 'super_admin' }), false)
   assert.equal(canManageTeamKitColours({ ...user, planKey: 'individual', role: 'super_admin' }), true)
   assert.equal(canManageTeamKitColours({ ...user, planKey: 'club', role: 'super_admin' }), false)
 })

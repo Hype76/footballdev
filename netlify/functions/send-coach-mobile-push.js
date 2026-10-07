@@ -228,8 +228,8 @@ function buildPayload({ detailLevel, match, type }) {
   }
 }
 
-async function getCoachDevices(match, client = supabaseAdmin) {
-  const { data, error } = await client
+async function getCoachDevices(match, client = supabaseAdmin, recipientId = '') {
+  let query = client
     .from('coach_mobile_push_installations')
     .select(
       'installation_id, auth_user_id, user_profile_id, club_id, team_id, context_id, expo_push_token, detail_level',
@@ -237,6 +237,9 @@ async function getCoachDevices(match, client = supabaseAdmin) {
     .eq('status', 'active')
     .eq('enabled', true)
     .neq('detail_level', 'off')
+
+  if (recipientId) query = query.eq('auth_user_id', recipientId)
+  const { data, error } = await query
 
   if (error) {
     throw error
@@ -361,6 +364,18 @@ export async function sendCoachMatchReviewPush({ match, adminClient = supabaseAd
 
 export async function sendCoachAvailabilityResponsePush() {
   return { failed: 0, sent: 0, skipped: true }
+}
+
+export async function sendCoachSquadReminderPush({ match, recipientId, adminClient = supabaseAdmin, sendMessages = sendExpoPushMessages } = {}) {
+  const devices = await getCoachDevices(match, adminClient, recipientId)
+  const payload = {
+    title: 'Squad selection reminder',
+    body: `Choose and confirm the squad for ${normalizeText(match.opponent) || 'your upcoming match'}.`,
+    data: { app: 'coach', type: 'squad_reminder', route: 'matchday', targetId: match.id, teamId: match.team_id },
+  }
+  const result = await sendMessages(devices.map(device => ({ to: device.expo_push_token, ...payload, sound: 'default' })))
+  await revokeMobileDeviceTokens(result.invalidTokens || [], adminClient)
+  return { failed: result.failed, sent: result.sent, skipped: devices.length === 0 }
 }
 
 export async function sendCoachTrainingAttendanceInvitationPush() {

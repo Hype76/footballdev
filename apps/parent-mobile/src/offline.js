@@ -350,14 +350,18 @@ async function executeParentCommand(user, command) {
 const activeSyncs = new Map()
 
 export function syncParentOfflineCommands(user, { explicitRetry = false } = {}) {
-  if (activeSyncs.has(user.id)) return activeSyncs.get(user.id)
-  const coordinator = createParentSyncCoordinator({
-    execute: (command) => executeParentCommand(user, command),
-    readDocument,
-    updateDocument,
-  })
-  const activeSync = coordinator.sync({ explicitRetry, userScope: user.id })
-    .then((result) => {
+  if (!activeSyncs.has(user.id)) {
+    const coordinator = createParentSyncCoordinator({
+      execute: (command) => executeParentCommand(user, command),
+      readDocument,
+      updateDocument,
+    })
+    const activeSync = coordinator.sync({ explicitRetry, userScope: user.id })
+      .finally(() => { activeSyncs.delete(user.id) })
+    activeSyncs.set(user.id, activeSync)
+  }
+  // The remote transaction is shared; each caller receives only its own player summary.
+  return activeSyncs.get(user.id).then((result) => {
       const scopedSummary = getParentSyncSummary(result.document, user.selectedParentLinkId)
       return {
         ...result,
@@ -365,11 +369,6 @@ export function syncParentOfflineCommands(user, { explicitRetry = false } = {}) 
         attentionItems: getParentSyncAttentionItems(result.document, user.selectedParentLinkId),
       }
     })
-    .finally(() => {
-      activeSyncs.delete(user.id)
-    })
-  activeSyncs.set(user.id, activeSync)
-  return activeSync
 }
 
 export async function readParentAttendanceCommands(user, link) {

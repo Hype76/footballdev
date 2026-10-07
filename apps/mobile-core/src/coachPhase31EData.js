@@ -112,11 +112,13 @@ export async function getCoachDevelopmentSummary(user) {
   return { recordCount: count || 0 }
 }
 
-export async function getCoachDevelopmentWorkspace(user) {
+export async function getCoachDevelopmentWorkspace(user, { onWorkspaceReady } = {}) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [playersResult, evaluationsResult, formsResult, legacyFieldsResult, draftsResult, starterFormsResult, starterPreferencesResult, teamResult] = await Promise.all([
+  // History is useful, but must not prevent opening or saving an assessment.
+  const history = Promise.resolve(supabase.from('evaluations').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('date', { ascending: false }).order('created_at', { ascending: false }).limit(250))
+    .catch(error => ({ error }))
+  const [playersResult, formsResult, legacyFieldsResult, draftsResult, starterFormsResult, starterPreferencesResult, teamResult] = await Promise.all([
     supabase.from('players').select('id,player_name,section,status,team,team_id').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).neq('status', 'archived').order('player_name'),
-    supabase.from('evaluations').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('date', { ascending: false }).order('created_at', { ascending: false }).limit(250),
     supabase.from('feedback_forms').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).is('archived_at', null).order('name'),
     supabase.from('form_fields').select('*').eq('club_id', user.clubId).or(`team_id.eq.${user.activeTeamId},team_id.is.null`).eq('is_enabled', true).order('order_index'),
     supabase.from('evaluation_drafts').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by_user_id', user.id).eq('status', 'draft').order('last_saved_at', { ascending: false }).limit(25),
@@ -124,7 +126,7 @@ export async function getCoachDevelopmentWorkspace(user) {
     supabase.from('feedback_form_starter_preferences').select('template_key,hidden').eq('club_id', user.clubId).eq('team_id', user.activeTeamId),
     supabase.from('teams').select('age_group').eq('club_id', user.clubId).eq('id', user.activeTeamId).maybeSingle(),
   ])
-  const hardError = playersResult.error || evaluationsResult.error
+  const hardError = playersResult.error || draftsResult.error
   if (hardError) throw hardError
   const legacyFields = legacyFieldsResult.error ? [] : (legacyFieldsResult.data || []).map(normalizeCoachDevelopmentField)
   const teamForms = formsResult.error ? [] : (formsResult.data || [])
@@ -155,17 +157,26 @@ export async function getCoachDevelopmentWorkspace(user) {
   if (forms.length === 0 && legacyFields.length > 0) {
     forms.push(normalizeCoachDevelopmentForm({ id: 'canonical-default', name: 'Development record', team_id: user.activeTeamId, fields: legacyFields }))
   }
-  return Object.freeze({
+  const workspace = Object.freeze({
     players: Object.freeze((playersResult.data || []).map((player) => Object.freeze({
       id: player.id, playerName: normalize(player.player_name), section: normalize(player.section), status: normalize(player.status), team: normalize(player.team), teamId: normalize(player.team_id),
     }))),
-    records: Object.freeze((evaluationsResult.data || []).map(normalizeCoachDevelopmentRecord)),
+    records: Object.freeze([]),
+    historyLoading: true,
+    historyError: '',
     forms: Object.freeze(forms),
     drafts: Object.freeze(draftsResult.error ? [] : (draftsResult.data || []).map((draft) => Object.freeze({
       id: draft.id, playerId: normalize(draft.player_id), formId: normalize(draft.draft_data?.selectedFeedbackFormId || draft.draft_data?.draftContext?.formId),
       values: draft.draft_data?.responseValues || {}, notes: draft.draft_data?.notes || '', clientSaveVersion: Number(draft.client_save_version || draft.draft_data?.draftMeta?.clientSaveVersion || 0),
       lastSavedAt: draft.last_saved_at || '', status: draft.status,
     }))),
+  })
+  onWorkspaceReady?.(workspace)
+  const evaluationsResult = await history
+  return Object.freeze({ ...workspace,
+    records: Object.freeze((evaluationsResult.data || []).map(normalizeCoachDevelopmentRecord)),
+    historyLoading: false,
+    historyError: evaluationsResult.error ? 'Recent records could not be refreshed. Your assessment drafts are still available.' : '',
   })
 }
 
@@ -241,11 +252,12 @@ export async function saveCoachDevelopmentDraft(user, { draftId = '', form, play
   return resultFor(data)
 }
 
-export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form, player, sessionId = '', values = {}, notes = '', shareWithParent = false } = {}) {
+export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clientSaveVersion = 0, form, player, sessionId = '', values = {}, notes = '', shareWithParent = false } = {}) {
   assertCanonicalMutation(user, { requiresTeam: true })
   assertCoachCapability(user, CAPABILITIES.assessments)
   assertTeamEntity(user, player, 'Player')
   if (!form?.id || !player?.id) throw new Error('Choose a Player and Development form before finalising.')
+  if (!draftId || !Number.isInteger(clientSaveVersion) || clientSaveVersion < 1) throw new Error('Sync the private draft before finalising.')
   const validation = validateCoachDevelopmentValues(form, values, user.roleRank)
   if (!validation.valid) throw new Error(validation.errors[0])
   let parentShareRequest = null
@@ -269,17 +281,20 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form,
     selectedParentLinkIds = (recipients.recipients || []).map((recipient) => normalize(recipient.linkId)).filter(Boolean)
     if (selectedParentLinkIds.length === 0) throw new Error('No authorised Parent link is available for this Player.')
   }
+  const { data: existingFinal, error: existingFinalError } = await supabase.from('evaluations')
+    .select('id').eq('id', draftId).eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('coach_id', user.id).maybeSingle()
+  if (existingFinalError) throw existingFinalError
   const monthStart = new Date()
   monthStart.setUTCDate(1)
   monthStart.setUTCHours(0, 0, 0, 0)
-  const { count: monthlyCount, error: countError } = await supabase
+  const { count: monthlyCount, error: countError } = existingFinal ? {} : await supabase
     .from('evaluations')
     .select('id', { count: 'exact', head: true })
     .eq('club_id', user.clubId)
     .gte('created_at', monthStart.toISOString())
   if (countError) throw countError
   const monthlyLimit = getPlanLimit(user, 'monthlyEvaluations')
-  if (monthlyLimit !== null && Number(monthlyCount || 0) >= monthlyLimit) {
+  if (!existingFinal && monthlyLimit !== null && Number(monthlyCount || 0) >= monthlyLimit) {
     throw new Error('The monthly Development record limit has been reached for this plan.')
   }
   const scoreValues = form.fields
@@ -291,9 +306,7 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form,
     .map((field) => [field.label, Number(validation.values[field.id])])
     .filter(([, value]) => Number.isFinite(value)))
   const now = new Date().toISOString()
-  const evaluationId = requestId('coach-development')
-  const { data, error } = await supabase.from('evaluations').insert({
-    id: evaluationId,
+  const evaluation = {
     club_id: user.clubId,
     team_id: user.activeTeamId,
     player_id: player.id,
@@ -310,19 +323,17 @@ export async function finalizeCoachDevelopmentRecord(user, { draftId = '', form,
     scores,
     comments: { overall: normalize(notes), strengths: '', improvements: '', selectedStrengths: [] },
     form_responses: validation.values,
-    feedback_form_id: form.installedFormId || (form.isPlatformTemplate ? null : form.id),
+    feedback_form_id: form.installedFormId || (form.isPlatformTemplate || form.id === 'canonical-default' ? null : form.id),
     feedback_form_name: form.name,
     feedback_form_version: form.version,
     feedback_form_snapshot: { id: form.id, name: form.name, version: form.version, fields: form.fields },
     ...getCoachEntryIdentity(user),
     updated_by: user.id,
     ...getCoachEntryIdentity(user, 'updated'),
-  }).select('*').single()
-  if (error) throw error
-  if (draftId) {
-    const { error: closeError } = await supabase.from('evaluation_drafts').update({ status: 'submitted', submitted_at: now, updated_at: now }).eq('id', draftId).eq('created_by_user_id', user.id).eq('status', 'draft')
-    if (closeError) throw closeError
   }
+  const data = await rpc('finalise_coach_mobile_assessment', {
+    draft_id_value: draftId, expected_save_version_value: clientSaveVersion, evaluation_value: evaluation,
+  })
   let sharedRecipientCount = 0
   if (shareWithParent) {
     const report = await parentShareRequest({

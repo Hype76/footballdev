@@ -38,7 +38,7 @@ async function followUpScope(client, scope) {
   return { event, contacts }
 }
 
-export async function queueAvailabilityFollowUp({ client, profile, scopedEvent, sourceType, occurrenceDate, playerId, message, idempotencyKey }) {
+export async function queueAvailabilityFollowUp({ client, profile, scopedEvent, sourceType, occurrenceDate, playerId, message, idempotencyKey, automaticReminderKey = '' }) {
   message = normalizeAvailabilityFollowUp(message)
   const scope = { eventId: scopedEvent.id, clubId: scopedEvent.club_id, teamId: scopedEvent.team_id, sourceType, occurrenceDate, playerId }
   const { event, contacts } = await followUpScope(client, scope)
@@ -68,7 +68,7 @@ export async function queueAvailabilityFollowUp({ client, profile, scopedEvent, 
       payload: {
         requiredFeature: 'parentEmails', displayName: 'Football Player', clubId: scope.clubId, teamId: scope.teamId,
         actorId: profile.id, actorRole: profile.role, parentLinkId: contact.parentLinkId || '',
-        availabilityFollowUp: { ...scope, recipientEmail: contact.email, parentLinkId: contact.parentLinkId || '', actorId: profile.id },
+        availabilityFollowUp: { ...scope, recipientEmail: contact.email, parentLinkId: contact.parentLinkId || '', actorId: profile.id, ...(automaticReminderKey ? { automaticReminderKey } : {}) },
         resendPayload: { emailAppRole: 'parent', to: [contact.email], subject, text: emailBody, html: `<h2>${escape(eventTitle)}</h2><p>${escape(eventDateLabel)}</p><p>${escape(message).replace(/\n/g, '<br>')}</p><p>Your existing availability response has not changed. Open Football Player Parents to choose Attending, Not attending or Maybe.</p>` },
         communicationLog: { clubId: scope.clubId, playerId, userId: profile.id, userName: text(profile.display_name || profile.name), userEmail: profile.email, recipientEmail: contact.email, metadata },
       },
@@ -84,6 +84,11 @@ export async function prepareScheduledAvailabilityFollowUpRow(row, client) {
   if (!scope) return { row, skipped: false, skipReason: '' }
   if (scope.clubId !== row.club_id || scope.teamId !== row.team_id || scope.recipientEmail !== row.to_email || scope.actorId !== row.created_by) return { row, skipped: true, skipReason: 'Follow-up scope does not match its queue record.' }
   try {
+    if (scope.automaticReminderKey) {
+      const current = await client.rpc('team_reminder_is_current', { delivery_key_value: scope.automaticReminderKey })
+      if (current.error) throw current.error
+      if (current.data !== true) return { row, skipped: true, skipReason: 'The automatic reminder is no longer required or authorised.' }
+    }
     const profile = await loadActiveAuthorityProfile(client, { id: scope.actorId })
     if (profile.club_id !== scope.clubId || Number(profile.role_rank) < 20 || profile.role === 'super_admin') throw Object.assign(new Error('Staff access changed.'), { statusCode: 403 })
     if (Number(profile.role_rank) < 50) {

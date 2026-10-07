@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { buildClubAppearanceSetupUrl } from '../src/lib/team-branding-onboarding.js'
 import { assertTeamBrandingManagementScope, buildTeamBrandingSetupUrl, canOfferTeamBrandingSetup,
   COACH_BRANDING_RETURN_URL, isCoachBrandingReturn, readBrandingSetupSelection, requestTeamBrandingSetup } from '../src/lib/team-branding-onboarding.js'
 
@@ -54,4 +55,12 @@ test('exhausted places and upload failures surface server errors without fabrica
   const client = { auth: { getSession: async () => ({ data: { session: { access_token: 'synthetic' } } }) } }
   await assert.rejects(requestTeamBrandingSetup({ client, teamId, action: 'claim', fetcher: async () => ({ ok: false, status: 409, json: async () => ({ message: 'All promotional places have been claimed.' }) }) }), error => error.status === 409 && /All promotional/.test(error.message))
   await assert.rejects(requestTeamBrandingSetup({ client, teamId, action: 'save', fetcher: async () => ({ ok: false, status: 502, json: async () => ({ message: 'Saved artwork was kept.' }) }) }), /Saved artwork was kept/)
+})
+test('paid Club phone setup is Club-admin-only even without an active team and fixes the browser target', () => {
+  const context = { clubId, role: 'admin', roleRank: 90 }
+  const admin = { id: 'actor', clubId, role: 'admin', roleRank: 90, planKey: 'club' }
+  assert.equal(canOfferTeamBrandingSetup(context, admin), true)
+  assert.equal(canOfferTeamBrandingSetup({ ...context, teamId, role: 'head_manager', roleRank: 70 }, { ...admin, role: 'head_manager', roleRank: 70 }), false)
+  assert.equal(buildClubAppearanceSetupUrl('https://footballplayer.online', clubId), `https://footballplayer.online/club-appearance?clubId=${clubId}`)
+  assert.throws(() => buildClubAppearanceSetupUrl('https://footballplayer.online?token=secret', clubId))
 })
