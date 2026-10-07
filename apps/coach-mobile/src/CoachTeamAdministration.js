@@ -40,28 +40,37 @@ export function CoachTeamAdministration({ user, context, palette, styles, sectio
     finally { if (request === generation.current) { savingRef.current = false; setSaving(false) } }
   }
   const body = styles.bodyText || { color: palette.textPrimary, fontSize: 15, lineHeight: 22 }
+  const helper = [styles.helperText, { color: palette.textSecondary || palette.textPrimary, fontSize: 14, lineHeight: 20, fontWeight: '400' }]
   const input = { color: palette.textPrimary, borderBottomColor: palette.border, borderBottomWidth: 1, minHeight: 48, fontSize: 16, paddingVertical: 10 }
-  const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: palette.border }
-  const button = (label, press, disabled = false) => <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={press} style={{ minHeight: 48, paddingVertical: 12 }}><Text style={[styles.secondaryActionText, { color: disabled ? palette.textMuted : palette.accentText }]}>{label}</Text></Pressable>
-  const hours = (key, label) => <View style={row}><Text style={[body, { flex: 1 }]}>{label}</Text><TextInput accessibilityLabel={label} editable={policy.canManage && !saving} keyboardType="number-pad" maxLength={3} onChangeText={value => setPolicy(current => ({ ...current, [key]: value === '' ? '' : Number(value.replace(/\D/g, '')) }))} value={String(policy[key])} style={[input, { width: 64, textAlign: 'center' }]} /></View>
+  const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 48 }
+  const group = { paddingVertical: 12, gap: 4, borderBottomWidth: 1, borderBottomColor: palette.border }
+  const button = (label, press, disabled = false) => <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={press} style={{ minHeight: 48, justifyContent: 'center', paddingVertical: 12 }}><Text style={[styles.secondaryActionText, { color: disabled ? palette.textSecondary : palette.accentText }]}>{label}</Text></Pressable>
+  const hours = (key, label) => <View style={row}><Text style={[helper, { flex: 1 }]}>{label}</Text><TextInput accessibilityLabel={label} editable={policy.canManage && !saving} keyboardType="number-pad" maxLength={3} onChangeText={value => setPolicy(current => ({ ...current, [key]: value === '' ? '' : Number(value.replace(/\D/g, '')) }))} value={String(policy[key])} style={[input, { width: 64, textAlign: 'center', fontWeight: '600' }]} /></View>
+  const toggle = (key, label) => <View style={row}><Text style={[body, { flex: 1, fontWeight: '600' }]}>{label}</Text><View style={{ minHeight: 48, minWidth: 64, alignItems: 'center', justifyContent: 'center' }}><Switch accessibilityLabel={label} disabled={!policy.canManage || saving} value={policy[key]} onValueChange={value => setPolicy(current => ({ ...current, [key]: value }))} trackColor={{ false: palette.textSecondary, true: palette.accentText }} thumbColor={palette.background} ios_backgroundColor={palette.textSecondary} hitSlop={12} /></View></View>
   return <View>
     {policy && section !== 'coaches' ? <>
       <Text style={styles.sectionTitle}>Team reminders</Text>
-      <View style={row}><Text style={[body, { flex: 1 }]}>Squad selection reminder</Text><Switch accessibilityLabel="Squad selection reminder" disabled={!policy.canManage || saving} value={policy.squadEnabled} onValueChange={value => setPolicy({ ...policy, squadEnabled: value })} /></View>
+      <View style={group}>
+      {toggle('squadEnabled', 'Squad selection reminder')}
+      <Text style={helper}>Remind staff when the squad is not confirmed.</Text>
       {hours('squadHoursBefore', 'Hours before kick-off')}
-      <Text style={styles.helperText}>Team admins and coaches are reminded if the squad has not been selected and confirmed. The default is 48 hours.</Text>
-      <View style={row}><Text style={[body, { flex: 1 }]}>Automatic availability reminder</Text><Switch accessibilityLabel="Automatic availability reminder" disabled={!policy.canManage || saving} value={policy.availabilityEnabled} onValueChange={value => setPolicy({ ...policy, availabilityEnabled: value })} /></View>
+      </View>
+      <View style={group}>
+      {toggle('availabilityEnabled', 'Automatic availability reminder')}
+      <Text style={helper}>Remind invited families who have not responded.</Text>
       {hours('availabilityHoursBefore', 'Hours before a match or training')}
-      <Text style={styles.helperText}>Remind only invited families who have not responded. Existing invitations and responses stay unchanged.</Text>
-      {policy.canManage ? button('Save reminders', () => { void action('save') }, saving) : <Text style={styles.helperText}>Only the team admin can change reminders.</Text>}
+      </View>
+      {policy.canManage ? button(saving ? 'Saving reminders...' : 'Save reminders', () => { void action('save') }, saving) : <Text style={[helper, { paddingVertical: 12 }]}>Only the team admin can change reminders.</Text>}
     </> : null}
     {policy?.canManage && section !== 'reminders' ? <>
       <Text style={styles.sectionTitle}>Add a coach</Text>
+      <Text style={[helper, { marginBottom: 8 }]}>Invite a coach to this team.</Text>
       <TextInput accessibilityLabel="Coach email address" autoCapitalize="none" autoCorrect={false} editable={!saving} keyboardType="email-address" onChangeText={setEmail} placeholder="Coach email address" placeholderTextColor={palette.textMuted} value={email} style={input} />
-      <View style={row}>{['coach', 'assistant_coach'].map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: role === value }} disabled={saving} onPress={() => setRole(value)} style={{ minHeight: 48, justifyContent: 'center' }}><Text style={[body, { color: role === value ? palette.accentText : palette.textPrimary }]}>{value === 'coach' ? 'Coach' : 'Assistant coach'}</Text></Pressable>)}</View>
+      <View style={[row, { marginTop: 8 }]}>{['coach', 'assistant_coach'].map(value => <Pressable key={value} accessibilityRole="radio" aria-checked={role === value} accessibilityState={{ checked: role === value, disabled: saving }} disabled={saving} onPress={() => setRole(value)} style={{ minHeight: 48, flex: 1, justifyContent: 'center', borderBottomWidth: role === value ? 2 : 0, borderBottomColor: palette.accentText }}><Text style={[body, { fontWeight: role === value ? '600' : '400', color: role === value ? palette.accentText : palette.textPrimary }]}>{value === 'coach' ? 'Coach' : 'Assistant coach'}</Text></Pressable>)}</View>
       {button('Send coach invitation', () => { void action('invite') }, saving || !email.trim())}
     </> : null}
-    {notice ? <Text accessibilityLiveRegion="polite" style={styles.helperText}>{notice}</Text> : null}
+    {policy && !policy.canManage && section === 'coaches' ? <Text style={helper}>Only the team admin can add coaches.</Text> : null}
+    {notice ? <Text accessibilityLiveRegion="polite" style={[helper, { paddingVertical: 8, fontWeight: '600', color: palette.textPrimary }]}>{notice}</Text> : null}
     {!policy ? button('Retry team settings', () => setRetry(value => value + 1)) : null}
   </View>
 }

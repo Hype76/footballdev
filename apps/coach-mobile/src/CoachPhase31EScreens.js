@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
-import { Alert, AppState, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, AppState, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   createCoachExternalResource,
@@ -205,6 +205,14 @@ function Empty({ copy, styles }) {
   return <View style={styles.panel}><Text style={styles.body}>{copy}</Text></View>
 }
 
+function CoachResourcesHeader({ context, onNavigate, styles }) {
+  return <View style={{ gap: 8, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: styles.divider.backgroundColor }}>
+    <Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); onNavigate('more') }} style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' }}><Text style={styles.heading}>Back to More</Text></Pressable>
+    <Text accessibilityRole="header" style={styles.title}>Resources</Text>
+    <Text style={styles.body}>{context.teamName || context.clubName} | {context.roleLabel}</Text>
+  </View>
+}
+
 export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
   const [data, setData] = useState(null)
@@ -331,7 +339,11 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const common = { context, palette, chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
-      {!['chat', 'invites'].includes(domain) ? <View style={domain === 'development' ? styles.developmentHeader : styles.panel}>
+      {domain === 'resources' ? <>
+        <CoachResourcesHeader context={context} onNavigate={onNavigate} styles={styles} />
+        {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Offline and read-only</Text> : null}
+        {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
+      </> : !['chat', 'invites'].includes(domain) ? <View style={domain === 'development' ? styles.developmentHeader : styles.panel}>
         <Text accessibilityRole="header" style={styles.title}>{TITLES[domain]}</Text>
         <Text style={styles.body}>{context.teamName || context.clubName} | {context.roleLabel}</Text>
         {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'development' ? 'Saved information. Private drafts work offline.' : 'Offline and read-only'}</Text> : null}
@@ -429,6 +441,18 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   const [url, setUrl] = useState('')
   const [selectedId, setSelectedId] = useState('')
   const mutationInFlight = useRef(false)
+  const openGeneration = useRef(0)
+  const openingResource = useRef(false)
+  const mounted = useRef(false)
+  const scope = `${user?.id}:${user?.clubId}:${user?.activeTeamId}:${user?.role}:${user?.roleRank}:${user?.status}:${user?.accountStatus}:${user?.hasActivePlanAccess}:${user?.planKey}:${stale}`
+  const scopeRef = useRef(scope)
+  scopeRef.current = scope
+  useEffect(() => {
+    mounted.current = true
+    openGeneration.current += 1
+    if (openingResource.current) { openingResource.current = false; mutationInFlight.current = false; setBusy('') }
+    return () => { mounted.current = false; openGeneration.current += 1; Keyboard.dismiss() }
+  }, [scope])
   const groups = useMemo(() => groupCoachResources(data, search), [data, search])
   const selected = data.find((resource) => resource.id === selectedId)
   const links = selected?.links || []
@@ -460,16 +484,23 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
     finally { mutationInFlight.current = false; setBusy('') }
   }
   const open = async (resource) => {
+    Keyboard.dismiss()
     if (mutationInFlight.current) return
     mutationInFlight.current = true
+    openingResource.current = true
     setBusy(`open:${resource.id}`)
+    const generation = openGeneration.current
+    const current = () => mounted.current && openGeneration.current === generation && scopeRef.current === scope
     try {
       const accessUrl = await getCoachResourceAccessUrl(user, resource)
-      if (!await Linking.canOpenURL(accessUrl)) throw new Error('This Resource link is not supported on this device.')
+      if (!current()) return
+      const supported = await Linking.canOpenURL(accessUrl)
+      if (!current()) return
+      if (!supported) throw new Error('This Resource link is not supported on this device.')
       await Linking.openURL(accessUrl)
-      report('Resource opened.')
-    } catch (error) { report(getCoachResourceErrorMessage(error)) }
-    finally { mutationInFlight.current = false; setBusy('') }
+      if (current()) report('Resource opened.')
+    } catch (error) { if (current()) report(getCoachResourceErrorMessage(error)) }
+    finally { if (current()) { openingResource.current = false; mutationInFlight.current = false; setBusy('') } }
   }
   const create = () => mutate('Creating resource...', async () => {
     await createCoachExternalResource(user, { title, externalUrl: url, category })
@@ -489,15 +520,15 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   const assignedPlayerIds = new Set(links.filter(link => link.linkedType === 'player').map(link => link.linkedId))
   const unassignedPlayers = players.filter(player => !assignedPlayerIds.has(player.id))
   const assignAllPlayers = () => mutate('Assigning Players...', () => setCoachResourceSharing(user, selected, unassignedPlayers.map(player => ({ linkedId: player.id, linkedType: 'player', parentVisible, teamId: user.activeTeamId })), 'Shared from Football Player Coach'), `Resource assigned to ${unassignedPlayers.length} Player${unassignedPlayers.length === 1 ? '' : 's'}.`)
-  const closeAccess = () => { if (!mutationInFlight.current) { setSelectedId(''); setResourceNotice('') } }
+  const closeAccess = () => { if (!mutationInFlight.current) { Keyboard.dismiss(); setSelectedId(''); setResourceNotice('') } }
   return (
     <View style={styles.stack}>
       <CoachResourceUploadAction user={user} stale={stale} load={load} styles={styles} />
-      <TextInput accessibilityLabel="Search resources" placeholder="Search resources" placeholderTextColor={styles.helper.color} onChangeText={setSearch} style={styles.input} value={search} />
+      <TextInput accessibilityLabel="Search resources" placeholder="Search resources" placeholderTextColor={styles.helper.color} onChangeText={setSearch} onSubmitEditing={() => Keyboard.dismiss()} returnKeyType="done" style={styles.input} value={search} />
       <Text accessibilityLiveRegion="polite" style={styles.helper}>{groups.reduce((count, group) => count + group.resources.length, 0)} of {data.length} resources</Text>
       {groups.map(group => {
         const expanded = Boolean(search.trim()) || expandedCategories[group.category] === true
-        return <View key={group.category} style={styles.panel}>
+        return <View key={group.category} style={{ borderBottomWidth: 1, borderBottomColor: styles.divider.backgroundColor, paddingVertical: 8, gap: 8 }}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${group.label} resources`} accessibilityState={{ expanded }} onPress={() => setExpandedCategories(current => ({ ...current, [group.category]: !expanded }))} disabled={Boolean(search.trim())} style={[styles.row, { minHeight: 44, alignItems: 'center' }]}>
             <Text style={[styles.heading, { flex: 1 }]}>{group.label} ({group.resources.length})</Text><Text style={styles.body}>{search.trim() ? 'Matches' : expanded ? 'Hide' : 'Show'}</Text>
           </Pressable>
@@ -543,7 +574,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
         </SafeAreaView>
       </Modal> : null}
       <Button disabled={Boolean(busy)} label={createOpen ? 'Close new resource' : 'Add secure external link'} onPress={() => setCreateOpen(!createOpen)} secondary styles={styles} />
-      {createOpen ? <View style={styles.panel}>
+      {createOpen ? <View style={{ borderTopWidth: 1, borderTopColor: styles.divider.backgroundColor, paddingVertical: 12, gap: 12 }}>
         <Text style={styles.heading}>Add secure external link</Text>
         <TextInput accessibilityLabel="Resource title" placeholder="Resource title" placeholderTextColor={styles.helper.color} onChangeText={setTitle} style={styles.input} value={title} />
         <TextInput accessibilityLabel="HTTPS Resource URL" placeholder="https://" placeholderTextColor={styles.helper.color} autoCapitalize="none" keyboardType="url" onChangeText={setUrl} style={styles.input} value={url} />

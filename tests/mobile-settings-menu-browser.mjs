@@ -44,6 +44,9 @@ for (const app of ['parent', 'coach']) {
     import {useQuickActionVisibility} from './apps/coach-mobile/src/useQuickActionVisibility.js';
     import {CoachQuickActions} from './apps/coach-mobile/src/CoachQuickActions.js';
     import {CoachTeamAdministration} from './apps/coach-mobile/src/CoachTeamAdministration.js';
+    import {CoachTeamKitSettings} from './apps/coach-mobile/src/CoachTeamKitSettings.js';
+    import {getWorkspaceScope} from './src/lib/workspace-scope.js';
+    import {isMobileRouteAllowed} from './apps/mobile-core/src/matchdayPolicyCore.js';
     import {TeamLeagueLinkSettings} from './apps/mobile-core/src/TeamLeagueLink.js';
     import {coachTeamLeagueScope,teamLeagueScopeKey} from './src/lib/team-league-link.js';
     const Application={nativeApplicationVersion:'1.0.22',nativeBuildVersion:'44'}, Constants={};
@@ -94,12 +97,12 @@ function App(){
     onBiometricChange:record('biometric'),onToggleBiometrics:record('biometric'),onAppBadgeEnabledChange:record('badge'),onToggleAppBadge:record('badge'),
     onNotificationModeChange:record('push'),onCommunicationChannelChange:record('communication'),onRestoreDismissedItems:record('restore'),
     onRetryNotificationState:record('retry'),onRefreshNotificationState:record('retry'),onRetryBiometricState:record('retry'),onRefreshBiometricState:record('retry'),...overrides};
-  return <div data-app={app} data-mode={mode}>{app==='parent'?<Parent key={app} mode={mode} accent={accent} {...props}/>:<Coach key={app} mode={mode} accent={accent} {...props}/>}</div>;
+  return <div data-app={app} data-mode={mode} data-plan={props.user.planKey || ""} data-role={props.user.role || ""} data-rank={props.user.roleRank || 0} data-team={props.user.activeTeamId || ""}>{app==='parent'?<Parent key={app} mode={mode} accent={accent} {...props}/>:<Coach key={app} mode={mode} accent={accent} {...props}/>}</div>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
 `
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic',
-  loader: { '.js': 'jsx', '.ttf': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'],
+  loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'],
   resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], nodePaths: [modules],
   alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' },
@@ -108,9 +111,18 @@ const result = await build({ stdin: { contents: entry, resolveDir: root, loader:
     builder.onLoad({ filter: /.*/, namespace: 'preview' }, args => ({ contents: virtual[args.path], loader: 'jsx', resolveDir: root }))
     builder.onResolve({ filter: /coachTeamAdministration$/ }, () => ({ path: 'team-administration', namespace: 'administration-fixture' }))
     builder.onLoad({ filter: /.*/, namespace: 'administration-fixture' }, () => ({ loader: 'js', contents: `
-      export async function readCoachTeamAdministration(){return {canManage:false,squadEnabled:false,squadHoursBefore:48,availabilityEnabled:false,availabilityHoursBefore:24};}
+      export async function readCoachTeamAdministration(user){return {canManage: user.role === 'admin' && Number(user.roleRank) >= 90 || user.role === 'head_manager' && Number(user.roleRank) >= 70,squadEnabled:false,squadHoursBefore:48,availabilityEnabled:false,availabilityHoursBefore:24};}
       export async function saveCoachTeamReminders(){throw new Error('Read-only coach must not save reminders');}
       export async function addCoachFromPhone(){throw new Error('Read-only coach must not invite staff');}
+    ` }))
+    builder.onResolve({ filter: /mobileKitCache$/ }, () => ({ path: 'kit-cache', namespace: 'kit-fixture' }))
+    builder.onResolve({ filter: /coachTeamKitsData$/ }, () => ({ path: 'kit-data', namespace: 'kit-fixture' }))
+    builder.onLoad({ filter: /.*/, namespace: 'kit-fixture' }, args => ({ loader: 'js', contents: args.path === 'kit-cache' ? `
+      export async function loadMobileClubKits(){return {home:{colour:'#000080'},away:{colour:'#ffffff'}};}
+      export function setMobileTeamKits(clubId,teamId,kits){return kits;}
+    ` : `
+      export async function getCoachTeamKits(){return {home:{colour:'#000080'},away:{colour:'#ffffff'}};}
+      export async function saveCoachTeamKits(){throw new Error('Menu discoverability must not save kits');}
     ` }))
     builder.onResolve({ filter: /\/supabase$/ }, () => ({ path: 'supabase', namespace: 'mock' }))
     builder.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({ loader: 'js', contents: `
@@ -273,6 +285,56 @@ try {
     await open(app === 'parent' ? 'Sign out' : 'Log out')
     assert.ok(await page.evaluate(() => window.calls.some(call => call.name === 'signout')))
   }
+  // Exercise the actual extracted Settings gate and components with contextual plan/role users.
+  await page.evaluate(() => window.showApp('coach'))
+  await page.locator('[data-app="coach"]').waitFor()
+  let settingsAccessCases = 0
+  async function checkSettingsAccess({planKey, role, roleRank, teamId = 'synthetic-team'}, kitsVisible, coachesVisible) {
+    await page.evaluate(({planKey, role, roleRank, teamId}) => window.override({
+      user:{id:'synthetic',clubId:'synthetic-club',activeTeamId:teamId,planKey,role,roleRank,hasActivePlanAccess:true,displayName:'Alex'},
+      context:{id:`${planKey}:${role}:${roleRank}:${teamId}`,clubId:'synthetic-club',teamId,planKey,role,roleRank,roleLabel:role,teamName:'U17',clubName:'Demo FC'},
+    }), {planKey,role,roleRank,teamId})
+    await page.locator(`[data-plan="${planKey}"][data-role="${role}"][data-rank="${roleRank}"][data-team="${teamId}"]`).waitFor()
+    await page.getByRole('button', {name:'Account',exact:true}).waitFor()
+    await page.waitForFunction(({kitsVisible,coachesVisible}) => {
+      const names=[...document.querySelectorAll('[role="button"]')].map(node=>node.getAttribute('aria-label') || node.textContent)
+      return names.includes('Team kits') === kitsVisible && names.includes('Add a coach') === coachesVisible
+    }, {kitsVisible,coachesVisible})
+    assert.equal(await page.getByRole('button',{name:'Team kits',exact:true}).count(), Number(kitsVisible))
+    assert.equal(await page.getByRole('button',{name:'Add a coach',exact:true}).count(), Number(coachesVisible))
+    if(coachesVisible) {
+      await open('Add a coach')
+      await page.getByLabel('Coach email address',{exact:true}).waitFor()
+      assert.equal(await page.getByRole('button',{name:'Send coach invitation',exact:true}).isDisabled(),true)
+      assert.equal(await page.getByRole('switch',{name:'Squad selection reminder',exact:true}).count(),0,'Coach invitations have a dedicated section')
+      await back()
+    }
+    if(kitsVisible) {
+      await open('Team kits')
+      await page.getByRole('button',{name:'Save kit colours',exact:true}).waitFor()
+      await back()
+    }
+    settingsAccessCases += 1
+  }
+  const mutationsBeforeAccessChecks=await page.evaluate(()=>window.calls.length)
+  for(const planKey of ['club','small_club','development_club','large_club','pilot']) {
+    await checkSettingsAccess({planKey,role:'head_manager',roleRank:70},false,true)
+    await checkSettingsAccess({planKey,role:'manager',roleRank:50},false,false)
+    await checkSettingsAccess({planKey,role:'coach',roleRank:30},false,false)
+    await checkSettingsAccess({planKey,role:'admin',roleRank:90},true,true)
+    await checkSettingsAccess({planKey,role:'admin',roleRank:90,teamId:''},false,false)
+  }
+  for(const planKey of ['team','single_team']) {
+    await checkSettingsAccess({planKey,role:'head_manager',roleRank:70},true,true)
+    await checkSettingsAccess({planKey,role:'admin',roleRank:90},true,true)
+  }
+  // A context switch must update visibility without a page reload or account remount.
+  await checkSettingsAccess({planKey:'club',role:'head_manager',roleRank:70},false,true)
+  await checkSettingsAccess({planKey:'team',role:'head_manager',roleRank:70},true,true)
+  await checkSettingsAccess({planKey:'club',role:'head_manager',roleRank:70},false,true)
+  assert.equal(await page.evaluate(()=>window.calls.length),mutationsBeforeAccessChecks,'Settings discovery never mutates data')
+  console.log(`PASS: ${settingsAccessCases} actual Settings kit/invite visibility cases, legacy Club aliases and live context switching.`)
+  await page.evaluate(()=>window.override({}))
   await page.evaluate(() => window.override({ testQuickAction: true }))
   await page.getByRole('button', { name: 'Open Quick Add', exact: true }).waitFor()
   await open('Display')

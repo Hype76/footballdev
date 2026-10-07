@@ -27,23 +27,23 @@ import {View,Text,StyleSheet,Pressable,TextInput,Switch,Modal,ScrollView} from '
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {COACH_RESOURCE_CATEGORIES,groupCoachResources} from './apps/mobile-core/src/coachResourceBrowseCore.js';
 import {getResourceDisplayTitle} from './src/lib/resource-date-presentation.js';
-const SafeAreaView=View,config={isProduction:true};
+const SafeAreaView=View,config={isProduction:true};const Keyboard={dismiss:()=>{window.keyboardDismissals=(window.keyboardDismissals||0)+1;document.activeElement?.blur()}};
 // The actual upload handoff component has its own scope/return browser rehearsal.
 const CoachResourceUploadAction=()=>null;
 const resources=${JSON.stringify(fixture)};
 window.calls=[];window.created=[];window.playerLoads=0;
 const getCoachPlayerList=async()=>{window.playerLoads++;if(window.failPlayers){window.failPlayers=false;throw new Error('Player loading failed.')}return Array.from({length:22},(_,i)=>({id:'p'+i,playerName:'FP TEST Player '+i}))};
 const getCoachFriendlyError=e=>e.message,getCoachResourceErrorMessage=e=>e.message;
-const getCoachResourceAccessUrl=async()=>{if(window.failOpen){window.failOpen=false;throw new Error('Resource could not be opened.')}return 'https://example.test/resource'};
-const Linking={canOpenURL:async()=>true,openURL:async u=>window.calls.push(['open',u])};
+const getCoachResourceAccessUrl=async()=>{if(window.holdResourceUrl)await new Promise(resolve=>window.releaseResourceUrl=resolve);if(window.failOpen){window.failOpen=false;throw new Error('Resource could not be opened.')}return 'https://example.test/resource'};
+const Linking={canOpenURL:async()=>{if(window.holdCanOpen)await new Promise(resolve=>window.releaseCanOpen=resolve);return true},openURL:async u=>window.calls.push(['open',u])};
 const createCoachExternalResource=async(u,form)=>{window.created.push(form);if(window.holdCreate)await new Promise(resolve=>window.releaseCreate=resolve);resources.push({id:'created',title:form.title,category:form.category,links:[]})};
 const setCoachResourceSharing=async(u,r,targets)=>{window.calls.push(['share',r.id,targets]);if(window.failShare){window.failShare=false;throw new Error('Sharing failed. Try again.')}r.links.push(...targets.map((t,i)=>({...t,id:'new-link-'+i})));};
 const removeCoachResourceSharing=async(u,r,id)=>{window.calls.push(['remove',r.id,id]);r.links=r.links.filter(l=>l.id!==id)};
 ${helpers}
 ${screen}
 function App(){const [mode,setMode]=useState('light'),[rank,setRank]=useState(50),[stale,setStale]=useState(false),[data,setData]=useState(resources.slice()),[notice,setNotice]=useState('');window.mode=setMode;window.rank=setRank;window.stale=setStale;
-const user=useMemo(()=>({id:'coach',activeTeamId:'team',roleRank:rank}),[rank]);const styles=phaseStyles(createCoachTheme({mode}).tokens);const load=useCallback(async()=>setData(resources.slice()),[]);
-return <View style={{minHeight:'100vh',padding:12,backgroundColor:styles.chatModal.backgroundColor}}><Text>{notice}</Text><ResourcesDomain data={data} load={load} setNotice={setNotice} stale={stale} styles={styles} user={user}/></View>}
+const [route,setRoute]=useState('resources');window.resourceRoute=()=>route;window.showResources=()=>setRoute('resources');const [team,setTeam]=useState('team');window.changeResourceTeam=setTeam;const [planAccess,setPlanAccess]=useState(true);window.revokeResourceAccess=()=>setPlanAccess(false);const user=useMemo(()=>({id:'coach',activeTeamId:team,roleRank:rank,status:'active',hasActivePlanAccess:planAccess,planKey:'team'}),[rank,team,planAccess]);const styles=phaseStyles(createCoachTheme({mode}).tokens);const load=useCallback(async()=>setData(resources.slice()),[]);
+return <div data-resource-team={team} data-resource-access={String(planAccess)}><View style={{minHeight:'100vh',padding:12,backgroundColor:styles.chatModal.backgroundColor}}><Text>{notice}</Text>{route==='resources'?<><CoachResourcesHeader context={{teamName:'U17',roleLabel:'Team admin'}} onNavigate={setRoute} styles={styles}/><ResourcesDomain data={data} load={load} setNotice={setNotice} stale={stale} styles={styles} user={user}/></>:<Text>More menu</Text>}</View></div>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
 const browser=await chromium.launch({headless:true})
@@ -125,6 +125,44 @@ try {
   await page.evaluate(()=>window.releaseCreate())
   await page.getByText('External Resource created.',{exact:true}).waitFor()
   assert.deepEqual(await page.evaluate(()=>window.created),[{title:'FP TEST Match resource',externalUrl:'https://example.test/tactics',category:'match_day'}])
+  await page.getByLabel('Search resources',{exact:true}).focus()
+  assert.equal(await page.getByLabel('Search resources',{exact:true}).evaluate(input=>input===document.activeElement),true)
+  await page.getByRole('button',{name:'Back to More',exact:true}).click()
+  await page.getByText('More menu',{exact:true}).waitFor()
+  assert.equal(await page.evaluate(()=>window.resourceRoute()),'more')
+  assert.ok(await page.evaluate(()=>window.keyboardDismissals)>=1)
+  assert.equal(await page.getByLabel('Search resources',{exact:true}).count(),0)
+  assert.equal(await page.evaluate(()=>window.created.length),1,'Exiting Resources must preserve saved resources')
+  for (const deferred of ['url', 'support']) {
+    await page.evaluate(()=>window.showResources())
+    await page.getByLabel('Search resources',{exact:true}).fill('training')
+    const openedBefore=await page.evaluate(()=>window.calls.filter(call=>call[0]==='open').length)
+    await page.evaluate(deferred=>{window.holdResourceUrl=deferred==='url';window.holdCanOpen=deferred==='support'},deferred)
+    await page.getByRole('button',{name:'Open Resource',exact:true}).first().click()
+    await page.waitForFunction(deferred=>typeof window[deferred==='url'?'releaseResourceUrl':'releaseCanOpen']==='function',deferred)
+    await page.getByRole('button',{name:'Back to More',exact:true}).click()
+    await page.getByText('More menu',{exact:true}).waitFor()
+    await page.evaluate(async deferred=>{window.holdResourceUrl=false;window.holdCanOpen=false;window[deferred==='url'?'releaseResourceUrl':'releaseCanOpen']();await new Promise(resolve=>setTimeout(resolve,0))},deferred)
+    assert.equal(await page.evaluate(()=>window.calls.filter(call=>call[0]==='open').length),openedBefore,'Leaving cancels a delayed external resource launch')
+    assert.equal(await page.getByText('Resource opened.',{exact:true}).count(),0,'No late success feedback after exit')
+  }
+  await page.evaluate(()=>window.showResources())
+  await page.getByLabel('Search resources',{exact:true}).fill('training')
+  await page.evaluate(()=>{window.holdResourceUrl=true;window.releaseResourceUrl=null})
+  const openedBeforeScopeChange=await page.evaluate(()=>window.calls.filter(call=>call[0]==='open').length)
+  await page.getByRole('button',{name:'Open Resource',exact:true}).first().click()
+  await page.waitForFunction(()=>typeof window.releaseResourceUrl==='function')
+  await page.evaluate(()=>window.changeResourceTeam('other-team'))
+  await page.locator('[data-resource-team="other-team"]').waitFor()
+  await page.evaluate(async()=>{window.holdResourceUrl=false;window.releaseResourceUrl();await new Promise(resolve=>setTimeout(resolve,0))})
+  assert.equal(await page.evaluate(()=>window.calls.filter(call=>call[0]==='open').length),openedBeforeScopeChange,'Changing team cancels a delayed external resource launch')
+  await page.evaluate(()=>{window.holdResourceUrl=true;window.releaseResourceUrl=null})
+  await page.getByRole('button',{name:'Open Resource',exact:true}).first().click()
+  await page.waitForFunction(()=>typeof window.releaseResourceUrl==='function')
+  await page.evaluate(()=>window.revokeResourceAccess())
+  await page.locator('[data-resource-access="false"]').waitFor()
+  await page.evaluate(async()=>{window.holdResourceUrl=false;window.releaseResourceUrl();await new Promise(resolve=>setTimeout(resolve,0))})
+  assert.equal(await page.evaluate(()=>window.calls.filter(call=>call[0]==='open').length),openedBeforeScopeChange,'Revoking plan access cancels a delayed external resource launch')
   assert.deepEqual(errors,[])
   console.log('PASS: actual ResourcesDomain collapses categories, filters live, sorts newest first, opens a focused access manager with player search, preserves Back, handles failures, guards mutations, restricts stale/read-only actions, saves category, and renders at 320/390px in light/dark themes.')
 } finally {await browser.close()}
