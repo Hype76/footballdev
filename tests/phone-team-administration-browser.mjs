@@ -23,6 +23,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {CoachTeamAdministration} from './apps/coach-mobile/src/CoachTeamAdministration.js';
 import {IconSettings,SettingsSection} from './apps/mobile-core/src/IconSettings.js';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
+import {getWorkspaceScope} from './src/lib/workspace-scope.js';
 import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
 import {MOBILE_SETTING_LOAD_STATES} from './apps/mobile-core/src/deviceSettingsCore.js';
 const CoachThemeContext=createContext(null),Application={},Constants={};
@@ -69,6 +70,13 @@ try {
       await page.getByRole('button', { name: 'Team reminders', exact: true }).click()
       const field = page.getByRole('textbox', { name: 'Hours before kick-off', exact: true })
       await field.waitFor(); assert.equal(await field.inputValue(), '48')
+      const availabilityField = page.getByRole('textbox', { name: 'Hours before a match or training', exact: true })
+      const squadBounds = await field.boundingBox(), availabilityBounds = await availabilityField.boundingBox()
+      assert.equal(squadBounds.x, availabilityBounds.x, 'Hour controls share an aligned column')
+      assert.ok(squadBounds.height >= 48 && availabilityBounds.height >= 48, 'Hour controls retain touch targets')
+      const squadSwitch = page.getByRole('switch', { name: 'Squad selection reminder', exact: true })
+      await squadSwitch.check()
+      assert.equal(await squadSwitch.isChecked(), true)
       await field.fill('24')
       const start = performance.now()
       await page.getByRole('button', { name: 'Save reminders', exact: true }).click()
@@ -79,15 +87,23 @@ try {
       await page.evaluate(() => window.resolvePending())
       await page.getByText('Reminder settings saved.', { exact: true }).waitFor()
       assert.equal(await page.evaluate(() => window.calls.find(call => call.action === 'save').squadHoursBefore), 24)
+      assert.equal(await page.evaluate(() => window.calls.find(call => call.action === 'save').squadEnabled), true)
       assert.equal(await page.getByRole('textbox', { name: 'Coach email address', exact: true }).count(), 0)
+      await page.getByRole('button', { name: 'Back to Settings', exact: true }).click()
+      await page.getByRole('button', { name: 'Add a coach', exact: true }).click()
+      await page.getByRole('textbox', { name: 'Coach email address', exact: true }).waitFor()
+      assert.equal(await page.getByRole('radio', { name: 'Coach', exact: true }).getAttribute('aria-checked'), 'true')
     } else {
       await page.getByRole('textbox', { name: 'Coach email address', exact: true }).fill('synthetic@example.com')
+      await page.getByRole('radio', { name: 'Assistant coach', exact: true }).click()
+      assert.equal(await page.getByRole('radio', { name: 'Assistant coach', exact: true }).getAttribute('aria-checked'), 'true')
       const start = performance.now()
       await page.getByRole('button', { name: 'Send coach invitation', exact: true }).click()
       await page.getByText('Saving coach invitation...', { exact: true }).waitFor({ timeout: 1000 })
       maximumFeedbackMs = Math.max(maximumFeedbackMs, performance.now() - start)
       await page.evaluate(() => window.resolvePending())
       await page.getByText('Coach invitation sent.', { exact: true }).waitFor()
+      assert.equal(await page.evaluate(() => window.calls.find(call => call.action === 'invite').role), 'assistant_coach')
       assert.equal(await page.getByRole('textbox', { name: 'Hours before kick-off', exact: true }).count(), 0)
     }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route} no overflow at ${width}`)
@@ -99,6 +115,9 @@ try {
       await page.getByText('Only the team admin can change reminders.', { exact: true }).waitFor()
       assert.equal(await page.getByRole('switch', { name: 'Squad selection reminder', exact: true }).isDisabled(), true)
       assert.equal(await page.getByRole('button', { name: 'Save reminders', exact: true }).count(), 0)
+      await page.getByRole('button', { name: 'Back to Settings', exact: true }).click()
+      assert.equal(await page.getByRole('button', { name: 'Add a coach', exact: true }).count(), 0)
+      await page.getByRole('button', { name: 'Team reminders', exact: true }).click()
     } else {
       await page.getByText('Team', { exact: true }).first().waitFor()
       assert.equal(await page.getByRole('textbox', { name: 'Coach email address', exact: true }).count(), 0)
@@ -113,7 +132,7 @@ try {
       assert.equal(await page.getByRole('textbox', { name: 'Hours before kick-off', exact: true }).inputValue(), '48')
       assert.equal(await page.getByRole('button', { name: 'Save reminders', exact: true }).count(), 0)
     }
-    checks += route === 'team' ? 9 : 6; await page.close()
+    checks += route === 'team' ? 12 : 12; await page.close()
   }
   assert.deepEqual(errors, []); assert.ok(maximumFeedbackMs < 1000)
   console.log(JSON.stringify({ checks, maximumFeedbackMs: Math.ceil(maximumFeedbackMs), errors, evidence: out, nativeHandsetReceipt: 'Unknown' }))

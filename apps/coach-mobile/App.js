@@ -5,6 +5,7 @@ import { CoachTeamBrandingSetup } from './src/CoachTeamBrandingSetup'
 import { isCoachBrandingReturn } from '../../src/lib/team-branding-onboarding.js'
 import { isCoachResourceReturn } from '../../src/lib/coach-resource-upload-handoff.js'
 import { CoachTeamAdministration } from './src/CoachTeamAdministration'
+import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 import 'react-native-url-polyfill/auto'
 import { sanitizeCoachChatOfflineValue } from '../mobile-core/src/coachPhase31ECore'
 import { loadMobileClubKits } from '../mobile-core/src/mobileKitCache'
@@ -30,6 +31,7 @@ import {
   BackHandler,
   Image,
   InteractionManager,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -551,6 +553,7 @@ function CoachHome() {
   }, [activeContext, selectedMobileUser, user?.id])
 
   const navigate = useCallback((route, navigationTarget = null) => {
+    Keyboard.dismiss()
     scrollContentToTop()
     setChatNotificationTarget(null)
     const resolved = resolveCoachRoute(route, activeContext, matchdayPlanConfig)
@@ -1310,6 +1313,9 @@ function SettingsScreen({
       {context.teamId ? <SettingsSection id="team-reminders" label="Team reminders" iconKey="settings.notifications">
         <CoachTeamAdministration key={`reminders:${context.id}`} user={user} context={context} palette={palette} styles={styles} section="reminders" />
       </SettingsSection> : null}
+      {context.teamId && Number(context.roleRank) >= 70 ? <SettingsSection id="team-coaches" label="Add a coach" iconKey="more.team">
+        <CoachTeamAdministration key={`settings-coaches:${context.id}`} user={user} context={context} palette={palette} styles={styles} section="coaches" />
+      </SettingsSection> : null}
       <SettingsSection id="display" label="Display" iconKey="settings.appearance">
       <Section compact iconKey="settings.appearance" title="Appearance">
         <Text style={styles.bodyText}>System follows this device's appearance. Your choice is remembered on this device.</Text>
@@ -1319,7 +1325,7 @@ function SettingsScreen({
         </SettingRow>
       </Section>
       </SettingsSection>
-      {user.activeTeamId && isMobileRouteAllowed(user, 'matchday', user?.matchdayPolicy) ? <SettingsSection id="kits" label="Team kits" iconKey="matchday">
+      {user.activeTeamId && isMobileRouteAllowed(user, 'matchday', user?.matchdayPolicy) && (getWorkspaceScope(user).key !== 'club' || (user.role === 'admin' && Number(user.roleRank) >= 90)) ? <SettingsSection id="kits" label="Team kits" iconKey="matchday">
         <CoachTeamKitSettings key={`${user.clubId}:${user.activeTeamId}`} palette={palette} user={user} />
       </SettingsSection> : null}
       <SettingsSection id="security" label="Security" iconKey="settings.security">

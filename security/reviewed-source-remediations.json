@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "8e86995d610446f81032d0b902a3e058199e742674fa9d013a42eb7df59bcdb9",
+    "scripts/security-verify-reviewed-backports.mjs": "444d82090c0c9a45b386460b3404d88fa521db57e6e69047b5865ffc9836da49",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -672,10 +672,10 @@
     "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
     "approvedScope": "DRAFT ONLY: combined V1 local product and regression preparation, bounded four-migration validation, and honest same-byte closed/unmerged braces status refresh; parent approval and fresh independent exact-HEAD receipt required before activation",
     "changedSourceHashes": {
-      "apps/coach-mobile/App.js": "761b59b9447300836c2ca3eb664715821f4b7db12a293a7296123414af85c8a8",
+      "apps/coach-mobile/App.js": "518b0f6ca68f7737feda52ee963ab6d2b97646cfb6d3f323d8a491e5ac8fa26b",
       "apps/coach-mobile/src/CoachMatchDayScreen.js": "7821eb0ad4eca5b52097ef82282cdfc6c0976de3a2b927bdeaad9c8bd2956a52",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "01857bae300d5d17d33a85d3d66dc28397dc4fee4a1ca25ce1fbadeff5d9479e",
-      "apps/coach-mobile/src/CoachPhase31EScreens.js": "3a66dd87f1037b091e3be9f53aaf2487ecdaad83f116f39dff19e6ab26c811d7",
+      "apps/coach-mobile/src/CoachPhase31EScreens.js": "0b5335c62e366b88e1a666f3f76f74d3db6ecfebcc9976d3f53c1a70457d04b2",
       "apps/coach-mobile/src/CoachTeamBrandingSetup.js": "0005d2ed3fc58c76303f50c6398190e37f45d44ec269772e451e201975a95cfe",
       "apps/coach-mobile/src/DevelopmentOfflineEditor.js": "8d2a0c23a033a9aaa123369956b51f826057f55add7bfa629c3a0ca229d42d69",
       "apps/coach-mobile/src/coachDevelopmentSync.js": "9f8ba95b76dd53625a1946fb5007cb366689c677fa6b7af5bad34e59822f279d",
@@ -810,7 +810,7 @@
       "tests/mobile-parent-live-account-qa-29.test.mjs": "69047075fce596d8b7b23c83105ac9756f17bd2d24c3ad5e5b6aef0eb9ebcc6b",
       "tests/mobile-parent-portal-parity-final-25.test.mjs": "cd0c4554b9b491c1fc1524515e27094c59a3943e309f427a203969f39f779f4b",
       "tests/mobile-scorer-parity-browser.mjs": "a72f2a6eb0d2c98f7efe91b3b1171b943825fcfab20bad1345f2fe351dc25012",
-      "tests/mobile-settings-menu-browser.mjs": "93f3e7c2aafd54897a0e8ded8b1997acb0525de625a3cec1ad7e9d044e1e5da7",
+      "tests/mobile-settings-menu-browser.mjs": "e5b497d8f695a13ad7ab96cc13769c7e49a288d1f35835b55ff3cfb61dc18d95",
       "tests/netlify-functions-packaging.test.mjs": "e57909fca271dbee0a79991ba3d44d3bd0031b63e30d118b2d8a179de78c30c9",
       "tests/parent-access-removal-browser.mjs": "f0f12a72bb78f1926595b4029c1190bb606a86fe414bfa62103f0cd3ef64f61a",
       "tests/parent-assessment-calendar-corrective-38.test.mjs": "113eb0a1a343ea21a60be402ebc97e88ed0c0714105f6cbeac3a39162e8570f0",
@@ -929,8 +929,8 @@
       "tests/first250-counter-browser.mjs": "0d0d5748aca27aa3166be93de796f5ec6fce0d04f10f70fd761a5e39ce7a330b",
       "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
       "apps/coach-mobile/src/CoachOperationalScreens.js": "f1779d4b7ef7e99dee386aafa6ef34a403628ee29892f24b797b21a07f46f601",
-      "apps/coach-mobile/src/CoachResourceUploadAction.js": "2c10dda7fd0b3e3dc7e228f78a70762dd46192e459562bcc0953a1650f3b8388",
-      "apps/coach-mobile/src/CoachTeamAdministration.js": "3425b19eeb2a82f67236f605f2de0c36ebe29fa578210fa2b689feefee570965",
+      "apps/coach-mobile/src/CoachResourceUploadAction.js": "a0c8239e98437050f951bf63cf5a551456e623a21734268ebc58049d4940e956",
+      "apps/coach-mobile/src/CoachTeamAdministration.js": "3b8fba38b91f0e0d58dc71d39b841f675dabba32bc559e33aa72d40506077123",
       "apps/mobile-core/src/coachTeamAdministration.js": "25ac17c127b2fab0da09c339a15e40afaf6c442f245350a9bd106854eb3944e8",
       "apps/mobile-core/src/durableMobileAction.js": "cc6beef25145e9dfb12633564df3f20743bfbcbf7ba950db57c524c1a04d2e04",
       "netlify/functions/lib/_availability-follow-up.js": "9cd5f19b6a30e35774a2fdc95dfe0abab6e541d33d8eca4882de013c1bb5120b",
@@ -948,14 +948,14 @@
       "supabase/migrations/20261007071022_coach_team_administration_reminders.sql": "b5841771c44b6a03c79a87aa3d6291e6f6ae0a196b17f90058ac3bac6630b8cc",
       "tests/club-appearance-phone-browser.mjs": "52ff00d9b2416a71cb6e0f1708ac34d7c5709d503876d576a23253eb0e64fcf9",
       "tests/coach-development-workspace-responsiveness.test.mjs": "b2184a5975566bcd6401e42c797ddea46ba0ee5c1ff46e1d9b610493e46d2d5d",
-      "tests/coach-resource-upload-browser.mjs": "ad789843c5ad08cbdfe6e216abda4304fbc793f7b19b2144ebe701d2ed154b24",
+      "tests/coach-resource-upload-browser.mjs": "ccc6c895f14a06270e7fdbfb3013acfc2e5d330f2e2fd55f3d893e46d32ca6ae",
       "tests/coach-resource-upload-handoff.test.mjs": "ee56a14ddd4fe283b86c0e61f0ba03a27c0d56b0510cebd7f381e7f7f45fa79c",
-      "tests/coach-resources-browser.mjs": "fe7eb907ec4fe15cae750cab654a694cfe62b047ba5ecdea7d761a022ff2771d",
+      "tests/coach-resources-browser.mjs": "eb5fc4c4ff9c7a71026cd0ceb38cd4ac438b9e2ae46be80b7b9e78670f7c60cf",
       "tests/durable-mobile-action.test.mjs": "da3ddeea9dadf50402d071638faa474e8c855437fa47bda06fb449bba56f04a7",
       "tests/mobile-assessment-finalise-retry-pglite.test.mjs": "516b399f3324dcf9fa6aeca92694250cce4ce3ccd5d879a012b6d8530c077248",
       "tests/mobile-assessment-finalise-transport.test.mjs": "44995e5a84da5a82206f737c31605aacd872e7323fb86fa20149fdf300a80445",
       "tests/parent-action-responsiveness.test.mjs": "9bf0673f56d891c3600edbc37f50291fa3a9fb38debfa42111ea1615b5590ab7",
-      "tests/phone-team-administration-browser.mjs": "16e518abb800aa5c37b994f16b561bd25a3513a180757b288f61d3d1ae3c2830",
+      "tests/phone-team-administration-browser.mjs": "795b7e5b9e55b960bca30f1717e900f3c15b787d896d0adc031281529e0ce559",
       "tests/phone-team-administration-pglite.test.mjs": "73cc2d0ae1f306214150ddc33cdf700a14173c677a1fb8c761c204a9dd2a5e0e",
       "tests/phone-team-administration.test.mjs": "f17a6ae83c0dd18b4910d57fbfeb7cf9ea14a05b8dd0497946c925205572d7a7",
       "tests/shared-appearance-authority-pglite.test.mjs": "d6325f95f63429d03e71480b9aab8b890fa09899377d8d42b3dc65b8369af8b0",
@@ -1365,9 +1365,31 @@
         "appSourceAndMigrationUnchanged": true,
         "requiredKitStep": "13 Node/PGlite tests and browser passed",
         "requiredBrandContrastStep": "4 readability tests and Settings, More badges and Fans browsers passed"
+      },
+      "v1PhoneFeedback": {
+        "baseline": "c96d9edb483fc146314c930f16ea2730fcf7577b",
+        "scope": [
+          "apps/coach-mobile/App.js",
+          "apps/coach-mobile/src/CoachPhase31EScreens.js",
+          "apps/coach-mobile/src/CoachResourceUploadAction.js",
+          "apps/coach-mobile/src/CoachTeamAdministration.js",
+          "tests/coach-resource-upload-browser.mjs",
+          "tests/coach-resources-browser.mjs",
+          "tests/mobile-settings-menu-browser.mjs",
+          "tests/phone-team-administration-browser.mjs"
+        ],
+        "reasons": [
+          "Expose Add a coach directly in selected team admin Settings, preserving fresh server authority",
+          "Hide Club kit settings from non-club admins while retaining Team tier and Club admin controls",
+          "Provide compact Resources exit and dismiss keyboard; guard browser return and stale resource launch",
+          "Improve compact reminder control contrast, spacing and immediate save feedback without changing saved values"
+        ],
+        "qualificationPaths": 49,
+        "databaseNativeDependenciesParentAndWebsiteUnchanged": true,
+        "publication": false
       }
     }
   },
-  "releasePreparationSha256": "d326b57c5018628cfbba314a6c0fbd9196e9787aa8caede07af849f0219e8532",
+  "releasePreparationSha256": "933a13095bdc85f4c2dcc50f0fd28b901fdce516ed8f6c35985e3b7902f5530a",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
