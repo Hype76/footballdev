@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "723f08fe026b3aecc6c01fe1101e4e873630e288c32846d9653c786bf11a64af",
+    "scripts/security-verify-reviewed-backports.mjs": "cc8d9d28b05a65efe13c049d45dc3f8d3569b17eb8ea1f01e9400c728db9915d",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -811,7 +811,7 @@
       "tests/mobile-parent-portal-parity-final-25.test.mjs": "cd0c4554b9b491c1fc1524515e27094c59a3943e309f427a203969f39f779f4b",
       "tests/mobile-scorer-parity-browser.mjs": "a72f2a6eb0d2c98f7efe91b3b1171b943825fcfab20bad1345f2fe351dc25012",
       "tests/mobile-settings-menu-browser.mjs": "57c72d93d03339500762a5ce3c94cba5af2971c058ebbde5a607893f5f09d769",
-      "tests/netlify-functions-packaging.test.mjs": "e68c3dd9427750652c7375d9e4519e22d2c81c95438563976563498528532964",
+      "tests/netlify-functions-packaging.test.mjs": "e57909fca271dbee0a79991ba3d44d3bd0031b63e30d118b2d8a179de78c30c9",
       "tests/parent-access-removal-browser.mjs": "f0f12a72bb78f1926595b4029c1190bb606a86fe414bfa62103f0cd3ef64f61a",
       "tests/parent-assessment-calendar-corrective-38.test.mjs": "113eb0a1a343ea21a60be402ebc97e88ed0c0714105f6cbeac3a39162e8570f0",
       "tests/parent-chat-layout-browser.mjs": "5ba0eb3c64e1d1d2dc35425bd24828afc7dd509aba2e752618184ed771a1f29a",
@@ -1310,6 +1310,7 @@
           "tests/mobile-assessment-finalise-retry-pglite.test.mjs",
           "tests/mobile-assessment-finalise-transport.test.mjs",
           "tests/mobile-offline-development-browser.mjs",
+          "tests/netlify-functions-packaging.test.mjs",
           "tests/parent-action-responsiveness.test.mjs",
           "tests/phone-branding-onboarding.test.mjs",
           "tests/phone-team-administration-browser.mjs",
@@ -1339,9 +1340,18 @@
         "releaseRequiresNativeFullSchemaRehearsal": true,
         "publicationRequiresExactFullGatesAndIndependentReview": true,
         "physicalHandsetReceiptRequiredSeparately": true
+      },
+      "v1PhonePackagingCorrection": {
+        "reviewedHead": "ae90a499f0a7183f6239719d84d45a116042e5c0",
+        "scope": [
+          "tests/netlify-functions-packaging.test.mjs"
+        ],
+        "reason": "Assert the authorised phone team administration endpoint and preserve an exact deployable endpoint count",
+        "topLevelJavaScriptEndpoints": 86,
+        "appSourceAndMigrationUnchanged": true
       }
     }
   },
-  "releasePreparationSha256": "fb8e187d990ed3f89f35cb52a083efab28b781dfdb80ffe2a0e6d048ff1f8c55",
+  "releasePreparationSha256": "c5dec174c9b3a82d8ba16a6201cfafd97b0b6ad39dca8a033ec1754077974099",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
