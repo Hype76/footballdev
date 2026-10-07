@@ -3,8 +3,10 @@ import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout } from './http'
 import { getAccessToken, supabase } from './supabase'
 
-export async function mobileAccountRequest(appRole, name, body) {
-  const token = await getAccessToken()
+export async function mobileAccountRequest(appRole, name, body, expectedActorId = '') {
+  const session = expectedActorId ? (await supabase.auth.getSession()).data?.session : null
+  if (expectedActorId && session?.user?.id !== expectedActorId) throw new Error('The selected account changed. Open the action again.')
+  const token = expectedActorId ? session?.access_token : await getAccessToken()
   if (!token) throw new Error('Sign in again to continue.')
   const { ok, result } = await fetchJsonWithTimeout(`${getMobileRuntimeConfig(appRole).apiBaseUrl}/.netlify/functions/${name}`, {
     method: 'POST',
@@ -27,10 +29,22 @@ export async function createMobileAccount({ appRole, name, email, password, team
     email: email.trim().toLowerCase(), password,
     options: {
       emailRedirectTo: appRole === 'coach' ? 'https://footballplayer.online/sign-in' : 'https://parent.footballplayer.online/sign-in',
-      data: { name: displayName, display_name: displayName, account_type: appRole,
+      data: { name: displayName, display_name: displayName, account_type: appRole, verification_mode: 'app_code',
         ...(appRole === 'coach' ? { club_name: clubName, signup_plan_key: 'matchday' } : {}) },
     },
   })
   if (error) throw error
   return { needsEmailVerification: !data?.session }
+}
+
+export async function verifyMobileAccount(email, token) {
+  const code = String(token || '').trim()
+  if (!/^\d{6,10}$/.test(code)) throw new Error('Enter the verification code from your newest email.')
+  const { error } = await supabase.auth.verifyOtp({ email: String(email || '').trim().toLowerCase(), token: code, type: 'signup' })
+  if (error) throw new Error('That code could not be verified. Use the newest email or request another code.')
+}
+
+export async function resendMobileAccountCode(email) {
+  const { error } = await supabase.auth.resend({ type: 'signup', email: String(email || '').trim().toLowerCase() })
+  if (error) throw new Error('Another code could not be sent yet. Wait a minute and try again.')
 }

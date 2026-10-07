@@ -1,10 +1,13 @@
+import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { useEffect, useRef, useState } from 'react'
-import { Pressable, Switch, Text, TextInput, View } from 'react-native'
+import { Pressable, Text, TextInput, View } from 'react-native'
 import { addCoachFromPhone, readCoachTeamAdministration, readCoachTeamCoaches, removeCoachFromTeam, saveCoachTeamReminders } from '../../mobile-core/src/coachTeamAdministration'
+import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 
 export function CoachTeamAdministration({ user, context, palette, styles, section = 'all' }) {
-  const [policy, setPolicy] = useState(null)
-  const [notice, setNotice] = useState('Loading team settings...')
+  const resource = `coach:team-administration:${context.id}:${section}`
+  const [policy, setPolicy] = useState(() => peekMobileResource(user, resource) || null)
+  const [notice, setNotice] = useState(() => peekMobileResource(user, resource) ? '' : 'Loading team settings...')
   const [saving, setSaving] = useState(false)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('coach')
@@ -12,18 +15,22 @@ export function CoachTeamAdministration({ user, context, palette, styles, sectio
   const [confirmRemove, setConfirmRemove] = useState('')
   const generation = useRef(0)
   const savingRef = useRef(false)
+  const dirty = useRef(false)
   const userRef = useRef(user)
   userRef.current = user
   const scope = `${user?.id}:${user?.clubId}:${user?.activeTeamId}:${user?.teamId}:${user?.status}:${user?.hasActivePlanAccess}:${user?.role}:${user?.roleRank}:${context?.teamId}:${context?.role}:${context?.roleRank}`
   useEffect(() => {
     const request = ++generation.current
-    setPolicy(null); savingRef.current = false; setSaving(false); setNotice('Loading team settings...'); setEmail(''); setConfirmRemove('')
+    const actor = userRef.current
+    const cached = peekMobileResource(actor, resource)
+    dirty.current = false
+    setPolicy(cached || null); savingRef.current = false; setSaving(false); setNotice(cached ? '' : 'Loading team settings...'); setEmail(''); setConfirmRemove('')
     const read = section === 'reminders' ? readCoachTeamAdministration : readCoachTeamCoaches
-    read(userRef.current).then(value => {
-      if (request === generation.current) { setPolicy(value); setNotice('') }
+    readMobileResource(actor, resource, () => read(actor), { force: true }).then(value => {
+      if (request === generation.current && (!dirty.current || !value.canManage)) { setPolicy(value); setNotice('') }
     }).catch(error => { if (request === generation.current) setNotice(error.message) })
     return () => { generation.current += 1 }
-  }, [scope, retry, section])
+  }, [scope, retry, section, resource])
   const action = async (kind, assignmentId) => {
     if (savingRef.current || !policy?.canManage) return
     if (kind === 'save' && (![policy.squadHoursBefore, policy.availabilityHoursBefore].every(value => Number.isInteger(value) && value >= 1 && value <= 168))) {
@@ -35,8 +42,11 @@ export function CoachTeamAdministration({ user, context, palette, styles, sectio
     setNotice(kind === 'save' ? 'Saving reminder settings...' : kind === 'remove' ? 'Removing coach access...' : 'Saving coach invitation...')
     try {
       const result = kind === 'save' ? await saveCoachTeamReminders(user, policy) : kind === 'remove' ? await removeCoachFromTeam(user, assignmentId) : await addCoachFromPhone(user, email, role)
+      invalidateMobileResource(user, resource)
       if (request !== generation.current) return
-      if (kind === 'save') { setPolicy(result); setNotice('Reminder settings saved.') }
+      if (kind === 'save' || kind === 'remove') await readMobileResource(user, resource, () => result, { force: true })
+      if (request !== generation.current) return
+      if (kind === 'save') { dirty.current = false; setPolicy(result); setNotice('Reminder settings saved.') }
       else if (kind === 'remove') { setPolicy(result); setConfirmRemove(''); setNotice(result.message) }
       else {
         setEmail(''); setNotice(result.message)
@@ -67,8 +77,9 @@ export function CoachTeamAdministration({ user, context, palette, styles, sectio
   const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 48 }
   const group = { paddingVertical: 12, gap: 4, borderBottomWidth: 1, borderBottomColor: palette.border }
   const button = (label, press, disabled = false) => <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={press} style={{ minHeight: 48, justifyContent: 'center', paddingVertical: 12 }}><Text style={[styles.secondaryActionText, { color: disabled ? palette.textSecondary : palette.accentText }]}>{label}</Text></Pressable>
-  const hours = (key, label) => <View style={row}><Text style={[helper, { flex: 1 }]}>{label}</Text><TextInput accessibilityLabel={label} editable={policy.canManage && !saving} keyboardType="number-pad" maxLength={3} onChangeText={value => setPolicy(current => ({ ...current, [key]: value === '' ? '' : Number(value.replace(/\D/g, '')) }))} value={String(policy[key])} style={[input, { width: 64, textAlign: 'center', fontWeight: '600' }]} /></View>
-  const toggle = (key, label) => <View style={row}><Text style={[body, { flex: 1, fontWeight: '600' }]}>{label}</Text><View style={{ minHeight: 48, minWidth: 64, alignItems: 'center', justifyContent: 'center' }}><Switch accessibilityLabel={label} disabled={!policy.canManage || saving} value={policy[key]} onValueChange={value => setPolicy(current => ({ ...current, [key]: value }))} trackColor={{ false: palette.textSecondary, true: '#34c759' }} thumbColor="#ffffff" ios_backgroundColor={palette.textSecondary} hitSlop={12} /></View></View>
+  const editPolicy = (key, value) => { dirty.current = true; setPolicy(current => ({ ...current, [key]: value })) }
+  const hours = (key, label) => <View style={row}><Text style={[helper, { flex: 1 }]}>{label}</Text><TextInput accessibilityLabel={label} editable={policy.canManage && !saving} keyboardType="number-pad" maxLength={3} onChangeText={value => editPolicy(key, value === '' ? '' : Number(value.replace(/\D/g, '')))} value={String(policy[key])} style={[input, { width: 64, textAlign: 'center', fontWeight: '600' }]} /></View>
+  const toggle = (key, label) => <View style={row}><Text style={[body, { flex: 1, fontWeight: '600' }]}>{label}</Text><View style={{ minHeight: 48, minWidth: 64, alignItems: 'center', justifyContent: 'center' }}><Switch accessibilityLabel={label} disabled={!policy.canManage || saving} value={policy[key]} onValueChange={value => editPolicy(key, value)} trackColor={{ false: palette.textSecondary, true: '#15803d' }} thumbColor="#ffffff" ios_backgroundColor={palette.textSecondary} hitSlop={12} /></View></View>
   return <View>
     {policy && section !== 'coaches' ? <>
       <Text style={styles.sectionTitle}>Team reminders</Text>

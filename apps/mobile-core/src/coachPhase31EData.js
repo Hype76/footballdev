@@ -258,6 +258,29 @@ export async function saveCoachDevelopmentDraft(user, { draftId = '', form, play
   return resultFor(data)
 }
 
+export async function discardCoachDevelopmentDraft(user, { draftId, playerId, formId, isCurrent = () => true }) {
+  assertCanonicalMutation(user, { requiresTeam: true })
+  assertCoachCapability(user, CAPABILITIES.assessments)
+  if (!draftId || !playerId || !formId || !isCurrent()) throw new Error('Choose the saved assessment to cancel.')
+  const read = () => supabase.from('evaluation_drafts').select('id,status,client_save_version,draft_data')
+    .eq('id', draftId).eq('club_id', user.clubId).eq('team_id', user.activeTeamId)
+    .eq('player_id', playerId).eq('created_by_user_id', user.id).maybeSingle()
+  const existing = await read()
+  if (existing.error) throw existing.error
+  if (!existing.data || existing.data.status === 'discarded') return
+  if (!isCurrent()) throw new Error('The selected account or team changed.')
+  if (existing.data.status !== 'draft' || existing.data.draft_data?.selectedFeedbackFormId !== formId) throw new Error('This assessment has already finished or changed. Refresh Development before cancelling.')
+  const now = new Date().toISOString()
+  const result = await supabase.from('evaluation_drafts').update({ status: 'discarded', discarded_at: now, updated_at: now })
+    .eq('id', draftId).eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by_user_id', user.id)
+    .eq('status', 'draft').eq('client_save_version', existing.data.client_save_version).select('id').maybeSingle()
+  if (result.error) throw result.error
+  if (!result.data) {
+    const retry = await read()
+    if (retry.error || retry.data?.status !== 'discarded') throw new Error('This assessment changed. Cancellation is saved on this phone and will retry when connected.')
+  }
+}
+
 export async function finalizeCoachDevelopmentRecord(user, { draftId = '', clientSaveVersion = 0, form, player, sessionId = '', values = {}, notes = '', shareWithParent = false, isCurrent = () => true } = {}) {
   const assertCurrent = () => {
     if (!isCurrent()) throw new Error('The selected account or team changed. Your saved record is kept on this phone.')

@@ -66,6 +66,8 @@ const ActivityLogPage = lazyRoute(() => import('../pages/ActivityLogPage.jsx'), 
 const AdultPlayerPage = lazyRoute(() => import('../pages/AdultPlayerPage.jsx'), 'AdultPlayerPage')
 const ArchivedPlayersPage = lazyRoute(() => import('../pages/ArchivedPlayersPage.jsx'), 'ArchivedPlayersPage')
 const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'BillingPage')
+const CoachAppHandoffPage = lazyRoute(() => import('../pages/CoachAppHandoffPage.jsx'), 'CoachAppHandoffPage')
+const CoachAppUpgradePage = lazyRoute(() => import('../pages/CoachAppUpgradePage.jsx'), 'CoachAppUpgradePage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const DataTransferPage = lazyRoute(() => import('../pages/DataTransferPage.jsx'), 'DataTransferPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
@@ -1758,6 +1760,14 @@ export const router = createBrowserRouter([
   {
     path: '/team-branding',
     element: <PageSuspense><TeamBrandingSetupPage /></PageSuspense>,
+  },
+  {
+    path: '/coach-app-handoff',
+    element: <PageSuspense><CoachAppHandoffPage /></PageSuspense>,
+  },
+  {
+    path: '/app-upgrade',
+    element: <PageSuspense><CoachAppUpgradePage /></PageSuspense>,
   },
   {
     path: '/phone-resources',

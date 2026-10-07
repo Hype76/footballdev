@@ -17,6 +17,7 @@ import {
 import { getCoachNavigationModel, resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
 
 const app = await readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8')
+const upgradeAction = await readFile(new URL('../apps/coach-mobile/src/CoachUpgradeAction.js', import.meta.url), 'utf8')
 const operationalScreens = await readFile(new URL('../apps/coach-mobile/src/CoachOperationalScreens.js', import.meta.url), 'utf8')
 const matchDayScreen = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
 const phase31EScreens = await readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8')
@@ -214,8 +215,9 @@ test('multi-context journeys retain Team and Club isolation across all operation
 test('payment_required is application-wide and ordinary Coaches never receive plan purchase control', () => {
   assert.match(app, /activeContext\.paymentAccess\.state === 'payment_required'/)
   assert.match(app, /Viewing remains available, but operational changes are blocked/)
-  assert.match(app, /context\.paymentAccess\.payerAuthority/)
-  assert.match(app, /Ask your Team or Club account owner if you want to change plan/)
+  assert.match(app, /<CoachUpgradeAction/)
+  assert.match(upgradeAction, /context\?\.paymentAccess\?\.payerAuthority/)
+  assert.match(upgradeAction, /Ask your Team or Club account owner if you want to change plan/)
   assert.match(navigation, /route\.matchdayOrPayerOnly/)
   assert.match(navigation, /\['club', 'team'\]\.includes\(payerAuthority\)/)
 })

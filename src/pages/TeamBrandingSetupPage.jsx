@@ -12,6 +12,7 @@ const inputClass = 'min-h-11 w-full border-b border-[#ccd8d0] bg-white py-2 text
 export function TeamBrandingSetupPage() {
   const { search } = useLocation()
   const { teamId, fromCoach } = readBrandingSetupSelection(search)
+  const uploadOnly = fromCoach && new URLSearchParams(search).get('uploadOnly') === '1'
   const { isLoading, isProfileLoading, session, user, signInWithPassword, signOut } = useAuth()
   const [state, setState] = useState(null)
   const [display, setDisplay] = useState(null)
@@ -27,6 +28,8 @@ export function TeamBrandingSetupPage() {
   const generation = useRef(0)
   const inFlight = useRef(false)
   const actorId = session?.user?.id || ''
+  const selectionScope = useRef('')
+  const hasProfile = Boolean(user)
 
   async function readCurrent(signal) {
     const management = await requestTeamBrandingSetup({ client: supabase, teamId, signal, expectedActorId: actorId })
@@ -42,16 +45,21 @@ export function TeamBrandingSetupPage() {
   useEffect(() => {
     const controller = new AbortController()
     const current = ++generation.current
-    setState(null); setDisplay(null); setError(''); setMessage(''); setAccepted(false); setFile(null); setColourChanged(false)
-    if (actorId && user && teamId) readCurrent(controller.signal).then(({ management, resolved }) => {
+    const scope = `${actorId}:${teamId}`
+    if (selectionScope.current !== scope) {
+      selectionScope.current = scope
+      setState(null); setDisplay(null); setMessage(''); setAccepted(false); setFile(null); setColourChanged(false)
+    }
+    setError('')
+    if (actorId && hasProfile && teamId) readCurrent(controller.signal).then(({ management, resolved }) => {
       if (current !== generation.current || controller.signal.aborted) return
       setState(management); setDisplay(resolved)
-      setAccent(/^#[0-9a-f]{6}$/i.test(management.accent || '') ? management.accent : '#047857')
+      setAccent(currentAccent => colourChanged ? currentAccent : /^#[0-9a-f]{6}$/i.test(management.accent || '') ? management.accent : '#047857')
     }).catch(failure => { if (!controller.signal.aborted && current === generation.current) setError(failure.message) })
     return () => { controller.abort(); generation.current += 1 }
     // Each account/team change discards pending reads and selected artwork.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actorId, user, teamId, retry])
+  }, [actorId, hasProfile, teamId, retry])
 
   async function signIn(event) {
     event.preventDefault()
@@ -86,8 +94,8 @@ export function TeamBrandingSetupPage() {
         extra = fresh.management.coloursAllowed && colourChanged ? { accent } : {}
         if (file) {
           if (!fresh.management.logoAllowed) throw new Error('Badge access is no longer available.')
-          if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
-            throw new Error('Choose a PNG, JPG or WebP badge smaller than 5 MB.')
+          if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+            throw new Error('Choose a PNG, JPG or WebP badge up to 2 MB and 2048 by 2048 pixels.')
           }
           const dataUrl = await new Promise((resolve, reject) => {
             const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('The badge could not be read. Choose it again.')); reader.readAsDataURL(file)
@@ -108,7 +116,7 @@ export function TeamBrandingSetupPage() {
   const signedIn = Boolean(actorId)
   const paidClub = display?.source === 'paid_club'
   return <main className="mx-auto min-h-screen max-w-lg bg-white px-5 py-6 text-[#142a1d]">
-    <h1 className="text-2xl font-bold">Your team badge and colour</h1>
+    <h1 className="text-2xl font-bold">{uploadOnly ? 'Upload your team badge' : 'Your team badge and colour'}</h1>
     <p className="py-3 text-base">Use your club badge for this team. This does not change your Club's shared branding.</p>
     {!teamId ? <p role="alert">Open this page from your selected team in Coach.</p> : !signedIn ? <>
       <p className="py-3">Sign in with your Football Player account. Your browser session is separate from the Coach app.</p>
@@ -131,9 +139,10 @@ export function TeamBrandingSetupPage() {
           {state.logoAllowed && <label className="block py-3">Club badge for this team
             {state.logoUrl && <img src={state.logoUrl} alt="Saved team badge" className="my-2 h-16 w-16 object-contain" />}
             <input className="block min-h-12 w-full py-2" type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={event => setFile(event.target.files?.[0] || null)} />
-            <span className="text-sm">PNG, JPG or WebP, up to 5 MB. Choose from photos or files.</span>
+            {file && <span role="status" className="block py-2 font-bold">Selected: {file.name}</span>}
+            <span className="text-sm">PNG, JPG or WebP, up to 2 MB and 2048 by 2048 pixels. Choose from photos or files.</span>
           </label>}
-          {state.coloursAllowed && <label className="flex min-h-12 items-center justify-between py-3">Team colour<input aria-label="Team colour" type="color" className="h-12 w-16" value={accent} onChange={event => { setAccent(event.target.value); setColourChanged(true) }} disabled={busy} /></label>}
+          {!uploadOnly && state.coloursAllowed && <label className="flex min-h-12 items-center justify-between py-3">Team colour<input aria-label="Team colour" type="color" className="h-12 w-16" value={accent} onChange={event => { setAccent(event.target.value); setColourChanged(true) }} disabled={busy} /></label>}
           <button className={actionClass} disabled={busy || (!colourChanged && !file)} onClick={() => act('save')}>Save team branding</button>
         </div>}
       </>}

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { mobileAccountRequest } from '../../mobile-core/src/mobileSignup'
 import { assertTeamBrandingManagementScope, buildClubAppearanceSetupUrl, buildTeamBrandingSetupUrl, canOfferTeamBrandingSetup, isCoachBrandingReturn } from '../../../src/lib/team-branding-onboarding.js'
 import { getWorkspaceScope } from '../../../src/lib/workspace-scope.js'
+import { CoachNativeTeamBrandingEditor } from './CoachNativeTeamBrandingEditor'
 
 export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, prompt = false, visible = true, refreshUserProfile }) {
   const [management, setManagement] = useState(null)
@@ -11,6 +12,7 @@ export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, pro
   const [error, setError] = useState('')
   const [opening, setOpening] = useState(false)
   const [retry, setRetry] = useState(0)
+  const [editing, setEditing] = useState(false)
   const pending = useRef(null)
   const openingAttempt = useRef(0)
   const refreshing = useRef(false)
@@ -26,7 +28,7 @@ export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, pro
   useEffect(() => {
     let current = true
     openingAttempt.current += 1
-    pending.current = null; setOpening(false); setManagement(null); setError(''); setDismissed(true)
+    pending.current = null; setOpening(false); setEditing(false); setManagement(null); setError(''); setDismissed(true)
     if (allowed) {
       AsyncStorage.getItem(key).then(value => { if (current) setDismissed(value === '1') }).catch(() => { if (current) setDismissed(false) })
       if (clubAdmin) setManagement({ enabled: true })
@@ -66,6 +68,7 @@ export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, pro
 
   async function openSetup() {
     if (opening) return
+    if (!clubAdmin) { setEditing(true); return }
     setOpening(true); setError('')
     const requestedScope = scope
     const attempt = ++openingAttempt.current
@@ -85,12 +88,13 @@ export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, pro
     try { await AsyncStorage.setItem(key, '1') } catch { /* Dismissed for this session; Settings remains available. */ }
   }
   if (!visible || !allowed || management?.enabled === false) return null
+  if (editing && management?.enabled) return <CoachNativeTeamBrandingEditor key={scope} context={context} user={user} management={management} apiBaseUrl={apiBaseUrl} palette={palette} refreshUserProfile={refreshUserProfile} onBrowserOpen={() => { pending.current = scope }} onBack={() => { setEditing(false); setRetry(value => value + 1) }} />
   const needsSetup = (management?.state === 'unclaimed' && management.claimAllowed === true) || (!management?.logoUrl && ['grandfathered', 'permanent', 'provisional'].includes(management?.state))
   if (prompt && (!management?.enabled || dismissed || paidClub || !needsSetup)) return null
   const action = (label, onPress, disabled = false) => <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: palette.accentText, fontSize: 16, fontWeight: '700' }}>{label}</Text></Pressable>
   return <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: palette.border, paddingVertical: 8, gap: 4 }}>
     <Text style={{ color: palette.textPrimary, fontSize: 16, fontWeight: '700' }}>{clubAdmin ? 'Club branding' : prompt ? 'Add your team badge and colour' : 'Team branding'}</Text>
-    <Text style={{ color: palette.textSecondary, fontSize: 14, lineHeight: 21 }}>{clubAdmin ? 'Set your Club badge and colour in your phone browser, then return to Coach.' : paidClub ? 'Your badge and colours are managed by your Club.' : 'Set up this team in your phone browser. Sign in there if needed, then return to Coach. Club branding stays unchanged.'}</Text>
+    <Text style={{ color: palette.textSecondary, fontSize: 14, lineHeight: 21 }}>{clubAdmin ? 'Set your Club badge and colour in your phone browser, then return to Coach.' : paidClub ? 'Your badge and colours are managed by your Club.' : 'Choose your team colour here in the app. Only badge upload opens your signed-in account in the browser.'}</Text>
     {clubAdmin && !prompt && action(opening ? 'Opening setup...' : 'Add or edit Club badge and colour', openSetup, opening)}
     {!paidClub && management?.enabled && action(opening ? 'Opening setup...' : 'Add or edit badge and colour', openSetup, opening)}
     {prompt && action('Do this later', skip, opening)}

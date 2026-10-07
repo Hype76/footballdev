@@ -10,19 +10,19 @@ export function assertTeamAdministrationScope(value, user) {
 export async function readCoachTeamAdministration(user) {
   return assertTeamAdministrationScope(await mobileAccountRequest('coach', 'manage-phone-team-administration', {
     action: 'read', teamId: user.activeTeamId || user.teamId,
-  }), user)
+  }, user.id), user)
 }
 
 export async function readCoachTeamCoaches(user) {
   return assertTeamAdministrationScope(await mobileAccountRequest('coach', 'manage-phone-team-administration', {
     action: 'roster', teamId: user.activeTeamId || user.teamId,
-  }), user)
+  }, user.id), user)
 }
 
 export async function removeCoachFromTeam(user, assignmentId) {
   return assertTeamAdministrationScope(await mobileAccountRequest('coach', 'manage-phone-team-administration', {
     action: 'remove', teamId: user.activeTeamId || user.teamId, assignmentId,
-  }), user)
+  }, user.id), user)
 }
 
 export async function saveCoachTeamReminders(user, policy) {
@@ -30,11 +30,11 @@ export async function saveCoachTeamReminders(user, policy) {
     action: 'save', teamId: user.activeTeamId || user.teamId,
     squadEnabled: policy.squadEnabled, squadHoursBefore: policy.squadHoursBefore,
     availabilityEnabled: policy.availabilityEnabled, availabilityHoursBefore: policy.availabilityHoursBefore,
-  }), user)
+  }, user.id), user)
 }
 
 export async function addCoachFromPhone(user, email, role) {
   return assertTeamAdministrationScope(await mobileAccountRequest('coach', 'manage-phone-team-administration', {
     action: 'invite', teamId: user.activeTeamId || user.teamId, email, role,
-  }), user)
+  }, user.id), user)
 }

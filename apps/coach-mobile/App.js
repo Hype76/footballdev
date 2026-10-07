@@ -1,10 +1,13 @@
+import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
 import { CoachTeamBrandingSetup } from './src/CoachTeamBrandingSetup'
+import { CoachUpgradeAction } from './src/CoachUpgradeAction'
 import { isCoachBrandingReturn } from '../../src/lib/team-branding-onboarding.js'
 import { isCoachResourceReturn } from '../../src/lib/coach-resource-upload-handoff.js'
 import { CoachTeamAdministration } from './src/CoachTeamAdministration'
+import { readCoachTeamAdministration, readCoachTeamCoaches } from '../mobile-core/src/coachTeamAdministration'
 import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 import 'react-native-url-polyfill/auto'
 import { sanitizeCoachChatOfflineValue } from '../mobile-core/src/coachPhase31ECore'
@@ -39,7 +42,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   ToastAndroid,
   View,
@@ -83,8 +85,6 @@ import {
 import { isMatchdayPlan, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
 import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
 import {
-  CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE,
-  CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE,
   quoteSubscription,
 } from '../../src/lib/subscription-pricing'
 import { createMatchInvitesTheme, createCoachTheme, DEFAULT_COACH_THEME } from './src/coachThemeCore'
@@ -1142,6 +1142,7 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
 
 function FoundationRoute({ context, route, ...props }) {
   const { palette, styles } = useCoachTheme()
+  const { user, refreshUserProfile } = useMobileAuth()
   const titles = {
     calendar: 'Calendar', chat: 'Chat', club: 'Club', development: 'Development', matchday: 'Match Day', payment: 'Plan access',
     invites: 'Invites and availability', messages: 'Messages', players: 'Players', polls: 'Polls', resources: 'Resources', sessions: 'Sessions', settings: 'Settings', team: 'Team',
@@ -1204,8 +1205,8 @@ function FoundationRoute({ context, route, ...props }) {
         : 'Check your plan'
     const teamMonthly = quoteSubscription({ planKey: 'team', teamCapacity: 1, billingCycle: 'monthly' })
     const teamAnnual = quoteSubscription({ planKey: 'team', teamCapacity: 1, billingCycle: 'annual' })
-    const clubMonthly = quoteSubscription({ planKey: 'club', teamCapacity: 10, billingCycle: 'monthly' })
-    const clubAnnual = quoteSubscription({ planKey: 'club', teamCapacity: 10, billingCycle: 'annual' })
+    const clubMonthly = quoteSubscription({ planKey: 'club', teamCapacity: 20, billingCycle: 'monthly', offerKey: 'club_20' })
+    const clubAnnual = quoteSubscription({ planKey: 'club', teamCapacity: 20, billingCycle: 'annual', offerKey: 'club_20' })
     const formatPrice = pence => `£${(pence / 100).toFixed(2)}`
     return (
       <ScreenIntro copy="See what your current plan includes and compare the plans available for your team or club." title="Plan access">
@@ -1222,10 +1223,11 @@ function FoundationRoute({ context, route, ...props }) {
           </> : null}
           {currentPlanKey !== 'club' ? <>
             <InfoRow label="Club" value={`From ${formatPrice(clubMonthly.chargePence)}/month or ${formatPrice(clubAnnual.chargePence)}/year`} />
-            <Text style={styles.helperText}>Everything across the whole club, including Club management, shared oversight, branding and analytics. The starting package includes 10 teams and saves {formatPrice(clubAnnual.annualSavingsPence)} with an annual plan.</Text>
-            <InfoRow label="More Club teams" value={`Each 10 teams: ${formatPrice(CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE)}/month or ${formatPrice(CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE)}/year`} />
+            <Text style={styles.helperText}>Everything across the whole club, including Club management, shared oversight, branding and analytics. Includes up to 20 teams and saves {formatPrice(clubAnnual.annualSavingsPence)} with an annual plan.</Text>
+            <InfoRow label="More than 20 teams" value="Contact us for a quote" />
           </> : <Text style={styles.helperText}>Your Club plan already provides the full club package.</Text>}
-          <Text style={styles.helperText}>Annual plans provide 12 months for the price of 10. {['team', 'club'].includes(context.paymentAccess.payerAuthority) ? 'You can manage your plan on the Football Player website.' : 'Ask your Team or Club account owner if you want to change plan.'}</Text>
+          <Text style={styles.helperText}>Annual plans provide 12 months for the price of 10.</Text>
+          <CoachUpgradeAction key={`${user.id}:${context.id}`} user={user} context={context} palette={palette} apiBaseUrl={getMobileRuntimeConfig('coach').apiBaseUrl} refreshUserProfile={refreshUserProfile} />
         </Section>
       </ScreenIntro>
     )
@@ -1294,6 +1296,16 @@ function SettingsScreen({
     roleRank: context.roleRank,
   }), [context.role, context.roleRank, context.teamId])
   const canChooseAttendanceVisibility = canChooseTrainingAttendanceVisibility(attendanceVisibilityUser)
+    && isMobileRouteAllowed(user, 'sessions', user?.matchdayPolicy)
+  const teamSettingsActor = useRef(user)
+  useEffect(() => { teamSettingsActor.current = user }, [user])
+  const teamSettingsScope = `${user.id}:${context.id}:${context.authorityId}:${context.teamId}:${context.role}:${context.roleRank}:${user.hasActivePlanAccess}:${user.status}`
+  useEffect(() => {
+    const actor = teamSettingsActor.current
+    if (!context.teamId || actor.isOfflineProfile) return
+    void readMobileResource(actor, `coach:team-administration:${context.id}:reminders`, () => readCoachTeamAdministration(actor), { force: true }).catch(() => {})
+    if (Number(context.roleRank) >= 70) void readMobileResource(actor, `coach:team-administration:${context.id}:coaches`, () => readCoachTeamCoaches(actor), { force: true }).catch(() => {})
+  }, [teamSettingsScope, context.id, context.teamId, context.roleRank])
   useEffect(() => {
     let mounted = true
     void inspectCoachOfflineState(user.id).then((state) => { if (mounted) setCacheState(state) }).catch(() => { if (mounted) setCacheState({ hasDocument: false, status: 'unavailable' }) })
@@ -1428,8 +1440,8 @@ function SettingsScreen({
         <SettingRow copy="Show unread updates on the app icon." label="App icon badge">
           <Switch
             accessibilityLabel="App icon badge"
-            trackColor={{ false: palette.borderStrong || palette.border, true: '#34c759' }}
-            thumbColor="#ffffff"
+            trackColor={{ false: palette.borderStrong || palette.border, true: palette.nativeSwitchTrackOn }}
+            thumbColor={palette.nativeSwitchThumb}
             disabled={isRegisteringPush}
             onValueChange={onToggleAppBadge}
             value={appBadgeEnabled}

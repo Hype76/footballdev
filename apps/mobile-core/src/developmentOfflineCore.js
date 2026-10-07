@@ -3,7 +3,7 @@ export function developmentDraftKey(playerId, formId) {
 }
 
 export function isUnfinishedDevelopmentDraft(draft) {
-  return Boolean(draft?.playerId && draft?.formId && !draft.finalisation
+  return Boolean(draft?.playerId && draft?.formId && !draft.finalisation && !draft.discardRequested
     && ['draft', 'pending', 'synced'].includes(draft.status))
 }
 

@@ -1,5 +1,7 @@
+import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { openVenueDirections } from '../../mobile-core/src/venueDirections'
-import { canEditCoachFixture } from '../../mobile-core/src/coachFixtureEditCore'
+import { canEditCoachFixture, canRemoveCoachCancelledFixture } from '../../mobile-core/src/coachFixtureEditCore'
+import { removeCoachCancelledFixture } from '../../mobile-core/src/coachMatchDayData'
 import { formatUkDate } from '../../../src/lib/date-format.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
 import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
@@ -7,7 +9,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
-import { Alert, Keyboard, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, Keyboard, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
@@ -284,6 +286,11 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   const handledTarget = useRef(null)
   const calendarEditBaseline = useRef(null)
   const [saveConfirmation, setSaveConfirmation] = useState('')
+  const removalScope = `${user.id}:${context.id}:${context.authorityId}:${context.role}:${context.teamId}`
+  const removalScopeRef = useRef(removalScope)
+  removalScopeRef.current = removalScope
+  const removing = useRef(false)
+  useEffect(() => () => { removalScopeRef.current = '' }, [])
   const [stale, setStale] = useState(false)
   const [teamNotificationName, setTeamNotificationName] = useState(
     () => deriveTeamNotificationDisplayName(user.activeTeamName || context?.teamName || ''),
@@ -292,6 +299,26 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   const contextModel = getCoachCalendarContextModel({ context, contexts })
   const policy = getCoachCalendarMutationPolicy({ context, event: selected })
   const isMatchday = String(context?.planKey || '').trim().toLowerCase() === 'matchday'
+  const removeCancelledFixture = event => {
+    if (removing.current || !canRemoveCoachCancelledFixture({ context, fixture: event, stale: stale || user.isOfflineProfile })) return
+    const current = () => removalScopeRef.current === removalScope
+    Alert.alert('Remove cancelled fixture?', 'Remove this cancelled fixture from Calendar and Match Day. This cannot be restored from the app.', [
+      { text: 'Keep fixture', style: 'cancel' }, { text: 'Remove fixture', style: 'destructive', onPress: async () => {
+        if (!current() || removing.current) return
+        removing.current = true; setSaving(true); setError('')
+        try {
+          await removeCoachCancelledFixture(user, event.sourceId, current)
+          if (!current()) return
+          invalidateMobileResource(user, 'coach:calendar')
+          invalidateMobileResource(user, 'coach:matchday')
+          setEvents(previous => previous.filter(item => item.id !== event.id)); setSelected(null)
+          setSaveConfirmation('Cancelled fixture removed.')
+          await load()
+        } catch (failure) { if (current()) setError(message(failure, 'Fixture removal could not be completed. Try again when connected.')) }
+        finally { removing.current = false; if (current()) setSaving(false) }
+      } },
+    ])
+  }
   const canViewDevelopment = getFeatureAccess({ ...context, teamId: context?.activeTeamId || context?.teamId }, CAPABILITIES.basicDevelopmentRecords).allowed
 
   const load = useCallback(async ({ reuseFresh = false } = {}) => {
@@ -753,6 +780,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
           <Text style={styles.label}>{formatUkDate(group.date)}</Text>
           {group.events.map((event) => (
             <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
+              {event.status === 'cancelled' ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}><MaterialIcons name="cancel" color={palette.danger} size={24} /><Text accessibilityRole="header" style={[styles.cardTitle, { color: palette.danger }]}>CANCELLED</Text></View> : null}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><MaterialIcons accessibilityLabel={event.sourceType === 'match_day' || event.eventType === 'match' ? 'Match' : event.eventType === 'training' ? 'Training' : event.sourceType === 'assessment_session' || event.eventType === 'development' ? 'Development' : 'Calendar event'} name={event.sourceType === 'match_day' || event.eventType === 'match' ? 'sports-soccer' : event.eventType === 'training' ? 'fitness-center' : event.sourceType === 'assessment_session' || event.eventType === 'development' ? 'trending-up' : 'event'} size={26} color={palette.accentText} /><Text style={[styles.cardTitle, { flex: 1 }]}>{event.title}</Text></View>
               {selected?.id === event.id ? <PinnedEventNotes notes={event.notes} pinned={event.notesPinned} styles={styles} colors={palette} /> : null}
               <Text style={styles.meta}>{formatCoachCalendarEventDateTime(event)} | {event.eventType} | {event.teamName || context.teamName || 'Club-wide'} | {event.status}</Text>
@@ -763,7 +791,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
               {selected?.id === event.id ? <>{!event.notesPinned ? <Text style={styles.body}>{event.notes || 'No notes.'}</Text> : null}<VenueMapPreview key={event.location} location={event.location} offline={stale} colors={palette} styles={styles} />{event.location ? <Button label="Get directions" onPress={() => void openVenueDirections(event.location).catch(() => setError('Directions could not be opened.'))} secondary styles={styles} /> : null}{getCoachCalendarEventResourceIds(resources, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType).map((resourceId) => {
                 const resource = resources.find((item) => item.id === resourceId)
                 return resource ? <Button key={resource.id} label={`Open ${resource.title}`} onPress={() => void openEventResource(resource)} secondary styles={styles} /> : null
-              })}{canAddEventResource(event) ? <Button disabled={saving} label="Add resource" onPress={() => void openResourceEditor(event)} secondary styles={styles} /> : null}{event.sourceType === 'match_day' ? <><Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} />{canEditCoachFixture({ context, fixture: event, stale: stale || user.isOfflineProfile }) ? <Button label="Edit fixture" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId, intent: 'edit-fixture', returnCalendarTarget: { sourceId: event.sourceId, sourceType: 'match_day' } })} secondary styles={styles} /> : null}</> : null}{event.sourceType === 'assessment_session' && canViewDevelopment ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : !['calendar_event', 'match_day'].includes(event.sourceType) ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
+              })}{canAddEventResource(event) ? <Button disabled={saving} label="Add resource" onPress={() => void openResourceEditor(event)} secondary styles={styles} /> : null}{event.sourceType === 'match_day' ? <>{canRemoveCoachCancelledFixture({ context, fixture: event, stale: stale || user.isOfflineProfile }) ? <Button danger disabled={saving} label="Remove cancelled fixture" onPress={() => removeCancelledFixture(event)} secondary styles={styles} /> : null}<Button label="Open Match Day" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId })} secondary styles={styles} />{canEditCoachFixture({ context, fixture: event, stale: stale || user.isOfflineProfile }) ? <Button label="Edit fixture" onPress={() => onNavigate('matchday', { fixtureId: event.sourceId, intent: 'edit-fixture', returnCalendarTarget: { sourceId: event.sourceId, sourceType: 'match_day' } })} secondary styles={styles} /> : null}</> : null}{event.sourceType === 'assessment_session' && canViewDevelopment ? <View style={styles.filterRow}><Button label="Open Session" onPress={() => onNavigate('sessions')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View> : null}{!stale && getCoachCalendarMutationPolicy({ context, event }).canEdit ? <><Button label="Edit event" onPress={() => openForm(event)} secondary styles={styles} /><View style={styles.filterRow}><Button disabled={saving} label="Cancel event" onPress={() => void changeEventState('cancelled')} secondary styles={styles} /><Button danger disabled={saving} label="Delete event" onPress={() => void changeEventState('deleted')} secondary styles={styles} /></View></> : !['calendar_event', 'match_day'].includes(event.sourceType) ? <Text style={styles.meta}>Edit this item from its {event.sourceType === 'match_day' ? 'Match Day' : event.sourceType === 'assessment_session' ? 'Assessment Session' : 'web'} screen.</Text> : null}</> : null}
             </Pressable>
           ))}
         </View>

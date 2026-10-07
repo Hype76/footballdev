@@ -302,11 +302,18 @@ export async function updateCoachDevelopmentDraft(userId, context, key, change) 
     const previous = document.developmentDrafts?.[context.id]
     if (previous && previous.authority !== outboxAuthority(context)) throw new Error('Your access to these saved Development drafts changed.')
     const items = { ...previous?.items }
+    const previousDraft = items[key]
     result = change(items[key] || null)
     if (result) items[key] = result
     else delete items[key]
-    const next = { ...document, developmentDrafts: { ...document.developmentDrafts,
+    let next = { ...document, developmentDrafts: { ...document.developmentDrafts,
       [context.id]: { authority: outboxAuthority(context), items } } }
+    if (!result && previousDraft?.discardRequested) {
+      const cached = getCoachOfflineResources(next, context)?.resources?.['phase31e:development']
+      if (cached) next = setCoachOfflineResources(next, context, { 'phase31e:development': {
+        ...cached, drafts: (cached.drafts || []).filter(draft => draft.id !== previousDraft.id),
+      } })
+    }
     try {
       return recoverCoachOfflineCacheSpace(next, { retainContextId: context.id,
         retainResourceKeys: ['phase31e:development', 'development', 'players'] })
@@ -324,6 +331,7 @@ export function saveLocalCoachDevelopmentDraft(userId, context, input) {
   return updateCoachDevelopmentDraft(userId, context, developmentDraftKey(input.playerId, input.formId),
     previous => {
       if (previous?.finalisation) throw new Error('This record is already queued to finish. Your saved values have been kept.')
+      if (previous?.discardRequested) throw new Error('This assessment is queued to cancel. Wait until cancellation has synced before starting another.')
       return editLocalDevelopmentDraft(previous, { ...input, id: previous?.id || Crypto.randomUUID() })
     })
 }

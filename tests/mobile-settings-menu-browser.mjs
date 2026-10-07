@@ -27,7 +27,7 @@ for (const app of ['parent', 'coach']) {
     return source.slice(node.start, node.end)
   }).join('\n')
   virtual[app] = `
-    import React, {useState, useEffect, useMemo, useContext, createContext} from 'react';
+    import React, {useState, useEffect, useMemo, useContext, useRef, createContext} from 'react';
     import {View, Text, TextInput, Switch, Pressable, StyleSheet, Platform, Linking} from 'react-native';
     import MaterialIcons from '@expo/vector-icons/MaterialIcons';
     import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
@@ -46,6 +46,8 @@ for (const app of ['parent', 'coach']) {
     import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
     import {useQuickActionVisibility} from './apps/coach-mobile/src/useQuickActionVisibility.js';
     import {CoachQuickActions} from './apps/coach-mobile/src/CoachQuickActions.js';
+    import {readCoachTeamAdministration,readCoachTeamCoaches} from './apps/mobile-core/src/coachTeamAdministration';
+    import {readMobileResource} from './apps/mobile-core/src/mobileResourceCache';
     import {CoachTeamAdministration} from './apps/coach-mobile/src/CoachTeamAdministration.js';
     import {CoachTeamKitSettings} from './apps/coach-mobile/src/CoachTeamKitSettings.js';
     import {getWorkspaceScope} from './src/lib/workspace-scope.js';
@@ -57,8 +59,8 @@ for (const app of ['parent', 'coach']) {
     const getBuildClassification=()=> 'Production build';
     const inspectCoachOfflineState=async()=>({hasDocument:true});
     const coachSupabase={};
-    const canChooseTrainingAttendanceVisibility=()=>false;
-    const getTrainingAttendanceVisibility=async()=>true;
+    const canChooseTrainingAttendanceVisibility=user=>Boolean(user.activeTeamId && window.trainingEligible);
+    const getTrainingAttendanceVisibility=async()=>{window.trainingReads=(window.trainingReads||0)+1;return true};
     const setTrainingAttendanceVisibility=async(client,user,visible)=>visible;
     const BrandLoader=()=> <Text>Loading...</Text>;
     const CoachOfflineReadiness=({styles})=> <Text style={styles.cardTitle}>Saved automatically</Text>;
@@ -296,7 +298,7 @@ try {
   let settingsAccessCases = 0
   async function checkSettingsAccess({planKey, role, roleRank, teamId = 'synthetic-team'}, kitsVisible, coachesVisible) {
     await page.evaluate(({planKey, role, roleRank, teamId}) => window.override({
-      user:{id:'synthetic',clubId:'synthetic-club',activeTeamId:teamId,planKey,role,roleRank,hasActivePlanAccess:true,displayName:'Alex'},
+      user:{id:'synthetic',clubId:'synthetic-club',activeTeamId:teamId,planKey,role,roleRank,hasActivePlanAccess:true,displayName:'Alex',matchdayPolicy:{flags:{teamCalendar:true,fixtures:true,matchDay:true,trainingEvents:false}}},
       context:{id:`${planKey}:${role}:${roleRank}:${teamId}`,clubId:'synthetic-club',teamId,planKey,role,roleRank,roleLabel:role,teamName:'U17',clubName:'Demo FC'},
     }), {planKey,role,roleRank,teamId})
     await page.locator(`[data-plan="${planKey}"][data-role="${role}"][data-rank="${roleRank}"][data-team="${teamId}"]`).waitFor()
@@ -338,6 +340,18 @@ try {
   await checkSettingsAccess({planKey:'team',role:'head_manager',roleRank:70},true,true)
   await checkSettingsAccess({planKey:'club',role:'head_manager',roleRank:70},false,true)
   assert.equal(await page.evaluate(()=>window.calls.length),mutationsBeforeAccessChecks,'Settings discovery never mutates data')
+  await page.evaluate(()=>{window.trainingEligible=true;window.trainingReads=0})
+  await checkSettingsAccess({planKey:'matchday',role:'head_manager',roleRank:70},true,true)
+  await open('Account')
+  assert.equal(await page.getByText('Show me in Training attendance',{exact:true}).count(),0,'Matchday hides training attendance')
+  assert.equal(await page.evaluate(()=>window.trainingReads),0,'Matchday does not load training attendance')
+  await back()
+  await checkSettingsAccess({planKey:'team',role:'head_manager',roleRank:70},true,true)
+  await open('Account')
+  await page.getByText('Show me in Training attendance',{exact:true}).waitFor()
+  assert.ok(await page.evaluate(()=>window.trainingReads)>0,'Team plan retains attendance settings')
+  await back()
+  await page.evaluate(()=>{window.trainingEligible=false})
   console.log(`PASS: ${settingsAccessCases} actual Settings kit/invite visibility cases, legacy Club aliases and live context switching.`)
   await page.evaluate(()=>window.override({}))
   await page.evaluate(() => window.override({ testQuickAction: true }))

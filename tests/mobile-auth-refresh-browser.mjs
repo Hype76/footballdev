@@ -7,6 +7,8 @@ import { chromium } from 'playwright'
 const root = process.cwd()
 const modules = path.join(root, 'apps/parent-mobile/node_modules')
 const mocks = {
+  // Native password UI is exercised by mobile-signup-browser; this fixture tests Auth state transitions.
+  './MobilePasswordRecovery': 'export const MobilePasswordRecovery=()=>null',
   './biometrics': 'export const getBiometricEnabled=async()=>false; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   './config': 'export const getMobileRuntimeConfig=()=>({isUsable:true})',
   './notifications': 'export const revokeNativePushDevice=async()=>{}',

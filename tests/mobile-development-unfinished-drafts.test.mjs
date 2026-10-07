@@ -8,6 +8,7 @@ test('unfinished drafts include saved private work and exclude finalisation inte
   for (const status of ['draft', 'pending', 'synced']) assert.equal(isUnfinishedDevelopmentDraft({ ...draft, status }), true)
   for (const status of ['finalised', 'completed', 'sent', undefined]) assert.equal(isUnfinishedDevelopmentDraft({ ...draft, status }), false)
   assert.equal(isUnfinishedDevelopmentDraft({ ...draft, finalisation: { shareWithParent: true } }), false)
+  assert.equal(isUnfinishedDevelopmentDraft({ ...draft, status: 'pending', discardRequested: true }), false)
   assert.equal(isUnfinishedDevelopmentDraft({ ...draft, playerId: '' }), false)
 })
 
@@ -21,6 +22,12 @@ test('local edits override the corresponding server draft, retaining exact value
 test('matching persisted record ids cannot count or restore as two unfinished drafts', () => {
   const moved = { ...draft, formId: 'updated-form', status: 'synced' }
   assert.deepEqual(mergeUnfinishedDevelopmentDrafts([draft], [moved]), [moved])
+})
+
+test('pending cancellation suppresses the corresponding server draft without hiding another assessment', () => {
+  const cancellation = { ...draft, status: 'pending', discardRequested: true }
+  const another = { ...draft, id: 'another', playerId: 'another-player' }
+  assert.deepEqual(mergeUnfinishedDevelopmentDrafts([draft, another], [cancellation]), [another])
 })
 
 test('newest server draft wins for the same selection regardless of incoming ordering', () => {

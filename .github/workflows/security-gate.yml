@@ -204,6 +204,13 @@ jobs:
         run: node --test tests/team-matchday-kits.test.mjs tests/team-matchday-kits-pglite.test.mjs tests/club-team-kit-authority-pglite.test.mjs && node tests/mobile-coach-team-kits-browser.mjs
       - name: Public Club offer, cancellation and quote boundaries
         run: node --experimental-strip-types --test tests/club-20-offer.test.mjs tests/billing-portal-session.test.mjs tests/public-club-quote.test.mjs && node tests/public-club-offer-browser.mjs && node tests/billing-cancel-browser.mjs
+      - name: Matchday app account handoff and Coach cancellation feedback
+        run: >-
+          node --test tests/coach-app-handoff.test.mjs tests/mobile-cancelled-fixture.test.mjs
+          tests/workspace-checkout.test.mjs tests/mobile-development-background.test.mjs
+          tests/development-save-repair.test.mjs tests/matchday-fixture-controls-db.test.mjs &&
+          node tests/coach-app-handoff-browser.mjs && node tests/coach-branding-return-browser.mjs &&
+          npm run build && node tests/phone-branding-onboarding-browser.mjs && node tests/phone-team-administration-browser.mjs
       - name: Public website help privacy and integration
         run: node --experimental-strip-types --test tests/website-help.test.mjs && node tests/website-help-browser.mjs
       - name: Formation board save and recovery regression

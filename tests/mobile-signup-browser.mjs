@@ -11,11 +11,12 @@ const output = 'output/playwright/mobile-signup'
 await mkdir(output, { recursive: true })
 const result = await build({
   stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client';
+    import {MobilePasswordRecovery} from './apps/mobile-core/src/MobilePasswordRecovery';
     import {MobileSignupScreen} from './apps/mobile-core/src/MobileSignupScreen';
     import {MobileLoginScreen} from './apps/mobile-core/src/ui';
     import {createParentMobileTheme} from './apps/mobile-core/src/parentThemeCore.js';
     import {UnlinkedParentScreen} from './apps/parent-mobile/src/UnlinkedParentScreen';
-    function App(){const [dark,setDark]=React.useState(false);window.setDark=setDark;const [mode,setMode]=React.useState('coach');window.setMode=setMode;return mode==='login'?<MobileLoginScreen appRole="parent" title="Test login" copy="Sign in to Football Player" kicker="Football Player" logoSource={{uri:'https://example.test/logo.png'}} meta="Account access" signIn={async()=>{}} requestPasswordReset={async()=>{}}/>:mode==='unlinked'?<div style={{padding:20}}><UnlinkedParentScreen themeTokens={createParentMobileTheme({mode:dark?'dark':'light'}).tokens}/></div>:<MobileSignupScreen key={mode} appRole={mode} logoSource={{uri:'https://example.test/logo.png'}} onBack={()=>{window.back=true}}/>}createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: root, loader: 'jsx' },
+    function App(){const [dark,setDark]=React.useState(false);window.setDark=setDark;const [mode,setMode]=React.useState('coach');window.setMode=setMode;return mode==='recovery'?<MobilePasswordRecovery appRole='coach' email='coach@example.test' onComplete={()=>window.recovered=true} onCancel={async()=>{window.recoveryCancelled=true}} onResend={async()=>{window.recoveryResent=true}}/>:mode==='login'?<MobileLoginScreen appRole="parent" title="Test login" copy="Sign in to Football Player" kicker="Football Player" logoSource={{uri:'https://example.test/logo.png'}} meta="Account access" signIn={async()=>{}} requestPasswordReset={async()=>{}}/>:mode==='unlinked'?<div style={{padding:20}}><UnlinkedParentScreen themeTokens={createParentMobileTheme({mode:dark?'dark':'light'}).tokens}/></div>:<MobileSignupScreen key={mode} appRole={mode} logoSource={{uri:'https://example.test/logo.png'}} onBack={()=>{window.back=true}}/>}createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: root, loader: 'jsx' },
   bundle: true, write: false, jsx: 'automatic', platform: 'browser', mainFields: ['browser', 'module', 'main'],
   loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths: [modules],
   alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') },
@@ -25,7 +26,7 @@ const result = await build({
     b.onResolve({ filter: /mobile-core\/src\/auth$/ }, () => ({ path: 'auth', namespace: 'mock' }))
     b.onResolve({ filter: /^\.\/config$/ }, () => ({ path: 'config', namespace: 'mock' }))
     b.onResolve({ filter: /BrandLoader$/ }, () => ({ path: 'loader', namespace: 'mock' }))
-    b.onLoad({ filter: /.*/, namespace: 'mock' }, args => ({ loader: 'jsx', contents: args.path === 'supabase' ? `export const getAccessToken=async()=> 'test-token'; export const supabase={auth:{signUp:async(args)=>{window.signup=args;return window.signupFailure?{error:{message:typeof window.signupFailure==='string'?window.signupFailure:'Email service unavailable'}}:{data:{session:null}}}},rpc:async(name,args)=>{window.accepted={name,args};return window.inviteFailure?{error:{message:'This invitation is for a different email address.'}}:{data:{id:'accepted-link'}}}};` : args.path === 'auth' ? `export const useMobileAuth=()=>({user:{displayName:'Test Parent',email:'parent@example.test'},refreshUserProfile:async()=>{window.refreshed=true;return {parentPortalLinks:[]}},signOut:async()=>{window.signedOut=true}});` : args.path === 'config' ? `export const getMobileRuntimeConfig=()=>({apiBaseUrl:'https://example.test'});` : `export const BrandLoader=()=>null;` }))
+    b.onLoad({ filter: /.*/, namespace: 'mock' }, args => ({ loader: 'jsx', contents: args.path === 'supabase' ? `export const getAccessToken=async()=> 'test-token'; export const supabase={auth:{verifyOtp:async(args)=>{window.verified=args;window.otpCount=(window.otpCount||0)+1;if(window.codeError)return {error:{message:'Expired code'}};return {data:{user:{email:'coach@example.test'},session:{user:{id:'synthetic',email:'coach@example.test'}}}}},getSession:async()=>({data:{session:{user:{id:'synthetic',email:'coach@example.test'}}}}),updateUser:async args=>{window.changedPassword=args;if(window.passwordError)return {error:{message:'Synthetic retry'}};return {data:{user:{email:'coach@example.test'}}}},resend:async(args)=>{window.resent=args;return {data:{}}},signUp:async(args)=>{window.signup=args;return window.signupFailure?{error:{message:typeof window.signupFailure==='string'?window.signupFailure:'Email service unavailable'}}:{data:{session:null}}}},rpc:async(name,args)=>{window.accepted={name,args};return window.inviteFailure?{error:{message:'This invitation is for a different email address.'}}:{data:{id:'accepted-link'}}}};` : args.path === 'auth' ? `export const useMobileAuth=()=>({user:{displayName:'Test Parent',email:'parent@example.test'},refreshUserProfile:async()=>{window.refreshed=true;return {parentPortalLinks:[]}},signOut:async()=>{window.signedOut=true}});` : args.path === 'config' ? `export const getMobileRuntimeConfig=()=>({apiBaseUrl:'https://example.test'});` : `export const BrandLoader=()=>null;` }))
   } }],
 })
 const browser = await chromium.launch()
@@ -66,9 +67,16 @@ try {
   await page.emulateMedia({colorScheme:'light'})
   await page.getByRole('button', { name: 'Create account', exact: true }).click()
   await page.getByText('Check your email', { exact: true }).waitFor()
-  await page.getByText(/Open the newest confirmation email sent to coach@example\.test/).waitFor()
+  await page.getByText(/Enter the verification code from the newest email sent to coach@example\.test/).waitFor()
+  await page.getByLabel('Verification code', { exact: true }).fill('12345678')
+  await page.getByRole('button', { name: 'Verify and continue', exact: true }).click()
+  await page.waitForFunction(() => window.verified?.token === '12345678')
+  assert.equal(await page.evaluate(() => window.verified.type), 'signup')
+  await page.getByRole('button', { name: 'Send another code', exact: true }).click()
+  await page.waitForFunction(() => window.resent?.type === 'signup')
   const signup = await page.evaluate(() => window.signup)
   assert.equal(signup.options.data.signup_plan_key, 'matchday')
+  assert.equal(signup.options.data.verification_mode, 'app_code')
   assert.equal(signup.options.data.club_name, 'FP TEST United')
   assert.equal('age_group' in signup.options.data, false)
   assert.equal(signup.options.emailRedirectTo, 'https://footballplayer.online/sign-in')
@@ -125,6 +133,25 @@ try {
   await page.getByRole('button', { name: 'Accept invitation' }).click()
   await page.waitForFunction(() => window.refreshed)
   assert.equal(await page.evaluate(() => window.accepted.name), 'accept_parent_player_link')
+  await page.evaluate(()=>{window.setMode('recovery');window.otpCount=0;window.codeError=true})
+  await page.getByLabel('Recovery code',{exact:true}).fill('12345678')
+  await page.getByLabel('New password',{exact:true}).fill('RecoverySafe!42')
+  await page.getByLabel('Confirm new password',{exact:true}).fill('RecoverySafe!42')
+  await page.getByRole('button',{name:'Save new password',exact:true}).click()
+  await page.getByText(/This code could not be verified/).waitFor()
+  await page.evaluate(()=>{window.codeError=false;window.passwordError=true})
+  await page.getByRole('button',{name:'Save new password',exact:true}).click()
+  await page.getByText('Synthetic retry',{exact:true}).waitFor()
+  const recoveryAttempts=await page.evaluate(()=>window.otpCount)
+  await page.evaluate(()=>window.passwordError=false)
+  await page.getByRole('button',{name:'Save new password',exact:true}).click()
+  await page.waitForFunction(()=>window.recovered===true)
+  assert.equal(await page.evaluate(()=>window.otpCount),recoveryAttempts,'Password retry uses the verified session instead of replaying a single-use code')
+  assert.deepEqual(await page.evaluate(()=>window.changedPassword),{password:'RecoverySafe!42'})
+  await page.getByRole('button',{name:'Send another code',exact:true}).click()
+  await page.waitForFunction(()=>window.recoveryResent===true)
+  await page.getByRole('button',{name:'Back to sign in',exact:true}).click()
+  await page.waitForFunction(()=>window.recoveryCancelled===true)
   assert.deepEqual(errors, [])
   console.log('PASS: Coach and Parent signup, password mismatch, service failure, email confirmation, referral preview/send, invitation host validation and server rejection.')
 } finally { await browser.close() }

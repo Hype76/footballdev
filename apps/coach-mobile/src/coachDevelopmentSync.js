@@ -1,9 +1,10 @@
 import { applyCoachContext } from '../../mobile-core/src/coachContextCore'
-import { finalizeCoachDevelopmentRecord, getCoachDevelopmentWorkspace, saveCoachDevelopmentDraft } from '../../mobile-core/src/coachPhase31EData'
+import { discardCoachDevelopmentDraft, finalizeCoachDevelopmentRecord, getCoachDevelopmentWorkspace, saveCoachDevelopmentDraft } from '../../mobile-core/src/coachPhase31EData'
 import { prepareDevelopmentAttempt, acknowledgeDevelopmentAttempt, developmentFormFingerprint } from '../../mobile-core/src/developmentOfflineCore'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { developmentSyncFailure } from '../../mobile-core/src/developmentSaveStatusCore'
 import { readCoachDevelopmentDrafts, updateCoachDevelopmentDraft } from './offline'
+import { invalidateMobileResource } from '../../mobile-core/src/mobileResourceCache'
 
 const active = new Map()
 const listeners = new Set()
@@ -17,8 +18,24 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
   const task = (async () => {
     const drafts = await readCoachDevelopmentDrafts(user.id, context)
     if (!isCurrent()) return
-    if (!Object.values(drafts).some(draft => draft.status !== 'synced' || draft.finalisation)) return
+    if (!Object.values(drafts).some(draft => draft.status !== 'synced' || draft.finalisation || draft.discardRequested)) return
     const scopedUser = applyCoachContext(user, context)
+    const discard = async (key, saved) => {
+      if (!isCurrent() || !saved?.discardRequested) return
+      await withMobileAsyncTimeout(() => discardCoachDevelopmentDraft(scopedUser, {
+        draftId: saved.id, playerId: saved.playerId, formId: saved.formId, isCurrent,
+      }))
+      if (!isCurrent()) return
+      let removed = false
+      await updateCoachDevelopmentDraft(user.id, context, key, current => {
+        if (!isCurrent() || current?.id !== saved.id || !current.discardRequested) return current
+        removed = true; return null
+      })
+      if (removed && isCurrent()) {
+        invalidateMobileResource(scopedUser, 'coach:phase31e:development')
+        notifyDevelopmentSync({ kind: 'discarded', userId: user.id, contextId: context.id, key, draftId: saved.id })
+      }
+    }
     const recordFailure = async (key, draft, error, stage) => {
       if (!isCurrent()) return
       const message = developmentSyncFailure(error, stage)
@@ -33,7 +50,9 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
       if (draft.finalisation && isCurrent() && failed?.id === draft.id && failed.finalisationError) {
         notifyDevelopmentSync({ kind: 'finalisation_failed', userId: user.id, contextId: context.id, key,
           draftId: draft.id, copy: failed.finalisationError, shared: draft.finalisation.shareWithParent !== false })
-      } else notifyDevelopmentSync()
+      } else if (failed?.discardRequested && isCurrent()) notifyDevelopmentSync({ kind: 'discard_failed', userId: user.id, contextId: context.id, key, draftId: failed.id,
+        copy: `Cancellation is saved on this phone. ${error.message || 'Retry when connected.'}` })
+      else notifyDevelopmentSync()
     }
     let workspace
     try { workspace = await withMobileAsyncTimeout(() => getCoachDevelopmentWorkspace(scopedUser)) }
@@ -46,9 +65,12 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
     if (!isCurrent()) return
     for (const [key, draft] of Object.entries(drafts)) {
       if (!isCurrent()) return
-      if (draft.status === 'synced' && !draft.finalisation) continue
+      const latest = (await readCoachDevelopmentDrafts(user.id, context))[key]
+      if (!latest || !isCurrent()) continue
       let stage = 'preparing'
       try {
+        if (latest.discardRequested) { await discard(key, latest); continue }
+        if (draft.status === 'synced' && !draft.finalisation) continue
         const player = workspace.players.find(item => item.id === draft.playerId)
         const form = workspace.forms.find(item => item.id === draft.formId)
         if (!player || !form) throw new Error('This Player or form is no longer available. Your saved work is kept on this phone.')
@@ -78,8 +100,9 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
             key, draftId: draft.id, shared: request.shareWithParent !== false })
           continue
         }
-        const prepared = await updateCoachDevelopmentDraft(user.id, context, key, current => current ? prepareDevelopmentAttempt(current) : null)
+        const prepared = await updateCoachDevelopmentDraft(user.id, context, key, current => current && !current.discardRequested ? prepareDevelopmentAttempt(current) : current)
         if (!prepared || !isCurrent()) continue
+        if (prepared.discardRequested) { await discard(key, prepared); continue }
         const attempt = prepared.attempt
         if (attempt.formFingerprint && attempt.formFingerprint !== developmentFormFingerprint(form)) throw new Error('This form changed since you saved it. Review your saved values against the current form before syncing.')
         stage = 'saving'
@@ -89,7 +112,11 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
         }))
         if (!isCurrent()) return
         stage = 'acknowledging'
-        await updateCoachDevelopmentDraft(user.id, context, key, current => current ? acknowledgeDevelopmentAttempt(current, attempt, result) : null)
+        const acknowledged = await updateCoachDevelopmentDraft(user.id, context, key, current => current ? {
+          ...acknowledgeDevelopmentAttempt(current, attempt, result),
+          ...(current.discardRequested ? { status: 'pending' } : {}),
+        } : null)
+        if (acknowledged?.discardRequested) await discard(key, acknowledged)
       } catch (error) {
         await recordFailure(key, draft, error, stage)
       }

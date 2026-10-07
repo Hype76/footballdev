@@ -1,5 +1,5 @@
 export const DEFAULT_NOTIFICATION_CATEGORIES = Object.freeze({
-  gameDay: 'scores_cards', invites: true, chats: true, resources: true,
+  gameDay: 'scores_cards', invites: true, chats: true, resources: true, development: true,
 })
 
 export const GAME_DAY_CHOICES = Object.freeze([
@@ -14,14 +14,16 @@ export function normalizeNotificationCategories(value = {}) {
     invites: value?.invites !== false,
     chats: value?.chats !== false,
     resources: value?.resources !== false,
+    development: value?.development !== false,
   }
 }
 
 export function notificationCategory(data = {}) {
   const type = String(data.type || data.intentType || '').toLowerCase()
   const route = String(data.route || '').toLowerCase()
+  if (type === 'development_report' || route === 'development') return 'development'
   if (route === 'invites' || /availability|assignment|scorer_|calendar|training|session|squad/.test(type) || ['calendar', 'sessions'].includes(route)) return 'invites'
-  if (type === 'development_report' || ['chat', 'messages', 'polls'].includes(route) || /chat|message|poll|communication/.test(type)) return 'chats'
+  if (['chat', 'messages', 'polls'].includes(route) || /chat|message|poll|communication/.test(type)) return 'chats'
   if (route === 'resources' || /resource/.test(type)) return 'resources'
   if (['matchday', 'fans'].includes(route) || /matchday|match_day/.test(type)) return 'gameDay'
   return null

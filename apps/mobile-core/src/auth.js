@@ -1,5 +1,6 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState } from 'react-native'
+import { MobilePasswordRecovery } from './MobilePasswordRecovery'
 import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } from './biometrics'
 import { getMobileRuntimeConfig } from './config'
 import { revokeNativePushDevice } from './notifications'
@@ -65,6 +66,7 @@ export function AuthProvider({
   const [startupDiagnosticCode, setStartupDiagnosticCode] = useState('')
   const [startupState, setStartupState] = useState(MOBILE_STARTUP_STATES.BOOTING)
   const [user, setUser] = useState(null)
+  const [recoveryEmail, setRecoveryEmail] = useState('')
   const profileGenerationRef = useRef(0)
   const sessionUserIdRef = useRef('')
   const currentUserRef = useRef(null)
@@ -451,7 +453,7 @@ export function AuthProvider({
 
     try {
       const response = await fetch(`${config.apiBaseUrl}/.netlify/functions/send-password-reset`, {
-        body: JSON.stringify({ email: normalizedEmail, appRole: config.appRole }),
+        body: JSON.stringify({ email: normalizedEmail, appRole: config.appRole, appOnly: true }),
         headers: {
           'Content-Type': 'application/json',
           Origin: config.apiBaseUrl,
@@ -464,6 +466,7 @@ export function AuthProvider({
         throw new Error(payload?.message || 'Password recovery could not be started. Please try again.')
       }
 
+      setRecoveryEmail(normalizedEmail)
       return payload?.message || 'If that account exists, password recovery instructions will be sent.'
     } catch (error) {
       const message = error?.message || 'Password recovery could not be started. Please try again.'
@@ -550,7 +553,11 @@ export function AuthProvider({
     user,
   ])
 
-  return createElement(AuthContext.Provider, { value }, children)
+  return createElement(AuthContext.Provider, { value }, recoveryEmail ? createElement(MobilePasswordRecovery, {
+    appRole, email: recoveryEmail, onResend: requestPasswordReset,
+    onComplete: () => setRecoveryEmail(''),
+    onCancel: async () => { await signOut(); setRecoveryEmail('') },
+  }) : children)
 }
 
 export function useMobileAuth() {

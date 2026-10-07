@@ -140,6 +140,18 @@ try {
   assert.equal(await changedTerms.page.getByRole('checkbox').isChecked(), false)
   assertions += 2; await changedTerms.page.close()
 
+  const preserved = await pageFor({ state: { ...base, state: 'permanent', logoAllowed: true, coloursAllowed: true }, search: `?teamId=${teamId}&from=coach&uploadOnly=1` })
+  await preserved.page.locator('input[type=file]').setInputFiles({ name: 'badge.png', mimeType: 'image/png', buffer: await readFile('apps/coach-mobile/assets/football-player-logo.png') })
+  await preserved.page.getByText('Selected: badge.png', { exact: true }).waitFor()
+  await preserved.page.evaluate(() => { window.changeAuth({...window.fixture.auth,user:{...window.fixture.auth.user,displayName:'Refreshed account'}});window.dispatchEvent(new Event('focus')) })
+  await preserved.page.getByText('Selected: badge.png', { exact: true }).waitFor()
+  assert.equal(await preserved.page.getByLabel('Team colour', { exact: true }).count(), 0)
+  await preserved.page.getByRole('button', { name: 'Save team branding' }).click()
+  await preserved.page.getByText('Team branding saved. Return to Coach to refresh it.', { exact: true }).waitFor()
+  const savedBadge = preserved.calls.find(call => call.action === 'save')
+  assert.ok(savedBadge.dataBase64.length > 100); assert.equal(savedBadge.mimeType, 'image/png')
+  assert.equal(savedBadge.fileName, 'badge.png'); assertions += 5; await preserved.page.close()
+
   const upload = await pageFor({ status: 502, state: { ...base, state: 'grandfathered', logoAllowed: true } })
   await upload.page.locator('input[type=file]').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: Buffer.from('synthetic-image-only') })
   await upload.page.getByRole('button', { name: 'Save team branding' }).click()

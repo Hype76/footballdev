@@ -16,14 +16,15 @@ const draft = () => ({ id: 'fixed-draft-id', playerId: player.id, formId: form.i
     requestedAt: '2026-10-07T12:00:00Z', revision: 4, serverVersion: 2, form, player,
     values: { score: 7 }, notes: 'Saved latest note', shareWithParent: true,
   } })
-function engine(initial, { finalise = async () => ({}), workspace = async () => ({ players: [player], forms: [form] }), current = () => true } = {}) {
+function engine(initial, { finalise = async () => ({}), workspace = async () => ({ players: [player], forms: [form] }), current = () => true, offline = false, save = async () => { throw new Error('A queued synced record must not save again') }, discard = async () => {} } = {}) {
   // JSON roundtrips model persisted storage, not component memory. Existing encrypted-store tests cover the actual writer.
   let disk = JSON.stringify(initial), writes = 0
-  const events = [], calls = []
+  const events = [], calls = [], saves = [], discards = []
   const source = read('apps/coach-mobile/src/coachDevelopmentSync.js').replace(/^import .+\r?\n/gm, '').replace(/^export /gm, '')
-  const deps = { ...core, developmentSyncFailure: status.developmentSyncFailure, applyCoachContext: value => value,
+  const deps = { invalidateMobileResource: () => {}, ...core, developmentSyncFailure: status.developmentSyncFailure, applyCoachContext: value => value,
     withMobileAsyncTimeout: callback => callback(), getCoachDevelopmentWorkspace: workspace,
-    saveCoachDevelopmentDraft: async () => { throw new Error('A queued synced record must not save again') },
+    saveCoachDevelopmentDraft: async (who, request) => { saves.push(request); return save(who, request) },
+    discardCoachDevelopmentDraft: async (who, request) => { discards.push(request); return discard(who, request) },
     finalizeCoachDevelopmentRecord: async (who, request) => { calls.push({ who, request }); return finalise(who, request) },
     readCoachDevelopmentDrafts: async () => JSON.parse(disk), updateCoachDevelopmentDraft: async (_who, _context, id, change) => {
       const all = JSON.parse(disk), next = change(all[id] || null)
@@ -34,8 +35,8 @@ function engine(initial, { finalise = async () => ({}), workspace = async () => 
   }
   const api = new Function(...Object.keys(deps), `${source};return {syncCoachDevelopmentDrafts,subscribeDevelopmentSync}`)(...Object.values(deps))
   api.subscribeDevelopmentSync(event => { if (event) events.push(event) })
-  return { run: () => api.syncCoachDevelopmentDrafts(user, context, current), read: () => JSON.parse(disk),
-    replace: value => { disk = JSON.stringify(value) }, calls, events, writes: () => writes }
+  return { run: () => api.syncCoachDevelopmentDrafts({...user, isOfflineProfile: offline}, context, current), read: () => JSON.parse(disk),
+    replace: value => { disk = JSON.stringify(value) }, calls, events, saves, discards, writes: () => writes }
 }
 
 test('queued exact record finishes without an editor and emits success only after durable removal', async () => {
@@ -103,7 +104,7 @@ test('actual local writer rejects stale edits after a finalisation has been queu
   const source = read('apps/coach-mobile/src/offline.js')
   const start = source.indexOf('export function saveLocalCoachDevelopmentDraft'), end = source.indexOf('export async function countPendingCoachDevelopmentDrafts', start)
   let stored = draft()
-  const deps = { ...core, Crypto: { randomUUID: () => 'unexpected' }, updateCoachDevelopmentDraft: async (_user, _context, _key, change) => {
+  const deps = { invalidateMobileResource: () => {}, ...core, Crypto: { randomUUID: () => 'unexpected' }, updateCoachDevelopmentDraft: async (_user, _context, _key, change) => {
     const next = change(structuredClone(stored)); stored = next; return next
   } }
   const save = new Function(...Object.keys(deps), `${source.slice(start, end).replace('export ', '')};return saveLocalCoachDevelopmentDraft`)(...Object.values(deps))
@@ -147,4 +148,38 @@ for (const switchAt of [...stages, null]) test(switchAt ? `actual finalisation s
   } else {
     assert.equal((await request).sharedRecipientCount, 1); assert.deepEqual(calls, stages)
   }
+})
+
+
+test('cancellation persists offline and discards the exact draft after reconnecting', async () => {
+  const saved = { ...draft(), finalisation: null, discardRequested: true, status: 'pending' }
+  const offline = engine({ [key]: saved }, { offline: true })
+  await offline.run(); assert.equal(offline.discards.length, 0); assert.deepEqual(offline.read()[key], saved)
+  const online = engine(offline.read()); await online.run()
+  assert.equal(online.discards.length, 1); assert.equal(online.discards[0].draftId, saved.id)
+  assert.equal(online.saves.length, 0); assert.equal(online.calls.length, 0)
+  assert.deepEqual(online.read(), {}); assert.equal(online.events[0].kind, 'discarded')
+})
+
+test('cancelling during an in-flight save discards afterwards and cannot resurrect the draft', async () => {
+  let resolve
+  const pending = new Promise(done => { resolve = done })
+  const saved = { ...draft(), finalisation: null, status: 'pending' }
+  const service = engine({ [key]: saved }, { save: () => pending })
+  const run = service.run()
+  for (let i = 0; i < 40; i++) await Promise.resolve()
+  assert.equal(service.saves.length, 1)
+  service.replace({ [key]: { ...service.read()[key], discardRequested: true, status: 'pending' } })
+  resolve({ clientSaveVersion: 3, lastSavedAt: '2026-10-07T16:00:00Z' }); await run
+  assert.equal(service.discards.length, 1); assert.deepEqual(service.read(), {})
+  assert.equal(service.calls.length, 0); assert.equal(service.events.filter(e => e.kind === 'discarded').length, 1)
+})
+
+test('failed cancellation retains its durable intent and retries without saving or finalising', async () => {
+  const saved = { ...draft(), finalisation: null, discardRequested: true, status: 'pending' }
+  const failed = engine({ [key]: saved }, { discard: async () => { throw Error('Connection lost') } })
+  await failed.run(); assert.ok(failed.read()[key].discardRequested); assert.equal(failed.read()[key].status, 'pending')
+  assert.equal(failed.events.some(e => e.kind === 'discarded'), false)
+  const retry = engine(failed.read()); await retry.run(); assert.deepEqual(retry.read(), {})
+  assert.equal(retry.saves.length, 0); assert.equal(retry.calls.length, 0)
 })

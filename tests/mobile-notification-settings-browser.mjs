@@ -42,8 +42,8 @@ try {
     await page.waitForFunction(()=>!document.body.innerText.includes('Checking your saved choices'))
     if(app==='parent') assert.equal(await scores.getAttribute('aria-checked'),'true'); else assert.equal(await page.getByRole('radio').count(),0)
     const inviteName=app==='coach'?'Availability & event updates':'Invites', chatName=app==='coach'?'Chats & messages':'Chats';
-    for(const name of app==='coach'?[inviteName,chatName]:['Invites','Chats','New resources']) assert.equal(await page.getByRole('switch',{name,exact:true}).isChecked(),true)
-    if(app==='coach')await page.waitForFunction(()=>getComputedStyle(document.querySelector('input[aria-label="Availability & event updates"]').parentElement.children[0]).backgroundColor==='rgb(52, 199, 89)')
+    for(const name of app==='coach'?[inviteName,chatName]:['Invites','Chats','New resources','Development']) assert.equal(await page.getByRole('switch',{name,exact:true}).isChecked(),true)
+    await page.waitForFunction(()=>[...document.querySelectorAll('input[role="switch"]')].filter(x=>x.checked).every(x=>getComputedStyle(x.parentElement.children[0]).backgroundColor==='rgb(21, 128, 61)'))
     if(app==='parent') { await page.getByRole('radio',{name:'Off',exact:true}).click()
     await page.getByText('Saved.',{exact:true}).waitFor()
     assert.equal(await page.getByRole('switch',{name:inviteName,exact:true}).isChecked(),true)
@@ -53,6 +53,17 @@ try {
     await page.getByRole('switch',{name:chatName,exact:true}).click()
     await page.waitForFunction(()=>!document.body.innerText.includes('Saving your choice'))
     assert.equal(await page.getByRole('switch',{name:chatName,exact:true}).isChecked(),false)
+    if(app==='parent') {
+      const development=page.getByRole('switch',{name:'Development',exact:true})
+      assert.equal(await development.isChecked(),true)
+      await development.click()
+      await page.waitForFunction(()=>!document.body.innerText.includes('Saving your choice'))
+      assert.equal(await development.isChecked(),false)
+      assert.equal(await page.getByRole('switch',{name:chatName,exact:true}).isChecked(),false)
+      await page.getByRole('switch',{name:chatName,exact:true}).click()
+      await page.waitForFunction(()=>!document.body.innerText.includes('Saving your choice'))
+      assert.equal(await development.isChecked(),false)
+    }
     await page.evaluate(()=>window.failSave=true)
     await page.getByRole('switch',{name:inviteName,exact:true}).click()
     await page.getByText(/Could not confirm this change/).waitFor()
@@ -62,7 +73,7 @@ try {
     await page.waitForFunction(()=>!document.body.innerText.includes('Checking your saved choices'))
     for(const mode of ['dark','light']) {
       await page.evaluate(mode=>window.setMode(mode),mode)
-      if(app==='coach')await page.waitForFunction(()=>getComputedStyle(document.querySelector('input[aria-label="Availability & event updates"]').parentElement.children[0]).backgroundColor==='rgb(52, 199, 89)')
+      await page.waitForFunction(()=>[...document.querySelectorAll('input[role="switch"]')].filter(x=>x.checked).every(x=>getComputedStyle(x.parentElement.children[0]).backgroundColor==='rgb(21, 128, 61)'))
       await page.screenshot({path:'output/playwright/notification-settings/'+app+'-'+mode+'.png',fullPage:true})
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=390),true)
     }
@@ -92,6 +103,10 @@ try {
   assert.equal(await page.getByRole('switch',{name:'Invites',exact:true}).count(),1)
   assert.equal(await page.getByRole('switch',{name:'Chats',exact:true}).count(),0)
   assert.equal(await page.getByRole('switch',{name:'New resources',exact:true}).count(),0)
+  assert.equal(await page.getByRole('switch',{name:'Development',exact:true}).count(),0)
+  await page.evaluate(()=>window.setAllowedKeys(['development']))
+  await page.getByRole('switch',{name:'Development',exact:true}).waitFor()
+  assert.equal(await page.getByRole('switch',{name:'Chats',exact:true}).count(),0)
   assert.deepEqual(errors,[])
   console.log('Coach and Parent category screens: defaults, independent toggles, persistence, save failure, offline state, account isolation, dark/light and phone width passed.')
 } finally { await browser.close() }

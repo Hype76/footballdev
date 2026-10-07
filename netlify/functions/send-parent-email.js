@@ -1195,7 +1195,7 @@ export async function handler(event) {
       )
 
       const eligibleNotificationLinks = (report.eligibleRecipients ?? report.recipients ?? []).map(recipient => recipient.linkId)
-      const notificationResult = body.notifyParents === true && eligibleNotificationLinks.length > 0
+      const notificationResult = eligibleNotificationLinks.length > 0
         ? await notifyCoachDevelopmentParents(supabaseAdmin, {
           evaluationId: report.evaluationId,
           profile: requestUser,

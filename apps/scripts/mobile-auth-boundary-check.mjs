@@ -72,12 +72,15 @@ async function collectSourceFiles(directory) {
 export function scanMobileAuthSource({ content, file = 'fixture.js', module = 'test fixture' }) {
   const failures = []
 
-  // Mobile signup phase: only this entry point may create an account.
-  // Confirmation uses fixed HTTPS pages; session authority still comes from password sign-in.
+  // App-only verification phase: only these exact email/code calls are approved.
+  // URL tokens and arbitrary OTP APIs remain prohibited in native code.
   if (file === 'apps/mobile-core/src/mobileSignup.js') {
     content = content.replace("emailRedirectTo: appRole === 'coach' ? 'https://footballplayer.online/sign-in' : 'https://parent.footballplayer.online/sign-in'", '')
     content = content.replace('supabase.auth.signUp({', 'approvedPasswordSignup({')
+    content = content.replace("supabase.auth.verifyOtp({ email: String(email || '').trim().toLowerCase(), token: code, type: 'signup' })", 'approvedSignupCode()')
+    content = content.replace("supabase.auth.resend({ type: 'signup', email: String(email || '').trim().toLowerCase() })", 'approvedSignupResend()')
   }
+  if (file === 'apps/mobile-core/src/MobilePasswordRecovery.js') content = content.replace("supabase.auth.verifyOtp({ email, token: code.trim(), type: 'recovery' })", 'approvedRecoveryCode()')
 
   for (const rule of PROHIBITED_RULES) {
     rule.pattern.lastIndex = 0

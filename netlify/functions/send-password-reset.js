@@ -3,7 +3,7 @@ import process from 'node:process'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { buildEmailLogoMarkup } from '../../src/lib/email-branding.js'
 
-const ALLOWED_BODY_KEYS = new Set(['email', 'appRole'])
+const ALLOWED_BODY_KEYS = new Set(['email', 'appRole', 'appOnly'])
 const APPROVED_PRODUCTION_ORIGINS = new Set([
   'https://footballplayer.online',
   'https://parent.footballplayer.online',
@@ -72,6 +72,7 @@ function parseBody(event) {
     return null
   }
   if (body.appRole !== undefined && !['parent', 'coach'].includes(body.appRole)) return null
+  if (body.appOnly !== undefined && (typeof body.appOnly !== 'boolean' || !body.appRole)) return null
 
   return body
 }
@@ -146,15 +147,15 @@ function getTrustedClientIp(event, context) {
   return 'local-development'
 }
 
-function buildResetEmail({ actionLink }) {
+function buildResetEmail({ actionLink, code }) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#101828;">
       ${buildEmailLogoMarkup({ altText: 'Football Player', origin: 'https://footballplayer.online' })}
       <p style="margin:0 0 8px;color:#047857;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;">Football Player</p>
       <h1 style="margin:0 0 12px;font-size:26px;line-height:1.15;">Reset your password</h1>
-      <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;font-weight:700;">Use this secure link to choose a new password.</p>
+      <p style="margin:0 0 20px;color:#4b5f55;font-size:15px;line-height:1.6;font-weight:700;">${code ? 'Enter this code in the app to choose a new password.' : 'Use this secure link to choose a new password.'}</p>
       <p style="margin:0 0 22px;">
-        <a href="${escapeHtml(actionLink)}" style="display:inline-block;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Reset password</a>
+        ${code ? `<strong style="font-size:28px;letter-spacing:6px;">${escapeHtml(code)}</strong>` : `<a href="${escapeHtml(actionLink)}" style="display:inline-block;padding:12px 16px;background:#047857;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:900;">Reset password</a>`}
       </p>
       <p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.5;">If you did not request this, ignore this email.</p>
     </div>
@@ -235,15 +236,16 @@ export function createPasswordRecoveryHandler({
         options: { redirectTo },
       })
       const actionLink = data?.properties?.action_link
+      const code = body.appOnly ? String(data?.properties?.email_otp || '') : ''
 
-      if (!error && actionLink) {
+      if (!error && actionLink && (!body.appOnly || /^\d{6,10}$/.test(code))) {
         try {
           await sendRecoveryEmail({
             emailAppRole: resolveRecoveryEmailAppRole({ appRole: body.appRole, requestOrigin, accountType: data?.user?.user_metadata?.account_type }),
             from: createFromAddress('Football Player'),
             to: [email],
             subject: 'Reset your Football Player password',
-            html: buildResetEmail({ actionLink }),
+            html: buildResetEmail({ actionLink, code }),
           }, {
             context: {
               emailType: 'password_reset',

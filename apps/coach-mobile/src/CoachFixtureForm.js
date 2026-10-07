@@ -1,5 +1,6 @@
+import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { useEffect, useState } from 'react'
-import { Alert, Keyboard, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   calculateCoachArrivalTime,
   COACH_MATCH_ARRIVAL_OPTIONS,

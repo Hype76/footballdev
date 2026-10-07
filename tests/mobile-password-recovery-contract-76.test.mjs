@@ -18,7 +18,7 @@ test('both mobile apps expose the shared secure password recovery action', () =>
   }
 
   assert.match(sharedUi, /Forgot password\?/)
-  assert.match(sharedUi, /Check your email for a secure password reset link\./)
+  assert.match(sharedUi, /Check your email for a recovery code to enter in the app\./)
   assert.match(sharedAuth, /\.netlify\/functions\/send-password-reset/)
   assert.doesNotMatch(sharedAuth, /resetPasswordForEmail/)
   assert.doesNotMatch(sharedAuth, /\/auth\/v1\/recover/)

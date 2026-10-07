@@ -1,3 +1,4 @@
+import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
 import { getParentBadgeColours, PARENT_FAN_SIGN_IN_COLOURS, PARENT_POLL_SEPARATOR_COLOUR } from '../mobile-core/src/parentStatusColours'
 import { NotificationExplainer } from './src/NotificationExplainer'
 import { notificationExplainerKey } from './src/notificationExplainerCore'
@@ -51,7 +52,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   ToastAndroid,
@@ -2487,6 +2487,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                   ...(parentRouteAllowed('invites') ? ['invites'] : []),
                   ...(parentRouteAllowed('chat') ? ['chats'] : []),
                   ...(parentRouteAllowed('resources') ? ['resources'] : []),
+                  ...(parentRouteAllowed('development') ? ['development'] : []),
                 ]}
                 notificationSettingsFocusRequest={notificationSettingsFocusRequest}
                 onCommunicationChannelChange={handleCommunicationChannelChange}
@@ -3362,8 +3363,8 @@ function SettingsScreen({
               accessibilityLabel="Biometric app lock"
               disabled={!biometricAvailable}
               onValueChange={onBiometricChange}
-              trackColor={{ false: palette.borderStrong, true: palette.accentMuted }}
-              thumbColor={biometricEnabled ? palette.accentText : palette.textMuted}
+              trackColor={{ false: palette.borderStrong, true: palette.nativeSwitchTrackOn }}
+              thumbColor={biometricEnabled ? palette.nativeSwitchThumb : palette.textMuted}
               value={biometricEnabled}
             />
           ) : null}
@@ -3430,8 +3431,8 @@ function SettingsScreen({
             <Switch
               accessibilityLabel="App icon badge"
               onValueChange={onAppBadgeEnabledChange}
-              trackColor={{ false: palette.borderStrong, true: palette.accentMuted }}
-              thumbColor={appBadgeEnabled ? palette.accentText : palette.textMuted}
+              trackColor={{ false: palette.borderStrong, true: palette.nativeSwitchTrackOn }}
+              thumbColor={appBadgeEnabled ? palette.nativeSwitchThumb : palette.textMuted}
               value={appBadgeEnabled}
             />
           )}

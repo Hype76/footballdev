@@ -1,3 +1,4 @@
+import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { formatFixtureDateTime } from '../../../src/lib/calendar-datetime-integrity.js'
 import { getResourceDisplayTitle } from '../../../src/lib/resource-date-presentation.js'
 import { formatUkDateTime } from '../../../src/lib/date-format.js'
@@ -6,7 +7,7 @@ import { getCoachInviteHistory } from '../../mobile-core/src/coachInviteHistoryD
 import { COACH_RESOURCE_CATEGORIES, groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
 import { mergeUnfinishedDevelopmentDrafts } from '../../mobile-core/src/developmentOfflineCore'
-import { subscribeDevelopmentSync } from './coachDevelopmentSync'
+import { subscribeDevelopmentSync, syncCoachDevelopmentDrafts } from './coachDevelopmentSync'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { CoachResourceUploadAction } from './CoachResourceUploadAction'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
@@ -14,7 +15,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
-import { Alert, AppState, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, AppState, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   createCoachExternalResource,
@@ -413,15 +414,15 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
   useEffect(() => {
     const token = lifetime.current
     return subscribeDevelopmentSync(event => {
-      if (token !== lifetime.current || !token.active || !['finalised', 'finalisation_failed'].includes(event?.kind)
+      if (token !== lifetime.current || !token.active || !['finalised', 'finalisation_failed', 'discarded', 'discard_failed'].includes(event?.kind)
         || event.userId !== user.id || event.contextId !== context.id) return
-      if (event.kind === 'finalisation_failed') {
+      if (['finalisation_failed', 'discard_failed'].includes(event.kind)) {
         const key = `${scope}:${event.key}`
         setQueued(previous => ({ ...previous, [key]: { ...previous[key], state: 'failed', copy: event.copy } }))
         token.setNotice('')
         return
       }
-      const copy = event.shared === false ? 'Private development record finalised.' : 'Development record finalised and shared.'
+      const copy = event.kind === 'discarded' ? 'Assessment cancelled.' : event.shared === false ? 'Private development record finalised.' : 'Development record finalised and shared.'
       const key = `${scope}:${event.key}`
       setQueued(previous => ({ ...previous, [key]: { ...previous[key], state: 'complete', copy } }))
       setSelection(previous => previous.scope === scope && JSON.stringify([previous.playerId, previous.formId]) === event.key
@@ -449,8 +450,8 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
       return
     }
     const key = `${scope}:${JSON.stringify([result.playerId, result.formId])}`
-    const copy = result.shared === false ? 'Saved on this phone. Finishing in the background.' : 'Saved on this phone. Sharing in the background.'
-    setQueued(previous => ({ ...previous, [key]: { ...result, state: 'pending', copy } }))
+    const copy = result.kind === 'discarded' ? 'Assessment cancelled.' : result.kind === 'discard' ? 'Assessment cleared on this phone. Cancellation will sync when connected.' : result.shared === false ? 'Saved on this phone. Finishing in the background.' : 'Saved on this phone. Sharing in the background.'
+    setQueued(previous => ({ ...previous, [key]: { ...result, state: result.kind === 'discarded' ? 'complete' : 'pending', copy } }))
     setClosedEditor(key)
     Keyboard.dismiss()
     setNotice('')
@@ -498,8 +499,8 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
       </View>
       {!player || !form ? <Text style={styles.body}>Select a Player and form to start Development.</Text> : editorClosed ? <View style={styles.stack}>
         <Text accessibilityLiveRegion="polite" style={styles.body}>{selectedQueued?.copy || 'Your saved assessment is kept on this phone.'}</Text>
-        <Button label={selectedQueued?.state === 'complete' ? 'Start another assessment' : 'Open saved assessment'} onPress={() => setClosedEditor('')} secondary styles={styles} />
-      </View> : <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId)} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onQueued={onQueued} />}
+        <Button disabled={selectedQueued?.kind === 'discard' && selectedQueued?.state === 'pending'} label={selectedQueued?.state === 'complete' ? 'Start another assessment' : selectedQueued?.kind === 'discard' ? selectedQueued.state === 'failed' ? 'Retry cancellation' : 'Waiting for cancellation to sync' : 'Open saved assessment'} onPress={() => { if (selectedQueued?.kind === 'discard' && selectedQueued.state === 'failed') void syncCoachDevelopmentDrafts(user, context); else setClosedEditor('') }} secondary styles={styles} />
+      </View> : <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId && !(selectedQueued?.state === 'complete' && ['discard', 'discarded'].includes(selectedQueued.kind) && item.id === selectedQueued.draftId))} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onQueued={onQueued} />}
     </View>
   )
 }

@@ -6,6 +6,7 @@ import { chromium } from 'playwright'
 const root = process.cwd()
 const modules = path.join(root, 'apps/parent-mobile/node_modules')
 const mocks = {
+  MobilePasswordRecovery: 'export const MobilePasswordRecovery=()=>null',
   biometrics: 'export const getBiometricEnabled=async()=>true; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   config: `export const getMobileRuntimeConfig=()=>({isUsable:true,isProduction:false,supabaseUrl:'https://ndohkecigwlwayghsopw.supabase.co'})`,
   notifications: 'export const revokeNativePushDevice=async()=>{}',
