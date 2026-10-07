@@ -79,13 +79,13 @@ test('unexpected oversized database batch does not contact provider', async () =
 })
 
 test('real Expo adapter filters current installation and maps invalid ticket without leaking provider data', async t => {
-  const { client, calls } = fixture(); const provider = []; let enabled = true
+  const { client, calls } = fixture(); const provider = []; let enabled = true; let chats = true
   client.from = table => {
     const query = { select: () => query, eq: () => query, in: () => query,
       abortSignal: signal => { assert.ok(signal instanceof AbortSignal); return query },
       then: resolve => resolve({ data: table === 'parent_mobile_push_installations'
         ? [{ auth_user_id: 'parent-auth', expo_push_token: delivery.to, enabled, status: 'active', detail_level: 'detailed' }]
-        : [], error: null }) }
+        : [{ auth_user_id: 'parent-auth', chats }], error: null }) }
     return query
   }
   const priorFetch = globalThis.fetch; t.after(() => { globalThis.fetch = priorFetch })
@@ -96,6 +96,10 @@ test('real Expo adapter filters current installation and maps invalid ticket wit
   await notifyCoachDevelopmentParents(client, input)
   assert.equal(provider.length, 1); assert.equal(provider[0][0].data.parentLinkId, 'parent-link')
   assert.equal(calls.at(-1).args.invalid_value, true)
+  chats = false
+  await notifyCoachDevelopmentParents(client, input)
+  assert.equal(provider.length, 1); assert.equal(calls.at(-1).args.skipped_value, true)
+  chats = true
   enabled = false
   await notifyCoachDevelopmentParents(client, input)
   assert.equal(provider.length, 1); assert.equal(calls.at(-1).args.skipped_value, true)

@@ -776,6 +776,8 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   useEffect(() => () => { playerRequest.current += 1 }, [user])
   const [detail, setDetail] = useState(null)
   const [developmentOpen, setDevelopmentOpen] = useState(false)
+  const [openedEvaluation, setOpenedEvaluation] = useState(null)
+  const [evaluationDetailScope, setEvaluationDetailScope] = useState(null)
   const [profileSections, setProfileSections] = useState({ contacts: false, notes: false, stats: false, details: false })
   const [error, setError] = useState('')
   const [form, setForm] = useState(null)
@@ -791,6 +793,18 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const [inviteResults, setInviteResults] = useState({})
   const [revokeTarget, setRevokeTarget] = useState(null)
   const policy = getCoachPlayerMutationPolicy({ context, player: detail?.player })
+  const evaluationScope = useMemo(() => ({ userId: user.id, clubId: user.clubId, teamId: user.activeTeamId,
+    roleRank: user.roleRank, contextId: context.id, contextTeamId: context.teamId, authorityId: context.authorityId,
+    authoritySource: context.authoritySource, role: context.role, canViewDevelopment: policy.canViewDevelopment }),
+  [user.id, user.clubId, user.activeTeamId, user.roleRank, context.id, context.teamId,
+    context.authorityId, context.authoritySource, context.role, policy.canViewDevelopment])
+  const canOpenEvaluation = policy.canViewDevelopment && Number(user.roleRank || 0) >= 20
+    && detail?.player?.clubId === user.clubId && detail?.player?.teamId === user.activeTeamId
+    && context.teamId === user.activeTeamId && evaluationDetailScope === evaluationScope
+  const playerEvaluations = detail?.evaluations.filter(record => !record.playerId || record.playerId === detail.player.id) || []
+  const selectedEvaluation = canOpenEvaluation && openedEvaluation?.scope === evaluationScope
+    && openedEvaluation.playerId === detail?.player?.id
+    ? playerEvaluations.find(record => record.id === openedEvaluation.id) : null
   const load = useCallback(async ({ reuseFresh = false } = {}) => {
     const recent = reuseFresh ? peekMobileResource(user, 'coach:players') : undefined
     if (recent !== undefined) { setPlayers(recent); setStale(false); setLoading(false); setError(''); return }
@@ -819,6 +833,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   const visible = filterCoachPlayers(players, { query, section, status: 'active' })
   const openPlayer = async (player, { force = false } = {}) => {
     const request = ++playerRequest.current
+    const requestScope = evaluationScope
     setFocusedPlayer(player)
     setForm(null)
     setOpeningPlayerId(player.id)
@@ -826,6 +841,8 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setError('')
     setDetail(null)
     setDevelopmentOpen(false)
+    setOpenedEvaluation(null)
+    setEvaluationDetailScope(null)
     setProfileSections({ contacts: false, notes: false, stats: false, details: false })
     setContactNotice('')
     setInviteResults({})
@@ -835,6 +852,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
       if (request === playerRequest.current) {
         if (next?.player?.id !== player.id) throw new Error('The selected player could not be loaded. Please try again.')
         setDetail(next)
+        setEvaluationDetailScope(requestScope)
       }
     } catch (detailError) {
       if (request === playerRequest.current) setError(message(detailError, 'Player details could not be loaded.'))
@@ -848,6 +866,8 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
     setFocusedPlayer(null)
     setDetail(null)
     setDevelopmentOpen(false)
+    setOpenedEvaluation(null)
+    setEvaluationDetailScope(null)
     setProfileSections({ contacts: false, notes: false, stats: false, details: false })
     setForm(null)
     setError('')
@@ -1018,11 +1038,46 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
           </View>
           {policy.canViewDevelopment ? <View style={styles.profileSection}>
             <View style={styles.row}><Text style={styles.profileSectionTitle}>Development</Text><View style={styles.filterRow}><Pressable accessibilityLabel="Open Development" accessibilityRole="button" onPress={() => onNavigate('development')} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="trending-up" size={18} /></Pressable><Pressable accessibilityLabel="Open Resources" accessibilityRole="button" onPress={() => onNavigate('resources')} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="folder-open" size={18} /></Pressable></View></View>
-            {detail.evaluations.length ? <>
-              <Text style={styles.meta}>{detail.evaluations.length} saved record{detail.evaluations.length === 1 ? '' : 's'}. Latest: {formatUkDate(detail.evaluations[0]?.date, 'No date')} | Score {detail.evaluations[0]?.averageScore ?? 'not scored'}.</Text>
+            {playerEvaluations.length ? <>
+              <Text style={styles.meta}>{playerEvaluations.length} saved record{playerEvaluations.length === 1 ? '' : 's'}. Latest: {formatUkDate(playerEvaluations[0]?.date, 'No date')} | Score {playerEvaluations[0]?.averageScore ?? 'not scored'}.</Text>
               <Pressable accessibilityLabel={developmentOpen ? 'Hide recent records' : 'Show recent records'} accessibilityRole="button" accessibilityState={{ expanded: developmentOpen }} aria-expanded={developmentOpen} onPress={() => setDevelopmentOpen((current) => !current)} style={styles.profileSectionButton}><Text style={styles.profileActionText}>{developmentOpen ? 'Hide recent records' : 'Show recent records'}</Text><MaterialIcons color={palette.accentText} name={developmentOpen ? 'expand-less' : 'expand-more'} size={24} /></Pressable>
-              {developmentOpen ? detail.evaluations.slice(0, 5).map((evaluation) => <Text key={evaluation.id} style={styles.body}>{formatUkDate(evaluation.date, 'No date')} | {evaluation.session || 'Evaluation'} | Score {evaluation.averageScore ?? 'not scored'} | {evaluation.comments || 'No comments'}</Text>) : null}
-              {developmentOpen && detail.evaluations.length > 5 ? <Text style={styles.meta}>Showing the 5 most recent records. Open Development for the full history.</Text> : null}
+              {developmentOpen ? selectedEvaluation ? <View accessibilityLabel="Saved development record" style={styles.stack}>
+                <Pressable accessibilityLabel="Back to recent records" accessibilityRole="button" onPress={() => setOpenedEvaluation(null)} style={styles.profileAction}><MaterialIcons color={palette.accentText} name="arrow-back" size={20} /><Text style={styles.profileActionText}>Recent records</Text></Pressable>
+                <Text accessibilityRole="header" style={styles.profileSectionTitle}>{selectedEvaluation.formName || selectedEvaluation.session || 'Development record'}</Text>
+                <Text style={styles.meta}>{detail.player.playerName} | {formatUkDate(selectedEvaluation.date, 'No date')} | {selectedEvaluation.status || 'Saved record'} | Average {selectedEvaluation.averageScore ?? 'not scored'}</Text>
+                {(() => {
+                  const hasSnapshot = selectedEvaluation.hasFormSnapshot === true
+                  const fields = (hasSnapshot ? selectedEvaluation.formFields : detail.fields).filter(field => field && typeof field === 'object')
+                  const permitted = field => {
+                    const rawRank = field.minimum_role_rank ?? field.minimumRoleRank ?? field.roleRank ?? 20
+                    const rank = Number(rawRank)
+                    return ['number', 'string'].includes(typeof rawRank) && String(rawRank).trim() !== '' && Number.isFinite(rank) && rank >= 0 && Number(user.roleRank || 0) >= rank
+                  }
+                  const formatValue = (value, field) => {
+                    const option = (Array.isArray(field?.options) ? field.options : []).find(item => item && typeof item === 'object' && (item.value === value || item.id === value))
+                    if (option) return option.label || String(value)
+                    if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+                    if (Array.isArray(value)) return value.map(item => formatValue(item, field)).join(', ') || 'Not answered'
+                    return value === null || value === undefined || value === '' ? 'Not answered' : typeof value === 'object' ? JSON.stringify(value) : String(value)
+                  }
+                  const responses = Object.entries(selectedEvaluation.fieldValues || {}).filter(([id]) => {
+                    const field = fields.find(item => String(item.id) === id)
+                    return field ? permitted(field) : !hasSnapshot
+                  }).map(([id, value], index) => {
+                    const field = fields.find(item => String(item.id) === id)
+                    return { key: `response:${id}`, label: field?.label || `Saved response ${index + 1}`, value: formatValue(value, field) }
+                  })
+                  const responseLabels = new Set(responses.map(item => item.label))
+                  const hiddenLabels = new Set(fields.filter(field => !permitted(field)).map(field => field.label))
+                  const scores = Object.entries(selectedEvaluation.scores || {}).filter(([label]) => !responseLabels.has(label) && !hiddenLabels.has(label)
+                    && (!hasSnapshot || fields.some(field => field.label === label && permitted(field))))
+                    .map(([label, value]) => ({ key: `score:${label}`, label, value: formatValue(value) }))
+                  return [...responses, ...scores].map(item => <View key={item.key} style={styles.profileRow}><Text style={[styles.fieldLabel, { flex: 1 }]}>{item.label}</Text><Text selectable style={[styles.body, { flex: 1 }]}>{item.value}</Text></View>)
+                })()}
+                <Text style={styles.fieldLabel}>Coach summary note</Text><Text selectable style={styles.body}>{selectedEvaluation.comments || 'No comments'}</Text>
+                <Text style={styles.meta}>Saved record. Read-only.</Text>
+              </View> : playerEvaluations.slice(0, 5).map((evaluation) => <Pressable accessibilityLabel={`Open development record ${evaluation.formName || evaluation.session || 'Evaluation'}, ${formatUkDate(evaluation.date, 'No date')}`} accessibilityRole="button" accessibilityState={{ disabled: !canOpenEvaluation }} disabled={!canOpenEvaluation} key={evaluation.id} onPress={() => { if (!canOpenEvaluation) return; setOpenedEvaluation({ id: evaluation.id, playerId: detail.player.id, scope: evaluationScope }); onRequestScrollTop?.() }} style={styles.profileRow}><MaterialIcons color={palette.accentText} name="description" size={22} /><View style={{ flex: 1, minWidth: 0 }}><Text style={styles.fieldLabel}>{evaluation.formName || evaluation.session || 'Development record'}</Text><Text style={styles.body}>{formatUkDate(evaluation.date, 'No date')} | Score {evaluation.averageScore ?? 'not scored'} | {evaluation.comments || 'No comments'}</Text></View><MaterialIcons color={palette.accentText} name="chevron-right" size={22} /></Pressable>) : null}
+              {developmentOpen && playerEvaluations.length > 5 ? <Text style={styles.meta}>Showing the 5 most recent records. Open Development for the full history.</Text> : null}
             </> : <Text style={styles.body}>No Development records.</Text>}
           </View> : null}
           <Text style={styles.meta}>Use the website to archive a player or transfer them to another team.</Text>

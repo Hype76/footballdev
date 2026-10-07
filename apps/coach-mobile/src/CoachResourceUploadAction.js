@@ -57,7 +57,7 @@ export function CoachResourceUploadAction({ user, stale, load, styles }) {
   return <View style={{ borderBottomWidth: 1, borderBottomColor: styles.divider.backgroundColor, paddingVertical: 8 }}>
     <Pressable accessibilityRole="button" accessibilityLabel={opening ? 'Opening upload...' : 'Upload files or photos'} accessibilityHint="Opens the secure upload page in your phone browser" accessibilityState={{ disabled: opening }} disabled={opening} onPress={() => void open()} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
       <Text style={[styles.heading, { flex: 1 }]}>{opening ? 'Opening upload...' : 'Upload files or photos'}</Text>
-      <Text style={styles.heading}>{opening ? 'Opening...' : 'Open upload ›'}</Text>
+      <Text style={styles.heading}>{opening ? 'Opening...' : 'Open upload'}</Text>
     </Pressable>
     <Text accessibilityLiveRegion="polite" style={styles.helper}>{notice || 'Tap Open upload to choose files or photos in your browser. Sign in with your Coach account if asked. Your selected team stays the same.'}</Text>
   </View>
