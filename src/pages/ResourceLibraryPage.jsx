@@ -219,8 +219,9 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
   )
 }
 
-export function ResourceLibraryPage() {
-  const { user } = useAuth()
+export function ResourceLibraryPage({ scopedUser } = {}) {
+  const { user: authenticatedUser } = useAuth()
+  const user = scopedUser || authenticatedUser
   const { showToast } = useToast()
   const canOpenResourceLibrary = canUseResourceLibrary(user)
   const canManage = canManageResourceLibrary(user)

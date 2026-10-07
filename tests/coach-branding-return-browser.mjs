@@ -124,6 +124,18 @@ try {
     assert.equal(await denied.evaluate(() => window.fixture.reads.length), 0)
     checks += 2; await denied.close()
   }
+  const clubAdmin = await fixture({ prompt: false, contextPatch: { teamId: null, role: 'admin', roleRank: 90 }, userPatch: { role: 'admin', roleRank: 90, planKey: 'club' } })
+  await clubAdmin.getByRole('button', { name: 'Add or edit Club badge and colour' }).waitFor()
+  await clubAdmin.getByRole('button', { name: 'Add or edit Club badge and colour' }).click()
+  assert.equal(await clubAdmin.evaluate(() => window.fixture.opened[0]), `https://footballplayer.online/club-appearance?clubId=${clubId}`)
+  assert.equal(await clubAdmin.evaluate(() => window.fixture.reads.length), 0)
+  await clubAdmin.evaluate(() => window.emitNative('url', { url: 'footballplayercoach://branding-return' }))
+  await clubAdmin.waitForFunction(() => window.fixture.refreshes === 1)
+  checks += 3; await clubAdmin.close()
+  const clubTeamAdmin = await fixture({ prompt: false, userPatch: { role: 'head_manager', roleRank: 70, planKey: 'club' } })
+  assert.equal(await clubTeamAdmin.getByRole('button').count(), 0)
+  assert.equal(await clubTeamAdmin.evaluate(() => window.fixture.reads.length), 0)
+  checks += 2; await clubTeamAdmin.close()
   assert.deepEqual(errors, [])
   console.log(`Synthetic Coach component rehearsal passed: ${checks} checks; no external requests or page errors. Native adapters were mocked.`)
 } finally { await browser.close() }

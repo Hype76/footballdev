@@ -12,7 +12,7 @@ import { applyParentNotificationAction } from '../apps/mobile-core/src/parentNot
 
 const projectRef = 'ndohkecigwlwayghsopw'
 function deferred() { let resolve; const promise = new Promise((done) => { resolve = done }); return {promise,resolve} }
-function fixture(role) {
+function fixture(role, options = {}) {
   const values = new Map(), keys = new Map()
   const storage = { fail: false, async getItem(key) { return values.get(key) ?? null }, async removeItem(key) { values.delete(key) }, async setItem(key,value) { if (this.fail) throw new Error('synthetic_write_failure'); values.set(key,value) } }
   const keyStore = { async getItemAsync(key) { return keys.get(key) ?? null }, async setItemAsync(key,value) {keys.set(key,value)}, async deleteItemAsync(key) {keys.delete(key)} }
@@ -20,7 +20,7 @@ function fixture(role) {
     AsyncStorage: storage, SecureStore:keyStore, Crypto:{randomUUID, getRandomBytesAsync:async (n)=>new Uint8Array(randomBytes(n))}, xchacha20poly1305,bytesToUtf8,utf8ToBytes,
     getMobileRuntimeConfig:()=>({isUsable:true,isProduction:false,supabaseUrl:`https://${projectRef}.supabase.co`}),
     APPROVED_MOBILE_PRODUCTION:{supabaseRef:'production'}, APPROVED_MOBILE_TEST:{supabaseRef:projectRef},
-    markParentMessageRead:async()=>{},submitParentPollVote:async()=>{} }
+    markParentMessageRead:options.markParentMessageRead || (async()=>{}),submitParentPollVote:async()=>{} }
   const source = readFileSync(new URL(`../apps/${role}-mobile/src/offline.js`,import.meta.url),'utf8')
     .replace(/^import[\s\S]*? from ['"][^'"]+['"]\r?\n/gm,'').replace(/^export /gm,'')
   const exported = [...readFileSync(new URL(`../apps/${role}-mobile/src/offline.js`,import.meta.url),'utf8').matchAll(/^export (?:async function|function|const) (\w+)/gm)].map((m)=>m[1])
@@ -80,4 +80,25 @@ test('clear invalidates an update already inside its transaction',async()=>{
   await started.promise;const cleared=store.clear();gate.resolve()
   await assert.rejects(update,/offline_scope_invalidated/);await cleared
   assert.equal((await store.read('user')).document,null)
+})
+
+test('shared Parent sync returns each caller only its own player attention summary', async () => {
+  const remote = deferred(), started = deferred()
+  const f = fixture('parent', { markParentMessageRead: async () => {
+    started.resolve()
+    await remote.promise
+    throw Object.assign(new Error('access revoked'), { code: '42501' })
+  } })
+  f.profile.parentPortalLinks.push({ id: 'context-two', clubId: 'club', teamId: 'team', playerId: 'player-two' })
+  await f.profileStore.read('user')
+  await f.profileStore.write(f.profile)
+  await f.api.queueParentMessageRead(f.profile, 'context', { id: 'message', createdAt: '2026-10-07' })
+  const first = f.api.syncParentOfflineCommands(f.profile)
+  await started.promise
+  const second = f.api.syncParentOfflineCommands({ ...f.profile, selectedParentLinkId: 'context-two' })
+  remote.resolve()
+  const [firstResult, secondResult] = await Promise.all([first, second])
+  assert.equal(firstResult.needsAttention, 1)
+  assert.equal(secondResult.needsAttention, 0)
+  assert.equal(secondResult.attentionItems.length, 0)
 })

@@ -18,6 +18,8 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
   const [error, setError] = useState('')
   const [syncError, setSyncError] = useState('')
   const [finalising, setFinalising] = useState(false)
+  const [finalisingShare, setFinalisingShare] = useState(true)
+  const [finaliseError, setFinaliseError] = useState('')
   const key = developmentDraftKey(player.id, form.id)
   const scope = JSON.stringify([user.id, context, key, developmentFormFingerprint(form)])
   const ready = readyScope === scope
@@ -39,7 +41,7 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
     const { userId, context, key, serverDraft } = token
     const current = () => token === lifetime.current && token.active && token.scope === scope
     inputRef.current = { values: {}, notes: '' }
-    setInput(inputRef.current); setDraft(null); setSaving(0); setError(''); setSyncError(''); setFinalising(false)
+    setInput(inputRef.current); setDraft(null); setSaving(0); setError(''); setSyncError(''); setFinalising(false); setFinaliseError('')
     const read = async (hydrate = false) => {
       try {
         let next = (await readCoachDevelopmentDrafts(userId, context))[key] || null
@@ -96,24 +98,39 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
     setSyncError('')
     return syncCoachDevelopmentDrafts(user, suppliedContext, current).catch(failure => { if (current()) setSyncError(failure.message) })
   }
-  const finalise = () => {
+  const finalise = (requestedShare = true) => {
     const current = capture()
     if (!current()) return
-    return Alert.alert('Finalise and share this Development record?', 'The final record will be available to authorised linked Parents. It cannot be edited from this mobile workflow.', [
+    const shareWithParent = draft?.finalisation ? draft.finalisation.shareWithParent !== false : requestedShare
+    return Alert.alert(shareWithParent ? 'Finalise and share this Development record?' : 'Finalise this private Development record?', shareWithParent
+      ? 'The final record will be available to authorised linked Parents. It cannot be edited from this mobile workflow.'
+      : 'The final record will be available to authorised staff. It will not be shared with Parents. It cannot be edited from this mobile workflow.', [
     { text: 'Cancel', style: 'cancel' },
-    { text: 'Finalise and share', onPress: async () => {
+    { text: shareWithParent ? 'Finalise and share' : 'Finalise privately', onPress: async () => {
       if (!current() || unsaved || error || draft?.status !== 'synced') return
+      setFinalisingShare(shareWithParent)
       setFinalising(true)
+      setFinaliseError('')
       try {
-        await finalizeCoachDevelopmentRecord(user, { draftId: draft.id, player, form, ...inputRef.current, shareWithParent: true })
+        if (!draft.finalisation && draft.formFingerprint && draft.formFingerprint !== developmentFormFingerprint(form)) {
+          throw new Error('This form changed since the draft was saved. Review its fields and save the private draft again before finalising.')
+        }
+        const pending = await updateCoachDevelopmentDraft(user.id, context, key, saved => saved ? {
+          ...saved, finalisation: saved.finalisation || { requestedAt: new Date().toISOString(), serverVersion: saved.serverVersion, form, player, values: saved.values, notes: saved.notes, shareWithParent },
+        } : null)
+        if (!current()) return
+        if (!pending) throw new Error('The saved draft could not be found. Your visible work has been kept.')
+        setDraft(pending)
+        await finalizeCoachDevelopmentRecord(user, { draftId: pending.id, clientSaveVersion: pending.finalisation.serverVersion,
+          player: pending.finalisation.player, form: pending.finalisation.form, values: pending.finalisation.values, notes: pending.finalisation.notes, shareWithParent: pending.finalisation.shareWithParent !== false })
         if (!current()) return
         await updateCoachDevelopmentDraft(user.id, context, key, () => null)
         if (!current()) return
         inputRef.current = { values: {}, notes: '' }
         setInput(inputRef.current); setDraft(null)
         notifyDevelopmentSync()
-        onFinalised?.()
-      } catch (failure) { if (current()) setError(failure.message) }
+        onFinalised?.({ shared: pending.finalisation.shareWithParent !== false })
+      } catch (failure) { if (current()) setFinaliseError(`Finalising has not been confirmed. Your saved work is kept on this phone. Retry to finish the same record. ${failure.message || ''}`) }
       finally { if (current()) setFinalising(false) }
     } },
   ])
@@ -122,19 +139,22 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
   return <View style={styles.panel}>
     <Text style={styles.heading}>{form.name}</Text>
     <Text accessibilityLiveRegion="polite" style={styles.body}>{developmentSaveStatus({ ready, saving, draft, unsaved, error, syncError })}</Text>
+    {draft?.finalisation ? <Text accessibilityLiveRegion="polite" style={styles.body}>{finalising ? finalisingShare ? 'Finishing the saved record and parent sharing...' : 'Finishing the private record...' : 'Finalising is waiting for confirmation. Retry to finish the same saved record.'}</Text> : null}
+    {finaliseError ? <Text accessibilityLiveRegion="assertive" style={styles.danger}>{finaliseError}</Text> : null}
     {error || syncError || draft?.error ? <Text style={styles.danger}>{error || syncError || draft.error}</Text> : null}
     {ready ? (form.fields || []).filter(field => Number(user.roleRank || 0) >= field.roleRank).map(field => <View key={field.id} style={styles.stack}>
       <Text style={styles.label}>{field.label}{field.required ? ' (required)' : ''}{field.staffPrivate ? ' | Coach private' : field.parentVisible ? ' | Parent-shareable' : ''}</Text>
-      {['boolean', 'checkbox'].includes(field.type) ? button(input.values[field.id] ? 'Yes' : 'No', () => changeValue(field.id, !input.values[field.id]), finalising)
-        : field.options.length ? <View style={styles.row}>{field.options.map(option => button(option.label, () => changeValue(field.id, option.value), finalising, input.values[field.id] === option.value))}</View>
-          : <TextInput accessibilityLabel={field.label} editable={!finalising} keyboardType={['number', 'numeric', 'rating', 'score', 'score_1_5', 'score_1_10'].includes(field.type) ? 'numeric' : 'default'} multiline={field.type === 'textarea'} onChangeText={value => changeValue(field.id, value)} style={[styles.input, field.type === 'textarea' && styles.inputMultiline]} value={String(input.values[field.id] ?? '')} />}
+      {['boolean', 'checkbox'].includes(field.type) ? button(input.values[field.id] ? 'Yes' : 'No', () => changeValue(field.id, !input.values[field.id]), finalising || !!draft?.finalisation)
+        : field.options.length ? <View style={styles.row}>{field.options.map(option => button(option.label, () => changeValue(field.id, option.value), finalising || !!draft?.finalisation, input.values[field.id] === option.value))}</View>
+          : <TextInput accessibilityLabel={field.label} editable={!finalising && !draft?.finalisation} keyboardType={['number', 'numeric', 'rating', 'score', 'score_1_5', 'score_1_10'].includes(field.type) ? 'numeric' : 'default'} multiline={field.type === 'textarea'} onChangeText={value => changeValue(field.id, value)} style={[styles.input, field.type === 'textarea' && styles.inputMultiline]} value={String(input.values[field.id] ?? '')} />}
     </View>) : null}
     <Text style={styles.label}>Coach summary note</Text>
-    <TextInput accessibilityLabel="Coach summary note" editable={ready && !finalising} multiline onChangeText={notes => void persist({ ...inputRef.current, notes })} style={[styles.input, styles.inputMultiline]} value={input.notes} />
+    <TextInput accessibilityLabel="Coach summary note" editable={ready && !finalising && !draft?.finalisation} multiline onChangeText={notes => void persist({ ...inputRef.current, notes })} style={[styles.input, styles.inputMultiline]} value={input.notes} />
     <View style={styles.row}>
-      {button('Save private draft', () => void persist(inputRef.current).then(saved => { if (saved) return sync() }), !ready || finalising || saving > 0)}
-      {button('Sync now', sync, !draft || unsaved || user.isOfflineProfile || finalising || saving > 0)}
-      {button(finalising ? 'Sharing...' : 'Finalise and share', finalise, !ready || stale || user.isOfflineProfile || finalising || saving > 0 || unsaved || !!error || draft?.status !== 'synced')}
+      {button('Save private draft', () => void persist(inputRef.current).then(saved => { if (saved) return sync() }), !ready || finalising || !!draft?.finalisation || saving > 0)}
+      {button('Sync now', sync, !draft || unsaved || user.isOfflineProfile || finalising || !!draft?.finalisation || saving > 0)}
+      {button(finalising && !finalisingShare ? 'Saving record...' : 'Finalise privately', () => finalise(false), !ready || stale || user.isOfflineProfile || finalising || saving > 0 || unsaved || !!error || draft?.status !== 'synced' || (draft?.finalisation && draft.finalisation.shareWithParent !== false))}
+      {button(finalising && finalisingShare ? 'Sharing...' : 'Finalise and share', () => finalise(true), !ready || stale || user.isOfflineProfile || finalising || saving > 0 || unsaved || !!error || draft?.status !== 'synced' || draft?.finalisation?.shareWithParent === false)}
     </View>
     <Text style={styles.helper}>Private drafts sync when you reconnect. Finalising and sharing requires a connection.</Text>
   </View>

@@ -72,6 +72,7 @@ import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { getMobileChatMessagesFingerprint } from '../mobile-core/src/mobileChatCore'
 import { runPrioritizedMobileLoads } from '../mobile-core/src/mobileLoadCoordinator'
 import { mobileResourceKey } from '../mobile-core/src/mobileResourceCache'
+import { acceptDurableMobileAction, releaseCancelledParentLoads } from '../mobile-core/src/durableMobileAction'
 import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsCore'
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
@@ -866,6 +867,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
   const parentSyncScopeRef = useRef('')
   const parentActionScopeRef = useRef(0)
+  const parentFeedbackSequenceRef = useRef(0)
   parentSyncScopeRef.current = `${selectedMobileUser?.id || ''}:${selectedLink?.id || ''}`
   useEffect(() => {
     setIsSyncing(false)
@@ -1458,35 +1460,42 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     setSelectedMessageId(message.id)
     if (message.readAt || activeActionId) return
 
+    const scope = parentSyncScopeRef.current
+    const generation = parentActionScopeRef.current
+    const sequence = ++parentFeedbackSequenceRef.current
+    const current = () => scope === parentSyncScopeRef.current && generation === parentActionScopeRef.current
+      && sequence === parentFeedbackSequenceRef.current && currentAccountRef.current === selectedMobileUser.id
     setActiveActionId(`message:${message.id}`)
     try {
-      const command = await queueParentMessageRead(selectedMobileUser, selectedLink.id, message)
-      const readAt = command.createdAt
-      setResources((current) => ({
-        ...current,
-        messages: {
-          ...current.messages,
-          items: current.messages.items.map((item) => item.id === message.id ? { ...item, readAt } : item),
+      await acceptDurableMobileAction({
+        enqueue: () => queueParentMessageRead(selectedMobileUser, selectedLink.id, message),
+        isCurrent: current,
+        onAccepted(command) {
+          requestIdRef.current += 1
+          setResources(value => ({ ...releaseCancelledParentLoads(value), messages: { ...value.messages, loading: false,
+            items: value.messages.items.map(item => item.id === message.id ? { ...item, readAt: command.createdAt } : item),
+          } }))
+          setNotice({ message: isOffline ? 'Read status saved on this phone. It will sync when online.' : 'Read status saved on this phone. Syncing in the background.', tone: 'warning' })
+          void readParentOfflineView(selectedMobileUser.id, selectedLink.id).then(view => {
+            if (current()) setSyncSummary(view.sync)
+          }).catch(() => {})
         },
-      }))
-      const pendingView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id)
-      setSyncSummary(pendingView.sync)
-      if (isOffline) {
-        setNotice({ message: 'Read status is saved on this device and will sync when you are online.', tone: 'warning' })
-      } else {
-        const result = await runParentSync()
-        if (result?.results?.some((entry) => entry.commandId === command.commandId && entry.status !== 'succeeded')) {
-          await loadParentData()
-          setNotice({ message: 'The server could not apply this read update. Your current information has been restored.', tone: 'warning' })
-        }
-      }
+        sync: () => isOffline ? null : runParentSync(),
+        async onSynced(result, command) {
+          const status = result?.results?.find(entry => entry.commandId === command.commandId)?.status
+          if (result && result.waiting === 0) await loadParentData()
+          if (status && status !== 'succeeded' && result.waiting === 0) {
+            if (current()) setNotice({ message: 'This read update needs attention. Check the saved actions on this phone.', tone: 'warning' })
+          }
+        },
+      })
     } catch (error) {
-      setNotice({
+      if (current()) setNotice({
         message: getParentFriendlyError(error, 'This message could not be marked as read.'),
         tone: 'warning',
       })
     } finally {
-      setActiveActionId('')
+      if (current()) setActiveActionId('')
     }
   }
 
@@ -1495,51 +1504,63 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     const optionId = normalizeText(selectedOptionId) || getPollDraftOption(poll, pollDrafts)
     if (!canSubmitParentPoll(poll, optionId) || activeActionId) return
 
+    const scope = parentSyncScopeRef.current
+    const generation = parentActionScopeRef.current
+    const sequence = ++parentFeedbackSequenceRef.current
+    const current = () => scope === parentSyncScopeRef.current && generation === parentActionScopeRef.current
+      && sequence === parentFeedbackSequenceRef.current && currentAccountRef.current === selectedMobileUser.id
     setActiveActionId(`poll:${poll.id}`)
     setNotice(null)
     try {
-      const command = await queueParentPollVote(selectedMobileUser, selectedLink.id, poll, optionId, watchedMatch)
-      setResources((current) => ({
-        ...current,
-        polls: {
-          ...current.polls,
-          items: current.polls.items.map((item) => {
-            if (item.id !== poll.id) return item
-            const savedOptionIds = Array.isArray(item.currentOptionIds) ? item.currentOptionIds : []
-            const nextOptionIds = item.allowMultiple
-              ? savedOptionIds.includes(optionId)
-                ? item.allowVoteChanges === true ? savedOptionIds.filter((id) => id !== optionId) : savedOptionIds
-                : [...new Set([...savedOptionIds, optionId])]
-              : [optionId]
-            return {
-              ...item,
-              currentOptionId: nextOptionIds[0] || null,
-              currentOptionIds: nextOptionIds,
-            }
-          }),
+      await acceptDurableMobileAction({
+        enqueue: () => queueParentPollVote(selectedMobileUser, selectedLink.id, poll, optionId, watchedMatch),
+        isCurrent: current,
+        onAccepted() {
+          requestIdRef.current += 1
+          setResources((current) => ({
+            ...releaseCancelledParentLoads(current),
+            polls: {
+              ...current.polls,
+              loading: false,
+              items: current.polls.items.map((item) => {
+                if (item.id !== poll.id) return item
+                const savedOptionIds = Array.isArray(item.currentOptionIds) ? item.currentOptionIds : []
+                const nextOptionIds = item.allowMultiple
+                  ? savedOptionIds.includes(optionId)
+                    ? item.allowVoteChanges === true ? savedOptionIds.filter((id) => id !== optionId) : savedOptionIds
+                    : [...new Set([...savedOptionIds, optionId])]
+                  : [optionId]
+                return {
+                  ...item,
+                  currentOptionId: nextOptionIds[0] || null,
+                  currentOptionIds: nextOptionIds,
+                }
+              }),
+            },
+          }))
+          setNotice({ message: isOffline ? 'Response saved on this phone. It will sync when online.' : 'Response saved on this phone. Syncing in the background.', tone: 'warning' })
+          void readParentOfflineView(selectedMobileUser.id, selectedLink.id).then(view => {
+            if (current()) setSyncSummary(view.sync)
+          }).catch(() => {})
         },
-      }))
-      const pendingView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id)
-      setSyncSummary(pendingView.sync)
-      if (isOffline) {
-        setNotice({ message: 'Your response is saved on this device and will sync when you are online.', tone: 'warning' })
-      } else {
-        const result = await runParentSync()
-        const commandResult = result?.results?.find((entry) => entry.commandId === command.commandId)
-        if (commandResult?.status === 'succeeded') {
-          setNotice({ message: 'Your response has been saved.', tone: 'success' })
-        } else if (commandResult) {
-          setNotice({ message: 'This response could not be applied. The current server response has been restored.', tone: 'warning' })
-        }
-        await loadParentData()
-      }
+        sync: () => isOffline ? null : runParentSync(),
+        async onSynced(result, command) {
+          const commandResult = result?.results?.find(entry => entry.commandId === command.commandId)
+          if (!commandResult) return
+          if (result.waiting === 0) await loadParentData()
+          if (!current()) return
+          setNotice(commandResult.status === 'succeeded'
+            ? { message: 'Your response has been saved.', tone: 'success' }
+            : { message: 'This response needs attention. Check the saved actions on this phone.', tone: 'warning' })
+        },
+      })
     } catch (error) {
-      setNotice({
+      if (current()) setNotice({
         message: getParentFriendlyError(error, 'Your poll response could not be saved.'),
         tone: 'error',
       })
     } finally {
-      setActiveActionId('')
+      if (current()) setActiveActionId('')
     }
   }
 

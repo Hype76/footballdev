@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { AppState, Linking, Pressable, Text, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { mobileAccountRequest } from '../../mobile-core/src/mobileSignup'
-import { assertTeamBrandingManagementScope, buildTeamBrandingSetupUrl, canOfferTeamBrandingSetup, isCoachBrandingReturn } from '../../../src/lib/team-branding-onboarding.js'
+import { assertTeamBrandingManagementScope, buildClubAppearanceSetupUrl, buildTeamBrandingSetupUrl, canOfferTeamBrandingSetup, isCoachBrandingReturn } from '../../../src/lib/team-branding-onboarding.js'
+import { getWorkspaceScope } from '../../../src/lib/workspace-scope.js'
 
 export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, prompt = false, visible = true, refreshUserProfile }) {
   const [management, setManagement] = useState(null)
@@ -19,7 +20,8 @@ export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, pro
   scopeRef.current = scope
   const key = `fp.coach.branding-setup-dismissed.v1.${scope}`
   const allowed = canOfferTeamBrandingSetup(context, user)
-  const paidClub = context?.teamBrandingDisplay?.source === 'paid_club'
+  const paidClub = getWorkspaceScope(user).key === 'club' || context?.teamBrandingDisplay?.source === 'paid_club'
+  const clubAdmin = paidClub && user?.role === 'admin' && Number(user?.roleRank) >= 90
 
   useEffect(() => {
     let current = true
@@ -27,14 +29,15 @@ export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, pro
     pending.current = null; setOpening(false); setManagement(null); setError(''); setDismissed(true)
     if (allowed) {
       AsyncStorage.getItem(key).then(value => { if (current) setDismissed(value === '1') }).catch(() => { if (current) setDismissed(false) })
-      mobileAccountRequest('coach', 'manage-team-branding', { action: 'read', teamId: context.teamId })
+      if (clubAdmin) setManagement({ enabled: true })
+      else mobileAccountRequest('coach', 'manage-team-branding', { action: 'read', teamId: context.teamId })
         .then(value => {
           const checked = assertTeamBrandingManagementScope(value, context.teamId, context.clubId)
           if (current) setManagement(checked)
         }).catch(() => { if (current) setError('Branding access could not be checked. Try again when connected.') })
     }
     return () => { current = false }
-  }, [allowed, context?.teamId, context?.clubId, key, retry])
+  }, [allowed, clubAdmin, context?.teamId, context?.clubId, key, retry])
 
   useEffect(() => {
     if (!allowed) return undefined
@@ -67,7 +70,7 @@ export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, pro
     const requestedScope = scope
     const attempt = ++openingAttempt.current
     try {
-      const url = buildTeamBrandingSetupUrl(apiBaseUrl, context.teamId)
+      const url = clubAdmin ? buildClubAppearanceSetupUrl(apiBaseUrl, context.clubId) : buildTeamBrandingSetupUrl(apiBaseUrl, context.teamId)
       pending.current = requestedScope
       await Linking.openURL(url)
     } catch {
@@ -86,8 +89,9 @@ export function CoachTeamBrandingSetup({ context, user, apiBaseUrl, palette, pro
   if (prompt && (!management?.enabled || dismissed || paidClub || !needsSetup)) return null
   const action = (label, onPress, disabled = false) => <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: palette.accentText, fontSize: 16, fontWeight: '700' }}>{label}</Text></Pressable>
   return <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: palette.border, paddingVertical: 8, gap: 4 }}>
-    <Text style={{ color: palette.textPrimary, fontSize: 16, fontWeight: '700' }}>{prompt ? 'Add your team badge and colour' : 'Team branding'}</Text>
-    <Text style={{ color: palette.textSecondary, fontSize: 14, lineHeight: 21 }}>{paidClub ? 'Your badge and colours are managed by your Club.' : 'Set up this team in your phone browser. Sign in there if needed, then return to Coach. Club branding stays unchanged.'}</Text>
+    <Text style={{ color: palette.textPrimary, fontSize: 16, fontWeight: '700' }}>{clubAdmin ? 'Club branding' : prompt ? 'Add your team badge and colour' : 'Team branding'}</Text>
+    <Text style={{ color: palette.textSecondary, fontSize: 14, lineHeight: 21 }}>{clubAdmin ? 'Set your Club badge and colour in your phone browser, then return to Coach.' : paidClub ? 'Your badge and colours are managed by your Club.' : 'Set up this team in your phone browser. Sign in there if needed, then return to Coach. Club branding stays unchanged.'}</Text>
+    {clubAdmin && !prompt && action(opening ? 'Opening setup...' : 'Add or edit Club badge and colour', openSetup, opening)}
     {!paidClub && management?.enabled && action(opening ? 'Opening setup...' : 'Add or edit badge and colour', openSetup, opening)}
     {prompt && action('Do this later', skip, opening)}
     {error && <Text accessibilityRole="alert" style={{ color: palette.textPrimary, fontSize: 14 }}>{error}</Text>}

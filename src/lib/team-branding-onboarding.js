@@ -1,3 +1,5 @@
+import { getWorkspaceScope } from './workspace-scope.js'
+
 export const TEAM_BRANDING_SETUP_PATH = '/team-branding'
 export const COACH_BRANDING_RETURN_URL = 'footballplayercoach://branding-return'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -25,9 +27,20 @@ export function isCoachBrandingReturn(url) {
 }
 
 export function canOfferTeamBrandingSetup(context, user) {
-  return Boolean(user?.id && !user.isOfflineProfile && context?.teamId && context?.clubId
+  const club = getWorkspaceScope(user).key === 'club'
+  return Boolean(user?.id && !user.isOfflineProfile && (context?.teamId || club) && context?.clubId
     && !user.testerAccessExpired && (user.accountStatus || 'active') === 'active'
-    && (context.role === 'admin' || (context.role === 'head_manager' && Number(context.roleRank) >= 70)))
+    && (club ? user.role === 'admin' && Number(user.roleRank) >= 90
+      : context.role === 'admin' || (context.role === 'head_manager' && Number(context.roleRank) >= 70)))
+}
+
+export function buildClubAppearanceSetupUrl(apiBaseUrl, clubId) {
+  const base = new URL(apiBaseUrl)
+  if (!UUID.test(clubId || '') || !API_ORIGINS.has(base.origin) || base.username || base.password
+    || base.pathname !== '/' || base.search || base.hash) throw new Error('Club branding link is unavailable.')
+  const url = new URL('/club-appearance', base.origin)
+  url.searchParams.set('clubId', clubId)
+  return url.toString()
 }
 
 export function assertTeamBrandingManagementScope(value, teamId, clubId = '') {

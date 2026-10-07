@@ -117,6 +117,8 @@ const StaffChatPage = lazyRoute(() => import('../pages/StaffChatPage.jsx'), 'Sta
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
 const TeamBrandingSetupPage = lazyRoute(() => import('../pages/TeamBrandingSetupPage.jsx'), 'TeamBrandingSetupPage')
+const CoachResourceUploadPage = lazyRoute(() => import('../pages/CoachResourceUploadPage.jsx'), 'CoachResourceUploadPage')
+const ClubAppearanceSetupPage = lazyRoute(() => import('../pages/ClubAppearanceSetupPage.jsx'), 'ClubAppearanceSetupPage')
 const UserFeedbackPage = lazyRoute(() => import('../pages/UserFeedbackPage.jsx'), 'UserFeedbackPage')
 const TesterFeedbackPage = lazyRoute(() => import('../pages/TesterFeedbackPage.jsx'), 'TesterFeedbackPage')
 const TermsPage = lazyRoute(() => import('../pages/TermsPage.jsx'), 'TermsPage')
@@ -1756,6 +1758,14 @@ export const router = createBrowserRouter([
   {
     path: '/team-branding',
     element: <PageSuspense><TeamBrandingSetupPage /></PageSuspense>,
+  },
+  {
+    path: '/phone-resources',
+    element: <PageSuspense><CoachResourceUploadPage /></PageSuspense>,
+  },
+  {
+    path: '/club-appearance',
+    element: <PageSuspense><ClubAppearanceSetupPage /></PageSuspense>,
   },
   {
     path: '/feedback/send',

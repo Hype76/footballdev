@@ -1,3 +1,4 @@
+import { assertStaffInviteAuthority } from './lib/_staff-invite-authority.js'
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
@@ -73,14 +74,14 @@ function getMissingEnvVars() {
   )
 }
 
-async function getInvite(inviteId) {
+async function getInvite(inviteId, client = supabaseAdmin) {
   const normalizedInviteId = String(inviteId ?? '').trim()
 
   if (!normalizedInviteId) {
     throw Object.assign(new Error('Coach invite details are required.'), { statusCode: 400 })
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await client
     .from('club_user_invites')
     .select('id, club_id, email, role_label, role_rank, team_id, invite_token, expires_at, accepted_at, teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
     .eq('id', normalizedInviteId)
@@ -101,33 +102,6 @@ async function getInvite(inviteId) {
   return data
 }
 
-async function assertCanSendInvite({ event, invite }) {
-  const planProfile = await getAuthenticatedPlanProfile(event, {
-    clubId: invite.club_id,
-    teamId: invite.team_id,
-  })
-
-  assertPlanFeature(planProfile, invite.team_id ? 'teamStaffRoles' : 'clubStaffRoles')
-
-  if (planProfile.role === 'super_admin') {
-    return planProfile
-  }
-
-  if (String(planProfile.clubId) !== String(invite.club_id)) {
-    throw Object.assign(new Error('This Coach invite belongs to a different club.'), { statusCode: 403 })
-  }
-
-  if (Number(planProfile.roleRank ?? 0) < 50) {
-    throw Object.assign(new Error('You need manager access before sending Coach invites.'), { statusCode: 403 })
-  }
-
-  if (Number(invite.role_rank ?? 0) > Number(planProfile.roleRank ?? 0)) {
-    throw Object.assign(new Error('You cannot invite a role above your own level.'), { statusCode: 403 })
-  }
-
-  return planProfile
-}
-
 async function createEmailAuditLog(payload) {
   try {
     await createServerAuditLog(payload)
@@ -136,7 +110,18 @@ async function createEmailAuditLog(payload) {
   }
 }
 
-export async function handler(event) {
+export function createStaffInviteHandler(dependencies = {}) {
+  const client = dependencies.client || supabaseAdmin
+  const requestUserForEvent = dependencies.getRequestUser || getAuthenticatedRequestUser
+  const planProfileForEvent = dependencies.getPlanProfile || getAuthenticatedPlanProfile
+  const featureAssertion = dependencies.assertFeature || assertPlanFeature
+  const sendInviteEmail = dependencies.sendEmail || sendEmail
+  const pendingEmailLog = dependencies.createPendingEmailLog || createPendingEmailLog
+  const markSent = dependencies.markEmailLogSent || markEmailLogSent
+  const markFailed = dependencies.markEmailLogFailed || markEmailLogFailed
+  const auditLog = dependencies.createEmailAuditLog || createEmailAuditLog
+  const missingEnvironment = dependencies.getMissingEnvVars || getMissingEnvVars
+  return async function staffInviteHandler(event) {
   if (event.httpMethod !== 'POST') {
     return failureResponse(405, 'Method Not Allowed')
   }
@@ -146,16 +131,16 @@ export async function handler(event) {
   let emailLogRecord = null
 
   try {
-    const missingEnvVars = getMissingEnvVars()
+    const missingEnvVars = missingEnvironment()
 
     if (missingEnvVars.length > 0) {
       throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`)
     }
 
     const body = JSON.parse(event.body || '{}')
-    const requestUser = await getAuthenticatedRequestUser(event)
-    const invite = await getInvite(body.inviteId)
-    const planProfile = await assertCanSendInvite({ event, invite })
+    const requestUser = await requestUserForEvent(event)
+    const invite = await getInvite(body.inviteId, client)
+    const planProfile = await assertStaffInviteAuthority({ event, invite, phoneTeamCommand: body.phoneTeamCommand === true, authenticatedActorId: requestUser.id, client, getPlanProfile: planProfileForEvent, assertFeature: featureAssertion })
     const normalizedSenderEmail = normalizeEmail(body.senderEmail)
 
     if (normalizedSenderEmail && normalizedSenderEmail !== requestUser.email) {
@@ -209,11 +194,10 @@ export async function handler(event) {
       payload: emailPayload,
       recipients: [recipient],
     })
-    const finalIdempotencyKey = createEmailIdempotencyKey({
-      payload: emailPayload,
-      idempotencySeed: `staff-invite:${invite.id}:${randomUUID()}`,
-    })
-    const pendingLogResult = await createPendingEmailLog({
+    const finalIdempotencyKey = body.phoneTeamCommand === true
+      ? `staff-invite:${invite.id}:phone:v1`
+      : createEmailIdempotencyKey({ payload: emailPayload, idempotencySeed: `staff-invite:${invite.id}:${randomUUID()}` })
+    const pendingLogResult = await pendingEmailLog({
       recipients: [recipient],
       subject: emailSubject,
       payload: {
@@ -241,7 +225,8 @@ export async function handler(event) {
       return successResponse({ duplicate: true })
     }
 
-    const response = await sendEmail(emailPayload, {
+    const response = await sendInviteEmail(emailPayload, {
+      ...(body.phoneTeamCommand === true ? { idempotencyKey: finalIdempotencyKey } : {}),
       context: {
         emailType: 'staff_invite',
         userRole: planProfile.role,
@@ -254,14 +239,14 @@ export async function handler(event) {
       },
       publicMessage: 'Coach invite could not be sent. Please try again in a moment.',
     })
-    await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
+    await markSent(emailLogRecord, response, { recipientDedupeKeys })
 
-    await supabaseAdmin
+    await client
       .from('club_user_invites')
       .update({ invite_sent_at: new Date().toISOString() })
       .eq('id', invite.id)
 
-    await createEmailAuditLog({
+    await auditLog({
       user: null,
       action: 'staff_invite_sent',
       entityType: 'club_user_invite',
@@ -283,8 +268,8 @@ export async function handler(event) {
     })
   } catch (error) {
     console.error(error)
-    await markEmailLogFailed(emailLogRecord, error)
-    await createEmailAuditLog({
+    await markFailed(emailLogRecord, error)
+    await auditLog({
       user: null,
       action: 'staff_invite_failed',
       entityType: 'club_user_invite',
@@ -301,3 +286,7 @@ export async function handler(event) {
     return failureResponse(error.statusCode || 500, publicMessage)
   }
 }
+
+}
+
+export const handler = createStaffInviteHandler()

@@ -6,6 +6,7 @@ import { getCoachInviteHistory } from '../../mobile-core/src/coachInviteHistoryD
 import { COACH_RESOURCE_CATEGORIES, groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
+import { CoachResourceUploadAction } from './CoachResourceUploadAction'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
@@ -256,7 +257,26 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
     if (domain === 'invites') setInvitesRefreshing(true)
     try {
-      const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(() => loader(user), domain === 'invites' ? { timeoutMs: 30000 } : {}), { force: domain === 'invites' || !reuseFresh })
+      const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(async () => {
+        const loaded = await loader(user, domain === 'development' ? {
+          onWorkspaceReady(workspace) {
+            if (!current()) return
+            const readyWorkspace = { ...workspace, records: dataRef.current?.records || workspace.records }
+            setData(readyWorkspace)
+            setStale(false)
+            setLoading(false)
+            setError('')
+            // Keep the form and draft reachable after a restart even when history never returns.
+            void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: {
+              ...readyWorkspace, historyLoading: false, historyError: 'Connect to refresh recent records.',
+            } }).catch(() => {
+              if (current()) setNotice('The assessment opened, but its form could not be saved for offline use. Stay online and retry.')
+            })
+          },
+        } : undefined)
+        return domain === 'development' && loaded.historyError && current()
+          ? { ...loaded, records: dataRef.current?.records || loaded.records } : loaded
+      }, domain === 'invites' ? { timeoutMs: 30000 } : {}), { force: domain === 'invites' || !reuseFresh })
       if (!current()) return false
       setData(next)
       setStale(false)
@@ -271,6 +291,9 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       return current()
     } catch (loadError) {
       if (!current()) return false
+      if (domain === 'development' && dataRef.current?.historyLoading) {
+        setData(previous => ({ ...previous, historyLoading: false, historyError: 'Recent records could not be refreshed. Your assessment drafts are still available.' }))
+      }
       if (domain === 'invites' && (dataRef.current || recent !== undefined || hasCachedValue)) setStale(true)
       if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
       return false
@@ -380,9 +403,11 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
       </View>
       <View style={styles.stack}>
         <Pressable accessibilityLabel={historyOpen ? 'Hide recent forms' : 'Show recent forms'} accessibilityRole="button" accessibilityState={{ expanded: historyOpen }} aria-expanded={historyOpen} onPress={() => setHistoryOpen((current) => !current)} style={styles.developmentSelector}><MaterialIcons color={styles.status.color} name="history" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.heading}>Recent forms</Text><Text style={styles.helper}>{records.length} saved record{records.length === 1 ? '' : 's'} for {player?.playerName || 'this Player'}</Text></View><MaterialIcons color={styles.status.color} name={historyOpen ? 'expand-less' : 'chevron-right'} size={27} /></Pressable>
-        {historyOpen ? (records.length ? records.slice(0, 10).map((record) => <Text key={record.id} style={styles.body}>{record.date || 'No date'} | {record.status} | {record.formName || 'Development record'} | {record.averageScore ?? 'No score'}</Text>) : <Text style={styles.body}>No Development history for this Player.</Text>) : null}
+        {historyOpen && data.historyLoading ? <Text accessibilityLiveRegion="polite" style={styles.body}>Checking recent records...</Text> : null}
+        {historyOpen && data.historyError ? <View style={styles.stack}><Text accessibilityLiveRegion="polite" style={styles.body}>{data.historyError}</Text><Button label="Retry recent records" onPress={() => void load({ silent: true })} secondary styles={styles} /></View> : null}
+        {historyOpen ? (records.length ? records.slice(0, 10).map((record) => <Text key={record.id} style={styles.body}>{record.date || 'No date'} | {record.status} | {record.formName || 'Development record'} | {record.averageScore ?? 'No score'}</Text>) : !data.historyLoading && !data.historyError ? <Text style={styles.body}>No Development history for this Player.</Text> : null) : null}
       </View>
-      <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId)} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onFinalised={() => { setNotice('Development record finalised and shared.'); void load({ silent: true }) }} />
+      <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId)} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onFinalised={result => { setNotice(result?.shared === false ? 'Private Development record finalised.' : 'Development record finalised and shared.'); void load({ silent: true }) }} />
     </View>
   )
 }
@@ -467,6 +492,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   const closeAccess = () => { if (!mutationInFlight.current) { setSelectedId(''); setResourceNotice('') } }
   return (
     <View style={styles.stack}>
+      <CoachResourceUploadAction user={user} stale={stale} load={load} styles={styles} />
       <TextInput accessibilityLabel="Search resources" placeholder="Search resources" placeholderTextColor={styles.helper.color} onChangeText={setSearch} style={styles.input} value={search} />
       <Text accessibilityLiveRegion="polite" style={styles.helper}>{groups.reduce((count, group) => count + group.resources.length, 0)} of {data.length} resources</Text>
       {groups.map(group => {

@@ -28,6 +28,8 @@ import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {COACH_RESOURCE_CATEGORIES,groupCoachResources} from './apps/mobile-core/src/coachResourceBrowseCore.js';
 import {getResourceDisplayTitle} from './src/lib/resource-date-presentation.js';
 const SafeAreaView=View,config={isProduction:true};
+// The actual upload handoff component has its own scope/return browser rehearsal.
+const CoachResourceUploadAction=()=>null;
 const resources=${JSON.stringify(fixture)};
 window.calls=[];window.created=[];window.playerLoads=0;
 const getCoachPlayerList=async()=>{window.playerLoads++;if(window.failPlayers){window.failPlayers=false;throw new Error('Player loading failed.')}return Array.from({length:22},(_,i)=>({id:'p'+i,playerName:'FP TEST Player '+i}))};
