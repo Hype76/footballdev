@@ -40,7 +40,7 @@ test('paid plan access remains restricted to the authorised payer', () => {
   assert.equal(resolveCoachRoute('payment', teamPayer, null), 'payment')
 })
 
-test('Coach plan access renders customer-facing authoritative options without a mobile purchase action', async () => {
+test('Coach plan access renders 20-team pricing and delegates authorised Stripe upgrades', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8')
   const start = source.indexOf("if (route === 'payment')")
   const end = source.indexOf('This route is not part of the final authorised Coach mobile navigation contract.', start)
@@ -48,7 +48,12 @@ test('Coach plan access renders customer-facing authoritative options without a 
 
   assert.match(section, /quoteSubscription\(\{ planKey: 'team'/)
   assert.match(section, /quoteSubscription\(\{ planKey: 'club'/)
-  assert.match(section, /CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE/)
+  assert.match(section, /teamCapacity: 20, billingCycle: 'monthly', offerKey: 'club_20'/)
+  assert.match(section, /Includes up to 20 teams/)
+  assert.match(section, /More than 20 teams/)
+  assert.match(section, /Contact us for a quote/)
+  assert.match(section, /<CoachUpgradeAction/)
+  assert.doesNotMatch(section, /CLUB_ADDITIONAL_BLOCK|More Club teams|Each 10 teams/)
   assert.match(section, /Everything at one-team level/)
   assert.match(section, /Everything across the whole club/)
   assert.doesNotMatch(section, /Payer authority|Operational changes|authoritative|coupons|checkout/)

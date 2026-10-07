@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "c4b5c4670167fbc0c9ab4b5766a62f96bddd1f66ba0da68777f7346fa72328df",
+    "scripts/security-verify-reviewed-backports.mjs": "209cf58bc1eb7f55085dcb0e0c19b2a6076b465702ac30ab8aeb92371cff47f7",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1016,7 +1016,9 @@
       "tests/mobile-cancelled-fixture.test.mjs": "f41257daca338daaa858048a03334651c30bc55ccb3670296e8b3d3ced85e5a4",
       "tests/mobile-password-recovery-contract-76.test.mjs": "1201afda15ab117e41fcb3d53c7593df693bc89490ecf7b9345126d7764e1aa4",
       "tests/mobile-signup-browser.mjs": "7bbb292128837ff26d718aa56d209d1defc9a5670a856237af6e613825db7cb2",
-      "tests/workspace-checkout.test.mjs": "1fc6ffb5af9609d93d11561e8ec19bafa24702b4cdd69569676abd2bd05894f7"
+      "tests/workspace-checkout.test.mjs": "1fc6ffb5af9609d93d11561e8ec19bafa24702b4cdd69569676abd2bd05894f7",
+      "tests/mobile-matchday-plan.test.mjs": "73c8c1a63f855d506d7d3c79a7cc36fc8250987e4c994976bac8f41030975971",
+      "tests/mobile-coach-plan-access-browser.mjs": "9cbf372ccea129ca0516a1e009d6c4944a6e3712bd9e828c6ea6b7b26205db08"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1612,9 +1614,11 @@
           "tests/matchday-fixture-controls-db.test.mjs",
           "tests/mobile-cancelled-fixture.test.mjs",
           "tests/mobile-coach-parity-closure-31g.test.mjs",
+          "tests/mobile-coach-plan-access-browser.mjs",
           "tests/mobile-development-background-domain-browser.mjs",
           "tests/mobile-development-background.test.mjs",
           "tests/mobile-development-unfinished-drafts.test.mjs",
+          "tests/mobile-matchday-plan.test.mjs",
           "tests/mobile-offline-development-browser.mjs",
           "tests/mobile-password-recovery-contract-76.test.mjs",
           "tests/mobile-settings-menu-browser.mjs",
@@ -1630,7 +1634,8 @@
           "Club up to20teams pricing with quotation above20, no Matchday training attendance preference",
           "Durable assessment cancellation and visible authorised cancelled-fixture removal",
           "Selected-account/team Settings cache with background refresh and edit preservation",
-          "Integrate PR182 and prevent cancelled draft restoration/counting"
+          "Integrate PR182 and prevent cancelled draft restoration/counting",
+          "Update obsolete Plan access tests to agreed Club pricing, owner-only Stripe handoff and offline protection"
         ],
         "authCodeLength": 8,
         "dependenciesNativePatchesExpiryAndPreviousProvenanceUnchanged": true,
@@ -1639,6 +1644,6 @@
       }
     }
   },
-  "releasePreparationSha256": "015f1ae7293a1776114ad8eb2c168d71a9c80c6674427063a1dbe7908f2982d9",
+  "releasePreparationSha256": "35bc700dfa1b9087c31908eec4c0a267ac182eabe732280158413b7b96fd3c22",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

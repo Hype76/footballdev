@@ -23,21 +23,25 @@ const selected = ['FoundationRoute', 'ScreenIntro', 'Section', 'InfoRow', 'useCo
 
 const previewModule = `
   import React, {createContext, useContext} from 'react';
-  import {StyleSheet, Text, View} from 'react-native';
+  import {StyleSheet, Text, View, Linking} from 'react-native';
+  import {CoachUpgradeAction} from './apps/coach-mobile/src/CoachUpgradeAction.js';
+  Linking.openURL = async url => { window.fixture.opened.push(url); };
+  const useMobileAuth = () => ({user:window.fixture.user,refreshUserProfile:async()=>{}});
+  const getMobileRuntimeConfig = () => ({apiBaseUrl:'https://footballplayer.online'});
   import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
   import {
-    CLUB_ADDITIONAL_BLOCK_ANNUAL_PENCE,
-    CLUB_ADDITIONAL_BLOCK_MONTHLY_PENCE,
     quoteSubscription,
   } from './src/lib/subscription-pricing.js';
   const CoachThemeContext = createContext(null);
   ${selected}
-  export default function Preview({mode}) {
+  export default function Preview({mode, authority, offline}) {
     const theme = createCoachTheme({mode, context:{}});
     const value = createCoachThemeContext(theme);
+    window.fixture.user.isOfflineProfile = offline;
     const context = {
+      id: authority + ':' + offline,
       planKey: 'matchday',
-      paymentAccess: {state: 'active', canMutate: true, payerAuthority: 'team'},
+      paymentAccess: {state: 'active', canMutate: true, payerAuthority: authority},
     };
     return <CoachThemeContext.Provider value={value}>
       <View style={{backgroundColor:theme.tokens.background, minHeight:'100%', padding:16}}>
@@ -53,8 +57,10 @@ const entry = `
   import Preview from 'preview:plan';
   function App() {
     const [mode, setMode] = React.useState('light');
-    window.setMode = setMode;
-    return <div data-mode={mode}><Preview mode={mode} /></div>;
+    const [authority,setAuthority] = React.useState('team');
+    const [offline,setOffline] = React.useState(false);
+    window.setMode = setMode; window.setAuthority = setAuthority; window.setOffline = setOffline;
+    return <div data-mode={mode}><Preview mode={mode} authority={authority} offline={offline} /></div>;
   }
   createRoot(document.getElementById('root')).render(<App />);
 `
@@ -80,6 +86,8 @@ const result = await build({
   plugins: [{
     name: 'plan-preview',
     setup(builder) {
+      builder.onResolve({filter:/mobileSignup$/},()=>({path:'signup',namespace:'mock'}));
+      builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:`export async function mobileAccountRequest(role,endpoint,body,actor){window.fixture.requests.push({role,endpoint,body,actor});return {actorId:actor,purpose:'upgrade',tokenHash:'a'.repeat(56)}}`,loader:'js'}));
       builder.onResolve({ filter: /^preview:plan$/ }, () => ({ path: 'plan', namespace: 'preview' }))
       builder.onLoad({ filter: /.*/, namespace: 'preview' }, () => ({ contents: previewModule, loader: 'jsx', resolveDir: root }))
     },
@@ -96,6 +104,7 @@ try {
     body: '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div></body></html>',
   }))
   await page.goto('http://localhost:9878')
+  await page.evaluate(() => {window.fixture={user:{id:'20000000-0000-4000-8000-000000000001'},requests:[],opened:[]};});
   await page.addScriptTag({ content: result.outputFiles[0].text })
   await page.getByRole('heading', { name: 'Plan access', exact: true }).waitFor()
 
@@ -105,7 +114,28 @@ try {
   assert.match(await page.locator('#root').innerText(), /£7\.99\/month or £79\.90\/year/)
   assert.match(await page.locator('#root').innerText(), /From £59\.99\/month or £599\.90\/year/)
   assert.doesNotMatch(await page.locator('#root').innerText(), /Payer authority|Operational changes|authoritative|coupon|checkout/i)
-  assert.equal(await page.getByRole('button').count(), 0)
+  assert.match(await page.locator('#root').innerText(), /Includes up to 20 teams/)
+  assert.match(await page.locator('#root').innerText(), /More than 20 teams[\s\S]*Contact us for a quote/)
+  assert.doesNotMatch(await page.locator('#root').innerText(), /Each 10 teams|More Club teams/)
+  const upgrade = page.getByRole('button', {name:'Upgrade plan',exact:true})
+  assert.equal(await upgrade.count(), 1)
+  await upgrade.click()
+  await page.waitForFunction(()=>window.fixture.opened.length===1)
+  assert.deepEqual(await page.evaluate(()=>window.fixture.requests), [{role:'coach',endpoint:'create-coach-web-handoff',body:{purpose:'upgrade'},actor:'20000000-0000-4000-8000-000000000001'}])
+  const opened = new URL(await page.evaluate(()=>window.fixture.opened[0]))
+  assert.equal(opened.origin, 'https://footballplayer.online')
+  assert.equal(opened.pathname, '/coach-app-handoff')
+  assert.deepEqual(Object.fromEntries(new URLSearchParams(opened.hash.slice(1))), {token_hash:'a'.repeat(56),actor:'20000000-0000-4000-8000-000000000001',purpose:'upgrade'})
+  await page.evaluate(()=>window.setAuthority('none'))
+  await page.getByText('Ask your Team or Club account owner if you want to change plan.',{exact:true}).waitFor()
+  assert.equal(await upgrade.count(),0)
+  await page.evaluate(()=>{window.setAuthority('club');window.setOffline(true)})
+  await upgrade.waitFor()
+  assert.equal(await upgrade.isDisabled(),true)
+  assert.equal(await page.evaluate(()=>window.fixture.requests.length),1)
+  await page.evaluate(()=>{window.setAuthority('team');window.setOffline(false)})
+  await upgrade.waitFor()
+  assert.equal(await upgrade.isEnabled(),true)
 
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
@@ -118,7 +148,7 @@ try {
   }
 
   assert.deepEqual(errors, [])
-  console.log('PASS: actual Coach Plan access renders Matchday allowance plus Team and Club upgrade summaries at 320/390px in light/dark with no mobile purchase action.')
+  console.log('PASS: actual Coach Plan access renders Matchday allowance plus Team and Club upgrade summaries at 320/390px in light/dark with owner-only single-use website Stripe handoff, non-owner guidance and offline protection.')
 } finally {
   await browser.close()
 }
