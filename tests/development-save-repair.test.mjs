@@ -12,6 +12,7 @@ const phaseUrl='data:text/javascript;base64,'+Buffer.from(fs.readFileSync(new UR
 const cache=await load(read('../apps/mobile-core/src/coachOfflineCore.js').replace("'./coachPhase31FCore.js'",JSON.stringify(phaseUrl)))
 const draftCore=await load(fs.readFileSync(new URL('apps/mobile-core/src/developmentOfflineCore.js',source),'utf8'))
 const status=await load(read('../apps/mobile-core/src/developmentSaveStatusCore.js'))
+const {createDevelopmentAutosaveQueue}=await load(read('../apps/coach-mobile/src/developmentAutosaveQueue.js'))
 const context={id:'context',authorityId:'assignment',authoritySource:'team_staff',clubId:'club',role:'coach',teamId:'team'},user={id:'user'}
 const authority=JSON.stringify(['id','authorityId','authoritySource','clubId','role','teamId'].map(k=>context[k]))
 const key=draftCore.developmentDraftKey('player','form'),form={id:'form',version:1,fields:[]}
@@ -83,7 +84,7 @@ test('stale account after workspace read never prepares or sends a development a
  let current=true;const storage=updater(document()),before=storage.read(),engine=syncEngine(storage,{current:()=>current,workspace:async()=>{current=false;return {players:[{id:'player'}],forms:[form]}}})
  await engine.run();assert.equal(engine.calls(),0);assert.deepEqual(storage.read(),before)
 })
-function persistFixture(save){const changes=[],lifetime={current:{scope:'one',active:true,hydrated:true,edit:0}},deps={capture:()=>{const token=lifetime.current;return()=>token===lifetime.current&&token.active},lifetime,inputRef:{current:{}},setInput:()=>{},setSaving:()=>{},setError:x=>changes.push(['error',x]),setDraft:x=>changes.push(['draft',x]),saveLocalCoachDevelopmentDraft:save,user,context,player:{id:'player'},form,developmentFormFingerprint:draftCore.developmentFormFingerprint,notifyDevelopmentSync:()=>changes.push(['notify'])};return {changes,lifetime,run:bind(read('../apps/coach-mobile/src/DevelopmentOfflineEditor.js'),'persist',deps)}}
+function persistFixture(save){const changes=[],lifetime={current:{scope:'one',active:true,hydrated:true,edit:0}},deps={capture:()=>{const token=lifetime.current;return()=>token===lifetime.current&&token.active},lifetime,inputRef:{current:{}},setInput:()=>{},setSaving:()=>{},setError:x=>changes.push(['error',x]),setDraft:x=>changes.push(['draft',x]),createCoachDevelopmentDraftSaver:()=>save,createDevelopmentAutosaveQueue,scope:'one',user,context,key,player:{id:'player'},form,developmentFormFingerprint:draftCore.developmentFormFingerprint,notifyDevelopmentSync:()=>changes.push(['notify'])};return {changes,lifetime,run:bind(read('../apps/coach-mobile/src/DevelopmentOfflineEditor.js'),'persist',deps)}}
 test('actual editor persistence returns no receipt on disk failure and never starts follow-up sync',async()=>{
  const f=persistFixture(async()=>{throw new Error('Synthetic disk failure')});const result=await f.run({values:{rating:7},notes:''})
  assert.equal(result,null);assert.ok(f.changes.some(([type])=>type==='error'));assert.ok(!f.changes.some(([type])=>type==='draft'||type==='notify'))
@@ -105,7 +106,7 @@ test('actual render-scoped capture refuses stale handlers before changing input 
 test('older failed edit cannot overwrite a newer successful edit error state',async()=>{
  let reject;const first=new Promise((_r,j)=>reject=j);let calls=0
  const f=persistFixture(async()=>++calls===1?first:{...initialDraft,revision:3})
- const older=f.run({values:{rating:7},notes:''});await f.run({values:{rating:8},notes:''});reject(new Error('Older failure'));await older
+ const older=f.run({values:{rating:7},notes:''});await Promise.resolve();const newer=f.run({values:{rating:8},notes:''});reject(new Error('Older failure'));await Promise.all([older,newer])
  assert.ok(!f.changes.some(([type,value])=>type==='error'&&value==='Older failure'))
 })
 test('all five product files parse; storage failure and confirmed sync remain distinct',()=>{
@@ -142,11 +143,11 @@ test('actual editor commit lifecycle blocks A/B/A edits until fresh hydration an
  const effect=(kind,callback,deps)=>{const i=cursor++;pending.push({i,kind,callback,deps})}
  const gates=[]
  const renderFn=new Function('suppliedContext','form','player','serverDraft','styles','user','stale','onFinalised','onQueued',
- 'useMemo','useRef','useState','useLayoutEffect','useEffect','developmentDraftKey','developmentFormFingerprint','developmentInputIsSaved','readCoachDevelopmentDrafts','updateCoachDevelopmentDraft','subscribeDevelopmentSync',
+ 'useMemo','useRef','useState','useLayoutEffect','useEffect','developmentDraftKey','developmentFormFingerprint','developmentInputIsSaved','readCoachDevelopmentDrafts','updateCoachDevelopmentDraft','subscribeDevelopmentSync','getPendingDevelopmentAutosave',
  prefix+';return {capture,ready,lifetime,inputRef};')
  const render=scope=>{cursor=0;pending=[];return renderFn(context,form,{id:'player'},null,{}, {id:scope},false,()=>{},()=>{},fn=>fn(),ref,state,
  (fn,deps)=>effect('layout',fn,deps),(fn,deps)=>effect('passive',fn,deps),draftCore.developmentDraftKey,draftCore.developmentFormFingerprint,status.developmentInputIsSaved,
- ()=>{let resolve;const promise=new Promise(r=>resolve=r);gates.push({resolve});reads.push(scope);return promise},async()=>{},()=>()=>{})}
+ ()=>{let resolve;const promise=new Promise(r=>resolve=r);gates.push({resolve});reads.push(scope);return promise},async()=>{},()=>()=>{},()=>null)}
  const commit=()=>{for(const kind of ['layout','passive'])for(const e of pending.filter(x=>x.kind===kind)){
  const previous=effects[e.i];if(previous&&e.deps.every((v,i)=>Object.is(v,previous.deps[i])))continue
  previous?.cleanup?.();effects[e.i]={...e,cleanup:e.callback()}

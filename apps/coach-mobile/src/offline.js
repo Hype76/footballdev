@@ -349,9 +349,19 @@ export async function updateCoachDevelopmentDraft(userId, context, key, change) 
   return result
 }
 
-export function saveLocalCoachDevelopmentDraft(userId, context, input) {
+export function createCoachDevelopmentDraftSaver(userId, context) {
+  const capturedContext = { ...context }
+  const guard = store.captureScopeGuard(userId)
+  return input => {
+    guard()
+    return saveLocalCoachDevelopmentDraft(userId, capturedContext, input, guard)
+  }
+}
+
+export function saveLocalCoachDevelopmentDraft(userId, context, input, guard = () => {}) {
   return updateCoachDevelopmentDraft(userId, context, developmentDraftKey(input.playerId, input.formId),
     previous => {
+      guard()
       if (previous?.finalisation) throw new Error('This record is already queued to finish. Your saved values have been kept.')
       if (previous?.discardRequested) throw new Error('This assessment is queued to cancel. Wait until cancellation has synced before starting another.')
       return editLocalDevelopmentDraft(previous, { ...input, id: previous?.id || Crypto.randomUUID() })

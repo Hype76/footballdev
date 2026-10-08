@@ -5,7 +5,15 @@ export const MOBILE_OFFLINE_NONCE_BYTES = 24
 const GENERATIONS = ['a', 'b']
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 const queues = new Map()
+const runningTransactions = new Map()
 const scopes = new WeakMap()
+const STORAGE_STEP_LABELS = {
+  queued: 'Waiting for an earlier save', preparing: 'Preparing saved work',
+  pointer_read: 'Reading saved work', generation_read: 'Reading saved work', key_read: 'Preparing a secure save',
+  crypto_random: 'Preparing a secure save', crypto_encrypt: 'Preparing a secure save', crypto_decrypt: 'Opening saved work',
+  key_write: 'Preparing a secure save', generation_write: 'Writing saved work', pointer_write: 'Writing saved work',
+  pointer_remove: 'Clearing saved work', generation_remove: 'Clearing saved work', key_remove: 'Clearing saved work',
+}
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -64,19 +72,48 @@ function parseJson(value) {
   }
 }
 
-function enqueue(namespace, operation, timeoutMs) {
+function enqueue(namespace, operation, timeoutMs, { kind, mustComplete = false }) {
+  let timeoutError, timer, rejectCancellation
+  const cancellation = new Promise((_, reject) => { rejectCancellation = reject })
+  // A queued timeout may happen before a native wait subscribes to cancellation.
+  cancellation.catch(() => {})
+  const transaction = {
+    stage: 'queued', mutating: false, guard: null,
+    check() {
+      if (timeoutError && !mustComplete) throw timeoutError
+      this.guard?.()
+    },
+    async wait(stage, callback, mutating = false) {
+      this.check()
+      this.stage = stage
+      this.mutating = mutating
+      const pending = Promise.resolve().then(() => { this.check(); return callback() })
+      try {
+        // Only abandon read-only native waits. A dispatched mutation retains the
+        // queue until it settles, even after its caller's deadline has expired.
+        const result = await (mutating || mustComplete ? pending : Promise.race([pending, cancellation]))
+        this.check()
+        return result
+      } finally { this.mutating = false }
+    },
+  }
   const previous = queues.get(namespace) || Promise.resolve()
-  const current = previous.catch(() => {}).then(operation)
+  const current = previous.catch(() => {}).then(async () => {
+    transaction.check()
+    runningTransactions.set(namespace, transaction)
+    try { return await operation(transaction) }
+    finally { if (runningTransactions.get(namespace) === transaction) runningTransactions.delete(namespace) }
+  })
   queues.set(namespace, current.catch(() => {}))
-  if (!timeoutMs) return current
-  // Native storage cannot be cancelled. Bound the caller's wait while retaining
-  // the actual transaction in the queue so late writes never overlap a retry.
-  let timer
   return Promise.race([current, new Promise((_, reject) => {
     timer = setTimeout(() => {
-      const error = offlineError('offline_storage_timeout')
-      error.message = 'Phone storage is taking too long. Keep your entries open and retry saving. Do not clear app data.'
-      reject(error)
+      timeoutError = offlineError('offline_storage_timeout')
+      timeoutError.storageOperation = kind
+      timeoutError.storageStage = transaction.stage
+      if (transaction.stage === 'queued') timeoutError.storageBlockedStage = runningTransactions.get(namespace)?.stage || 'queued'
+      timeoutError.message = `Phone storage is taking too long. Keep your entries open and retry saving. Do not clear app data. Step: ${STORAGE_STEP_LABELS[transaction.stage] || 'Saving work on this phone'}.`
+      if (!transaction.mutating && !mustComplete) rejectCancellation(timeoutError)
+      reject(timeoutError)
     }, timeoutMs)
   })]).finally(() => clearTimeout(timer))
 }
@@ -121,7 +158,7 @@ export function createEncryptedOfflineStore({
   let snapshot = null
   const copy = value => value == null ? value : JSON.parse(JSON.stringify(value))
   const timeoutMs = Number.isFinite(operationTimeoutMs) && operationTimeoutMs > 0 ? operationTimeoutMs : 8000
-  const transact = operation => enqueue(namespace, operation, timeoutMs)
+  const transact = (kind, operation, mustComplete = false) => enqueue(namespace, operation, timeoutMs, { kind, mustComplete })
 
   function remember(result, userScope, epoch) {
     checkScope(userScope, epoch)
@@ -137,15 +174,15 @@ export function createEncryptedOfflineStore({
     return `${namespace}.g.${generation}`
   }
 
-  async function clearCiphertext() {
+  async function clearCiphertext(transaction) {
     snapshot = null
     verifiedGenerations.clear()
-    await storage.removeItem(pointerName)
-    await Promise.all(GENERATIONS.map((generation) => storage.removeItem(generationName(generation))))
+    await transaction.wait('pointer_remove', () => storage.removeItem(pointerName), true)
+    for (const generation of GENERATIONS) await transaction.wait('generation_remove', () => storage.removeItem(generationName(generation)), true)
   }
 
-  async function readKey() {
-    const encoded = await keyStore.getItemAsync(keyName, keyStoreOptions)
+  async function readKey(transaction) {
+    const encoded = await transaction.wait('key_read', () => keyStore.getItemAsync(keyName, keyStoreOptions))
     if (!encoded) return null
     try {
       const key = base64ToBytes(encoded)
@@ -155,15 +192,15 @@ export function createEncryptedOfflineStore({
     }
   }
 
-  async function getOrCreateKey() {
-    const existing = await readKey()
+  async function getOrCreateKey(transaction) {
+    const existing = await readKey(transaction)
     if (existing) return existing
-    const key = await cryptoProvider.randomBytes(MOBILE_OFFLINE_KEY_BYTES)
+    const key = await transaction.wait('crypto_random', () => cryptoProvider.randomBytes(MOBILE_OFFLINE_KEY_BYTES))
     if (!(key instanceof Uint8Array) || key.length !== MOBILE_OFFLINE_KEY_BYTES) {
       throw offlineError('offline_crypto_unavailable')
     }
-    await keyStore.setItemAsync(keyName, bytesToBase64(key), keyStoreOptions)
-    const verified = await readKey()
+    await transaction.wait('key_write', () => keyStore.setItemAsync(keyName, bytesToBase64(key), keyStoreOptions), true)
+    const verified = await readKey(transaction)
     if (!verified) throw offlineError('offline_key_readback_failed')
     return verified
   }
@@ -179,8 +216,8 @@ export function createEncryptedOfflineStore({
       && normalize(document.userScope) === normalize(userScope)
   }
 
-  async function readGeneration(generation, key, userScope) {
-    const raw = await storage.getItem(generationName(generation))
+  async function readGeneration(generation, key, userScope, transaction) {
+    const raw = await transaction.wait('generation_read', () => storage.getItem(generationName(generation)))
     const cached = verifiedGenerations.get(generation)
     // Still read and compare the actual ciphertext and key. Tampering, missing
     // storage and key rotation must never be hidden by the decoded cache.
@@ -201,54 +238,55 @@ export function createEncryptedOfflineStore({
       const nonce = base64ToBytes(envelope.nonce)
       const ciphertext = base64ToBytes(envelope.ciphertext)
       if (nonce.length !== MOBILE_OFFLINE_NONCE_BYTES || ciphertext.length < 17) throw offlineError('offline_storage_corrupt')
-      const plaintext = await cryptoProvider.open({ aad, ciphertext, key, nonce })
+      const plaintext = await transaction.wait('crypto_decrypt', () => cryptoProvider.open({ aad, ciphertext, key, nonce }))
       const document = JSON.parse(plaintext)
       if (!validateDocument(document, userScope)) {
         return { document: null, status: 'scope_mismatch', valid: false }
       }
       verifiedGenerations.set(generation, { raw, key: bytesToBase64(key), document: copy(document) })
       return { document, status: 'ready', valid: true }
-    } catch {
+    } catch (error) {
+      if (['offline_storage_timeout', 'offline_scope_invalidated'].includes(error.code)) throw error
       return { document: null, status: 'corrupt', valid: false }
     }
   }
 
-  async function readInternal(userScope) {
+  async function readInternal(userScope, transaction) {
     const scope = normalize(userScope)
     if (!scope) return { document: null, status: 'missing' }
-    const pointer = parsePointer(await storage.getItem(pointerName))
+    const pointer = parsePointer(await transaction.wait('pointer_read', () => storage.getItem(pointerName)))
     if (!pointer.valid) {
-      await clearCiphertext()
+      await clearCiphertext(transaction)
       return { document: null, status: 'corrupt' }
     }
     if (!pointer.active) return { document: null, status: 'missing' }
-    const key = await readKey()
+    const key = await readKey(transaction)
     if (!key) {
-      await clearCiphertext()
+      await clearCiphertext(transaction)
       return { document: null, status: 'corrupt' }
     }
 
-    const active = await readGeneration(pointer.active, key, scope)
+    const active = await readGeneration(pointer.active, key, scope, transaction)
     if (active.valid) return active
     if (active.status === 'scope_mismatch') {
-      await clearCiphertext()
+      await clearCiphertext(transaction)
       return active
     }
 
     if (pointer.previous) {
-      const previous = await readGeneration(pointer.previous, key, scope)
+      const previous = await readGeneration(pointer.previous, key, scope, transaction)
       if (previous.valid) {
-        await storage.setItem(pointerName, JSON.stringify({
+        await transaction.wait('pointer_write', () => storage.setItem(pointerName, JSON.stringify({
           active: pointer.previous,
           previous: '',
           schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
-        }))
-        await storage.removeItem(generationName(pointer.active))
+        })), true)
+        await transaction.wait('generation_remove', () => storage.removeItem(generationName(pointer.active)), true)
         return previous
       }
     }
 
-    await clearCiphertext()
+    await clearCiphertext(transaction)
     return { document: null, status: 'corrupt' }
   }
 
@@ -266,7 +304,7 @@ export function createEncryptedOfflineStore({
     }
   }
 
-  async function writeInternal(userScope, value, epoch) {
+  async function writeInternal(userScope, value, epoch, transaction) {
     checkScope(userScope, epoch)
     const scope = normalize(userScope)
     const document = {
@@ -279,17 +317,17 @@ export function createEncryptedOfflineStore({
     }
     if (!validateDocument(document, scope)) throw offlineError('offline_document_invalid')
 
-    const pointer = parsePointer(await storage.getItem(pointerName))
+    const pointer = parsePointer(await transaction.wait('pointer_read', () => storage.getItem(pointerName)))
     if (!pointer.valid) throw offlineError('offline_storage_corrupt')
     const target = pointer.active === 'a' ? 'b' : 'a'
-    const key = await getOrCreateKey()
-    const nonce = await cryptoProvider.randomBytes(MOBILE_OFFLINE_NONCE_BYTES)
-    const ciphertext = await cryptoProvider.seal({
+    const key = await getOrCreateKey(transaction)
+    const nonce = await transaction.wait('crypto_random', () => cryptoProvider.randomBytes(MOBILE_OFFLINE_NONCE_BYTES))
+    const ciphertext = await transaction.wait('crypto_encrypt', () => cryptoProvider.seal({
       aad,
       key,
       nonce,
       plaintext: JSON.stringify(document),
-    })
+    }))
     const envelope = JSON.stringify({
       algorithm: 'xchacha20-poly1305',
       ciphertext: bytesToBase64(ciphertext),
@@ -298,29 +336,29 @@ export function createEncryptedOfflineStore({
       schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
     })
 
-    await storage.setItem(generationName(target), envelope)
-    const verified = await readGeneration(target, key, scope)
+    await transaction.wait('generation_write', () => storage.setItem(generationName(target), envelope), true)
+    const verified = await readGeneration(target, key, scope, transaction)
     if (!verified.valid || JSON.stringify(verified.document) !== JSON.stringify(document)) {
-      await storage.removeItem(generationName(target))
+      await transaction.wait('generation_remove', () => storage.removeItem(generationName(target)), true)
       throw offlineError('offline_storage_readback_failed')
     }
 
     checkScope(userScope, epoch)
-    await storage.setItem(pointerName, JSON.stringify({
+    await transaction.wait('pointer_write', () => storage.setItem(pointerName, JSON.stringify({
       active: target,
       previous: pointer.active || '',
       schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
-    }))
-    const activated = await readInternal(scope)
+    })), true)
+    const activated = await readInternal(scope, transaction)
     if (!activated.document) throw offlineError('offline_storage_readback_failed')
     checkScope(userScope, epoch)
-    await storage.setItem(pointerName, JSON.stringify({
+    await transaction.wait('pointer_write', () => storage.setItem(pointerName, JSON.stringify({
       active: target,
       previous: '',
       schemaVersion: MOBILE_OFFLINE_STORAGE_SCHEMA_VERSION,
-    }))
+    })), true)
     if (pointer.active) {
-      await storage.removeItem(generationName(pointer.active))
+      await transaction.wait('generation_remove', () => storage.removeItem(generationName(pointer.active)), true)
       verifiedGenerations.delete(pointer.active)
     }
     remember(activated, scope, epoch)
@@ -349,13 +387,14 @@ export function createEncryptedOfflineStore({
     },
     async update(userScope, updater) {
       const epoch = scopeState().epoch
-      return transact(async () => {
-        checkScope(userScope, epoch)
-        const current = (await readInternal(userScope)).document
-        const next = await updater(current)
+      return transact('update', async transaction => {
+        transaction.guard = () => checkScope(userScope, epoch)
+        transaction.check()
+        const current = (await readInternal(userScope, transaction)).document
+        const next = await transaction.wait('preparing', () => updater(current))
         checkScope(userScope, epoch)
         if (!next || next === current) return current
-        return writeInternal(userScope, next, epoch)
+        return writeInternal(userScope, next, epoch, transaction)
       })
     },
     async clear() {
@@ -365,17 +404,19 @@ export function createEncryptedOfflineStore({
       snapshot = null
       verifiedGenerations.clear()
 
-      return transact(async () => {
-        await clearCiphertext()
-        await keyStore.deleteItemAsync(keyName, keyStoreOptions)
-      })
+      return transact('clear', async transaction => {
+        await clearCiphertext(transaction)
+        await transaction.wait('key_remove', () => keyStore.deleteItemAsync(keyName, keyStoreOptions), true)
+      }, true)
     },
 
     async inspect(userScope) {
-      return transact(async () => {
+      const epoch = scopeState().epoch
+      return transact('inspect', async transaction => {
         const state = scopeState()
+        transaction.guard = () => checkScope(userScope, epoch)
         const result = state.blocked || (state.userScope && state.userScope !== normalize(userScope))
-          ? { document: null, status: 'scope_mismatch' } : await readInternal(userScope)
+          ? { document: null, status: 'scope_mismatch' } : await readInternal(userScope, transaction)
         return {
           appRole: normalize(appRole).toLowerCase(),
           environment: normalize(environment).toLowerCase(),
@@ -387,13 +428,14 @@ export function createEncryptedOfflineStore({
     },
 
     async read(userScope) {
-      return transact(async () => {
+      const epoch = scopeState().epoch
+      return transact('read', async transaction => {
         const state = scopeState()
         if (state.blocked || (state.userScope && state.userScope !== normalize(userScope))) {
           return { document: null, status: 'scope_mismatch' }
         }
-        const epoch = state.epoch
-        return remember(await readInternal(userScope), userScope, epoch)
+        transaction.guard = () => checkScope(userScope, epoch)
+        return remember(await readInternal(userScope, transaction), userScope, epoch)
       })
     },
 
@@ -408,7 +450,10 @@ export function createEncryptedOfflineStore({
 
     async write(userScope, value) {
       const epoch = scopeState().epoch
-      return transact(() => writeInternal(userScope, value, epoch))
+      return transact('write', transaction => {
+        transaction.guard = () => checkScope(userScope, epoch)
+        return writeInternal(userScope, value, epoch, transaction)
+      })
     },
   }
 }
