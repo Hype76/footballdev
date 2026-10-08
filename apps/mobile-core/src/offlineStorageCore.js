@@ -64,11 +64,21 @@ function parseJson(value) {
   }
 }
 
-function enqueue(namespace, operation) {
+function enqueue(namespace, operation, timeoutMs) {
   const previous = queues.get(namespace) || Promise.resolve()
   const current = previous.catch(() => {}).then(operation)
   queues.set(namespace, current.catch(() => {}))
-  return current
+  if (!timeoutMs) return current
+  // Native storage cannot be cancelled. Bound the caller's wait while retaining
+  // the actual transaction in the queue so late writes never overlap a retry.
+  let timer
+  return Promise.race([current, new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = offlineError('offline_storage_timeout')
+      error.message = 'Phone storage is taking too long. Keep your entries open and retry saving. Do not clear app data.'
+      reject(error)
+    }, timeoutMs)
+  })]).finally(() => clearTimeout(timer))
 }
 
 function parsePointer(rawValue) {
@@ -101,6 +111,7 @@ export function createEncryptedOfflineStore({
   keyStoreOptions = {},
   projectRef,
   storage,
+  operationTimeoutMs = 8000,
 }) {
   const namespace = deriveOfflineStorageNamespace({ appRole, environment, projectRef })
   const aad = `${namespace}.authenticated-envelope`
@@ -109,6 +120,8 @@ export function createEncryptedOfflineStore({
   const verifiedGenerations = new Map()
   let snapshot = null
   const copy = value => value == null ? value : JSON.parse(JSON.stringify(value))
+  const timeoutMs = Number.isFinite(operationTimeoutMs) && operationTimeoutMs > 0 ? operationTimeoutMs : 8000
+  const transact = operation => enqueue(namespace, operation, timeoutMs)
 
   function remember(result, userScope, epoch) {
     checkScope(userScope, epoch)
@@ -336,7 +349,7 @@ export function createEncryptedOfflineStore({
     },
     async update(userScope, updater) {
       const epoch = scopeState().epoch
-      return enqueue(namespace, async () => {
+      return transact(async () => {
         checkScope(userScope, epoch)
         const current = (await readInternal(userScope)).document
         const next = await updater(current)
@@ -352,14 +365,14 @@ export function createEncryptedOfflineStore({
       snapshot = null
       verifiedGenerations.clear()
 
-      return enqueue(namespace, async () => {
+      return transact(async () => {
         await clearCiphertext()
         await keyStore.deleteItemAsync(keyName, keyStoreOptions)
       })
     },
 
     async inspect(userScope) {
-      return enqueue(namespace, async () => {
+      return transact(async () => {
         const state = scopeState()
         const result = state.blocked || (state.userScope && state.userScope !== normalize(userScope))
           ? { document: null, status: 'scope_mismatch' } : await readInternal(userScope)
@@ -374,7 +387,7 @@ export function createEncryptedOfflineStore({
     },
 
     async read(userScope) {
-      return enqueue(namespace, async () => {
+      return transact(async () => {
         const state = scopeState()
         if (state.blocked || (state.userScope && state.userScope !== normalize(userScope))) {
           return { document: null, status: 'scope_mismatch' }
@@ -395,7 +408,7 @@ export function createEncryptedOfflineStore({
 
     async write(userScope, value) {
       const epoch = scopeState().epoch
-      return enqueue(namespace, () => writeInternal(userScope, value, epoch))
+      return transact(() => writeInternal(userScope, value, epoch))
     },
   }
 }

@@ -52,7 +52,7 @@ test('Coach Match save keeps taps active and shows validation beside the form', 
     readFile(new URL('../apps/mobile-core/src/coachOperationalData.js', import.meta.url), 'utf8'),
   ])
 
-  assert.match(app, /keyboardShouldPersistTaps="always"/)
+  assert.match(app, /keyboardShouldPersistTaps="handled"/)
   assert.match(calendarScreen, /Keyboard\.dismiss\(\)/)
   assert.match(calendarScreen, /accessibilityRole="alert"/)
   assert.match(calendarScreen, /setSaveConfirmation\(`\$\{form\?\.eventType === 'match' \? 'Match saved\.' : 'Event saved\.'\}\$\{attachmentMessage\}\$\{notificationMessage\}`\)/)

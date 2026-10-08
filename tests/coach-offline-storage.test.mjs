@@ -67,6 +67,23 @@ test('actual encrypted adapter retains eight fixtures and Development work with 
 })
 
 const recoveryContext = { id: 'recovery-context', authorityId: 'recovery-authority', authoritySource: 'team_staff', clubId: 'recovery-club', teamId: 'recovery-team', role: 'head_manager' }
+
+test('unchanged assessment save preserves synced status and avoids any encrypted storage rewrite', async () => {
+  await storage.clearCoachOfflineState()
+  await storage.coachOfflineProfileStore.read('unchanged-coach')
+  await storage.coachOfflineProfileStore.write({ id: 'unchanged-coach', coachContexts: [recoveryContext] })
+  const input = { playerId: 'player', formId: 'form', formFingerprint: 'same-form', values: { score: 6, comments: 'Retained' }, notes: 'Latest summary' }
+  const pending = await storage.saveLocalCoachDevelopmentDraft('unchanged-coach', recoveryContext, input)
+  const key = JSON.stringify([input.playerId, input.formId])
+  await storage.updateCoachDevelopmentDraft('unchanged-coach', recoveryContext, key, draft => ({ ...draft, status: 'synced', serverVersion: 1 }))
+  const before = [...globalThis.offlineCiphertext.entries()]
+  const saved = await storage.saveLocalCoachDevelopmentDraft('unchanged-coach', recoveryContext, { ...input, values: { comments: 'Retained', score: 6 } })
+  assert.equal(saved.revision, pending.revision)
+  assert.equal(saved.status, 'synced')
+  assert.deepEqual([...globalThis.offlineCiphertext.entries()], before)
+  await storage.clearCoachOfflineState()
+})
+
 const liveProfile = { id: 'recovery-coach', coachContexts: [recoveryContext] }
 const sessionResources = {
   sessions: Array.from({ length: 3 }, (_, id) => ({ id: `session-${id}`, title: 'Passing practice', notes: 'Caf\u00e9 \ud83c\udfc6' })),

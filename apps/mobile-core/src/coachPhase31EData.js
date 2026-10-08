@@ -118,11 +118,11 @@ export async function getCoachDevelopmentSummary(user) {
   })) }
 }
 
-export async function getCoachDevelopmentWorkspace(user, { onWorkspaceReady } = {}) {
+export async function getCoachDevelopmentWorkspace(user, { onWorkspaceReady, includeHistory = true } = {}) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   // History is useful, but must not prevent opening or saving an assessment.
-  const history = Promise.resolve(supabase.from('evaluations').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('date', { ascending: false }).order('created_at', { ascending: false }).limit(250))
-    .catch(error => ({ error }))
+  const history = includeHistory ? Promise.resolve(supabase.from('evaluations').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('date', { ascending: false }).order('created_at', { ascending: false }).limit(250))
+    .catch(error => ({ error })) : Promise.resolve({ data: [] })
   const [playersResult, formsResult, legacyFieldsResult, draftsResult, starterFormsResult, starterPreferencesResult, teamResult] = await Promise.all([
     supabase.from('players').select('id,player_name,section,status,team,team_id').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).neq('status', 'archived').order('player_name'),
     supabase.from('feedback_forms').select('*').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).is('archived_at', null).order('name'),
@@ -168,7 +168,7 @@ export async function getCoachDevelopmentWorkspace(user, { onWorkspaceReady } = 
       id: player.id, playerName: normalize(player.player_name), section: normalize(player.section), status: normalize(player.status), team: normalize(player.team), teamId: normalize(player.team_id),
     }))),
     records: Object.freeze([]),
-    historyLoading: true,
+    historyLoading: includeHistory,
     historyError: '',
     forms: Object.freeze(forms),
     drafts: Object.freeze(draftsResult.error ? [] : (draftsResult.data || []).map((draft) => Object.freeze({

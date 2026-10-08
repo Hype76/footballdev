@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Pressable, Text, TextInput, View } from 'react-native'
+import { Alert, Keyboard, Pressable, Text, TextInput, View } from 'react-native'
 import { developmentDraftKey, developmentFormFingerprint } from '../../mobile-core/src/developmentOfflineCore'
 import { developmentInputIsSaved, developmentSaveStatus } from '../../mobile-core/src/developmentSaveStatusCore'
 import { readCoachDevelopmentDrafts, saveLocalCoachDevelopmentDraft, updateCoachDevelopmentDraft } from './offline'
@@ -19,6 +19,7 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
   const [finalising, setFinalising] = useState(false)
   const [finalisingShare, setFinalisingShare] = useState(true)
   const [finaliseError, setFinaliseError] = useState('')
+  const [focusedField, setFocusedField] = useState('')
   const key = developmentDraftKey(player.id, form.id)
   const scope = JSON.stringify([user.id, context, key, developmentFormFingerprint(form)])
   const ready = readyScope === scope
@@ -41,7 +42,7 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
     const { userId, context, key, serverDraft } = token
     const current = () => token === lifetime.current && token.active && token.scope === scope
     inputRef.current = { values: {}, notes: '' }
-    setInput(inputRef.current); setDraft(null); setSaving(0); setError(''); setSyncError(''); setFinalising(false); setFinaliseError('')
+    setInput(inputRef.current); setDraft(null); setSaving(0); setError(''); setSyncError(''); setFinalising(false); setFinaliseError(''); setFocusedField('')
     const read = async (hydrate = false) => {
       const generation = token.completedGeneration || 0
       try {
@@ -110,8 +111,10 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
   }
   const save = async () => {
     const current = capture()
-    const saved = await persist(inputRef.current)
+    const saved = draft && !error && developmentInputIsSaved(inputRef.current, draft)
+      && draft.formFingerprint === developmentFormFingerprint(form) ? draft : await persist(inputRef.current)
     if (!saved || !current()) return
+    if (saved.status !== 'synced') notifyDevelopmentSync({ kind: 'queued' })
     onQueued?.({ kind: 'draft', draftId: saved.id, playerId: player.id, formId: form.id })
   }
   const cancel = () => {
@@ -195,6 +198,12 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
   ])
   }
   const button = (label, onPress, disabled = false, selected = false) => <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled, selected }} disabled={disabled} onPress={onPress} style={[selected ? styles.primary : styles.secondary, disabled && styles.disabled]}><Text style={selected ? styles.primaryText : styles.secondaryText}>{label}</Text></Pressable>
+  const fieldLabel = (id, label, textInput = true) => <View style={[styles.row, { flexDirection: 'row', flexWrap: 'nowrap' }, textInput && { minHeight: 44, alignItems: 'center' }]}>
+    <Text style={[styles.label, { flex: 1 }]}>{label}</Text>
+    {textInput ? <View style={{ width: 106, minHeight: 44 }}>
+      {focusedField === id ? <Pressable accessibilityRole="button" accessibilityLabel="Hide keyboard" onPress={() => Keyboard.dismiss()} style={{ minHeight: 44, paddingHorizontal: 8, justifyContent: 'center' }}><Text style={styles.secondaryText}>Hide keyboard</Text></Pressable> : null}
+    </View> : null}
+  </View>
   return <View style={styles.panel}>
     <Text style={styles.heading}>{form.name}</Text>
     <Text accessibilityLiveRegion="polite" style={styles.body}>{developmentSaveStatus({ ready, saving, draft, unsaved, error, syncError })}</Text>
@@ -202,13 +211,13 @@ export function DevelopmentOfflineEditor({ context: suppliedContext, form, playe
     {finaliseError ? <Text accessibilityLiveRegion="assertive" style={styles.danger}>{finaliseError}</Text> : null}
     {error || syncError || draft?.error ? <Text style={styles.danger}>{error || syncError || draft.error}</Text> : null}
     {ready ? (form.fields || []).filter(field => Number(user.roleRank || 0) >= field.roleRank).map(field => <View key={field.id} style={styles.stack}>
-      <Text style={styles.label}>{field.label}{field.required ? ' (required)' : ''}{field.staffPrivate ? ' | Coach private' : field.parentVisible ? ' | Parent-shareable' : ''}</Text>
+      {fieldLabel(field.id, `${field.label}${field.required ? ' (required)' : ''}${field.staffPrivate ? ' | Coach private' : field.parentVisible ? ' | Parent-shareable' : ''}`, !['boolean', 'checkbox'].includes(field.type) && !field.options.length)}
       {['boolean', 'checkbox'].includes(field.type) ? button(input.values[field.id] ? 'Yes' : 'No', () => changeValue(field.id, !input.values[field.id]), finalising || !!draft?.finalisation)
         : field.options.length ? <View style={styles.row}>{field.options.map(option => button(option.label, () => changeValue(field.id, option.value), finalising || !!draft?.finalisation, input.values[field.id] === option.value))}</View>
-          : <TextInput accessibilityLabel={field.label} editable={!finalising && !draft?.finalisation} keyboardType={['number', 'numeric', 'rating', 'score', 'score_1_5', 'score_1_10'].includes(field.type) ? 'numeric' : 'default'} multiline={field.type === 'textarea'} onChangeText={value => changeValue(field.id, value)} style={[styles.input, field.type === 'textarea' && styles.inputMultiline]} value={String(input.values[field.id] ?? '')} />}
+          : <TextInput accessibilityLabel={field.label} editable={!finalising && !draft?.finalisation} keyboardType={['number', 'numeric', 'rating', 'score', 'score_1_5', 'score_1_10'].includes(field.type) ? 'numeric' : 'default'} multiline={field.type === 'textarea'} onFocus={() => setFocusedField(field.id)} onBlur={() => setFocusedField('')} onChangeText={value => changeValue(field.id, value)} style={[styles.input, field.type === 'textarea' && styles.inputMultiline]} value={String(input.values[field.id] ?? '')} />}
     </View>) : null}
-    <Text style={styles.label}>Coach summary note</Text>
-    <TextInput accessibilityLabel="Coach summary note" editable={ready && !finalising && !draft?.finalisation} multiline onChangeText={notes => void persist({ ...inputRef.current, notes })} style={[styles.input, styles.inputMultiline]} value={input.notes} />
+    {fieldLabel('summary', 'Coach summary note')}
+    <TextInput accessibilityLabel="Coach summary note" editable={ready && !finalising && !draft?.finalisation} multiline onFocus={() => setFocusedField('summary')} onBlur={() => setFocusedField('')} onChangeText={notes => void persist({ ...inputRef.current, notes })} style={[styles.input, styles.inputMultiline]} value={input.notes} />
     <View style={styles.row}>
       {button('Cancel assessment', cancel, !ready || finalising || saving > 0 || !!draft?.finalisation || cancelling)}
       {button('Save private draft', () => void save(), !ready || finalising || !!draft?.finalisation || saving > 0)}

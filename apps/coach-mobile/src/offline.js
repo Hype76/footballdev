@@ -325,6 +325,7 @@ export async function updateCoachDevelopmentDraft(userId, context, key, change) 
     const items = { ...previous?.items }
     const previousDraft = items[key]
     result = change(items[key] || null)
+    if (result === previousDraft || (!result && !previousDraft)) return document
     if (result) items[key] = result
     else delete items[key]
     let next = { ...document, developmentDrafts: { ...document.developmentDrafts,

@@ -55,7 +55,7 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
       else notifyDevelopmentSync()
     }
     let workspace
-    try { workspace = await withMobileAsyncTimeout(() => getCoachDevelopmentWorkspace(scopedUser)) }
+    try { workspace = await withMobileAsyncTimeout(() => getCoachDevelopmentWorkspace(scopedUser, { includeHistory: false })) }
     catch (error) {
       for (const [key, draft] of Object.entries(drafts)) {
         if (draft.status !== 'synced' || draft.finalisation) await recordFailure(key, draft, error, 'preparing')

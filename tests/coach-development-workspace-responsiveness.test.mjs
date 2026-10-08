@@ -59,6 +59,18 @@ test('failed history leaves assessments usable and explicitly reports unavailabl
   assert.equal(result.historyLoading, false)
 })
 
+test('draft sync loads current form and player without starting or waiting for assessment history', async () => {
+  const { load, scopes } = workspaceLoader({ finishHistory: new Promise(() => {}) })
+  const result = await Promise.race([
+    load({ id: 'coach', clubId: 'club', activeTeamId: 'team' }, { includeHistory: false }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Draft sync waited for history')), 500)),
+  ])
+  assert.equal(result.players[0].id, 'player')
+  assert.equal(result.forms[0].id, 'form')
+  assert.equal(result.historyLoading, false)
+  assert.equal(scopes.some(([table]) => table === 'evaluations'), false)
+})
+
 for (const table of ['players', 'evaluation_drafts']) test(`failed ${table} cannot open an unsafe empty assessment editor`, async () => {
   const { load } = workspaceLoader({ failures: { [table]: 'Permission changed' }, finishHistory: Promise.resolve({ data: [] }) })
   let published = false

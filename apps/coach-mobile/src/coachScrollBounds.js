@@ -26,15 +26,18 @@ export function createCoachScrollBounds(scrollTo, clock = {
       if (offset > maximumOffset + 2) {
         offset = maximumOffset
         scrollTo({ animated: false, y: maximumOffset })
+      } else if (offset < -2) {
+        offset = 0
+        scrollTo({ animated: false, y: 0 })
       }
     }, 120)
   }
   const readOffset = (event) => {
     const y = event?.nativeEvent?.contentOffset?.y
-    if (Number.isFinite(y)) offset = Math.max(0, y)
+    if (Number.isFinite(y)) offset = y
   }
   return {
-    getOffset() { return offset },
+    getOffset() { return Math.max(0, offset) },
     resetOffset(y = 0) {
       cancel()
       offset = Math.max(0, y)

@@ -25,6 +25,9 @@ const scroller = elements.find(n => n.openingElement.attributes.some(a => a.name
 assert.ok(scroller, 'Coach uses the stable native scroll container')
 const header = elements.find(n => n.openingElement.name.name === 'CoachHeader')
 assert.ok(header.start > scroller.start && header.end < scroller.end, 'Header belongs to the native scrolling content')
+const dragAttribute = scroller.openingElement.attributes.find(a => a.name?.name === 'onScrollBeginDrag')
+assert.ok(dragAttribute, 'Coach dismisses the focused field at the start of a drag')
+const dragSource = source.slice(dragAttribute.value.expression.start, dragAttribute.value.expression.end)
 let shellSource = source.slice(shell.start, shell.end)
 for (const node of elements.filter(n => ['CoachRoute', 'CoachQuickActions'].includes(n.openingElement.name.name)).sort((a, b) => b.start - a.start)) {
   shellSource = shellSource.slice(0, node.start - shell.start) + (node.openingElement.name.name === 'CoachRoute' ? '<CoachRoute onRequestScrollTop={scrollContentToTop} onNotificationSettingsFocus={focusNotificationSettings}/>' : '<View/>') + shellSource.slice(node.end - shell.start)
@@ -39,7 +42,7 @@ const entry = `import {CoachTeamBrandingSetup} from './apps/coach-mobile/src/Coa
 const refreshUserProfile=async()=>{};
 
 import React,{useRef,useMemo,useCallback,useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
-import {View,Text,Image,Pressable,ScrollView,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState} from 'react-native';
+import {View,Text,Image,Pressable,ScrollView,TextInput,Keyboard,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState} from 'react-native';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
@@ -50,8 +53,7 @@ const CoachIcon=()=> <Text>+</Text>;
 const NotificationStatusButton=({onPress})=><Pressable accessibilityRole="button" accessibilityLabel="Notification settings" onPress={onPress}><Text>Alerts</Text></Pressable>;
 const StatePanel=()=>null,Notice=()=>null,BrandLoader=()=> <View style={{height:28}}/>;
 ${selected}
-function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput/><View style={{height:window.shortContent?200:1100}}/><Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
-const TextInput=()=> <input aria-label="Fixture notes" style={{marginTop:12,height:40}}/>;
+function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/><Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
 function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
@@ -68,6 +70,7 @@ useEffect(()=>()=>scrollBounds.dispose(),[scrollBounds]);
 ${callbacks}
 const navigate=route=>{setActiveRoute(route);scrollContentToTop()},selectContext=id=>{setSelected(id);scrollContentToTop()},openNotificationSettings=()=>{setActiveRoute('settings');requestAnimationFrame(()=>focusNotificationSettings(0))},loadHome=()=>setRefreshing(true);
 window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);
+window.beginDrag=${dragSource};
 useEffect(()=>{scrollContentToTop()},[activeRoute,scrollContentToTop]);
 return <View style={[styles.appShell,{height:'100vh'}]}>${shellSource}</View>;
 }
@@ -141,6 +144,11 @@ try {
       assert.ok(Math.abs((await header.boundingBox()).height-headerBox.height)<1,'Short content does not collapse the header')
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
       await page.getByLabel('Fixture notes').fill('Synthetic fixture note')
+      assert.equal(await page.getByLabel('Fixture notes').evaluate(el=>document.activeElement===el),true,'Real multiline input has focus')
+      await page.evaluate(()=>window.beginDrag({nativeEvent:{}}))
+      assert.equal(await page.getByLabel('Fixture notes').evaluate(el=>document.activeElement===el),false,'Production drag callback blurs the focused multiline input')
+      assert.equal(await page.getByLabel('Fixture notes').inputValue(),'Synthetic fixture note','Keyboard dismissal preserves entered notes')
+      await page.evaluate(()=>window.bounds.handlers.onScrollEndDrag({nativeEvent:{contentOffset:{y:0}}}))
       await page.setViewportSize({width,height:450})
       await page.getByLabel('Fixture notes').scrollIntoViewIfNeeded()
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal overflow')
@@ -148,5 +156,5 @@ try {
       await context.close()
     }
   }
-  console.log('PASS: actual Coach scroll/header layout, held touch, stable viewport, route/context resets, Settings offset, compact invitations and reduced viewport at 320/392px. Native handset confirmation remains separate.')
+  console.log('PASS: actual Coach scroll/header layout, held touch, stable viewport, route/context resets, Settings offset, compact invitations, multiline drag-dismiss without lost text and reduced viewport at 320/392px. Native handset confirmation remains separate.')
 } finally { await browser.close() }
