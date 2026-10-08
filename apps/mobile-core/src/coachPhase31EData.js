@@ -647,6 +647,25 @@ export async function submitCoachPollVote(user, poll, optionId) {
   return true
 }
 
+export async function getCoachMatchInvites(user, fixture, { onReady } = {}) {
+  assertCoachOperationalRead(user, { requiresTeam: true })
+  assertTeamEntity(user, fixture, 'Match')
+  const { matchResult, matchAvailabilityResult } = await readCoachMatchAvailability(supabase, user, [fixture])
+  const responses = new Map((matchAvailabilityResult.data || []).map(row => [`${normalize(row.match_day_id)}:${normalize(row.player_id)}`, row]))
+  const rows = Object.freeze((matchResult.data || []).map(row => {
+    const match = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days
+    const response = responses.get(`${normalize(row.match_day_id)}:${normalize(row.player_id)}`)
+    return normalizeCoachInvite({ ...row, availability_status: response?.status, responded_at: row.responded_at,
+      match_date: match?.match_date, title: match?.opponent, cancelled_at: match?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: match?.deleted_at }, 'match')
+  }))
+  // Publish only after both paginated reads finish. Offline command preparation is optional enrichment.
+  onReady?.(rows)
+  const preparations = await prepareAttendanceChoices(rows.map(row => row.stale || row.cancelled ? null : {
+    route: 'coach_player_match', target: { eventId: row.eventId, playerId: row.playerId },
+  }))
+  return Object.freeze(rows.map((row, index) => Object.freeze({ ...row, attendancePreparation: preparations[index] })))
+}
+
 export async function getCoachInvitesAndAvailability(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   const matchReads = getCoachMatchDayList(user).then(async (matches) => ({

@@ -9,6 +9,7 @@ import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
 import { mergeUnfinishedDevelopmentDrafts } from '../../mobile-core/src/developmentOfflineCore'
 import { subscribeDevelopmentSync, syncCoachDevelopmentDrafts } from './coachDevelopmentSync'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
+import { useCoachMatchInvites } from './useCoachMatchInvites'
 import { CoachResourceUploadAction } from './CoachResourceUploadAction'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -27,6 +28,7 @@ import {
   getCoachChatRooms,
   getCoachDevelopmentWorkspace,
   getCoachInvitesAndAvailability,
+  getCoachMatchInvites,
   getCoachMessages,
   getCoachPolls,
   getCoachResourceAccessUrl,
@@ -1020,14 +1022,38 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
   )
 }
 
-function InvitesDomain({ data: serverData, context, load, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, setNotice, stale, styles, user }) {
+async function readSavedMatchInvites(user, context) {
+  const saved = await readCoachOfflineResources(user.id, context)
+  return saved?.resources?.['phase31e:invites:fixture']
+}
+
+async function saveMatchInvites(user, context, fixtureId, snapshot) {
+  await saveCoachOfflineResources(user.id, context, { 'phase31e:invites:fixture': {
+    fixtureId, rows: snapshot.rows, checkedAt: snapshot.checkedAt,
+  } })
+}
+
+function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, setNotice, stale: domainStale, styles, user }) {
+  const [matchId, setMatchId] = useState('')
+  const [trainingKey, setTrainingKey] = useState('')
+  const today = new Date().toISOString().slice(0, 10)
+  const focusedFixture = getCoachAvailabilityMatches(serverData.matches || [], user.activeTeamId, today).find(match => match.id === matchId)
+  const focusedInvites = useCoachMatchInvites({ user, context, fixture: focusedFixture,
+    cachedRows: (serverData.match || []).filter(invite => invite.eventId === matchId),
+    sourceRevision: serverData.match,
+    loadRows: getCoachMatchInvites, readSaved: readSavedMatchInvites, saveRows: saveMatchInvites })
+  const fixtureSnapshot = focusedFixture ? { fixtureId: matchId, rows: focusedInvites.rows } : focusedInvites.lastSnapshot
+  const matchRows = fixtureSnapshot ? [...(serverData.match || []).filter(invite => invite.eventId !== fixtureSnapshot.fixtureId), ...fixtureSnapshot.rows] : serverData.match || []
+  const stale = focusedFixture ? focusedInvites.stale : domainStale
+  const refreshFocusedInvites = focusedInvites.refresh
+  const load = useCallback(options => focusedFixture ? refreshFocusedInvites() : loadDomain(options), [focusedFixture, refreshFocusedInvites, loadDomain])
   const attendanceOutbox = useAttendanceOutbox({
     scope: JSON.stringify(['coach', user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.role, context.teamId]),
     read: () => readCoachAttendanceCommands(user, context),
     update: change => updateCoachAttendanceCommands(user, context, change),
     onConfirmed: () => load({ silent: true }),
   })
-  const data = { ...serverData, match: (serverData.match || []).map(attendanceOutbox.project), training: (serverData.training || []).map(attendanceOutbox.project), trainingCoaches: (serverData.trainingCoaches || []).map(attendanceOutbox.project) }
+  const data = { ...serverData, match: matchRows.map(attendanceOutbox.project), training: (serverData.training || []).map(attendanceOutbox.project), trainingCoaches: (serverData.trainingCoaches || []).map(attendanceOutbox.project) }
   const loadInviteHistory = useCallback((invite) => getCoachInviteHistory(user, invite), [user])
   const [availabilityConfirm, setAvailabilityConfirm] = useState(null)
   const confirmRef = useRef(null)
@@ -1042,7 +1068,6 @@ function InvitesDomain({ data: serverData, context, load, onNavigate, onCaptureS
   const [showEventActions, setShowEventActions] = useState(false)
   const [bulkAction, setBulkAction] = useState('')
   const [removalConfirmation, setRemovalConfirmation] = useState(null)
-  const today = new Date().toISOString().slice(0, 10)
   const trainingGroups = [...(data.training || [])
     .filter((invite) => !invite.cancelled && !invite.stale)
     .filter((invite) => !invite.occurrenceDate || invite.occurrenceDate >= today)
@@ -1060,8 +1085,6 @@ function InvitesDomain({ data: serverData, context, load, onNavigate, onCaptureS
     matches: openMatches,
     trainingGroups,
   })
-  const [matchId, setMatchId] = useState('')
-  const [trainingKey, setTrainingKey] = useState('')
   const eventListScrollPosition = useRef(0)
   const pendingScrollPosition = useRef(null)
   // The keyed list/detail container restores only after its new native layout
@@ -1433,9 +1456,14 @@ function InvitesDomain({ data: serverData, context, load, onNavigate, onCaptureS
       <AttendancePendingRows outbox={attendanceOutbox} onRefresh={() => load({ silent: true })} styles={styles} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
         <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={backToEvents} style={{ minHeight: 44, width: 32, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="chevron-left" size={28} color={palette.textPrimary} /></Pressable>
-        <Text accessibilityRole="header" style={{ flex: 1, color: palette.textPrimary, fontSize: 23, fontWeight: '800' }}>{trainingKey ? 'Training Invites' : 'Match Invites'}</Text>
+        <View style={{ flex: 1 }}>
+          <Text accessibilityRole="header" style={{ color: palette.textPrimary, fontSize: 23, fontWeight: '800' }}>{trainingKey ? 'Training Invites' : 'Match Invites'}</Text>
+          {focusedFixture ? <Text accessibilityLiveRegion="polite" style={[styles.helper, { fontSize: 11, lineHeight: 14 }]}>{focusedInvites.checking ? 'Checking players...' : focusedInvites.stale ? user.isOfflineProfile ? 'Saved | offline' : 'Saved | check failed' : `Players checked ${new Date(focusedInvites.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</Text> : null}
+        </View>
+        {focusedFixture ? <Pressable accessibilityRole="button" accessibilityLabel="Refresh this fixture" accessibilityState={{ disabled: focusedInvites.checking || user.isOfflineProfile }} disabled={focusedInvites.checking || user.isOfflineProfile} onPress={() => void focusedInvites.refresh()} style={{ minHeight: 44, width: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="refresh" size={24} color={palette.accentText} /></Pressable> : null}
         {matchId || trainingKey ? <Pressable accessibilityRole="button" accessibilityLabel="Invitation actions" accessibilityState={{ expanded: showEventActions }} onPress={() => setShowEventActions(value => !value)} style={{ minHeight: 44, width: 40, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="more-horiz" size={24} color={palette.textPrimary} /></Pressable> : null}
       </View>
+      {focusedInvites.saveFailed && focusedFixture ? <Text style={styles.helper}>All invitations loaded, but could not be saved on this phone. Stay online and retry.</Text> : null}
       {showEventActions && (selectedMatch || trainingKey) ? <View accessibilityLabel="Invitation actions menu" style={styles.panel}>
         {selectedMatch ? <>
           <Text style={styles.helper}>{matchRequestPlayerCount} Players have a request. {availablePlayers.length} current Team Players have no request.</Text>
