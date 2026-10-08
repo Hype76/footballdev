@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "f70c3dc3a0e67350ce9668927f1eacc0a1326a0b375408466c2f5caca11a05c1",
+    "scripts/security-verify-reviewed-backports.mjs": "905e6ffc7f81311741cec83ff97382d18767d036c13c0f344e5f53d888a21a15",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1026,7 +1026,15 @@
       "tests/mobile-auth-refresh-browser.mjs": "35d8d16fa80df11328262f58179a2f6b6bef02ad55443bae0c8f805efc023599",
       "tests/mobile-parent-airplane-browser.mjs": "02467eccba928130d2336525f8b422a92abdbb23ac84b0ac1d79baa2772aca33",
       "apps/coach-mobile/src/useCoachMatchInvites.js": "ad5e0bed189534ef904f99f65ebd6272e080fac2a959fb6396f6f57cce903928",
-      "tests/coach-offline-storage.test.mjs": "ead3acc523992ddbb523742794dd43d17facdda26e71983cf12e5e163bbce3e3"
+      "tests/coach-offline-storage.test.mjs": "ead3acc523992ddbb523742794dd43d17facdda26e71983cf12e5e163bbce3e3",
+      "src/lib/parent-invite-email.js": "8bdab03c40277cb271078e42ee80e7ebbd03c7b900e884b625c6b3a98d7430f9",
+      "netlify/functions/send-parent-portal-invite.js": "6c80afc2fde2237dfbbebd6746167eeb84614a69585e47bc8df936b55d2b564d",
+      "netlify/functions/lib/_parent-portal-invite-email.js": "565a83474bce4c44068ff7151609188779bb669a1e0523b4781d2c6bd352778f",
+      "netlify/functions/lib/_parent-invite-branding.js": "012dff419d81d573595155b8a809e60c45aa295121b9cf6a3bc4d56310853322",
+      "supabase/migrations/20261008135335_parent_invite_team_branding.sql": "11ce87182d2d1c6f56fe76dbf4f8a905480ba0313e9dda0d064f8954ab6cb10f",
+      "tests/parent-invite-team-branding.test.mjs": "8cce73a6f47d07c9e3631e423349348ef822b86cb4c7f559fd85b79efd6af259",
+      "tests/parent-invite-branding-pglite.test.mjs": "623cecf4e9240f52161221ad8260b4f8a59bd291951193dcfa5852e3cb2f1609",
+      "tests/coach-mobile-parent-invite-email-80.test.mjs": "4dc2b311ae45aa1eb1a03cd5a40c135dde789590aabb7c2a94072f41c735f006"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1757,9 +1765,36 @@
         "customerWrites": 0,
         "coachCompatibleOtaOnly": true,
         "parentUnchanged": true
+      },
+      "familyPortalInviteBranding": {
+        "baseline": "4320ace8705ac0bfa156c9f745c4c23676380f3f",
+        "scope": [
+          "src/lib/parent-invite-email.js",
+          "netlify/functions/send-parent-portal-invite.js",
+          "netlify/functions/lib/_parent-portal-invite-email.js",
+          "netlify/functions/lib/_parent-invite-branding.js",
+          "supabase/migrations/20261008135335_parent_invite_team_branding.sql",
+          "tests/parent-invite-team-branding.test.mjs",
+          "tests/parent-invite-branding-pglite.test.mjs",
+          "tests/coach-mobile-parent-invite-email-80.test.mjs"
+        ],
+        "reasons": [
+          "Load effective server branding after direct or queue invitation authorisation without trusting request or stored artwork",
+          "Service-only read RPC preserves paid Club precedence, base entitlement, exact team and club scope, offer release and provisional expiry; no customer record writes",
+          "Synthetic direct handler, queue payload, scoped display, image safety and executable SQL permission regressions; draft PR153 colour overlap inspected and excluded"
+        ],
+        "independentExactCandidateReviewRequired": true,
+        "publication": false,
+        "migrations": 1,
+        "nativeChanges": 0,
+        "dependencyChanges": 0,
+        "customerInvitationSends": 0,
+        "webOnly": true,
+        "coachUnchanged": true,
+        "parentUnchanged": true
       }
     }
   },
-  "releasePreparationSha256": "ed7e0002c6898a9f43f0112a598a061774203e83cc2ca49013c5cb129c554f3b",
+  "releasePreparationSha256": "400157618f6f429f7eb53712f787f94b0f2a8f88d459f4d596a77ff4042305ef",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
