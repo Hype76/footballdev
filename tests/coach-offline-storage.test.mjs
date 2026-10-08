@@ -97,6 +97,37 @@ async function freshRecoveryAccount() {
   await storage.coachOfflineProfileStore.read(liveProfile.id)
 }
 
+test('a captured assessment saver cannot recreate drafts after sign-out and the same account returns', async () => {
+  await freshRecoveryAccount()
+  await storage.coachOfflineProfileStore.write(liveProfile)
+  const save = storage.createCoachDevelopmentDraftSaver(liveProfile.id, recoveryContext)
+  await storage.clearCoachOfflineState()
+  await storage.coachOfflineProfileStore.read(liveProfile.id)
+  await storage.coachOfflineProfileStore.write(liveProfile)
+  assert.throws(() => save({ playerId: 'old-player', formId: 'form', values: { score: 6 }, notes: 'Old pending work' }), /offline_scope_invalidated/)
+  assert.deepEqual(await storage.readCoachDevelopmentDrafts(liveProfile.id, recoveryContext), {})
+})
+
+test('a captured assessment saver rechecks current authority before writing a delayed edit', async () => {
+  await freshRecoveryAccount()
+  await storage.coachOfflineProfileStore.write(liveProfile)
+  const save = storage.createCoachDevelopmentDraftSaver(liveProfile.id, recoveryContext)
+  await storage.coachOfflineProfileStore.write({ ...liveProfile, coachContexts: [] })
+  await assert.rejects(save({ playerId: 'player', formId: 'form', values: { score: 6 } }), /belong to a different workspace/)
+  assert.equal(await storage.countPendingCoachDevelopmentDrafts(liveProfile.id), 0)
+})
+
+test('a captured assessment saver retains the correct player when navigation changes selection', async () => {
+  await freshRecoveryAccount()
+  await storage.coachOfflineProfileStore.write(liveProfile)
+  const save = storage.createCoachDevelopmentDraftSaver(liveProfile.id, recoveryContext)
+  await save({ playerId: 'first-player', formId: 'form', values: { score: 6 }, notes: 'First player' })
+  await save({ playerId: 'second-player', formId: 'form', values: { score: 8 }, notes: 'Second player' })
+  const drafts = await storage.readCoachDevelopmentDrafts(liveProfile.id, recoveryContext)
+  assert.equal(drafts[JSON.stringify(['first-player', 'form'])].notes, 'First player')
+  assert.equal(drafts[JSON.stringify(['second-player', 'form'])].notes, 'Second player')
+})
+
 for (const failure of ['key-write', 'data-write']) {
   test(`Sessions repairs a missing initial profile after a transient ${failure} failure`, async () => {
     await freshRecoveryAccount()

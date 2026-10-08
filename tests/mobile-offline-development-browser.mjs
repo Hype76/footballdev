@@ -27,7 +27,8 @@ const offlineMock=`import {editLocalDevelopmentDraft,developmentDraftKey} from '
 let chain=Promise.resolve();const read=()=>JSON.parse(localStorage.getItem('drafts')||'{}');
 export const readCoachDevelopmentDrafts=async()=>{await chain;return read()};
 export function updateCoachDevelopmentDraft(user,context,key,change){const task=chain.then(async()=>{if(window.storageDelay)await new Promise(resolve=>setTimeout(resolve,window.storageDelay));if(window.failStorage)throw Error('Storage full. Keep this screen open.');const all=read();const next=change(all[key]||null);if(next)all[key]=next;else delete all[key];localStorage.setItem('drafts',JSON.stringify(all));return next});chain=task.catch(()=>{});let timer;return Promise.race([task,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error("Phone storage is taking too long. Keep your entries open and retry saving. Do not clear app data.")),window.storageWaitMs)})]).finally(()=>clearTimeout(timer));}
-export const saveLocalCoachDevelopmentDraft=(user,context,input)=>updateCoachDevelopmentDraft(user,context,developmentDraftKey(input.playerId,input.formId),previous=>editLocalDevelopmentDraft(previous,{...input,id:previous?.id||crypto.randomUUID()}));`
+export const saveLocalCoachDevelopmentDraft=(user,context,input)=>updateCoachDevelopmentDraft(user,context,developmentDraftKey(input.playerId,input.formId),previous=>editLocalDevelopmentDraft(previous,{...input,id:previous?.id||crypto.randomUUID()}));
+export const createCoachDevelopmentDraftSaver=(user,context)=>input=>saveLocalCoachDevelopmentDraft(user,context,input);`
 const mocks=[[/\/offline$/,offlineMock],[/coachContextCore$/,`export const applyCoachContext=(user)=>user;`],[/coachPhase31EData$/,`
 import {sameDevelopmentSave} from './apps/mobile-core/src/developmentOfflineCore.js';
 import {validateCoachDevelopmentValues,splitCoachDevelopmentVisibility} from './apps/mobile-core/src/coachPhase31ECore.js';

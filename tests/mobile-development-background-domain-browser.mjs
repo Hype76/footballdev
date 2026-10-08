@@ -38,7 +38,8 @@ const storage = `import {editLocalDevelopmentDraft,developmentDraftKey} from './
 let chain=Promise.resolve();const read=user=>JSON.parse(localStorage.getItem('drafts:'+user)||'{}');
 export const readCoachDevelopmentDrafts=async user=>{await chain;return read(user)};
 export function updateCoachDevelopmentDraft(user,context,key,change){const task=chain.then(()=>{const all=read(user),next=change(all[key]||null);if(next)all[key]=next;else delete all[key];localStorage.setItem('drafts:'+user,JSON.stringify(all));return next});chain=task.catch(()=>{});return task}
-export const saveLocalCoachDevelopmentDraft=(user,context,input)=>updateCoachDevelopmentDraft(user,context,developmentDraftKey(input.playerId,input.formId),previous=>{if(previous?.finalisation)throw Error('Already queued');return editLocalDevelopmentDraft(previous,{...input,id:previous?.id||crypto.randomUUID()})});`
+export const saveLocalCoachDevelopmentDraft=(user,context,input)=>updateCoachDevelopmentDraft(user,context,developmentDraftKey(input.playerId,input.formId),previous=>{if(previous?.finalisation)throw Error('Already queued');return editLocalDevelopmentDraft(previous,{...input,id:previous?.id||crypto.randomUUID()})});
+export const createCoachDevelopmentDraftSaver=(user,context)=>input=>saveLocalCoachDevelopmentDraft(user,context,input);`
 const transport = `export const discardCoachDevelopmentDraft=async()=>{};
 export const getCoachDevelopmentWorkspace=async()=>window.workspace;
 export const saveCoachDevelopmentDraft=async(user,request)=>{await new Promise(r=>setTimeout(r,window.remoteDelay));return {clientSaveVersion:request.clientSaveVersion+1,lastSavedAt:new Date().toISOString()}};
