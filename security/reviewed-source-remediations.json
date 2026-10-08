@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "dcac1e351773bbf26dc719ad4a8c2e94b1e40986f6a407ce357cc18638474e3a",
+    "scripts/security-verify-reviewed-backports.mjs": "abf9251c563f9e5f9185ee13b5f749054bd0e7dd5bb0a140db4b1ec882e22d07",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -974,7 +974,7 @@
       "tests/coach-development-notifications.test.mjs": "17a18bb6706deee36f003118099202301f1113aecd73825edbfb653e6ad41eef",
       "tests/coach-development-selectors-browser.mjs": "e9129d2c967815ecaca72e2394f14fcedd0575b7626e4b53abcad1a7d067a7ac",
       "tests/coach-player-profile-browser.mjs": "08f03e563bbf7f8d14a9a4b37c24506a8c6d7145129b6b98aeae70de139c7f85",
-      "tests/mobile-development-background-domain-browser.mjs": "2eac9cee20de5e41b35e0ea1cfd12ca84d754eae7bea61e042e43ff490afc32c",
+      "tests/mobile-development-background-domain-browser.mjs": "7e3c2e6e30aaffc0aca676a76adb3461c9d9a5a6115a30c6fc1fa02f4b70f337",
       "tests/mobile-development-background.test.mjs": "aab9a063b6e7d8dbf51d74360cfbe2fd45de2acd91ff393c07055d15f018fd19",
       "tests/mobile-notification-categories.test.mjs": "5c72804fd24633115b2c05bfcc5a4dc06753a2cbb33a412fbe3d2a18e0fb8087",
       "tests/mobile-notification-settings-browser.mjs": "b2e29a5daae3566686babf84e7ae7c7b470c4bfb1aa62d3cc4fbb22c1c5c0b15",
@@ -1842,15 +1842,16 @@
         "baseline": "93fce22863d18434c2193530c72fdc326d8d049e",
         "scope": [
           "apps/coach-mobile/src/DevelopmentOfflineEditor.js",
+          "apps/coach-mobile/src/developmentAutosaveQueue.js",
           "apps/coach-mobile/src/offline.js",
           "apps/mobile-core/src/offlineStorageCore.js",
           "tests/coach-offline-storage.test.mjs",
-          "tests/development-save-repair.test.mjs",
-          "tests/mobile-offline-development-browser.mjs",
-          "tests/mobile-offline-storage-timeout.test.mjs",
-          "apps/coach-mobile/src/developmentAutosaveQueue.js",
           "tests/development-autosave-encrypted-browser.mjs",
-          "tests/development-autosave-queue.test.mjs"
+          "tests/development-autosave-queue.test.mjs",
+          "tests/development-save-repair.test.mjs",
+          "tests/mobile-development-background-domain-browser.mjs",
+          "tests/mobile-offline-development-browser.mjs",
+          "tests/mobile-offline-storage-timeout.test.mjs"
         ],
         "reasons": [
           "Coalesce rapid assessment edits to one in-flight write and the newest complete pending input",
@@ -1870,6 +1871,6 @@
       }
     }
   },
-  "releasePreparationSha256": "c99800df952099b237ce481249c5e2b94fb8a5b55085b32404fd34dae37093b5",
+  "releasePreparationSha256": "2750c2e77b1cf72fb34be0db119fc4c4880d46c175fa6c6abbbb94ac57f02a0d",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
