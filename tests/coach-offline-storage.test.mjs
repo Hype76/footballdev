@@ -4,6 +4,8 @@ import { build } from 'esbuild'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { resolveCoachStaffContext } from '../apps/mobile-core/src/coachContextCore.js'
+import { resolveCoachBranding } from '../apps/coach-mobile/src/coachThemeCore.js'
 const mocks = {
   '@react-native-async-storage/async-storage': `globalThis.offlineCiphertext=new Map();export default {getItem:async k=>globalThis.offlineCiphertext.get(k)||null,setItem:async(k,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw new Error('Device storage unavailable');globalThis.offlineCiphertext.set(k,v)},removeItem:async k=>{globalThis.offlineCiphertext.delete(k)}}`,
   'expo-secure-store': `globalThis.offlineKeys=new Map();const keys=globalThis.offlineKeys;export const AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY='device';export const getItemAsync=async k=>keys.get(k)||null;export const setItemAsync=async(k,v)=>{if(globalThis.offlineNativeFailure==='key-write')throw new Error('SecureStore unavailable');keys.set(k,v)};export const deleteItemAsync=async k=>{keys.delete(k)};`,
@@ -15,6 +17,31 @@ await mkdir('output/feedback-tools',{recursive:true})
 const file=path.resolve('output/feedback-tools/offline-storage-under-test.mjs')
 await writeFile(file,bundle.outputFiles[0].text)
 const storage=await import(pathToFileURL(file))
+
+test('saved Coach profiles retain authorised team branding for the header across refresh and restart', async () => {
+  await storage.clearCoachOfflineState()
+  await storage.coachOfflineProfileStore.read('branding-coach')
+  const context = { id: 'branding-context', clubId: 'branding-club', teamId: 'branding-team', role: 'head_manager', roleRank: 70, planKey: 'matchday', authorityId: 'branding-authority', authoritySource: 'team_staff' }
+  const display = { teamId: context.teamId, clubId: context.clubId, source: 'team', logoAllowed: true, coloursAllowed: true, baseLogoAllowed: false, baseColoursAllowed: false, expiresAt: '2099-01-07T16:56:22Z', logoUrl: 'https://example.test/uploaded-team-badge.png', accent: '#e22400', buttonStyle: 'solid', privateManagementNotes: 'Do not cache' }
+  const profile = { id: 'branding-coach', activeCoachContextId: context.id, coachContexts: [{ ...context, teamBrandingDisplay: display }] }
+  const headerBranding = value => resolveCoachBranding(resolveCoachStaffContext({ profile: value }).context)
+  const saved = await storage.coachOfflineProfileStore.write(profile)
+  assert.equal(headerBranding(saved).logoUrl, display.logoUrl)
+  assert.equal(headerBranding(saved).accent, display.accent)
+  assert.equal(saved.coachContexts[0].teamBrandingDisplay.privateManagementNotes, undefined)
+  const reopened = await storage.coachOfflineProfileStore.read(profile.id)
+  assert.deepEqual(headerBranding(reopened), headerBranding(saved))
+  const replacement = { ...display, logoUrl: 'https://example.test/replacement-badge.png', accent: 'blue' }
+  const refreshed = await storage.coachOfflineProfileStore.write({ ...profile, coachContexts: [{ ...context, teamBrandingDisplay: replacement }] })
+  assert.equal(headerBranding(refreshed).logoUrl, replacement.logoUrl)
+  assert.equal(headerBranding(refreshed).accent, 'blue')
+  for (const rejected of [{ ...display, teamId: 'another-team' }, { ...display, clubId: 'another-club' }, { ...display, expiresAt: '2000-01-01T00:00:00Z' }, { ...display, logoAllowed: false, coloursAllowed: false }]) {
+    const denied = await storage.coachOfflineProfileStore.write({ ...profile, coachContexts: [{ ...context, teamBrandingDisplay: rejected }] })
+    assert.equal(headerBranding(denied).logoUrl, '')
+    assert.equal(headerBranding(denied).accent, 'green')
+  }
+  await storage.clearCoachOfflineState()
+})
 
 test('actual encrypted adapter retains eight fixtures and Development work with account and authority isolation',async()=>{
   const context={id:'context',authorityId:'authority',authoritySource:'team_staff',clubId:'club',teamId:'team',role:'coach'}
