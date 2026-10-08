@@ -9,6 +9,7 @@ import * as coach from '../apps/mobile-core/src/coachOfflineCore.js'
 import * as parent from '../apps/mobile-core/src/parentOfflineCore.js'
 import * as links from '../apps/mobile-core/src/parentLinks.js'
 import { applyParentNotificationAction } from '../apps/mobile-core/src/parentNotificationInboxCore.js'
+import { getScopedTeamBranding } from '../src/lib/team-branding-display.js'
 
 const projectRef = 'ndohkecigwlwayghsopw'
 function deferred() { let resolve; const promise = new Promise((done) => { resolve = done }); return {promise,resolve} }
@@ -16,7 +17,7 @@ function fixture(role, options = {}) {
   const values = new Map(), keys = new Map()
   const storage = { fail: false, async getItem(key) { return values.get(key) ?? null }, async removeItem(key) { values.delete(key) }, async setItem(key,value) { if (this.fail) throw new Error('synthetic_write_failure'); values.set(key,value) } }
   const keyStore = { async getItemAsync(key) { return keys.get(key) ?? null }, async setItemAsync(key,value) {keys.set(key,value)}, async deleteItemAsync(key) {keys.delete(key)} }
-  const dependencies = { ...coach, ...parent, ...links, applyParentNotificationAction, createEncryptedOfflineStore,
+  const dependencies = { ...coach, ...parent, ...links, applyParentNotificationAction, createEncryptedOfflineStore, getScopedTeamBranding,
     AsyncStorage: storage, SecureStore:keyStore, Crypto:{randomUUID, getRandomBytesAsync:async (n)=>new Uint8Array(randomBytes(n))}, xchacha20poly1305,bytesToUtf8,utf8ToBytes,
     getMobileRuntimeConfig:()=>({isUsable:true,isProduction:false,supabaseUrl:`https://${projectRef}.supabase.co`}),
     APPROVED_MOBILE_PRODUCTION:{supabaseRef:'production'}, APPROVED_MOBILE_TEST:{supabaseRef:projectRef},

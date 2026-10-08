@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "3f74127598dd3a82d9b5aeee0e23cdd9f38dea6a323fd91f66ea92966f030930",
+    "scripts/security-verify-reviewed-backports.mjs": "f70c3dc3a0e67350ce9668927f1eacc0a1326a0b375408466c2f5caca11a05c1",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -959,7 +959,7 @@
       "tests/phone-team-administration-pglite.test.mjs": "73cc2d0ae1f306214150ddc33cdf700a14173c677a1fb8c761c204a9dd2a5e0e",
       "tests/phone-team-administration.test.mjs": "f17a6ae83c0dd18b4910d57fbfeb7cf9ea14a05b8dd0497946c925205572d7a7",
       "tests/shared-appearance-authority-pglite.test.mjs": "d6325f95f63429d03e71480b9aab8b890fa09899377d8d42b3dc65b8369af8b0",
-      "tests/v1-offline-transactions.test.mjs": "c8b8ae78d765bc4b8bb8ddc92bdff0ed04e2b1cdd9bdf97549cc3cd8c15abb2f",
+      "tests/v1-offline-transactions.test.mjs": "fb4ebd72fe7e5f9a765d2f7c293e3c9ca98b85d9050851864dda6a99a8f9d6da",
       "apps/coach-mobile/src/useCoachDevelopmentSync.js": "7381faec52a3b6423ff5a89b5522aa1e0c2f9d4572e48831728577ca3cc3f0db",
       "apps/mobile-core/src/NotificationCategorySettings.js": "1b6a60ca841f60212e5bc742049e90978807e337f13ad36af23485c6e64068b9",
       "apps/mobile-core/src/coachPlayersCore.js": "89a67daa5b0f2c3ae0b4c59636ed1f036ee705f678ca8e71518848c98584fad1",
@@ -1741,7 +1741,8 @@
         "baseline": "d808968857d721f297a7e0643a82ac3d30bf35dc",
         "scope": [
           "apps/coach-mobile/src/offline.js",
-          "tests/coach-offline-storage.test.mjs"
+          "tests/coach-offline-storage.test.mjs",
+          "tests/v1-offline-transactions.test.mjs"
         ],
         "reasons": [
           "Retain only validated and scoped team branding display fields in the encrypted Coach profile returned to the header after fresh reads and restart",
@@ -1759,6 +1760,6 @@
       }
     }
   },
-  "releasePreparationSha256": "420909ecbd6cdb114fe2b71679fc54be8037d7e1e7b46a93a3c5f931e26a61bf",
+  "releasePreparationSha256": "ed7e0002c6898a9f43f0112a598a061774203e83cc2ca49013c5cb129c554f3b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
