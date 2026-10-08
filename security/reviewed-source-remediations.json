@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "5421177233cd0b54a0a4b00ea3637c1b18558e0fe606517e3431517221a0ce22",
+    "scripts/security-verify-reviewed-backports.mjs": "345a0215e09bdd6ad908933d04d69224fdfa3aae90e56624bdffad1b431ce1d7",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -675,7 +675,7 @@
       "apps/coach-mobile/App.js": "af902441aaab29c517babdb9e834ccc8ae28b30d8b234993e10073d66dac43db",
       "apps/coach-mobile/src/CoachMatchDayScreen.js": "c8622382857702b07f83769bdc19ce43fc537f7558c40f4e9a80975d3711a29f",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "01857bae300d5d17d33a85d3d66dc28397dc4fee4a1ca25ce1fbadeff5d9479e",
-      "apps/coach-mobile/src/CoachPhase31EScreens.js": "0de7f1f6f9e610cdd0a1afd3291d905f223c5800a72f9fac90ae0cc9dcbbf4c3",
+      "apps/coach-mobile/src/CoachPhase31EScreens.js": "ff7ef4973498eafa6a8f8570c0227a0169384649b36085a6d4ce175418dee151",
       "apps/coach-mobile/src/CoachTeamBrandingSetup.js": "2f159548a46a6d283ee024c8d25e2b5d0fc50d01c3dfcfbc510c9cb672bb7316",
       "apps/coach-mobile/src/DevelopmentOfflineEditor.js": "a4f4cf98ed2cf1616286cb473b67c8c6a9c51b2d3f11828043cd0346ca428570",
       "apps/coach-mobile/src/coachDevelopmentSync.js": "1c60450303ea33ebd7aef3959a7e48182ddf4a1ed21293a97d5f63d660c82322",
@@ -690,7 +690,7 @@
       "apps/mobile-core/src/coachMatchDayData.js": "f434365f080e761f44bec8775d40dbe43687570e479aaafb2756bd41c7682267",
       "apps/mobile-core/src/coachOfflineCore.js": "0726d23f218e743a6c5c718947a479eddfb8d6d184d60f27fb480582029117d9",
       "apps/mobile-core/src/coachPhase31ECore.js": "92c96e482a5d3696e806a7c751ba5e8071905f5921a6be8e5f5dad2f89417286",
-      "apps/mobile-core/src/coachPhase31EData.js": "6376f4e7898ad9aab3c8477bcb71695d52f877d4980c51004d2724796515855d",
+      "apps/mobile-core/src/coachPhase31EData.js": "a811ddc0dce20055671613eb70d71150c83e5558aeec0279ff1b0600c9719ac7",
       "apps/mobile-core/src/developmentSaveStatusCore.js": "7a15503a61a0395ec314246c6b2384aebce2d1338342653fdf55046e5dcfad7d",
       "apps/mobile-core/src/matchDayParticipantRoster.js": "ac179cee3b6b949728a03b31de122218aab06e4ae1b111903e6e4ab2adad0ff2",
       "apps/mobile-core/src/parentStatusColours.js": "e8c86edfb1da8eeb001c2acd47ba18f37e9021bae49fb683dc8923927deaca7a",
@@ -752,10 +752,10 @@
       "tests/calendar-event-notify-hotfix.test.mjs": "cdea6e62337aa14190fe36b1ccdf54d1f9e03c6ea4b1082cc8d11157eb56c79f",
       "tests/calendar-mobile-modal-layout.test.mjs": "13ad59d6b4452e917239a964a6aca391825cbce810dcd306b286e1275628cb4c",
       "tests/club-calendar-parents.test.mjs": "018c4b27d772495d20d6c4d3b404c906bf349cb0e392ac43f3e21d82be78e055",
-      "tests/coach-availability-counts.test.mjs": "7e21c508a3a2b518bbf5a676a19f98b058afce3e172f6c4dc2b5490da823f4b1",
+      "tests/coach-availability-counts.test.mjs": "e8b2a5524fa1c29b342ecc733f64780f61b70d0ad9c67640a4b07d6aab82f874",
       "tests/coach-branding-return-browser.mjs": "1eadf951c1d2c9c60dc7827fd285f293be9fc778282299a2e89b68f7e6e07008",
       "tests/coach-cache-memory.test.mjs": "03b96a06df4ba67de71a27c30357df35e50f8ed6d05931e3a39786a1e7713550",
-      "tests/coach-invite-table-browser.mjs": "3d96596d902e6e607d138398f418f37add536dcbb2ea2fdc2a6979d8a8612c09",
+      "tests/coach-invite-table-browser.mjs": "63d99b7a2e8fee7344d30355e932d6b7df2fe4a44d85f19a3af291c26656ef26",
       "tests/coach-renewal.test.mjs": "beede291eca1615496d8b3ad72e3ffd7e65b7b42fe83515c6bf2bd4b9a92e086",
       "tests/coach-smooth-scroll-browser.mjs": "482276d408bb2e0094e2e5bd873c5003420597c4ca9941334ad000c7d0ab64be",
       "tests/data-transfer-hardening.test.mjs": "5b62949488bea2e51dd60c1dc15805cff874d0096ec0679b359fda421d0f813d",
@@ -1024,7 +1024,8 @@
       "apps/parent-mobile/src/FansScreen.js": "749addc44ef57ed4708682aee78d83f481fee2602d951779dcfb61e5584de2b7",
       "supabase/migrations/20261007182800_mobile_development_notification_preference.sql": "f5928d8d7fad784eeea804e629bed7a6c7649e47c158ca7d0982abb54471f8b0",
       "tests/mobile-auth-refresh-browser.mjs": "35d8d16fa80df11328262f58179a2f6b6bef02ad55443bae0c8f805efc023599",
-      "tests/mobile-parent-airplane-browser.mjs": "02467eccba928130d2336525f8b422a92abdbb23ac84b0ac1d79baa2772aca33"
+      "tests/mobile-parent-airplane-browser.mjs": "02467eccba928130d2336525f8b422a92abdbb23ac84b0ac1d79baa2772aca33",
+      "apps/coach-mobile/src/useCoachMatchInvites.js": "ad5e0bed189534ef904f99f65ebd6272e080fac2a959fb6396f6f57cce903928"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1691,9 +1692,31 @@
         "dependenciesNativePatchesExpiryAndPreviousProvenanceUnchanged": true,
         "publication": false,
         "independentExactCandidateReviewRequired": true
+      },
+      "matchInvitesCompleteRoster": {
+        "baseline": "188434f14bd2227f02d36590ce48ddf4a5defb86",
+        "scope": [
+          "apps/coach-mobile/src/CoachPhase31EScreens.js",
+          "apps/coach-mobile/src/useCoachMatchInvites.js",
+          "apps/mobile-core/src/coachPhase31EData.js",
+          "tests/coach-availability-counts.test.mjs",
+          "tests/coach-invite-table-browser.mjs"
+        ],
+        "reasons": [
+          "Load complete paged selected-fixture invitations and canonical responses independently of Home and unrelated Training resources",
+          "Publish complete rows before optional offline preparation and save only the latest scoped fixture snapshot",
+          "Reject late account, team, fixture and timed-out responses; preserve legitimate server removals and existing authority checks",
+          "Keep compact header status and refresh action; verify incomplete cached roster replacement and repeated opens"
+        ],
+        "independentExactCandidateReviewRequired": true,
+        "publication": false,
+        "migrations": 0,
+        "nativeChanges": 0,
+        "dependencyChanges": 0,
+        "customerWrites": 0
       }
     }
   },
-  "releasePreparationSha256": "3c27bce602c3ca0901b282c255e061401536176384bb2ca54c20828c12f86b71",
+  "releasePreparationSha256": "6be996ebdaff0895454aa48fb3a0534cb04d6745e5d28fc100e8562d16914078",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

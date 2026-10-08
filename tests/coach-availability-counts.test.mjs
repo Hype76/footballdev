@@ -6,6 +6,16 @@ import { getCoachAvailabilityMatches, normalizeCoachInvite, collapseCoachInvites
 
 const user = { clubId: 'club', activeTeamId: 'team' }
 const fixture = (id, overrides = {}) => ({ id, teamId: 'team', status: 'scheduled', matchDate: '2099-09-19', ...overrides })
+
+const dataSource = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
+const focusedBody = dataSource.slice(dataSource.indexOf('export async function getCoachMatchInvites('), dataSource.indexOf('export async function getCoachInvitesAndAvailability(')).replace('export ', '')
+function focusedLoader(client, prepare = async choices => choices.map(() => null)) {
+  return new Function('supabase', 'assertCoachOperationalRead', 'assertTeamEntity', 'readCoachMatchAvailability', 'normalize', 'normalizeCoachInvite', 'prepareAttendanceChoices', `${focusedBody};return getCoachMatchInvites`)(
+    client, candidate => assert.equal(candidate.activeTeamId, user.activeTeamId),
+    (candidate, match) => { if (match.teamId !== candidate.activeTeamId) throw Error('Wrong Team') },
+    readCoachMatchAvailability, value => String(value || '').trim(), normalizeCoachInvite, prepare,
+  )
+}
 function database(tables, failTable = '') {
   const reads = []
   return { reads, from(table) {
@@ -76,4 +86,37 @@ test('the shared fixture selection preserves upcoming, active-team, open, first-
   const client = database({})
   assert.deepEqual(await readCoachMatchAvailability(client, user, []), { matchResult: { data: [] }, matchAvailabilityResult: { data: [] } })
   assert.equal(client.reads.length, 0)
+})
+
+test('selected fixture reads all 17 invited players independently of other invitation sources', async () => {
+  const { matches, tables } = largeDataset(), client = database(tables)
+  const result = await focusedLoader(client)(user, matches[0])
+  assert.equal(collapseCoachInvitesByPlayer(result).length, 17)
+  assert.ok(result.every(row => row.eventId === matches[0].id))
+  assert.deepEqual([...new Set(client.reads.map(read => read.table))].sort(), ['match_day_availability_requests', 'match_day_player_availability'])
+  await assert.rejects(focusedLoader(client)(user, fixture('foreign', { teamId: 'other' })), /Wrong Team/)
+})
+
+test('complete roster becomes available before a slow offline-command preparation', async () => {
+  const { matches, tables } = largeDataset()
+  let finishPreparation, publish
+  const ready = new Promise(resolve => { publish = resolve })
+  const load = focusedLoader(database(tables), () => new Promise(resolve => { finishPreparation = resolve }))
+  const pending = load(user, matches[0], { onReady: publish })
+  const rows = await ready
+  assert.equal(collapseCoachInvitesByPlayer(rows).length, 17)
+  finishPreparation(rows.map(() => ({ route: 'coach_player_match' })))
+  assert.equal((await pending).length, rows.length)
+})
+
+test('failed later selected-fixture page never publishes a partial roster', async () => {
+  const match = fixture('large-match')
+  const common = { club_id: 'club', team_id: 'team', match_day_id: match.id, status: 'available' }
+  const requests = Array.from({ length: 270 }, (_, i) => ({ ...common, id: String(i).padStart(3, '0'), player_id: 'p-'+i }))
+  for (const table of ['match_day_availability_requests', 'match_day_player_availability']) {
+    let published = false
+    const client = database({ match_day_availability_requests: requests, match_day_player_availability: requests }, table)
+    await assert.rejects(focusedLoader(client)(user, match, { onReady: () => { published = true } }), /Second page unavailable/)
+    assert.equal(published, false)
+  }
 })
