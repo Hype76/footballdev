@@ -2,6 +2,7 @@ import {
   buildAuthoritativeParentInviteEmail,
   PARENT_PORTAL_EMAIL_ORIGIN,
 } from '../../../src/lib/parent-invite-email.js'
+import { loadParentInviteBranding } from './_parent-invite-branding.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -214,6 +215,7 @@ export async function prepareScheduledParentPortalInviteRow(row, {
   }
 
   const email = await buildAuthoritativeParentInviteEmail({
+    brandingDisplay: await loadParentInviteBranding(supabaseClient, context.inviteLink),
     existingParentPortalUser: context.existingParentPortalUser,
     fetchImpl,
     inviteLink: {

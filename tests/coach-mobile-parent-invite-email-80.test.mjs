@@ -31,8 +31,13 @@ function reachableImageResponse() {
   }
 }
 
-function createSupabaseFixture(tables) {
+function createSupabaseFixture(tables, brandingDisplay = null, brandingCalls = []) {
   return {
+    async rpc(name, args) {
+      brandingCalls.push({ name, args })
+      assert.equal(name, 'read_parent_invite_branding')
+      return { data: brandingDisplay, error: null }
+    },
     from(tableName) {
       const filters = []
       let updateValues = null
@@ -216,18 +221,46 @@ test('scheduled Parent Portal invites are rebuilt from current authoritative dat
   assert.deepEqual(preparedEmail.emailPayload.to, [fixture.recipientEmail])
 })
 
+test('queued invites reload eligible branding and preserve paid Club precedence and expiry', async () => {
+  const display = { teamId: ids.team, clubId: ids.club, source: 'team', logoAllowed: true,
+    coloursAllowed: true, logoUrl: 'https://cdn.example.com/team.png', accent: '#15803d' }
+  for (const brandingDisplay of [display, { ...display, source: 'paid_club', logoUrl: 'https://cdn.example.com/paid-club.png' },
+    { ...display, expiresAt: '2000-01-01T00:00:00Z' }, { ...display, logoAllowed: false, coloursAllowed: false }]) {
+    const fixture = parentInviteFixture()
+    fixture.row.payload.brandingDisplay = { ...display, logoUrl: 'https://attacker.example.com/forged.png' }
+    const calls = []
+    const preparation = await prepareScheduledParentPortalInviteRow(fixture.row, {
+      fetchImpl: async () => reachableImageResponse(), supabaseClient: createSupabaseFixture(fixture.tables, brandingDisplay, calls),
+    })
+    assert.equal(preparation.skipped, false)
+    assert.deepEqual(calls, [{ name: 'read_parent_invite_branding', args: { team_value: ids.team, club_value: ids.club } }])
+    const html = preparation.row.payload.resendPayload.html
+    assert.doesNotMatch(html, /forged\.png|attacker@example/)
+    assert.deepEqual(preparation.row.payload.resendPayload.to, [fixture.recipientEmail])
+    if (!brandingDisplay.expiresAt && brandingDisplay.logoAllowed) {
+      assert.match(html, brandingDisplay.source === 'team' ? /team\.png/ : /paid-club\.png/)
+      assert.match(html, /background: #15803d/)
+    } else {
+      assert.doesNotMatch(html, /team\.png|background: #15803d/)
+    }
+  }
+})
+
 test('stale or inactive Parent Portal invite authority fails closed', async () => {
   for (const fixture of [
     parentInviteFixture({ linkOverrides: { invite_sent_at: new Date().toISOString() } }),
     parentInviteFixture({ linkOverrides: { status: 'revoked' } }),
+    parentInviteFixture({ linkOverrides: { expires_at: '2000-01-01T00:00:00Z' } }),
     parentInviteFixture({ playerOverrides: { archived_at: new Date().toISOString() } }),
   ]) {
+    const calls = []
     const preparation = await prepareScheduledParentPortalInviteRow(fixture.row, {
-      supabaseClient: createSupabaseFixture(fixture.tables),
+      supabaseClient: createSupabaseFixture(fixture.tables, null, calls),
     })
     assert.equal(preparation.handled, true)
     assert.equal(preparation.skipped, true)
     assert.match(preparation.skipReason, /authoritative_scope_inactive/)
+    assert.deepEqual(calls, [])
   }
 })
 

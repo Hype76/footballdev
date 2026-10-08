@@ -2,6 +2,20 @@ import {
   buildEmailLogoMarkup,
   resolveReachableEmailLogo,
 } from './email-branding.js'
+import { getScopedTeamBranding } from './team-branding-display.js'
+
+function inviteButtonColours(accent) {
+  const colours = { yellow: '#facc15', blue: '#2563eb', green: '#16a34a', red: '#dc2626', purple: '#7c3aed' }
+  const background = colours[accent] || (/^#[0-9a-f]{6}$/i.test(accent || '') ? accent : '#f7d74b')
+  const components = background.slice(1).match(/../g).map(hex => {
+    const value = parseInt(hex, 16) / 255
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  const luminance = components[0] * 0.2126 + components[1] * 0.7152 + components[2] * 0.0722
+  const darkLuminance = 0.012
+  const foreground = (luminance + 0.05) / (darkLuminance + 0.05) >= 1.05 / (luminance + 0.05) ? '#142018' : '#ffffff'
+  return `background: ${background}; color: ${foreground};`
+}
 
 export const FOOTBALL_PLAYER_EMAIL_ORIGIN = 'https://footballplayer.online'
 export const PARENT_PORTAL_EMAIL_ORIGIN = 'https://parent.footballplayer.online'
@@ -76,6 +90,7 @@ export function buildTrustedParentInviteUrl(
 }
 
 export function buildParentPortalInviteHtml({
+  accent,
   clubLogoUrl,
   clubName,
   existingParentPortalUser = false,
@@ -96,7 +111,7 @@ export function buildParentPortalInviteHtml({
     ? 'Open the link below and sign in with your existing parent portal account. After sign-in, Football Player will attach this player or team context to your parent portal safely.'
     : 'Open the link below, create your parent password, then confirm your email address. After confirmation, you will return to the parent login page.'
   const logoMarkup = buildEmailLogoMarkup({
-    altText: `${resolvedClub} logo`,
+    altText: `${teamLogoUrl ? resolvedTeam : resolvedClub} logo`,
     clubLogoUrl: clubLogoUrl || logoUrl,
     fallbackLogoUrl,
     origin,
@@ -111,7 +126,7 @@ export function buildParentPortalInviteHtml({
       <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to view parent updates for ${escapeHtml(resolvedPlayer)} in ${escapeHtml(resolvedTeam)}.</p>
       <p style="margin: 0 0 22px; font-size: 15px;">${escapeHtml(actionCopy)}</p>
       <p style="margin: 0 0 22px;">
-        <a href="${escapeHtml(actionUrl)}" style="display: inline-block; background: #f7d74b; color: #142018; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 10px;">${escapeHtml(actionLabel)}</a>
+        <a href="${escapeHtml(actionUrl)}" style="display: inline-block; ${inviteButtonColours(accent)} text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 10px;">${escapeHtml(actionLabel)}</a>
       </p>
       <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">If the button does not work, copy and paste this link into your browser:</p>
       <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(actionUrl)}</p>
@@ -121,6 +136,7 @@ export function buildParentPortalInviteHtml({
 }
 
 export async function buildAuthoritativeParentInviteEmail({
+  brandingDisplay,
   existingParentPortalUser = false,
   fetchImpl = globalThis.fetch,
   inviteLink,
@@ -133,12 +149,15 @@ export async function buildAuthoritativeParentInviteEmail({
   const playerName = cleanEmailCopy(player?.player_name, 'your player')
   const teamName = cleanEmailCopy(team?.name, 'Team')
   const inviteUrl = buildTrustedParentInviteUrl(inviteLink?.invite_token, { parentOrigin })
+  const branding = getScopedTeamBranding({ teamId: inviteLink?.team_id, clubId: inviteLink?.club_id, teamBrandingDisplay: brandingDisplay })
   const resolvedLogo = await resolveReachableEmailLogo({
-    clubLogoUrl: club?.logo_url,
+    clubLogoUrl: branding?.source === 'paid_club' ? branding.logoUrl : club?.logo_url,
+    teamLogoUrl: branding?.source === 'team' ? branding.logoUrl : '',
     fetchImpl,
     origin: FOOTBALL_PLAYER_EMAIL_ORIGIN,
   })
   const html = buildParentPortalInviteHtml({
+    accent: branding?.accent,
     clubLogoUrl: resolvedLogo.source === 'club' ? resolvedLogo.url : '',
     clubName,
     existingParentPortalUser,
@@ -147,6 +166,7 @@ export async function buildAuthoritativeParentInviteEmail({
     origin: FOOTBALL_PLAYER_EMAIL_ORIGIN,
     playerName,
     teamName,
+    teamLogoUrl: resolvedLogo.source === 'team' ? resolvedLogo.url : '',
   })
 
   return {

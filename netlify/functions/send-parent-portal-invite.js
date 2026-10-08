@@ -11,6 +11,7 @@ import {
   markEmailLogSent,
 } from './lib/_email-log-store.js'
 import { supabaseAdmin } from './lib/_supabase.js'
+import { loadParentInviteBranding } from './lib/_parent-invite-branding.js'
 import {
   assertPlanFeature,
   getAuthenticatedPlanProfile,
@@ -267,6 +268,7 @@ export async function handler(event) {
 
     const existingParentPortalUser = await hasExistingParentPortalAccess(inviteLink)
     const authoritativeEmail = await buildAuthoritativeParentInviteEmail({
+      brandingDisplay: await loadParentInviteBranding(supabaseAdmin, inviteLink),
       existingParentPortalUser,
       inviteLink,
       parentOrigin: getParentAppOrigin(),
