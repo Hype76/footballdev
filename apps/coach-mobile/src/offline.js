@@ -18,6 +18,7 @@ import { mergeFormationPendingSaves } from './coachFormationSaveQueueCore'
 import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../../mobile-core/src/coachPhase31FCore'
 import { developmentDraftKey, editLocalDevelopmentDraft } from '../../mobile-core/src/developmentOfflineCore'
 import { formationDraftKey, updateFormationLocalDraft } from '../../mobile-core/src/coachFormationDraftCore'
+import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 
 const config = getMobileRuntimeConfig('coach')
 const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split('.')[0] : ''
@@ -73,6 +74,25 @@ function normalize(value) {
   return String(value ?? '').trim()
 }
 
+function sanitizeCoachBranding(context) {
+  const display = getScopedTeamBranding(context)
+  if (!display) return null
+  // Keep display-only fields from the scoped RPC, never management or plan authority.
+  return {
+    teamId: display.teamId,
+    clubId: display.clubId,
+    source: display.source,
+    logoAllowed: display.logoAllowed,
+    coloursAllowed: display.coloursAllowed,
+    baseLogoAllowed: display.baseLogoAllowed === true,
+    baseColoursAllowed: display.baseColoursAllowed === true,
+    expiresAt: display.expiresAt || null,
+    logoUrl: display.logoUrl,
+    accent: display.accent,
+    buttonStyle: display.buttonStyle,
+  }
+}
+
 function sanitizeCoachContext(context) {
   return {
     archivedAt: normalize(context?.archivedAt),
@@ -94,6 +114,7 @@ function sanitizeCoachContext(context) {
     teamAccent: normalize(context?.teamAccent),
     teamButtonStyle: normalize(context?.teamButtonStyle),
     teamId: normalize(context?.teamId),
+    teamBrandingDisplay: sanitizeCoachBranding(context),
     teamName: normalize(context?.teamName),
     teamStatus: normalize(context?.teamStatus || 'active'),
     workspaceScope: normalize(context?.workspaceScope),

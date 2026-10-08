@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "c3f58f64c7f291d3385e4f9ddb53a8bbaa9c78345ebfafdeb4485a003ba4aafb",
+    "scripts/security-verify-reviewed-backports.mjs": "f70c3dc3a0e67350ce9668927f1eacc0a1326a0b375408466c2f5caca11a05c1",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -680,7 +680,7 @@
       "apps/coach-mobile/src/DevelopmentOfflineEditor.js": "a4f4cf98ed2cf1616286cb473b67c8c6a9c51b2d3f11828043cd0346ca428570",
       "apps/coach-mobile/src/coachDevelopmentSync.js": "1c60450303ea33ebd7aef3959a7e48182ddf4a1ed21293a97d5f63d660c82322",
       "apps/coach-mobile/src/coachThemeCore.js": "abe96fd722c4c22fac3813b901b6b5bbf3460d7852d894e2f29c6e8c3ae61c1d",
-      "apps/coach-mobile/src/offline.js": "3d3568043e069ec0e63ba6bc40530306d5c9fcf8cc81a4578a2bf514a8e44735",
+      "apps/coach-mobile/src/offline.js": "30a33d8f6d14193ea471686ef1ad5110fd9b1d8797d213c466d0caadfd14da09",
       "apps/mobile-core/src/AttendancePendingRows.js": "1931716ee5b35accc2e842cb53937fea6f84a13a2bd758fe48efe9c8e0d77579",
       "apps/mobile-core/src/TeamLeagueLink.js": "b10878f465c1e6e7eb6c3f9e67ed483d17bdfa94e64413304480cde7f86d595d",
       "apps/mobile-core/src/attendanceCommandData.js": "69bcff81df8a89c6e74a97676493c83b2ccd169fa5318fe160077640a2fc8f47",
@@ -959,7 +959,7 @@
       "tests/phone-team-administration-pglite.test.mjs": "73cc2d0ae1f306214150ddc33cdf700a14173c677a1fb8c761c204a9dd2a5e0e",
       "tests/phone-team-administration.test.mjs": "f17a6ae83c0dd18b4910d57fbfeb7cf9ea14a05b8dd0497946c925205572d7a7",
       "tests/shared-appearance-authority-pglite.test.mjs": "d6325f95f63429d03e71480b9aab8b890fa09899377d8d42b3dc65b8369af8b0",
-      "tests/v1-offline-transactions.test.mjs": "c8b8ae78d765bc4b8bb8ddc92bdff0ed04e2b1cdd9bdf97549cc3cd8c15abb2f",
+      "tests/v1-offline-transactions.test.mjs": "fb4ebd72fe7e5f9a765d2f7c293e3c9ca98b85d9050851864dda6a99a8f9d6da",
       "apps/coach-mobile/src/useCoachDevelopmentSync.js": "7381faec52a3b6423ff5a89b5522aa1e0c2f9d4572e48831728577ca3cc3f0db",
       "apps/mobile-core/src/NotificationCategorySettings.js": "1b6a60ca841f60212e5bc742049e90978807e337f13ad36af23485c6e64068b9",
       "apps/mobile-core/src/coachPlayersCore.js": "89a67daa5b0f2c3ae0b4c59636ed1f036ee705f678ca8e71518848c98584fad1",
@@ -1025,7 +1025,8 @@
       "supabase/migrations/20261007182800_mobile_development_notification_preference.sql": "f5928d8d7fad784eeea804e629bed7a6c7649e47c158ca7d0982abb54471f8b0",
       "tests/mobile-auth-refresh-browser.mjs": "35d8d16fa80df11328262f58179a2f6b6bef02ad55443bae0c8f805efc023599",
       "tests/mobile-parent-airplane-browser.mjs": "02467eccba928130d2336525f8b422a92abdbb23ac84b0ac1d79baa2772aca33",
-      "apps/coach-mobile/src/useCoachMatchInvites.js": "ad5e0bed189534ef904f99f65ebd6272e080fac2a959fb6396f6f57cce903928"
+      "apps/coach-mobile/src/useCoachMatchInvites.js": "ad5e0bed189534ef904f99f65ebd6272e080fac2a959fb6396f6f57cce903928",
+      "tests/coach-offline-storage.test.mjs": "ead3acc523992ddbb523742794dd43d17facdda26e71983cf12e5e163bbce3e3"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1735,9 +1736,30 @@
         "nativeChanges": 0,
         "dependencyChanges": 0,
         "customerWrites": 0
+      },
+      "caldecoteBadgeHeader": {
+        "baseline": "d808968857d721f297a7e0643a82ac3d30bf35dc",
+        "scope": [
+          "apps/coach-mobile/src/offline.js",
+          "tests/coach-offline-storage.test.mjs",
+          "tests/v1-offline-transactions.test.mjs"
+        ],
+        "reasons": [
+          "Retain only validated and scoped team branding display fields in the encrypted Coach profile returned to the header after fresh reads and restart",
+          "Reuse existing expiry, HTTPS, team and club validation without granting plan or management capabilities",
+          "Actual encrypted adapter regression proves the prior missing badge, replacement refresh, restart, expiry, denied display, wrong team and wrong club; private management fields are excluded"
+        ],
+        "independentExactCandidateReviewRequired": true,
+        "publication": false,
+        "migrations": 0,
+        "nativeChanges": 0,
+        "dependencyChanges": 0,
+        "customerWrites": 0,
+        "coachCompatibleOtaOnly": true,
+        "parentUnchanged": true
       }
     }
   },
-  "releasePreparationSha256": "36c43992724761067db606ea9c4c27fa86679f6cab692d9ff7a4eeed7602d028",
+  "releasePreparationSha256": "ed7e0002c6898a9f43f0112a598a061774203e83cc2ca49013c5cb129c554f3b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
