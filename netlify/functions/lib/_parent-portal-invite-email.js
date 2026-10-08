@@ -89,7 +89,7 @@ export async function loadAuthoritativeParentPortalInviteContext(
     loadMaybeSingle(
       supabaseClient
         .from('clubs')
-        .select('id, name, contact_email, logo_url, status, archived_at')
+        .select('id, name, contact_email, logo_url, plan_key, status, archived_at')
         .eq('id', queueClubId),
       'Club',
     ),

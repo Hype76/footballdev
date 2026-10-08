@@ -83,6 +83,7 @@ export function buildParentPortalInviteHtml({
   inviteUrl,
   logoUrl,
   origin,
+  planKey,
   playerName,
   teamName,
   teamLogoUrl,
@@ -90,6 +91,10 @@ export function buildParentPortalInviteHtml({
   const resolvedClub = normalizeText(clubName) || 'Your club'
   const resolvedPlayer = normalizeText(playerName) || 'your player'
   const resolvedTeam = normalizeText(teamName) || 'their team'
+  const isMatchday = normalizeText(planKey).toLowerCase() === 'matchday'
+  const buttonColours = isMatchday
+    ? 'background: #15803d; background-image: linear-gradient(#15803d, #15803d); color: #ffffff; border: 1px solid #4ade80;'
+    : 'background: #f7d74b; color: #142018;'
   const actionUrl = existingParentPortalUser ? buildParentPortalSignInUrl(inviteUrl) : inviteUrl
   const actionLabel = existingParentPortalUser ? 'Sign in to parent portal' : 'Create parent access'
   const actionCopy = existingParentPortalUser
@@ -104,6 +109,7 @@ export function buildParentPortalInviteHtml({
   })
 
   return `
+    ${isMatchday ? '<style>@media (prefers-color-scheme: dark) { .fp-matchday-invite-action { background: #15803d !important; color: #ffffff !important; } } [data-ogsc] .fp-matchday-invite-action { background: #15803d !important; color: #ffffff !important; }</style>' : ''}
     <div style="font-family: Arial, sans-serif; color: #142018; background: #ffffff; padding: 28px; line-height: 1.55; max-width: 680px; margin: 0 auto;">
       ${logoMarkup}
       <p style="margin: 0 0 10px; color: #4f6552; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;">Family portal invite</p>
@@ -111,7 +117,7 @@ export function buildParentPortalInviteHtml({
       <p style="margin: 0 0 16px; font-size: 15px;">You have been invited to view parent updates for ${escapeHtml(resolvedPlayer)} in ${escapeHtml(resolvedTeam)}.</p>
       <p style="margin: 0 0 22px; font-size: 15px;">${escapeHtml(actionCopy)}</p>
       <p style="margin: 0 0 22px;">
-        <a href="${escapeHtml(actionUrl)}" style="display: inline-block; background: #f7d74b; color: #142018; text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 10px;">${escapeHtml(actionLabel)}</a>
+        <a href="${escapeHtml(actionUrl)}"${isMatchday ? ' class="fp-matchday-invite-action"' : ''} style="display: inline-block; ${buttonColours} text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 10px;">${escapeHtml(actionLabel)}</a>
       </p>
       <p style="margin: 0 0 8px; color: #5a6b5b; font-size: 13px;">If the button does not work, copy and paste this link into your browser:</p>
       <p style="margin: 0; word-break: break-all; color: #142018; font-size: 13px;">${escapeHtml(actionUrl)}</p>
@@ -145,6 +151,7 @@ export async function buildAuthoritativeParentInviteEmail({
     fallbackLogoUrl: resolvedLogo.source === 'football-player' ? resolvedLogo.url : '',
     inviteUrl,
     origin: FOOTBALL_PLAYER_EMAIL_ORIGIN,
+    planKey: club?.plan_key,
     playerName,
     teamName,
   })

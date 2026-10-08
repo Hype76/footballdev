@@ -126,7 +126,7 @@ async function getInviteLink(linkId) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, players:player_id (player_name, section, status, archived_at), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
+    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, players:player_id (player_name, section, status, archived_at), teams:team_id (name), clubs:club_id (name, contact_email, logo_url, plan_key)')
     .eq('id', normalizedLinkId)
     .maybeSingle()
 
