@@ -960,7 +960,8 @@ function CoachHome() {
             overScrollMode="never"
             scrollEventThrottle={16}
             scrollToOverflowEnabled={false}
-            refreshControl={activeRoute === 'home' ? (
+            refreshControl={(
+              activeRoute === 'home' ? (
               <RefreshControl
                 colors={['transparent']}
                 progressBackgroundColor="transparent"
@@ -968,7 +969,8 @@ function CoachHome() {
                 refreshing={isRefreshing}
                 tintColor="transparent"
               />
-            ) : undefined}
+              ) : undefined
+            )}
             ref={contentScrollRef}
           >
             <CoachTeamBrandingSetup

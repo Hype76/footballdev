@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "517e075fb5ebd13b64d32d3b4ca45280032905e5862012c17505439ff643a693",
+    "scripts/security-verify-reviewed-backports.mjs": "393773ba655c75def967abc36be97573e1c35fa7270b9b83b2b193d0e14ef165",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -672,7 +672,7 @@
     "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
     "approvedScope": "DRAFT ONLY: combined V1 local product and regression preparation, bounded four-migration validation, and honest same-byte closed/unmerged braces status refresh; parent approval and fresh independent exact-HEAD receipt required before activation",
     "changedSourceHashes": {
-      "apps/coach-mobile/App.js": "4442be18a2637371582f6611e39d7f048729f0e647926adabe415592fefa4c85",
+      "apps/coach-mobile/App.js": "19949f74c3d484d2da38a110e11176ac183ca2492f7572d1d13abcd99f1910c9",
       "apps/coach-mobile/src/CoachMatchDayScreen.js": "c8622382857702b07f83769bdc19ce43fc537f7558c40f4e9a80975d3711a29f",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "01857bae300d5d17d33a85d3d66dc28397dc4fee4a1ca25ce1fbadeff5d9479e",
       "apps/coach-mobile/src/CoachPhase31EScreens.js": "ff7ef4973498eafa6a8f8570c0227a0169384649b36085a6d4ce175418dee151",
@@ -1038,7 +1038,7 @@
       "apps/coach-mobile/src/coachScrollBounds.js": "f3a4dab628a3e358a7ae3fb507c006041a59e16f12a012c5beda7d7e993a3214",
       "apps/mobile-core/src/offlineStorageCore.js": "db62574e5be426aab03f53dfad970e30409f69b75c71fe6d7896c006a81c03ea",
       "tests/coach-scroll-bounds.test.mjs": "06272032358ca1c8881f286313c7db3f1e52091b8576ab058abbcea890799588",
-      "tests/mobile-keyboard-fields-86.test.mjs": "120786fa22cefb4bee3a5a565acb1b425bc9833271934f296e0fda81ef2f7938",
+      "tests/mobile-keyboard-fields-86.test.mjs": "c43e415c64589cfe7db2e0b8fcc29a9b4b868ea8bf951a8dbc821572241371e5",
       "tests/mobile-polls-match-save-59.test.mjs": "156e7080b4bf1de6c7845cb841b917916b9b022b8d6dd1db92f576505acb1b5e",
       "tests/mobile-offline-storage-timeout.test.mjs": "cb35632280c660fca506099dd0d8b5073ef7eef680f3b0303b2469b798f8be90"
     },
@@ -1817,8 +1817,8 @@
           "tests/mobile-development-background.test.mjs",
           "tests/mobile-keyboard-fields-86.test.mjs",
           "tests/mobile-offline-development-browser.mjs",
-          "tests/mobile-polls-match-save-59.test.mjs",
-          "tests/mobile-offline-storage-timeout.test.mjs"
+          "tests/mobile-offline-storage-timeout.test.mjs",
+          "tests/mobile-polls-match-save-59.test.mjs"
         ],
         "reasons": [
           "Skip optional assessment history while syncing and preserve unchanged saved revisions",
@@ -1837,6 +1837,6 @@
       }
     }
   },
-  "releasePreparationSha256": "d83a3dd69756b5e26154319b9d8f4a512d48ff27ab183bd63cde2739aebb59e1",
+  "releasePreparationSha256": "9f86a7ac52e00e38887fa9c223f8214c1786aa0bf34b78a331f8ce5c98401ccd",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

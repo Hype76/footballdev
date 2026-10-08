@@ -37,7 +37,7 @@ test('starting a drag dismisses the keyboard and keeps native gesture ownership'
 })
 
 test('non-home Coach routes have no unrelated pull-to-refresh control', () => {
-  assert.match(coachApp, /refreshControl=\{activeRoute === 'home' \? \([\s\S]*?onRefresh=\{\(\) => loadHome\(\{ refresh: true \}\)\}[\s\S]*?\) : undefined\}/)
+  assert.match(coachApp, /refreshControl=\{\(\s*activeRoute === 'home' \? \([\s\S]*?onRefresh=\{\(\) => loadHome\(\{ refresh: true \}\)\}[\s\S]*?\) : undefined\s*\)\}/)
   assert.match(coachApp, /alwaysBounceVertical=\{false\}/)
   assert.match(coachApp, /scrollToOverflowEnabled=\{false\}/)
 })
