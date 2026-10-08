@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "345a0215e09bdd6ad908933d04d69224fdfa3aae90e56624bdffad1b431ce1d7",
+    "scripts/security-verify-reviewed-backports.mjs": "c3f58f64c7f291d3385e4f9ddb53a8bbaa9c78345ebfafdeb4485a003ba4aafb",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -727,7 +727,7 @@
       "src/components/teams/TeamBrandingOffer.jsx": "1b20e325e1073a8e331b5584cd9e85c3aef4cbb61f5b5ba98125cae23ff671ad",
       "src/components/teams/TeamLeagueLinkSettings.jsx": "6503e07cdc7a5cb00d81d973df86a43cac1680d5eaa4d661e116a91040e30493",
       "src/components/teams/TeamStaffAllocationsSection.jsx": "cb23589486b18d3beece3e4ff0fe664e85c960eebec47834cbf3879c460d055e",
-      "src/lib/auth.js": "f92e4aac92d8d9fc0ec1abbc8bf2ad18832168b7b50c413484bb6a5f003ccd85",
+      "src/lib/auth.js": "e3f17f34a5c69d7fd750822eb86e0222c1ea926429976244e9333b9a85c20386",
       "src/lib/domain/core.js": "34c6c1672a062e5fa3681a243b7f939b120c3f8a1f9d5b9160d06b3dc4517de0",
       "src/lib/fan-branding.js": "3ef52ae06ec1b8f5c225a7411a8e550e1ab1cf057e50741490d75d37e61ddf95",
       "src/lib/matchday-report-export.js": "5066a5188afecefb5d2077fc3e9a6414934455f888b9ae330b91afce677b8c26",
@@ -1007,10 +1007,10 @@
       "scripts/mobile-confirmation-email-template.mjs": "567a0fe54cbbfaf622c02d3c348254009c7c21cb65a886c759d768ca736a877a",
       "src/lib/coach-web-handoff.js": "b351a048ceb04bc23c4ff8fd14b913817eb65449eb00974f79246c01d0442c0d",
       "src/lib/legal-notices.js": "277b2728df197bc9f547ef1298f135ffabcb3e78b32fd4a517b6ac49ed4516af",
-      "src/pages/CoachAppHandoffPage.jsx": "0cd285fb9f0e231852a900b3e4a29044d87a25a398a4d69dc880d973e3ec9709",
+      "src/pages/CoachAppHandoffPage.jsx": "397d8e8df449c4ac84b661e938fe6c53f2f6fccc8d4440fa1989a3c8e9576456",
       "src/pages/CoachAppUpgradePage.jsx": "5254bc67fe9927cf5ab311421b24c24b8af9c6cf6b99dc11edfb8e833baa7b9a",
       "tests/auth-email-app-role.test.mjs": "926c7bfba5dd3142eefbed6a8d6f328f98196aaed8b7cbd9fafc63e7292dc2ee",
-      "tests/coach-app-handoff-browser.mjs": "6781a5a77ecec4747f20cd2c013420b8330cb833ff38dcdfb1be543130a16dcc",
+      "tests/coach-app-handoff-browser.mjs": "04100871914d0cbdb211a9a112233f98703b3331ab1fe728d3cd5efa50662a61",
       "tests/coach-app-handoff.test.mjs": "31dbe2aaa157aa248d726f1c6796a8e30a184255f4dda90a1628f2f28579622f",
       "tests/matchday-fixture-controls-db.test.mjs": "81a31255b048b63cbcd328727bf85721c96c1d04545db756d53ecfb089223e4c",
       "tests/mobile-cancelled-fixture.test.mjs": "f41257daca338daaa858048a03334651c30bc55ccb3670296e8b3d3ced85e5a4",
@@ -1714,9 +1714,30 @@
         "nativeChanges": 0,
         "dependencyChanges": 0,
         "customerWrites": 0
+      },
+      "badgeBrowserHandoffReturn": {
+        "baseline": "7ac4110a22f6bf742ad4644422402db69903a2c6",
+        "scope": [
+          "src/lib/auth.js",
+          "src/pages/CoachAppHandoffPage.jsx",
+          "tests/coach-app-handoff-browser.mjs"
+        ],
+        "reasons": [
+          "Return the successfully committed Team profile from the real web access-mode selector so the authenticated browser handover can verify the actor and navigate",
+          "Preserve expired, wrong-actor, revoked-access, deferred and redirect handling; no authority or token changes",
+          "Use active theme text colour on the handover page for readable loading and failure states",
+          "Execute the actual access-mode method in the handover browser fixture to reproduce the previous false-positive stand-in and check badge and upgrade destinations plus light/dark readability"
+        ],
+        "independentExactCandidateReviewRequired": true,
+        "publication": false,
+        "webOnly": true,
+        "migrations": 0,
+        "nativeChanges": 0,
+        "dependencyChanges": 0,
+        "customerWrites": 0
       }
     }
   },
-  "releasePreparationSha256": "6be996ebdaff0895454aa48fb3a0534cb04d6745e5d28fc100e8562d16914078",
+  "releasePreparationSha256": "36c43992724761067db606ea9c4c27fa86679f6cab692d9ff7a4eeed7602d028",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

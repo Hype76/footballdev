@@ -36,7 +36,7 @@ export function CoachAppHandoffPage() {
     const timer = window.setTimeout(() => setError(current => current || 'Your account could not be opened. Return to Coach and try again when connected.'), 20000)
     return () => window.clearTimeout(timer)
   }, [])
-  return <main className="mx-auto max-w-lg px-5 py-8 text-[#142a1d]">
+  return <main className="mx-auto max-w-lg px-5 py-8" style={{ color: 'var(--text-primary)' }}>
     <h1 className="text-2xl font-bold">Football Player</h1>
     <p role={error ? 'alert' : 'status'} className="py-4">{error || 'Opening your account securely...'}</p>
     {error && <p>Return to Coach and open the action again. Your app account stays signed in.</p>}

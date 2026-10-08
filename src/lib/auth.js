@@ -966,6 +966,7 @@ function RuntimeAuthProvider({ children }) {
         teamId: profileWithTeam?.activeTeamId,
         workspaceRole: profileWithTeam?.role,
       }).catch(() => {})
+      return profileWithTeam
     } catch (error) {
       console.error(error)
       setAuthError(error.message || 'Could not open this access.')
