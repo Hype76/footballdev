@@ -27,6 +27,10 @@ export function developmentFormFingerprint(form) {
 }
 
 export function editLocalDevelopmentDraft(previous, { id, playerId, formId, formFingerprint, values, notes }, now = new Date().toISOString()) {
+  const stable = value => JSON.stringify(Object.entries(value || {}).sort(([a], [b]) => a.localeCompare(b)))
+  if (previous && previous.playerId === playerId && previous.formId === formId
+    && (previous.formFingerprint || '') === (formFingerprint || '')
+    && stable(previous.values) === stable(values) && (previous.notes || '') === (notes || '')) return previous
   return {
     ...previous, id: previous?.id || id, playerId, formId,
     values, notes, formFingerprint: formFingerprint || '', revision: (previous?.revision || 0) + 1,

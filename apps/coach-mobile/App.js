@@ -948,13 +948,20 @@ function CoachHome() {
             testID="coach-content-scroll"
             style={{ flex: 1 }}
             automaticallyAdjustKeyboardInsets={false}
+            alwaysBounceVertical={false}
             bounces={false}
             contentInsetAdjustmentBehavior="never"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-            keyboardShouldPersistTaps="always"
+            keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={(event) => {
+              scrollBounds.handlers.onScrollBeginDrag(event)
+              Keyboard.dismiss()
+            }}
             overScrollMode="never"
             scrollEventThrottle={16}
+            scrollToOverflowEnabled={false}
             refreshControl={(
+              activeRoute === 'home' ? (
               <RefreshControl
                 colors={['transparent']}
                 progressBackgroundColor="transparent"
@@ -962,6 +969,7 @@ function CoachHome() {
                 refreshing={isRefreshing}
                 tintColor="transparent"
               />
+              ) : undefined
             )}
             ref={contentScrollRef}
           >

@@ -22,7 +22,10 @@ function engine(initial, { finalise = async () => ({}), workspace = async () => 
   const events = [], calls = [], saves = [], discards = []
   const source = read('apps/coach-mobile/src/coachDevelopmentSync.js').replace(/^import .+\r?\n/gm, '').replace(/^export /gm, '')
   const deps = { invalidateMobileResource: () => {}, ...core, developmentSyncFailure: status.developmentSyncFailure, applyCoachContext: value => value,
-    withMobileAsyncTimeout: callback => callback(), getCoachDevelopmentWorkspace: workspace,
+    withMobileAsyncTimeout: callback => callback(), getCoachDevelopmentWorkspace: (who, options) => {
+      assert.equal(options?.includeHistory, false, 'Draft sync must not wait for history')
+      return workspace(who, options)
+    },
     saveCoachDevelopmentDraft: async (who, request) => { saves.push(request); return save(who, request) },
     discardCoachDevelopmentDraft: async (who, request) => { discards.push(request); return discard(who, request) },
     finalizeCoachDevelopmentRecord: async (who, request) => { calls.push({ who, request }); return finalise(who, request) },
@@ -110,6 +113,19 @@ test('actual local writer rejects stale edits after a finalisation has been queu
   const save = new Function(...Object.keys(deps), `${source.slice(start, end).replace('export ', '')};return saveLocalCoachDevelopmentDraft`)(...Object.values(deps))
   await assert.rejects(save('coach', context, { playerId: player.id, formId: form.id, values: { score: 9 }, notes: 'late edit' }), /already queued/)
   assert.deepEqual(stored, draft())
+})
+
+test('unchanged Save preserves a synced draft revision and keeps sharing available', () => {
+  const saved = { ...draft(), finalisation: null, formFingerprint: core.developmentFormFingerprint(form) }
+  const same = core.editLocalDevelopmentDraft(saved, { ...saved, values: { score: 7 } })
+  assert.equal(same, saved)
+  assert.equal(same.status, 'synced')
+  assert.equal(same.revision, 4)
+  const edited = core.editLocalDevelopmentDraft(saved, { ...saved, values: { score: 8 } })
+  assert.equal(edited.status, 'pending')
+  assert.equal(edited.revision, 5)
+  const updatedForm = core.editLocalDevelopmentDraft(saved, { ...saved, formFingerprint: 'changed-form' })
+  assert.equal(updatedForm.status, 'pending')
 })
 
 test('offline workspace failure retains intent and exposes a retry instead of silent waiting', async () => {
