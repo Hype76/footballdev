@@ -957,12 +957,22 @@ export async function updateOwnUserSettings({
   })
 }
 
-export async function updateOwnThemeSettings({ authUser, mode }) {
+export async function updateOwnThemeSettings({ authUser, user, mode }) {
   if (!authUser?.id) {
     throw new Error('Signed in user is required.')
   }
 
-  await blockDemoMutation(authUser)
+  if (!user?.id || user.id !== authUser.id) {
+    throw new Error('The signed in profile is required to save display settings.')
+  }
+
+  // The Auth identity has no workspace role or billing state. Use the loaded,
+  // matching profile for the existing guard; the RPC still authorises the JWT.
+  await blockDemoMutation({
+    ...user,
+    email: authUser.email || user.email,
+    isDemoAccount: Boolean(authUser.isDemoAccount || user.isDemoAccount),
+  })
 
   const normalizedMode = ['system', 'dark', 'light'].includes(mode) ? mode : 'system'
 
