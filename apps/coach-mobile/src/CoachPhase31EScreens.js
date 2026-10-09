@@ -379,18 +379,20 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
   const [historyOpen, setHistoryOpen] = useState(false)
   const [queued, setQueued] = useState({})
   const [closedEditor, setClosedEditor] = useState('')
+  const [retryingCancellation, setRetryingCancellation] = useState('')
   const lifetime = useRef(null)
   const scope = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource,
     context.clubId, context.teamId, context.role, user.roleRank, user.status, user.hasActivePlanAccess])
   const renderToken = useMemo(() => ({ scope }), [scope])
   useLayoutEffect(() => {
     const token = { active: true, renderToken, scope: renderToken.scope }
+    setRetryingCancellation('')
     lifetime.current = token
     return () => { token.active = false }
   }, [renderToken])
   useLayoutEffect(() => {
-    if (lifetime.current?.scope === scope) Object.assign(lifetime.current, { load, setNotice, closedEditor })
-  }, [scope, load, setNotice, closedEditor])
+    if (lifetime.current?.scope === scope) Object.assign(lifetime.current, { load, setNotice, closedEditor, queued })
+  }, [scope, load, setNotice, closedEditor, queued])
   useEffect(() => {
     const token = lifetime.current
     if (token.selectionTouched || token.restoredDraft || (token.restoreStarted && token.restoreDrafts === data.drafts)) return
@@ -416,17 +418,26 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
   useEffect(() => {
     const token = lifetime.current
     return subscribeDevelopmentSync(event => {
-      if (token !== lifetime.current || !token.active || !['finalised', 'finalisation_failed', 'discarded', 'discard_failed'].includes(event?.kind)
+      if (token !== lifetime.current || !token.active || !['finalised', 'finalisation_failed', 'discarded', 'discard_failed', 'sync_failed'].includes(event?.kind)
         || event.userId !== user.id || event.contextId !== context.id) return
+      if (event.kind === 'sync_failed') {
+        setQueued(previous => Object.fromEntries(Object.entries(previous).map(([key, entry]) =>
+          key.startsWith(`${scope}:`) && entry.kind === 'discard' && entry.state !== 'complete'
+            ? [key, { ...entry, state: 'failed', copy: event.copy }] : [key, entry])))
+        return
+      }
       if (['finalisation_failed', 'discard_failed'].includes(event.kind)) {
         const key = `${scope}:${event.key}`
-        setQueued(previous => ({ ...previous, [key]: { ...previous[key], state: 'failed', copy: event.copy } }))
+        setQueued(previous => previous[key]?.draftId && previous[key].draftId !== event.draftId ? previous
+          : ({ ...previous, [key]: { ...previous[key], draftId: event.draftId, state: 'failed', copy: event.copy } }))
         token.setNotice('')
         return
       }
       const copy = event.kind === 'discarded' ? 'Assessment cancelled.' : event.shared === false ? 'Private development record finalised.' : 'Development record finalised and shared.'
       const key = `${scope}:${event.key}`
-      setQueued(previous => ({ ...previous, [key]: { ...previous[key], state: 'complete', copy } }))
+      if (token.queued[key]?.state === 'complete' && token.queued[key].draftId === event.draftId) return
+      if (token.queued[key]?.draftId && token.queued[key].draftId !== event.draftId) return
+      setQueued(previous => ({ ...previous, [key]: { ...previous[key], draftId: event.draftId, kind: event.kind === 'discarded' ? 'discarded' : previous[key]?.kind, state: 'complete', copy } }))
       setSelection(previous => previous.scope === scope && JSON.stringify([previous.playerId, previous.formId]) === event.key
         ? { scope, playerId: '', formId: '' } : previous)
       setClosedEditor(previous => previous === key ? '' : previous)
@@ -453,10 +464,40 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
     }
     const key = `${scope}:${JSON.stringify([result.playerId, result.formId])}`
     const copy = result.kind === 'discarded' ? 'Assessment cancelled.' : result.kind === 'discard' ? 'Assessment cleared on this phone. Cancellation will sync when connected.' : result.shared === false ? 'Saved on this phone. Finishing in the background.' : 'Saved on this phone. Sharing in the background.'
-    setQueued(previous => ({ ...previous, [key]: { ...result, state: result.kind === 'discarded' ? 'complete' : 'pending', copy } }))
+    setQueued(previous => previous[key]?.draftId === result.draftId && previous[key]?.state === 'complete' ? previous
+      : ({ ...previous, [key]: { ...result, state: result.kind === 'discarded' ? 'complete' : 'pending', copy } }))
     setClosedEditor(key)
     Keyboard.dismiss()
     setNotice('')
+  }
+
+  const retryCancellation = async () => {
+    const token = lifetime.current
+    const key = `${scope}:${selectedKey}`
+    if (token.retryingCancellation || selectedQueued?.kind !== 'discard') return
+    token.retryingCancellation = true
+    setRetryingCancellation(key)
+    const current = () => token === lifetime.current && token.active && token.scope === scope
+    const updatePending = change => setQueued(previous => previous[key]?.draftId !== selectedQueued.draftId
+      || previous[key]?.state === 'complete' ? previous : { ...previous, [key]: change(previous[key]) })
+    try {
+      await syncCoachDevelopmentDrafts(user, context, current)
+      const saved = (await readCoachDevelopmentDrafts(user.id, context))[selectedKey]
+      if (!current()) return
+      if (token.queued[key]?.draftId !== selectedQueued.draftId || token.queued[key]?.state === 'complete') return
+      if (!saved || saved.id !== selectedQueued.draftId) {
+        updatePending(entry => ({ ...entry, kind: 'discarded', state: 'complete', copy: 'Assessment cancelled.' }))
+        setClosedEditor(previous => previous === key ? '' : previous)
+        void token.load({ silent: true })
+      } else {
+        updatePending(entry => ({ ...entry, state: 'failed', copy: saved.error || 'Cancellation is kept on this phone. Retry when connected.' }))
+      }
+    } catch {
+      if (current()) updatePending(entry => ({ ...entry, state: 'failed', copy: 'Cancellation is kept on this phone. Saved work could not be checked. Retry when connected.' }))
+    } finally {
+      token.retryingCancellation = false
+      if (current()) setRetryingCancellation('')
+    }
   }
 
   const selectPlayer = (nextPlayer) => {
@@ -501,7 +542,7 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
       </View>
       {!player || !form ? <Text style={styles.body}>Select a Player and form to start Development.</Text> : editorClosed ? <View style={styles.stack}>
         <Text accessibilityLiveRegion="polite" style={styles.body}>{selectedQueued?.copy || 'Your saved assessment is kept on this phone.'}</Text>
-        <Button disabled={selectedQueued?.kind === 'discard' && selectedQueued?.state === 'pending'} label={selectedQueued?.state === 'complete' ? 'Start another assessment' : selectedQueued?.kind === 'discard' ? selectedQueued.state === 'failed' ? 'Retry cancellation' : 'Waiting for cancellation to sync' : 'Open saved assessment'} onPress={() => { if (selectedQueued?.kind === 'discard' && selectedQueued.state === 'failed') void syncCoachDevelopmentDrafts(user, context); else setClosedEditor('') }} secondary styles={styles} />
+        <Button disabled={retryingCancellation === `${scope}:${selectedKey}`} label={selectedQueued?.state === 'complete' ? 'Start another assessment' : selectedQueued?.kind === 'discard' ? retryingCancellation === `${scope}:${selectedKey}` ? 'Checking cancellation...' : 'Retry cancellation' : 'Open saved assessment'} onPress={() => { if (selectedQueued?.kind === 'discard' && selectedQueued.state !== 'complete') void retryCancellation(); else setClosedEditor('') }} secondary styles={styles} />
       </View> : <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId && !(selectedQueued?.state === 'complete' && ['discard', 'discarded'].includes(selectedQueued.kind) && item.id === selectedQueued.draftId))} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onQueued={onQueued} />}
     </View>
   )
@@ -1053,7 +1094,9 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate
     update: change => updateCoachAttendanceCommands(user, context, change),
     onConfirmed: () => load({ silent: true }),
   })
-  const data = { ...serverData, match: matchRows.map(attendanceOutbox.project), training: (serverData.training || []).map(attendanceOutbox.project), trainingCoaches: (serverData.trainingCoaches || []).map(attendanceOutbox.project) }
+  // Choose the request using its original response time before attendance
+  // enrichment replaces duplicate timestamps with a shared baseline.
+  const data = { ...serverData, match: collapseCoachInvitesByPlayer(matchRows).map(attendanceOutbox.project), training: (serverData.training || []).map(attendanceOutbox.project), trainingCoaches: (serverData.trainingCoaches || []).map(attendanceOutbox.project) }
   const loadInviteHistory = useCallback((invite) => getCoachInviteHistory(user, invite), [user])
   const [availabilityConfirm, setAvailabilityConfirm] = useState(null)
   const confirmRef = useRef(null)

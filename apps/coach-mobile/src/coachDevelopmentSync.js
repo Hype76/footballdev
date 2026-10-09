@@ -40,7 +40,7 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
       if (!isCurrent()) return
       const message = developmentSyncFailure(error, stage)
       const failed = await updateCoachDevelopmentDraft(user.id, context, key, current => {
-        if (!isCurrent() || !current) return current
+        if (!isCurrent() || !current || current.id !== draft.id) return current
         if (draft.finalisation && (current.id !== draft.id
           || current.finalisation?.requestedAt !== draft.finalisation.requestedAt)) return current
         if (draft.finalisation) return { ...current, finalisationError:
@@ -54,21 +54,30 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
         copy: `Cancellation is saved on this phone. ${error.message || 'Retry when connected.'}` })
       else notifyDevelopmentSync()
     }
+    // Cancelling an exact draft does not need the optional workspace read.
+    for (const [key, draft] of Object.entries(drafts)) {
+      if (!isCurrent()) return
+      if (!draft.discardRequested) continue
+      try { await discard(key, draft) }
+      catch (error) { await recordFailure(key, draft, error, 'cancelling') }
+    }
+    if (!Object.values(drafts).some(draft => !draft.discardRequested && (draft.status !== 'synced' || draft.finalisation))) return
     let workspace
     try { workspace = await withMobileAsyncTimeout(() => getCoachDevelopmentWorkspace(scopedUser, { includeHistory: false })) }
     catch (error) {
       for (const [key, draft] of Object.entries(drafts)) {
-        if (draft.status !== 'synced' || draft.finalisation) await recordFailure(key, draft, error, 'preparing')
+        if (!draft.discardRequested && (draft.status !== 'synced' || draft.finalisation)) await recordFailure(key, draft, error, 'preparing')
       }
       return
     }
     if (!isCurrent()) return
     for (const [key, draft] of Object.entries(drafts)) {
       if (!isCurrent()) return
-      const latest = (await readCoachDevelopmentDrafts(user.id, context))[key]
-      if (!latest || !isCurrent()) continue
+      if (draft.discardRequested) continue
       let stage = 'preparing'
       try {
+        const latest = (await readCoachDevelopmentDrafts(user.id, context))[key]
+        if (!latest || !isCurrent()) continue
         if (latest.discardRequested) { await discard(key, latest); continue }
         if (draft.status === 'synced' && !draft.finalisation) continue
         const player = workspace.players.find(item => item.id === draft.playerId)
@@ -122,7 +131,11 @@ export function syncCoachDevelopmentDrafts(user, context, isCurrent = () => true
       }
       notifyDevelopmentSync()
     }
-  })().finally(() => active.delete(scope))
+  })().catch(error => {
+    if (isCurrent()) notifyDevelopmentSync({ kind: 'sync_failed', userId: user.id, contextId: context.id,
+      copy: 'Saved work could not be checked. Cancellation is kept on this phone. Retry when connected.' })
+    throw error
+  }).finally(() => active.delete(scope))
   active.set(scope, task)
   return task
 }
