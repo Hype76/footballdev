@@ -2645,7 +2645,7 @@ function BottomTabs({ activeTab, onChange, tabs, theme }) {
             style={({ pressed }) => [styles.tabButton, active && styles.tabButtonActive, isLight && active && styles.tabButtonActiveLight, pressed && styles.pressed]}
           >
             <ParentIcon color={active ? palette.accentText : palette.textMuted} iconKey={getParentTabIconKey(tab.key)} size={23} />
-            <Text style={[styles.tabLabel, isLight && styles.textMutedLight, active && styles.tabLabelActive]}>{tab.label}</Text>
+            <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={[styles.tabLabel, isLight && styles.textMutedLight, active && styles.tabLabelActive]}>{tab.label}</Text>
             {tab.count > 0 ? <Text style={[styles.tabCount, styles.unreadCount]}>{tab.count}</Text> : null}
           </Pressable>
         )
@@ -3960,12 +3960,12 @@ function createParentAppStyles(tokens) {
   syncStatusWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
   tabBar: { backgroundColor: palette.card, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: Platform.OS === 'ios' ? 4 : 8, paddingHorizontal: 8, paddingTop: 8 },
   tabBarLight: { backgroundColor: palette.card, borderTopColor: palette.border },
-  tabButton: { alignItems: 'center', borderTopColor: 'transparent', borderTopWidth: 2, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, paddingHorizontal: 4, paddingVertical: 7 },
+  tabButton: { alignItems: 'center', borderTopColor: 'transparent', borderTopWidth: 2, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
   tabButtonActive: { borderTopColor: palette.accentText },
   tabButtonActiveLight: { borderTopColor: palette.accentText },
   tabCount: { backgroundColor: palette.accent, borderRadius: 999, color: palette.ink, fontSize: 10, fontWeight: '900', minWidth: 19, overflow: 'hidden', paddingHorizontal: 5, paddingVertical: 2, textAlign: 'center' },
   tabCountActive: { backgroundColor: palette.accent, color: palette.ink },
-  tabLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '800' },
+  tabLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '800', textAlign: 'center', width: '100%' },
   tabLabelActive: { color: palette.accentText },
   surfaceLight: { backgroundColor: palette.card, borderColor: palette.border },
   textLight: { color: palette.text },

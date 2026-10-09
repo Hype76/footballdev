@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "8fc5f3b46c51b3024e887865c6b85d572c9e88dcea1310ff0d1ecf09563baffc",
+    "scripts/security-verify-reviewed-backports.mjs": "19b6d083ad4896e209c63517d7bfd58c428814e19843cca12fd2a5fbfb2d6344",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -698,7 +698,7 @@
       "apps/mobile-core/src/profile.js": "772018633568bab13054924c63f63e06dce4cffca84e4c8e9ba6ff7da3582362",
       "apps/mobile-core/src/useAttendanceOutbox.js": "e8340032a51320a61d7479589bb8aa74c96e749ff1a53860cd5f2a83d0c6771c",
       "apps/mobile-core/src/useTeamLeagueLink.js": "90d3df0b7dd17770e42518c6ab7484a2d85cfe065ae79792ec6cfd8a00bd84d7",
-      "apps/parent-mobile/App.js": "c5f6baecef2e77ca13b6fb0e0662ac53650ec4d32faf17162df3c0bb8641b3bb",
+      "apps/parent-mobile/App.js": "1167343b4c1c15ee750d384d56647d9f5fb2bb80bcfc8101214c5ef93cc2d6f7",
       "apps/parent-mobile/src/ParentPortalScreens.js": "f2ded00495c547005a3312c52ed41588833304b77ffa0e74a32f430dcfa1a042",
       "apps/parent-mobile/src/offline.js": "72031bfbff6732b75e048864a27331cfb9ba7382bb414aeef561461267c2ad49",
       "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
@@ -1045,7 +1045,8 @@
       "tests/development-autosave-encrypted-browser.mjs": "8b6bf08a1fd40df8b2d1eb7651957c9aa277e8b5b691bf72108f511b65b77ffa",
       "tests/development-autosave-queue.test.mjs": "3748c4e29d5e0670ba74d52ce5932f6a9ba056ffec192ea1b3125ee4466edc44",
       "apps/coach-mobile/src/CoachSquadPanel.js": "bece539236ed7e0f2aaeaa1b23501e91dc4b7774e97677e4dbe2f7f3c2dce3b4",
-      "tests/coach-squad-multiselect-browser.mjs": "9617e6e33722b6726aac860494cf8795ac82d64285265bf02239ee806f2a5f07"
+      "tests/coach-squad-multiselect-browser.mjs": "9617e6e33722b6726aac860494cf8795ac82d64285265bf02239ee806f2a5f07",
+      "tests/parent-bottom-tabs-browser.mjs": "ab64bbb4c9e0279d6dfdc6c6385f3be1250d8915b2017adeebc6bcfdb16df95d"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1897,9 +1898,29 @@
         "coachCompatibleOtaOnly": true,
         "parentSourceUnchanged": true,
         "parentOtaUnchanged": true
+      },
+      "parentBottomTabLabel": {
+        "baseline": "8a236656e8d7fef4ff2e640b0774035aaf2f4f83",
+        "scope": [
+          "apps/parent-mobile/App.js",
+          "tests/parent-bottom-tabs-browser.mjs"
+        ],
+        "reasons": [
+          "Keep Parent bottom tab labels on one line with native font fitting and bounded horizontal padding; preserve icon sizes, touch targets, selected indicator and unread counts",
+          "Exercise actual BottomTabs at four phone widths in both themes, all tab actions, default full labels, enlarged no-wrap layout and unread counts"
+        ],
+        "independentExactCandidateReviewRequired": true,
+        "publication": false,
+        "migrations": 0,
+        "nativeChanges": 0,
+        "dependencyChanges": 0,
+        "customerWrites": 0,
+        "parentCompatibleOtaOnly": true,
+        "coachSourceUnchanged": true,
+        "coachOtaUnchanged": true
       }
     }
   },
-  "releasePreparationSha256": "a049bb7bd260bc91334f1f4f92b473eb062bbdf07c1e40b782629aecd38af1b8",
+  "releasePreparationSha256": "8f6d2b554c1c21df9a87e7f96bba4118f028ce2e995bcb580b4f3f95749216f4",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }
