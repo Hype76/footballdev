@@ -11,7 +11,7 @@ import {CoachSquadPanel} from './apps/coach-mobile/src/CoachSquadPanel.js';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 window.calls=[];window.notices=[];window.fail='';window.delay=20;
 const players=Array.from({length:7},(_,i)=>({id:String(i),playerName:i===6?'A long player name for mobile layout':'Player '+i}));
-const base={id:'fixture',squadDecisions:[],squadNotificationContacts:players.map(p=>({playerId:p.id,canNotify:p.id!=='2',hasContact:p.id!=='2',emailRecipientCount:p.id==='2'?0:1}))};
+const base={id:'fixture',squadDecisions:[],playerAvailability:[{playerId:'0',status:'available'},{playerId:'1',status:'unavailable'},{playerId:'2',status:'maybe'}],squadNotificationContacts:players.map(p=>({playerId:p.id,canNotify:p.id!=='2',hasContact:p.id!=='2',emailRecipientCount:p.id==='2'?0:1}))};
 function App(){const [match,setMatch]=React.useState(base),[busy,setBusy]=React.useState(false),[allowed,setAllowed]=React.useState(true),[visible,setVisible]=React.useState(true);const server=React.useRef(base);
 const palette=createCoachTheme({mode:'dark'}).tokens;
 window.refresh=()=>setMatch(m=>({...m}));window.allow=setAllowed;window.show=setVisible;window.loadNotified=()=>setMatch(m=>({...m,squadDecisions:m.squadDecisions.map(d=>({...d,notifiedAt:'now'}))}));
@@ -42,6 +42,16 @@ try {
   const save=()=>page.getByRole('button',{name:/^Save selections/}).first().click()
   const firstRowPosition=()=>page.getByRole('button',{name:/^(Choose|Selected|Not selected): Player 0$/}).evaluate(el=>el.getBoundingClientRect().top+window.scrollY)
   await mount()
+  await page.getByLabel('Player 0: Available',{exact:true}).waitFor()
+  await page.getByLabel('Player 1: Unavailable',{exact:true}).waitFor()
+  await page.getByLabel('Player 2: Maybe',{exact:true}).waitFor()
+  await page.getByLabel('Player 3: Awaiting response',{exact:true}).waitFor()
+  const initialOrder=await page.getByRole('button',{name:/^Choose:/}).allTextContents()
+  assert.equal((await page.getByRole('button',{name:/^Choose:/}).last().getAttribute('aria-label')),'Choose: Player 1','Unavailable players remain in the list after other players')
+  await choose(1)
+  assert.equal(await page.getByRole('button',{name:'Selected: Player 1',exact:true}).isDisabled(),false,'Unavailable players can still be selected')
+  await page.getByRole('button',{name:'Discard changes',exact:true}).click()
+  assert.deepEqual(await page.getByRole('button',{name:/^Choose:/}).allTextContents(),initialOrder,'Selection does not change availability ordering')
   assert.equal(await page.getByRole('button',{name:'Choose: Player 0',exact:true}).count(),1)
   assert.equal(await page.getByRole('button',{name:'Not selected: Player 0',exact:true}).count(),0,'Undecided players must not be marked not selected')
   const aligned = await Promise.all([0, 2].map(id => page.getByRole('button', {name: `Choose: Player ${id}`, exact: true}).boundingBox()))

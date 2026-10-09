@@ -22,7 +22,7 @@ import {getMatchDayDisplayName} from './src/lib/matchday-display.js';const getCo
 import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
 import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';const config={isProduction:true};const getCoachFriendlyError=e=>e.message;window.sends=[];window.followups=[];window.previews=[];const previewCoachInviteResend=async(user,invite,options)=>{window.previews.push({playerId:invite.playerId,key:options.idempotencyKey});return {recipientCount:1,recipients:[{address:invite.playerId+'@example.invalid'}],renewalRequired:false,expectedRenewalRequests:[],alreadyCompleted:false}};let followUpKey=0;const createCoachFollowUpKey=()=>String(++followUpKey);const recordCoachInviteIntent=async(user,invite,action,options)=>{if(action==='follow_up')window.followups.push({playerId:invite.playerId,...options});else window.sends.push(invite.playerId);return{recipientCount:1}};Alert.alert=(title,message,buttons)=>window.alert={title,message,buttons};
 const fixtureSnapshots=new Map();const readSavedMatchInvites=async(user,context)=>fixtureSnapshots.get(user.id+':'+context.id);const saveMatchInvites=async(user,context,fixtureId,snapshot)=>{if(window.fixtureSaveFailure)throw Error('Synthetic save failed');fixtureSnapshots.set(user.id+':'+context.id,{fixtureId,rows:snapshot.rows,checkedAt:snapshot.checkedAt})};
-const getCoachMatchInvites=async(user,fixture,{onReady})=>{window.fixtureReads=(window.fixtureReads||0)+1;if(window.fixtureFailure)throw Error('Synthetic fixture read failed');if(window.fixtureDelay)await new Promise(resolve=>{window.finishFixtureRead=resolve});const found=(window.fixtureRows||window.liveInvites||window.rows||[]).filter(row=>row.eventId===fixture.id);onReady(found);if(window.fixturePreparationDelay)await new Promise(resolve=>{window.finishFixturePreparation=resolve});return found};
+const getCoachMatchInvites=async(user,fixture,{onReady})=>{window.fixtureReads=(window.fixtureReads||0)+1;if(window.fixtureFailure)throw Error('Synthetic fixture read failed');if(window.fixtureDelay)await new Promise(resolve=>{window.finishFixtureRead=resolve});const found=(window.fixtureRows||window.liveInvites||window.rows||[]).filter(row=>row.eventId===fixture.id);onReady(found);if(window.fixturePreparationDelay)await new Promise(resolve=>{window.finishFixturePreparation=resolve});return window.fixtureEnrich?found.map(row=>({...row,attendancePreparation:{route:'coach_player_match',target:{eventId:row.eventId,playerId:row.playerId},baseline:{status:row.status,respondedAt:'2099-09-03',revision:0}}})):found};
 ${helpers}\n${domain}
 const names=${JSON.stringify(names)};const match={id:'fixture-one',teamId:'team',status:'scheduled',matchDate:'2099-09-06',clubName:'FP TEST Club',homeAway:'away',opponent:'St Neots',kickoffTime:'10:45',venueName:'St Neots'};
 const rows=names.map((playerName,i)=>({id:'invite-'+i,playerId:'player-'+i,playerName,kind:'match',eventId:match.id,status:[9,14,15].includes(i)?'awaiting':'available',deliveryState:'delivered',deliveryStatus:'delivered',sentAt:'2099-09-01',respondedAt:[9,14,15].includes(i)?'':'2099-09-02'}));
@@ -200,6 +200,26 @@ try{
  }
  await page.evaluate(()=>{window.fixturePreparationDelay=true});await page.getByRole('button',{name:'Refresh this fixture'}).click();await page.getByText(/Players checked/).waitFor();assert.equal(await boxes().count(),17,'Roster publication does not wait for offline preparation');await page.evaluate(()=>{window.fixturePreparationDelay=false;window.finishFixturePreparation()})
  // Optional storage failure and genuine network failure preserve all loaded rows.
+ // Duplicate requests must keep their transport winner before and after attendance enrichment.
+ await page.evaluate(()=>{
+  const other=window.fixtureRows.filter(row=>row.playerId!=='player-5');
+  const current=window.fixtureRows.find(row=>row.playerId==='player-5');
+  window.fixtureRows=[...other,{...current,id:'jenson-old',respondedAt:'2099-09-01',transportCanOfferLift:false},
+   {...current,id:'jenson-current',respondedAt:'2099-09-02',transportCanOfferLift:true}];
+  window.fixturePreparationDelay=true;
+  window.fixtureEnrich=true;
+ });
+ await page.getByRole('button',{name:'Refresh this fixture'}).click();await page.waitForFunction(()=>window.finishFixturePreparation);
+ const jenson=()=>page.getByRole('checkbox',{name:/^Jenson Bailey,/});
+ await jenson().getByLabel('Offering a lift',{exact:true}).waitFor();
+ await page.evaluate(()=>{window.fixturePreparationDelay=false;window.finishFixturePreparation()});
+ await page.getByText(/Players checked/).waitFor();
+ await jenson().getByLabel('Offering a lift',{exact:true}).waitFor();
+ assert.equal(await boxes().count(),17,'Enrichment cannot duplicate or drop players');
+ await page.evaluate(()=>{window.fixtureRows=window.fixtureRows.map(row=>({...row,transportCanOfferLift:false}))});
+ await page.getByRole('button',{name:'Refresh this fixture'}).click();
+ await jenson().getByLabel('Offering a lift',{exact:true}).waitFor({state:'hidden'});
+ await page.evaluate(()=>{window.fixtureEnrich=false;window.fixtureRows=window.fixtureRows.filter(row=>row.id!=='jenson-old')});
  await page.evaluate(()=>{window.fixtureSaveFailure=true});await page.getByRole('button',{name:'Refresh this fixture'}).click()
  await page.getByText('All invitations loaded, but could not be saved on this phone. Stay online and retry.',{exact:true}).waitFor();assert.equal(await boxes().count(),17)
  await page.evaluate(()=>{window.fixtureSaveFailure=false;window.fixtureFailure=true});await page.getByRole('button',{name:'Refresh this fixture'}).click()

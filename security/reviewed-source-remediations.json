@@ -227,7 +227,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "abf9251c563f9e5f9185ee13b5f749054bd0e7dd5bb0a140db4b1ec882e22d07",
+    "scripts/security-verify-reviewed-backports.mjs": "8fc5f3b46c51b3024e887865c6b85d572c9e88dcea1310ff0d1ecf09563baffc",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -675,10 +675,10 @@
       "apps/coach-mobile/App.js": "19949f74c3d484d2da38a110e11176ac183ca2492f7572d1d13abcd99f1910c9",
       "apps/coach-mobile/src/CoachMatchDayScreen.js": "c8622382857702b07f83769bdc19ce43fc537f7558c40f4e9a80975d3711a29f",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "01857bae300d5d17d33a85d3d66dc28397dc4fee4a1ca25ce1fbadeff5d9479e",
-      "apps/coach-mobile/src/CoachPhase31EScreens.js": "ff7ef4973498eafa6a8f8570c0227a0169384649b36085a6d4ce175418dee151",
+      "apps/coach-mobile/src/CoachPhase31EScreens.js": "3608bda99697024e4811f8f544631b536bc0f5fc4eba2e429bda60ed5045f1d7",
       "apps/coach-mobile/src/CoachTeamBrandingSetup.js": "2f159548a46a6d283ee024c8d25e2b5d0fc50d01c3dfcfbc510c9cb672bb7316",
       "apps/coach-mobile/src/DevelopmentOfflineEditor.js": "e0ad29ab3a43dc141d5974a1389cb8285b3cf66a40a4ccda2cb1b2aa020f85a4",
-      "apps/coach-mobile/src/coachDevelopmentSync.js": "ecfbf24437b5a5734a252a91bb08cd6c208449f3b4f60500d04015562490f18b",
+      "apps/coach-mobile/src/coachDevelopmentSync.js": "e1eab148de875dcb17fd3f8b092f151833b19eefc56e226115afdbe458b0530f",
       "apps/coach-mobile/src/coachThemeCore.js": "abe96fd722c4c22fac3813b901b6b5bbf3460d7852d894e2f29c6e8c3ae61c1d",
       "apps/coach-mobile/src/offline.js": "36ddfe027603260d14aea80557249845153954c2b9671e6ef092de54630908e9",
       "apps/mobile-core/src/AttendancePendingRows.js": "1931716ee5b35accc2e842cb53937fea6f84a13a2bd758fe48efe9c8e0d77579",
@@ -755,7 +755,7 @@
       "tests/coach-availability-counts.test.mjs": "e8b2a5524fa1c29b342ecc733f64780f61b70d0ad9c67640a4b07d6aab82f874",
       "tests/coach-branding-return-browser.mjs": "1eadf951c1d2c9c60dc7827fd285f293be9fc778282299a2e89b68f7e6e07008",
       "tests/coach-cache-memory.test.mjs": "03b96a06df4ba67de71a27c30357df35e50f8ed6d05931e3a39786a1e7713550",
-      "tests/coach-invite-table-browser.mjs": "63d99b7a2e8fee7344d30355e932d6b7df2fe4a44d85f19a3af291c26656ef26",
+      "tests/coach-invite-table-browser.mjs": "54efb84142edeff89894e790edea7dcb1f33503eb66cf5254d398d5d9044378e",
       "tests/coach-renewal.test.mjs": "beede291eca1615496d8b3ad72e3ffd7e65b7b42fe83515c6bf2bd4b9a92e086",
       "tests/coach-smooth-scroll-browser.mjs": "531a3ce904c38892f55f5a4807ce955564ab839dad40d5851f234d2c1e6e24b0",
       "tests/data-transfer-hardening.test.mjs": "5b62949488bea2e51dd60c1dc15805cff874d0096ec0679b359fda421d0f813d",
@@ -974,8 +974,8 @@
       "tests/coach-development-notifications.test.mjs": "17a18bb6706deee36f003118099202301f1113aecd73825edbfb653e6ad41eef",
       "tests/coach-development-selectors-browser.mjs": "e9129d2c967815ecaca72e2394f14fcedd0575b7626e4b53abcad1a7d067a7ac",
       "tests/coach-player-profile-browser.mjs": "08f03e563bbf7f8d14a9a4b37c24506a8c6d7145129b6b98aeae70de139c7f85",
-      "tests/mobile-development-background-domain-browser.mjs": "7e3c2e6e30aaffc0aca676a76adb3461c9d9a5a6115a30c6fc1fa02f4b70f337",
-      "tests/mobile-development-background.test.mjs": "aab9a063b6e7d8dbf51d74360cfbe2fd45de2acd91ff393c07055d15f018fd19",
+      "tests/mobile-development-background-domain-browser.mjs": "c9dcace9879950c32f7d89d6584a6c0ef28f57f19fbadc81b5ce6ed40edf7b2a",
+      "tests/mobile-development-background.test.mjs": "2e0fd4661f00fd181437fe2a481aeec61e736bf0fd309b0ac261a95e8f86ed97",
       "tests/mobile-notification-categories.test.mjs": "5c72804fd24633115b2c05bfcc5a4dc06753a2cbb33a412fbe3d2a18e0fb8087",
       "tests/mobile-notification-settings-browser.mjs": "b2e29a5daae3566686babf84e7ae7c7b470c4bfb1aa62d3cc4fbb22c1c5c0b15",
       "tests/phone-coach-roster.test.mjs": "abecedbc984ef8749998a1d1ff20ebdaefead085ef84ebb813b41cdda8dd042a",
@@ -1043,7 +1043,9 @@
       "tests/mobile-offline-storage-timeout.test.mjs": "5888b27b47041983910a2d546f8299d49b0b1c63bbb5052d3ae08ccd8e03e04c",
       "apps/coach-mobile/src/developmentAutosaveQueue.js": "b7b99b142a98d2d4398de386afd863c8bd1b92e30f6996c480f541489069b0da",
       "tests/development-autosave-encrypted-browser.mjs": "8b6bf08a1fd40df8b2d1eb7651957c9aa277e8b5b691bf72108f511b65b77ffa",
-      "tests/development-autosave-queue.test.mjs": "3748c4e29d5e0670ba74d52ce5932f6a9ba056ffec192ea1b3125ee4466edc44"
+      "tests/development-autosave-queue.test.mjs": "3748c4e29d5e0670ba74d52ce5932f6a9ba056ffec192ea1b3125ee4466edc44",
+      "apps/coach-mobile/src/CoachSquadPanel.js": "bece539236ed7e0f2aaeaa1b23501e91dc4b7774e97677e4dbe2f7f3c2dce3b4",
+      "tests/coach-squad-multiselect-browser.mjs": "9617e6e33722b6726aac860494cf8795ac82d64285265bf02239ee806f2a5f07"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1868,9 +1870,36 @@
         "coachCompatibleOtaOnly": true,
         "parentSourceUnchanged": true,
         "parentOtaUnchanged": true
+      },
+      "coachCancellationTransportSquad": {
+        "baseline": "a2073f66b3ca299a38219a8a547dd154ffece601",
+        "scope": [
+          "apps/coach-mobile/src/CoachPhase31EScreens.js",
+          "apps/coach-mobile/src/CoachSquadPanel.js",
+          "apps/coach-mobile/src/coachDevelopmentSync.js",
+          "tests/coach-invite-table-browser.mjs",
+          "tests/coach-squad-multiselect-browser.mjs",
+          "tests/mobile-development-background-domain-browser.mjs",
+          "tests/mobile-development-background.test.mjs"
+        ],
+        "reasons": [
+          "Retry and reconcile durably saved assessment cancellation after local-read failure or missed completion while retaining exact draft identity and account authority",
+          "Discard exact cancelled drafts before optional workspace reads and retain actionable scoped failures without clearing saved work",
+          "Choose duplicate invitation transport from original response timestamps before attendance preparation projects its shared baseline",
+          "Show explicit availability labels with unavailable players last and still selectable; preserve draft selection, separate save and notification actions"
+        ],
+        "independentExactCandidateReviewRequired": true,
+        "publication": false,
+        "migrations": 0,
+        "nativeChanges": 0,
+        "dependencyChanges": 0,
+        "customerWrites": 0,
+        "coachCompatibleOtaOnly": true,
+        "parentSourceUnchanged": true,
+        "parentOtaUnchanged": true
       }
     }
   },
-  "releasePreparationSha256": "2750c2e77b1cf72fb34be0db119fc4c4880d46c175fa6c6abbbb94ac57f02a0d",
+  "releasePreparationSha256": "a049bb7bd260bc91334f1f4f92b473eb062bbdf07c1e40b782629aecd38af1b8",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
 }

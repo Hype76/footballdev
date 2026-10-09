@@ -16,7 +16,7 @@ const draft = () => ({ id: 'fixed-draft-id', playerId: player.id, formId: form.i
     requestedAt: '2026-10-07T12:00:00Z', revision: 4, serverVersion: 2, form, player,
     values: { score: 7 }, notes: 'Saved latest note', shareWithParent: true,
   } })
-function engine(initial, { finalise = async () => ({}), workspace = async () => ({ players: [player], forms: [form] }), current = () => true, offline = false, save = async () => { throw new Error('A queued synced record must not save again') }, discard = async () => {} } = {}) {
+function engine(initial, { finalise = async () => ({}), workspace = async () => ({ players: [player], forms: [form] }), current = () => true, offline = false, save = async () => { throw new Error('A queued synced record must not save again') }, discard = async () => {}, beforeRead = async () => {} } = {}) {
   // JSON roundtrips model persisted storage, not component memory. Existing encrypted-store tests cover the actual writer.
   let disk = JSON.stringify(initial), writes = 0
   const events = [], calls = [], saves = [], discards = []
@@ -29,7 +29,7 @@ function engine(initial, { finalise = async () => ({}), workspace = async () => 
     saveCoachDevelopmentDraft: async (who, request) => { saves.push(request); return save(who, request) },
     discardCoachDevelopmentDraft: async (who, request) => { discards.push(request); return discard(who, request) },
     finalizeCoachDevelopmentRecord: async (who, request) => { calls.push({ who, request }); return finalise(who, request) },
-    readCoachDevelopmentDrafts: async () => JSON.parse(disk), updateCoachDevelopmentDraft: async (_who, _context, id, change) => {
+    readCoachDevelopmentDrafts: async () => { await beforeRead(); return JSON.parse(disk) }, updateCoachDevelopmentDraft: async (_who, _context, id, change) => {
       const all = JSON.parse(disk), next = change(all[id] || null)
       if (next) all[id] = next
       else delete all[id]
@@ -198,4 +198,101 @@ test('failed cancellation retains its durable intent and retries without saving 
   assert.equal(failed.events.some(e => e.kind === 'discarded'), false)
   const retry = engine(failed.read()); await retry.run(); assert.deepEqual(retry.read(), {})
   assert.equal(retry.saves.length, 0); assert.equal(retry.calls.length, 0)
+})
+
+test('cancellation completes even when the workspace cannot load', async () => {
+  const saved = { ...draft(), finalisation: null, discardRequested: true, status: 'pending' }
+  const service = engine({ [key]: saved }, { workspace: async () => { throw Error('Workspace unavailable') } })
+  await service.run()
+  assert.deepEqual(service.read(), {})
+  assert.equal(service.events[0].kind, 'discarded')
+  assert.equal(service.discards[0].draftId, saved.id)
+})
+
+test('a failed initial local read emits scoped recovery and releases the sync lock', async () => {
+  const saved = { ...draft(), finalisation: null, discardRequested: true, status: 'pending' }
+  let failed = false
+  const service = engine({ [key]: saved }, { beforeRead: async () => {
+    if (!failed) { failed = true; throw Error('Storage read timed out') }
+  } })
+  await assert.rejects(service.run(), /Storage read timed out/)
+  assert.deepEqual(service.read()[key], saved)
+  assert.deepEqual(service.events.map(event => event.kind), ['sync_failed'])
+  assert.equal(service.events[0].userId, user.id)
+  assert.equal(service.events[0].contextId, context.id)
+  await service.run()
+  assert.deepEqual(service.read(), {})
+  assert.equal(service.events.at(-1).kind, 'discarded')
+})
+
+test('a failed follow-up local read records failure without silently abandoning a queued record', async () => {
+  let reads = 0
+  const service = engine({ [key]: draft() }, { beforeRead: async () => {
+    if (++reads === 2) throw Error('Follow-up read timed out')
+  } })
+  await service.run()
+  assert.equal(service.calls.length, 0)
+  assert.ok(service.read()[key].finalisation)
+  assert.equal(service.events[0].kind, 'finalisation_failed')
+  await service.run()
+  assert.deepEqual(service.read(), {})
+})
+
+function cancellationRetry({ sync = async () => {}, readSaved = async () => ({}) } = {}) {
+  const scope = 'authority', selectedKey = key, queueKey = `${scope}:${key}`
+  const entry = { kind: 'discard', state: 'pending', draftId: 'cancelled-id' }
+  const token = { active: true, scope, queued: { [queueKey]: entry }, load: () => { loads++ } }
+  const lifetime = { current: token }
+  let closed = queueKey, loads = 0
+  const screen = read('apps/coach-mobile/src/CoachPhase31EScreens.js')
+  const body = screen.slice(screen.indexOf('  const retryCancellation ='), screen.indexOf('  const selectPlayer ='))
+  const deps = { lifetime, scope, selectedKey, selectedQueued: entry, user, context,
+    setRetryingCancellation: () => {}, setQueued: change => { token.queued = change(token.queued) },
+    setClosedEditor: change => { closed = change(closed) },
+    syncCoachDevelopmentDrafts: sync, readCoachDevelopmentDrafts: readSaved }
+  const run = new Function(...Object.keys(deps), `${body};return retryCancellation`)(...Object.values(deps))
+  return { run, entry: () => token.queued[queueKey], closed: () => closed, loads: () => loads,
+    replace: next => { token.queued[queueKey] = next }, leave: () => { token.active = false } }
+}
+
+test('actual cancellation retry reconciles durable removal when its completion event was missed', async () => {
+  const retry = cancellationRetry()
+  await retry.run()
+  assert.equal(retry.entry().state, 'complete')
+  assert.equal(retry.closed(), '')
+  assert.equal(retry.loads(), 1)
+})
+
+test('actual cancellation retry never restores failed state over a completed event', async () => {
+  let retry
+  retry = cancellationRetry({ sync: async () => retry.replace({ ...retry.entry(), kind: 'discarded', state: 'complete' }),
+    readSaved: async () => { throw Error('Late local read failure') } })
+  await retry.run()
+  assert.equal(retry.entry().state, 'complete')
+  assert.equal(retry.entry().kind, 'discarded')
+})
+
+test('actual cancellation retry cannot overwrite a new queued assessment at the same selection', async () => {
+  let retry
+  const fresh = { kind: 'finalisation', state: 'pending', draftId: 'fresh-id' }
+  retry = cancellationRetry({ sync: async () => retry.replace(fresh), readSaved: async () => { throw Error('Late failure') } })
+  await retry.run()
+  assert.deepEqual(retry.entry(), fresh)
+})
+
+test('actual cancellation retry treats a replacement local draft as fresh work and preserves it', async () => {
+  const fresh = { id: 'fresh-id', values: { score: 9 } }
+  const retry = cancellationRetry({ readSaved: async () => ({ [key]: fresh }) })
+  await retry.run()
+  assert.equal(retry.entry().state, 'complete')
+  assert.equal(retry.closed(), '')
+  assert.deepEqual(fresh.values, { score: 9 })
+})
+
+test('actual cancellation retry ignores a departed account scope', async () => {
+  let retry
+  retry = cancellationRetry({ sync: async () => retry.leave() })
+  await retry.run()
+  assert.equal(retry.entry().state, 'pending')
+  assert.equal(retry.loads(), 0)
 })

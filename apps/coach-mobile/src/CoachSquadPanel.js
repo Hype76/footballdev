@@ -28,6 +28,8 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
   const pendingCount = Object.keys(drafts).length
   useEffect(() => { onPendingChange?.(pendingCount) }, [onPendingChange, pendingCount])
   const rows = savedSquad.rows.map((player) => drafts[player.id] ? { ...player, decision: drafts[player.id].decision, notifiedAt: '', decisionRevision: '' } : player)
+    .sort((left, right) => Number(left.availability === 'unavailable') - Number(right.availability === 'unavailable')
+      || left.playerName.localeCompare(right.playerName))
   const squad = { rows, summary: {
     selected: rows.filter((player) => player.decision === 'selected').length,
     notSelected: rows.filter((player) => player.decision === 'not_selected').length,
@@ -131,6 +133,9 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
       <Pressable accessibilityRole="button" disabled={discardDisabled} onPress={() => { setDrafts({}); setSummary('Unsaved changes discarded.') }} style={[layout.toolbarButton, { opacity: discardDisabled ? 0.4 : 1 }]}><Text style={[styles.body, { color: palette.accentText }]}>Discard changes</Text></Pressable>
     </View>
     {squad.rows.map((player) => {
+      const availabilityColor = contrastSafeColor(player.availability === 'available' ? palette.success
+        : player.availability === 'unavailable' ? palette.danger : player.availability === 'maybe' ? palette.warning
+          : palette.textSecondary, [palette.background], mode, 4.5)
       const decided = ['selected', 'not_selected'].includes(player.decision)
       const sent = !drafts[player.id] && wasSent(player)
       const picked = drafts[player.id] ? chosen[player.id] !== 'skip' : Boolean(player.decisionRevision) && chosen[player.id] === player.decisionRevision
@@ -140,7 +145,7 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
         { key: 'notify', label: sent ? 'Notified' : 'Notify', icon: sent ? 'notifications-active' : picked ? 'check-box' : 'check-box-outline-blank', active: sent || picked, onPress: () => { setChosen((current) => ({ ...current, [player.id]: drafts[player.id] ? (picked ? 'skip' : 'draft') : picked ? '' : player.decisionRevision })); setSummary('') } },
       ].filter((control) => control.key !== 'notify' || player.canNotify || sent)
       return <View key={player.id} style={[layout.row, { borderBottomColor: palette.border }]}>
-        <View style={layout.person}><Text style={[layout.name, { color: player.notificationContactState === 'no_contact' ? palette.danger || '#ef4444' : palette.textPrimary }]}>{player.playerName}</Text>{player.notificationContactState === 'no_contact' ? <Text accessibilityLabel={`${player.playerName}: No contact details`} style={[layout.meta, { color: palette.danger || '#ef4444' }]}>No contact details</Text> : player.notificationContactState === 'disabled' ? <Text style={[layout.meta, { color: palette.textSecondary }]}>Notifications are switched off.</Text> : player.notificationContactState === 'unknown' ? <Text style={[layout.meta, { color: palette.textSecondary }]}>Contact details need refreshing.</Text> : null}{result?.message && !sent ? <Text style={[layout.meta, { color: palette.textPrimary }]}>{result.message}</Text> : null}</View>
+        <View style={layout.person}><Text style={[layout.name, { color: player.notificationContactState === 'no_contact' ? palette.danger || '#ef4444' : palette.textPrimary }]}>{player.playerName}</Text><Text accessibilityLabel={`${player.playerName}: ${player.availabilityLabel}`} style={[layout.meta, { color: availabilityColor }]}>{player.availabilityLabel}</Text>{player.notificationContactState === 'no_contact' ? <Text accessibilityLabel={`${player.playerName}: No contact details`} style={[layout.meta, { color: palette.danger || '#ef4444' }]}>No contact details</Text> : player.notificationContactState === 'disabled' ? <Text style={[layout.meta, { color: palette.textSecondary }]}>Notifications are switched off.</Text> : player.notificationContactState === 'unknown' ? <Text style={[layout.meta, { color: palette.textSecondary }]}>Contact details need refreshing.</Text> : null}{result?.message && !sent ? <Text style={[layout.meta, { color: palette.textPrimary }]}>{result.message}</Text> : null}</View>
         <View style={layout.controls}>{controls.map((control) => {
           const disabled = locked || (control.key === 'notify' && (sent || !decided || (!drafts[player.id] && !player.decisionRevision)))
           const activeColor = control.key === 'selection' ? player.decision === 'selected' ? selectionGreen : palette.danger : palette.accentText
