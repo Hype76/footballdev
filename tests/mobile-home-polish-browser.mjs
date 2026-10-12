@@ -23,7 +23,8 @@ import {View,Text,Pressable,StyleSheet,Platform} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
-import {BrandLoader} from './apps/mobile-core/src/BrandLoader.js';
+import {MobileActivityProvider} from './apps/mobile-core/src/MobileActivityContext.js';
+import {MobileHeaderActivity,MobileLoadingStatus} from './apps/mobile-core/src/MobileHeaderActivity.js';
 import {TeamLeagueLinkRow} from './apps/mobile-core/src/TeamLeagueLink.js';
 import {coachTeamLeagueScope} from './src/lib/team-league-link.js';
 const coachSupabase={rpc:async()=>({data:null})};
@@ -34,8 +35,9 @@ ${selected}
 function App(){const[mode,setMode]=React.useState('dark'),[loading,setLoading]=React.useState(false);window.mode=setMode;window.loading=setLoading;
 const[plan,setPlan]=React.useState('team'),[flags,setFlags]=React.useState({teamCalendar:true,fixtures:true,matchDay:true,parentPortal:true,parentInvitations:true});window.plan=setPlan;window.flags=setFlags;
 const palette=createCoachTheme({mode,context:{clubAccent:'#2ba7aa'}}).tokens;theme={palette,styles:createCoachStyles(palette)};
-return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:16}}>
-<HomeScreen context={{teamId:'synthetic-team',planKey:plan,roleRank:70,role:'head_manager'}} user={{matchdayPolicy:{flags}}} onNavigate={(route,target)=>{window.route=route;window.target=target}} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{id:'next-fixture',opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View>}
+return <MobileActivityProvider active={loading}><View style={{backgroundColor:palette.background,minHeight:'100vh'}}>
+<View style={{height:36,alignItems:'flex-end',paddingRight:16}}><MobileHeaderActivity live styles={theme.styles}/></View>
+<View testID="home-test-content" style={{padding:16}}><HomeScreen context={{teamId:'synthetic-team',planKey:plan,roleRank:70,role:'head_manager'}} user={{matchdayPolicy:{flags}}} onNavigate={(route,target)=>{window.route=route;window.target=target}} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{id:'next-fixture',opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View></View></MobileActivityProvider>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
 const browser = await chromium.launch({ headless: true })
@@ -62,20 +64,23 @@ try {
     assert.equal(await page.evaluate(() => window.route), 'matchday')
     assert.deepEqual(await page.evaluate(() => window.target), { fixtureId: 'next-fixture' })
     assert.equal(await page.getByText(/Offline readiness|Offline downloads|Download for offline/).count(), 0)
-    assert.ok((await page.getByRole('button', { name: 'Next Calendar item: Thu 10 Sept, 16:00' }).boundingBox()).y < 40)
+    const nextBefore = await page.getByRole('button', { name: 'Next Calendar item: Thu 10 Sept, 16:00' }).boundingBox()
+    const contentBox = await page.getByTestId('home-test-content').boundingBox()
+    assert.ok(nextBefore.y - contentBox.y < 40)
+    const headerBefore = await page.getByTestId('mobile-header-activity').boundingBox()
     await page.screenshot({ path: `${output}/home-${mode}-${width}.png` })
     await page.evaluate(() => window.loading(true))
-    await page.getByText('Loading your Coach overview...').waitFor()
-    const panel = await page.getByText('Loading your Coach overview...').evaluate(element => {
-      const node = element.parentElement
-      return { height: node.getBoundingClientRect().height, border: getComputedStyle(node).borderWidth, background: getComputedStyle(node).backgroundColor }
-    })
-    assert.ok(panel.height <= 90, 'Loading must stay compact on a phone')
-    assert.equal(panel.border, '0px')
-    assert.equal(panel.background, 'rgba(0, 0, 0, 0)')
+    await page.getByTestId('brand-loader').waitFor()
+    assert.equal(await page.getByText('Loading your Coach overview...').count(), 0)
+    assert.deepEqual(await page.getByTestId('mobile-header-activity').boundingBox(), headerBefore)
+    assert.equal((await page.getByRole('button', { name: 'Next Calendar item: Thu 10 Sept, 16:00' }).boundingBox()).y, nextBefore.y)
+    assert.equal(headerBefore.height, 36)
+    assert.equal(headerBefore.width, 52)
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     await page.screenshot({ path: `${output}/loading-${mode}-${width}.png` })
     await page.evaluate(() => window.loading(false))
+    await page.getByTestId('brand-loader').waitFor({state:'hidden'})
+    await page.getByText('LIVE',{exact:true}).waitFor()
   }
   await page.getByRole('button', { name: 'Next match: Sun 20 Sept, 11:00' }).click()
   assert.equal(await page.evaluate(() => window.route), 'matchday')

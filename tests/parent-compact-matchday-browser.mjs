@@ -23,6 +23,9 @@ const childChange = appSource.slice(appSource.indexOf('  function handleChildCha
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replaceAll('../assets/', './apps/mobile-core/assets/'))
 const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+import {useMobileActivity} from './apps/mobile-core/src/MobileActivityContext.js';
+import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js';
+import {MobileLoadingStatus} from './apps/mobile-core/src/MobileHeaderActivity.js';
 
 import {FormationPitchLines,FormationPlayerArtwork,FormationSubArtwork,formationVisualStyles} from './apps/mobile-core/src/FormationBoardVisuals.js';
 import {getFormationMarkerVisualPosition} from './apps/mobile-core/src/formationVisualCore.js';
@@ -69,7 +72,7 @@ const setChildSwitcherOpen=()=>{},setActiveTab=()=>{};
 const scrollViewRef=useRef(null),contentColumnRef=useRef(null);
 async function loadParentData(){window.refreshes=(window.refreshes||0)+1;setMatch(window.server);setInvitation(window.serverInvitation)}
 ${handlers}\n${childChange}
-window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId};
+window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId,warning,offline};
 const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:'#075293'}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
 return <ScrollView ref={scrollViewRef} style={{height:420}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
 <SyncStatus cacheState={{source:'cache',stale:true}} isOffline={offline} summary={{waiting:0,needsAttention:0}}/>
@@ -293,12 +296,16 @@ try {
   assert.equal(await page.getByText('Score', { exact: true }).count(), 0)
   await page.evaluate(() => window.match({ isScorer: true }))
   await page.getByText('Authorised scorer controls').waitFor()
+  const scorerBefore = await page.getByText('Authorised scorer controls').boundingBox()
   await page.evaluate(() => window.warning(true))
-  await page.getByText('Could not refresh. Showing saved information.').waitFor()
-  assert.ok((await page.getByText('Could not refresh. Showing saved information.').boundingBox()).height < 60)
-  await page.getByRole('button', { name: 'Dismiss refresh status' }).click()
+  await page.waitForFunction(() => window.current.warning)
+  assert.equal(await page.getByText('Could not refresh. Showing saved information.').count(), 0)
+  assert.deepEqual(await page.getByText('Authorised scorer controls').boundingBox(), scorerBefore)
+  await page.evaluate(() => window.warning(false))
   await page.evaluate(() => window.offline(true))
-  await page.getByText(/Offline. Showing your last saved information./).waitFor()
+  await page.waitForFunction(() => window.current.offline && !window.current.warning)
+  assert.equal(await page.getByText(/Offline. Showing your last saved information./).count(), 0)
+  assert.deepEqual(await page.getByText('Authorised scorer controls').boundingBox(), scorerBefore)
   assert.deepEqual(errors, [])
   console.log('PASS: Parent Matchday at 320/390px light/dark with contrast and no overflow; availability and squad chips distinct; save/reload availability and carpool; squad lift badges; Parent/Player/Fan and offline gates; real App handlers reject stale A->B->A completion; score/timeline/scorer, back, calendar and directions retained.')
 } finally { await browser.close() }

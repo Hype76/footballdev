@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "25e53de50d2fdcce1d548bde73a46a7f4282bf70128898d294cad0bfd59d4792",
+    "scripts/security-verify-reviewed-backports.mjs": "71e44a0461228adfec23d54999667cc204edf9b690ea3256b0e1ec29a143e87d",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -761,10 +761,10 @@
       "tests/club-calendar-parents.test.mjs": "018c4b27d772495d20d6c4d3b404c906bf349cb0e392ac43f3e21d82be78e055",
       "tests/coach-availability-counts.test.mjs": "6faac86e96863fc1a4ce50a472f0ec97c116afcc70e3b50926b7982e47ccf11f",
       "tests/coach-branding-return-browser.mjs": "1eadf951c1d2c9c60dc7827fd285f293be9fc778282299a2e89b68f7e6e07008",
-      "tests/coach-cache-memory.test.mjs": "03b96a06df4ba67de71a27c30357df35e50f8ed6d05931e3a39786a1e7713550",
+      "tests/coach-cache-memory.test.mjs": "0754bb2c7ebd978f5a1eeefd1cc3b22224ff5c22535dc4c39133fc06e5031c8b",
       "tests/coach-invite-table-browser.mjs": "52cadaf8564c06e3f3c91ae65cf74b55b385d750832b70a83d9234b5cb6c6940",
       "tests/coach-renewal.test.mjs": "beede291eca1615496d8b3ad72e3ffd7e65b7b42fe83515c6bf2bd4b9a92e086",
-      "tests/coach-smooth-scroll-browser.mjs": "531a3ce904c38892f55f5a4807ce955564ab839dad40d5851f234d2c1e6e24b0",
+      "tests/coach-smooth-scroll-browser.mjs": "064723827d0a3eeb70277af07576cc8addd2cf81bf0d8dca4a5d8b79c9ba1a13",
       "tests/data-transfer-hardening.test.mjs": "5b62949488bea2e51dd60c1dc15805cff874d0096ec0679b359fda421d0f813d",
       "tests/development-recipient-state-recovery.test.mjs": "ac082ab6dbfb9c00ae2144815b28f0bc1a4bf2dc7c9ff132e3bed0fd2684b98b",
       "tests/development-record-save-flow.test.mjs": "99fde1769683b5aeea8d6c38a614fbccc598f39f8ce487d92f741abe7af19ea9",
@@ -806,13 +806,13 @@
       "tests/mobile-event-details-browser.mjs": "694f6b434a380aaa8f1eabd212e52170f316a5bda0f0c6a8a928c90c4183a4d1",
       "tests/mobile-feedback-art-browser.mjs": "6450fa15547f9a8c69eebc1a547c8a610d0e7ec04d5999a875b64d0a36b173a1",
       "tests/mobile-feedback-corrective-61.test.mjs": "7b686987deb699abae8822d929aa3da852d1005d07fb15141cb3f6fda8f3e57e",
-      "tests/mobile-home-polish-browser.mjs": "a0d5bb03f5031f90f43b66a1635392b2001448de100559c3bc4eeb797b07f765",
+      "tests/mobile-home-polish-browser.mjs": "49cce14855ce690790716b1e5ba86a3cae6b1efd1cb27f2151520b9c30b39f6c",
       "tests/mobile-home-refresh-layout.test.mjs": "a702ae6482e719625da08a74815479f150ebf476004edd7d01609b1f7aae0fae",
       "tests/mobile-invites-pdf-scroll-67.test.mjs": "57b440fe63f5d5e48fbe7377e38917cf465e8c4f4b6da7abf1707a4d867aa5c2",
       "tests/mobile-more-icon-badges-browser.mjs": "4ae03b35369334f11f086387af5225f4dda3f4a9ae7cbe3f616ba2ec2bef71dc",
       "tests/mobile-notifications-profile-66.test.mjs": "6ac2fd7e1ce96803e2647519ed5cbbbfb4da011941b4b021059bbfbb712777aa",
       "tests/mobile-offline-development-browser.mjs": "bac5a69d59dfee98f1ab06b13e0677415802f8c71413d1b568625fd5ddfefca2",
-      "tests/mobile-parent-dropdown-browser.mjs": "8f7ad8bfae15bfc05d85a4ca8812f4d4110fdddd3166a393bffac8b00b0d3b3c",
+      "tests/mobile-parent-dropdown-browser.mjs": "2e437ae390aaf2780186bc16ce002a2f450f2779408f29c01f786131383a1639",
       "tests/mobile-parent-experience-52.test.mjs": "3ad280c0c01849c2e158d15203dfe0bed55132cde3f22f7a8a21ff5b5ca3effb",
       "tests/mobile-parent-live-account-qa-29.test.mjs": "69047075fce596d8b7b23c83105ac9756f17bd2d24c3ad5e5b6aef0eb9ebcc6b",
       "tests/mobile-parent-portal-parity-final-25.test.mjs": "cd0c4554b9b491c1fc1524515e27094c59a3943e309f427a203969f39f779f4b",
@@ -822,13 +822,13 @@
       "tests/parent-access-removal-browser.mjs": "f0f12a72bb78f1926595b4029c1190bb606a86fe414bfa62103f0cd3ef64f61a",
       "tests/parent-assessment-calendar-corrective-38.test.mjs": "113eb0a1a343ea21a60be402ebc97e88ed0c0714105f6cbeac3a39162e8570f0",
       "tests/parent-chat-layout-browser.mjs": "5ba0eb3c64e1d1d2dc35425bd24828afc7dd509aba2e752618184ed771a1f29a",
-      "tests/parent-compact-matchday-browser.mjs": "ef2087b97031e5ed6b354f8cfbb63da09dfac2fb92aa58954b81c04b628dbe14",
+      "tests/parent-compact-matchday-browser.mjs": "13d3daeb99c8a15efbba75fc8078fbac49bea608be547ba364f1e6b55e088da5",
       "tests/parent-email-change-linkflow.test.mjs": "7ee5082c4645a11f6ad7f2ac47f1f1f5be22cef1528378924e331ff1410ae322",
       "tests/parent-event-details-browser.mjs": "af41fcc4d35fd30e19827458d765ea23495f30f254aea17dc83133d0242606bc",
       "tests/parent-fixture-date-layout-browser.mjs": "fa4e29b6e29bf039a0499bd6d583f32de8cbf7d007c75275822cea4821bbc256",
       "tests/parent-gameplay-notifications-followup.test.mjs": "d1a6632199f418e3ab37b65e263202333734ffd5606f09b9c8cfb6ec6c6d59d7",
       "tests/parent-home-sections-browser.mjs": "2adf341020b2a48ce1c9e705c90f919ae512c60302d1f59094780c0e05fbb4d8",
-      "tests/parent-home-status-actions-browser.mjs": "a537b372f687e2ceb92c87c1deeafe1b77fd3cb3fa3ef132da80298ac6b0a8ae",
+      "tests/parent-home-status-actions-browser.mjs": "ab18f1ab13a3b17e97b4ac9e4b6dda04b278e68c37064427142c0dce950b64d4",
       "tests/parent-invites-scorer-repair.test.mjs": "68e4f137040ab638310535bec567354836a5e22d912cd30d4f7a9c502986560a",
       "tests/parent-match-report-branding.test.mjs": "4beddcfb550e8e8927e23ddfda1271dc7d46ed137cf68eedee8d450e551c9395",
       "tests/parent-mobile-match-request-visibility-34e.test.mjs": "5584e677b5a1bd5a27df3725c293d9da951bc97a6fa6d6ddfd2dc8de787203af",
@@ -1074,7 +1074,9 @@
       "supabase/migrations/20261012092551_fan_team_league_read_access.sql": "6430e0ffbc7ef02e0e01a40a07ec5ee1ee2ed48e97b1d8cb426364f8cc57cab7",
       "tests/mobile-header-activity-browser.mjs": "138842296372f15c87ea614fdfe316f90ca10e73109ec6c03820aee7d503e984",
       "tests/mobile-parent-offline-sync-21a.test.mjs": "5e893758cfc5ebbb47a50e2f336f0cfc1498aa779a0e778b5a13143880f80735",
-      "tests/mobile-parent-rebuild-20.test.mjs": "ef82b1682a1c36bf3ffd3e45d3674fb29373738f886e95deff06ef8062d3c1c6"
+      "tests/mobile-parent-rebuild-20.test.mjs": "ef82b1682a1c36bf3ffd3e45d3674fb29373738f886e95deff06ef8062d3c1c6",
+      "tests/coach-feedback-browser.mjs": "2efde366150260cc72c8dbf3a91c29d9a7091e9e2923a37d36544164911e8a45",
+      "tests/mobile-notification-badges-browser.mjs": "9d656295d57498b7ac23f51775aa7746e91c3509933b89fb69f5abf18e9be82b"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -1949,7 +1951,7 @@
       }
     }
   },
-  "releasePreparationSha256": "b36c94d211374ef2c800679bc7a912554a0f79292a53cd1bda33398b8c624c3d",
+  "releasePreparationSha256": "698c4c9c2517aa82cf24d80a59e72178c9b1b984b9312430f71ed895d4c284ce",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

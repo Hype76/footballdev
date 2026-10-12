@@ -24,7 +24,7 @@ const shell = elements.find(n => n.openingElement.name.name === 'KeyboardAvoidin
 const scroller = elements.find(n => n.openingElement.attributes.some(a => a.name?.name === 'testID' && a.value?.value === 'coach-content-scroll'))
 assert.ok(scroller, 'Coach uses the stable native scroll container')
 const header = elements.find(n => n.openingElement.name.name === 'CoachHeader')
-assert.ok(header.start > scroller.start && header.end < scroller.end, 'Header belongs to the native scrolling content')
+assert.ok(header.start > shell.start && header.end < scroller.start, 'The fixed Coach header stays outside the native scrolling content')
 const dragAttribute = scroller.openingElement.attributes.find(a => a.name?.name === 'onScrollBeginDrag')
 assert.ok(dragAttribute, 'Coach dismisses the focused field at the start of a drag')
 const dragSource = source.slice(dragAttribute.value.expression.start, dragAttribute.value.expression.end)
@@ -39,6 +39,8 @@ const callbacks = ['scrollContentToTop', 'focusNotificationSettings'].map(name =
   return source.slice(declaration.start, declaration.end)
 }).join('\n')
 const entry = `import {CoachTeamBrandingSetup} from './apps/coach-mobile/src/CoachTeamBrandingSetup.js';
+import {MobileActivityProvider} from './apps/mobile-core/src/MobileActivityContext.js';
+import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.js';
 const refreshUserProfile=async()=>{};
 
 import React,{useRef,useMemo,useCallback,useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
@@ -58,6 +60,7 @@ function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
 const moreRoute=activeRoute==='invites'?'invites':'';const isMatchInvitesRoute=activeRoute==='invites';const safeAreaInsets={bottom:16};
+const user={isOfflineProfile:false};
 const quickActionVisibility={ready:true,enabled:true};
 theme={...createCoachTheme({mode,context:{clubAccent:'#51bac4'}})};theme.palette=theme.tokens;theme.styles=createCoachStyles(theme.palette);theme.branding={logoUrl:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" fill="teal"/></svg>'};
 const styles=theme.styles,palette=theme.palette;
@@ -72,7 +75,7 @@ const navigate=route=>{setActiveRoute(route);scrollContentToTop()},selectContext
 window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);
 window.beginDrag=${dragSource};
 useEffect(()=>{scrollContentToTop()},[activeRoute,scrollContentToTop]);
-return <View style={[styles.appShell,{height:'100vh'}]}>${shellSource}</View>;
+return <MobileActivityProvider active={isRefreshing}><View style={[styles.appShell,{height:'100vh'}]}>${shellSource}</View></MobileActivityProvider>;
 }
 window.corrections=[];createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths:[modules], conditions:['browser'], mainFields:['browser','module','main'], resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'} })
@@ -89,14 +92,15 @@ try {
       await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}input{max-width:100%;box-sizing:border-box}</style><div id="root"></div>')
       await page.evaluate(count => { window.contextCount = count }, contextCount)
       await page.addScriptTag({ content: result.outputFiles[0].text })
-      const scroll = page.getByTestId('coach-content-scroll'), header = page.getByTestId('coach-scroll-header')
+      const scroll = page.getByTestId('coach-content-scroll'), header = page.getByTestId('mobile-header-activity')
       await header.waitFor()
       await page.waitForTimeout(150)
       const initial = await scroll.boundingBox(), headerBox = await header.boundingBox()
+      const activityBefore = await page.getByTestId('mobile-header-activity').boundingBox()
       await page.evaluate(() => {
         window.trace = []
         window.observe = true
-        const tick = () => { if (!window.observe) return; const s=document.querySelector('[data-testid="coach-content-scroll"]'),h=document.querySelector('[data-testid="coach-scroll-header"]');const b=s.getBoundingClientRect();window.trace.push({y:b.y,height:b.height,offset:s.scrollTop,headerHeight:h.getBoundingClientRect().height});requestAnimationFrame(tick) };tick()
+        const tick = () => { if (!window.observe) return; const s=document.querySelector('[data-testid="coach-content-scroll"]'),h=document.querySelector('[data-testid="mobile-header-activity"]');const b=s.getBoundingClientRect();window.trace.push({y:b.y,height:b.height,offset:s.scrollTop,headerHeight:h.getBoundingClientRect().height});requestAnimationFrame(tick) };tick()
       })
       const cdp = await context.newCDPSession(page)
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: width - 40, y: 650 }] })
@@ -121,6 +125,12 @@ try {
       assert.ok(trace.every(f=>Math.abs(f.y-initial.y)<1&&Math.abs(f.height-initial.height)<1),'Scroll viewport never moves or resizes during touch')
       assert.ok(trace.every(f=>Math.abs(f.headerHeight-headerBox.height)<1),'Header never collapses or clips itself during touch')
       assert.deepEqual(await page.evaluate(()=>window.corrections),[],'No app-driven correction fights this gesture')
+      assert.deepEqual(await page.getByTestId('mobile-header-activity').boundingBox(), activityBefore, 'The fixed header stays still during the gesture')
+      await page.evaluate(()=>window.refresh(true))
+      await page.getByTestId('brand-loader').waitFor()
+      assert.deepEqual(await page.getByTestId('mobile-header-activity').boundingBox(), activityBefore, 'Loading does not move or resize the header slot')
+      await page.evaluate(()=>window.refresh(false))
+      await page.getByTestId('brand-loader').waitFor({state:'hidden'})
       await page.screenshot({ path: `${out}/held-${width}-${contextCount}.png` })
       await page.evaluate(()=>window.setRoute('calendar'))
       await page.waitForTimeout(180)
@@ -132,7 +142,8 @@ try {
       assert.ok(anchor.y>=initial.y&&anchor.y<initial.y+65,'Settings focus accounts for header height')
       await page.evaluate(()=>window.setRoute('invites'))
       await page.waitForTimeout(180)
-      assert.equal(await header.count(),0,'Match invitations retain the compact route layout')
+      assert.equal(await page.getByTestId('coach-scroll-header').count(),0,'Match invitations retain the compact route layout')
+      assert.equal(await header.count(),1,'Match invitations retain the fixed header activity slot')
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0)
       await page.evaluate(()=>{window.shortContent=true;window.setRoute('home');window.setMode('light')})
       await header.waitFor()

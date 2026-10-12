@@ -13,6 +13,7 @@ const selected = ['FixtureDetailRow', 'FixtureHero', 'MatchList', 'ShootoutPanel
 }).join('\n')
 const modules = path.resolve('apps/coach-mobile/node_modules')
 const entry = `import React,{useState,useEffect} from 'react';import{createRoot}from'react-dom/client';
+import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js';
 import{View,Text,Pressable,StyleSheet}from'react-native';import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import{getMobileIconName}from'./apps/mobile-core/src/mobileIconSystem.js';
 import{getCoachMatchDayPresentation,filterCoachMatchDays,buildCoachFinalMatchReport}from'./apps/mobile-core/src/coachMatchDayCore.js';
