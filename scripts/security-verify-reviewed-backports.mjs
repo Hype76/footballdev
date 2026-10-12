@@ -16,6 +16,9 @@ const implementationFiles = [
   '.github/workflows/security-gate.yml', 'apps/scripts/mobile-release-check.mjs', 'package.json',
   'scripts/security-provision-root-backport.mjs', 'security/root-backport-proposal.json', 'security/supply-chain-policy.json',
   'tests/security-backport-runtime.test.mjs', 'security/backport-requalification.json',
+  'security/maintained-source-policy.json', 'scripts/security-maintained-release-gate.mjs',
+  'scripts/security-netlify-build.mjs', 'tests/security-maintained-source.test.mjs', 'netlify.toml',
+  'tests/security-m3-governance.test.mjs',
 ]
 const safe = (root, relative) => {
   assert.ok(relative && !relative.includes('\\') && !relative.split('/').includes('..') && !path.isAbsolute(relative), 'Unsafe relative path')
@@ -51,18 +54,18 @@ export function verifyReleasePreparation(root, preparation) {
   for (const [file, expected] of Object.entries(text)) { assert.ok(!Object.hasOwn(binary, file), 'Ambiguous source hash mode'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved source drift: ' + file) }
   for (const [file, expected] of Object.entries(binary)) { assert.ok(file.startsWith('public/marketing-v70/'), 'Binary asset scope changed'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(hash(fs.readFileSync(safe(root, file))), expected, 'Approved binary asset drift: ' + file) }
 }
-export function verifyQualificationExpiry(expiresAt, now = Date.now()) {
-  assert.equal(expiresAt, '2026-10-19T22:59:59Z', 'Reviewed qualification expiry changed')
-  assert.ok(Number.isFinite(now), 'Invalid qualification clock')
-  assert.ok(now <= Date.parse(expiresAt), 'Reviewed backports have expired')
+export function verifyMaintainedAuthority(record) {
+  assert.equal(record.schemaVersion, 2, 'Maintained source schema is required')
+  assert.equal(record.remediationMode, 'maintained-source-fixes', 'Maintained source authority changed')
+  assert.ok(!Object.hasOwn(record, 'expiresAt'), 'Temporary expiry cannot substitute for maintained source authority')
+  assert.equal(record.maintenance.owner, 'Steve', 'Maintained source owner changed')
 }
 export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
-  assert.equal(record.schemaVersion, 1)
+  verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  verifyQualificationExpiry(record.expiresAt)
-  assert.equal(record.adoptionProposalSha256, '95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91', 'Replacement qualification identity changed')
-  assert.equal(hash(fs.readFileSync(safe(root, 'security/backport-requalification.json'))), record.adoptionProposalSha256, 'Replacement qualification evidence drift')
+  assert.equal(record.adoptionProposalSha256, '3653055de02647b04eebfccd3e152e8b4e836155e0ee161f31008362a203ffc6', 'Maintained source policy identity changed')
+  assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
   assert.equal(record.releasePreparationSha256, "8f6d2b554c1c21df9a87e7f96bba4118f028ce2e995bcb580b4f3f95749216f4", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
@@ -183,7 +186,9 @@ export function verifyReviewBytes(root, record, source, bytes, trustedReceiptSha
   assert.equal(review.payloadSha256, record.payloadSha256, 'Review payload identity mismatch')
   assert.deepEqual(review.implementationHashes, record.implementationHashes, 'Review implementation identity mismatch')
   assert.deepEqual(review.nativeInputs, record.nativeInputs, 'Review native input identity mismatch')
-  assert.equal(review.expiresAt, record.expiresAt, 'Review expiry mismatch')
+  assert.equal(review.remediationMode, record.remediationMode, 'Independent review does not approve maintained source fixes')
+  assert.equal(review.maintenancePolicySha256, record.adoptionProposalSha256, 'Independent maintenance authority mismatch')
+  assert.ok(!Object.hasOwn(review, 'expiresAt'), 'Temporary review cannot authorise maintained source fixes')
   assert.ok(Date.parse(review.reviewedAt) <= Date.now(), 'Invalid review date')
   const dirty = execFileSync('git', ['-c', `safe.directory=${root.replaceAll('\\', '/')}`, '-C', root, 'diff', 'HEAD', '--name-only'], { encoding: 'utf8' }).trim()
   assert.equal(dirty, '', 'Reviewed HEAD has tracked working changes')
@@ -200,9 +205,9 @@ export function verifyInstallation(root, record, source, copies, review) {
   assert.equal(receipt.publicationApproved, false)
   return receipt
 }
-export async function verifyUpstream(record, payload) {
+export async function verifyUpstream(record, payload, request = fetch) {
   const get = async url => {
-    const response = await fetch(url, { headers: { 'User-Agent': 'Football-local-security-verification', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(20000) })
+    const response = await request(url, { headers: { 'User-Agent': 'Football-local-security-verification', Accept: url.startsWith('https://api.github.com/') ? 'application/vnd.github+json' : 'application/json' }, signal: AbortSignal.timeout(20000) })
     assert.ok(response.ok, `Official upstream lookup failed: ${response.status}`)
     return response.json()
   }
@@ -220,6 +225,14 @@ export async function verifyUpstream(record, payload) {
     assert.equal(current.state, source.state, 'Upstream patch status changed; replacement review required')
     assert.equal(current.merged, source.merged, 'Upstream merge changed; replacement review required')
     receipts.push({ type: 'pull-request', url: source.url, head: current.head.sha, state: current.state, merged: current.merged })
+  }
+  const packages = [...new Map(record.targets.map(target => [target.name, target])).values()]
+  for (const target of packages) {
+    const current = await get('https://registry.npmjs.org/' + target.name + '/latest')
+    assert.equal(current.name, target.name, 'Official package identity changed')
+    assert.equal(current.version, target.version, 'Official published version changed; replacement review required')
+    assert.equal(current.dist?.integrity, target.registryIntegrity, 'Official published package integrity changed')
+    receipts.push({ type: 'registry', name: target.name, latest: current.version, integrity: current.dist.integrity })
   }
   return { checkedAt: new Date().toISOString(), receipts }
 }

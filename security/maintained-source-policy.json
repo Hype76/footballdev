@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "mode": "maintained-source-fixes",
+  "owner": "Steve",
+  "adoptedOn": "2026-10-12",
+  "authority": "Direct user request to make reviewed fixes permanent without weakening security checks; independent exact-source acceptance required.",
+  "supersedes": {
+    "proposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
+    "calendarQualificationExpiry": "2026-10-19T22:59:59Z"
+  },
+  "scope": "The same five exact source-fixed copies of braces3.0.3 and node-forge1.4.0. No renamed packages, relabelled versions, generic advisory exceptions or native graph changes.",
+  "controls": [
+    "Independent external receipt SHA256 binds exact clean HEAD, record, policy, implementation, native and release preparation identities.",
+    "Every release checks full installed package trees, all five physical copies, exact registry preimages/postimages, locks and native inputs.",
+    "Every release fetches official advisory meaning, exact upstream revision/status and latest published package version/integrity without cached acceptance. Lookup failures block release.",
+    "Full raw audits remain visible. Only the two pinned GHSA roots can be covered by their exact proven source fixes. Any new or uncovered advisory blocks release.",
+    "Runtime, provisioning, source/receipt and invalidation regressions must pass on every mobile release and Netlify build, before publication.",
+    "Official published version changes, patch revisions/status, advisory meaning, source/native identity or maintenance-policy changes require fresh review and compatibility checks.",
+    "There is no calendar renewal. A passing maintained-fix verification is required for each release; historical temporary approval cannot authorise this mode."
+  ],
+  "preservedPayloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
+  "preservedPatchIdentities": [
+    {
+      "file": "patches/braces-3.0.3.patch",
+      "sha256": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699"
+    },
+    {
+      "file": "patches/node-forge-1.4.0.patch",
+      "sha256": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4"
+    }
+  ],
+  "installedCopyProof": [
+    {
+      "path": "node_modules/braces",
+      "treeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77"
+    },
+    {
+      "path": "apps/parent-mobile/node_modules/braces",
+      "treeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77"
+    },
+    {
+      "path": "apps/parent-mobile/node_modules/node-forge",
+      "treeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf"
+    },
+    {
+      "path": "apps/coach-mobile/node_modules/braces",
+      "treeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77"
+    },
+    {
+      "path": "apps/coach-mobile/node_modules/node-forge",
+      "treeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf"
+    }
+  ],
+  "initialOfficialVerification": {
+    "checkedAt": "2026-10-12T06:26:15.498Z",
+    "receipts": [
+      {
+        "type": "advisory",
+        "id": "GHSA-vfj7-8cjw-p6xm",
+        "updatedAt": "2026-10-02T22:36:34Z",
+        "semanticSha256": "2262c5bc8c7d0ddeff8effbefb92dd127ed0a1591c10fe8d4a4c2c8272210c4a"
+      },
+      {
+        "type": "advisory",
+        "id": "GHSA-86w9-cpqp-85rv",
+        "updatedAt": "2026-10-01T21:09:10Z",
+        "semanticSha256": "ef61d821fe88363996d71ac6eafebf6e351a286d71d3f52bcc40531e8f861131"
+      },
+      {
+        "type": "pull-request",
+        "url": "https://github.com/micromatch/braces/pull/72",
+        "head": "28d440b5dd449dbf1fe6f3506cf94ecca4d02660",
+        "state": "closed",
+        "merged": false
+      },
+      {
+        "type": "pull-request",
+        "url": "https://github.com/digitalbazaar/forge/pull/1152",
+        "head": "ceba34402e329f0365134f23fe19898756527d65",
+        "state": "open",
+        "merged": false
+      },
+      {
+        "type": "pull-request",
+        "url": "https://github.com/digitalbazaar/forge/pull/1157",
+        "head": "683ab3344899cc08a581e4d5675a33e87aff7b04",
+        "state": "open",
+        "merged": false
+      },
+      {
+        "type": "registry",
+        "name": "braces",
+        "latest": "3.0.3",
+        "integrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA=="
+      },
+      {
+        "type": "registry",
+        "name": "node-forge",
+        "latest": "1.4.0",
+        "integrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ=="
+      }
+    ]
+  },
+  "limitations": [
+    "These are locally maintained source fixes, not official package releases or a clean full registry audit.",
+    "Fix ownership and future security maintenance remain necessary. New security evidence can still block releases.",
+    "No app feature, publisher path, production data, store binary or handset-acceptance change is approved by this policy."
+  ]
+}

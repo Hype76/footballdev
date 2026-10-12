@@ -171,5 +171,5 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`- ${failure}`)
   process.exitCode = 1
 } else {
-  console.log(`Supply-chain gate passed: ${Object.keys(lock.packages || {}).length - 1} locked package entries, ${lifecycle.length} approved install lifecycle entries, ${remoteImports.length} pinned remote import, ${observedAdvisories.size} registry advisories accepted only against verified temporary source remediation. Raw audit findings and exit statuses remain visible.`)
+  console.log(`Supply-chain gate passed: ${Object.keys(lock.packages || {}).length - 1} locked package entries, ${lifecycle.length} approved install lifecycle entries, ${remoteImports.length} pinned remote import, ${observedAdvisories.size} registry advisories accepted only against verified maintained source fixes. Raw audit findings and exit statuses remain visible.`)
 }
