@@ -369,7 +369,10 @@ test('runtime integration uses one offline service, network awareness and logout
     readFile(path.join(repositoryRoot, 'apps/mobile-core/src/offlineStorageCore.js'), 'utf8'),
   ])
   assert.match(app, /NetInfo\.addEventListener/)
-  assert.match(app, /Offline\. Showing your last saved information\./)
+  assert.match(app, /<MobileActivityProvider[^\n]+offline=\{isOffline\}/)
+  assert.match(app, /cachedView\.cache\.resources\[name\]/)
+  assert.match(app, /if \(isOffline\) return \{ cached: Boolean\(cachedView\?\.cache\)/)
+  assert.doesNotMatch(app, /Offline\. Showing your last saved information\./)
   assert.match(app, /queueParentMessageRead/)
   assert.match(app, /queueParentPollVote/)
   assert.match(app, /syncParentOfflineCommands/)

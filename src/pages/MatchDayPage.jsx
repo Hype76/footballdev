@@ -2698,7 +2698,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
         const liveDetailResults = await Promise.allSettled(
           nextMatches
-            .filter((match) => MATCH_DAY_LIVE_DETAIL_STATUSES.has(match.status))
+            .filter((match) => MATCH_DAY_LIVE_DETAIL_STATUSES.has(match.status)
+              || String(match.id) === String(expandedMatchId) || String(match.id) === String(gameModeMatchId))
             .map((match) => withRequestTimeout(
               () => getMatchDay({ user, matchDayId: match.id }),
               'Match Day live detail could not be refreshed.',
@@ -2740,7 +2741,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       window.removeEventListener('online', refresh)
       document.removeEventListener('visibilitychange', refresh)
     }
-  }, [getMatchDay, getMatchDays, isDemoExperience, isLoading, user])
+  }, [expandedMatchId, gameModeMatchId, getMatchDay, getMatchDays, isDemoExperience, isLoading, user])
 
   if (!canManageMatchDay(user)) {
     return <Navigate to="/" replace />
@@ -3337,6 +3338,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     } catch (error) {
       console.error(error)
       const message = error.message || 'Match clock could not be updated.'
+      await refreshMatchDayDetailAfterMutation({ matchId: match.id,
+        refreshErrorMessage: 'The match state could not be confirmed. Refresh before trying this action again.' })
       setErrorMessage(message)
       setMatchActionStatus({
         key: `${match.id}:${busyKey}`,

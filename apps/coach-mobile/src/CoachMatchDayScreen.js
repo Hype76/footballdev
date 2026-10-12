@@ -9,6 +9,9 @@ import { getGoalScorerSide, setGoalOwnGoal } from '../../../src/lib/matchday-goa
 import { createMatchDayGoalCorrectionDraft } from '../../mobile-core/src/matchDayParticipantRoster.js'
 import { getMatchClockDescription } from '../../../src/lib/matchday-event-time.js'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
+import { useMobileActivity, useMobileOffline } from '../../mobile-core/src/MobileActivityContext'
+import { MobileFailureNotice } from '../../mobile-core/src/MobileFailureNotice'
+import { MobileLoadingStatus } from '../../mobile-core/src/MobileHeaderActivity'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
@@ -279,7 +282,7 @@ function FixtureNavigation({ panel, onChange, styles }) {
         <MaterialIcons name="more-horiz" size={23} color={StyleSheet.flatten(secondarySelected || moreOpen ? styles.chipTextActive : styles.secondaryText).color} /><Text style={[styles.panelTabText, secondarySelected && styles.chipTextActive]}>More</Text>
       </Pressable>
     </View>
-    {moreOpen ? <View style={styles.tabs}>{MATCH_DAY_PANEL_OPTIONS.slice(5).map(option => <Button compact iconKey={getMatchDayPanelIconKey(option.value)} key={option.value} label={option.label} onPress={() => { onChange(option.value); setMoreOpen(false) }} styles={styles} />)}</View> : null}
+    {moreOpen ? <View style={styles.tabs}>{MATCH_DAY_PANEL_OPTIONS.slice(5).map(option => <Button compact iconKey={getMatchDayPanelIconKey(option.value)} key={option.value} label={option.label} onPress={() => { onChange(option.value); setMoreOpen(false) }} styles={styles} />)}<Button compact label="Saved actions" onPress={() => { onChange('saved-actions'); setMoreOpen(false) }} styles={styles} /></View> : null}
   </View>
 }
 
@@ -601,6 +604,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const [fixtureFormMatch, setFixtureFormMatch] = useState(null)
   const [fixtureReturnTarget, setFixtureReturnTarget] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [serverMatch, setMatch] = useState(null)
   const [matches, setMatches] = useState([])
   const visibleFilter = filterChosen ? filter : getCoachMatchDayDefaultFilter(matches)
@@ -614,6 +618,8 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const [stale, setStale] = useState(false)
   const [reconciling, setReconciling] = useState(false)
   const outbox = useCoachMatchDayOutbox({ user, context, matchId: serverMatch?.id })
+  const activity = useMobileActivity(busy || reconciling || loading || refreshing || outbox.syncing)
+  useMobileOffline(stale)
   const pendingCount = outbox.journal?.pending?.length || 0
   const match = selectCoachMatchDayDisplayMatch(serverMatch, outbox.projected, pendingCount)
   const refreshOutbox = outbox.refresh
@@ -626,6 +632,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const appState = useRef(AppState.currentState)
   const backgroundedAt = useRef(0)
   const busyRef = useRef(false)
+  const reconciliationPendingRef = useRef(false)
   const contextRef = useRef(context)
   const loadInFlight = useRef(false)
   const matchRef = useRef(null)
@@ -656,15 +663,16 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
 
   const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(userRef.current.id, contextRef.current, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [])
   const load = useCallback(async () => {
-    if (loadInFlight.current || busyRef.current || appState.current !== 'active') return
+    if (loadInFlight.current || (busyRef.current && !reconciliationPendingRef.current) || appState.current !== 'active') return
     loadInFlight.current = true
+    setRefreshing(true)
     setError(''); setNotice(''); setLoading(true)
     const currentUser = userRef.current
     const currentContext = contextRef.current
     const isCurrentScope = () => currentUser.id === userRef.current.id && currentUser.activeTeamId === userRef.current.activeTeamId && currentContext.id === contextRef.current.id
     const selectionBeforeLoad = selectedMatchId.current
     const saved = await readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
-    if (!isCurrentScope()) { loadInFlight.current = false; return }
+    if (!isCurrentScope()) { loadInFlight.current = false; setRefreshing(false); return }
     const hasCachedMatches = Array.isArray(saved?.resources?.matchDayList)
     const cachedMatch = saved?.resources?.matchDayDetail && typeof saved.resources.matchDayDetail === 'object'
       ? normalizeCoachMatchDay(saved.resources.matchDayDetail)
@@ -682,7 +690,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       setLoading(false)
     }
     if (currentUser.isOfflineProfile) {
-      setStale(true); setLoading(false); loadInFlight.current = false
+      setStale(true); setLoading(false); setRefreshing(false); loadInFlight.current = false
       if (!hasCachedMatches) setError('Connect and download fixtures on Home before recording on this phone.')
       return
     }
@@ -697,7 +705,8 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       const nextPlayers = playersResult.status === 'fulfilled'
         ? playersResult.value
         : Array.isArray(saved?.resources?.matchDayPlayers) ? saved.resources.matchDayPlayers : []
-      setMatches(nextMatches); setPlayers(nextPlayers); setReconciling(false)
+      setMatches(nextMatches); setPlayers(nextPlayers)
+      if (!reconciliationPendingRef.current) setReconciling(false)
       const activeSelectionId = selectedMatchId.current
       let nextMatch = null
       if (activeSelectionId) {
@@ -724,9 +733,14 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
         matchRef.current = nextMatch
         setMatch(nextMatch)
         setScoreDraft({ away: String(nextMatch.awayScore), home: String(nextMatch.homeScore) })
+        if (reconciliationPendingRef.current) {
+          reconciliationPendingRef.current = false
+          busyRef.current = false
+          setReconciling(false)
+        }
       }
       setStale(false)
-      await cache(nextMatches, nextMatch || matchRef.current, nextPlayers).catch(() => {
+      void cache(nextMatches, nextMatch || matchRef.current, nextPlayers).catch(() => {
         if (isCurrentScope()) setNotice('Match Day is up to date. Offline storage could not be refreshed.')
       })
     } catch (loadError) {
@@ -734,6 +748,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       if (isCurrentScope() && !hasCachedMatches) setError(errorMessage(loadError, 'Match Day could not be loaded.'))
     } finally {
       loadInFlight.current = false
+      if (isCurrentScope()) setRefreshing(false)
       if (isCurrentScope()) setLoading(false)
     }
   }, [cache])
@@ -812,13 +827,14 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
         setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) })
         setEventForm(createCoachMatchDayEventForm('goal', detail)); setPanel(isLiveMatch(detail) ? 'live' : 'overview')
       }
-      await cache(matches, detail, players)
+      void cache(matches, detail, players).catch(() => { if (isCurrent()) setNotice('The fixture is open online. Phone storage could not be refreshed.') })
     } catch (openError) {
       if (isCurrent() && !cached) setError(errorMessage(openError, 'Fixture details could not be loaded.'))
     } finally { if (isCurrent()) setBusy(false) }
   }
   const replace = async (operation, verify) => {
     let reconciliationPending = false
+    reconciliationPendingRef.current = false
     busyRef.current = true
     setBusy(true); setError(''); setNotice(''); setReconciling(false)
     try {
@@ -826,7 +842,11 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       const nextMatches = matches.map((item) => item.id === detail.id ? detail : item)
       matchRef.current = detail
       setMatch(detail); setMatches(nextMatches); setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) }); setStale(false)
-      await cache(nextMatches, detail, players)
+      // A confirmed server change remains confirmed if its offline cache fails.
+      // Storage failures must not start uncertain-server reconciliation.
+      void cache(nextMatches, detail, players).catch(() => {
+        setNotice('The match is saved online. Phone storage is unavailable; reconnect before making offline changes.')
+      })
       return detail
     } catch (operationError) {
       setReconciling(true)
@@ -835,13 +855,14 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
         detail = await getCoachMatchDayDetail(user, match.id)
       } catch {
         reconciliationPending = true
+        reconciliationPendingRef.current = true
         setError(`${errorMessage(operationError, 'The Match Day result is uncertain.')} Refresh to reconcile with the server before retrying.`)
         throw operationError
       }
       const nextMatches = matches.map((item) => item.id === detail.id ? detail : item)
       matchRef.current = detail
       setMatch(detail); setMatches(nextMatches); setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) }); setStale(false)
-      await cache(nextMatches, detail, players).catch(() => {})
+      void cache(nextMatches, detail, players).catch(() => {})
       setReconciling(false)
       if (verify?.(detail) === true) {
         setNotice('The server confirmed that the Match Day change was saved. No retry is needed.')
@@ -980,13 +1001,15 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {!match && !fixtureFormOpen ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Manage fixtures, squads and live match updates.</Text></> : null}
     {!match && !fixtureFormOpen && !stale && Number(context.roleRank || 0) >= 20 ? <Button compact iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
     {fixtureFormOpen ? <CoachFixtureForm match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
-    {loading ? <View style={styles.card}><BrandLoader /><Text style={styles.body}>Loading authoritative Match Day data...</Text></View> : null}
-    {reconciling ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
-    {notice ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}
-    {error && !visibleError ? <View style={styles.card}><BrandLoader /><Text style={styles.body}>Checking for the latest Match Day information...</Text></View> : null}
-    {visibleError ? <View style={styles.warning}><Text style={styles.dangerText}>{visibleError}</Text><Button label="Refresh" onPress={load} secondary styles={styles} /></View> : null}
-    {confirmedStale ? <View style={styles.warning}><Text style={styles.cardTitle}>{offlineReady ? 'Recording on this device' : 'Saved fixture'}</Text><Text style={styles.body}>{offlineReady ? 'Goals, cards, substitutions and clock actions save here while you are offline. Parents receive updates after your connection returns and the actions sync.' : 'Connect and open this fixture once to prepare offline recording.'}</Text></View> : null}
-    {pendingCount > 0 ? <View accessibilityLiveRegion="polite" style={styles.stack}>
+    {loading ? <MobileLoadingStatus message="Loading Match Day" /> : null}
+    {reconciling && !activity ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
+    {notice && !activity ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}
+    {activity ? <MobileFailureNotice scopeKey={`${user.id}:${context.id}:${match?.id || ''}`} message={error || (/unavailable|could not|failed|too long/i.test(notice) ? notice : '') || (reconciling ? 'The last action is still being checked. Your fixture remains visible; refresh before making more changes.' : '')} onRetry={load} /> : null}
+    {activity ? <MobileFailureNotice scopeKey={`${user.id}:${context.id}:${match?.id || ''}:pending`} message={outbox.journal?.error || ''} actionLabel="Review saved actions" onRetry={() => setPanel('saved-actions')} /> : null}
+    {error && !visibleError ? <MobileLoadingStatus message="Checking Match Day" /> : null}
+    {visibleError && !activity ? <View style={styles.warning}><Text style={styles.dangerText}>{visibleError}</Text><Button label="Refresh" onPress={load} secondary styles={styles} /></View> : null}
+    {confirmedStale && !activity ? <View style={styles.warning}><Text style={styles.cardTitle}>{offlineReady ? 'Recording on this device' : 'Saved fixture'}</Text><Text style={styles.body}>{offlineReady ? 'Goals, cards, substitutions and clock actions save here while you are offline. Parents receive updates after your connection returns and the actions sync.' : 'Connect and open this fixture once to prepare offline recording.'}</Text></View> : null}
+    {pendingCount > 0 && (!activity || panel === 'saved-actions') ? <View accessibilityLiveRegion="polite" style={styles.stack}>
       <Text style={styles.cardTitle}>{pendingCount} {pendingCount === 1 ? 'action' : 'actions'} saved on this device</Text>
       <Text style={styles.body}>The score and clock include your pending actions. Keep this account signed in until they sync.</Text>
       {match?.status === 'full_time' ? <Text style={styles.body}>Full time is saved on this device. Sync the remaining actions before concluding the match.</Text> : null}
@@ -1000,6 +1023,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       {outbox.journal.errorCode === '40001' && serverMatch?.status !== 'full_time' ? <Button disabled={busy} label="Review and apply saved actions" onPress={() => void reviewSavedActions()} styles={styles} /> : null}
       {serverMatch?.status === 'full_time' ? <Text style={styles.body}>The server match has reached full time. Review the saved actions above and sync them, or discard them if they are no longer needed, before concluding.</Text> : null}
     </View> : null}
+    {panel === 'saved-actions' && pendingCount === 0 ? <Text style={styles.body}>All recorded actions have synced.</Text> : null}
     {!fixtureFormOpen && !match ? <MatchList filter={visibleFilter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={(nextFilter) => { setFilter(nextFilter); setFilterChosen(true) }} styles={styles} /> : null}
     {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><View style={styles.row}><Button compact iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} />{canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling }) ? <Button compact iconKey="action.edit" label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View><FixtureHero match={match} styles={styles} /><FixtureNavigation key={match.id} panel={panel} onChange={(nextPanel) => { if (nextPanel === 'formation') { formationReturnPanelRef.current = panel; setFormationBoardId('') } setPanel(nextPanel) }} styles={styles} /></> : null}
       {pendingCount === 0 && reportMatch.status === 'full_time' && !reportMatch.concludedAt && panel === 'overview' ? <View style={styles.stack}><Text style={styles.cardTitle}>Ready for coach review</Text><Text style={styles.body}>Full time has been recorded. Review the result and conclude this match.</Text><Button disabled={busy || reconciling} label="Review and conclude" onPress={() => { setPanel('report'); onRequestScrollTop?.() }} styles={styles} /></View> : null}

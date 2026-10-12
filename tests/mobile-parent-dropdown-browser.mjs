@@ -12,12 +12,13 @@ const selected = ['AppHeader', 'createParentAppPalette', 'createParentAppStyles'
  return source.slice(node.start, node.end)
 }).join('\n')
 const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.js';
 import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{View,Text,Pressable,ScrollView,StyleSheet,Platform}from'react-native';import{DEFAULT_PARENT_MOBILE_THEME}from'./apps/mobile-core/src/parentThemeCore.js';
 ${selected}
 const palette=createParentAppPalette(DEFAULT_PARENT_MOBILE_THEME.tokens),styles=createParentAppStyles(DEFAULT_PARENT_MOBILE_THEME.tokens);const useParentTheme=()=>({palette,styles});const ClubBrandLogo=()=>null,NotificationStatusButton=()=>null,ParentIcon=()=>null;
 const links=Array.from({length:8},(_,i)=>({id:'link'+i,playerName:'FP TEST Player '+i,teamName:'Team '+i,clubName:'FP TEST Club'}));
 function Harness(){const[open,setOpen]=useState(false),[id,setId]=useState('link0');return <AppHeader childCount={8} childSwitcherOpen={open} childNotificationBadges={{link1:2}} links={links} onToggleChildSwitcher={()=>setOpen(!open)} onChildChange={next=>{setId(next);setOpen(false)}} selectedLink={links.find(l=>l.id===id)} theme="dark"/>}createRoot(document.getElementById('root')).render(<Harness/>);`
-const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',platform:'browser',nodePaths:[modules],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false'}})
+const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.png':'dataurl','.ttf':'dataurl'},platform:'browser',nodePaths:[modules],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false'}})
 const browser=await chromium.launch({headless:true})
 try {
  for(const width of [320,390]){

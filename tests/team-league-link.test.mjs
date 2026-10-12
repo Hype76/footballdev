@@ -12,13 +12,15 @@ test('valid HTTP/S URLs, ports, IDN and query strings canonicalise without fetch
   assert.equal(normalizeTeamLeagueUrl(null),'')
 })
 for(const url of ['javascript:alert(1)','data:text/html,hi','file:///tmp/demo','/relative','https://','https://user:pass@example.com','https://@example.com','https://example.com/a b','https://example.com/a\nb','https://example.com/a\u0000b','https://example.com:0','https://example.com:65536','https://example..com','https://-example.com','https://[::1]/','https://example.com\\@evil.example','https://example.com/'+ 'x'.repeat(2048)])test(`reject unsafe URL ${JSON.stringify(url).slice(0,85)}`,()=>assert.throws(()=>normalizeTeamLeagueUrl(url),/HTTP or HTTPS/))
-test('Parent and accepted Player adapters use exact owned relationship; Fans excluded',()=>{
+test('Parent, Player and Fan adapters use only their exact owned relationship',()=>{
   const parent={id:'p',linkType:'parent',playerId:'child',teamId:'a',clubId:'club'}
   const player={...parent,id:'f',linkType:'fan',relationshipType:'player'}
   const user={id:'account',parentPortalLinks:[parent,player]}
   assert.equal(parentPlayerTeamLeagueScope(user,parent).kind,'parent')
   assert.equal(parentPlayerTeamLeagueScope(user,player).kind,'player')
-  assert.equal(teamLeagueScopeKey(parentPlayerTeamLeagueScope(user,{...player,relationshipType:'fan'})),'')
+  const fanScope = parentPlayerTeamLeagueScope(user,{...player,relationshipType:'fan'})
+  assert.equal(fanScope.kind,'fan')
+  assert.ok(teamLeagueScopeKey(fanScope))
   assert.equal(teamLeagueScopeKey(parentPlayerTeamLeagueScope({...user,parentPortalLinks:[]},parent)),'')
   assert.equal(teamLeagueScopeKey(parentPlayerTeamLeagueScope(user,parent,true)),'')
 })

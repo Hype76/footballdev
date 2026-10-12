@@ -14,6 +14,60 @@ const iso = minutes => new Date(at + minutes * 60000).toISOString()
 const match = { id: 'fixture', clubId: 'club', teamId: 'team', updatedAt: iso(0), status: 'live', currentMatchPhase: 'first_half',
   timerStatus: 'running', timerStartedAt: iso(0), timerElapsedSeconds: 0, homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 70, clockMode: 'fixed', events: [] }
 const initial = () => ({ baseMatch: structuredClone(match), pending: [], verifiedAt: iso(0), error: '' })
+
+test('header sync activity covers the actual send and stops once the durable queue is empty', async () => {
+  let journal = { ...initial(), pending: [{ id: 'pending-one', kind: 'score', payload: { homeScore: 1, awayScore: 0 } }] }
+  const activity = []
+  let finish, start
+  const started = new Promise(resolve => { start = resolve })
+  const box = createMatchDayOutbox({ read: async () => journal, update: async change => (journal = change(journal)),
+    send: () => { start(); return new Promise(resolve => { finish = resolve }) }, onSyncStateChange: value => activity.push(value) })
+  const syncing = box.sync()
+  await started
+  assert.deepEqual(activity, [true])
+  finish({ ...match, homeScore: 1 })
+  await syncing
+  assert.deepEqual(activity, [true, false])
+  assert.equal(journal.pending.length, 0)
+  await box.sync()
+  assert.deepEqual(activity, [true, false], 'An empty queue must not show a saving spinner')
+})
+
+test('a stopped account cannot send a command after its deferred journal read resolves', async () => {
+  let finishRead, sends = 0
+  const activity = []
+  const box = createMatchDayOutbox({ read: () => new Promise(resolve => { finishRead = resolve }), update: async change => change(initial()),
+    send: async () => { sends++; return match }, onSyncStateChange: value => activity.push(value) })
+  const syncing = box.sync()
+  box.stop()
+  finishRead({ ...initial(), pending: [{ id: 'old-account-command' }] })
+  await syncing
+  assert.equal(sends, 0)
+  assert.deepEqual(activity, [])
+})
+
+test('identical recent server snapshots do not rewrite encrypted journals, but changes and old verification do', async () => {
+  let journal = { ...initial(), verifiedAt: new Date().toISOString() }
+  let writes = 0
+  const box = createMatchDayOutbox({ read: async () => journal, update: async change => {
+    const next = change(journal)
+    if (next !== journal) writes++
+    journal = next
+    return next
+  }, send: async () => { throw new Error('No action should be sent') } })
+  await box.refresh(structuredClone(match))
+  assert.equal(writes, 0)
+  const updated = { ...match, homeScore: 1, updatedAt: new Date().toISOString() }
+  await box.refresh(updated)
+  assert.equal(writes, 1)
+  journal = { ...journal, verifiedAt: new Date(Date.now() - 60001).toISOString() }
+  await box.refresh(updated)
+  assert.equal(writes, 2)
+  journal = { ...journal, error: 'Earlier cache failure' }
+  await box.refresh(updated)
+  assert.equal(writes, 3)
+  assert.equal(journal.error, '')
+})
 const goal = (id, minute = 5) => ({ id, kind: 'event', capturedAt: iso(minute), payload: { eventType: 'goal', teamSide: 'club', minute, scorerName: 'FP TEST' } })
 
 test('definitively rejected substitution can be corrected without losing later full time or captured times', async () => {

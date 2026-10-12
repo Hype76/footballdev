@@ -43,8 +43,8 @@ const ast = parse(screenSource, { sourceType: 'module', plugins: ['jsx'] })
 const screen = ast.program.body.find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'CoachPhase31EScreen').declaration
 const callback = screen.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'load').declarations[0].init.arguments[0]
 
-function loadHarness({ saveError, loadError, cachedValue, offline = false } = {}) {
-  const state = { data: null, error: '', notice: '', loading: true, stale: false, invitesRefreshing: false, invitesRefreshedAt: null, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
+function loadHarness({ saveError, savePending, loadError, cachedValue, offline = false } = {}) {
+  const state = { data: null, error: '', notice: '', loading: true, refreshing: false, stale: false, invitesRefreshing: false, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
   const next = { invites: [{ playerId: 'synthetic-player', status: 'maybe' }] }
   const environment = {
     captureLoadScope: () => () => state.scopeCurrent, attendanceLoadGeneration: { current: 0 },
@@ -55,9 +55,9 @@ function loadHarness({ saveError, loadError, cachedValue, offline = false } = {}
     readMobileResource: (_user, _key, loader) => loader(), withMobileAsyncTimeout: (loader, options) => { state.timeoutMs = options?.timeoutMs; return loader() },
     readCoachOfflineResources: async () => ({ resources: { 'phase31e:invites': cachedValue } }),
     hasUsableCoachPhase31ECache: (_domain, value) => Boolean(value),
-    saveCoachOfflineResources: async () => { state.saves += 1; if (saveError) throw saveError },
+    saveCoachOfflineResources: async () => { state.saves += 1; if (savePending) await savePending; if (saveError) throw saveError },
     getCoachFriendlyError: error => error.message,
-    ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Stale', 'InvitesRefreshing', 'InvitesRefreshedAt'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = value }])),
+    ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Refreshing', 'Stale', 'InvitesRefreshing'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = value }])),
   }
   return { state, next, load: vm.runInNewContext(`(${screenSource.slice(callback.start, callback.end)})`, environment) }
 }
@@ -69,10 +69,11 @@ test('a failed optional save never hides successfully loaded Coach invites', asy
     assert.equal(state.data, next)
     assert.equal(state.error, '')
     assert.equal(state.loading, false)
+    assert.equal(state.refreshing, false)
     assert.equal(state.stale, false)
     assert.equal(state.invitesRefreshing, false)
     assert.equal(state.timeoutMs, 30000)
-    assert.equal(Object.prototype.toString.call(state.invitesRefreshedAt), '[object Date]')
+    assert.equal(state.reads, 1)
     assert.match(state.notice, /could not be saved/)
   }
 })
@@ -83,10 +84,12 @@ test('successful saving is quiet; real network failures remain errors', async ()
   assert.equal(success.state.saves, 1)
   assert.equal(success.state.error, '')
   assert.equal(success.state.notice, '')
+  assert.equal(success.state.refreshing, false)
   const failure = loadHarness({ loadError: new Error('Network request failed') })
   await failure.load()
   assert.equal(failure.state.error, 'Network request failed')
   assert.equal(failure.state.saves, 0)
+  assert.equal(failure.state.refreshing, false)
 })
 
 test('offline and failed-network fallback keep cached data read-only', async () => {
@@ -99,6 +102,7 @@ test('offline and failed-network fallback keep cached data read-only', async () 
     assert.equal(state.error, '')
     assert.equal(state.saves, 0)
     assert.equal(state.invitesRefreshing, false)
+    assert.equal(state.refreshing, false)
     if (options.offline) assert.equal(state.reads, 0)
   }
 })
@@ -108,4 +112,21 @@ test('actual Coach loader cannot publish late response or cache error into switc
  // Invalidate the captured scope while its first asynchronous cache read yields.
  const loading = harness.load();harness.state.scopeCurrent = false;await loading
  assert.equal(harness.state.data, null);assert.equal(harness.state.error, '');assert.equal(harness.state.notice, '');assert.equal(harness.state.saves, 0)
+})
+
+test('a pending optional cache write cannot block confirmed data or affect a later scope', { timeout: 1000 }, async () => {
+  let rejectSave
+  const savePending = new Promise((_resolve, reject) => { rejectSave = reject })
+  const harness = loadHarness({ savePending })
+  await harness.load()
+  assert.equal(harness.state.data, harness.next)
+  assert.equal(harness.state.loading, false)
+  assert.equal(harness.state.refreshing, false)
+  assert.equal(harness.state.saves, 1)
+  harness.state.scopeCurrent = false
+  rejectSave(new Error('Synthetic delayed cache failure'))
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(harness.state.notice, '')
+  assert.equal(harness.state.error, '')
 })

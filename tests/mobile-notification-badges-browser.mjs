@@ -14,6 +14,7 @@ const result = await build({
     import { createRoot } from 'react-dom/client'
     import { View, Text, Pressable, ScrollView, StyleSheet, Platform, useWindowDimensions } from 'react-native'
     import { createParentMobileTheme } from './apps/mobile-core/src/parentThemeCore.js'
+    import { MobileHeaderActivity } from './apps/mobile-core/src/MobileHeaderActivity.js'
     const ParentIcon = () => <Text>*</Text>
     const ClubBrandLogo = () => null
     const NotificationStatusButton = () => null
@@ -33,7 +34,7 @@ const result = await build({
       </View>)
     }
   ` },
-  write: false, bundle: true, jsx: 'automatic', loader: { '.js': 'jsx' },
+  write: false, bundle: true, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl', '.ttf': 'dataurl' },
   alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' },
 })

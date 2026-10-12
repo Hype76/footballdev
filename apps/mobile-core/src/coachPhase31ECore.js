@@ -474,6 +474,12 @@ export function buildCoachPollClosesAt(dateValue, timeValue) {
   return date.toISOString()
 }
 
+export function canRespondToCoachInviteOnBehalf(user, invite) {
+  return Boolean(user?.id && user.clubId && user.activeTeamId && Number(user.roleRank || 0) >= 20
+    && invite?.clubId === user.clubId && invite.teamId === user.activeTeamId
+    && ['match', 'training'].includes(invite.kind) && !invite.cancelled && !invite.stale)
+}
+
 export function normalizeCoachInvite(row = {}, kind = 'calendar') {
   const deliveryQueue = Array.isArray(row.scheduled_email_queue)
     ? row.scheduled_email_queue[0]
@@ -513,7 +519,7 @@ export function normalizeCoachInvite(row = {}, kind = 'calendar') {
         : 'queued'
   const recurrenceFrequency = normalize(row.recurrence_frequency ?? row.recurrenceFrequency).toLowerCase() || 'none'
   return Object.freeze({
-    id: normalize(row.id), kind, eventId,
+    id: normalize(row.id), kind, eventId, clubId: normalize(row.club_id ?? row.clubId),
     occurrenceDate: normalize(row.occurrence_date ?? row.occurrenceDate),
     eventAt: normalize(row.occurrence_starts_at ?? row.event_at ?? row.eventAt),
     eventDate: normalize(row.match_date ?? row.event_date ?? row.eventDate ?? row.occurrence_date ?? row.occurrenceDate),

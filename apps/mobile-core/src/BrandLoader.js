@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AccessibilityInfo, Animated, AppState, Easing, Image, Platform, StyleSheet, View } from 'react-native'
+import { useMobileActivity } from './MobileActivityContext'
 
 const logoSource = require('../assets/football-player-logo.png')
 // Keep the exact PNG bytes in the Android bundle. Expo can otherwise resolve an
@@ -8,7 +9,9 @@ const androidLogoSource = require('../assets/football-player-logo.android-source
 // Frame just the round FP emblem within the existing 512px app artwork.
 const emblem = { diameter: 276, left: 118, top: 66, sourceSize: 512 }
 
-export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true, size = 'small', style }) {
+export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true, size = 'small', style, header = false }) {
+  const activity = useMobileActivity(!header, accessibilityLabel)
+  const routedToHeader = Boolean(activity && !header)
   const diameter = typeof size === 'number' && Number.isFinite(size) && size > 0
     ? size
     : size === 'large' ? 56 : 28
@@ -19,6 +22,7 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
   const transform = [{ perspective: 600 }, { rotateY: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }]
 
   useEffect(() => {
+    if (routedToHeader) return undefined
     let mounted = true
     let preferenceChanged = false
     AccessibilityInfo.isReduceMotionEnabled()
@@ -34,11 +38,11 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
       motionSubscription?.remove()
       appSubscription?.remove()
     }
-  }, [])
+  }, [routedToHeader])
 
   useEffect(() => {
     rotation.setValue(0)
-    if (reduceMotion || appState !== 'active') return undefined
+    if (routedToHeader || reduceMotion || appState !== 'active') return undefined
     const animation = Animated.loop(Animated.timing(rotation, {
       toValue: 1,
       duration: 1600,
@@ -48,7 +52,9 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
     }))
     animation.start()
     return () => animation.stop()
-  }, [appState, reduceMotion, rotation])
+  }, [appState, reduceMotion, rotation, routedToHeader])
+
+  if (routedToHeader) return null
 
   return (
     <View

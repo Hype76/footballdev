@@ -20,6 +20,8 @@ const components = names.map(name => {
   return source.slice(node.start, node.end)
 }).join('\n')
 const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js';
+import {MobileLoadingStatus} from './apps/mobile-core/src/MobileHeaderActivity.js';
 
 import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform} from 'react-native';

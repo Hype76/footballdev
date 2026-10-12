@@ -2,9 +2,23 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { readCoachMatchAvailability } from '../apps/mobile-core/src/coachAvailabilityData.js'
-import { getCoachAvailabilityMatches, normalizeCoachInvite, collapseCoachInvitesByPlayer, summarizeCoachInvites } from '../apps/mobile-core/src/coachPhase31ECore.js'
+import { canRespondToCoachInviteOnBehalf, getCoachAvailabilityMatches, normalizeCoachInvite, collapseCoachInvitesByPlayer, summarizeCoachInvites } from '../apps/mobile-core/src/coachPhase31ECore.js'
 
 const user = { clubId: 'club', activeTeamId: 'team' }
+
+test('prepared staff responses retain club scope and reject changed or inactive invitations', () => {
+  const actor = { ...user, id: 'coach', roleRank: 30 }
+  for (const kind of ['match', 'training']) {
+    const invite = normalizeCoachInvite({ id: 'invite', club_id: 'club', team_id: 'team', player_id: 'player', status: 'awaiting' }, kind)
+    assert.equal(invite.clubId, 'club')
+    assert.equal(canRespondToCoachInviteOnBehalf(actor, invite), true)
+    for (const changes of [{ clubId: 'other' }, { teamId: 'other' }, { cancelled: true }, { stale: true }, { kind: 'calendar' }]) {
+      assert.equal(canRespondToCoachInviteOnBehalf(actor, { ...invite, ...changes }), false)
+    }
+    assert.equal(canRespondToCoachInviteOnBehalf({ ...actor, roleRank: 10 }, invite), false)
+    assert.equal(canRespondToCoachInviteOnBehalf({ ...actor, id: '' }, invite), false)
+  }
+})
 const fixture = (id, overrides = {}) => ({ id, teamId: 'team', status: 'scheduled', matchDate: '2099-09-19', ...overrides })
 
 const dataSource = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')

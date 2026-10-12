@@ -295,7 +295,9 @@ export async function updateCoachMatchDayOutbox(userId, context, matchId, change
     const outboxes = document.matchDayOutboxes || {}
     const previous = outboxes[context.id]?.[matchId] || null
     if (previous && previous.authority !== outboxAuthority(context)) throw new Error('Your access to this saved fixture changed. The saved actions need review.')
-    journal = { ...change(previous), authority: outboxAuthority(context) }
+    const changed = change(previous)
+    if (changed === previous) { journal = previous; return document }
+    journal = { ...changed, authority: outboxAuthority(context) }
     if (journal?.baseMatch?.id !== matchId || journal.baseMatch.clubId !== context.clubId || journal.baseMatch.teamId !== context.teamId) throw new Error('The saved fixture does not match this workspace.')
     const entries = Object.entries(outboxes[context.id] || {})
     const recentIds = new Set(entries.filter(([, value]) => !value.pending?.length)

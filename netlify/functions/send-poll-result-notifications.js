@@ -1,6 +1,7 @@
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { resolveTeamNotificationDisplayName } from '../../src/lib/team-notification-display.js'
 import { sendExpoPushMessages } from './lib/_expo-push.js'
+import { pollResultPushDelivery } from './lib/_poll-result-push.js'
 import { getParentCommunicationChannels, normalizeParentCommunicationChannel } from './lib/_parent-communication-preferences.js'
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
 import { supabaseAdmin } from './lib/_supabase.js'
@@ -206,6 +207,7 @@ async function deliverPollResult({ poll, ranked, votes }) {
           pushStatus = 'no_device'
         } else {
           const pushResult = await sendExpoPushMessages(devices.map((device) => ({
+            ...pollResultPushDelivery(poll.id),
             body: copy.body,
             data: { ...payload, parentLinkId: link.id },
             sound: 'default',
