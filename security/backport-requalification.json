@@ -1,0 +1,315 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-12T05:21:21.289Z",
+  "baseline": "d4d24440e18ba2d64065c9330d9fec21190aa557",
+  "replacesExpiry": "2026-10-11T22:59:59Z",
+  "expiresAt": "2026-10-19T22:59:59Z",
+  "scope": "Fresh independent qualification of the unchanged five-copy source remediation after expiry. No automatic renewal, advisory suppression, native rebuild or app publication.",
+  "approval": "User requested complete replacement preparation, independent review, required checks and production completion on 12 October 2026. Separate Codex review agent explicitly selected.",
+  "advisories": [
+    {
+      "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+      "updatedAt": "2026-10-02T22:36:34Z",
+      "semanticSha256": "2262c5bc8c7d0ddeff8effbefb92dd127ed0a1591c10fe8d4a4c2c8272210c4a",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "braces"
+          },
+          "vulnerable_version_range": "<= 3.0.3",
+          "first_patched_version": null,
+          "vulnerable_functions": []
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+      "updatedAt": "2026-10-01T21:09:10Z",
+      "semanticSha256": "ef61d821fe88363996d71ac6eafebf6e351a286d71d3f52bcc40531e8f861131",
+      "vulnerabilities": [
+        {
+          "package": {
+            "ecosystem": "npm",
+            "name": "node-forge"
+          },
+          "vulnerable_version_range": "<= 1.4.0",
+          "first_patched_version": null,
+          "vulnerable_functions": []
+        }
+      ]
+    }
+  ],
+  "upstream": [
+    {
+      "url": "https://github.com/micromatch/braces/pull/72",
+      "headSha": "28d440b5dd449dbf1fe6f3506cf94ecca4d02660",
+      "baseSha": "e53730e6f935498326c72d768889ac194eedc0e0",
+      "state": "closed",
+      "merged": false,
+      "updatedAt": "2026-10-10T22:33:54Z"
+    },
+    {
+      "url": "https://github.com/digitalbazaar/forge/pull/1152",
+      "headSha": "ceba34402e329f0365134f23fe19898756527d65",
+      "baseSha": "7a43db987bd0ecdc5b41f6d73f58ba6ca5bf9ae1",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-10-09T05:05:04Z"
+    },
+    {
+      "url": "https://github.com/digitalbazaar/forge/pull/1157",
+      "headSha": "683ab3344899cc08a581e4d5675a33e87aff7b04",
+      "baseSha": "723240415b25120d47146f982809fa69344ab890",
+      "state": "open",
+      "merged": false,
+      "updatedAt": "2026-10-04T08:09:28Z"
+    }
+  ],
+  "registry": [
+    {
+      "name": "braces",
+      "latest": "3.0.3",
+      "url": "https://registry.npmjs.org/braces",
+      "integrity": "sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA=="
+    },
+    {
+      "name": "node-forge",
+      "latest": "1.4.0",
+      "url": "https://registry.npmjs.org/node-forge",
+      "integrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ=="
+    }
+  ],
+  "unchanged": {
+    "payloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
+    "patches": [
+      {
+        "file": "patches/braces-3.0.3.patch",
+        "sha256": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699"
+      },
+      {
+        "file": "patches/node-forge-1.4.0.patch",
+        "sha256": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4"
+      }
+    ],
+    "targets": [
+      {
+        "scope": ".",
+        "packagePath": "node_modules/braces",
+        "name": "braces",
+        "version": "3.0.3",
+        "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+        "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77"
+      },
+      {
+        "scope": "apps/parent-mobile",
+        "packagePath": "node_modules/braces",
+        "name": "braces",
+        "version": "3.0.3",
+        "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+        "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77"
+      },
+      {
+        "scope": "apps/parent-mobile",
+        "packagePath": "node_modules/node-forge",
+        "name": "node-forge",
+        "version": "1.4.0",
+        "originalTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
+        "patchedTreeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf"
+      },
+      {
+        "scope": "apps/coach-mobile",
+        "packagePath": "node_modules/braces",
+        "name": "braces",
+        "version": "3.0.3",
+        "originalTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+        "patchedTreeSha256": "b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77"
+      },
+      {
+        "scope": "apps/coach-mobile",
+        "packagePath": "node_modules/node-forge",
+        "name": "node-forge",
+        "version": "1.4.0",
+        "originalTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
+        "patchedTreeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf"
+      }
+    ],
+    "scopeLocks": [
+      {
+        "scope": "root",
+        "normalisedUtf8Sha256": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40"
+      },
+      {
+        "scope": "apps/parent-mobile",
+        "normalisedUtf8Sha256": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1"
+      },
+      {
+        "scope": "apps/coach-mobile",
+        "normalisedUtf8Sha256": "a7ce21f4d179f562dbe49c887e7ee28b13cefb744704e3af4b28cc77d1888322"
+      }
+    ],
+    "nativeInputs": [
+      {
+        "path": "package.json",
+        "normalisedUtf8Sha256": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
+        "unchanged": false,
+        "reason": "Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
+      },
+      {
+        "path": "package-lock.json",
+        "normalisedUtf8Sha256": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40",
+        "unchanged": false,
+        "reason": "Previously reviewed source-map-js 1.2.2 prerequisite from current main, native app inputs unchanged; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
+      },
+      {
+        "path": "apps/mobile-core/appConfig.cjs",
+        "normalisedUtf8Sha256": "d3352dac9e7bdaa8371fa6ae123b7b059ed41696d56abaa9f7c0fd1603928337",
+        "unchanged": true
+      },
+      {
+        "path": "apps/parent-mobile/package.json",
+        "normalisedUtf8Sha256": "d40865452a4fb69ff1251f223928afd6927952c7f9e7e1b06b92eb8b7706e3e0",
+        "unchanged": false,
+        "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
+      },
+      {
+        "path": "apps/parent-mobile/package-lock.json",
+        "normalisedUtf8Sha256": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1",
+        "unchanged": false,
+        "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
+      },
+      {
+        "path": "apps/parent-mobile/app.config.js",
+        "normalisedUtf8Sha256": "f88ce53014459b01f1a68dc502b7c59b28a123ec70a637fb8ae96eaf259f7a20",
+        "unchanged": true
+      },
+      {
+        "path": "apps/parent-mobile/eas.json",
+        "normalisedUtf8Sha256": "7f2e7d74ce7c720e36f36ce74fb610b9f94b185d5cbc9f953176e03fb2d8f507",
+        "unchanged": true
+      },
+      {
+        "path": "apps/coach-mobile/package.json",
+        "normalisedUtf8Sha256": "0fba8826940d3e162f55b5304396c1bd0d99abdcf84347133872e81647464e4e",
+        "unchanged": false,
+        "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
+      },
+      {
+        "path": "apps/coach-mobile/package-lock.json",
+        "normalisedUtf8Sha256": "a7ce21f4d179f562dbe49c887e7ee28b13cefb744704e3af4b28cc77d1888322",
+        "unchanged": false,
+        "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
+      },
+      {
+        "path": "apps/coach-mobile/app.config.js",
+        "normalisedUtf8Sha256": "b9b79960dcc3350b9c8356290bfd1ce08205103cfec07b9c0ab062febebc4a99",
+        "unchanged": true
+      },
+      {
+        "path": "apps/coach-mobile/eas.json",
+        "normalisedUtf8Sha256": "06bc1dbdd079d8ba6e9ec23abbaa21a0ddfc8a9f890bd707b9d241b4b20b0cd2",
+        "unchanged": true
+      }
+    ],
+    "dependencyRemediationSha256": "23bc11d0a2217dca4f0c46c65943f9d8139081c4298aee0ef45ceb7ab443be4b",
+    "releasePreparationSha256": "8f6d2b554c1c21df9a87e7f96bba4118f028ce2e995bcb580b4f3f95749216f4",
+    "genericAdvisoryExceptions": []
+  },
+  "requiredEvidence": [
+    "Fresh script-disabled clean installs and complete original/patched tree hashes in root, Coach and Parent.",
+    "Current full raw audits retain their findings; no advisory beyond the two exact existing GHSA roots may be accepted.",
+    "Runtime regression on all five copies covers depth boundaries, bypass attempts, ASTs, malformed inputs, ordinary patterns and valid/malformed RSA encodings.",
+    "Expiry, source identity, record drift, independent receipt, exact HEAD and provisioning tests gate CI.",
+    "Separate reviewer acceptance binds the exact final candidate, record and new proposal identity before provisioning and release checks."
+  ],
+  "limitations": [
+    "Published affected version numbers remain unchanged. This is temporary verified source remediation, not a clean registry audit or an official patched release.",
+    "The braces upstream proposal is closed and unmerged; the two forge proposals remain open and unmerged. Their source revisions are unchanged.",
+    "Depth guards do not establish bounds on combinatorial expansion width. Malformed private-key-signed RSA fixtures demonstrate validation rejection, not forgery without a private key.",
+    "This qualification does not approve new app functionality, publisher changes, native binaries, production data changes or physical-device acceptance."
+  ],
+  "maintenance": {
+    "owner": "Steve",
+    "expiryAction": "Block new releases after expiry until a newly reviewed replacement is verified.",
+    "replacement": "Prefer verified maintained official releases when available; preserve raw advisory visibility and review exact dependency/native compatibility."
+  },
+  "cleanInstallEvidence": [
+    {
+      "path": "node_modules/braces",
+      "completeTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "mode": "original registry package"
+    },
+    {
+      "path": "apps/parent-mobile/node_modules/braces",
+      "completeTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "mode": "original registry package"
+    },
+    {
+      "path": "apps/parent-mobile/node_modules/node-forge",
+      "completeTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
+      "mode": "original registry package"
+    },
+    {
+      "path": "apps/coach-mobile/node_modules/braces",
+      "completeTreeSha256": "ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4",
+      "mode": "original registry package"
+    },
+    {
+      "path": "apps/coach-mobile/node_modules/node-forge",
+      "completeTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
+      "mode": "original registry package"
+    }
+  ],
+  "freshAudits": [
+    {
+      "scope": ".",
+      "rawAuditSha256": "7949a9894b3dfde5a07498cbf0ddc6edb56c7940171c6acf8dc2ab0f8f61334f",
+      "registryCounts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 4,
+        "critical": 0,
+        "total": 4
+      },
+      "advisoryRoots": [
+        "GHSA-vfj7-8cjw-p6xm"
+      ],
+      "evaluationFailures": []
+    },
+    {
+      "scope": "apps/parent-mobile",
+      "rawAuditSha256": "7ba93552cf138957e36c4b442a73a5fb8abca870cd47de735b209bca98e48bfd",
+      "registryCounts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 49,
+        "critical": 0,
+        "total": 49
+      },
+      "advisoryRoots": [
+        "GHSA-vfj7-8cjw-p6xm",
+        "GHSA-86w9-cpqp-85rv"
+      ],
+      "evaluationFailures": []
+    },
+    {
+      "scope": "apps/coach-mobile",
+      "rawAuditSha256": "85a655c3a527e443c934937c66a37cb10410780e345590bad62fdaa7af7fefa7",
+      "registryCounts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 47,
+        "critical": 0,
+        "total": 47
+      },
+      "advisoryRoots": [
+        "GHSA-vfj7-8cjw-p6xm",
+        "GHSA-86w9-cpqp-85rv"
+      ],
+      "evaluationFailures": []
+    }
+  ]
+}

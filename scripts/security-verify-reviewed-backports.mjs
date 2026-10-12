@@ -15,6 +15,7 @@ const implementationFiles = [
   'scripts/security-provision-reviewed-backports.mjs', 'tests/security-reviewed-provisioning.test.mjs',
   '.github/workflows/security-gate.yml', 'apps/scripts/mobile-release-check.mjs', 'package.json',
   'scripts/security-provision-root-backport.mjs', 'security/root-backport-proposal.json', 'security/supply-chain-policy.json',
+  'tests/security-backport-runtime.test.mjs', 'security/backport-requalification.json',
 ]
 const safe = (root, relative) => {
   assert.ok(relative && !relative.includes('\\') && !relative.split('/').includes('..') && !path.isAbsolute(relative), 'Unsafe relative path')
@@ -50,11 +51,18 @@ export function verifyReleasePreparation(root, preparation) {
   for (const [file, expected] of Object.entries(text)) { assert.ok(!Object.hasOwn(binary, file), 'Ambiguous source hash mode'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved source drift: ' + file) }
   for (const [file, expected] of Object.entries(binary)) { assert.ok(file.startsWith('public/marketing-v70/'), 'Binary asset scope changed'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(hash(fs.readFileSync(safe(root, file))), expected, 'Approved binary asset drift: ' + file) }
 }
+export function verifyQualificationExpiry(expiresAt, now = Date.now()) {
+  assert.equal(expiresAt, '2026-10-19T22:59:59Z', 'Reviewed qualification expiry changed')
+  assert.ok(Number.isFinite(now), 'Invalid qualification clock')
+  assert.ok(now <= Date.parse(expiresAt), 'Reviewed backports have expired')
+}
 export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   assert.equal(record.schemaVersion, 1)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.expiresAt, '2026-10-11T22:59:59Z')
+  verifyQualificationExpiry(record.expiresAt)
+  assert.equal(record.adoptionProposalSha256, '95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91', 'Replacement qualification identity changed')
+  assert.equal(hash(fs.readFileSync(safe(root, 'security/backport-requalification.json'))), record.adoptionProposalSha256, 'Replacement qualification evidence drift')
   assert.equal(record.releasePreparationSha256, "8f6d2b554c1c21df9a87e7f96bba4118f028ce2e995bcb580b4f3f95749216f4", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
@@ -63,7 +71,6 @@ export function loadRecord(root) {
   assert.equal(hash(fs.readFileSync(safe(root, 'security/root-backport-proposal.json'))), record.rootOnlyProposalSha256, 'Retained root proposal drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.dependencyRemediation, null, 2) + '\n')), record.dependencyRemediationSha256, 'Dependency remediation pins drift')
   for (const [file, expected] of Object.entries(record.dependencyRemediation.changedSourceHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved dependency/test source drift: ' + file)
-  assert.ok(Date.now() <= Date.parse(record.expiresAt), 'Reviewed backports have expired')
   assert.equal(record.targets.length, 5)
   assert.deepEqual(Object.keys(record.implementationHashes).sort(), [...implementationFiles].sort(), 'Implementation allowlist changed')
   assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
