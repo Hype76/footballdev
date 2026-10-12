@@ -254,7 +254,10 @@ test('every major Parent screen has loading, empty, failure and retryable refres
   assert.match(appSource, /EmptyPanel/)
   assert.match(appSource, /ResourceError/)
   assert.match(appSource, /RefreshControl/)
-  assert.match(appSource, /Showing the last available information/)
+  assert.match(appSource, /MobileActivityProvider[^>]+active=\{isRefreshing \|\| isSyncing/)
+  assert.match(appSource, /function LoadingPanel[\s\S]{0,150}MobileLoadingStatus/)
+  assert.match(appSource, /function ResourceError[\s\S]{0,250}MobileFailureNotice[^>]+message=\{resource\.error \|\| ''\}[^>]+onRetry=\{onRetry\}/)
+  assert.doesNotMatch(appSource, /Showing the last available information/)
   assert.match(experienceSource, /No connection\. Check your network and try again\./)
 })
 
