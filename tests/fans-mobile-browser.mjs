@@ -49,6 +49,7 @@ if(ownerPreview)window.ownerFixture();
 window.rpc=async(name,args)=>{
   window.calls.push({name,args});
   if(name==='list_fan_connections')return window.rows.filter(r=>!r.deleted);
+  if(name==='get_parent_player_team_league_url')return [{team_id:'team-a',team_name:'U14 JPL 26/27',league_url:'https://league.example/fan',league_link_enabled:true}];
   if(name==='partner_feed')return {items:[],linkedAnalytics:null};
   if(name==='set_fan_player_account') {if(window.failConversion){window.failConversion=false;throw new Error('Could not change account. Try again.')}const row=window.rows.find(r=>r.id===args.connection_id_value);row.relationship_type=args.player_account_value?'player':'fan';if(args.player_account_value)row.permissions.schedule=true;return null;}
   if(name==='create_fan_invitation'){
@@ -239,7 +240,10 @@ try {
     window.remount();
   });
   await page.getByText('Followed Child',{exact:true}).waitFor();
-  await page.getByRole('heading',{name:'Players',exact:true}).waitFor();
+  await page.getByText('ACTIVE PLAYER',{exact:true}).waitFor();
+  await page.getByRole('tab',{name:'Calendar',exact:true}).waitFor();
+  await page.getByRole('tab',{name:'Matchday',exact:true}).waitFor();
+  assert.equal(await page.getByRole('tab',{name:'Chat',exact:true}).count(),0,'Fans do not gain Parent chat through the shared navigation');
   assert.equal(await button('Join club').count(),0,'Join club is removed from Home');
   assert.equal(await button('Open Followed Child').count(),0,'Player identity does not duplicate a content shortcut');
   await page.getByRole('tab',{name:'More',exact:true}).click();
@@ -426,7 +430,8 @@ try {
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=true});
   await button('Schedule').click();
-  await page.getByText('Loading schedule...').waitFor();
+  await page.getByRole('progressbar',{name:'Updating',exact:true}).waitFor();
+  assert.equal(await page.getByText('Loading schedule...').count(),0,'Routine loading text stays out of the content layout');
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=false;window.finishRead()});
   await button('Game Day').click();
@@ -450,12 +455,22 @@ try {
     window.rows=[
       {id:'sample-a',is_owner:false,status:'active',player_name:'Jenson Bailey',club_name:'Cambourne Town FC',team_name:'U14 JPL 26/27',theme_accent:'#0645a6',plan_key:'large_club',plan_status:'active',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:false}},
       {id:'sample-b',is_owner:false,status:'active',player_name:'John Barnes',club_name:'Football Player Demo FC',team_name:'U17 Green',theme_accent:'#0645a6',plan_key:'large_club',plan_status:'active',notifications_enabled:true,permissions:{schedule:true,game_day:true,development:true,resources:true}},
-    ];window.mode('light');window.remount();
+    ];window.rows.push({...window.rows[1],id:'sample-c',player_name:'Third Player'},{...window.rows[1],id:'sample-d',player_name:'Fourth Player'});window.user={...window.user,parentPortalLinks:[{id:'sample-a',linkType:'fan',relationshipType:'fan',playerId:'player-a',clubId:'club-a',teamId:'team-a'}]};window.mode('light');window.remount();
   });
   await page.getByText('Jenson Bailey',{exact:true}).waitFor();
   await page.getByLabel('Game Day notifications for Jenson Bailey',{exact:true}).waitFor();
+  await page.getByRole('link',{name:'Current league for U14 JPL 26/27',exact:true}).waitFor();
+  assert.equal(await page.getByLabel('Game Day notifications for John Barnes',{exact:true}).count(),0,'Only the active player is shown in the compact Home screen');
+  assert.equal(await button('Resources').count(),0,'The active player permission set controls Home shortcuts');
+  await button('Active player Jenson Bailey').click();
+  assert.equal(await page.getByRole('button',{name:/^Select player /}).count(),4,'The scrollable native selector reaches more players than Android Alert supports');
+  await button('Cancel player selection').click();
+  await page.getByLabel('Game Day notifications for Jenson Bailey',{exact:true}).waitFor();
+  await button('Active player Jenson Bailey').click();
+  await button('Select player John Barnes').click();
   await page.getByLabel('Game Day notifications for John Barnes',{exact:true}).waitFor();
-  assert.equal(await button('Resources').count(),1,'Each card retains its own permission set');
+  assert.equal(await page.getByRole('link',{name:'Current league for U14 JPL 26/27',exact:true}).count(),0,'The league follows the active authorised player');
+  assert.equal(await button('Resources').count(),1,'Changing the active player uses that player permission set');
   await page.getByRole('tab',{name:'More',exact:true}).click();
   await button('Settings').click();
   await button('Remove my access to Jenson Bailey').waitFor();

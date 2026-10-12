@@ -4,18 +4,21 @@ import { AppState, Linking, Pressable, Text, TextInput, View } from 'react-nativ
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { normalizeTeamLeagueUrl } from '../../../src/lib/team-league-link.js'
 import { useTeamLeagueLink } from './useTeamLeagueLink'
+import { useMobileActivity } from './MobileActivityContext'
+import { MobileLoadingStatus } from './MobileHeaderActivity'
 
 function useLeagueForegroundRefresh(load) {
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void load() })
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void load({ force: true }) })
     return () => subscription.remove()
   }, [load])
 }
 
 export function TeamLeagueLinkRow({ client, scope, palette, styles, coach = false }) {
   const league = useTeamLeagueLink(client, scope)
+  useMobileActivity(league.status === 'loading' || league.status === 'saving')
   useLeagueForegroundRefresh(league.load)
-  if (!league.value?.enabled || !league.value.url || league.status !== 'ready') return null
+  if (!league.value?.enabled || !league.value.url || !['ready', 'loading'].includes(league.status)) return null
   const text = palette.textPrimary || palette.text
   const accent = palette.accentText || palette.accent
   return <View>
@@ -48,14 +51,14 @@ export function TeamLeagueLinkSettings({ client, scope, palette }) {
   if (!scope.teamId || !scope.userId) return null
   return <View style={{ gap: 10 }}>
     <Text style={{ color: text, fontSize: 18, fontWeight: '700' }}>Current league</Text>
-    <Text style={{ color: muted, lineHeight: 20 }}>One league website for this team. Turn it off to hide the link for Coaches, Parents and Players while keeping the saved address.</Text>
-    {league.status === 'loading' ? <Text style={{ color: muted }}>Loading league link...</Text> : null}
+    <Text style={{ color: muted, lineHeight: 20 }}>One league website for this team. Turn it off to hide the link for Coaches, Parents, Players and Fans while keeping the saved address.</Text>
+    {league.status === 'loading' || league.status === 'saving' ? <MobileLoadingStatus message="Updating league link" /> : null}
     {league.value?.canEdit ? <>
       <TextInput accessibilityLabel="Current league website URL" autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={canEdit} maxLength={2048} onChangeText={url => change({ url })} placeholder="https://" placeholderTextColor={muted} style={{ borderBottomColor: palette.border, borderBottomWidth: 1, color: text, minHeight: 44, paddingVertical: 8 }} value={values.url} />
       <View style={{ alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 48 }}>
         <Text style={{ color: text, fontWeight: '600' }}>Show league link</Text><Switch accessibilityLabel="Show league link" disabled={!canEdit} onValueChange={enabled => change({ enabled })} value={values.enabled} />
       </View>
-      <Pressable accessibilityRole="button" disabled={!canEdit} onPress={() => { void save() }} style={{ alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44 }}><Text style={{ color: palette.accentText || palette.accent, fontWeight: '700' }}>{league.status === 'saving' ? 'Saving...' : 'Save league link'}</Text></Pressable>
+      <Pressable accessibilityRole="button" disabled={!canEdit} onPress={() => { void save() }} style={({ pressed }) => ({ alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44, opacity: pressed || !canEdit ? 0.65 : 1 })}><Text style={{ color: palette.accentText || palette.accent, fontWeight: '700' }}>Save league link</Text></Pressable>
     </> : league.status === 'ready' ? <Text style={{ color: muted }}>Only an assigned Team Admin can change this team's league link.</Text> : null}
     {league.error || message ? <Text accessibilityLiveRegion="polite" style={{ color: league.error ? palette.danger : text, lineHeight: 20 }}>{league.error || message}</Text> : null}
     {league.status === 'error' ? <Pressable accessibilityRole="button" onPress={() => { void league.load() }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: palette.accentText || palette.accent }}>Retry league link</Text></Pressable> : null}

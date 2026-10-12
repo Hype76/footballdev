@@ -18,6 +18,9 @@ import { formatParentProductDateTime } from '../mobile-core/src/parentDateTimeCo
 import { CoachNotificationHistoryScreen } from './src/CoachNotificationHistoryScreen'
 import { createCoachScrollBounds } from './src/coachScrollBounds'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
+import { MobileActivityProvider } from '../mobile-core/src/MobileActivityContext'
+import { MobileFailureNotice } from '../mobile-core/src/MobileFailureNotice'
+import { MobileHeaderActivity, MobileLoadingStatus } from '../mobile-core/src/MobileHeaderActivity'
 import { IconMenu, IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import { supabase as coachSupabase } from '../mobile-core/src/supabase'
@@ -927,6 +930,7 @@ function CoachHome() {
   }
 
   return (
+    <MobileActivityProvider key={`${user.id}:${activeContext.id}`} active={isRefreshing || homeState.loading} offline={user.isOfflineProfile || homeState.stale}>
     <CoachThemeContext.Provider value={themeContext}>
       <SafeAreaView edges={['top', 'right', 'left']} style={styles.appShell}>
         <StatusBar style={themeModel.mode === 'dark' ? 'light' : 'dark'} />
@@ -943,6 +947,7 @@ function CoachHome() {
             />
           ) : null}
           {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
+          {!isMatchInvitesRoute ? <CoachHeader context={activeContext} notificationState={notificationState} notificationStateStatus={notificationStateStatus} onOpenNotificationSettings={openNotificationSettings} user={selectedMobileUser} /> : <View style={{ height: 36, alignItems: 'flex-end', paddingRight: 16 }}><MobileHeaderActivity live={config.isProduction} test={!config.isProduction} offline={user.isOfflineProfile} styles={styles} /></View>}
           <ScrollView
             {...scrollBounds.handlers}
             testID="coach-content-scroll"
@@ -979,13 +984,6 @@ function CoachHome() {
               visible={activeRoute === 'home' || (activeRoute === 'more' && moreRoute === 'settings')}
             />
             {!isMatchInvitesRoute ? <View testID="coach-scroll-header">
-              <CoachHeader
-                context={activeContext}
-                notificationState={notificationState}
-                notificationStateStatus={notificationStateStatus}
-                onOpenNotificationSettings={openNotificationSettings}
-                user={selectedMobileUser}
-              />
               <ContextSwitcher
                 contexts={contextResolution.contexts}
                 onSelect={selectContext}
@@ -993,7 +991,6 @@ function CoachHome() {
               />
             </View> : null}
             <View onLayout={(event) => { contentOriginRef.current = event.nativeEvent.layout.y }} style={[styles.content, isMatchInvitesRoute && { paddingHorizontal: 8, paddingTop: 4 }]}>
-            {isRefreshing ? <View style={{ alignItems: 'center', paddingVertical: 8 }}><BrandLoader accessibilityLabel="Refreshing" /></View> : null}
             <CoachRoute
               activeRoute={activeRoute}
               appBadgeEnabled={appBadgeEnabled}
@@ -1047,6 +1044,7 @@ function CoachHome() {
         </KeyboardAvoidingView>
       </SafeAreaView>
     </CoachThemeContext.Provider>
+    </MobileActivityProvider>
   )
 }
 
@@ -1511,7 +1509,7 @@ function CoachHeader({ context, notificationState, notificationStateStatus, onOp
         notificationStateStatus={notificationStateStatus}
         onPress={onOpenNotificationSettings}
       />
-      <View style={styles.testBadge}><Text style={styles.testBadgeText}>{config.isProduction ? 'LIVE' : 'TEST'}</Text></View>
+      <MobileHeaderActivity live={config.isProduction} test={!config.isProduction} offline={user.isOfflineProfile} styles={styles} />
     </View>
   )
 }
@@ -1697,8 +1695,7 @@ function SettingRow({ children, copy, label }) {
 }
 
 function LoadingPanel({ message }) {
-  const { styles } = useCoachTheme()
-  return <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={{ alignItems: 'center', flexDirection: 'row', gap: 12, paddingVertical: 12 }}><BrandLoader accessible={false} size={36} /><Text style={[styles.bodyText, { flex: 1 }]}>{message}</Text></View>
+  return <MobileLoadingStatus message={message} />
 }
 
 function EmptyPanel({ message, title }) {
@@ -1716,22 +1713,9 @@ function StatePanel({ actionLabel = '', message, onAction, title, tone = 'neutra
   )
 }
 
-function Notice({ message, onDismiss }) {
-  const { styles } = useCoachTheme()
-  const onDismissRef = useRef(onDismiss)
-  useEffect(() => {
-    onDismissRef.current = onDismiss
-  }, [onDismiss])
-  useEffect(() => {
-    const timer = setTimeout(() => onDismissRef.current(), 4500)
-    return () => clearTimeout(timer)
-  }, [message])
-  return (
-    <View accessibilityLiveRegion="polite" style={styles.notice}>
-      <Text style={styles.noticeText}>{message}</Text>
-      <Pressable accessibilityRole="button" onPress={onDismiss} style={styles.noticeDismiss}><Text style={styles.noticeDismissText}>Dismiss</Text></Pressable>
-    </View>
-  )
+function Notice({ message }) {
+  const completed = /^(Coach push alerts are enabled|Coach notifications are off|Coach notifications set to|App icon badge is enabled|App icon badge is disabled)/i.test(message)
+  return <MobileFailureNotice message={completed ? '' : message} />
 }
 
 function PrimaryAction({ disabled = false, label, onPress }) {

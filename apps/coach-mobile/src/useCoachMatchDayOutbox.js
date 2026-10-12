@@ -6,18 +6,23 @@ import { readCoachMatchDayOutbox, updateCoachMatchDayOutbox } from './offline'
 import { AppState } from 'react-native'
 
 export function useCoachMatchDayOutbox({ user, context, matchId }) {
+  const [syncState, setSyncState] = useState(null)
   const [state, setState] = useState(null)
+  const userJson = JSON.stringify(user)
+  const stableUser = useMemo(() => JSON.parse(userJson), [userJson])
   const scopeKey = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.role, context.clubId, context.teamId, matchId || ''])
   const stableContext = useMemo(() => ({ id: context.id, authorityId: context.authorityId, authoritySource: context.authoritySource,
     clubId: context.clubId, teamId: context.teamId, role: context.role }),
   [context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role])
   const controller = useMemo(() => matchId ? createMatchDayOutbox({
-    key: `${user.id}:${stableContext.id}:${matchId}`,
-    read: () => readCoachMatchDayOutbox(user.id, stableContext, matchId),
-    update: change => updateCoachMatchDayOutbox(user.id, stableContext, matchId, change),
-    send: (command, baseMatch) => withMobileAsyncTimeout(() => syncCoachMatchDayCommand(user, command, baseMatch), { timeoutMs: 35000 }),
+    key: `${stableUser.id}:${stableContext.id}:${matchId}`,
+    read: () => readCoachMatchDayOutbox(stableUser.id, stableContext, matchId),
+    update: change => updateCoachMatchDayOutbox(stableUser.id, stableContext, matchId, change),
+    send: (command, baseMatch) => withMobileAsyncTimeout(() => syncCoachMatchDayCommand(stableUser, command, baseMatch), { timeoutMs: 35000 }),
     onChange: journal => setState({ scopeKey, journal }),
-  }) : null, [stableContext, matchId, scopeKey, user])
+    onSyncStateChange: active => setSyncState(previous => active ? { scopeKey, active: true }
+      : previous?.scopeKey === scopeKey ? { scopeKey, active: false } : previous),
+  }) : null, [stableContext, matchId, scopeKey, stableUser])
   useEffect(() => {
     controller?.start()
     controller?.load().then(() => controller.sync()).catch(() => {})
@@ -39,7 +44,7 @@ export function useCoachMatchDayOutbox({ user, context, matchId }) {
     return journal
   }, [controller])
   const journal = state?.scopeKey === scopeKey ? state.journal : null
-  return { enqueue, refresh, correct: async (commandId, payload) => {
+  return { enqueue, refresh, syncing: syncState?.scopeKey === scopeKey && syncState.active, correct: async (commandId, payload) => {
     await controller?.correctRejected({ commandId, payload, id: createCoachMatchDayCommandId() })
     await controller?.sync()
   }, discard: match => controller?.discardPending(match), review: match => controller?.reviewAgainstLatest(match), retry: () => controller?.sync(), journal, projected: journal ? projectMatchDayOutbox(journal) : null }

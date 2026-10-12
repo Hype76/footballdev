@@ -12,9 +12,13 @@ import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { useCoachMatchInvites } from './useCoachMatchInvites'
 import { CoachResourceUploadAction } from './CoachResourceUploadAction'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
+import { canRespondToCoachInviteOnBehalf } from '../../mobile-core/src/coachPhase31ECore'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
+import { MobileLoadingStatus } from '../../mobile-core/src/MobileHeaderActivity'
+import { useMobileActivity, useMobileOffline } from '../../mobile-core/src/MobileActivityContext'
+import { MobileFailureNotice } from '../../mobile-core/src/MobileFailureNotice'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { Alert, AppState, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -199,7 +203,7 @@ function InviteCarpoolIcon({ invite, styles }) {
 
 function Button({ destructive = false, disabled = false, label, onPress, secondary = false, styles }) {
   return (
-    <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[destructive ? styles.destructive : secondary ? styles.secondary : styles.primary, disabled && styles.disabled]}>
+    <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [destructive ? styles.destructive : secondary ? styles.secondary : styles.primary, disabled && styles.disabled, pressed && { opacity: 0.65 }]}>
       <Text style={destructive ? styles.destructiveText : secondary ? styles.secondaryText : styles.primaryText}>{label}</Text>
     </Pressable>
   )
@@ -219,13 +223,21 @@ function CoachResourcesHeader({ context, onNavigate, styles }) {
 
 export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
-  const [data, setData] = useState(null)
+  const dataScope = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role, domain])
+  const [dataState, setDataState] = useState({ scope: dataScope, value: null })
+  const data = dataState.scope === dataScope ? dataState.value : null
+  const setData = useCallback(value => setDataState(previous => ({
+    scope: dataScope,
+    value: typeof value === 'function' ? value(previous.scope === dataScope ? previous.value : null) : value,
+  })), [dataScope])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [notice, setNotice] = useState('')
   const [stale, setStale] = useState(false)
   const [invitesRefreshing, setInvitesRefreshing] = useState(false)
-  const [invitesRefreshedAt, setInvitesRefreshedAt] = useState(null)
+  const activity = useMobileActivity(loading || invitesRefreshing || refreshing)
+  useMobileOffline(stale)
   const dataRef = useRef(null)
   dataRef.current = data
   const confirmedStale = useConfirmedConnectionIssue(stale)
@@ -246,11 +258,11 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       setData(recent); setStale(domain === 'invites'); setLoading(false); setError('')
       if (domain !== 'invites') return
     }
+    setRefreshing(true)
     if (!silent) {
       setLoading(recent === undefined && !dataRef.current)
       setError('')
       setNotice('')
-      if (domain === 'chat') setData(null)
     }
     const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
     if (!current()) return false
@@ -263,7 +275,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       setLoading(false)
     }
     if (user.isOfflineProfile) {
-      setStale(true); setLoading(false)
+      setStale(true); setLoading(false); setRefreshing(false)
       if (!hasCachedValue) setError('This section has not been saved on this phone yet. Connect to load it; Coach saves information automatically.')
       return
     }
@@ -293,10 +305,11 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       setData(next)
       setStale(false)
       setError('')
-      if (domain === 'invites') setInvitesRefreshedAt(new Date())
       try {
         const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
-        await saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue })
+        void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue }).catch(() => {
+          if (current()) setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
+        })
       } catch {
         if (current()) setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
       }
@@ -310,10 +323,11 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
       return false
     } finally {
+      if (current()) setRefreshing(false)
       if (current() && domain === 'invites') setInvitesRefreshing(false)
       if (current() && !silent) setLoading(false)
     }
-  }, [captureLoadScope, context, domain, offlinePolicy.cache, user])
+  }, [captureLoadScope, context, domain, offlinePolicy.cache, setData, user])
 
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
 
@@ -345,29 +359,29 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     <View style={styles.stack}>
       {domain === 'resources' ? <>
         <CoachResourcesHeader context={context} onNavigate={onNavigate} styles={styles} />
-        {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Offline and read-only</Text> : null}
-        {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
+        {confirmedStale && !activity ? <Text accessibilityLabel="Offline stale data" style={styles.status}>Offline and read-only</Text> : null}
+        {notice ? <MobileFailureNotice message={/could not|failed|unavailable|too long/i.test(notice) ? notice : ''} scopeKey={dataScope} onRetry={() => load({ silent: true })} /> : null}
       </> : !['chat', 'invites'].includes(domain) ? <View style={domain === 'development' ? styles.developmentHeader : styles.panel}>
         <Text accessibilityRole="header" style={styles.title}>{TITLES[domain]}</Text>
         <Text style={styles.body}>{context.teamName || context.clubName} | {context.roleLabel}</Text>
-        {confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'development' ? 'Saved information. Private drafts work offline.' : 'Offline and read-only'}</Text> : null}
-        {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
+        {confirmedStale && !activity ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'development' ? 'Saved information. Private drafts work offline.' : 'Offline and read-only'}</Text> : null}
+        {notice ? <MobileFailureNotice message={/could not|failed|unavailable|too long/i.test(notice) ? notice : ''} scopeKey={dataScope} onRetry={() => load({ silent: true })} /> : null}
       </View> : <>
         {domain === 'invites' && data ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
-          <Text accessibilityLiveRegion="polite" style={[styles.helper, { flex: 1 }]}>{invitesRefreshing ? 'Checking latest invitations...' : stale ? 'Showing saved invitations. Latest check failed.' : `Updated ${invitesRefreshedAt?.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) || 'just now'}`}</Text>
+          <View style={{ flex: 1 }} />
           <Pressable accessibilityRole="button" accessibilityLabel="Refresh invitations" disabled={invitesRefreshing} onPress={() => void load({ silent: true })} style={{ minHeight: 44, minWidth: 72, alignItems: 'center', justifyContent: 'center', opacity: invitesRefreshing ? 0.5 : 1 }}><Text style={{ color: palette.accentText, fontWeight: '700' }}>Refresh</Text></Pressable>
-        </View> : confirmedStale ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'invites' ? 'Showing saved invitations. Reconnect to refresh.' : 'Offline and read-only'}</Text> : null}
-        {notice ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
+        </View> : confirmedStale && !activity ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'invites' ? 'Showing saved invitations. Reconnect to refresh.' : 'Offline and read-only'}</Text> : null}
+        {notice ? <MobileFailureNotice message={/could not|failed|unavailable|too long/i.test(notice) ? notice : ''} scopeKey={dataScope} onRetry={() => load({ silent: true })} /> : null}
       </>}
-      {loading ? <View style={styles.panel}><BrandLoader size="large" /><Text style={styles.body}>{`Loading ${TITLES[domain]}...`}</Text></View> : null}
-      {!loading && error && !visibleError ? <View style={styles.panel}><BrandLoader /><Text style={styles.body}>Checking for the latest information...</Text></View> : null}
-      {visibleError ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
-      {!loading && !error && domain === 'development' ? <DevelopmentDomain {...common} /> : null}
-      {!loading && !error && domain === 'resources' ? <ResourcesDomain {...common} /> : null}
-      {!loading && !error && domain === 'chat' ? <ChatDomain {...common} /> : null}
-      {!loading && !error && domain === 'messages' ? <MessagesDomain {...common} /> : null}
-      {!loading && !error && domain === 'polls' ? <PollsDomain {...common} /> : null}
-      {!loading && !error && domain === 'invites' ? <InvitesDomain {...common} /> : null}
+      {loading ? <MobileLoadingStatus message={`Loading ${TITLES[domain]}`} /> : null}
+      {!activity && !loading && error && !visibleError ? <MobileLoadingStatus message="Checking for the latest information" /> : null}
+      {activity ? <MobileFailureNotice message={error} scopeKey={dataScope} onRetry={load} /> : visibleError ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
+      {data && !error && domain === 'development' ? <DevelopmentDomain {...common} /> : null}
+      {data && !error && domain === 'resources' ? <ResourcesDomain {...common} /> : null}
+      {data && !error && domain === 'chat' ? <ChatDomain {...common} /> : null}
+      {data && !error && domain === 'messages' ? <MessagesDomain {...common} /> : null}
+      {data && !error && domain === 'polls' ? <PollsDomain {...common} /> : null}
+      {data && !error && domain === 'invites' ? <InvitesDomain {...common} /> : null}
     </View>
   )
 }
@@ -1110,6 +1124,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate
   const [requestPanelOpen, setRequestPanelOpen] = useState(false)
   const [showEventActions, setShowEventActions] = useState(false)
   const [bulkAction, setBulkAction] = useState('')
+  const activity = useMobileActivity(Boolean(bulkAction) || focusedInvites.checking, 'Updating invitations')
   const [removalConfirmation, setRemovalConfirmation] = useState(null)
   const trainingGroups = [...(data.training || [])
     .filter((invite) => !invite.cancelled && !invite.stale)
@@ -1380,7 +1395,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate
     setBulkAction(availabilityStatus)
     try {
       if (invite.attendancePreparation) {
-        if (Number(user.roleRank || 0) < 20 || invite.teamId !== user.activeTeamId || invite.clubId !== user.clubId || invite.cancelled || invite.stale) throw new Error('Choose an active invitation in your current Team.')
+        if (!canRespondToCoachInviteOnBehalf(user, invite)) throw new Error('Refresh invitations for your current team before changing this response.')
         await attendanceOutbox.enqueue(invite.attendancePreparation, availabilityStatus, invite.title || 'Player attendance')
         if (!current()) return
         setAvailabilityConfirm(null)
@@ -1408,6 +1423,10 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate
   const confirmAvailabilityOnBehalf = (availabilityStatus) => {
     const invite = selectedAvailabilityInvite
     if (!invite) return
+    if (!canRespondToCoachInviteOnBehalf(user, invite)) {
+      setNotice('Refresh invitations for your current team before changing this response.')
+      return
+    }
     setAvailabilityError('')
     setAvailabilityConfirm({ invite, status: availabilityStatus })
   }
@@ -1420,7 +1439,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate
             <Text accessibilityRole="header" style={styles.cardTitle}>{availabilityConfirm?.status === 'available' ? 'Accept on behalf of player?' : 'Mark player unavailable?'}</Text>
             <Text style={styles.body}>{availabilityConfirm?.invite.playerName} will be marked {availabilityConfirm?.status === 'available' ? 'Available' : 'Unavailable'} for {availabilityConfirm?.invite.title}. This records a staff response. It does not sign in as or impersonate the Parent or Player. Squad selection stays the same.</Text>
             {availabilityError ? <Text accessibilityLiveRegion="polite" style={styles.danger}>{availabilityError}</Text> : null}
-            <Button disabled={Boolean(bulkAction) || (stale && !availabilityConfirm?.invite.attendancePreparation)} destructive={availabilityConfirm?.status === 'unavailable'} label={bulkAction ? availabilityConfirm?.invite.attendancePreparation ? 'Saving on phone...' : 'Saving response...' : 'Confirm response'} onPress={() => recordAvailabilityOnBehalf(availabilityConfirm.status)} styles={styles} />
+            <Button disabled={Boolean(bulkAction) || (stale && !availabilityConfirm?.invite.attendancePreparation)} destructive={availabilityConfirm?.status === 'unavailable'} label="Confirm response" onPress={() => recordAvailabilityOnBehalf(availabilityConfirm.status)} styles={styles} />
             <Button disabled={Boolean(bulkAction)} label="Cancel response change" onPress={() => setAvailabilityConfirm(null)} secondary styles={styles} />
           </View>
         </View>
@@ -1501,12 +1520,12 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate
         <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={backToEvents} style={{ minHeight: 44, width: 32, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="chevron-left" size={28} color={palette.textPrimary} /></Pressable>
         <View style={{ flex: 1 }}>
           <Text accessibilityRole="header" style={{ color: palette.textPrimary, fontSize: 23, fontWeight: '800' }}>{trainingKey ? 'Training Invites' : 'Match Invites'}</Text>
-          {focusedFixture ? <Text accessibilityLiveRegion="polite" style={[styles.helper, { fontSize: 11, lineHeight: 14 }]}>{focusedInvites.checking ? 'Checking players...' : focusedInvites.stale ? user.isOfflineProfile ? 'Saved | offline' : 'Saved | check failed' : `Players checked ${new Date(focusedInvites.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</Text> : null}
+          {focusedFixture && !activity ? <Text accessibilityLiveRegion="polite" style={[styles.helper, { fontSize: 11, lineHeight: 14 }]}>{focusedInvites.checking ? 'Checking players...' : focusedInvites.stale ? user.isOfflineProfile ? 'Saved | offline' : 'Saved | check failed' : `Players checked ${new Date(focusedInvites.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</Text> : null}
         </View>
         {focusedFixture ? <Pressable accessibilityRole="button" accessibilityLabel="Refresh this fixture" accessibilityState={{ disabled: focusedInvites.checking || user.isOfflineProfile }} disabled={focusedInvites.checking || user.isOfflineProfile} onPress={() => void focusedInvites.refresh()} style={{ minHeight: 44, width: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="refresh" size={24} color={palette.accentText} /></Pressable> : null}
         {matchId || trainingKey ? <Pressable accessibilityRole="button" accessibilityLabel="Invitation actions" accessibilityState={{ expanded: showEventActions }} onPress={() => setShowEventActions(value => !value)} style={{ minHeight: 44, width: 40, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="more-horiz" size={24} color={palette.textPrimary} /></Pressable> : null}
       </View>
-      {focusedInvites.saveFailed && focusedFixture ? <Text style={styles.helper}>All invitations loaded, but could not be saved on this phone. Stay online and retry.</Text> : null}
+      {focusedInvites.saveFailed && focusedFixture ? activity ? <MobileFailureNotice message="All invitations loaded, but could not be saved on this phone. Stay online and retry." scopeKey={`${attendanceScope}:${focusedFixture.id}`} onRetry={focusedInvites.refresh} /> : <Text style={styles.helper}>All invitations loaded, but could not be saved on this phone. Stay online and retry.</Text> : null}
       {showEventActions && (selectedMatch || trainingKey) ? <View accessibilityLabel="Invitation actions menu" style={styles.panel}>
         {selectedMatch ? <>
           <Text style={styles.helper}>{matchRequestPlayerCount} Players have a request. {availablePlayers.length} current Team Players have no request.</Text>

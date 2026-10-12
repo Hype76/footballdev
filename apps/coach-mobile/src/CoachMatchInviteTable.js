@@ -5,6 +5,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { getCoachInviteDeliveryProgress, getCoachInviteStatusLabel } from '../../mobile-core/src/coachPhase31ECore'
 import { contrastSafeColor, themeForeground } from '../../mobile-core/src/themeContrast'
 import { formatUkDateTime } from '../../../src/lib/date-format.js'
+import { useMobileActivity } from '../../mobile-core/src/MobileActivityContext'
+import { MobileFailureNotice } from '../../mobile-core/src/MobileFailureNotice'
 
 const responseKey = status => ['pending', 'responded', '', undefined].includes(status) ? 'awaiting' : status
 
@@ -41,6 +43,7 @@ export function CoachMatchInviteTable({ coachAttendance = [], currentCoachId = '
   const historyKey = `${detailsId}:${historyRetry}`
   const history = historyResult?.key === historyKey ? historyResult.data : null
   const historyError = historyResult?.key === historyKey ? historyResult.error : ''
+  const activity = useMobileActivity(Boolean(details && onLoadHistory && !history && !historyError), 'Loading invitation history')
   useEffect(() => {
     let current = true
     if (details && onLoadHistory) Promise.resolve(onLoadHistory(details))
@@ -98,7 +101,7 @@ export function CoachMatchInviteTable({ coachAttendance = [], currentCoachId = '
             {[...history.recentResendRequests].reverse().map((item, index) => <Text key={`reminder:${index}`} style={styles.detailText}>Reminder {Math.max(0, history.resendRequests - history.recentResendRequests.length) + index + 1}: {formatUkDateTime(item.at)}{item.failed && !item.queued ? ' (failed)' : ' (requested)'}</Text>)}
             {!history.resendRequests ? <Text style={styles.detailText}>Reminders: None</Text> : null}
 
-          </> : <Text accessibilityLiveRegion="polite" style={styles.detailText}>{historyError || 'Loading send history...'}</Text>}
+          </> : activity ? <MobileFailureNotice message={historyError} scopeKey={historyKey} onRetry={() => setHistoryRetry(value => value + 1)} /> : <Text accessibilityLiveRegion="polite" style={styles.detailText}>{historyError || 'Loading send history...'}</Text>}
           {historyError ? <Pressable accessibilityRole="button" onPress={() => setHistoryRetry(value => value + 1)} style={styles.close}><Text style={styles.allText}>Retry invite history</Text></Pressable> : null}
         </View> : null}
         {details ? <><Text style={styles.detailText}>Response: {response(details).label}</Text>{details.lastError ? <Text style={styles.detailText}>Delivery issue: {details.lastError}</Text> : null}{details.note ? <Text style={styles.detailText}>Note: {details.note}</Text> : null}{details.transportNeedsLift ? <Text style={styles.detailText}>Needs a lift</Text> : details.transportCanOfferLift ? <Text style={styles.detailText}>Offering a lift</Text> : null}</> : null}
@@ -113,6 +116,7 @@ function TrainingCoachAttendanceTable({ attendance, currentCoachId, onRespond, p
   const [detailsId, setDetailsId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const activity = useMobileActivity(saving, 'Saving Training attendance')
   const details = attendance.find((row) => row.id === detailsId)
   const response = row => row.status === 'available'
     ? { color: palette.success, icon: 'check-circle', label: 'Attending' }
@@ -169,12 +173,12 @@ function TrainingCoachAttendanceTable({ attendance, currentCoachId, onRespond, p
         {details?.coachUserId === currentCoachId ? <>
           <Text style={styles.detailText}>Confirm your own attendance for this Training session.</Text>
           <View style={styles.choiceRow}>
-            <Pressable accessibilityRole="button" disabled={saving} onPress={() => void respond('available')} style={styles.choice}><Text style={styles.allText}>{saving ? 'Saving...' : 'Attending'}</Text></Pressable>
-            <Pressable accessibilityRole="button" disabled={saving} onPress={() => void respond('unavailable')} style={styles.choice}><Text style={styles.allText}>{saving ? 'Saving...' : 'Not attending'}</Text></Pressable>
+            <Pressable accessibilityRole="button" disabled={saving} onPress={() => void respond('available')} style={styles.choice}><Text style={styles.allText}>Attending</Text></Pressable>
+            <Pressable accessibilityRole="button" disabled={saving} onPress={() => void respond('unavailable')} style={styles.choice}><Text style={styles.allText}>Not attending</Text></Pressable>
           </View>
         </> : <Text style={styles.detailText}>Only this Coach can change their response.</Text>}
         {details?.notificationError ? <Text style={styles.detailText}>Notification: {details.notificationError}</Text> : null}
-        {error ? <Text accessibilityLiveRegion="polite" style={[styles.detailText, { color: palette.danger }]}>{error}</Text> : null}
+        {error ? activity ? <MobileFailureNotice message={error} scopeKey={responseViewScope} /> : <Text accessibilityLiveRegion="polite" style={[styles.detailText, { color: palette.danger }]}>{error}</Text> : null}
         <Pressable accessibilityRole="button" disabled={saving} onPress={() => setDetailsId('')} style={styles.close}><Text style={styles.allText}>Close</Text></Pressable>
       </View></View>
     </Modal>

@@ -75,7 +75,7 @@ export function appendMatchDayCommand(journal, { id, kind, payload, capturedAt =
 }
 
 // Persist before showing success. Reuse each command ID after an uncertain response.
-export function createMatchDayOutbox({ read, update, send, key = '', onChange = () => {} }) {
+export function createMatchDayOutbox({ read, update, send, key = '', onChange = () => {}, onSyncStateChange = () => {} }) {
   let syncing = false
   let stopped = false
   const publish = journal => { if (!stopped) onChange(journal) }
@@ -86,6 +86,10 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
     async refresh(match) {
       const journal = await update(current => {
         if (current?.pending?.length || Date.parse(match.updatedAt) < Date.parse(current?.baseMatch?.updatedAt)) return current
+        // Identical foreground reads do not rewrite the whole encrypted cache.
+        // Refresh the offline authority timestamp periodically, never indefinitely.
+        if (!current?.error && current?.baseMatch && JSON.stringify(current.baseMatch) === JSON.stringify(match)
+          && Date.now() - Date.parse(current.verifiedAt) < 60000) return current
         return { baseMatch: match, pending: [], verifiedAt: new Date().toISOString(), error: '' }
       })
       publish(journal)
@@ -136,11 +140,14 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
       if (syncing || stopped || key && activeSyncs.has(key)) return
       syncing = true
       if (key) activeSyncs.add(key)
+      let reportedSync = false
       try {
         while (!stopped) {
           const journal = await read()
+          if (stopped) return
           const command = journal?.pending?.[0]
           if (!command) return
+          if (!reportedSync) { reportedSync = true; onSyncStateChange(true) }
           try {
             const match = await send(command, journal.baseMatch)
             if (stopped) return
@@ -156,7 +163,7 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
             return
           }
         }
-      } finally { syncing = false; if (key) activeSyncs.delete(key) }
+      } finally { syncing = false; if (key) activeSyncs.delete(key); if (reportedSync) onSyncStateChange(false) }
     },
   }
 }

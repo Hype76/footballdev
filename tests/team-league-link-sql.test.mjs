@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises'
 import {PGlite} from '@electric-sql/pglite'
 
 const draft=await readFile(new URL('../supabase/migrations/20261006062722_team_current_league_url.sql',import.meta.url),'utf8')
+const fanRead=await readFile(new URL('../supabase/migrations/20261012092551_fan_team_league_read_access.sql',import.meta.url),'utf8')
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 // Execute the unchanged draft against a synthetic local PostgreSQL schema.
 // Authority and billing helpers below are explicit controllable seams. This
@@ -58,4 +59,50 @@ test('league SQL allows assigned Team Admin edits with allowed billing and hides
  const read=(await db.query('select public.get_team_league_url($1) as value',[id(3)])).rows[0].value
  assert.equal(read.can_edit,false);assert.equal(read.league_url,null)
  await assert.rejects(db.query('select public.set_team_league_url($1,$2,true)',[id(3),'https://league.example/other']),/Team Admin access/)
+})
+
+test('accepted Fans can read their own team league without gaining edit or Player privileges',async t=>{
+ const db=await setup(t);await db.exec(fanRead)
+ await db.query('select public.set_team_league_url($1,$2,true)',[id(3),'https://league.example/retained'])
+ await db.exec(`insert into public.players values('${id(4)}','${id(3)}','${id(2)}','active',null);
+ insert into public.fan_connections values('${id(5)}','${id(4)}','${id(2)}','${id(1)}','friend','active','${id(7)}','${id(8)}');
+ insert into public.fan_connections values('${id(6)}','${id(4)}','${id(2)}','${id(1)}','player','active','${id(7)}','${id(8)}');
+ delete from public.team_staff;set role authenticated;`)
+ const read=async(link=id(5),kind='fan')=>(await db.query('select * from public.get_parent_player_team_league_url($1,$2)',[link,kind])).rows
+ assert.equal((await read())[0].league_url,'https://league.example/retained')
+ assert.equal((await read(id(6),'player'))[0].league_url,'https://league.example/retained')
+ await assert.rejects(read(id(5),'player'),/authorised/)
+ await assert.rejects(read(id(99)),/authorised/)
+ await assert.rejects(db.query('select public.set_team_league_url($1,$2,true)',[id(3),'https://league.example/changed']),/Team Admin access/)
+ await assert.rejects(db.query('update public.teams set league_url=$1 where id=$2',['https://league.example/changed',id(3)]),/Team Admin access/)
+ await db.exec('reset role')
+ for(const role of ['anon','service_role']) assert.equal((await db.query('select has_function_privilege($1,$2,$3) as allowed',[role,'public.get_parent_player_team_league_url(uuid,text)','EXECUTE'])).rows[0].allowed,false)
+})
+
+test('Fan league reads recheck ownership, account, sharing, player and team state on every request',async t=>{
+ const db=await setup(t);await db.exec(fanRead)
+ await db.query('select public.set_team_league_url($1,$2,true)',[id(3),'https://league.example/retained'])
+ await db.exec(`insert into public.players values('${id(4)}','${id(3)}','${id(2)}','active',null);
+ insert into public.fan_connections values('${id(5)}','${id(4)}','${id(2)}','${id(1)}','friend','active','${id(7)}','${id(8)}');
+ create or replace function app_private.fan_scope_active(uuid,uuid,uuid,uuid) returns boolean language sql as $$select coalesce(current_setting('synthetic.sharing',true),'allowed') <> 'revoked'$$;
+ create or replace function app_private.fan_account_active(uuid,uuid) returns boolean language sql as $$select coalesce(current_setting('synthetic.fan_account',true),'allowed') <> 'inactive'$$;
+ delete from public.team_staff;set role authenticated;`)
+ const read=()=>db.query('select * from public.get_parent_player_team_league_url($1,$2)',[id(5),'fan'])
+ for(const [deny,restore] of [
+  [`update public.fan_connections set auth_user_id='${id(99)}'`,`update public.fan_connections set auth_user_id='${id(1)}'`],
+  ["update public.fan_connections set status='revoked'","update public.fan_connections set status='active'"],
+  ["set synthetic.sharing='revoked'","set synthetic.sharing='allowed'"],
+  ["set synthetic.fan_account='inactive'","set synthetic.fan_account='allowed'"],
+  ["update public.players set status='archived'","update public.players set status='active'"],
+  ["update auth.users set banned_until=now()+interval '1 day'","update auth.users set banned_until=null"],
+ ]){
+  await db.exec(`reset role;${deny};set role authenticated`)
+  await assert.rejects(read(),/authorised|Sign in/)
+  await db.exec(`reset role;${restore};set role authenticated`)
+  assert.equal((await read()).rows[0].league_url,'https://league.example/retained')
+ }
+ await db.exec(`reset role;insert into public.team_staff values('${id(3)}','${id(1)}',50);update public.teams set league_link_enabled=false;delete from public.team_staff;set role authenticated`)
+ assert.equal((await read()).rows[0].league_url,null)
+ await db.exec("reset role;update public.teams set status='archived';set role authenticated")
+ assert.equal((await read()).rows.length,0)
 })

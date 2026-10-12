@@ -8,7 +8,7 @@ export function coachTeamLeagueScope(user, teamId = user?.activeTeamId, canMutat
 }
 
 export function parentPlayerTeamLeagueScope(user, link, offline = false) {
-  const kind = link?.linkType === 'parent' ? 'parent' : link?.linkType === 'fan' && link.relationshipType === 'player' ? 'player' : ''
+  const kind = link?.linkType === 'parent' ? 'parent' : link?.linkType === 'fan' ? link.relationshipType === 'player' ? 'player' : 'fan' : ''
   return { kind, userId: user?.id, clubId: link?.clubId, teamId: link?.teamId, linkId: link?.id, playerId: link?.playerId,
     offline: offline || user?.isOfflineProfile === true,
     active: Boolean(kind && user?.parentPortalLinks?.some(candidate => candidate.id === link.id && candidate.playerId === link.playerId && candidate.teamId === link.teamId && candidate.clubId === link.clubId) && (!user.accountStatus || user.accountStatus === 'active')) }
@@ -32,7 +32,7 @@ export function normalizeTeamLeagueUrl(value) {
 export function teamLeagueScopeKey(scope) {
   if (!scope?.userId || !scope?.teamId || scope.offline || scope.active === false) return ''
   if (scope.kind === 'coach') return JSON.stringify(['coach', scope.userId, scope.clubId, scope.teamId, scope.role, scope.roleRank, scope.canMutate])
-  if (scope.kind === 'parent' || scope.kind === 'player') {
+  if (['parent', 'player', 'fan'].includes(scope.kind)) {
     if (!scope.linkId || !scope.playerId) return ''
     return JSON.stringify([scope.kind, scope.userId, scope.clubId, scope.teamId, scope.linkId, scope.playerId])
   }

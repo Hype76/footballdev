@@ -1,6 +1,13 @@
 import { Text, Pressable, View } from 'react-native'
+import { useMobileActivity } from './MobileActivityContext'
+import { MobileFailureNotice } from './MobileFailureNotice'
 
 export function AttendancePendingRows({ outbox, onRefresh, styles }) {
+  const activity = useMobileActivity(outbox.commands.some(command => ['persisting', 'sending'].includes(command.status)), 'Saving response')
+  const reviewCommand = outbox.commands.find(command => ['conflict', 'rejected'].includes(command.status))
+  const review = () => Promise.resolve(onRefresh?.()).then(confirmed => confirmed === true ? outbox.review(reviewCommand.id) : undefined).catch(() => {})
+  if (activity) return <MobileFailureNotice message={outbox.error || outbox.commands.find(command => command.error)?.error || ''}
+    scopeKey={outbox.commands.map(command => command.id).join(':')} actionLabel={reviewCommand ? 'Refresh and review' : 'Retry'} onRetry={reviewCommand ? review : () => outbox.retry()} />
   return <View>
     {outbox.error ? <Text accessibilityRole="alert" style={styles.error || styles.danger}>{outbox.error}</Text> : null}
     {outbox.commands.filter(command => command.status !== 'saved' || command.notifyPending).map(command => <View key={command.id} style={styles.row}>

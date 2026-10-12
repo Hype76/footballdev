@@ -2380,12 +2380,22 @@ export async function correctStaffMatchDayGoal({ user, match, event, goal, reaso
   assertStaffMatchDayAccess(user)
   assertMatchInActiveTeamScope(user, match)
 
-  const { data, error } = await supabase.rpc('correct_match_day_goal', buildGoalCorrectionPayload({
+  const payload = buildGoalCorrectionPayload({
     match,
     event,
     goal,
     reason,
-  }))
+  })
+  delete payload.parent_link_id_value
+  const ownGoal = (goal?.isOwnGoal ?? event?.isOwnGoal ?? event?.is_own_goal) === true
+  const { data, error } = await supabase.rpc('correct_coach_match_day_goal_v2', {
+    ...payload,
+    scorer_player_id_value: normalizeText(goal?.scorerPlayerId ?? event?.scorerPlayerId ?? event?.scorer_player_id) || null,
+    assist_player_id_value: ownGoal ? null : normalizeText(goal?.assistPlayerId ?? event?.assistPlayerId ?? event?.assist_player_id) || null,
+    is_own_goal_value: ownGoal,
+    is_penalty_goal_value: !ownGoal && (goal?.isPenaltyGoal ?? event?.isPenaltyGoal ?? event?.is_penalty_goal) === true,
+    stoppage_minute_value: Number(goal?.stoppageMinute ?? event?.stoppageMinute ?? event?.stoppage_minute) || null,
+  })
 
   if (error) {
     console.error(error)
@@ -2401,11 +2411,11 @@ export async function voidStaffMatchDayGoal({ user, match, event, reason = '' })
   assertStaffMatchDayAccess(user)
   assertMatchInActiveTeamScope(user, match)
 
-  const { data, error } = await supabase.rpc('void_match_day_goal', {
+  const { data, error } = await supabase.rpc('void_coach_match_day_event_v1', {
     match_day_id_value: match?.id || event?.matchDayId || event?.match_day_id,
-    goal_event_id_value: event?.id,
-    parent_link_id_value: null,
-    reason_value: normalizeText(reason),
+    event_id_value: event?.id,
+    reason_code_value: 'added_by_mistake',
+    note_value: normalizeText(reason),
   })
 
   if (error) {
@@ -2428,7 +2438,7 @@ export async function voidStaffMatchDayEvent({ user, match, event, reasonCode = 
     reasonCode,
   })
 
-  const { data, error } = await supabase.rpc('void_match_day_event', {
+  const { data, error } = await supabase.rpc('void_coach_match_day_event_v1', {
     match_day_id_value: match?.id || event?.matchDayId || event?.match_day_id,
     event_id_value: event?.id,
     reason_code_value: validatedUndo.reasonCode,

@@ -15,6 +15,8 @@ import { getGoalScorerSide, oppositeMatchSide } from '../../../src/lib/matchday-
 import { SCORER_EVENT_LABELS, validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event.js'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
+import { MobileLoadingStatus } from '../../mobile-core/src/MobileHeaderActivity'
+import { MobileFailureNotice } from '../../mobile-core/src/MobileFailureNotice'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -326,7 +328,6 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
           <Text style={styles.inviteSectionTitle}>{label}</Text>
           {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text accessibilityLabel={`${isVolunteer ? VOLUNTEER_ROLE_STATUS_LABEL : 'Squad status'}: ${labelize(invitation.selectionState)}`} numberOfLines={1} style={styles.meta}>{isVolunteer ? 'Role' : 'Squad'}: {labelize(invitation.selectionState)}</Text> : null}
           {!options.length ? <Text style={[styles.meta, { color: invitationToneColor(colors, response.tone) }]}>{response.label}</Text> : null}
-          {invitation.attendancePending ? <Text accessibilityLiveRegion="polite" style={styles.warning}>Pending: {invitation.attendancePendingStatus === 'persisting' ? 'saving on phone' : 'saved on phone, waiting for confirmation'}</Text> : null}
           {lockReason ? <Text style={styles.warning}>{lockReason}</Text> : null}
         </View>
       </View>
@@ -337,7 +338,7 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
             const tone = ['available', 'yes'].includes(option.value) ? 'success' : option.value === 'maybe' ? 'warning' : 'danger'
             const iconKey = ['available', 'yes'].includes(option.value) ? 'attendance.available' : option.value === 'maybe' ? 'attendance.maybe' : 'attendance.unavailable'
             const optionLabel = isVolunteer ? option.value === 'yes' ? 'Yes' : 'No' : option.value === 'available' ? 'Attending' : option.value === 'unavailable' ? 'Not attending' : option.label
-            return <IconChoice accessibilityLabel={`${label}, ${optionLabel}`} colors={colors} disabled={isLocked || offlineBlocked || busy || !actionable} iconKey={iconKey} key={option.value} label={invitation.attendancePending && selected ? `${optionLabel} (pending)` : busy && !invitation.attendancePending ? 'Saving' : optionLabel} onPress={() => onRespond(invitation, option.value)} selected={selected} styles={styles} tone={tone} />
+            return <IconChoice accessibilityLabel={`${label}, ${optionLabel}${invitation.attendancePending && selected ? ', awaiting server confirmation' : ''}`} colors={colors} disabled={isLocked || offlineBlocked || busy || !actionable} iconKey={iconKey} key={option.value} label={optionLabel} onPress={() => onRespond(invitation, option.value)} selected={selected} styles={styles} tone={tone} />
           })}
         </View>
       ) : null}
@@ -346,10 +347,10 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
 }
 
 function ResourceState({ emptyCopy, error, items, loading, styles }) {
-  if (loading && items.length === 0) return <View style={{ alignItems: 'center', paddingVertical: 12 }}><BrandLoader size="large" /><Text accessibilityLiveRegion="polite" style={styles.helper}>Loading...</Text></View>
+  if (loading && items.length === 0) return <MobileLoadingStatus message="Loading" />
   if (error && items.length === 0) return <Text accessibilityRole="alert" style={styles.error}>{error}</Text>
   if (!loading && items.length === 0) return <Text style={styles.empty}>{emptyCopy}</Text>
-  return error ? <Text accessibilityRole="alert" style={styles.warning}>{error} Saved information is shown below.</Text> : null
+  return error ? <MobileFailureNotice message={`${error} Your last saved information remains visible. Pull down to retry.`} /> : null
 }
 
 function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, onTransport, styles }) {

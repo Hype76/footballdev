@@ -25,6 +25,8 @@ import { FanInvitationScreen } from './src/FanInvitationScreen'
 import { useFanAppLink } from './src/useFanAppLink'
 import { requiresWatchedMatch } from '../../src/lib/poll-watched-match.js'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
+import { MobileActivityProvider } from '../mobile-core/src/MobileActivityContext'
+import { MobileHeaderActivity, MobileLoadingStatus } from '../mobile-core/src/MobileHeaderActivity'
 import { ParentPlayerAccessControls } from './src/ParentPlayerAccessControls'
 import { buildParentProfileAfterAccessRemoval } from '../mobile-core/src/parentAccessRemovalCore'
 import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
@@ -94,7 +96,8 @@ import { AccessScreen, LoadingScreen, LockedScreen, MobileLoginScreen } from '..
 import { MOBILE_STARTUP_STATES } from '../mobile-core/src/startupStateCore'
 import { useMobileAutomaticUpdates } from '../mobile-core/src/updates'
 import { MobileUpdateNotice } from '../mobile-core/src/MobileUpdateNotice'
-import { useConfirmedConnectionIssue } from '../mobile-core/src/useConfirmedConnectionIssue'
+import { useMobileActivity } from '../mobile-core/src/MobileActivityContext'
+import { MobileFailureNotice } from '../mobile-core/src/MobileFailureNotice'
 import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from '../mobile-core/src/parentThemeCore'
 import { getParentTabIconKey } from '../mobile-core/src/mobileIconSystem'
 import { isMatchdayPlan, isMobileCapabilityAllowed, isMobileRouteAllowed } from '../mobile-core/src/matchdayPolicyCore'
@@ -2263,6 +2266,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const focusedScorer = renderedActiveTab === 'matchday' && selectedMatch?.isScorer && !selectedMatch?.scorerReviewRequestedAt && !selectedMatch?.concludedAt
 
   return (
+    <MobileActivityProvider key={`${user.id}:${selectedLink?.id || ''}`} active={isRefreshing || isSyncing || Boolean(activeActionId) || Object.values(resources).some(resource => resource.loading)} offline={isOffline}>
     <ParentThemeContext.Provider value={themeContext}>
     <SafeAreaView style={[styles.safeArea, displayTheme === 'light' && styles.safeAreaLight]}>
       <StatusBar style={displayTheme === 'light' ? 'dark' : 'light'} />
@@ -2284,7 +2288,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           onToggleChildSwitcher={() => setChildSwitcherOpen((open) => !open)}
           selectedLink={selectedLink}
           theme={displayTheme}
-        /> : null}
+        /> : <View style={{ height: 36, alignItems: 'flex-end', paddingRight: 16 }}><MobileHeaderActivity /></View>}
 
         {renderedActiveTab === 'chat' ? (
           <View style={[styles.contentColumn, styles.chatRouteContent]}>
@@ -2325,7 +2329,6 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           )}
         >
           <View ref={contentColumnRef} collapsable={false} style={styles.contentColumn}>
-            {isRefreshing ? <LoadingLine label="Refreshing" /> : null}
             <SyncStatus
               attentionIndex={attentionIndex}
               cacheState={offlineCacheState}
@@ -2520,6 +2523,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       </KeyboardAvoidingView>
     </SafeAreaView>
     </ParentThemeContext.Provider>
+    </MobileActivityProvider>
   )
 }
 
@@ -2548,13 +2552,14 @@ function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, chi
       <View style={styles.brandRow}>
         <ClubBrandLogo key={`${selectedLink?.id || 'default'}:${selectedLink?.clubLogoUrl || ''}`} link={selectedLink} />
         <View style={styles.brandCopy}>
-          <Text style={[styles.brandName, isLight && styles.textLight]}>{selectedLink?.clubName || 'Your club'}</Text>
+          <Text numberOfLines={1} style={[styles.brandName, isLight && styles.textLight]}>{selectedLink?.clubName || 'Your club'}</Text>
         </View>
         <NotificationStatusButton
           notificationState={notificationState}
           notificationStateStatus={notificationStateStatus}
           onPress={onOpenNotificationSettings}
         />
+        <MobileHeaderActivity />
       </View>
 
       {childCount > 0 ? (
@@ -3133,34 +3138,10 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
   )
 }
 
-function SyncStatus({ attentionIndex = 0, cacheState, isOffline, isSyncing, onNextAttention, onOpenAttention, summary }) {
-  const { styles } = useParentTheme()
-  const confirmedOffline = useConfirmedConnectionIssue(isOffline)
-  let message = ''
-  let tone = 'neutral'
-  if (confirmedOffline) {
-    message = cacheState.source === 'cache'
-      ? `Offline. Showing your last saved information.${cacheState.stale ? ' It may be out of date.' : ''}`
-      : 'Offline. Connect to load information that has not been saved on this device.'
-    tone = 'warning'
-  } else if (isOffline || isSyncing) {
-    message = isOffline ? 'Your saved actions are waiting for a connection.' : 'Syncing your saved actions.'
-  } else if (summary.needsAttention > 0) {
-    message = `${summary.needsAttention} ${summary.needsAttention === 1 ? 'action needs' : 'actions need'} attention.`
-    tone = 'warning'
-  } else if (summary.waiting > 0) {
-    message = `${summary.waiting} ${summary.waiting === 1 ? 'action is' : 'actions are'} waiting to sync.`
-  }
-
-  const content = <>
-      {isSyncing ? <BrandLoader /> : null}
-      <Text style={styles.syncStatusText}>{message}</Text>
-      {summary.needsAttention > 1 && onNextAttention ? <Pressable accessibilityLabel={`Show next action, ${attentionIndex + 1} of ${summary.needsAttention}`} accessibilityRole="button" onPress={(event) => { event.stopPropagation(); onNextAttention() }} style={styles.syncStatusAction}><Text style={styles.syncStatusActionText}>Next</Text></Pressable> : null}
-    </>
-  if (!message) return null
-  return summary.needsAttention > 0 && onOpenAttention ? (
-    <Pressable accessibilityHint="Opens the item that needs attention" accessibilityLiveRegion="polite" accessibilityRole="button" onPress={onOpenAttention} style={[styles.syncStatus, styles.syncStatusWarning]}>{content}</Pressable>
-  ) : <View accessibilityLiveRegion="polite" style={[styles.syncStatus, tone === 'warning' && styles.syncStatusWarning]}>{content}</View>
+function SyncStatus({ isSyncing, onOpenAttention, summary }) {
+  useMobileActivity(isSyncing)
+  return <MobileFailureNotice message={summary.needsAttention > 0 ? `${summary.needsAttention} saved ${summary.needsAttention === 1 ? 'action needs' : 'actions need'} attention. Your entries are retained on this phone.` : ''}
+    scopeKey={summary.attentionItems?.map(item => item.id).join(':') || 'saved-actions'} actionLabel="Review" onRetry={onOpenAttention} />
 }
 
 function ParentProfileScreen({ activeActionId, isOffline, isSyncing, onDisplayNameChange, user }) {
@@ -3578,33 +3559,13 @@ function Badge({ label, tone = 'neutral' }) {
   )
 }
 
-function Notice({ message, onDismiss, tone = 'success', compact = false }) {
-  const { palette, styles } = useParentTheme()
-  if (compact) return <View accessibilityLiveRegion="polite" style={styles.syncStatus}>
-    <Text style={[styles.helperText, { flex: 1 }]}>{message}</Text>
-    <Pressable accessibilityRole="button" accessibilityLabel="Dismiss refresh status" onPress={onDismiss} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><ParentIcon iconKey="action.close" color={palette.accentText} size={20} /></Pressable>
-  </View>
-  return (
-    <View accessibilityLiveRegion="polite" style={[styles.notice, tone === 'error' && styles.noticeError, tone === 'warning' && styles.noticeWarning]}>
-      <Text style={styles.noticeText}>{message}</Text>
-      <Pressable accessibilityLabel="Dismiss message" accessibilityRole="button" onPress={onDismiss} style={styles.noticeDismiss}>
-        <Text style={styles.noticeDismissText}>Dismiss</Text>
-      </Pressable>
-    </View>
-  )
+function Notice({ message, tone = 'success' }) {
+  const routine = tone === 'success' || /saved on this phone|syncing in the background|waiting to sync/i.test(message)
+  return <MobileFailureNotice message={routine ? '' : message} />
 }
 
 function ResourceError({ onRetry, resource, title }) {
-  const { styles } = useParentTheme()
-  if (!resource.error) return null
-  return (
-    <View accessibilityLiveRegion="assertive" style={styles.errorPanel}>
-      <Text style={styles.errorTitle}>{title}</Text>
-      <Text style={styles.bodyText}>{resource.error}</Text>
-      {resource.items.length > 0 ? <Text style={styles.helperText}>Showing the last available information.</Text> : null}
-      {onRetry ? <PrimaryAction label="Try again" onPress={onRetry} secondary /> : null}
-    </View>
-  )
+  return <MobileFailureNotice title={title} message={resource.error || ''} onRetry={onRetry} />
 }
 
 function EmptyPanel({ message, title }) {
@@ -3618,23 +3579,11 @@ function EmptyPanel({ message, title }) {
 }
 
 function LoadingPanel({ message }) {
-  const { styles } = useParentTheme()
-  return (
-    <View accessibilityLiveRegion="polite" accessibilityRole="progressbar" style={styles.loadingPanel}>
-      <BrandLoader accessible={false} size="large" />
-      <Text style={styles.bodyText}>{message}</Text>
-    </View>
-  )
+  return <MobileLoadingStatus message={message} />
 }
 
 function LoadingLine({ label }) {
-  const { styles } = useParentTheme()
-  return (
-    <View accessibilityLiveRegion="polite" style={styles.loadingLine}>
-      <BrandLoader accessible={false} />
-      <Text style={styles.helperText}>{label}</Text>
-    </View>
-  )
+  return <MobileLoadingStatus message={label} />
 }
 
 function PrimaryAction({ disabled = false, iconKey, label, loading = false, onPress, secondary = false }) {
@@ -3654,9 +3603,8 @@ function PrimaryAction({ disabled = false, iconKey, label, loading = false, onPr
         pressed && styles.pressed,
       ]}
     >
-      {loading ? <BrandLoader accessible={false} /> : (
-        <>{iconKey ? <ParentIcon iconKey={iconKey} color={palette.accentText} size={23} /> : null}<Text style={[styles.primaryActionText, secondary && styles.secondaryActionText, iconKey && { flex: 1, textAlign: 'left', fontSize: 14 }]}>{label}</Text></>
-      )}
+      {loading ? <BrandLoader accessible={false} /> : null}
+      {iconKey ? <ParentIcon iconKey={iconKey} color={palette.accentText} size={23} /> : null}<Text style={[styles.primaryActionText, secondary && styles.secondaryActionText, iconKey && { flex: 1, textAlign: 'left', fontSize: 14 }]}>{label}</Text>
     </Pressable>
   )
 }

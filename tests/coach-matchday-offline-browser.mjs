@@ -37,7 +37,7 @@ const dataMock = `
   export const normalizeCoachMatchDay=value=>value;
   const requireSignal=()=>{if(!window.online){window.failedRefresh=(window.failedRefresh||0)+1;throw new Error('Waiting for a connection.');}};
   export async function getCoachMatchDayList(){requireSignal();return [window.server]}
-  export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));return window.server}
+  export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));if(window.detailDelay)await new Promise(resolve=>window.finishDetail=resolve);if(window.detailFailure)throw new Error(window.detailFailureMessage||'Could not connect');return window.server}
   export async function runCoachMatchDayTimerAction(user,match,action){
     if(action!=='conclude') throw new Error('Unexpected timer action: '+action);
     window.concludeCalls=(window.concludeCalls||0)+1;
@@ -45,6 +45,7 @@ const dataMock = `
     window.server={...window.server,concludedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
     localStorage.setItem('server',JSON.stringify(window.server));
     if(window.concludeFailure==='response-lost') throw new Error('Conclusion response lost');
+    if(window.concludeFailure==='response-lost-and-refresh-failed'){window.detailFailure=true;throw new Error('Conclusion response lost');}
     return window.server;
   }
   export async function saveCoachMatchDayFinalReport(user,match,notes){window.server={...window.server,updatedAt:new Date().toISOString(),finalReport:{staffNotes:notes,updatedAt:new Date().toISOString()}};localStorage.setItem('server',JSON.stringify(window.server));return window.server;}
@@ -98,7 +99,7 @@ try {
   await mount()
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
   if(process.argv.includes('--conclude-only')) {
-    for (const failure of ['none','cache-failure','response-lost','rejected']) {
+    for (const failure of ['none','cache-failure','response-lost','response-lost-and-refresh-failed','rejected']) {
       await page.evaluate(()=>{
         const fullTime={...window.server,status:'full_time',timerStatus:'full_time',currentMatchPhase:'full_time',updatedAt:new Date(Date.now()-60000).toISOString(),concludedAt:'',homeScore:1,awayScore:0,events:[],finalReport:null};
         localStorage.clear();localStorage.setItem('server',JSON.stringify(fullTime));
@@ -114,6 +115,20 @@ try {
       await page.getByRole('button',{name:'Conclude match',exact:true}).click();
       await page.getByRole('button',{name:'Confirm',exact:true}).click();
       await page.waitForFunction(()=>window.concludeCalls===1);
+      if(failure==='response-lost-and-refresh-failed') {
+        await page.getByText('Reconciling the last action',{exact:true}).waitFor();
+        await page.getByText(/Refresh to reconcile with the server before retrying/).waitFor();
+        assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isDisabled(),true);
+        await page.evaluate(()=>{window.detailFailure=false;window.detailDelay=true;window.detailFailureMessage='Authoritative detail failed'});
+        await page.getByRole('button',{name:'Refresh',exact:true}).click();
+        await page.waitForFunction(()=>Boolean(window.finishDetail));
+        assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isDisabled(),true,'An uncertain mutation stays locked during the authoritative read');
+        await page.evaluate(()=>{window.detailFailure=true;window.detailDelay=false;window.finishDetail()});
+        await page.getByText('Authoritative detail failed',{exact:true}).waitFor();
+        assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isDisabled(),true,'A failed authority read must retain the uncertain-operation lock');
+        await page.evaluate(()=>window.detailFailure=false);
+        await page.getByRole('button',{name:'Refresh',exact:true}).click();
+      }
       if(failure==='rejected') {
         await page.getByText(/The server confirmed it was not saved/).waitFor();
         assert.equal(await page.getByText('Match concluded',{exact:true}).count(),0);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isTransientConnectionMessage } from '../../apps/mobile-core/src/useConfirmedConnectionIssue'
 export function useFans({ rpc, request }) {
   const [connections, setConnections] = useState([])
   const [error, setError] = useState('')
@@ -18,7 +19,7 @@ export function useFans({ rpc, request }) {
     const generation = sequence
     const refresh = async () => {
       try { await reload(); if (alive) setError('') }
-      catch (e) { if (alive) { setError(e.message); setConnections([]); clearView() } }
+      catch (e) { if (alive) { setError(e.message); if (e.status || e.code || !isTransientConnectionMessage(e.message)) { setConnections([]); clearView() } } }
       finally { if (alive) setLoading(false) }
     }
     void refresh()
@@ -56,7 +57,7 @@ export function useFans({ rpc, request }) {
       try {
         const result = await request(view)
         if (alive && sequence.current === generation) { setContent(result); setContentError('') }
-      } catch (e) { if (alive && sequence.current === generation) { setContent(null); setContentError(e.message) } }
+      } catch (e) { if (alive && sequence.current === generation) { if (e.status || e.code || !isTransientConnectionMessage(e.message)) setContent(null); setContentError(e.message) } }
     }, view.action === 'matches' ? 15000 : 30000)
     return () => { alive = false; clearInterval(timer) }
   }, [clearView, request, view])
