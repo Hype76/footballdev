@@ -18,6 +18,7 @@ const implementationFiles = [
   'tests/security-backport-runtime.test.mjs', 'security/backport-requalification.json',
   'security/maintained-source-policy.json', 'scripts/security-maintained-release-gate.mjs',
   'scripts/security-netlify-build.mjs', 'tests/security-maintained-source.test.mjs', 'netlify.toml',
+  'tests/security-m3-governance.test.mjs',
 ]
 const safe = (root, relative) => {
   assert.ok(relative && !relative.includes('\\') && !relative.split('/').includes('..') && !path.isAbsolute(relative), 'Unsafe relative path')

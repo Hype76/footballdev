@@ -1,6 +1,6 @@
 # Phase 13C migration ledger: 20260731182313_player_linked_chat_history_13c.sql
 [build]
-  command = "node scripts/security-netlify-build.mjs"
+  command = "npx --yes --package=npm@11.7.0 -- node scripts/security-netlify-build.mjs"
   publish = "dist"
 
 [build.environment]
@@ -37,7 +37,7 @@
   schedule = "@daily"
 
 [context.production]
-  command = "node scripts/security-netlify-build.mjs"
+  command = "npx --yes --package=npm@11.7.0 -- node scripts/security-netlify-build.mjs"
 
 [context.production.environment]
   ENABLE_DEVELOPMENT_PDF = "true"
@@ -53,7 +53,7 @@
   VITE_PAYMENTS_DISABLED = "true"
 
 [context.deploy-preview]
-  command = "node scripts/security-netlify-build.mjs"
+  command = "npx --yes --package=npm@11.7.0 -- node scripts/security-netlify-build.mjs"
 
 [context.deploy-preview.environment]
   ENABLE_DEVELOPMENT_PDF = "false"

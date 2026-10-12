@@ -6,6 +6,7 @@ const workflow = await readFile(new URL('../.github/workflows/security-gate.yml'
 const codeowners = await readFile(new URL('../.github/CODEOWNERS', import.meta.url), 'utf8')
 const pullRequestTemplate = await readFile(new URL('../.github/pull_request_template.md', import.meta.url), 'utf8')
 const netlifyConfig = await readFile(new URL('../netlify.toml', import.meta.url), 'utf8')
+const netlifyBuild = await readFile(new URL('../scripts/security-netlify-build.mjs', import.meta.url), 'utf8')
 const policy = JSON.parse(await readFile(new URL('../security/supply-chain-policy.json', import.meta.url), 'utf8'))
 
 test('workflow uses least privilege, pinned actions and no production secrets', () => {
@@ -43,7 +44,9 @@ test('ownership and pull request evidence cover security-sensitive paths', () =>
 })
 
 test('preview context remains payment disabled and production uses the production build', () => {
-  assert.match(netlifyConfig, /\[context\.production\][\s\S]*npm run build:live/)
+  assert.match(netlifyConfig, /\[context\.production\]\s*command = "npx --yes --package=npm@11\.7\.0 -- node scripts\/security-netlify-build\.mjs"/)
+  assert.match(netlifyBuild, /run\('npm', \['run', 'build:live'\], buildOptions\)/)
+  assert.ok(netlifyBuild.indexOf("['scripts/security-maintained-release-gate.mjs']") < netlifyBuild.indexOf("['run', 'build:live']"))
   assert.match(netlifyConfig, /\[context\.deploy-preview\.environment\][\s\S]*VITE_PAYMENTS_DISABLED = "true"/)
   assert.match(netlifyConfig, /\[context\.branch-deploy\.environment\][\s\S]*VITE_PAYMENTS_DISABLED = "true"/)
 })

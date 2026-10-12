@@ -156,6 +156,6 @@ test('mobile and Netlify release entry points require the maintained gate', () =
     assert.match(fs.readFileSync('apps/scripts/' + file, 'utf8'), /execFileSync\('npm', \['run', 'mobile:release-check'\]/)
   }
   const config = fs.readFileSync('netlify.toml', 'utf8')
-  assert.equal((config.match(/command = "node scripts\/security-netlify-build\.mjs"/g) || []).length, 3)
+  assert.equal((config.match(/command = "npx --yes --package=npm@11\.7\.0 -- node scripts\/security-netlify-build\.mjs"/g) || []).length, 3)
   assert.match(config, /NPM_VERSION = "11\.7\.0"/)
 })
