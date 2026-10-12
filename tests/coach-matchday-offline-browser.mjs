@@ -24,7 +24,8 @@ const entry = `
   const user={id:'user',activeTeamId:'team'},context={id:'context',clubId:'club',teamId:'team',role:'coach',roleRank:30,paymentAccess:{canMutate:true}};
   const contexts=[context];
   window.navigations=[];
-  function App(){const [mode,setMode]=React.useState('dark');window.setMode=setMode;const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState(JSON.parse(localStorage.getItem('entryTarget')||'null')||{fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
+  if(window.startListOnly)localStorage.setItem('resources',JSON.stringify({resources:{matchDayList:[window.server],matchDayPlayers:[],matchDayDetail:null}}));
+  function App(){const [mode,setMode]=React.useState('dark');window.setMode=setMode;const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState(window.startListOnly?null:JSON.parse(localStorage.getItem('entryTarget')||'null')||{fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
     useCoachMatchDayBackgroundSync({user,contexts,enabled:!show});
     return show?<View style={{padding:16,backgroundColor:createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens.background,minHeight:'100vh'}}><CoachMatchDayScreen user={user} context={context} palette={createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens}
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
@@ -36,7 +37,7 @@ const dataMock = `
   export const createCoachMatchDayCommandId=()=>crypto.randomUUID();
   export const normalizeCoachMatchDay=value=>value;
   const requireSignal=()=>{if(!window.online){window.failedRefresh=(window.failedRefresh||0)+1;throw new Error('Waiting for a connection.');}};
-  export async function getCoachMatchDayList(){requireSignal();return [window.server]}
+  export async function getCoachMatchDayList(){requireSignal();if(window.startListOnly)await new Promise(resolve=>window.finishList=resolve);return [window.server]}
   export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));if(window.detailDelay)await new Promise(resolve=>window.finishDetail=resolve);if(window.detailFailure)throw new Error(window.detailFailureMessage||'Could not connect');return window.server}
   export async function runCoachMatchDayTimerAction(user,match,action){
     if(action!=='conclude') throw new Error('Unexpected timer action: '+action);
@@ -54,7 +55,7 @@ const dataMock = `
   export async function notifyCoachMatchDaySquadDecisions(user,match,choices){window.squadNotifyCalls=(window.squadNotifyCalls||0)+1;return choices.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}
   export async function syncCoachMatchDayCommand(user,command){
     requireSignal();window.calls.push(command.id); if(localStorage.getItem('conflict')==='1') throw Object.assign(new Error('Match changed on another device'),{code:'40001'});
-    if(command.kind==='event' && command.payload.eventType==='substitution' && command.payload.playerName==='Paul') throw Object.assign(new Error('Choose one selected Match squad Player from this fixture Team.'),{code:'22023'});
+    if(command.kind==='event' && command.payload.eventType==='substitution' && command.payload.playerName==='Paul') throw Object.assign(new Error('Choose one eligible Match Player from this fixture Team.'),{code:'22023'});
     const accepted=JSON.parse(localStorage.getItem('accepted')||'{}');
     if(!accepted[command.id]){window.server=projectMatchDayCommand(window.server,command);window.server.updatedAt=new Date().toISOString();accepted[command.id]=window.server;
       localStorage.setItem('accepted',JSON.stringify(accepted));localStorage.setItem('server',JSON.stringify(window.server));}
@@ -95,8 +96,22 @@ try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
   const errors=[];page.on('pageerror',error=>{errors.push(error.message);console.error(error.message)})
   await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html style="scrollbar-gutter:stable"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
-  const mount = async()=>{await page.goto('http://localhost:9876/');await page.addScriptTag({content:result.outputFiles[0].text})}
+  const mount = async()=>{await page.goto('http://localhost:9876/');if(process.argv.includes('--layout-only'))await page.evaluate(()=>window.startListOnly=true);await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
+  if(process.argv.includes('--layout-only')) {
+    await page.waitForFunction(()=>Boolean(window.finishList))
+    const create=page.getByRole('button',{name:'Create match',exact:true})
+    assert.equal(await create.isVisible(),true)
+    assert.equal(await create.isDisabled(),true)
+    const filter=page.getByRole('button',{name:'Today and live',exact:true})
+    const before=await filter.boundingBox()
+    await page.evaluate(()=>window.finishList())
+    await page.waitForFunction(()=>!document.querySelector('[aria-label="Create match"]').disabled)
+    assert.equal(await create.isEnabled(),true)
+    assert.equal((await filter.boundingBox()).y,before.y,'Refreshing cached fixtures must not move their filters')
+    assert.deepEqual(errors,[])
+    console.log('PASS authorised Create match stays in place during cached fixture refresh and remains disabled until authority is current.')
+  } else {
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
   if(process.argv.includes('--conclude-only')) {
     for (const failure of ['none','cache-failure','response-lost','response-lost-and-refresh-failed','rejected']) {
@@ -324,5 +339,6 @@ try {
   assert.equal(await page.evaluate(()=>window.server.events.at(-1).playerName),'Other: Paul');
   assert.deepEqual(errors,[])
   console.log('PASS actual Coach Match Day screen and hooks: offline goal remains enabled, survives reload, syncs exactly once, and another goal syncs after leaving Match Day.')
+  }
   }
 } finally {await browser.close()}

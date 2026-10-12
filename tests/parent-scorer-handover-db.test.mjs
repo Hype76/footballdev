@@ -29,6 +29,8 @@ async function database() {
     alter table public.match_day_events add column is_penalty_goal boolean default false, add column is_own_goal boolean default false, add column match_phase text, add column phase_order integer, add column request_id uuid, add column stoppage_minute integer;
     create table public.match_day_shootout_kicks(id uuid,match_day_id uuid,team_side text,outcome text,kick_number integer,player_name text,notes text,event_status text,voided_at timestamptz,voided_by_name text,void_reason text,home_shootout_score integer,away_shootout_score integer,created_at timestamptz);
     create table public.team_staff(team_id uuid,user_id uuid);
+    create table public.match_day_push_operations(id uuid default gen_random_uuid(),match_day_id uuid,operation_key text unique,notification_type text,
+      actor_user_id uuid,status text default 'processing',last_error text default '',updated_at timestamptz default now(),completed_at timestamptz);
     alter table public.match_day_role_assignments add column updated_at timestamptz default now();
     alter table public.match_days add column request_scorer boolean default false, add column notification_revision integer default 1;
     create function public.get_match_day_parent_notification_link_ids(uuid) returns uuid[] language sql as $$ select array[]::uuid[] $$;
@@ -55,6 +57,8 @@ async function database() {
   await db.exec(definition(authority, 'match_day_local_date_is_today'))
   await db.exec(definition(authority, 'authorize_match_day_push').replace('public.authorize_match_day_push(', 'public.authorize_match_day_push_before_recipient_fanout_94('))
   await db.exec(migration)
+  const followup = await source('supabase/migrations/20261012142553_matchday_substitution_and_handover_notifications.sql')
+  await db.exec(followup.slice(followup.indexOf('create or replace function public.authorize_match_day_push(')))
   await db.exec(definition(original, 'apply_match_day_timer_action'))
   for (const name of ['resolve_match_day_mutation_actor', 'set_match_day_timer_state', 'record_match_day_goal_v3', 'record_match_day_score_correction_v2', 'correct_match_day_goal_v2', 'set_match_day_extended_state', 'record_match_day_shootout_kick', 'start_match_day']) await db.exec(definition(guest, name))
   await db.exec(definition(await source('supabase/migrations/20260722195910_fp_v1_gameday_extended_ops_12a.sql'), 'void_match_day_shootout_kick'))
@@ -82,11 +86,21 @@ test('handover is persistent, idempotent, scoped and denies stale Parent RPC/dir
     await timer('full_time')
     const push = (type, actorId = parent, parentLink = link) => db.query('select public.authorize_match_day_push($1,$2,$3,$4,null) as result',[actorId,fixture,parentLink,type])
     const oldPush = (await push('full_time')).rows[0].result
+    assert.equal(oldPush.notificationType,undefined)
     const result = (await handover()).rows[0].result
     assert.ok(result.scorerReviewRequestedAt)
     await db.query("update public.users set role='coach',club_id='10000000-0000-4000-8000-000000000099' where id=$1",[parent])
     const reviewPush = (await push('full_time')).rows[0].result
     assert.equal(reviewPush.allowed,true)
+    assert.equal(reviewPush.notificationType,'coach_review')
+    const claim = () => db.query('select public.claim_match_day_review_push_operation($1,$2) as result',[fixture,parent]).then(r=>r.rows[0].result)
+    assert.deepEqual(await claim(),{status:'claimed',operationKey:reviewPush.operationKey})
+    assert.equal((await claim()).status,'processing')
+    await db.exec("update match_day_push_operations set updated_at=now()-interval '3 minutes'")
+    assert.equal((await claim()).status,'claimed')
+    await db.exec("update match_day_push_operations set status='completed'")
+    assert.equal((await claim()).status,'completed')
+    await assert.rejects(db.query('select public.claim_match_day_review_push_operation($1,$2)',[fixture,other]),/saved scorer handover/)
     assert.notEqual(reviewPush.operationKey,oldPush.operationKey)
     assert.equal((await push('full_time')).rows[0].result.operationKey,reviewPush.operationKey)
     assert.equal((await push('full_time',other)).rows[0].result.allowed,false)
@@ -99,6 +113,7 @@ test('handover is persistent, idempotent, scoped and denies stale Parent RPC/dir
     for (const action of ['resume','pause','half_time','full_time','conclude']) await assert.rejects(timer(action), /selected scorer access/)
     await actor(coach)
     assert.equal((await timer('resume')).rows[0].result.status,'live')
+    assert.equal((await claim()).status,'obsolete')
     await actor(parent)
     await db.query("update public.users set role='coach',club_id='10000000-0000-4000-8000-000000000099' where id=$1",[parent])
     assert.equal((await push('live')).rows[0].result.allowed,false)
@@ -124,6 +139,7 @@ test('handover is persistent, idempotent, scoped and denies stale Parent RPC/dir
     assert.equal(corrected.rows[0].event.home_score,1)
     await timer('full_time')
     assert.ok((await timer('conclude')).rows[0].result.concludedAt)
+    assert.equal((await claim()).status,'obsolete')
     await db.exec('set role anon')
     await assert.rejects(handover(), /permission denied/)
   } finally { await db.close() }

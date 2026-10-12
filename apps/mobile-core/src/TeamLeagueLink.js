@@ -6,6 +6,7 @@ import { normalizeTeamLeagueUrl } from '../../../src/lib/team-league-link.js'
 import { useTeamLeagueLink } from './useTeamLeagueLink'
 import { useMobileActivity } from './MobileActivityContext'
 import { MobileLoadingStatus } from './MobileHeaderActivity'
+import { MobileFailureNotice } from './MobileFailureNotice'
 
 function useLeagueForegroundRefresh(load) {
   useEffect(() => {
@@ -16,21 +17,22 @@ function useLeagueForegroundRefresh(load) {
 
 export function TeamLeagueLinkRow({ client, scope, palette, styles, coach = false }) {
   const league = useTeamLeagueLink(client, scope)
-  useMobileActivity(league.status === 'loading' || league.status === 'saving')
+  const activity = useMobileActivity(league.status === 'loading' || league.status === 'saving')
   useLeagueForegroundRefresh(league.load)
-  if (!league.value?.enabled || !league.value.url || !['ready', 'loading'].includes(league.status)) return null
+  if (!scope.teamId || !scope.userId) return null
+  const available = Boolean(league.value?.enabled && league.value.url && ['ready', 'loading'].includes(league.status))
   const text = palette.textPrimary || palette.text
   const accent = palette.accentText || palette.accent
   return <View>
-    <Pressable accessibilityRole="link" accessibilityLabel={`Current league for ${league.value.teamName || 'this team'}`} accessibilityHint="Opens the league website in your browser" onPress={() => { void league.open(Linking) }} style={({ pressed }) => [coach ? styles.homeNextRow : [styles.compactRow, { minHeight: 64, paddingVertical: 8, borderBottomColor: palette.border, borderBottomWidth: 1 }], pressed && styles.pressed]}>
+    <Pressable disabled={!available} accessibilityRole={available ? 'link' : 'text'} accessibilityLabel={`Current league for ${league.value?.teamName || 'this team'}`} accessibilityHint={available ? 'Opens the league website in your browser' : undefined} onPress={() => { void league.open(Linking) }} style={({ pressed }) => [coach ? styles.homeNextRow : [styles.compactRow, { minHeight: 64, paddingVertical: 8, borderBottomColor: palette.border, borderBottomWidth: 1 }], pressed && styles.pressed]}>
       <MaterialIcons accessible={false} color={coach ? accent : text} name="public" size={coach ? 30 : 31} />
       <View style={coach ? styles.homeNextCopy : styles.compactCopy}>
         <Text style={coach ? styles.iconEyebrow : styles.cardTitle}>Current league</Text>
-        {coach ? <><Text numberOfLines={1} style={styles.homeNextValue}>View league website</Text><Text numberOfLines={1} style={styles.iconMeta}>{league.value.teamName}</Text></> : <Text style={styles.cardMeta}>{league.value.teamName} · View league website</Text>}
+        {coach ? <><Text numberOfLines={1} style={styles.homeNextValue}>{available ? 'View league website' : 'League website'}</Text><Text numberOfLines={1} style={styles.iconMeta}>{league.value?.teamName || ' '}</Text></> : <Text numberOfLines={1} style={styles.cardMeta}>{league.value?.teamName ? `${league.value.teamName} · ` : ''}{available ? 'View league website' : 'League website'}</Text>}
       </View>
-      <MaterialIcons accessible={false} color={accent} name="chevron-right" size={22} />
+      <MaterialIcons accessible={false} color={accent} name="chevron-right" size={22} style={{ opacity: available ? 1 : 0 }} />
     </Pressable>
-    {league.error ? <Text accessibilityLiveRegion="polite" style={{ color: palette.danger, lineHeight: 20 }}>{league.error}</Text> : null}
+    {activity ? <MobileFailureNotice scopeKey={`${scope.userId}:${scope.teamId}:league`} message={league.error} onRetry={league.load} /> : league.error ? <Text accessibilityLiveRegion="polite" style={{ color: palette.danger, lineHeight: 20 }}>{league.error}</Text> : null}
   </View>
 }
 

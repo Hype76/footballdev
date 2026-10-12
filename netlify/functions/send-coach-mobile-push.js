@@ -299,7 +299,7 @@ async function getCoachDevices(match, client = supabaseAdmin, recipientId = '') 
   return current.filter(Boolean)
 }
 
-async function logNotificationEvents({ client = supabaseAdmin, deliveries, match, status }) {
+async function logNotificationEvents({ client = supabaseAdmin, deliveries, match, status, requireSaved = false }) {
   if (deliveries.length === 0) {
     return
   }
@@ -322,6 +322,7 @@ async function logNotificationEvents({ client = supabaseAdmin, deliveries, match
   )
 
   if (error) {
+    if (requireSaved) throw error
     console.error('Coach notification event log failed', error)
   }
 }
@@ -348,11 +349,30 @@ async function revokeMobileDeviceTokens(deviceTokens, client = supabaseAdmin) {
   }
 }
 
-export async function sendCoachMatchReviewPush({ match, adminClient = supabaseAdmin, sendMessages = sendExpoPushMessages } = {}) {
+export async function sendCoachMatchReviewPush({ match, adminClient = supabaseAdmin, sendMessages = sendExpoPushMessages, operationKey = '' } = {}) {
   if (!match?.id || !match.team_id || match.status !== 'full_time' || match.concluded_at) {
     return { failed: 0, sent: 0, skipped: true }
   }
   const devices = await getCoachDevices(match, adminClient)
+  if (operationKey) {
+    const { data: accepted, error } = await adminClient.from('coach_mobile_notification_events')
+      .select('installation_id').eq('status', 'sent').contains('data', { reviewOperationKey: operationKey })
+    if (error) throw error
+    const acceptedIds = new Set((accepted || []).map(item => item.installation_id))
+    const pending = devices.filter(device => !acceptedIds.has(device.installation_id))
+    const settled = await Promise.allSettled(pending.map(async device => {
+      const payload = buildCoachMatchReviewPayload(match)
+      payload.data = { ...payload.data, reviewOperationKey: operationKey }
+      const result = await sendMessages([{ to: device.expo_push_token, title: payload.title, body: payload.body, data: payload.data, sound: 'default' }])
+      await revokeMobileDeviceTokens(result.invalidTokens || [], adminClient)
+      await logNotificationEvents({ client: adminClient, deliveries: [{ device, payload }], match, status: result.failed ? 'failed' : 'sent', requireSaved: true })
+      return result
+    }))
+    const rejected = settled.find(result => result.status === 'rejected')
+    if (rejected) throw rejected.reason
+    const results = settled.map(result => result.value)
+    return { sent: results.reduce((sum, result) => sum + result.sent, 0), failed: results.reduce((sum, result) => sum + result.failed, 0), skipped: pending.length === 0 }
+  }
   const deliveries = devices.map((device) => ({ device, payload: buildCoachMatchReviewPayload(match) }))
   const result = await sendMessages(deliveries.map(({ device, payload }) => ({
     to: device.expo_push_token, title: payload.title, body: payload.body, data: payload.data, sound: 'default',

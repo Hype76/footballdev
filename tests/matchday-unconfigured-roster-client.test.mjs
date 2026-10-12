@@ -1,12 +1,22 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createMatchDayGoalCorrectionDraft, mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../apps/mobile-core/src/matchDayParticipantRoster.js'
+import { createMatchDayGoalCorrectionDraft, getMatchDaySubstitutionPlayers, mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../apps/mobile-core/src/matchDayParticipantRoster.js'
 import { getCoachMatchDaySelectedPlayers, isCoachMatchDayGoalCorrectionApplied, pickCoachMatchDayLinkedPlayer, updateCoachMatchDayLinkedPlayer, validateCoachMatchDayEventForm, validateCoachMatchDayEventParticipants } from '../apps/mobile-core/src/coachMatchDayCore.js'
 import { appendParentScorerCommand, projectParentScorerOutbox } from '../apps/parent-mobile/src/parentScorerOutboxCore.js'
 import { validateScorerMatchEvent } from '../src/lib/matchday-scorer-event.js'
 
 const match = { id:'fixture',teamId:'team',clubId:'club',updatedAt:'2026-10-04T09:00:00Z',status:'live',isScorer:true,events:[],homeScore:0,awayScore:0,homeAway:'home' }
 const raw = { matchId:match.id,teamId:match.teamId,players:[{id:'one',team_id:'team',player_name:'Same Name',shirt_number:''},{id:'two',team_id:'team',player_name:'Same Name',shirt_number:''}] }
+
+test('substitution choices use their own verified roster and survive an offline journal reload', () => {
+  const substitutionParticipants = normalizeMatchDayParticipantRoster({...raw,substitutionPlayers:raw.players},match,'substitutionPlayers')
+  const snapshot = JSON.parse(JSON.stringify({...match,eventParticipants:substitutionParticipants.slice(0,1),substitutionParticipants}))
+  assert.equal(getCoachMatchDaySelectedPlayers([],snapshot).length,1)
+  assert.equal(getMatchDaySubstitutionPlayers(snapshot).length,2)
+  assert.deepEqual(getMatchDaySubstitutionPlayers({...snapshot,substitutionParticipants:[]},substitutionParticipants),[])
+  assert.deepEqual(getMatchDaySubstitutionPlayers({...snapshot,substitutionParticipants:[{...substitutionParticipants[0],teamId:'other'}]}),[])
+  assert.throws(()=>normalizeMatchDayParticipantRoster(raw,match,'substitutionPlayers'),/could not be verified/)
+})
 
 test('roster parsing distinguishes verified empty from missing/malformed/cross-team data', () => {
   assert.deepEqual(normalizeMatchDayParticipantRoster({...raw,players:[]},match),[])

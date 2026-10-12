@@ -9,7 +9,7 @@ export function canCorrectMatchDayCommand(journal) {
   const command = journal?.pending?.[0]
   return command?.kind === 'event' && ['yellow_card', 'red_card', 'substitution'].includes(command.payload.eventType)
     && ['22023', 'P0001'].includes(journal.errorCode)
-    && /^(Choose one selected Match squad Player(?: On)? from this fixture Team\.|Choose a different Player On for this substitution\.)$/.test(journal.error || '')
+    && /^(Choose one (?:selected Match squad Player|eligible Match Player)(?: On)? from this fixture Team\.|Choose a different Player On for this substitution\.)$/.test(journal.error || '')
     && (!journal.errorCommandId || journal.errorCommandId === command.id)
 }
 

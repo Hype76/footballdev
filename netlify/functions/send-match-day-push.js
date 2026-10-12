@@ -10,6 +10,7 @@ import { filterParentLinksForAppNotifications } from './lib/_parent-communicatio
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 import { sendCoachMatchReviewPush } from './send-coach-mobile-push.js'
+import { deliverCoachMatchReviewOnce } from './lib/_coach-match-review-delivery.js'
 import { buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
 
 function jsonResponse(statusCode, payload) {
@@ -344,6 +345,11 @@ export async function handler(event) {
       return failureResponse(403, 'You cannot send notifications for this match.')
     }
 
+    if (authorization.notificationType === 'coach_review') {
+      const review = await deliverCoachMatchReviewOnce({ client: supabaseAdmin, match, actorUserId: authUser.id })
+      return jsonResponse(200, { success: true, mobileSent: 0, mobileFailed: 0, coachReviewSent: review.sent, coachReviewFailed: review.failed })
+    }
+
     const targetParentLinkIds = Array.isArray(authorization.targetParentLinkIds)
       ? authorization.targetParentLinkIds.map(normalizeText).filter(Boolean)
       : []
@@ -362,13 +368,6 @@ export async function handler(event) {
     }
     claimedOperationKey = operationKey
 
-    const coachReview = type === 'full_time' && profile.role === 'parent_portal'
-      ? await sendCoachMatchReviewPush({ match })
-      : { sent: 0, failed: 0 }
-    if (coachReview.failed > 0 && coachReview.sent === 0) {
-      throw new Error('The match was saved, but the Coach review notification could not be sent.')
-    }
-
     const delivery = await deliverMatchDayNotification({ match, type, eventId, targetParentLinkIds })
     const succeeded = delivery.mobileFailed === 0 && delivery.webFailed === 0 && !delivery.fanFailed
     await completePushOperation({ operationKey, succeeded, errorMessage: succeeded ? '' : 'Some match notifications were not accepted. Retry delivery.' })
@@ -377,8 +376,8 @@ export async function handler(event) {
     return jsonResponse(succeeded ? 200 : 503, {
       success: succeeded,
       ...delivery,
-      coachReviewSent: coachReview.sent,
-      coachReviewFailed: coachReview.failed,
+      coachReviewSent: 0,
+      coachReviewFailed: 0,
     })
   } catch (error) {
     if (claimedOperationKey) {

@@ -1,16 +1,22 @@
 // Only server-authorised, match-scoped data can enable the unconfigured fallback.
-export function normalizeMatchDayParticipantRoster(data, match) {
-  if (!match?.id || !match?.teamId || data?.matchId !== match.id || data?.teamId !== match.teamId || !Array.isArray(data.players)) {
+export function normalizeMatchDayParticipantRoster(data, match, field = 'players') {
+  if (!match?.id || !match?.teamId || data?.matchId !== match.id || data?.teamId !== match.teamId || !Array.isArray(data[field])) {
     throw new Error('Match participants could not be verified. Refresh this fixture online.')
   }
   const seen = new Set()
-  return data.players.map(player => {
+  return data[field].map(player => {
     if (!player?.id || player.team_id !== match.teamId || seen.has(player.id) || !String(player.player_name || '').trim()) {
       throw new Error('Match participants could not be verified. Refresh this fixture online.')
     }
     seen.add(player.id)
     return { id: player.id, playerName: String(player.player_name).trim(), shirtNumber: String(player.shirt_number || ''), teamId: match.teamId }
   })
+}
+
+export function getMatchDaySubstitutionPlayers(match, fallback = []) {
+  return Array.isArray(match?.substitutionParticipants)
+    ? match.substitutionParticipants.filter(player => player.teamId === match.teamId)
+    : fallback
 }
 
 export function isMatchDayParticipantRosterCurrent(match) {

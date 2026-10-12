@@ -43,7 +43,7 @@ const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from 
   import { flushSync } from 'react-dom'
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'
   import { getGoalScorerSide, setGoalOwnGoal, oppositeMatchSide } from './src/lib/matchday-goal-credit.js'
-  import { createMatchDayGoalCorrectionDraft } from './apps/mobile-core/src/matchDayParticipantRoster.js'
+  import { createMatchDayGoalCorrectionDraft, getMatchDaySubstitutionPlayers } from './apps/mobile-core/src/matchDayParticipantRoster.js'
   import { buildCompletedMatchEventPresentation } from './src/lib/matchday-final-report.js'
   import { getCoachMatchDayUndoModel, validateCoachMatchDayEventParticipants } from './apps/mobile-core/src/coachMatchDayCore.js'
   import { captureMatchEventTime, formatMatchAddedTimeClock, getMatchEventTime, getMatchClockDescription } from './src/lib/matchday-event-time.js'
@@ -59,7 +59,7 @@ const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from 
   const labelize = label
   const errorMessage = (error) => error.message
   const players = [{ id: 'alex', playerName: 'Alex', shirtNumber: '9', teamId: 'team' }, { id: 'clyde', playerName: 'Clyde Bates', shirtNumber: '4', teamId: 'team' }]
-  const match = { id: 'test-match', teamId: 'team', teamName: 'FP TEST Team', opponent: 'Visitors', homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 10, clockMode: 'fixed', currentMatchPhase: 'second_half', status: 'second_half', timerStatus: 'running', timerStartedAt: '2026-09-03T12:00:00Z', timerElapsedSeconds: 340, events: [], squadDecisions: [], eventParticipants: players }
+  const match = { id: 'test-match', teamId: 'team', teamName: 'FP TEST Team', opponent: 'Visitors', homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 10, clockMode: 'fixed', currentMatchPhase: 'second_half', status: 'second_half', timerStatus: 'running', timerStartedAt: '2026-09-03T12:00:00Z', timerElapsedSeconds: 340, events: [], squadDecisions: [], eventParticipants: players, substitutionParticipants: [...players,{id:'unconfirmed',playerName:'Unconfirmed Player',shirtNumber:'12',teamId:'team'}] }
   Date.now = () => Date.parse('2026-09-03T12:00:00Z')
   window.preMatch = () => {match.status='scheduled';match.timerStatus='not_started';match.currentMatchPhase='pre_match'}
   window.updateMatch = (patch) => Object.assign(match, patch)
@@ -177,14 +177,14 @@ try {
         await page.getByRole('button', { name: app === 'parent' ? 'Clyde Bates | Shirt 4' : 'Clyde Bates Shirt 4', exact: true }).click()
         if (type === 'substitution') {
           await page.getByRole('button', { name: app === 'parent' ? 'Choose player on' : 'Show Player on choices', exact: true }).click()
-          await page.getByRole('button', { name: app === 'parent' ? 'Alex | Shirt 9' : 'Alex Shirt 9', exact: true }).click()
+          await page.getByRole('button', { name: app === 'parent' ? 'Unconfirmed Player | Shirt 12' : 'Unconfirmed Player Shirt 12', exact: true }).click()
         }
         await page.getByRole('button', { name: `Record ${type.replaceAll('_', ' ')}`, exact: true }).click()
         saved = await page.evaluate(() => window.calls.at(-1).value)
         assert.equal(saved.eventType, type)
         assert.equal(saved.playerName, 'Clyde Bates')
         assert.equal(app === 'parent' ? saved.playerId : saved.playerPlayerId, 'clyde')
-        if (type === 'substitution') assert.equal(app === 'parent' ? saved.playerOnId : saved.playerOnPlayerId, 'alex')
+        if (type === 'substitution') assert.equal(app === 'parent' ? saved.playerOnId : saved.playerOnPlayerId, 'unconfirmed')
         assert.equal(Number(saved.minute), 6)
       }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
