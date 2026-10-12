@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "18cf54d0ae8c4b85469a89e14a74d3e0f3bcc01c245bd15f4c6e740b4c7a5521",
+    "scripts/security-verify-reviewed-backports.mjs": "1e9c43a9a82d317e07adf215645dda5676ce0c6ccb0f0696109ff06101ff12d6",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1063,7 +1063,7 @@
       "src/lib/use-fans.js": "49f0ef2e69f47a4933f0efa458924c9dee0b3d898855ca91fa62450d873844da",
       "src/pages/MatchDayPage.jsx": "7cb49752d4083c1b6ab5d62ed9b520585afe193b11c317621d24bd5c7cbd33d0",
       "tests/coach-matchday-offline-browser.mjs": "fecc436f75845277cb44881bab17e3782001e3694a076c4b179985861ee54776",
-      "tests/fans-mobile-browser.mjs": "fffb2b134ddb22ccce7bdda407c1dc8ae250435f5718b9f5cb2ed2f17170b17f",
+      "tests/fans-mobile-browser.mjs": "4f3dad1d020a9f648c013eb47899b17a937c9cfcb030c8893cacc2ba366ae7ae",
       "tests/matchday-goal-correction-rpc.test.mjs": "259b1c2a7f5f719bc2df6c8bb0a6c588e7e9c1297b5d478f16373595955ddd83",
       "tests/matchday-offline-outbox.test.mjs": "cf227b7d241647c7c7ee83b3d7f0b7df5894e0ea07c5b511456cc9bfc2e9f025",
       "tests/mobile-push-priority.test.mjs": "503d05c7941e662c6061adf701dac376baae21b9b6d31c249b922940bcf185e5",
@@ -1947,7 +1947,7 @@
       }
     }
   },
-  "releasePreparationSha256": "61ee8531da73d04d9920385779f4dbfe7bd54b2bc100289a07e29b0bfb145f74",
+  "releasePreparationSha256": "f9e4c0a5f335034cf5ed754c58a55d489312f1acb1b1de9f04d5c28690a9a944",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

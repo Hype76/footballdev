@@ -465,9 +465,11 @@ try {
   await button('Active player Jenson Bailey').click();
   assert.equal(await page.getByRole('button',{name:/^Select player /}).count(),4,'The scrollable native selector reaches more players than Android Alert supports');
   await button('Cancel player selection').click();
+  await page.getByRole('heading',{name:'Choose player',exact:true}).waitFor({state:'hidden'});
   await page.getByLabel('Game Day notifications for Jenson Bailey',{exact:true}).waitFor();
   await button('Active player Jenson Bailey').click();
   await button('Select player John Barnes').click();
+  await page.getByRole('heading',{name:'Choose player',exact:true}).waitFor({state:'hidden'});
   await page.getByLabel('Game Day notifications for John Barnes',{exact:true}).waitFor();
   assert.equal(await page.getByRole('link',{name:'Current league for U14 JPL 26/27',exact:true}).count(),0,'The league follows the active authorised player');
   assert.equal(await button('Resources').count(),1,'Changing the active player uses that player permission set');
