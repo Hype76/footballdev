@@ -14,7 +14,7 @@ const webEditor=await extract('src/components/teams/TeamLeagueLinkSettings.jsx',
 const common=`import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {View,Text,Pressable,StyleSheet,Platform,Linking,AppState,useWindowDimensions} from 'react-native';
 import {TeamLeagueLinkRow,TeamLeagueLinkSettings} from './apps/mobile-core/src/TeamLeagueLink.js';import {useTeamLeagueLink} from './apps/mobile-core/src/useTeamLeagueLink.js';import {coachTeamLeagueScope,parentPlayerTeamLeagueScope,normalizeTeamLeagueUrl,teamLeagueScopeKey} from './src/lib/team-league-link.js';
 import {mobileResourceCache} from './apps/mobile-core/src/mobileResourceCache.js';window.clearLeagueCache=()=>mobileResourceCache.clear();Platform.OS='android';window.opened=[];Linking.canOpenURL=async()=>{if(window.pauseOpener)await new Promise(resolve=>window.finishOpener=resolve);return !window.browserUnavailable};Linking.openURL=async url=>{if(window.browserFailed)throw new Error('synthetic browser failure');window.opened.push(url)};const foreground=new Set();AppState.addEventListener=(event,callback)=>{foreground.add(callback);return {remove:()=>foreground.delete(callback)}};window.foreground=()=>foreground.forEach(fn=>fn('active'));
-window.server={a:{team_id:'a',team_name:'Demo U14',league_url:'https://league.example/a',league_link_enabled:true,can_edit:true},b:{team_id:'b',team_name:'Demo U15',league_url:'https://league.example/b',league_link_enabled:true,can_edit:true}};window.calls=[];window.pending=[];
+window.server={a:{team_id:'a',team_name:'Demo U14',league_url:'https://league.example/a',league_link_enabled:true,can_edit:true},b:{team_id:'b',team_name:'Demo U15',league_url:'https://league.example/b',league_link_enabled:true,can_edit:true}};window.calls=[];window.pending=[];window.defer=window.startDeferred===true;
 const client={rpc:async(name,args)=>{window.calls.push({name,args});if(window.denied)return {error:{code:'42501'}};const team=args.team_id_value||(args.link_id_value==='link-b'?'b':'a');const row=window.server[team];let data;if(name==='set_team_league_url'){if(!row.can_edit)return {error:{code:'42501'}};row.league_url=args.url_value;row.league_link_enabled=args.enabled_value;data={...row};}else data={...row,league_url:row.league_link_enabled||name==='get_team_league_url'&&row.can_edit?row.league_url:null};if(window.defer)return await new Promise(resolve=>window.pending.push({name,team,resolve,data}));return {data}}};const coachSupabase=client,leagueSupabase=client,supabase=client;
 const resource={items:[],loading:false};const next={id:'demo',title:'Monday training',eventType:'training',startsAt:'2026-10-05T17:00:00Z'};const homeModel={nextActivity:{type:'calendar',item:next},unansweredPolls:1,upcomingMatches:[],upcomingCalendarEvents:[],recentMatches:[]};let theme;const useCoachTheme=()=>theme,useParentTheme=()=>theme;`;
 const coachImports=`import MaterialIcons from '@expo/vector-icons/MaterialIcons';import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';import {BrandLoader} from './apps/mobile-core/src/BrandLoader.js';import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';const formatDateTime=v=>v;`;
@@ -34,7 +34,20 @@ async function bundle(entry){const result=await build({stdin:{contents:entry,res
 const browser=await chromium.launch({headless:true}),errors=[],external=[]
 try{
 for(const role of Object.keys(entries)){
-  const page=await browser.newPage({viewport:{width:390,height:844}});page.on('pageerror',error=>errors.push(error.message));await page.route('**/*',route=>{if(route.request().url().startsWith('http://league.test/'))return route.fulfill({contentType:'text/html',body:'<body style="margin:0"><div id="root"></div></body>'});external.push(route.request().url());return route.abort()});await page.goto('http://league.test/');await page.addScriptTag({content:await bundle(entries[role])});
+  const page=await browser.newPage({viewport:{width:390,height:844}});page.on('pageerror',error=>errors.push(error.message));await page.route('**/*',route=>{if(route.request().url().startsWith('http://league.test/'))return route.fulfill({contentType:'text/html',body:'<body style="margin:0"><div id="root"></div></body>'});external.push(route.request().url());return route.abort()});await page.goto('http://league.test/');
+  const home = ['coach','parent','player'].includes(role)
+  if(home) await page.evaluate(()=>window.startDeferred=true)
+  await page.addScriptTag({content:await bundle(entries[role])});
+  if(home) {
+    await page.waitForFunction(()=>window.pending.length===1)
+    const following = page.getByText(role==='coach'?'Next Calendar item':'Next up',{exact:true})
+    const before = await following.boundingBox()
+    assert.equal(await page.getByRole('link',{name:/Current league/}).count(),0)
+    await page.evaluate(()=>{window.defer=false;window.pending[0].resolve({data:window.pending[0].data})})
+    await page.getByRole('link',{name:'Current league for Demo U14',exact:true}).waitFor()
+    assert.equal((await following.boundingBox()).y,before.y,'Cold league lookup must not move the following Home row')
+    await page.evaluate(()=>window.pending=[])
+  }
   if(role==='editor'||role==='web-editor'){
     const input=page.getByLabel('Current league website URL',{exact:true}),toggle=page.getByLabel('Show league link',{exact:true}),save=page.getByRole('button',{name:'Save league link',exact:true});await input.waitFor();await toggle.click();await save.click();await page.getByText('League link saved.',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.server.a.league_link_enabled),false);assert.equal(await input.inputValue(),'https://league.example/a');
     await input.fill('javascript:alert(1)');const calls=await page.evaluate(()=>window.calls.length);await save.click();await page.getByText(/Enter an HTTP or HTTPS/).waitFor();assert.equal(await page.evaluate(()=>window.calls.length),calls);

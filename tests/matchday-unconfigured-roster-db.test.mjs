@@ -74,10 +74,39 @@ async function database() {
   const coachJournal = await readFile(new URL('../supabase/migrations/20260907112202_coach_match_day_offline_commands.sql', import.meta.url), 'utf8')
   await db.exec(coachJournal.slice(0,coachJournal.indexOf('create or replace function')))
   await db.exec(await readFile(new URL('../supabase/migrations/20261004153000_matchday_unconfigured_participant_roster.sql', import.meta.url), 'utf8'))
+  const followup = await readFile(new URL('../supabase/migrations/20261012142553_matchday_substitution_and_handover_notifications.sql', import.meta.url), 'utf8')
+  await db.exec(followup.slice(0, followup.indexOf('create or replace function public.claim_parent_scorer_command_notifications')))
   return db
 }
 const read = db => db.query(`select get_match_day_event_participants('${fixture}','${link}') as roster`).then(r => r.rows[0].roster.players)
 const goal = (db, scorer = p1, assist = p2, request = uuid(7)) => db.query(`select record_match_day_goal_v4('${fixture}','${link}','club','Untrusted name','','Untrusted assist','',12,'',false,$1,false,null,$2,$3) as event`, [request, scorer, assist]).then(r => r.rows[0].event)
+
+test('substitutions accept eligible unconfirmed players while goals and cards retain selected-squad validation', async () => {
+  const db = await database()
+  try {
+    await db.exec(`insert into match_day_player_squad_decisions values('${fixture}','${club}','${team}','${p1}','selected'),('${fixture}','${club}','${team}','${p2}','waiting')`)
+    const roster = (await db.query(`select get_match_day_event_participants('${fixture}','${link}') as roster`)).rows[0].roster
+    assert.deepEqual(roster.players.map(p => p.id), [p1])
+    assert.deepEqual(roster.substitutionPlayers.map(p => p.id), [p1,p2])
+    const sub = request => db.query(`select record_match_day_scorer_event_v2('${fixture}','substitution','club',10,'Same Name','','Same Name','','',$1,'${link}',2,'${p1}','${p2}') as event`, [request]).then(r => r.rows[0].event)
+    const saved = await sub(uuid(7))
+    assert.equal(saved.scorer_player_id,p1); assert.equal(saved.assist_player_id,p2)
+    assert.equal(saved.minute,10); assert.equal(saved.stoppage_minute,2)
+    assert.equal((await sub(uuid(7))).id,saved.id)
+    await assert.rejects(goal(db,p2,null,uuid(7,2)),/no longer eligible/)
+    await assert.rejects(db.query(`select record_match_day_scorer_event_v2('${fixture}','yellow_card','club',10,'Same Name','','','','','${uuid(7,3)}','${link}',null,'${p2}',null)`),/selected Match squad Player/)
+    for (const change of ["status='inactive'",'archived_at=now()',`team_id='${uuid(2,2)}'`,`club_id='${uuid(1,2)}'`,"section='Other'"]) {
+      await db.exec(`update players set ${change} where id='${p2}'`)
+      await assert.rejects(sub(uuid(7,4)),{message:'Choose one selected Match squad Player On from this fixture Team.'})
+      await db.exec(`update players set status='active',archived_at=null,team_id='${team}',club_id='${club}',section='Trial' where id='${p2}'`)
+    }
+    await db.exec("select set_config('test.trials','no',false)")
+    await assert.rejects(sub(uuid(7,5)),/selected Match squad Player On/)
+    await db.exec("select set_config('test.trials','yes',false)")
+    await db.exec(`insert into private.match_day_scorer_handovers values('${fixture}')`)
+    await assert.rejects(sub(uuid(7,6)),/Only a coach|scorer access/)
+  } finally { await db.close() }
+})
 
 test('unconfigured fallback is exact-team active Squad/Trial, never availability or invitations', async () => {
   const db = await database()

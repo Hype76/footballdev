@@ -1,6 +1,7 @@
-export async function deliverParentScorerCommands(commandId = null, actorUserId = null, { client, deliver } = {}) {
+import { deliverCoachMatchReviewOnce } from './_coach-match-review-delivery.js'
+
+export async function deliverParentScorerCommands(commandId = null, actorUserId = null, { client, deliver, review } = {}) {
   client ||= (await import('./_supabase.js')).supabaseAdmin
-  deliver ||= (await import('../send-match-day-push.js')).deliverMatchDayNotification
   const { data: commands, error } = await client.rpc('claim_parent_scorer_command_notifications', { command_id_value: commandId, actor_user_id_value: actorUserId })
   if (error) throw error
   let completed = 0
@@ -10,14 +11,20 @@ export async function deliverParentScorerCommands(commandId = null, actorUserId 
     if (Date.now() - startedAt > 18000) break
     let failure = ''
     try {
-      const { data: targets, error: targetError } = await client.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: command.match.id })
-      if (targetError) throw targetError
       const { data: context, error: contextError } = await client.from('match_days')
-        .select('id, teams:team_id(name,notification_display_name), clubs:club_id(name,status)').eq('id', command.match.id).is('deleted_at', null).maybeSingle()
+        .select('id, status, concluded_at, teams:team_id(name,notification_display_name), clubs:club_id(name,status)').eq('id', command.match.id).is('deleted_at', null).maybeSingle()
       if (contextError) throw contextError
       if (!context) throw new Error('The match is no longer available.')
-      const result = await deliver({ match: { ...command.match, teams: context.teams, clubs: context.clubs }, type: command.type, eventId: command.eventId || '', targetParentLinkIds: [...new Set(targets || [])] })
-      if (result.mobileFailed || result.webFailed || result.fanFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
+      const match = { ...command.match, teams: context.teams, clubs: context.clubs }
+      if (command.kind === 'request-review' || command.type === 'coach_review') {
+        await deliverCoachMatchReviewOnce({ client, match: { ...match, status: context.status, concluded_at: context.concluded_at }, actorUserId: command.actorUserId, review })
+      } else {
+        const { data: targets, error: targetError } = await client.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: command.match.id })
+        if (targetError) throw targetError
+        deliver ||= (await import('../send-match-day-push.js')).deliverMatchDayNotification
+        const result = await deliver({ match, type: command.type, eventId: command.eventId || '', targetParentLinkIds: [...new Set(targets || [])] })
+        if (result.mobileFailed || result.webFailed || result.fanFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
+      }
       completed += 1
     } catch (error) { failure = error.message || 'Match notification delivery failed.'; failed += 1 }
     const result = await client.rpc('complete_parent_scorer_command_notification', { command_id_value: command.id, error_value: failure })

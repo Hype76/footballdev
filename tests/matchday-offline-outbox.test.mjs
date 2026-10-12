@@ -76,11 +76,12 @@ test('definitively rejected substitution can be corrected without losing later f
   const original = structuredClone(journal.pending)
   const sent = []
   const box = createMatchDayOutbox({read:async()=>journal,update:async fn=>(journal=fn(journal)),send:async(command,base)=>{
-    if(command.id==='bad-sub') throw Object.assign(new Error('Choose one selected Match squad Player from this fixture Team.'),{code:'22023'})
+    if(command.id==='bad-sub') throw Object.assign(new Error('Choose one eligible Match Player from this fixture Team.'),{code:'22023'})
     sent.push(command);return {...projectMatchDayOutbox({baseMatch:base,pending:[command]}),updatedAt:command.capturedAt}
   }})
   await box.sync()
   assert.equal(canCorrectMatchDayCommand(journal),true)
+  assert.equal(canCorrectMatchDayCommand({...journal,error:'Choose one selected Match squad Player On from this fixture Team.'}),true)
   for (const errorCode of ['', '42501', '40001']) assert.equal(canCorrectMatchDayCommand({...journal,errorCode}),false)
   await box.correctRejected({commandId:'bad-sub',id:'fixed-sub',payload:{...original[0].payload,playerName:'Other: Paul',participantType:'other'}})
   assert.equal(journal.pending[1].previousCommandId,'fixed-sub')

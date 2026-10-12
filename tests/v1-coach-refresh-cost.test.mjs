@@ -16,7 +16,7 @@ test('instrumented live Coach refresh adds one authorised roster read to the aut
     : () => query })
   const supabase = { from: () => query, rpc: async (name) => {
     calls.push(name)
-    return { data: name === 'get_staff_match_day_detail' ? match : name === 'get_match_day_event_participants' ? { matchId: 'match', teamId: 'team', players: [] } : [] }
+    return { data: name === 'get_staff_match_day_detail' ? match : name === 'get_match_day_event_participants' ? { matchId: 'match', teamId: 'team', players: [], substitutionPlayers: [] } : [] }
   } }
   const dependencies = {
     supabase, LIST_SELECT: 'fixture columns', scoped: (value) => value,
@@ -39,9 +39,12 @@ test('instrumented live Coach refresh adds one authorised roster read to the aut
   const detail = await api.getCoachMatchDayDetail(user, 'match')
   assert.equal(detail.status, 'live')
   assert.deepEqual(detail.eventParticipants, [])
+  assert.deepEqual(detail.substitutionParticipants, [])
   assert.deepEqual(calls.sort(), ['match_days','get_match_day_presentation_states','get_team_players','get_team_parent_app_installation_status','get_staff_match_day_detail','get_match_day_event_participants','volunteer eligibility'].sort())
   assert.equal(calls.length * 4, 28, 'four 15-second refreshes use 28 reads per minute before retries')
   const original = supabase.rpc
+  supabase.rpc = (name,args) => name === 'get_match_day_event_participants' ? {data:{matchId:'match',teamId:'team',players:[]}} : original(name,args)
+  await assert.rejects(api.getCoachMatchDayDetail(user,'match'), /could not be verified/)
   supabase.rpc = (name, args) => name === 'get_match_day_event_participants' ? { error: new Error('Roster unavailable') } : original(name,args)
   await assert.rejects(api.getCoachMatchDayDetail(user,'match'), /Roster unavailable/)
 })

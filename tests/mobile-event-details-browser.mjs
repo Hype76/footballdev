@@ -42,7 +42,7 @@ const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=
 const invalidateMobileResource=()=>{},syncCoachCalendarEventResources=async(u,event,ids,date)=>{if(window.failResourceSave)throw Error('Resource save failed');window.resourceSaves.push({eventId:event.sourceId,ids,date})};
 const CoachDateTimeField=()=>null;const getCoachCalendarResources=async()=>{await new Promise(r=>setTimeout(r,window.calendarDelay||30));return window.events};
 ${calendar}
-const useCoachTheme=()=>({styles:{}}),formatDateTime=v=>v,HomeNextRow=({label,onPress,value})=><Pressable accessibilityRole="button" onPress={onPress}><Text>{label}</Text><Text>{value}</Text></Pressable>,IconSection=({children})=><View>{children}</View>,IconAction=()=>null,IconStat=()=>null,EmptyPanel=()=>null,LoadingPanel=()=>null,StatePanel=()=>null;
+const useCoachTheme=()=>({palette:createCoachTheme({mode:'light'}).tokens,styles:{}}),formatDateTime=v=>v,HomeNextRow=({label,onPress,value})=><Pressable accessibilityRole="button" onPress={onPress}><Text>{label}</Text><Text>{value}</Text></Pressable>,IconSection=({children})=><View>{children}</View>,IconAction=()=>null,IconStat=()=>null,EmptyPanel=()=>null,LoadingPanel=()=>null,StatePanel=()=>null;
 ${homeScreen}
 ${normalizer}
 const labelize=v=>String(v||''),formatDateOnly=v=>formatParentProductDateTime(v,{includeTime:false,year:'numeric'});

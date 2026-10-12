@@ -336,6 +336,7 @@ export function normalizeParentMatchDay(row = {}) {
     clockMode: normalizeText(row.match_clock_mode ?? row.clockMode) || 'fixed',
     conclusionRule: normalizeText(row.match_conclusion_rule ?? row.conclusionRule) || 'normal_time',
     ...(Array.isArray(row.eventParticipants) ? { eventParticipants: row.eventParticipants } : {}),
+    ...(Array.isArray(row.substitutionParticipants) ? { substitutionParticipants: row.substitutionParticipants } : {}),
     confirmedTeam: Array.isArray(row.selected_player_names ?? row.selectedPlayerNames)
       ? (row.selected_player_names ?? row.selectedPlayerNames).map(normalizePersonName).filter(Boolean)
       : [],
@@ -396,6 +397,7 @@ export async function getParentPortalMatchDays(user) {
   }
   const formationPlanError = formationPlanResult.error ? 'The match plan could not be refreshed. Try again later.' : ''
   const participantsById = new Map()
+  const substitutionsById = new Map()
   const identitiesById = new Map()
   await Promise.all([...scorerIds].map(async matchId => {
     const base = (baseResult.data || []).find(row => String(row.id) === matchId)
@@ -404,6 +406,7 @@ export async function getParentPortalMatchDays(user) {
     const roster = await supabase.rpc('get_match_day_event_participants', { match_day_id_value: matchId, parent_link_id_value: link.id })
     if (roster.error) throw roster.error
     participantsById.set(matchId, normalizeMatchDayParticipantRoster(roster.data, match))
+    substitutionsById.set(matchId, normalizeMatchDayParticipantRoster(roster.data, match, 'substitutionPlayers'))
     identitiesById.set(matchId, roster.data)
   }))
   return (baseResult.data || []).map((row) => {
@@ -418,6 +421,7 @@ export async function getParentPortalMatchDays(user) {
       scorer_review_requested_at: reviewById.get(String(row.id)) || '',
       shirt_choice: shirtsById.get(String(row.id)),
       ...(participantsById.has(String(row.id)) ? { eventParticipants: participantsById.get(String(row.id)) } : {}),
+      ...(substitutionsById.has(String(row.id)) ? { substitutionParticipants: substitutionsById.get(String(row.id)) } : {}),
       selected_player_names: teamById.get(String(row.id)) || [],
       squad_transport: transportById.get(String(row.id)) || [],
       formationPlans: formationPlansByMatchId.get(String(row.id)) || [],

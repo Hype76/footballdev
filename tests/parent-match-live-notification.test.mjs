@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { deliverCoachMatchReviewOnce } from '../netlify/functions/lib/_coach-match-review-delivery.js'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import process from 'node:process'
@@ -47,11 +48,11 @@ test('successive match events keep separate inbox rows and use the same phone an
   const native = await readFile(new URL('../netlify/functions/lib/_match-day-native-message.js', import.meta.url), 'utf8')
   assert.doesNotMatch(native, /collapseId:/)
   assert.match(native, /priority: 'high'/)
-  assert.match(sender, /type === 'full_time' && profile.role === 'parent_portal'/)
-  assert.ok(sender.indexOf('if (!claimed)') < sender.indexOf('await sendCoachMatchReviewPush'))
+  assert.match(sender, /if \(authorization.notificationType === 'coach_review'\)/)
+  assert.ok(sender.indexOf('await deliverCoachMatchReviewOnce') < sender.indexOf('const delivery = await deliverMatchDayNotification'))
 })
 
-test('parent full-time review alert only reaches currently authorised team coaches and links to the match', async () => {
+test('parent handover review alert only reaches currently authorised team coaches and links to the match', async () => {
   const profiles = [
     { id: 'coach', club_id: 'club', role: 'coach', role_rank: 20, status: 'active' },
     { id: 'wrong-team', club_id: 'club', role: 'coach', role_rank: 20, status: 'active' },
@@ -60,11 +61,13 @@ test('parent full-time review alert only reaches currently authorised team coach
   ]
   const devices = profiles.map(p => ({ installation_id: p.id, auth_user_id: p.id, user_profile_id: p.id, expo_push_token: `ExpoPushToken[${p.id}]` }))
   const logged = []
+  let pauseLog = false, finishLog
   const client = { from(table) {
     const filters = {}
     const q = { select: () => q, eq: (key, value) => { filters[key] = value; return q }, neq: () => q,
-      then: resolve => resolve({ data: devices }),
-      insert: async rows => { logged.push(...rows); return {} },
+      contains: (key,value) => { filters[key]=value; return q },
+      then: resolve => resolve({ data: table==='coach_mobile_notification_events' ? logged.filter(row=>row.status===filters.status&&row.data.reviewOperationKey===filters.data.reviewOperationKey) : devices }),
+      insert: async rows => { if(pauseLog&&rows[0].installation_id==='coach-second')await new Promise(resolve=>{finishLog=resolve});logged.push(...rows); return {} },
       maybeSingle: async () => ({ data: table === 'users' ? profiles.find(p => p.id === filters.id)
         : table === 'user_club_memberships' ? { auth_user_id: filters.auth_user_id }
           : table === 'clubs' ? { id: filters.id, status: 'active' }
@@ -84,4 +87,38 @@ test('parent full-time review alert only reaches currently authorised team coach
   assert.equal(buildCoachMatchReviewPayload(match).title, 'Visitors v U17 Green: review required')
   assert.equal((await sendCoachMatchReviewPush({ match: { ...match, status: 'live' } })).skipped, true)
   assert.equal((await sendCoachMatchReviewPush({ match: { ...match, concluded_at: 'today' } })).skipped, true)
+  devices.push({...devices[0],installation_id:'coach-second',expo_push_token:'ExpoPushToken[coach-second]'})
+  const attempts=[]
+  let failedSecond=false
+  const retrySender=async messages=>{
+    const token=messages[0].to; attempts.push(token)
+    if(token==='ExpoPushToken[coach-second]'&&!failedSecond){failedSecond=true;return {sent:0,failed:1}}
+    return {sent:1,failed:0}
+  }
+  const first=await sendCoachMatchReviewPush({match,adminClient:client,sendMessages:retrySender,operationKey:'review-once'})
+  assert.equal(first.sent,1); assert.equal(first.failed,1)
+  const retry=await sendCoachMatchReviewPush({match,adminClient:client,sendMessages:retrySender,operationKey:'review-once'})
+  assert.equal(retry.sent,1); assert.equal(retry.failed,0)
+  assert.equal(attempts.filter(token=>token==='ExpoPushToken[coach]').length,1)
+  assert.equal(attempts.filter(token=>token==='ExpoPushToken[coach-second]').length,2)
+  assert.equal((await sendCoachMatchReviewPush({match,adminClient:client,sendMessages:retrySender,operationKey:'review-once'})).skipped,true)
+  pauseLog=true
+  let released=false, settled=false
+  client.rpc=async(name)=>{
+    if(name==='claim_match_day_review_push_operation')return {data:{status:'claimed',operationKey:'deferred-review'}}
+    assert.equal(name,'complete_match_day_push_operation');released=true;return {}
+  }
+  const pending=deliverCoachMatchReviewOnce({client,match,actorUserId:'parent',review:args=>sendCoachMatchReviewPush({...args,sendMessages:async messages=>{
+    if(messages[0].to==='ExpoPushToken[coach]')throw new Error('Synthetic network failure')
+    return {sent:1,failed:0}
+  }})}).then(()=>{settled=true},error=>{settled=true;return error})
+  for(let i=0;!finishLog&&i<100;i++)await new Promise(resolve=>setTimeout(resolve,1))
+  assert.equal(typeof finishLog,'function')
+  assert.equal(settled,false,'A failed device must not release delivery while another accepted-device log is pending')
+  assert.equal(released,false)
+  finishLog()
+  const failure=await pending
+  assert.match(failure.message,/Synthetic network failure/)
+  assert.equal(released,true)
+  assert.ok(logged.some(row=>row.installation_id==='coach-second'&&row.status==='sent'&&row.data.reviewOperationKey==='deferred-review'))
 })
