@@ -1,7 +1,6 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
-  "expiresAt": "2026-10-19T22:59:59Z",
   "sourceRevisions": {
     "braces72": {
       "repository": "micromatch/braces",
@@ -215,36 +214,41 @@
     }
   ],
   "approval": {
-    "scope": "Fresh independent qualification of the unchanged five-copy source remediation after expiry. No automatic renewal, advisory suppression, native rebuild or app publication.",
+    "scope": "Maintained exact source fixes with fresh mandatory verification on every release; independent exact-HEAD review and all normal release checks retained.",
     "receivedOn": "2026-10-12",
-    "authority": "Direct user request in this task; independent exact candidate acceptance required."
+    "authority": "Direct user request in this task."
   },
   "maintenance": {
     "owner": "Steve",
-    "replacement": "Replace with a safely verified maintained official release; no automatic renewal.",
-    "recheck": "Fresh official advisory and upstream PR semantic check before every gate/release run."
+    "replacement": "Replace with verified compatible maintained official releases when available; changed published versions invalidate standing acceptance.",
+    "recheck": "Fresh official advisory, upstream revision/status, published package version/integrity, full audits and actual-copy runtime tests on every release."
   },
   "implementationHashes": {
-    "scripts/security-supply-chain-gate.mjs": "5f18c42fddbb172d4079e964a149c41945cb1a4c01bea3bce63266704a0c0c9f",
+    "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "6bbff6e1fcf609f8f867ab93f10d7445c6ff4710658be678e7af6919ad57ee9a",
+    "scripts/security-verify-reviewed-backports.mjs": "b7cb7d56ebd8fd9ac8c9dd69c9aff9ecd69259e8066240c4f502532413beac3b",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
-    "tests/security-reviewed-backports.test.mjs": "450bae9fc7f52016df87395a45327a31057dd4c8d3baff1bdf0b631588ac004b",
+    "tests/security-reviewed-backports.test.mjs": "eece6f9a7dfa871cf17fa7647f842549e896dafac3b994e999e6514f6dcc3282",
     "scripts/security-provision-reviewed-backports.mjs": "8718b28d2c1c7c3f288a1f19b8bea025c70286dc09fd0114aea23e68177c0981",
     "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
-    ".github/workflows/security-gate.yml": "5ea21e495c603368f7aeb56bde0e3b240f7c962c603f0923aada2273c56172d2",
-    "apps/scripts/mobile-release-check.mjs": "026b0d3117b8d268be368851f2ebfeb82363f8a738765c15b1a6a906479b56c1",
+    ".github/workflows/security-gate.yml": "f1ff8abab9df89352142e8fd96a1ea868dc4e7eb9bfca62d448905c9d8122747",
+    "apps/scripts/mobile-release-check.mjs": "d92e479e0222a74dd332e63cee5d3108a0fb1bfc0d8f34f77059bade0a5aed48",
     "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
     "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265",
-    "tests/security-backport-runtime.test.mjs": "2b49595b0ae8df118514a824c72edf1b16b85c0326a217793f4868e92b4ceb9f",
-    "security/backport-requalification.json": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91"
+    "tests/security-backport-runtime.test.mjs": "13f53579aae7ff1da5ce06f40b37a26316a8b41932f60d625526d4a9717599f6",
+    "security/backport-requalification.json": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
+    "scripts/security-maintained-release-gate.mjs": "b63483c3b2b1be74f883349d458c3813e80f6a0fbfc7a87c5508395fd9d3e450",
+    "scripts/security-netlify-build.mjs": "addebe95880ca66b90fe784f68cc23a61d67cf9e4482f8af1ed87f98d54243f6",
+    "tests/security-maintained-source.test.mjs": "11963ed2c934cb9bc414426b575fd87355eeb72905e7f099a5138aede2e15cdc",
+    "netlify.toml": "f4bae7c7df8e4497006fc6008df7c963bee9d4fbf24196d5d2d62d70a3c2135a",
+    "security/maintained-source-policy.json": "3653055de02647b04eebfccd3e152e8b4e836155e0ee161f31008362a203ffc6"
   },
   "payloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
-  "adoptionProposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
+  "adoptionProposalSha256": "3653055de02647b04eebfccd3e152e8b4e836155e0ee161f31008362a203ffc6",
   "nativeInputs": [
     {
       "path": "package.json",
@@ -1924,5 +1928,6 @@
     }
   },
   "releasePreparationSha256": "8f6d2b554c1c21df9a87e7f96bba4118f028ce2e995bcb580b4f3f95749216f4",
-  "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb"
+  "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
+  "remediationMode": "maintained-source-fixes"
 }

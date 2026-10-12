@@ -14,6 +14,7 @@ const checks = [
   ['npm', ['run', 'mobile:doctor']],
   ['npm', ['run', 'mobile:export:web']],
   ['git', ['diff', '--check']],
+  ['node', ['scripts/security-maintained-release-gate.mjs']],
 ]
 
 for (const [command, args] of checks) {

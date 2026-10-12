@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { createHash, constants, generateKeyPairSync, privateEncrypt, sign } from 'node:crypto'
-import { hash, inventory, loadRecord, verifyReviewBytes, verifyQualificationExpiry } from '../scripts/security-verify-reviewed-backports.mjs'
+import { hash, inventory, loadRecord, verifyReviewBytes } from '../scripts/security-verify-reviewed-backports.mjs'
 
 const root = process.cwd()
 const record = JSON.parse(fs.readFileSync('security/reviewed-source-remediations.json'))
@@ -146,21 +146,14 @@ function signatureFor(forge, privateKey, algorithm, digest, mode) {
   const padding = Buffer.alloc(128 - der.length - 3, 0xff)
   return privateEncrypt({ key: privateKey, padding: constants.RSA_NO_PADDING }, Buffer.concat([Buffer.from([0, 1]), padding, Buffer.from([0]), der])).toString('binary')
 }
-test('qualification expires at the exact reviewed boundary and cannot be extended by record edits', () => {
-  const expiry = Date.parse('2026-10-19T22:59:59Z')
-  assert.doesNotThrow(() => verifyQualificationExpiry(record.expiresAt, expiry))
-  assert.throws(() => verifyQualificationExpiry(record.expiresAt, expiry + 1), /expired/)
-  for (const value of ['2026-10-11T22:59:59Z', '2026-10-26T22:59:59Z', 'invalid']) assert.throws(() => verifyQualificationExpiry(value, expiry - 1))
-  assert.throws(() => verifyQualificationExpiry(record.expiresAt, NaN), /Invalid qualification clock/)
-})
 test('replacement proposal and review record drift cannot reuse independent acceptance', () => {
   const fixture = path.join(temporary, 'qualification-drift')
   fs.mkdirSync(path.join(fixture, 'security'), { recursive: true })
   const bytes = Buffer.from(JSON.stringify(record))
   const recordPath = path.join(fixture, 'security/reviewed-source-remediations.json')
   fs.writeFileSync(recordPath, bytes)
-  fs.writeFileSync(path.join(fixture, 'security/backport-requalification.json'), '{"substituted":true}')
-  assert.throws(() => loadRecord(fixture), /qualification evidence drift/)
+  fs.writeFileSync(path.join(fixture, 'security/maintained-source-policy.json'), '{"substituted":true}')
+  assert.throws(() => loadRecord(fixture), /policy evidence drift/)
   const source = { head: '1'.repeat(40) }
   const receipt = Buffer.from(JSON.stringify({ status: 'ACCEPTED_LOCAL_IMPLEMENTATION', reviewer: 'test-only', reviewedAt: new Date().toISOString(), head: source.head, recordSha256: hash(bytes) }))
   fs.appendFileSync(recordPath, '\n')
