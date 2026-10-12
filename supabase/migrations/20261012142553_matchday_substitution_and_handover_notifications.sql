@@ -157,7 +157,7 @@ begin
 
   if normalized_team_side = 'club' and normalized_event_type <> 'water_break' then
     if normalized_player_name = '' then
-      raise exception 'Choose a eligible Match Player before recording this event.';
+      raise exception 'Choose a selected Match squad Player before recording this event.';
     end if;
 
     if not named_off then
@@ -170,14 +170,14 @@ begin
         and (normalized_player_shirt = '' or trim(coalesce(player.shirt_number, '')) = normalized_player_shirt);
 
       if participant_match_count <> 1 or participant_player_id is null then
-        raise exception 'Choose one eligible Match Player from this fixture Team.' using errcode = '22023';
+        raise exception 'Choose one selected Match squad Player from this fixture Team.' using errcode = '22023';
       end if;
 
     end if;
 
     if normalized_event_type = 'substitution' then
       if normalized_player_on_name = '' then
-        raise exception 'Choose a eligible Match Player On before recording this substitution.';
+        raise exception 'Choose a selected Match squad Player On before recording this substitution.';
       end if;
 
       if not named_on then
@@ -190,7 +190,7 @@ begin
           and (normalized_player_on_shirt = '' or trim(coalesce(player.shirt_number, '')) = normalized_player_on_shirt);
 
         if participant_on_match_count <> 1 or participant_player_on_id is null then
-          raise exception 'Choose one eligible Match Player On from this fixture Team.' using errcode = '22023';
+          raise exception 'Choose one selected Match squad Player On from this fixture Team.' using errcode = '22023';
         end if;
 
       end if;

@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "c0221779f742dd1e7638b3fc04911cf3aebd8ae1decb28ed4dc559de93d26bff",
+    "scripts/security-verify-reviewed-backports.mjs": "6f3eb5170bf6b022168a4191883347d96582cd23a1a812f05387a34c2eed7868",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -790,7 +790,7 @@
       "tests/matchday-push-optional-mobile-table.test.mjs": "575901630c1bb6c275d8d74b450efd4dd07f288066a5575e81d2e70e2336ba15",
       "tests/matchday-stale-state-refresh.test.mjs": "415d5d5ac00cbf9c8091938826f524284f4eef3a9b5b7844daca5730c32d64f0",
       "tests/matchday-unconfigured-roster-client.test.mjs": "511d70bce1557f7466cdc28b2ccdfbc5fe191fcdd7dbc8013ea5f8684c1691c4",
-      "tests/matchday-unconfigured-roster-db.test.mjs": "b126447f7d9a17de487e4853793c29c898479960842597ce14950e985a9b710c",
+      "tests/matchday-unconfigured-roster-db.test.mjs": "4d16abc3a4f885c78e2d4e9c001fdc832efa607b4862a62d95a7d90a6a8edaef",
       "tests/mobile-action-dock-system-29d.test.mjs": "62730ff90f7d1ce7bf6f83e16b0a90ff7b8010e3a9a1d48f8d4df696d78c03a8",
       "tests/mobile-attendance-command.test.mjs": "35da3e258d2333395d7ef00a3cfbf2e0b11d300ee1e8098ec6a210c6cdf165f4",
       "tests/mobile-attendance-legacy-intent.test.mjs": "5bbfc1461c97a5fca809e565fdd6d3daf8a81f95bacc4fd68040bdf137e36299",
@@ -1080,7 +1080,7 @@
       "netlify/functions/lib/_coach-match-review-delivery.js": "17f884f49f85114d8bc32b2b2340a9ebe404aecb7ad4af6c665aa7a796bcb694",
       "netlify/functions/lib/_parent-scorer-command-notifications.js": "a72e7adc49b3cd74c1d2c52aff92e35513bd66997936cf0c5345452aacbff891",
       "netlify/functions/send-match-day-push.js": "11e357e1cdf8242f81a2bee971a37d793741703a3bf2f3c1a5e8b745372ba718",
-      "supabase/migrations/20261012142553_matchday_substitution_and_handover_notifications.sql": "bf8ca2cc1af5287129a3daa9f6f64919825d1f42b167c5f6688ba047852f0477",
+      "supabase/migrations/20261012142553_matchday_substitution_and_handover_notifications.sql": "2400f3794b4b5582313b8893b2346583327416829ab7b6f3186455d798e9f3fe",
       "tests/parent-match-live-notification.test.mjs": "f6092d49d1632932a67ada7df0e75f4b6ef696d1e51d54cc2be1aeba2c76529b",
       "tests/parent-scorer-handover-db.test.mjs": "2ac68c8da003e7697701534bbbd26773c5ce27abf3c87308579cc55cd89b51ad",
       "tests/parent-scorer-notification-routing.test.mjs": "76f08915e3d8ee62ca31bb4ea53122be2de57c1d58970f3184f211112234014b"
@@ -1990,7 +1990,8 @@
         "Send Full time once and route saved handover only to Coaches with shared operation identity and failed-device retries",
         "Retain offline correction of newly ineligible participants and all later captured actions",
         "Supply the real Coach palette in the extracted Home event-details test so the stable league row is rendered before Calendar navigation",
-        "Update the instrumented roster fixture with its separately verified substitution list, assert missing data fails closed, and retain the same measured refresh read count"
+        "Update the instrumented roster fixture with its separately verified substitution list, assert missing data fails closed, and retain the same measured refresh read count",
+        "Preserve the existing server rejection contract so older installed Coach apps can correct saved substitutions before receiving the new OTA"
       ],
       "independentExactCandidateReviewRequired": true,
       "nativeChanges": 0,
@@ -1999,7 +2000,7 @@
       "migrations": 1
     }
   },
-  "releasePreparationSha256": "018b16c17cf320414f605e47886171afa5a2d8c2dc3d6b594faeaa71d509cc63",
+  "releasePreparationSha256": "685afbd51a79fb054a997b1ff7678d46a4c11737d71a7f908c1df265b6aed534",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
