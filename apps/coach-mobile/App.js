@@ -306,9 +306,11 @@ function CoachHome() {
 
   const scrollContentToTop = useCallback(() => {
     if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
-    pendingScrollRestoreRef.current = null
     scrollBounds.resetOffset()
-    requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: 0 }))
+    pendingScrollRestoreRef.current = requestAnimationFrame(() => {
+      pendingScrollRestoreRef.current = null
+      contentScrollRef.current?.scrollTo({ animated: false, y: 0 })
+    })
   }, [scrollBounds])
 
   const restoreContentScrollPosition = useCallback((position) => {
@@ -977,7 +979,14 @@ function CoachHome() {
             contentInsetAdjustmentBehavior="never"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="handled"
+            onTouchStart={(event) => {
+              if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
+              pendingScrollRestoreRef.current = null
+              scrollBounds.handlers.onTouchStart(event)
+            }}
             onScrollBeginDrag={(event) => {
+              if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
+              pendingScrollRestoreRef.current = null
               scrollBounds.handlers.onScrollBeginDrag(event)
               Keyboard.dismiss()
             }}

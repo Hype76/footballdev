@@ -28,6 +28,8 @@ assert.ok(header.start > shell.start && header.end < scroller.start, 'The fixed 
 const dragAttribute = scroller.openingElement.attributes.find(a => a.name?.name === 'onScrollBeginDrag')
 assert.ok(dragAttribute, 'Coach dismisses the focused field at the start of a drag')
 const dragSource = source.slice(dragAttribute.value.expression.start, dragAttribute.value.expression.end)
+const touchAttribute = scroller.openingElement.attributes.find(a => a.name?.name === 'onTouchStart')
+const touchSource = source.slice(touchAttribute.value.expression.start, touchAttribute.value.expression.end)
 let shellSource = source.slice(shell.start, shell.end)
 for (const node of elements.filter(n => ['CoachRoute', 'CoachQuickActions'].includes(n.openingElement.name.name)).sort((a, b) => b.start - a.start)) {
   shellSource = shellSource.slice(0, node.start - shell.start) + (node.openingElement.name.name === 'CoachRoute' ? '<CoachRoute onRequestScrollTop={scrollContentToTop} onNotificationSettingsFocus={focusNotificationSettings}/>' : '<View/>') + shellSource.slice(node.end - shell.start)
@@ -89,8 +91,9 @@ ${keyboardLifecycle}
 useEffect(()=>()=>scrollBounds.dispose(),[scrollBounds]);
 ${callbacks}
 const navigate=route=>{setActiveRoute(route);scrollContentToTop()},selectContext=id=>{setSelected(id);scrollContentToTop()},openNotificationSettings=()=>{setActiveRoute('settings');requestAnimationFrame(()=>focusNotificationSettings(0))},loadHome=()=>setRefreshing(true);
-window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);
+window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);window.queueTop=scrollContentToTop;window.pendingScroll=()=>pendingScrollRestoreRef.current;window.contentScrollable=contentScrollable;
 window.beginDrag=${dragSource};
+window.beginTouch=${touchSource};
 useEffect(()=>{scrollContentToTop()},[activeRoute,scrollContentToTop]);
 return <MobileActivityProvider active={isRefreshing}><View style={[styles.appShell,{height}]}>${shellSource}</View></MobileActivityProvider>;
 }
@@ -174,7 +177,14 @@ try {
       await page.evaluate(()=>window.setRoute('more'))
       const finalTool=page.getByRole('button',{name:'Report a Bug',exact:true})
       await finalTool.waitFor()
-      await scroll.evaluate(el=>{el.scrollTop=el.scrollHeight})
+      await page.waitForFunction(()=>{const scroll=document.querySelector('[data-testid="coach-content-scroll"]');return window.pendingScroll()===null&&(window.contentScrollable||scroll.scrollHeight<=scroll.clientHeight)})
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:width-40,y:650}]})
+      for(let i=1;i<=16;i++){
+        await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:width-40,y:650-i*20}]})
+        await page.waitForTimeout(20)
+      }
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
+      await page.waitForTimeout(250)
       await page.waitForFunction(()=>{const scroll=document.querySelector('[data-testid="coach-content-scroll"]'),footer=document.querySelector('[role="tablist"]');const items=document.querySelectorAll('[aria-label="Report a Bug"]');return items.length&&items[0].getBoundingClientRect().bottom<=footer.getBoundingClientRect().top&&scroll.scrollTop>=0})
       const footer=await page.getByRole('tablist').boundingBox(),toolBox=await finalTool.boundingBox(),moreViewport=await scroll.boundingBox()
       await page.screenshot({path:out+'/more-'+width+'-'+contextCount+'.png'})
@@ -183,6 +193,20 @@ try {
       assert.ok(footer.y+footer.height<=850,'Bottom navigation stays within the screen')
       assert.ok(await page.evaluate(()=>document.documentElement.scrollHeight<=850),'Long tool grids never stretch the outer page')
       await page.screenshot({path:out+'/more-'+width+'-'+contextCount+'.png'})
+      for(const gesture of ['beginTouch','beginDrag']){
+        const cancellation=await page.evaluate(name=>{
+          const nativeRequest=window.requestAnimationFrame,nativeCancel=window.cancelAnimationFrame,frames=new Map();let next=0;
+          window.requestAnimationFrame=fn=>{frames.set(++next,fn);return next};window.cancelAnimationFrame=id=>frames.delete(id);
+          try{
+            window.queueTop();window[name]({nativeEvent:{}});
+            const scroll=document.querySelector('[data-testid="coach-content-scroll"]'),target=Math.min(160,scroll.scrollHeight-scroll.clientHeight);scroll.scrollTop=target;
+            const queued=frames.size;for(const fn of frames.values())fn();
+            return{queued,offset:scroll.scrollTop,target,pending:window.pendingScroll()};
+          }finally{window.requestAnimationFrame=nativeRequest;window.cancelAnimationFrame=nativeCancel;window.bounds.handlers.onTouchEnd();window.bounds.handlers.onScrollEndDrag({nativeEvent:{contentOffset:{y:160}}})}
+        },gesture)
+        assert.ok(cancellation.target>0,'More has a scrollable offset for the cancellation regression')
+        assert.deepEqual({queued:cancellation.queued,offset:cancellation.offset,pending:cancellation.pending},{queued:0,offset:cancellation.target,pending:null},'Starting '+gesture+' cancels a delayed route reset before it can jump the page')
+      }
       await page.evaluate(()=>{window.shortContent=true;window.setRoute('matchday')})
       await page.waitForTimeout(180)
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'Switching from More to a short Match Day page restores the top')
