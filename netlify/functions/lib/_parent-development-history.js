@@ -1,4 +1,4 @@
-import { createDevelopmentOutputKey, createDevelopmentOutputQueueId, enrichDevelopmentParentReportWithScores } from './_development-parent-email-output.js'
+import { createDevelopmentOutputKey, createDevelopmentOutputQueueId, enrichDevelopmentParentReportWithScores, repairDevelopmentParentReportProgression } from './_development-parent-email-output.js'
 import {
   normalizeDevelopmentScorePresentation,
 } from '../../../src/lib/development-score-contract.js'
@@ -351,9 +351,10 @@ export async function loadHistory({ parentLink, supabaseAdmin }) {
 
   const { data: evaluations, error: evaluationError } = await supabaseAdmin
     .from('evaluations')
-    .select('id, scores, form_responses, feedback_form_snapshot')
+    .select('id, club_id, team_id, player_id, date, created_at, average_score, scores, form_responses, feedback_form_id, feedback_form_name, feedback_form_snapshot')
     .eq('club_id', parentLink.club_id)
     .eq('player_id', parentLink.player_id)
+    .order('created_at', { ascending: true })
     .in('id', evaluationIds)
 
   if (evaluationError) {
@@ -366,7 +367,11 @@ export async function loadHistory({ parentLink, supabaseAdmin }) {
   const enrichedRows = candidateRows.map((row) => ({
     ...row,
     report_snapshot: enrichDevelopmentParentReportWithScores(
-      row.report_snapshot,
+      repairDevelopmentParentReportProgression(
+        row.report_snapshot,
+        evaluationById.get(normalizeText(row.evaluation_id)),
+        (evaluations ?? []).filter((evaluation) => normalizeText(evaluation.team_id) === normalizeText(row.report_snapshot.team?.id)),
+      ),
       evaluationById.get(normalizeText(row.evaluation_id)),
     ),
   }))

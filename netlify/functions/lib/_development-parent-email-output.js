@@ -118,15 +118,45 @@ function isParentOutputEligibleField(field, explicitlySelected = false) {
 }
 
 function normalizeDevelopmentProgressionEvaluation(evaluation = {}) {
+  const snapshot = evaluation.feedbackFormSnapshot ?? evaluation.feedback_form_snapshot ?? {}
+  const phoneSnapshot = Boolean(snapshot.id && !snapshot.formId && !snapshot.form_id)
+  const feedbackFormSnapshot = {
+    ...snapshot,
+    fields: (Array.isArray(snapshot.fields) ? snapshot.fields : []).map((field) => ({
+      ...field,
+      includeInProgressChart: isParentVisibleField(field) && field.enabled !== false && field.isEnabled !== false && field.is_enabled !== false && field.staffPrivate !== true && field.staff_private !== true && Boolean(
+        field.includeInProgressChart ?? field.include_in_progress_chart ??
+          (phoneSnapshot ? isAssessmentScoreFieldType(normalizeText(field.type)) : (field.isDefault ?? field.is_default)),
+      ),
+    })),
+  }
+  const scoreFields = feedbackFormSnapshot.fields.filter((field) => isAssessmentScoreFieldType(normalizeText(field.type)))
+  const maxScores = new Set(scoreFields.map((field) => getAssessmentScoreMax(normalizeText(field.type))))
+  const savedAverage = evaluation.averageScore ?? evaluation.average_score
+  const maxScore = [...maxScores][0]
+  const reportedProgressionScore = phoneSnapshot && scoreFields.length > 0 && maxScores.size === 1 &&
+    scoreFields.every((field) => field.includeInProgressChart === true) &&
+    savedAverage !== null && savedAverage !== undefined && normalizeText(savedAverage) &&
+    Number.isFinite(Number(savedAverage)) && Number(savedAverage) > 0 && Number(savedAverage) <= maxScore
+    ? Number(savedAverage) * (10 / maxScore)
+    : null
   return {
     ...evaluation,
     averageScore: evaluation.averageScore ?? evaluation.average_score,
     createdAt: evaluation.createdAt ?? evaluation.created_at,
-    feedbackFormId: evaluation.feedbackFormId ?? evaluation.feedback_form_id,
-    feedbackFormName: evaluation.feedbackFormName ?? evaluation.feedback_form_name,
-    feedbackFormSnapshot: evaluation.feedbackFormSnapshot ?? evaluation.feedback_form_snapshot,
+    feedbackFormId: evaluation.feedbackFormId || evaluation.feedback_form_id || snapshot.formId || snapshot.form_id || snapshot.id || '',
+    feedbackFormName: evaluation.feedbackFormName || evaluation.feedback_form_name || snapshot.formName || snapshot.form_name || snapshot.name || '',
+    feedbackFormSnapshot,
+    reportedProgressionScore,
     formResponses: evaluation.formResponses ?? evaluation.form_responses ?? {},
   }
+}
+
+function isSameDevelopmentProgressionForm(current, candidate) {
+  if (current.feedbackFormId || candidate.feedbackFormId) {
+    return Boolean(current.feedbackFormId && current.feedbackFormId === candidate.feedbackFormId)
+  }
+  return normalizeText(current.feedbackFormName) === normalizeText(candidate.feedbackFormName)
 }
 
 export function getParentVisibleDevelopmentResponses(evaluation, requestedResponses = []) {
@@ -183,22 +213,40 @@ export function getParentVisibleDevelopmentEmailSections({
       .map((section) => normalizeText(section?.key))
       .filter((key) => SAFE_EMAIL_SECTION_KEYS.has(key)),
   )
+  const current = normalizeDevelopmentProgressionEvaluation(evaluation)
+  const history = evaluations.map(normalizeDevelopmentProgressionEvaluation)
   const progressionData = buildPlayerProgressionData({
-    evaluations: evaluations.map(normalizeDevelopmentProgressionEvaluation),
+    evaluations: history.filter((candidate) =>
+      isSameDevelopmentProgressionForm(current, candidate) &&
+      (!current.createdAt || !candidate.createdAt || candidate.createdAt <= current.createdAt),
+    ),
     staffNotes: [],
-    fields: getSnapshotFields(evaluation),
+    fields: current.feedbackFormSnapshot.fields,
+  })
+  const historyById = new Map(history.map((candidate) => [normalizeText(candidate.id), candidate]))
+  progressionData.scoreTrend = progressionData.scoreTrend.map((point) => {
+    const savedScore = historyById.get(normalizeText(point.evaluationId))?.reportedProgressionScore
+    return Number.isFinite(savedScore) ? { ...point, value: savedScore } : point
   })
   const authoritativeSections = buildProgressionEmailSections({
     progressionData,
     sections: {
       latestSessionNotes: false,
-      attendanceSummary: requestedKeys.has('attendanceSummary'),
+      attendanceSummary: false,
       progressionChart: requestedKeys.has('progressionChart'),
       coachComments: false,
       matchNotes: false,
       nextFocusAreas: false,
     },
   })
+  if (requestedKeys.has('attendanceSummary')) {
+    const attendanceData = buildPlayerProgressionData({ evaluations: history, fields: current.feedbackFormSnapshot.fields })
+    const attendanceSections = buildProgressionEmailSections({
+      progressionData: attendanceData,
+      sections: { latestSessionNotes: false, attendanceSummary: true, progressionChart: false, coachComments: false, matchNotes: false, nextFocusAreas: false },
+    })
+    authoritativeSections.unshift(...attendanceSections)
+  }
 
   return sanitizeAssessmentEmailSections(authoritativeSections)
     .filter((section) => SAFE_EMAIL_SECTION_KEYS.has(normalizeText(section?.key)))
@@ -513,13 +561,39 @@ export function isDevelopmentParentReportSnapshot(value) {
     Array.isArray(value.emailSections)
 }
 
+export function repairDevelopmentParentReportProgression(report, evaluation, evaluations = []) {
+  const selected = report?.emailSections?.some((section) => section.key === 'progressionChart')
+  if (!selected || !evaluation?.id || normalizeText(report.evaluationId) !== normalizeText(evaluation.id)) {
+    return report
+  }
+  if (!evaluations.some((candidate) => normalizeText(candidate.id) === normalizeText(evaluation.id))) {
+    return report
+  }
+  const current = normalizeDevelopmentProgressionEvaluation(evaluation)
+  if (report.form?.id && normalizeText(report.form.id) !== current.feedbackFormId) {
+    return report
+  }
+  const cutoff = normalizeText(report.historyCutoffAt || evaluation.created_at)
+  const sections = getParentVisibleDevelopmentEmailSections({
+    evaluation: { ...evaluation, created_at: cutoff },
+    evaluations: evaluations.filter((candidate) => !cutoff || (candidate.created_at && candidate.created_at <= cutoff)),
+    requestedSections: [{ key: 'progressionChart' }],
+  })
+  const chart = sections.find((section) => section.key === 'progressionChart')
+  return {
+    ...report,
+    progressionIncluded: Boolean(chart),
+    emailSections: report.emailSections.flatMap((section) => section.key === 'progressionChart' ? (chart ? [chart] : []) : [section]),
+  }
+}
+
 export function getDevelopmentParentReport({
   context,
   requestedResponses,
   requestedSections,
 } = {}) {
   if (isDevelopmentParentReportSnapshot(context?.evaluation?.development_parent_report)) {
-    return context.evaluation.development_parent_report
+    return repairDevelopmentParentReportProgression(context.evaluation.development_parent_report, context.evaluation, context.evaluations)
   }
 
   return resolveDevelopmentParentReport({

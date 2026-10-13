@@ -133,6 +133,10 @@ jobs:
         run: go version && node --test tests/email-branded-qr.test.mjs tests/fixture-custom-title.test.mjs tests/squad-batch-save-pglite.test.mjs tests/email-app-access.test.mjs tests/email-send-route-coverage.test.mjs tests/auth-email-app-role.test.mjs tests/supabase-auth-email-app-access.test.mjs tests/operational-email-app-audience.test.mjs tests/email-provider.test.mjs && node tests/email-app-access-browser.mjs
       - name: V1 regression firewall
         run: npm run test:v1-stabilise
+      - name: Development report Parent notification eligibility
+        run: node --test tests/coach-development-notifications.test.mjs tests/coach-development-notifications-pglite.test.mjs
+      - name: Development report form progression and output parity
+        run: node --test tests/development-report-form-progression.test.mjs tests/development-parent-email-output.test.mjs tests/development-parent-report-content.test.mjs tests/development-scores-filenames-10c.test.mjs tests/parent-development-library-10b.test.mjs
       - name: Install Parent encryption test dependencies
         run: npm ci --prefix apps/parent-mobile --include=optional
       - name: Reapply exact backports after Parent clean install

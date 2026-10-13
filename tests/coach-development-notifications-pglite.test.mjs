@@ -8,6 +8,7 @@ const authority = (await readFile('supabase/migrations/20260720173941_p2_privile
   .match(/create or replace function app_private\.actor_can_manage_team_resource[\s\S]*?\$\$;/)[0]
 const migration = (await readFile('supabase/migrations/20261007114801_phone_team_coach_roster_removal.sql', 'utf8'))
   .split('-- BEGIN COACH ASSESSMENT PARENT NOTIFICATIONS')[1].split('-- END COACH ASSESSMENT PARENT NOTIFICATIONS')[0]
+const eligibilityMigration = await readFile('supabase/migrations/20261013094543_development_parent_notification_eligibility.sql', 'utf8')
 
 // Synthetic tables and controlled plan switches isolate the actual notification SQL
 // and canonical actor helper. Native full-schema rehearsal remains a separate gate.
@@ -15,7 +16,7 @@ async function fixture(t, devices = 2) {
   const db = new PGlite(); t.after(() => db.close())
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
     create schema auth;create schema app_private;
-    create table auth.users(id uuid primary key,email_confirmed_at timestamptz default now(),banned_until timestamptz);
+    create table auth.users(id uuid primary key,email_confirmed_at timestamptz default now(),banned_until timestamptz,deleted_at timestamptz);
     create table clubs(id uuid primary key,name text,status text default 'active',archived_at timestamptz);
     create table teams(id uuid primary key,club_id uuid,name text,notification_display_name text,status text default 'active',archived_at timestamptz);
     create table users(id uuid primary key,club_id uuid,role text,role_rank integer,status text default 'active');
@@ -24,7 +25,7 @@ async function fixture(t, devices = 2) {
     create table players(id uuid primary key,club_id uuid,team_id uuid,status text default 'active');
     create table evaluations(id uuid primary key,club_id uuid,team_id uuid,player_id uuid,coach_id uuid,status text);
     create table development_parent_reports(evaluation_id uuid primary key,club_id uuid,report_snapshot jsonb,finalized_by uuid);
-    create table parent_player_links(id uuid primary key,auth_user_id uuid,club_id uuid,team_id uuid,player_id uuid,link_type text default 'parent',status text default 'active',receives_communications boolean default true);
+    create table parent_player_links(id uuid primary key,auth_user_id uuid,club_id uuid,team_id uuid,player_id uuid,link_type text default 'parent',status text default 'active',receives_communications boolean default true,guardian_id uuid default '${id(700)}');
     create table parent_communication_preferences(auth_user_id uuid primary key,communication_channel text);
     create table parent_mobile_push_installations(installation_id uuid primary key,auth_user_id uuid,parent_link_id uuid,club_id uuid,team_id uuid,expo_push_token text,enabled boolean default true,status text default 'active',detail_level text default 'detailed',updated_at timestamptz);
     create table parent_mobile_notification_events(id bigint generated always as identity primary key,auth_user_id uuid,parent_link_id uuid,club_id uuid,team_id uuid,intent_type text,title text,body text,data jsonb,status text,sent_at timestamptz,dedupe_key text unique);
@@ -45,7 +46,7 @@ async function fixture(t, devices = 2) {
     await db.query(`insert into parent_mobile_push_installations(installation_id,auth_user_id,parent_link_id,club_id,team_id,expo_push_token) values($1,$2,$3,$4,$5,$6)`,
       [id(100 + i), id(2), id(otherChild ? 51 : 50), id(10), id(otherChild ? 21 : 20), `ExpoPushToken[device_${i}]`])
   }
-  await db.exec(authority); await db.exec(migration)
+  await db.exec(authority); await db.exec(migration); await db.exec(eligibilityMigration)
   const rpc = async (name, args) => (await db.query(`select public.${name}(${args.map((_, i) => `$${i + 1}`).join(',')}) result`, args)).rows[0].result
   const claim = (links = [id(50)]) => rpc('claim_coach_assessment_notifications', [id(1), id(60), links])
   const complete = (d, delivered = true, invalid = false, skipped = false) => rpc('complete_coach_assessment_notification', [d.id, d.lease, delivered, invalid, skipped])
@@ -63,6 +64,35 @@ test('actual notification SQL creates one targeted inbox item and each active in
   const inbox = (await db.query('select * from parent_mobile_notification_events')).rows
   assert.equal(inbox.length, 1); assert.equal(inbox[0].intent_type, 'parent_message'); assert.equal(inbox[0].data.type, 'development_report')
   assert.equal(inbox[0].data.reportId, id(60)); assert.equal(inbox[0].data.parentLinkId, id(50))
+})
+
+test('legacy Parent portal account without staff profile gets one inbox item and device alert, without changing preferences', async t => {
+  const { db, claim, complete } = await fixture(t, 1)
+  await db.exec(`delete from users where id='${id(2)}';update parent_player_links set guardian_id=null,receives_communications=false where id='${id(50)}';insert into parent_communication_preferences values('${id(2)}','app')`)
+  const first = await claim()
+  assert.equal(first.inboxRecipients, 1)
+  assert.equal(first.deliveries.length, 1)
+  assert.equal(await complete(first.deliveries[0]), true)
+  assert.equal((await claim()).deliveries.length, 0)
+  assert.equal((await db.query('select count(*) n from parent_mobile_notification_events')).rows[0].n, 1)
+  assert.equal((await db.query(`select receives_communications from parent_player_links where id='${id(50)}'`)).rows[0].receives_communications, false)
+})
+
+test('portal-only legacy account still honours email-only channels, guardian opt-outs and deleted-account checks', async t => {
+  const { db, claim } = await fixture(t, 1)
+  await db.exec(`delete from users where id='${id(2)}';update parent_player_links set guardian_id=null,receives_communications=false where id='${id(50)}'`)
+  for (const [apply, restore] of [
+    [`insert into parent_communication_preferences values('${id(2)}','email')`, 'delete from parent_communication_preferences'],
+    [`update parent_player_links set guardian_id='${id(700)}' where id='${id(50)}'`, `update parent_player_links set guardian_id=null where id='${id(50)}'`],
+    [`update auth.users set deleted_at=now() where id='${id(2)}'`, `update auth.users set deleted_at=null where id='${id(2)}'`],
+    [`insert into users(id,status) values('${id(2)}','suspended')`, `delete from users where id='${id(2)}'`],
+  ]) {
+    await db.exec(apply)
+    assert.equal((await claim()).inboxRecipients, 0, apply)
+    assert.equal((await db.query('select count(*) n from parent_mobile_notification_events')).rows[0].n, 0)
+    await db.exec(restore)
+  }
+  assert.equal((await claim()).deliveries.length, 1)
 })
 
 test('inbox persists with no registered device and 12-device batches retain pending work', async t => {
