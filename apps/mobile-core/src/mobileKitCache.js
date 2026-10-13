@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Image } from 'react-native'
 import { kitImageUrl, readClubKits } from '../../../src/lib/club-kits.js'
 import { mergeTeamKits, mobileTeamKitCacheKey, readTeamKits } from '../../../src/lib/team-kits.js'
 import { supabase } from './supabase'
 import { getMobileRuntimeConfig } from './config'
+import { mobileKitImageStorage } from './mobileKitImageStorage'
 
 const entries = new Map()
 const teamEntries = new Map()
@@ -31,7 +31,7 @@ export async function loadMobileClubKits(clubId, onSaved) {
   entry.pending = (async () => {
     if (!entry.kits) {
       const saved = await AsyncStorage.getItem(prefix + clubId).then(value => JSON.parse(value || 'null')).catch(() => null)
-      if (saved?.clubId === clubId && saved.kits && Date.now() - saved.checkedAt < 7 * 24 * 60 * 60 * 1000) {
+      if (saved?.clubId === clubId && saved.kits) {
         entry.kits = saved.kits
         entry.checkedAt = saved.checkedAt
         onSaved?.(saved.kits)
@@ -45,7 +45,7 @@ export async function loadMobileClubKits(clubId, onSaved) {
       void AsyncStorage.setItem(prefix + clubId, JSON.stringify({ clubId, kits, checkedAt: entry.checkedAt })).catch(() => {})
       for (const kit of Object.values(kits)) {
         const uri = kitImageUrl(supabase, kit)
-        if (uri) void Image.prefetch(uri).catch(() => {})
+        if (uri) void mobileKitImageStorage.resolve(uri)
       }
       return kits
     } catch (error) { if (entry.kits) return entry.kits; throw error }
@@ -78,7 +78,7 @@ export async function loadMobileTeamKits(clubId, teamId, onSaved, providedClubKi
   entry.pending = (async () => {
     if (!entry.kits) {
       const saved = await AsyncStorage.getItem(teamPrefix + key).then(value => JSON.parse(value || 'null')).catch(() => null)
-      if (saved?.clubId === clubId && saved?.teamId === teamId && saved.kits && Date.now() - saved.checkedAt < 7 * 24 * 60 * 60 * 1000) {
+      if (saved?.clubId === clubId && saved?.teamId === teamId && saved.kits) {
         entry.kits = saved.kits
         entry.checkedAt = saved.checkedAt
         onSaved?.(saved.kits)

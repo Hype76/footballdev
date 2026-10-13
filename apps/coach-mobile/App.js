@@ -223,17 +223,18 @@ function CoachHome() {
   const [selectedContextId, setSelectedContextId] = useState('')
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const contentScrollRef = useRef(null)
+  const scrollBounds = useMemo(() => createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options)), [])
   const [keyboardVisible, setKeyboardVisible] = useState(Boolean(Keyboard.isVisible?.()))
   const keyboardViewport = useMemo(() => createCoachKeyboardViewport({
     keyboard: Keyboard, platform: Platform.OS, scrollRef: contentScrollRef,
-    getFocusedInput: () => TextInput.State.currentlyFocusedInput(),
+    getFocusedInput: () => TextInput.State.currentlyFocusedInput?.() || TextInput.State.currentlyFocusedField?.(),
+    getScrollOffset: () => scrollBounds.getOffset(),
     onVisibilityChange: setKeyboardVisible,
     requestFrame: callback => requestAnimationFrame(callback), cancelFrame: frame => cancelAnimationFrame(frame),
-  }), [])
+  }), [scrollBounds])
   useEffect(() => { keyboardViewport.start(); return () => keyboardViewport.dispose() }, [keyboardViewport])
   const pendingScrollRestoreRef = useRef(null)
   const contentOriginRef = useRef(0)
-  const scrollBounds = useMemo(() => createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options)), [])
   useEffect(() => () => scrollBounds.dispose(), [scrollBounds])
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
@@ -962,6 +963,7 @@ function CoachHome() {
           <ScrollView
             {...scrollBounds.handlers}
             onLayout={event => { scrollBounds.handlers.onLayout(event); keyboardViewport.ensureFocusedField() }}
+            onContentSizeChange={(width, height) => { scrollBounds.handlers.onContentSizeChange(width, height); keyboardViewport.ensureFocusedField() }}
             testID="coach-content-scroll"
             style={{ flex: 1 }}
             automaticallyAdjustKeyboardInsets={false}

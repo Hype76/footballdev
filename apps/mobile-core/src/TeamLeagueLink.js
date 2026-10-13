@@ -20,7 +20,7 @@ export function TeamLeagueLinkRow({ client, scope, palette, styles, coach = fals
   const activity = useMobileActivity(league.status === 'loading' || league.status === 'saving')
   useLeagueForegroundRefresh(league.load)
   if (!scope.teamId || !scope.userId) return null
-  const available = Boolean(league.value?.enabled && league.value.url && ['ready', 'loading'].includes(league.status))
+  const available = Boolean(league.value?.enabled && league.value.url && ['ready', 'loading', 'refreshing'].includes(league.status))
   const text = palette.textPrimary || palette.text
   const accent = palette.accentText || palette.accent
   return <View>

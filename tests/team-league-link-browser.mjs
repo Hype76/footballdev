@@ -70,6 +70,28 @@ for(const role of Object.keys(entries)){
     await page.evaluate(()=>{window.defer=false;window.pauseOpener=true});await link.click();await page.waitForFunction(()=>Boolean(window.finishOpener));await page.evaluate(()=>window.team('b'));await page.getByRole('link',{name:'Current league for Demo U15',exact:true}).waitFor();await page.evaluate(()=>window.finishOpener());assert.equal(await page.evaluate(()=>window.opened.length),1);
     await page.evaluate(()=>{window.pauseOpener=false;window.browserUnavailable=true});await page.getByRole('link',{name:'Current league for Demo U15',exact:true}).click();await page.getByText('No browser is available to open the league website.',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.opened.length),1);
   }
+  if(home) {
+    await page.evaluate(()=>{window.team('a');window.browserUnavailable=false})
+    await page.getByRole('link',{name:'Current league for Demo U14',exact:true}).waitFor()
+    await page.waitForFunction(()=>Object.keys(localStorage).some(key=>key.startsWith('fp.league.v1:')&&localStorage.getItem(key).includes('Demo U14')))
+    await page.reload()
+    await page.evaluate(()=>window.startDeferred=true)
+    await page.addScriptTag({content:await bundle(entries[role])})
+    await page.waitForFunction(()=>window.pending.length===1)
+    const restored=page.getByRole('link',{name:'Current league for Demo U14',exact:true})
+    await restored.waitFor()
+    const stableRow=page.getByText(role==='coach'?'Next Calendar item':'Next up',{exact:true}),before=await stableRow.boundingBox()
+    assert.equal(await page.evaluate(()=>window.opened.length),0,'Restoring a saved display never opens a website')
+    await page.evaluate(()=>{window.defer=false;window.pending[0].resolve({data:{...window.pending[0].data,team_name:'Updated league team'}})})
+    await page.getByRole('link',{name:'Current league for Updated league team',exact:true}).waitFor()
+    assert.equal((await stableRow.boundingBox()).y,before.y,'Saved display and background refresh keep the Home row fixed')
+    await page.evaluate(()=>{window.denied=true;window.foreground()})
+    await page.getByRole('link',{name:/Current league/}).waitFor({state:'detached'})
+    await page.waitForFunction(()=>!Object.keys(localStorage).some(key=>key.startsWith('fp.league.v1:')&&localStorage.getItem(key).includes('Updated league team')))
+    await page.reload();await page.evaluate(()=>window.startDeferred=true);await page.addScriptTag({content:await bundle(entries[role])})
+    await page.waitForFunction(()=>window.pending.length===1)
+    assert.equal(await page.getByRole('link',{name:/Current league/}).count(),0,'Revoked saved display does not reappear after another cold restart')
+  }
   assert.deepEqual(errors,[]);await page.close();console.log('PASS '+role)
 }
 assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS: actual Coach/Parent/Player Home placements, native/web editors, saved URL retained off, invalid URL rejection, A-B-A stale replies, offline/access revocation, browser errors and context change during opening. Synthetic RPC only; no database SQL executed.')

@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react'
 import { createTeamLeagueRequestGate, openTeamLeagueWebsite, readTeamLeagueLink, saveTeamLeagueLink, teamLeagueScopeKey } from '../../../src/lib/team-league-link.js'
 import { mobileResourceCache } from './mobileResourceCache'
+import { mobileTeamLeagueStorage } from './mobileTeamLeagueStorage'
 
 export function useTeamLeagueLink(client, scope) {
   const key = teamLeagueScopeKey(scope)
@@ -9,21 +10,32 @@ export function useTeamLeagueLink(client, scope) {
   const session = useMemo(() => ({ gate: createTeamLeagueRequestGate(), key, scope: JSON.parse(scopeJson), client }), [key, scopeJson, client])
   const cacheKey = 'team-league:' + key
   const [state, setState] = useState(() => {
-    const value = key ? mobileResourceCache.peek(cacheKey, 300000) : null
+    const cached = key ? mobileResourceCache.peek(cacheKey, Infinity) : null
+    const value = cached ? { ...cached, canEdit: false } : null
     return { session, value, status: value ? 'ready' : 'loading', error: '' }
   })
-  const load = useCallback(async ({ force = false } = {}) => {
+  const load = useCallback(async ({ force = false, interactive = false } = {}) => {
     if (!session.gate.isActive()) return null
     const token = session.gate.begin()
-    setState(current => ({ session, value: current.session === session ? current.value : null, status: 'loading', error: '' }))
+    let saved = null
+    setState(current => ({ session, value: current.session === session ? current.value : null, status: current.session === session && current.value ? 'refreshing' : 'loading', error: '' }))
     if (!session.key) { setState({ session, value: null, status: 'ready', error: '' }); return null }
     try {
+      saved = await mobileTeamLeagueStorage.read(session.key, session.scope.teamId)
+      if (!session.gate.isCurrent(token)) return null
+      if (saved) setState(current => ({ session, value: current.session === session && current.value ? current.value : saved, status: 'refreshing', error: '' }))
       const value = await mobileResourceCache.read(cacheKey, () => readTeamLeagueLink(client, session.scope), { force, maxAgeMs: 300000 })
       if (!session.gate.isCurrent(token)) return null
+      void mobileTeamLeagueStorage.write(session.key, value, () => session.gate.isCurrent(token))
       setState({ session, value, status: 'ready', error: '' })
       return { value, token }
-    } catch {
+    } catch (error) {
+      if (session.gate.isCurrent(token) && error.isNetworkError && saved) {
+        setState({ session, value: saved, status: 'ready', error: interactive ? 'Connect to open the league website and try again.' : '' })
+        return null
+      }
       if (session.gate.isCurrent(token)) mobileResourceCache.invalidate(cacheKey)
+      void mobileTeamLeagueStorage.remove(session.key, () => session.gate.isCurrent(token))
       if (session.gate.isCurrent(token)) setState({ session, value: null, status: 'error', error: 'The league link is unavailable. Refresh your team access and try again.' })
       return null
     }
@@ -31,11 +43,11 @@ export function useTeamLeagueLink(client, scope) {
   useLayoutEffect(() => {
     session.gate.activate()
     const token = session.gate.begin()
-    void Promise.resolve().then(() => { if (session.gate.isCurrent(token)) void load() })
+    void Promise.resolve().then(() => { if (session.gate.isCurrent(token)) void load({ force: true }) })
     return () => {
       session.gate.invalidate()
       // A new visit must not inherit an unfinished request from an old scope.
-      if (mobileResourceCache.peek(cacheKey, 300000) === undefined) mobileResourceCache.invalidate(cacheKey)
+      mobileResourceCache.invalidate(cacheKey)
     }
   }, [cacheKey, load, session])
   const save = useCallback(async values => {
@@ -47,9 +59,11 @@ export function useTeamLeagueLink(client, scope) {
       const value = await saveTeamLeagueLink(client, session.scope, values)
       if (!session.gate.isCurrent(token)) return false
       mobileResourceCache.invalidate(cacheKey)
+      void mobileTeamLeagueStorage.write(session.key, value, () => session.gate.isCurrent(token))
       setState({ session, value, status: 'ready', error: '' })
       return true
     } catch (error) {
+      void mobileTeamLeagueStorage.remove(session.key, () => session.gate.isCurrent(token))
       if (session.gate.isCurrent(token)) setState({ session, value: null, status: 'error', error: error.message })
       return false
     } finally {
@@ -57,7 +71,7 @@ export function useTeamLeagueLink(client, scope) {
     }
   }, [cacheKey, client, session, state])
   const open = useCallback(async opener => {
-    const fresh = await load({ force: true })
+    const fresh = await load({ force: true, interactive: true })
     if (!fresh || !fresh.value.enabled || !fresh.value.url) return false
     try { return await openTeamLeagueWebsite(fresh.value.url, opener, () => session.gate.isCurrent(fresh.token)) }
     catch (error) {

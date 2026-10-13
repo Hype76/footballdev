@@ -204,6 +204,8 @@ jobs:
         run: npm run mobile:prestore && node --test tests/mobile-matchday-plan.test.mjs tests/parent-fan-selected-plan-gates.test.mjs && node tests/mobile-notification-settings-browser.mjs && node tests/mobile-coach-plan-access-browser.mjs
       - name: Team kit colours and permissions
         run: node --test tests/team-matchday-kits.test.mjs tests/team-matchday-kits-pglite.test.mjs tests/club-team-kit-authority-pglite.test.mjs && node tests/mobile-coach-team-kits-browser.mjs
+      - name: Saved league links, offline kit artwork and keyboard visibility
+        run: node --test tests/mobile-persistent-resources.test.mjs tests/team-league-link.test.mjs tests/coach-keyboard-viewport.test.mjs tests/mobile-keyboard-fields-86.test.mjs && node tests/team-league-link-browser.mjs && node tests/mobile-kit-offline-browser.mjs
       - name: Public Club offer, cancellation and quote boundaries
         run: node --experimental-strip-types --test tests/club-20-offer.test.mjs tests/billing-portal-session.test.mjs tests/public-club-quote.test.mjs && node tests/public-club-offer-browser.mjs && node tests/billing-cancel-browser.mjs
       - name: Matchday app account handoff and Coach cancellation feedback

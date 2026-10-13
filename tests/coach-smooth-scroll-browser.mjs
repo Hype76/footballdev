@@ -55,6 +55,7 @@ const refreshUserProfile=async()=>{};
 
 import React,{useRef,useMemo,useCallback,useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Image,Pressable,ScrollView,TextInput,Keyboard,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState} from 'react-native';
+const keyboardListeners=new Map();Platform.OS='ios';Keyboard.isVisible=()=>Boolean(window.keyboardY);Keyboard.metrics=()=>window.keyboardY?{screenY:window.keyboardY}:undefined;Keyboard.addListener=(name,fn)=>{const listeners=keyboardListeners.get(name)||new Set();listeners.add(fn);keyboardListeners.set(name,listeners);return{remove:()=>listeners.delete(fn)}};window.keyboardEvent=(name,y)=>{window.keyboardY=y;window.setHeight(y||850);keyboardListeners.get(name)?.forEach(fn=>fn({endCoordinates:{screenY:y}}))};
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
@@ -65,9 +66,10 @@ const CoachIcon=()=> <Text>+</Text>;
 const NotificationStatusButton=({onPress})=><Pressable accessibilityRole="button" accessibilityLabel="Notification settings" onPress={onPress}><Text>Alerts</Text></Pressable>;
 const StatePanel=()=>null,Notice=()=>null,BrandLoader=()=> <View style={{height:28}}/>;
 ${selected}
-function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/><Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
+function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reveal=React.useContext(CoachKeyboardFocusContext);return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/>{!window.shortContent?<><Text>Overall Comments</Text><TextInput accessibilityLabel="Overall Comments" multiline onFocus={reveal} style={{height:96}}/><Text>Coach summary</Text><TextInput accessibilityLabel="Coach summary" multiline onFocus={reveal} style={{height:96}}/><View style={{height:100}}/></>:null}<Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
 function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
+const [height,setHeight]=useState(850);window.setHeight=setHeight;
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
 const moreRoute=activeRoute==='invites'?'invites':'';const isMatchInvitesRoute=activeRoute==='invites';const safeAreaInsets={bottom:16};
 const user={isOfflineProfile:false};
@@ -78,15 +80,15 @@ const contexts=[{id:'a',clubName:'FP TEST',teamName:'U17 Green',roleLabel:'Team 
 const contextResolution={contexts},activeContext=contexts.find(c=>c.id===selected)||contexts[0],selectedMobileUser={roleLabel:'Team Admin'};
 const notificationState={},notificationStateStatus='ready',notice='',setNotice=()=>{},setNotificationSettingsFocusRequest=()=>{},navigation={primary:[{key:'home',label:'Home'},{key:'calendar',label:'Calendar'},{key:'matchday',label:'Match Day'},{key:'more',label:'More'}]};
 const contentScrollRef=useRef(null),contentOriginRef=useRef(0),pendingScrollRestoreRef=useRef(null);
-${keyboardLifecycle}
 const scrollBounds=useMemo(()=>createCoachScrollBounds(options=>{window.corrections.push(options);contentScrollRef.current?.scrollTo(options)}),[]);
+${keyboardLifecycle}
 useEffect(()=>()=>scrollBounds.dispose(),[scrollBounds]);
 ${callbacks}
 const navigate=route=>{setActiveRoute(route);scrollContentToTop()},selectContext=id=>{setSelected(id);scrollContentToTop()},openNotificationSettings=()=>{setActiveRoute('settings');requestAnimationFrame(()=>focusNotificationSettings(0))},loadHome=()=>setRefreshing(true);
 window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);
 window.beginDrag=${dragSource};
 useEffect(()=>{scrollContentToTop()},[activeRoute,scrollContentToTop]);
-return <MobileActivityProvider active={isRefreshing}><View style={[styles.appShell,{height:'100vh'}]}>${shellSource}</View></MobileActivityProvider>;
+return <MobileActivityProvider active={isRefreshing}><View style={[styles.appShell,{height}]}>${shellSource}</View></MobileActivityProvider>;
 }
 window.corrections=[];createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths:[modules], conditions:['browser'], mainFields:['browser','module','main'], resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'} })
@@ -171,6 +173,28 @@ try {
       assert.equal(await page.getByLabel('Fixture notes').evaluate(el=>document.activeElement===el),false,'Production drag callback blurs the focused multiline input')
       assert.equal(await page.getByLabel('Fixture notes').inputValue(),'Synthetic fixture note','Keyboard dismissal preserves entered notes')
       await page.evaluate(()=>window.bounds.handlers.onScrollEndDrag({nativeEvent:{contentOffset:{y:0}}}))
+      await page.evaluate(()=>{window.shortContent=false;window.setMode('dark')})
+      const comments = page.getByLabel('Overall Comments', {exact:true})
+      await comments.fill('Saved comment remains visible while typing')
+      await scroll.evaluate(el => { const field=document.querySelector('[aria-label="Overall Comments"]');el.scrollTop+=field.getBoundingClientRect().top-478 })
+      await page.waitForTimeout(100)
+      await page.evaluate(()=>window.keyboardEvent('keyboardDidShow',478))
+      await page.waitForTimeout(200)
+      let fieldBox=await comments.boundingBox(),viewportBox=await scroll.boundingBox()
+      assert.ok(fieldBox.y>=viewportBox.y+23&&fieldBox.y+fieldBox.height<=455,'Actual multiline box fits between the fixed header and keyboard after the screenshot geometry')
+      await page.evaluate(()=>window.keyboardEvent('keyboardDidChangeFrame',430))
+      await page.waitForTimeout(200)
+      fieldBox=await comments.boundingBox()
+      assert.ok(fieldBox.y+fieldBox.height<=407,'Taller keyboard keeps the comment box visible')
+      const summary=page.getByLabel('Coach summary',{exact:true})
+      await summary.fill('Summary stays visible too')
+      await page.waitForTimeout(200)
+      fieldBox=await summary.boundingBox();viewportBox=await scroll.boundingBox()
+      assert.ok(fieldBox.y>=viewportBox.y+23&&fieldBox.y+fieldBox.height<=407,'Switching to the summary uses its measured window position')
+      await page.evaluate(()=>window.keyboardEvent('keyboardDidHide',null))
+      await page.waitForTimeout(150)
+      assert.equal(await comments.inputValue(),'Saved comment remains visible while typing')
+      assert.equal(await summary.inputValue(),'Summary stays visible too')
       await page.setViewportSize({width,height:450})
       await page.getByLabel('Fixture notes').scrollIntoViewIfNeeded()
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal overflow')
@@ -178,5 +202,5 @@ try {
       await context.close()
     }
   }
-  console.log('PASS: actual Coach scroll/header layout, held touch, stable viewport, route/context resets, Settings offset, compact invitations, multiline drag-dismiss without lost text and reduced viewport at 320/392px. Native handset confirmation remains separate.')
+  console.log('PASS: actual Coach scroll/header layout, held touch, stable viewport, route/context resets, Settings offset, compact invitations, multiline drag-dismiss, measured comment/summary visibility above resized keyboards, preserved text and reduced viewport at 320/392px. Native handset confirmation remains separate.')
 } finally { await browser.close() }
