@@ -21,7 +21,7 @@ import React,{useState,useEffect,useMemo,useRef,useCallback}from'react';import{c
 import {getMatchDayDisplayName} from './src/lib/matchday-display.js';const getCoachInviteHistory=async()=>({firstEmailSentAt:'2026-09-10T17:46:00Z',emailSends:3,resendRequests:2,recentEmailSends:['2026-09-15T10:00:00Z'],recentResendRequests:[{at:'2026-09-17T07:09:00Z',queued:2,failed:0},{at:'2026-09-15T12:38:00Z',queued:2,failed:0}]});const commandStores=new Map();const commandScope=(user,context)=>JSON.stringify([user.id,context.id]);const readCoachAttendanceCommands=async(user,context)=>commandStores.get(commandScope(user,context))||[];const updateCoachAttendanceCommands=async(user,context,change)=>{const key=commandScope(user,context),next=change(commandStores.get(key)||[]);commandStores.set(key,next);return next};window.availabilityWrites=[];window.coachAttendanceWrites=[];const setCoachInviteAvailabilityOnBehalf=async(u,invite,status)=>{if(window.failAvailability)throw new Error('Synthetic save failed');window.availabilityWrites.push({id:invite.playerId,status});return{changed:true}};const submitOwnTrainingCoachAttendance=async(u,attendance,status)=>{window.coachAttendanceWrites.push({id:attendance.id,status});return{changed:true,status}};
 import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
 import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';const config={isProduction:true};const getCoachFriendlyError=e=>e.message;window.sends=[];window.followups=[];window.previews=[];const previewCoachInviteResend=async(user,invite,options)=>{window.previews.push({playerId:invite.playerId,key:options.idempotencyKey});return {recipientCount:1,recipients:[{address:invite.playerId+'@example.invalid'}],renewalRequired:false,expectedRenewalRequests:[],alreadyCompleted:false}};let followUpKey=0;const createCoachFollowUpKey=()=>String(++followUpKey);const recordCoachInviteIntent=async(user,invite,action,options)=>{if(action==='follow_up')window.followups.push({playerId:invite.playerId,...options});else window.sends.push(invite.playerId);return{recipientCount:1}};Alert.alert=(title,message,buttons)=>window.alert={title,message,buttons};
-const fixtureSnapshots=new Map();const readSavedMatchInvites=async(user,context)=>fixtureSnapshots.get(user.id+':'+context.id);const saveMatchInvites=async(user,context,fixtureId,snapshot)=>{if(window.fixtureSaveFailure)throw Error('Synthetic save failed');fixtureSnapshots.set(user.id+':'+context.id,{fixtureId,rows:snapshot.rows,checkedAt:snapshot.checkedAt})};
+const fixtureSnapshots=new Map();const readSavedMatchInvites=async(user,context)=>fixtureSnapshots.get(user.id+':'+context.id);const createMatchInviteSaver=(user,context,fixtureId)=>async snapshot=>{window.cacheWrites=(window.cacheWrites||0)+1;if(window.fixtureSaveFailure)throw Error('Synthetic save failed');fixtureSnapshots.set(user.id+':'+context.id,{fixtureId,rows:snapshot.rows,checkedAt:snapshot.checkedAt})};
 const getCoachMatchInvites=async(user,fixture,{onReady})=>{window.fixtureReads=(window.fixtureReads||0)+1;if(window.fixtureFailure)throw Error('Synthetic fixture read failed');if(window.fixtureDelay)await new Promise(resolve=>{window.finishFixtureRead=resolve});const found=(window.fixtureRows||window.liveInvites||window.rows||[]).filter(row=>row.eventId===fixture.id);onReady(found);if(window.fixturePreparationDelay)await new Promise(resolve=>{window.finishFixturePreparation=resolve});return window.fixtureEnrich?found.map(row=>({...row,attendancePreparation:{route:'coach_player_match',target:{eventId:row.eventId,playerId:row.playerId},baseline:{status:row.status,respondedAt:'2099-09-03',revision:0}}})):found};
 ${helpers}\n${domain}
 const names=${JSON.stringify(names)};const match={id:'fixture-one',teamId:'team',status:'scheduled',matchDate:'2099-09-06',clubName:'FP TEST Club',homeAway:'away',opponent:'St Neots',kickoffTime:'10:45',venueName:'St Neots'};
@@ -208,10 +208,12 @@ try{
    {...current,id:'jenson-current',respondedAt:'2099-09-02',transportCanOfferLift:true}];
   window.fixturePreparationDelay=true;
   window.fixtureEnrich=true;
+  window.writesBeforePreparation=window.cacheWrites;
  });
  await page.getByRole('button',{name:'Refresh this fixture'}).click();await page.waitForFunction(()=>window.finishFixturePreparation);
  const jenson=()=>page.getByRole('checkbox',{name:/^Jenson Bailey,/});
  await jenson().getByLabel('Offering a lift',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>window.cacheWrites),await page.evaluate(()=>window.writesBeforePreparation),'The interim display does not create a second phone write')
  await page.evaluate(()=>{window.fixturePreparationDelay=false;window.finishFixturePreparation()});
  await page.getByText(/Players checked/).waitFor();
  await jenson().getByLabel('Offering a lift',{exact:true}).waitFor();
@@ -220,9 +222,15 @@ try{
  await page.getByRole('button',{name:'Refresh this fixture'}).click();
  await jenson().getByLabel('Offering a lift',{exact:true}).waitFor({state:'hidden'});
  await page.evaluate(()=>{window.fixtureEnrich=false;window.fixtureRows=window.fixtureRows.filter(row=>row.id!=='jenson-old')});
+ await page.setViewportSize({width:320,height:844})
  await page.evaluate(()=>{window.fixtureSaveFailure=true});await page.getByRole('button',{name:'Refresh this fixture'}).click()
- await page.getByText('All invitations loaded, but could not be saved on this phone. Stay online and retry.',{exact:true}).waitFor();assert.equal(await boxes().count(),17)
- await page.evaluate(()=>{window.fixtureSaveFailure=false;window.fixtureFailure=true});await page.getByRole('button',{name:'Refresh this fixture'}).click()
+ await page.getByText('Offline copy unavailable. Retry saving.',{exact:true}).waitFor();assert.equal(await boxes().count(),17)
+ const failedTable=await boxes().first().boundingBox(),readsBeforeRetry=await page.evaluate(()=>window.fixtureReads)
+ await page.evaluate(()=>window.fixtureSaveFailure=false);await page.getByRole('button',{name:'Retry saving invitations on this phone'}).click()
+ await page.getByText('Offline copy unavailable. Retry saving.',{exact:true}).waitFor({state:'hidden'})
+ assert.equal(await page.evaluate(()=>window.fixtureReads),readsBeforeRetry,'A phone-copy retry does not refetch invitations')
+ assert.deepEqual(await boxes().first().boundingBox(),failedTable,'Recovery does not move the invitation table')
+ await page.evaluate(()=>window.fixtureFailure=true);await page.getByRole('button',{name:'Refresh this fixture'}).click()
  await page.getByText('Saved | check failed',{exact:true}).waitFor();assert.equal(await boxes().count(),17)
  // A valid smaller server roster must remove players rather than merge the old 17 back in.
  await page.evaluate(()=>{window.fixtureFailure=false;window.fixtureRows=window.fixtureRows.slice(0,12)});await page.getByRole('button',{name:'Refresh this fixture'}).click()

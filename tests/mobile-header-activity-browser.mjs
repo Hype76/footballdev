@@ -16,9 +16,9 @@ window.setTimeout=(fn,ms,...args)=>{if(ms!==60000)return originalTimer(fn,ms,...
 window.clearTimeout=key=>timers.has(key)?timers.delete(key):originalClear(key);
 window.advance=ms=>{time+=ms;for(const[key,timer]of timers)if(timer.at<=time){timers.delete(key);timer.fn()}};
 const styles={row:{},body:{},helper:{},error:{}};
-function App(){const[busy,setBusy]=useState(false),[error,setError]=useState(''),[scope,setScope]=useState('first'),[offline,setOffline]=useState(false),[conflict,setConflict]=useState(false);
-window.setBusy=setBusy;window.setError=setError;window.scope=setScope;window.offline=setOffline;window.conflict=setConflict;
-const outbox={commands:busy||error?[{id:scope,label:'Monday training',status:conflict?'conflict':busy?'sending':'retryable',response:'available',error}]:[],error,retry:()=>{window.retries++},review:()=>{window.reviews++}};
+function App(){const[busy,setBusy]=useState(false),[error,setError]=useState(''),[scope,setScope]=useState('first'),[offline,setOffline]=useState(false),[conflict,setConflict]=useState(false),[extra,setExtra]=useState(false);
+window.setBusy=setBusy;window.setError=setError;window.scope=setScope;window.offline=setOffline;window.conflict=setConflict;window.extra=setExtra;
+const outbox={commands:[...(busy||error?[{id:scope,label:'Monday training',status:conflict?'conflict':busy?'sending':'retryable',response:'available',error}]:[]),...(extra?[{id:'another-saved-answer',status:'saved',error:''}]:[])],error:'',retry:()=>{window.retries++},review:()=>{window.reviews++}};
 return <MobileActivityProvider key={scope} active={busy} offline={offline}><View style={{minHeight:'100vh',backgroundColor:'#f7f8fa'}}>
 <View style={{height:64,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,borderBottomWidth:1}}><Text>Football Player</Text><MobileHeaderActivity live styles={{testBadgeText:{color:'#173f7a',fontSize:12}}}/></View>
 <View testID="stable-content" style={{padding:16}}><Text>Monday training</Text><Pressable accessibilityRole="button" accessibilityLabel="Attending" onPress={()=>setBusy(true)} style={({pressed})=>({minHeight:44,opacity:pressed||busy?0.6:1})}><Text>Attending</Text></Pressable></View>
@@ -43,6 +43,7 @@ try{
  await page.evaluate(()=>window.advance(1));assert.equal(await page.evaluate(()=>window.alerts.length),1)
  assert.deepEqual(await content.boundingBox(),initialContent)
  await page.evaluate(()=>window.alerts[0].buttons[1].onPress());assert.equal(await page.evaluate(()=>window.retries),1)
+ await page.evaluate(()=>window.extra(true));await page.waitForTimeout(30);await page.evaluate(()=>window.advance(60000));assert.equal(await page.evaluate(()=>window.alerts.length),1,'Unrelated saved answers cannot repeat the same failure alert')
  await page.evaluate(()=>{window.scope('second');window.setError('')});await page.waitForTimeout(30)
  await page.evaluate(()=>window.alerts[0].buttons[1].onPress());assert.equal(await page.evaluate(()=>window.retries),1,'A stale account notice cannot retry in the next account')
  await page.evaluate(()=>window.setError('Recovered before one minute'));await page.waitForTimeout(30);await page.evaluate(()=>{window.advance(30000);window.setError('')});await page.waitForTimeout(30);await page.evaluate(()=>window.advance(30000));assert.equal(await page.evaluate(()=>window.alerts.length),1)

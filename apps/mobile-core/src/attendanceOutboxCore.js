@@ -142,5 +142,21 @@ export function createAttendanceOutbox({ scope, read, update, execute, notify, c
   async function review(id) {
     return change(commands => commands.filter(entry => !(entry.id === id && entry.scope === scope && ['conflict', 'rejected'].includes(entry.status))))
   }
-  return { enqueue, recover, review, sync }
+  async function reconcile(preparations) {
+    const fresh = new Map(preparations.filter(Boolean).map(preparation => [attendanceTargetKey(preparation), preparation]))
+    const commands = await read()
+    const resolved = new Set(commands.filter(command => {
+      const preparation = fresh.get(command.targetKey)
+      return command.scope === scope && command.status === 'conflict' && preparation &&
+        preparation.baseline?.status === command.response &&
+        Number.isSafeInteger(Number(preparation.baseline.revision)) &&
+        Number(preparation.baseline.revision) >= Number(command.receipt?.current?.revision) &&
+        Number(preparation.baseline.revision) > Number(command.preparation.baseline.revision)
+    }).map(command => command.id))
+    if (!resolved.size || !isCurrent()) return
+    // Retire only redundant conflicted intent after a fresh exact-target read.
+    // Never rebase a command, change the server answer or retry its notification.
+    return change(current => current.filter(command => !(command.scope === scope && command.status === 'conflict' && resolved.has(command.id))))
+  }
+  return { enqueue, recover, review, reconcile, sync }
 }

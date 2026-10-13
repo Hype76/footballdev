@@ -1,16 +1,17 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import fs from 'node:fs'
-import { createAttendanceOutbox, projectAttendanceChoice } from '../apps/mobile-core/src/attendanceOutboxCore.js'
+import { attendanceTargetKey, createAttendanceOutbox, projectAttendanceChoice } from '../apps/mobile-core/src/attendanceOutboxCore.js'
+import { canRespondToCoachInviteOnBehalf } from '../apps/mobile-core/src/coachPhase31ECore.js'
 import { createRequire } from 'node:module'
 const {parse}=createRequire(import.meta.url)('@babel/parser')
 function extracted(file,name) {
   const source=fs.readFileSync(new URL(file,import.meta.url),'utf8'), ast=parse(source,{sourceType:'module',plugins:['jsx']})
   let result
-  const visit=node=>{ if(!node||typeof node!=='object')return; if(node.type==='FunctionDeclaration'&&node.id?.name===name)result=source.slice(node.start,node.end); if(node.type==='VariableDeclarator'&&node.id?.name===name)result=`const ${name} = ${source.slice(node.init.start,node.init.end)}`; Object.values(node).forEach(value=>Array.isArray(value)?value.forEach(visit):visit(value)) }
+  const visit=node=>{ if(!node||typeof node!=='object')return; if(node.type==='FunctionDeclaration'&&node.id?.name===name)result=source.slice(node.start,node.end); if(node.type==='ObjectMethod'&&node.key?.name===name)result=`function ${source.slice(node.start,node.end)}`; if(node.type==='VariableDeclarator'&&node.id?.name===name)result=`const ${name} = ${source.slice(node.init.start,node.init.end)}`; Object.values(node).forEach(value=>Array.isArray(value)?value.forEach(visit):visit(value)) }
   visit(ast); assert.ok(result,`${name} exists`); return result
 }
-function bind(source,name,dependencies) { return new Function(...Object.keys(dependencies),`${source}; return ${name}`)(...Object.values(dependencies)) }
+function bind(source,name,dependencies) { const values={canRespondToCoachInviteOnBehalf,...dependencies}; return new Function(...Object.keys(values),`${source}; return ${name}`)(...Object.values(values)) }
 function deferred(){let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return {promise,resolve,reject}}
 
 test('actual attendance view guard rejects uncommitted, switched, returned and unmounted callback tokens', () => {
@@ -69,18 +70,18 @@ test('actual Parent identity guard prevents even local enqueue for another child
   const f=parentFixture();assert.equal(await f.run({...invitation,childId:'other'},'available'),false);assert.equal(f.calls.length,0)
 })
 test('actual Coach late durable write cannot close a newer confirmation',async()=>{
-  const gate=deferred(), confirm={invite:{id:'invite',teamId:'team',clubId:'club',attendancePreparation:{}},status:'available'},ref={current:confirm},saving={current:false},closed=[],bulk=[]
+  const gate=deferred(), confirm={invite:{id:'invite',kind:'match',teamId:'team',clubId:'club',attendancePreparation:{}},status:'available'},ref={current:confirm},saving={current:false},closed=[],bulk=[]
   const run=bind(extracted('../apps/coach-mobile/src/CoachPhase31EScreens.js','recordAvailabilityOnBehalf'),'recordAvailabilityOnBehalf',{
     availabilityConfirm:confirm,bulkAction:'',availabilitySaving:saving,stale:false,captureAttendanceScope:()=>()=>true,confirmRef:ref,
-    user:{roleRank:20,activeTeamId:'team',clubId:'club'},attendanceOutbox:{enqueue:()=>gate.promise},setAvailabilityError:()=>{},setBulkAction:value=>bulk.push(value),setAvailabilityConfirm:value=>closed.push(value),setSelectedPlayerIds:()=>{},getCoachFriendlyError:(_e,m)=>m,setNotice:()=>{},setCoachInviteAvailabilityOnBehalf:async()=>{},refreshAfterBulkAction:async()=>{}
+    user:{id:'coach',roleRank:20,activeTeamId:'team',clubId:'club'},attendanceOutbox:{enqueue:()=>gate.promise},setAvailabilityError:()=>{},setBulkAction:value=>bulk.push(value),setAvailabilityConfirm:value=>closed.push(value),setSelectedPlayerIds:()=>{},getCoachFriendlyError:(_e,m)=>m,setNotice:()=>{},setCoachInviteAvailabilityOnBehalf:async()=>{},refreshAfterBulkAction:async()=>{}
   })
   const response=run('available');ref.current={invite:{id:'new-confirmation'}};gate.resolve({});await response
   assert.equal(closed.length,0);assert.equal(saving.current,false)
 })
 test('actual Coach scope change suppresses stale failure and final UI changes',async()=>{
-  const gate=deferred();let current=true;const confirm={invite:{id:'invite',teamId:'team',clubId:'club',attendancePreparation:{}},status:'available'},notices=[],bulk=[]
+  const gate=deferred();let current=true;const confirm={invite:{id:'invite',kind:'match',teamId:'team',clubId:'club',attendancePreparation:{}},status:'available'},notices=[],bulk=[]
   const run=bind(extracted('../apps/coach-mobile/src/CoachPhase31EScreens.js','recordAvailabilityOnBehalf'),'recordAvailabilityOnBehalf',{
-    availabilityConfirm:confirm,bulkAction:'',availabilitySaving:{current:false},stale:false,captureAttendanceScope:()=>()=>current,confirmRef:{current:confirm},user:{roleRank:20,activeTeamId:'team',clubId:'club'},attendanceOutbox:{enqueue:()=>gate.promise},setAvailabilityError:()=>{},setBulkAction:value=>bulk.push(value),setAvailabilityConfirm:()=>{},setSelectedPlayerIds:()=>{},getCoachFriendlyError:(_e,m)=>m,setNotice:value=>notices.push(value),setCoachInviteAvailabilityOnBehalf:async()=>{},refreshAfterBulkAction:async()=>{}
+    availabilityConfirm:confirm,bulkAction:'',availabilitySaving:{current:false},stale:false,captureAttendanceScope:()=>()=>current,confirmRef:{current:confirm},user:{id:'coach',roleRank:20,activeTeamId:'team',clubId:'club'},attendanceOutbox:{enqueue:()=>gate.promise},setAvailabilityError:()=>{},setBulkAction:value=>bulk.push(value),setAvailabilityConfirm:()=>{},setSelectedPlayerIds:()=>{},getCoachFriendlyError:(_e,m)=>m,setNotice:value=>notices.push(value),setCoachInviteAvailabilityOnBehalf:async()=>{},refreshAfterBulkAction:async()=>{}
   })
   const response=run('available');current=false;gate.reject(new Error('Synthetic storage error'));await response
   assert.equal(notices.length,0);assert.deepEqual(bulk,['available'])
@@ -108,7 +109,7 @@ function attendanceHookFixture(execute = async () => { throw new Error('Unexpect
   const useState=value=>{const i=cursor++;states[i]??=value;return [states[i], change=>{states[i]=typeof change==='function'?change(states[i]):change;writes.push(states[i])}]}
   const effect=(kind, callback,deps)=>{const i=cursor++;pending.push({i,kind,callback,deps})}
   const hook=bind(extracted('../apps/mobile-core/src/useAttendanceOutbox.js','useAttendanceOutbox'),'useAttendanceOutbox',{
-    useRef,useState,useLayoutEffect:(callback,deps)=>effect('layout',callback,deps),useEffect:(callback,deps)=>effect('passive',callback,deps),
+    useRef,useState,useCallback:callback=>callback,useLayoutEffect:(callback,deps)=>effect('layout',callback,deps),useEffect:(callback,deps)=>effect('passive',callback,deps),
     createAttendanceOutbox,projectAttendanceChoice,Crypto:{randomUUID:()=>String(++id)},executeAttendanceCommand:execute,
     AppState:{currentState:'active',addEventListener:()=>({remove(){}})},NetInfo:{addEventListener:callback=>{networks.push(callback);return ()=>{}}},
     setInterval:()=>1,clearInterval:()=>{},
@@ -172,4 +173,26 @@ test('actual Coach adapter retains failed durable commands and confirms explicit
  assert.equal(storage.commands.length,1);assert.equal(storage.commands[0].status,'retryable');assert.equal(storage.commands[0].attempts,1)
  await api.retry();assert.equal(attempts,2);assert.equal(storage.commands.length,1);assert.equal(storage.commands[0].status,'saved')
  f.unmount()
+})
+
+test('actual recovered conflict requests one quiet authoritative refresh and safely reconciles a matching reply',async()=>{
+ const f=attendanceHookFixture(),scope='parent-conflict',storage={commands:[{id:'conflict',scope,status:'conflict',targetKey:attendanceTargetKey(preparation),preparation,response:'available',receipt:{current:{revision:'1',status:'available',respondedAt:'2026-10-13T19:00:00Z'}}}]}
+ let refreshes=0
+ const api=f.render({...hookScope(scope,storage),onConfirmed:()=>{refreshes++}});f.commit()
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(refreshes,1)
+ await api.reconcile([{...preparation,baseline:storage.commands[0].receipt.current}]);assert.deepEqual(storage.commands,[])
+ assert.equal(refreshes,1);f.unmount()
+})
+
+test('actual Parent load reconciles only successful current invitation reads',()=>{
+ const reconciled=[],requestIdRef={current:1}
+ const run=bind(extracted('../apps/parent-mobile/App.js','onSettled'),'onSettled',{
+   requestId:1,requestIdRef,reconcileAttendance:items=>{reconciled.push(items);return Promise.resolve()},
+   calendarDependencies:['calendar','invitations','matches'],setResources:()=>{},
+ })
+ run('invitations',{status:'fulfilled',value:[{attendancePreparation:preparation}]},{})
+ assert.deepEqual(reconciled,[[preparation]])
+ run('invitations',{status:'rejected'},{})
+ requestIdRef.current=2;run('invitations',{status:'fulfilled',value:[{attendancePreparation:preparation}]},{})
+ assert.equal(reconciled.length,1,'Failed reads and late account loads cannot resolve queued conflicts')
 })

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
+import { createInvitationCacheWriter } from '../../mobile-core/src/invitationCacheWriter'
 
 export function useCoachMatchInvites(options) {
   const { user, context, fixture, cachedRows = [] } = options
@@ -16,29 +17,43 @@ export function useCoachMatchInvites(options) {
   const valueRef = useRef(null)
   const [value, setValue] = useState(null)
   const publish = useCallback(next => { valueRef.current = next; setValue(next) }, [])
+  const cacheSessionRef = useRef(null)
+  useLayoutEffect(() => {
+    const session = { active: true, scope }
+    session.writer = createInvitationCacheWriter({
+      isCurrent: () => session.active && cacheSessionRef.current === session && scopeRef.current === scope,
+      onSaved: () => publish({ ...valueRef.current, saveFailed: false }),
+      onFailure: () => publish({ ...valueRef.current, saveFailed: true }),
+    })
+    cacheSessionRef.current = session
+    return () => { session.active = false }
+  }, [scope, publish])
   const refresh = useCallback(async () => {
     const currentOptions = optionsRef.current
-    if (scopeRef.current !== scope || !currentOptions.fixture || currentOptions.user.isOfflineProfile) return false
+    const cacheSession = cacheSessionRef.current
+    if (scopeRef.current !== scope || cacheSession?.scope !== scope || !cacheSession.active || !currentOptions.fixture || currentOptions.user.isOfflineProfile) return false
     const request = ++generation.current
     const current = () => scopeRef.current === scope && generation.current === request
     const previous = valueRef.current?.scope === scope ? valueRef.current : null
     publish({ ...previous, scope, checking: true })
     let complete = false
+    let snapshot = null
+    const write = currentOptions.createSaver(currentOptions.user, currentOptions.context, currentOptions.fixture.id)
     const accept = rows => {
       if (!current()) return
       complete = true
-      const next = { scope, owner, fixtureId: currentOptions.fixture.id, sourceRevision: currentOptions.sourceRevision,
-        rows, fresh: true, checking: false, checkedAt: new Date().toISOString() }
-      publish(next)
-      void currentOptions.saveRows(currentOptions.user, currentOptions.context, currentOptions.fixture.id, next)
-        .catch(() => { if (current()) publish({ ...valueRef.current, saveFailed: true }) })
+      snapshot = { scope, owner, fixtureId: currentOptions.fixture.id, sourceRevision: currentOptions.sourceRevision,
+        rows, fresh: true, checking: false, saveFailed: valueRef.current?.saveFailed === true, checkedAt: new Date().toISOString() }
+      publish(snapshot)
     }
     try {
       const rows = await withMobileAsyncTimeout(() => currentOptions.loadRows(currentOptions.user, currentOptions.fixture, { onReady: accept }), { timeoutMs: 30000 })
       accept(rows)
+      if (current() && snapshot) void cacheSession.writer.schedule({ snapshot, write, key: JSON.stringify(snapshot.rows) })
       return current() && complete
     } catch {
       if (current()) {
+        if (snapshot) void cacheSession.writer.schedule({ snapshot, write, key: JSON.stringify(snapshot.rows) })
         publish({ ...valueRef.current, scope, checking: false, fresh: complete, failed: !complete })
         generation.current += 1
       }
@@ -65,5 +80,6 @@ export function useCoachMatchInvites(options) {
   const selected = value?.scope === scope ? value : null
   return { rows: selected?.rows || cachedRows, stale: !selected?.fresh, checking: selected?.checking === true,
     checkedAt: selected?.checkedAt, failed: selected?.failed, saveFailed: selected?.saveFailed, refresh,
+    retrySave: () => !user.isOfflineProfile && cacheSessionRef.current?.scope === scope && cacheSessionRef.current.writer.retry(),
     lastSnapshot: value?.owner === owner && value.sourceRevision === options.sourceRevision && value.rows ? value : null }
 }
