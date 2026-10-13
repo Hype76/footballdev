@@ -12,8 +12,9 @@ test('Coach form routes avoid the iOS and Android keyboards without double-adjus
   assert.match(coachApp, /automaticallyAdjustKeyboardInsets=\{false\}/)
   assert.match(coachApp, /keyboardDismissMode=\{Platform\.OS === 'ios' \? 'interactive' : 'on-drag'\}/)
   assert.match(coachApp, /keyboardShouldPersistTaps="handled"/)
-  assert.match(coachApp, /onScrollBeginDrag=\{\(event\) => \{\s*scrollBounds\.handlers\.onScrollBeginDrag\(event\)\s*Keyboard\.dismiss\(\)/)
-  assert.match(coachApp, /keyboardShell: \{ flex: 1 \}/)
+  const dragBody = coachApp.match(/onScrollBeginDrag=\{\(event\) => \{([\s\S]*?)\n\s*\}\}/)?.[1]
+  assert.match(dragBody, /scrollBounds\.handlers\.onScrollBeginDrag\(event\)\s*Keyboard\.dismiss\(\)/)
+  assert.match(coachApp, /keyboardShell: \{ flex: 1, minHeight: 0, overflow: 'hidden' \}/)
   assert.match(coachApp, /!keyboardVisible \? <PrimaryNavigation/)
   assert.match(coachApp, /!keyboardVisible && quickActionVisibility\.ready/)
   assert.match(coachApp, /<CoachKeyboardFocusContext\.Provider value=\{keyboardViewport\.ensureFocusedField\}/)
@@ -23,19 +24,22 @@ test('Coach form routes avoid the iOS and Android keyboards without double-adjus
 test('starting a drag dismisses the keyboard and keeps native gesture ownership', () => {
   const match = coachApp.match(/onScrollBeginDrag=\{\(event\) => \{([\s\S]*?)\n\s*\}\}/)
   assert.ok(match, 'The shared Coach scroller handles drag dismissal')
-  const corrections = [], pending = new Map()
+  const corrections = [], pending = new Map(), cancelledFrames = []
+  const pendingScrollRestoreRef = { current: 17 }
   let nextId = 0, dismissals = 0
   const bounds = createCoachScrollBounds(value => corrections.push(value), {
     setTimeout(callback) { pending.set(++nextId, callback); return nextId },
     clearTimeout(id) { pending.delete(id) },
   })
-  const drag = new Function('scrollBounds', 'Keyboard', 'event', match[1])
+  const drag = new Function('scrollBounds', 'Keyboard', 'event', 'pendingScrollRestoreRef', 'cancelAnimationFrame', match[1])
   bounds.handlers.onLayout({ nativeEvent: { layout: { height: 480 } } })
   bounds.handlers.onContentSizeChange(390, 200)
-  drag(bounds, { dismiss() { dismissals++ } }, { nativeEvent: {} })
+  drag(bounds, { dismiss() { dismissals++ } }, { nativeEvent: {} }, pendingScrollRestoreRef, id => cancelledFrames.push(id))
   bounds.handlers.onScroll({ nativeEvent: { contentOffset: { y: 700 } } })
   for (const callback of pending.values()) callback()
   assert.equal(dismissals, 1)
+  assert.deepEqual(cancelledFrames, [17], 'A pending route reset is cancelled before native drag ownership begins')
+  assert.equal(pendingScrollRestoreRef.current, null)
   assert.deepEqual(corrections, [], 'Keyboard dismissal cannot force a scroll correction during a drag')
   bounds.dispose()
 })

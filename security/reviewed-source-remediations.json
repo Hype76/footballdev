@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "13972166469227db980e2e0973bb7a968676cbe548fbfb38d05e0e053c7e28c1",
+    "scripts/security-verify-reviewed-backports.mjs": "86a99056fb21fd6248741570332e86a01970d11af9bf82092bb8d25bcddb2f76",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1045,7 +1045,7 @@
       "apps/coach-mobile/src/coachScrollBounds.js": "007762bba6fbd6674c3fb182e89e49e765061a103486e75ec8e3210bfa12a6d9",
       "apps/mobile-core/src/offlineStorageCore.js": "620fbb260b654f0aa88e66f02deef4f83da9530d512a9c8c7d5b730e064b9ce6",
       "tests/coach-scroll-bounds.test.mjs": "552a20d9169a8ce1df20e20878ae18abdf45157587c1329b7776c817f16f7739",
-      "tests/mobile-keyboard-fields-86.test.mjs": "48fd70c76ce51cfefe5fd0d3250ad610c2622dd49f0a0f5cca92e69ef0c1b5cb",
+      "tests/mobile-keyboard-fields-86.test.mjs": "33e64c1de5d99b93c67cd9991107050330ce3e164be15bdc9629066cd8415c02",
       "tests/mobile-polls-match-save-59.test.mjs": "156e7080b4bf1de6c7845cb841b917916b9b022b8d6dd1db92f576505acb1b5e",
       "tests/mobile-offline-storage-timeout.test.mjs": "5888b27b47041983910a2d546f8299d49b0b1c63bbb5052d3ae08ccd8e03e04c",
       "apps/coach-mobile/src/developmentAutosaveQueue.js": "b7b99b142a98d2d4398de386afd863c8bd1b92e30f6996c480f541489069b0da",
@@ -2118,7 +2118,7 @@
       "migrations": 1
     }
   },
-  "releasePreparationSha256": "634112521e4feb66097f14b948e60595a4f52d876ca4bbf0050b857a6e016964",
+  "releasePreparationSha256": "29e791e43cb9c860f12723b7891af6d31bd5772da6fa09eb42dc7bebda4eec37",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
