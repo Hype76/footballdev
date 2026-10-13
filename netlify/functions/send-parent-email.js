@@ -26,6 +26,7 @@ import {
 } from './lib/_email-log-store.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { notifyCoachDevelopmentParents } from './lib/_coach-development-notifications.js'
+import { completeDeferredDevelopmentPdf, developmentReportHash, sealDeferredDevelopmentPdf } from './lib/_development-pdf-background.js'
 import {
   assertPlanFeature,
   canUsePlanFeature,
@@ -389,7 +390,7 @@ function isFutureScheduledDate(dateValue) {
   return dateValue instanceof Date && dateValue.getTime() > Date.now() + 30000
 }
 
-export async function prepareParentEmail({ body, requestUser }) {
+export async function prepareParentEmail({ body, requestUser, deferPdf = false }) {
   const originActionAt = new Date().toISOString()
   const planProfile = requestUser
   assertPlanFeature(planProfile, 'parentEmails')
@@ -613,9 +614,9 @@ export async function prepareParentEmail({ body, requestUser }) {
         diagnostics: pdfDiagnostics,
       })
     : null
-  const pdfStartedAt = shouldAttachPdf ? new Date().toISOString() : null
+  const pdfStartedAt = shouldAttachPdf && !deferPdf ? new Date().toISOString() : null
   let pdfFinishedAt = null
-  const pdfAttachments = shouldAttachPdf ? await buildPdfAttachment(
+  const pdfAttachments = shouldAttachPdf && !deferPdf ? await buildPdfAttachment(
         authorizedPdfReport,
         {
           actorId: requestUser.id,
@@ -731,6 +732,13 @@ export async function prepareParentEmail({ body, requestUser }) {
       : null,
     submissionOperationId: submissionOperation?.operation_id || '',
   }
+  if (shouldAttachPdf && deferPdf && developmentContext && storedPayload.outputKey) {
+    storedPayload.pendingDevelopmentPdf = sealDeferredDevelopmentPdf(storedPayload, {
+      report: authorizedPdfReport,
+      filename: developmentPdfFilename,
+      snapshotHash: developmentReportHash(developmentContext.evaluation.development_parent_report),
+    })
+  }
 
   return {
     attachments,
@@ -749,6 +757,9 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
     supabaseAdmin,
     preparedEmail,
   )
+  if (authorizedPreparedEmail.storedPayload.pendingDevelopmentPdf) {
+    authorizedPreparedEmail.storedPayload.pendingDevelopmentPdf = sealDeferredDevelopmentPdf(authorizedPreparedEmail.storedPayload, authorizedPreparedEmail.storedPayload.pendingDevelopmentPdf)
+  }
   const outputKey = String(authorizedPreparedEmail.storedPayload.outputKey ?? '').trim()
   const requestIdempotencyKey = String(authorizedPreparedEmail.storedPayload.idempotencyKey ?? '').trim()
   const deterministicQueueId = outputKey
@@ -760,7 +771,7 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
   if (deterministicQueueId) {
     const { data: existingRow, error: existingError } = await supabaseAdmin
       .from('scheduled_email_queue')
-      .select('id, scheduled_at')
+      .select('id, scheduled_at, status')
       .eq('id', deterministicQueueId)
       .maybeSingle()
 
@@ -769,6 +780,7 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
     }
 
     if (existingRow?.id) {
+      if (existingRow.status === 'failed') throw Object.assign(new Error('The queued PDF email needs a retry from Scheduled emails.'), { statusCode: 409, code: 'DEVELOPMENT_PDF_QUEUE_RETRY_REQUIRED' })
       return {
         ...existingRow,
         duplicate: true,
@@ -806,11 +818,12 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
   if (error?.code === '23505' && deterministicQueueId) {
     const { data: duplicateRow, error: duplicateError } = await supabaseAdmin
       .from('scheduled_email_queue')
-      .select('id, scheduled_at')
+      .select('id, scheduled_at, status')
       .eq('id', deterministicQueueId)
       .maybeSingle()
 
     if (!duplicateError && duplicateRow?.id) {
+      if (duplicateRow.status === 'failed') throw Object.assign(new Error('The queued PDF email needs a retry from Scheduled emails.'), { statusCode: 409, code: 'DEVELOPMENT_PDF_QUEUE_RETRY_REQUIRED' })
       return {
         ...duplicateRow,
         duplicate: true,
@@ -839,7 +852,7 @@ async function createScheduledEmail({ preparedEmail, scheduledAt }) {
       actorId: authorizedPreparedEmail.storedPayload.actorId,
       actorEmail: authorizedPreparedEmail.storedPayload.actorEmail,
       scheduledAt: data.scheduled_at,
-      hasAttachment: Boolean(authorizedPreparedEmail.emailPayload.attachments?.length),
+      hasAttachment: Boolean(authorizedPreparedEmail.storedPayload.pendingDevelopmentPdf || authorizedPreparedEmail.emailPayload.attachments?.length),
     },
   })
 
@@ -1015,6 +1028,8 @@ export async function sendPreparedParentEmail(
     retryPending = false,
   } = {},
 ) {
+  preparedEmail = await completeDeferredDevelopmentPdf(preparedEmail, supabaseAdmin)
+  if (preparedEmail.storedPayload?.deliveryTelemetry?.pdfFinishedAt) deliveryTelemetry = { ...deliveryTelemetry, pdfStartedAt: preparedEmail.storedPayload.deliveryTelemetry.pdfStartedAt, pdfFinishedAt: preparedEmail.storedPayload.deliveryTelemetry.pdfFinishedAt }
   preparedEmail = await reauthorizePreparedDevelopmentParentEmail(supabaseAdmin, preparedEmail)
   let emailLogRecord = null
   const dedupeKey = createEmailDedupeKey(preparedEmail.emailPayload)
@@ -1253,7 +1268,8 @@ export async function handler(event) {
       return successResponse(existingDevelopmentOutput)
     }
 
-    const preparedEmail = await prepareParentEmail({ body, requestUser })
+    const deferPdf = String(body.outputContext ?? '').trim() === 'development_record' && body.attachPdf === true
+    const preparedEmail = await prepareParentEmail({ body, requestUser, deferPdf })
 
     if (preparedEmail.noRecipient) {
       return successResponse({
@@ -1266,14 +1282,16 @@ export async function handler(event) {
     recipients = preparedEmail.recipients
     emailSubject = preparedEmail.emailSubject
 
-    if (isFutureScheduledDate(scheduledAt)) {
-      const scheduledRecord = await createScheduledEmail({ preparedEmail, scheduledAt })
+    if (isFutureScheduledDate(scheduledAt) || preparedEmail.storedPayload.pendingDevelopmentPdf) {
+      const backgroundQueued = !isFutureScheduledDate(scheduledAt)
+      const scheduledRecord = await createScheduledEmail({ preparedEmail, scheduledAt: scheduledAt || new Date() })
       const communicationLog = await ensureDevelopmentCommunicationLog(
         preparedEmail,
         'parent_email_scheduled',
       )
       return successResponse({
-        scheduled: true,
+        scheduled: !backgroundQueued,
+        queued: backgroundQueued,
         duplicate: Boolean(scheduledRecord.duplicate),
         communicationLogId: communicationLog?.id || '',
         communicationLogDuplicate: communicationLog?.duplicate === true,

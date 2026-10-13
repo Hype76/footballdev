@@ -226,14 +226,14 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "bf8eb0ee6814031ae91591cd711044ff8addb7fe7d22d5b8a0cb923d8b001304",
+    "scripts/security-verify-reviewed-backports.mjs": "ca36b78095063a295f1e9e2ad9fc6bc37b0fb84fc58beb417288322257c48422",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
     "tests/security-reviewed-backports.test.mjs": "eece6f9a7dfa871cf17fa7647f842549e896dafac3b994e999e6514f6dcc3282",
     "scripts/security-provision-reviewed-backports.mjs": "8718b28d2c1c7c3f288a1f19b8bea025c70286dc09fd0114aea23e68177c0981",
     "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
-    ".github/workflows/security-gate.yml": "fec69183da1d58177ed271815201efc861044ec95eccc7c325eb6ebff5da005b",
+    ".github/workflows/security-gate.yml": "b0fb9d6b14d8142edf522a137938c2a0096fb0031d989cf7fe66026e88341fba",
     "apps/scripts/mobile-release-check.mjs": "d92e479e0222a74dd332e63cee5d3108a0fb1bfc0d8f34f77059bade0a5aed48",
     "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
@@ -705,8 +705,8 @@
       "apps/mobile-core/src/profile.js": "772018633568bab13054924c63f63e06dce4cffca84e4c8e9ba6ff7da3582362",
       "apps/mobile-core/src/useAttendanceOutbox.js": "e8340032a51320a61d7479589bb8aa74c96e749ff1a53860cd5f2a83d0c6771c",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
-      "apps/parent-mobile/App.js": "9bfa7361c304a79877fd09742e3b21ca5c39e6bf0c4d18afce03fbf016cd181a",
-      "apps/parent-mobile/src/ParentPortalScreens.js": "6479e9f4fd76be7102040da0f716d6f905d64e2436fad9ad31ae3a0d92d58f70",
+      "apps/parent-mobile/App.js": "463acf798aafa61e7bc047b830fd251ac9e3306923004711cf72fed47d8af06c",
+      "apps/parent-mobile/src/ParentPortalScreens.js": "668c333babd66cfdc2ba7de16ec9745c8ae7fb40c5e4d866387abb02cbaa8d87",
       "apps/parent-mobile/src/offline.js": "72031bfbff6732b75e048864a27331cfb9ba7382bb414aeef561461267c2ad49",
       "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
       "apps/parent-mobile/src/parentPortalData.js": "10b0055ec969f87ae32d315b307a58c968f1f97ecd1519e05a02188810b089ae",
@@ -975,7 +975,7 @@
       "netlify/functions/lib/_coach-development-notifications.js": "827b76a402fb8f79aa5cecbd91555de350cab0c44e49fa6530630b685f18d50f",
       "netlify/functions/lib/_expo-push.js": "d44b766459766f7088aa708eee4bf21c23d28b0e506b8b4f1517d4d33f18b9cc",
       "netlify/functions/lib/_mobile-notification-preferences.js": "04bf164efdb33d2bae8bb99dd516c43e6492144cbd03ff714c24e8a68e57541d",
-      "netlify/functions/send-parent-email.js": "1bc889ecbbbe3e196ef0d484f5fd59368355aa6d53e886258b5a02f7ba1f608a",
+      "netlify/functions/send-parent-email.js": "f9b8917ff20b36c6e623bb294ddc02e82699dace04c3f7880d5193240b0ba2f3",
       "supabase/migrations/20261007114801_phone_team_coach_roster_removal.sql": "d0eefcda5e07d458b9cddff127eaad7974b41f56d10f4053983be0f58b502b01",
       "tests/coach-development-notifications-pglite.test.mjs": "6418fc6a46cff08d211b2bedd0667bf89569bdb0e56737bb61a928c0320b94e8",
       "tests/coach-development-notifications.test.mjs": "17a18bb6706deee36f003118099202301f1113aecd73825edbfb653e6ad41eef",
@@ -1100,9 +1100,24 @@
       "tests/mobile-persistent-loading.test.mjs": "4583db913913fe50e6e181c5bc40d9c2f083aa072f8a7fab6bb2f7459e5c0044",
       "supabase/migrations/20261013094543_development_parent_notification_eligibility.sql": "e4cce970d47de00d404607ab6a39f3c4d8fa9bf6bdfd2eac749685852f116ac3",
       "netlify/functions/lib/_development-parent-email-output.js": "e3c7f0eec5191a2ad6cfa58b63d179088729db5729c1cf7a4a5e389ea6585b90",
-      "netlify/functions/lib/_parent-development-history.js": "fa08b1fcc3750a12eadf88040e0c4a849fe43c9d9d6151563b233992c05f6879",
+      "netlify/functions/lib/_parent-development-history.js": "c794cf025df7d7d500dbc26e1a8dc3fdd2921b8f3c559bb51e6287721111d660",
       "tests/development-parent-email-output.test.mjs": "5e55a20b119cc53c893129f239c3555e46e7e583e1adfbd7230aaa7b14b92c87",
-      "tests/development-report-form-progression.test.mjs": "03e95f4cfe2fec20ba706c5185fc258a66a5e0b52b4c136ff0b0ca5b946a96d1"
+      "tests/development-report-form-progression.test.mjs": "03e95f4cfe2fec20ba706c5185fc258a66a5e0b52b4c136ff0b0ca5b946a96d1",
+      "apps/parent-mobile/parentDevelopment.js": "7b9f34af83a6122ba0a0c17aaa6ba24aafca84b07fd32b0660a3f6fdf58e00e0",
+      "apps/mobile-core/src/pdfVisit.js": "c54a40c6df085888d35bbae95504c03947dc54a9e85fcf4a3e9b99dc7ef472f4",
+      "netlify/functions/lib/_plan-gate.js": "276c404bdbc53946d255d6716f4e3f1e34f8ebb2ad4dc77ea2d53f3674eb4908",
+      "netlify/functions/lib/_development-pdf-background.js": "7d09fb255e17a98986ca12bc39c1daaa9d94f363554fbc373ee63e6e6d0e8526",
+      "netlify/functions/parent-development-history.js": "ec2c081ddfa0b65e3dccfce3c950f838b66cf5e157763ff9ff2a721eec6205da",
+      "netlify/functions/process-scheduled-emails.js": "934ef89c30e9903e64692962b9435f6e403753c9636592b86338722c629e9fee",
+      "src/lib/development-submission-flow.js": "4f11fa0ad7ad6530797021e45c31ccb9038c82685a84a00d2d34e50ac3ed179b",
+      "src/pages/CreateEvaluationPage.jsx": "ff70ddabe9e3db6a2a4080ab1e73d5413877cc2bc48294de92bf9b199fc94057",
+      "tests/development-submission-flow.test.mjs": "260e58f47e73da9f407bdae42c126f7ddc5cc50ba4101901248418fe40b20075",
+      "supabase/migrations/20261013111506_development_pdf_private_artifacts.sql": "bec7db517354652792b2f11fa6bbedd94ba7c2059b9322fbe803deb87276465f",
+      "tests/development-pdf-background.test.mjs": "4ede6c562a294efc9153ccf6f755b3a70454b18421eb222cff1808f54ae1caff",
+      "tests/development-pdf-foreground.test.mjs": "242450e01079fe90dce9fe6642cf1310e90ac4166b1b9783c3b77079dab084f2",
+      "tests/development-pdf-queue.test.mjs": "c6885cf03c229036bcadf754874f5c61e0f14567b527c4e4aada9c583e8de7ec",
+      "tests/parent-development-pdf-actions.test.mjs": "d1ac8b8264d404aa8585edadc51424e2412ff5290b5556e78433f8c1d5809e91",
+      "tests/parent-development-pdf-browser.mjs": "8571d0776cbeb533eb7f9fd6c1b144c43e371ae37d0e8527b9aea0ba373650ec"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2054,9 +2069,23 @@
       "nativeChanges": 0,
       "dependencyChanges": 0,
       "customerWrites": 0
+    },
+    "developmentPdfBackground": {
+      "reasons": [
+        "Queue Coach PDF emails durably without foreground rendering and retain current actor, recipient and snapshot authority at delivery",
+        "Persist bounded private PDF artifacts with canonical queue integrity and exact snapshot comparison",
+        "Separate ordinary queued communications from one bounded PDF job per scheduler run",
+        "Provide explicit iPhone browser Open PDF and existing Android reader separately from Share PDF",
+        "Keep navigation usable during PDF preparation and prevent stale actions after account, screen or report changes"
+      ],
+      "independentExactCandidateReviewRequired": true,
+      "nativeChanges": 0,
+      "dependencyChanges": 0,
+      "customerWrites": 0,
+      "migrations": 1
     }
   },
-  "releasePreparationSha256": "0beecd8c7b497f8bdc30f19325fb98151215f01ce146d4af357004fd1de42bf4",
+  "releasePreparationSha256": "9f0ea3eeb16c665d15b575a7c0f4aab7612cc0f80e3a48593e93e6be2bb6b32a",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

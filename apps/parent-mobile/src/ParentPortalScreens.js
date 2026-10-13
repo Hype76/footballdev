@@ -1,4 +1,5 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
+import { createPdfVisitTracker } from '../../mobile-core/src/pdfVisit.js'
 import { getParentStatusColours, PARENT_SCORER_ICON_COLOURS } from '../../mobile-core/src/parentStatusColours'
 import { FormationPitchLines, FormationPlayerArtwork, FormationSubArtwork, formationVisualStyles } from '../../mobile-core/src/FormationBoardVisuals'
 import { getFormationMarkerVisualPosition } from '../../mobile-core/src/formationVisualCore'
@@ -19,7 +20,7 @@ import { MobileLoadingStatus } from '../../mobile-core/src/MobileHeaderActivity'
 import { MobileFailureNotice } from '../../mobile-core/src/MobileFailureNotice'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AppState, BackHandler, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation, buildCompletedMatchGoalScorerLines, buildFinalMatchReportSummary, resolveCompletedMatchPlayerName } from '../../../src/lib/matchday-final-report.js'
 import { getParentCalendarAttendanceInvitation, getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
@@ -138,7 +139,7 @@ function usePortalStyles(themeTokens) {
       scorerActionText: { flexShrink: 1, fontSize: 15, textAlign: 'center' },
       scorerSecondary: { borderTopColor: colors.border, borderTopWidth: 1, gap: 12, paddingTop: 14 },
       capturedPill: { alignSelf: 'flex-start', backgroundColor: colors.accentSoft, borderColor: colors.accentText, borderRadius: 999, borderWidth: 1, color: colors.accentText, fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
-      developmentScoreCard: { borderColor: colors.border, borderRadius: 12, borderTopColor: colors.accentText, borderTopWidth: 3, borderWidth: 1, gap: 8, padding: 12 },
+      developmentScoreCard: { borderBottomColor: colors.border, borderBottomWidth: 1, gap: 8, paddingVertical: 12 },
       developmentScoreNumber: { color: colors.accentText, fontSize: 22, fontWeight: '900' },
       developmentScoreTrack: { backgroundColor: colors.accentSoft, borderRadius: 999, height: 7, overflow: 'hidden' },
       developmentScoreTrackFill: { backgroundColor: colors.accentText, borderRadius: 999, height: '100%' },
@@ -1336,10 +1337,12 @@ function ParentMatchReportCard({ colors, isDownloading = false, match, onDownloa
   )
 }
 
-export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, themeTokens }) {
+export function DevelopmentScreen({ isOffline, onDismiss, onOpen, pendingReportIds = [], resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [selectedReportId, setSelectedReportId] = useState('')
   const selectedReport = resource.items.find((report) => report.id === selectedReportId) || null
+  const reportVisitRef = useRef(createPdfVisitTracker())
+  useLayoutEffect(() => { reportVisitRef.current.update(selectedReportId) }, [selectedReportId])
 
   if (selectedReport) {
     return (
@@ -1386,7 +1389,7 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, resource, them
           </View>
         ))}
         {!selectedReport.responseItems?.length && !selectedReport.sections?.length ? <Text style={styles.helper}>No detailed Development responses were shared with this report.</Text> : null}
-        {onOpen ? <Button disabled={isOffline || !selectedReport.canDownloadPdf} label={isOffline ? 'Share PDF when online' : 'Share PDF'} onPress={() => onOpen(selectedReport)} styles={styles} /> : null}
+        {onOpen ? <View style={styles.row}>{['open', 'share'].map(action => <Button compact key={action} disabled={isOffline || !selectedReport.canDownloadPdf || pendingReportIds.includes(selectedReport.id)} label={action === 'open' ? 'Open PDF' : 'Share PDF'} onPress={() => onOpen(selectedReport, action, reportVisitRef.current.capture())} styles={styles} secondary={action === 'share'} />)}</View> : null}
       </View>
     )
   }

@@ -160,7 +160,7 @@ test('completion statuses distinguish saved, PDF, email and reminder outcomes', 
     }),
     [
       'Development record: Saved',
-      'PDF: Attached',
+      'PDF: Preparing in background',
       'Parent email: Scheduled',
       'Reminder: Created for 2026-08-29',
     ],

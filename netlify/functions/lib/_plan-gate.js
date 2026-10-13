@@ -158,6 +158,19 @@ export async function getAuthenticatedRequestUser(event) {
   }
 }
 
+export async function getQueuedActorPlanProfile(client, { actorId, clubId, teamId, playerId } = {}) {
+  const { data, error } = await client.auth.admin.getUserById(actorId)
+  const user = data?.user
+  if (error || !user?.id || user.deleted_at || !user.email_confirmed_at || (user.banned_until && Date.parse(user.banned_until) > Date.now())) {
+    throw Object.assign(new Error('The queued report no longer has authorised staff access.'), { statusCode: 403, code: 'DEVELOPMENT_PDF_ACTOR_REVOKED' })
+  }
+  const profile = await loadActiveAuthorityProfile(client, user, {
+    clubId,
+    select: 'id, email, username, name, role, role_label, role_rank, club_id, status, clubs:club_id (name, contact_email, status, archived_at, plan_key, plan_status, is_plan_comped, billing_arrangement, billing_start_at, subscription_team_capacity, workspace_owner_user_id, tester_access_expires_at)',
+  })
+  return loadMatchdayPolicy(normalizePlanProfile(profile, normalizeEmail(user.email), { teamId, playerId }), client)
+}
+
 export async function getClubPlanProfile(clubId, { client = supabaseAdmin } = {}) {
   const normalizedClubId = String(clubId ?? '').trim()
 

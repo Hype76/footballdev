@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy'
 import * as IntentLauncher from 'expo-intent-launcher'
 import * as Sharing from 'expo-sharing'
-import { Platform } from 'react-native'
+import { Linking, Platform } from 'react-native'
 import { fetchJsonWithTimeout, joinApiPath } from '../mobile-core/src/http'
 import { getAccessToken, supabase } from '../mobile-core/src/supabase'
 
@@ -33,9 +33,10 @@ function withTimeout(promise, timeoutMs, message) {
 export function buildParentDevelopmentPdfCacheFilename(report = {}) {
   const reportLabel = normalizeText(report?.form?.name || 'development-report')
   const recordDate = normalizeText(report?.recordDate || report?.finalizedAt).slice(0, 10)
+  const displayDate = /^\d{4}-\d{2}-\d{2}$/.test(recordDate) ? recordDate.split('-').reverse().join('-') : recordDate
   const reportId = normalizeText(report?.id).replace(/[^a-z0-9-]/gi, '').slice(0, 48)
   const finalizedAt = normalizeText(report?.finalizedAt).replace(/[^0-9]/g, '').slice(0, 14)
-  return safeFilename([reportLabel, recordDate, reportId, finalizedAt].filter(Boolean).join('-'))
+  return safeFilename([reportLabel, displayDate, reportId, finalizedAt, 'v2'].filter(Boolean).join('-'))
 }
 
 async function isUsablePdf(uri) {
@@ -43,10 +44,11 @@ async function isUsablePdf(uri) {
   return fileInfo.exists && Number(fileInfo.size || 0) > 100
 }
 
-async function openDevelopmentPdf(uri) {
+async function openDevelopmentPdf(uri, isCurrent) {
   if (Platform.OS === 'android') {
     try {
       const contentUri = await FileSystem.getContentUriAsync(uri)
+      if (!isCurrent()) return
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: contentUri,
         flags: 1,
@@ -54,15 +56,18 @@ async function openDevelopmentPdf(uri) {
       })
       return
     } catch {
-      if (!await Sharing.isAvailableAsync()) throw new Error('No PDF viewer is available on this device.')
-      await Sharing.shareAsync(uri, { dialogTitle: 'View or share Development PDF', mimeType: 'application/pdf' })
-      return
+      throw new Error('No PDF viewer is available on this device. Use Share PDF to choose an app.')
     }
   }
 
-  if (!await Sharing.isAvailableAsync()) throw new Error('This device cannot open the Development PDF.')
+  throw new Error('Use the authorised browser link to open the PDF on iPhone.')
+}
+
+async function shareDevelopmentPdf(uri, isCurrent) {
+  if (!await Sharing.isAvailableAsync()) throw new Error('This device cannot share the Development PDF.')
+  if (!isCurrent()) return
   await Sharing.shareAsync(uri, {
-    dialogTitle: 'View or share Development PDF',
+    dialogTitle: 'Share Development PDF',
     mimeType: 'application/pdf',
     UTI: 'com.adobe.pdf',
   })
@@ -72,7 +77,7 @@ async function downloadDevelopmentPdf(downloadUrl, destination, accessToken) {
   const temporaryDestination = `${destination}.${Date.now()}.download`
   const download = await withTimeout(
     FileSystem.downloadAsync(downloadUrl, temporaryDestination, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
     }),
     PDF_DOWNLOAD_TIMEOUT_MS,
     'The Development PDF is taking too long to prepare. Please try again.',
@@ -136,11 +141,30 @@ export async function shareParentMobileDevelopmentPdf({
   apiBaseUrl,
   parentLinkId,
   report,
+  action = 'share',
+  isCurrent = () => true,
+  storageOrigin = supabase.supabaseUrl,
 } = {}) {
   const request = await getAuthorisedRequestDetails(apiBaseUrl, parentLinkId, report?.id)
 
   if (!request.reportId || report?.canDownloadPdf !== true) {
     throw new Error('This Development PDF is not available.')
+  }
+  let authorisedOpenUrl = ''
+  if (action === 'open') {
+    const endpoint = joinApiPath(apiBaseUrl, 'api/parent-development/history')
+    const { ok, result } = await fetchJsonWithTimeout(endpoint, { timeoutMs: PDF_DOWNLOAD_TIMEOUT_MS, method: 'POST', headers: { Authorization: `Bearer ${request.accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'open_pdf', parentLinkId: request.parentLinkId, reportId: request.reportId }) })
+    if (!ok) throw new Error(result?.message || 'This Development PDF could not be opened.')
+    const url = normalizeText(result?.url)
+    let parsed
+    try { parsed = new URL(url) } catch { throw new Error('This Development PDF could not be opened.') }
+    if (parsed.protocol !== 'https:' || parsed.origin !== new URL(storageOrigin).origin || parsed.username || parsed.password || !parsed.pathname.startsWith('/storage/v1/object/sign/development-pdfs-private/') || !parsed.searchParams.get('token')) throw new Error('This Development PDF could not be opened.')
+    if (!isCurrent()) return false
+    if (Platform.OS === 'ios') {
+      await Linking.openURL(url)
+      return true
+    }
+    authorisedOpenUrl = url
   }
 
   const filename = buildParentDevelopmentPdfCacheFilename(report)
@@ -156,17 +180,17 @@ export async function shareParentMobileDevelopmentPdf({
   ].join('&')
   if (await isUsablePdf(destination)) {
     try {
-      await openDevelopmentPdf(destination)
+      if (isCurrent()) await (action === 'open' ? openDevelopmentPdf(destination, isCurrent) : shareDevelopmentPdf(destination, isCurrent))
       return true
     } catch {
       await FileSystem.deleteAsync(destination, { idempotent: true }).catch(() => {})
     }
   }
 
-  const downloadUrl = `${joinApiPath(apiBaseUrl, 'api/parent-development/history')}?${query}`
-  let accessToken = request.accessToken
+  const downloadUrl = authorisedOpenUrl || `${joinApiPath(apiBaseUrl, 'api/parent-development/history')}?${query}`
+  let accessToken = authorisedOpenUrl ? '' : request.accessToken
   let download = await downloadDevelopmentPdf(downloadUrl, destination, accessToken)
-  if (download.status === 401) {
+  if (download.status === 401 && !authorisedOpenUrl) {
     const { data, error } = await supabase.auth.refreshSession()
     if (error || !data?.session?.access_token) throw new Error('Sign in again before opening this Development PDF.')
     accessToken = data.session.access_token
@@ -177,6 +201,6 @@ export async function shareParentMobileDevelopmentPdf({
     throw new Error('This Development PDF is not available.')
   }
 
-  await openDevelopmentPdf(destination)
+  if (isCurrent()) await (action === 'open' ? openDevelopmentPdf(destination, isCurrent) : shareDevelopmentPdf(destination, isCurrent))
   return true
 }

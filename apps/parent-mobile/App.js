@@ -1,4 +1,5 @@
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
+import { createPdfVisitTracker } from '../mobile-core/src/pdfVisit.js'
 import { getParentBadgeColours, PARENT_FAN_SIGN_IN_COLOURS, PARENT_POLL_SEPARATOR_COLOUR } from '../mobile-core/src/parentStatusColours'
 import { NotificationExplainer } from './src/NotificationExplainer'
 import { notificationExplainerKey } from './src/notificationExplainerCore'
@@ -462,6 +463,16 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const reportScopeRef = useRef('')
   const reportInFlightRef = useRef(false)
   reportScopeRef.current = `${user?.id || ''}:${selectedLink?.id || ''}`
+  const pdfNavigationVisitRef = useRef(createPdfVisitTracker())
+  const pdfTasksRef = useRef(new Map())
+  const [pdfTasks, setPdfTasks] = useState([])
+  const pdfMountedRef = useRef(true)
+  useEffect(() => {
+    const visit = pdfNavigationVisitRef.current
+    pdfMountedRef.current = true
+    return () => { pdfMountedRef.current = false; visit.update(null) }
+  }, [])
+  pdfNavigationVisitRef.current.update(`${reportScopeRef.current}:${activeTab}:${moreSection}`)
   const parentPlanContext = useMemo(() => selectedLink || user, [selectedLink, user])
   const parentRouteAllowed = useCallback((route) => {
     const normalizedRoute = String(route || '').trim().toLowerCase()
@@ -1637,7 +1648,27 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     }
   }
 
+  async function handleDevelopmentPdf(item, action = 'share', viewIsCurrent = () => true) {
+    if (isOffline || !selectedLink?.id || !item?.id) return
+    const authorityScope = reportScopeRef.current
+    const navigationIsCurrent = pdfNavigationVisitRef.current.capture()
+    const key = `${authorityScope}:${item.id}`
+    if (pdfTasksRef.current.has(key)) return
+    pdfTasksRef.current.set(key, { authorityScope, reportId: item.id })
+    setPdfTasks([...pdfTasksRef.current.values()])
+    const isCurrent = () => pdfMountedRef.current && authorityScope === reportScopeRef.current && navigationIsCurrent() && viewIsCurrent()
+    try {
+      await shareParentMobileDevelopmentPdf({ apiBaseUrl: config.apiBaseUrl, storageOrigin: config.supabaseUrl, parentLinkId: selectedLink.id, report: item, action, isCurrent })
+    } catch (error) {
+      if (isCurrent()) setNotice({ message: getParentFriendlyError(error, 'This Development PDF could not be prepared.'), tone: 'warning' })
+    } finally {
+      pdfTasksRef.current.delete(key)
+      if (pdfMountedRef.current) setPdfTasks([...pdfTasksRef.current.values()])
+    }
+  }
+
   async function handleOpenParentItem(type, item) {
+    if (type === 'development') return handleDevelopmentPdf(item)
     if (isOffline || activeActionId) return
     setActiveActionId(`${type}:${item.id}`)
     setNotice(null)
@@ -2266,7 +2297,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const focusedScorer = renderedActiveTab === 'matchday' && selectedMatch?.isScorer && !selectedMatch?.scorerReviewRequestedAt && !selectedMatch?.concludedAt
 
   return (
-    <MobileActivityProvider key={`${user.id}:${selectedLink?.id || ''}`} active={isRefreshing || isSyncing || Boolean(activeActionId) || Object.values(resources).some(resource => resource.loading)} offline={isOffline}>
+    <MobileActivityProvider key={`${user.id}:${selectedLink?.id || ''}`} active={isRefreshing || isSyncing || Boolean(activeActionId) || pdfTasks.some(task => task.authorityScope === reportScopeRef.current) || Object.values(resources).some(resource => resource.loading)} offline={isOffline}>
     <ParentThemeContext.Provider value={themeContext}>
     <SafeAreaView style={[styles.safeArea, displayTheme === 'light' && styles.safeAreaLight]}>
       <StatusBar style={displayTheme === 'light' ? 'dark' : 'light'} />
@@ -2435,7 +2466,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             ) : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'results' ? <ResultsScreen activeActionId={activeActionId} link={selectedLink} onDownloadPdf={handleDownloadMatchReport} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
-            {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={(report) => handleOpenParentItem('development', report)} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} pendingReportIds={pdfTasks.filter(task => task.authorityScope === reportScopeRef.current).map(task => task.reportId)} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={handleDevelopmentPdf} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} formationViewportHeight={contentViewportHeight} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'messages' ? (
               <MessagesScreen

@@ -2623,7 +2623,7 @@ export function CreateEvaluationPage() {
             }))
             .filter(({ result }) => result.outcome === 'no_recipient')
           const clientLoggedEmailJobs = completedEmailJobs.filter(
-            ({ result }) => !result.communicationLogId && result.duplicate !== true,
+            ({ result }) => result.queued !== true && !result.communicationLogId && result.duplicate !== true,
           )
 
           if (completedEmailJobs.length > 0) {
@@ -2662,6 +2662,7 @@ export function CreateEvaluationPage() {
                 communicationLog?.id,
                 ...completedEmailJobs
                   .filter(({ result }) => result.communicationLogDuplicate !== true)
+                  .filter(({ result }) => result.queued !== true)
                   .map(({ result }) => result.communicationLogId),
               ].filter(Boolean)
 
@@ -2675,7 +2676,7 @@ export function CreateEvaluationPage() {
 
             completionOutcome = unavailableEmailJobs.length > 0
               ? isScheduledSend ? 'schedule_failed' : 'send_failed'
-              : isScheduledSend ? 'scheduled' : 'sent'
+              : isScheduledSend ? 'scheduled' : completedEmailJobs.some(({ result }) => result.queued === true) ? 'queued' : 'sent'
           } else if (unavailableEmailJobs.length > 0) {
             const refreshedRecipients = await loadDevelopmentParentRecipients({
               preserveSelected: true,
