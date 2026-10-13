@@ -13,7 +13,7 @@ import { getCoachFriendlyError } from './coachFriendlyErrors.js'
 const newField = () => ({ id: Crypto.randomUUID(), label: '', type: 'score_1_10', options: '', parentVisible: true, required: false })
 const newDraft = () => ({ id: Crypto.randomUUID(), name: '', fields: [] })
 
-export function CoachDevelopmentTemplateBuilder({ context, onBack, onUse, stale, styles, user }) {
+export function CoachDevelopmentTemplateBuilder({ context, onBack, onSaved, onUse, stale, styles, user }) {
   const scope = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, user.role, user.roleRank, user.hasActivePlanAccess, user.status, user.planKey, user.planStatus, user.isPlanComped])
   const session = useMemo(() => ({ active: false, scope }), [scope])
   const saveLocal = useMemo(() => createCoachOfflineResourceSaver(user, context), [user, context])
@@ -39,11 +39,19 @@ export function CoachDevelopmentTemplateBuilder({ context, onBack, onUse, stale,
       setHydrated(true)
     }).catch(() => { if (session.active) setHydrated(true) })
   }, [session])
-  const persist = (nextDraft, nextField, template) => saveLocal({ developmentTemplateDraft: { draft: nextDraft, field: nextField, savedTemplate: template || null } })
-  const action = async (run) => {
+  const persist = async (nextDraft, nextField, template) => {
+    try { await saveLocal({ developmentTemplateDraft: { draft: nextDraft, field: nextField, savedTemplate: template || null } }) }
+    catch { throw new Error('The changes could not be saved on this phone. Keep this screen open and retry.') }
+  }
+  const action = async (run, networkCopy = '') => {
     if (!hydrated || inFlight.current || !session.active) return
     inFlight.current = true; setBusy(true); setError('')
-    try { await run() } catch (failure) { if (session.active) setError(getCoachFriendlyError(failure, 'The template could not be saved. Your fields are still here.')) }
+    try { await run() } catch (failure) {
+      if (session.active) {
+        const friendly = getCoachFriendlyError(failure, 'The template could not be saved. Your fields are still here.')
+        setError(networkCopy && friendly.startsWith('We could not connect') ? networkCopy : friendly)
+      }
+    }
     finally { inFlight.current = false; if (session.active) setBusy(false) }
   }
   const saveField = () => action(async () => {
@@ -55,17 +63,28 @@ export function CoachDevelopmentTemplateBuilder({ context, onBack, onUse, stale,
   })
   const saveTemplate = () => action(async () => {
     if (stale) throw new Error('Connect before saving the template for use.')
-    const saved = await saveCoachDevelopmentTemplate(user, draft)
+    let saved, warning = ''
+    try { saved = await saveCoachDevelopmentTemplate(user, draft) }
+    catch (failure) {
+      if (!failure.savedTemplate) throw failure
+      saved = failure.savedTemplate
+      warning = 'Template saved. Activity logging could not be confirmed. Retry activity confirmation when connected.'
+    }
     if (!session.active) return
-    await persist(draft, null, saved)
-    if (session.active) { setSavedTemplate(saved); setField(null); setAccessScope(saved.accessScope) }
-  })
+    setSavedTemplate(saved); setField(null); setAccessScope(saved.accessScope); onSaved?.(saved)
+    try { await persist(draft, null, saved) }
+    catch { warning = 'Template saved. Its phone copy could not be updated. The saved template is available online.' }
+    if (session.active && warning) setError(warning)
+  }, 'The template save could not be confirmed. Your fields are still on this phone. Retry saving when connected.')
   const saveAccess = () => action(async () => {
     if (stale) throw new Error('Connect before changing template access.')
     const saved = savedTemplate.accessScope === accessScope ? savedTemplate : await setCoachDevelopmentTemplateAccess(user, savedTemplate, accessScope)
     if (!session.active) return
-    await persist(draft, null, saved)
-    if (session.active) { setSavedTemplate(saved); onUse?.(saved) }
+    setSavedTemplate(saved); onSaved?.(saved)
+    let phoneWarning = ''
+    try { await persist(draft, null, saved) }
+    catch { phoneWarning = 'Access saved. Its phone copy could not be updated. The saved template is available online.' }
+    if (session.active) onUse?.({ ...saved, saveWarning: phoneWarning })
   })
   const accent = styles.status?.color || styles.label.color
   const rowStyle = { alignItems: 'center', borderBottomColor: styles.developmentSelector.borderBottomColor, borderBottomWidth: 1, flexDirection: 'row', gap: 10, minHeight: 48, paddingVertical: 10 }
@@ -77,6 +96,7 @@ export function CoachDevelopmentTemplateBuilder({ context, onBack, onUse, stale,
     <Text accessibilityRole="header" style={styles.heading}>Build a new assessment template</Text>
     {savedTemplate ? <>
       <Text style={styles.body}>{savedTemplate.name} saved. Choose who can use it.</Text>
+      {savedTemplate.auditPending ? rowAction('Retry activity confirmation', saveTemplate, busy || stale || !hydrated, 'refresh') : null}
       <View accessibilityRole="radiogroup" accessibilityLabel="Who can use this template">{[['creator', 'Only me'], ['team', 'Whole coaching team']].map(([value, label]) => <Pressable key={value} accessibilityLabel={label} accessibilityRole="radio" accessibilityState={{ checked: accessScope === value, disabled: busy }} aria-checked={accessScope === value} disabled={busy} onPress={() => setAccessScope(value)} style={rowStyle}><MaterialIcons accessible={false} color={accent} name={accessScope === value ? 'radio-button-checked' : 'radio-button-unchecked'} size={24} /><Text style={styles.body}>{label}</Text></Pressable>)}</View>
       <Text style={styles.helper}>{accessScope === 'team' ? 'Available to authorised staff in this team.' : 'Available only to you in this team.'}</Text>
       {rowAction('Save access and use template', saveAccess, busy || stale || !hydrated, 'check')}

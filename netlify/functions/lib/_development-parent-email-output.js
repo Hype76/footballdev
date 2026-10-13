@@ -159,6 +159,17 @@ function isSameDevelopmentProgressionForm(current, candidate) {
   return normalizeText(current.feedbackFormName) === normalizeText(candidate.feedbackFormName)
 }
 
+export function getDevelopmentParentProgressionPolicy(evaluation = {}) {
+  const current = normalizeDevelopmentProgressionEvaluation(evaluation)
+  return {
+    formId: current.feedbackFormId,
+    fieldIds: current.feedbackFormSnapshot.fields
+      .filter((field) => field.includeInProgressChart === true && field.parentVisible !== false && field.parent_visible !== false)
+      .map((field) => normalizeText(field.id))
+      .filter(Boolean),
+  }
+}
+
 export function getParentVisibleDevelopmentResponses(evaluation, requestedResponses = []) {
   const savedResponses = evaluation?.form_responses && typeof evaluation.form_responses === 'object'
     ? evaluation.form_responses

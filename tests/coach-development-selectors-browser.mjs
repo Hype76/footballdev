@@ -21,8 +21,9 @@ import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js'
 import {mergeUnfinishedDevelopmentDrafts} from './apps/mobile-core/src/developmentOfflineCore.js'
 const readCoachDevelopmentDrafts=async()=>{if(window.draftReadDelay)await new Promise(resolve=>setTimeout(resolve,window.draftReadDelay));return window.localDrafts||{}}
 const subscribeDevelopmentSync=()=>()=>{}
-const canBuildCoachDevelopmentTemplate=()=>false
-const CoachDevelopmentTemplateBuilder=()=>null
+const canBuildCoachDevelopmentTemplate=()=>Boolean(window.allowBuild)
+const savedTemplate={id:'new-form',name:'FP TEST Saved template',fields:[{id:'new-score',label:'New score',roleRank:0}],createdBy:'coach',accessScope:'creator'}
+const CoachDevelopmentTemplateBuilder=({onBack,onSaved})=>{window.lateTemplateSaved=onSaved;return <View><Pressable accessibilityRole="button" accessibilityLabel="Confirm template save" onPress={()=>onSaved(savedTemplate)}><Text>Save</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="Return from template" onPress={onBack}><Text>Back</Text></Pressable></View>}
 const Keyboard={dismiss:()=>{}}
 const DevelopmentOfflineEditor=({form,player,styles})=><View accessibilityLabel="Development editor" style={styles.panel}><Text style={styles.body}>Editor for {player.playerName}</Text>{form.fields.map(field=><TextInput key={field.id} accessibilityLabel={field.label} value="" onChangeText={()=>{}} />)}</View>
 ${styles}
@@ -32,7 +33,7 @@ ${development}
 const data={players:[{id:'player-a',playerName:'FP TEST Alex'},{id:'player-b',playerName:'FP TEST Bailey'}],forms:[{id:'form-a',name:'FP TEST Attacking Review',fields:[{id:'attack',label:'Attacking score',roleRank:0}]},{id:'form-b',name:'FP TEST Defensive Review',fields:[{id:'defence',label:'Defensive score',roleRank:0}]}],drafts:[],records:[{id:'record-a',playerId:'player-a',date:'15:09:2026',status:'finalised',formName:'FP TEST Attacking Review',averageScore:7},{id:'record-b',playerId:'player-b',date:'14:09:2026',status:'finalised',formName:'FP TEST Defensive Review',averageScore:8}]}
 const context={id:'team',clubId:'club',teamId:'team',role:'coach'}
 const user={id:'coach',roleRank:70}
-function App(){const [mode,setMode]=useState('light'),[revision,setRevision]=useState(0);window.setMode=setMode;window.remount=()=>setRevision(value=>value+1);window.workspace=data;const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;const styles=phaseStyles(palette);const [notice,setNotice]=useState('');return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:12}}><View accessibilityLabel="Development header" style={styles.developmentHeader}><Text accessibilityRole="header" style={styles.title}>Development</Text><Text style={styles.body}>FP TEST Team | Coach</Text></View><DevelopmentDomain key={revision} context={context} data={data} load={()=>{}} setNotice={setNotice} stale={false} styles={styles} user={user}/>{notice?<Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text>:null}</View>}
+function App(){const [mode,setMode]=useState('light'),[revision,setRevision]=useState(0),[workspace,setWorkspace]=useState(data),[account,setAccount]=useState('coach');window.setMode=setMode;window.account=setAccount;window.remount=()=>setRevision(value=>value+1);window.workspace=workspace;const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;const styles=phaseStyles(palette);const [notice,setNotice]=useState('');return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:12}}><View accessibilityLabel="Development header" style={styles.developmentHeader}><Text accessibilityRole="header" style={styles.title}>Development</Text><Text style={styles.body}>FP TEST Team | Coach</Text></View><DevelopmentDomain key={revision} context={context} data={workspace} setData={setWorkspace} load={()=>window.reloads=(window.reloads||0)+1} setNotice={setNotice} stale={false} styles={styles} user={{...user,id:account}}/>{notice?<Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text>:null}</View>}
 createRoot(document.getElementById('root')).render(<App/>)`
 const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
 const browser=await chromium.launch({headless:true})
@@ -97,6 +98,19 @@ try {
   assert.equal(await page.getByLabel('Attacking score',{exact:true}).count(),0,'Delayed draft discovery cannot replace an explicit selection')
   await mkdir('output/playwright/coach-development-selectors',{recursive:true})
   for(const mode of ['light','dark'])for(const width of [320,390]){await page.evaluate(value=>window.setMode(value),mode);await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await assertRenderedTextContrast(page,`Coach Development selectors ${mode} ${width}`);await page.screenshot({path:`output/playwright/coach-development-selectors/${mode}-${width}.png`,fullPage:true})}
+  await page.evaluate(()=>{window.allowBuild=true;window.localDrafts={};window.draftReadDelay=0;window.remount()})
+  await page.getByRole('button',{name:'Build a new assessment template',exact:true}).click()
+  await page.getByRole('button',{name:'Confirm template save',exact:true}).click()
+  assert.equal(await page.evaluate(()=>window.workspace.forms.some(form=>form.id==='new-form')),true,'Confirmed server templates are available immediately without waiting for a reload')
+  await page.getByRole('button',{name:'Return from template',exact:true}).click()
+  await page.getByRole('button',{name:'Choose Development form',exact:true}).click()
+  await page.getByRole('radio',{name:'FP TEST Saved template. Choose this form',exact:true}).waitFor()
+  assert.ok(await page.evaluate(()=>window.reloads>=2),'Server confirmation and returning from the builder both refresh quietly')
+  await page.getByRole('button',{name:'Build a new assessment template',exact:true}).click()
+  await page.evaluate(()=>{window.oldTemplateSaved=window.lateTemplateSaved;window.account('other-coach')})
+  const before=await page.evaluate(()=>window.workspace.forms.length)
+  await page.evaluate(()=>window.oldTemplateSaved({...window.workspace.forms[0],id:'late-foreign-template'}))
+  assert.equal(await page.evaluate(()=>window.workspace.forms.length),before,'A late template callback cannot update the replacement account')
   assert.deepEqual(errors,[])
   console.log('PASS: Coach Development uses compact Player and Form selectors, preserves form-field remounting, and places Recent forms before the editor and keeps it collapsed until requested at 320/390px in light/dark themes.')
 } finally {await browser.close()}

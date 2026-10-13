@@ -1,4 +1,4 @@
-import { createDevelopmentOutputKey, createDevelopmentOutputQueueId, enrichDevelopmentParentReportWithScores, repairDevelopmentParentReportProgression } from './_development-parent-email-output.js'
+import { createDevelopmentOutputKey, createDevelopmentOutputQueueId, enrichDevelopmentParentReportWithScores, getDevelopmentParentProgressionPolicy, repairDevelopmentParentReportProgression } from './_development-parent-email-output.js'
 import {
   normalizeDevelopmentScorePresentation,
 } from '../../../src/lib/development-score-contract.js'
@@ -178,9 +178,11 @@ function normalizeReport({
   reportRow,
 } = {}) {
   const snapshot = reportRow.report_snapshot
+  const progressionPolicy = reportRow.progressionPolicy
   const responseItems = (Array.isArray(snapshot.responseItems) ? snapshot.responseItems : [])
     .map(normalizeResponseItem)
     .filter(Boolean)
+    .map(item => ({ ...item, includeInProgressChart: progressionPolicy?.fieldIds.includes(item.fieldId) === true }))
     .sort((left, right) => left.order - right.order)
   const sections = (Array.isArray(snapshot.emailSections) ? snapshot.emailSections : [])
     .map(normalizeSection)
@@ -214,6 +216,7 @@ function normalizeReport({
       name: normalizeText(snapshot.form?.name) || 'Development report',
       version: Number(snapshot.form?.version) || null,
       templateKey: normalizeText(snapshot.form?.templateKey),
+      progressionId: normalizeText(progressionPolicy?.formId || snapshot.form?.id),
     },
     overallScore: normalizeScore(snapshot.overallScore),
     overallMaxScore: normalizeScore(snapshot.overallMaxScore) ||
@@ -221,6 +224,7 @@ function normalizeReport({
       10,
     attendanceIncluded: snapshot.attendanceIncluded === true,
     progressionIncluded: snapshot.progressionIncluded === true,
+    progressionAllowed: progressionPolicy ? progressionPolicy.fieldIds.length > 0 : snapshot.progressionIncluded === true,
     responseItems,
     sections,
     deliveryState: delivery.deliveryState,
@@ -371,6 +375,7 @@ export async function loadHistory({ parentLink, supabaseAdmin }) {
   )
   const enrichedRows = candidateRows.map((row) => ({
     ...row,
+    progressionPolicy: evaluationById.has(normalizeText(row.evaluation_id)) ? getDevelopmentParentProgressionPolicy(evaluationById.get(normalizeText(row.evaluation_id))) : null,
     report_snapshot: enrichDevelopmentParentReportWithScores(
       repairDevelopmentParentReportProgression(
         row.report_snapshot,

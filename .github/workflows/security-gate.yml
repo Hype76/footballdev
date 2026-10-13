@@ -136,7 +136,7 @@ jobs:
       - name: Development report Parent notification eligibility
         run: node --test tests/coach-development-notifications.test.mjs tests/coach-development-notifications-pglite.test.mjs
       - name: Development report form progression and output parity
-        run: node --test tests/development-report-form-progression.test.mjs tests/development-parent-email-output.test.mjs tests/development-parent-report-content.test.mjs tests/development-scores-filenames-10c.test.mjs tests/parent-development-library-10b.test.mjs
+        run: node --test tests/development-report-form-progression.test.mjs tests/development-parent-email-output.test.mjs tests/development-parent-report-content.test.mjs tests/development-scores-filenames-10c.test.mjs tests/parent-development-library-10b.test.mjs tests/parent-development-progression.test.mjs
       - name: Install Parent encryption test dependencies
         run: npm ci --prefix apps/parent-mobile --include=optional
       - name: Reapply exact backports after Parent clean install
@@ -144,7 +144,7 @@ jobs:
       - name: Parent calendar, Fans back navigation and PDF saving
         run: node --test tests/parent-simon-feedback.test.mjs tests/parent-calendar-ota-compat.test.mjs tests/parent-calendar-feed.test.mjs tests/fan-schedule-upcoming.test.mjs tests/parent-match-report-save.test.mjs && node tests/parent-simon-feedback-browser.mjs
       - name: Development PDF background queue and phone viewer
-        run: node --test tests/development-pdf-background.test.mjs tests/development-pdf-foreground.test.mjs tests/development-pdf-queue.test.mjs tests/parent-development-pdf-actions.test.mjs tests/development-submission-flow.test.mjs && node tests/parent-development-pdf-browser.mjs
+        run: node --test tests/development-pdf-background.test.mjs tests/development-pdf-foreground.test.mjs tests/development-pdf-queue.test.mjs tests/parent-development-pdf-actions.test.mjs tests/development-submission-flow.test.mjs && node tests/parent-development-pdf-browser.mjs && node tests/parent-development-progression-browser.mjs
       - name: Fans layout and app invitation handoff
         run: >-
           node --test tests/fan-app-handoff.test.mjs tests/fan-app-link.test.mjs &&

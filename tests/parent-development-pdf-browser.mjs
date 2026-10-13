@@ -20,6 +20,8 @@ import {createPdfVisitTracker} from './apps/mobile-core/src/pdfVisit.js';
 import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME} from './apps/mobile-core/src/parentThemeCore.js';
 import {getParentStatusColours} from './apps/mobile-core/src/parentStatusColours.js';
 import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';
+import {getParentDevelopmentProgression} from './apps/mobile-core/src/parentDevelopmentProgression.js';
+import {ParentDevelopmentProgressionChart} from './apps/parent-mobile/src/ParentDevelopmentProgressionChart.js';
 const ParentIcon=()=>null,ResourceState=()=>null;const formatDate=value=>formatParentProductDateTime(value,{year:'numeric'});
 ${components}
 window.calls=[];window.guards=[];window.preparations=[];const onPrepare=(report,guard)=>window.preparations.push([report.id,guard()]);

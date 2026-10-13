@@ -194,16 +194,30 @@ export async function saveCoachDevelopmentTemplate(user, draft) {
   const validated = validateCoachDevelopmentTemplate(draft)
   const payload = { ...validated, club_id: user.clubId, team_id: user.activeTeamId, access_scope: 'creator',
     created_by: user.id, ...getCoachEntryIdentity(user), updated_by: user.id, ...getCoachEntryIdentity(user, 'updated') }
-  const result = await supabase.from('feedback_forms').insert(payload).select('*').single()
+  let result
+  try { result = await supabase.from('feedback_forms').insert(payload).select('*').single() }
+  catch (error) { result = { error } }
   let saved = result.data
-  if (result.error?.code === '23505') {
+  const denied = ['42501', 'PGRST301', 'PGRST302'].includes(result.error?.code) || [401, 403].includes(result.status || result.error?.status)
+  const uncertain = !denied && /network|failed to fetch|timed out|timeout/i.test(normalize(result.error?.message || result.error))
+  if (result.error?.code === '23505' || uncertain) {
     const existing = await supabase.from('feedback_forms').select('*').eq('id', validated.id).eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by', user.id).maybeSingle()
-    if (existing.error || !existing.data || JSON.stringify(validateCoachDevelopmentTemplate(existing.data)) !== JSON.stringify(validated)) throw new Error('This template changed. Reopen it before saving.')
+    if (existing.error || !existing.data) {
+      if (uncertain) throw result.error
+      throw new Error('This template changed. Reopen it before saving.')
+    }
+    if (JSON.stringify(validateCoachDevelopmentTemplate(existing.data)) !== JSON.stringify(validated)) throw new Error('This template changed. Reopen it before saving.')
     saved = existing.data
   } else if (result.error) throw result.error
   if (!saved) throw new Error('The saved template could not be confirmed.')
-  await recordCoachOperationalAudit({ user, action: 'feedback_form_created', entityType: 'feedback_form', entityId: saved.id, metadata: { formName: saved.name, fieldCount: saved.fields.length, accessScope: saved.access_scope } })
-  return normalizeCoachDevelopmentForm(saved)
+  const template = normalizeCoachDevelopmentForm(saved)
+  try { await recordCoachOperationalAudit({ user, action: 'feedback_form_created', entityType: 'feedback_form', entityId: saved.id, metadata: { formName: saved.name, fieldCount: saved.fields.length, accessScope: saved.access_scope } }) }
+  catch (error) {
+    const failure = new Error(error?.message || 'Activity confirmation could not be completed.', { cause: error })
+    failure.savedTemplate = { ...template, auditPending: true }
+    throw failure
+  }
+  return template
 }
 
 export async function setCoachDevelopmentTemplateAccess(user, template, accessScope) {
