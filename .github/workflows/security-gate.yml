@@ -158,6 +158,9 @@ jobs:
       - name: Mobile loading and read authority regression
         run: >-
           node --test
+          tests/invitation-cache-writer.test.mjs
+          tests/attendance-outbox.test.mjs
+          tests/attendance-ui-handlers.test.mjs
           tests/mobile-resource-loading-performance.test.mjs
           tests/coach-sessions-load-cache-boundary.test.mjs
           tests/coach-offline-cache-recovery.test.mjs

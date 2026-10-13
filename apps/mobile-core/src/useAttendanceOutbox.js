@@ -38,7 +38,7 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, 
         if (!isCurrent()) return
         setState(previous => ({ scope, commands, provisional: previous.scope === scope
           ? previous.provisional.filter(command => !commands.some(entry => entry.id === command.id)) : [], error: '' }))
-        const saved = commands.filter(command => command.status === 'saved').map(command => command.id).join(':')
+        const saved = commands.filter(command => ['saved', 'conflict'].includes(command.status)).map(command => `${command.status}:${command.id}`).join(':')
         if (saved && token.lastSaved !== saved) {
           token.lastSaved = saved
           Promise.resolve(token.onConfirmed?.()).catch(() => {})
@@ -80,6 +80,11 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, 
     return token
   }
   const commands = state.scope === scope ? [...state.commands, ...state.provisional] : []
+  const reconcile = useCallback(preparations => {
+    const token = current.current
+    if (!token?.isCurrent() || token.scope !== scope) return Promise.resolve()
+    return token.engine.reconcile(preparations).catch(() => {})
+  }, [scope])
   return { commands, error: state.scope === scope ? state.error : '',
     project: item => projectAttendanceChoice(item, commands, scope),
     enqueue: async (preparation, response, label) => {
@@ -101,5 +106,7 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, 
       return token.engine.review(id).catch(error => {
         if (token.isCurrent()) setState(previous => ({ ...previous, error: error.message || 'This answer still needs review.' }))
       })
-    } }
+    },
+    reconcile,
+  }
 }

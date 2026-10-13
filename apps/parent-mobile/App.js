@@ -550,6 +550,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     })),
     onConfirmed: () => loadParentData(),
   })
+  const reconcileAttendance = attendanceOutbox.reconcile
   const visibleInvitations = resources.invitations.items.map(attendanceOutbox.project)
   const visibleMatches = resources.matches.items.map((match) => {
     const journal = scorerOutboxes[match.id]
@@ -774,6 +775,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       concurrency: 4,
       onSettled(name, result, settled) {
         if (requestId !== requestIdRef.current) return
+        if (name === 'invitations' && result.status === 'fulfilled') {
+          void reconcileAttendance(result.value.map(invitation => invitation.attendancePreparation))
+        }
         const publishCalendar = calendarDependencies.includes(name)
         setResources((current) => {
           const next = { ...current }
@@ -878,7 +882,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       }
     }
     return { failed, items: refreshedItems, sync: reconciledSync }
-  }, [isOffline, selectedLink, selectedMobileUser])
+  }, [isOffline, selectedLink, selectedMobileUser, reconcileAttendance])
 
   const parentSyncScopeRef = useRef('')
   const parentActionScopeRef = useRef(0)

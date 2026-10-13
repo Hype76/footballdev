@@ -80,7 +80,7 @@ import {
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
-import { readCoachDevelopmentDrafts, readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { createCoachOfflineResourceSaver, readCoachDevelopmentDrafts, readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { useAttendanceOutbox, useAttendanceUiGuard } from '../../mobile-core/src/useAttendanceOutbox'
 import { AttendancePendingRows } from '../../mobile-core/src/AttendancePendingRows'
@@ -1095,8 +1095,9 @@ async function readSavedMatchInvites(user, context) {
   return saved?.resources?.['phase31e:invites:fixture']
 }
 
-async function saveMatchInvites(user, context, fixtureId, snapshot) {
-  await saveCoachOfflineResources(user.id, context, { 'phase31e:invites:fixture': {
+function createMatchInviteSaver(user, context, fixtureId) {
+  const save = createCoachOfflineResourceSaver(user, context)
+  return snapshot => save({ 'phase31e:invites:fixture': {
     fixtureId, rows: snapshot.rows, checkedAt: snapshot.checkedAt,
   } })
 }
@@ -1109,7 +1110,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate
   const focusedInvites = useCoachMatchInvites({ user, context, fixture: focusedFixture,
     cachedRows: (serverData.match || []).filter(invite => invite.eventId === matchId),
     sourceRevision: serverData.match,
-    loadRows: getCoachMatchInvites, readSaved: readSavedMatchInvites, saveRows: saveMatchInvites })
+    loadRows: getCoachMatchInvites, readSaved: readSavedMatchInvites, createSaver: createMatchInviteSaver })
   const fixtureSnapshot = focusedFixture ? { fixtureId: matchId, rows: focusedInvites.rows } : focusedInvites.lastSnapshot
   const matchRows = fixtureSnapshot ? [...(serverData.match || []).filter(invite => invite.eventId !== fixtureSnapshot.fixtureId), ...fixtureSnapshot.rows] : serverData.match || []
   const stale = focusedFixture ? focusedInvites.stale : domainStale
@@ -1533,12 +1534,11 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate
         <Pressable accessibilityRole="button" accessibilityLabel="All events" onPress={backToEvents} style={{ minHeight: 44, width: 32, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="chevron-left" size={28} color={palette.textPrimary} /></Pressable>
         <View style={{ flex: 1 }}>
           <Text accessibilityRole="header" style={{ color: palette.textPrimary, fontSize: 23, fontWeight: '800' }}>{trainingKey ? 'Training Invites' : 'Match Invites'}</Text>
-          {focusedFixture && !activity ? <Text accessibilityLiveRegion="polite" style={[styles.helper, { fontSize: 11, lineHeight: 14 }]}>{focusedInvites.checking ? 'Checking players...' : focusedInvites.stale ? user.isOfflineProfile ? 'Saved | offline' : 'Saved | check failed' : `Players checked ${new Date(focusedInvites.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}</Text> : null}
+          {focusedFixture ? <Text accessibilityLiveRegion="polite" numberOfLines={1} style={[styles.helper, { fontSize: 11, lineHeight: 14, minHeight: 14 }]}>{focusedInvites.saveFailed ? 'Offline copy unavailable. Retry saving.' : !activity ? focusedInvites.checking ? 'Checking players...' : focusedInvites.stale ? user.isOfflineProfile ? 'Saved | offline' : 'Saved | check failed' : `Players checked ${new Date(focusedInvites.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}</Text> : null}
         </View>
-        {focusedFixture ? <Pressable accessibilityRole="button" accessibilityLabel="Refresh this fixture" accessibilityState={{ disabled: focusedInvites.checking || user.isOfflineProfile }} disabled={focusedInvites.checking || user.isOfflineProfile} onPress={() => void focusedInvites.refresh()} style={{ minHeight: 44, width: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="refresh" size={24} color={palette.accentText} /></Pressable> : null}
+        {focusedFixture ? <Pressable accessibilityRole="button" accessibilityLabel={focusedInvites.saveFailed ? 'Retry saving invitations on this phone' : 'Refresh this fixture'} accessibilityState={{ disabled: focusedInvites.checking || user.isOfflineProfile }} disabled={focusedInvites.checking || user.isOfflineProfile} onPress={() => void (focusedInvites.saveFailed ? focusedInvites.retrySave() : focusedInvites.refresh())} style={{ minHeight: 44, width: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="refresh" size={24} color={palette.accentText} /></Pressable> : null}
         {matchId || trainingKey ? <Pressable accessibilityRole="button" accessibilityLabel="Invitation actions" accessibilityState={{ expanded: showEventActions }} onPress={() => setShowEventActions(value => !value)} style={{ minHeight: 44, width: 40, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons name="more-horiz" size={24} color={palette.textPrimary} /></Pressable> : null}
       </View>
-      {focusedInvites.saveFailed && focusedFixture ? activity ? <MobileFailureNotice message="All invitations loaded, but could not be saved on this phone. Stay online and retry." scopeKey={`${attendanceScope}:${focusedFixture.id}`} onRetry={focusedInvites.refresh} /> : <Text style={styles.helper}>All invitations loaded, but could not be saved on this phone. Stay online and retry.</Text> : null}
       {showEventActions && (selectedMatch || trainingKey) ? <View accessibilityLabel="Invitation actions menu" style={styles.panel}>
         {selectedMatch ? <>
           <Text style={styles.helper}>{matchRequestPlayerCount} Players have a request. {availablePlayers.length} current Team Players have no request.</Text>

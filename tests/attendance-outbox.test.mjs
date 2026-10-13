@@ -124,6 +124,34 @@ test('new authoritative revision stays visible while an older queued intent awai
   assert.equal(projected.responseState,'unavailable'); assert.equal(projected.attendancePending,true)
 })
 
+test('fresh same-answer preparation retires redundant conflict without mutation or notification', async () => {
+  const f=harness({online:true,execute:async()=>({outcome:'conflict',current:saved.current})})
+  await f.engine.enqueue(prep,'available'); await f.engine.sync()
+  assert.equal(f.read()[0].status,'conflict')
+  await f.engine.reconcile([{...prep,baseline:saved.current}])
+  assert.deepEqual(f.read(),[]); assert.equal(f.calls.length,1)
+})
+
+test('conflict reconciliation preserves different answers, stale reads, renewed invitations and rejected access', async () => {
+  const current={...saved.current,status:'unavailable',revision:'4'}
+  for (const fresh of [[], [{...prep,baseline:current}], [{...prep,baseline:{...saved.current,revision:'0'}}], [{...prep,target:{...prep.target,requestId:'renewed'},baseline:{...saved.current,revision:'5'}}]]) {
+    const f=harness({online:true,execute:async()=>({outcome:'conflict',current})})
+    await f.engine.enqueue(prep,'available'); await f.engine.sync(); await f.engine.reconcile(fresh)
+    assert.equal(f.read()[0].status,'conflict'); assert.equal(f.calls.length,1)
+  }
+  const f=harness({online:true,execute:async()=>{throw Object.assign(Error('Access changed'),{code:'42501'})}})
+  await f.engine.enqueue(prep,'available'); await f.engine.sync(); await f.engine.reconcile([{...prep,baseline:saved.current}])
+  assert.equal(f.read()[0].status,'rejected')
+})
+
+test('late conflict reconciliation cannot remove another account or active pending intent', async () => {
+  const f=harness({online:true,execute:async()=>({outcome:'conflict',current:saved.current})})
+  await f.engine.enqueue(prep,'available'); await f.engine.sync(); f.invalidate()
+  await f.engine.reconcile([{...prep,baseline:saved.current}]); assert.equal(f.read()[0].status,'conflict')
+  const pending=harness(); await pending.engine.enqueue(prep,'available')
+  await pending.engine.reconcile([{...prep,baseline:saved.current}]); assert.equal(pending.read()[0].status,'pending')
+})
+
 test('confirmed result remains visible before resource refresh and across restart, then yields to newer authority', async () => {
   const f=harness({online:true}); await f.engine.enqueue(prep,'available');await f.engine.sync()
   const item={attendancePreparation:prep,responseState:'pending'}
@@ -210,7 +238,7 @@ test('authoritative preparation reconciles a response row read before an interve
 test('actual encrypted offline store retains pending commands across restart and rejects stale account writes', async () => {
   const requireSource=createRequire(new URL('../apps/parent-mobile/package.json', import.meta.url))
   const {xchacha20poly1305}=requireSource('@noble/ciphers/chacha.js')
-  const storageSource=fs.readFileSync('E:/FP-PARENT-NOTIFICATIONS-20261002/apps/mobile-core/src/offlineStorageCore.js','utf8')
+  const storageSource=fs.readFileSync(new URL('../apps/mobile-core/src/offlineStorageCore.js',import.meta.url),'utf8')
   const {createEncryptedOfflineStore}=await import(`data:text/javascript;base64,${Buffer.from(storageSource).toString('base64')}`)
   const raw=new Map(), keys=new Map()
   const storage={getItem:async key=>raw.get(key)||null,setItem:async(key,value)=>raw.set(key,value),removeItem:async key=>raw.delete(key)}
