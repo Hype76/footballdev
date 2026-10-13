@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "c9c657cb28ac07fc2bdabadf928417eec4957019728de73aef522a62912b76c0",
+    "scripts/security-verify-reviewed-backports.mjs": "1c55aa8fa905656946275a742fc64635cbf3efaecf63cea8f0433cb8f3663c7e",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1099,8 +1099,8 @@
       "apps/mobile-core/src/mobileTeamLeagueStorage.native.js": "29bb505b56191ae7c5a8c0d686372771231467756cd82f821ea1ca5aeb54af4d",
       "tests/mobile-persistent-loading.test.mjs": "4583db913913fe50e6e181c5bc40d9c2f083aa072f8a7fab6bb2f7459e5c0044",
       "supabase/migrations/20261013094543_development_parent_notification_eligibility.sql": "e4cce970d47de00d404607ab6a39f3c4d8fa9bf6bdfd2eac749685852f116ac3",
-      "netlify/functions/lib/_development-parent-email-output.js": "4197b1b41b48c0533d527c0e76bdd5f21d25e4ef315cfe9e3d703137e1b6cf55",
-      "netlify/functions/lib/_parent-development-history.js": "51a40928ad212d220c7beb1c15b8ba44daa7e918338ba172bae06247e2a57df3",
+      "netlify/functions/lib/_development-parent-email-output.js": "0a99a661da17a6d4d3cd275a0ad1da89bcd4d67a9c2a165067fcb6c0dbb43165",
+      "netlify/functions/lib/_parent-development-history.js": "8e97fd0281c7148bb6b714fb11736e98ea23773cc76f53812340b222ec0108e9",
       "tests/development-parent-email-output.test.mjs": "5e55a20b119cc53c893129f239c3555e46e7e583e1adfbd7230aaa7b14b92c87",
       "tests/development-report-form-progression.test.mjs": "03e95f4cfe2fec20ba706c5185fc258a66a5e0b52b4c136ff0b0ca5b946a96d1",
       "apps/parent-mobile/parentDevelopment.js": "da85be42f4b1eff315bd4cd5bc626b79899617609b0f94d24bad3a032c42f352",
@@ -1121,21 +1121,21 @@
       "netlify/functions/lib/_pdf-branding.js": "101e0fcbf0f79eca99948324d16a67ed7ad814e3c063d5ae1c828ca0f155c1b2",
       "netlify/functions/lib/_pdf-report.js": "748a84ad5c4e89541c3ea8967e24b53a8ce88045083c63083a8add4e9acc9886",
       ".github/workflows/security-gate.yml": "398204017c0f67412cb9d0373ba68770fe145a41fc18504a92fed93bee705b40",
-      "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "6194580a8c0dafd2993a1e8bd3e11b776ebb1c4f9dc86908e75fa99f428fc1f1",
+      "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "976c1e91e9b86eff4621bac8e58e06022e83c8c50f08b21dc389dec9b79dbdb9",
       "apps/mobile-core/src/coachDevelopmentTemplateCore.js": "7ead6e3472e0d634948e775aafa08a97d90d55e38254a01ed33bc503c26e7de9",
       "apps/parent-mobile/src/parentScorerOutboxCore.js": "bb482e8082aa56196910f3ae14c973f1d76df518eb8622aab3d16175c41cc619",
       "netlify/functions/lib/_fan-push.js": "6fc340f4e6aca8b343846f51580f5b075871457933b8170f6c382d0ea58f31c8",
       "supabase/migrations/20261013144500_coach_template_access_and_scorer_corrections.sql": "db362281b0da1d4faee46d05743638fcc4a7eaf53b5da73524f8c69bc77a6bc2",
-      "tests/coach-development-template-browser.mjs": "72015a1b9730a2e9e381e52ab6e7f9756a7f26596914dac42efa10810c886a5b",
+      "tests/coach-development-template-browser.mjs": "9ccb2fa5c3fe1a28561b5e2f955e718bd8095f98164e723efd457ba207b0d51c",
       "tests/coach-development-template.test.mjs": "8b4cad74de5e5317e1b5fe752655586059d86b98869d4dd9d6a76f1aa2184734",
       "tests/coach-template-and-scorer-corrections-db.test.mjs": "aa3495b2c4a7c39e3138489c6c0a5787c65a7836a9654ea39e13d3ca84446ae5",
       "tests/fans-endpoint.test.mjs": "8a911d433f302361b485484804da2a045406e17d404eef521ffd645e94786c9d",
       "tests/mobile-coach-phase31e.test.mjs": "98ecb711b44a7b137d01042e63b40cb0f0f1f8d5a27b363486e3e822eb2d60cb",
       "tests/parent-mobile-messages-pdf-34d.test.mjs": "2347c6d9eaca0bca933955c8cf632c2f02c8e7426e930b05cc9bca13906b4c96",
       "tests/parent-scorer-offline-outbox.test.mjs": "255e0de9aeaa1f04c53b37aff49fda37aa4804d1c2955f3393d46888dcdf9b38",
-      "apps/mobile-core/src/parentDevelopmentProgression.js": "215055465a4d4661f2da059dd61b563dc23be3c11e7c14359effc42b787f2159",
+      "apps/mobile-core/src/parentDevelopmentProgression.js": "dccc2c61d7b811f7db0c9287e78aa1a8a1b0e4953535fb784af8476f62c572d8",
       "apps/parent-mobile/src/ParentDevelopmentProgressionChart.js": "189ccf1e8f3077178f4eb9df33d2d82dd0fda106e7d353287f95426f77c0ff49",
-      "tests/parent-development-progression.test.mjs": "0a5c2a3bb2d6435d9ec62a6aaee7792a1690801f91d5ab55dd765c58add17109",
+      "tests/parent-development-progression.test.mjs": "1450a7325736d5e09cdd3fbf52b73bd8229a6c86738412843c7257a197b243a4",
       "tests/parent-development-progression-browser.mjs": "4408c03a9b6af88389b9d5c5ed8169215c517e0082e761311a9865c324379eb6"
     },
     "externalTrustInputs": [
@@ -2135,7 +2135,7 @@
       "migrations": 0
     }
   },
-  "releasePreparationSha256": "8d7709f1190ad326aded4902e757e0def4ddb02cda0d033334103951d84918b3",
+  "releasePreparationSha256": "5d7db4137f6f48dd42f094c486171b5ae0537721947b4d25640c932446fdd366",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

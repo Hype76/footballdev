@@ -161,12 +161,16 @@ function isSameDevelopmentProgressionForm(current, candidate) {
 
 export function getDevelopmentParentProgressionPolicy(evaluation = {}) {
   const current = normalizeDevelopmentProgressionEvaluation(evaluation)
+  const scoreFields = current.feedbackFormSnapshot.fields.filter((field) => isAssessmentScoreFieldType(normalizeText(field.type)))
+  const fieldIds = current.feedbackFormSnapshot.fields
+    .filter((field) => field.includeInProgressChart === true && field.parentVisible !== false && field.parent_visible !== false)
+    .map((field) => normalizeText(field.id)).filter(Boolean)
   return {
     formId: current.feedbackFormId,
-    fieldIds: current.feedbackFormSnapshot.fields
-      .filter((field) => field.includeInProgressChart === true && field.parentVisible !== false && field.parent_visible !== false)
-      .map((field) => normalizeText(field.id))
-      .filter(Boolean),
+    fieldIds,
+    overallFieldIds: scoreFields.length > 0 && scoreFields.every((field) => fieldIds.includes(normalizeText(field.id))) &&
+      new Set(scoreFields.map((field) => getAssessmentScoreMax(normalizeText(field.type)))).size === 1
+      ? scoreFields.map((field) => normalizeText(field.id)) : [],
   }
 }
 

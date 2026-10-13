@@ -46,16 +46,40 @@ test('single assessment, empty sections and invalid points never produce an orph
 })
 
 test('saved shared averages remain authoritative when all score fields are eligible, mixed scales use safe normalisation', () => {
-  const saved = [first, second].map(row => ({ ...row, overallScore: 2.7, responseItems: [{ ...item, numericScore: 3.2 }] }))
+  const saved = [first, second].map(row => ({ ...row, progressionCanUseOverall: true, overallScore: 2.7, responseItems: [{ ...item, numericScore: 3.2 }] }))
   assert.deepEqual(getParentDevelopmentProgression(saved[0], saved).points.map(p => p.value), [2.7, 2.7])
+  const unproven = saved.map(row => ({ ...row, progressionCanUseOverall: undefined }))
+  assert.deepEqual(getParentDevelopmentProgression(unproven[0], unproven).points.map(p => p.value), [3.2, 3.2])
   const mixed = [first, second].map(row => ({ ...row, overallScore: 5, overallMaxScore: 5, responseItems: [{ ...item, numericScore: 8 }, { ...item, fieldId: 'five', numericScore: 4, maxScore: 5 }] }))
   assert.deepEqual(getParentDevelopmentProgression(mixed[0], mixed).points.map(p => p.value), [8, 8])
 })
 
 test('server eligibility uses the authoritative form snapshot and excludes disabled/private chart fields', () => {
   const evaluation = { feedback_form_snapshot: { id: 'platform-starter:elite:1', fields: [field, { ...field, id: 'private', staffPrivate: true }, { ...field, id: 'disabled', enabled: false }, { ...field, id: 'off', includeInProgressChart: false }] } }
-  assert.deepEqual(getDevelopmentParentProgressionPolicy(evaluation), { formId: 'platform-starter:elite:1', fieldIds: ['technical'] })
+  assert.deepEqual(getDevelopmentParentProgressionPolicy(evaluation), { formId: 'platform-starter:elite:1', fieldIds: ['technical'], overallFieldIds: [] })
   for (const flag of [{ parentVisible: false }, { isDefault: true, parentVisible: false }, { parent_visible: false }, { isEnabled: false }, { is_enabled: false }, { staff_private: true }]) assert.deepEqual(getDevelopmentParentProgressionPolicy({ feedback_form_snapshot: { id: 'form', fields: [{ ...field, ...flag }] } }).fieldIds, [])
+})
+
+test('actual history never reuses an average containing omitted private, disabled, excluded or unselected scores', () => {
+  const parentLink = { id: 'parent', club_id: 'club', team_id: 'team', player_id: 'player' }
+  for (const hidden of [{ staffPrivate: true }, { enabled: false }, { includeInProgressChart: false }, {}]) {
+    const progressionPolicy = getDevelopmentParentProgressionPolicy({ feedback_form_snapshot: { id: 'form', fields: [field, { ...field, id: 'omitted', ...hidden }] } })
+    const rows = [first, second].map(row => ({ evaluation_id: row.id, finalized_at: row.finalizedAt, progressionPolicy,
+      report_snapshot: { ...row, evaluationId: row.id, recipients: [{ linkId: 'parent' }], overallScore: 9,
+        responseItems: [{ ...item, numericScore: 2, displayValue: '2 / 10', selected: true, parentVisible: true }], emailSections: [] } }))
+    const history = buildParentDevelopmentHistory({ parentLink, reportRows: rows, communicationLogs: [], queues: [] })
+    assert.equal(history.length, 2)
+    assert.equal(history[0].progressionCanUseOverall, false)
+    assert.deepEqual(getParentDevelopmentProgression(history[0], history).points.map(point => point.value), [2, 2])
+    assert.equal(JSON.stringify(history).includes('overallFieldIds'), false, 'Authoritative field identifiers remain server-only')
+  }
+  const progressionPolicy = getDevelopmentParentProgressionPolicy({ feedback_form_snapshot: { id: 'form', fields: [field] } })
+  const rows = [first, second].map(row => ({ evaluation_id: row.id, finalized_at: row.finalizedAt, progressionPolicy,
+    report_snapshot: { ...row, evaluationId: row.id, recipients: [{ linkId: 'parent' }], overallScore: 2.7,
+      responseItems: [{ ...item, numericScore: 3.2, displayValue: '3.2 / 10', selected: true, parentVisible: true }], emailSections: [] } }))
+  const history = buildParentDevelopmentHistory({ parentLink, reportRows: rows, communicationLogs: [], queues: [] })
+  assert.equal(history[0].progressionCanUseOverall, true)
+  assert.deepEqual(getParentDevelopmentProgression(history[0], history).points.map(point => point.value), [2.7, 2.7])
 })
 
 test('actual Parent history only publishes chart eligibility on responses already shared to that relationship', () => {

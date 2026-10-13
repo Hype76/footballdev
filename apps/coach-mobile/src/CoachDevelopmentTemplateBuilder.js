@@ -78,7 +78,16 @@ export function CoachDevelopmentTemplateBuilder({ context, onBack, onSaved, onUs
   }, 'The template save could not be confirmed. Your fields are still on this phone. Retry saving when connected.')
   const saveAccess = () => action(async () => {
     if (stale) throw new Error('Connect before changing template access.')
-    const saved = savedTemplate.accessScope === accessScope ? savedTemplate : await setCoachDevelopmentTemplateAccess(user, savedTemplate, accessScope)
+    if (savedTemplate.auditPending) {
+      try { await saveCoachDevelopmentTemplate(user, draft) }
+      catch (failure) {
+        if (!failure.savedTemplate) throw failure
+        if (session.active) setError('Template saved. Activity logging could not be confirmed. Retry activity confirmation when connected.')
+        return
+      }
+      if (!session.active) return
+    }
+    const saved = { ...(savedTemplate.accessScope === accessScope ? savedTemplate : await setCoachDevelopmentTemplateAccess(user, savedTemplate, accessScope)), auditPending: false }
     if (!session.active) return
     setSavedTemplate(saved); onSaved?.(saved)
     let phoneWarning = ''

@@ -31,7 +31,7 @@ function sharedScore(report) {
   const eligible = scores.filter(item => item.includeInProgressChart === true && Number(item.maxScore || 10) > 0 && Number(item.numericScore) > 0 && Number(item.numericScore) <= Number(item.maxScore || 10))
   if (!eligible.length) return null
   const overall = Number(report.overallScore), maximum = Number(report.overallMaxScore || 10)
-  if (eligible.length === scores.length && new Set(scores.map(item => Number(item.maxScore || 10))).size === 1 && report.overallScore !== null && report.overallScore !== undefined && report.overallScore !== '' && overall > 0 && maximum > 0 && overall <= maximum) return overall * 10 / maximum
+  if (report.progressionCanUseOverall === true && eligible.length === scores.length && new Set(scores.map(item => Number(item.maxScore || 10))).size === 1 && report.overallScore !== null && report.overallScore !== undefined && report.overallScore !== '' && overall > 0 && maximum > 0 && overall <= maximum) return overall * 10 / maximum
   return eligible.reduce((sum, item) => sum + Number(item.numericScore) * 10 / Number(item.maxScore || 10), 0) / eligible.length
 }
 

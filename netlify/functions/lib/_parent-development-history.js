@@ -225,6 +225,10 @@ function normalizeReport({
     attendanceIncluded: snapshot.attendanceIncluded === true,
     progressionIncluded: snapshot.progressionIncluded === true,
     progressionAllowed: progressionPolicy ? progressionPolicy.fieldIds.length > 0 : snapshot.progressionIncluded === true,
+    progressionCanUseOverall: Boolean(progressionPolicy?.overallFieldIds?.length &&
+      progressionPolicy.overallFieldIds.every(fieldId => responseItems.some(item => item.fieldId === fieldId &&
+        item.includeInProgressChart === true && item.numericScore > 0 && item.numericScore <= item.maxScore)) &&
+      responseItems.filter(item => item.numericScore !== null).every(item => progressionPolicy.overallFieldIds.includes(item.fieldId))),
     responseItems,
     sections,
     deliveryState: delivery.deliveryState,
