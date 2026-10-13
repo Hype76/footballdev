@@ -63,6 +63,17 @@ test('explicit chart exclusions, private fields and later records stay excluded'
   ]).map(point => point.value), [3.3, 3.2])
 })
 
+test('private and disabled score fields remain excluded even with explicit chart flags and saved averages', () => {
+  for (const exclusion of [{ staffPrivate: true }, { staff_private: true }, { parentVisible: false }, { enabled: false }, { isEnabled: false }, { is_enabled: false }]) {
+    const snapshot = { id: formId, name: 'U14 JPL', fields: [
+      { ...fields[0], includeInProgressChart: true },
+      { id: 'excluded', label: 'Excluded', type: 'score_1_10', parentVisible: true, includeInProgressChart: true, ...exclusion },
+    ] }
+    const records = ['2026-10-05', '2026-10-13'].map((date, index) => record(`exclusion-${index}`, date, 6, { feedback_form_snapshot: snapshot, form_responses: { fitness: 2, excluded: 10 } }))
+    assert.deepEqual(points(records[1], records).map(point => point.value), [2, 2], JSON.stringify(exclusion))
+  }
+})
+
 test('PDF and email receive the same correctly scoped chart without Elite scores', () => {
   const report = resolveDevelopmentParentReport({ evaluation: current, evaluations: history, requestedSections, club: { name: 'FP TEST Club' }, team: { name: 'FP TEST Team' }, player: { player_name: 'FP TEST Player' } })
   const content = buildDevelopmentParentReportContent(report)

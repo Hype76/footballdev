@@ -124,10 +124,10 @@ function normalizeDevelopmentProgressionEvaluation(evaluation = {}) {
     ...snapshot,
     fields: (Array.isArray(snapshot.fields) ? snapshot.fields : []).map((field) => ({
       ...field,
-      includeInProgressChart: field.includeInProgressChart ?? field.include_in_progress_chart ??
-        (phoneSnapshot && isParentVisibleField(field) && field.enabled !== false && field.isEnabled !== false && field.is_enabled !== false && field.staffPrivate !== true && field.staff_private !== true
-          ? isAssessmentScoreFieldType(normalizeText(field.type))
-          : Boolean(field.isDefault ?? field.is_default)),
+      includeInProgressChart: isParentVisibleField(field) && field.enabled !== false && field.isEnabled !== false && field.is_enabled !== false && field.staffPrivate !== true && field.staff_private !== true && Boolean(
+        field.includeInProgressChart ?? field.include_in_progress_chart ??
+          (phoneSnapshot ? isAssessmentScoreFieldType(normalizeText(field.type)) : (field.isDefault ?? field.is_default)),
+      ),
     })),
   }
   const scoreFields = feedbackFormSnapshot.fields.filter((field) => isAssessmentScoreFieldType(normalizeText(field.type)))

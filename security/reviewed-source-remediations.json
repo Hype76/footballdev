@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "0e531f4e95a391e0373fdab7f5d5a48437feb7b91f702b3c2d26f9b9ba1b0b49",
+    "scripts/security-verify-reviewed-backports.mjs": "bf8eb0ee6814031ae91591cd711044ff8addb7fe7d22d5b8a0cb923d8b001304",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1099,10 +1099,10 @@
       "apps/mobile-core/src/mobileTeamLeagueStorage.native.js": "29bb505b56191ae7c5a8c0d686372771231467756cd82f821ea1ca5aeb54af4d",
       "tests/mobile-persistent-loading.test.mjs": "4583db913913fe50e6e181c5bc40d9c2f083aa072f8a7fab6bb2f7459e5c0044",
       "supabase/migrations/20261013094543_development_parent_notification_eligibility.sql": "e4cce970d47de00d404607ab6a39f3c4d8fa9bf6bdfd2eac749685852f116ac3",
-      "netlify/functions/lib/_development-parent-email-output.js": "61961efb7a273b26aeb1a9911a433433bee53fbe0dbc2078d8094639b65ff641",
+      "netlify/functions/lib/_development-parent-email-output.js": "e3c7f0eec5191a2ad6cfa58b63d179088729db5729c1cf7a4a5e389ea6585b90",
       "netlify/functions/lib/_parent-development-history.js": "fa08b1fcc3750a12eadf88040e0c4a849fe43c9d9d6151563b233992c05f6879",
       "tests/development-parent-email-output.test.mjs": "5e55a20b119cc53c893129f239c3555e46e7e583e1adfbd7230aaa7b14b92c87",
-      "tests/development-report-form-progression.test.mjs": "273ec6ed0b8ea2baa2b2e331a5148e707ed425ff57b3715fdc04c9d98be3ca28"
+      "tests/development-report-form-progression.test.mjs": "03e95f4cfe2fec20ba706c5185fc258a66a5e0b52b4c136ff0b0ca5b946a96d1"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2056,7 +2056,7 @@
       "customerWrites": 0
     }
   },
-  "releasePreparationSha256": "c3847d33a28905edc4e9f0ecffb10ec39c34edc31574323b9c8d6f4fec00aea4",
+  "releasePreparationSha256": "0beecd8c7b497f8bdc30f19325fb98151215f01ce146d4af357004fd1de42bf4",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
