@@ -59,7 +59,7 @@ try{
  await page.getByRole('button',{name:'Save Home kit',exact:true}).click();await page.getByText('Home kit saved.',{exact:true}).waitFor()
  assert.equal(await page.evaluate(async()=>{const i=new Image();i.src=window.images[window.saved.at(-1).image_path];await i.decode();const c=document.createElement('canvas');c.width=c.height=512;c.getContext('2d').drawImage(i,0,0);return c.getContext('2d').getImageData(50,250,1,1).data[3]}),0,'Saved PNG preserves transparent background')
  assert.equal(await page.evaluate(()=>window.saved.at(-1).colour),'#246810');assert.ok(await page.evaluate(()=>window.saved.at(-1).image_path.startsWith('club/home/')))
- await page.evaluate(()=>window.screen('native'));await page.getByText('Home kit',{exact:true}).waitFor();assert.ok(await page.locator('img').count()>0)
+ await page.evaluate(()=>window.screen('native'));await page.getByText('Home kit',{exact:true}).waitFor();await page.getByRole('button',{name:'Enlarge home kit image',exact:true}).waitFor();assert.ok(await page.locator('img').count()>0)
  await page.getByRole('button',{name:'Enlarge home kit image',exact:true}).click()
  await page.getByRole('button',{name:'Close kit image',exact:true}).waitFor()
  const enlarged=page.getByLabel('Home kit enlarged',{exact:true});await enlarged.waitFor()

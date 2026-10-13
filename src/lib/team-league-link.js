@@ -57,7 +57,11 @@ export async function readTeamLeagueLink(client, scope) {
   const { data, error } = await client.rpc(coach ? 'get_team_league_url' : 'get_parent_player_team_league_url', coach
     ? { team_id_value: scope.teamId }
     : { link_id_value: scope.linkId, link_type_value: scope.kind })
-  if (error) throw new Error('The team league link could not be loaded. Refresh your team access and try again.')
+  if (error) {
+    const failure = new Error('The team league link could not be loaded. Refresh your team access and try again.')
+    failure.isNetworkError = !error.code && /failed to fetch|network request failed|networkerror|fetch failed/i.test(String(error.message || ''))
+    throw failure
+  }
   return normalizeTeamLeagueState(data, scope)
 }
 
@@ -82,7 +86,7 @@ export async function openTeamLeagueWebsite(value, opener, isCurrent = () => tru
   return true
 }
 
-// Every visit gets a new gate, including A to B to A switches. No URL is cached.
+// Every visit gets a new authority gate, including A to B to A switches.
 export function createTeamLeagueRequestGate() {
   let generation = 0, active = true, saving = null
   return {
