@@ -76,6 +76,7 @@ export async function authorizeAssessmentPdfReport({
   playerId = '',
   document,
   diagnostics = null,
+  deferLogo = false,
 }) {
   const validatedDocument = validatePdfDocument(document)
 
@@ -96,6 +97,7 @@ export async function authorizeAssessmentPdfReport({
     teamId: resourceTeamId,
     reportType: validatedDocument.reportType,
     diagnostics,
+    deferLogo,
   })
   const authorizedDocument = validatePdfDocument({
     ...validatedDocument,

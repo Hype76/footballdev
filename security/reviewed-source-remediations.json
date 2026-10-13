@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "6e6151af358f46168dd06b8f1228c7426ba429692b57630c1dfcc05f59ca2b24",
+    "scripts/security-verify-reviewed-backports.mjs": "31ec580b40c43216fae04ab88bde037d57623bed5cf154d6c11a113904d45129",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -975,7 +975,7 @@
       "netlify/functions/lib/_coach-development-notifications.js": "827b76a402fb8f79aa5cecbd91555de350cab0c44e49fa6530630b685f18d50f",
       "netlify/functions/lib/_expo-push.js": "d44b766459766f7088aa708eee4bf21c23d28b0e506b8b4f1517d4d33f18b9cc",
       "netlify/functions/lib/_mobile-notification-preferences.js": "04bf164efdb33d2bae8bb99dd516c43e6492144cbd03ff714c24e8a68e57541d",
-      "netlify/functions/send-parent-email.js": "f9b8917ff20b36c6e623bb294ddc02e82699dace04c3f7880d5193240b0ba2f3",
+      "netlify/functions/send-parent-email.js": "7b487d798cfff41e2a77446ed497ab8cb1da528b7b43d67eaadf444ef4107450",
       "supabase/migrations/20261007114801_phone_team_coach_roster_removal.sql": "d0eefcda5e07d458b9cddff127eaad7974b41f56d10f4053983be0f58b502b01",
       "tests/coach-development-notifications-pglite.test.mjs": "6418fc6a46cff08d211b2bedd0667bf89569bdb0e56737bb61a928c0320b94e8",
       "tests/coach-development-notifications.test.mjs": "17a18bb6706deee36f003118099202301f1113aecd73825edbfb653e6ad41eef",
@@ -1106,18 +1106,20 @@
       "apps/parent-mobile/parentDevelopment.js": "7b9f34af83a6122ba0a0c17aaa6ba24aafca84b07fd32b0660a3f6fdf58e00e0",
       "apps/mobile-core/src/pdfVisit.js": "c54a40c6df085888d35bbae95504c03947dc54a9e85fcf4a3e9b99dc7ef472f4",
       "netlify/functions/lib/_plan-gate.js": "276c404bdbc53946d255d6716f4e3f1e34f8ebb2ad4dc77ea2d53f3674eb4908",
-      "netlify/functions/lib/_development-pdf-background.js": "7d09fb255e17a98986ca12bc39c1daaa9d94f363554fbc373ee63e6e6d0e8526",
+      "netlify/functions/lib/_development-pdf-background.js": "1add6eb7e95e92749e65a4b3bb8c8a3d570c9f39b6b243459a8184713495b96f",
       "netlify/functions/parent-development-history.js": "ec2c081ddfa0b65e3dccfce3c950f838b66cf5e157763ff9ff2a721eec6205da",
       "netlify/functions/process-scheduled-emails.js": "934ef89c30e9903e64692962b9435f6e403753c9636592b86338722c629e9fee",
       "src/lib/development-submission-flow.js": "4f11fa0ad7ad6530797021e45c31ccb9038c82685a84a00d2d34e50ac3ed179b",
       "src/pages/CreateEvaluationPage.jsx": "ff70ddabe9e3db6a2a4080ab1e73d5413877cc2bc48294de92bf9b199fc94057",
       "tests/development-submission-flow.test.mjs": "260e58f47e73da9f407bdae42c126f7ddc5cc50ba4101901248418fe40b20075",
       "supabase/migrations/20261013111506_development_pdf_private_artifacts.sql": "bec7db517354652792b2f11fa6bbedd94ba7c2059b9322fbe803deb87276465f",
-      "tests/development-pdf-background.test.mjs": "4ede6c562a294efc9153ccf6f755b3a70454b18421eb222cff1808f54ae1caff",
-      "tests/development-pdf-foreground.test.mjs": "242450e01079fe90dce9fe6642cf1310e90ac4166b1b9783c3b77079dab084f2",
+      "tests/development-pdf-background.test.mjs": "9979270b266872398f7ebecfc23c114f6472bcea5a2004bd8cee6af805bd4332",
+      "tests/development-pdf-foreground.test.mjs": "eea903b3015b77a2dad6f727df6ff857056cfaf12cd72904390ddcc72e8d23ab",
       "tests/development-pdf-queue.test.mjs": "c6885cf03c229036bcadf754874f5c61e0f14567b527c4e4aada9c583e8de7ec",
       "tests/parent-development-pdf-actions.test.mjs": "65a6a7d4a9cc2e3f49ceb4273acb3a468a7d8a875ef3a81cc7d4a19906e68e41",
-      "tests/parent-development-pdf-browser.mjs": "8571d0776cbeb533eb7f9fd6c1b144c43e371ae37d0e8527b9aea0ba373650ec"
+      "tests/parent-development-pdf-browser.mjs": "8571d0776cbeb533eb7f9fd6c1b144c43e371ae37d0e8527b9aea0ba373650ec",
+      "netlify/functions/lib/_pdf-branding.js": "101e0fcbf0f79eca99948324d16a67ed7ad814e3c063d5ae1c828ca0f155c1b2",
+      "netlify/functions/lib/_pdf-report.js": "748a84ad5c4e89541c3ea8967e24b53a8ce88045083c63083a8add4e9acc9886"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2085,7 +2087,7 @@
       "migrations": 1
     }
   },
-  "releasePreparationSha256": "52a4bbb1a5f4e4d79aace3604624a6f5333be788fa2c300fbdd58f7cc795ba46",
+  "releasePreparationSha256": "fc29c6fc03b97998e01e04e21a82543e5fcc9e87d01770dff25feab1964d5a90",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

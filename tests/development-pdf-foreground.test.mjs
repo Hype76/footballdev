@@ -7,6 +7,7 @@ import { resolveDevelopmentEmailOutputPolicy, normalizeDevelopmentEmailBody } fr
 process.env.VITE_SUPABASE_URL = 'https://example.supabase.co'
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'fixture-only-service-key'
 const { assertPlanFeature } = await import('../netlify/functions/lib/_plan-gate.js')
+const { buildPdfBrandingForAuthorisedScope } = await import('../netlify/functions/lib/_pdf-branding.js')
 const { sealDeferredDevelopmentPdf, developmentReportHash, verifyDeferredDevelopmentPdf } = await import('../netlify/functions/lib/_development-pdf-background.js')
 const source = await readFile(new URL('../netlify/functions/send-parent-email.js', import.meta.url), 'utf8')
 const declarations = parse(source, { sourceType: 'module' }).program.body.map(node => node.declaration || node)
@@ -33,7 +34,7 @@ test('actual Coach email preparation returns the sealed deferred request while P
     buildDevelopmentPdfFilename: () => 'FP-TEST-13-10-2026.pdf',
     buildDevelopmentParentEmailHtml: () => '<p>Authorised selected report attached</p>',
     buildAssessmentPdfDocument: () => ({ id: 'document' }),
-    authorizeAssessmentPdfReport: async ({ document }) => ({ document, branding: { clubName: 'FP TEST Club' } }),
+    authorizeAssessmentPdfReport: async ({ document, deferLogo }) => { assert.equal(deferLogo, true); return { document, branding: { clubName: 'FP TEST Club' } } },
     buildPdfAttachment: () => { renders++; return new Promise(() => {}) },
     buildProgressionChartAttachments: () => { renders++; return new Promise(() => {}) },
     createFromAddress: name => `${name} <fixture@example.test>`, sealDeferredDevelopmentPdf, developmentReportHash,
@@ -48,4 +49,13 @@ test('actual Coach email preparation returns the sealed deferred request while P
     assert.equal(verifyDeferredDevelopmentPdf(result.storedPayload).filename, 'FP-TEST-13-10-2026.pdf')
     assert.equal(result.storedPayload.pendingDevelopmentPdf.snapshotHash, developmentReportHash(report))
   } finally { clearTimeout(timeoutId) }
+})
+
+test('deferred branding keeps the authorised club identity without waiting for an unavailable logo download', async () => {
+  let downloads = 0
+  const branding = await buildPdfBrandingForAuthorisedScope({ deferLogo: true, supabaseAdmin: { storage: { from() { downloads++; throw new Error('Logo download unavailable') } } }, club: { id: 'club', name: 'FP TEST Club', logo_url: 'https://example.supabase.co/storage/v1/object/public/club-logos/club/logos/logo.png', theme_accent: 'blue' }, team: { name: 'FP TEST Team' }, reportType: 'assessment' })
+  assert.equal(downloads, 0)
+  assert.equal(branding.clubName, 'FP TEST Club')
+  assert.equal(branding.teamName, 'FP TEST Team')
+  assert.equal(branding.clubLogoData, '')
 })

@@ -612,6 +612,7 @@ export async function prepareParentEmail({ body, requestUser, deferPdf = false }
         playerId: developmentContext?.player?.id || body.playerId,
         document: authoritativePdfDocument,
         diagnostics: pdfDiagnostics,
+        deferLogo: deferPdf,
       })
     : null
   const pdfStartedAt = shouldAttachPdf && !deferPdf ? new Date().toISOString() : null

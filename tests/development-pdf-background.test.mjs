@@ -23,7 +23,7 @@ function harness(overrides = {}) {
   const calls = []
   let currentSnapshot = snapshot
   const client = { from() { return { select() { return this }, eq() { return this }, async maybeSingle() { return { data: { report_snapshot: currentSnapshot } } } } } }
-  const options = { secret, loadProfile: async () => { calls.push('authority'); return profile }, reauthorize: async (_, prepared) => { calls.push('recipient'); return prepared }, render: async () => { calls.push('render'); return Buffer.from('%PDF-1.4\n' + 'x'.repeat(120)) }, store: async (_, value) => { calls.push('store'); assert.equal(value.snapshotHash, developmentReportHash(snapshot)) }, ...overrides }
+  const options = { secret, loadProfile: async () => { calls.push('authority'); return profile }, reauthorize: async (_, prepared) => { calls.push('recipient'); return prepared }, authorizePdf: async ({ profile: currentProfile, document }) => { calls.push('pdf-authority'); assert.equal(currentProfile.role, 'coach'); return { document, branding: { clubName: 'FP TEST Club', clubLogoData: 'current-logo' } } }, render: async () => { calls.push('render'); return Buffer.from('%PDF-1.4\n' + 'x'.repeat(120)) }, store: async (_, value) => { calls.push('store'); assert.equal(value.snapshotHash, developmentReportHash(snapshot)) }, ...overrides }
   return { calls, client, options, changeSnapshot(value) { currentSnapshot = value } }
 }
 
@@ -41,7 +41,7 @@ test('deferred PDF is sealed without generating or delivering it, and rejects al
 test('worker checks current authority and recipient before and after rendering and attaches the required PDF', async () => {
   const h = harness()
   const result = await completeDeferredDevelopmentPdf(fixture(), h.client, h.options)
-  assert.deepEqual(h.calls, ['authority', 'recipient', 'render', 'authority', 'recipient', 'store'])
+  assert.deepEqual(h.calls, ['authority', 'recipient', 'pdf-authority', 'render', 'authority', 'recipient', 'store'])
   assert.equal(result.planProfile.role, 'coach', 'Stored system role cannot replace current staff authority')
   assert.equal(result.emailPayload.attachments[0].contentType, 'application/pdf')
   assert.match(Buffer.from(result.emailPayload.attachments[0].content, 'base64').toString(), /^%PDF/)

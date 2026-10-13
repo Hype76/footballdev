@@ -4,6 +4,7 @@ import process from 'node:process'
 import { buildPdfBuffer } from '../../../src/lib/pdf-builder.js'
 import { assertPlanFeature, getQueuedActorPlanProfile } from './_plan-gate.js'
 import { reauthorizePreparedDevelopmentParentEmail } from './_development-parent-email-output.js'
+import { authorizeAssessmentPdfReport } from './_pdf-report.js'
 
 export const DEVELOPMENT_PDF_BUCKET = 'development-pdfs-private'
 export const DEVELOPMENT_PDF_CACHE_VERSION = 1
@@ -52,6 +53,7 @@ export async function completeDeferredDevelopmentPdf(prepared, client, {
   secret,
   loadProfile = getQueuedActorPlanProfile,
   reauthorize = reauthorizePreparedDevelopmentParentEmail,
+  authorizePdf = authorizeAssessmentPdfReport,
   render = buildPdfBuffer,
   store = storeDevelopmentPdfArtifact,
 } = {}) {
@@ -68,7 +70,8 @@ export async function completeDeferredDevelopmentPdf(prepared, client, {
   }
   const diagnostics = {}
   const pdfStartedAt = new Date().toISOString()
-  const buffer = await render(pending.report.document, { branding: pending.report.branding, diagnostics })
+  const currentReport = await authorizePdf({ supabaseAdmin: client, profile: planProfile, clubId: payload.clubId, teamId: payload.teamId, evaluationId: payload.evaluationId, playerId: payload.playerId, document: pending.report.document, diagnostics })
+  const buffer = await render(currentReport.document, { branding: currentReport.branding, diagnostics })
   const pdfFinishedAt = new Date().toISOString()
   // Recheck after rendering so revocation cannot be bypassed by a slow PDF job.
   const currentProfile = await loadProfile(client, payload)
