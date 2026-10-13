@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "6f3eb5170bf6b022168a4191883347d96582cd23a1a812f05387a34c2eed7868",
+    "scripts/security-verify-reviewed-backports.mjs": "cec55e53c6b497211dabf67fd3a1286f16eeb0357c03670c08d2e4768f6559a8",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -679,12 +679,12 @@
     "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
     "approvedScope": "User-authorised weekend feedback fixes: scoped staff invitations, confirmed Match Day saves and reconciliation, full-time web corrections, fixed mobile loading and one-minute failure notices, compact Player/Fan navigation and owned read-only league access, and bounded poll-result push delivery. Exact source pins and independent exact-HEAD acceptance are required; all dependency, native, audit and release controls are retained.",
     "changedSourceHashes": {
-      "apps/coach-mobile/App.js": "f1fa35e31ac2731f2f8d98a0fbbb488a65f83e660ed75e35793ac25ca7d9e3ab",
+      "apps/coach-mobile/App.js": "55191dcf1b734728cee13a26fac55dd10508262feb6a330fa1fafb2f92c6c287",
       "apps/coach-mobile/src/CoachMatchDayScreen.js": "cd72e35049fec93de92f2b4ef73fd9a9da77df2b6912f9c37606d68824ea5ca9",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "6baf95c90ee3c865c2ff2b0f0c41d3b3d6b77e877b3148902db8c397fd351441",
-      "apps/coach-mobile/src/CoachPhase31EScreens.js": "c94fb987bfbb450902ab8fb2306e4b3775bba5388bd1e7f8f42bf4f54d4d5e2d",
+      "apps/coach-mobile/src/CoachPhase31EScreens.js": "6d5552e1afe6bc615ca6f23db93a67ef25c63ebc0b3c07bb3a0ef6b49e8fa87c",
       "apps/coach-mobile/src/CoachTeamBrandingSetup.js": "2f159548a46a6d283ee024c8d25e2b5d0fc50d01c3dfcfbc510c9cb672bb7316",
-      "apps/coach-mobile/src/DevelopmentOfflineEditor.js": "e0ad29ab3a43dc141d5974a1389cb8285b3cf66a40a4ccda2cb1b2aa020f85a4",
+      "apps/coach-mobile/src/DevelopmentOfflineEditor.js": "0431b77eb63547f4b1a073658b846ad0a7616abf7403c893f4ff45a5ec8c61b6",
       "apps/coach-mobile/src/coachDevelopmentSync.js": "e1eab148de875dcb17fd3f8b092f151833b19eefc56e226115afdbe458b0530f",
       "apps/coach-mobile/src/coachThemeCore.js": "abe96fd722c4c22fac3813b901b6b5bbf3460d7852d894e2f29c6e8c3ae61c1d",
       "apps/coach-mobile/src/offline.js": "53da586a719a4adcf06a2387c85806e927b5e1f5001821d886be8b00472376b4",
@@ -764,11 +764,11 @@
       "tests/coach-cache-memory.test.mjs": "0754bb2c7ebd978f5a1eeefd1cc3b22224ff5c22535dc4c39133fc06e5031c8b",
       "tests/coach-invite-table-browser.mjs": "52cadaf8564c06e3f3c91ae65cf74b55b385d750832b70a83d9234b5cb6c6940",
       "tests/coach-renewal.test.mjs": "beede291eca1615496d8b3ad72e3ffd7e65b7b42fe83515c6bf2bd4b9a92e086",
-      "tests/coach-smooth-scroll-browser.mjs": "064723827d0a3eeb70277af07576cc8addd2cf81bf0d8dca4a5d8b79c9ba1a13",
+      "tests/coach-smooth-scroll-browser.mjs": "9f8d8e438e921372de383993b4227edd4e5cd0c1a4a245b944e83c9a2386af43",
       "tests/data-transfer-hardening.test.mjs": "5b62949488bea2e51dd60c1dc15805cff874d0096ec0679b359fda421d0f813d",
       "tests/development-recipient-state-recovery.test.mjs": "ac082ab6dbfb9c00ae2144815b28f0bc1a4bf2dc7c9ff132e3bed0fd2684b98b",
       "tests/development-record-save-flow.test.mjs": "99fde1769683b5aeea8d6c38a614fbccc598f39f8ce487d92f741abe7af19ea9",
-      "tests/development-save-repair.test.mjs": "f969aa21677cabe25be5f1cc1c226dce115d9eb1be7d818856e8aba4e33b9e0b",
+      "tests/development-save-repair.test.mjs": "41065e34918be6896fb92a28a5974aa6fbeadab942e9de4e58dbb2c5ee180905",
       "tests/development-scores-filenames-10c.test.mjs": "5f978755f5ab8db6387b7a4cd65599b1918fcd9fadb6156ae42f20f298f5bd7d",
       "tests/event-response-read-model-06a.test.mjs": "72a657e0074e4653dd0cd0c0b0548ccea8cf50ba106758235233ca04638c4db8",
       "tests/fan-app-content-browser.mjs": "1ef7c42247b139e043bf4bd72c43c16d9e9d3d32924c2d6848901d3a1ac5773f",
@@ -811,7 +811,7 @@
       "tests/mobile-invites-pdf-scroll-67.test.mjs": "57b440fe63f5d5e48fbe7377e38917cf465e8c4f4b6da7abf1707a4d867aa5c2",
       "tests/mobile-more-icon-badges-browser.mjs": "4ae03b35369334f11f086387af5225f4dda3f4a9ae7cbe3f616ba2ec2bef71dc",
       "tests/mobile-notifications-profile-66.test.mjs": "6ac2fd7e1ce96803e2647519ed5cbbbfb4da011941b4b021059bbfbb712777aa",
-      "tests/mobile-offline-development-browser.mjs": "bac5a69d59dfee98f1ab06b13e0677415802f8c71413d1b568625fd5ddfefca2",
+      "tests/mobile-offline-development-browser.mjs": "cc95299a3b609fcaed3ca2cc21282cbeab96de524434f3b0e29166c7f2d0c8b0",
       "tests/mobile-parent-dropdown-browser.mjs": "2e437ae390aaf2780186bc16ce002a2f450f2779408f29c01f786131383a1639",
       "tests/mobile-parent-experience-52.test.mjs": "3ad280c0c01849c2e158d15203dfe0bed55132cde3f22f7a8a21ff5b5ca3effb",
       "tests/mobile-parent-live-account-qa-29.test.mjs": "69047075fce596d8b7b23c83105ac9756f17bd2d24c3ad5e5b6aef0eb9ebcc6b",
@@ -1045,7 +1045,7 @@
       "apps/coach-mobile/src/coachScrollBounds.js": "f3a4dab628a3e358a7ae3fb507c006041a59e16f12a012c5beda7d7e993a3214",
       "apps/mobile-core/src/offlineStorageCore.js": "620fbb260b654f0aa88e66f02deef4f83da9530d512a9c8c7d5b730e064b9ce6",
       "tests/coach-scroll-bounds.test.mjs": "06272032358ca1c8881f286313c7db3f1e52091b8576ab058abbcea890799588",
-      "tests/mobile-keyboard-fields-86.test.mjs": "c43e415c64589cfe7db2e0b8fcc29a9b4b868ea8bf951a8dbc821572241371e5",
+      "tests/mobile-keyboard-fields-86.test.mjs": "48fd70c76ce51cfefe5fd0d3250ad610c2622dd49f0a0f5cca92e69ef0c1b5cb",
       "tests/mobile-polls-match-save-59.test.mjs": "156e7080b4bf1de6c7845cb841b917916b9b022b8d6dd1db92f576505acb1b5e",
       "tests/mobile-offline-storage-timeout.test.mjs": "5888b27b47041983910a2d546f8299d49b0b1c63bbb5052d3ae08ccd8e03e04c",
       "apps/coach-mobile/src/developmentAutosaveQueue.js": "b7b99b142a98d2d4398de386afd863c8bd1b92e30f6996c480f541489069b0da",
@@ -1083,7 +1083,10 @@
       "supabase/migrations/20261012142553_matchday_substitution_and_handover_notifications.sql": "2400f3794b4b5582313b8893b2346583327416829ab7b6f3186455d798e9f3fe",
       "tests/parent-match-live-notification.test.mjs": "f6092d49d1632932a67ada7df0e75f4b6ef696d1e51d54cc2be1aeba2c76529b",
       "tests/parent-scorer-handover-db.test.mjs": "2ac68c8da003e7697701534bbbd26773c5ce27abf3c87308579cc55cd89b51ad",
-      "tests/parent-scorer-notification-routing.test.mjs": "76f08915e3d8ee62ca31bb4ea53122be2de57c1d58970f3184f211112234014b"
+      "tests/parent-scorer-notification-routing.test.mjs": "76f08915e3d8ee62ca31bb4ea53122be2de57c1d58970f3184f211112234014b",
+      "apps/coach-mobile/src/CoachKeyboardFocusContext.js": "2e24114b3755cd8b56ab5099019c0663ad6d24418a66e0a48fa06ca07e22d015",
+      "apps/coach-mobile/src/coachKeyboardViewportCore.js": "e90a629ed50afbc68fb4c7070be28e746147be05f2f1050824d14653fc94e325",
+      "tests/coach-keyboard-viewport.test.mjs": "b4a7acff4fab9886f8b4880ffe04e4f07608f873a227978456da43ee60cb73ec"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2000,7 +2003,7 @@
       "migrations": 1
     }
   },
-  "releasePreparationSha256": "685afbd51a79fb054a997b1ff7678d46a4c11737d71a7f908c1df265b6aed534",
+  "releasePreparationSha256": "46e391cf80ba371dee616a94188834129c3ac27b7f94372b38b558b403941c5c",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

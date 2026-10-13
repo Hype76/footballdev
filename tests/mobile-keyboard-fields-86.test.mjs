@@ -14,6 +14,10 @@ test('Coach form routes avoid the iOS and Android keyboards without double-adjus
   assert.match(coachApp, /keyboardShouldPersistTaps="handled"/)
   assert.match(coachApp, /onScrollBeginDrag=\{\(event\) => \{\s*scrollBounds\.handlers\.onScrollBeginDrag\(event\)\s*Keyboard\.dismiss\(\)/)
   assert.match(coachApp, /keyboardShell: \{ flex: 1 \}/)
+  assert.match(coachApp, /!keyboardVisible \? <PrimaryNavigation/)
+  assert.match(coachApp, /!keyboardVisible && quickActionVisibility\.ready/)
+  assert.match(coachApp, /<CoachKeyboardFocusContext\.Provider value=\{keyboardViewport\.ensureFocusedField\}/)
+  assert.match(coachApp, /onLayout=\{event => \{ scrollBounds\.handlers\.onLayout\(event\); keyboardViewport\.ensureFocusedField\(\) \}\}/)
 })
 
 test('starting a drag dismisses the keyboard and keeps native gesture ownership', () => {

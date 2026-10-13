@@ -38,7 +38,17 @@ const callbacks = ['scrollContentToTop', 'focusNotificationSettings'].map(name =
   const declaration = home.body.body.find(n => n.type === 'VariableDeclaration' && n.declarations[0].id.name === name)
   return source.slice(declaration.start, declaration.end)
 }).join('\n')
+const keyboardLifecycle = home.body.body.filter(node => {
+  if (node.type === 'VariableDeclaration') {
+    const id = node.declarations[0].id
+    return id.name === 'keyboardViewport' || (id.type === 'ArrayPattern' && id.elements[0]?.name === 'keyboardVisible')
+  }
+  return node.type === 'ExpressionStatement' && node.expression.callee?.name === 'useEffect'
+    && source.slice(node.start, node.end).includes('keyboardViewport')
+}).map(node => source.slice(node.start, node.end)).join('\n')
 const entry = `import {CoachTeamBrandingSetup} from './apps/coach-mobile/src/CoachTeamBrandingSetup.js';
+import {CoachKeyboardFocusContext} from './apps/coach-mobile/src/CoachKeyboardFocusContext.js';
+import {createCoachKeyboardViewport} from './apps/coach-mobile/src/coachKeyboardViewportCore.js';
 import {MobileActivityProvider} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.js';
 const refreshUserProfile=async()=>{};
@@ -68,6 +78,7 @@ const contexts=[{id:'a',clubName:'FP TEST',teamName:'U17 Green',roleLabel:'Team 
 const contextResolution={contexts},activeContext=contexts.find(c=>c.id===selected)||contexts[0],selectedMobileUser={roleLabel:'Team Admin'};
 const notificationState={},notificationStateStatus='ready',notice='',setNotice=()=>{},setNotificationSettingsFocusRequest=()=>{},navigation={primary:[{key:'home',label:'Home'},{key:'calendar',label:'Calendar'},{key:'matchday',label:'Match Day'},{key:'more',label:'More'}]};
 const contentScrollRef=useRef(null),contentOriginRef=useRef(0),pendingScrollRestoreRef=useRef(null);
+${keyboardLifecycle}
 const scrollBounds=useMemo(()=>createCoachScrollBounds(options=>{window.corrections.push(options);contentScrollRef.current?.scrollTo(options)}),[]);
 useEffect(()=>()=>scrollBounds.dispose(),[scrollBounds]);
 ${callbacks}
