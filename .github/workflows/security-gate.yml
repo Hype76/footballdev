@@ -255,6 +255,8 @@ jobs:
         run: npx eslint apps/parent-mobile/App.js apps/coach-mobile/src/CoachDateTimeField.js apps/coach-mobile/src/CoachGuestScorer.js
       - name: Coach Home open Development and recovery
         run: node --test tests/mobile-coach-home-open-development.test.mjs tests/coach-home-warning-recovery.test.mjs tests/mobile-development-unfinished-drafts.test.mjs tests/coach-development-workspace-responsiveness.test.mjs && node tests/mobile-development-background-domain-browser.mjs
+      - name: Scorer correction sync and Coach private templates
+        run: node --test tests/parent-scorer-offline-outbox.test.mjs tests/parent-scorer-notification-routing.test.mjs tests/coach-development-template.test.mjs tests/coach-template-and-scorer-corrections-db.test.mjs tests/mobile-coach-operational-31c.test.mjs tests/mobile-coach-phase31e.test.mjs && node tests/coach-development-template-browser.mjs
       - name: Mobile time, result artwork and Partners navigation
         run: node --test tests/mobile-time-result.test.mjs && node tests/mobile-feedback-art-browser.mjs
       - name: Parent compact Matchday and Agenda

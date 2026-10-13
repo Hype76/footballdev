@@ -14,7 +14,7 @@ const components = ['colorsFor', 'usePortalStyles', 'Button', 'DevelopmentScreen
   assert.ok(node, `Actual Parent component ${name} exists`)
   return source.slice(node.start, node.end)
 }).join('\n')
-const entry = `import React,{useState,useLayoutEffect,useMemo,useRef} from 'react';import {createRoot} from 'react-dom/client';
+const entry = `import React,{useState,useEffect,useLayoutEffect,useMemo,useRef} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet} from 'react-native';
 import {createPdfVisitTracker} from './apps/mobile-core/src/pdfVisit.js';
 import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME} from './apps/mobile-core/src/parentThemeCore.js';
@@ -22,11 +22,11 @@ import {getParentStatusColours} from './apps/mobile-core/src/parentStatusColours
 import {formatParentProductDateTime} from './apps/mobile-core/src/parentDateTimeCore.js';
 const ParentIcon=()=>null,ResourceState=()=>null;const formatDate=value=>formatParentProductDateTime(value,{year:'numeric'});
 ${components}
-window.calls=[];window.guards=[];
+window.calls=[];window.guards=[];window.preparations=[];const onPrepare=(report,guard)=>window.preparations.push([report.id,guard()]);
 const reports=[{id:'report-a',form:{name:'U14 JPL'},recordDate:'2026-10-13',canDownloadPdf:true,responseItems:[{fieldId:'technical',label:'Technical',numericScore:3,maxScore:10}]},{id:'report-b',form:{name:'Elite Review'},canDownloadPdf:true}];
 function App(){const[mode,setMode]=useState('light'),[pending,setPending]=useState([]);window.mode=setMode;window.pending=setPending;
 const tokens=createParentMobileTheme({mode}).tokens;
-return <View style={{padding:12,backgroundColor:tokens.background,minHeight:'100vh'}}><DevelopmentScreen resource={{items:reports,loading:false}} themeTokens={tokens} pendingReportIds={pending} onOpen={(report,action,guard)=>{window.calls.push([report.id,action]);window.guards.push(guard);setPending([report.id])}}/></View>}
+return <View style={{padding:12,backgroundColor:tokens.background,minHeight:'100vh'}}><DevelopmentScreen resource={{items:reports,loading:false}} themeTokens={tokens} onPrepare={onPrepare} pendingReportIds={pending} onOpen={(report,action,guard)=>{window.calls.push([report.id,action]);window.guards.push(guard);setPending([report.id])}}/></View>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx' }, nodePaths: [modules], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' } })
 const browser = await chromium.launch({ headless: true })
@@ -41,6 +41,8 @@ try {
     await page.addScriptTag({ content: result.outputFiles[0].text })
     await page.evaluate(mode => window.mode(mode), mode)
     await page.getByRole('button', { name: 'View Development report' }).first().click()
+    await page.waitForFunction(() => window.preparations.length > 0)
+    assert.deepEqual(await page.evaluate(() => window.preparations), [['report-a', true]], 'Actual report view starts guarded preparation before either PDF action')
     for (const label of ['Open PDF', 'Share PDF']) {
       const button = page.getByRole('button', { name: label, exact: true })
       const box = await button.boundingBox()

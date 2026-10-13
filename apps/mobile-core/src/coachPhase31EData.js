@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto'
 import { prepareAttendanceChoices } from './attendanceCommandData'
 import { sameDevelopmentSave } from './developmentOfflineCore'
+import { canBuildCoachDevelopmentTemplate, validateCoachDevelopmentTemplate } from './coachDevelopmentTemplateCore.js'
 import { wakeChatMobileNotificationProcessor } from '../../../src/lib/chat-notification-wake'
 import { CAPABILITIES, getPlanLimit } from '../../../src/lib/paywall-access.js'
 import { getMobileRuntimeConfig } from './config'
@@ -184,6 +185,37 @@ export async function getCoachDevelopmentWorkspace(user, { onWorkspaceReady, inc
     historyLoading: false,
     historyError: evaluationsResult.error ? 'Recent records could not be refreshed. Your assessment drafts are still available.' : '',
   })
+}
+
+export async function saveCoachDevelopmentTemplate(user, draft) {
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertCoachCapability(user, CAPABILITIES.customDevelopmentFields)
+  if (!canBuildCoachDevelopmentTemplate(user)) throw new Error('Template management is not available in this Coach context.')
+  const validated = validateCoachDevelopmentTemplate(draft)
+  const payload = { ...validated, club_id: user.clubId, team_id: user.activeTeamId, access_scope: 'creator',
+    created_by: user.id, ...getCoachEntryIdentity(user), updated_by: user.id, ...getCoachEntryIdentity(user, 'updated') }
+  const result = await supabase.from('feedback_forms').insert(payload).select('*').single()
+  let saved = result.data
+  if (result.error?.code === '23505') {
+    const existing = await supabase.from('feedback_forms').select('*').eq('id', validated.id).eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by', user.id).maybeSingle()
+    if (existing.error || !existing.data || JSON.stringify(validateCoachDevelopmentTemplate(existing.data)) !== JSON.stringify(validated)) throw new Error('This template changed. Reopen it before saving.')
+    saved = existing.data
+  } else if (result.error) throw result.error
+  if (!saved) throw new Error('The saved template could not be confirmed.')
+  await recordCoachOperationalAudit({ user, action: 'feedback_form_created', entityType: 'feedback_form', entityId: saved.id, metadata: { formName: saved.name, fieldCount: saved.fields.length, accessScope: saved.access_scope } })
+  return normalizeCoachDevelopmentForm(saved)
+}
+
+export async function setCoachDevelopmentTemplateAccess(user, template, accessScope) {
+  assertCanonicalMutation(user, { minimumRank: 50, requiresTeam: true })
+  assertCoachCapability(user, CAPABILITIES.customDevelopmentFields)
+  if (!canBuildCoachDevelopmentTemplate(user) || template?.createdBy !== user.id || template?.teamId !== user.activeTeamId || !['creator', 'team'].includes(accessScope)) throw new Error('Only the template creator can change who may use it.')
+  const { data, error } = await supabase.from('feedback_forms').update({ access_scope: accessScope, updated_at: new Date().toISOString(), updated_by: user.id, ...getCoachEntryIdentity(user, 'updated') })
+    .eq('id', template.id).eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('created_by', user.id).eq('updated_at', template.updatedAt).select('*').maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error('This template changed. Reopen it before changing access.')
+  await recordCoachOperationalAudit({ user, action: 'feedback_form_access_changed', entityType: 'feedback_form', entityId: data.id, metadata: { accessScope } })
+  return normalizeCoachDevelopmentForm(data)
 }
 
 export async function saveCoachDevelopmentDraft(user, { draftId = '', form, player, values = {}, notes = '', clientSaveVersion = 0, offlineDraft = false } = {}) {

@@ -21,6 +21,8 @@ import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js'
 import {mergeUnfinishedDevelopmentDrafts} from './apps/mobile-core/src/developmentOfflineCore.js'
 const readCoachDevelopmentDrafts=async()=>{if(window.draftReadDelay)await new Promise(resolve=>setTimeout(resolve,window.draftReadDelay));return window.localDrafts||{}}
 const subscribeDevelopmentSync=()=>()=>{}
+const canBuildCoachDevelopmentTemplate=()=>false
+const CoachDevelopmentTemplateBuilder=()=>null
 const Keyboard={dismiss:()=>{}}
 const DevelopmentOfflineEditor=({form,player,styles})=><View accessibilityLabel="Development editor" style={styles.panel}><Text style={styles.body}>Editor for {player.playerName}</Text>{form.fields.map(field=><TextInput key={field.id} accessibilityLabel={field.label} value="" onChangeText={()=>{}} />)}</View>
 ${styles}

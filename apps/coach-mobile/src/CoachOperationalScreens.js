@@ -19,6 +19,7 @@ import {
   getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
   getCoachCalendarEventResourceIds,
+  getCoachCalendarTrainingWindow,
   groupCoachCalendarEvents,
   formatCoachCalendarFormDate,
   shiftCoachCalendarMonth,
@@ -82,6 +83,8 @@ function useDomainStyles(palette) {
     actionText: { color: palette.accentForeground, fontSize: 14, fontWeight: '900' },
     body: { color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 8, padding: 14 },
+    calendarEventRow: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 6, minHeight: 48, paddingVertical: 12 },
+    calendarMore: { alignItems: 'center', flexDirection: 'row', gap: 8, minHeight: 48, paddingVertical: 10 },
     calendar: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 16, borderWidth: 1, gap: 10, padding: 10 },
     calendarDay: { alignItems: 'center', borderColor: 'transparent', borderRadius: 10, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 58, minWidth: 0, paddingVertical: 5 },
     calendarDayOutside: { backgroundColor: palette.background, borderColor: palette.border, borderStyle: 'dashed' },
@@ -274,6 +277,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   const [events, setEvents] = useState([])
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('upcoming')
+  const [trainingWeeks, setTrainingWeeks] = useState(4)
   const [form, setForm] = useState(null)
   const [formError, setFormError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -287,6 +291,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   const calendarEditBaseline = useRef(null)
   const [saveConfirmation, setSaveConfirmation] = useState('')
   const removalScope = `${user.id}:${context.id}:${context.authorityId}:${context.role}:${context.teamId}`
+  useEffect(() => { setTrainingWeeks(4) }, [removalScope])
   const removalScopeRef = useRef(removalScope)
   removalScopeRef.current = removalScope
   const removing = useRef(false)
@@ -375,9 +380,11 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   const selectedDay = calendarMonth.days.find((day) => day.date === selectedDate)
   const savedLocations = useMemo(() => getSavedLocationOptions(events), [events])
   const attachmentCategories = useMemo(() => [...new Set(resources.map((resource) => String(resource.category || 'general').trim().toLowerCase()).filter(Boolean))].sort(), [resources])
+  const upcomingEvents = filterCoachCalendarEvents(events, filter)
+  const trainingWindow = getCoachCalendarTrainingWindow(upcomingEvents, trainingWeeks)
   const visibleEvents = focusedEventId ? events.filter(event => event.id === focusedEventId) : selectedDate
     ? events.filter((event) => event.calendarDate === selectedDate)
-    : filterCoachCalendarEvents(events, filter)
+    : filter === 'upcoming' ? trainingWindow.events : upcomingEvents
   const groups = groupCoachCalendarEvents(visibleEvents)
   useEffect(() => {
     if (!calendarTarget || handledTarget.current === calendarTarget) return
@@ -779,7 +786,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
         <View key={formatUkDate(group.date, 'Date to be confirmed')} style={styles.stack}>
           <Text style={styles.label}>{formatUkDate(group.date)}</Text>
           {group.events.map((event) => (
-            <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.card}>
+            <Pressable accessibilityRole="button" key={event.id} onPress={() => setSelected(selected?.id === event.id ? null : event)} style={styles.calendarEventRow}>
               {event.status === 'cancelled' ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}><MaterialIcons name="cancel" color={palette.danger} size={24} /><Text accessibilityRole="header" style={[styles.cardTitle, { color: palette.danger }]}>CANCELLED</Text></View> : null}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><MaterialIcons accessibilityLabel={event.sourceType === 'match_day' || event.eventType === 'match' ? 'Match' : event.eventType === 'training' ? 'Training' : event.sourceType === 'assessment_session' || event.eventType === 'development' ? 'Development' : 'Calendar event'} name={event.sourceType === 'match_day' || event.eventType === 'match' ? 'sports-soccer' : event.eventType === 'training' ? 'fitness-center' : event.sourceType === 'assessment_session' || event.eventType === 'development' ? 'trending-up' : 'event'} size={26} color={palette.accentText} /><Text style={[styles.cardTitle, { flex: 1 }]}>{event.title}</Text></View>
               {selected?.id === event.id ? <PinnedEventNotes notes={event.notes} pinned={event.notesPinned} styles={styles} colors={palette} /> : null}
@@ -796,6 +803,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
           ))}
         </View>
       ))}
+      {!form && !selectedDate && !focusedEventId && filter === 'upcoming' && trainingWindow.hasMoreTraining ? <Pressable accessibilityLabel="Load another 4 weeks" accessibilityRole="button" onPress={() => setTrainingWeeks(weeks => weeks + 4)} style={styles.calendarMore}><MaterialIcons color={palette.accentText} name="expand-more" size={24} /><Text style={styles.label}>Load another 4 weeks</Text></Pressable> : null}
     </View>
   )
 }

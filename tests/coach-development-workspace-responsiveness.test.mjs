@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { parse } from '@babel/parser'
 import test from 'node:test'
 import { normalizeCoachDevelopmentField, normalizeCoachDevelopmentForm, normalizeCoachDevelopmentRecord } from '../apps/mobile-core/src/coachPhase31ECore.js'
 
 const source = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
-const body = source.slice(source.indexOf('export async function getCoachDevelopmentWorkspace('), source.indexOf('\nexport async function saveCoachDevelopmentDraft(')).replace('export ', '')
+const workspaceFunction = parse(source, { sourceType: 'module' }).program.body.map(node => node.declaration || node).find(node => node.type === 'FunctionDeclaration' && node.id?.name === 'getCoachDevelopmentWorkspace')
+const body = source.slice(workspaceFunction.start, workspaceFunction.end)
 
 function workspaceLoader({ failures = {}, finishHistory } = {}) {
   const scopes = []

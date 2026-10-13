@@ -14,6 +14,8 @@ const entry = `import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} 
 import {Alert,Keyboard,Pressable,StyleSheet,Text,TextInput,View} from 'react-native';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {mergeUnfinishedDevelopmentDrafts} from './apps/mobile-core/src/developmentOfflineCore.js';
+import {canBuildCoachDevelopmentTemplate} from './apps/mobile-core/src/coachDevelopmentTemplateCore.js';
+const CoachDevelopmentTemplateBuilder=()=>null;
 import {readCoachDevelopmentDrafts} from './apps/coach-mobile/src/offline';
 import {DevelopmentOfflineEditor as ActualEditor} from './apps/coach-mobile/src/DevelopmentOfflineEditor.js';
 import {subscribeDevelopmentSync,notifyDevelopmentSync,syncCoachDevelopmentDrafts} from './apps/coach-mobile/src/coachDevelopmentSync.js';

@@ -22,7 +22,7 @@ export async function deliverParentScorerCommands(commandId = null, actorUserId 
         const { data: targets, error: targetError } = await client.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: command.match.id })
         if (targetError) throw targetError
         deliver ||= (await import('../send-match-day-push.js')).deliverMatchDayNotification
-        const result = await deliver({ match, type: command.type, eventId: command.eventId || '', targetParentLinkIds: [...new Set(targets || [])] })
+        const result = await deliver({ match, type: command.type, eventId: command.eventId || '', ...(command.type === 'score_correction' ? { notificationId: command.id } : {}), targetParentLinkIds: [...new Set(targets || [])] })
         if (result.mobileFailed || result.webFailed || result.fanFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
       }
       completed += 1

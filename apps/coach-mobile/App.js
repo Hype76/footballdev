@@ -223,7 +223,8 @@ function CoachHome() {
   const [selectedContextId, setSelectedContextId] = useState('')
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const contentScrollRef = useRef(null)
-  const scrollBounds = useMemo(() => createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options)), [])
+  const [contentScrollable, setContentScrollable] = useState(true)
+  const scrollBounds = useMemo(() => createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options), undefined, setContentScrollable), [])
   const [keyboardVisible, setKeyboardVisible] = useState(Boolean(Keyboard.isVisible?.()))
   const keyboardViewport = useMemo(() => createCoachKeyboardViewport({
     keyboard: Keyboard, platform: Platform.OS, scrollRef: contentScrollRef,
@@ -305,9 +306,11 @@ function CoachHome() {
 
   const scrollContentToTop = useCallback(() => {
     if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
-    pendingScrollRestoreRef.current = null
     scrollBounds.resetOffset()
-    requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: false, y: 0 }))
+    pendingScrollRestoreRef.current = requestAnimationFrame(() => {
+      pendingScrollRestoreRef.current = null
+      contentScrollRef.current?.scrollTo({ animated: false, y: 0 })
+    })
   }, [scrollBounds])
 
   const restoreContentScrollPosition = useCallback((position) => {
@@ -965,14 +968,25 @@ function CoachHome() {
             onLayout={event => { scrollBounds.handlers.onLayout(event); keyboardViewport.ensureFocusedField() }}
             onContentSizeChange={(width, height) => { scrollBounds.handlers.onContentSizeChange(width, height); keyboardViewport.ensureFocusedField() }}
             testID="coach-content-scroll"
-            style={{ flex: 1 }}
+            style={{ flex: 1, minHeight: 0 }}
+            scrollEnabled={contentScrollable || activeRoute === 'home'}
+            automaticallyAdjustContentInsets={false}
+            contentInset={{ top: 0, bottom: 0, left: 0, right: 0 }}
+            scrollIndicatorInsets={{ top: 0, bottom: 0 }}
             automaticallyAdjustKeyboardInsets={false}
             alwaysBounceVertical={false}
             bounces={false}
             contentInsetAdjustmentBehavior="never"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             keyboardShouldPersistTaps="handled"
+            onTouchStart={(event) => {
+              if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
+              pendingScrollRestoreRef.current = null
+              scrollBounds.handlers.onTouchStart(event)
+            }}
             onScrollBeginDrag={(event) => {
+              if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
+              pendingScrollRestoreRef.current = null
               scrollBounds.handlers.onScrollBeginDrag(event)
               Keyboard.dismiss()
             }}
@@ -1854,7 +1868,7 @@ function createCoachThemeContext(theme) {
 
 function createCoachStyles(palette) {
   return StyleSheet.create({
-    appShell: { backgroundColor: palette.background, flex: 1 },
+    appShell: { backgroundColor: palette.background, flex: 1, minHeight: 0, overflow: 'hidden' },
     bodyText: { color: palette.textSecondary, fontSize: 15, lineHeight: 22 },
     card: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 10, padding: 16 },
     cardTitle: { color: palette.textPrimary, fontSize: 16, fontWeight: '900', lineHeight: 21 },
@@ -1894,7 +1908,7 @@ function createCoachStyles(palette) {
     homeNextCopy: { flex: 1, gap: 1, minWidth: 0 },
     homeNextRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 78, paddingHorizontal: 2, paddingVertical: 10 },
     homeNextValue: { color: palette.textPrimary, fontSize: 17, fontWeight: '800', lineHeight: 21 },
-    keyboardShell: { flex: 1 },
+    keyboardShell: { flex: 1, minHeight: 0, overflow: 'hidden' },
     logo: { height: 44, width: 44 },
     menuCopy: { flex: 1, gap: 1, minWidth: 0 },
     menuRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 58, paddingHorizontal: 4, paddingVertical: 7 },
@@ -1935,7 +1949,7 @@ function createCoachStyles(palette) {
     statePanel: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 9, marginHorizontal: 16, marginTop: 12, padding: 16 },
     stateWarning: { borderColor: palette.warning },
     tab: { alignItems: 'center', borderTopColor: 'transparent', borderTopWidth: 2, flex: 1, gap: 2, justifyContent: 'center', minHeight: 54, paddingHorizontal: 3, paddingVertical: 5 },
-    tabBar: { backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: 8, paddingHorizontal: 8, paddingTop: 8 },
+    tabBar: { backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', flexShrink: 0, gap: 4, paddingBottom: 8, paddingHorizontal: 8, paddingTop: 8 },
     tabSelected: { borderTopColor: palette.accentText },
     tabText: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
     tabTextSelected: { color: palette.accentText },

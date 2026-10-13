@@ -15,7 +15,7 @@ export function buildFanMatchNotificationPayload({ fanConnectionId, match, notif
   }
 }
 
-export async function sendFanMatchNotifications({ client, match, type, eventId, targetParentLinkIds, notificationCopy, sendPush = (messages) => sendExpoPushMessages(messages, { client }) }) {
+export async function sendFanMatchNotifications({ client, match, type, eventId, notificationId = '', targetParentLinkIds, notificationCopy, sendPush = (messages) => sendExpoPushMessages(messages, { client }) }) {
   if (!isFanMatchNotificationType(type) || !targetParentLinkIds.length) return { fanSent: 0, fanFailed: 0 }
   const result = await client.from('fan_connections').select('id,auth_user_id')
     .eq('club_id', match.club_id).eq('status', 'active').in('relationship_type', ['fan', 'player']).eq('notifications_enabled', true)
@@ -30,7 +30,7 @@ export async function sendFanMatchNotifications({ client, match, type, eventId, 
       if (!scope.fan.notifications_enabled) continue
       const visible = await loadFanMatches(client, scope, match.id)
       if (!visible.some((item) => item.id === match.id)) continue
-      const eventKey = `${match.id}:${type}:${eventId || match.updated_at}`
+      const eventKey = `${match.id}:${type}:${notificationId || eventId || match.updated_at}`
       const payload = buildFanMatchNotificationPayload({ fanConnectionId: fan.id, match, notificationCopy, type })
       const saved = await client.from('fan_notifications').upsert({ connection_id: fan.id, match_id: match.id, event_key: eventKey,
         title: payload.title, body: payload.body }, { onConflict: 'connection_id,event_key', ignoreDuplicates: true })

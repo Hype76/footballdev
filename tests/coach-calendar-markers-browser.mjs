@@ -46,6 +46,7 @@ window.events.push(...[
  {id:'meeting-only',title:'FP TEST meeting only',eventType:'meeting',day:'19'},
 ].map(event=>({sourceType:'calendar_event',status:'scheduled',teamId:'team',calendarDate:date.slice(0,8)+event.day,startsAt:date.slice(0,8)+event.day+'T12:00:00Z',...event})))
 window.iconGlyphs=MaterialIcons.glyphMap
+if(window.paging){const end=getCoachCalendarTrainingWindow([]).endDate;const day=n=>{const date=new Date(end+'T12:00:00Z');date.setUTCDate(date.getUTCDate()+n-28);return date.toISOString().slice(0,10)};window.events=[4,32,60].map(n=>({id:'training-'+n,title:'FP TEST training '+n,eventType:'training',sourceType:'calendar_event',status:'scheduled',teamId:'team',calendarDate:day(n),startsAt:day(n)+'T12:00:00Z'}));window.events.push({id:'future-match',title:'FP TEST future fixture',eventType:'match',sourceType:'match_day',status:'scheduled',teamId:'team',calendarDate:day(90),startsAt:day(90)+'T12:00:00Z'})}
 window.themeContrastRatio=themeContrastRatio
 function App(){const[mode,setMode]=useState('light');window.setMode=setMode;const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;window.palette=palette;return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:12}}><CoachCalendarScreen context={context} contexts={[context]} onNavigate={()=>{}} palette={palette} user={user}/></View>}
 createRoot(document.getElementById('root')).render(<App/>);
@@ -113,6 +114,24 @@ try {
   await page.getByRole('button', { name: 'Previous', exact: true }).click()
   await mixed.waitFor()
   assert.deepEqual(errors, [])
+  const paging=await browser.newPage({viewport:{width:390,height:844}})
+  const pagingErrors=[];paging.on('pageerror',error=>pagingErrors.push(error.message))
+  await paging.setContent('<body style="margin:0"><div id="root"></div></body>')
+  await paging.evaluate(()=>window.paging=true)
+  await paging.addScriptTag({content:result.outputFiles[0].text})
+  await paging.getByText('FP TEST training 4',{exact:true}).waitFor()
+  assert.equal(await paging.getByText('FP TEST training 32',{exact:true}).count(),0)
+  assert.equal(await paging.getByText('FP TEST training 60',{exact:true}).count(),0)
+  assert.equal(await paging.getByText('FP TEST future fixture',{exact:true}).count(),1,'The training window preserves future fixtures')
+  await paging.getByRole('button',{name:'Load another 4 weeks',exact:true}).click()
+  await paging.getByText('FP TEST training 32',{exact:true}).waitFor()
+  assert.equal(await paging.getByText('FP TEST training 60',{exact:true}).count(),0)
+  await paging.getByRole('button',{name:'Load another 4 weeks',exact:true}).click()
+  await paging.getByText('FP TEST training 60',{exact:true}).waitFor()
+  assert.equal(await paging.getByRole('button',{name:'Load another 4 weeks',exact:true}).count(),0)
+  assert.deepEqual(pagingErrors,[])
+  await paging.screenshot({path:output+'/training-paging.png'})
+  await paging.close()
   console.log('PASS: rendered Calendar event icons, mixed overflow, cancellation/postponement, selected-date filtering and month navigation, light/dark contrast and 320/390 px fit.')
 } finally {
   await browser.close()

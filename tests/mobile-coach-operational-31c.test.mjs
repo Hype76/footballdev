@@ -11,11 +11,29 @@ import {
   getCoachCalendarEventMarker,
   getCoachCalendarMonthKey,
   getCoachCalendarMutationPolicy,
+  getCoachCalendarTrainingWindow,
   groupCoachCalendarEvents,
   londonLocalToUtcIso,
   normalizeCoachCalendarEvent,
   shiftCoachCalendarMonth,
 } from '../apps/mobile-core/src/coachCalendarCore.js'
+
+test('training initially shows four London calendar weeks and grows in four-week steps without hiding other events', () => {
+  const now = new Date('2026-10-24T23:30:00Z')
+  const rows = [
+    { id: 'early', eventType: 'training', calendarDate: '2026-10-25' },
+    { id: 'last', eventType: 'training', calendarDate: '2026-11-21' },
+    { id: 'next', eventType: 'training', calendarDate: '2026-11-22' },
+    { id: 'later', eventType: 'training', calendarDate: '2026-12-20' },
+    { id: 'fixture', eventType: 'match', calendarDate: '2027-01-02' },
+  ]
+  const first = getCoachCalendarTrainingWindow(rows, 4, now)
+  assert.equal(first.endDate, '2026-11-22', 'Four calendar weeks remain correct across the BST change')
+  assert.deepEqual(first.events.map(row => row.id), ['early', 'last', 'fixture'])
+  assert.equal(first.hasMoreTraining, true)
+  assert.deepEqual(getCoachCalendarTrainingWindow(rows, 8, now).events.map(row => row.id), ['early', 'last', 'next', 'fixture'])
+  assert.equal(getCoachCalendarTrainingWindow(rows, 12, now).hasMoreTraining, false)
+})
 import {
   buildCoachPlayerPayload,
   filterCoachPlayers,
