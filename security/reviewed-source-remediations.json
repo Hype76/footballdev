@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "31ec580b40c43216fae04ab88bde037d57623bed5cf154d6c11a113904d45129",
+    "scripts/security-verify-reviewed-backports.mjs": "e494822527e12fa29f4345dc3c2bf7fad5a886b7d9fbcf86f133302fc5da829e",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -858,7 +858,7 @@
       "package-lock.json": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40",
       "src/components/marketing/MarketingContactDialog.jsx": "9a797f3feebfe2a967f490b804bd38ff73be71852bd6de003a323a276fb4d364",
       "src/components/marketing/MarketingPage.jsx": "69770ae9a2a4e27de486f1d3c05a8c79ec9802799a5e88e57919bd3af14bb345",
-      "src/components/marketing/marketing-inline-pages.css": "3050af5465d6d45d919d9a41b679265469a66b4826707a8da7a44e5b91beedc6",
+      "src/components/marketing/marketing-inline-pages.css": "8e6738da909d01a79e498418066cae2dc4e58b0c595dc4afe9d645974526944c",
       "src/components/marketing/marketing-pricing.js": "a81038cee2a590e82e8efa4b9e5caee147da174e21d2f0bf2d205e6d963cffea",
       "src/components/marketing/marketing-reference.css": "229fa98d0d3edf93b9ac403c246a37306da39d2ccbf49d9632ae0990ad8e3239",
       "src/components/marketing/reference-app.js": "f82fc65660cbafb09addc47426592ecee590187a9022d7a0939681896ca713d4",
@@ -867,7 +867,7 @@
       "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
       "src/components/marketing/reference-kit-preview.js": "8ec3acd5ec0736cf5fa806999426b6eb6e7de84826618189d320e75d31e51373",
       "src/components/marketing/reference-offer-share.js": "6e5a87fbe8f13714b78dce6855304a1ca538a3389a02f9e3d0101dc57eea128a",
-      "src/components/marketing/reference-pages.json": "65b38fbe4dbe3ab362435b3123cd2cedbdfe92f87f2eea07d5e9509ad853af10",
+      "src/components/marketing/reference-pages.json": "d54747ca9036eb0253896629ba77667438377853e576d7b2e01244b646a1b74a",
       "src/components/marketing/reference-pricing-info.js": "fc89aa2f710b2e26d90ab50b39f2af8687c5a44ced16e0dd1d930dafc95da44f",
       "src/components/marketing/reference-scope.js": "cdf489f900f8634529e226ca7f2337cfa60ce29f5aeabbce0f4a29ca8779408f",
       "src/components/marketing/reference-tutorials.js": "f7e5b9ba262c5c93fa1b97719eec5e19071bf0e5abca610f7be16dc67445f4ac",
@@ -1204,7 +1204,10 @@
       "public/marketing-v70/development-pdf.js": "130c7b8fea7844154bede3988d16478e9abd6cc2b2448790272aa155c76f1ddb",
       "public/marketing-v70/vendor/jspdf-LICENSE.txt": "dc388ec35ff463288cdde3588a36fd4ed12a45deff053243b37309acc9ef583b",
       "public/marketing-v70/vendor/jspdf.umd.min.js": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54",
-      "public/marketing-v70/assets/parent-logo.png": "abd6a4f008c3b9488386d2f680b6d939f1c744b4fe54703a3fdd7dfa0a776600"
+      "public/marketing-v70/assets/parent-logo.png": "abd6a4f008c3b9488386d2f680b6d939f1c744b4fe54703a3fdd7dfa0a776600",
+      "public/marketing-v70/assets/development-coaching-original.jpg": "41635246f18ebeaa2fe27aaf5bb60a402254cd41c08392946ed7dd3a58bc6b4e",
+      "public/marketing-v70/assets/development-match-action-lighting-v72.jpg": "4d20ad7c05d46b0e25b29846f4c6e3871811279cab07cb578da83caea0a03b5a",
+      "public/marketing-v70/assets/matchday-drama-original.jpg": "daabcd99657b372ec9d4874f3e69b1b3527f7ba08fdcf8d09ed8ba2ef0c30de7"
     },
     "combinedProvenance": {
       "currentMain": "2a18b4e50d4987c2651faa612a6318293ea946e2",
@@ -2087,7 +2090,7 @@
       "migrations": 1
     }
   },
-  "releasePreparationSha256": "fc29c6fc03b97998e01e04e21a82543e5fcc9e87d01770dff25feab1964d5a90",
+  "releasePreparationSha256": "7ef65f89f275af076921e4b66e9fb9f3f760cddf7fcd78d2c415fdaab3aed196",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
