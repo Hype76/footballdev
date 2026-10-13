@@ -477,9 +477,9 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
       return
     }
     const key = `${scope}:${JSON.stringify([result.playerId, result.formId])}`
-    const copy = result.kind === 'discarded' ? 'Assessment cancelled.' : result.kind === 'discard' ? 'Assessment cleared on this phone. Cancellation will sync when connected.' : result.shared === false ? 'Saved on this phone. Finishing in the background.' : 'Saved on this phone. Sharing in the background.'
+    const copy = result.kind === 'discarded' ? 'Assessment cancelled.' : result.kind === 'discard' ? result.error || 'Assessment cleared on this phone. Cancellation will sync when connected.' : result.shared === false ? 'Saved on this phone. Finishing in the background.' : 'Saved on this phone. Sharing in the background.'
     setQueued(previous => previous[key]?.draftId === result.draftId && previous[key]?.state === 'complete' ? previous
-      : ({ ...previous, [key]: { ...result, state: result.kind === 'discarded' ? 'complete' : 'pending', copy } }))
+      : ({ ...previous, [key]: { ...result, state: result.kind === 'discarded' ? 'complete' : result.kind === 'discard' && result.error ? 'failed' : 'pending', copy } }))
     setClosedEditor(key)
     Keyboard.dismiss()
     setNotice('')
@@ -556,7 +556,9 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
       </View>
       {!player || !form ? <Text style={styles.body}>Select a Player and form to start Development.</Text> : editorClosed ? <View style={styles.stack}>
         <Text accessibilityLiveRegion="polite" style={styles.body}>{selectedQueued?.copy || 'Your saved assessment is kept on this phone.'}</Text>
-        <Button disabled={retryingCancellation === `${scope}:${selectedKey}`} label={selectedQueued?.state === 'complete' ? 'Start another assessment' : selectedQueued?.kind === 'discard' ? retryingCancellation === `${scope}:${selectedKey}` ? 'Checking cancellation...' : 'Retry cancellation' : 'Open saved assessment'} onPress={() => { if (selectedQueued?.kind === 'discard' && selectedQueued.state !== 'complete') void retryCancellation(); else setClosedEditor('') }} secondary styles={styles} />
+        {selectedQueued?.kind === 'discard' && selectedQueued.state === 'pending'
+          ? <Text accessibilityLiveRegion="polite" style={styles.helper}>You can leave this screen. Cancellation will finish in the background.</Text>
+          : <Button disabled={retryingCancellation === `${scope}:${selectedKey}`} label={selectedQueued?.state === 'complete' ? 'Start another assessment' : selectedQueued?.kind === 'discard' ? retryingCancellation === `${scope}:${selectedKey}` ? 'Checking cancellation...' : 'Retry cancellation' : 'Open saved assessment'} onPress={() => { if (selectedQueued?.kind === 'discard' && selectedQueued.state !== 'complete') void retryCancellation(); else setClosedEditor('') }} secondary styles={styles} />}
       </View> : <DevelopmentOfflineEditor key={`${user.id}:${context.id}:${activePlayerId}:${activeFormId}`} context={context} form={form} player={player} serverDraft={data.drafts?.find(item => item.playerId === activePlayerId && item.formId === activeFormId && !(selectedQueued?.state === 'complete' && ['discard', 'discarded'].includes(selectedQueued.kind) && item.id === selectedQueued.draftId))} stale={stale} styles={{ ...styles, panel: styles.developmentEditor }} user={user} onQueued={onQueued} />}
     </View>
   )

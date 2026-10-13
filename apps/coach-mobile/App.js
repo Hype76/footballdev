@@ -17,6 +17,8 @@ import { formatFixtureDateTime } from '../../src/lib/calendar-datetime-integrity
 import { formatParentProductDateTime } from '../mobile-core/src/parentDateTimeCore.js'
 import { CoachNotificationHistoryScreen } from './src/CoachNotificationHistoryScreen'
 import { createCoachScrollBounds } from './src/coachScrollBounds'
+import { CoachKeyboardFocusContext } from './src/CoachKeyboardFocusContext'
+import { createCoachKeyboardViewport } from './src/coachKeyboardViewportCore'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { MobileActivityProvider } from '../mobile-core/src/MobileActivityContext'
 import { MobileFailureNotice } from '../mobile-core/src/MobileFailureNotice'
@@ -46,6 +48,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   ToastAndroid,
   View,
   useColorScheme,
@@ -220,6 +223,14 @@ function CoachHome() {
   const [selectedContextId, setSelectedContextId] = useState('')
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const contentScrollRef = useRef(null)
+  const [keyboardVisible, setKeyboardVisible] = useState(Boolean(Keyboard.isVisible?.()))
+  const keyboardViewport = useMemo(() => createCoachKeyboardViewport({
+    keyboard: Keyboard, platform: Platform.OS, scrollRef: contentScrollRef,
+    getFocusedInput: () => TextInput.State.currentlyFocusedInput(),
+    onVisibilityChange: setKeyboardVisible,
+    requestFrame: callback => requestAnimationFrame(callback), cancelFrame: frame => cancelAnimationFrame(frame),
+  }), [])
+  useEffect(() => { keyboardViewport.start(); return () => keyboardViewport.dispose() }, [keyboardViewport])
   const pendingScrollRestoreRef = useRef(null)
   const contentOriginRef = useRef(0)
   const scrollBounds = useMemo(() => createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options)), [])
@@ -950,6 +961,7 @@ function CoachHome() {
           {!isMatchInvitesRoute ? <CoachHeader context={activeContext} notificationState={notificationState} notificationStateStatus={notificationStateStatus} onOpenNotificationSettings={openNotificationSettings} user={selectedMobileUser} /> : <View style={{ height: 36, alignItems: 'flex-end', paddingRight: 16 }}><MobileHeaderActivity live={config.isProduction} test={!config.isProduction} offline={user.isOfflineProfile} styles={styles} /></View>}
           <ScrollView
             {...scrollBounds.handlers}
+            onLayout={event => { scrollBounds.handlers.onLayout(event); keyboardViewport.ensureFocusedField() }}
             testID="coach-content-scroll"
             style={{ flex: 1 }}
             automaticallyAdjustKeyboardInsets={false}
@@ -991,6 +1003,7 @@ function CoachHome() {
               />
             </View> : null}
             <View onLayout={(event) => { contentOriginRef.current = event.nativeEvent.layout.y }} style={[styles.content, isMatchInvitesRoute && { paddingHorizontal: 8, paddingTop: 4 }]}>
+            <CoachKeyboardFocusContext.Provider value={keyboardViewport.ensureFocusedField}>
             <CoachRoute
               activeRoute={activeRoute}
               appBadgeEnabled={appBadgeEnabled}
@@ -1037,10 +1050,11 @@ function CoachHome() {
               themeMode={themePreference}
               user={selectedMobileUser}
             />
+            </CoachKeyboardFocusContext.Provider>
             </View>
           </ScrollView>
-          <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} />
-          {quickActionVisibility.ready && quickActionVisibility.enabled && !(activeRoute === 'more' && ['invites', 'feedback', 'bug'].includes(moreRoute)) ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
+          {!keyboardVisible ? <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} /> : null}
+          {!keyboardVisible && quickActionVisibility.ready && quickActionVisibility.enabled && !(activeRoute === 'more' && ['invites', 'feedback', 'bug'].includes(moreRoute)) ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </CoachThemeContext.Provider>

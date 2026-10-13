@@ -143,11 +143,11 @@ test('actual editor commit lifecycle blocks A/B/A edits until fresh hydration an
  const effect=(kind,callback,deps)=>{const i=cursor++;pending.push({i,kind,callback,deps})}
  const gates=[]
  const renderFn=new Function('suppliedContext','form','player','serverDraft','styles','user','stale','onFinalised','onQueued',
- 'useMemo','useRef','useState','useLayoutEffect','useEffect','developmentDraftKey','developmentFormFingerprint','developmentInputIsSaved','readCoachDevelopmentDrafts','updateCoachDevelopmentDraft','subscribeDevelopmentSync','getPendingDevelopmentAutosave',
+ 'useMemo','useRef','useState','useLayoutEffect','useEffect','developmentDraftKey','developmentFormFingerprint','developmentInputIsSaved','readCoachDevelopmentDrafts','updateCoachDevelopmentDraft','subscribeDevelopmentSync','getPendingDevelopmentAutosave','useContext','CoachKeyboardFocusContext',
  prefix+';return {capture,ready,lifetime,inputRef};')
  const render=scope=>{cursor=0;pending=[];return renderFn(context,form,{id:'player'},null,{}, {id:scope},false,()=>{},()=>{},fn=>fn(),ref,state,
  (fn,deps)=>effect('layout',fn,deps),(fn,deps)=>effect('passive',fn,deps),draftCore.developmentDraftKey,draftCore.developmentFormFingerprint,status.developmentInputIsSaved,
- ()=>{let resolve;const promise=new Promise(r=>resolve=r);gates.push({resolve});reads.push(scope);return promise},async()=>{},()=>()=>{},()=>null)}
+ ()=>{let resolve;const promise=new Promise(r=>resolve=r);gates.push({resolve});reads.push(scope);return promise},async()=>{},()=>()=>{},()=>null,()=>()=>{},{} )}
  const commit=()=>{for(const kind of ['layout','passive'])for(const e of pending.filter(x=>x.kind===kind)){
  const previous=effects[e.i];if(previous&&e.deps.every((v,i)=>Object.is(v,previous.deps[i])))continue
  previous?.cleanup?.();effects[e.i]={...e,cleanup:e.callback()}
