@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "ca36b78095063a295f1e9e2ad9fc6bc37b0fb84fc58beb417288322257c48422",
+    "scripts/security-verify-reviewed-backports.mjs": "6e6151af358f46168dd06b8f1228c7426ba429692b57630c1dfcc05f59ca2b24",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -705,7 +705,7 @@
       "apps/mobile-core/src/profile.js": "772018633568bab13054924c63f63e06dce4cffca84e4c8e9ba6ff7da3582362",
       "apps/mobile-core/src/useAttendanceOutbox.js": "e8340032a51320a61d7479589bb8aa74c96e749ff1a53860cd5f2a83d0c6771c",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
-      "apps/parent-mobile/App.js": "463acf798aafa61e7bc047b830fd251ac9e3306923004711cf72fed47d8af06c",
+      "apps/parent-mobile/App.js": "e1bcae4261bba9d22a7e2b0e59f49b72bb03bd05eb539141f00cf14de678fab4",
       "apps/parent-mobile/src/ParentPortalScreens.js": "668c333babd66cfdc2ba7de16ec9745c8ae7fb40c5e4d866387abb02cbaa8d87",
       "apps/parent-mobile/src/offline.js": "72031bfbff6732b75e048864a27331cfb9ba7382bb414aeef561461267c2ad49",
       "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
@@ -1116,7 +1116,7 @@
       "tests/development-pdf-background.test.mjs": "4ede6c562a294efc9153ccf6f755b3a70454b18421eb222cff1808f54ae1caff",
       "tests/development-pdf-foreground.test.mjs": "242450e01079fe90dce9fe6642cf1310e90ac4166b1b9783c3b77079dab084f2",
       "tests/development-pdf-queue.test.mjs": "c6885cf03c229036bcadf754874f5c61e0f14567b527c4e4aada9c583e8de7ec",
-      "tests/parent-development-pdf-actions.test.mjs": "d1ac8b8264d404aa8585edadc51424e2412ff5290b5556e78433f8c1d5809e91",
+      "tests/parent-development-pdf-actions.test.mjs": "65a6a7d4a9cc2e3f49ceb4273acb3a468a7d8a875ef3a81cc7d4a19906e68e41",
       "tests/parent-development-pdf-browser.mjs": "8571d0776cbeb533eb7f9fd6c1b144c43e371ae37d0e8527b9aea0ba373650ec"
     },
     "externalTrustInputs": [
@@ -2085,7 +2085,7 @@
       "migrations": 1
     }
   },
-  "releasePreparationSha256": "9f0ea3eeb16c665d15b575a7c0f4aab7612cc0f80e3a48593e93e6be2bb6b32a",
+  "releasePreparationSha256": "52a4bbb1a5f4e4d79aace3604624a6f5333be788fa2c300fbdd58f7cc795ba46",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

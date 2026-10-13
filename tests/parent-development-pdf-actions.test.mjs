@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { build } from 'esbuild'
+import { readFile } from 'node:fs/promises'
+import { parse } from '@babel/parser'
 import { createPdfVisitTracker } from '../apps/mobile-core/src/pdfVisit.js'
 
 const signedUrl = 'https://example.supabase.co/storage/v1/object/sign/development-pdfs-private/club/report/file.pdf?token=fixture'
@@ -78,4 +80,21 @@ test('returning to the same account, screen or report does not revive an old pen
     assert.deepEqual(calls.map(item => item[0]), ['authorize'])
     assert.equal(visit.capture()(), true)
   }
+})
+
+test('actual Messages View Development PDF shortcut requests the viewer instead of sharing', async () => {
+  const source = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+  const ast = parse(source, { sourceType: 'module', plugins: ['jsx'] })
+  let declaration
+  const visit = node => {
+    if (!node || typeof node !== 'object') return
+    if (node.type === 'FunctionDeclaration' && node.id?.name === 'handleOpenParentItem') declaration = node
+    for (const value of Object.values(node)) if (Array.isArray(value)) value.forEach(visit); else if (value && typeof value === 'object') visit(value)
+  }
+  visit(ast)
+  assert.ok(declaration)
+  let requested
+  const dispatch = new Function('handleDevelopmentPdf', `${source.slice(declaration.start, declaration.end)}; return handleOpenParentItem`)(async (report, action) => { requested = { report, action } })
+  await dispatch('development', input.report)
+  assert.deepEqual(requested, { report: input.report, action: 'open' })
 })

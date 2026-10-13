@@ -472,7 +472,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     pdfMountedRef.current = true
     return () => { pdfMountedRef.current = false; visit.update(null) }
   }, [])
-  pdfNavigationVisitRef.current.update(`${reportScopeRef.current}:${activeTab}:${moreSection}`)
+  pdfNavigationVisitRef.current.update(`${reportScopeRef.current}:${activeTab}:${moreSection}:${selectedMessageId}`)
   const parentPlanContext = useMemo(() => selectedLink || user, [selectedLink, user])
   const parentRouteAllowed = useCallback((route) => {
     const normalizedRoute = String(route || '').trim().toLowerCase()
@@ -1668,7 +1668,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
 
   async function handleOpenParentItem(type, item) {
-    if (type === 'development') return handleDevelopmentPdf(item)
+    if (type === 'development') return handleDevelopmentPdf(item, 'open')
     if (isOffline || activeActionId) return
     setActiveActionId(`${type}:${item.id}`)
     setNotice(null)
