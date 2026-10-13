@@ -30,7 +30,7 @@ function App(){const[team,setTeam]=useState('a'),[account,setAccount]=useState('
 ${isWeb?`return <TeamLeagueEditor key={teamLeagueScopeKey(scope)} scope={scope}/>;`:isCoach?`const palette=createCoachTheme({mode}).tokens;theme={palette,styles:createCoachStyles(palette)};return <View style={{padding:16,minHeight:'100vh',backgroundColor:palette.background}}>${role==='editor'?'<TeamLeagueLinkSettings key={teamLeagueScopeKey(scope)} client={client} scope={scope} palette={palette}/>':'<HomeScreen context={{teamId:team,planKey:"team",roleRank:70,role:"head_manager"}} user={user} onNavigate={()=>{}} homeState={{nextCalendar:{id:"event",title:"Monday training",startsAt:"Mon 5 Oct, 18:00"},nextMatch:null,nextSession:null}}/>'}</View>;`:`const tokens=createParentMobileTheme({mode}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(tokens)};return <View style={{padding:16,minHeight:'100vh',backgroundColor:palette.background}}><HomeScreen userId={account} leagueUser={user} link={link} homeModel={homeModel} calendar={resource} matches={resource} messages={resource} notifications={resource} isOffline={offline} onOpenPolls={()=>{}} onOpenUpdates={()=>{}} onOpenInvites={()=>{}} onOpenMatch={()=>{}}/></View>;`}}
 createRoot(document.getElementById('root')).render(<App/>);`
 }
-async function bundle(entry){const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl','.png':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}});return result.outputFiles[0].text}
+async function bundle(entry){const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl','.png':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],plugins:[{name:'role-storage',setup(b){if(!entry.includes('function TeamLeagueEditor('))b.onResolve({filter:/^\.\/mobileTeamLeagueStorage$/},args=>({path:path.resolve(path.dirname(args.importer),'mobileTeamLeagueStorage.native.js')}))}}],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}});return result.outputFiles[0].text}
 const browser=await chromium.launch({headless:true}),errors=[],external=[]
 try{
 for(const role of Object.keys(entries)){
@@ -82,7 +82,13 @@ for(const role of Object.keys(entries)){
     await restored.waitFor()
     const stableRow=page.getByText(role==='coach'?'Next Calendar item':'Next up',{exact:true}),before=await stableRow.boundingBox()
     assert.equal(await page.evaluate(()=>window.opened.length),0,'Restoring a saved display never opens a website')
-    await page.evaluate(()=>{window.defer=false;window.pending[0].resolve({data:{...window.pending[0].data,team_name:'Updated league team'}})})
+    const requests=await page.evaluate(()=>window.calls.length)
+    await page.evaluate(()=>window.offline(true))
+    await page.getByLabel('Current league for Demo U14',{exact:true}).waitFor()
+    assert.equal(await page.getByRole('link',{name:/Current league/}).count(),0,'Actual offline profile keeps the remembered display without permitting opening')
+    assert.equal(await page.evaluate(()=>window.calls.length),requests,'Offline display restoration performs no RPC')
+    await page.evaluate(()=>window.offline(false));await page.waitForFunction(()=>window.pending.length===2)
+    await page.evaluate(()=>{window.defer=false;const pending=window.pending.at(-1);pending.resolve({data:{...pending.data,team_name:'Updated league team'}})})
     await page.getByRole('link',{name:'Current league for Updated league team',exact:true}).waitFor()
     assert.equal((await stableRow.boundingBox()).y,before.y,'Saved display and background refresh keep the Home row fixed')
     await page.evaluate(()=>{window.denied=true;window.foreground()})

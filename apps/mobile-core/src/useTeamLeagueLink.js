@@ -5,12 +5,13 @@ import { mobileTeamLeagueStorage } from './mobileTeamLeagueStorage'
 
 export function useTeamLeagueLink(client, scope) {
   const key = teamLeagueScopeKey(scope)
+  const storageKey = teamLeagueScopeKey({ ...scope, offline: false })
   const scopeJson = JSON.stringify(scope)
   // Derive an immutable scope from the key rather than a changing profile object.
-  const session = useMemo(() => ({ gate: createTeamLeagueRequestGate(), key, scope: JSON.parse(scopeJson), client }), [key, scopeJson, client])
-  const cacheKey = 'team-league:' + key
+  const session = useMemo(() => ({ gate: createTeamLeagueRequestGate(), key, storageKey, scope: JSON.parse(scopeJson), client }), [key, storageKey, scopeJson, client])
+  const cacheKey = 'team-league:' + storageKey
   const [state, setState] = useState(() => {
-    const cached = key ? mobileResourceCache.peek(cacheKey, Infinity) : null
+    const cached = storageKey ? mobileResourceCache.peek(cacheKey, Infinity) : null
     const value = cached ? { ...cached, canEdit: false } : null
     return { session, value, status: value ? 'ready' : 'loading', error: '' }
   })
@@ -19,14 +20,15 @@ export function useTeamLeagueLink(client, scope) {
     const token = session.gate.begin()
     let saved = null
     setState(current => ({ session, value: current.session === session ? current.value : null, status: current.session === session && current.value ? 'refreshing' : 'loading', error: '' }))
-    if (!session.key) { setState({ session, value: null, status: 'ready', error: '' }); return null }
+    if (!session.storageKey) { setState({ session, value: null, status: 'ready', error: '' }); return null }
     try {
-      saved = await mobileTeamLeagueStorage.read(session.key, session.scope.teamId)
+      saved = await mobileTeamLeagueStorage.read(session.storageKey, session.scope.teamId)
       if (!session.gate.isCurrent(token)) return null
+      if (!session.key) { setState({ session, value: saved, status: 'ready', error: '' }); return null }
       if (saved) setState(current => ({ session, value: current.session === session && current.value ? current.value : saved, status: 'refreshing', error: '' }))
       const value = await mobileResourceCache.read(cacheKey, () => readTeamLeagueLink(client, session.scope), { force, maxAgeMs: 300000 })
       if (!session.gate.isCurrent(token)) return null
-      void mobileTeamLeagueStorage.write(session.key, value, () => session.gate.isCurrent(token))
+      void mobileTeamLeagueStorage.write(session.storageKey, value, () => session.gate.isCurrent(token))
       setState({ session, value, status: 'ready', error: '' })
       return { value, token }
     } catch (error) {
@@ -35,7 +37,7 @@ export function useTeamLeagueLink(client, scope) {
         return null
       }
       if (session.gate.isCurrent(token)) mobileResourceCache.invalidate(cacheKey)
-      void mobileTeamLeagueStorage.remove(session.key, () => session.gate.isCurrent(token))
+      void mobileTeamLeagueStorage.remove(session.storageKey, () => session.gate.isCurrent(token))
       if (session.gate.isCurrent(token)) setState({ session, value: null, status: 'error', error: 'The league link is unavailable. Refresh your team access and try again.' })
       return null
     }
@@ -51,7 +53,7 @@ export function useTeamLeagueLink(client, scope) {
     }
   }, [cacheKey, load, session])
   const save = useCallback(async values => {
-    if (state.session !== session || !state.value?.canEdit || state.status !== 'ready') return false
+    if (!session.key || state.session !== session || !state.value?.canEdit || state.status !== 'ready') return false
     const token = session.gate.beginSave()
     if (token === null) return false
     setState({ session, value: state.value, status: 'saving', error: '' })
@@ -59,11 +61,11 @@ export function useTeamLeagueLink(client, scope) {
       const value = await saveTeamLeagueLink(client, session.scope, values)
       if (!session.gate.isCurrent(token)) return false
       mobileResourceCache.invalidate(cacheKey)
-      void mobileTeamLeagueStorage.write(session.key, value, () => session.gate.isCurrent(token))
+      void mobileTeamLeagueStorage.write(session.storageKey, value, () => session.gate.isCurrent(token))
       setState({ session, value, status: 'ready', error: '' })
       return true
     } catch (error) {
-      void mobileTeamLeagueStorage.remove(session.key, () => session.gate.isCurrent(token))
+      void mobileTeamLeagueStorage.remove(session.storageKey, () => session.gate.isCurrent(token))
       if (session.gate.isCurrent(token)) setState({ session, value: null, status: 'error', error: error.message })
       return false
     } finally {

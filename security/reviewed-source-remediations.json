@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "8a62b9ea051483b8ef73c072559b64c7df3c627322910e091e8f781c2873720a",
+    "scripts/security-verify-reviewed-backports.mjs": "ea5e3fa93f0fc90990d0b5533bc072ab771cb85bbb063756e541f017598292db",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -689,7 +689,7 @@
       "apps/coach-mobile/src/coachThemeCore.js": "abe96fd722c4c22fac3813b901b6b5bbf3460d7852d894e2f29c6e8c3ae61c1d",
       "apps/coach-mobile/src/offline.js": "53da586a719a4adcf06a2387c85806e927b5e1f5001821d886be8b00472376b4",
       "apps/mobile-core/src/AttendancePendingRows.js": "c9be4d22c1abd96cca663322884e5ec0b0a7a7c81bbc476ea186fca7209b62d8",
-      "apps/mobile-core/src/TeamLeagueLink.js": "546a9462cb4693c574ca49df9c915f608f5050bce7bc975308dc1b8ad5ac98e1",
+      "apps/mobile-core/src/TeamLeagueLink.js": "eca9280132ee0f29e19af058202cd0659251a730fb883e18d79d98d9f5fb72ce",
       "apps/mobile-core/src/attendanceCommandData.js": "69bcff81df8a89c6e74a97676493c83b2ccd169fa5318fe160077640a2fc8f47",
       "apps/mobile-core/src/attendanceOutboxCore.js": "03783a41834672338eee9d224e43deb46d1c974fb3e44f0b41a81b6433df9700",
       "apps/mobile-core/src/coachContextCore.js": "37b7fdd7b718ad05e351ee3c9f7b37e7d672422747b294361eb43ccfbf302853",
@@ -704,7 +704,7 @@
       "apps/mobile-core/src/parentThemeCore.js": "87c295036aef4bf0e7c81cce7b00389062d25a367ce93bb8bf2e78b71a61bc12",
       "apps/mobile-core/src/profile.js": "772018633568bab13054924c63f63e06dce4cffca84e4c8e9ba6ff7da3582362",
       "apps/mobile-core/src/useAttendanceOutbox.js": "e8340032a51320a61d7479589bb8aa74c96e749ff1a53860cd5f2a83d0c6771c",
-      "apps/mobile-core/src/useTeamLeagueLink.js": "36526e382a2d43bf33e5d26a2659108fd5656aa2cdb523c989e5e4fa79d36a85",
+      "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
       "apps/parent-mobile/App.js": "9bfa7361c304a79877fd09742e3b21ca5c39e6bf0c4d18afce03fbf016cd181a",
       "apps/parent-mobile/src/ParentPortalScreens.js": "6479e9f4fd76be7102040da0f716d6f905d64e2436fad9ad31ae3a0d92d58f70",
       "apps/parent-mobile/src/offline.js": "72031bfbff6732b75e048864a27331cfb9ba7382bb414aeef561461267c2ad49",
@@ -849,7 +849,7 @@
       "tests/poll-watched-browser.mjs": "84e9ff9be939cdd2e23f17ed6a0726f18b2a05266b9a18d48fff2aadbdddd7da",
       "tests/sidebar-howto-cleanup.test.mjs": "30d320963b8bb5591c889e83fb9878d0069b666e258e2775dd7bb0765b9450b4",
       "tests/team-branding-management.test.mjs": "0eb72e09fc559810d37d11d7ffb1eefd330b71dac9eba07941fcd313ea96b316",
-      "tests/team-league-link-browser.mjs": "cb193e7d1b98e6fbde8118ad2cda7e4e504e7a349ec487ec2d6a56d8161a2bc9",
+      "tests/team-league-link-browser.mjs": "50def44c355f108e9ec6825bed8ebc05af99f46e0a2090d84849d843743e8556",
       "tests/team-league-link-sql.test.mjs": "949e3e09175f0a0e3cf27f8dc2593f2f45adbef96895a94f2d12250b261e9c44",
       "tests/team-league-link.test.mjs": "a637761571ec9f4982ce667a709e564e89af17f1310e6888f1a17d8acc55e354",
       "tests/training-rsvp-chat-dnd-73.test.mjs": "8ac926ea06eec576ac540498aa9768b6240fe897d34b06c78a2d68816b15c809",
@@ -1091,11 +1091,12 @@
       "apps/mobile-core/src/mobileKitCache.js": "b5c2ac840bcc6e2519535cc543e9b5f3115ba3da812634d963bcd0a5bbf98ec3",
       "apps/mobile-core/src/kitImageStorageCore.js": "1dcbf4916e21e0c8600b9f24d035168490beafd46c1b768e705f274ec6a7bf1b",
       "apps/mobile-core/src/mobileKitImageStorage.js": "45e667a64a6af82a5e04d69807c7b82da89df0d57f5c5f2df00cdc82d6c9605d",
-      "apps/mobile-core/src/mobileTeamLeagueStorage.js": "29bb505b56191ae7c5a8c0d686372771231467756cd82f821ea1ca5aeb54af4d",
+      "apps/mobile-core/src/mobileTeamLeagueStorage.js": "bf9a43f59f9415a90c95c939078a1666c5776ed1028f2bc0d1b4e7c4263c4262",
       "apps/mobile-core/src/teamLeagueStorageCore.js": "a3280d085b72e2cdc9acbf0323f8133084fb42166d4949d8a8279fb6035c3544",
       "tests/club-kits-browser.mjs": "3314714992c4cc34950629f821ce120ec75e1bf7cf7519b30a85d414af8ec647",
       "tests/mobile-kit-offline-browser.mjs": "df8384630429269481bc413c3f86c4cbcf2d5eae044cc5d6abed764a1387e7bf",
-      "tests/mobile-persistent-resources.test.mjs": "b8a4f2295a77f1ef38465bb23562d44f1619d2aa3684f09d0f86074437fa17bb"
+      "tests/mobile-persistent-resources.test.mjs": "b8a4f2295a77f1ef38465bb23562d44f1619d2aa3684f09d0f86074437fa17bb",
+      "apps/mobile-core/src/mobileTeamLeagueStorage.native.js": "29bb505b56191ae7c5a8c0d686372771231467756cd82f821ea1ca5aeb54af4d"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2025,7 +2026,7 @@
       "migrations": 0
     }
   },
-  "releasePreparationSha256": "fec2bbd25782eed4aa9b8da83133b8be040adf2b3116f3547466fe9626a1ffc2",
+  "releasePreparationSha256": "f84da65c8ebe0c5ae173402b1ec1191d57ebec720c15e19145b77e42ca70e851",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
