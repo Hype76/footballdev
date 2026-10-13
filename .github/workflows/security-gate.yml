@@ -135,6 +135,8 @@ jobs:
         run: npm run test:v1-stabilise
       - name: Development report Parent notification eligibility
         run: node --test tests/coach-development-notifications.test.mjs tests/coach-development-notifications-pglite.test.mjs
+      - name: Development report form progression and output parity
+        run: node --test tests/development-report-form-progression.test.mjs tests/development-parent-email-output.test.mjs tests/development-parent-report-content.test.mjs tests/development-scores-filenames-10c.test.mjs tests/parent-development-library-10b.test.mjs
       - name: Install Parent encryption test dependencies
         run: npm ci --prefix apps/parent-mobile --include=optional
       - name: Reapply exact backports after Parent clean install
