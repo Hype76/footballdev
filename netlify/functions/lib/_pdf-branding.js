@@ -325,6 +325,7 @@ export async function resolvePdfBranding({
   now = () => new Date(),
   fetchTimeoutMs = PDF_LOGO_FETCH_TIMEOUT_MS,
   storageOrigin = process.env.VITE_SUPABASE_URL,
+  deferLogo = false,
 } = {}) {
   const startedAt = Date.now()
   const scope = await loadAuthorisedPdfBrandingScope(supabaseAdmin, {
@@ -341,6 +342,7 @@ export async function resolvePdfBranding({
     now,
     fetchTimeoutMs,
     storageOrigin,
+    deferLogo,
   })
 
   if (diagnostics) {
@@ -362,6 +364,7 @@ export async function buildPdfBrandingForAuthorisedScope({
   now = () => new Date(),
   fetchTimeoutMs = PDF_LOGO_FETCH_TIMEOUT_MS,
   storageOrigin = process.env.VITE_SUPABASE_URL,
+  deferLogo = false,
 } = {}) {
   const startedAt = Date.now()
   const generatedDate = formatGeneratedDate(now())
@@ -369,7 +372,7 @@ export async function buildPdfBrandingForAuthorisedScope({
   const clubName = normalizePdfText(scope.club.name) || 'Footballplayer.online'
   const teamName = normalizePdfText(scope.team?.name)
   const colours = resolveAccent(scope.club.theme_accent)
-  const logo = await preparePdfClubLogo({
+  const logo = deferLogo ? { clubLogoData: '', fallbackReason: '' } : await preparePdfClubLogo({
     storage: supabaseAdmin.storage,
     clubId: scope.club.id,
     logoUrl: scope.club.logo_url,

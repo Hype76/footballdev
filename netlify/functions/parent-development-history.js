@@ -14,12 +14,14 @@ import {
   getParentDevelopmentReport,
   ParentDevelopmentHistoryError,
   validateParentDevelopmentScope,
+  assertDevelopmentPdfScopeUnchanged,
 } from './lib/_parent-development-history.js'
 import {
   enrichDevelopmentParentReportWithScores,
   resolveDevelopmentParentReport,
 } from './lib/_development-parent-email-output.js'
 import { assertParentPlanFeatureForScope } from './lib/_parent-plan-gate.js'
+import { DEVELOPMENT_PDF_BUCKET, developmentReportHash, isCurrentDevelopmentPdfArtifact, storeDevelopmentPdfArtifact } from './lib/_development-pdf-background.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const PDF_RENDER_TIMEOUT_MS = 25_000
@@ -441,7 +443,7 @@ export default async (request) => {
       supabaseAdmin,
     })
     await assertParentPlanFeatureForScope({
-      actionCategory: action === 'download_pdf' ? 'EXPORT' : 'READ',
+      actionCategory: ['download_pdf', 'open_pdf'].includes(action) ? 'EXPORT' : 'READ',
       clubId: parentLink.club_id,
       featureName: 'basicDevelopmentRecords',
       parentLinkId: parentLink.id,
@@ -449,7 +451,7 @@ export default async (request) => {
       teamId: parentLink.team_id || player.team_id,
     })
     await assertParentPlanFeatureForScope({
-      actionCategory: action === 'download_pdf' ? 'EXPORT' : 'READ',
+      actionCategory: ['download_pdf', 'open_pdf'].includes(action) ? 'EXPORT' : 'READ',
       clubId: parentLink.club_id,
       featureName: 'assessments',
       parentLinkId: parentLink.id,
@@ -466,7 +468,7 @@ export default async (request) => {
       })
     }
 
-    if (action !== 'download_pdf') {
+    if (!['download_pdf', 'open_pdf'].includes(action)) {
       throw new ParentDevelopmentHistoryError(
         'Choose a valid Development history action.',
         400,
@@ -487,7 +489,7 @@ export default async (request) => {
     const report = getParentDevelopmentReport(history, reportId)
     const { data: reportRows, error: reportRowsError } = await supabaseAdmin
       .from('development_parent_reports')
-      .select('evaluation_id, report_snapshot')
+      .select('evaluation_id, report_snapshot, pdf_artifact')
       .eq('evaluation_id', report.id)
       .eq('club_id', parentLink.club_id)
       .limit(1)
@@ -497,12 +499,30 @@ export default async (request) => {
     }
 
     const reportSnapshot = getReportSnapshot(reportRows ?? [], report.id)
-    const { buffer, diagnostics, filename } = await buildParentDevelopmentPdf({
-      parentLink,
-      report,
-      reportSnapshot,
-      supabaseAdmin,
-    })
+    let artifact = reportRows?.[0]?.pdf_artifact
+    if (action === 'open_pdf') {
+      if (!isCurrentDevelopmentPdfArtifact(artifact, reportSnapshot, parentLink.club_id, report.id)) {
+        const result = await buildParentDevelopmentPdf({ parentLink, report, reportSnapshot, supabaseAdmin })
+        artifact = await storeDevelopmentPdfArtifact(supabaseAdmin, { evaluationId: report.id, clubId: parentLink.club_id, snapshotHash: developmentReportHash(reportSnapshot), snapshot: reportSnapshot, filename: result.filename, buffer: result.buffer })
+      }
+      // Refresh authority before issuing the short-lived viewer link after a slow render.
+      const currentAuth = await supabaseAdmin.auth.getUser(accessToken)
+      if (currentAuth.error || currentAuth.data?.user?.id !== authData.user.id) throw new ParentDevelopmentHistoryError('Sign in again before opening this PDF.', 401)
+      const currentScope = await loadParentScope({ authUserId: authData.user.id, parentLinkId, supabaseAdmin })
+      assertDevelopmentPdfScopeUnchanged({ parentLink, player }, currentScope)
+      for (const featureName of ['basicDevelopmentRecords', 'assessments']) await assertParentPlanFeatureForScope({ actionCategory: 'EXPORT', clubId: currentScope.parentLink.club_id, featureName, parentLinkId: currentScope.parentLink.id, playerId: currentScope.player.id, teamId: currentScope.parentLink.team_id || currentScope.player.team_id })
+      const latest = await supabaseAdmin.from('development_parent_reports').select('report_snapshot').eq('evaluation_id', report.id).eq('club_id', parentLink.club_id).maybeSingle()
+      if (latest.error || !latest.data || developmentReportHash(latest.data.report_snapshot) !== artifact.snapshotHash || !latest.data.report_snapshot.recipients?.some(item => item.linkId === parentLink.id)) throw new ParentDevelopmentHistoryError('This shared report changed. Open it again.', 409)
+      const { data, error } = await supabaseAdmin.storage.from(DEVELOPMENT_PDF_BUCKET).createSignedUrl(artifact.key, 60)
+      if (error || !data?.signedUrl) throw new Error('The Development PDF could not be opened.')
+      return json(200, { success: true, url: data.signedUrl, expiresIn: 60 })
+    }
+    let storedPdf = null
+    if (isCurrentDevelopmentPdfArtifact(artifact, reportSnapshot, parentLink.club_id, report.id)) {
+      const { data, error } = await supabaseAdmin.storage.from(DEVELOPMENT_PDF_BUCKET).download(artifact.key)
+      if (!error && data) storedPdf = { buffer: Buffer.from(await data.arrayBuffer()), filename: artifact.filename, diagnostics: { cleanupState: 'cached', networkRequestCount: 0 } }
+    }
+    const { buffer, diagnostics, filename } = storedPdf || await buildParentDevelopmentPdf({ parentLink, report, reportSnapshot, supabaseAdmin })
 
     return new Response(buffer, {
       status: 200,

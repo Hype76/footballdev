@@ -1081,7 +1081,7 @@ export async function processScheduledEmails() {
   }
 
   const now = new Date().toISOString()
-  const { data, error } = await supabaseAdmin
+  const dueQuery = () => supabaseAdmin
     .from('scheduled_email_queue')
     .select('*')
     .in('status', ['scheduled', 'failed', 'sending'])
@@ -1091,7 +1091,13 @@ export async function processScheduledEmails() {
       + `and(status.eq.sending,retry_enabled.eq.true,legacy_review_required.eq.false,lease_expires_at.lte.${now})`,
     )
     .order('scheduled_at', { ascending: true })
-    .limit(25)
+  // Reserve ordinary communications independently of any PDF backlog.
+  const [ordinary, pdf] = await Promise.all([
+    dueQuery().is('payload->pendingDevelopmentPdf', null).limit(25),
+    dueQuery().not('payload->pendingDevelopmentPdf', 'is', null).limit(1),
+  ])
+  const error = ordinary.error || pdf.error
+  const data = [...(ordinary.data || []), ...(pdf.data || [])]
 
   if (error) {
     console.error(error)
@@ -1109,7 +1115,11 @@ export async function processScheduledEmails() {
     duplicate: 0,
   }
 
+  const invocationStartedAt = Date.now()
   for (const row of data ?? []) {
+    const elapsed = Date.now() - invocationStartedAt
+    if (row.payload?.pendingDevelopmentPdf && elapsed > 12_000) break
+    if (!row.payload?.pendingDevelopmentPdf && elapsed > (pdf.data?.length ? 6_000 : 18_000)) continue
     const status = row.status === 'failed'
       ? await sendScheduledEmail(row, { retryFailed: true })
       : await sendScheduledEmail(row)

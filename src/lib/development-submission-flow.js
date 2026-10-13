@@ -195,6 +195,8 @@ export function buildDevelopmentCompletionItems({
   const emailFailed = ['no_recipient', 'recipient_review', 'schedule_failed', 'send_failed'].includes(emailOutcome)
   const pdfStatus = !isEmailRequested || !isPdfAttachmentApproved
     ? 'Not requested'
+    : emailOutcome === 'queued' || emailOutcome === 'scheduled'
+      ? 'Preparing in background'
     : emailOutcome === 'recipient_review'
       ? 'Not generated, retry available'
     : emailFailed
@@ -202,6 +204,8 @@ export function buildDevelopmentCompletionItems({
       : 'Attached'
   const emailStatus = !isEmailRequested
     ? 'Not requested'
+    : emailOutcome === 'queued'
+      ? 'Queued for sending'
     : emailOutcome === 'scheduled'
       ? 'Scheduled'
       : emailOutcome === 'sent'

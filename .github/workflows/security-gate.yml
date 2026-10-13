@@ -143,6 +143,8 @@ jobs:
         run: npm run security:provision -- --no-install
       - name: Parent calendar, Fans back navigation and PDF saving
         run: node --test tests/parent-simon-feedback.test.mjs tests/parent-calendar-ota-compat.test.mjs tests/parent-calendar-feed.test.mjs tests/fan-schedule-upcoming.test.mjs tests/parent-match-report-save.test.mjs && node tests/parent-simon-feedback-browser.mjs
+      - name: Development PDF background queue and phone viewer
+        run: node --test tests/development-pdf-background.test.mjs tests/development-pdf-foreground.test.mjs tests/development-pdf-queue.test.mjs tests/parent-development-pdf-actions.test.mjs tests/development-submission-flow.test.mjs && node tests/parent-development-pdf-browser.mjs
       - name: Fans layout and app invitation handoff
         run: >-
           node --test tests/fan-app-handoff.test.mjs tests/fan-app-link.test.mjs &&

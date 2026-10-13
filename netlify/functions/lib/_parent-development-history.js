@@ -20,6 +20,11 @@ function normalizeText(value) {
   return String(value ?? '').trim()
 }
 
+export function assertDevelopmentPdfScopeUnchanged(original, current) {
+  const scopeKey = ({ parentLink, player }) => JSON.stringify([parentLink.id, parentLink.club_id, parentLink.team_id || player.team_id, parentLink.player_id, player.id, player.club_id, player.team_id])
+  if (scopeKey(original) !== scopeKey(current)) throw new ParentDevelopmentHistoryError('The selected player changed. Open the report again.', 403)
+}
+
 function normalizeDate(value) {
   const normalizedValue = normalizeText(value)
   const parsedDate = new Date(normalizedValue)
