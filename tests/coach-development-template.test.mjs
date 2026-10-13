@@ -38,11 +38,11 @@ test('incomplete and oversized templates fail before a server write',()=>{
 async function helpers(file,names){const source=await readFile(new URL(file,import.meta.url),'utf8');const nodes=parse(source,{sourceType:'module'}).program.body.map(node=>node.declaration||node);return names.map(name=>{const node=nodes.find(node=>node.type==='FunctionDeclaration'&&node.id?.name===name);assert.ok(node,name);return source.slice(node.start,node.end)}).join('\n')}
 const operational=await helpers('../apps/mobile-core/src/coachOperationalData.js',['assertCoachOperationalRead','assertCoachOperationalMutation','assertCoachCapability','getCoachEntryIdentity'])
 const data=await helpers('../apps/mobile-core/src/coachPhase31EData.js',['normalize','assertCanonicalMutation','saveCoachDevelopmentTemplate','setCoachDevelopmentTemplateAccess'])
-function fixture({duplicate=false}={}){
+function fixture({duplicate=false,insertError=null,throws=false,missing=false,auditError=null}={}){
   const calls=[],audits=[]
   const saved={...draft,club_id:'club',team_id:'team',created_by:'creator',access_scope:'creator',updated_at:'2026-10-13T14:00:00Z'}
-  const supabase={from(table){assert.equal(table,'feedback_forms');let payload;const filters=[];const query={insert(value){payload=value;calls.push(['insert',value]);return query},update(value){payload=value;calls.push(['update',value]);return query},select(){return query},eq(key,value){filters.push([key,value]);return query},async single(){return duplicate?{error:{code:'23505'}}:{data:{...saved,...payload}}},async maybeSingle(){calls.push(['filters',filters]);return{data:payload?{...saved,...payload}:{...saved,fields:saved.fields.map(item=>Object.fromEntries(Object.entries(item).reverse()))}}}};return query}}
-  const dependencies={config:{isUsable:true,supabaseEnvironment:'production'},CAPABILITIES,getFeatureAccess,canBuildCoachDevelopmentTemplate,validateCoachDevelopmentTemplate,normalizeCoachDevelopmentForm,supabase,recordCoachOperationalAudit:async value=>audits.push(value)}
+  const supabase={from(table){assert.equal(table,'feedback_forms');let payload;const filters=[];const query={insert(value){payload=value;calls.push(['insert',value]);return query},update(value){payload=value;calls.push(['update',value]);return query},select(){return query},eq(key,value){filters.push([key,value]);return query},async single(){if(throws)throw insertError;return insertError?{error:insertError}:duplicate?{error:{code:'23505'}}:{data:{...saved,...payload}}},async maybeSingle(){calls.push(['filters',filters]);return{data:missing?null:payload?{...saved,...payload}:{...saved,fields:saved.fields.map(item=>Object.fromEntries(Object.entries(item).reverse()))}}}};return query}}
+  const dependencies={config:{isUsable:true,supabaseEnvironment:'production'},CAPABILITIES,getFeatureAccess,canBuildCoachDevelopmentTemplate,validateCoachDevelopmentTemplate,normalizeCoachDevelopmentForm,supabase,recordCoachOperationalAudit:async value=>{audits.push(value);if(auditError)throw auditError}}
   const api=new Function(...Object.keys(dependencies),`${operational}\n${data}\nreturn {saveCoachDevelopmentTemplate,setCoachDevelopmentTemplateAccess}`)(...Object.values(dependencies))
   return{...api,calls,audits}
 }
@@ -70,4 +70,32 @@ test('actual sharing write uses creator, club, team and version filters and reje
   await assert.rejects(h.setCoachDevelopmentTemplateAccess(user,{...saved,teamId:'other'},'team'),/creator/)
   await assert.rejects(h.setCoachDevelopmentTemplateAccess({...user,roleRank:30},saved,'team'),/Coach role/)
   assert.equal(h.calls.length,before)
+})
+
+test('uncertain transport results reconcile the same committed template without another insert',async()=>{
+  for(const throws of [false,true]){
+    const h=fixture({insertError:new Error('Network request failed'),throws})
+    const saved=await h.saveCoachDevelopmentTemplate(user,draft)
+    assert.equal(saved.id,id)
+    assert.equal(saved.accessScope,'creator')
+    assert.equal(h.calls.filter(c=>c[0]==='insert').length,1)
+    assert.deepEqual(h.calls.at(-1)[1],[['id',id],['club_id','club'],['team_id','team'],['created_by','creator']])
+  }
+  const absent=fixture({insertError:new Error('Network request failed'),missing:true})
+  await assert.rejects(absent.saveCoachDevelopmentTemplate(user,draft),/Network request failed/)
+  const denied=fixture({insertError:{code:'42501',message:'Network role is not authorised'}})
+  await assert.rejects(denied.saveCoachDevelopmentTemplate(user,draft))
+  assert.equal(denied.calls.length,1,'Permission failures never use acknowledgement recovery')
+})
+
+test('audit transport failure preserves confirmed server identity and explicitly marks pending activity confirmation',async()=>{
+  const h=fixture({auditError:new Error('Network request failed')})
+  await assert.rejects(h.saveCoachDevelopmentTemplate(user,draft),failure=>{
+    assert.equal(failure.savedTemplate.id,id)
+    assert.equal(failure.savedTemplate.createdBy,user.id)
+    assert.equal(failure.savedTemplate.accessScope,'creator')
+    assert.equal(failure.savedTemplate.auditPending,true)
+    return true
+  })
+  assert.equal(h.audits.length,1,'The audit is attempted and never silently omitted')
 })

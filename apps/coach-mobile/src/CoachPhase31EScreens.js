@@ -378,7 +378,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       {loading ? <MobileLoadingStatus message={`Loading ${TITLES[domain]}`} /> : null}
       {!activity && !loading && error && !visibleError ? <MobileLoadingStatus message="Checking for the latest information" /> : null}
       {activity ? <MobileFailureNotice message={error} scopeKey={dataScope} onRetry={load} /> : visibleError ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
-      {data && !error && domain === 'development' ? <DevelopmentDomain {...common} /> : null}
+      {data && !error && domain === 'development' ? <DevelopmentDomain {...common} setData={setData} /> : null}
       {data && !error && domain === 'resources' ? <ResourcesDomain {...common} /> : null}
       {data && !error && domain === 'chat' ? <ChatDomain {...common} /> : null}
       {data && !error && domain === 'messages' ? <MessagesDomain {...common} /> : null}
@@ -388,7 +388,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   )
 }
 
-function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user }) {
+function DevelopmentDomain({ context, data, load, setData, setNotice, stale, styles, user }) {
   const [selection, setSelection] = useState({ scope: '', playerId: '', formId: '' })
   const [playerPickerOpen, setPlayerPickerOpen] = useState(false)
   const [formPickerOpen, setFormPickerOpen] = useState(false)
@@ -532,7 +532,12 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
     if (nextForm.id !== activeFormId) setNotice(`${nextForm.name} selected. The form fields have been updated.`)
   }
 
-  if (templateBuilderOpen && canBuildCoachDevelopmentTemplate(user)) return <CoachDevelopmentTemplateBuilder key={scope} context={context} onBack={() => setTemplateBuilderOpen(false)} onUse={saved => { setSelection(previous => ({ scope, playerId: previous.scope === scope ? previous.playerId : '', formId: saved.id })); setTemplateBuilderOpen(false); void load({ silent: true }) }} stale={stale} styles={styles} user={user} />
+  const templateSaved = saved => {
+    if (callbackToken !== lifetime.current?.renderToken || !lifetime.current.active || callbackToken.scope !== scope) return
+    setData?.(previous => previous ? { ...previous, forms: [...(previous.forms || []).filter(form => form.id !== saved.id), saved] } : previous)
+    void load({ silent: true })
+  }
+  if (templateBuilderOpen && canBuildCoachDevelopmentTemplate(user)) return <CoachDevelopmentTemplateBuilder key={scope} context={context} onBack={() => { setTemplateBuilderOpen(false); void load({ silent: true }) }} onSaved={templateSaved} onUse={saved => { setSelection(previous => ({ scope, playerId: previous.scope === scope ? previous.playerId : '', formId: saved.id })); setNotice(saved.saveWarning || (saved.auditPending ? 'Template saved. Activity confirmation could not be completed yet.' : '')); setTemplateBuilderOpen(false); void load({ silent: true }) }} stale={stale} styles={styles} user={user} />
   const templateBuilderAction = canBuildCoachDevelopmentTemplate(user) ? <Pressable accessibilityRole="button" accessibilityLabel="Build a new assessment template" onPress={() => { setTemplateBuilderOpen(true); Keyboard.dismiss() }} style={styles.developmentSelector}><MaterialIcons color={styles.status.color} name="post-add" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.heading}>Build a new assessment template</Text><Text style={styles.helper}>Create a form for player development</Text></View><MaterialIcons color={styles.status.color} name="chevron-right" size={27} /></Pressable> : null
   if (!data.players?.length || !data.forms?.length) return <View style={styles.stack}>{templateBuilderAction}<Empty copy="No active Player and dynamic Development form combination is available in this Team." styles={styles} /></View>
   return (

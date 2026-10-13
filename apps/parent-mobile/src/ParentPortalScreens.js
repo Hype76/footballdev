@@ -1,5 +1,7 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { createPdfVisitTracker } from '../../mobile-core/src/pdfVisit.js'
+import { getParentDevelopmentProgression } from '../../mobile-core/src/parentDevelopmentProgression.js'
+import { ParentDevelopmentProgressionChart } from './ParentDevelopmentProgressionChart.js'
 import { getParentStatusColours, PARENT_SCORER_ICON_COLOURS } from '../../mobile-core/src/parentStatusColours'
 import { FormationPitchLines, FormationPlayerArtwork, FormationSubArtwork, formationVisualStyles } from '../../mobile-core/src/FormationBoardVisuals'
 import { getFormationMarkerVisualPosition } from '../../mobile-core/src/formationVisualCore'
@@ -1341,6 +1343,7 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, onPrepare, pen
   const { colors, styles } = usePortalStyles(themeTokens)
   const [selectedReportId, setSelectedReportId] = useState('')
   const selectedReport = resource.items.find((report) => report.id === selectedReportId) || null
+  const progression = getParentDevelopmentProgression(selectedReport, resource.items)
   const reportVisitRef = useRef(createPdfVisitTracker())
   useLayoutEffect(() => { reportVisitRef.current.update(selectedReportId) }, [selectedReportId])
   useEffect(() => {
@@ -1385,12 +1388,13 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, onPrepare, pen
             </View>
           )
         })}
-        {(selectedReport.sections || []).map((section) => (
+        {(selectedReport.sections || []).filter(section => section.key !== 'progressionChart').map((section) => (
           <View key={section.key || section.title} style={styles.card}>
             <Text style={styles.cardTitle}>{section.title}</Text>
             {section.body ? <Text style={styles.body}>{section.body}</Text> : null}
           </View>
         ))}
+        {progression ? <ParentDevelopmentProgressionChart colors={colors} key={selectedReport.id} progression={progression} styles={styles} /> : null}
         {!selectedReport.responseItems?.length && !selectedReport.sections?.length ? <Text style={styles.helper}>No detailed Development responses were shared with this report.</Text> : null}
         {onOpen ? <View style={styles.row}>{['open', 'share'].map(action => <Button compact key={action} disabled={isOffline || !selectedReport.canDownloadPdf || pendingReportIds.includes(selectedReport.id)} label={action === 'open' ? 'Open PDF' : 'Share PDF'} onPress={() => onOpen(selectedReport, action, reportVisitRef.current.capture())} styles={styles} secondary={action === 'share'} />)}</View> : null}
       </View>
