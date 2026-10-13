@@ -14,7 +14,7 @@ import { getAccessToken, supabase } from '../../mobile-core/src/supabase'
 import { subscribeToMobileChatRoom } from '../../mobile-core/src/chatRealtime'
 import { normalizePersonName } from '../../../src/lib/person-name.js'
 import { canRemoveOwnParentAccess, validateParentAccessRemovalResult } from '../../mobile-core/src/parentAccessRemovalCore'
-import { mergeMatchDayCommandSnapshot } from '../../mobile-core/src/matchDayOutboxCore'
+import { mergeParentScorerAcknowledgement } from './parentScorerOutboxCore.js'
 import { withParentMatchReportBranding } from './parentMatchReportBranding.js'
 
 export async function revokeOwnParentPlayerAccess(user, link) {
@@ -260,6 +260,8 @@ function normalizeParentMatchEvent(row = {}) {
     eventType: normalizeText(row.event_type ?? row.eventType) || 'goal',
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     id: row.id ?? '',
+    requestId: normalizeText(row.request_id ?? row.requestId),
+    pendingSync: row.pendingSync === true,
     isPenaltyGoal: row.is_penalty_goal === true || row.isPenaltyGoal === true,
     isOwnGoal: row.is_own_goal === true || row.isOwnGoal === true,
     matchPhase: normalizeText(row.match_phase ?? row.matchPhase),
@@ -878,11 +880,8 @@ export async function applyParentScorerCommand(user, command, baseMatch) {
       body: JSON.stringify({ commandId: command.id }),
     }).catch(() => {})
   }
-  const events = result.savedEvent && ['goal', 'event', 'score', 'correct-goal'].includes(command.kind)
-    ? [...(baseMatch.events || []).filter(event => event.requestId !== command.id && event.id !== result.savedEvent.id), result.savedEvent]
-    : baseMatch.events || []
-  const merged = mergeMatchDayCommandSnapshot(baseMatch, result.match || {})
-  const match = normalizeParentMatchDay({ ...merged, events,
+  const merged = mergeParentScorerAcknowledgement(baseMatch, command, result)
+  const match = normalizeParentMatchDay({ ...merged,
     isScorer: command.kind === 'request-review' ? false : baseMatch.isScorer,
     scorerReviewRequestedAt: result.scorerReviewRequestedAt || baseMatch.scorerReviewRequestedAt,
     shootoutEvents: result.shootoutEvents || baseMatch.shootoutEvents,

@@ -821,7 +821,7 @@ function ScorerEventForm({ disabled, capture, onAdd, players, styles, placeholde
 }
 
 function GoalCorrectionForm({ disabled, events, match, onCorrect, onVoid, placeholderColor, players = [], styles }) {
-  const activeGoals = (events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt)
+  const activeGoals = (events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt && event.eventStatus !== 'voided')
   const [eventId, setEventId] = useState('')
   const selected = activeGoals.find((event) => event.id === eventId) || null
   const [side, setSide] = useState('club')
@@ -946,7 +946,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
   const timerActions = getParentScorerTimerActions(match).filter((item) => item.action !== 'conclude')
   const canRecordEvents = canRecordParentScorerEvent(match, 'goal')
   const canCorrectScore = canCorrectMatchDayScore(match)
-  const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt)
+  const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt && event.eventStatus !== 'voided')
   useEffect(() => {
     let mounted = true
     void isAvailableAsync().then((available) => mounted && setKeepAwakeAvailable(available)).catch(() => mounted && setKeepAwakeAvailable(false))
@@ -1337,12 +1337,15 @@ function ParentMatchReportCard({ colors, isDownloading = false, match, onDownloa
   )
 }
 
-export function DevelopmentScreen({ isOffline, onDismiss, onOpen, pendingReportIds = [], resource, themeTokens }) {
+export function DevelopmentScreen({ isOffline, onDismiss, onOpen, onPrepare, pendingReportIds = [], resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [selectedReportId, setSelectedReportId] = useState('')
   const selectedReport = resource.items.find((report) => report.id === selectedReportId) || null
   const reportVisitRef = useRef(createPdfVisitTracker())
   useLayoutEffect(() => { reportVisitRef.current.update(selectedReportId) }, [selectedReportId])
+  useEffect(() => {
+    if (selectedReport?.canDownloadPdf && !isOffline) onPrepare?.(selectedReport, reportVisitRef.current.capture())
+  }, [isOffline, onPrepare, selectedReport])
 
   if (selectedReport) {
     return (

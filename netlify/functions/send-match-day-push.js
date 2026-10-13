@@ -397,7 +397,7 @@ export async function handler(event) {
   }
 }
 
-export async function deliverMatchDayNotification({ match, type, eventId = '', targetParentLinkIds, notificationCopy: suppliedCopy, inboxAlreadySaved = false }) {
+export async function deliverMatchDayNotification({ match, type, eventId = '', notificationId = '', targetParentLinkIds, notificationCopy: suppliedCopy, inboxAlreadySaved = false }) {
   const webPushConfigured = configureWebPush()
     let eventRow = null
 
@@ -425,7 +425,8 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
     const mobileDevices = await getMobileDevices({
       targetParentLinks: appNotificationParentLinks,
     })
-    const notificationCopy = suppliedCopy || buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
+    const baseCopy = suppliedCopy || buildParentMatchDayNotificationCopy({ match, type, event: eventRow })
+    const notificationCopy = notificationId ? { ...baseCopy, tag: `match-day-${match.id}-${type}-${notificationId}` } : baseCopy
     const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
     const teamName = resolveMatchDayNotificationTeamName(match)
     const clubName = normalizeText(club?.name)
@@ -453,6 +454,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
         app: 'parent',
         clubName,
         eventId,
+        ...(notificationId ? { notificationId } : {}),
         route: 'matchday',
         matchDayId: match.id,
         teamId: match.team_id || '',
@@ -477,6 +479,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', t
     match,
     type,
     eventId,
+    notificationId,
     targetParentLinkIds,
     notificationCopy,
   })

@@ -18,6 +18,32 @@ function setup() {
   return { controller, handlers, calls, flush }
 }
 
+test('native scroll geometry corrects a stale short-page offset when layout callbacks are late', () => {
+  const { handlers, calls, flush } = setup()
+  handlers.onScroll({ nativeEvent: { contentOffset: { y: 180 }, layoutMeasurement: { height: 550 }, contentSize: { height: 320 } } })
+  flush()
+  assert.deepEqual(calls, [{ animated: false, y: 0 }])
+})
+
+test('short pages disable scrolling after a gesture ends and growing content enables it again', () => {
+  const timers = new Map(), changes = []
+  let id = 0
+  const controller = createCoachScrollBounds(() => {}, { setTimeout(fn) { timers.set(++id, fn); return id }, clearTimeout(key) { timers.delete(key) } }, value => changes.push(value))
+  controller.handlers.onContentSizeChange(390, 1000)
+  controller.handlers.onLayout({ nativeEvent: { layout: { height: 600 } } })
+  controller.handlers.onTouchStart()
+  controller.handlers.onScrollBeginDrag()
+  controller.handlers.onContentSizeChange(390, 320)
+  assert.deepEqual(changes, [], 'Layout changes never disable a scroll gesture under the finger')
+  controller.handlers.onScrollEndDrag(event(180))
+  controller.handlers.onTouchEnd()
+  for (const fn of [...timers.values()]) fn()
+  assert.deepEqual(changes, [false])
+  controller.handlers.onContentSizeChange(390, 900)
+  assert.deepEqual(changes, [false, true])
+  controller.dispose()
+})
+
 test('a held finger is never interrupted by a layout or content correction', () => {
   const { handlers, calls, flush } = setup()
   handlers.onTouchStart()

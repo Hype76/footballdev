@@ -110,7 +110,7 @@ import { AttendancePendingRows } from '../mobile-core/src/AttendancePendingRows'
 import { readParentAttendanceCommands, updateParentAttendanceCommands } from './src/offline'
 import { sendCoachTrainingAvailabilityResponsePushSafely } from './src/parentPortalData'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
-import { projectParentScorerOutbox } from './src/parentScorerOutboxCore'
+import { getVisibleParentScorerMatch } from './src/parentScorerOutboxCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import {
   canSubmitParentPoll,
@@ -202,7 +202,7 @@ import {
 import { prepareParentMobileStartup } from './src/startup'
 import { getParentCommunicationPreference, updateParentCommunicationPreference as updateParentCommunicationChannel } from './src/communicationPreferences'
 import { getSafeParentMessageUrl, presentParentMessages } from './messagePresentation'
-import { shareParentMobileDevelopmentPdf } from './parentDevelopment'
+import { clearParentDevelopmentPdfPreparation, prepareParentMobileDevelopmentPdf, shareParentMobileDevelopmentPdf } from './parentDevelopment'
 import { saveParentMobileMatchReportPdf } from './parentMatchReport'
 
 const config = getMobileRuntimeConfig('parent')
@@ -462,7 +462,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   )
   const reportScopeRef = useRef('')
   const reportInFlightRef = useRef(false)
-  reportScopeRef.current = `${user?.id || ''}:${selectedLink?.id || ''}`
+  const nextReportScope = `${user?.id || ''}:${selectedLink?.id || ''}`
+  if (reportScopeRef.current !== nextReportScope) clearParentDevelopmentPdfPreparation()
+  reportScopeRef.current = nextReportScope
   const pdfNavigationVisitRef = useRef(createPdfVisitTracker())
   const pdfTasksRef = useRef(new Map())
   const [pdfTasks, setPdfTasks] = useState([])
@@ -470,7 +472,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   useEffect(() => {
     const visit = pdfNavigationVisitRef.current
     pdfMountedRef.current = true
-    return () => { pdfMountedRef.current = false; visit.update(null) }
+    return () => { pdfMountedRef.current = false; visit.update(null); clearParentDevelopmentPdfPreparation() }
   }, [])
   pdfNavigationVisitRef.current.update(`${reportScopeRef.current}:${activeTab}:${moreSection}:${selectedMessageId}`)
   const parentPlanContext = useMemo(() => selectedLink || user, [selectedLink, user])
@@ -551,8 +553,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const visibleInvitations = resources.invitations.items.map(attendanceOutbox.project)
   const visibleMatches = resources.matches.items.map((match) => {
     const journal = scorerOutboxes[match.id]
-    const projected = journal?.pending?.length ? projectParentScorerOutbox(journal) : match
-    return projected
+    return getVisibleParentScorerMatch(match, journal)
   })
   const visibleInvitationsWithMatchTimes = useMemo(
     () => enrichParentMatchInvitations(visibleInvitations, resources.matches.items),
@@ -1648,6 +1649,21 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     }
   }
 
+  const prepareDevelopmentPdf = useCallback((item, viewIsCurrent = () => true) => {
+    if (isOffline || !selectedLink?.id || !item?.canDownloadPdf) return
+    const authorityScope = reportScopeRef.current
+    const navigationIsCurrent = pdfNavigationVisitRef.current.capture()
+    const isCurrent = () => pdfMountedRef.current && authorityScope === reportScopeRef.current && navigationIsCurrent() && viewIsCurrent()
+    // Preparation never opens another app or blocks navigation.
+    void prepareParentMobileDevelopmentPdf({ apiBaseUrl: config.apiBaseUrl, storageOrigin: config.supabaseUrl, parentLinkId: selectedLink.id, authorityScope, report: item, isCurrent }).catch(() => {})
+  }, [isOffline, selectedLink?.id])
+
+  useEffect(() => {
+    const message = resources.messages.items.find(item => item.id === selectedMessageId)
+    const report = resources.development.items.find(item => item.id === message?.evaluationId)
+    if (report && parentRouteAllowed('development') && parentRouteAllowed('messages')) prepareDevelopmentPdf(report)
+  }, [parentRouteAllowed, prepareDevelopmentPdf, resources.development.items, resources.messages.items, selectedMessageId])
+
   async function handleDevelopmentPdf(item, action = 'share', viewIsCurrent = () => true) {
     if (isOffline || !selectedLink?.id || !item?.id) return
     const authorityScope = reportScopeRef.current
@@ -1658,7 +1674,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     setPdfTasks([...pdfTasksRef.current.values()])
     const isCurrent = () => pdfMountedRef.current && authorityScope === reportScopeRef.current && navigationIsCurrent() && viewIsCurrent()
     try {
-      await shareParentMobileDevelopmentPdf({ apiBaseUrl: config.apiBaseUrl, storageOrigin: config.supabaseUrl, parentLinkId: selectedLink.id, report: item, action, isCurrent })
+      await shareParentMobileDevelopmentPdf({ apiBaseUrl: config.apiBaseUrl, storageOrigin: config.supabaseUrl, parentLinkId: selectedLink.id, authorityScope, report: item, action, isCurrent })
     } catch (error) {
       if (isCurrent()) setNotice({ message: getParentFriendlyError(error, 'This Development PDF could not be prepared.'), tone: 'warning' })
     } finally {
@@ -2466,7 +2482,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             ) : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'results' ? <ResultsScreen activeActionId={activeActionId} link={selectedLink} onDownloadPdf={handleDownloadMatchReport} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
-            {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} pendingReportIds={pdfTasks.filter(task => task.authorityScope === reportScopeRef.current).map(task => task.reportId)} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={handleDevelopmentPdf} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} pendingReportIds={pdfTasks.filter(task => task.authorityScope === reportScopeRef.current).map(task => task.reportId)} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={handleDevelopmentPdf} onPrepare={prepareDevelopmentPdf} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} formationViewportHeight={contentViewportHeight} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'messages' ? (
               <MessagesScreen

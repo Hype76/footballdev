@@ -32,7 +32,7 @@ let shellSource = source.slice(shell.start, shell.end)
 for (const node of elements.filter(n => ['CoachRoute', 'CoachQuickActions'].includes(n.openingElement.name.name)).sort((a, b) => b.start - a.start)) {
   shellSource = shellSource.slice(0, node.start - shell.start) + (node.openingElement.name.name === 'CoachRoute' ? '<CoachRoute onRequestScrollTop={scrollContentToTop} onNotificationSettingsFocus={focusNotificationSettings}/>' : '<View/>') + shellSource.slice(node.end - shell.start)
 }
-const names = ['CoachHeader', 'ContextSwitcher', 'PrimaryNavigation', 'createCoachStyles']
+const names = ['CoachHeader', 'ContextSwitcher', 'PrimaryNavigation', 'ScreenIntro', 'MoreScreen', 'createCoachStyles']
 const selected = names.map(name => { const n = nodes.find(n => n.type === 'FunctionDeclaration' && n.id.name === name); return source.slice(n.start, n.end) }).join('\n').replace("require('./assets/football-player-logo.png')", "require('./apps/coach-mobile/assets/football-player-logo.png')")
 const callbacks = ['scrollContentToTop', 'focusNotificationSettings'].map(name => {
   const declaration = home.body.body.find(n => n.type === 'VariableDeclaration' && n.declarations[0].id.name === name)
@@ -60,17 +60,20 @@ import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
 import {createCoachScrollBounds} from './apps/coach-mobile/src/coachScrollBounds.js';
+import {IconMenu} from './apps/mobile-core/src/IconSettings.js';
 const config={isProduction:false};let theme;
 const useCoachTheme=()=>theme;
 const CoachIcon=()=> <Text>+</Text>;
 const NotificationStatusButton=({onPress})=><Pressable accessibilityRole="button" accessibilityLabel="Notification settings" onPress={onPress}><Text>Alerts</Text></Pressable>;
 const StatePanel=()=>null,Notice=()=>null,BrandLoader=()=> <View style={{height:28}}/>;
+const PartnersBanner=()=> <View style={{height:156}}><Text>Special Offers</Text></View>;
 ${selected}
-function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reveal=React.useContext(CoachKeyboardFocusContext);return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/>{!window.shortContent?<><Text>Overall Comments</Text><TextInput accessibilityLabel="Overall Comments" multiline onFocus={reveal} style={{height:96}}/><Text>Coach summary</Text><TextInput accessibilityLabel="Coach summary" multiline onFocus={reveal} style={{height:96}}/><View style={{height:100}}/></>:null}<Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
+function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reveal=React.useContext(CoachKeyboardFocusContext);if(window.route==='more')return <MoreScreen navigation={{more:['Notifications','Formation Boards','Sessions','Development','Resources','Chat','Polls','Invites and availability','Team','Settings','Feedback & Suggestions','Report a Bug'].map(label=>({key:label,label}))}} onSelectMore={()=>{}}/>;return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/>{!window.shortContent?<><Text>Overall Comments</Text><TextInput accessibilityLabel="Overall Comments" multiline onFocus={reveal} style={{height:96}}/><Text>Coach summary</Text><TextInput accessibilityLabel="Coach summary" multiline onFocus={reveal} style={{height:96}}/><View style={{height:100}}/></>:null}<Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
 function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
 const [height,setHeight]=useState(850);window.setHeight=setHeight;
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
+window.route=activeRoute;
 const moreRoute=activeRoute==='invites'?'invites':'';const isMatchInvitesRoute=activeRoute==='invites';const safeAreaInsets={bottom:16};
 const user={isOfflineProfile:false};
 const quickActionVisibility={ready:true,enabled:true};
@@ -80,7 +83,8 @@ const contexts=[{id:'a',clubName:'FP TEST',teamName:'U17 Green',roleLabel:'Team 
 const contextResolution={contexts},activeContext=contexts.find(c=>c.id===selected)||contexts[0],selectedMobileUser={roleLabel:'Team Admin'};
 const notificationState={},notificationStateStatus='ready',notice='',setNotice=()=>{},setNotificationSettingsFocusRequest=()=>{},navigation={primary:[{key:'home',label:'Home'},{key:'calendar',label:'Calendar'},{key:'matchday',label:'Match Day'},{key:'more',label:'More'}]};
 const contentScrollRef=useRef(null),contentOriginRef=useRef(0),pendingScrollRestoreRef=useRef(null);
-const scrollBounds=useMemo(()=>createCoachScrollBounds(options=>{window.corrections.push(options);contentScrollRef.current?.scrollTo(options)}),[]);
+const [contentScrollable,setContentScrollable]=useState(true);
+const scrollBounds=useMemo(()=>createCoachScrollBounds(options=>{window.corrections.push(options);contentScrollRef.current?.scrollTo(options)},undefined,setContentScrollable),[]);
 ${keyboardLifecycle}
 useEffect(()=>()=>scrollBounds.dispose(),[scrollBounds]);
 ${callbacks}
@@ -167,6 +171,22 @@ try {
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'A tiny held drag cannot move a page that fits the viewport')
       assert.ok(Math.abs((await header.boundingBox()).height-headerBox.height)<1,'Short content does not collapse the header')
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
+      await page.evaluate(()=>window.setRoute('more'))
+      const finalTool=page.getByRole('button',{name:'Report a Bug',exact:true})
+      await finalTool.waitFor()
+      await scroll.evaluate(el=>{el.scrollTop=el.scrollHeight})
+      await page.waitForFunction(()=>{const scroll=document.querySelector('[data-testid="coach-content-scroll"]'),footer=document.querySelector('[role="tablist"]');const items=document.querySelectorAll('[aria-label="Report a Bug"]');return items.length&&items[0].getBoundingClientRect().bottom<=footer.getBoundingClientRect().top&&scroll.scrollTop>=0})
+      const footer=await page.getByRole('tablist').boundingBox(),toolBox=await finalTool.boundingBox(),moreViewport=await scroll.boundingBox()
+      await page.screenshot({path:out+'/more-'+width+'-'+contextCount+'.png'})
+      assert.ok(moreViewport.y+moreViewport.height<=footer.y+1,'The actual More tool grid scrolls inside the viewport above bottom navigation')
+      assert.ok(toolBox.y+toolBox.height<=footer.y, 'The last actual More tool can be reached without falling beneath bottom navigation: '+JSON.stringify({width,contextCount,footer,toolBox,moreViewport,geometry:await scroll.evaluate(el=>({height:el.clientHeight,content:el.scrollHeight,offset:el.scrollTop}))}))
+      assert.ok(footer.y+footer.height<=850,'Bottom navigation stays within the screen')
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollHeight<=850),'Long tool grids never stretch the outer page')
+      await page.screenshot({path:out+'/more-'+width+'-'+contextCount+'.png'})
+      await page.evaluate(()=>{window.shortContent=true;window.setRoute('matchday')})
+      await page.waitForTimeout(180)
+      assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'Switching from More to a short Match Day page restores the top')
+      assert.equal(await page.evaluate(()=>window.bounds.getOffset()),0)
       await page.getByLabel('Fixture notes').fill('Synthetic fixture note')
       assert.equal(await page.getByLabel('Fixture notes').evaluate(el=>document.activeElement===el),true,'Real multiline input has focus')
       await page.evaluate(()=>window.beginDrag({nativeEvent:{}}))

@@ -1,4 +1,4 @@
-import { MATCH_DAY_OFFLINE_MAX_AGE, MATCH_DAY_OUTBOX_LIMIT, projectMatchDayCommand } from '../../mobile-core/src/matchDayOutboxCore.js'
+import { MATCH_DAY_OFFLINE_MAX_AGE, MATCH_DAY_OUTBOX_LIMIT, mergeMatchDayCommandSnapshot, projectMatchDayCommand } from '../../mobile-core/src/matchDayOutboxCore.js'
 
 const ACTIONS = new Set(['start', 'timer', 'extended', 'score', 'goal', 'event', 'correct-goal', 'void-goal', 'shootout', 'void-shootout', 'request-review'])
 const TIMER_ACTIONS = new Set(['pause', 'hydration', 'half_time', 'resume', 'full_time'])
@@ -53,8 +53,8 @@ export function projectParentScorerCommand(match, command) {
     if (state) Object.assign(next, { status: state[0], currentMatchPhase: state[1], timerStatus: state[2],
       timerStartedAt: state[2] === 'running' ? capturedAt : '', timerPausedAt: state[2] === 'running' ? '' : capturedAt })
   } else if (kind === 'correct-goal') {
-    const target = next.events.find(event => event.id === payload.eventId)
-    if (target && !target.voidedAt) {
+    const target = next.events.find(event => event.id === payload.eventId || event.requestId === payload.eventId)
+    if (target && !target.voidedAt && target.eventStatus !== 'voided') {
       const previousSide = scoreSide(next, target.teamSide)
       const updatedSide = scoreSide(next, payload.goal?.teamSide || target.teamSide)
       if (previousSide !== updatedSide) {
@@ -64,11 +64,11 @@ export function projectParentScorerCommand(match, command) {
       next.events = next.events.map(event => event.id === target.id ? { ...event, ...payload.goal, pendingSync: true } : event)
     }
   } else if (kind === 'void-goal') {
-    const target = next.events.find(event => event.id === payload.eventId)
-    if (target && !target.voidedAt) {
+    const target = next.events.find(event => event.id === payload.eventId || event.requestId === payload.eventId)
+    if (target && !target.voidedAt && target.eventStatus !== 'voided') {
       const side = scoreSide(next, target.teamSide)
       next[side] = Math.max(0, Number(next[side] || 0) - 1)
-      next.events = next.events.map(event => event.id === target.id ? { ...event, voidedAt: capturedAt, pendingSync: true } : event)
+      next.events = next.events.map(event => event.id === target.id ? { ...event, eventStatus: 'voided', voidedAt: capturedAt, pendingSync: true } : event)
     }
   } else if (kind === 'shootout') {
     if (payload.outcome === 'scored') {
@@ -93,4 +93,31 @@ export function projectParentScorerCommand(match, command) {
 
 export function projectParentScorerOutbox(journal) {
   return (journal?.pending || []).reduce(projectParentScorerCommand, journal?.baseMatch || null)
+}
+
+export function mergeParentScorerAcknowledgement(baseMatch, command, result) {
+  // Keep local command identities until later queued corrections have synced.
+  const projected = projectParentScorerCommand(baseMatch, command)
+  let events = projected.events || []
+  if (result.savedEvent && ['goal', 'event', 'score', 'correct-goal'].includes(command.kind)) {
+    const localId = command.kind === 'correct-goal' ? command.payload.eventId : command.id
+    const previous = events.find(event => event.id === result.savedEvent.id || event.id === localId || event.requestId === localId)
+    const requestId = ['goal', 'event', 'score'].includes(command.kind) ? command.id : previous?.requestId || ''
+    events = [...events.filter(event => event.id !== command.id && event.requestId !== command.id && event.id !== result.savedEvent.id && event.id !== previous?.id), { ...result.savedEvent, requestId, pendingSync: false }]
+  } else if (command.kind === 'void-goal') {
+    events = events.map(event => event.id === command.payload.eventId || event.requestId === command.payload.eventId ? { ...event, pendingSync: false } : event)
+  }
+  return { ...mergeMatchDayCommandSnapshot(projected, result.match || {}), events }
+}
+
+export function getVisibleParentScorerMatch(match, journal) {
+  if (!journal?.baseMatch) return match
+  if (journal.pending?.length) return projectParentScorerOutbox(journal)
+  if (Date.parse(journal.baseMatch.updatedAt) > Date.parse(match.updatedAt)) {
+    const acknowledged = journal.baseMatch
+    // Retain the confirmed score while the fixture refreshes. Authority and
+    // participant availability still come from the current linked-player view.
+    return { ...match, homeScore: acknowledged.homeScore, awayScore: acknowledged.awayScore, events: acknowledged.events }
+  }
+  return match
 }

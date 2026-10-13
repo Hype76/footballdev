@@ -438,6 +438,15 @@ export function groupCoachCalendarEvents(events = []) {
   return groups
 }
 
+export function getCoachCalendarTrainingWindow(events = [], weeks = 4, now = new Date()) {
+  const today = getDateInTimeZone(now)
+  const requestedWeeks = Number(weeks)
+  const weekCount = Number.isFinite(requestedWeeks) ? Math.max(4, Math.trunc(requestedWeeks)) : 4
+  const endDate = addUtcDays(today, weekCount * 7)
+  const isLaterTraining = event => normalize(event.eventType) === 'training' && event.calendarDate >= endDate
+  return { events: events.filter(event => !isLaterTraining(event)), hasMoreTraining: events.some(isLaterTraining), endDate }
+}
+
 export function getCoachCalendarContextModel({ context, contexts = [] } = {}) {
   const clubId = normalize(context?.clubId)
   const available = (Array.isArray(contexts) && contexts.length ? contexts : [context])

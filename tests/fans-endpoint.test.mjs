@@ -31,15 +31,21 @@ function fixture() {
     let columns
     let maxRows = Infinity
     let ordering
+    let upsertOptions
     const query = {
       select(value){columns=value;selections.push({table,columns:value});return query},eq(k,v){predicates.push(r=>r[k]===v);return query},neq(k,v){predicates.push(r=>r[k]!==v);return query},
       is(k,v){predicates.push(r=>(r[k]??null)===v);return query},in(k,v){predicates.push(r=>v.includes(r[k]));return query},gte(k,v){predicates.push(r=>r[k]>=v);return query},
       contains(k,v){predicates.push(r=>Object.entries(v).every(([key,value])=>r[k]?.[key]===value));return query},order(key, options){ordering={key,...options};return query},range(){return query},limit(count){maxRows=count;return query},
       maybeSingle(){single=true;return query},single(){single=true;return query},
-      upsert(v){operation='upsert';values=v;return query},update(v){operation='update';values=v;return query},delete(){operation='delete';return query},
+      upsert(v,options){operation='upsert';values=v;upsertOptions=options;return query},update(v){operation='update';values=v;return query},delete(){operation='delete';return query},
       then(resolve,reject){try {
         let result = (tables[table] || []).filter(r=>predicates.every(p=>p(r)))
-        if(operation==='upsert') { const record={id:id(90),...values};tables[table].push(record);result=[record] }
+        if(operation==='upsert') {
+          const keys=upsertOptions?.onConflict?.split(',')||[]
+          const existing=keys.length?tables[table].find(row=>keys.every(key=>row[key]===values[key])):null
+          if(existing){if(!upsertOptions.ignoreDuplicates)Object.assign(existing,values);result=upsertOptions.ignoreDuplicates?[]:[existing]}
+          else{const record={id:id(90+tables[table].length),...values};tables[table].push(record);result=[record]}
+        }
         if(operation==='update') result.forEach(r=>Object.assign(r,values))
         if(operation==='delete') tables[table]=tables[table].filter(r=>!result.includes(r))
         if(ordering)result.sort((a,b)=>String(a[ordering.key]??'').localeCompare(String(b[ordering.key]??''))*(ordering.ascending===false?-1:1))
@@ -301,6 +307,20 @@ test('Visible Game Day delivers once with a scoped link; unsharing hides its sav
   match.parent_visible=false
   const response=await handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action:'notifications',connectionId:id(1)})},{createClient:()=>client})
   assert.deepEqual(JSON.parse(response.body).notifications,[])
+})
+
+test('separate score corrections to the same goal reach Fans once each, with retries deduplicated',async()=>{
+  const {client,tables}=fixture()
+  tables.fan_connections[0].permissions.game_day=true
+  const match={id:id(9),club_id:id(6),team_id:id(7),parent_visible:true,parent_audience:'all_team_parents',match_date:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString(),status:'live'}
+  tables.match_days.push(match);tables.fan_devices.push({token:'ExpoPushToken[synthetic]',auth_user_id:id(2)})
+  const sent=[]
+  const send=notificationId=>sendFanMatchNotifications({client,match,type:'score_correction',eventId:id(11),notificationId,targetParentLinkIds:[id(4)],notificationCopy:{title:'Score corrected',detailedBody:'Score 1 - 0.'},sendPush:async messages=>{sent.push(...messages);return{sent:messages.length,failed:0}}})
+  assert.equal((await send(id(12))).fanSent,1)
+  assert.equal((await send(id(12))).fanSent,0)
+  assert.equal((await send(id(13))).fanSent,1)
+  assert.equal(sent.length,2)
+  assert.equal(tables.fan_notifications.length,2)
 })
 
 test('Game alerts reach opted-in Fan and Player accounts through their Fan connections', async () => {

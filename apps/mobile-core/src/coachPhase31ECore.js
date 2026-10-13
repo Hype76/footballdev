@@ -117,6 +117,10 @@ export function normalizeCoachDevelopmentField(field = {}, index = 0) {
     staffPrivate: field.staff_private === true || field.staffPrivate === true || field.visibility === 'staff_private',
     roleRank: Number(field.minimum_role_rank ?? field.minimumRoleRank ?? 20),
     orderIndex: Number(field.order_index ?? field.orderIndex ?? index),
+    ...(field.metricKey || field.metric_key ? {
+      metricKey: normalize(field.metricKey ?? field.metric_key), categoryKey: normalize(field.categoryKey ?? field.category_key),
+      categoryLabel: normalize(field.categoryLabel ?? field.category_label), includeInProgressChart: field.includeInProgressChart === true || field.include_in_progress_chart === true,
+    } : {}),
   })
 }
 
@@ -132,6 +136,9 @@ export function normalizeCoachDevelopmentForm(row = {}) {
     name: normalize(row.name || row.title) || 'Development form',
     templateKey: normalize(row.template_key ?? row.templateKey),
     teamId: normalize(row.team_id ?? row.teamId),
+    createdBy: normalize(row.created_by ?? row.createdBy),
+    accessScope: normalize(row.access_scope ?? row.accessScope) || 'team',
+    updatedAt: normalize(row.updated_at ?? row.updatedAt),
     ageGroup: normalize(row.age_group ?? row.ageGroup),
     status: normalize(row.status) || (row.archived_at ? 'archived' : 'active'),
     version: Number(row.version ?? 1),

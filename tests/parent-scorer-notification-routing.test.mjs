@@ -4,6 +4,11 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 import { deliverParentScorerCommands } from '../netlify/functions/lib/_parent-scorer-command-notifications.js'
 import { deliverCoachMatchReviewOnce } from '../netlify/functions/lib/_coach-match-review-delivery.js'
+import { getParentNotificationDedupeKey } from '../netlify/functions/lib/_parent-notification-inbox.js'
+import { parse } from '@babel/parser'
+import { buildParentMatchDayNotificationCopy } from '../netlify/functions/lib/_match-day-notification-copy.js'
+import { buildMatchDayNativeMessage } from '../netlify/functions/lib/_match-day-native-message.js'
+import { resolveMatchDayNotificationTeamName } from '../src/lib/team-notification-display.js'
 
 test('durable handover claims route only to Coach and retain actor filters, leases and completion', async () => {
   const db = new PGlite()
@@ -59,6 +64,36 @@ test('Full time sends once to families and handover sends only Coach review, inc
   assert.deepEqual(mock.audience[0][1].targetParentLinkIds,['parent'])
   assert.equal(mock.calls.filter(([name])=>name==='get_match_day_parent_notification_link_ids').length,1)
   assert.equal(mock.calls.filter(([name,args])=>name==='complete_parent_scorer_command_notification'&&!args.error_value).length,2)
+})
+
+test('different committed corrections to the same goal retain separate notification identities, and retries retain the same identity',async()=>{
+  const commands=['correct','remove'].map(id=>({id,kind:id==='correct'?'correct-goal':'void-goal',type:'score_correction',eventId:'same-goal',match:{id:'fixture',home_score:id==='correct'?1:0,away_score:0}}))
+  const mock=harness(commands)
+  assert.deepEqual(await deliverParentScorerCommands(null,null,mock),{completed:2,failed:0})
+  assert.deepEqual(mock.audience.map(([,payload])=>payload.notificationId),['correct','remove'])
+  const key=id=>getParentNotificationDedupeKey({intentType:'matchday_update',parentLinkId:'parent',data:{eventId:'same-goal',matchDayId:'fixture',type:'score_correction',notificationId:id}})
+  assert.notEqual(key('correct'),key('remove'))
+  assert.equal(key('correct'),key('correct'))
+})
+
+test('actual correction dispatch carries the corrected score and command identity through web, native, inbox and Fan delivery',async()=>{
+  const source=await readFile(new URL('../netlify/functions/send-match-day-push.js',import.meta.url),'utf8')
+  const declaration=parse(source,{sourceType:'module'}).program.body.map(node=>node.declaration||node).find(node=>node.type==='FunctionDeclaration'&&node.id?.name==='deliverMatchDayNotification')
+  const web=[],native=[],inbox=[],fans=[]
+  const query={select:()=>query,eq:()=>query,maybeSingle:async()=>({data:{id:'goal',event_type:'goal',team_side:'club'}})}
+  const dependencies={supabaseAdmin:{from:()=>query},configureWebPush:()=>true,getAppNotificationParentLinks:async()=>[{id:'parent',auth_user_id:'account'}],getSubscriptions:async()=>[{}],getMobileDevices:async()=>[{expo_push_token:'ExpoPushToken[fixture]',parent_link_id:'parent',detail_level:'detailed'}],sendToSubscription:async(_subscription,payload)=>{web.push(payload);return{sent:true}},buildParentMatchDayNotificationCopy,resolveMatchDayNotificationTeamName,normalizeText:value=>String(value||'').trim(),writeParentNotificationInbox:async payload=>{inbox.push(payload);return{available:1}},sendExpoPushMessages:async messages=>{native.push(...messages);return{sent:messages.length,failed:0}},revokeMobileDeviceTokens:async()=>{},sendFanMatchNotifications:async payload=>{fans.push(payload);return{fanSent:0,fanFailed:0}},buildMatchDayNativeMessage}
+  const deliver=new Function(...Object.keys(dependencies),`${source.slice(declaration.start,declaration.end)};return deliverMatchDayNotification`)(...Object.values(dependencies))
+  const match={id:'fixture',team_id:'team',club_id:'club',home_score:1,away_score:0,home_away:'home',opponent:'Visitors',teams:{name:'FP TEST'},clubs:{name:'FP TEST Club'}}
+  for(const notificationId of ['correct','remove','correct'])await deliver({match,type:'score_correction',eventId:'goal',notificationId,targetParentLinkIds:['parent']})
+  assert.notEqual(web[0].tag,web[1].tag)
+  assert.equal(web[0].tag,web[2].tag)
+  assert.equal(native[0].title,'FP TEST v Visitors')
+  assert.match(native[0].body,/score was corrected/)
+  assert.match(native[0].body,/1 - 0/)
+  assert.equal(native[0].data.notificationId,'correct')
+  assert.equal(native[1].data.notificationId,'remove')
+  assert.equal(inbox[0].data.notificationId,'correct')
+  assert.equal(fans[1].notificationId,'remove')
 })
 
 test('delayed handover alerts finish quietly after a Coach resumes or concludes the match',async()=>{

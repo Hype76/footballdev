@@ -6,6 +6,8 @@ import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { getCoachInviteHistory } from '../../mobile-core/src/coachInviteHistoryData'
 import { COACH_RESOURCE_CATEGORIES, groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
+import { CoachDevelopmentTemplateBuilder } from './CoachDevelopmentTemplateBuilder.js'
+import { canBuildCoachDevelopmentTemplate } from '../../mobile-core/src/coachDevelopmentTemplateCore.js'
 import { mergeUnfinishedDevelopmentDrafts } from '../../mobile-core/src/developmentOfflineCore'
 import { subscribeDevelopmentSync, syncCoachDevelopmentDrafts } from './coachDevelopmentSync'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
@@ -391,6 +393,7 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
   const [playerPickerOpen, setPlayerPickerOpen] = useState(false)
   const [formPickerOpen, setFormPickerOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [templateBuilderOpen, setTemplateBuilderOpen] = useState(false)
   const [queued, setQueued] = useState({})
   const [closedEditor, setClosedEditor] = useState('')
   const [retryingCancellation, setRetryingCancellation] = useState('')
@@ -529,7 +532,9 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
     if (nextForm.id !== activeFormId) setNotice(`${nextForm.name} selected. The form fields have been updated.`)
   }
 
-  if (!data.players?.length || !data.forms?.length) return <Empty copy="No active Player and dynamic Development form combination is available in this Team." styles={styles} />
+  if (templateBuilderOpen && canBuildCoachDevelopmentTemplate(user)) return <CoachDevelopmentTemplateBuilder key={scope} context={context} onBack={() => setTemplateBuilderOpen(false)} onUse={saved => { setSelection(previous => ({ scope, playerId: previous.scope === scope ? previous.playerId : '', formId: saved.id })); setTemplateBuilderOpen(false); void load({ silent: true }) }} stale={stale} styles={styles} user={user} />
+  const templateBuilderAction = canBuildCoachDevelopmentTemplate(user) ? <Pressable accessibilityRole="button" accessibilityLabel="Build a new assessment template" onPress={() => { setTemplateBuilderOpen(true); Keyboard.dismiss() }} style={styles.developmentSelector}><MaterialIcons color={styles.status.color} name="post-add" size={27} /><View style={styles.developmentSelectorCopy}><Text style={styles.heading}>Build a new assessment template</Text><Text style={styles.helper}>Create a form for player development</Text></View><MaterialIcons color={styles.status.color} name="chevron-right" size={27} /></Pressable> : null
+  if (!data.players?.length || !data.forms?.length) return <View style={styles.stack}>{templateBuilderAction}<Empty copy="No active Player and dynamic Development form combination is available in this Team." styles={styles} /></View>
   return (
     <View style={styles.stack}>
       <View style={styles.stack}>
@@ -554,6 +559,7 @@ function DevelopmentDomain({ context, data, load, setNotice, stale, styles, user
         {historyOpen && data.historyError ? <View style={styles.stack}><Text accessibilityLiveRegion="polite" style={styles.body}>{data.historyError}</Text><Button label="Retry recent records" onPress={() => void load({ silent: true })} secondary styles={styles} /></View> : null}
         {historyOpen ? (records.length ? records.slice(0, 10).map((record) => <Text key={record.id} style={styles.body}>{record.date || 'No date'} | {record.status} | {record.formName || 'Development record'} | {record.averageScore ?? 'No score'}</Text>) : !data.historyLoading && !data.historyError ? <Text style={styles.body}>No Development history for this Player.</Text> : null) : null}
       </View>
+      {templateBuilderAction}
       {!player || !form ? <Text style={styles.body}>Select a Player and form to start Development.</Text> : editorClosed ? <View style={styles.stack}>
         <Text accessibilityLiveRegion="polite" style={styles.body}>{selectedQueued?.copy || 'Your saved assessment is kept on this phone.'}</Text>
         {selectedQueued?.kind === 'discard' && selectedQueued.state === 'pending'
