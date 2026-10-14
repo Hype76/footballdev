@@ -76,6 +76,9 @@ test('a stale Matchday Calendar form cannot create a generic event, before any w
     }
   }
   assert.equal(payloadCalls, 0)
+  await assert.rejects(save(context, { eventType: 'match' }, { sourceType: 'calendar_event' }), /Match Day fixture form/)
+  await assert.rejects(save(context, { eventType: 'match' }, { sourceId: '', sourceType: 'calendar_event' }), /Match Day fixture form/)
+  assert.equal(payloadCalls, 0)
   await assert.rejects(save(context, {}, { sourceId: 'existing', sourceType: 'calendar_event' }), /reached existing event path/)
   await assert.rejects(save({ planKey: 'team' }, {}), /reached existing event path/)
   await assert.rejects(save(context, {}, { sourceType: 'match_day' }), /authoritative Match Day/)
