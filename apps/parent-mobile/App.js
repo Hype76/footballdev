@@ -3957,7 +3957,7 @@ function createParentAppStyles(tokens) {
   syncStatusActionText: { color: palette.text, fontSize: 12, fontWeight: '900' },
   syncStatusText: { color: palette.text, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
   syncStatusWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
-  tabBar: { backgroundColor: palette.card, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: Platform.OS === 'ios' ? 4 : 8, paddingHorizontal: 8, paddingTop: 8 },
+  tabBar: { backgroundColor: palette.card, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: 4, paddingHorizontal: 8, paddingTop: 8 },
   tabBarLight: { backgroundColor: palette.card, borderTopColor: palette.border },
   tabButton: { alignItems: 'center', borderTopColor: 'transparent', borderTopWidth: 2, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
   tabButtonActive: { borderTopColor: palette.accentText },

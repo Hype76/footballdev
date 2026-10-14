@@ -143,8 +143,14 @@ try {
       await gameDay.waitFor()
       assert.equal(await gameDay.isChecked(), true)
       const assertSwitchContrast = async () => {
-        await page.waitForFunction(() => Array.from(document.querySelector('[role="switch"][aria-label="Game Day"]').parentElement.children).slice(0, 2).every(el => getComputedStyle(el).backgroundColor === el.style.backgroundColor))
-        const colors = await gameDay.evaluate(input => Array.from(input.parentElement.children).slice(0, 2).map(el => getComputedStyle(el).backgroundColor))
+        await page.waitForFunction(() => {
+          const track = document.querySelector('[role="switch"][aria-label="Game Day"]').firstElementChild
+          return [track, track.firstElementChild].every(element => getComputedStyle(element).backgroundColor === element.style.backgroundColor)
+        })
+        const colors = await gameDay.evaluate(control => {
+          const track = control.firstElementChild
+          return [track, track.firstElementChild].map(element => getComputedStyle(element).backgroundColor)
+        })
         const hex = rgb => '#' + rgb.match(/\d+/g).slice(0, 3).map(n => Number(n).toString(16).padStart(2, '0')).join('')
         assert.ok(themeContrastRatio(hex(colors[0]), hex(colors[1])) >= 4.5, 'Switch thumb contrasts with its track')
         assert.ok(themeContrastRatio(hex(colors[0]), mode === 'light' ? '#ffffff' : '#10231f') >= 3, `Switch track contrasts with the page: ${mode} ${colors}`)

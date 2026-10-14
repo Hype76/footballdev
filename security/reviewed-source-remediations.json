@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "097f779b1d090fcebcc68572fb8aad47a06676bf3237033189e33e5e479c5ece",
+    "scripts/security-verify-reviewed-backports.mjs": "31be454ff63fb16870711169f4f89e988b85f94de487ba0c1a631f0ebb3573a2",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -677,7 +677,7 @@
     "previousCandidate": "84e3671573f83cd24586637b76f86e8921c1a80d",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
     "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
-    "approvedScope": "User-authorised weekend feedback fixes: scoped staff invitations, confirmed Match Day saves and reconciliation, full-time web corrections, fixed mobile loading and one-minute failure notices, compact Player/Fan navigation and owned read-only league access, and bounded poll-result push delivery. Exact source pins and independent exact-HEAD acceptance are required; all dependency, native, audit and release controls are retained. Calendar creation for free Matchday accounts now uses the shared fixture form with its selected date; stale generic-event creation is rejected and floating Quick Add respects existing plan and role access. Existing records, native inputs and all maintained security controls are preserved.",
+    "approvedScope": "User-authorised weekend feedback fixes: scoped staff invitations, confirmed Match Day saves and reconciliation, full-time web corrections, fixed mobile loading and one-minute failure notices, compact Player/Fan navigation and owned read-only league access, and bounded poll-result push delivery. Exact source pins and independent exact-HEAD acceptance are required; all dependency, native, audit and release controls are retained. Calendar creation for free Matchday accounts now uses the shared fixture form with its selected date; stale generic-event creation is rejected and floating Quick Add respects existing plan and role access. Existing records, native inputs and all maintained security controls are preserved. Coach and Parent app-owned switches now share the iOS proportions, on colours and accessible controlled interactions across platforms. Parent bottom navigation adopts the existing iOS spacing on Android. OS integrations, safe areas, account permissions, native inputs and maintained security policy are preserved.",
     "changedSourceHashes": {
       "apps/coach-mobile/App.js": "15851845cddbb09c6a571f14930fdedc97adc42128d60ee1747a664d12dcd8c2",
       "apps/coach-mobile/src/CoachMatchDayScreen.js": "82bc6fcf7b9b3c66e2c3ae556fa84321b6031463b71aa66f9c9f905ba295dcdd",
@@ -705,7 +705,7 @@
       "apps/mobile-core/src/profile.js": "772018633568bab13054924c63f63e06dce4cffca84e4c8e9ba6ff7da3582362",
       "apps/mobile-core/src/useAttendanceOutbox.js": "cd24f9a93b6bfc97e9ea97fdc7a3ed9e6b97ba04a99e7af8a7f1c5431b84dbc3",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
-      "apps/parent-mobile/App.js": "b3855c47b08e4f296884e6b7e57e57a8849d997be08a07354ad8605337395749",
+      "apps/parent-mobile/App.js": "caaeffe1e50de9b34b873777a704174788f1c29177afe8c3b1a2fae589f3f313",
       "apps/parent-mobile/src/ParentPortalScreens.js": "bc56c7a5cbd47b6e3ded988c8f7ade3831dcee39a236f2299d1c80af6fa87ce8",
       "apps/parent-mobile/src/offline.js": "72031bfbff6732b75e048864a27331cfb9ba7382bb414aeef561461267c2ad49",
       "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
@@ -1027,7 +1027,7 @@
       "tests/mobile-matchday-plan.test.mjs": "6ba9150bcb5f9f7f68defc394d1d2499f9b8d3bcc9adfab097b4d1be2e08cfdc",
       "tests/mobile-coach-plan-access-browser.mjs": "9cbf372ccea129ca0516a1e009d6c4944a6e3712bd9e828c6ea6b7b26205db08",
       "apps/coach-mobile/src/CoachFixtureForm.js": "787ad23cd51a2de4cd8bc1c3c7513d4cd6ebfa430a38bea1f39580cd37885124",
-      "apps/mobile-core/src/MobileSwitch.js": "5f179c49be3b960d0b17a97e7857086e494cbe9f1a6f357b3b23cc075eda9368",
+      "apps/mobile-core/src/MobileSwitch.js": "74459578915405d35d11fef4f474588190aa85dceff415aa5c31e126e8a69cdb",
       "apps/parent-mobile/src/FansScreen.js": "336c0d660ce8f152ef685f047169005fba75ded44b9dca1a4826c54b326a8f73",
       "supabase/migrations/20261007182800_mobile_development_notification_preference.sql": "f5928d8d7fad784eeea804e629bed7a6c7649e47c158ca7d0982abb54471f8b0",
       "tests/mobile-auth-refresh-browser.mjs": "35d8d16fa80df11328262f58179a2f6b6bef02ad55443bae0c8f805efc023599",
@@ -1063,7 +1063,7 @@
       "src/lib/use-fans.js": "49f0ef2e69f47a4933f0efa458924c9dee0b3d898855ca91fa62450d873844da",
       "src/pages/MatchDayPage.jsx": "7cb49752d4083c1b6ab5d62ed9b520585afe193b11c317621d24bd5c7cbd33d0",
       "tests/coach-matchday-offline-browser.mjs": "de5d3bd63a9798d9ef31c0c674327e94f9ea0a5465c48bce5b4cc6b62cec49d0",
-      "tests/fans-mobile-browser.mjs": "4f3dad1d020a9f648c013eb47899b17a937c9cfcb030c8893cacc2ba366ae7ae",
+      "tests/fans-mobile-browser.mjs": "eae119e51615c1a90fc8b319bcb8a6b362f5e10ba48a6ebbd5ed4da08422bb7a",
       "tests/matchday-goal-correction-rpc.test.mjs": "259b1c2a7f5f719bc2df6c8bb0a6c588e7e9c1297b5d478f16373595955ddd83",
       "tests/matchday-offline-outbox.test.mjs": "ff6a67a580c31686aceab5556d6af72892e22fbcf00f09d86419a62908b223d5",
       "tests/mobile-push-priority.test.mjs": "503d05c7941e662c6061adf701dac376baae21b9b6d31c249b922940bcf185e5",
@@ -1143,7 +1143,8 @@
       "apps/mobile-core/src/coachCalendarData.js": "0711bbba102912b6abdcd86145dc58643db281604a702c454bfbd2e02711e19f",
       "apps/mobile-core/src/coachFixtureCore.js": "8a88d41b1288fce026610c1503f400686f0ce9153202c3c8e8ea4929d571587b",
       "tests/matchday-calendar-fixture-create.test.mjs": "543dde6dd13f49f505407333d985cff81704db41b9e6f2fb8fb4886347e7aebf",
-      "tests/matchday-calendar-fixture-browser.mjs": "bb12aaf1bf0146f60b698851f372920046185a5f563552d4b9d5da2550dc1bfe"
+      "tests/matchday-calendar-fixture-browser.mjs": "bb12aaf1bf0146f60b698851f372920046185a5f563552d4b9d5da2550dc1bfe",
+      "tests/mobile-platform-controls-browser.mjs": "b11e7149d50c496d2ac6b6971471c778312e5a826164ff84b6352b90e851b3e6"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2168,7 +2169,7 @@
       "customerRepairs": 0
     }
   },
-  "releasePreparationSha256": "40d852f708b7e195db8981a5b53bdc24160c2f310bc428249f4bdcf00ad37b92",
+  "releasePreparationSha256": "338334af0b403fbf4a78627507ca4f4414c13df3135c213a009a1bbb39483262",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
