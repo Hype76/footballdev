@@ -26,12 +26,15 @@
 .website-auth-panel h2{font-family:Manrope,Arial,sans-serif;color:#07152b!important;font-size:1.55rem!important;letter-spacing:-.04em}
 .website-auth-panel p,.website-auth-panel label>span{color:#536780!important;font-weight:500!important}
 .website-auth-panel label>span:first-child{color:#07152b!important;font-weight:600!important}
-.website-auth-panel input,.website-auth-panel select{background:#fff!important;border-color:#b6c7da!important;color:#07152b!important;font-weight:400!important;min-height:48px}
-.website-auth-panel input::placeholder{color:#75849a!important}
-.website-auth-panel input:focus,.website-auth-panel select:focus{border-color:#246bff!important;box-shadow:0 0 0 2px #246bff20!important}
-.website-auth-panel form>label>div{background:white!important;border-color:#b6c7da!important}
-.website-auth-panel form>label>div input{border:0!important}
-.website-auth-panel form>label>div button{color:#246bff!important;border-color:#b6c7da!important}
+/* Keep public form surfaces readable above the app's global dark-theme utilities. */
+body .website-auth .website-auth-panel input,body .website-auth .website-auth-panel select{background:#fff!important;border-color:#b6c7da!important;color:#07152b!important;caret-color:#07152b;color-scheme:light;font-weight:400!important;min-height:48px}
+body .website-auth .website-auth-panel input::placeholder{color:#536780!important;opacity:1}
+body .website-auth .website-auth-panel input:focus,body .website-auth .website-auth-panel select:focus{border-color:#246bff!important;box-shadow:0 0 0 2px #246bff20!important;outline:2px solid #246bff;outline-offset:2px}
+body .website-auth .website-auth-panel input:is(:autofill,:-webkit-autofill){background:#fff!important;color:#07152b!important;-webkit-text-fill-color:#07152b!important;box-shadow:inset 0 0 0 1000px #fff!important}
+body .website-auth .website-auth-panel form>label>div{background:white!important;border-color:#b6c7da!important}
+body .website-auth .website-auth-panel form>label>div input{border:0!important}
+body .website-auth .website-auth-panel form>label>div button{color:#1957cc!important;background:white!important;border-color:#b6c7da!important}
+body .website-auth .website-auth-panel .website-auth-plan-notice{background:#f1f5fa!important;border-color:#dce4ee!important;color:#07152b!important}
 .website-auth-panel form>div:not(:has(button)){color:#07152b!important}
 .website-auth-panel button[type=submit]{background:#246bff!important;color:white!important;box-shadow:none!important;min-height:48px}
 .website-auth-panel button[type=submit]:hover{background:#1957cc!important}
