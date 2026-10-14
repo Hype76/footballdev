@@ -23,6 +23,10 @@ visit(home)
 const shell = elements.find(n => n.openingElement.name.name === 'KeyboardAvoidingView')
 const scroller = elements.find(n => n.openingElement.attributes.some(a => a.name?.name === 'testID' && a.value?.value === 'coach-content-scroll'))
 assert.ok(scroller, 'Coach uses the stable native scroll container')
+const scrollKey = scroller.openingElement.attributes.find(a => a.name?.name === 'key')
+assert.ok(scrollKey, 'Each page owns its native scroll view')
+const scrollKeySource = source.slice(scrollKey.value.expression.start, scrollKey.value.expression.end)
+for (const scope of ['user.id', 'activeContext.id', 'activeRoute', 'moreRoute']) assert.ok(scrollKeySource.includes(scope), 'The native page identity includes '+scope)
 const header = elements.find(n => n.openingElement.name.name === 'CoachHeader')
 assert.ok(header.start > shell.start && header.end < scroller.start, 'The fixed Coach header stays outside the native scrolling content')
 const dragAttribute = scroller.openingElement.attributes.find(a => a.name?.name === 'onScrollBeginDrag')
@@ -40,6 +44,10 @@ const callbacks = ['scrollContentToTop', 'focusNotificationSettings'].map(name =
   const declaration = home.body.body.find(n => n.type === 'VariableDeclaration' && n.declarations[0].id.name === name)
   return source.slice(declaration.start, declaration.end)
 }).join('\n')
+const resetEffect = home.body.body.find(node => node.type === 'ExpressionStatement' && node.expression.callee?.name === 'useEffect'
+  && source.slice(node.start, node.end).includes('scrollContentToTop()') && source.slice(node.start, node.end).includes('pendingScrollRestoreRef'))
+assert.ok(resetEffect, 'The production page scroll-reset lifecycle is exercised')
+const resetLifecycle = source.slice(resetEffect.start, resetEffect.end)
 const keyboardLifecycle = home.body.body.filter(node => {
   if (node.type === 'VariableDeclaration') {
     const id = node.declarations[0].id
@@ -70,13 +78,14 @@ const NotificationStatusButton=({onPress})=><Pressable accessibilityRole="button
 const StatePanel=()=>null,Notice=()=>null,BrandLoader=()=> <View style={{height:28}}/>;
 const PartnersBanner=()=> <View style={{height:156}}><Text>Special Offers</Text></View>;
 ${selected}
-function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reveal=React.useContext(CoachKeyboardFocusContext);if(window.route==='more')return <MoreScreen navigation={{more:['Notifications','Formation Boards','Sessions','Development','Resources','Chat','Polls','Invites and availability','Team','Settings','Feedback & Suggestions','Report a Bug'].map(label=>({key:label,label}))}} onSelectMore={()=>{}}/>;return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/>{!window.shortContent?<><Text>Overall Comments</Text><TextInput accessibilityLabel="Overall Comments" multiline onFocus={reveal} style={{height:96}}/><Text>Coach summary</Text><TextInput accessibilityLabel="Coach summary" multiline onFocus={reveal} style={{height:96}}/><View style={{height:100}}/></>:null}<Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
+function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reveal=React.useContext(CoachKeyboardFocusContext);if(window.route==='more'&&!window.moreRoute)return <MoreScreen navigation={{more:['Notifications','Formation Boards','Sessions','Development','Resources','Chat','Polls','Invites and availability','Team','Settings','Feedback & Suggestions','Report a Bug'].map(label=>({key:label,label}))}} onSelectMore={()=>{}}/>;return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/>{!window.shortContent?<><Text>Overall Comments</Text><TextInput accessibilityLabel="Overall Comments" multiline onFocus={reveal} style={{height:96}}/><Text>Coach summary</Text><TextInput accessibilityLabel="Coach summary" multiline onFocus={reveal} style={{height:96}}/><View style={{height:100}}/></>:null}<Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
 function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
+const [moreRoute,setMoreRoute]=useState('');window.setMoreRoute=setMoreRoute;
 const [height,setHeight]=useState(850);window.setHeight=setHeight;
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
-window.route=activeRoute;
-const moreRoute=activeRoute==='invites'?'invites':'';const isMatchInvitesRoute=activeRoute==='invites';const safeAreaInsets={bottom:16};
+window.route=activeRoute;window.moreRoute=moreRoute;
+const isMatchInvitesRoute=activeRoute==='invites';const safeAreaInsets={bottom:16};
 const user={isOfflineProfile:false};
 const quickActionVisibility={ready:true,enabled:true};
 theme={...createCoachTheme({mode,context:{clubAccent:'#51bac4'}})};theme.palette=theme.tokens;theme.styles=createCoachStyles(theme.palette);theme.branding={logoUrl:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" fill="teal"/></svg>'};
@@ -94,7 +103,7 @@ const navigate=route=>{setActiveRoute(route);scrollContentToTop()},selectContext
 window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);window.queueTop=scrollContentToTop;window.pendingScroll=()=>pendingScrollRestoreRef.current;window.contentScrollable=contentScrollable;
 window.beginDrag=${dragSource};
 window.beginTouch=${touchSource};
-useEffect(()=>{scrollContentToTop()},[activeRoute,scrollContentToTop]);
+${resetLifecycle}
 return <MobileActivityProvider active={isRefreshing}><View style={[styles.appShell,{height}]}>${shellSource}</View></MobileActivityProvider>;
 }
 window.corrections=[];createRoot(document.getElementById('root')).render(<App/>);`
@@ -152,8 +161,10 @@ try {
       await page.evaluate(()=>window.refresh(false))
       await page.getByTestId('brand-loader').waitFor({state:'hidden'})
       await page.screenshot({ path: `${out}/held-${width}-${contextCount}.png` })
+      await scroll.evaluate(el=>{window.previousScrollNode=el})
       await page.evaluate(()=>window.setRoute('calendar'))
       await page.waitForTimeout(180)
+      assert.equal(await scroll.evaluate(el=>el===window.previousScrollNode),false,'A tab change starts a fresh native scroll view rather than retaining the prior page geometry')
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'Route changes return to the header')
       if(contextCount===2){await page.getByRole('button',{name:'Spain, Team Admin',exact:true}).click();assert.equal(await scroll.evaluate(el=>el.scrollTop),0)}
       await page.evaluate(()=>window.focusSettings())
@@ -168,12 +179,18 @@ try {
       await page.evaluate(()=>{window.shortContent=true;window.setRoute('home');window.setMode('light')})
       await header.waitFor()
       await page.waitForTimeout(180)
+      assert.equal(await scroll.evaluate(el=>el.scrollHeight),await scroll.evaluate(el=>el.clientHeight),'Short Home content fills the viewport without gaining a blank scroll range')
       await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:width-40,y:650}]})
       await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:width-40,y:646}]})
       await page.waitForTimeout(200)
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'A tiny held drag cannot move a page that fits the viewport')
       assert.ok(Math.abs((await header.boundingBox()).height-headerBox.height)<1,'Short content does not collapse the header')
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:width-40,y:650}]})
+      for(let i=1;i<=20;i++) await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:width-40,y:650-i*18}]})
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
+      await page.waitForTimeout(180)
+      assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'A full upward swipe cannot scroll short Home content out of sight')
       await page.evaluate(()=>window.setRoute('more'))
       const finalTool=page.getByRole('button',{name:'Report a Bug',exact:true})
       await finalTool.waitFor()
@@ -207,6 +224,16 @@ try {
         assert.ok(cancellation.target>0,'More has a scrollable offset for the cancellation regression')
         assert.deepEqual({queued:cancellation.queued,offset:cancellation.offset,pending:cancellation.pending},{queued:0,offset:cancellation.target,pending:null},'Starting '+gesture+' cancels a delayed route reset before it can jump the page')
       }
+      await page.evaluate(()=>{window.bounds.handlers.onTouchEnd();window.shortContent=false;window.setMoreRoute('settings')})
+      await page.waitForTimeout(180)
+      await scroll.evaluate(el=>{el.scrollTop=el.scrollHeight-el.clientHeight;window.beforeMoreBackNode=el})
+      await page.waitForTimeout(150)
+      assert.ok(await page.evaluate(()=>window.bounds.getOffset())>0,'The More subpage has an offset before the hardware-back path')
+      await page.evaluate(()=>window.setMoreRoute(''))
+      await page.waitForTimeout(180)
+      assert.equal(await scroll.evaluate(el=>el===window.beforeMoreBackNode),false,'Returning from a More subpage owns a fresh native page')
+      assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'A same-tab More return cannot clamp the old subpage offset into the new menu')
+      assert.equal(await page.evaluate(()=>window.bounds.getOffset()),0,'A same-tab More return resets the shared bounds controller too')
       await page.evaluate(()=>{window.shortContent=true;window.setRoute('matchday')})
       await page.waitForTimeout(180)
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'Switching from More to a short Match Day page restores the top')

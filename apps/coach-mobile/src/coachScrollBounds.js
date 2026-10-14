@@ -63,11 +63,24 @@ export function createCoachScrollBounds(scrollTo, clock = {
       onScroll(event) { readOffset(event); settle() },
       onTouchStart() { touching = true; cancel() },
       onTouchEnd() { touching = false; settle() },
-      onTouchCancel() { touching = false; dragging = false; settle() },
+      // UIKit can cancel raw touches when its scroll recognizer takes over.
+      onTouchCancel() { touching = false; settle() },
       onScrollBeginDrag() { dragging = true; momentum = false; cancel() },
-      onScrollEndDrag(event) { readOffset(event); dragging = false; settle() },
-      onMomentumScrollBegin() { momentum = true; cancel() },
-      onMomentumScrollEnd(event) { readOffset(event); momentum = false; dragging = false; settle() },
+      onScrollEndDrag(event) {
+        readOffset(event)
+        // A native pan release can arrive without a raw touch-end callback.
+        // A drag-end emitted only to stop old momentum must keep a new touch.
+        if (dragging) touching = false
+        dragging = false
+        settle()
+      },
+      onMomentumScrollBegin() { if (dragging) return; momentum = true; cancel() },
+      onMomentumScrollEnd(event) {
+        readOffset(event)
+        momentum = false
+        // Momentum from the previous gesture cannot release a newer native pan.
+        settle()
+      },
     },
   }
 }
