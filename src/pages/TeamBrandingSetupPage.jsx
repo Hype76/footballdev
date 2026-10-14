@@ -7,6 +7,7 @@ import { COACH_BRANDING_RETURN_URL, readBrandingSetupSelection, requestTeamBrand
 import { formatUkDate } from '../lib/date-format.js'
 
 const actionClass = 'min-h-11 px-3 py-2 font-bold underline underline-offset-4 disabled:opacity-50'
+const buttonClass = 'inline-flex min-h-12 items-center justify-center rounded-md bg-[#142a1d] px-5 py-3 font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#142a1d] disabled:cursor-not-allowed disabled:opacity-50'
 const inputClass = 'min-h-11 w-full border-b border-[#ccd8d0] bg-white py-2 text-base'
 
 export function TeamBrandingSetupPage() {
@@ -23,6 +24,8 @@ export function TeamBrandingSetupPage() {
   const [accent, setAccent] = useState('#047857')
   const [colourChanged, setColourChanged] = useState(false)
   const [file, setFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const fileInput = useRef(null)
   const [credentials, setCredentials] = useState({ email: '', password: '' })
   const [retry, setRetry] = useState(0)
   const generation = useRef(0)
@@ -30,6 +33,13 @@ export function TeamBrandingSetupPage() {
   const actorId = session?.user?.id || ''
   const selectionScope = useRef('')
   const hasProfile = Boolean(user)
+
+  useEffect(() => {
+    if (!file) { setPreviewUrl(''); return }
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
 
   async function readCurrent(signal) {
     const management = await requestTeamBrandingSetup({ client: supabase, teamId, signal, expectedActorId: actorId })
@@ -108,6 +118,7 @@ export function TeamBrandingSetupPage() {
       const updated = await readCurrent()
       if (current !== generation.current) return
       setState(updated.management); setDisplay(updated.resolved); setFile(null); setAccepted(false); setColourChanged(false)
+      if (fileInput.current) fileInput.current.value = ''
       setMessage(action === 'claim' ? 'Your place is reserved. Add your badge and colour below.' : 'Team branding saved. Return to Coach to refresh it.')
     } catch (failure) { if (current === generation.current) setError(failure.message || 'Your saved artwork was kept. Try again.') }
     finally { inFlight.current = false; setBusy(false) }
@@ -136,14 +147,16 @@ export function TeamBrandingSetupPage() {
           <button className={actionClass} disabled={!accepted || busy} onClick={() => act('claim')}>Claim this team's place</button>
         </>}
         {(state.logoAllowed || state.coloursAllowed) && <div className="divide-y divide-[#ccd8d0]">
-          {state.logoAllowed && <label className="block py-3">Club badge for this team
-            {state.logoUrl && <img src={state.logoUrl} alt="Saved team badge" className="my-2 h-16 w-16 object-contain" />}
-            <input className="block min-h-12 w-full py-2" type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={event => setFile(event.target.files?.[0] || null)} />
+          {state.logoAllowed && <div className="py-3">
+            <label className="block pb-2" htmlFor="team-badge-file">Club badge for this team</label>
+            {(previewUrl || state.logoUrl) && <img src={previewUrl || state.logoUrl} alt={previewUrl ? 'Selected team badge preview' : 'Saved team badge'} className="my-3 h-24 w-24 object-contain" />}
+            <input ref={fileInput} id="team-badge-file" className="hidden" type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={event => setFile(event.target.files?.[0] || null)} />
+            <button type="button" className={buttonClass} disabled={busy} onClick={() => fileInput.current?.click()}>{file || state.logoUrl ? 'Change team badge' : 'Upload team badge'}</button>
             {file && <span role="status" className="block py-2 font-bold">Selected: {file.name}</span>}
-            <span className="text-sm">PNG, JPG or WebP, up to 2 MB and 2048 by 2048 pixels. Choose from photos or files.</span>
-          </label>}
+            <p className="pt-2 text-sm">PNG, JPG or WebP, up to 2 MB and 2048 by 2048 pixels. Choose from photos or files.</p>
+          </div>}
           {!uploadOnly && state.coloursAllowed && <label className="flex min-h-12 items-center justify-between py-3">Team colour<input aria-label="Team colour" type="color" className="h-12 w-16" value={accent} onChange={event => { setAccent(event.target.value); setColourChanged(true) }} disabled={busy} /></label>}
-          <button className={actionClass} disabled={busy || (!colourChanged && !file)} onClick={() => act('save')}>Save team branding</button>
+          <div className="py-3"><button type="button" className={buttonClass} disabled={busy || (!colourChanged && !file)} onClick={() => act('save')}>{busy ? 'Saving team branding...' : 'Save team branding'}</button></div>
         </div>}
       </>}
     </> : null}

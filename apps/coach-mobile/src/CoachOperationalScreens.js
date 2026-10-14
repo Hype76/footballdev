@@ -863,14 +863,14 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
   }, [context, user])
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
   useEffect(() => {
-    if (quickAction?.intent !== 'create-player') return
+    if (quickAction?.intent !== 'create-player' || !policy.canCreate) return
     playerRequest.current += 1
     setOpeningPlayerId('')
     setFocusedPlayer(null)
     setDetail(null)
-    setForm(coachPlayerFormFromPlayer())
+    setForm(coachPlayerFormFromPlayer(null, { canCreateTrial: policy.canCreateTrial }))
     onQuickActionHandled?.()
-  }, [onQuickActionHandled, quickAction])
+  }, [onQuickActionHandled, quickAction, policy.canCreate, policy.canCreateTrial])
   const visible = filterCoachPlayers(players, { query, section, status: 'active' })
   const openPlayer = async (player, { force = false } = {}) => {
     const request = ++playerRequest.current
@@ -989,10 +989,10 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
       {!focusedPlayer && !form ? <>
       <Field label="Search Players" onChangeText={setQuery} styles={styles} value={query} />
       <Chips onChange={setSection} options={[{ label: 'All', value: 'all' }, ...(policy.canCreateTrial ? [{ label: 'Trial', value: 'Trial' }] : []), { label: 'Squad', value: 'Squad' }]} styles={styles} value={section} />
-      {policy.canCreate && !form ? <Button iconKey="action.add-player" label="Add Player" onPress={() => { setDetail(null); setForm(coachPlayerFormFromPlayer({ section: policy.canCreateTrial ? 'Trial' : 'Squad' })) }} styles={styles} /> : null}
+      {policy.canCreate && !form ? <Button iconKey="action.add-player" label="Add Player" onPress={() => { setDetail(null); setForm(coachPlayerFormFromPlayer(null, policy)) }} styles={styles} /> : null}
       </> : null}
       {form ? (
-        <View style={styles.form}>
+        <View style={styles.stack}>
           <Text style={styles.cardTitle}>{detail ? 'Edit Player' : 'Add Player'}</Text>
           <Field label="Player name" onChangeText={(value) => setForm({ ...form, playerName: value })} styles={styles} value={form.playerName} />
           <Chips onChange={(value) => setForm({ ...form, section: value })} options={[...(policy.canCreateTrial ? [{ label: 'Trial', value: 'Trial' }] : []), { label: 'Squad', value: 'Squad' }]} styles={styles} value={form.section} />
@@ -1002,7 +1002,7 @@ export function CoachPlayersScreen({ context, onNavigate, onQuickActionHandled, 
           <Text style={styles.cardTitle}>Contacts</Text>
           {form.parentContacts.map((contact, index) => {
             const linked = detail?.parentLinks?.some((link) => link.email.toLowerCase() === contact.email.toLowerCase())
-            return <View key={index} style={styles.card}>
+            return <View key={index} style={styles.calendarEventRow}>
               <Field label={`Contact ${index + 1} name`} onChangeText={(name) => updateContact(index, { name })} styles={styles} value={contact.name} />
               <Field label={`Contact ${index + 1} email`} onChangeText={(email) => updateContact(index, { email })} styles={styles} value={contact.email} />
               {linked ? <Text style={styles.meta}>To change this email or remove the contact, go back and remove their Parent access first.</Text> : null}

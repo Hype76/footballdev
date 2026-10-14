@@ -201,14 +201,14 @@ export function buildCoachPlayerPayload({ context, form }) {
   })
 }
 
-export function coachPlayerFormFromPlayer(player = null) {
+export function coachPlayerFormFromPlayer(player = null, { canCreateTrial = true } = {}) {
   return {
     contactType: player?.contactType || 'parent',
     notes: normalize(player?.notes),
     parentContacts: player?.parentContacts?.length ? player.parentContacts : [{ email: '', name: '', type: 'parent' }],
     playerName: normalize(player?.playerName),
     positions: (player?.positions || []).join(', '),
-    section: player?.section || 'Trial',
+    section: player?.section || (canCreateTrial ? 'Trial' : 'Squad'),
     shirtNumber: normalize(player?.shirtNumber),
   }
 }

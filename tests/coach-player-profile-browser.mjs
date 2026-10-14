@@ -11,7 +11,7 @@ const source = await readFile('apps/coach-mobile/src/CoachOperationalScreens.js'
 const helpers = source.slice(source.indexOf('function useDomainStyles('), source.indexOf('export function CoachCalendarScreen('))
 const screen = source.slice(source.indexOf('export function CoachPlayersScreen('), source.indexOf('export function CoachSessionsScreen('))
   .replace('  const cancelForm =', '  window.submitPlayerForm = save;\n  const cancelForm =')
-  .replace('  const load = useCallback', '  window.viewedEvaluationId = selectedEvaluation?.id || null;\n  const load = useCallback')
+  .replace('  const load = useCallback', '  window.viewedEvaluationId = selectedEvaluation?.id || null;window.currentPlayerSection = form?.section || null;\n  const load = useCallback')
 const entry = `
 import React,{useState,useMemo,useEffect,useCallback,useRef} from 'react';
 import {createRoot} from 'react-dom/client';
@@ -206,14 +206,23 @@ try {
   await page.evaluate(()=>window.readOnly(true))
   await page.getByRole('button',{name:'Edit Player',exact:true}).waitFor({state:'hidden'})
   await expectProfile('player-11')
+  await page.evaluate(()=>window.quickAdd())
+  assert.equal(await page.getByLabel('Player name',{exact:true}).count(),0,'Read-only quick action cannot open a new player form')
   await page.evaluate(()=>{window.readOnly(false);window.matchday();window.quickAdd();window.inviteCalls=[];window.failInviteEmail='fail@example.test'})
   await page.getByLabel('Player name',{exact:true}).fill('FP TEST Automatic Invites')
-  await page.getByRole('button',{name:'Squad',exact:true}).click()
+  assert.equal(await page.evaluate(()=>window.currentPlayerSection),'Squad','Floating plus defaults to Squad without requiring a hidden Trial selection to be corrected')
+  assert.equal(await page.getByRole('button',{name:'Trial',exact:true}).count(),0)
+  for(const width of [320,390]) {
+    await page.setViewportSize({width,height:844})
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+    await page.screenshot({path:'output/playwright/coach-player-profile/squad-add-'+width+'.png',fullPage:true})
+  }
   await page.getByLabel('Contact 1 email',{exact:true}).fill('auto@example.test')
   await page.getByRole('button',{name:'Add another contact',exact:true}).click()
   await page.getByLabel('Contact 2 email',{exact:true}).fill('fail@example.test')
   await page.evaluate(()=>{void window.submitPlayerForm();void window.submitPlayerForm()})
   await page.getByText('Player saved. Some parent invitations could not be sent. Use the send button beside each failed contact to try again.',{exact:true}).waitFor()
+  assert.equal(await page.evaluate(()=>window.saved.at(-1).section),'Squad')
   assert.deepEqual(await page.evaluate(()=>window.inviteCalls),['auto@example.test','fail@example.test'])
   await page.getByText('Invite sent awaiting acceptance',{exact:true}).waitFor()
   await page.getByText('Invite failed: Use the send button to try again.',{exact:true}).waitFor()
@@ -228,6 +237,11 @@ try {
   await page.getByRole('button',{name:'Save Player',exact:true}).click()
   await page.getByText('FP TEST Edited Automatic Invites',{exact:true}).waitFor()
   assert.equal(await page.evaluate(()=>window.inviteCalls.length),sentBeforeEdit)
+  await page.getByRole('button',{name:'Back to Players',exact:true}).click()
+  await page.getByRole('button',{name:/Add Player/}).click()
+  await page.getByLabel('Player name',{exact:true}).waitFor()
+  assert.equal(await page.evaluate(()=>window.currentPlayerSection),'Squad','Regular Add Player uses the same Matchday default')
+  await page.getByRole('button',{name:'Cancel',exact:true}).click()
   assert.deepEqual(errors,[])
   console.log('PASS: Exact saved development A/B records, selected-player guard, read-only authorised snapshot responses, legacy fallback, team/account/role revocation and immediate open ('+recordOpenMs+'ms). Coach player profiles preserve contacts, reject duplicate saves, preserve newer Quick Add forms after delayed save success/error, retain filters, reject late detail responses, preserve permissions, and render at 320/390px in light/dark themes.')
 } finally {await browser.close()}
