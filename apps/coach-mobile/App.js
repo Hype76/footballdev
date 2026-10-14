@@ -262,7 +262,7 @@ function CoachHome() {
     [activeContext, matchdayPlanConfig, user],
   )
   const navigation = useMemo(() => getCoachNavigationModel(activeContext, matchdayPlanConfig), [activeContext, matchdayPlanConfig])
-  const quickActions = useMemo(() => getCoachQuickActions(activeContext), [activeContext])
+  const quickActions = useMemo(() => getCoachQuickActions(activeContext, matchdayPlanConfig), [activeContext, matchdayPlanConfig])
   const isMatchInvitesRoute = activeRoute === 'more' && moreRoute === 'invites'
   const themeModel = useMemo(
     () => {
@@ -641,8 +641,8 @@ function CoachHome() {
     }
     setNotice('')
     setCalendarTarget(resolved === 'calendar' && (navigationTarget?.eventId || navigationTarget?.sourceId) ? { ...navigationTarget, requestId: `${Date.now()}` } : null)
-    setMatchDayTarget(resolved === 'matchday' && navigationTarget?.fixtureId
-      ? { fixtureId: normalizeText(navigationTarget.fixtureId), intent: navigationTarget.intent === 'edit-fixture' ? 'edit-fixture' : '', returnCalendarTarget: navigationTarget.returnCalendarTarget, requestId: `${Date.now()}:${normalizeText(navigationTarget.fixtureId)}` }
+    setMatchDayTarget(resolved === 'matchday' && (navigationTarget?.fixtureId || navigationTarget?.intent === 'create-fixture')
+      ? { fixtureId: normalizeText(navigationTarget.fixtureId), intent: ['edit-fixture', 'create-fixture'].includes(navigationTarget.intent) ? navigationTarget.intent : '', matchDate: normalizeText(navigationTarget.matchDate), returnCalendarTarget: navigationTarget.returnCalendarTarget, requestId: `${Date.now()}:${normalizeText(navigationTarget.fixtureId)}` }
       : null)
     setActiveRoute(routeTarget.activeRoute)
     setMoreRoute(routeTarget.moreRoute)

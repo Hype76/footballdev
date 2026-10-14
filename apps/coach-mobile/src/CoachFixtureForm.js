@@ -47,7 +47,7 @@ function Toggle({ label, onValueChange, styles, value }) {
   return <View style={styles.row}><Text style={styles.fieldLabel}>{label}</Text><Switch accessibilityLabel={label} onValueChange={onValueChange} value={value === true} /></View>
 }
 
-export function CoachFixtureForm({ match = null, matches, onCancel, onCancelled, onCreated, onUpdated, players, styles, user }) {
+export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches, onCancel, onCancelled, onCreated, onUpdated, players, styles, user }) {
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -111,6 +111,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCancelled,
           : devicePreferences
         const savedLocation = preferences.location?.name ? preferences.location : savedLocations[0] || null
         setForm((current) => initializeCoachFixtureForm(current, {
+          defaultMatchDate,
           defaultArrivalPreset: preferences.arrivalPreset,
           defaultArrivalTime: preferences.arrivalTime,
           defaultDuration: preferences.duration,
@@ -126,6 +127,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCancelled,
         if (!active) return
         const savedLocation = preferences.location?.name ? preferences.location : null
         setForm((current) => initializeCoachFixtureForm(current, {
+          defaultMatchDate,
           defaultArrivalPreset: preferences.arrivalPreset,
           defaultArrivalTime: preferences.arrivalTime,
           defaultDuration: preferences.duration,
@@ -136,7 +138,7 @@ export function CoachFixtureForm({ match = null, matches, onCancel, onCancelled,
         }))
       })
     return () => { active = false }
-  }, [match, matches, user, user.activeTeamId, user.id])
+  }, [defaultMatchDate, match, matches, user, user.activeTeamId, user.id])
 
   if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
 

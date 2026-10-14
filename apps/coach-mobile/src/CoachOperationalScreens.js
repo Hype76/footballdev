@@ -401,6 +401,10 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   }, [calendarTarget, events])
 
   const openForm = (event = null) => {
+    if (!event && isMatchday) {
+      onNavigate('matchday', { intent: 'create-fixture', matchDate: selectedDate || '' })
+      return
+    }
     setFormError('')
     setSaveConfirmation('')
     setSelected(event)
@@ -420,6 +424,11 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   }
   useEffect(() => {
     if (quickAction?.route !== 'calendar') return
+    if (isMatchday) {
+      onQuickActionHandled?.()
+      onNavigate('matchday', { intent: 'create-fixture', matchDate: selectedDate || '' })
+      return
+    }
     setFocusedEventId('')
     setSelected(null)
     setFormError('')
@@ -433,7 +442,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       ...(!nextForm.location && savedLocations[0] ? { location: savedLocations[0] } : {}),
     })
     onQuickActionHandled?.()
-  }, [context, onQuickActionHandled, quickAction, savedLocations, teamNotificationName])
+  }, [context, isMatchday, onNavigate, onQuickActionHandled, quickAction, savedLocations, selectedDate, teamNotificationName])
   const chooseNotification = (actionLabel, itemTitle) => new Promise((resolve) => {
     Alert.alert(
       `Notify everyone about this ${actionLabel}?`,
@@ -717,7 +726,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
       {calendarTarget && handledTarget.current !== calendarTarget && !loading && !stale ? <Text accessibilityRole="alert" style={styles.warningText}>This event is no longer available in this Calendar. Refresh the Calendar to check again.</Text> : null}
       {saveConfirmation ? <View style={styles.card}><Text style={styles.cardTitle}>{saveConfirmation}</Text></View> : null}
       {!selectedDate ? <Chips onChange={setFilter} options={[{ label: 'Upcoming', value: 'upcoming' }, { label: 'History', value: 'history' }, { label: 'Cancelled', value: 'cancelled' }, { label: 'All', value: 'all' }]} styles={styles} value={filter} /> : null}
-      {policy.canCreate && !stale && !form && !focusedEventId ? <Button label="Create event" onPress={() => openForm()} styles={styles} /> : null}
+      {policy.canCreate && !stale && !form && !focusedEventId ? <Button label={isMatchday ? 'Create match' : 'Create event'} onPress={() => openForm()} styles={styles} /> : null}
       {form ? (
         <View style={styles.form}>
           <Text style={styles.cardTitle}>{selected ? 'Edit event' : 'Create event'}</Text>

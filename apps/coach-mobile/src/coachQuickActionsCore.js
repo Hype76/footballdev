@@ -1,3 +1,5 @@
+import { resolveCoachRoute } from './coachNavigationCore.js'
+
 const normalize = (value) => String(value ?? '').trim()
 
 export const COACH_QUICK_ACTIONS = Object.freeze([
@@ -10,12 +12,14 @@ export const COACH_QUICK_ACTIONS = Object.freeze([
   Object.freeze({ id: 'formation-board', label: 'Formation Board', minimumRank: 20, requiresTeam: true, route: 'formation' }),
 ])
 
-export function getCoachQuickActions(context) {
+export function getCoachQuickActions(context, planConfig) {
   if (!context) return []
   const roleRank = Number(context.roleRank || 0)
   return COACH_QUICK_ACTIONS.filter((action) => (
     roleRank >= Number(action.minimumRank || 0)
     && (!action.requiresTeam || Boolean(context.teamId))
+    && Boolean(resolveCoachRoute(action.route, context, planConfig))
+    && (context.paymentAccess?.canMutate !== false || ['game-day', 'formation-board'].includes(action.id))
   ))
 }
 

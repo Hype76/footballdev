@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto'
+import { isMatchdayPlan } from './matchdayPolicyCore.js'
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
 import {
   buildCoachCalendarEvents,
@@ -166,6 +167,9 @@ export async function saveCoachCalendarEvent(user, form, existingEvent = null) {
   assertCoachOperationalMutation(user)
   if (existingEvent && (existingEvent.sourceType !== 'calendar_event' || existingEvent.canEdit === false)) {
     throw new Error('This item must be edited in its authoritative Match Day or Session workflow.')
+  }
+  if (!existingEvent?.sourceId && isMatchdayPlan(user)) {
+    throw new Error('Create this match using the Match Day fixture form.')
   }
   const payload = buildCoachCalendarPayload({ context: user, form })
   const playerIds = [...new Set((form?.involvedPlayerIds || []).map(normalize).filter(Boolean))]
