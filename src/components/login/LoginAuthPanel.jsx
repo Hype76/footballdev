@@ -105,7 +105,7 @@ export function LoginAuthPanel({
           ) : null}
 
           {mode === 'signup' && !parentInviteMode ? (
-            <div className="rounded-lg border border-white/12 bg-white/[0.04] px-4 py-3 text-sm font-semibold leading-5 text-white/72">
+            <div className="website-auth-plan-notice rounded-lg border border-white/12 bg-white/[0.04] px-4 py-3 text-sm font-semibold leading-5 text-white/72">
               Need a team or club plan?{' '}
               <Link to="/pricing" className="font-black text-[#246bff] transition hover:text-[#1957cc]">
                 Choose a plan on Pricing
