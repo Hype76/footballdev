@@ -170,3 +170,7 @@
 .marketing-reference .kit-gallery .kit-image img{position:absolute;left:50%;width:auto;max-width:none;transform:translateX(-50%);object-fit:contain}
 .marketing-reference .kit-gallery img[src*="cambourne-home-kit.png"]{height:calc((100% - 2rem) * 1.19330544);top:calc(1rem - (100% - 2rem) * .12133891)}
 .marketing-reference .kit-gallery img[src*="cambourne-away-kit.png"]{height:calc((100% - 2rem) * 1.105);top:calc(1rem - (100% - 2rem) * .05416667)}
+
+/* Approved homepage photograph: preserve original pixels and scope crop to home. */
+.marketing-reference .home-hero .hero-photo{object-position:50% 55%}
+@media(max-width:620px){.marketing-reference .home-hero .hero-photo{object-position:47% center}.marketing-reference .home-hero .hero-shade{background:linear-gradient(180deg,#061228eb 0%,#061228b5 45%,#06122845 100%)}}
