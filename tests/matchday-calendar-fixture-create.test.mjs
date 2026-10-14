@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { getCoachQuickActions } from '../apps/coach-mobile/src/coachQuickActionsCore.js'
+import { getCoachRouteState, resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
 import { isMatchdayPlan } from '../apps/mobile-core/src/matchdayPolicyCore.js'
 import { createCoachFixtureForm, initializeCoachFixtureForm, validateCoachFixtureForm } from '../apps/mobile-core/src/coachFixtureCore.js'
 import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
@@ -10,6 +11,29 @@ import { MATCHDAY_DEFAULT_FLAGS } from '../src/lib/matchday-policy.js'
 const context = { planKey: 'matchday', role: 'head_manager', roleRank: 70, teamId: 'team', paymentAccess: { canMutate: true } }
 const config = { flags: MATCHDAY_DEFAULT_FLAGS }
 const normalizeCoachMatchDay = row => ({ ...row, matchDate: row.match_date || row.matchDate })
+
+test('App navigation preserves existing fixture and edit targets alongside Calendar creation', async () => {
+  const source = await readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8')
+  const body = source.match(/const navigate = useCallback\(\(route, navigationTarget = null\) => \{([^]*?)\n  \}, \[/)[1]
+  const targets = []
+  const dependencies = { Keyboard: { dismiss() {} }, scrollContentToTop: () => {}, setChatNotificationTarget: () => {}, resolveCoachRoute, activeContext: context, matchdayPlanConfig: config, getCoachRouteState, activeRoute: 'calendar', moreRoute: '', formationReturnRef: { current: null }, setNotice: () => {}, setCalendarTarget: () => {}, setMatchDayTarget: value => targets.push(value), setActiveRoute: () => {}, setMoreRoute: () => {}, normalizeText: value => String(value || '').trim() }
+  const navigate = new Function(...Object.keys(dependencies), `return (route, navigationTarget = null) => {${body}}`)(...Object.values(dependencies))
+  assert.equal(navigate('matchday', { fixtureId: 'existing-fixture' }), true)
+  assert.equal(targets.at(-1).fixtureId, 'existing-fixture')
+  const returnCalendarTarget = { sourceId: 'existing-fixture', sourceType: 'match_day' }
+  assert.equal(navigate('matchday', { fixtureId: 'existing-fixture', intent: 'edit-fixture', returnCalendarTarget }), true)
+  assert.equal(targets.at(-1).intent, 'edit-fixture')
+  assert.equal(targets.at(-1).returnCalendarTarget, returnCalendarTarget)
+  assert.equal(navigate('matchday', { intent: 'create-fixture', matchDate: '2099-10-15' }), true)
+  assert.equal(targets.at(-1).fixtureId, '')
+  assert.equal(targets.at(-1).intent, 'create-fixture')
+  assert.equal(targets.at(-1).matchDate, '2099-10-15')
+  const count = targets.length
+  assert.equal(navigate('sessions'), false)
+  assert.equal(targets.length, count)
+  assert.equal(navigate('home'), true)
+  assert.equal(targets.at(-1), null)
+})
 
 test('Matchday quick actions use plan access as well as role and Team authority', () => {
   assert.deepEqual(getCoachQuickActions(context, config).map(action => action.id), ['add-player', 'add-match', 'game-day', 'formation-board'])
@@ -111,12 +135,16 @@ test('the fixture save path persists a real match and supplies the Calendar matc
   assert.equal(calendar[0].sourceId, result.match.id)
 })
 
-test('created fixtures invalidate the Calendar list before its next read', async () => {
+test('created fixtures become the selected match and invalidate Calendar before its next read', async () => {
   const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
   const handler = source.match(/const handleFixtureCreated = async \(result\) => \{([^]*?)\n  \}/)[1]
   const invalidated = []
-  const dependencies = { setFixtureFormOpen: () => {}, onRequestScrollTop: () => {}, setNotice: () => {}, normalizeCoachMatchDay, invalidateMobileResource: (_user, key) => invalidated.push(key), user: {}, setMatches: () => {}, getCoachMatchDayDetail: async () => ({ id: 'fixture' }), setMatch: () => {}, setPanel: () => {}, setScoreDraft: () => {} }
+  const selectedMatchId = { current: 'previous-fixture' }
+  const matchRef = { current: { id: 'previous-fixture' } }
+  const dependencies = { setFixtureFormOpen: () => {}, onRequestScrollTop: () => {}, setNotice: () => {}, normalizeCoachMatchDay, selectedMatchId, matchRef, invalidateMobileResource: (_user, key) => invalidated.push(key), user: {}, setMatches: () => {}, getCoachMatchDayDetail: async () => { assert.equal(selectedMatchId.current, 'fixture'); return { id: 'fixture' } }, setMatch: () => {}, setPanel: () => {}, setScoreDraft: () => {} }
   const created = new Function(...Object.keys(dependencies), `return async (result) => {${handler}}`)(...Object.values(dependencies))
   await created({ match: { id: 'fixture', matchDate: '2099-10-15' } })
   assert.deepEqual(invalidated, ['coach:calendar', 'coach:match-list'])
+  assert.equal(selectedMatchId.current, 'fixture')
+  assert.equal(matchRef.current.id, 'fixture')
 })

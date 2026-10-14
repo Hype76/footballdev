@@ -246,7 +246,7 @@ test('Match Day keeps the selected fixture stable while cached data refreshes', 
   assert.doesNotMatch(screen, /\[cache, context, match\?\.id, user\]/)
   assert.match(app, /activeRoute !== 'matchday'/)
   assert.match(calendar, /onNavigate\('matchday', \{ fixtureId: event\.sourceId \}\)/)
-  assert.match(app, /setMatchDayTarget\(resolved === 'matchday' && navigationTarget\?\.fixtureId/)
+  assert.match(app, /setMatchDayTarget\(resolved === 'matchday' && \(navigationTarget\?\.fixtureId \|\| navigationTarget\?\.intent === 'create-fixture'\)/)
   assert.match(screen, /selectedMatchId\.current = requestedFixtureId/)
   assert.match(screen, /match\?\.id !== requestedFixtureId/)
 })

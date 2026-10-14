@@ -948,6 +948,8 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
             ? 'Fixture added to Coach and squad calendars. No availability requests or notifications were sent.'
             : 'Fixture created. Match Day controls are ready.'))
     const summary = normalizeCoachMatchDay(result.match)
+    selectedMatchId.current = summary.id
+    matchRef.current = summary
     invalidateMobileResource(user, 'coach:calendar')
     invalidateMobileResource(user, 'coach:match-list')
     setMatches((current) => [summary, ...current.filter((item) => item.id !== summary.id)])

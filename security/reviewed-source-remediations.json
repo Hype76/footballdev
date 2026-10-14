@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "5c55e95e99c2e85ce23e43a42563378a52d5e459c0ce0e6f4c263e7b8335c400",
+    "scripts/security-verify-reviewed-backports.mjs": "61ca7577eb1fc949d6bd36163d8209d3663c248e1c20bc9fb6625016165c54b9",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -680,7 +680,7 @@
     "approvedScope": "User-authorised weekend feedback fixes: scoped staff invitations, confirmed Match Day saves and reconciliation, full-time web corrections, fixed mobile loading and one-minute failure notices, compact Player/Fan navigation and owned read-only league access, and bounded poll-result push delivery. Exact source pins and independent exact-HEAD acceptance are required; all dependency, native, audit and release controls are retained. Calendar creation for free Matchday accounts now uses the shared fixture form with its selected date; stale generic-event creation is rejected and floating Quick Add respects existing plan and role access. Existing records, native inputs and all maintained security controls are preserved.",
     "changedSourceHashes": {
       "apps/coach-mobile/App.js": "15851845cddbb09c6a571f14930fdedc97adc42128d60ee1747a664d12dcd8c2",
-      "apps/coach-mobile/src/CoachMatchDayScreen.js": "77e629bb0d51fb8d686151fa0944dfcb0f8f9eaeb90c2b43118e1a9a881099a8",
+      "apps/coach-mobile/src/CoachMatchDayScreen.js": "82bc6fcf7b9b3c66e2c3ae556fa84321b6031463b71aa66f9c9f905ba295dcdd",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "6baf95c90ee3c865c2ff2b0f0c41d3b3d6b77e877b3148902db8c397fd351441",
       "apps/coach-mobile/src/CoachPhase31EScreens.js": "ec975cfe4cee74aafe3bf215323ef201158b76c022657ac55b9a65361b30a760",
       "apps/coach-mobile/src/CoachTeamBrandingSetup.js": "2f159548a46a6d283ee024c8d25e2b5d0fc50d01c3dfcfbc510c9cb672bb7316",
@@ -798,7 +798,7 @@
       "tests/mobile-coach-bulk-invite-actions-106.test.mjs": "7d1f9f990f78da29d304ae38764b9c459a555d3b876abb27c1dbc35aa9814673",
       "tests/mobile-coach-comms-corrective-36.test.mjs": "5212e93139f6e1cfbdfb4c4947c946e710d25b363c492c3fa6bd45e3232808d6",
       "tests/mobile-coach-live-qa-corrective-35.test.mjs": "fa368bb1640a19d7f4f5e46d326e1310bc23346aa8652da1f42800625c11928c",
-      "tests/mobile-coach-matchday-31d.test.mjs": "f1ab801dcefc46469f7c2e88009a50b927ee08582595110b9a83a489e5c043cc",
+      "tests/mobile-coach-matchday-31d.test.mjs": "302d6b0420918df166d4f0fe261bcf14f0f5c9cb1ed823e932ed2d747eacc048",
       "tests/mobile-coach-parity-closure-31g.test.mjs": "c8a86537a961bc2d899e34b946e6dbdfeee2223776a1005514fb6fb9cbcb56d2",
       "tests/mobile-compaction-attention-65.test.mjs": "ae6bab0116931827ffd3d9fcff8d0bd8998a289386175874bb77ef5ddb064e56",
       "tests/mobile-connection-invites-72.test.mjs": "629fec1eab209bcc5a87f1f262b64463b9519417cb07782f2ae142827a1a4dcb",
@@ -1142,7 +1142,7 @@
       "apps/coach-mobile/src/coachQuickActionsCore.js": "07822d2c55a621c7fbf22fd826c74699263ae6cd74825bde0bf203b03e7c9e57",
       "apps/mobile-core/src/coachCalendarData.js": "b6b0576af23f38adab82f4b80ba3299862a3d602d89af84b63116873e1484fcc",
       "apps/mobile-core/src/coachFixtureCore.js": "8a88d41b1288fce026610c1503f400686f0ce9153202c3c8e8ea4929d571587b",
-      "tests/matchday-calendar-fixture-create.test.mjs": "95de1b860641f6384493a4e160f9bc3527a474962a5ece25ad5a437b2e70ebbd",
+      "tests/matchday-calendar-fixture-create.test.mjs": "5c896602da506224de6f3859602f09e8015186c960d30c8306e0f6fec9465ac7",
       "tests/matchday-calendar-fixture-browser.mjs": "bb12aaf1bf0146f60b698851f372920046185a5f563552d4b9d5da2550dc1bfe"
     },
     "externalTrustInputs": [
@@ -2168,7 +2168,7 @@
       "customerRepairs": 0
     }
   },
-  "releasePreparationSha256": "927c54a7261f389777904f358c705359fc3d42b69101a62d1942946d533b37f6",
+  "releasePreparationSha256": "3456eb31c0b4b6d306c043de1256ee72c125a47f480ea05c07ff62083610fdf3",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
