@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "097f779b1d090fcebcc68572fb8aad47a06676bf3237033189e33e5e479c5ece",
+    "scripts/security-verify-reviewed-backports.mjs": "5ff5c6dcf7c5a825c8c7b3190b74f3cd3fbd18d7eac39fe24213bd0336c6b6e8",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -677,9 +677,9 @@
     "previousCandidate": "84e3671573f83cd24586637b76f86e8921c1a80d",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
     "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
-    "approvedScope": "User-authorised weekend feedback fixes: scoped staff invitations, confirmed Match Day saves and reconciliation, full-time web corrections, fixed mobile loading and one-minute failure notices, compact Player/Fan navigation and owned read-only league access, and bounded poll-result push delivery. Exact source pins and independent exact-HEAD acceptance are required; all dependency, native, audit and release controls are retained. Calendar creation for free Matchday accounts now uses the shared fixture form with its selected date; stale generic-event creation is rejected and floating Quick Add respects existing plan and role access. Existing records, native inputs and all maintained security controls are preserved.",
+    "approvedScope": "User-authorised weekend feedback fixes: scoped staff invitations, confirmed Match Day saves and reconciliation, full-time web corrections, fixed mobile loading and one-minute failure notices, compact Player/Fan navigation and owned read-only league access, and bounded poll-result push delivery. Exact source pins and independent exact-HEAD acceptance are required; all dependency, native, audit and release controls are retained. Calendar creation for free Matchday accounts now uses the shared fixture form with its selected date; stale generic-event creation is rejected and floating Quick Add respects existing plan and role access. Existing records, native inputs and all maintained security controls are preserved. Coach and Parent app-owned switches now share the iOS proportions, on colours and accessible controlled interactions across platforms. Parent bottom navigation adopts the existing iOS spacing on Android. OS integrations, safe areas, account permissions, native inputs and maintained security policy are preserved. Additional user screenshot requirements: hide the entire shared league row when its saved link is disabled or unconfigured, retaining valid enabled links and cold-load stability; show one device/account-scoped first-login notification reminder in Coach and Parents when confirmed alerts are not ready, with Not now and existing in-app notification-settings navigation. No automatic permissions or alert preference changes, customer writes, migrations, native/dependency changes or maintained policy changes.",
     "changedSourceHashes": {
-      "apps/coach-mobile/App.js": "15851845cddbb09c6a571f14930fdedc97adc42128d60ee1747a664d12dcd8c2",
+      "apps/coach-mobile/App.js": "cf30b9de2e453c4d5b6aea7b82ff261ad49e6fa9651e7c0bfe8f5c5701be599a",
       "apps/coach-mobile/src/CoachMatchDayScreen.js": "82bc6fcf7b9b3c66e2c3ae556fa84321b6031463b71aa66f9c9f905ba295dcdd",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "6baf95c90ee3c865c2ff2b0f0c41d3b3d6b77e877b3148902db8c397fd351441",
       "apps/coach-mobile/src/CoachPhase31EScreens.js": "ec975cfe4cee74aafe3bf215323ef201158b76c022657ac55b9a65361b30a760",
@@ -689,7 +689,7 @@
       "apps/coach-mobile/src/coachThemeCore.js": "abe96fd722c4c22fac3813b901b6b5bbf3460d7852d894e2f29c6e8c3ae61c1d",
       "apps/coach-mobile/src/offline.js": "53da586a719a4adcf06a2387c85806e927b5e1f5001821d886be8b00472376b4",
       "apps/mobile-core/src/AttendancePendingRows.js": "6b8b0f9df117f9e0509c27a8253e4a987332b398fc3aaa4560dd58d87e3749a2",
-      "apps/mobile-core/src/TeamLeagueLink.js": "eca9280132ee0f29e19af058202cd0659251a730fb883e18d79d98d9f5fb72ce",
+      "apps/mobile-core/src/TeamLeagueLink.js": "c523b265bab777f0d46d7c67c1d8b5ef400864933f18ed815acc28b6562d4b13",
       "apps/mobile-core/src/attendanceCommandData.js": "69bcff81df8a89c6e74a97676493c83b2ccd169fa5318fe160077640a2fc8f47",
       "apps/mobile-core/src/attendanceOutboxCore.js": "5af667a041efac8e16fae33d8f30afa757184eae8ad4f9412f12697a2a740165",
       "apps/mobile-core/src/coachContextCore.js": "37b7fdd7b718ad05e351ee3c9f7b37e7d672422747b294361eb43ccfbf302853",
@@ -705,7 +705,7 @@
       "apps/mobile-core/src/profile.js": "772018633568bab13054924c63f63e06dce4cffca84e4c8e9ba6ff7da3582362",
       "apps/mobile-core/src/useAttendanceOutbox.js": "cd24f9a93b6bfc97e9ea97fdc7a3ed9e6b97ba04a99e7af8a7f1c5431b84dbc3",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
-      "apps/parent-mobile/App.js": "b3855c47b08e4f296884e6b7e57e57a8849d997be08a07354ad8605337395749",
+      "apps/parent-mobile/App.js": "0f5f5030491f287fa87a1fcaba9bf590c796845c0811bb8b31b4e63a3745bbb8",
       "apps/parent-mobile/src/ParentPortalScreens.js": "bc56c7a5cbd47b6e3ded988c8f7ade3831dcee39a236f2299d1c80af6fa87ce8",
       "apps/parent-mobile/src/offline.js": "72031bfbff6732b75e048864a27331cfb9ba7382bb414aeef561461267c2ad49",
       "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
@@ -849,7 +849,7 @@
       "tests/poll-watched-browser.mjs": "84e9ff9be939cdd2e23f17ed6a0726f18b2a05266b9a18d48fff2aadbdddd7da",
       "tests/sidebar-howto-cleanup.test.mjs": "30d320963b8bb5591c889e83fb9878d0069b666e258e2775dd7bb0765b9450b4",
       "tests/team-branding-management.test.mjs": "0eb72e09fc559810d37d11d7ffb1eefd330b71dac9eba07941fcd313ea96b316",
-      "tests/team-league-link-browser.mjs": "50def44c355f108e9ec6825bed8ebc05af99f46e0a2090d84849d843743e8556",
+      "tests/team-league-link-browser.mjs": "11c2e1d957b83dd0cd8307fe810ab88133a53ce5907c1680437990c6fd79a782",
       "tests/team-league-link-sql.test.mjs": "949e3e09175f0a0e3cf27f8dc2593f2f45adbef96895a94f2d12250b261e9c44",
       "tests/team-league-link.test.mjs": "a637761571ec9f4982ce667a709e564e89af17f1310e6888f1a17d8acc55e354",
       "tests/training-rsvp-chat-dnd-73.test.mjs": "8ac926ea06eec576ac540498aa9768b6240fe897d34b06c78a2d68816b15c809",
@@ -984,7 +984,7 @@
       "tests/mobile-development-background-domain-browser.mjs": "5d9ea7fbaaae18d72e011d6d94e0ef0cfb61fa5b646b4a11d1f6fdedb041f93f",
       "tests/mobile-development-background.test.mjs": "2e0fd4661f00fd181437fe2a481aeec61e736bf0fd309b0ac261a95e8f86ed97",
       "tests/mobile-notification-categories.test.mjs": "5c72804fd24633115b2c05bfcc5a4dc06753a2cbb33a412fbe3d2a18e0fb8087",
-      "tests/mobile-notification-settings-browser.mjs": "b2e29a5daae3566686babf84e7ae7c7b470c4bfb1aa62d3cc4fbb22c1c5c0b15",
+      "tests/mobile-notification-settings-browser.mjs": "d8e8d644fd6553059911fa2d9e4bc3e76e81d7c2862407d8cc6ce355398a1e04",
       "tests/phone-coach-roster.test.mjs": "abecedbc984ef8749998a1d1ff20ebdaefead085ef84ebb813b41cdda8dd042a",
       "tests/phone-resource-upload-authority.test.mjs": "3d4354dc37e07a1d7e439a76dc292cdd44184ffbca84e881e65130c885f61322",
       "apps/mobile-core/src/coachCalendarCore.js": "b975694f958414a18f1d214b5ad7d6caedd945480c4c70a3bf7c59d4955615b2",
@@ -1027,7 +1027,7 @@
       "tests/mobile-matchday-plan.test.mjs": "6ba9150bcb5f9f7f68defc394d1d2499f9b8d3bcc9adfab097b4d1be2e08cfdc",
       "tests/mobile-coach-plan-access-browser.mjs": "9cbf372ccea129ca0516a1e009d6c4944a6e3712bd9e828c6ea6b7b26205db08",
       "apps/coach-mobile/src/CoachFixtureForm.js": "787ad23cd51a2de4cd8bc1c3c7513d4cd6ebfa430a38bea1f39580cd37885124",
-      "apps/mobile-core/src/MobileSwitch.js": "5f179c49be3b960d0b17a97e7857086e494cbe9f1a6f357b3b23cc075eda9368",
+      "apps/mobile-core/src/MobileSwitch.js": "74459578915405d35d11fef4f474588190aa85dceff415aa5c31e126e8a69cdb",
       "apps/parent-mobile/src/FansScreen.js": "336c0d660ce8f152ef685f047169005fba75ded44b9dca1a4826c54b326a8f73",
       "supabase/migrations/20261007182800_mobile_development_notification_preference.sql": "f5928d8d7fad784eeea804e629bed7a6c7649e47c158ca7d0982abb54471f8b0",
       "tests/mobile-auth-refresh-browser.mjs": "35d8d16fa80df11328262f58179a2f6b6bef02ad55443bae0c8f805efc023599",
@@ -1063,7 +1063,7 @@
       "src/lib/use-fans.js": "49f0ef2e69f47a4933f0efa458924c9dee0b3d898855ca91fa62450d873844da",
       "src/pages/MatchDayPage.jsx": "7cb49752d4083c1b6ab5d62ed9b520585afe193b11c317621d24bd5c7cbd33d0",
       "tests/coach-matchday-offline-browser.mjs": "de5d3bd63a9798d9ef31c0c674327e94f9ea0a5465c48bce5b4cc6b62cec49d0",
-      "tests/fans-mobile-browser.mjs": "4f3dad1d020a9f648c013eb47899b17a937c9cfcb030c8893cacc2ba366ae7ae",
+      "tests/fans-mobile-browser.mjs": "eae119e51615c1a90fc8b319bcb8a6b362f5e10ba48a6ebbd5ed4da08422bb7a",
       "tests/matchday-goal-correction-rpc.test.mjs": "259b1c2a7f5f719bc2df6c8bb0a6c588e7e9c1297b5d478f16373595955ddd83",
       "tests/matchday-offline-outbox.test.mjs": "ff6a67a580c31686aceab5556d6af72892e22fbcf00f09d86419a62908b223d5",
       "tests/mobile-push-priority.test.mjs": "503d05c7941e662c6061adf701dac376baae21b9b6d31c249b922940bcf185e5",
@@ -1143,7 +1143,13 @@
       "apps/mobile-core/src/coachCalendarData.js": "0711bbba102912b6abdcd86145dc58643db281604a702c454bfbd2e02711e19f",
       "apps/mobile-core/src/coachFixtureCore.js": "8a88d41b1288fce026610c1503f400686f0ce9153202c3c8e8ea4929d571587b",
       "tests/matchday-calendar-fixture-create.test.mjs": "543dde6dd13f49f505407333d985cff81704db41b9e6f2fb8fb4886347e7aebf",
-      "tests/matchday-calendar-fixture-browser.mjs": "bb12aaf1bf0146f60b698851f372920046185a5f563552d4b9d5da2550dc1bfe"
+      "tests/matchday-calendar-fixture-browser.mjs": "bb12aaf1bf0146f60b698851f372920046185a5f563552d4b9d5da2550dc1bfe",
+      "tests/mobile-platform-controls-browser.mjs": "b11e7149d50c496d2ac6b6971471c778312e5a826164ff84b6352b90e851b3e6",
+      "tests/coach-fixture-pitch-browser.mjs": "9d54a50beda02da2783bdb980ceaae005dc1b398a54c0fbd9afb2d28f7bd84d0",
+      "apps/mobile-core/src/NotificationSetupReminder.js": "9ececd1ca7844c45e4dc2acd98c3261120995cc91b8b8fe7688144e1053894c3",
+      "apps/mobile-core/src/notificationReminderCore.js": "50930cbdd7c4d6e3725fa0e98713df182e74fc0cae95ea63aeea21e21639b363",
+      "tests/mobile-notification-reminder.test.mjs": "b972d6e52f3f3823ecf3942ca94f04f759684182a678f5326a5b996213cd75cb",
+      "tests/mobile-notification-reminder-browser.mjs": "dfc2ee2df92c30a587121f06a705988c1ccf4159f0a2d848b9958565e1b743c4"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2168,7 +2174,7 @@
       "customerRepairs": 0
     }
   },
-  "releasePreparationSha256": "40d852f708b7e195db8981a5b53bdc24160c2f310bc428249f4bdcf00ad37b92",
+  "releasePreparationSha256": "f1f44540a8b237aa3a4e95fe08de64d1733ba479cf0e71a21bde96ac1eba1b48",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

@@ -92,7 +92,7 @@ try {
   await page.getByRole('switch',{name:'Car pool',exact:true}).check();
   await page.evaluate(()=>window.newFixture());
   await page.getByRole('switch',{name:'Car pool',exact:true}).waitFor();
-  await page.waitForFunction(()=>document.querySelector('[role="switch"][aria-label="Car pool"]')?.checked===true);
+  await page.waitForFunction(()=>document.querySelector('[role="switch"][aria-label="Car pool"]')?.getAttribute('aria-checked')==='true');
   assert.deepEqual(errors,[])
   console.log('PASS: Coach fixture pitch create, reopen, edit, and clear at 390px')
 } finally {
