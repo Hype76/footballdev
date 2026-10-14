@@ -52,7 +52,7 @@ async function pageFor({ signedIn = true, state = base, display = null, status =
       assert.equal(route.request().headers().authorization, 'Bearer synthetic-browser-token')
       if (status !== 200 && body.action !== 'read') return route.fulfill({ status, json: { message: status === 409 ? 'All promotional places have been claimed.' : 'Saved artwork was kept.' } })
       if (body.action === 'claim') current = { ...current, state: 'provisional', logoAllowed: true, coloursAllowed: true, deadlineAt: '2027-01-04T12:00:00Z', playersWithAcceptedParent: 0, completedMatches: 0 }
-      if (body.action === 'save') current = { ...current, accent: body.accent || current.accent }
+      if (body.action === 'save') current = { ...current, accent: body.accent || current.accent, logoUrl: body.dataBase64 ? `data:${body.mimeType};base64,${body.dataBase64}` : current.logoUrl }
       return route.fulfill({ json: current })
     }
     return route.abort()
@@ -141,8 +141,31 @@ try {
   assertions += 2; await changedTerms.page.close()
 
   const preserved = await pageFor({ state: { ...base, state: 'permanent', logoAllowed: true, coloursAllowed: true }, search: `?teamId=${teamId}&from=coach&uploadOnly=1` })
-  await preserved.page.locator('input[type=file]').setInputFiles({ name: 'badge.png', mimeType: 'image/png', buffer: await readFile('apps/coach-mobile/assets/football-player-logo.png') })
+  const badgeBytes = await readFile('apps/coach-mobile/assets/football-player-logo.png')
+  const uploadButton = preserved.page.getByRole('button', { name: 'Upload team badge', exact: true })
+  const saveButton = preserved.page.getByRole('button', { name: 'Save team branding', exact: true })
+  await uploadButton.waitFor()
+  assert.equal(await saveButton.isDisabled(), true)
+  assert.equal(await uploadButton.evaluate(node => getComputedStyle(node).textDecorationLine), 'none')
+  assert.equal(await saveButton.evaluate(node => getComputedStyle(node).textDecorationLine), 'none')
+  const chooserPromise = preserved.page.waitForEvent('filechooser')
+  await uploadButton.click()
+  const chooser = await chooserPromise
+  await chooser.setFiles({ name: 'badge.png', mimeType: 'image/png', buffer: badgeBytes })
   await preserved.page.getByText('Selected: badge.png', { exact: true }).waitFor()
+  await preserved.page.waitForFunction(() => document.querySelector('img[alt="Selected team badge preview"]')?.naturalWidth > 0)
+  assert.equal(await saveButton.isEnabled(), true)
+  for (const width of [320, 390]) {
+    await preserved.page.setViewportSize({ width, height: 844 })
+    assert.ok(await preserved.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    await preserved.page.screenshot({ path: path.join(output, `badge-preview-${width}.png`), fullPage: true })
+  }
+  const firstPreview = await preserved.page.getByAltText('Selected team badge preview').getAttribute('src')
+  await preserved.page.locator('input[type=file]').setInputFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: badgeBytes })
+  await preserved.page.getByText('Selected: replacement.png', { exact: true }).waitFor()
+  await preserved.page.waitForFunction(previous => document.querySelector('img[alt="Selected team badge preview"]')?.src !== previous, firstPreview)
+  assert.equal(await preserved.page.evaluate(async url => { try { await fetch(url); return true } catch { return false } }, firstPreview), false, 'Replaced preview URL is released')
+  await preserved.page.locator('input[type=file]').setInputFiles({ name: 'badge.png', mimeType: 'image/png', buffer: badgeBytes })
   await preserved.page.evaluate(() => { window.changeAuth({...window.fixture.auth,user:{...window.fixture.auth.user,displayName:'Refreshed account'}});window.dispatchEvent(new Event('focus')) })
   await preserved.page.getByText('Selected: badge.png', { exact: true }).waitFor()
   assert.equal(await preserved.page.getByLabel('Team colour', { exact: true }).count(), 0)
@@ -150,7 +173,16 @@ try {
   await preserved.page.getByText('Team branding saved. Return to Coach to refresh it.', { exact: true }).waitFor()
   const savedBadge = preserved.calls.find(call => call.action === 'save')
   assert.ok(savedBadge.dataBase64.length > 100); assert.equal(savedBadge.mimeType, 'image/png')
-  assert.equal(savedBadge.fileName, 'badge.png'); assertions += 5; await preserved.page.close()
+  assert.equal(savedBadge.fileName, 'badge.png')
+  await preserved.page.waitForFunction(() => document.querySelector('img[alt="Saved team badge"]')?.naturalWidth > 0)
+  assert.equal(await preserved.page.getByAltText('Selected team badge preview').count(), 0)
+  assert.equal(await preserved.page.locator('input[type=file]').evaluate(node => node.files.length), 0)
+  assert.equal(await saveButton.isDisabled(), true)
+  await preserved.page.screenshot({ path: path.join(output, 'badge-saved-390.png'), fullPage: true })
+  await preserved.page.getByRole('button', { name: 'Use another account', exact: true }).click()
+  await preserved.page.getByRole('button', { name: 'Sign in', exact: true }).waitFor()
+  assert.equal(await preserved.page.locator('img').count(), 0)
+  assertions += 17; await preserved.page.close()
 
   const upload = await pageFor({ status: 502, state: { ...base, state: 'grandfathered', logoAllowed: true } })
   await upload.page.locator('input[type=file]').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: Buffer.from('synthetic-image-only') })

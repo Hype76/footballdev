@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { getCoachNavigationModel, resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
 import { isMobileRouteAllowed, resolveMobilePlan } from '../apps/mobile-core/src/matchdayPolicyCore.js'
-import { getCoachPlayerMutationPolicy } from '../apps/mobile-core/src/coachPlayersCore.js'
+import { buildCoachPlayerPayload, coachPlayerFormFromPlayer, getCoachPlayerMutationPolicy } from '../apps/mobile-core/src/coachPlayersCore.js'
 import { buildCoachCalendarPayload, coachCalendarFormFromEvent } from '../apps/mobile-core/src/coachCalendarCore.js'
 import { resolveCoachBranding } from '../apps/coach-mobile/src/coachThemeCore.js'
 import { resolveParentMobileBranding } from '../apps/mobile-core/src/parentThemeCore.js'
@@ -82,6 +82,12 @@ test('Matchday Coach can create squad players but cannot create trial players', 
   assert.equal(policy.canCreate, true)
   assert.equal(policy.canCreateTrial, false)
   assert.equal(policy.canViewDevelopment, false)
+  const form = coachPlayerFormFromPlayer(null, policy)
+  assert.equal(form.section, 'Squad')
+  assert.equal(buildCoachPlayerPayload({ context, form: { ...form, playerName: 'Simon', shirtNumber: '2', positions: 'CM', parentContacts: [{ name: "Simon's dad", email: '' }] } }).section, 'Squad')
+  assert.equal(coachPlayerFormFromPlayer(null, { canCreateTrial: true }).section, 'Trial')
+  assert.equal(coachPlayerFormFromPlayer({ section: 'Squad' }, { canCreateTrial: true }).section, 'Squad')
+  assert.equal(coachPlayerFormFromPlayer({ section: 'Trial' }, policy).section, 'Trial', 'Editing preserves the existing player section and its permission checks')
 })
 
 test('Matchday calendar defaults to fixtures and rejects non-match submissions', () => {
