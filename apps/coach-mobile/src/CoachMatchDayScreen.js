@@ -602,6 +602,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const [filterChosen, setFilterChosen] = useState(Boolean(matchDayTarget?.fixtureId))
   const [fixtureFormOpen, setFixtureFormOpen] = useState(false)
   const [fixtureFormMatch, setFixtureFormMatch] = useState(null)
+  const [fixtureFormDate, setFixtureFormDate] = useState('')
   const [fixtureReturnTarget, setFixtureReturnTarget] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -754,6 +755,22 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   }, [cache])
   useEffect(() => { void load() }, [load, user.isOfflineProfile])
   useEffect(() => {
+    if (matchDayTarget?.intent !== 'create-fixture' || loading) return
+    if (loadInFlight.current) return
+    if (!context.teamId || Number(context.roleRank || 0) < 20 || context.paymentAccess?.canMutate !== true || stale || user.isOfflineProfile) {
+      setError('Reconnect with an authorised Team account before creating a fixture.')
+    } else {
+      setFixtureFormMatch(null)
+      setFixtureFormDate(matchDayTarget.matchDate || '')
+      setFixtureReturnTarget(null)
+      setFixtureFormOpen(true)
+      setError('')
+      setNotice('')
+      onRequestScrollTop?.()
+    }
+    onMatchDayTargetHandled?.()
+  }, [context, loading, matchDayTarget, onMatchDayTargetHandled, onRequestScrollTop, stale, user.isOfflineProfile])
+  useEffect(() => {
     if (!requestedFixtureId || loading || match?.id !== requestedFixtureId) return
     if (matchDayTarget?.intent === 'edit-fixture') {
       // Cached fixture details must not open an editor before the fresh read finishes.
@@ -776,6 +793,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   useEffect(() => {
     if (quickAction?.intent !== 'create-match') return
     setFixtureFormMatch(null)
+    setFixtureFormDate('')
     setFixtureFormOpen(true)
     setError('')
     setNotice('')
@@ -999,8 +1017,8 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
 
   return <View style={styles.stack}>
     {!match && !fixtureFormOpen ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Manage fixtures, squads and live match updates.</Text></> : null}
-    {!match && !fixtureFormOpen && Number(context.roleRank || 0) >= 20 ? <Button compact disabled={stale || loading || busy || reconciling} iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
-    {fixtureFormOpen ? <CoachFixtureForm match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
+    {!match && !fixtureFormOpen && Number(context.roleRank || 0) >= 20 ? <Button compact disabled={stale || loading || busy || reconciling} iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormDate(''); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
+    {fixtureFormOpen ? <CoachFixtureForm key={fixtureFormMatch?.id || fixtureFormDate || 'new'} defaultMatchDate={fixtureFormDate} match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
     {loading ? <MobileLoadingStatus message="Loading Match Day" /> : null}
     {reconciling && !activity ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
     {notice && !activity ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}

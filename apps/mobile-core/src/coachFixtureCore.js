@@ -46,7 +46,7 @@ export function getCoachMatchLocationOptions(matches = []) {
     .map((location) => Object.freeze({ ...location, id: `${location.name}|${location.address}`, label: location.address ? `${location.name} | ${location.address}` : location.name }))
 }
 
-export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArrivalTime = '', defaultDuration = 90, defaultLocation = null, defaultMotmPollExpiryDuration = DEFAULT_EXPIRY_DURATION, match = null, notificationTeamName = '' } = {}) {
+export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArrivalTime = '', defaultDuration = 90, defaultLocation = null, defaultMatchDate = '', defaultMotmPollExpiryDuration = DEFAULT_EXPIRY_DURATION, match = null, notificationTeamName = '' } = {}) {
   const duration = assertValidMatchDurationMinutes(defaultDuration)
   const kickoffTime = normalizeFixtureTime(match?.kickoffTime) || '10:00'
   const arrivalPreset = match?.id
@@ -70,7 +70,7 @@ export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArr
     shirtChoice: normalize(match?.shirtChoice) || 'home',
     kickoffTime,
     kickoffTimeTbc: match?.kickoffTimeTbc === true,
-    matchDate: formatCoachCalendarFormDate(match?.matchDate || getDateInTimeZone()),
+    matchDate: formatCoachCalendarFormDate(match?.matchDate || normalizeCoachCalendarFormDate(defaultMatchDate) || getDateInTimeZone()),
     matchDurationMinutes: match?.matchDurationMinutes ?? duration,
     motmNotifyResultsOnClose: false,
     motmPollExpiryDuration: normalize(defaultMotmPollExpiryDuration) || DEFAULT_EXPIRY_DURATION,
