@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "c15c5facdab0c4bf5629fa689eeace9a2b9b08184c5ac862c943be6a5ecc7015",
+    "scripts/security-verify-reviewed-backports.mjs": "5ff5c6dcf7c5a825c8c7b3190b74f3cd3fbd18d7eac39fe24213bd0336c6b6e8",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1146,10 +1146,10 @@
       "tests/matchday-calendar-fixture-browser.mjs": "bb12aaf1bf0146f60b698851f372920046185a5f563552d4b9d5da2550dc1bfe",
       "tests/mobile-platform-controls-browser.mjs": "b11e7149d50c496d2ac6b6971471c778312e5a826164ff84b6352b90e851b3e6",
       "tests/coach-fixture-pitch-browser.mjs": "9d54a50beda02da2783bdb980ceaae005dc1b398a54c0fbd9afb2d28f7bd84d0",
-      "apps/mobile-core/src/NotificationSetupReminder.js": "7ed2d08a9da89fe285d0313512d55becef3baeb070e39bf776b1fe9f935ad4ea",
+      "apps/mobile-core/src/NotificationSetupReminder.js": "9ececd1ca7844c45e4dc2acd98c3261120995cc91b8b8fe7688144e1053894c3",
       "apps/mobile-core/src/notificationReminderCore.js": "50930cbdd7c4d6e3725fa0e98713df182e74fc0cae95ea63aeea21e21639b363",
       "tests/mobile-notification-reminder.test.mjs": "b972d6e52f3f3823ecf3942ca94f04f759684182a678f5326a5b996213cd75cb",
-      "tests/mobile-notification-reminder-browser.mjs": "1071aaac67c95ede87c749d0667c7d51b134bf47631ed07f49d6a282dde1b2bc"
+      "tests/mobile-notification-reminder-browser.mjs": "dfc2ee2df92c30a587121f06a705988c1ccf4159f0a2d848b9958565e1b743c4"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2174,7 +2174,7 @@
       "customerRepairs": 0
     }
   },
-  "releasePreparationSha256": "18b32dd5ad95ac517e2152f791b314d52ff517bf94698d92cbdd240863685076",
+  "releasePreparationSha256": "f1f44540a8b237aa3a4e95fe08de64d1733ba479cf0e71a21bde96ac1eba1b48",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

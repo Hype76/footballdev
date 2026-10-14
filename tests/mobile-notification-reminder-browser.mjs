@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
 import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 
 const root = process.cwd(), modules = path.join(root, 'apps/parent-mobile/node_modules')
+const reminderSource = await readFile('apps/mobile-core/src/NotificationSetupReminder.js', 'utf8')
+assert.match(reminderSource, /<ScrollView\b[^>]*keyboardShouldPersistTaps="handled"/, 'Native reminder actions remain tappable while the login keyboard dismisses')
 const entry = `import React,{useState}from'react';import{createRoot}from'react-dom/client';
 import{View,Text,Platform}from'react-native';
 import{NotificationSetupReminder}from'./apps/mobile-core/src/NotificationSetupReminder.js';
