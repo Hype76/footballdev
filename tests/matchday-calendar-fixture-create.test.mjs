@@ -3,11 +3,13 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { getCoachQuickActions } from '../apps/coach-mobile/src/coachQuickActionsCore.js'
 import { isMatchdayPlan } from '../apps/mobile-core/src/matchdayPolicyCore.js'
-import { createCoachFixtureForm, initializeCoachFixtureForm } from '../apps/mobile-core/src/coachFixtureCore.js'
+import { createCoachFixtureForm, initializeCoachFixtureForm, validateCoachFixtureForm } from '../apps/mobile-core/src/coachFixtureCore.js'
+import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
 import { MATCHDAY_DEFAULT_FLAGS } from '../src/lib/matchday-policy.js'
 
 const context = { planKey: 'matchday', role: 'head_manager', roleRank: 70, teamId: 'team', paymentAccess: { canMutate: true } }
 const config = { flags: MATCHDAY_DEFAULT_FLAGS }
+const normalizeCoachMatchDay = row => ({ ...row, matchDate: row.match_date || row.matchDate })
 
 test('Matchday quick actions use plan access as well as role and Team authority', () => {
   assert.deepEqual(getCoachQuickActions(context, config).map(action => action.id), ['add-player', 'add-match', 'game-day', 'formation-board'])
@@ -79,4 +81,42 @@ test('Calendar creation waits for the fresh read rather than consuming the cache
   calls.length = 0
   run({ context: { ...context, paymentAccess: { canMutate: false } } })
   assert.equal(calls.some(([key]) => key === 'setFixtureFormOpen'), false)
+})
+
+test('the fixture save path persists a real match and supplies the Calendar match-day projection', async () => {
+  const source = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
+  const body = source.match(/export async function createCoachMatchDayFixture\([^]*?\n\}/)[0].replace(/^export /, '')
+  const writes = []
+  const supabase = {
+    rpc: async () => ({ data: null, error: null }),
+    from: table => ({ insert(payload) {
+      writes.push({ table, payload })
+      const query = { select: () => query, single: async () => ({ data: { id: 'fixture', ...payload }, error: null }), then: handler => Promise.resolve({ error: null }).then(handler) }
+      return query
+    } }),
+  }
+  const dependencies = { assertCoachOperationalMutation: () => {}, validateCoachFixtureForm, normalize: value => String(value || '').trim(), saveCoachTeamNotificationDisplayName: async () => {}, supabase, normalizeTeamNotificationDisplayName: value => value, LIST_SELECT: '*', normalizeCoachMatchDay, recordCoachOperationalAudit: async () => {}, sendCoachFixtureInvitations: async () => { throw new Error('test must not send invitations') } }
+  const create = new Function(...Object.keys(dependencies), `return (${body})`)(...Object.values(dependencies))
+  const form = { ...createCoachFixtureForm({ defaultMatchDate: '2099-10-15' }), opponent: 'Visitors', fixtureType: 'friendly', rememberNotificationTeamName: false, parentVisible: false }
+  const result = await create({ id: 'coach', clubId: 'club', activeTeamId: 'team' }, form)
+  assert.equal(result.match.id, 'fixture')
+  const record = writes.find(write => write.table === 'match_days')
+  assert.ok(record)
+  assert.equal(record.payload.match_date, '2099-10-15')
+  assert.equal(record.payload.team_id, 'team')
+  assert.equal(writes.some(write => ['calendar_events', 'assessment_sessions'].includes(write.table)), false)
+  const calendar = buildCoachCalendarEvents({ matches: [{ id: 'fixture', ...record.payload }] })
+  assert.equal(calendar.length, 1)
+  assert.equal(calendar[0].sourceType, 'match_day')
+  assert.equal(calendar[0].sourceId, result.match.id)
+})
+
+test('created fixtures invalidate the Calendar list before its next read', async () => {
+  const source = await readFile(new URL('../apps/coach-mobile/src/CoachMatchDayScreen.js', import.meta.url), 'utf8')
+  const handler = source.match(/const handleFixtureCreated = async \(result\) => \{([^]*?)\n  \}/)[1]
+  const invalidated = []
+  const dependencies = { setFixtureFormOpen: () => {}, onRequestScrollTop: () => {}, setNotice: () => {}, normalizeCoachMatchDay, invalidateMobileResource: (_user, key) => invalidated.push(key), user: {}, setMatches: () => {}, getCoachMatchDayDetail: async () => ({ id: 'fixture' }), setMatch: () => {}, setPanel: () => {}, setScoreDraft: () => {} }
+  const created = new Function(...Object.keys(dependencies), `return async (result) => {${handler}}`)(...Object.values(dependencies))
+  await created({ match: { id: 'fixture', matchDate: '2099-10-15' } })
+  assert.deepEqual(invalidated, ['coach:calendar', 'coach:match-list'])
 })
