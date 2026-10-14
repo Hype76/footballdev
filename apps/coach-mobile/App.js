@@ -117,6 +117,7 @@ import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
 import { CoachTeamKitSettings } from './src/CoachTeamKitSettings'
 import { TeamLeagueLinkRow, TeamLeagueLinkSettings } from '../mobile-core/src/TeamLeagueLink'
+import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupReminder'
 import { coachTeamLeagueScope, teamLeagueScopeKey } from '../../src/lib/team-league-link.js'
 import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
 import { countPendingCoachDevelopmentDrafts, readCoachDevelopmentDrafts } from './src/offline'
@@ -1073,6 +1074,7 @@ function CoachHome() {
           {!keyboardVisible && quickActionVisibility.ready && quickActionVisibility.enabled && !(activeRoute === 'more' && ['invites', 'feedback', 'bug'].includes(moreRoute)) ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <NotificationSetupReminder appRole="coach" userId={user.id} state={notificationState} status={notificationStateStatus} offline={user.isOfflineProfile} busy={isRegisteringPush} palette={palette} onOpenSettings={openNotificationSettings} />
     </CoachThemeContext.Provider>
     </MobileActivityProvider>
   )

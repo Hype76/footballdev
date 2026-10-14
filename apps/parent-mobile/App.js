@@ -1,4 +1,5 @@
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
+import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupReminder'
 import { createPdfVisitTracker } from '../mobile-core/src/pdfVisit.js'
 import { getParentBadgeColours, PARENT_FAN_SIGN_IN_COLOURS, PARENT_POLL_SEPARATOR_COLOUR } from '../mobile-core/src/parentStatusColours'
 import { NotificationExplainer } from './src/NotificationExplainer'
@@ -2573,6 +2574,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         {!focusedChatRoom ? <BottomTabs activeTab={renderedActiveTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} /> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
+    <NotificationSetupReminder appRole="parent" userId={user.id} state={notificationState} status={notificationStateStatus} offline={isOffline} busy={activeActionId === 'notifications'} palette={palette} onOpenSettings={openNotificationSettings} />
     </ParentThemeContext.Provider>
     </MobileActivityProvider>
   )
