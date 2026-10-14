@@ -330,7 +330,7 @@ function CoachHome() {
       if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
       pendingScrollRestoreRef.current = null
     }
-  }, [activeRoute, activeContext?.id, user?.id, scrollContentToTop])
+  }, [activeRoute, moreRoute, activeContext?.id, user?.id, scrollContentToTop])
 
   const {
     biometricAvailable,
@@ -965,11 +965,13 @@ function CoachHome() {
           {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
           {!isMatchInvitesRoute ? <CoachHeader context={activeContext} notificationState={notificationState} notificationStateStatus={notificationStateStatus} onOpenNotificationSettings={openNotificationSettings} user={selectedMobileUser} /> : <View style={{ height: 36, alignItems: 'flex-end', paddingRight: 16 }}><MobileHeaderActivity live={config.isProduction} test={!config.isProduction} offline={user.isOfflineProfile} styles={styles} /></View>}
           <ScrollView
+            key={`${user.id}:${activeContext.id}:${activeRoute}:${moreRoute}`}
             {...scrollBounds.handlers}
             onLayout={event => { scrollBounds.handlers.onLayout(event); keyboardViewport.ensureFocusedField() }}
             onContentSizeChange={(width, height) => { scrollBounds.handlers.onContentSizeChange(width, height); keyboardViewport.ensureFocusedField() }}
             testID="coach-content-scroll"
             style={{ flex: 1, minHeight: 0 }}
+            contentContainerStyle={{ flexGrow: 1 }}
             scrollEnabled={contentScrollable || activeRoute === 'home'}
             automaticallyAdjustContentInsets={false}
             contentInset={{ top: 0, bottom: 0, left: 0, right: 0 }}
