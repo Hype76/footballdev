@@ -1,7 +1,7 @@
 import fallbackLogo from '../assets/football-player-logo.webp'
-import coachHomeImage from '../assets/marketing/coach-home.png'
-import playerProgressionImage from '../assets/marketing/player-progression.png'
-import sessionsCalendarImage from '../assets/marketing/sessions-calendar.png'
+const coachHomeImage = '/marketing-v70/assets/legacy-coach-home.webp'
+const playerProgressionImage = '/marketing-v70/assets/legacy-player-progression.webp'
+const sessionsCalendarImage = '/marketing-v70/assets/legacy-sessions-calendar.webp'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import {
   PublicScreenshot,
