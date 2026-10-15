@@ -21,7 +21,7 @@ async function invoke({ revoked = true, lookupError = null, body = {}, membershi
   supabaseAdmin.auth.getUser = async () => ({ data: { user: actor }, error: null })
   supabaseAdmin.rpc = async (name, payload) => {
     rpcs.push({ name, payload })
-    return name === 'has_deleted_workspace_access' ? { data: revoked, error: lookupError } : { data: 5, error: null }
+    return name === 'has_deleted_workspace_access' ? { data: revoked, error: lookupError } : name === 'is_returning_coach_signup_actor' ? { data: revoked, error: lookupError } : { data: 5, error: null }
   }
   supabaseAdmin.from = table => {
     let action = 'select', payload

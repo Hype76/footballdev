@@ -17,6 +17,7 @@ import {
 } from '../lib/public-signup.js'
 import { getWorkspaceScope } from '../lib/workspace-scope.js'
 import { normalizeCoachClubCode } from '../lib/coach-club-promotion.js'
+import { requestFreshCoachSignup, verifyFreshCoachSignup } from '../lib/fresh-coach-signup.js'
 
 const initialFormData = {
   email: '',
@@ -94,6 +95,9 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [localMessage, setLocalMessage] = useState('')
   const [localError, setLocalError] = useState(readAuthRedirectError)
+  const [freshSignupRequestId, setFreshSignupRequestId] = useState('')
+  const [freshSignupName, setFreshSignupName] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
   const [parentInviteToken, setParentInviteToken] = useState(() => getParentInviteToken(window.location.search))
 
   useEffect(() => {
@@ -178,6 +182,8 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
   }
 
   const handleModeChange = (nextMode) => {
+    setFreshSignupRequestId('')
+    setVerificationCode('')
     setMode(nextMode)
     setLocalError('')
     setLocalMessage('')
@@ -242,7 +248,11 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
             } } : {}),
           })
 
-        if (signupResult?.needsEmailVerification) {
+        if (signupResult?.freshSignupRequestId) {
+          setFreshSignupRequestId(signupResult.freshSignupRequestId)
+          setFreshSignupName(signupResult.freshSignupName)
+          setVerificationCode('')
+        } else if (signupResult?.needsEmailVerification) {
           setMode('login')
           setFormData((current) => ({
             ...current,
@@ -303,6 +313,22 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
   }
 
   const parentAccess = role === 'parent' || Boolean(parentInviteToken) || mode === 'parent-login'
+  const finishFreshSignup = async (event, resend = false) => {
+    event.preventDefault()
+    if (submitLockRef.current) return
+    submitLockRef.current = true; setIsSubmitting(true); setLocalError(''); setLocalMessage('')
+    try {
+      if (resend) {
+        setFreshSignupRequestId(await requestFreshCoachSignup({ email: formData.email, name: freshSignupName, teamName: formData.clubName }))
+        setVerificationCode(''); setLocalMessage('A new code has been requested. Please check your newest email.')
+      } else {
+        await verifyFreshCoachSignup({ requestId: freshSignupRequestId, code: verificationCode, password: formData.password })
+        await signInWithPassword({ email: formData.email.trim(), password: formData.password, preferredAccessMode: 'team' })
+        setFreshSignupRequestId(''); setFormData(current => ({ ...current, password: '' }))
+      }
+    } catch (error) { setLocalError(error.message || 'Please request a new code and try again.') }
+    finally { submitLockRef.current = false; setIsSubmitting(false) }
+  }
   return (
     <div className="website-auth">
       <WebsiteAuthHeader />
@@ -318,7 +344,18 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
           <a href={parentAccess ? '/sign-in/coach' : '/sign-in/parent'}>{parentAccess ? 'Coach or club admin? Sign in here' : 'Parent? Sign in here'}</a>
         </section>
         <div className="website-auth-form-column">
-            <LoginAuthPanel
+            {freshSignupRequestId ? <form className="website-auth-panel website-auth-fresh-signup" onSubmit={finishFreshSignup}>
+              <img src="/marketing-v70/assets/fp-logo.webp" alt="Football Player" width="128" height="128" />
+              <h2>Let's get you started again</h2>
+              <p>If a fresh signup is available for this email, we will send a code. Enter it below to create a new free Matchday team. Your old workspace stays deleted and previous introductory offers cannot be used again.</p>
+              <label htmlFor="fresh-signup-code">Verification code</label>
+              <input id="fresh-signup-code" autoComplete="one-time-code" inputMode="numeric" value={verificationCode} maxLength={10} onChange={event => setVerificationCode(event.target.value)} required />
+              {localError ? <p role="alert">{localError}</p> : null}
+              {localMessage ? <p role="status">{localMessage}</p> : null}
+              <button className="website-auth-submit" disabled={isSubmitting} type="submit">{isSubmitting ? 'Please wait...' : 'Verify and create my team'}</button>
+              <button disabled={isSubmitting} type="button" onClick={event => finishFreshSignup(event, true)}>Send another code</button>
+              <button disabled={isSubmitting} type="button" onClick={() => handleModeChange('login')}>Back to sign in</button>
+            </form> : <LoginAuthPanel
                 clubSignup={clubSignup}
               authError={authError}
               formData={formData}
@@ -338,7 +375,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
               parentInviteMode={Boolean(parentInviteToken)}
               paymentsDisabled={paymentsDisabled}
               signupBoxRef={signupBoxRef}
-            />
+            />}
         </div>
       </main>
       <footer className="website-auth-footer"><span>Football Player · Jeluma Labs</span><a href="/gdpr">Privacy and GDPR</a></footer>

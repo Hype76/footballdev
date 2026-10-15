@@ -12,7 +12,7 @@ const mocks = {
   './biometrics': 'export const getBiometricEnabled=async()=>{window.biometricCalls=(window.biometricCalls||0)+1;return Boolean(window.biometricEnabled)}; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   './config': 'export const getMobileRuntimeConfig=()=>({isUsable:true})',
   './notifications': 'export const revokeNativePushDevice=async()=>{}',
-  './profile': `export async function fetchMobileProfile(user) { window.profileCalls++; if(window.insideAuthCallback) throw Error('profile called inside auth lock'); if(window.profileError) throw Error(window.profileError); if(window.deferProfile) return new Promise(resolve=>{window.resolveProfile=()=>resolve({id:user.id,role:'coach'})}); if(window.hangProfile) return new Promise(()=>{}); return {id:user.id, role:'parent_portal'} }`,
+  './profile': `export async function fetchMobileProfile(user) { window.profileCalls++; if(window.insideAuthCallback) throw Error('profile called inside auth lock'); if(window.profileError) throw Object.assign(Error(window.profileError),{code:window.profileCode,status:window.profileStatus}); if(window.deferProfile) return new Promise(resolve=>{window.resolveProfile=()=>resolve({id:user.id,role:'coach'})}); if(window.hangProfile) return new Promise(()=>{}); return {id:user.id, role:'parent_portal'} }`,
   './supabase': `export const supabase={auth:window.mockAuth}; export const clearMobileSessionStorage=async()=>{window.sessionClearCalls=(window.sessionClearCalls||0)+1}; export const getAccessToken=async()=>''; export const isSupabaseConfigured=true; export const mobileConfigError=''; export const mobileSessionStorageError=''; export const readSavedMobileSession=async()=>{if(window.savedSessionError) throw Error(window.savedSessionError); return window.savedSession||null}`,
   './mobileResourceCache': 'export const mobileResourceCache={clear(){}}',
 }
@@ -115,7 +115,27 @@ try {
     assert.equal(await offline.evaluate(()=>window.cacheCleared),true)
     await offline.close()
   }
-  for (const failure of ['saved-session', 'profile']) {
+  for (const cached of [false,true]) {
+    const removed=await browser.newPage()
+    await removed.setContent('<div id="root"></div>')
+    await removed.evaluate(cached=>{
+      window.testRole='coach';window.profileCalls=0;window.historyStates=[]
+      window.profileError='Access removed';window.profileCode='workspace_access_removed';window.profileStatus=403
+      window.offlineStore={read:async()=>cached?{id:'removed-coach',role:'coach'}:null,clear:async()=>{},write:async profile=>profile}
+      window.mockAuth={
+        startAutoRefresh(){},stopAutoRefresh(){},
+        getSession:async()=>({data:{session:{user:{id:'removed-coach'}}}}),
+        onAuthStateChange(){return {data:{subscription:{unsubscribe(){}}}}},
+      }
+    },cached)
+    await removed.addScriptTag({content:result.outputFiles[0].text})
+    await removed.waitForFunction(()=>window.authState?.startupState==='RECOVERABLE_ERROR'&&window.authState.user===null)
+    await removed.waitForTimeout(100)
+    assert.equal(await removed.evaluate(()=>window.authState.startupDiagnosticCode.toUpperCase()),'WORKSPACE_ACCESS_REMOVED')
+    assert.equal(await removed.evaluate(()=>window.authState.startupState),'RECOVERABLE_ERROR','Confirmed deletion reaches recovery with or without a saved profile')
+    await removed.close()
+  }
+  for (const failure of ['saved-session', 'profile', 'workspace-removed']) {
     const recovery = await browser.newPage()
     await recovery.setContent('<div id="root"></div>')
     await recovery.evaluate(failure => {
@@ -123,7 +143,9 @@ try {
       window.profileCalls = 0; window.historyStates = []; window.offlineReadIds = []
       window.savedSession = { user: { id: 'saved-coach' }, refresh_token: 'synthetic-only' }
       window.savedSessionError = failure === 'saved-session' ? 'Native secure session restoration failed with a long uncoded device error' : ''
-      window.profileError = failure === 'profile' ? 'Profile details could not be loaded during startup' : ''
+      window.profileError = failure === 'profile' || failure === 'workspace-removed' ? 'Profile details could not be loaded during startup' : ''
+      window.profileCode = failure === 'workspace-removed' ? 'workspace_access_removed' : undefined
+      window.profileStatus = failure === 'workspace-removed' ? 403 : undefined
       window.savedDraft = { accountId: 'saved-coach', notes: 'Unsynchronised match notes' }
       window.offlineClearCalls = 0; window.signOutCalls = 0; window.sessionClearCalls = 0
       window.offlineStore = {
@@ -141,6 +163,7 @@ try {
     }, failure)
     await recovery.addScriptTag({ content: result.outputFiles[0].text })
     await recovery.waitForFunction(() => window.authState?.startupState === 'RECOVERABLE_ERROR')
+    if(failure==='workspace-removed')assert.equal(await recovery.evaluate(()=>window.authState.startupDiagnosticCode),'WORKSPACE_ACCESS_REMOVED')
     await recovery.evaluate(() => window.authState.returnToSignIn())
     await recovery.waitForFunction(() => window.authState?.startupState === 'READY_SIGNED_OUT')
     await recovery.evaluate(() => {
@@ -159,7 +182,7 @@ try {
     const nextId = failure === 'saved-session' ? 'saved-coach' : 'different-coach'
     const before = await recovery.evaluate(() => ({ profiles: window.profileCalls, biometrics: window.biometricCalls }))
     await recovery.evaluate(nextId => {
-      window.savedSessionError = ''; window.profileError = ''; window.biometricEnabled = true
+      window.savedSessionError = ''; window.profileError = ''; window.profileCode=undefined; window.profileStatus=undefined; window.biometricEnabled = true
       window.cachedProfile = { id: 'saved-coach', role: 'coach' }
       window.userHistory = []; window.offlineReadIds = []
       window.mockAuth.signInWithPassword = async () => {

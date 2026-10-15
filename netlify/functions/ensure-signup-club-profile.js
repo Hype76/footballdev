@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './lib/_supabase.js'
+import { isReturningCoachSignupActor } from './lib/_fresh-coach-billing.js'
 import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
 import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { getPublicFreeSignupPlanKey, hasPublicFreeSignupIntent } from './lib/_signup-policy.js'
@@ -244,6 +245,9 @@ async function getLatestCheckoutRecord(authUser, clubId = '') {
     return null
   }
 
+  const returning = await isReturningCoachSignupActor(supabaseAdmin, authUser.id)
+  if (returning && !clubId) return null
+
   let query = supabaseAdmin
     .from('stripe_checkout_records')
     .select('*')
@@ -253,9 +257,9 @@ async function getLatestCheckoutRecord(authUser, clubId = '') {
     .limit(1)
 
   if (clubId) {
-    query = query.or(`club_id.is.null,club_id.eq.${clubId}`)
+    query = returning ? query.eq('club_id', clubId) : query.or(`and(club_id.is.null,claimed_at.is.null),club_id.eq.${clubId}`)
   } else {
-    query = query.is('club_id', null)
+    query = query.is('club_id', null).is('claimed_at', null)
   }
 
   const { data, error } = await query.maybeSingle()

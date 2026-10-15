@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 import { createServer } from 'vite'
+import { mkdir } from 'node:fs/promises'
 
 const userId = '10000000-0000-4000-8000-000000000001'
 const clubId = '20000000-0000-4000-8000-000000000002'
@@ -65,6 +66,61 @@ try {
   assert.equal(provisionRequests, 1, 'existing Coach returns without creating another workspace')
   assert.deepEqual(errors, [])
   console.log('PASS: confirmed account without a staff role provisions once, opens Coach workspace and survives reload')
+  await mkdir('output/playwright/coach-account-access', { recursive: true })
+  for (const width of [390,1280]) {
+    const fresh = await browser.newPage({ viewport: { width, height: 900 } }), calls=[], freshErrors=[]
+    let verified=false, requestCount=0
+    fresh.on('pageerror',error=>freshErrors.push(error.message))
+    await fresh.route('**/*', async route=>{
+      const url=new URL(route.request().url()),body=route.request().postDataJSON?.()
+      const respond=(value,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(value)})
+      if(url.pathname.endsWith('/fresh-coach-signup')){
+        calls.push(body)
+        if(body.action==='request')return respond({success:true,requestId:'40000000-0000-4000-8000-'+String(++requestCount).padStart(12,'0')})
+        if(body.code!=='12345678')return respond({success:false,message:'That code could not be verified. Request another code and use the newest email.'},400)
+        assert.equal(body.requestId,'40000000-0000-4000-8000-000000000002');verified=true;return respond({success:true})
+      }
+      if(url.pathname.startsWith('/.netlify/functions/'))return respond({success:true,profile,club,hasPlatformAdminAccess:false})
+      if(url.hostname==='signup.example.test'||url.hostname.endsWith('.supabase.co')){
+        if(url.pathname==='/auth/v1/signup')return respond({...authUser,identities:[]})
+        if(url.pathname==='/auth/v1/token'){
+          assert.equal(verified,true,'No sign-in before email proof and provisioning')
+          assert.equal(body.password,'Safer!Demo9372')
+          return respond({access_token:token,refresh_token:'fixture-refresh',expires_in:3600,token_type:'bearer',user:authUser})
+        }
+        if(url.pathname==='/auth/v1/user')return respond(authUser)
+        if(url.pathname==='/auth/v1/logout')return respond({})
+        if(url.pathname.startsWith('/rest/v1/rpc/'))return respond([])
+        const table=url.pathname.split('/').pop(),singular=String(route.request().headers().accept||'').includes('object')
+        const rows=verified?table==='users'?[profile]:table==='clubs'?[club]:table==='teams'?[team]:table==='user_club_memberships'?[{id:'fresh-membership',auth_user_id:userId,club_id:clubId,role:profile.role,role_rank:70,clubs:club}]:table==='team_staff'?[{id:'fresh-assignment',team_id:teamId,user_id:userId,role_key:profile.role,role_rank:70,teams:team,team}]:[]:[]
+        return respond(singular?rows[0]||null:rows)
+      }
+      if(url.origin!==baseUrl)return route.abort()
+      return route.continue()
+    })
+    await fresh.goto(`${baseUrl}/sign-in?mode=signup&plan=matchday`)
+    await fresh.locator('.website-auth-panel input[name=clubName]').fill('Fresh Team')
+    await fresh.locator('.website-auth-panel input[name=email]').fill(authUser.email)
+    await fresh.locator('.website-auth-panel input[name=password]').fill('Safer!Demo9372')
+    await fresh.getByRole('button',{name:'Create account',exact:true}).click()
+    await fresh.getByRole('heading',{name:"Let's get you started again",exact:true}).waitFor()
+    assert.equal(await fresh.getByRole('img',{name:'Football Player',exact:true}).count()>=1,true)
+    await fresh.getByLabel('Verification code',{exact:true}).fill('00000000')
+    await fresh.getByRole('button',{name:'Verify and create my team',exact:true}).click()
+    await fresh.getByRole('alert').filter({hasText:'That code could not be verified'}).waitFor()
+    assert.equal(verified,false)
+    await fresh.getByRole('button',{name:'Send another code',exact:true}).click()
+    await fresh.getByRole('status').filter({hasText:'A new code has been requested'}).waitFor()
+    assert.equal(calls.filter(body=>body.action==='request').at(-1).name,'signup','Resend retains the original display name')
+    await fresh.getByLabel('Verification code',{exact:true}).fill('12345678')
+    assert.equal(await fresh.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
+    await fresh.screenshot({path:`output/playwright/coach-account-access/web-fresh-${width}.png`,fullPage:true})
+    await fresh.getByRole('button',{name:'Verify and create my team',exact:true}).click()
+    await fresh.waitForURL(url=>url.pathname==='/coach',{timeout:20000})
+    assert.deepEqual(freshErrors,[])
+    await fresh.close()
+  }
+  console.log('PASS: actual web fresh signup, retained name, resend, wrong code, latest-request verification and sign-in at 390/1280px')
 } finally {
   await browser.close()
   if (server) await server.close()

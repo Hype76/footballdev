@@ -2,18 +2,24 @@ import { assertPasswordPolicy } from '../../../src/lib/password-policy.js'
 import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout } from './http'
 import { getAccessToken, supabase } from './supabase'
+import { requestFreshCoachSignup } from '../../../src/lib/fresh-coach-signup.js'
 
 export async function mobileAccountRequest(appRole, name, body, expectedActorId = '') {
   const session = expectedActorId ? (await supabase.auth.getSession()).data?.session : null
   if (expectedActorId && session?.user?.id !== expectedActorId) throw new Error('The selected account changed. Open the action again.')
   const token = expectedActorId ? session?.access_token : await getAccessToken()
   if (!token) throw new Error('Sign in again to continue.')
-  const { ok, result } = await fetchJsonWithTimeout(`${getMobileRuntimeConfig(appRole).apiBaseUrl}/.netlify/functions/${name}`, {
+  const { ok, response, result } = await fetchJsonWithTimeout(`${getMobileRuntimeConfig(appRole).apiBaseUrl}/.netlify/functions/${name}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!ok || result.success === false) throw new Error(result.message || 'Please try again in a moment.')
+  if (!ok || result.success === false) {
+    const error = new Error(result.message || 'Please try again in a moment.')
+    if (typeof result.code === 'string') error.code = result.code
+    if (response?.status) error.status = response.status
+    throw error
+  }
   return result
 }
 
@@ -34,6 +40,15 @@ export async function createMobileAccount({ appRole, name, email, password, team
     },
   })
   if (error) throw error
+  if (appRole === 'coach' && data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    try {
+      const freshSignupRequestId = await requestFreshCoachSignup({ apiBaseUrl: getMobileRuntimeConfig('coach').apiBaseUrl, email: email.trim().toLowerCase(), name: displayName, teamName: clubName })
+      return { needsEmailVerification: true, freshSignupRequestId }
+    } catch (failure) {
+      failure.freshSignupPending = true
+      throw failure
+    }
+  }
   return { needsEmailVerification: !data?.session }
 }
 

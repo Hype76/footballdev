@@ -24,6 +24,15 @@
 .website-auth-intro>a{font-size:.9rem;font-weight:600;text-decoration:underline;text-underline-offset:4px}
 .website-auth-panel>div{max-width:none!important;background:white!important;color:#07152b!important;border:1px solid #dce4ee!important;border-radius:10px!important;padding:30px!important;box-shadow:0 12px 36px #07152b08!important;backdrop-filter:none!important}
 .website-auth-panel h2{font-family:Manrope,Arial,sans-serif;color:#07152b!important;font-size:1.55rem!important;letter-spacing:-.04em}
+.website-auth-fresh-signup{display:flex;flex-direction:column;gap:16px;padding:28px;background:white;border:1px solid #dce4ee;border-radius:10px}
+.website-auth-fresh-signup>img{align-self:center;object-fit:contain}
+.website-auth-fresh-signup h2,.website-auth-fresh-signup p{margin:0;line-height:1.6}
+.website-auth-fresh-signup label{font-weight:600}
+.website-auth-fresh-signup input{width:100%;border:1px solid #b6c7da;border-radius:6px;padding:12px;letter-spacing:.15em}
+.website-auth-fresh-signup button{min-height:48px;border:0;border-radius:6px;background:transparent;color:#246bff;font-weight:600;padding:12px}
+.website-auth-fresh-signup button[type=submit]{background:#246bff;color:white}
+.website-auth-fresh-signup button:disabled{opacity:.6;cursor:wait}
+.website-auth-fresh-signup [role=alert]{color:#a9182d!important}
 .website-auth-panel p,.website-auth-panel label>span{color:#536780!important;font-weight:500!important}
 .website-auth-panel label>span:first-child{color:#07152b!important;font-weight:600!important}
 /* Keep public form surfaces readable above the app's global dark-theme utilities. */
