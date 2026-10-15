@@ -70,6 +70,7 @@ export function AuthProvider({
   const profileGenerationRef = useRef(0)
   const sessionUserIdRef = useRef('')
   const currentUserRef = useRef(null)
+  const requiresSignInRef = useRef(false)
   currentUserRef.current = user
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export function AuthProvider({
 
   const loadProfile = useCallback(async (nextSession) => {
     const generation = ++profileGenerationRef.current
-    const isCurrent = () => generation === profileGenerationRef.current
+    const isCurrent = () => !requiresSignInRef.current && generation === profileGenerationRef.current
     if (!nextSession?.user) {
       setUser(null)
       return
@@ -190,7 +191,7 @@ export function AuthProvider({
 
     async function bootstrap() {
       const bootstrapGeneration = authEventGeneration
-      const isBootstrapCurrent = () => isMounted && bootstrapGeneration === authEventGeneration
+      const isBootstrapCurrent = () => isMounted && !requiresSignInRef.current && bootstrapGeneration === authEventGeneration
       setAuthError('')
       setStartupDiagnosticCode('')
 
@@ -221,7 +222,7 @@ export function AuthProvider({
           }
         },
         onTransition: (nextState) => {
-          if (isMounted && bootstrapGeneration === authEventGeneration) setStartupState(nextState)
+          if (isBootstrapCurrent()) setStartupState(nextState)
         },
         prepare: () => prepareStartup?.(config),
         resolvingProfileState: appRole === 'coach'
@@ -229,7 +230,7 @@ export function AuthProvider({
           : MOBILE_STARTUP_STATES.RESTORING_SESSION,
       })
 
-      if (!isMounted || bootstrapGeneration !== authEventGeneration) return
+      if (!isBootstrapCurrent()) return
       setStartupState(result.state)
       setStartupDiagnosticCode(result.diagnosticCode || '')
       if (result.state === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR) {
@@ -237,7 +238,11 @@ export function AuthProvider({
           ? mobileConfigError || 'This app build is missing its connection setup.'
           : mobileSessionStorageError
             ? 'Secure session storage could not be prepared.'
-            : 'Login session could not be restored.'
+            : result.diagnosticCode?.includes('_PROFILE_')
+              ? 'Your account details could not be loaded. Try again or sign in again.'
+              : result.diagnosticCode?.includes('_BIOMETRIC_')
+                ? 'Your device unlock setting could not be read. Try again or sign in again.'
+                : 'Your saved sign-in could not be restored. Try again or sign in again.'
         setAuthError(message)
       }
     }
@@ -245,6 +250,9 @@ export function AuthProvider({
     void bootstrap()
 
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      // Recovery only opens the login screen. Do not let an old refresh or
+      // sign-out event reopen access or delete saved work while signing in.
+      if (requiresSignInRef.current) return
       if (event === 'INITIAL_SESSION') {
         return
       }
@@ -279,11 +287,12 @@ export function AuthProvider({
         : MOBILE_STARTUP_STATES.RESTORING_SESSION)
       // Leave the auth callback before making calls that acquire its session lock.
       profileTimer = setTimeout(() => {
+        if (!isMounted || requiresSignInRef.current || eventGeneration !== authEventGeneration) return
         void withStartupTimeout(() => loadProfile(nextSession), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS + 3000,
           `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_TIMEOUT`).then(() => {
-          if (isMounted && eventGeneration === authEventGeneration) setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_IN)
+          if (isMounted && !requiresSignInRef.current && eventGeneration === authEventGeneration) setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_IN)
         }).catch((error) => {
-          if (!isMounted || eventGeneration !== authEventGeneration) return
+          if (!isMounted || requiresSignInRef.current || eventGeneration !== authEventGeneration) return
           profileGenerationRef.current += 1
           setIsProfileLoading(false)
           setStartupDiagnosticCode(error?.code || `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_FAILED`)
@@ -338,6 +347,26 @@ export function AuthProvider({
       setAuthError(getMobileConnectionErrorMessage(error) || error.message || 'Login failed.')
       throw error
     }
+    if (requiresSignInRef.current) {
+      requiresSignInRef.current = false
+      setStartupState(MOBILE_STARTUP_STATES.BOOTING)
+      setBootstrapAttempt((attempt) => attempt + 1)
+    }
+  }, [])
+
+  const returnToSignIn = useCallback(() => {
+    requiresSignInRef.current = true
+    profileGenerationRef.current += 1
+    sessionUserIdRef.current = ''
+    currentUserRef.current = null
+    mobileResourceCache.clear()
+    setSession(null)
+    setUser(null)
+    setIsLocked(false)
+    setIsProfileLoading(false)
+    setAuthError('')
+    setStartupDiagnosticCode('')
+    setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_OUT)
   }, [])
 
   const retryStartup = useCallback(() => {
@@ -526,6 +555,7 @@ export function AuthProvider({
     replaceCurrentUserProfile,
     requestPasswordReset,
     resetLocalAppData,
+    returnToSignIn,
     retryStartup,
     session,
     signIn,
@@ -543,6 +573,7 @@ export function AuthProvider({
     replaceCurrentUserProfile,
     requestPasswordReset,
     resetLocalAppData,
+    returnToSignIn,
     retryStartup,
     session,
     signIn,
