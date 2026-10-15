@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "019fde157e6446a7f1b1808d4fd68020d3ae19657ac433f379044abb997431fe",
+    "scripts/security-verify-reviewed-backports.mjs": "003b5305423d61ca8625b8b491861c784b81372f93939a3e0c47140761d51fb4",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -860,7 +860,7 @@
       "src/components/marketing/MarketingPage.jsx": "69770ae9a2a4e27de486f1d3c05a8c79ec9802799a5e88e57919bd3af14bb345",
       "src/components/marketing/marketing-inline-pages.css": "8e6738da909d01a79e498418066cae2dc4e58b0c595dc4afe9d645974526944c",
       "src/components/marketing/marketing-pricing.js": "a81038cee2a590e82e8efa4b9e5caee147da174e21d2f0bf2d205e6d963cffea",
-      "src/components/marketing/marketing-reference.css": "2e9d99066ebccebd0552dedf328fb26f5c73f3621d74b1c8058149c23542e993",
+      "src/components/marketing/marketing-reference.css": "649b2a3f472a6f97b65f3da0117a964573ffb35fb79c6560d81863e4b03d3884",
       "src/components/marketing/reference-app.js": "43681ef37805ca2f04043651948ccbfd8a04d0754774fddeafe4aea2b714d0b2",
       "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
       "src/components/marketing/reference-development.js": "0b1374f92b7e7bb8d8c1feb0d4108cf5a434b3695c2833d1eb29be6a5d5770d2",
@@ -875,7 +875,7 @@
       "src/pages/PublicLandingPage.jsx": "089f9b406b471fc2e72ede30006dccdf053eb9f3afde8270143e1e37de5cd505",
       "src/pages/PublicPricingPage.jsx": "1b28dc970cebd79ac1f38776aa4929e74369d8702cd4d8daea984d3d03a04adb",
       "tests/marketing-final-integration-browser.mjs": "e7b59869c926976c968251033fcfee2d898379750fecd13d8b98036258102858",
-      "tests/marketing-reference-browser.mjs": "680253110dd9cd0b9b80f18ca62c9e540c7f48e2bc0ca8bde4643912b5409f2d",
+      "tests/marketing-reference-browser.mjs": "b115fdb273631cb69c5385ecbf4f22005bb1625353e3a68dd5458bdb4e8437ab",
       "tests/privileged-functions-postgres.test.mjs": "d67ef17d225af5604096c9d71193bfc7c4b391dd28f1c29ab4fb1852c22cc64f",
       "tests/public-parent-login-maintenance-banner.test.mjs": "8e07b8c6fe343b8f9727d3eef07f7d29f0925d6e3c42d1bd700bba6352e7f751",
       "tests/public-signup-recovery.test.mjs": "c5fd4909e7b2effa2b8371df8e76b4d9a5c278edea538e2f3d0142204af2c514",
@@ -2268,7 +2268,7 @@
       "customerRepairs": 0
     }
   },
-  "releasePreparationSha256": "d415b3c19cf92f540b094b646d72e0502bc609eba90372fb9921d896920ffbe8",
+  "releasePreparationSha256": "8eb6f580ef88e13c451190ddc1c716f2cd5aafecb7ae327270da87b93fbba196",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

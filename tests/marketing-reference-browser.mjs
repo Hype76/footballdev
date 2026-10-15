@@ -6,7 +6,7 @@ const pages=['home','matchday','teams','development','clubs','pricing','how-to',
 await fs.mkdir('output/marketing-browser',{recursive:true})
 await fs.writeFile('output/marketing-browser.html',`<html><body><div id="root"></div><script type="module">import React from 'react';import {createRoot} from 'react-dom/client';import {MarketingPage} from '/src/components/marketing/MarketingPage.jsx';import '/src/index.css';createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode,null,React.createElement(MarketingPage,{page:new URLSearchParams(location.search).get('page')||'home'})));</script></body></html>`)
 process.env.VITE_ENABLE_DEVELOPMENT_PDF='true';process.env.VITE_PAYMENTS_DISABLED='false'
-const server=await createServer({server:{host:'127.0.0.1',port:0},mode:'development'});await server.listen()
+const server=await createServer({server:{host:'127.0.0.1',port:0,watch:{ignored:['**/output/**']}},mode:'development'});await server.listen()
 const origin='http://127.0.0.1:'+server.httpServer.address().port,browser=await chromium.launch({headless:true}),page=await browser.newPage(),errors=[]
 page.on('pageerror',e=>errors.push(e.message));page.on('console',message=>{if(message.type()==='error'&&message.text().includes('Marketing interaction failed'))errors.push(message.text())})
 let sends=0,sendResult={success:false,message:'Try again'},releaseSend
