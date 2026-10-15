@@ -1,6 +1,7 @@
 import { PUBLIC_PLAN_OPTIONS } from '../../lib/plans.js'
 import { getPromotionSummary } from '../../lib/login-pricing.js'
 import { PUBLIC_FREE_SIGNUP_PATH } from '../../lib/public-signup.js'
+import { clubSignupPath } from '../../lib/coach-club-promotion.js'
 
 export function mountMarketingPricing(root) {
   let active = true, busy = false, promotion = null
@@ -50,6 +51,10 @@ export function mountMarketingPricing(root) {
         return
       }
       window.location.assign(`/sign-in?mode=login&plan=${encodeURIComponent(plan.key)}${plan.offerKey ? `&offer=${encodeURIComponent(plan.offerKey)}` : ''}`)
+      return
+    }
+    if (plan.key === 'club') {
+      window.location.assign(clubSignupPath({ teamCapacity: plan.limits.teams, offerKey: plan.offerKey || '' }))
       return
     }
     busy = true

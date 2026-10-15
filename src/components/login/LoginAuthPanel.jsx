@@ -20,12 +20,15 @@ export function LoginAuthPanel({
   paymentsDisabled = false,
   signupBoxRef,
   role,
+  clubSignup = false,
 }) {
   const freeMatchday = formData.planKey === 'matchday'
   const signupScope = freeMatchday
     ? { ...getWorkspaceScope(formData.planKey), entityLabel: 'Team', entityLabelLower: 'team' }
     : getWorkspaceScope(formData.planKey)
-  const signupCopy = freeMatchday
+  const signupCopy = clubSignup
+    ? { title: 'Create your club account', body: 'Verify your account, then confirm your monthly Club plan and promotion code.' }
+    : freeMatchday
     ? { title: 'Create your team account', body: 'Start with free Matchday for your team. Create your account to get started.' }
     : signupScope.key === WORKSPACE_SCOPES.team
     ? {
@@ -104,7 +107,7 @@ export function LoginAuthPanel({
             </label>
           ) : null}
 
-          {mode === 'signup' && !parentInviteMode ? (
+          {mode === 'signup' && !parentInviteMode && !clubSignup ? (
             <div className="website-auth-plan-notice rounded-lg border border-white/12 bg-white/[0.04] px-4 py-3 text-sm font-semibold leading-5 text-white/72">
               Need a team or club plan?{' '}
               <Link to="/pricing" className="font-black text-[#246bff] transition hover:text-[#1957cc]">
@@ -114,7 +117,16 @@ export function LoginAuthPanel({
             </div>
           ) : null}
 
-          {mode === 'signup' && !parentInviteMode ? (
+          {mode === 'signup' && !parentInviteMode && clubSignup ? (
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-bold text-white">Promotion code (optional)</span>
+              <input type="text" name="promotionCode" aria-label="Promotion code (optional)" aria-describedby="club-promotion-terms" value={formData.promotionCode || ''} onChange={onChange} maxLength={40} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+                placeholder="Code from your Coach" className="min-h-11 w-full rounded-lg border border-white/12 bg-white/[0.055] px-3 py-2.5 text-sm font-semibold uppercase text-white" />
+              <span id="club-promotion-terms" className="mt-2 block text-xs font-semibold leading-5 text-white/58">New paid clubs only. 50% off the first 3 monthly payments, then the normal price. Once per club. No combined discounts.</span>
+            </label>
+          ) : null}
+
+          {mode === 'signup' && !parentInviteMode && !clubSignup ? (
             <label className="block">
               <span className="mb-1.5 block text-sm font-bold text-white">Tester access code</span>
               <input

@@ -1073,7 +1073,7 @@ function RuntimeAuthProvider({ children }) {
     setUser(applyDemoRolePreview(profileWithTeam))
   }
 
-  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = PLAN_KEYS.matchday }) => {
+  const signUpWithClub = async ({ email, password, clubName, accessCode = '', planKey = PLAN_KEYS.matchday, clubSignup = null }) => {
     setAuthError('')
     const testSignupWithoutPayment = String(import.meta.env.VITE_PAYMENTS_DISABLED ?? '').trim().toLowerCase() === 'true'
     const normalizedEmail = String(email ?? '').trim()
@@ -1151,7 +1151,7 @@ function RuntimeAuthProvider({ children }) {
       }
     }
 
-    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}/sign-in`
+    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}${clubSignup ? '/club-signup' : '/sign-in'}`
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -1164,6 +1164,7 @@ function RuntimeAuthProvider({ children }) {
           display_name: signupDisplayName,
           club_name: normalizedClubName,
           signup_plan_key: normalizedPlanKey === PLAN_KEYS.matchday ? PLAN_KEYS.matchday : undefined,
+          ...(clubSignup ? { club_signup_intent: clubSignup } : {}),
           tester_access_code: String(accessCode ?? '').trim().toUpperCase(),
           test_signup_plan_key: testSignupWithoutPayment ? normalizedPlanKey : undefined,
         },

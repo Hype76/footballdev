@@ -23,7 +23,7 @@ export function WebsiteAuthHeader() {
     <PlatformBannerNotice ariaLabel="Platform announcement" bannerKey={PUBLIC_SITE_BANNER_KEY} />
     <header className="website-auth-header">
       <div className="website-auth-nav-inner">
-        <a className="website-auth-brand" href="/"><img src="/marketing-v70/assets/fp-logo.png" alt="" />Football Player</a>
+        <a className="website-auth-brand" href="/"><img src="/marketing-v70/assets/fp-logo.webp" alt="" />Football Player</a>
         <button className="website-auth-menu" type="button" aria-expanded={menuOpen} aria-controls="website-auth-navigation" onClick={() => setMenuOpen(value => !value)}>Menu</button>
         <nav id="website-auth-navigation" className={menuOpen ? 'is-open' : ''} aria-label="Main navigation">
           {links.map(([href, label]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</a>)}

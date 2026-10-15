@@ -4,6 +4,7 @@ import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
 import { CoachTeamBrandingSetup } from './src/CoachTeamBrandingSetup'
 import { CoachUpgradeAction } from './src/CoachUpgradeAction'
+import { CoachClubPromotionScreen } from './src/CoachClubPromotionScreen'
 import { isCoachBrandingReturn } from '../../src/lib/team-branding-onboarding.js'
 import { isCoachResourceReturn } from '../../src/lib/coach-resource-upload-handoff.js'
 import { CoachTeamAdministration } from './src/CoachTeamAdministration'
@@ -1111,6 +1112,7 @@ function CoachRoute(props) {
     if (['feedback', 'bug'].includes(moreRoute)) return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><UserFeedbackScreen key={moreRoute} type={moreRoute} appRole="coach" textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
     if (moreRoute === 'notifications') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><CoachNotificationsScreen {...props} key={props.context.id} /></ScreenIntro>
     if (moreRoute === 'partners') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><PartnersScreen appRole="coach" textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
+    if (moreRoute === 'club-promotion') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><CoachClubPromotionScreen key={props.user.id} user={props.user} palette={palette} /></ScreenIntro>
     if (moreRoute === 'sessions') return <CoachSessionsScreen {...props} key={`${props.context.id}:sessions`} palette={palette} />
     if (['development', 'resources', 'chat', 'messages', 'polls', 'invites'].includes(moreRoute)) {
       return <CoachPhase31EScreen {...props} domain={moreRoute} key={`${props.context.id}:${moreRoute}`} palette={palette} />

@@ -45,9 +45,14 @@ try{
   await page.locator('.footer-support-button').click()
   assert.equal(await contact.getByLabel('Your name',{exact:true}).inputValue(),'Saved contact draft')
   await contact.getByRole('button',{name:'Close contact form'}).click()
+  const checkoutCountBeforeSignup=checkouts.length
   await page.getByRole('link',{name:'Choose Club',exact:true}).click()
-  await page.getByText('Synthetic checkout unavailable').waitFor()
-  assert.equal(checkouts.at(-1).offerKey,'club_20');assert.equal(checkouts.at(-1).teamCapacity,20)
+  await page.waitForURL(url=>url.pathname==='/club-signup')
+  const signupUrl=new URL(page.url())
+  assert.equal(signupUrl.searchParams.get('offer'),'club_20');assert.equal(signupUrl.searchParams.get('teams'),'20')
+  assert.equal(checkouts.length,checkoutCountBeforeSignup,'Club pricing must open account signup before any anonymous checkout')
+  await page.getByLabel('Promotion code (optional)',{exact:true}).waitFor()
+  await page.goto(origin+'/output/club-offer-test.html',{waitUntil:'networkidle'})
   await page.getByRole('button',{name:'Need more teams?',exact:true}).click()
   const dialog=page.getByRole('dialog',{name:'Need more teams?'})
   await assertCentered(dialog,width,height)
@@ -85,5 +90,5 @@ try{
  assert.equal(page.url(),disabledUrl,'Disabled Club checkout stays on pricing')
  assert.equal(checkouts.length,checkoutCount,'Disabled Club checkout never creates an old offer checkout')
  assert.deepEqual(errors,[])
- console.log('PASS: 4 viewport/height configurations, Club20 checkout, quote validation, failure/draft, duplicate guard, confirmation, no overflow, no live writes')
+ console.log('PASS: 4 viewport/height configurations, Club20 signup before checkout, optional promotion code, disabled-payment guard, quote validation, failure/draft, duplicate guard, confirmation, no overflow, no live writes')
 }finally{await browser.close();await server.close()}

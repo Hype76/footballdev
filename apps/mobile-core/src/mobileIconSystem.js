@@ -51,6 +51,7 @@ const ICONS = Object.freeze({
   'more.formation': 'grid-view',
   'more.invites': 'group-add',
   'more.payment': 'credit-card',
+  'more.club-promotion': 'local-offer',
   'more.polls': 'poll',
   'more.resources': 'folder-open',
   'more.sessions': 'sports',

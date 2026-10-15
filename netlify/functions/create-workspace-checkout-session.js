@@ -6,6 +6,8 @@ import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtim
 import { assertWorkspaceBillingAction, BILLING_ACTION_CATEGORIES } from './lib/_billing-access.js'
 import { getPlanName } from '../../src/lib/plans.js'
 import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
+import { assertCoachClubPromotionSelection, startCoachClubPromotionCheckout } from './lib/_coach-club-promotion.js'
+import { clubSignupPath } from '../../src/lib/coach-club-promotion.js'
 
 async function getCaller(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -18,9 +20,11 @@ async function getCaller(event) {
   })
 }
 
-export function createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, caller, priceId, lineItems, workspace, targetPlanKey, teamCapacity, offerKey = '', fromCoach = false }) {
+export function createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, caller, priceId, lineItems, workspace, targetPlanKey, teamCapacity, offerKey = '', fromCoach = false, clubSignup = false, referral = null, reservation = null }) {
   const scope = getWorkspaceScope(workspace.plan_key)
   const targetScope = getWorkspaceScope(targetPlanKey || workspace.plan_key)
+  const signupReturn = clubSignupPath({ code: referral?.code, teamCapacity, offerKey })
+  const checkoutReservation = reservation || referral
   const metadata = {
     existingWorkspace: 'true',
     clubId: workspace.id,
@@ -35,18 +39,21 @@ export function createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, 
     teamCapacity,
     billingOwnerUserId: caller.id,
     ...(offerKey ? { offerKey } : {}),
+    ...(referral ? { coachReferralCode: referral.code, coachReferralReservation: referral.reservationId } : {}),
+    ...(checkoutReservation ? { workspaceCheckoutReservation: checkoutReservation.reservationId } : {}),
   }
   return stripe.checkout.sessions.create({
     mode: 'subscription',
+    ...(checkoutReservation?.expiresAt ? { expires_at: checkoutReservation.expiresAt } : {}),
     line_items: lineItems || [{ price: priceId, quantity: 1 }],
-    success_url: fromCoach ? `${appUrl}/app-upgrade?payment=returned` : `${appUrl}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: fromCoach ? `${appUrl}/app-upgrade?payment=cancelled` : `${appUrl}/billing?checkout=cancelled`,
+    success_url: clubSignup ? `${appUrl}${signupReturn}&payment=returned` : fromCoach ? `${appUrl}/app-upgrade?payment=returned` : `${appUrl}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: clubSignup ? `${appUrl}${signupReturn}&payment=cancelled` : fromCoach ? `${appUrl}/app-upgrade?payment=cancelled` : `${appUrl}/billing?checkout=cancelled`,
     customer: workspace.stripe_customer_id || undefined,
     customer_email: workspace.stripe_customer_id ? undefined : caller.email,
-    allow_promotion_codes: true,
+    ...(referral ? { discounts: [{ coupon: referral.couponId }] } : { allow_promotion_codes: true }),
     metadata,
-    subscription_data: { metadata },
-  })
+    subscription_data: { metadata, ...(clubSignup ? { trial_period_days: 14 } : {}) },
+  }, checkoutReservation ? { idempotencyKey: checkoutReservation.idempotencyKey } : undefined)
 }
 
 export async function handler(event) {
@@ -70,6 +77,7 @@ export async function handler(event) {
     if (workspace.stripe_subscription_id) return json(409, { success: false, message: 'This workspace has an existing subscription; use the billing portal.' })
     if (requestedPlanKey && !['team', 'club'].includes(requestedPlanKey)) return json(400, { success: false, message: 'Modern checkout only supports Team or Club.' })
     const targetPlanKey = requestedPlanKey || workspace.plan_key
+    const referralCode = body.referralCode ? assertCoachClubPromotionSelection(body, targetPlanKey, billingCycle) : ''
     if (!isSelfServiceCheckoutPlanKey(targetPlanKey)) return json(400, { success: false, message: 'This plan is not available for self-service checkout.' })
     const isModernPlan = ['team', 'club'].includes(targetPlanKey)
     const teamCapacity = isModernPlan ? (body.teamCapacity ?? (targetPlanKey === 'club' ? 10 : 1)) : undefined
@@ -86,7 +94,20 @@ export async function handler(event) {
     const stripe = createStripeServerClient()
     if (isModernPlan) await validateCheckoutPrices(stripe, lineItems, targetPlanKey, billingCycle, teamCapacity, offerKey)
     const appUrl = (process.env.VITE_APP_URL || process.env.URL || 'https://footballplayer.online').replace(/\/$/, '')
-    const session = await createExistingWorkspaceCheckout(stripe, { appUrl, billingCycle, caller, priceId, lineItems, workspace, targetPlanKey, teamCapacity, offerKey, fromCoach: body.fromCoach === true })
+    const clubSignup = body.clubSignup === true
+    if (clubSignup) {
+      if (targetPlanKey !== 'club' || billingCycle !== 'monthly' || !['matchday', 'individual'].includes(workspace.plan_key)) {
+        return json(409, { success: false, message: 'Club sign-up is for new monthly Club subscriptions. Use Plan access for an existing paid workspace.' })
+      }
+      const history = await supabaseAdmin.from('stripe_checkout_records').select('id').eq('club_id', workspace.id).limit(1)
+      if (history.error) throw history.error
+      if (history.data?.length) return json(409, { success: false, message: 'This club has an existing payment history. Use Plan access to manage its subscription.' })
+    }
+    const params = { appUrl, billingCycle, caller, priceId, lineItems, workspace, targetPlanKey, teamCapacity, offerKey, fromCoach: body.fromCoach === true, clubSignup }
+    const session = await startCoachClubPromotionCheckout({ db: supabaseAdmin, stripe, caller, workspace, code: referralCode,
+      selection: { planKey: targetPlanKey, billingCycle, lineItems: lineItems || [{ price: priceId, quantity: 1 }], teamCapacity: teamCapacity ?? null, offerKey, clubSignup },
+      createSession: reservation => createExistingWorkspaceCheckout(stripe, { ...params, reservation,
+        referral: referralCode ? { ...reservation, code: referralCode } : null }) })
     await supabaseAdmin.from('audit_logs').insert({
       actor_id: caller.id,
       actor_email: caller.email,

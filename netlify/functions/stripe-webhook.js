@@ -242,6 +242,20 @@ async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload) {
     throw new Error('Checkout metadata plan does not match the configured Stripe price')
   }
 
+  const reservationId = checkoutSession.metadata?.workspaceCheckoutReservation || checkoutSession.metadata?.coachReferralReservation
+  if (reservationId) {
+    if (checkoutSession.metadata.existingWorkspace !== 'true') throw new Error('Reserved checkout must be bound to a workspace')
+    if (checkoutSession.metadata.coachReferralReservation && (pricePlan.planKey !== 'club' || pricePlan.billingCycle !== 'monthly')) {
+      throw new Error('Coach offer checkout must be bound to a monthly Club subscription')
+    }
+    const { error } = await supabaseAdmin.rpc('complete_coach_club_promotion', {
+      p_club: checkoutSession.metadata.clubId,
+      p_reservation: reservationId,
+      p_session: checkoutSession.id,
+    })
+    if (error) throw error
+  }
+
   return upsertCheckoutRecord({
     checkoutSession,
     subscription,

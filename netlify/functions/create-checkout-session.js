@@ -88,6 +88,7 @@ export async function handler(event) {
 
   try {
     const body = JSON.parse(event.body || '{}')
+    if (body.referralCode) return json(400, { success: false, message: 'Create or sign in to your club account to use a Coach promotion code.' })
     const planKey = normalizePlanKey(body.planKey || body.planName)
     const billingCycle = cleanString(body.billingCycle || 'monthly').toLowerCase()
     const customerEmail = cleanString(body.customerEmail)

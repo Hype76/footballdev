@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import helpLogo from '../../assets/football-player-logo.png'
+import helpLogo from '../../assets/football-player-logo.webp'
 import { websiteHelpArticles, websiteHelpFallback, websiteHelpPrivacyReply } from '../../lib/website-help-library.js'
 
 const starters = ['What is Football Player?', 'What can parents see?', 'Where can I see pricing?']

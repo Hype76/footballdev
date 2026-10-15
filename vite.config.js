@@ -73,11 +73,25 @@ export default defineConfig(({ mode }) => {
         workbox: {
           importScripts: ['push-sw.js', 'workspace-invite-cache-cleanup.js'],
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg}'],
+          // Load marketing imagery on demand, retaining offline formation graphics.
+          globIgnores: [
+            'marketing-v70/assets/**/*.{png,jpg,jpeg}',
+            'marketing-v70/assets/**/!(formation-shirt-white|formation-shirt-gold).webp',
+          ],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
           navigateFallback: null,
           runtimeCaching: [
+            {
+              urlPattern: ({ url, request, sameOrigin }) => sameOrigin && request.destination === 'image' && url.pathname.startsWith('/marketing-v70/assets/'),
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'marketing-images',
+                expiration: { maxEntries: 80, maxAgeSeconds: 30 * 24 * 60 * 60 },
+                cacheableResponse: { statuses: [200] },
+              },
+            },
             {
               urlPattern: shouldCacheAppNavigation,
               handler: 'NetworkFirst',
