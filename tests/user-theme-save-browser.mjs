@@ -11,15 +11,15 @@ await mkdir(output, { recursive: true })
 const sectionNames = ['AccountProfileSection', 'LoginEmailSection', 'PasswordSettingsSection', 'PrivilegedMfaSection', 'SetupChecklistSettingsSection']
 const mocks = {
   auth: `export function useAuth(){const user=window.currentProfile;return {user,authUser:{id:window.authIdOverride||user?.id},resetPassword:async()=>{},updateCurrentUserDetails:(patch,options)=>{window.profileOptions=options;if(options?.expectedAuthUserId!==window.currentProfile?.id)return false;window.setProfile(current=>({...current,...patch}));return true}}};export const isDemoAccount=u=>!!u?.demo,isParentPortalUser=u=>u?.role==='parent_portal',isClubAdmin=u=>u?.role==='admin',canManageClubSettings=()=>false,canManageTeamSettings=()=>false;`,
-  api: `export async function updateOwnThemeSettings({authUser,mode}){try{const r=await fetch('/theme',{method:'POST',body:JSON.stringify({id:authUser.id,mode})});if(!r.ok)throw Error('Synthetic save rejected');return r.json()}finally{window.finishedWrites=(window.finishedWrites||0)+1}};export const requestLoginEmailChange=async()=>{},requestPasswordReauthentication=async()=>{},updateClubDisplaySettings=async()=>{},updateOwnUserSettings=async()=>{},updateSignedInPassword=async()=>{};`,
+  api: `export async function updateOwnThemeSettings({authUser,mode}){try{if(window.holdRejection)return await new Promise((resolve,reject)=>{window.rejectHeldThemeSave=()=>reject(Error('Synthetic delayed rejection'))});const r=await fetch('/theme',{method:'POST',body:JSON.stringify({id:authUser.id,mode})});if(!r.ok)throw Error('Synthetic save rejected');return r.json()}finally{window.finishedWrites=(window.finishedWrites||0)+1}};export const requestLoginEmailChange=async()=>{},requestPasswordReauthentication=async()=>{},updateClubDisplaySettings=async()=>{},updateOwnUserSettings=async()=>{},updateSignedInPassword=async()=>{};`,
   client: `export const supabase={};`,
   router: `export const useSearchParams=()=>[new URLSearchParams('area=display'),()=>{}];`,
   toast: `export const useToast=()=>({showToast:value=>window.emitToast(value)});`,
   onboarding: `export const buildOnboardingPlan=()=>({steps:[],manualState:{}}),getOnboardingProgress=()=>({}),loadOnboardingSnapshot=async()=>({}),openOnboarding=()=>{};`,
   attendance: `export const canChooseTrainingAttendanceVisibility=()=>false,getTrainingAttendanceVisibility=async()=>true,setTrainingAttendanceVisibility=async()=>true;`,
 }
-const entry = `import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{UserSettingsPage}from'fixture';
-function Harness(){const[profile,setProfile]=useState(window.initialProfile),[visible,setVisible]=useState(true),[messages,setMessages]=useState([]);window.currentProfile=profile;window.setProfile=setProfile;window.emitToast=value=>setMessages(old=>[...old,value]);window.clearToasts=()=>setMessages([]);window.signOut=()=>{setVisible(false);setProfile(null)};window.signIn=async id=>{const r=await fetch('/profile?id='+id);setProfile(await r.json());setVisible(true)};window.unmountSettings=()=>setVisible(false);return <>{visible&&profile?<UserSettingsPage key={profile.id}/>:null}<div data-testid="toasts">{messages.map((m,i)=><p key={i} data-tone={m.tone||'success'}>{m.title}</p>)}</div></>};createRoot(document.getElementById('root')).render(<Harness/>);`
+const entry = `import React,{useState,useLayoutEffect} from 'react';import{createRoot}from'react-dom/client';import{UserSettingsPage}from'fixture';
+function Harness(){const[profile,setProfile]=useState(window.initialProfile),[visible,setVisible]=useState(true),[messages,setMessages]=useState([]);window.currentProfile=profile;window.setProfile=setProfile;window.emitToast=value=>setMessages(old=>[...old,value]);window.clearToasts=()=>setMessages([]);window.signOut=()=>{setVisible(false);setProfile(null)};window.signIn=async id=>{const r=await fetch('/profile?id='+id);setProfile(await r.json());setVisible(true)};window.unmountSettings=()=>setVisible(false);useLayoutEffect(()=>{if(profile?.id==='actor-b'&&window.rejectOnNextAccountCommit){window.rejectOnNextAccountCommit=false;window.rejectHeldThemeSave()}},[profile?.id]);return <>{visible&&profile?<UserSettingsPage key={profile.id}/>:null}<div data-testid="toasts">{messages.map((m,i)=><p key={i} data-tone={m.tone||'success'}>{m.title}</p>)}</div></>};createRoot(document.getElementById('root')).render(<Harness/>);`
 const bundle = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', platform: 'browser', define: { 'process.env.NODE_ENV': '"production"' }, plugins: [{ name: 'actual-settings-fixture', setup(b) {
   b.onResolve({ filter: /^(react(?:\/.*)?|react-dom(?:\/.*)?|scheduler)$/ }, args => ({ path: require.resolve(args.path), namespace: 'source' }))
   b.onResolve({ filter: /^fixture$/ }, () => ({ path: path.join(root, 'src/pages/UserSettingsPage.jsx'), namespace: 'source' }))
@@ -92,6 +92,14 @@ try {
   control.fail=true;control.hold=true
   await theme().selectOption('dark');await page.getByText('Saving display preference...').waitFor()
   await page.evaluate(()=>window.unmountSettings());await releaseWrite();assert.deepEqual(await notices(),[])
+  control.fail=false;control.hold=false
+  await login('actor-a')
+  await page.evaluate(()=>{window.holdRejection=true;window.rejectOnNextAccountCommit=true})
+  await theme().selectOption('system');await page.waitForFunction(()=>typeof window.rejectHeldThemeSave==='function')
+  const finished=await page.evaluate(()=>window.finishedWrites||0)
+  await page.evaluate(()=>window.signIn('actor-b'));await page.waitForFunction(n=>window.finishedWrites===n,finished+1)
+  assert.deepEqual(await notices(),[],'An old rejection during the new account commit cannot escape before passive cleanup')
+  assert.equal(await page.evaluate(()=>window.currentProfile.id),'actor-b')
   assert.deepEqual(errors,[])
-  console.log('PASS: actual User Settings and Display controls wait for server confirmation, reject false success, retain saved mode on failure, restore Light/Dark/System after sign-out/sign-in, show pending disabled state at320px, preserve latest branding, and ignore late success/error after account change or unmount.')
+  console.log('PASS: actual User Settings and Display controls wait for server confirmation, reject false success, retain saved mode on failure, restore Light/Dark/System after sign-out/sign-in, show pending disabled state at320px, preserve latest branding, and ignore late success/error after account change, account commit or unmount.')
 } catch(error) {console.error(JSON.stringify({pageErrors:errors,body:await page.locator('body').innerText()}));throw error} finally {await browser.close()}

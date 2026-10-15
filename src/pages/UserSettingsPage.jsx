@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AccountProfileSection } from '../components/user-settings/AccountProfileSection.jsx'
 import { DisplaySettingsSection } from '../components/user-settings/DisplaySettingsSection.jsx'
@@ -117,7 +117,7 @@ export function UserSettingsPage() {
   }), [user?.activeTeamId, user?.role, user?.roleRank])
   const canChooseAttendanceVisibility = canChooseTrainingAttendanceVisibility(attendanceVisibilityUser)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scope = { active: true, pending: false }
     themeSaveScopeRef.current = scope
     return () => { scope.active = false }
