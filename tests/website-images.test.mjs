@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { test } from 'node:test'
 import { createHash } from 'node:crypto'
+import vm from 'node:vm'
 import sharp from 'sharp'
 import jsQR from 'jsqr'
 
@@ -48,3 +49,33 @@ test('all converted app QR codes decode to their original store URLs', async () 
     assert.equal(await decode('webp'), original, name)
   }
 })
+
+if (process.env.WEBSITE_IMAGES_BUILT === 'true') {
+  test('built worker loads marketing images on demand and keeps offline formation graphics', async () => {
+    const routes = [], cached = [], strategies = []
+    const workbox = {
+      clientsClaim() {}, cleanupOutdatedCaches() {},
+      precacheAndRoute: entries => cached.push(...entries),
+      NetworkFirst: class {},
+      StaleWhileRevalidate: class { constructor(options) { strategies.push(options) } },
+      ExpirationPlugin: class {}, CacheableResponsePlugin: class {},
+      registerRoute: matcher => routes.push(matcher),
+    }
+    const define = (_, factory) => factory(workbox)
+    vm.runInNewContext(await fs.readFile('dist/sw.js', 'utf8'), {
+      self: { define, skipWaiting() {} }, define, URL, importScripts() {},
+    }, { timeout: 1000 })
+    const marketing = cached.filter(entry => entry.url.startsWith('marketing-v70/assets/') && /\.(png|jpe?g|webp)$/.test(entry.url))
+    assert.deepEqual(marketing.map(entry => entry.url).sort(), [
+      'marketing-v70/assets/formation-shirt-gold.webp',
+      'marketing-v70/assets/formation-shirt-white.webp',
+    ])
+    const matches = (pathname, sameOrigin = true, destination = 'image') => routes.some(matcher => matcher({ url: new URL(pathname, 'https://footballplayer.online'), sameOrigin, request: { destination, mode: 'cors' } }))
+    assert.equal(matches('/marketing-v70/assets/coach-light.webp'), true)
+    assert.equal(matches('/marketing-v70/assets/tutorials/add-a-player-poster.webp'), true)
+    assert.equal(matches('/marketing-v70/assets/coach-light.webp', false), false)
+    assert.equal(matches('/marketing-v70/assets/coach-light.webp', true, 'document'), false)
+    assert.equal(matches('/workspace-invite?token=private'), false)
+    assert.equal(strategies[0].cacheName, 'marketing-images')
+  })
+}

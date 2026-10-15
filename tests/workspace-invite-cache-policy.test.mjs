@@ -65,6 +65,9 @@ if (process.env.INVITE_CACHE_BUILT === 'true') {
     const workbox = {
       clientsClaim() {}, cleanupOutdatedCaches() {}, precacheAndRoute() {},
       NetworkFirst: class {},
+      StaleWhileRevalidate: class {},
+      ExpirationPlugin: class {},
+      CacheableResponsePlugin: class {},
       registerRoute: (matcher) => { matchers.push(matcher) },
     }
     const define = (_, factory) => factory(workbox)
