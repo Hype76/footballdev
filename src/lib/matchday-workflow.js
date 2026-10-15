@@ -35,7 +35,9 @@ export function normalizeFixtureSetupIntent(intent = {}) {
   const hasMatchDuration = String(intent.matchDurationMinutes ?? '').trim() !== ''
   return {
     arrivalTime: kickoffTimeTbc ? '' : normalizeText(intent.arrivalTime),
-    autoSelectAvailablePlayers: intent.autoSelectAvailablePlayers !== false,
+    ...(typeof intent.autoSelectAvailablePlayers === 'boolean'
+      ? { autoSelectAvailablePlayers: intent.autoSelectAvailablePlayers }
+      : {}),
     clockMode: normalizeMatchClockMode(intent.clockMode),
     fixtureType: normalizeMatchDayFixtureType(intent.fixtureType),
     homeAway: normalizeNewMatchHomeAway(intent.homeAway),

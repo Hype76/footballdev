@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { readMatchDayAutoSelectDefault, rememberMatchDayAutoSelectDefault } from '../src/lib/matchday-auto-select-default.js'
+import { normalizeFixtureSetupIntent } from '../src/lib/matchday-workflow.js'
 
 const migrationUrl = new URL(
   '../supabase/migrations/20260728161800_match_available_auto_selection.sql',
@@ -15,7 +17,7 @@ const matchDayPageUrl = new URL('../src/pages/MatchDayPage.jsx', import.meta.url
 const sessionsPageUrl = new URL('../src/pages/SessionsPage.jsx', import.meta.url)
 const workflowUrl = new URL('../src/lib/matchday-workflow.js', import.meta.url)
 
-test('new match fixtures default automatic Available selection on both creation routes', async () => {
+test('new website matches default off and both entry points restore the saved choice', async () => {
   const [domain, matchDayPage, sessionsPage, workflow] = await Promise.all([
     readFile(matchDayDomainUrl, 'utf8'),
     readFile(matchDayPageUrl, 'utf8'),
@@ -23,10 +25,64 @@ test('new match fixtures default automatic Available selection on both creation 
     readFile(workflowUrl, 'utf8'),
   ])
 
-  assert.match(matchDayPage, /const EMPTY_MATCH_FORM = \{[\s\S]*autoSelectAvailablePlayers: true/)
-  assert.match(sessionsPage, /function getDefaultCalendarForm[\s\S]*autoSelectAvailablePlayers: true/)
-  assert.match(workflow, /autoSelectAvailablePlayers: intent\.autoSelectAvailablePlayers !== false/)
+  assert.match(matchDayPage, /const EMPTY_MATCH_FORM = \{[\s\S]*autoSelectAvailablePlayers: false/)
+  assert.match(sessionsPage, /function getDefaultCalendarForm[\s\S]*autoSelectAvailablePlayers: false/)
+  assert.match(matchDayPage, /autoSelectAvailablePlayers: readMatchDayAutoSelectDefault\(user, preferenceTeamId\)/)
+  assert.match(sessionsPage, /autoSelectAvailablePlayers: readMatchDayAutoSelectDefault\(user, safeTeamId \|\| user\.activeTeamId\)/)
+  assert.match(workflow, /typeof intent\.autoSelectAvailablePlayers === 'boolean'/)
   assert.match(domain, /auto_select_available_players: match\?\.autoSelectAvailablePlayers !== false/)
+})
+
+function memoryStorage() {
+  const values = new Map()
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  }
+}
+
+test('saved true and false choices survive reopening and stay scoped to staff, club and team', () => {
+  const storage = memoryStorage()
+  const user = { id: 'coach', clubId: 'club', activeTeamId: 'team' }
+  assert.equal(readMatchDayAutoSelectDefault(user, undefined, storage), false)
+  rememberMatchDayAutoSelectDefault(user, 'team', true, storage)
+  assert.equal(readMatchDayAutoSelectDefault({ ...user }, 'team', storage), true)
+  assert.equal(readMatchDayAutoSelectDefault({ ...user, id: 'other' }, 'team', storage), false)
+  assert.equal(readMatchDayAutoSelectDefault({ ...user, clubId: 'other' }, 'team', storage), false)
+  assert.equal(readMatchDayAutoSelectDefault(user, 'other', storage), false)
+  assert.equal(readMatchDayAutoSelectDefault(user, '', storage), false)
+  rememberMatchDayAutoSelectDefault(user, '', true, storage)
+  assert.equal(readMatchDayAutoSelectDefault(user, '', storage), true)
+  rememberMatchDayAutoSelectDefault(user, 'team', false, storage)
+  assert.equal(readMatchDayAutoSelectDefault(user, 'team', storage), false)
+})
+
+test('missing identity, malformed data and blocked storage safely default off', () => {
+  const user = { id: 'coach', clubId: 'club', activeTeamId: 'team' }
+  const blocked = { getItem() { throw new Error('blocked') }, setItem() { throw new Error('full') } }
+  assert.equal(readMatchDayAutoSelectDefault(user, 'team', blocked), false)
+  assert.doesNotThrow(() => rememberMatchDayAutoSelectDefault(user, 'team', true, blocked))
+  assert.equal(readMatchDayAutoSelectDefault({}, 'team', memoryStorage()), false)
+  for (const value of [null, '', 'TRUE', '1', '{}', 'false']) {
+    assert.equal(readMatchDayAutoSelectDefault(user, 'team', { getItem: () => value }), false)
+  }
+})
+
+test('fixture handoff preserves explicit choices and lets omitted choices use the saved default', () => {
+  assert.equal(Object.hasOwn(normalizeFixtureSetupIntent({}), 'autoSelectAvailablePlayers'), false)
+  for (const choice of [true, false]) {
+    assert.equal(normalizeFixtureSetupIntent({ autoSelectAvailablePlayers: choice }).autoSelectAvailablePlayers, choice)
+  }
+})
+
+test('remembering occurs after successful creation or edit, never when opening or toggling', async () => {
+  const matchDayPage = await readFile(matchDayPageUrl, 'utf8')
+  const sessionsPage = await readFile(sessionsPageUrl, 'utf8')
+  assert.match(matchDayPage, /const createdMatch = await createMatchDay\([\s\S]*rememberMatchDayAutoSelectDefault\(user, teamId, submittedForm\.autoSelectAvailablePlayers\)/)
+  assert.match(sessionsPage, /const savedMatch = await updateMatchDay\([\s\S]*rememberMatchDayAutoSelectDefault\(user, safeTeamId, payload\.autoSelectAvailablePlayers\)/)
+  assert.match(sessionsPage, /if \(calendarModal\?\.mode === 'create'\) \{\s*nextForm\.autoSelectAvailablePlayers = readMatchDayAutoSelectDefault/)
+  assert.equal((matchDayPage.match(/rememberMatchDayAutoSelectDefault\(/g) || []).length, 1)
+  assert.equal((sessionsPage.match(/rememberMatchDayAutoSelectDefault\(/g) || []).length, 1)
 })
 
 test('the accessible match-only control persists through create and edit without appearing in training', async () => {
