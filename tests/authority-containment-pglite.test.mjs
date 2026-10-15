@@ -219,7 +219,7 @@ test('personal theme modes persist without paid branding while authority and acc
     `)
     const legacy = await readFile(new URL('../supabase/migrations/20260507162000_enforce_plan_feature_limits.sql', import.meta.url), 'utf8')
     await db.exec(legacy.slice(legacy.indexOf('create or replace function public.enforce_user_plan_update_features()')))
-    await db.exec(await readFile(new URL('../supabase/migrations/20261015052629_personal_theme_mode_persistence.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20261015054858_personal_theme_mode_persistence.sql', import.meta.url), 'utf8'))
 
     for (const actorId of [IDS.parent, IDS.coach, IDS.manager, IDS.admin]) {
       for (const mode of ['light', 'dark', 'system']) {
