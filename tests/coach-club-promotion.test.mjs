@@ -174,7 +174,7 @@ test('Postgres enforces unique coach codes, new paid club eligibility, lifetime 
       insert into user_club_memberships select id,club_id,role,role_rank from users;
       grant usage on schema public,auth to service_role;
       grant select,update on clubs,users,user_club_memberships,stripe_checkout_records to service_role;`)
-    await db.exec(await readFile(new URL('../supabase/migrations/20261015074425_coach_club_promotion_codes.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20261015082456_coach_club_promotion_codes.sql', import.meta.url), 'utf8'))
     await db.exec('set role service_role')
     const ensure = actor => db.query('select public.ensure_coach_club_promotion_code($1) code', [actor])
     const firstCode = (await ensure(coach)).rows[0].code
