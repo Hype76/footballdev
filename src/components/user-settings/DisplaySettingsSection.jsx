@@ -23,6 +23,7 @@ export function DisplaySettingsSection({
   hasUnsavedBranding,
   isBrandingDraftValid,
   isSavingBranding,
+  isSavingTheme = false,
   onCustomThemeAccentChange,
   onSaveBranding,
   onThemeAccentChange,
@@ -62,7 +63,10 @@ export function DisplaySettingsSection({
         <label className="block">
           <span className={labelClass}>Theme</span>
           <select
+            aria-label="Theme"
             value={themeMode}
+            disabled={isSavingTheme}
+            aria-busy={isSavingTheme}
             onChange={(event) => onThemeModeChange(event.target.value)}
             className={selectClass}
           >
@@ -72,6 +76,7 @@ export function DisplaySettingsSection({
               </option>
             ))}
           </select>
+          {isSavingTheme ? <span role="status" className="mt-2 block text-xs font-semibold">Saving display preference...</span> : null}
         </label>
 
         {showBrandingControls ? (

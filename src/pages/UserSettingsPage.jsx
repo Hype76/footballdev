@@ -88,6 +88,10 @@ export function UserSettingsPage() {
   const [isLoadingOnboardingSnapshot, setIsLoadingOnboardingSnapshot] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
+  const [themeSave, setThemeSave] = useState({ scope: '', saving: false })
+  const themeSaveScopeRef = useRef(null)
+  const themeScopeKey = `${authUser?.id || ''}:${user?.id || ''}`
+  const isSavingTheme = themeSave.scope === themeScopeKey && themeSave.saving
   const [savedThemeAccent, setSavedThemeAccent] = useState(getStoredThemeAccent)
   const [savedThemeButtonStyle, setSavedThemeButtonStyle] = useState(getStoredThemeButtonStyle)
   const [themeAccentChoice, setThemeAccentChoice] = useState(() => getThemeAccentOption(getStoredThemeAccent()))
@@ -112,6 +116,12 @@ export function UserSettingsPage() {
     roleRank: user?.roleRank,
   }), [user?.activeTeamId, user?.role, user?.roleRank])
   const canChooseAttendanceVisibility = canChooseTrainingAttendanceVisibility(attendanceVisibilityUser)
+
+  useEffect(() => {
+    const scope = { active: true, pending: false }
+    themeSaveScopeRef.current = scope
+    return () => { scope.active = false }
+  }, [themeScopeKey])
 
   useEffect(() => {
     setUsername(user?.username || user?.name || '')
@@ -376,38 +386,47 @@ export function UserSettingsPage() {
     }
   }
 
-  const persistUserThemePreference = async (nextThemeMode) => {
-    if (isDemoSettings) {
-      return
-    }
+  const handleThemeModeChange = async (nextThemeMode) => {
+    const scope = themeSaveScopeRef.current
+    if (!scope?.active || scope.pending) return
+    scope.pending = true
+    setThemeSave({ scope: themeScopeKey, saving: true })
 
     try {
-      const updatedProfile = await updateOwnThemeSettings({
-        authUser,
-        mode: nextThemeMode,
+      let confirmedMode = nextThemeMode
+      if (!isDemoSettings) {
+        if (!authUser?.id || authUser.id !== (user?.authUserId || user?.id)) {
+          throw new Error('Signed in user is required.')
+        }
+        const updatedProfile = await updateOwnThemeSettings({ authUser, mode: nextThemeMode })
+        if (!scope.active) return
+        const applied = updateCurrentUserDetails({ themeMode: updatedProfile.themeMode }, {
+          expectedAuthUserId: authUser.id,
+          invalidateProfileSync: true,
+        })
+        if (applied === false) return
+        confirmedMode = updatedProfile.themeMode
+      }
+      if (!scope.active) return
+      const nextPreferences = saveThemePreferences({
+        mode: confirmedMode,
+        accent: getStoredThemeAccent(),
+        buttonStyle: getStoredThemeButtonStyle(),
       })
-      updateCurrentUserDetails({
-        themeMode: updatedProfile.themeMode,
-      })
+      setThemeMode(nextPreferences.mode)
+      showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
     } catch (error) {
+      if (!scope.active) return
       console.error(error)
       showToast({
         title: 'Theme not saved',
         message: 'Your display preference could not be updated right now.',
         tone: 'error',
       })
+    } finally {
+      scope.pending = false
+      if (scope.active) setThemeSave({ scope: themeScopeKey, saving: false })
     }
-  }
-
-  const handleThemeModeChange = (nextThemeMode) => {
-    const nextPreferences = saveThemePreferences({
-      mode: nextThemeMode,
-      accent: savedThemeAccent,
-      buttonStyle: savedThemeButtonStyle,
-    })
-    setThemeMode(nextPreferences.mode)
-    showToast({ title: 'Theme updated', message: 'Your display preference has been saved.' })
-    void persistUserThemePreference(nextPreferences.mode)
   }
 
   const handleAttendanceVisibilityChange = async (enabled) => {
@@ -668,6 +687,7 @@ export function UserSettingsPage() {
               hasUnsavedBranding={hasUnsavedBranding}
               isBrandingDraftValid={isBrandingDraftValid}
               isSavingBranding={isSavingBranding}
+              isSavingTheme={isSavingTheme}
               onCustomThemeAccentChange={handleCustomThemeAccentChange}
               onSaveBranding={handleSaveClubDisplay}
               onThemeAccentChange={handleThemeAccentChange}
