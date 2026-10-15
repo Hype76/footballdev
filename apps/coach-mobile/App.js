@@ -1772,19 +1772,21 @@ function SecondaryAction({ disabled = false, label, onPress }) {
   )
 }
 
-function StartupRecoveryScreen({ diagnosticCode, message, onReset, onRetry, showReset = true }) {
+function StartupRecoveryScreen({ diagnosticCode, message, onReset, onRetry, onSignIn, showReset = true }) {
   const theme = defaultThemeContext
   return (
     <CoachThemeContext.Provider value={theme}>
       <View style={theme.styles.startupRecovery}>
-        <View accessibilityLiveRegion="assertive" style={theme.styles.startupCard}>
+        <View accessibilityLiveRegion="assertive" style={theme.styles.startupContent}>
           <Text style={theme.styles.eyebrow}>Football Player Coach</Text>
           <Text style={theme.styles.screenTitle}>Something went wrong</Text>
           <Text style={theme.styles.bodyText}>{message || 'The Coach app could not finish starting safely.'}</Text>
           <Text selectable style={theme.styles.diagnostic}>Code {diagnosticCode || 'COACH_STARTUP_FAILED'} | Version {Constants.expoConfig?.version || 'unknown'}</Text>
           <PrimaryAction label="Try again" onPress={onRetry} />
+          {onSignIn ? <SecondaryAction label="Sign in again" onPress={onSignIn} /> : null}
+          {onSignIn ? <Text style={theme.styles.helperText}>Sign in again with the same account to keep your saved work on this device.</Text> : null}
           {showReset ? <SecondaryAction label="Reset local app data" onPress={onReset} /> : null}
-          {showReset ? <Text style={theme.styles.helperText}>This affects only saved Coach app information on this device. Football Player records are not changed.</Text> : null}
+          {showReset ? <Text style={theme.styles.helperText}>Reset local app data removes saved work on this device. Football Player records already synced are not changed.</Text> : null}
         </View>
       </View>
     </CoachThemeContext.Provider>
@@ -1823,6 +1825,7 @@ function AppContent() {
     authError,
     isLocked,
     resetLocalAppData,
+    returnToSignIn,
     retryStartup,
     session,
     startupDiagnosticCode,
@@ -1834,7 +1837,7 @@ function AppContent() {
     return <LoadingScreen message={startupState === MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT ? 'Resolving Coach context...' : 'Loading Football Player Coach...'} />
   }
   if (startupState === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR) {
-    return <StartupRecoveryScreen diagnosticCode={startupDiagnosticCode} message={authError} onReset={resetLocalAppData} onRetry={retryStartup} />
+    return <StartupRecoveryScreen diagnosticCode={startupDiagnosticCode} message={authError} onReset={resetLocalAppData} onRetry={retryStartup} onSignIn={returnToSignIn} />
   }
   if (!session?.user) return <LoginScreen />
   if (isLocked) return <LockedScreen errorMessage={authError} logoSource={require('./assets/football-player-logo.png')} onUnlock={unlockWithBiometrics} />
@@ -1945,7 +1948,7 @@ function createCoachStyles(palette) {
     settingRow: { alignItems: 'center', flexDirection: 'row', gap: 14 },
     stack: { gap: 14 },
     stackTight: { gap: 9 },
-    startupCard: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 20, borderWidth: 1, gap: 14, maxWidth: 520, padding: 22, width: '100%' },
+    startupContent: { gap: 14, maxWidth: 520, width: '100%' },
     startupRecovery: { alignItems: 'center', backgroundColor: palette.background, flex: 1, justifyContent: 'center', padding: 20 },
     statCard: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, flex: 1, gap: 4, minHeight: 104, minWidth: 138, padding: 15 },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

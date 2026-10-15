@@ -68,6 +68,7 @@ export async function runMobileStartup({
 }) {
   const diagnosticPrefix = getMobileStartupDiagnosticPrefix(appRole)
   const startupTimeoutCode = `${diagnosticPrefix}_STARTUP_TIMEOUT`
+  let failureStage = 'PREPARATION'
   onTransition?.(MOBILE_STARTUP_STATES.BOOTING)
 
   if (!config?.isUsable) {
@@ -86,9 +87,11 @@ export async function runMobileStartup({
       timeoutMs,
       startupTimeoutCode,
     ).then((value) => ({ value }), (error) => ({ error }))
+    failureStage = 'SAVED_SESSION'
     const savedSession = getSavedSession
       ? await withStartupTimeout(getSavedSession, timeoutMs, startupTimeoutCode)
       : null
+    failureStage = 'SESSION_RESTORE'
     const result = savedSession
       ? { data: { session: savedSession } }
       : await withStartupTimeout(() => getSession(), timeoutMs, startupTimeoutCode)
@@ -100,16 +103,20 @@ export async function runMobileStartup({
       return { diagnosticCode: '', session: null, state: MOBILE_STARTUP_STATES.READY_SIGNED_OUT }
     }
 
+    failureStage = 'BIOMETRIC_READ'
     const biometricResult = await biometricResultPromise
     if (biometricResult.error) throw biometricResult.error
     const biometricEnabled = biometricResult.value
     onLock?.(Boolean(biometricEnabled))
     await onSession?.(session)
     onTransition?.(resolvingProfileState)
+    failureStage = 'PROFILE_LOAD'
     await withStartupTimeout(() => loadProfile(session), timeoutMs, startupTimeoutCode)
     return { diagnosticCode: '', session, state: MOBILE_STARTUP_STATES.READY_SIGNED_IN }
   } catch (error) {
-    const diagnosticCode = getSafeStartupDiagnosticCode(error, `${diagnosticPrefix}_STARTUP_FAILED`)
+    // Only expose explicit machine codes. Native exception messages can contain
+    // device or account information and do not identify the failing stage.
+    const diagnosticCode = getSafeStartupDiagnosticCode({ code: error?.code }, `${diagnosticPrefix}_${failureStage}_FAILED`)
     if (isConfirmedIrrecoverableSessionError(error)) {
       try {
         await withStartupTimeout(() => clearInvalidSession?.(), timeoutMs, startupTimeoutCode)

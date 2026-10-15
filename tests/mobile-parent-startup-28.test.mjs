@@ -262,6 +262,27 @@ test('unknown environment fails closed to visible recoverable configuration erro
   })
 })
 
+test('uncoded native failures identify the startup stage without exposing exception text', async () => {
+  const nativeFailure = () => { throw new Error('The operation could not be completed. OSStatus -25308. Private device information.') }
+  const session = { user: { id: 'synthetic-coach' } }
+  for (const [stage, changes] of [
+    ['PREPARATION', { prepare: nativeFailure }],
+    ['SAVED_SESSION', { getSavedSession: nativeFailure }],
+    ['SESSION_RESTORE', { getSession: nativeFailure }],
+    ['BIOMETRIC_READ', { getBiometricEnabled: nativeFailure }],
+    ['PROFILE_LOAD', { loadProfile: nativeFailure }],
+  ]) {
+    let cleared = false
+    const { args } = startupHarness({ appRole: 'coach', getSession: async () => ({ data: { session } }),
+      clearInvalidSession: async () => { cleared = true }, ...changes })
+    const result = await runMobileStartup(args)
+    assert.equal(result.state, MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+    assert.equal(result.diagnosticCode, `COACH_${stage}_FAILED`)
+    assert.equal(cleared, false, 'A native failure must not erase the saved login or offline work')
+    assert.doesNotMatch(JSON.stringify(result), /OSStatus|Private|device information/)
+  }
+})
+
 test('hung preparation, session, biometric and profile operations time out instead of deadlocking', async () => {
   const never = () => new Promise(() => {})
   const session = { user: { id: 'synthetic-parent' } }

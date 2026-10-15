@@ -429,7 +429,14 @@ export function createSecureSessionStorage({
   async function migrateLegacySessionInternal() {
     const secureValue = await readSecureValue(mainKey)
     if (secureValue.valid) {
-      await finishLegacyCleanup(mainKey)
+      const marker = parseJson(await secureGet(keyParts(mainKey).marker))
+      const cleanupComplete = marker?.schemaVersion === MOBILE_SESSION_STORAGE_SCHEMA_VERSION
+        && marker?.status === 'complete'
+      // Validated secure data needs no cleanup writes after migration. Still
+      // remove any plaintext that reappears before exposing the secure session.
+      if (!cleanupComplete || await legacyStorage.getItem(mainKey) !== null) {
+        await finishLegacyCleanup(mainKey)
+      }
       return { category: 'secure_session_valid', migrated: false, value: secureValue.value }
     }
 

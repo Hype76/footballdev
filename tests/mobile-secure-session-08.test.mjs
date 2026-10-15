@@ -301,6 +301,60 @@ test('existing valid secure session wins over stale plaintext', async () => {
   assert.equal(legacyStorage.values.has(sessionKey), false)
 })
 
+test('completed secure session restores without repeating cleanup writes on warm or cold starts', async () => {
+  const secureValues = new Map()
+  const legacyValues = new Map()
+  const warm = createHarness({ secureValues, legacyValues })
+  const value = makeSession()
+  await warm.storage.setItem(sessionKey, value)
+
+  for (const harness of [warm, createHarness({ secureValues, legacyValues })]) {
+    harness.secureStore.events.length = 0
+    harness.secureStore.failSet = () => true
+    harness.legacyStorage.failRemove = true
+    assert.equal(await harness.storage.getItem(sessionKey), value)
+    assert.equal(harness.secureStore.events.some(event => ['set', 'delete', 'legacy_remove'].includes(event.operation)), false)
+  }
+})
+
+test('a completed migration still requires stale plaintext removal before returning the secure session', async () => {
+  const { legacyStorage, storage } = createHarness()
+  const value = makeSession()
+  await storage.setItem(sessionKey, value)
+  legacyStorage.values.set(sessionKey, makeSession({ access: 'stale-legacy' }))
+  legacyStorage.failRemove = true
+  await assert.rejects(() => storage.getItem(sessionKey), /synthetic_legacy_remove_failure/)
+  assert.equal(legacyStorage.values.has(sessionKey), true)
+  legacyStorage.failRemove = false
+  assert.equal(await storage.getItem(sessionKey), value)
+  assert.equal(legacyStorage.values.has(sessionKey), false)
+})
+
+test('incomplete cleanup retries its marker write without losing the validated session', async () => {
+  const { legacyStorage, secureStore, storage } = createHarness()
+  const value = makeSession()
+  await storage.setItem(sessionKey, value)
+  const namespace = deriveMobileSessionNamespace({ appRole: 'coach', environment: 'test', logicalKey: sessionKey })
+  secureStore.values.delete(`${namespace}.migration`)
+  secureStore.failSet = ({ key }) => key.endsWith('.migration')
+  await assert.rejects(() => storage.getItem(sessionKey), /synthetic_secure_store_failure/)
+  assert.equal(legacyStorage.values.has(sessionKey), false)
+  secureStore.failSet = null
+  assert.equal(await storage.getItem(sessionKey), value)
+  assert.equal(JSON.parse(secureStore.values.get(`${namespace}.migration`)).status, 'complete')
+})
+
+test('a completed migration marker cannot hide a secure session read failure', async () => {
+  const { secureStore, storage } = createHarness()
+  await storage.setItem(sessionKey, makeSession())
+  const originalGet = secureStore.getItemAsync.bind(secureStore)
+  secureStore.getItemAsync = async (key, options) => {
+    if (key.endsWith('.c.00')) throw new Error('synthetic_secure_read_failure')
+    return originalGet(key, options)
+  }
+  await assert.rejects(() => storage.getItem(sessionKey), /synthetic_secure_read_failure/)
+})
+
 test('interrupted migration keeps valid legacy plaintext for a later safe retry', async () => {
   const value = makeSession({ padding: 'm'.repeat(4000) })
   const legacyValues = new Map([[sessionKey, value]])
