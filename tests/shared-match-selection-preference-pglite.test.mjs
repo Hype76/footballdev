@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
-const migration = await readFile(new URL('../supabase/migrations/20261015114613_shared_match_auto_selection_preference.sql', import.meta.url), 'utf8')
+const migration = await readFile(new URL('../supabase/migrations/20261015124422_shared_match_auto_selection_preference.sql', import.meta.url), 'utf8')
 const CLUB = '20000000-0000-4000-8000-000000000001'
 const TEAM = '20000000-0000-4000-8000-000000000002'
 const OTHER_TEAM = '20000000-0000-4000-8000-000000000003'
