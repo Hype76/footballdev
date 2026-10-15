@@ -1584,7 +1584,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     }
   }
 
-  async function handleInvitationResponse(invitation, responseState) {
+  async function handleInvitationResponse(invitation, responseState, { inlineFeedback = false } = {}) {
     if (invitation?.attendancePreparation && ['match_attendance', 'training_attendance'].includes(invitation.invitationType)) {
       if (invitation.attendancePending || activeActionId || !isParentInvitationActionable(invitation)
         || selectedLink?.linkType !== 'parent' || invitation.parentLinkId !== selectedLink.id || invitation.childId !== selectedLink.playerId) return false
@@ -1595,7 +1595,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         await attendanceOutbox.enqueue(invitation.attendancePreparation, responseState, invitation.eventTitle || 'Attendance')
         return current() ? { durable: true } : false
       } catch (error) {
-        if (current()) setNotice({ message: getParentFriendlyError(error, 'This answer could not be saved on this phone. Try again before closing.'), tone: 'error' })
+        if (current()) {
+          const message = getParentFriendlyError(error, 'This answer could not be saved on this phone. Try again before closing.')
+          if (inlineFeedback) return { error: message }
+          setNotice({ message, tone: 'error' })
+        }
         return false
       }
     }
@@ -1604,16 +1608,26 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     const actionScope = parentSyncScopeRef.current
     const actionGeneration = parentActionScopeRef.current
     setActiveActionId(`invite:${invitation.invitationId}`)
-    setNotice(null)
+    if (!inlineFeedback) setNotice(null)
     try {
       await respondToParentInvitation(selectedMobileUser, invitation, responseState)
       if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
+      if (inlineFeedback) {
+        setResources((current) => ({ ...current, invitations: { ...current.invitations,
+          items: current.invitations.items.map((item) => item.invitationId === invitation.invitationId
+            ? { ...item, responseState } : item),
+        } }))
+        void loadParentData().catch(() => {})
+        return { saved: true }
+      }
       await loadParentData()
       if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
       setNotice({ message: 'Your invitation response has been saved.', tone: 'success' })
     } catch (error) {
       if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
-      setNotice({ message: getParentFriendlyError(error, 'Your invitation response could not be saved.'), tone: 'error' })
+      const message = getParentFriendlyError(error, 'Your invitation response could not be saved.')
+      if (inlineFeedback) return { error: message }
+      setNotice({ message, tone: 'error' })
     } finally {
       if (actionScope === parentSyncScopeRef.current && actionGeneration === parentActionScopeRef.current) setActiveActionId('')
     }

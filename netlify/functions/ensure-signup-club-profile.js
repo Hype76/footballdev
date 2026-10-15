@@ -661,6 +661,17 @@ async function applyInvite(authUser, invite) {
 }
 
 async function createSignupWorkspace(authUser, requestedClubName, requestedAccessCode = '', requestedPlanKey = '', options = {}) {
+  const { data: accessWasDeleted, error: deletedAccessError } = await supabaseAdmin.rpc('has_deleted_workspace_access', {
+    target_user_id: authUser.id,
+  })
+  if (deletedAccessError) throw deletedAccessError
+  if (accessWasDeleted !== false) {
+    throw Object.assign(new Error('That workspace has been deleted. This login is not linked to a coach account. Ask an admin for access to an active team.'), {
+      code: 'workspace_access_removed',
+      statusCode: 403,
+    })
+  }
+
   const email = normalizeEmail(authUser.email)
   const clubName = getSignupClubName(authUser, requestedClubName)
   const displayName = getDisplayName(authUser)
@@ -928,8 +939,9 @@ export async function handler(event) {
     return json(200, { success: true, ...result })
   } catch (error) {
     console.error(error)
-    return json(500, {
+    return json(error.statusCode === 403 ? 403 : 500, {
       success: false,
+      ...(error.code === 'workspace_access_removed' ? { code: error.code } : {}),
       message: error.message || 'Signup workspace could not be created.',
     })
   }

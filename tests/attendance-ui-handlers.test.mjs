@@ -47,11 +47,11 @@ test('actual attendance view guard rejects uncommitted, switched, returned and u
   cleanup()
 })
 const invitation={invitationId:'invite',invitationType:'match_attendance',parentLinkId:'parent',childId:'player',attendancePreparation:{route:'parent_match'}}
-function parentFixture() {
+function parentFixture(overrides = {}) {
   const gate=deferred(),scope={current:'user:parent'},generation={current:1},notices=[],calls=[]
   const dependencies={isOffline:false,activeActionId:'',selectedLink:{id:'parent',playerId:'player',linkType:'parent'},selectedMobileUser:{id:'user'},parentSyncScopeRef:scope,parentActionScopeRef:generation,
     attendanceOutbox:{enqueue:async(...args)=>{calls.push(args);return gate.promise}},isParentInvitationActionable:()=>true,setNotice:value=>notices.push(value),getParentFriendlyError:(_e,message)=>message,
-    setActiveActionId:()=>{},respondToParentInvitation:async()=>{},loadParentData:async()=>{}}
+    setActiveActionId:()=>{},setResources:()=>{},respondToParentInvitation:async()=>{},loadParentData:async()=>{},...overrides}
   return {gate,scope,generation,notices,calls,run:bind(extracted('../apps/parent-mobile/App.js','handleInvitationResponse'),'handleInvitationResponse',dependencies)}
 }
 test('actual Parent handler returns closure receipt only after durable local acceptance',async()=>{
@@ -68,6 +68,42 @@ test('actual Parent stale storage failure cannot show old error in new account',
 })
 test('actual Parent identity guard prevents even local enqueue for another child',async()=>{
   const f=parentFixture();assert.equal(await f.run({...invitation,childId:'other'},'available'),false);assert.equal(f.calls.length,0)
+})
+
+test('actual Parent inline reply confirms after the server save without waiting for the wider refresh',async()=>{
+  const network=deferred(),refresh=deferred(),updates=[],actions=[]
+  const f=parentFixture({respondToParentInvitation:()=>network.promise,loadParentData:()=>refresh.promise,setResources:update=>updates.push(update),setActiveActionId:value=>actions.push(value)})
+  let completed=false
+  const result=f.run({...invitation,attendancePreparation:null},'unavailable',{inlineFeedback:true}).then(receipt=>{completed=true;return receipt})
+  assert.equal(completed,false);assert.equal(updates.length,0)
+  network.resolve({});assert.deepEqual(await result,{saved:true})
+  assert.deepEqual(actions,['invite:invite','']);assert.equal(f.notices.length,0)
+  const other={invitationId:'other',responseState:'available'}
+  const resources={invitations:{items:[invitation,other],loading:false},matches:{items:[{id:'unrelated'}]}}
+  const next=updates[0](resources)
+  assert.equal(next.invitations.items[0].responseState,'unavailable');assert.equal(next.invitations.items[1],other);assert.equal(next.matches,resources.matches)
+  refresh.reject(new Error('Synthetic refresh failed after confirmed save'));await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(f.notices.length,0)
+})
+
+test('actual Parent inline network failure returns an error without changing the saved choice or inserting a top notice',async()=>{
+  let writes=0,refreshes=0
+  const f=parentFixture({respondToParentInvitation:async()=>{throw new Error('Synthetic save failure')},setResources:()=>writes++,loadParentData:async()=>refreshes++})
+  const receipt=await f.run({...invitation,attendancePreparation:null},'available',{inlineFeedback:true})
+  assert.equal(typeof receipt.error,'string');assert.equal(writes,0);assert.equal(refreshes,0);assert.equal(f.notices.length,0)
+})
+
+for(const field of ['scope','generation'])test(`actual Parent inline late network receipt cannot mutate new ${field}`,async()=>{
+  const network=deferred();let writes=0,refreshes=0
+  const f=parentFixture({respondToParentInvitation:()=>network.promise,setResources:()=>writes++,loadParentData:async()=>refreshes++})
+  const result=f.run({...invitation,attendancePreparation:null},'available',{inlineFeedback:true})
+  f[field].current=field==='scope'?'other:parent':2;network.resolve({});await result
+  assert.equal(writes,0);assert.equal(refreshes,0);assert.equal(f.notices.length,0)
+})
+
+test('actual Parent inline durable failure reports storage failure without claiming a save',async()=>{
+  const f=parentFixture();const result=f.run(invitation,'available',{inlineFeedback:true});f.gate.reject(new Error('Synthetic disk failure'))
+  const receipt=await result;assert.equal(Boolean(receipt.saved||receipt.durable),false);assert.equal(typeof receipt.error,'string');assert.equal(f.notices.length,0)
 })
 test('actual Coach late durable write cannot close a newer confirmation',async()=>{
   const gate=deferred(), confirm={invite:{id:'invite',kind:'match',teamId:'team',clubId:'club',attendancePreparation:{}},status:'available'},ref={current:confirm},saving={current:false},closed=[],bulk=[]

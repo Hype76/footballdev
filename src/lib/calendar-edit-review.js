@@ -1,3 +1,5 @@
+import { normalizeDateOnly } from './date-format.js'
+
 const text = (value) => String(value ?? '').trim()
 const list = (value) => [...new Set((Array.isArray(value) ? value : []).map(text).filter(Boolean))]
 
@@ -35,16 +37,23 @@ const FIELD_LABELS = [
   ['requestReferee', 'Referee request', 'Volunteers'],
 ]
 
-function display(value) {
+function display(value, key) {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (key === 'date' || key === 'recurrenceUntil') {
+    const normalizedDate = normalizeDateOnly(value)
+    if (normalizedDate) {
+      const [year, month, day] = normalizedDate.split('-')
+      return `${day}-${month}-${year}`
+    }
+  }
   return text(value).replaceAll('_', ' ') || 'None'
 }
 
 export function buildCalendarEditReview({ before = {}, after = {}, resourceNames = {}, playerNames = {} } = {}) {
   const changes = []
   for (const [key, label, category] of FIELD_LABELS) {
-    if (display(before[key]) === display(after[key])) continue
-    changes.push({ category, detail: `${label}: ${display(before[key])} to ${display(after[key])}` })
+    if (display(before[key], key) === display(after[key], key)) continue
+    changes.push({ category, detail: `${label}: ${display(before[key], key)} to ${display(after[key], key)}` })
   }
 
   const beforePlayers = list(before.invitedPlayerIds)
