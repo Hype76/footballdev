@@ -330,10 +330,11 @@ jobs:
         run: npm run build:live
       - name: Verify build environment and artifact identity
         run: npm run verify:build-env && npm run security:artifact-manifest
-      - name: Verify invitation cache policy in production worker
+      - name: Verify images and invitation cache policy in production worker
         env:
           INVITE_CACHE_BUILT: 'true'
-        run: node --test tests/workspace-invite-cache-policy.test.mjs
+          WEBSITE_IMAGES_BUILT: 'true'
+        run: node --test tests/website-images.test.mjs tests/workspace-invite-cache-policy.test.mjs tests/pwa-update-prompt.test.mjs
       - name: Verify responsive player contact layout
         run: npx playwright install --with-deps chromium && node tests/player-contact-layout-browser.mjs
       - name: Verify resource editing and retained assignments
