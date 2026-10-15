@@ -7,8 +7,10 @@ import { createMobileAccount, resendMobileAccountCode, verifyMobileAccount } fro
 import { MobileLegalNotice } from './MobileLegalNotice'
 import { getMobileConnectionErrorMessage } from './mobileFetchCore'
 import { PASSWORD_POLICY_SUMMARY } from '../../../src/lib/password-policy.js'
+import { requestFreshCoachSignup, verifyFreshCoachSignup } from '../../../src/lib/fresh-coach-signup.js'
+import { getMobileRuntimeConfig } from './config'
 
-export function MobileSignupScreen({ appRole, logoSource, onBack }) {
+export function MobileSignupScreen({ appRole, logoSource, onBack, onFreshSignupSignIn }) {
   const [form, setForm] = useState({ name: '', teamName: '', email: '', password: '', confirmation: '' })
   const [accepted, setAccepted] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -17,6 +19,8 @@ export function MobileSignupScreen({ appRole, logoSource, onBack }) {
   const [code, setCode] = useState('')
   const [notice, setNotice] = useState('')
   const [status, setStatus] = useState('')
+  const [freshSignupRequestId, setFreshSignupRequestId] = useState('')
+  const [freshSignupPending, setFreshSignupPending] = useState(false)
   const inFlight = useRef(false)
   const mode = useDeviceAppearance(appRole)
   const tokens = createParentMobileTheme({ mode }).tokens
@@ -28,24 +32,48 @@ export function MobileSignupScreen({ appRole, logoSource, onBack }) {
     if (form.password !== form.confirmation) { setError('Your passwords do not match.'); return }
     if (!accepted) { setError('Please accept the terms and privacy policy.'); return }
     inFlight.current = true; setBusy(true)
-    try { await createMobileAccount({ ...form, appRole }); setComplete(true); setForm(current => ({ ...current, password: '', confirmation: '' })) }
-    catch (failure) { setError(getMobileConnectionErrorMessage(failure) ? 'We could not confirm account creation. Check your connection and try again. If your code has arrived, choose Enter verification code below. Your details are still here.' : failure.message || 'Account creation could not be completed. Please try again.') }
+    try {
+      const result = await createMobileAccount({ ...form, appRole })
+      setFreshSignupRequestId(result.freshSignupRequestId || '')
+      setComplete(true)
+      if (!result.freshSignupRequestId) setForm(current => ({ ...current, password: '', confirmation: '' }))
+    }
+    catch (failure) { setFreshSignupPending(Boolean(failure.freshSignupPending)); setError(getMobileConnectionErrorMessage(failure) ? 'We could not confirm account creation. Check your connection and try again. If your code has arrived, choose Enter verification code below. Your details are still here.' : failure.message || 'Account creation could not be completed. Please try again.') }
+    finally { inFlight.current = false; setBusy(false) }
+  }
+  async function enterVerification() {
+    if (inFlight.current) return
+    if (!freshSignupPending) { setError(''); setComplete(true); return }
+    inFlight.current = true; setBusy(true); setError('')
+    try {
+      setFreshSignupRequestId(await requestFreshCoachSignup({ apiBaseUrl: getMobileRuntimeConfig('coach').apiBaseUrl, ...form }))
+      setFreshSignupPending(false); setComplete(true)
+    } catch (failure) { setError(failure.message || 'Please check your connection and try again. Your details are still here.') }
     finally { inFlight.current = false; setBusy(false) }
   }
   async function verification(resend = false) {
     if (inFlight.current) return
     inFlight.current = true; setBusy(true); setError(''); setStatus('')
     try {
-      if (resend) { await resendMobileAccountCode(form.email); setStatus('A new code has been requested. Check your newest email.'); setCode('') }
+      if (freshSignupRequestId) {
+        const apiBaseUrl = getMobileRuntimeConfig('coach').apiBaseUrl
+        if (resend) { setFreshSignupRequestId(await requestFreshCoachSignup({ apiBaseUrl, ...form })); setStatus('A new code has been requested. Check your newest email.'); setCode('') }
+        else {
+          if (!onFreshSignupSignIn) throw new Error('Please sign in to finish creating your team.')
+          await verifyFreshCoachSignup({ apiBaseUrl, requestId: freshSignupRequestId, code, password: form.password })
+          await onFreshSignupSignIn(form.email, form.password)
+        }
+      }
+      else if (resend) { await resendMobileAccountCode(form.email); setStatus('A new code has been requested. Check your newest email.'); setCode('') }
       else await verifyMobileAccount(form.email, code)
     } catch (failure) { setError(failure.message || 'Verification could not be completed. Try again.') }
     finally { inFlight.current = false; setBusy(false) }
   }
   return <SafeAreaView style={{ flex: 1, backgroundColor: tokens.portalBackground }}>
-    <ScrollView keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={{ padding: 24, paddingTop: 48, gap: 18, maxWidth: 560, width: '100%', alignSelf: 'center' }}>
+    <ScrollView bounces={false} alwaysBounceVertical={false} overScrollMode="never" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={{ padding: 24, paddingTop: 48, gap: 18, maxWidth: 560, width: '100%', alignSelf: 'center' }}>
       <Image source={logoSource} style={{ width: 72, height: 72 }} />
       <Text style={{ fontSize: 30, fontWeight: '800', color: tokens.textPrimary }}>{complete ? 'Check your email' : 'Create your account'}</Text>
-      <Text style={{ fontSize: 16, lineHeight: 24, color: tokens.textSecondary }}>{complete ? `Enter the verification code from the newest email sent to ${form.email.trim()} to finish here in the app. If you already have an account, sign in or use Forgot password.` : coach ? 'Start with free Match Day. Set up your team, invite parents and share live match alerts.' : 'Stay close to your player. Create your account now, then connect using an invitation from your team.'}</Text>
+      <Text style={{ fontSize: 16, lineHeight: 24, color: tokens.textSecondary }}>{complete ? freshSignupRequestId ? 'If a fresh signup is available for this email, we will send a code. Enter it here to create a new free Match Day team. Your old workspace stays deleted and previous introductory offers cannot be used again. Already have an active account? Sign in instead.' : `Enter the verification code from the newest email sent to ${form.email.trim()} to finish here in the app. If you already have an account, sign in or use Forgot password.` : coach ? 'Start with free Match Day. Set up your team, invite parents and share live match alerts.' : 'Stay close to your player. Create your account now, then connect using an invitation from your team.'}</Text>
       {!complete && <View style={{ gap: 14 }}>
         <TextField editable={!busy} light={mode === 'light'} label="Your name" autoCapitalize="words" value={form.name} onChangeText={set('name')} />
         {coach && <TextField editable={!busy} light={mode === 'light'} label="Team name" autoCapitalize="words" value={form.teamName} onChangeText={set('teamName')} />}
@@ -59,7 +87,7 @@ export function MobileSignupScreen({ appRole, logoSource, onBack }) {
         </View>
         {error ? <Text accessibilityRole="alert" style={{ color: tokens.danger }}>{error}</Text> : null}
         <PrimaryButton themeTokens={tokens} loading={busy} disabled={!accepted} onPress={submit}>Create account</PrimaryButton>
-        {error && form.email.trim() ? <PrimaryButton themeTokens={tokens} disabled={busy} variant="secondary" onPress={() => { setError(''); setComplete(true) }}>Enter verification code</PrimaryButton> : null}
+        {error && form.email.trim() ? <PrimaryButton themeTokens={tokens} disabled={busy} variant="secondary" onPress={enterVerification}>Enter verification code</PrimaryButton> : null}
       </View>}
       {complete && <View style={{ gap: 14 }}>
         <TextField light={mode === 'light'} label="Verification code" keyboardType="number-pad" autoComplete="one-time-code" value={code} onChangeText={setCode} />

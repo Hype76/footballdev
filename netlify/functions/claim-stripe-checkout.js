@@ -2,6 +2,7 @@ import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
+import { isReturningCoachSignupActor } from './lib/_fresh-coach-billing.js'
 
 function getBearerToken(event) {
   const header = event.headers.authorization || event.headers.Authorization || ''
@@ -40,15 +41,16 @@ async function claimLatestCheckout(profile) {
     return null
   }
 
-  const { data: checkoutRecord, error: checkoutError } = await supabaseAdmin
+  const returning = await isReturningCoachSignupActor(supabaseAdmin, profile.id)
+  let query = supabaseAdmin
     .from('stripe_checkout_records')
     .select('*')
     .ilike('customer_email', normalizedEmail)
     .in('plan_status', ['active', 'trialing'])
-    .or(`club_id.is.null,club_id.eq.${profile.club_id}`)
     .order('created_at', { ascending: false })
     .limit(1)
-    .maybeSingle()
+  query = returning ? query.eq('club_id', profile.club_id) : query.or(`and(club_id.is.null,claimed_at.is.null),club_id.eq.${profile.club_id}`)
+  const { data: checkoutRecord, error: checkoutError } = await query.maybeSingle()
 
   if (checkoutError) {
     throw checkoutError

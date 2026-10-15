@@ -15,6 +15,7 @@ import {
 import { isParentPortalHost } from './app-origins.js'
 import { normalizePlanKey, PLAN_KEYS } from './plans.js'
 import { assertPasswordPolicy } from './password-policy.js'
+import { requestFreshCoachSignup } from './fresh-coach-signup.js'
 import { clearLoginAccessIntent, readLoginAccessIntent, rememberLoginAccessIntent } from './login-access-intent.js'
 import { resolveAccessModeForRoute } from './parent-auth-intent.js'
 import { STAFF_SWITCH_PENDING_STORAGE_KEY } from './workspace-routes.js'
@@ -1182,6 +1183,11 @@ function RuntimeAuthProvider({ children }) {
       console.error(signupError)
       setAuthError(signupError.message)
       throw signupError
+    }
+
+    if (!data.session && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      const freshSignupRequestId = await requestFreshCoachSignup({ email: normalizedEmail, name: signupDisplayName, teamName: normalizedClubName })
+      return { needsEmailVerification: true, freshSignupRequestId, freshSignupName: signupDisplayName }
     }
 
     if (!data.session) {

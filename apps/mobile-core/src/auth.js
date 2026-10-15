@@ -33,7 +33,7 @@ function isAuthoritativeProfileFailure(error) {
   return status === 401
     || status === 403
     || code === '42501'
-    || ['staff_account_inactive', 'active_staff_membership_required', 'platform_admin_operational_membership_required', 'staff_profile_required'].includes(code)
+    || ['workspace_access_removed', 'staff_account_inactive', 'active_staff_membership_required', 'platform_admin_operational_membership_required', 'staff_profile_required'].includes(code)
     || code.endsWith('_operational_staff_required')
     || message.includes('not linked to a coach account')
     || message.includes('not authorised')
@@ -144,6 +144,10 @@ export function AuthProvider({
         }
         if (!isCurrent()) return null
         setUser(null)
+        if (error?.code === 'workspace_access_removed') {
+          setStartupDiagnosticCode(error.code)
+          setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+        }
         setAuthError(String(error?.code || '').endsWith('_TIMEOUT')
           ? 'Your account details are taking too long to load. Check your connection and try again.'
           : error.message || 'Account details could not be loaded.')
@@ -158,6 +162,10 @@ export function AuthProvider({
         DEFAULT_MOBILE_STARTUP_TIMEOUT_MS,
         `${diagnosticPrefix}_PROFILE_REFRESH_TIMEOUT`,
       ).catch((error) => {
+        if (isCurrent() && error?.code === 'workspace_access_removed') {
+          setStartupDiagnosticCode(error.code)
+          setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+        }
         if (error?.code !== `${diagnosticPrefix}_PROFILE_REFRESH_TIMEOUT`) console.warn(error)
       }).finally(() => { if (isCurrent()) setIsProfileLoading(false) })
       return cachedProfile
