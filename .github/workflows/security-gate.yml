@@ -226,6 +226,8 @@ jobs:
           npm run build && node tests/phone-branding-onboarding-browser.mjs && node tests/phone-team-administration-browser.mjs
       - name: Public website help privacy and integration
         run: node --experimental-strip-types --test tests/website-help.test.mjs && node tests/website-help-browser.mjs
+      - name: Marketing role phone and laptop frames
+        run: node tests/marketing-role-device-frames-browser.mjs
       - name: Formation board save and recovery regression
         run: >-
           node --test tests/formation-board-creation-repair.test.mjs
