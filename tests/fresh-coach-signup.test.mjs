@@ -83,7 +83,7 @@ test('forged worker requests do not access the database; email contains purpose 
   assert.match(html, /old workspace stays deleted/); assert.match(html, /10 minutes/); assert.doesNotMatch(html, /token_hash|ConfirmationURL/)
 })
 
-async function database() {
+async function database({ backendGrant = true } = {}) {
   const db = new PGlite()
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create schema app_private;
     create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz);
@@ -99,6 +99,7 @@ async function database() {
     create table public.stripe_checkout_records(club_id uuid references clubs(id) on delete set null, customer_email text);
     create function public.seed_default_club_roles_for_actor(uuid,uuid,text) returns void language sql as 'select null::void';`)
   for (const file of ['20261015072209_deleted_workspace_signup_guard.sql', '20261015082456_coach_club_promotion_codes.sql', '20261015144838_verified_fresh_coach_signup.sql']) await db.exec(await readFile(`supabase/migrations/${file}`, 'utf8'))
+  if (backendGrant) await db.exec(await readFile('supabase/migrations/20261015155342_fresh_coach_referral_backend_access.sql','utf8'))
   await db.query('insert into auth.users values ($1,$2,now())', [actor, email])
   await db.query('insert into app_private.deleted_workspace_access(user_id,club_id) values ($1,gen_random_uuid())', [actor])
   return db
@@ -254,4 +255,31 @@ test('mobile profile errors retain authoritative removed-access codes and HTTP s
     fetchJsonWithTimeout:async()=>({ok:false,response:{status:403},result:{success:false,code:'workspace_access_removed',message:'Access removed.'}}),
   })
   await assert.rejects(fn('coach','ensure-signup-club-profile',{}),error=>error.code==='workspace_access_removed'&&error.status===403)
+})
+
+test('actual service role can reserve for a clean club while returning clubs and client roles stay excluded', async () => {
+  const db=await database({backendGrant:false}),clean='10000000-0000-4000-8000-000000000008',cleanClub='30000000-0000-4000-8000-000000000008'
+  try{
+    await ready(db);await db.query('select public.claim_fresh_coach_signup_code($1,$2)',[requestId,'a'.repeat(64)])
+    const fresh=(await db.query('select public.complete_fresh_coach_signup($1,$2) as id',[requestId,actor])).rows[0].id
+    await db.exec('grant select,insert,update on public.clubs,public.users,public.user_club_memberships,public.stripe_checkout_records to service_role')
+    await db.query('insert into auth.users values ($1,$2,now())',[clean,'clean@example.test'])
+    await db.query("insert into clubs(id,name,plan_key,plan_status) values ($1,'Clean eligible club','matchday','active')",[cleanClub])
+    await db.query("insert into users(id,email,role,role_rank,club_id) values ($1,'clean@example.test','head_manager',70,$2)",[clean,cleanClub])
+    await db.query("insert into user_club_memberships(auth_user_id,email,role,role_rank,club_id) values ($1,'clean@example.test','head_manager',70,$2)",[clean,cleanClub])
+    await db.exec('set role service_role')
+    const promo=(await db.query('select public.ensure_coach_club_promotion_code($1) as code',[actor])).rows[0].code
+    await assert.rejects(db.query('select public.reserve_coach_club_promotion($1,$2,$3,$4)',[clean,cleanClub,promo,{planKey:'club',billingCycle:'monthly'}]),/permission denied for table deleted_workspace_access/)
+    await db.exec('reset role')
+    await db.exec(await readFile('supabase/migrations/20261015155342_fresh_coach_referral_backend_access.sql','utf8'))
+    await db.exec('set role service_role')
+    const reserved=(await db.query('select (public.reserve_coach_club_promotion($1,$2,$3,$4)).code as code',[clean,cleanClub,promo,{planKey:'club',billingCycle:'monthly'}])).rows[0].code
+    assert.equal(reserved,promo)
+    await assert.rejects(db.query('select public.reserve_coach_club_promotion($1,$2,$3,$4)',[actor,fresh,promo,{planKey:'club',billingCycle:'monthly'}]),/cannot be used again/)
+    await assert.rejects(db.query('select club_id from app_private.deleted_workspace_access'),/permission denied/)
+    await db.exec('reset role')
+    for(const role of ['anon','authenticated']){
+      assert.equal((await db.query("select has_column_privilege($1,'app_private.deleted_workspace_access','user_id','select') as allowed",[role])).rows[0].allowed,false)
+    }
+  }finally{await db.close()}
 })
