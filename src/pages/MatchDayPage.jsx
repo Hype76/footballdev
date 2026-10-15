@@ -20,7 +20,7 @@ import {
 } from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
-import { readMatchDayAutoSelectDefault, rememberMatchDayAutoSelectDefault } from '../lib/matchday-auto-select-default.js'
+import { loadMatchDayAutoSelectDefault, readMatchDayAutoSelectDefault, rememberMatchDayAutoSelectDefault } from '../lib/matchday-auto-select-default.js'
 import {
   commitCalendarChangeNotification,
   prepareCalendarChangeNotification,
@@ -47,6 +47,7 @@ import {
   getPlayers as liveGetPlayers,
   getTeams as liveGetTeams,
   getOwnTeamFixturePreferences,
+  getOwnMatchSelectionPreference,
   isPastMatchDayDateTime,
   MATCH_CLOCK_MODE_OPTIONS,
   MATCH_DAY_ARRIVAL_OPTIONS,
@@ -2325,6 +2326,9 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const [selectedLocationId, setSelectedLocationId] = useState('')
   const [isDemoResetPromptOpen, setIsDemoResetPromptOpen] = useState(false)
   const liveRefreshStateRef = useRef({ inFlight: false, scopeKey: '' })
+  const fixturePreferenceRequestRef = useRef(0)
+  const [isFixtureDefaultLoading, setFixtureDefaultLoading] = useState(false)
+  useEffect(() => () => { fixturePreferenceRequestRef.current += 1 }, [user.id, user.clubId, user.activeTeamId])
   const deepLinkHydrationRef = useRef('')
   const selectedWorkspaceRef = useRef(null)
   useEffect(() => {
@@ -2436,8 +2440,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     }
 
     const openFixtureSetup = async (setupIntent = consumeFixtureSetupIntent()) => {
+      const preferenceRequest = ++fixturePreferenceRequestRef.current
+      setFixtureDefaultLoading(false)
       const localPreferences = readMatchDayFixturePreferences()
       const preferenceTeamId = String(setupIntent?.teamId || user.activeTeamId || '').trim()
+      const selectionDefault = loadMatchDayAutoSelectDefault(user, preferenceTeamId, getOwnMatchSelectionPreference)
       let serverPreferences = null
 
       if (preferenceTeamId) {
@@ -2451,6 +2458,9 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         }
       }
 
+      const autoSelectAvailablePlayers = await selectionDefault
+      if (preferenceRequest !== fixturePreferenceRequestRef.current) return
+      rememberMatchDayAutoSelectDefault(user, preferenceTeamId, autoSelectAvailablePlayers)
       const preferences = serverPreferences?.found
         ? {
           ...localPreferences,
@@ -2467,7 +2477,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         : ''
       const baseForm = {
         ...EMPTY_MATCH_FORM,
-        autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, preferenceTeamId),
+        autoSelectAvailablePlayers,
         ...getMatchDurationFormFields(preferences.duration),
         arrivalPreset: preferences.arrivalPreset,
         arrivalTime: preferences.arrivalTime,
@@ -2934,10 +2944,16 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   }
 
   const updateForm = (updates) => {
+    const changesTeam = updates.teamId !== undefined
+    if (changesTeam || updates.autoSelectAvailablePlayers !== undefined) {
+      fixturePreferenceRequestRef.current += 1
+      setFixtureDefaultLoading(false)
+    }
     setForm((currentForm) => {
       const nextForm = {
         ...currentForm,
         ...updates,
+        ...(changesTeam ? { autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, updates.teamId || user.activeTeamId) } : {}),
       }
 
       if (updates.requestScorer === false && currentForm.status === 'scorer_request') {
@@ -2948,10 +2964,23 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
 
       return nextForm
     })
+    if (changesTeam) {
+      const request = fixturePreferenceRequestRef.current
+      const teamId = updates.teamId || user.activeTeamId
+      setFixtureDefaultLoading(true)
+      void loadMatchDayAutoSelectDefault(user, teamId, getOwnMatchSelectionPreference).then((selected) => {
+        if (request !== fixturePreferenceRequestRef.current) return
+        rememberMatchDayAutoSelectDefault(user, teamId, selected)
+        setForm((current) => current.teamId === updates.teamId ? { ...current, autoSelectAvailablePlayers: selected } : current)
+        setFixtureDefaultLoading(false)
+      })
+    }
     setErrorMessage('')
   }
 
   const closeFixtureSetup = () => {
+    fixturePreferenceRequestRef.current += 1
+    setFixtureDefaultLoading(false)
     setIsFixtureFormOpen(false)
     setForm(EMPTY_MATCH_FORM)
     setSelectedLocationId('')
@@ -4900,7 +4929,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           applyLocation={applyLocation}
           form={form}
           handleCreateMatch={handleCreateMatch}
-          isFixtureDataLoading={isFixtureDataLoading}
+            isFixtureDataLoading={isFixtureDataLoading || isFixtureDefaultLoading}
           isSaving={isSaving}
           isTeamScopedFixture={isTeamScopedFixture}
           locations={locations}
@@ -7566,7 +7595,6 @@ function FixtureSetupModal({
                       const teamId = event.target.value
                       const team = teams.find((candidate) => String(candidate.id) === teamId)
                       updateForm({
-                        autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, teamId || user.activeTeamId),
                         notificationTeamName: teamId ? resolveTeamNotificationDisplayName(team || {}, team?.name || '') : '',
                         teamId,
                       })
@@ -7782,7 +7810,7 @@ function FixtureSetupModal({
                   <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
                     When enabled, invited players who respond Available will be added to the match selection automatically.
                   </span>
-                  <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">Your last saved choice is remembered for new matches for this team in this browser.</span>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">Your last saved choice is remembered for new matches for this team across your devices.</span>
                 </span>
               </label>
             </div>

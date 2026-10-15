@@ -4,6 +4,7 @@ export {
   getAssignedTeamsForUser,
   getAvailableTeamsForUser,
   getOwnTeamFixturePreferences,
+  getOwnMatchSelectionPreference,
   getTeams,
   getTeamStaffAssignments,
   replaceTeamStaffAssignments,

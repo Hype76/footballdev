@@ -4,7 +4,7 @@ import {
   getPlanLimit,
 } from '../plans.js'
 import { CAPABILITIES } from '../paywall-access.js'
-import { getCachedResource, invalidateMemoryCacheByPrefix } from './cache-store.js'
+import { getCachedResource, invalidateMemoryCacheByPrefix, withRequestTimeout } from './cache-store.js'
 import { createAuditLog } from './audit.js'
 import { blockDemoMutation } from './demo-guards.js'
 import {
@@ -241,6 +241,19 @@ export async function getOwnTeamFixturePreferences({ teamId, user = null }) {
   }
 
   return normalizeOwnTeamFixturePreferences(data)
+}
+
+export async function getOwnMatchSelectionPreference({ teamId, user }) {
+  await blockDemoMutation(user)
+  const { data, error } = await withRequestTimeout(() => supabase.rpc('get_own_match_selection_preference', {
+    club_id_value: user.clubId,
+    team_id_value: String(teamId ?? user.activeTeamId ?? '').trim() || null,
+  }), 'Saved match choice could not be loaded.')
+  if (error) throw error
+  return {
+    found: data?.found === true,
+    autoSelectAvailablePlayers: data?.autoSelectAvailablePlayers === true,
+  }
 }
 
 export async function updateOwnTeamFixturePreferences({ form, teamId, user = null }) {

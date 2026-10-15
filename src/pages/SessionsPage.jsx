@@ -2860,7 +2860,6 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
     openMatchDayFixtureSetup({
       arrivalTime: form.arrivalTime,
-      autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, safeTeamId || user.activeTeamId),
       fixtureType: form.fixtureType,
       conclusionRule: form.conclusionRule,
       extraTimeHalfMinutes: form.extraTimeHalfMinutes,
@@ -6992,7 +6991,7 @@ function CalendarEventModal({
                   <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
                     When enabled, invited players who respond Available will be added to the match selection automatically.
                   </span>
-                  <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">Your last saved choice is remembered for new matches for this team in this browser.</span>
+                  <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">Your last saved choice is remembered for new matches for this team across your devices.</span>
                 </span>
               </label>
             ) : null}

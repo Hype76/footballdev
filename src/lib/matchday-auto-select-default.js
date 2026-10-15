@@ -26,3 +26,13 @@ export function rememberMatchDayAutoSelectDefault(user, teamId, selected, storag
     // Browser storage must not prevent a fixture from saving.
   }
 }
+
+export async function loadMatchDayAutoSelectDefault(user, teamId, loadPreference, storage) {
+  try {
+    const preference = await loadPreference({ user, teamId })
+    const selected = preference?.autoSelectAvailablePlayers === true
+    return selected
+  } catch {
+    return readMatchDayAutoSelectDefault(user, teamId, storage)
+  }
+}
