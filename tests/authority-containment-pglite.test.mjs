@@ -208,6 +208,49 @@ async function asOwner(db) {
   await db.exec('reset role')
 }
 
+test('personal theme modes persist without paid branding while authority and accent gates remain enforced', async () => {
+  const db = await createDatabase()
+  try {
+    await db.exec(`
+      create function auth.role() returns text language sql stable as $$ select 'authenticated'::text $$;
+      create function public.can_use_plan_feature(uuid, text) returns boolean language sql stable as $$
+        select coalesce(current_setting('test.theme_branding_allowed', true), 'false') = 'true'
+      $$;
+    `)
+    const legacy = await readFile(new URL('../supabase/migrations/20260507162000_enforce_plan_feature_limits.sql', import.meta.url), 'utf8')
+    await db.exec(legacy.slice(legacy.indexOf('create or replace function public.enforce_user_plan_update_features()')))
+    await db.exec(await readFile(new URL('../supabase/migrations/20261015054858_personal_theme_mode_persistence.sql', import.meta.url), 'utf8'))
+
+    for (const actorId of [IDS.parent, IDS.coach, IDS.manager, IDS.admin]) {
+      for (const mode of ['light', 'dark', 'system']) {
+        await setActor(db, actorId)
+        const saved = await db.query('select public.update_own_theme_settings($1) as profile', [mode])
+        assert.equal(saved.rows[0].profile.id, actorId)
+        assert.equal(saved.rows[0].profile.theme_mode, mode)
+        await setActor(db, '')
+        await assert.rejects(db.query("select public.update_own_theme_settings('dark')"), /profile_update_not_permitted/)
+        await asOwner(db)
+        assert.equal((await db.query('select theme_mode from public.users where id=$1', [actorId])).rows[0].theme_mode, mode)
+      }
+    }
+
+    await setActor(db, IDS.manager)
+    await assert.rejects(db.query("select public.update_own_theme_settings('invalid')"), /invalid_theme_mode/)
+    await assert.rejects(db.exec(`update public.users set theme_mode='dark' where id='${IDS.coach}'`), /permission denied/i)
+    await asOwner(db)
+    await assert.rejects(db.exec(`update public.users set theme_accent='blue' where id='${IDS.manager}'`), /Theme preferences are not included/)
+    await assert.rejects(db.exec(`update public.users set theme_mode='light',theme_accent='blue' where id='${IDS.manager}'`), /Theme preferences are not included/)
+    await db.exec("select set_config('test.theme_branding_allowed','true',false)")
+    await db.exec(`update public.users set theme_accent='blue' where id='${IDS.manager}'`)
+    await db.exec(`update public.users set status='suspended' where id='${IDS.manager}'`)
+    await setActor(db, IDS.manager)
+    await assert.rejects(db.query("select public.update_own_theme_settings('dark')"), /profile_update_not_permitted/)
+  } finally {
+    await asOwner(db)
+    await db.close()
+  }
+})
+
 test('migration executes and direct insert, update and upsert are denied', async () => {
   const db = await createDatabase()
   try {

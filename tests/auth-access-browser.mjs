@@ -644,8 +644,23 @@ async function preparePage(context, {
 async function prepareClubDisplayPage(context, { failPatch = false } = {}) {
   const prepared = await preparePage(context)
   const requests = []
+  const themeRequests = []
   let themeAccent = 'green'
   let themeButtonStyle = 'solid'
+
+  await context.route('**/rest/v1/rpc/update_own_theme_settings', async (route) => {
+    const payload = route.request().postDataJSON()
+    themeRequests.push(payload)
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'auth-club.fixture@footballplayer.test',
+        club_id: 'club-fixture',
+        theme_mode: payload.profile_mode,
+      }),
+    })
+  })
 
   await context.route('**/rest/v1/clubs**', async (route) => {
     const request = route.request()
@@ -709,6 +724,7 @@ async function prepareClubDisplayPage(context, { failPatch = false } = {}) {
   return {
     ...prepared,
     getDisplayRequests: () => requests,
+    getThemeRequests: () => themeRequests,
     getThemeAccent: () => themeAccent,
     getThemeButtonStyle: () => themeButtonStyle,
   }
@@ -1621,6 +1637,7 @@ try {
       const context = await browser.newContext(viewport.options)
       const {
         getDisplayRequests,
+        getThemeRequests,
         getThemeAccent,
         getThemeButtonStyle,
         page,
@@ -1671,10 +1688,20 @@ try {
       )
 
       await page.getByLabel('Theme').selectOption('dark')
+      await page.waitForFunction(() => document.documentElement.classList.contains('theme-dark'))
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('theme-dark')), true)
       await page.getByLabel('Theme').selectOption('light')
+      await page.waitForFunction(() => document.documentElement.classList.contains('theme-light'))
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('theme-light')), true)
       await page.getByLabel('Theme').selectOption('system')
+      await page.waitForFunction(() => window.localStorage.getItem('app-theme-mode') === 'system'
+        && !document.querySelector('[aria-label="Theme"]').disabled)
+      assert.deepEqual(getThemeRequests(), [
+        { profile_mode: 'dark' },
+        { profile_mode: 'light' },
+        { profile_mode: 'system' },
+      ])
+      assert.equal(await page.getByText('Theme not saved', { exact: true }).count(), 0)
       await page.emulateMedia({ colorScheme: 'dark' })
       await page.waitForFunction(() => document.documentElement.classList.contains('theme-dark'), null, {
         timeout: 15000,
@@ -1694,6 +1721,7 @@ try {
 
       await page.getByLabel('Access view').selectOption({ label: 'Team: U12 Fixture Team' })
       await assertSelectedOption(page, 'Access view', 'Team: U12 Fixture Team')
+      await page.waitForFunction(() => [...document.querySelectorAll('aside select')].every(select => !select.disabled))
       assert.equal(await page.evaluate(() => document.documentElement.classList.contains('accent-custom')), true)
       assert.equal(await page.evaluate(() => document.documentElement.dataset.buttonStyle), 'gradient')
 
