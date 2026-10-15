@@ -12,10 +12,10 @@ async function extract(file, names) {
   const nodes = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.map(node => node.type === 'ExportNamedDeclaration' ? node.declaration : node)
   return names.map(name => { const node = nodes.find(node => node?.type === 'FunctionDeclaration' && node.id.name === name); assert.ok(node, name); return source.slice(node.start, node.end) }).join('\n')
 }
-const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
+const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['InvitationsScreen', 'MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'IconAction', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
   .replaceAll('../../mobile-core/assets/formation-shirt-white.png', './apps/mobile-core/assets/formation-shirt-white.png')
   .replaceAll('../../mobile-core/assets/formation-shirt-gold.png', './apps/mobile-core/assets/formation-shirt-gold.png')
-const invitationCore = await extract('apps/parent-mobile/src/parentPortalData.js', ['getInvitationResponseOptions', 'isParentInvitationActionable'])
+const invitationCore = await extract('apps/parent-mobile/src/parentPortalData.js', ['getInvitationResponseOptions', 'getParentVolunteerRoleLabel', 'isParentInvitationActionable'])
 const formationCore = await extract('apps/mobile-core/src/parentFormationBoardCore.js', ['getParentFormationPlayerLabel', 'getParentFormationPitchPercent', 'getNamedParentFormationPlayers'])
 const appSource = await readFile('apps/parent-mobile/App.js', 'utf8')
 const handlers = appSource.slice(appSource.indexOf('  async function handleInvitationResponse('), appSource.indexOf('  async function handleAddToCalendar('))
@@ -23,6 +23,7 @@ const childChange = appSource.slice(appSource.indexOf('  function handleChildCha
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replaceAll('../assets/', './apps/mobile-core/assets/'))
 const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+import {useAttendanceUiGuard} from './apps/mobile-core/src/useAttendanceOutbox.js';
 import {useMobileActivity} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js';
 import {MobileLoadingStatus} from './apps/mobile-core/src/MobileHeaderActivity.js';
@@ -41,7 +42,7 @@ import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME} from './apps/mobile
 import {getParentMatchGroups,getParentMatchStatusLabel,getParentScorerInterestInvitation,getParentMatchDirectionsUrl} from './apps/parent-mobile/src/parentExperience.js';
 import {getParentMatchTimeline,getParentScorerMatches,getParentScorerActionLabel} from './apps/parent-mobile/src/parentScorerCore.js';
 import {canChangeParentMatchAvailability,getParentMatchAttendanceInvitation,getParentMatchAvailability,getParentMatchSquadStatus} from './apps/parent-mobile/src/parentMatchAvailability.js';
-import {getParentInvitationLockReason,isParentInvitationOptionSelected} from './apps/parent-mobile/src/parentPresentationCore.js';
+import {getParentInvitationCounts,getParentInvitationEventKey,getParentInvitationSections,groupParentInvitationsByEvent,getParentInvitationLockReason,isParentInvitationOptionSelected} from './apps/parent-mobile/src/parentPresentationCore.js';
 import {getParentEventPresentation} from './apps/parent-mobile/src/parentEventPresentation.js';
 import {getMatchDayShirtChoiceLabel} from './src/lib/matchday-model.js';
 import {getMatchDayLifecycleState} from './src/lib/matchday-lifecycle.js';
@@ -51,6 +52,7 @@ import {formatParentProductDateTime,formatParentProductTime} from './apps/mobile
 import {formatMatchAddedTimeClock} from './src/lib/matchday-event-time.js';
 import {buildCompletedMatchEventPresentation} from './src/lib/matchday-final-report.js';
 const normalize = (value) => String(value ?? '').trim();
+const VOLUNTEER_ROLE_STATUS_LABEL='Volunteer role status',getResourceDisplayTitle=()=> 'Resource';
 const BrandLoader=()=>null,useConfirmedConnectionIssue=value=>value;
 const ResourceState=()=>null;
 const ScorerControls=()=> <Text>Authorised scorer controls</Text>;
@@ -63,22 +65,28 @@ const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town F
 const parentLink={id:'parent',clubId:'club',playerId:'child',linkType:'parent'};
 const initialInvitation={invitationId:'invitation',eventId:'match',childId:'child',parentLinkId:'parent',sourceRecordId:'request',invitationType:'match_attendance',invitationState:'active',canRespond:true,canChangeResponse:true,responseState:'available',carpoolEnabled:true};
 const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=async()=>{};
-const respondToParentInvitation=async(user,invitation,response)=>{window.calls.push(['attendance',user.selectedParentLinkId,invitation.sourceRecordId,response]);if(window.defer)await new Promise(resolve=>window.pending.push(resolve));window.server={...window.server,availabilityStatus:response};window.serverInvitation={...window.serverInvitation,responseState:response}};
+const respondToParentInvitation=async(user,invitation,response)=>{window.calls.push(['attendance',user.selectedParentLinkId,invitation.sourceRecordId,response]);if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));window.server={...window.server,availabilityStatus:response};window.serverInvitation={...window.serverInvitation,responseState:response}};
 const setParentMatchTransport=async(user,invitation,mode)=>{window.calls.push(['transport',user.selectedParentLinkId,invitation.sourceRecordId,mode]);window.serverInvitation={...window.serverInvitation,transportNeedsLift:mode==='needs_lift',transportCanOfferLift:mode==='offering_lift',transportRespondedAt:'2099-01-01'};window.server={...window.server,squadTransport:[{playerId:'child',playerName:'Synthetic Player',needsLift:mode==='needs_lift',canOfferLift:mode==='offering_lift'}]}};
 window.calls=[];window.pending=[];window.server=initial;window.serverInvitation=initialInvitation;
 function App(){const[match,setMatch]=useState(initial),[mode,setMode]=useState('light'),[offline,setOffline]=useState(false),[warning,setWarning]=useState(false),[activeActionId,setActiveActionId]=useState(''),[notice,setNotice]=useState(null),[invitation,setInvitation]=useState(initialInvitation),[selectedLinkId,setSelectedLinkId]=useState('parent'),[linkType,setLinkType]=useState('parent'),[showList,setShowList]=useState(false),[fixtures,setFixtures]=useState([]);
+const[screen,setScreen]=useState('matchday'),[target,setTarget]=useState('invitation');
 const isOffline=offline,selectedMobileUser={id:'account',selectedParentLinkId:selectedLinkId},link={...parentLink,id:selectedLinkId,playerId:selectedLinkId==='parent'?'child':'other-child',linkType},parentLinks=[parentLink,{id:'other'}];
+const selectedLink=link;
 const parentSyncScopeRef=useRef(''),parentActionScopeRef=useRef(0),requestIdRef=useRef(0);parentSyncScopeRef.current='account:'+selectedLinkId;
 const setChildSwitcherOpen=()=>{},setActiveTab=()=>{};
 const scrollViewRef=useRef(null),contentColumnRef=useRef(null);
-async function loadParentData(){window.refreshes=(window.refreshes||0)+1;setMatch(window.server);setInvitation(window.serverInvitation)}
+const setResources=update=>setInvitation(item=>update({invitations:{items:[item]}}).invitations.items[0]);
+const attendanceOutbox={enqueue:async()=>{if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));setInvitation(item=>({...item,responseState:'available',attendancePending:true,attendancePendingStatus:'pending'}))}};
+async function loadParentData(){window.refreshes=(window.refreshes||0)+1;if(window.deferRefresh)await new Promise(resolve=>window.pendingRefresh=resolve);setMatch(window.server);setInvitation(window.serverInvitation)}
 ${handlers}\n${childChange}
 window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId,warning,offline};
+window.screen=setScreen;window.target=setTarget;
 const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:'#075293'}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
-return <ScrollView ref={scrollViewRef} style={{height:420}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
+return <ScrollView testID="response-scroll" ref={scrollViewRef} style={{height:420}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
 <SyncStatus cacheState={{source:'cache',stale:true}} isOffline={offline} summary={{waiting:0,needsAttention:0}}/>
 {warning?<Notice compact tone="warning" message="Could not refresh. Showing saved information." onDismiss={()=>setWarning(false)}/>:null}
-<MatchdayScreen formationViewportHeight={420} onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>
+{notice?<Notice message={notice.message} tone={notice.tone} onDismiss={()=>setNotice(null)}/>:null}
+{screen==='invites'?<><View style={{height:120}}/><InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={link} resource={{items:[invitation]}} targetInvitationId={target} themeTokens={tokens} onBackTarget={()=>{window.backCalls=(window.backCalls||0)+1;setTarget('')}} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/><View style={{height:500}}/></>:<MatchdayScreen formationViewportHeight={420} onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>}
 </View></ScrollView>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], nodePaths: [modules], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
@@ -307,6 +315,63 @@ try {
   await page.waitForFunction(() => window.current.offline && !window.current.warning)
   assert.equal(await page.getByText(/Offline. Showing your last saved information./).count(), 0)
   assert.deepEqual(await page.getByText('Authorised scorer controls').boundingBox(), scorerBefore)
+  // Reproduce the reported targeted request with a slow server and wider refresh.
+  await page.evaluate(()=>{document.body.style.overflow='hidden';window.scrollTo(0,0)})
+  for (const mode of ['light','dark']) for (const width of [320,390]) {
+    await page.evaluate(({mode})=>{
+      window.mode(mode);window.offline(false);window.screen('invites');window.target('invitation');window.pending=[];window.defer=true;window.deferRefresh=true;window.backCalls=0;
+      window.invitation({eventTitle:'Cambourne Town FC v Boston United Academy',eventDate:'2099-01-23',eventStart:'2099-01-23T14:00:00Z',responseState:'awaiting_response'});
+      window.serverInvitation={...window.serverInvitation,eventTitle:'Cambourne Town FC v Boston United Academy',eventDate:'2099-01-23',eventStart:'2099-01-23T14:00:00Z'};
+    },{mode})
+    await page.setViewportSize({width,height:844})
+    const choice=page.getByRole('radio',{name:'Attendance, Attending',exact:true})
+    await choice.scrollIntoViewIfNeeded()
+    const position=await choice.boundingBox(),scroll=await page.getByTestId('response-scroll').evaluate(el=>el.scrollTop)
+    await choice.click()
+    const pending=page.getByRole('radio',{name:'Attendance, Attending, saving',exact:true})
+    await pending.waitFor();assert.equal(await pending.isChecked(),true);assert.equal(await pending.isDisabled(),true)
+    await page.getByText('Saving',{exact:true}).waitFor()
+    assert.deepEqual(await pending.boundingBox(),position,'Pending feedback keeps the tapped choice in place')
+    assert.equal(await page.getByText('Saved',{exact:true}).count(),0,'No server save is claimed while pending')
+    await page.evaluate(()=>window.pending[0]())
+    await page.getByText('Saved',{exact:true}).waitFor()
+    await page.waitForFunction(()=>window.current.activeActionId==='')
+    assert.ok(await page.getByRole('heading',{name:'Respond to request',exact:true}).count())
+    assert.equal(await page.evaluate(()=>window.backCalls),0,'Confirmed reply leaves the request open')
+    assert.equal(await page.getByTestId('response-scroll').evaluate(el=>el.scrollTop),scroll,'Saving keeps the scroll offset stable at '+mode+' '+width)
+    assert.deepEqual(await choice.boundingBox(),position,'Saved feedback does not move the request')
+    assert.equal(await page.evaluate(()=>window.current.notice),null,'No top-of-page notice reflows the request')
+    assert.equal(await choice.isChecked(),true)
+    await page.evaluate(()=>{window.pendingRefresh();window.deferRefresh=false})
+    await page.getByTestId('response-scroll').evaluate(el=>{el.scrollTop=0})
+    await page.screenshot({path:'output/playwright/parent-compact/request-saved-'+mode+'-'+width+'.png',fullPage:true})
+  }
+  await page.evaluate(()=>{window.pending=[];window.defer=true})
+  const failedChoice=page.getByRole('radio',{name:'Attendance, Not attending',exact:true})
+  await failedChoice.scrollIntoViewIfNeeded()
+  const failurePosition=await failedChoice.boundingBox(),failureScroll=await page.getByTestId('response-scroll').evaluate(el=>el.scrollTop)
+  await failedChoice.click()
+  await page.getByRole('radio',{name:'Attendance, Not attending, saving',exact:true}).waitFor()
+  await page.evaluate(()=>window.pending[0]('Synthetic server save failure'))
+  await page.getByRole('alert').filter({hasText:'Synthetic server save failure'}).waitFor()
+  assert.equal(await page.getByRole('radio',{name:'Attendance, Attending',exact:true}).isChecked(),true,'Failed save restores the confirmed choice')
+  assert.equal(await page.getByRole('radio',{name:'Attendance, Not attending',exact:true}).isChecked(),false)
+  assert.deepEqual(await failedChoice.boundingBox(),failurePosition,'Failure feedback keeps the tapped choice in place')
+  assert.equal(await page.getByTestId('response-scroll').evaluate(el=>el.scrollTop),failureScroll,'Failure does not move the page')
+  await page.evaluate(()=>{window.target('role-invitation');window.invitation({invitationId:'role-invitation',invitationType:'match_role',roleType:'scorer',eventDate:'2099-01-23',eventStart:'2099-01-23T14:00:00Z',responseState:'awaiting_response'});window.pending=[];window.defer=true;window.serverInvitation={...window.serverInvitation,invitationId:'role-invitation',invitationType:'match_role',roleType:'scorer'}})
+  await page.getByRole('radio',{name:'Scorer, Yes',exact:true}).click()
+  await page.getByRole('radio',{name:'Scorer, Yes, saving',exact:true}).waitFor()
+  await page.evaluate(()=>{window.pending[0]();window.defer=false})
+  await page.getByText('Saved',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('radio',{name:'Scorer, Yes',exact:true}).isChecked(),true)
+  await page.evaluate(()=>{window.target('invitation');window.invitation({responseState:'awaiting_response',attendancePreparation:{route:'parent_match'},eventDate:'2099-01-23',eventStart:'2099-01-23T14:00:00Z'});window.offline(true);window.defer=true;window.pending=[]})
+  await page.getByRole('radio',{name:'Attendance, Attending',exact:true}).click()
+  await page.getByRole('radio',{name:'Attendance, Attending, saving',exact:true}).waitFor()
+  await page.evaluate(()=>window.pending[0]())
+  await page.getByText('Saved on phone, waiting to sync',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('heading',{name:'Respond to request',exact:true}).count(),1)
+  assert.equal(await page.evaluate(()=>window.backCalls),0,'Durable local acceptance keeps the request open too')
+  assert.equal(await page.getByText('Saved',{exact:true}).count(),0,'Offline acceptance does not claim server confirmation')
   assert.deepEqual(errors, [])
-  console.log('PASS: Parent Matchday at 320/390px light/dark with contrast and no overflow; availability and squad chips distinct; save/reload availability and carpool; squad lift badges; Parent/Player/Fan and offline gates; real App handlers reject stale A->B->A completion; score/timeline/scorer, back, calendar and directions retained.')
+  console.log('PASS: Parent Matchday at 320/390px light/dark with contrast and no overflow; availability and squad chips distinct; save/reload availability and carpool; squad lift badges; Parent/Player/Fan and offline gates; real App handlers reject stale A->B->A completion; score/timeline/scorer, back, calendar and directions retained. Targeted invites show immediate Saving selection, stable tap position and scroll offset, confirmed Saved without waiting for full refresh, failure restoration, scorer replies and offline durable status without automatic navigation.')
 } finally { await browser.close() }

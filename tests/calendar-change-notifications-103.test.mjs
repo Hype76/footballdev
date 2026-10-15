@@ -121,6 +121,19 @@ test('edit review separates resource, schedule, and audience changes and detects
   assert.ok(review.changes.some((change) => change.detail === 'Player added: Alex'))
 })
 
+test('notification and review dates use DD-MM-YYYY for date changes and repeat limits', async () => {
+  const { buildCalendarEditReview } = await import('../src/lib/calendar-edit-review.js')
+  const before = { date: '2026-10-23', recurrenceUntil: '2026-12-01' }
+  const review = buildCalendarEditReview({ before, after: { date: '2027-01-23', recurrenceUntil: '2027-02-04' } })
+  assert.equal(review.notificationBody, 'Date: 23-10-2026 to 23-01-2027 Plus 1 other change.')
+  assert.ok(review.changes.some(change => change.detail === 'Repeat until: 01-12-2026 to 04-02-2027'))
+  assert.deepEqual(before, { date: '2026-10-23', recurrenceUntil: '2026-12-01' })
+  assert.equal(buildCalendarEditReview({ before: { date: '' }, after: { date: '2026-10-03' } }).notificationBody,
+    'Date: None to 03-10-2026')
+  assert.equal(buildCalendarEditReview({ before: { notes: '2026-10-23' }, after: { notes: '2027-01-23' } }).notificationBody,
+    'Notes: 2026-10-23 to 2027-01-23')
+})
+
 test('calendar notification destinations retain the resource occurrence date', async () => {
   const { resolveParentNotificationOpen } = await import('../apps/mobile-core/src/parentNotificationsCore.js')
   assert.deepEqual(resolveParentNotificationOpen({
