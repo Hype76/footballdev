@@ -1,0 +1,112 @@
+import assert from 'node:assert/strict'
+import { readFile, mkdir } from 'node:fs/promises'
+import { build } from 'esbuild'
+import { chromium } from 'playwright'
+
+const source = await readFile('src/pages/MatchDayPage.jsx', 'utf8')
+function section(start, end) {
+  const first = source.indexOf(start)
+  const last = source.indexOf(end, first)
+  assert.ok(first >= 0 && last > first)
+  return source.slice(first, last)
+}
+const open = section('const openFixtureSetup = async', '    const storedSetupIntent =')
+const save = section('const handleConfirmCreateMatch = async', '  const handleDeleteSavedLocation =')
+const harness = `
+import {createRoot} from 'react-dom/client';
+window.fixtureUser={id:'FP TEST coach',clubId:'FP TEST club',activeTeamId:'team-1'};
+window.saved=[];
+function PreferenceHarness(){
+  const user=window.fixtureUser;
+  const [form,setForm]=useState(EMPTY_MATCH_FORM),[isFixtureFormOpen,setIsFixtureFormOpen]=useState(false);
+  const [error,setErrorMessage]=useState(''),[isSaving,setIsSaving]=useState(false);
+  const [selectedLocationId,setSelectedLocationId]=useState('');
+  const teams=[{id:'team-1',name:'FP TEST First'},{id:'team-2',name:'FP TEST Second'}],locations=[];
+  const fixturePlayers=[{id:'player-1',section:'Squad'}],squadSelection={selectedPlayerIds:['player-1'],mode:'full'};
+  const getOwnTeamFixturePreferences=async()=>({found:false}),updateOwnTeamFixturePreferences=async()=>{};
+  const updateTeamNotificationDisplayName=async()=>({}),setTeams=()=>{},setMatches=()=>{},setSquadSelection=()=>{};
+  const setExpandedMatchId=()=>{},setActiveWorkspaceTab=()=>{},setActiveMatchId=()=>{},loadData=async()=>{};
+  const logFixtureAvailabilityRecipientEvents=async()=>{},createMatchDayEventLogEntry=async()=>{};
+  const syncCalendarEventParentScope=async()=>{},showToast=()=>{},allowsCommunication=false,session=null;
+  const volunteerRequestMessages={scorer:''},selectedFixtureTeamName='FP TEST',notificationContext={};
+  const createMatchDay=async({match})=>{
+    if(window.failSave) throw new Error('FP TEST save failed');
+    const saved={id:'fixture-'+window.saved.length,...match};window.saved.push(saved);return saved;
+  };
+  ${open}
+  ${save}
+  window.openFixture=openFixtureSetup;
+  const updateForm=updates=>setForm(current=>({...current,...updates}));
+  return <><button onClick={()=>void openFixtureSetup()}>Open new fixture</button><p role="status">{error}</p>
+    {isFixtureFormOpen?<FixtureSetupModal form={form} user={user} teams={teams} locations={locations}
+      selectedLocationId={selectedLocationId} selectedFixtureTeamId={form.teamId||user.activeTeamId}
+      selectedFixtureTeamName="FP TEST" isTeamScopedFixture={false} isFixtureDataLoading={false} isSaving={isSaving}
+      updateForm={updateForm} onClose={()=>setIsFixtureFormOpen(false)} validationMessage=""
+      volunteerRequestMessages={volunteerRequestMessages} handleCreateMatch={event=>{event.preventDefault();void handleConfirmCreateMatch()}}
+      applyLocation={()=>{}} onDeleteSavedLocation={()=>{}} updateArrivalFromPreset={()=>{}}
+      updateCustomMatchDuration={()=>{}} updateKickoffTime={()=>{}} updateKickoffTimeMode={()=>{}}
+      updateManualLocation={()=>{}} updateMatchDurationPreset={()=>{}}/>:null}</>;
+}
+createRoot(document.getElementById('root')).render(<PreferenceHarness/>);
+`
+const bundle = await build({
+  stdin: { contents: source + harness, resolveDir: `${process.cwd()}/src/pages`, loader: 'jsx' },
+  bundle: true, write: false, jsx: 'automatic',
+  define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}' },
+})
+const browser = await chromium.launch({ headless: true })
+await mkdir('output/playwright/auto-select-preference', { recursive: true })
+try {
+  for (const width of [390, 1280]) {
+    const context = await browser.newContext({ viewport: { width, height: 950 } })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    await page.route('**/*', route => {
+      if (route.request().url() === 'https://fixture.test/') {
+        return route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script>' + bundle.outputFiles[0].text + '</script>' })
+      }
+      return route.abort()
+    })
+    await page.goto('https://fixture.test/')
+    const checkbox = page.locator('#matchday-auto-select-available')
+    const openForm = () => page.getByRole('button', { name: 'Open new fixture', exact: true }).click()
+    const closeForm = () => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
+    await openForm()
+    assert.equal(await checkbox.isChecked(), false, 'First new fixture defaults off')
+    await checkbox.check()
+    await closeForm()
+    await openForm()
+    assert.equal(await checkbox.isChecked(), false, 'Cancelled choice is not remembered')
+    await checkbox.check()
+    await page.getByRole('button', { name: 'Continue to squad', exact: true }).click()
+    await page.waitForFunction(() => window.saved.length === 1)
+    await page.reload()
+    await openForm()
+    assert.equal(await checkbox.isChecked(), true, 'Successful choice survives browser reload')
+    await checkbox.uncheck()
+    await page.evaluate(() => { window.failSave = true })
+    await page.getByRole('button', { name: 'Continue to squad', exact: true }).click()
+    await page.getByRole('status').filter({ hasText: 'FP TEST save failed' }).waitFor()
+    await closeForm()
+    await openForm()
+    assert.equal(await checkbox.isChecked(), true, 'Failed save preserves previous choice')
+    await page.getByRole('dialog').getByText('Team', { exact: true }).locator('..').locator('select').selectOption('team-2')
+    assert.equal(await checkbox.isChecked(), false, 'Another team defaults off')
+    await page.getByRole('dialog').getByText('Team', { exact: true }).locator('..').locator('select').selectOption('team-1')
+    assert.equal(await checkbox.isChecked(), true, 'Returning to saved team restores choice')
+    await checkbox.uncheck()
+    await page.evaluate(() => { window.failSave = false })
+    await page.getByRole('button', { name: 'Continue to squad', exact: true }).click()
+    await page.waitForFunction(() => window.saved.length === 1)
+    await openForm()
+    assert.equal(await checkbox.isChecked(), false, 'Successfully saved off replaces saved on')
+    await checkbox.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: 'output/playwright/auto-select-preference/' + width + '.png' })
+    assert.deepEqual(errors, [])
+    await context.close()
+  }
+  console.log('PASS: actual website fixture form and save handler at 390/1280px; default off, saved on/off, reload, cancellation, failed save and team switching. All transport synthetic.')
+} finally {
+  await browser.close()
+}

@@ -20,6 +20,7 @@ import {
 } from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
+import { readMatchDayAutoSelectDefault, rememberMatchDayAutoSelectDefault } from '../lib/matchday-auto-select-default.js'
 import {
   commitCalendarChangeNotification,
   prepareCalendarChangeNotification,
@@ -215,7 +216,7 @@ function createDemoExperienceUser(user = {}) {
 
 const EMPTY_MATCH_FORM = {
   opponent: '',
-  autoSelectAvailablePlayers: true,
+  autoSelectAvailablePlayers: false,
   fixtureType: '',
   matchDate: '',
   kickoffTime: '',
@@ -2466,6 +2467,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         : ''
       const baseForm = {
         ...EMPTY_MATCH_FORM,
+        autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, preferenceTeamId),
         ...getMatchDurationFormFields(preferences.duration),
         arrivalPreset: preferences.arrivalPreset,
         arrivalTime: preferences.arrivalTime,
@@ -3121,6 +3123,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           scorerRequestMessage: submittedForm.requestScorer ? volunteerRequestMessages.scorer : '',
         },
       })
+      rememberMatchDayAutoSelectDefault(user, teamId, submittedForm.autoSelectAvailablePlayers)
       writeMatchDayFixturePreferences(submittedForm)
       const reconcileCreatedMatch = (currentMatches) => reconcileCreatedMatchDayInList(currentMatches, {
         match: createdMatch,
@@ -7563,6 +7566,7 @@ function FixtureSetupModal({
                       const teamId = event.target.value
                       const team = teams.find((candidate) => String(candidate.id) === teamId)
                       updateForm({
+                        autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, teamId || user.activeTeamId),
                         notificationTeamName: teamId ? resolveTeamNotificationDisplayName(team || {}, team?.name || '') : '',
                         teamId,
                       })
@@ -7778,6 +7782,7 @@ function FixtureSetupModal({
                   <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
                     When enabled, invited players who respond Available will be added to the match selection automatically.
                   </span>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">Your last saved choice is remembered for new matches for this team in this browser.</span>
                 </span>
               </label>
             </div>

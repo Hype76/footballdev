@@ -51,6 +51,7 @@ import {
 } from '../lib/calendar-change-notifications.js'
 import { buildCalendarEditReview, getCalendarReviewAudience } from '../lib/calendar-edit-review.js'
 import { getMatchDayDisplayName } from '../lib/matchday-display.js'
+import { readMatchDayAutoSelectDefault, rememberMatchDayAutoSelectDefault } from '../lib/matchday-auto-select-default.js'
 import { buildEventResponsePlayerNavigation } from '../lib/domain/player-profile-navigation.js'
 import { getManageableEventPlayerIds } from '../lib/domain/event-player-selection.js'
 import {
@@ -372,7 +373,7 @@ function getDefaultCalendarForm(date = '') {
 
   return {
     arrivalTime: '',
-    autoSelectAvailablePlayers: true,
+    autoSelectAvailablePlayers: false,
     enableMotmPoll: true,
     motmPollExpiryDuration: DEFAULT_EXPIRY_DURATION,
     motmNotifyResultsOnClose: false,
@@ -2172,7 +2173,12 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   function handleOpenCalendarCreate(date = '', requestedEventType = '') {
     setErrorMessage('')
     setCalendarValidation(null)
-    const defaultForm = getDefaultCalendarForm(date)
+    const teamId = canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim()
+    const defaultForm = {
+      ...getDefaultCalendarForm(date),
+      autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, teamId),
+      teamId,
+    }
     if (isMatchday && requestedEventType && requestedEventType !== 'match') {
       setErrorMessage('Matchday teams can only add Match fixtures to the Calendar.')
       return
@@ -2187,7 +2193,6 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
 
-    const teamId = canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim()
     const selectedTeam = teams.find((team) => String(team.id) === teamId)
     setCalendarForm({
       ...defaultForm,
@@ -2234,6 +2239,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const selectedTeam = teams.find((team) => String(team.id) === teamId)
     setCalendarForm({
       ...getDefaultCalendarForm(),
+      autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, teamId),
       eventType: 'training',
       notificationTeamName: teamId
         ? resolveTeamNotificationDisplayName(selectedTeam || {}, user?.activeTeamName || '')
@@ -2854,7 +2860,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
     openMatchDayFixtureSetup({
       arrivalTime: form.arrivalTime,
-      autoSelectAvailablePlayers: form.autoSelectAvailablePlayers !== false,
+      autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, safeTeamId || user.activeTeamId),
       fixtureType: form.fixtureType,
       conclusionRule: form.conclusionRule,
       extraTimeHalfMinutes: form.extraTimeHalfMinutes,
@@ -3016,6 +3022,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       }
 
       if (name === 'teamId') {
+        if (calendarModal?.mode === 'create') {
+          nextForm.autoSelectAvailablePlayers = readMatchDayAutoSelectDefault(user, value || user.activeTeamId)
+        }
         const selectedTeam = teams.find((team) => team.id === value)
         nextForm.team = selectedTeam?.name || ''
         nextForm.notificationTeamName = value
@@ -3666,6 +3675,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             venueName: calendarForm.location,
           }
           const savedMatch = await updateMatchDay({ user, matchId: activeEvent.sourceId, updates: payload })
+          rememberMatchDayAutoSelectDefault(user, safeTeamId, payload.autoSelectAvailablePlayers)
           coreSavedEvent = savedMatch
           let nextMatchDays = [savedMatch, ...matchDays.filter((match) => match.id !== savedMatch.id)]
           coreSavedMatchDays = nextMatchDays
@@ -6982,6 +6992,7 @@ function CalendarEventModal({
                   <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">
                     When enabled, invited players who respond Available will be added to the match selection automatically.
                   </span>
+                  <span className="mt-1 block text-xs font-bold leading-5 text-[#4b5f55]">Your last saved choice is remembered for new matches for this team in this browser.</span>
                 </span>
               </label>
             ) : null}
