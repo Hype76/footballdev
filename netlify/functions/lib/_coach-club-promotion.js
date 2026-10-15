@@ -18,7 +18,7 @@ export async function ensureCoachClubCoupon(stripe) {
   try { coupon = await stripe.coupons.retrieve(COACH_CLUB_COUPON_ID) }
   catch (error) {
     if (error.code !== 'resource_missing') throw error
-    coupon = await stripe.coupons.create({ id: COACH_CLUB_COUPON_ID, name: 'Coach referral: 50% off 3 monthly payments',
+    coupon = await stripe.coupons.create({ id: COACH_CLUB_COUPON_ID, name: 'Coach referral: 50% off 3 months',
       percent_off: 50, duration: 'repeating', duration_in_months: 3,
       metadata: { purpose: 'coach_club_referral', version: '1' } }, { idempotencyKey: COACH_CLUB_COUPON_ID })
   }

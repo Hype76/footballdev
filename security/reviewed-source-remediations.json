@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "e8d3277f329d44e3271925ba26a91e80f7b9d62662e4ccfa93f6501532a406e4",
+    "scripts/security-verify-reviewed-backports.mjs": "6a731656c6332aaa73d2bd07f9c5f64c03fcc3cb8106a5ea3143e5d38b185253",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -800,7 +800,7 @@
       "netlify/functions/ensure-signup-club-profile.js": "dff9a7111f38d7af466e509f8ca54582d39efc70e65346abf78552561e403381",
       "netlify/functions/get-billing-summary.js": "14a267d780f92f08ef6e0ecd235b1b2fba1bcf2794377655a135d82efe2284fd",
       "netlify/functions/lib/_availability-follow-up.js": "9cd5f19b6a30e35774a2fdc95dfe0abab6e541d33d8eca4882de013c1bb5120b",
-      "netlify/functions/lib/_coach-club-promotion.js": "d060ced6917822be4e82290c8ba25e4049ca034e97b499455329463c1824a358",
+      "netlify/functions/lib/_coach-club-promotion.js": "c385703382ba749ec80519aba1d55f2ac70d5e1147bef1bf987ee845d94c293c",
       "netlify/functions/lib/_coach-development-notifications.js": "827b76a402fb8f79aa5cecbd91555de350cab0c44e49fa6530630b685f18d50f",
       "netlify/functions/lib/_coach-match-review-delivery.js": "17f884f49f85114d8bc32b2b2340a9ebe404aecb7ad4af6c665aa7a796bcb694",
       "netlify/functions/lib/_coach-web-handoff.js": "250f420abe96be7d2dc6d1e5873fc26ad11307ba379f2d884ecd49b844a2039c",
@@ -970,7 +970,7 @@
       "tests/coach-calendar-markers-browser.mjs": "6d77ba5047ce6421295de8f5484fe0a8d5c73c58ebe325adb0d80c8f7713e135",
       "tests/coach-club-promotion-browser.mjs": "9b00a45e908e1e52a15263ef4d773058aa335ef10ead6940fcad3d30c526f38c",
       "tests/coach-club-promotion-mobile-browser.mjs": "7332e6c3ad7679debbf87bfb5aaaf86d79b6185fefe1f9a023b800392446e0f4",
-      "tests/coach-club-promotion.test.mjs": "97bbc42f7d74d25f0f6e0d97ff3b198d22c6b9354903b7efcbfaea0d6a335e70",
+      "tests/coach-club-promotion.test.mjs": "7993f66dad52e1174af31e9a7e71bbadea09728d25f9c8e5147d420547c70de8",
       "tests/coach-development-notifications-pglite.test.mjs": "6418fc6a46cff08d211b2bedd0667bf89569bdb0e56737bb61a928c0320b94e8",
       "tests/coach-development-notifications.test.mjs": "17a18bb6706deee36f003118099202301f1113aecd73825edbfb653e6ad41eef",
       "tests/coach-development-selectors-browser.mjs": "cfe4db00547d65c6fc89aaa639acea9ff87f5f74ccc20e0f66f4b7e3dec652c0",
@@ -2295,7 +2295,7 @@
       "appliedMigrationVersion": "20261015082456"
     }
   },
-  "releasePreparationSha256": "b4539cb9ee3224a210fa1fa29be2a3285a07c7b9c6497eb3c25d8ce131969100",
+  "releasePreparationSha256": "87e0ccad4b7edaecd009922e14f64e112fc7efaeeaad10fd1977cd8523cd9669",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

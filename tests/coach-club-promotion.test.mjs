@@ -38,6 +38,7 @@ test('fixed provider coupon is 50 percent for three months, validated and create
   assert.equal(await ensureCoachClubCoupon(stripe), coupon.id)
   assert.equal(request.percent_off, 50)
   assert.equal(request.duration_in_months, 3)
+  assert.ok(request.name.length <= 40, 'Stripe coupon names must fit the provider 40-character limit')
   assert.equal(options.idempotencyKey, coupon.id)
   for (const change of [{ percent_off: 25 }, { duration_in_months: 4 }, { duration: 'forever' }, { valid: false }, { applies_to: { products: ['other_product'] } }]) {
     await assert.rejects(ensureCoachClubCoupon({ coupons: { retrieve: async () => ({ ...coupon, ...change }) } }), /temporarily unavailable/)
