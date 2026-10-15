@@ -4,9 +4,14 @@ import path from 'node:path'
 import { parse } from '@babel/parser'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
+import QRCode from 'qrcode'
+import { coachClubShareLink, COACH_CLUB_PROMOTION_TERMS } from '../src/lib/coach-club-promotion.js'
 
 const root = process.cwd()
 const modules = path.join(root, 'apps/coach-mobile/node_modules')
+const promotionCode = 'FP-0123456789ABCDEF'
+const promotionLink = coachClubShareLink(promotionCode)
+const promotion = { code: promotionCode, shareUrl: promotionLink, qr: await QRCode.toDataURL(promotionLink, { margin: 4, width: 640 }), terms: COACH_CLUB_PROMOTION_TERMS }
 const source = await readFile(process.env.COACH_SCROLL_SOURCE || 'apps/coach-mobile/App.js', 'utf8')
 const nodes = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body
 const home = nodes.find(n => n.type === 'FunctionDeclaration' && n.id.name === 'CoachHome')
@@ -26,7 +31,11 @@ assert.ok(scroller, 'Coach uses the stable native scroll container')
 const scrollKey = scroller.openingElement.attributes.find(a => a.name?.name === 'key')
 assert.ok(scrollKey, 'Each page owns its native scroll view')
 const scrollKeySource = source.slice(scrollKey.value.expression.start, scrollKey.value.expression.end)
-for (const scope of ['user.id', 'activeContext.id', 'activeRoute', 'moreRoute']) assert.ok(scrollKeySource.includes(scope), 'The native page identity includes '+scope)
+assert.equal(scrollKeySource, 'scrollBounds.pageKey', 'The native page and bounds controller share one identity')
+const pageKeyNode = home.body.body.find(n => n.type === 'VariableDeclaration' && n.declarations[0].id.name === 'scrollPageKey')
+const pageKeySource = source.slice(pageKeyNode.start, pageKeyNode.end)
+for (const scope of ['user?.id', 'activeContext?.id', 'activeRoute', 'moreRoute']) assert.ok(pageKeySource.includes(scope), 'The native page identity includes '+scope)
+assert.equal(new Function('user','activeContext','activeRoute','moreRoute',pageKeySource+';return scrollPageKey')(null,null,'home',''),'::home:','Profile loading or removal cannot crash the scroll lifecycle')
 const header = elements.find(n => n.openingElement.name.name === 'CoachHeader')
 assert.ok(header.start > shell.start && header.end < scroller.start, 'The fixed Coach header stays outside the native scrolling content')
 const dragAttribute = scroller.openingElement.attributes.find(a => a.name?.name === 'onScrollBeginDrag')
@@ -38,12 +47,18 @@ let shellSource = source.slice(shell.start, shell.end)
 for (const node of elements.filter(n => ['CoachRoute', 'CoachQuickActions'].includes(n.openingElement.name.name)).sort((a, b) => b.start - a.start)) {
   shellSource = shellSource.slice(0, node.start - shell.start) + (node.openingElement.name.name === 'CoachRoute' ? '<CoachRoute onRequestScrollTop={scrollContentToTop} onNotificationSettingsFocus={focusNotificationSettings}/>' : '<View/>') + shellSource.slice(node.end - shell.start)
 }
-const names = ['CoachHeader', 'ContextSwitcher', 'PrimaryNavigation', 'ScreenIntro', 'MoreScreen', 'createCoachStyles']
+const names = ['CoachHeader', 'ContextSwitcher', 'PrimaryNavigation', 'ScreenIntro', 'SecondaryAction', 'MoreScreen', 'createCoachStyles']
 const selected = names.map(name => { const n = nodes.find(n => n.type === 'FunctionDeclaration' && n.id.name === name); return source.slice(n.start, n.end) }).join('\n').replace("require('./assets/football-player-logo.png')", "require('./apps/coach-mobile/assets/football-player-logo.png')")
-const callbacks = ['scrollContentToTop', 'focusNotificationSettings'].map(name => {
+const callbacks = ['scrollContentToTop', 'restoreContentScrollPosition', 'focusNotificationSettings'].map(name => {
   const declaration = home.body.body.find(n => n.type === 'VariableDeclaration' && n.declarations[0].id.name === name)
   return source.slice(declaration.start, declaration.end)
 }).join('\n')
+const boundsNode = home.body.body.find(n => n.type === 'VariableDeclaration' && n.declarations[0].id.name === 'scrollBounds')
+const boundsSource = source.slice(boundsNode.start, boundsNode.end).replace('contentScrollRef.current?.scrollTo(options)', '{window.corrections.push(options);contentScrollRef.current?.scrollTo(options)}')
+const boundsLifecycleNode = home.body.body.find(n => n.type === 'ExpressionStatement' && n.expression.callee?.name === 'useLayoutEffect' && source.slice(n.start, n.end).includes('scrollBounds.dispose()'))
+const boundsLifecycle = source.slice(boundsLifecycleNode.start, boundsLifecycleNode.end)
+const measuredPage = elements.find(n => n.openingElement.attributes.some(a => a.name?.name === 'onLayout' && a.value?.expression?.object?.name === 'scrollBounds' && a.value.expression.property?.name === 'onPageLayout'))
+assert.ok(measuredPage && measuredPage.start > scroller.start && measuredPage.end < scroller.end, 'Actual page content is measured inside its native scroller')
 const resetEffect = home.body.body.find(node => node.type === 'ExpressionStatement' && node.expression.callee?.name === 'useEffect'
   && source.slice(node.start, node.end).includes('scrollContentToTop()') && source.slice(node.start, node.end).includes('pendingScrollRestoreRef'))
 assert.ok(resetEffect, 'The production page scroll-reset lifecycle is exercised')
@@ -53,17 +68,18 @@ const keyboardLifecycle = home.body.body.filter(node => {
     const id = node.declarations[0].id
     return id.name === 'keyboardViewport' || (id.type === 'ArrayPattern' && id.elements[0]?.name === 'keyboardVisible')
   }
-  return node.type === 'ExpressionStatement' && node.expression.callee?.name === 'useEffect'
+  return node.type === 'ExpressionStatement' && ['useEffect', 'useLayoutEffect'].includes(node.expression.callee?.name)
     && source.slice(node.start, node.end).includes('keyboardViewport')
 }).map(node => source.slice(node.start, node.end)).join('\n')
 const entry = `import {CoachTeamBrandingSetup} from './apps/coach-mobile/src/CoachTeamBrandingSetup.js';
+import {CoachClubPromotionScreen} from './apps/coach-mobile/src/CoachClubPromotionScreen.js';
 import {CoachKeyboardFocusContext} from './apps/coach-mobile/src/CoachKeyboardFocusContext.js';
 import {createCoachKeyboardViewport} from './apps/coach-mobile/src/coachKeyboardViewportCore.js';
 import {MobileActivityProvider} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.js';
 const refreshUserProfile=async()=>{};
 
-import React,{useRef,useMemo,useCallback,useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
+import React,{useRef,useMemo,useCallback,useEffect,useLayoutEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Image,Pressable,ScrollView,TextInput,Keyboard,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState} from 'react-native';
 const keyboardListeners=new Map();Platform.OS='ios';Keyboard.isVisible=()=>Boolean(window.keyboardY);Keyboard.metrics=()=>window.keyboardY?{screenY:window.keyboardY}:undefined;Keyboard.addListener=(name,fn)=>{const listeners=keyboardListeners.get(name)||new Set();listeners.add(fn);keyboardListeners.set(name,listeners);return{remove:()=>listeners.delete(fn)}};window.keyboardEvent=(name,y)=>{window.keyboardY=y;window.setHeight(y||850);keyboardListeners.get(name)?.forEach(fn=>fn({endCoordinates:{screenY:y}}))};
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
@@ -78,7 +94,7 @@ const NotificationStatusButton=({onPress})=><Pressable accessibilityRole="button
 const StatePanel=()=>null,Notice=()=>null,BrandLoader=()=> <View style={{height:28}}/>;
 const PartnersBanner=()=> <View style={{height:156}}><Text>Special Offers</Text></View>;
 ${selected}
-function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reveal=React.useContext(CoachKeyboardFocusContext);if(window.route==='more'&&!window.moreRoute)return <MoreScreen navigation={{more:['Notifications','Formation Boards','Sessions','Development','Resources','Chat','Polls','Invites and availability','Team','Settings','Feedback & Suggestions','Report a Bug'].map(label=>({key:label,label}))}} onSelectMore={()=>{}}/>;return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/>{!window.shortContent?<><Text>Overall Comments</Text><TextInput accessibilityLabel="Overall Comments" multiline onFocus={reveal} style={{height:96}}/><Text>Coach summary</Text><TextInput accessibilityLabel="Coach summary" multiline onFocus={reveal} style={{height:96}}/><View style={{height:100}}/></>:null}<Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
+function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reveal=React.useContext(CoachKeyboardFocusContext);if(window.route==='more'&&window.moreRoute==='club-promotion')return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={()=>window.setMoreRoute('')}/><CoachClubPromotionScreen user={{id:'coach-one'}} palette={theme.palette}/></ScreenIntro>;if(window.route==='more'&&!window.moreRoute)return <MoreScreen navigation={{more:['Notifications','Formation Boards','Sessions','Development','Resources','Chat','Polls','Invites and availability','Team','Settings','Feedback & Suggestions','Report a Bug'].map(label=>({key:label,label}))}} onSelectMore={()=>{}}/>;return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/>{!window.shortContent?<><Text>Overall Comments</Text><TextInput accessibilityLabel="Overall Comments" multiline onFocus={reveal} style={{height:96}}/><Text>Coach summary</Text><TextInput accessibilityLabel="Coach summary" multiline onFocus={reveal} style={{height:96}}/><View style={{height:100}}/></>:null}<Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
 function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
 const [moreRoute,setMoreRoute]=useState('');window.setMoreRoute=setMoreRoute;
@@ -86,7 +102,7 @@ const [height,setHeight]=useState(850);window.setHeight=setHeight;
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
 window.route=activeRoute;window.moreRoute=moreRoute;
 const isMatchInvitesRoute=activeRoute==='invites';const safeAreaInsets={bottom:16};
-const user={isOfflineProfile:false};
+const user={id:'coach-one',isOfflineProfile:false};
 const quickActionVisibility={ready:true,enabled:true};
 theme={...createCoachTheme({mode,context:{clubAccent:'#51bac4'}})};theme.palette=theme.tokens;theme.styles=createCoachStyles(theme.palette);theme.branding={logoUrl:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" fill="teal"/></svg>'};
 const styles=theme.styles,palette=theme.palette;
@@ -95,19 +111,22 @@ const contextResolution={contexts},activeContext=contexts.find(c=>c.id===selecte
 const notificationState={},notificationStateStatus='ready',notice='',setNotice=()=>{},setNotificationSettingsFocusRequest=()=>{},navigation={primary:[{key:'home',label:'Home'},{key:'calendar',label:'Calendar'},{key:'matchday',label:'Match Day'},{key:'more',label:'More'}]};
 const contentScrollRef=useRef(null),contentOriginRef=useRef(0),pendingScrollRestoreRef=useRef(null);
 const [contentScrollable,setContentScrollable]=useState(true);
-const scrollBounds=useMemo(()=>createCoachScrollBounds(options=>{window.corrections.push(options);contentScrollRef.current?.scrollTo(options)},undefined,setContentScrollable),[]);
+${pageKeySource}
+${boundsSource}
 ${keyboardLifecycle}
-useEffect(()=>()=>scrollBounds.dispose(),[scrollBounds]);
+${boundsLifecycle}
+useLayoutEffect(()=>{window.afterPageCommit?.(scrollBounds)},[scrollBounds]);
 ${callbacks}
 const navigate=route=>{setActiveRoute(route);scrollContentToTop()},selectContext=id=>{setSelected(id);scrollContentToTop()},openNotificationSettings=()=>{setActiveRoute('settings');requestAnimationFrame(()=>focusNotificationSettings(0))},loadHome=()=>setRefreshing(true);
-window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);window.queueTop=scrollContentToTop;window.pendingScroll=()=>pendingScrollRestoreRef.current;window.contentScrollable=contentScrollable;
+window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);window.queueTop=scrollContentToTop;window.restoreScroll=restoreContentScrollPosition;window.pendingScroll=()=>pendingScrollRestoreRef.current;window.contentScrollable=contentScrollable;
+window.nativeScrollRef=()=>contentScrollRef.current;
 window.beginDrag=${dragSource};
 window.beginTouch=${touchSource};
 ${resetLifecycle}
 return <MobileActivityProvider active={isRefreshing}><View style={[styles.appShell,{height}]}>${shellSource}</View></MobileActivityProvider>;
 }
 window.corrections=[];createRoot(document.getElementById('root')).render(<App/>);`
-const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths:[modules], conditions:['browser'], mainFields:['browser','module','main'], resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'} })
+const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, plugins: [{name:'promotion-request',setup(builder){builder.onResolve({filter:/mobileSignup$/},()=>({path:'promotion-request',namespace:'fixture'}));builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export async function mobileAccountRequest(){return '+JSON.stringify(promotion)+'}',loader:'js'}))}}], bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths:[modules], conditions:['browser'], mainFields:['browser','module','main'], resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'} })
 const out = 'output/playwright/coach-smooth-scroll'
 await mkdir(out, { recursive: true })
 const browser = await chromium.launch({ headless: true })
@@ -161,10 +180,11 @@ try {
       await page.evaluate(()=>window.refresh(false))
       await page.getByTestId('brand-loader').waitFor({state:'hidden'})
       await page.screenshot({ path: `${out}/held-${width}-${contextCount}.png` })
-      await scroll.evaluate(el=>{window.previousScrollNode=el})
+      await scroll.evaluate(el=>{window.previousScrollNode=el;window.previousBounds=window.bounds})
       await page.evaluate(()=>window.setRoute('calendar'))
       await page.waitForTimeout(180)
       assert.equal(await scroll.evaluate(el=>el===window.previousScrollNode),false,'A tab change starts a fresh native scroll view rather than retaining the prior page geometry')
+      assert.equal(await page.evaluate(()=>window.bounds===window.previousBounds),false,'The bounds controller belongs to the current page, not an earlier tab')
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'Route changes return to the header')
       if(contextCount===2){await page.getByRole('button',{name:'Spain, Team Admin',exact:true}).click();assert.equal(await scroll.evaluate(el=>el.scrollTop),0)}
       await page.evaluate(()=>window.focusSettings())
@@ -210,6 +230,70 @@ try {
       assert.ok(footer.y+footer.height<=850,'Bottom navigation stays within the screen')
       assert.ok(await page.evaluate(()=>document.documentElement.scrollHeight<=850),'Long tool grids never stretch the outer page')
       await page.screenshot({path:out+'/more-'+width+'-'+contextCount+'.png'})
+      await page.evaluate(()=>window.setMoreRoute('club-promotion'))
+      await page.getByRole('button',{name:'Share link',exact:true}).waitFor()
+      await page.waitForTimeout(250)
+      assert.ok(await page.getByRole('img',{name:'Scan to join Football Player with your coach promotion code'}).isVisible(),'The actual promotion QR participates in the page layout')
+      await page.evaluate(()=>window.setHeight(600))
+      await page.waitForTimeout(180)
+      const beforeResize=await scroll.evaluate(el=>({height:el.clientHeight,content:el.scrollHeight}))
+      await scroll.evaluate(el=>{el.scrollTop=el.scrollHeight-el.clientHeight})
+      await page.evaluate(()=>window.setHeight(850))
+      await page.waitForTimeout(180)
+      const maximum=await page.getByTestId('coach-page-content').evaluate(el=>Math.max(0,el.getBoundingClientRect().height-document.querySelector('[data-testid="coach-content-scroll"]').clientHeight))
+      await page.evaluate(({height,content,maximum})=>{window.corrections=[];window.promotionBounds=window.bounds;window.promotionCallbacks=[window.queueTop,window.restoreScroll,window.focusSettings];window.bounds.handlers.onScroll({nativeEvent:{contentOffset:{y:maximum+200},layoutMeasurement:{height},contentSize:{height:content+800}}})},{...beforeResize,maximum})
+      await page.waitForTimeout(180)
+      assert.ok(Math.abs((await page.evaluate(()=>window.corrections.at(-1)?.y))-maximum)<2,'Stale native dimensions cannot extend the actual promotion page after viewport growth')
+      await page.screenshot({path:out+'/promotion-end-'+width+'-'+contextCount+'.png'})
+      await page.evaluate(()=>{
+        const request=window.requestAnimationFrame,cancel=window.cancelAnimationFrame;window.retainedOldFrames=[];
+        window.requestAnimationFrame=fn=>{window.retainedOldFrames.push(fn);return 90000000+window.retainedOldFrames.length};window.cancelAnimationFrame=()=>{};
+        try{for(const callback of window.promotionCallbacks)callback(900)}finally{window.requestAnimationFrame=request;window.cancelAnimationFrame=cancel}
+      })
+      await page.evaluate(()=>{
+        window.afterPageCommit=current=>{
+          if(current===window.promotionBounds)return;
+          const request=window.requestAnimationFrame,cancel=window.cancelAnimationFrame,native=window.nativeScrollRef(),scrollTo=native.scrollTo;let requests=0,cancelled=0,calls=0;
+          window.requestAnimationFrame=()=>{requests++;return 98000000};window.cancelAnimationFrame=()=>{cancelled++};native.scrollTo=()=>{calls++};
+          try{
+            window.promotionBounds.handlers.onScroll({nativeEvent:{contentOffset:{y:900},layoutMeasurement:{height:200},contentSize:{height:300}}});
+            window.promotionBounds.handlers.onMomentumScrollEnd({nativeEvent:{contentOffset:{y:900}}});
+            for(const callback of window.promotionCallbacks)callback(900);
+            for(const frame of window.retainedOldFrames)frame();
+            window.commitBoundary={oldActive:window.promotionBounds.isActive(),requests,cancelled,calls};
+          }finally{window.requestAnimationFrame=request;window.cancelAnimationFrame=cancel;native.scrollTo=scrollTo;window.afterPageCommit=null}
+        };
+        window.shortContent=true;window.setMoreRoute('');window.setRoute('matchday');
+      })
+      await page.waitForFunction(()=>Boolean(window.commitBoundary))
+      assert.deepEqual(await page.evaluate(()=>window.commitBoundary),{oldActive:false,requests:0,cancelled:0,calls:0},'Old-page handlers and queued frames are inactive during the next page layout commit, before passive cleanup')
+      await page.waitForTimeout(180)
+      await page.evaluate(()=>{window.corrections=[];window.promotionBounds.handlers.onScroll({nativeEvent:{contentOffset:{y:900},layoutMeasurement:{height:200},contentSize:{height:300}}});window.promotionBounds.handlers.onMomentumScrollEnd({nativeEvent:{contentOffset:{y:900}}})})
+      await page.waitForTimeout(180)
+      assert.deepEqual(await page.evaluate(()=>window.corrections),[],'Old promotion events cannot move the next screen')
+      assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'A short page remains at the top after late old-page events')
+      const oldRequests=await page.evaluate(()=>{
+        const request=window.requestAnimationFrame,cancel=window.cancelAnimationFrame,frames=new Map();let next=0,cancelled=0;
+        window.requestAnimationFrame=fn=>{frames.set(++next,fn);return next};window.cancelAnimationFrame=id=>{cancelled++;frames.delete(id)};
+        try{
+          window.queueTop();const pending=window.pendingScroll();
+          for(const callback of window.promotionCallbacks)callback(900);
+          const result={queued:frames.size,cancelled,pendingUnchanged:window.pendingScroll()===pending};
+          for(const fn of frames.values())fn();return result;
+        }finally{window.requestAnimationFrame=request;window.cancelAnimationFrame=cancel}
+      })
+      assert.deepEqual(oldRequests,{queued:1,cancelled:0,pendingUnchanged:true},'Retained old-page top/restore/settings callbacks cannot schedule or cancel new-page scroll work')
+      const lateFrames=await page.evaluate(()=>{
+        const native=window.nativeScrollRef(),scrollTo=native.scrollTo,request=window.requestAnimationFrame,cancel=window.cancelAnimationFrame,currentFrames=[];let calls=0;
+        native.scrollTo=(...args)=>{calls++;return scrollTo.apply(native,args)};
+        window.requestAnimationFrame=fn=>{currentFrames.push(fn);return 99000000};window.cancelAnimationFrame=()=>{};
+        try{window.queueTop();const pending=window.pendingScroll();for(const fn of window.retainedOldFrames)fn();const result={frames:window.retainedOldFrames.length,calls,pendingUnchanged:window.pendingScroll()===pending};for(const fn of currentFrames)fn();return result}finally{native.scrollTo=scrollTo;window.requestAnimationFrame=request;window.cancelAnimationFrame=cancel}
+      })
+      assert.ok(lateFrames.frames>=3,'Captured deferred scroll work from each old-page callback')
+      assert.deepEqual({calls:lateFrames.calls,pendingUnchanged:lateFrames.pendingUnchanged},{calls:0,pendingUnchanged:true},'Already queued old-page frames cannot clear current work or touch the current native scroller')
+      await page.evaluate(()=>{window.shortContent=false;window.setRoute('more')})
+      await finalTool.waitFor()
+      await page.waitForTimeout(180)
       for(const gesture of ['beginTouch','beginDrag']){
         const cancellation=await page.evaluate(name=>{
           const nativeRequest=window.requestAnimationFrame,nativeCancel=window.cancelAnimationFrame,frames=new Map();let next=0;

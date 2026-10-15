@@ -32,7 +32,7 @@ import * as Application from 'expo-application'
 import Constants from 'expo-constants'
 import * as Notifications from 'expo-notifications'
 import { StatusBar } from 'expo-status-bar'
-import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { PartnersBanner, PartnersScreen } from '../mobile-core/src/PartnersScreen'
 import {
   Alert,
@@ -223,10 +223,16 @@ function CoachHome() {
   const [quickActionRequest, setQuickActionRequest] = useState(null)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
+  const contextResolution = useMemo(
+    () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
+    [selectedContextId, user],
+  )
+  const activeContext = contextResolution.allowed ? contextResolution.context : null
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const contentScrollRef = useRef(null)
   const [contentScrollable, setContentScrollable] = useState(true)
-  const scrollBounds = useMemo(() => createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options), undefined, setContentScrollable), [])
+  const scrollPageKey = `${user?.id || ''}:${activeContext?.id || ''}:${activeRoute}:${moreRoute}`
+  const scrollBounds = useMemo(() => ({ ...createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options), undefined, setContentScrollable), pageKey: scrollPageKey }), [scrollPageKey])
   const [keyboardVisible, setKeyboardVisible] = useState(Boolean(Keyboard.isVisible?.()))
   const keyboardViewport = useMemo(() => createCoachKeyboardViewport({
     keyboard: Keyboard, platform: Platform.OS, scrollRef: contentScrollRef,
@@ -235,10 +241,10 @@ function CoachHome() {
     onVisibilityChange: setKeyboardVisible,
     requestFrame: callback => requestAnimationFrame(callback), cancelFrame: frame => cancelAnimationFrame(frame),
   }), [scrollBounds])
-  useEffect(() => { keyboardViewport.start(); return () => keyboardViewport.dispose() }, [keyboardViewport])
+  useLayoutEffect(() => { keyboardViewport.start(); return () => keyboardViewport.dispose() }, [keyboardViewport])
   const pendingScrollRestoreRef = useRef(null)
   const contentOriginRef = useRef(0)
-  useEffect(() => () => scrollBounds.dispose(), [scrollBounds])
+  useLayoutEffect(() => { scrollBounds.activate(); return () => scrollBounds.dispose() }, [scrollBounds])
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
   const lastHomeRefreshAtRef = useRef(0)
@@ -254,11 +260,6 @@ function CoachHome() {
   const latestBadgeCountRef = useRef(0)
   const formationReturnRef = useRef({ activeRoute: 'home', moreRoute: '' })
 
-  const contextResolution = useMemo(
-    () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
-    [selectedContextId, user],
-  )
-  const activeContext = contextResolution.allowed ? contextResolution.context : null
   const selectedMobileUser = useMemo(
     () => activeContext && user ? { ...applyCoachContext(user, activeContext), matchdayPolicy: matchdayPlanConfig } : null,
     [activeContext, matchdayPlanConfig, user],
@@ -307,18 +308,22 @@ function CoachHome() {
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
   const scrollContentToTop = useCallback(() => {
+    if (!scrollBounds.isActive()) return
     if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
     scrollBounds.resetOffset()
     pendingScrollRestoreRef.current = requestAnimationFrame(() => {
+      if (!scrollBounds.isActive()) return
       pendingScrollRestoreRef.current = null
       contentScrollRef.current?.scrollTo({ animated: false, y: 0 })
     })
   }, [scrollBounds])
 
   const restoreContentScrollPosition = useCallback((position) => {
+    if (!scrollBounds.isActive()) return
     const y = Math.max(0, Number(position) || 0)
     if (pendingScrollRestoreRef.current !== null) cancelAnimationFrame(pendingScrollRestoreRef.current)
     pendingScrollRestoreRef.current = requestAnimationFrame(() => {
+      if (!scrollBounds.isActive()) return
       pendingScrollRestoreRef.current = null
       scrollBounds.resetOffset(y)
       contentScrollRef.current?.scrollTo({ animated: false, y })
@@ -663,10 +668,11 @@ function CoachHome() {
   }, [navigate])
 
   const focusNotificationSettings = useCallback((sectionY) => {
+    if (!scrollBounds.isActive()) return
     const numericY = Number(sectionY)
     const targetY = Number.isFinite(numericY) ? Math.max(0, contentOriginRef.current + numericY - 12) : 0
     scrollBounds.resetOffset(targetY)
-    requestAnimationFrame(() => contentScrollRef.current?.scrollTo({ animated: true, y: targetY }))
+    requestAnimationFrame(() => { if (scrollBounds.isActive()) contentScrollRef.current?.scrollTo({ animated: true, y: targetY }) })
     setNotificationSettingsFocusRequest(null)
   }, [scrollBounds])
 
@@ -966,7 +972,7 @@ function CoachHome() {
           {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
           {!isMatchInvitesRoute ? <CoachHeader context={activeContext} notificationState={notificationState} notificationStateStatus={notificationStateStatus} onOpenNotificationSettings={openNotificationSettings} user={selectedMobileUser} /> : <View style={{ height: 36, alignItems: 'flex-end', paddingRight: 16 }}><MobileHeaderActivity live={config.isProduction} test={!config.isProduction} offline={user.isOfflineProfile} styles={styles} /></View>}
           <ScrollView
-            key={`${user.id}:${activeContext.id}:${activeRoute}:${moreRoute}`}
+            key={scrollBounds.pageKey}
             {...scrollBounds.handlers}
             onLayout={event => { scrollBounds.handlers.onLayout(event); keyboardViewport.ensureFocusedField() }}
             onContentSizeChange={(width, height) => { scrollBounds.handlers.onContentSizeChange(width, height); keyboardViewport.ensureFocusedField() }}
@@ -1010,6 +1016,7 @@ function CoachHome() {
             )}
             ref={contentScrollRef}
           >
+            <View collapsable={false} onLayout={scrollBounds.onPageLayout} testID="coach-page-content">
             <CoachTeamBrandingSetup
               context={activeContext} user={selectedMobileUser} apiBaseUrl={config.apiBaseUrl}
               palette={palette} prompt={activeRoute === 'home'} refreshUserProfile={refreshUserProfile}
@@ -1071,6 +1078,7 @@ function CoachHome() {
               user={selectedMobileUser}
             />
             </CoachKeyboardFocusContext.Provider>
+            </View>
             </View>
           </ScrollView>
           {!keyboardVisible ? <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} /> : null}
