@@ -25,6 +25,108 @@ test('native scroll geometry corrects a stale short-page offset when layout call
   assert.deepEqual(calls, [{ animated: false, y: 0 }])
 })
 
+test('actual page and viewport layout override pre-keyboard native scroll metrics', () => {
+  const { controller, handlers, calls, flush } = setup()
+  controller.onPageLayout({ nativeEvent: { layout: { height: 1000 } } })
+  handlers.onLayout({ nativeEvent: { layout: { height: 320 } } })
+  handlers.onScroll(event(600))
+  handlers.onLayout({ nativeEvent: { layout: { height: 600 } } })
+  handlers.onScroll({ nativeEvent: { contentOffset: { y: 600 }, layoutMeasurement: { height: 320 }, contentSize: { height: 1000 } } })
+  flush()
+  assert.deepEqual(calls, [{ animated: false, y: 400 }], 'Keyboard dismissal cannot retain 200 pixels of blank scroll range')
+})
+
+test('viewport layout stays authoritative before the first natural page measurement arrives', () => {
+  const { controller, handlers, calls, flush } = setup()
+  handlers.onLayout({ nativeEvent: { layout: { height: 600 } } })
+  handlers.onScroll({ nativeEvent: { contentOffset: { y: 600 }, layoutMeasurement: { height: 320 }, contentSize: { height: 1000 } } })
+  controller.onPageLayout({ nativeEvent: { layout: { height: 1000 } } })
+  flush()
+  assert.deepEqual(calls, [{ animated: false, y: 400 }])
+})
+
+test('shrinking the rendered page cannot be undone by retained native content dimensions', () => {
+  const { controller, handlers, calls, flush } = setup()
+  controller.onPageLayout({ nativeEvent: { layout: { height: 1000 } } })
+  handlers.onScroll(event(500))
+  controller.onPageLayout({ nativeEvent: { layout: { height: 200 } } })
+  handlers.onContentSizeChange(390, 2000)
+  handlers.onScroll({ nativeEvent: { contentOffset: { y: 500 }, layoutMeasurement: { height: 480 }, contentSize: { height: 2000 } } })
+  flush()
+  assert.deepEqual(calls, [{ animated: false, y: 0 }])
+})
+
+test('disposed page events cannot schedule corrections against the next page', () => {
+  const { controller, handlers, calls, flush } = setup()
+  controller.dispose()
+  controller.onPageLayout({ nativeEvent: { layout: { height: 200 } } })
+  handlers.onLayout({ nativeEvent: { layout: { height: 600 } } })
+  handlers.onScroll({ nativeEvent: { contentOffset: { y: 700 }, layoutMeasurement: { height: 600 }, contentSize: { height: 200 } } })
+  handlers.onScrollEndDrag(event(700))
+  handlers.onMomentumScrollEnd(event(700))
+  flush()
+  assert.deepEqual(calls, [], 'Late events from an unmounted page have no live scroll target')
+})
+
+test('a fresh long page reports scrollability even when the previous page disabled it', () => {
+  const changes = []
+  const page = height => {
+    const controller = createCoachScrollBounds(() => {}, undefined, value => changes.push(value))
+    controller.onPageLayout({ nativeEvent: { layout: { height } } })
+    controller.handlers.onLayout({ nativeEvent: { layout: { height: 600 } } })
+    return controller
+  }
+  const short = page(200)
+  short.dispose()
+  const long = page(1000)
+  assert.deepEqual(changes, [false, true])
+  long.dispose()
+})
+
+test('effect reconnection reactivates the same mounted page after cleanup', () => {
+  const { controller, handlers, calls, flush } = setup()
+  controller.onPageLayout({ nativeEvent: { layout: { height: 1000 } } })
+  controller.dispose()
+  controller.activate()
+  controller.onPageLayout({ nativeEvent: { layout: { height: 200 } } })
+  handlers.onScroll(event(700))
+  flush()
+  assert.deepEqual(calls, [{ animated: false, y: 0 }])
+  controller.dispose()
+})
+
+test('reconnection cannot retain a disconnected native pan or momentum forever', () => {
+  for (const gesture of ['pan', 'momentum']) {
+    const { controller, handlers, calls, flush } = setup()
+    controller.onPageLayout({ nativeEvent: { layout: { height: 1000 } } })
+    handlers.onScroll(event(600))
+    if (gesture === 'pan') { handlers.onTouchStart(); handlers.onScrollBeginDrag() }
+    else handlers.onMomentumScrollBegin()
+    controller.dispose()
+    assert.equal(controller.isActive(), false)
+    controller.activate()
+    assert.equal(controller.isActive(), true)
+    controller.onPageLayout({ nativeEvent: { layout: { height: 200 } } })
+    flush()
+    assert.deepEqual(calls, [{ animated: false, y: 0 }], gesture + ' ended while disconnected without a release event')
+    controller.dispose()
+  }
+})
+
+test('activation of an already live page does not release the current finger', () => {
+  const { controller, handlers, calls, flush } = setup()
+  handlers.onTouchStart()
+  handlers.onScrollBeginDrag()
+  controller.onPageLayout({ nativeEvent: { layout: { height: 200 } } })
+  handlers.onScroll(event(600))
+  controller.activate()
+  flush()
+  assert.deepEqual(calls, [])
+  handlers.onScrollEndDrag(event(600))
+  flush()
+  assert.deepEqual(calls, [{ animated: false, y: 0 }])
+})
+
 test('native drag release repairs an out-of-range page even when UIKit omits the raw touch-end callback', () => {
   const { handlers, calls, flush } = setup()
   handlers.onTouchStart()
@@ -133,13 +235,13 @@ test('short pages disable scrolling after a gesture ends and growing content ena
   controller.handlers.onTouchStart()
   controller.handlers.onScrollBeginDrag()
   controller.handlers.onContentSizeChange(390, 320)
-  assert.deepEqual(changes, [], 'Layout changes never disable a scroll gesture under the finger')
+  assert.deepEqual(changes, [true], 'Layout changes never disable a scroll gesture under the finger')
   controller.handlers.onScrollEndDrag(event(180))
   controller.handlers.onTouchEnd()
   for (const fn of [...timers.values()]) fn()
-  assert.deepEqual(changes, [false])
+  assert.deepEqual(changes, [true, false])
   controller.handlers.onContentSizeChange(390, 900)
-  assert.deepEqual(changes, [false, true])
+  assert.deepEqual(changes, [true, false, true])
   controller.dispose()
 })
 
