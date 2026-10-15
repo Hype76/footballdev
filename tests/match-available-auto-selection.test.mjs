@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { readMatchDayAutoSelectDefault, rememberMatchDayAutoSelectDefault } from '../src/lib/matchday-auto-select-default.js'
+import vm from 'node:vm'
+import { loadMatchDayAutoSelectDefault, readMatchDayAutoSelectDefault, rememberMatchDayAutoSelectDefault } from '../src/lib/matchday-auto-select-default.js'
 import { normalizeFixtureSetupIntent } from '../src/lib/matchday-workflow.js'
 
 const migrationUrl = new URL(
@@ -27,8 +28,9 @@ test('new website matches default off and both entry points restore the saved ch
 
   assert.match(matchDayPage, /const EMPTY_MATCH_FORM = \{[\s\S]*autoSelectAvailablePlayers: false/)
   assert.match(sessionsPage, /function getDefaultCalendarForm[\s\S]*autoSelectAvailablePlayers: false/)
-  assert.match(matchDayPage, /autoSelectAvailablePlayers: readMatchDayAutoSelectDefault\(user, preferenceTeamId\)/)
-  assert.match(sessionsPage, /autoSelectAvailablePlayers: readMatchDayAutoSelectDefault\(user, safeTeamId \|\| user\.activeTeamId\)/)
+  assert.match(matchDayPage, /loadMatchDayAutoSelectDefault\(user, preferenceTeamId, getOwnMatchSelectionPreference\)/)
+  const handoff = sessionsPage.slice(sessionsPage.indexOf('const openCalendarMatchDayWorkflow ='), sessionsPage.indexOf('const handleCalendarFormChange ='))
+  assert.doesNotMatch(handoff, /autoSelectAvailablePlayers:/)
   assert.match(workflow, /typeof intent\.autoSelectAvailablePlayers === 'boolean'/)
   assert.match(domain, /auto_select_available_players: match\?\.autoSelectAvailablePlayers !== false/)
 })
@@ -75,14 +77,48 @@ test('fixture handoff preserves explicit choices and lets omitted choices use th
   }
 })
 
-test('remembering occurs after successful creation or edit, never when opening or toggling', async () => {
+test('fixture writes remain authoritative while new forms refresh cached preferences safely', async () => {
   const matchDayPage = await readFile(matchDayPageUrl, 'utf8')
   const sessionsPage = await readFile(sessionsPageUrl, 'utf8')
   assert.match(matchDayPage, /const createdMatch = await createMatchDay\([\s\S]*rememberMatchDayAutoSelectDefault\(user, teamId, submittedForm\.autoSelectAvailablePlayers\)/)
   assert.match(sessionsPage, /const savedMatch = await updateMatchDay\([\s\S]*rememberMatchDayAutoSelectDefault\(user, safeTeamId, payload\.autoSelectAvailablePlayers\)/)
   assert.match(sessionsPage, /if \(calendarModal\?\.mode === 'create'\) \{\s*nextForm\.autoSelectAvailablePlayers = readMatchDayAutoSelectDefault/)
-  assert.equal((matchDayPage.match(/rememberMatchDayAutoSelectDefault\(/g) || []).length, 1)
+  assert.match(matchDayPage, /if \(preferenceRequest !== fixturePreferenceRequestRef.current\) return/)
+  assert.match(matchDayPage, /if \(request !== fixturePreferenceRequestRef.current\) return/)
+  assert.equal((matchDayPage.match(/rememberMatchDayAutoSelectDefault\(/g) || []).length, 3)
   assert.equal((sessionsPage.match(/rememberMatchDayAutoSelectDefault\(/g) || []).length, 1)
+})
+
+test('fresh server values override old device values and offline reads retain the last known cache', async () => {
+  const storage = memoryStorage()
+  const user = { id: 'coach', clubId: 'club', activeTeamId: 'team' }
+  rememberMatchDayAutoSelectDefault(user, 'team', true, storage)
+  assert.equal(await loadMatchDayAutoSelectDefault(user, 'team', async () => ({ found: true, autoSelectAvailablePlayers: false }), storage), false)
+  assert.equal(await loadMatchDayAutoSelectDefault(user, 'team', async () => ({ found: false }), storage), false)
+  assert.equal(await loadMatchDayAutoSelectDefault(user, 'team', async () => { throw new Error('offline') }, storage), true)
+  assert.equal(await loadMatchDayAutoSelectDefault(user, 'other', async () => { throw new Error('offline') }, storage), false)
+})
+
+test('a stalled server read expires and a late response cannot replace the cached choice', async () => {
+  const domain = await readFile(new URL('../src/lib/domain/team-actions.js', import.meta.url), 'utf8')
+  const cache = await readFile(new URL('../src/lib/domain/cache-store.js', import.meta.url), 'utf8')
+  const getter = domain.slice(domain.indexOf('export async function getOwnMatchSelectionPreference'), domain.indexOf('export async function updateOwnTeamFixturePreferences')).replace('export ', '')
+  const timeout = cache.slice(cache.indexOf('export async function withRequestTimeout'), cache.indexOf('export function readViewCache')).replace('export ', '')
+  let finishRead
+  const context = vm.createContext({
+    REQUEST_TIMEOUT_MS: 8000,
+    window: { setTimeout: (callback, milliseconds) => { assert.equal(milliseconds, 8000); return setTimeout(callback, 1) }, clearTimeout },
+    blockDemoMutation: async () => {},
+    supabase: { rpc: () => new Promise(resolve => { finishRead = resolve }) },
+  })
+  vm.runInContext(timeout + getter, context)
+  const user = { id: 'coach', clubId: 'club', activeTeamId: 'team' }
+  const storage = memoryStorage()
+  rememberMatchDayAutoSelectDefault(user, 'team', false, storage)
+  assert.equal(await loadMatchDayAutoSelectDefault(user, 'team', context.getOwnMatchSelectionPreference, storage), false)
+  finishRead({ data: { found: true, autoSelectAvailablePlayers: true } })
+  await new Promise(resolve => setTimeout(resolve, 1))
+  assert.equal(readMatchDayAutoSelectDefault(user, 'team', storage), false)
 })
 
 test('the accessible match-only control persists through create and edit without appearing in training', async () => {
