@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "6a731656c6332aaa73d2bd07f9c5f64c03fcc3cb8106a5ea3143e5d38b185253",
+    "scripts/security-verify-reviewed-backports.mjs": "e777c0164c4e189d53d37fea4feae4b64453549caeb0306bba711ba457769728",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -862,7 +862,7 @@
       "src/components/marketing/MarketingPage.jsx": "69770ae9a2a4e27de486f1d3c05a8c79ec9802799a5e88e57919bd3af14bb345",
       "src/components/marketing/first250-counter.js": "5eb1a38b03c092d239d487f53372b4f5c1050e3d6663a9679a9062223c5c2c04",
       "src/components/marketing/marketing-inline-pages.css": "8e6738da909d01a79e498418066cae2dc4e58b0c595dc4afe9d645974526944c",
-      "src/components/marketing/marketing-pricing.js": "622503b155fd0d45b54f64e0c51f52218dc3453a69eebbf91cb6f05e49f7ba52",
+      "src/components/marketing/marketing-pricing.js": "19b7916dbba291ae3c0b3a11af9be40f3844b783a19feafa85b266ec49b7fbab",
       "src/components/marketing/marketing-reference.css": "649b2a3f472a6f97b65f3da0117a964573ffb35fb79c6560d81863e4b03d3884",
       "src/components/marketing/reference-app.js": "43681ef37805ca2f04043651948ccbfd8a04d0754774fddeafe4aea2b714d0b2",
       "src/components/marketing/reference-development-builder.js": "a7fed1001c67ae51fb6ddfc16335369fd03be5e5b6ba23fa359fa1146262c9f4",
@@ -1156,7 +1156,7 @@
       "tests/player-profile-chat-history-13c.test.mjs": "9d005844a71908b2353a0d1ee02f9116206932f4ad7b5495aa67244346621155",
       "tests/poll-watched-browser.mjs": "84e9ff9be939cdd2e23f17ed6a0726f18b2a05266b9a18d48fff2aadbdddd7da",
       "tests/privileged-functions-postgres.test.mjs": "d67ef17d225af5604096c9d71193bfc7c4b391dd28f1c29ab4fb1852c22cc64f",
-      "tests/public-club-offer-browser.mjs": "0c4de909ea3e6d8f44d2ff5bb62cda570abdc5ec6367f02505a2309d52f2ca5b",
+      "tests/public-club-offer-browser.mjs": "8810a49ad4a2b66927d21b1d433fb04932999247cec7236bb656b6e1b26ddc40",
       "tests/public-club-quote.test.mjs": "5e770b3f97131fd895d68c98624244183ea531c0595b8d822cba753cc0c61937",
       "tests/public-parent-login-maintenance-banner.test.mjs": "8e07b8c6fe343b8f9727d3eef07f7d29f0925d6e3c42d1bd700bba6352e7f751",
       "tests/public-signup-recovery.test.mjs": "c5fd4909e7b2effa2b8371df8e76b4d9a5c278edea538e2f3d0142204af2c514",
@@ -2295,7 +2295,7 @@
       "appliedMigrationVersion": "20261015082456"
     }
   },
-  "releasePreparationSha256": "87e0ccad4b7edaecd009922e14f64e112fc7efaeeaad10fd1977cd8523cd9669",
+  "releasePreparationSha256": "c5cdea730f96e3758991cc94f0560daafd2339adfcad4f2a39a01cccba505839",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
