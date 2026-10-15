@@ -19,6 +19,7 @@ import {
 } from './team-player-read.js'
 import {
   CLUB_SELECT,
+  DEMO_MUTATION_ERROR_MESSAGE,
   MEMBERSHIP_CLUB_SELECT,
   USER_PROFILE_SELECT,
 } from './core-constants.js'
@@ -962,7 +963,9 @@ export async function updateOwnThemeSettings({ authUser, mode }) {
     throw new Error('Signed in user is required.')
   }
 
-  await blockDemoMutation(authUser)
+  if (isDemoAccountValue(authUser)) {
+    throw new Error(DEMO_MUTATION_ERROR_MESSAGE)
+  }
 
   const normalizedMode = ['system', 'dark', 'light'].includes(mode) ? mode : 'system'
 
