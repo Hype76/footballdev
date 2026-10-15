@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "aacbc6946c9e8ce57ed87a99d586331e16d017dd261d172ec2941219e19408b8",
+    "scripts/security-verify-reviewed-backports.mjs": "b031c39bf703308c33bb80897037f1575e72b4656166467598c4a1cd5ac5022b",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1190,7 +1190,8 @@
       "apps/mobile-core/src/startupStateCore.js": "907a5f8b61efa12adcff506c6c8e07582246f8faf8123f5177bf45da0e4d6fc0",
       "apps/mobile-core/src/secureSessionStorageCore.js": "93306b354d13d494758d8a05bdd606c8ca2feb4795af42a5482ee137cf32ab42",
       "tests/mobile-secure-session-08.test.mjs": "0e25590f85b9a5a4833ac1cfa63cdd3b5e3d7c5ec61b3f19f5bded7e678714e2",
-      "tests/mobile-parent-startup-28.test.mjs": "537d9971bd49b4891a4acc9e08576934e992f885b8f5d124cf8f212e2ea3e87c"
+      "tests/mobile-parent-startup-28.test.mjs": "537d9971bd49b4891a4acc9e08576934e992f885b8f5d124cf8f212e2ea3e87c",
+      "tests/parent-self-access-removal.test.mjs": "4b02bf6faf3bd9cbeb08a507c6a4171c7faa866fd5ac22f4eb9ab687229cc593"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2312,11 +2313,11 @@
     "coachStartupRecovery": {
       "sourceBaseline": "7ba87650a76d767fdbf0dd004f37621082e15888",
       "scope": "Coach OTA only. Shared Auth and storage source covered for Coach and Parent, Parent publication unchanged.",
-      "validation": "105 focused tests, actual AuthProvider recovery browser fixture, targeted ESLint and diff checks passed. Three obsolete baseline source-pattern assertions independently reproduced. Full hosted gates and mobile release checks required.",
+      "validation": "115 focused startup/auth/storage/offline/access-removal tests, actual AuthProvider recovery browser fixture, targeted ESLint, 320/390px final recovery screen and diff checks passed. Three obsolete baseline source-pattern assertions independently reproduced. Full hosted gates and mobile release checks required.",
       "publicationApproved": false
     }
   },
-  "releasePreparationSha256": "bc357a285c74d8e680d3f7867d101c15cc7217475ea106b32ec5ceddc68cc7ba",
+  "releasePreparationSha256": "bc51088c9e0bebeb6a25d82e98ff66f481772b7003a499a8304247055d173e7f",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
