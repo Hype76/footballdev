@@ -3,9 +3,15 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import QRCode from 'qrcode'
+import sharp from 'sharp'
+import jsQR from 'jsqr'
+import { coachClubShareLink } from '../src/lib/coach-club-promotion.js'
 
 const modules = path.resolve('apps/coach-mobile/node_modules')
 const code = 'FP-0123456789ABCDEF'
+const shareUrl = coachClubShareLink(code)
+const qr = await QRCode.toDataURL(shareUrl, { errorCorrectionLevel: 'M', margin: 4, width: 640 })
 const script = await build({ stdin: { resolveDir: process.cwd(), loader: 'jsx', contents: `
 import React,{useState} from 'react'; import {createRoot} from 'react-dom/client';
 import {CoachClubPromotionScreen} from './apps/coach-mobile/src/CoachClubPromotionScreen.js';
@@ -17,7 +23,7 @@ const theme=createCoachTheme({mode,context:{}});return <div style={{background:t
 createRoot(document.getElementById('root')).render(<App/>);` },
   plugins: [{ name: 'promotion-request-fixture', setup(builder) {
     builder.onResolve({ filter: /mobileSignup$/ }, () => ({ path: 'promotion-request', namespace: 'fixture' }))
-    builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ loader: 'js', contents: `export async function mobileAccountRequest(role,name,body,actor){window.requests.push({role,name,body,actor});if(window.failNext){window.failNext=false;throw new Error('No connection. Try again when online.')}return {success:true,code:'${code}',shareUrl:'https://footballplayer.online/club-signup?ref=${code}',terms:'New paid clubs only. 50% off the first 3 monthly payments, then the normal price. Once per club. Cannot be combined with other discounts.'}}` }))
+    builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ loader: 'js', contents: `export async function mobileAccountRequest(role,name,body,actor){window.requests.push({role,name,body,actor});if(window.failNext){window.failNext=false;throw new Error('No connection. Try again when online.')}return {success:true,code:'${code}',shareUrl:${JSON.stringify(shareUrl)},qr:${JSON.stringify(qr)},terms:'New paid clubs only. 50% off the first 3 monthly payments, then the normal price. Once per club. Cannot be combined with other discounts.'}}` }))
   } }], bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx' }, platform: 'browser',
   alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' },
@@ -37,16 +43,23 @@ try {
   assert.equal(shares.length, 2)
   assert.match(shares[0].text, new RegExp(code))
   assert.doesNotMatch(shares[0].text, /https:/)
-  assert.match(shares[1].text, /https:\/\/footballplayer.online\/club-signup\?ref=/)
+  assert.ok(shares[1].text.includes(shareUrl))
   assert.match(shares[1].text, /Once per club/)
   await mkdir('output/playwright/coach-club-promotion', { recursive: true })
-  for (const width of [320, 390]) {
+  assert.doesNotMatch(await page.locator('body').innerText(), /https:\/\//, 'the raw URL must not be displayed')
+  for (const width of [320, 390, 768]) {
     await page.setViewportSize({ width, height: 844 })
     for (const mode of ['light', 'dark']) {
       await page.evaluate(value => window.theme(value), mode)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
       const box = await page.getByRole('button', { name: 'Share link', exact: true }).boundingBox()
       assert.ok(box.height >= 48 && box.width >= 44)
+      const codeBox = await page.getByRole('button', { name: 'Share code', exact: true }).boundingBox()
+      assert.ok(codeBox.height >= 48 && codeBox.width >= 44)
+      const qrImage = page.getByRole('img', { name: 'Scan to join Football Player with your coach promotion code', exact: true })
+      await qrImage.waitFor({ state: 'visible' })
+      const { data, info } = await sharp(await qrImage.screenshot()).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+      assert.equal(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data, shareUrl, 'rendered QR must scan at this width and theme')
       await page.screenshot({ path: `output/playwright/coach-club-promotion/coach-${mode}-${width}.png`, fullPage: true })
     }
   }
@@ -54,5 +67,5 @@ try {
   await page.waitForFunction(() => window.requests.at(-1).actor === 'coach-two')
   assert.equal((await page.evaluate(() => window.requests))[0].name, 'coach-club-promotion')
   assert.deepEqual(errors, [])
-  console.log('PASS: actual Coach promotion screen, offline retry, code/link sharing, account change, readable light/dark 320/390px layouts and accessible actions')
+  console.log('PASS: actual Coach promotion screen, offline retry, code/link share buttons, hidden raw URL, rendered QR decoding, account change, light/dark 320/390/768px layouts and accessible actions')
 } finally { await browser.close() }

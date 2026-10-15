@@ -2,6 +2,7 @@ import { loadActiveAuthorityProfile } from './lib/_authority-profile.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 import { json } from './lib/_stripe-billing.js'
 import { coachClubShareLink, COACH_CLUB_PROMOTION_TERMS } from '../../src/lib/coach-club-promotion.js'
+import QRCode from 'qrcode'
 
 export async function getCoachClubPromotion(db, event) {
   const token = String(event.headers?.authorization || event.headers?.Authorization || '').match(/^Bearer (.+)$/i)?.[1]
@@ -14,7 +15,9 @@ export async function getCoachClubPromotion(db, event) {
   }
   const result = await db.rpc('ensure_coach_club_promotion_code', { p_actor: data.user.id })
   if (result.error || !result.data) throw Object.assign(new Error('Your promotion code could not be loaded. Please try again.'), { statusCode: 503 })
-  return { success: true, code: result.data, shareUrl: coachClubShareLink(result.data), terms: COACH_CLUB_PROMOTION_TERMS }
+  const shareUrl = coachClubShareLink(result.data)
+  const qr = await QRCode.toDataURL(shareUrl, { errorCorrectionLevel: 'M', margin: 4, width: 640 })
+  return { success: true, code: result.data, shareUrl, qr, terms: COACH_CLUB_PROMOTION_TERMS }
 }
 
 export async function handler(event) {

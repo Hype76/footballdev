@@ -5,10 +5,37 @@ import { PGlite } from '@electric-sql/pglite'
 import { COACH_CLUB_COUPON_ID, assertCoachClubPromotionSelection, ensureCoachClubCoupon, startCoachClubPromotionCheckout } from '../netlify/functions/lib/_coach-club-promotion.js'
 import { coachClubShareLink, normalizeCoachClubCode } from '../src/lib/coach-club-promotion.js'
 import { getCoachNavigationModel, resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
+import sharp from 'sharp'
+import jsQR from 'jsqr'
 
 const code = 'FP-0123456789ABCDEF'
 const selection = { planKey: 'club', billingCycle: 'monthly', teamCapacity: 20, lineItems: [{ price: 'price_club_20', quantity: 1 }], offerKey: 'club_20', clubSignup: true }
 const coupon = { id: COACH_CLUB_COUPON_ID, valid: true, percent_off: 50, duration: 'repeating', duration_in_months: 3, metadata: { purpose: 'coach_club_referral' } }
+
+test('authenticated Coach QR decodes to the exact signup link and preserves access checks', async () => {
+  process.env.VITE_SUPABASE_URL ||= 'https://fixture.supabase.co'
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'fixture-service-key'
+  const { getCoachClubPromotion, handler } = await import('../netlify/functions/coach-club-promotion.js')
+  let role = 'coach', rpcCalls = 0
+  const db = {
+    auth: { getUser: async () => ({ data: { user: { id: 'coach', email_confirmed_at: '2026-01-01' } } }) },
+    from: table => ({ select() { return this }, eq() { return this }, maybeSingle: async () => ({ data: table === 'users'
+      ? { id: 'coach', club_id: 'club', role, role_rank: role === 'coach' ? 20 : 10, status: 'active' }
+      : table === 'clubs' ? { id: 'club', status: 'active' } : { auth_user_id: 'coach' } }) }),
+    rpc: async () => { rpcCalls++; return { data: code } },
+  }
+  const event = { headers: { authorization: 'Bearer fixture-token' } }
+  await assert.rejects(getCoachClubPromotion(db, { headers: {} }), /Sign in again/)
+  const result = await getCoachClubPromotion(db, event)
+  assert.equal(result.shareUrl, coachClubShareLink(code))
+  assert.match(result.qr, /^data:image\/png;base64,/)
+  const { data, info } = await sharp(Buffer.from(result.qr.split(',')[1], 'base64')).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  assert.equal(jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data, result.shareUrl)
+  role = 'parent'
+  await assert.rejects(getCoachClubPromotion(db, event), /Active Coach access/)
+  assert.equal(rpcCalls, 1, 'unauthorised users do not receive a code or QR')
+  assert.equal((await handler({ httpMethod: 'GET' })).statusCode, 405)
+})
 
 test('Coach More resolves the promotion for staff on free and paid plans', () => {
   for (const planKey of ['matchday', 'team', 'club']) {
