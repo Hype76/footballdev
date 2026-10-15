@@ -1,6 +1,7 @@
 import { PUBLIC_PLAN_OPTIONS } from '../../lib/plans.js'
 import { getPromotionSummary } from '../../lib/login-pricing.js'
 import { PUBLIC_FREE_SIGNUP_PATH } from '../../lib/public-signup.js'
+import { clubSignupPath } from '../../lib/coach-club-promotion.js'
 
 export function mountMarketingPricing(root) {
   let active = true, busy = false, promotion = null
@@ -44,6 +45,10 @@ export function mountMarketingPricing(root) {
     if (busy) return
     const plan = PUBLIC_PLAN_OPTIONS.find(item => item.key === link.dataset.marketingCheckout)
     if (!plan || !plan.isPaid) return
+    if (plan.key === 'club') {
+      window.location.assign(clubSignupPath({ teamCapacity: plan.limits.teams, offerKey: plan.offerKey || '' }))
+      return
+    }
     if (String(import.meta.env.VITE_PAYMENTS_DISABLED).toLowerCase() === 'true') {
       if (plan.offerKey === 'club_20') {
         status.textContent = 'Club checkout is currently unavailable. Contact us for help choosing your 20-team Club plan.'

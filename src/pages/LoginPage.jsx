@@ -16,6 +16,7 @@ import {
   PUBLIC_SIGNUP_ACCEPTED_MESSAGE,
 } from '../lib/public-signup.js'
 import { getWorkspaceScope } from '../lib/workspace-scope.js'
+import { normalizeCoachClubCode } from '../lib/coach-club-promotion.js'
 
 const initialFormData = {
   email: '',
@@ -77,7 +78,7 @@ function getRequestedLoginMode(params) {
   return ''
 }
 
-export function LoginPage({ role = 'coach' }) {
+export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeChange }) {
   usePublicThemeScope()
 
   const { authError, resetPassword, session, signInWithPassword, signUpParentAccount, signUpWithClub } = useAuth()
@@ -86,8 +87,9 @@ export function LoginPage({ role = 'coach' }) {
   const parentInviteRedirectStartedRef = useRef(false)
   const demoSubmitLockRef = useRef(false)
   const submitLockRef = useRef(false)
-  const [mode, setMode] = useState(role === 'parent' ? 'parent-login' : 'login')
-  const [formData, setFormData] = useState(initialFormData)
+  const [mode, setMode] = useState(clubSignup ? 'signup' : role === 'parent' ? 'parent-login' : 'login')
+  const [formData, setFormData] = useState(() => ({ ...initialFormData,
+    ...(clubSignup ? { planKey: 'club', promotionCode: normalizeCoachClubCode(new URLSearchParams(window.location.search).get('ref')) } : {}) }))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [localMessage, setLocalMessage] = useState('')
@@ -123,11 +125,11 @@ export function LoginPage({ role = 'coach' }) {
       }
     } else if (requestedLoginMode) {
       setMode(requestedLoginMode)
-    } else {
+    } else if (!clubSignup) {
       setMode(role === 'parent' ? 'parent-login' : 'login')
     }
 
-    if (publicFreePlanKey) {
+    if (publicFreePlanKey && !clubSignup) {
       setMode('signup')
       setFormData((current) => ({
         ...current,
@@ -162,10 +164,11 @@ export function LoginPage({ role = 'coach' }) {
         setLocalMessage(`${selectedPlanName} test access selected. Payments are disabled on staging.`)
       }
     }
-  }, [paymentsDisabled, session?.user, role])
+  }, [paymentsDisabled, session?.user, role, clubSignup])
 
   const handleChange = (event) => {
     const { name, value } = event.target
+    if (name === 'promotionCode') onPromotionCodeChange?.(value)
     setLocalError('')
     setLocalMessage('')
     setFormData((current) => ({
@@ -231,7 +234,12 @@ export function LoginPage({ role = 'coach' }) {
             password: formData.password,
             clubName: formData.clubName.trim(),
             accessCode: formData.accessCode.trim(),
-            planKey: formData.planKey,
+            planKey: clubSignup ? 'matchday' : formData.planKey,
+            ...(clubSignup ? { clubSignup: {
+              code: normalizeCoachClubCode(formData.promotionCode),
+              teamCapacity: Number(new URLSearchParams(window.location.search).get('teams') || 20),
+              offerKey: new URLSearchParams(window.location.search).get('offer') ?? 'club_20',
+            } } : {}),
           })
 
         if (signupResult?.needsEmailVerification) {
@@ -301,7 +309,7 @@ export function LoginPage({ role = 'coach' }) {
       <main className="website-auth-main">
         <section className="website-auth-intro">
           <p className="website-auth-eyebrow">{parentAccess ? 'Parent access' : mode === 'signup' ? 'Get started' : 'Coach and club access'}</p>
-          <h1>{parentAccess ? 'Stay close to the game.' : mode === 'signup' ? 'Your team starts here.' : 'Back to your football.'}</h1>
+            <h1>{parentAccess ? 'Stay close to the game.' : clubSignup ? 'Your club starts here.' : mode === 'signup' ? 'Your team starts here.' : 'Back to your football.'}</h1>
           <p>{parentAccess ? 'Fixtures, availability and match updates for your linked player, all in one place.' : 'Manage your team, prepare for match day and keep everyone connected.'}</p>
           <figure className="website-auth-image">
             <img src={parentAccess ? '/marketing-v70/assets/parent-matchday.png' : '/marketing-v70/assets/coach-light.png'} alt={parentAccess ? 'Parent fixture and player availability preview' : 'Coach team overview preview'} />
@@ -311,6 +319,7 @@ export function LoginPage({ role = 'coach' }) {
         </section>
         <div className="website-auth-form-column">
             <LoginAuthPanel
+                clubSignup={clubSignup}
               authError={authError}
               formData={formData}
               isPasswordVisible={isPasswordVisible}

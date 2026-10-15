@@ -69,6 +69,7 @@ const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'Billing
 const CoachAppHandoffPage = lazyRoute(() => import('../pages/CoachAppHandoffPage.jsx'), 'CoachAppHandoffPage')
 const CoachAppUpgradePage = lazyRoute(() => import('../pages/CoachAppUpgradePage.jsx'), 'CoachAppUpgradePage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
+const ClubSignupPage = lazyRoute(() => import('../pages/ClubSignupPage.jsx'), 'ClubSignupPage')
 const DataTransferPage = lazyRoute(() => import('../pages/DataTransferPage.jsx'), 'DataTransferPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
 const ClubOwnerInvitePage = lazyRoute(() => import('../pages/ClubOwnerInvitePage.jsx'), 'ClubOwnerInvitePage')
@@ -1640,6 +1641,7 @@ function RequirePlatformAdminAccess() {
 }
 
 export const router = createBrowserRouter([
+  { path: '/club-signup', element: <PageSuspense><ClubSignupPage /></PageSuspense> },
   { path: '/sign-in/choose', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="sign-in" /></PageSuspense> }] },
   { path: '/matchday', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="matchday" /></PageSuspense> }] },
   { path: '/for-teams', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="teams" /></PageSuspense> }] },
