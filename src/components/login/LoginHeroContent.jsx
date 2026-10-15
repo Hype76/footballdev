@@ -1,5 +1,5 @@
-import coachHomeImage from '../../assets/marketing/coach-home.png'
-import playerProgressionImage from '../../assets/marketing/player-progression.png'
+const coachHomeImage = '/marketing-v70/assets/legacy-coach-home.webp'
+const playerProgressionImage = '/marketing-v70/assets/legacy-player-progression.webp'
 import { PUBLIC_FREE_SIGNUP_PATH } from '../../lib/public-signup.js'
 
 const weeklyActions = [

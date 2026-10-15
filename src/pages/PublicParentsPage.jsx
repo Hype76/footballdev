@@ -1,6 +1,6 @@
 import fallbackLogo from '../assets/football-player-logo.webp'
-import parentPortalGoalPhoneImage from '../assets/parent-portal-goal-phone.png'
-import playersListImage from '../assets/marketing/players-list.png'
+const parentPortalGoalPhoneImage = '/marketing-v70/assets/legacy-parent-portal-goal-phone.webp'
+const playersListImage = '/marketing-v70/assets/legacy-players-list.webp'
 import { LoginHeader } from '../components/login/LoginHeader.jsx'
 import {
   PublicScreenshot,

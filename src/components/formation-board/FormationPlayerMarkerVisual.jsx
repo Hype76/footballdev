@@ -12,7 +12,7 @@ export function FormationPlayerMarkerVisual({ className = '', isGoalkeeper = fal
       <img
         alt=""
         draggable="false"
-        src={isGoalkeeper ? '/formation-shirt-gold.png' : '/formation-shirt-white.png'}
+        src={isGoalkeeper ? '/marketing-v70/assets/formation-shirt-gold.webp' : '/marketing-v70/assets/formation-shirt-white.webp'}
         className="pointer-events-none h-full w-full select-none object-contain drop-shadow-[0_3px_3px_rgba(0,0,0,0.35)]"
       />
       {normalizedNumber ? (

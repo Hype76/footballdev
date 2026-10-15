@@ -14,9 +14,9 @@ const mapping = {
 }
 assert.deepEqual(Object.keys(references).filter(key => references[key].html.includes('data-view-image')).sort(), Object.keys(mapping).sort(), 'Every shared role-tab instance must be covered')
 const roles = {
- coach: {kind: 'mobile', image: '/marketing-v70/assets/coach-light.png', title: 'Know what needs your attention.'},
- parent: {kind: 'mobile', image: '/marketing-v70/assets/parent-matchday.png', title: 'The plan, without the guesswork.'},
- club: {kind: 'desktop', image: '/marketing-v70/assets/club-settings-simon.png?v=76', title: 'A shared home for your teams.'},
+ coach: {kind: 'mobile', image: '/marketing-v70/assets/coach-light.webp', title: 'Know what needs your attention.'},
+ parent: {kind: 'mobile', image: '/marketing-v70/assets/parent-matchday.webp', title: 'The plan, without the guesswork.'},
+ club: {kind: 'desktop', image: '/marketing-v70/assets/club-settings-simon.webp?v=76', title: 'A shared home for your teams.'},
 }
 // Forward, reverse, then alternating transitions expose retained frame state.
 const sequence = ['coach', 'parent', 'club', 'parent', 'coach', 'club', 'coach', 'parent', 'club']

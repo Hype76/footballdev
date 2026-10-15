@@ -40,14 +40,14 @@ test('supplied white and goalkeeper shirt assets render with editable number ove
   const [pitch, marker, white, gold] = await Promise.all([
     readFile(pitchUrl, 'utf8'),
     readFile(markerUrl, 'utf8'),
-    stat(new URL('../public/formation-shirt-white.png', import.meta.url)),
-    stat(new URL('../public/formation-shirt-gold.png', import.meta.url)),
+    stat(new URL('../public/marketing-v70/assets/formation-shirt-white.webp', import.meta.url)),
+    stat(new URL('../public/marketing-v70/assets/formation-shirt-gold.webp', import.meta.url)),
   ])
 
   assert.ok(white.size > 0)
   assert.ok(gold.size > 0)
-  assert.match(marker, /formation-shirt-white\.png/)
-  assert.match(marker, /formation-shirt-gold\.png/)
+  assert.match(marker, /formation-shirt-white\.webp/)
+  assert.match(marker, /formation-shirt-gold\.webp/)
   assert.match(marker, /normalizedNumber/)
   assert.match(pitch, /positionGroup === 'goalkeeper'/)
 })

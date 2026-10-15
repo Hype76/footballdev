@@ -312,7 +312,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
             <h1>{parentAccess ? 'Stay close to the game.' : clubSignup ? 'Your club starts here.' : mode === 'signup' ? 'Your team starts here.' : 'Back to your football.'}</h1>
           <p>{parentAccess ? 'Fixtures, availability and match updates for your linked player, all in one place.' : 'Manage your team, prepare for match day and keep everyone connected.'}</p>
           <figure className="website-auth-image">
-            <img src={parentAccess ? '/marketing-v70/assets/parent-matchday.png' : '/marketing-v70/assets/coach-light.png'} alt={parentAccess ? 'Parent fixture and player availability preview' : 'Coach team overview preview'} />
+            <img src={parentAccess ? '/marketing-v70/assets/parent-matchday.webp' : '/marketing-v70/assets/coach-light.webp'} alt={parentAccess ? 'Parent fixture and player availability preview' : 'Coach team overview preview'} />
             <figcaption>Football Player {parentAccess ? 'Parent' : 'Coach'} app</figcaption>
           </figure>
           <a href={parentAccess ? '/sign-in/coach' : '/sign-in/parent'}>{parentAccess ? 'Coach or club admin? Sign in here' : 'Parent? Sign in here'}</a>
@@ -326,7 +326,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
               isSubmitting={isSubmitting}
               localError={localError}
               localMessage={localMessage}
-              logo={parentAccess ? '/marketing-v70/assets/parent-logo.png' : '/marketing-v70/assets/fp-logo.png'}
+              logo={parentAccess ? '/marketing-v70/assets/parent-logo.webp' : '/marketing-v70/assets/fp-logo.webp'}
               mode={mode}
               role={parentAccess ? 'parent' : 'coach'}
               onChange={handleChange}
