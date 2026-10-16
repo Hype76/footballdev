@@ -211,6 +211,15 @@ test('actual Coach adapter retains failed durable commands and confirms explicit
  f.unmount()
 })
 
+test('actual shared outbox refreshes and retires an obsolete invitation without a warning command',async()=>{
+ const closed=Object.assign(new Error('This player does not have an active training availability invitation.'),{code:'P0001'})
+ const f=attendanceHookFixture(async()=>{throw closed}),storage={commands:[]};let refreshes=0
+ const api=f.render({...hookScope('coach-obsolete',storage),subscribeNetwork:undefined,onConfirmed:()=>{refreshes++}});f.commit()
+ await api.enqueue({...preparation,route:'coach_player_training'},'available');await new Promise(resolve=>setImmediate(resolve))
+ assert.deepEqual(storage.commands,[]);assert.equal(refreshes,1)
+ assert.equal(f.writes.at(-1).commands.length,0);f.unmount()
+})
+
 test('actual recovered conflict requests one quiet authoritative refresh and safely reconciles a matching reply',async()=>{
  const f=attendanceHookFixture(),scope='parent-conflict',storage={commands:[{id:'conflict',scope,status:'conflict',targetKey:attendanceTargetKey(preparation),preparation,response:'available',receipt:{current:{revision:'1',status:'available',respondedAt:'2026-10-13T19:00:00Z'}}}]}
  let refreshes=0

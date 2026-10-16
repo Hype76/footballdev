@@ -23,7 +23,7 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, 
   // Scope ownership changes only when React commits. An abandoned render must
   // never invalidate the committed account or revive an earlier scope's work.
   useLayoutEffect(() => {
-    const token = { scope, active: true, online: false, lastSaved: '' }
+    const token = { scope, active: true, online: false, lastSettled: '' }
     const isCurrent = () => token.active && current.current === token
     token.isCurrent = isCurrent
     token.engine = createAttendanceOutbox({ scope, isCurrent, makeId: () => Crypto.randomUUID(),
@@ -38,9 +38,9 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, 
         if (!isCurrent()) return
         setState(previous => ({ scope, commands, provisional: previous.scope === scope
           ? previous.provisional.filter(command => !commands.some(entry => entry.id === command.id)) : [], error: '' }))
-        const saved = commands.filter(command => ['saved', 'conflict'].includes(command.status)).map(command => `${command.status}:${command.id}`).join(':')
-        if (saved && token.lastSaved !== saved) {
-          token.lastSaved = saved
+        const settled = commands.filter(command => ['saved', 'conflict', 'obsolete'].includes(command.status)).map(command => `${command.status}:${command.id}`).join(':')
+        if (settled && token.lastSettled !== settled) {
+          token.lastSettled = settled
           Promise.resolve(token.onConfirmed?.()).catch(() => {})
         }
       },
