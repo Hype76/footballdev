@@ -37,6 +37,31 @@ test('signup notification covers free Team and paid Club plans for Steve and Sim
   assert.match(paid.subject, /club signup \| Cambourne Town FC \| Club/)
   assert.match(paid.resendPayload.html, /GBP 59\.99\/month/)
   assert.match(paid.resendPayload.html, /<td[^>]*>Paid<\/td>/)
+
+  const annual = buildSignupNotificationEmail({
+    ...baseDetails,
+    billingCycle: 'annual',
+    checkoutAmountPence: 59990,
+    discountAmountPence: 10000,
+    planKey: 'club',
+    teamCapacity: 10,
+  }, emailEnv)
+  assert.match(annual.resendPayload.html, /GBP 599\.90\/year/)
+  assert.match(annual.resendPayload.html, /10 teams/)
+  assert.match(annual.resendPayload.html, /Checkout total<\/th><td[^>]*>GBP 599\.90/)
+  assert.match(annual.resendPayload.html, /Discount applied<\/th><td[^>]*>GBP 100\.00/)
+
+  const coachOffer = buildSignupNotificationEmail({
+    ...baseDetails,
+    billingCycle: 'monthly',
+    offerKey: 'club_20',
+    offerLabel: '50% off the first 3 monthly payments, then the normal monthly price.',
+    planKey: 'club',
+    teamCapacity: 20,
+  }, emailEnv)
+  assert.match(coachOffer.resendPayload.html, /GBP 59\.99\/month/)
+  assert.match(coachOffer.resendPayload.html, /20 teams/)
+  assert.match(coachOffer.resendPayload.html, /50% off the first 3 monthly payments/)
 })
 
 test('production sends while previews, staging and synthetic probes stay quiet', async () => {
@@ -61,11 +86,13 @@ test('signup email is logged, idempotent and retained for retry after provider f
     env: emailEnv,
     markEmailLogFailedImpl: async () => assert.fail('Successful send must not be marked failed'),
     markEmailLogSentImpl: async (nextRecord, response) => calls.push(['sent', nextRecord, response]),
-    sendEmailImpl: async payload => { calls.push(['provider', payload]); return { data: { id: 'provider-1' } } },
+    sendEmailImpl: async (payload, options) => { calls.push(['provider', payload, options]); return { data: { id: 'provider-1' } } },
   })
   assert.deepEqual(sent, { status: 'sent', providerMessageId: 'provider-1' })
   assert.equal(calls.filter(([type]) => type === 'provider').length, 1)
   assert.match(calls[0][1].payload.resendPayload.html, /GBP 7\.99\/month/)
+  assert.match(calls.find(([type]) => type === 'provider')[2].idempotencyKey, /^fp-signup-[a-f0-9]{64}$/)
+  assert.equal(calls[0][1].payload.providerIdempotencyKey, calls.find(([type]) => type === 'provider')[2].idempotencyKey)
 
   let providerCalls = 0
   const duplicate = await sendNewWorkspaceSignupNotification({ ...baseDetails, planKey: 'team' }, {
@@ -85,6 +112,26 @@ test('signup email is logged, idempotent and retained for retry after provider f
   })
   assert.equal(failed.status, 'queued_for_retry')
   assert.equal(failedRecord, record)
+})
+
+test('idempotency remains stable when a repeated request renders at a later time', async () => {
+  const idempotencyKeys = []
+  const options = {
+    createPendingEmailLogImpl: async payload => {
+      idempotencyKeys.push(payload.idempotencyKey)
+      return { record: { id: 'email-log-repeat', attempts: 0 }, skipped: idempotencyKeys.length > 1 }
+    },
+    env: emailEnv,
+    markEmailLogSentImpl: async () => {},
+    sendEmailImpl: async () => ({ data: { id: 'provider-repeat' } }),
+  }
+
+  await sendNewWorkspaceSignupNotification({ ...baseDetails, createdAt: undefined, notificationKey: 'workspace-invite:invite-1', planKey: 'team' }, options)
+  await new Promise(resolve => setTimeout(resolve, 10))
+  const repeated = await sendNewWorkspaceSignupNotification({ ...baseDetails, createdAt: undefined, notificationKey: 'workspace-invite:invite-1', planKey: 'team' }, options)
+
+  assert.equal(repeated.status, 'duplicate')
+  assert.equal(idempotencyKeys[0], idempotencyKeys[1])
 })
 
 test('notification infrastructure failure never blocks the completed signup', async () => {

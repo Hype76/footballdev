@@ -23,6 +23,7 @@ test('retry worker is registered as a native one-minute scheduled function', asy
   assert.match(source, /ensureResendWebhookConfigured/)
   assert.match(source, /schedule:\s*'\* \* \* \* \*'/)
   assert.match(source, /export default async function scheduledHandler/)
+  assert.match(source, /payload\?\.providerIdempotencyKey/)
   assert.doesNotMatch(source, /attempts[^;\n]*>=\s*3/)
 })
 

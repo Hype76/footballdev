@@ -109,7 +109,8 @@ export async function processFailedEmails() {
         ? { ...authorizedPreparedEmail.emailPayload, emailAppRole: 'parent', emailCcAppRole: authorizedPreparedEmail.emailPayload.cc?.length ? 'coach' : undefined }
         : authorizedPreparedEmail.emailPayload
       const response = await sendEmail(resendPayload, {
-        idempotencyKey: `fp-retry-${lockedEmailLog.idempotency_key || lockedEmailLog.id}`,
+        idempotencyKey: String(lockedEmailLog.payload?.providerIdempotencyKey || '').trim()
+          || `fp-retry-${lockedEmailLog.idempotency_key || lockedEmailLog.id}`,
         context: {
           emailType: String(lockedEmailLog.payload?.requiredFeature || 'retry_failed_email'),
           actorId: String(lockedEmailLog.payload?.actorId || ''),

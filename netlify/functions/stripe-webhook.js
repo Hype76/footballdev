@@ -13,6 +13,8 @@ import { createStripeServerClient, logStripeFailure } from './lib/_stripe-runtim
 import { promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 import { resolveBillingAccess } from '../../src/lib/billing-access.js'
+import { COACH_CLUB_PROMOTION_TERMS } from '../../src/lib/coach-club-promotion.js'
+import { sendNewWorkspaceSignupNotification } from './lib/_signup-notification-email.js'
 
 function getRawBody(event) {
   return event.isBase64Encoded
@@ -226,7 +228,11 @@ async function upsertCheckoutRecord({
   return data
 }
 
-async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload) {
+export async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload, {
+  event = {},
+  sendSignupNotificationImpl = sendNewWorkspaceSignupNotification,
+  upsertCheckoutRecordImpl = upsertCheckoutRecord,
+} = {}) {
   const subscriptionId = getStringId(checkoutSession.subscription)
   const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null
   const details = getCheckoutSubscriptionPlanDetails(subscription, checkoutSession.metadata)
@@ -256,7 +262,7 @@ async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload) {
     if (error) throw error
   }
 
-  return upsertCheckoutRecord({
+  const checkoutRecord = await upsertCheckoutRecordImpl({
     checkoutSession,
     subscription,
     priceId,
@@ -266,6 +272,29 @@ async function handleCheckoutCompleted(stripe, checkoutSession, rawPayload) {
     subscriptionTeamCapacity: details.planKey === 'club' ? details.teamCapacity : null,
     rawPayload,
   })
+
+  if (String(checkoutSession.metadata?.clubSignup || '').trim() === 'true') {
+    await sendSignupNotificationImpl({
+      billingCycle: pricePlan.billingCycle,
+      billingMode: 'paid',
+      checkoutAmountPence: checkoutSession.amount_total,
+      clubId: checkoutRecord.club_id,
+      contactEmail: checkoutRecord.customer_email,
+      contactName: checkoutSession.customer_details?.name,
+      createdAt: Number(checkoutSession.created) > 0 ? new Date(Number(checkoutSession.created) * 1000).toISOString() : undefined,
+      discountAmountPence: checkoutSession.total_details?.amount_discount,
+      event,
+      notificationKey: `stripe-checkout:${checkoutSession.id}`,
+      offerKey: pricePlan.offerKey,
+      offerLabel: checkoutSession.metadata?.coachReferralReservation ? COACH_CLUB_PROMOTION_TERMS : '',
+      planKey: pricePlan.planKey,
+      source: checkoutSession.metadata?.coachReferralReservation ? 'coach_club_signup' : 'club_signup_checkout',
+      teamCapacity: pricePlan.teamCapacity,
+      workspaceName: checkoutRecord.club_name || checkoutSession.metadata?.clubName,
+    })
+  }
+
+  return checkoutRecord
 }
 
 async function updateSubscriptionRecord(subscription, rawPayload) {
@@ -362,7 +391,7 @@ export async function handler(event) {
     }
 
     if (stripeEvent.type === 'checkout.session.completed') {
-      await handleCheckoutCompleted(stripe, stripeEvent.data.object, stripeEvent)
+      await handleCheckoutCompleted(stripe, stripeEvent.data.object, stripeEvent, { event })
     }
 
     if (

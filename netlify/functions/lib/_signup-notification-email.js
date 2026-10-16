@@ -1,9 +1,10 @@
 import process from 'node:process'
+import { createHash } from 'node:crypto'
 import { getPlan, getPlanKey, PLAN_KEYS } from '../../../src/lib/plans.js'
+import { quoteSubscription } from '../../../src/lib/subscription-pricing.js'
 import { createFromAddress, sendEmail } from './_email-provider.js'
 import {
   createEmailDedupeKey,
-  createEmailIdempotencyKey,
   createEmailRecipientDedupeKeys,
   createPendingEmailLog,
   markEmailLogFailed,
@@ -48,6 +49,38 @@ function isSyntheticSignup({ contactEmail, workspaceName }) {
   return email.endsWith('.invalid') || email.endsWith('.test') || name.startsWith('FP TEST')
 }
 
+function formatPence(value) {
+  const pence = Number(value)
+  return Number.isInteger(pence) && pence >= 0 ? `GBP ${(pence / 100).toFixed(2)}` : ''
+}
+
+function getPriceDetails({ billingCycle, checkoutAmountPence, discountAmountPence, offerLabel, offerKey, planKey, teamCapacity }) {
+  const normalizedPlanKey = getPlanKey(planKey)
+  const normalizedCycle = normalizeText(billingCycle).toLowerCase()
+  const capacity = Number(teamCapacity || (normalizedPlanKey === PLAN_KEYS.club ? 10 : 1))
+  let planPrice = getPlan({ planKey: normalizedPlanKey }).headlineMonthlyPrice || 'Unknown'
+
+  if (['matchday', 'team', 'club'].includes(normalizedPlanKey) && ['monthly', 'annual'].includes(normalizedCycle)) {
+    const quote = quoteSubscription({ planKey: normalizedPlanKey, billingCycle: normalizedCycle, teamCapacity: capacity, offerKey })
+    planPrice = `${formatPence(quote.chargePence)}/${normalizedCycle === 'annual' ? 'year' : 'month'}`
+  }
+
+  return {
+    billingCycle: normalizedCycle ? `${normalizedCycle[0].toUpperCase()}${normalizedCycle.slice(1)}` : '',
+    checkoutTotal: formatPence(checkoutAmountPence),
+    discount: Number(discountAmountPence) > 0 ? formatPence(discountAmountPence) : '',
+    offerLabel: normalizeText(offerLabel),
+    planPrice,
+    teamCapacity: Number.isInteger(capacity) && capacity > 0 ? capacity : null,
+  }
+}
+
+function createStableSignupKey(details) {
+  const seed = normalizeText(details?.notificationKey)
+    || `${normalizeText(details?.source || 'signup')}:${normalizeText(details?.clubId)}:${getPlanKey(details?.planKey)}`
+  return createHash('sha256').update(`football-player-signup:${seed}`).digest('hex')
+}
+
 export function resolveSignupNotificationRecipients(env = process.env) {
   const configured = normalizeText(envValue('SIGNUP_NOTIFICATION_RECIPIENTS', env))
     .split(',')
@@ -73,13 +106,19 @@ export function shouldSendSignupNotification(event = {}, env = process.env) {
 
 export function buildSignupNotificationEmail({
   billingMode = '',
+  billingCycle = '',
+  checkoutAmountPence = null,
   clubId,
   contactEmail,
   contactName,
   createdAt = new Date().toISOString(),
+  discountAmountPence = null,
   isPlanComped = false,
+  offerKey = '',
+  offerLabel = '',
   planKey,
   source = 'signup',
+  teamCapacity = null,
   workspaceName,
 } = {}, env = process.env) {
   const normalizedPlanKey = getPlanKey(planKey)
@@ -91,14 +130,19 @@ export function buildSignupNotificationEmail({
   const createdLabel = Number.isNaN(timestamp.getTime())
     ? normalizeText(createdAt) || 'Unknown'
     : timestamp.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London' })
-  const price = plan.headlineMonthlyPrice || plan.price || 'Unknown'
+  const priceDetails = getPriceDetails({ billingCycle, checkoutAmountPence, discountAmountPence, offerKey, offerLabel, planKey: normalizedPlanKey, teamCapacity })
   const billingLabel = plan.isFree ? 'Free' : normalizeText(billingMode) === 'unpaid' || isPlanComped ? 'Complimentary' : 'Paid'
   const subject = `New Football Player ${workspaceType.toLowerCase()} signup | ${safeWorkspaceName} | ${plan.displayName}`
   const rows = [
     ['Signup type', `${workspaceType} signup`],
     [workspaceType, safeWorkspaceName],
     ['Price plan', plan.displayName],
-    ['Price', price],
+    ['Plan price', priceDetails.planPrice],
+    ...(priceDetails.billingCycle ? [['Billing cycle', priceDetails.billingCycle]] : []),
+    ...(workspaceType === 'Club' && priceDetails.teamCapacity ? [['Team capacity', `${priceDetails.teamCapacity} teams`]] : []),
+    ...(priceDetails.offerLabel ? [['Offer', priceDetails.offerLabel]] : []),
+    ...(priceDetails.checkoutTotal ? [['Checkout total', priceDetails.checkoutTotal]] : []),
+    ...(priceDetails.discount ? [['Discount applied', priceDetails.discount]] : []),
     ['Billing', billingLabel],
     ['Contact', normalizeText(contactName) || 'Not supplied'],
     ['Email', normalizeEmail(contactEmail) || 'Not supplied'],
@@ -133,9 +177,12 @@ async function deliverNewWorkspaceSignupNotification(details, {
   if (isSyntheticSignup(details || {})) return Object.freeze({ status: 'skipped_synthetic' })
 
   const email = buildSignupNotificationEmail(details, env)
+  const stableKey = createStableSignupKey(details)
+  const providerIdempotencyKey = `fp-signup-${stableKey}`
   const storedPayload = {
     clubId: normalizeText(details?.clubId),
     emailType: 'new_workspace_signup',
+    providerIdempotencyKey,
     resendPayload: email.resendPayload,
     source: normalizeText(details?.source || 'signup'),
   }
@@ -146,10 +193,7 @@ async function deliverNewWorkspaceSignupNotification(details, {
     payload: storedPayload,
     dedupeKey: createEmailDedupeKey(email.resendPayload),
     recipientDedupeKeys,
-    idempotencyKey: createEmailIdempotencyKey({
-      payload: email.resendPayload,
-      idempotencySeed: `new-workspace-signup:${normalizeText(details?.clubId)}`,
-    }),
+    idempotencyKey: stableKey,
   })
 
   if (pending?.blocked) return Object.freeze({ status: 'blocked' })
@@ -165,6 +209,7 @@ async function deliverNewWorkspaceSignupNotification(details, {
         targetEntityId: normalizeText(details?.clubId),
       },
       env,
+      idempotencyKey: providerIdempotencyKey,
       publicMessage: 'Signup notification email could not be sent.',
     })
     await markEmailLogSentImpl(pending?.record, response, { recipientDedupeKeys })

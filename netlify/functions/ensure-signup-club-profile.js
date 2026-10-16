@@ -781,16 +781,27 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
   await seedDefaultClubRoles(club.id, authUser.id)
 
   club = await ensureWorkspaceOwnerProvisioning({ club, profile })
+  const checkoutSession = checkoutRecord?.raw_payload?.data?.object
+  const checkoutCreatedAt = Number(checkoutSession?.created) > 0
+    ? new Date(Number(checkoutSession.created) * 1000).toISOString()
+    : undefined
 
   await (options.sendSignupNotificationImpl || sendNewWorkspaceSignupNotification)({
+    billingCycle: checkoutRecord?.billing_cycle,
     billingMode: checkoutRecord?.id ? 'paid' : 'unpaid',
+    checkoutAmountPence: checkoutSession?.amount_total,
     clubId: club.id,
     contactEmail: email,
     contactName: displayName,
+    createdAt: checkoutCreatedAt,
+    discountAmountPence: checkoutSession?.total_details?.amount_discount,
     event: options.event,
     isPlanComped: club.is_plan_comped,
+    notificationKey: checkoutRecord?.checkout_session_id ? `stripe-checkout:${checkoutRecord.checkout_session_id}` : `workspace-created:${club.id}`,
+    offerKey: checkoutSession?.metadata?.offerKey,
     planKey: club.plan_key,
     source: 'public_signup',
+    teamCapacity: checkoutRecord?.subscription_team_capacity,
     workspaceName: club.name,
   })
 

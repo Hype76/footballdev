@@ -67,7 +67,7 @@ async function findAuthUserByEmail(supabaseAdmin, email) {
 async function getInvite(supabaseAdmin, tokenDigest) {
   const { data, error } = await supabaseAdmin
     .from('club_owner_invites')
-    .select('id, club_id, team_id, invited_email, billing_mode, plan_key, invite_scope, intended_role_key, intended_role_label, intended_role_rank, expires_at, accepted_at, accepted_user_id, revoked_at, replaced_at, status, clubs:club_id (name, plan_key), teams:team_id (id, club_id, name)')
+    .select('id, club_id, team_id, invited_email, billing_mode, plan_key, invite_scope, intended_role_key, intended_role_label, intended_role_rank, created_at, expires_at, accepted_at, accepted_user_id, revoked_at, replaced_at, status, clubs:club_id (name, plan_key), teams:team_id (id, club_id, name)')
     .eq('token_digest', tokenDigest)
     .maybeSingle()
 
@@ -167,8 +167,10 @@ export async function createWorkspaceOwnerAccountResult(event, {
         clubId: invite.club_id,
         contactEmail: invitedEmail,
         contactName: getDisplayName(invitedEmail, workspaceScope.ownerRole.label),
+        createdAt: invite.created_at,
         event,
         isPlanComped: invite.billing_mode === 'unpaid',
+        notificationKey: `workspace-invite:${invite.id}`,
         planKey,
         source: 'workspace_invite_acceptance',
         workspaceName: workspaceScope.key === 'team' ? team?.name || club?.name : club?.name,
@@ -263,8 +265,10 @@ export async function createWorkspaceOwnerAccountResult(event, {
       clubId: invite.club_id,
       contactEmail: invitedEmail,
       contactName: getDisplayName(invitedEmail, workspaceScope.ownerRole.label),
+      createdAt: invite.created_at,
       event,
       isPlanComped: invite.billing_mode === 'unpaid',
+      notificationKey: `workspace-invite:${invite.id}`,
       planKey,
       source: 'workspace_invite_acceptance',
       workspaceName: workspaceScope.key === 'team' ? team?.name || club?.name : club?.name,
