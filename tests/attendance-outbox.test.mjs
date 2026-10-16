@@ -167,7 +167,34 @@ test('current authority rejection remains visible and never retries mutation aut
   const f=harness({online:true,execute:async()=>{ throw Object.assign(new Error('Synthetic access revoked'),{code:'42501'}) }})
   await f.engine.enqueue(prep,'available'); await f.engine.sync()
   assert.equal(f.read()[0].status,'rejected')
+  assert.equal(f.read()[0].rejectionKind,'review')
   await f.engine.sync({explicitRetry:true}); assert.equal(f.calls.length,1)
+})
+
+test('legacy unclassified rejection is retired only from its original scope on recovery', async () => {
+  const command=core.createAttendanceCommand({id:'legacy',scope:'synthetic-user:synthetic-parent',preparation:prep,response:'available'})
+  const other={...command,id:'other',scope:'another-user:another-parent'}
+  const f=harness({commands:[{...command,status:'rejected',error:'Legacy warning'},{...other,status:'rejected',error:'Other warning'}]})
+  await f.engine.recover()
+  assert.deepEqual(f.read(),[{...other,status:'rejected',error:'Other warning'}])
+})
+
+test('closed invitation rejection refreshes once and retires without an access warning', async () => {
+  const error=Object.assign(new Error('This player does not have an active training availability invitation.'),{code:'P0001'})
+  const f=harness({online:true,execute:async()=>{ throw error }})
+  await f.engine.enqueue({...prep,route:'coach_player_training'},'available'); await f.engine.sync()
+  assert.deepEqual(f.read(),[]); assert.equal(f.calls.length,1)
+  assert.ok(f.changes.some(commands => commands.some(command => command.status==='obsolete')))
+  await f.engine.sync({explicitRetry:true}); assert.equal(f.calls.length,1)
+})
+
+test('unknown validation rejection remains visible for review', async () => {
+  const error=Object.assign(new Error('Synthetic attendance validation failed.'),{code:'P0001'})
+  const f=harness({online:true,execute:async()=>{ throw error }})
+  await f.engine.enqueue(prep,'available'); await f.engine.sync()
+  assert.equal(f.read()[0].status,'rejected')
+  assert.equal(f.read()[0].rejectionCode,'P0001')
+  assert.match(f.read()[0].error,/invitation or your access changed/)
 })
 
 test('account/link invalidation during submission cannot publish late success or change another scope', async () => {

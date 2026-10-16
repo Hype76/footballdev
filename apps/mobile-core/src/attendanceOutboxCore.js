@@ -1,5 +1,16 @@
 const routes = new Set(['parent_match', 'parent_training', 'coach_player_match', 'coach_player_training', 'coach_self_training'])
 const active = new Set(['persisting', 'pending', 'sending', 'retryable'])
+const obsoleteInvitationMessages = new Set([
+  'This player does not have an active training availability invitation.',
+  'This player does not have an active Match Day availability invitation.',
+  'The response deadline has passed.',
+  'This fixture has closed and responses cannot be changed.',
+  'This training response window has closed.',
+  'This training invitation is no longer open.',
+  'This Match Day fixture is not available for responses.',
+  'This training event is not available for responses.',
+  'This training invitation is not available.',
+])
 const copy = value => JSON.parse(JSON.stringify(value))
 const stable = value => JSON.stringify(value, Object.keys(value).sort())
 
@@ -76,8 +87,13 @@ export function createAttendanceOutbox({ scope, read, update, execute, notify, c
   }
   const patch = (id, values) => change(commands => commands.map(entry => entry.id === id && entry.scope === scope ? { ...entry, ...values } : entry))
   async function recover() {
-    const commands = await read()
-    publish(commands)
+    let commands = await read()
+    if (commands.some(entry => entry.scope === scope && entry.status === 'rejected' && !entry.rejectionKind)) {
+      // Older app versions retained every rejected command without enough
+      // detail to distinguish an obsolete invitation from an access problem.
+      // Retire only those legacy records. New reviewable rejections are tagged.
+      commands = await change(current => current.filter(entry => !(entry.scope === scope && entry.status === 'rejected' && !entry.rejectionKind)))
+    } else publish(commands)
     return commands.filter(entry => entry.scope === scope)
   }
   async function enqueue(preparation, response, label) {
@@ -123,11 +139,21 @@ export function createAttendanceOutbox({ scope, read, update, execute, notify, c
         const current = (await read()).find(entry => entry.id === command.id && entry.scope === scope)
         if (!current) continue
         const committed = current.status === 'saved'
+        const obsolete = !committed && error?.code === 'P0001' && obsoleteInvitationMessages.has(error?.message)
+        if (obsolete) {
+          // The server proved that the original invitation cannot accept an
+          // answer. Publish a settled state so the screen refreshes, then
+          // retire the old intent instead of presenting it as an access fault.
+          await patch(command.id, { status: 'obsolete', error: '', nextAttemptAt: 0 })
+          await change(commands => commands.filter(entry => !(entry.id === command.id && entry.scope === scope)))
+          continue
+        }
         const permanent = !committed && ['42501', 'P0001', '22023'].includes(error?.code)
         await patch(command.id, { status: committed ? 'saved' : permanent ? 'rejected' : 'retryable',
           error: committed ? 'Your answer is saved. Coach notification needs retry.' : permanent
             ? 'This invitation or your access changed. Refresh and review this answer.'
             : 'This answer is saved on this phone but could not be confirmed. Retry when connected.',
+          ...(permanent ? { rejectionKind: 'review', rejectionCode: error?.code || '' } : {}),
           attempts: Math.max(current.attempts || 0, command.attempts + 1),
           nextAttemptAt: now() + Math.min(60000, 1000 * (2 ** Math.min(command.attempts, 6))) })
       }
