@@ -31,12 +31,24 @@ test('signup notification covers free Team and paid Club plans for Steve and Sim
   assert.match(free.subject, /team signup \| Cambourne Town FC \| Matchday/)
   assert.match(free.resendPayload.html, /<td[^>]*>Free<\/td>/)
   assert.deepEqual(free.resendPayload.to, ['steve@jelumalabs.com', 'simon@jelumalabs.com'])
+  assert.doesNotMatch(free.resendPayload.html, /Checkout total/)
 
   const paid = buildSignupNotificationEmail({ ...baseDetails, billingMode: 'paid', planKey: 'club' }, emailEnv)
   assert.equal(paid.workspaceType, 'Club')
   assert.match(paid.subject, /club signup \| Cambourne Town FC \| Club/)
   assert.match(paid.resendPayload.html, /GBP 59\.99\/month/)
   assert.match(paid.resendPayload.html, /<td[^>]*>Paid<\/td>/)
+  assert.doesNotMatch(paid.resendPayload.html, /Checkout total/)
+
+  const legacyClubInvite = buildSignupNotificationEmail({
+    ...baseDetails,
+    billingMode: 'paid',
+    planKey: 'small_club',
+    source: 'workspace_invite_acceptance',
+  }, emailEnv)
+  assert.match(legacyClubInvite.resendPayload.html, /Small Club/)
+  assert.match(legacyClubInvite.resendPayload.html, /5 teams/)
+  assert.doesNotMatch(legacyClubInvite.resendPayload.html, /Checkout total/)
 
   const annual = buildSignupNotificationEmail({
     ...baseDetails,

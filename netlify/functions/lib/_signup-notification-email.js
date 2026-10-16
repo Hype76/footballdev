@@ -50,15 +50,20 @@ function isSyntheticSignup({ contactEmail, workspaceName }) {
 }
 
 function formatPence(value) {
+  if (value === null || value === undefined || value === '') return ''
   const pence = Number(value)
   return Number.isInteger(pence) && pence >= 0 ? `GBP ${(pence / 100).toFixed(2)}` : ''
 }
 
 function getPriceDetails({ billingCycle, checkoutAmountPence, discountAmountPence, offerLabel, offerKey, planKey, teamCapacity }) {
   const normalizedPlanKey = getPlanKey(planKey)
+  const plan = getPlan({ planKey: normalizedPlanKey })
   const normalizedCycle = normalizeText(billingCycle).toLowerCase()
-  const capacity = Number(teamCapacity || (normalizedPlanKey === PLAN_KEYS.club ? 10 : 1))
-  let planPrice = getPlan({ planKey: normalizedPlanKey }).headlineMonthlyPrice || 'Unknown'
+  const capacityValue = teamCapacity === null || teamCapacity === undefined || teamCapacity === ''
+    ? plan.limits?.teams
+    : teamCapacity
+  const capacity = Number(capacityValue)
+  let planPrice = plan.headlineMonthlyPrice || 'Unknown'
 
   if (['matchday', 'team', 'club'].includes(normalizedPlanKey) && ['monthly', 'annual'].includes(normalizedCycle)) {
     const quote = quoteSubscription({ planKey: normalizedPlanKey, billingCycle: normalizedCycle, teamCapacity: capacity, offerKey })
