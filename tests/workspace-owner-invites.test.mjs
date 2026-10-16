@@ -167,10 +167,14 @@ test('plan, role, Team and Club target tampering is rejected before account crea
 
 test('Team invite acceptance creates Team Admin metadata and redirects to paid billing', async () => {
   const mock = createMockSupabase(createInvite('single_team'))
+  let signupNotification = null
   const result = parse(await createWorkspaceOwnerAccountResult(event({
     token: 'valid-team-token',
     password: 'StrongPassword123!',
-  }), { supabaseAdmin: mock.client }))
+  }), {
+    sendSignupNotificationImpl: async details => { signupNotification = details },
+    supabaseAdmin: mock.client,
+  }))
   const createUserCall = mock.calls.find((call) => call.action === 'createUser')
 
   assert.equal(result.statusCode, 200)
@@ -179,6 +183,10 @@ test('Team invite acceptance creates Team Admin metadata and redirects to paid b
   assert.equal(result.body.redirectPath, '/billing')
   assert.equal(createUserCall.payload.user_metadata.account_type, 'team_admin')
   assert.equal(mock.calls.some((call) => call.name === 'accept_workspace_owner_invite_v3'), true)
+  assert.equal(signupNotification.clubId, CLUB_ID)
+  assert.equal(signupNotification.planKey, 'single_team')
+  assert.equal(signupNotification.workspaceName, 'FP TEST Team')
+  assert.equal(signupNotification.source, 'workspace_invite_acceptance')
 })
 
 test('an existing recipient account must prove the exact invited identity', async () => {

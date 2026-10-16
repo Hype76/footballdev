@@ -7,6 +7,7 @@ import {
 import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
 import { normalizePlanKey } from '../../src/lib/plans.js'
 import { getWorkspaceInviteRedirect, getWorkspaceScope } from '../../src/lib/workspace-scope.js'
+import { sendNewWorkspaceSignupNotification } from './lib/_signup-notification-email.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -66,7 +67,7 @@ async function findAuthUserByEmail(supabaseAdmin, email) {
 async function getInvite(supabaseAdmin, tokenDigest) {
   const { data, error } = await supabaseAdmin
     .from('club_owner_invites')
-    .select('id, club_id, team_id, invited_email, billing_mode, plan_key, invite_scope, intended_role_key, intended_role_label, intended_role_rank, expires_at, accepted_at, accepted_user_id, revoked_at, replaced_at, status, clubs:club_id (plan_key), teams:team_id (id, club_id)')
+    .select('id, club_id, team_id, invited_email, billing_mode, plan_key, invite_scope, intended_role_key, intended_role_label, intended_role_rank, created_at, expires_at, accepted_at, accepted_user_id, revoked_at, replaced_at, status, clubs:club_id (name, plan_key), teams:team_id (id, club_id, name)')
     .eq('token_digest', tokenDigest)
     .maybeSingle()
 
@@ -110,6 +111,7 @@ async function acceptInviteTransaction(supabaseAdmin, tokenDigest, authUserId) {
 }
 
 export async function createWorkspaceOwnerAccountResult(event, {
+  sendSignupNotificationImpl = sendNewWorkspaceSignupNotification,
   supabaseAdmin = createSupabaseAdminClient(event),
 } = {}) {
   if (event.httpMethod !== 'POST') {
@@ -160,6 +162,19 @@ export async function createWorkspaceOwnerAccountResult(event, {
       }
 
       const accepted = await acceptInviteTransaction(supabaseAdmin, tokenDigest, provenUser.id)
+      await sendSignupNotificationImpl({
+        billingMode: invite.billing_mode,
+        clubId: invite.club_id,
+        contactEmail: invitedEmail,
+        contactName: getDisplayName(invitedEmail, workspaceScope.ownerRole.label),
+        createdAt: invite.created_at,
+        event,
+        isPlanComped: invite.billing_mode === 'unpaid',
+        notificationKey: `workspace-invite:${invite.id}`,
+        planKey,
+        source: 'workspace_invite_acceptance',
+        workspaceName: workspaceScope.key === 'team' ? team?.name || club?.name : club?.name,
+      })
       return jsonResponse(200, {
         success: true,
         idempotent: Boolean(accepted.idempotent),
@@ -244,6 +259,20 @@ export async function createWorkspaceOwnerAccountResult(event, {
 
     const accepted = await acceptInviteTransaction(supabaseAdmin, tokenDigest, ownerUserId)
     createdAuthUserId = ''
+
+    await sendSignupNotificationImpl({
+      billingMode: invite.billing_mode,
+      clubId: invite.club_id,
+      contactEmail: invitedEmail,
+      contactName: getDisplayName(invitedEmail, workspaceScope.ownerRole.label),
+      createdAt: invite.created_at,
+      event,
+      isPlanComped: invite.billing_mode === 'unpaid',
+      notificationKey: `workspace-invite:${invite.id}`,
+      planKey,
+      source: 'workspace_invite_acceptance',
+      workspaceName: workspaceScope.key === 'team' ? team?.name || club?.name : club?.name,
+    })
 
     return jsonResponse(200, {
       success: true,

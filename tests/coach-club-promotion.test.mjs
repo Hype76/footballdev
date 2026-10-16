@@ -200,6 +200,7 @@ test('provider checkout receives one discount, club identity, referral attributi
   assert.deepEqual(request.discounts, [{ coupon: coupon.id }])
   assert.equal('allow_promotion_codes' in request, false)
   assert.equal(request.metadata.clubId, 'club')
+  assert.equal(request.metadata.clubSignup, 'true')
   assert.equal(request.subscription_data.metadata.coachReferralReservation, 'reservation')
   assert.equal(new URL(request.cancel_url).searchParams.get('ref'), code)
   assert.equal(options.idempotencyKey, 'one-club')

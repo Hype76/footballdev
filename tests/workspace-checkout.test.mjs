@@ -62,6 +62,7 @@ test('Coach Club upgrade preserves the 20-team offer and returns to the app upgr
   assert.equal(request.metadata.offerKey, 'club_20')
   assert.equal(request.metadata.teamCapacity, 20)
   assert.equal(request.subscription_data.metadata.offerKey, 'club_20')
+  assert.equal(request.metadata.clubSignup, 'false')
   assert.equal(request.success_url, 'https://footballplayer.online/app-upgrade?payment=returned')
   assert.equal(request.cancel_url, 'https://footballplayer.online/app-upgrade?payment=cancelled')
   assert.equal('trial_period_days' in request.subscription_data, false)
