@@ -4,6 +4,7 @@ import { arePaymentsDisabled, json } from './lib/_stripe-billing.js'
 import { getClubAdminRole, promoteClubBillPayerToAdmin, shouldPromoteBillPayer } from './lib/_billing-role-promotion.js'
 import { getPublicFreeSignupPlanKey, hasPublicFreeSignupIntent } from './lib/_signup-policy.js'
 import { normalizePlanKey, PLAN_KEYS, PLAN_KEY_SET } from '../../src/lib/plans.js'
+import { sendNewWorkspaceSignupNotification } from './lib/_signup-notification-email.js'
 import { getWorkspaceScope } from '../../src/lib/workspace-scope.js'
 
 const USER_PROFILE_SELECT = [
@@ -781,6 +782,18 @@ async function createSignupWorkspace(authUser, requestedClubName, requestedAcces
 
   club = await ensureWorkspaceOwnerProvisioning({ club, profile })
 
+  await (options.sendSignupNotificationImpl || sendNewWorkspaceSignupNotification)({
+    billingMode: checkoutRecord?.id ? 'paid' : 'unpaid',
+    clubId: club.id,
+    contactEmail: email,
+    contactName: displayName,
+    event: options.event,
+    isPlanComped: club.is_plan_comped,
+    planKey: club.plan_key,
+    source: 'public_signup',
+    workspaceName: club.name,
+  })
+
   return { profile, club }
 }
 
@@ -918,6 +931,7 @@ export async function handler(event) {
 
     if (forceNewTestClub) {
       const result = await createSignupWorkspace(authUser, body.clubName, body.accessCode, body.planKey, {
+        event,
         signupIntent: true,
         testSignupWithoutPayment: paymentsDisabledForRequest,
       })
@@ -936,6 +950,7 @@ export async function handler(event) {
       : invite
         ? await applyInvite(authUser, invite)
         : await createSignupWorkspace(authUser, body.clubName, body.accessCode, body.planKey, {
+          event,
           signupIntent: Boolean(body.signupIntent),
           testSignupWithoutPayment: paymentsDisabledForRequest,
         })
