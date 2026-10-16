@@ -1119,8 +1119,8 @@ function CoachRoute(props) {
   if (activeRoute === 'more') {
     if (['feedback', 'bug'].includes(moreRoute)) return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><UserFeedbackScreen key={moreRoute} type={moreRoute} appRole="coach" textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
     if (moreRoute === 'notifications') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><CoachNotificationsScreen {...props} key={props.context.id} /></ScreenIntro>
-    if (moreRoute === 'partners') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><PartnersScreen appRole="coach" textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
-    if (moreRoute === 'club-promotion') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><CoachClubPromotionScreen key={props.user.id} user={props.user} palette={palette} /></ScreenIntro>
+    if (moreRoute === 'partners') return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={() => props.onNavigate('more')} /><CoachPartnerPromotionAction onPress={() => props.onSelectMore('club-promotion')} /><PartnersScreen appRole="coach" textStyle={{ color: palette.textPrimary, fontSize: 16 }} headingStyle={{ color: palette.textPrimary, fontSize: 24, fontWeight: '800' }} /></ScreenIntro>
+    if (moreRoute === 'club-promotion') return <ScreenIntro title=""><SecondaryAction label="Back to Partners" onPress={() => props.onSelectMore('partners')} /><CoachClubPromotionScreen key={props.user.id} user={props.user} palette={palette} /></ScreenIntro>
     if (moreRoute === 'sessions') return <CoachSessionsScreen {...props} key={`${props.context.id}:sessions`} palette={palette} />
     if (['development', 'resources', 'chat', 'messages', 'polls', 'invites'].includes(moreRoute)) {
       return <CoachPhase31EScreen {...props} domain={moreRoute} key={`${props.context.id}:${moreRoute}`} palette={palette} />
@@ -1299,8 +1299,26 @@ function MoreScreen({ navigation, onSelectMore }) {
     <ScreenIntro copy="Open the Coach tools available for this role and context." title="More">
       <PartnersBanner onPress={() => onSelectMore('partners')} />
       <IconMenu accessibilityLabel="More tools" Icon={CoachIcon} palette={palette} onSelect={onSelectMore}
-        items={navigation.more.filter(route => route.key !== 'partners').map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}` }))} />
+        items={navigation.more.filter(route => !['club-promotion', 'partners'].includes(route.key)).map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}` }))} />
     </ScreenIntro>
+  )
+}
+
+function CoachPartnerPromotionAction({ onPress }) {
+  const { palette, styles } = useCoachTheme()
+  return (
+    <Pressable accessibilityHint="Opens your personal Coach offer code and QR" accessibilityLabel="Give a club 50% off" accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.partnerPromotionRow, pressed && styles.pressed]}>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.partnerPromotionIcon, { backgroundColor: palette.selected, borderColor: palette.accent }]}>
+        <CoachIcon color={palette.accentText} iconKey="more.club-promotion" size={30} />
+        <View style={[styles.partnerPromotionBadge, { backgroundColor: palette.accent }]}><Text style={[styles.partnerPromotionBadgeText, { color: palette.accentForeground }]}>50%</Text></View>
+      </View>
+      <View style={styles.menuCopy}>
+        <Text style={styles.iconEyebrow}>Coach referral offer</Text>
+        <Text style={styles.menuText}>Give a club 50% off</Text>
+        <Text style={styles.helperText}>Share your personal code, link or QR.</Text>
+      </View>
+      <CoachIcon iconKey="action.open" size={22} />
+    </Pressable>
   )
 }
 
@@ -1927,6 +1945,10 @@ function createCoachStyles(palette) {
     menuCopy: { flex: 1, gap: 1, minWidth: 0 },
     menuRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 58, paddingHorizontal: 4, paddingVertical: 7 },
     menuText: { color: palette.textPrimary, fontSize: 15, fontWeight: '900' },
+    partnerPromotionBadge: { alignItems: 'center', borderRadius: 10, bottom: -4, justifyContent: 'center', minHeight: 20, minWidth: 28, paddingHorizontal: 4, position: 'absolute', right: -7 },
+    partnerPromotionBadgeText: { fontSize: 9, fontWeight: '900' },
+    partnerPromotionIcon: { alignItems: 'center', borderRadius: 24, borderWidth: 1, height: 48, justifyContent: 'center', width: 48 },
+    partnerPromotionRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 14, minHeight: 82, paddingHorizontal: 4, paddingVertical: 12 },
     notice: { alignItems: 'center', backgroundColor: palette.selected, borderBottomColor: palette.accentText, borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
     noticeDismiss: { minHeight: 36, paddingHorizontal: 6, justifyContent: 'center' },
     noticeDismissText: { color: palette.accentText, fontSize: 12, fontWeight: '900' },

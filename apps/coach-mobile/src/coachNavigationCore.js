@@ -119,6 +119,7 @@ export function getCoachRouteState(route) {
 }
 
 export function getCoachBackTarget({ activeRoute, moreRoute = '' } = {}) {
+  if (moreRoute === 'club-promotion') return Object.freeze({ activeRoute: 'more', moreRoute: 'partners' })
   if (moreRoute) return Object.freeze({ activeRoute: 'more', moreRoute: '' })
   if (activeRoute && activeRoute !== 'home') return Object.freeze({ activeRoute: 'home', moreRoute: '' })
   return null

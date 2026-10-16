@@ -87,6 +87,22 @@ test('Coach fixture defaults include a reusable arrival choice and TBC Kits', ()
   assert.equal(validateCoachFixtureForm(squadCalendarForm, { requireSelectedPlayers: false }).parentVisible, true)
 })
 
+test('Coach fixture choices render as accessible club-colour buttons', async () => {
+  const [coachForm, coachScreen, coachTheme] = await Promise.all([
+    source('../apps/coach-mobile/src/CoachFixtureForm.js'),
+    source('../apps/coach-mobile/src/CoachMatchDayScreen.js'),
+    source('../apps/coach-mobile/src/coachThemeCore.js'),
+  ])
+
+  assert.match(coachForm, /accessibilityState=\{\{ selected \}\}/)
+  assert.match(coachForm, /aria-selected=\{selected\}/)
+  assert.match(coachForm, /styles\.fixtureChoiceActive/)
+  assert.match(coachScreen, /fixtureChoice:\s*\{[^}]*borderWidth:\s*1[^}]*minHeight:\s*44/)
+  assert.match(coachScreen, /fixtureChoiceActive:\s*\{\s*backgroundColor:\s*palette\.accent,\s*borderColor:\s*palette\.accent/)
+  assert.match(coachScreen, /fixtureChoiceTextActive:\s*\{\s*color:\s*palette\.accentForeground/)
+  assert.match(coachTheme, /accent:\s*hasClubAccent\s*\?\s*clubAccent\s*:\s*hasTeamAccent/)
+})
+
 test('web and app fixture creation expose recipient, Coach-calendar, and squad-calendar actions', async () => {
   const [web, coachForm, coachData] = await Promise.all([
     source('../src/pages/MatchDayPage.jsx'),

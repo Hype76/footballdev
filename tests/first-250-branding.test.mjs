@@ -78,9 +78,11 @@ test('a late current-state read cannot fabricate historical qualification, but a
 test('public aggregate counter fails closed and strips private fields', async () => {
   const client = data => ({ rpc: async () => ({ data }) })
   assert.deepEqual(await readPublicBrandingOfferCounter(client({ status: 'not_active', remaining: 211 })), { status: 'not_active' })
-  assert.deepEqual(await readPublicBrandingOfferCounter(client({ status: 'active', capacity: 250, reserved: 39, remaining: 211, teamId: 'secret' })),
-    { status: 'active', capacity: 250, reserved: 39, remaining: 211 })
-  await assert.rejects(readPublicBrandingOfferCounter(client({ status: 'active', capacity: 250, reserved: 39, remaining: 250 })), /invalid/)
+  assert.deepEqual(await readPublicBrandingOfferCounter(client({ status: 'active', capacity: 250, reserved: 5, remaining: 245, teamId: 'secret' })),
+    { status: 'active', capacity: 250, reserved: 5, remaining: 245 })
+  assert.deepEqual(await readPublicBrandingOfferCounter(client({ status: 'active', capacity: 250, reserved: 0, remaining: 250 })),
+    { status: 'active', capacity: 250, reserved: 0, remaining: 250 })
+  await assert.rejects(readPublicBrandingOfferCounter(client({ status: 'active', capacity: 250, reserved: 5, remaining: 250 })), /invalid/)
   await assert.rejects(readPublicBrandingOfferCounter({ rpc: async () => ({ error: new Error('private') }) }), /unavailable/)
 })
 test('authorised paid Club branding takes precedence after linking without destroying saved team artwork', () => {

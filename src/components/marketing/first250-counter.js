@@ -36,7 +36,7 @@ export function mountFirst250Counter({ document, fetch, setTimeout, clearTimeout
         key.style.display = 'none'
         return
       }
-      if (data?.status !== 'active' || data.capacity !== 250 || !Number.isInteger(data.reserved) || data.reserved < 39 || data.reserved > 250 || data.remaining !== 250 - data.reserved) throw new Error('Invalid offer availability')
+      if (data?.status !== 'active' || data.capacity !== 250 || !Number.isInteger(data.reserved) || data.reserved < 0 || data.reserved > 250 || data.remaining !== 250 - data.reserved) throw new Error('Invalid offer availability')
       total.textContent = String(data.reserved)
       total.style.fontSize = ''
       denominator.hidden = false

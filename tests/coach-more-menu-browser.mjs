@@ -29,9 +29,10 @@ const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];pa
 await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div></body></html>');await page.addScriptTag({content:result.outputFiles[0].text})
 await mkdir('output/playwright/more-menu',{recursive:true})
 for(const width of [320,390]){await page.setViewportSize({width,height:844});for(const mode of ['light','dark']){await page.evaluate(mode=>window.mode(mode),mode);await page.getByRole('button',{name:'Settings',exact:true}).waitFor();await page.screenshot({path:`output/playwright/more-menu/${mode}-${width}.png`,fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);const first=await page.getByRole('button',{name:'Formation Boards',exact:true}).boundingBox(),second=await page.getByRole('button',{name:'Sessions',exact:true}).boundingBox();assert.equal(first.y,second.y,'Menu uses icon columns');assert.ok(first.height>=96&&first.width>=44);}}
-for(const label of ['Formation Boards','Sessions','Development','Resources','Chat','Polls','Invites and availability','Team','Settings','Feedback & Suggestions','Report a Bug','Give a club 50% off'])await page.getByRole('button',{name:label,exact:true}).click()
+for(const label of ['Formation Boards','Sessions','Development','Resources','Chat','Polls','Invites and availability','Team','Settings','Feedback & Suggestions','Report a Bug'])await page.getByRole('button',{name:label,exact:true}).click()
+assert.equal(await page.getByRole('button',{name:'Give a club 50% off',exact:true}).count(),0)
 await page.getByRole('button',{name:'Partners and Special Offers',exact:true}).click();
 assert.equal((await page.evaluate(()=>window.visits)).at(-1),'partners');
-assert.equal((await page.evaluate(()=>window.visits)).length,13);assert.deepEqual(errors,[])
+assert.equal((await page.evaluate(()=>window.visits)).length,12);assert.deepEqual(errors,[])
 console.log('PASS: actual Coach More uses Settings icon grid, every route opens, light/dark and 320/390px fit')
 }finally{await browser.close()}
