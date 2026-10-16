@@ -36,7 +36,7 @@ function Button({ disabled = false, label, onPress, secondary = false, styles })
 }
 
 function Chips({ onChange, options, styles, value }) {
-  return <View style={styles.tabs}>{options.map((option) => { const selected = value === option.value; return <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={String(option.value)} onPress={() => onChange(option.value)} style={[styles.chip, selected && styles.chipActive]}><Text style={[styles.chipText, selected && styles.chipTextActive]}>{option.label}</Text></Pressable> })}</View>
+  return <View style={styles.fixtureChoices}>{options.map((option) => { const selected = value === option.value; return <Pressable accessibilityLabel={option.label} accessibilityRole="button" accessibilityState={{ selected }} aria-selected={selected} key={String(option.value)} onPress={() => onChange(option.value)} style={({ pressed }) => [styles.fixtureChoice, selected && styles.fixtureChoiceActive, pressed && styles.fixtureChoicePressed]}><Text style={[styles.fixtureChoiceText, selected && styles.fixtureChoiceTextActive]}>{option.label}</Text></Pressable> })}</View>
 }
 
 function Field({ autoCapitalize = 'sentences', keyboardType = 'default', label, multiline = false, onChangeText, placeholder = '', styles, value }) {

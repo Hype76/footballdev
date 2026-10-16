@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { managePartners, partnerStats, uploadPartnerImage } from '../../lib/partner-api.js'
+import { COACH_CLUB_PROMOTION_TERMS } from '../../lib/coach-club-promotion.js'
 import { csvCell, findPartnerSpace, partnerRect, validatePartnerLayout, visiblePartnerItems } from '../../lib/partners.js'
 import './partners.css'
 
@@ -14,6 +15,14 @@ function displayTime(value) {
   return new Intl.DateTimeFormat('en-GB',{ dateStyle:'short',timeStyle:'short',timeZone:'Europe/London' }).format(new Date(value)).replaceAll('/',':')
 }
 function gridStyle(item) { return { gridColumn:`${item.x+1} / span ${item.w}`,gridRow:`${item.y+1} / span ${item.h}` } }
+
+function ReferralOfferIcon() {
+  return <span className="partner-referral-icon" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><path d="M7 23V9c0-1.1.9-2 2-2h14l18 18-16 16L7 23Z"/><circle cx="16" cy="16" r="3"/><path d="m20 31 10-12m-8 2h.01m6 8h.01"/></svg></span>
+}
+
+export function CoachReferralOfferSummary() {
+  return <section className="partner-panel partner-referral-summary" aria-labelledby="coach-referral-offer-title"><ReferralOfferIcon/><div><p className="partner-referral-eyebrow">Built-in Coach referral offer</p><h2 id="coach-referral-offer-title">Give a club 50% off</h2><p>{COACH_CLUB_PROMOTION_TERMS}</p><dl><div><dt>Placement</dt><dd>Coach app &gt; Partners and Special Offers</dd></div><div><dt>Coach experience</dt><dd>Each eligible Coach receives a unique code, share link and QR code.</dd></div><div><dt>Management</dt><dd>Fixed product offer. It is not part of the editable partner grid or partner analytics.</dd></div></dl></div></section>
+}
 
 export function PartnerPreview({ items }) {
   const visible = visiblePartnerItems(items)
@@ -68,7 +77,7 @@ function PartnerAnalytics({ app, api }) {
 
 export function PlatformPartnersSection() {
   const [app,setApp]=useState('parent')
-  return <div className="partners-admin"><div className="partner-toolbar" aria-label="Partner app"><button aria-pressed={app==='parent'} onClick={()=>setApp('parent')}>Parent app</button><button aria-pressed={app==='coach'} onClick={()=>setApp('coach')}>Coach app</button></div><div hidden={app!=='parent'}><PartnerEditor app="parent" /></div><div hidden={app!=='coach'}><PartnerEditor app="coach" /></div></div>
+  return <div className="partners-admin"><div className="partner-toolbar" aria-label="Partner app"><button aria-pressed={app==='parent'} onClick={()=>setApp('parent')}>Parent app</button><button aria-pressed={app==='coach'} onClick={()=>setApp('coach')}>Coach app</button></div><div hidden={app!=='parent'}><PartnerEditor app="parent" /></div><div hidden={app!=='coach'}><CoachReferralOfferSummary/><PartnerEditor app="coach" /></div></div>
 }
 
 export function PartnerEditor({ app, api = defaultApi }) {

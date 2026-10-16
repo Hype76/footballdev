@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
 import { COACH_CLUB_COUPON_ID, assertCoachClubPromotionSelection, ensureCoachClubCoupon, startCoachClubPromotionCheckout } from '../netlify/functions/lib/_coach-club-promotion.js'
 import { coachClubShareLink, normalizeCoachClubCode } from '../src/lib/coach-club-promotion.js'
-import { getCoachNavigationModel, resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
+import { getCoachBackTarget, getCoachNavigationModel, resolveCoachRoute } from '../apps/coach-mobile/src/coachNavigationCore.js'
 import sharp from 'sharp'
 import jsQR from 'jsqr'
 
@@ -48,6 +48,25 @@ test('Coach More resolves the promotion for staff on free and paid plans', () =>
   assert.equal(link.origin, 'https://footballplayer.online')
   assert.equal(link.pathname, '/club-signup')
   assert.equal(link.searchParams.get('ref'), code)
+  assert.deepEqual(getCoachBackTarget({ activeRoute: 'more', moreRoute: 'club-promotion' }), { activeRoute: 'more', moreRoute: 'partners' })
+})
+
+test('Coach referral offer is placed in Partners and represented in Platform Partners', async () => {
+  const [coachApp, platformPartners] = await Promise.all([
+    readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/components/platform/PlatformPartnersSection.jsx', import.meta.url), 'utf8'),
+  ])
+  const moreScreen = coachApp.slice(coachApp.indexOf('function MoreScreen'), coachApp.indexOf('function SettingsScreen'))
+  const coachPartnersRoute = coachApp.slice(coachApp.indexOf("if (moreRoute === 'partners')"), coachApp.indexOf("if (moreRoute === 'sessions')"))
+
+  assert.match(moreScreen, /!\['club-promotion', 'partners'\]\.includes\(route\.key\)/)
+  assert.match(coachPartnersRoute, /CoachPartnerPromotionAction/)
+  assert.match(coachPartnersRoute, /Back to Partners/)
+  assert.match(coachApp, /iconKey="more\.club-promotion"/)
+  assert.match(coachApp, />50%<\/Text>/)
+  assert.match(platformPartners, /COACH_CLUB_PROMOTION_TERMS/)
+  assert.match(platformPartners, /CoachReferralOfferSummary/)
+  assert.match(platformPartners, /Fixed product offer\. It is not part of the editable partner grid or partner analytics\./)
 })
 
 test('monthly Club only, valid code and no stacked discounts are enforced before reservation', () => {

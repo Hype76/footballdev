@@ -1,6 +1,6 @@
 // Preparation library only. No route, signup hook, processor or live binding.
 export const BRANDING_OFFER_RULES = Object.freeze({ capacity: 250, existingPlaces: 39,
-  newPlaces: 211, playersWithAcceptedParent: 7, completedMatches: 10, calendarMonths: 3 })
+  acceptedOfferPlaces: 250, playersWithAcceptedParent: 7, completedMatches: 10, calendarMonths: 3 })
 
 function instant(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return NaN
@@ -89,7 +89,7 @@ export async function readPublicBrandingOfferCounter(client) {
   if (error) throw new Error('branding_counter_unavailable')
   if (data?.status !== 'active') return { status: 'not_active' }
   const valid = data.capacity === 250 && Number.isInteger(data.reserved)
-    && Number.isInteger(data.remaining) && data.reserved >= 39 && data.reserved <= 250
+    && Number.isInteger(data.remaining) && data.reserved >= 0 && data.reserved <= 250
     && data.remaining >= 0 && data.reserved + data.remaining === 250
   if (!valid) throw new Error('branding_counter_invalid')
   return { status: 'active', capacity: 250, reserved: data.reserved, remaining: data.remaining }

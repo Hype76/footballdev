@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
 
 const sql = await readFile(new URL('../supabase/migrations/20261003060000_first_250_branding_preparation.sql', import.meta.url), 'utf8')
+const acceptedCounterSql = await readFile(new URL('../supabase/migrations/20261016094500_branding_offer_accepted_counter.sql', import.meta.url), 'utf8')
 const authoritySource = await readFile(new URL('../supabase/migrations/20260725174533_platform_club_access_management.sql', import.meta.url), 'utf8')
 const authority = authoritySource.slice(authoritySource.indexOf('create or replace function public.platform_access_is_admin_v1'),
   authoritySource.indexOf('create or replace function public.platform_access_audit_v1'))
@@ -43,8 +44,8 @@ async function database() {
     insert into auth.users values ('${admin}',clock_timestamp(),null,'synthetic@example.test');
     insert into public.clubs(id) values ('${club}');
     insert into public.platform_admins values ('${admin}', 'active');
-    insert into public.teams(id,club_id,name) select ('30000000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid, '${club}', 'Synthetic team' from generate_series(1,260) n;`)
-  await db.exec(authority); await db.exec(canonicalPlan); await db.exec(sql)
+    insert into public.teams(id,club_id,name) select ('30000000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid, '${club}', 'Synthetic team' from generate_series(1,300) n;`)
+  await db.exec(authority); await db.exec(canonicalPlan); await db.exec(sql); await db.exec(acceptedCounterSql)
   await db.exec("select set_config('request.jwt.claim.role','service_role',false)")
   return db
 }
@@ -101,12 +102,14 @@ test('new claim is blocked until exact existing cohort is mapped and terms match
     assert.deepEqual((await db.query('select * from app_private.first_250_branding_entries where team_id=$1', [team(40)])).rows[0], original)
   } finally { await db.close() }
 })
-test('211 new teams fill the capped ledger; exhaustion does not recycle or expose identities', async () => {
+test('only 250 explicitly accepted offers fill the public counter and grandfathered teams stay outside it', async () => {
   const db = await database()
   try {
     await mapExisting(db); await enableSynthetic(db)
-    for (let n = 40; n <= 250; n++) await db.query('select public.reserve_new_branding_team($1,$2,$3)', [team(n), club, 'synthetic-v1'])
-    assert.equal((await db.query('select public.reserve_new_branding_team($1,$2,$3) slot', [team(251), club, 'synthetic-v1'])).rows[0].slot, null)
+    assert.deepEqual((await db.query('select public.read_branding_offer_counter() as value')).rows[0].value,
+      { status: 'active', capacity: 250, reserved: 0, remaining: 250 })
+    for (let n = 40; n <= 289; n++) await db.query('select public.claim_first_250_branding_team($1,$2,$3,$4)', [admin, team(n), club, 'synthetic-v1'])
+    assert.equal((await db.query('select public.claim_first_250_branding_team($1,$2,$3,$4) slot', [admin, team(290), club, 'synthetic-v1'])).rows[0].slot, null)
     await db.exec("update app_private.first_250_branding_entries set state='failed' where slot=40")
     assert.deepEqual((await db.query('select public.read_branding_offer_counter() as value')).rows[0].value,
       { status: 'active', capacity: 250, reserved: 250, remaining: 0 })
