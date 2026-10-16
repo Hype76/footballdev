@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "9c15948a9ef2db6d29975606f79ab1af7a8c14cc01ddbc11e8f25813ce72a9f1",
+    "scripts/security-verify-reviewed-backports.mjs": "f3e857fd384703951e49d63cc36e3c4475f599f74b1181d4fd811e0d27075c76",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1032,7 +1032,7 @@
       "tests/development-scores-filenames-10c.test.mjs": "5f978755f5ab8db6387b7a4cd65599b1918fcd9fadb6156ae42f20f298f5bd7d",
       "tests/development-submission-flow.test.mjs": "260e58f47e73da9f407bdae42c126f7ddc5cc50ba4101901248418fe40b20075",
       "tests/durable-mobile-action.test.mjs": "da3ddeea9dadf50402d071638faa474e8c855437fa47bda06fb449bba56f04a7",
-      "tests/email-send-route-coverage.test.mjs": "837faac9f5e775286958f3ca2f13f0cd9751f750bb0a5ab51140ff7afa420a96",
+      "tests/email-send-route-coverage.test.mjs": "4d5ce6c4343926ca9649cf9c03eb466f67225540f3ad42b33ac11ad46800c750",
       "tests/event-response-read-model-06a.test.mjs": "72a657e0074e4653dd0cd0c0b0548ccea8cf50ba106758235233ca04638c4db8",
       "tests/fan-app-content-browser.mjs": "1ef7c42247b139e043bf4bd72c43c16d9e9d3d32924c2d6848901d3a1ac5773f",
       "tests/fans-endpoint.test.mjs": "8a911d433f302361b485484804da2a045406e17d404eef521ffd645e94786c9d",
@@ -1216,7 +1216,7 @@
       "tests/workspace-invite-cache-policy.test.mjs": "aea72af1e3963fda701f275841ba0dd671ad0a21a8703cfa23626ae96fc78c21",
       "vite.config.js": "bacd3ab79a356ac7b32b6156cbbbd1c8a7b0a7abe10a1d56ca61f3ddd5a07cbd",
       "netlify/functions/create-club-owner-account.js": "ca22b1481ddf5e5f94f1f8005ba350337df293aab1101212f8d7e7b8cb2f049b",
-      "netlify/functions/lib/_signup-notification-email.js": "41f22a2d92ad6753e2f228aa23c6c0cedb060c939051962e28e530e71b50fe96",
+      "netlify/functions/lib/_signup-notification-email.js": "8912b9fa92f81d0da9fa9daf7642ae223c33fcfd7dce2dec0e5b189a70d417cd",
       "netlify/functions/retry-failed-emails.js": "9a69c6d6d2425d997c06ccdb5e204598dd6fdb37506ebb9d80fa817839513ae9",
       "tests/email-lease-retry-12d.test.mjs": "6705ba7e40584a78b347f0c8e0b5de0aa0235f22a9a2eba542fc0a8068cfffdf",
       "tests/signup-notification-email.test.mjs": "a6dc16b2b6460102613ea3a8017c5d88171148510717c917c63d04ddde514def",
@@ -2400,7 +2400,7 @@
       "publicationApproved": false
     }
   },
-  "releasePreparationSha256": "f10bca7983b69b53e70ed1d343add34cf6a7cd95c5d00dd1c68ec16c29117577",
+  "releasePreparationSha256": "f6a3b6bf951bd67082372d6ffa0329896dca619ff0713a72eac4fa993c2bdee9",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

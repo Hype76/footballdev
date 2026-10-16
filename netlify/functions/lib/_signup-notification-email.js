@@ -165,7 +165,7 @@ export function buildSignupNotificationEmail({
       to: recipients,
       subject,
       html,
-      emailAppRole: '',
+      emailAppRole: 'both',
     },
     subject,
     workspaceType,
