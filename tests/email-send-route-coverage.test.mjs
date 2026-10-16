@@ -5,6 +5,7 @@ const functionsRoot=new URL('../netlify/functions/',import.meta.url)
 async function sources(dir,prefix='') {const result=[];for(const e of await readdir(dir,{withFileTypes:true})){if(e.isDirectory()) result.push(...await sources(new URL(`${e.name}/`,dir),`${prefix}${e.name}/`));else if(/\.(?:[cm]?[jt]s)$/.test(e.name))result.push([`${prefix}${e.name}`,await readFile(new URL(e.name,dir),'utf8')])}return result}
 const sendRoutes={
  'lib/_fresh-coach-signup.js':'coach',
+ 'lib/_signup-notification-email.js':'internal',
  'invite-coach.mts':'delegate:lib/_coach-referral.js','lib/_coach-referral.js':'coach',
  'calendar-change-notifications.js':'parent','create-fan-account.js':'delegate:lib/_fan-account.js','create-parent-account.js':'parent','email-diagnostics.js':'both','fans.js':'parent','lib/_fan-account.js':'parent','lib/_squad-decision-notifications.js':'parent','platform-club-access.js':'coach','platform-create-club.js':'coach','process-billing-access-reminders.js':'coach','retry-failed-emails.js':'parent','send-contact-request.js':'both','send-demo-request.js':'both','send-parent-email.js':'parent','send-parent-password-reset.js':'parent','send-parent-portal-invite.js':'parent','send-password-reset.js':'dynamic','send-poll-result-notifications.js':'parent','send-staff-invite.js':'coach','submit-tester-feedback.js':'both',
 }
@@ -17,7 +18,8 @@ test('every production email-provider caller has an audited app audience or expl
   const code=files.find(([n])=>n===name)?.[1];assert.ok(code,name)
   if(role.startsWith('delegate:')){assert.ok(code.includes(role.slice(9).split('/').pop()));continue}
   assert.match(code,/emailAppRole/,`${name} must preserve app audience at its send boundary`)
-  if(role!=='dynamic')assert.match(code,new RegExp(`emailAppRole\\s*:\\s*['"]${role}['"]`),`${name} app audience differs from the audited recipient role`)
+  if(role==='internal')assert.match(code,/emailAppRole\s*:\s*['"]['"]/,`${name} must explicitly omit customer app links`)
+  else if(role!=='dynamic')assert.match(code,new RegExp(`emailAppRole\\s*:\\s*['"]${role}['"]`),`${name} app audience differs from the audited recipient role`)
  }
 })
 test('Resend transport has one boundary and queue processors reach it through prepared parent dispatch',async()=>{
