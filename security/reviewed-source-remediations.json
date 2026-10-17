@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "b3147e6a8f73470c5081684ba0c5402adabb6afc11c43415da5bba817456e367",
+    "scripts/security-verify-reviewed-backports.mjs": "13368f7da56efa87a1eaf28a692fdb433c1517d8a90ba00e943fcd242295b1d0",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -877,7 +877,7 @@
       "src/components/marketing/reference-footer-qr.js": "332cf160319fdcbb0e84f0f828a4b239f3f4cdfca4012e3ed6e7aff342b294c2",
       "src/components/marketing/reference-kit-preview.js": "8ec3acd5ec0736cf5fa806999426b6eb6e7de84826618189d320e75d31e51373",
       "src/components/marketing/reference-offer-share.js": "6e5a87fbe8f13714b78dce6855304a1ca538a3389a02f9e3d0101dc57eea128a",
-      "src/components/marketing/reference-pages.json": "3f2ba8e3875b61efe21cddca54ced1f5a4f95af0b4693de77d99fc3f2e34f4e2",
+      "src/components/marketing/reference-pages.json": "205647d394bb5084cad04e9d26c9a449f657dacfd526e5c62e467018e1156bce",
       "src/components/marketing/reference-pricing-info.js": "fc89aa2f710b2e26d90ab50b39f2af8687c5a44ced16e0dd1d930dafc95da44f",
       "src/components/marketing/reference-scope.js": "cdf489f900f8634529e226ca7f2337cfa60ce29f5aeabbce0f4a29ca8779408f",
       "src/components/marketing/reference-tutorials.js": "f7e5b9ba262c5c93fa1b97719eec5e19071bf0e5abca610f7be16dc67445f4ac",
@@ -2410,7 +2410,7 @@
       "customerWrites": 0
     }
   },
-  "releasePreparationSha256": "a49d36840d025641c154b9e286a50dd9ad65d68ffad43ad9115cefebe1a69803",
+  "releasePreparationSha256": "feb5c36327e999ba52cd1efdbcd1dd6abe2bd7128d0d78b21a8deade4ed09ab2",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
