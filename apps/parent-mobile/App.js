@@ -207,7 +207,6 @@ import { clearParentDevelopmentPdfPreparation, prepareParentMobileDevelopmentPdf
 import { saveParentMobileMatchReportPdf } from './parentMatchReport'
 
 const config = getMobileRuntimeConfig('parent')
-const PARENT_REFRESH_MIN_INTERVAL_MS = 30 * 1000
 const resourceNames = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'notifications', 'polls', 'resources']
 const resourceFallbacks = {
   calendar: 'Calendar information could not be loaded.',
@@ -1165,8 +1164,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       appStateRef.current = nextState
       const returnedFromBackground = previousState === 'background' && nextState === 'active'
       const wasAwayLongEnough = Date.now() - backgroundedAtRef.current >= 1500
-      const dataRefreshDue = Date.now() - lastDataRefreshAtRef.current >= PARENT_REFRESH_MIN_INTERVAL_MS
-      if (returnedFromBackground && wasAwayLongEnough && dataRefreshDue && selectedLink?.id && !resumeRefreshRef.current) {
+      if (returnedFromBackground && wasAwayLongEnough && selectedLink?.id && !resumeRefreshRef.current) {
         void refreshParentAppInstallationPresence()
         resumeRefreshRef.current = true
         const roomIdAtResume = selectedRoomId

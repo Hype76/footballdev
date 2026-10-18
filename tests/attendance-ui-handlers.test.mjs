@@ -201,6 +201,14 @@ test('actual Coach outbox works without a Parent-only native network listener',a
  f.unmount()
 })
 
+test('passive attendance cache recovery failure stays quiet until the user acts',async()=>{
+ const f=attendanceHookFixture(),api=f.render({...hookScope('quiet-startup'),read:async()=>{throw new Error('Synthetic unreadable cache')}});f.commit()
+ await new Promise(resolve=>setImmediate(resolve))
+ assert.equal(api.error,'')
+ assert.equal(f.writes.some(write=>write.error),false)
+ f.unmount()
+})
+
 test('actual Coach adapter retains failed durable commands and confirms explicit recovery without native additions',async()=>{
  let attempts=0
  const f=attendanceHookFixture(async()=>{if(++attempts===1)throw new Error('Synthetic offline network');return {outcome:'saved',current:{revision:1,status:'available',respondedAt:'2026-10-05T10:00:00Z'}}}),storage={commands:[]}

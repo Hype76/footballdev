@@ -1,4 +1,4 @@
-export const FOOTBALL_PLAYER_LOGO_PATH = '/football-player-logo.png'
+export const FOOTBALL_PLAYER_LOGO_PATH = '/icons/icon-192.png'
 export const FOOTBALL_PLAYER_ORIGIN = 'https://footballplayer.online'
 const DEFAULT_IMAGE_PROBE_TIMEOUT_MS = 2500
 const SAFE_EMAIL_IMAGE_CONTENT_TYPES = new Set([

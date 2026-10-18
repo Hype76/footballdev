@@ -12,15 +12,15 @@ import {
   createMobileFormationPreferenceKey,
   getMobileFormationCapacity,
   getMobileAvailableFormationPlayers,
-  getMobileFormationPitchPercent,
   getMobileFormationPitchRatio,
   getMobileFormationPlayerAvailability,
-  getMobileFormationPresetSlots,
+  getMobileFormationDraftSlots,
   getMobileFormationSelectedPlayerIds,
   getMobileFormationSlotLabel,
   getMobileFormationSlotShortLabel,
   MOBILE_FORMATION_GAME_FORMATS,
   moveMobileFormationPlayer,
+  moveMobileFormationSlot,
   moveMobileFormationPlayersToBench,
   parseMobileFormationPreferences,
   placeMobileFormationLineup,
@@ -256,6 +256,19 @@ class FormationPlayerMarker extends Component {
     const position = this.state.livePosition || { x: playerX, y: playerY }
     const visualPosition = getCoachFormationMarkerVisualPosition(position, layout, { markerWidth: 64, markerHeight: 70, anchorY: 25 })
     const goalkeeper = player.positionGroup === 'goalkeeper' || player.slotId === 'gk'
+    if (this.props.empty) return (
+      <View
+        {...this.panResponder.panHandlers}
+        accessibilityHint={canEdit ? 'Tap to choose a Player. Hold briefly, then drag to move this custom position.' : 'This position is read-only.'}
+        accessibilityLabel={`Add Player at ${getMobileFormationSlotLabel(player)}`}
+        accessibilityRole={canEdit ? 'button' : 'image'}
+        accessibilityState={{ disabled: !canEdit }}
+        style={[styles.emptySlot, !canEdit && styles.actionDisabled, this.state.dragging && { opacity: 0.78 }, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}
+      >
+        <MaterialIcons color="rgb(255,255,255)" name="add" size={24} />
+        <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.emptySlotLabel}>{getMobileFormationSlotShortLabel(player)}</Text>
+      </View>
+    )
     return (
       <View
         {...this.panResponder.panHandlers}
@@ -565,7 +578,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const currentPreset = presets.find((preset) => preset.key === draft.presetKey)
     || presets.find((preset) => preset.gameFormat === draft.gameFormat)
     || null
-  const currentPresetSlots = useMemo(() => getMobileFormationPresetSlots(currentPreset), [currentPreset])
+  const currentPresetSlots = useMemo(() => getMobileFormationDraftSlots(draft, currentPreset), [currentPreset, draft])
   const activeSlot = currentPresetSlots.find((slot) => slot.id === activeSlotId) || null
   const activeSlotPlayer = draft.placements.find((player) => player.slotId === activeSlotId) || null
   const selectedBenchPlayer = draft.bench.find((player) => player.playerId === selectedPlayerId) || null
@@ -969,19 +982,19 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       <View accessibilityLabel="Formation pitch" onLayout={(event) => setPitchLayout(event.nativeEvent.layout)} style={[styles.pitch, fullScreen && styles.pitchCanvas]}>
         <FormationPitchLines styles={styles} />
         {currentPresetSlots.filter((slot) => !board?.isLocked && !draft.placements.some((candidate) => candidate.slotId === slot.id)).map((slot) => (
-          <Pressable
-            accessibilityHint="Opens the Player picker for this empty position"
-            accessibilityLabel={`Add Player at ${getMobileFormationSlotLabel(slot)}`}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canEdit }}
-            disabled={!canEdit}
+          <FormationPlayerMarker
+            canEdit={canEdit}
+            canMove={canEdit && !removalMode && String(currentPreset?.key || '').endsWith('-custom')}
+            empty
             key={slot.id}
+            layout={pitchLayout}
+            onGestureEnd={onMarkerGestureEnd}
+            onGestureStart={onMarkerGestureStart}
+            onMove={(coordinates) => commitPlayerMove(moveMobileFormationSlot(draft, currentPreset, slot.id, coordinates))}
             onPress={() => openSlotPicker(slot.id)}
-            style={[styles.emptySlot, !canEdit && styles.actionDisabled, { left: `${getMobileFormationPitchPercent(slot.x)}%`, top: `${getMobileFormationPitchPercent(slot.y)}%` }]}
-          >
-            <MaterialIcons color="rgb(255,255,255)" name="add" size={24} />
-            <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.emptySlotLabel}>{getMobileFormationSlotShortLabel(slot)}</Text>
-          </Pressable>
+            player={{ ...slot, displayName: getMobileFormationSlotLabel(slot), slotId: slot.id }}
+            styles={styles}
+          />
         ))}
         {draft.placements.map((player) => (
           <FormationPlayerMarker

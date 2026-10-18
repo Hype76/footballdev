@@ -39,15 +39,18 @@ test('mobile startup avoids update-check contention and parallelises independent
   assert.deepEqual(reads, ['biometric', 'session', 'lock', 'profile'])
 })
 
-test('mobile home refreshes are progressive, parallel, and resume-throttled', async () => {
+test('mobile home refreshes are progressive, Coach cache opens once, and Parent foreground return is fresh', async () => {
   const coach = read('apps/coach-mobile/App.js')
   const parent = read('apps/parent-mobile/App.js')
   assert.match(coach, /getCoachPhase31GPrimaryHomeSnapshot\(selectedMobileUser, partial =>/)
-  assert.match(coach, /getCoachPhase31GAttentionSnapshot\(selectedMobileUser, \{ force: refresh \}\)/)
+  assert.match(coach, /getCoachPhase31GAttentionSnapshot\(selectedMobileUser, \{ force: refresh,/)
   assert.match(coach, /HOME_REFRESH_MIN_INTERVAL_MS/)
+  assert.match(coach, /const offlineView = await readCoachHomeOfflineView\(user\.id, activeContext\)/)
+  assert.match(read('apps/coach-mobile/src/offline.js'), /readCoachHomeOfflineView[\s\S]*developmentDrafts: entry\?\.items \|\| \{\}/)
   assert.match(parent, /runPrioritizedMobileLoads\(loaders, \{/)
   assert.match(parent, /onSettled\(name, result, settled\)/)
-  assert.match(parent, /PARENT_REFRESH_MIN_INTERVAL_MS/)
+  assert.doesNotMatch(parent, /const dataRefreshDue =/)
+  assert.match(parent, /if \(returnedFromBackground && wasAwayLongEnough && selectedLink\?\.id/)
   const started = [], published = []
   const pending = new Map()
   const loaders = Object.fromEntries(['calendar', 'invitations', 'matches', 'notifications', 'resources'].map(name => [name, () => {

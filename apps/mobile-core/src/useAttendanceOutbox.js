@@ -58,7 +58,9 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, 
     const recover = () => {
       if (!token.isCurrent()) return Promise.resolve()
       return token.engine.recover().then(() => token.isCurrent() ? token.engine.sync() : undefined).catch(() => {
-        if (token.isCurrent()) setState(previous => ({ ...previous, scope, error: 'Saved attendance could not be opened. Reopen this workspace before responding.' }))
+        // A passive startup read must not interrupt the user with a modal. If
+        // storage is still unavailable, the attempted response remains on the
+        // current screen and enqueue reports the actionable error instead.
       })
     }
     // Parent supplies its existing native listener. Coach has no NetInfo native

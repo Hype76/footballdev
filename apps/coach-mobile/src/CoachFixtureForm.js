@@ -1,5 +1,5 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   calculateCoachArrivalTime,
@@ -47,7 +47,7 @@ function Toggle({ label, onValueChange, styles, value }) {
   return <View style={styles.row}><Text style={styles.fieldLabel}>{label}</Text><Switch accessibilityLabel={label} onValueChange={onValueChange} value={value === true} /></View>
 }
 
-export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches, onCancel, onCancelled, onCreated, onUpdated, players, styles, user }) {
+export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches, onCancel, onCancelled, onCreated, onRequestScrollTo, onUpdated, players, styles, user }) {
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -56,6 +56,7 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
   const [carpoolReady, setCarpoolReady] = useState(false)
   const [carpoolSaving, setCarpoolSaving] = useState(false)
   const [carpoolEnabled, setCarpoolEnabled] = useState(false)
+  const locationSectionY = useRef(0)
   const isEditing = Boolean(match?.id)
 
   useEffect(() => {
@@ -145,8 +146,13 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
   const save = async ({ calendarTarget = '' } = {}) => {
     if (carpoolSaving) return
     Keyboard.dismiss()
-    setBusy(true)
     setError('')
+    if (!isEditing && !String(form.venueName || '').trim()) {
+      setError('Add a venue before creating this fixture.')
+      onRequestScrollTo?.(locationSectionY.current)
+      return
+    }
+    setBusy(true)
     const squadCalendarPlayerIds = players
       .filter((player) => String(player.section || '').trim().toLowerCase() === 'squad')
       .map((player) => player.id)
@@ -289,7 +295,7 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
         {!isContinuousMatchClock(form) ? <><Text style={styles.fieldLabel}>Match duration</Text><Chips onChange={(value) => setForm({ ...form, matchDurationMinutes: value })} options={[...COACH_MATCH_DURATION_OPTIONS.map((value) => ({ label: `${value} minutes`, value })), { label: 'Custom', value: 'custom' }]} styles={styles} value={durationIsCustom ? 'custom' : Number(form.matchDurationMinutes)} />{durationIsCustom ? <Field label="Custom duration, even minutes from 2 to 140" onChangeText={(value) => setForm({ ...form, matchDurationMinutes: value })} styles={styles} value={form.matchDurationMinutes === 'custom' ? '' : form.matchDurationMinutes} /> : null}<Toggle label="Save this duration as my default" onValueChange={(value) => setForm({ ...form, saveDurationAsDefault: value })} styles={styles} value={form.saveDurationAsDefault} /></> : <Text style={styles.meta}>The clock runs until a Coach pauses it or selects Full Time.</Text>}
       </View>
 
-      <View style={styles.card}>
+      <View onLayout={(event) => { locationSectionY.current = event.nativeEvent.layout.y }} style={styles.card}>
         <Text style={styles.cardTitle}>Location</Text>
         <Text style={styles.fieldLabel}>Pitch type</Text>
         <Chips onChange={(value) => setForm({ ...form, pitchType: value })} options={COACH_PITCH_TYPE_OPTIONS} styles={styles} value={form.pitchType} />

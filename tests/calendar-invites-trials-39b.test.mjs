@@ -260,7 +260,7 @@ test('club-branded event email includes identity, accent, context, instructions,
   })
 
   assert.equal(fallback.logoSource, 'football-player')
-  assert.match(fallback.html, /footballplayer\.online\/football-player-logo\.png/)
+  assert.match(fallback.html, /footballplayer\.online\/icons\/icon-192\.png/)
   assert.equal(resolveCalendarEmailAccent('#123abc'), '#123abc')
   assert.equal(resolveCalendarEmailAccent('unknown'), '#047857')
 })

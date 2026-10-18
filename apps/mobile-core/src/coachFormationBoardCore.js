@@ -30,10 +30,20 @@ const CUSTOM_FORMATION_ROWS = Object.freeze({
   '11v11': Object.freeze([4, 4, 2]),
 })
 
-function isCustomMobileFormationPreset(preset) {
+export function isCustomMobileFormationPreset(preset) {
   const key = normalize(preset?.key).toLowerCase()
   const name = normalize(preset?.displayName ?? preset?.name).toLowerCase()
   return key.endsWith('-custom') || key === 'custom' || name === 'custom'
+}
+
+export function getMobileFormationDraftSlots(draft, preset) {
+  const slots = getMobileFormationPresetSlots(preset)
+  if (!isCustomMobileFormationPreset(preset)) return slots
+  const overrides = new Map((draft?.customSlots || []).map((slot) => [normalize(slot?.id), slot]))
+  return slots.map((slot) => {
+    const override = overrides.get(normalize(slot.id))
+    return override ? { ...slot, x: override.x, y: override.y } : slot
+  })
 }
 
 export function getMobileFormationPresetSlots(preset) {
@@ -211,6 +221,9 @@ export function createMobileFormationDraft({ board = null, gameFormat = '11v11',
       ...existingBench.map(normalizeMobileFormationPlayer),
       ...unplaced,
     ].filter((player) => player.playerId),
+    customSlots: (Array.isArray(version?.customSlots) ? version.customSlots : [])
+      .map((slot) => ({ id: normalize(slot?.id), x: getMobileFormationPitchRatio(slot?.x), y: getMobileFormationPitchRatio(slot?.y) }))
+      .filter((slot) => slot.id),
     gameFormat: normalize(version?.gameFormat || board?.gameFormat || gameFormat) || '11v11',
     placements: (Array.isArray(version?.placements) ? version.placements : []).map(normalizePlacement).filter((player) => player.playerId),
     presetKey: normalize(version?.formationPresetKey || board?.formationPresetKey || presetKey) || '11v11-4-4-2',
@@ -325,6 +338,7 @@ export function applyMobileFormationPreset(draft, preset) {
   })
   return {
     ...nextDraft,
+    customSlots: [],
     gameFormat: normalize(preset?.gameFormat) || draft.gameFormat,
     presetKey: normalize(preset?.key) || draft.presetKey,
     registryVersion: Number(preset?.registryVersion || draft.registryVersion || 1),
@@ -332,7 +346,7 @@ export function applyMobileFormationPreset(draft, preset) {
 }
 
 export function placeMobileFormationLineup(draft, preset) {
-  const slots = getMobileFormationPresetSlots(preset)
+  const slots = getMobileFormationDraftSlots(draft, preset)
   const used = new Set((draft?.placements || []).map((player) => player.slotId).filter(Boolean))
   const openSlots = slots.filter((slot) => !used.has(normalize(slot.id)))
   const remainingCapacity = Math.max(0, getMobileFormationCapacity(draft?.gameFormat) - (draft?.placements || []).length)
@@ -352,7 +366,7 @@ export function placeMobileFormationLineup(draft, preset) {
 }
 
 export function buildMobileFormationLineup(draft, preset) {
-  const slots = getMobileFormationPresetSlots(preset)
+  const slots = getMobileFormationDraftSlots(draft, preset)
   const capacity = Math.min(getMobileFormationCapacity(preset?.gameFormat || draft?.gameFormat), slots.length)
   const seen = new Set()
   const players = [...(draft?.placements || []), ...(draft?.bench || [])]
@@ -548,9 +562,24 @@ export function moveMobileFormationPlayer(draft, playerId, coordinates = {}) {
   return { ...draft, placements }
 }
 
+export function moveMobileFormationSlot(draft, preset, slotId, coordinates = {}) {
+  if (!isCustomMobileFormationPreset(preset)) return draft
+  const targetId = normalize(slotId)
+  if (!targetId || !getMobileFormationPresetSlots(preset).some((slot) => normalize(slot.id) === targetId)) return draft
+  const moved = {
+    id: targetId,
+    x: Math.max(0.04, Math.min(0.96, getMobileFormationPitchRatio(coordinates.x))),
+    y: Math.max(0.04, Math.min(0.96, getMobileFormationPitchRatio(coordinates.y))),
+  }
+  const customSlots = [...(draft?.customSlots || []).filter((slot) => normalize(slot?.id) !== targetId), moved]
+  const player = (draft?.placements || []).find((placement) => normalize(placement.slotId) === targetId)
+  const nextDraft = { ...draft, customSlots }
+  return player ? moveMobileFormationPlayer(nextDraft, player.playerId, moved) : nextDraft
+}
+
 export function placeMobileFormationPlayerInNextSlot(draft, preset, playerId) {
   const used = new Set((draft?.placements || []).map((player) => normalize(player.slotId)).filter(Boolean))
-  const nextSlot = getMobileFormationPresetSlots(preset).find((slot) => !used.has(normalize(slot?.id)))
+  const nextSlot = getMobileFormationDraftSlots(draft, preset).find((slot) => !used.has(normalize(slot?.id)))
   return nextSlot ? placeMobileFormationPlayer(draft, playerId, nextSlot) : draft
 }
 

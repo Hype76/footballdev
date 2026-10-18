@@ -34,7 +34,7 @@ test('email logo fallback prefers team, then club, then Football Player', () => 
       origin: 'https://footballplayer.online',
       teamLogoUrl: '',
     }),
-    { source: 'football-player', url: 'https://footballplayer.online/football-player-logo.png' },
+    { source: 'football-player', url: 'https://footballplayer.online/icons/icon-192.png' },
   )
 })
 
@@ -68,7 +68,7 @@ test('email logo reachability rejects unsafe hosts and falls back when the club 
 
   assert.deepEqual(unavailable, {
     source: 'football-player',
-    url: 'https://footballplayer.online/football-player-logo.png',
+    url: 'https://footballplayer.online/icons/icon-192.png',
   })
 
   const svg = await resolveReachableEmailLogo({
@@ -122,7 +122,7 @@ test('Football Player fallback markup remains accessible when remote images are 
     origin: 'https://footballplayer.online',
   })
 
-  assert.match(markup, /football-player-logo\.png/)
+  assert.match(markup, /icons\/icon-192\.png/)
   assert.match(markup, /alt="Football Player logo"/)
   assert.match(markup, /data-logo-source="football-player"/)
 })

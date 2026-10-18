@@ -23,6 +23,11 @@ import {
   convertFormationPlacementToPortrait,
   convertFormationPlacementsToPortrait,
 } from '../src/lib/formation-board-orientation.js'
+import {
+  createMobileFormationDraft,
+  getMobileFormationDraftSlots,
+  moveMobileFormationSlot,
+} from '../apps/mobile-core/src/coachFormationBoardCore.js'
 
 const preset = {
   gameFormat: '5v5',
@@ -116,6 +121,16 @@ test('portrait versions are not coordinate-transformed', () => {
 
   assert.equal(adapted.pitchOrientation, 'portrait')
   assert.equal(adapted.placements, version.placements)
+})
+
+test('empty custom positions move before Players are selected while fixed presets stay fixed', () => {
+  const custom = { displayName: 'Custom', gameFormat: '5v5', key: '5v5-custom', slots: [] }
+  const draft = createMobileFormationDraft({ gameFormat: '5v5', presetKey: custom.key })
+  const moved = moveMobileFormationSlot(draft, custom, 'custom-2', { x: 0.18, y: 0.37 })
+  const slot = getMobileFormationDraftSlots(moved, custom).find((item) => item.id === 'custom-2')
+  assert.deepEqual({ x: slot.x, y: slot.y }, { x: 0.18, y: 0.37 })
+  assert.equal(moved.placements.length, 0)
+  assert.equal(moveMobileFormationSlot(draft, preset, 'def-left', { x: 0.1, y: 0.1 }), draft)
 })
 
 test('multi-add accepts several Players together, blocks duplicates, and keeps them Unplaced', () => {
