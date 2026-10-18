@@ -54,7 +54,7 @@ export async function getCoachFormationBoards(user) {
 
 export async function createCoachFormationBoard(user, match, draft, title) {
   assertFormationWrite(user)
-  const data = await rpc('create_formation_board', {
+  const data = await rpc('create_formation_board_v2', {
     ...buildCoachFormationBoardCreatePayload(match, draft, title),
     target_team_id: user.activeTeamId,
   })
@@ -63,7 +63,7 @@ export async function createCoachFormationBoard(user, match, draft, title) {
 
 export async function saveCoachFormationBoard(user, board, draft, title) {
   assertFormationWrite(user)
-  const data = await rpc('save_formation_board_editor', buildCoachFormationBoardSavePayload(board, draft, title))
+  const data = await rpc('save_formation_board_editor_v2', buildCoachFormationBoardSavePayload(board, draft, title))
   return normalizeCoachFormationBoard(data)
 }
 
@@ -75,7 +75,7 @@ export async function saveCoachMatchFormationBoard(user, match, board, draft, ti
     ? buildCoachFormationBoardSavePayload(board, draft, title)
     : buildCoachFormationBoardCreatePayload(match, draft, title)
   delete payload.visibility_value
-  return normalizeCoachFormationBoard(await rpc('save_coach_match_formation', {
+  return normalizeCoachFormationBoard(await rpc('save_coach_match_formation_v2', {
     ...payload,
     target_board_id: board?.id || null,
     target_match_day_id: match.id,

@@ -18,6 +18,7 @@ import {
   getMobileFormationSelectedPlayerIds,
   getMobileFormationSlotLabel,
   getMobileFormationSlotShortLabel,
+  isCustomMobileFormationPreset,
   MOBILE_FORMATION_GAME_FORMATS,
   moveMobileFormationPlayer,
   moveMobileFormationSlot,
@@ -263,6 +264,7 @@ class FormationPlayerMarker extends Component {
         accessibilityLabel={`Add Player at ${getMobileFormationSlotLabel(player)}`}
         accessibilityRole={canEdit ? 'button' : 'image'}
         accessibilityState={{ disabled: !canEdit }}
+        onAccessibilityTap={() => { if (canEdit) { this.clearTapSequence(); this.props.onPress?.() } }}
         style={[styles.emptySlot, !canEdit && styles.actionDisabled, this.state.dragging && { opacity: 0.78 }, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}
       >
         <MaterialIcons color="rgb(255,255,255)" name="add" size={24} />
@@ -1005,7 +1007,10 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
             onGestureEnd={onMarkerGestureEnd}
             onGestureStart={onMarkerGestureStart}
             onMove={(coordinates) => {
-              commitPlayerMove(moveMobileFormationPlayer(draft, player.playerId, coordinates))
+              const nextDraft = isCustomMobileFormationPreset(currentPreset)
+                ? moveMobileFormationSlot(draft, currentPreset, player.slotId, coordinates)
+                : moveMobileFormationPlayer(draft, player.playerId, coordinates)
+              commitPlayerMove(nextDraft)
               setSelectedPlayerId('')
             }}
             onPress={() => {

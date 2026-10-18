@@ -67,6 +67,8 @@ test('Coach fixture defaults include a reusable arrival choice and TBC Kits', ()
   assert.equal(form.arrivalTime, '09:15')
   assert.equal(form.saveArrivalAsDefault, false)
   assert.equal(form.autoSelectAvailablePlayers, false)
+  assert.equal(createCoachFixtureForm({ match: { id: 'fixture', autoSelectAvailablePlayers: true } }).autoSelectAvailablePlayers, true)
+  assert.equal(createCoachFixtureForm({ match: { id: 'fixture', autoSelectAvailablePlayers: false } }).autoSelectAvailablePlayers, false)
   assert.equal(validateCoachFixtureForm({
     ...form,
     fixtureType: 'friendly',

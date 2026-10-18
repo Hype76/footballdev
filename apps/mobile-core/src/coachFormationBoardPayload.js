@@ -9,6 +9,7 @@ function normalizeVersion(row) {
     boardId: row.board_id ?? row.boardId ?? '',
     createdAt: row.created_at ?? row.createdAt ?? '',
     createdByProfileId: row.created_by_profile_id ?? row.createdByProfileId ?? '',
+    customSlots: array(row.custom_slots ?? row.customSlots),
     formationPresetKey: normalize(row.formation_preset_key ?? row.formationPresetKey),
     gameFormat: normalize(row.game_format ?? row.gameFormat),
     id: row.id ?? '',
@@ -103,6 +104,7 @@ export function buildCoachFormationBoardCreatePayload(match, draft, title) {
   const matchDescription = match?.id ? `Match plan for ${match.teamName} v ${match.opponent}` : 'Standalone Team formation plan'
   return {
     bench_value: serializeDraftRoster(draft),
+    custom_slots_value: array(draft.customSlots),
     description_value: matchDescription,
     game_format_value: draft.gameFormat,
     notes_value: normalize(draft?.notes),
@@ -122,6 +124,7 @@ export function buildCoachFormationBoardSavePayload(board, draft, title) {
   const description = hasOwn(board, 'description') ? normalize(board.description) : null
   return {
     bench_value: serializeDraftRoster(draft, board),
+    custom_slots_value: array(draft.customSlots),
     description_value: description,
     expected_version_number: board.currentVersionNumber,
     game_format_value: draft.gameFormat,
