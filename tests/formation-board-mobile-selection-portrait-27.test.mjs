@@ -165,7 +165,8 @@ test('custom Formation positions are included in mobile payloads and restored fr
 
 test('custom Formation positions have an immutable server round trip', async () => {
   const migration = await readFile(new URL('../supabase/migrations/20261018162711_fix_carpool_read_and_5v5_label.sql', import.meta.url), 'utf8')
-  assert.match(migration, /add column custom_slots jsonb not null default '\[\]'::jsonb/)
+  assert.match(migration, /add column custom_slots jsonb/)
+  assert.match(migration, /formation_board_preserve_legacy_custom_slots/)
   assert.match(migration, /formation_board_normalize_custom_slots/)
   assert.match(migration, /create or replace function public\.create_formation_board_v2/)
   assert.match(migration, /create or replace function public\.save_formation_board_editor_v2/)

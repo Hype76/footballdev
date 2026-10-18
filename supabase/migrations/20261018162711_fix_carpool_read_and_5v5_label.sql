@@ -11,11 +11,45 @@ where registry_version = 1
 -- Custom Formation positions are part of the immutable saved version so they
 -- survive a save, another device opening the board, and later edits.
 alter table public.formation_board_versions
-  add column custom_slots jsonb not null default '[]'::jsonb;
+  add column custom_slots jsonb;
+
+update public.formation_board_versions
+set custom_slots = '[]'::jsonb
+where custom_slots is null;
+
+alter table public.formation_board_versions
+  alter column custom_slots set not null;
 
 alter table public.formation_board_versions
   add constraint formation_board_versions_custom_slots_check
   check (jsonb_typeof(custom_slots) = 'array' and jsonb_array_length(custom_slots) <= 11);
+
+create or replace function app_private.formation_board_preserve_legacy_custom_slots()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.custom_slots is not null then
+    return new;
+  end if;
+
+  if new.source_version_id is not null then
+    select source.custom_slots
+    into new.custom_slots
+    from public.formation_board_versions source
+    where source.id = new.source_version_id;
+  end if;
+
+  new.custom_slots := coalesce(new.custom_slots, '[]'::jsonb);
+  return new;
+end;
+$$;
+
+create trigger formation_board_versions_legacy_custom_slots
+before insert on public.formation_board_versions
+for each row execute function app_private.formation_board_preserve_legacy_custom_slots();
 
 create or replace function app_private.formation_board_normalize_custom_slots(custom_slots_value jsonb)
 returns jsonb
@@ -458,6 +492,7 @@ end;
 $$;
 
 revoke all on function app_private.formation_board_normalize_custom_slots(jsonb) from public, anon, authenticated;
+revoke all on function app_private.formation_board_preserve_legacy_custom_slots() from public, anon, authenticated;
 
 revoke all on function public.create_formation_board_v2(uuid, text, text, text, text, text, jsonb, jsonb, jsonb, text, text, integer) from public, anon, service_role;
 grant execute on function public.create_formation_board_v2(uuid, text, text, text, text, text, jsonb, jsonb, jsonb, text, text, integer) to authenticated;

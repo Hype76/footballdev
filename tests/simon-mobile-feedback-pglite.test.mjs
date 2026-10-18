@@ -63,14 +63,34 @@ test('Simon feedback migration persists custom positions through create and edit
     '${customSlots}'::jsonb, '', 'draft', 1
   ) as value`)
   const boardId = created.rows[0].value.board.id
+  const firstVersionId = created.rows[0].value.currentVersion.id
   assert.deepEqual(created.rows[0].value.currentVersion.custom_slots, [{ id: 'custom-1', x: 0.42, y: 0.88 }])
+
+  const legacyVersion = await db.query(`
+    insert into public.formation_board_versions (
+      board_id, club_id, team_id, version_number, game_format, formation_preset_key,
+      preset_registry_version, pitch_orientation, placements, bench, notes,
+      created_by_profile_id, version_reason, source_version_id
+    ) values (
+      '${boardId}', '${clubId}', '${teamId}', 2, '5v5', '5v5-custom',
+      1, 'portrait', '[]', '[]', '', '${coachId}', 'legacy_save', '${firstVersionId}'
+    ) returning id, custom_slots
+  `)
+  assert.deepEqual(legacyVersion.rows[0].custom_slots, [{ id: 'custom-1', x: 0.42, y: 0.88 }])
+  await db.query('update public.formation_boards set current_version_id = $1, current_version_number = 2 where id = $2', [legacyVersion.rows[0].id, boardId])
 
   const updatedSlots = JSON.stringify([{ id: 'custom-1', x: 0.25, y: 0.75 }])
   const saved = await db.query(`select public.save_formation_board_editor_v2(
-    '${boardId}', 1, 'Custom', '', '5v5', '5v5-custom', 'portrait', '[]', '[]',
+    '${boardId}', 2, 'Custom', '', '5v5', '5v5-custom', 'portrait', '[]', '[]',
     '${updatedSlots}'::jsonb, '', 'draft', 'mobile_test', 1
   ) as value`)
-  assert.equal(saved.rows[0].value.board.current_version_number, 2)
+  assert.equal(saved.rows[0].value.board.current_version_number, 3)
   assert.deepEqual(saved.rows[0].value.currentVersion.custom_slots, [{ id: 'custom-1', x: 0.25, y: 0.75 }])
+
+  const cleared = await db.query(`select public.save_formation_board_editor_v2(
+    '${boardId}', 3, 'Fixed', '', '5v5', '5v5-1-2-1', 'portrait', '[]', '[]',
+    '[]'::jsonb, '', 'draft', 'mobile_test', 1
+  ) as value`)
+  assert.deepEqual(cleared.rows[0].value.currentVersion.custom_slots, [])
   assert.equal((await db.query("select display_name from public.formation_board_presets where preset_key = '5v5-1-2-1'")).rows[0].display_name, '2-1-1')
 })
