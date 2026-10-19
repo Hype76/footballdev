@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "0b5d0abb43a3c861be3f6fcd0231df9254d326eecc4ad09782a798ccf46f5413",
+    "scripts/security-verify-reviewed-backports.mjs": "edb27258e73a63132160e96e71b94c3a7afe0466223db4d758acd599f594efac",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1236,6 +1236,7 @@
       "tests/assessment-scoring-10-point.test.mjs": "b8c0fd4508033f29c261e20a98a5dffeca294786ded23f182a5327f9e5a7fab6",
       "tests/calendar-invites-trials-39b.test.mjs": "aead4525d6ac6758d233a3f88212b02bc7226b3169733c75350e576cf5fd9863",
       "tests/coach-formation-async-recovery-browser.mjs": "dcb44d11a1db248bfec8b69ed2a4c836dab5d4af6e1c27ff8ea94a318d920e8c",
+      "tests/coach-formation-fullscreen-workspace-browser.mjs": "a1f20711b1541836e0e0170368dfdba7c913712d27475f8fc8323a3be184dce8",
       "tests/coach-match-formation-save.test.mjs": "2b28e009fc0b9a5f18e88c092040cae87264be099fb1f3953abdb893c7bc7054",
       "tests/email-app-access-browser.mjs": "f692adaaa08785454fe3184a6ca7466a56d2a58344bb2ab44fbe7d320ae5cc55",
       "tests/email-app-access.test.mjs": "4d9db421100862530be88ef797a88bfa5b003ad28d02b3e990c821726a2d5b48",
@@ -2439,7 +2440,7 @@
       "customerWrites": 0
     }
   },
-  "releasePreparationSha256": "5252ede46668d316e21bc16e0e55fc8a0ab63f8a7b5c5812661c44a77130a8f4",
+  "releasePreparationSha256": "c8efd8495bc753964ea52911823d775e586ed364a4a3ccaa13f6bfcf81db2de3",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
