@@ -13,9 +13,17 @@ where registry_version = 1
 alter table public.formation_board_versions
   add column custom_slots jsonb;
 
+-- Existing versions are immutable to application traffic. Temporarily disable
+-- only that guard while this migration initialises the new snapshot field.
+alter table public.formation_board_versions
+  disable trigger formation_board_versions_immutable;
+
 update public.formation_board_versions
 set custom_slots = '[]'::jsonb
 where custom_slots is null;
+
+alter table public.formation_board_versions
+  enable trigger formation_board_versions_immutable;
 
 alter table public.formation_board_versions
   alter column custom_slots set not null;

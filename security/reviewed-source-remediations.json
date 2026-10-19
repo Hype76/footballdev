@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "4ecfcaa801341916682e3f79d326079eca2f868d58356de7cebcab8bc54a9ce8",
+    "scripts/security-verify-reviewed-backports.mjs": "d4b669c281d6311e301598d7e80fdb9681d2f21428631f11627b60bdf492caea",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1232,7 +1232,7 @@
       "apps/mobile-core/src/mobileFetchCore.js": "a2b5fe10d1586a4c7239870203041c61f8cbaa31236acfd9f4ad7dc39a9402ee",
       "netlify/functions/lib/_email-app-access.js": "3237503666c97d75a3e1196467c4af33d7dbab2211e1b82adff2d014d41c62f0",
       "src/lib/email-branding.js": "55fcb9a9b527f5891a647eb896b2589aac99ebee342588e7f6784736b012ece1",
-      "supabase/migrations/20261018162711_fix_carpool_read_and_5v5_label.sql": "1b1afd737281155b3f8bd6eaadb99c39e785f3551a7e7a59aeb1b8ef1492472e",
+      "supabase/migrations/20261018162711_fix_carpool_read_and_5v5_label.sql": "00e92e60c6e3d22fd2770c7eb1b69321ba3eeebd2c7cc74b24b8a7ad448cbd76",
       "tests/assessment-scoring-10-point.test.mjs": "b8c0fd4508033f29c261e20a98a5dffeca294786ded23f182a5327f9e5a7fab6",
       "tests/calendar-invites-trials-39b.test.mjs": "aead4525d6ac6758d233a3f88212b02bc7226b3169733c75350e576cf5fd9863",
       "tests/coach-formation-async-recovery-browser.mjs": "dcb44d11a1db248bfec8b69ed2a4c836dab5d4af6e1c27ff8ea94a318d920e8c",
@@ -1243,7 +1243,7 @@
       "tests/email-branding.test.mjs": "f80440de387073eb6153f1dc6e94e5fdf463fda53cbb4302600fd1970c2f641f",
       "tests/formation-board-editor-browser.mjs": "54a86fe4f62dd1868351dbf9513548f7fc5662be8cabeb26c40ff57929b0c8c7",
       "tests/formation-board-mobile-selection-portrait-27.test.mjs": "714de9d7706c63ca77546a994daf0d2ad3aee8c2cca1324a725a5e66302441d3",
-      "tests/simon-mobile-feedback-pglite.test.mjs": "a6fb89ed69b906f3a78695350986cc3ea39c96d881411a4027e5d215c7c9b4d6",
+      "tests/simon-mobile-feedback-pglite.test.mjs": "1a6aca4e90170cde177ba8598eb6ea85ba5c4dcd3bb0168d45f03a9e39f66454",
       "tests/team-carpool-defaults.test.mjs": "b601069c2356019819d99eb23bf32a98fe5b41b8595700d168590ec614349114"
     },
     "externalTrustInputs": [
@@ -2440,7 +2440,7 @@
       "customerWrites": 0
     }
   },
-  "releasePreparationSha256": "b4975d79c9b1868400e021d1c2f9d30345b6bb44f6695c801e8e6f5eadfd21bc",
+  "releasePreparationSha256": "129df05f8073f25b32b0a3535a1a15bcd3d725ed003b05666e7926c9eafcf457",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
