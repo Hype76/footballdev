@@ -69,4 +69,3 @@ export function getCoachConnectionLabel(connection = globalThis.navigator?.conne
   const type = String(connection?.type || connection?.effectiveType || '').trim()
   return type ? type.toUpperCase() : 'Not available in this app build'
 }
-

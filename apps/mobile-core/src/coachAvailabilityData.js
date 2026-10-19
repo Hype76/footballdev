@@ -2,7 +2,7 @@ import { getCoachAvailabilityMatches } from './coachPhase31ECore.js'
 
 const PAGE_SIZE = 250
 
-async function readAllPages(createQuery) {
+export async function readAllPages(createQuery) {
   const rows = []
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await createQuery().order('id', { ascending: true }).range(offset, offset + PAGE_SIZE - 1)

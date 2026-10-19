@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto'
+import { readAllPages } from './coachAvailabilityData.js'
 import { isMatchdayPlan } from './matchdayPolicyCore.js'
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
 import {
@@ -110,19 +111,27 @@ export async function getCoachCalendarResources(user, { homeSummary = false, inc
   assertCoachOperationalRead(user)
   if (homeSummary) {
     const earliest = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
-    let homeQuery = supabase
+    const today = new Date().toISOString().slice(0, 10)
+    const createHomeQuery = () => scopeCoachQuery(supabase
       .from('calendar_events')
-      .select('id,team_id,title,event_type,starts_at,ends_at,location,cancelled_at,parent_audience')
-      .eq('club_id', user.clubId)
+      .select('id,team_id,title,event_type,starts_at,ends_at,location,cancelled_at,parent_audience,recurrence_frequency,recurrence_until')
+      .eq('club_id', user.clubId), user, { includeClubWide: true })
+    const upcomingQuery = createHomeQuery()
       .gte('starts_at', earliest)
       .order('starts_at', { ascending: true })
       .limit(20)
-    homeQuery = scopeCoachQuery(homeQuery, user, { includeClubWide: true })
-    const { data, error } = await homeQuery
-    if (error) throw error
+    const [upcomingResult, recurringRows] = await Promise.all([
+      upcomingQuery,
+      readAllPages(() => createHomeQuery()
+        .neq('recurrence_frequency', 'none')
+        .gte('recurrence_until', today)
+        .lt('starts_at', earliest)),
+    ])
+    if (upcomingResult.error) throw upcomingResult.error
+    const rows = [...new Map([...(upcomingResult.data || []), ...recurringRows].map(row => [row.id, row])).values()]
     return buildCoachCalendarEvents({
       availabilityByEventId: {},
-      calendarEvents: (data || []).map((row) => ({
+      calendarEvents: rows.map((row) => ({
         ...row,
         canEdit: user.role === 'admin' || Boolean(row.team_id),
         involvedPlayerIds: [],

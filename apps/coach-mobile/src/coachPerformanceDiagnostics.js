@@ -18,4 +18,3 @@ export async function clearCoachPerformanceSamples() {
 export function getCoachConnectionLabel() {
   return readConnectionLabel()
 }
-
