@@ -115,7 +115,8 @@ export async function getCoachCalendarResources(user, { homeSummary = false, inc
     const createHomeQuery = () => scopeCoachQuery(supabase
       .from('calendar_events')
       .select('id,team_id,title,event_type,starts_at,ends_at,location,cancelled_at,parent_audience,recurrence_frequency,recurrence_until')
-      .eq('club_id', user.clubId), user, { includeClubWide: true })
+      .eq('club_id', user.clubId)
+      .is('cancelled_at', null), user, { includeClubWide: true })
     const upcomingQuery = createHomeQuery()
       .gte('starts_at', earliest)
       .order('starts_at', { ascending: true })

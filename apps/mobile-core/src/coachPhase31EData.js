@@ -721,6 +721,7 @@ async function getCoachAvailabilityHomeSummary(user) {
     supabase.from('match_days')
       .select('id,club_id,team_id,opponent,match_date,status,deleted_at')
       .eq('club_id', user.clubId).eq('team_id', user.activeTeamId)
+      .in('status', ['scheduled', 'scorer_request'])
       .gte('match_date', today).lt('match_date', throughDate)
       .is('deleted_at', null).order('match_date', { ascending: true }).limit(30),
     readAllPages(() => supabase.from('training_availability_request_players')

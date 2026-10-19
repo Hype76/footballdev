@@ -5,7 +5,7 @@ import { COACH_PERFORMANCE_STORAGE_KEY, createCoachPerformanceDiagnostics, getCo
 import { readAllPages } from '../apps/mobile-core/src/coachAvailabilityData.js'
 import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
 import { normalizeCoachInvite } from '../apps/mobile-core/src/coachPhase31ECore.js'
-import { countPendingCoachAvailability } from '../apps/mobile-core/src/coachPhase31GCore.js'
+import { buildCoachHomeOperationalSnapshot, countPendingCoachAvailability } from '../apps/mobile-core/src/coachPhase31GCore.js'
 
 test('Coach speed diagnostics retain only bounded local timing fields', async () => {
   let stored = JSON.stringify([{ id: 'stored', name: 'home.matches', durationMs: 700, at: '2026-10-19T12:00:00.000Z', status: 'success', source: 'automatic', secret: 'not retained' }])
@@ -77,6 +77,28 @@ test('Coach Home availability excludes expired future training requests', () => 
   assert.equal(countPendingCoachAvailability([invite], new Date('2026-10-19T12:00:00.000Z'), 7), 0)
 })
 
+test('Coach Home skips inactive rows beyond every bounded summary limit', () => {
+  const future = '2099-10-20T18:00:00.000Z'
+  const snapshot = buildCoachHomeOperationalSnapshot({
+    now: new Date('2099-10-19T12:00:00.000Z'),
+    calendar: [
+      ...Array.from({ length: 20 }, (_, index) => ({ id: `cancelled-calendar-${index}`, status: 'cancelled', startsAt: future })),
+      { id: 'active-calendar', status: 'scheduled', startsAt: future },
+    ],
+    matches: [
+      ...Array.from({ length: 30 }, (_, index) => ({ id: `closed-match-${index}`, status: index % 2 ? 'completed' : 'full_time', matchDate: '2099-10-20', kickoffTime: '18:00' })),
+      { id: 'active-match', status: 'scheduled', matchDate: '2099-10-20', kickoffTime: '19:00' },
+    ],
+    sessions: [
+      ...Array.from({ length: 20 }, (_, index) => ({ id: `closed-session-${index}`, status: index % 2 ? 'completed' : 'cancelled', sessionDate: '2099-10-20', startTime: '18:00' })),
+      { id: 'active-session', status: 'open', sessionDate: '2099-10-20', startTime: '19:00' },
+    ],
+  })
+  assert.equal(snapshot.nextCalendar.id, 'active-calendar')
+  assert.equal(snapshot.nextMatch.id, 'active-match')
+  assert.equal(snapshot.nextSession.id, 'active-session')
+})
+
 test('Coach Home uses lean summaries, slower polling and local diagnostics', async () => {
   const [app, calendar, phase, data, offline, diagnostics] = await Promise.all([
     readFile(new URL('../apps/coach-mobile/App.js', import.meta.url), 'utf8'),
@@ -96,13 +118,17 @@ test('Coach Home uses lean summaries, slower polling and local diagnostics', asy
   assert.equal(select.includes('match_day_events'), false)
   assert.match(data, /\.gte\('match_date'/)
   assert.match(data, /\.gte\('session_date'/)
+  assert.match(data, /\.not\('status', 'in', '\(full_time,completed,cancelled\)'\)/)
+  assert.match(data, /\.not\('status', 'in', '\(completed,cancelled\)'\)/)
   assert.match(calendar, /\.limit\(20\)/)
+  assert.match(calendar, /\.is\('cancelled_at', null\)/)
   assert.match(calendar, /recurrence_frequency,recurrence_until/)
   assert.match(calendar, /readAllPages\(\(\) => createHomeQuery\(\)/)
   const availabilitySummary = (await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8'))
     .split('async function getCoachAvailabilityHomeSummary')[1]
     .split('export async function getCoachInvitesAndAvailability')[0]
   assert.match(availabilitySummary, /response_deadline_at/)
+  assert.match(availabilitySummary, /\.in\('status', \['scheduled', 'scorer_request'\]\)/)
   assert.match(availabilitySummary, /readAllPages/g)
   assert.doesNotMatch(availabilitySummary, /\.limit\(250\)/)
   assert.match(offline, /runPreparationLoads\([\s\S]*concurrency = 3/)
