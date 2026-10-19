@@ -34,7 +34,7 @@ const config={isProduction:true},inspectCoachOfflineState=async()=>({hasDocument
 const coachSupabase={},getTrainingAttendanceVisibility=async()=>true,setTrainingAttendanceVisibility=async()=>true;
 const teamLeagueScopeKey=()=>'',coachTeamLeagueScope=()=>({}),isMobileRouteAllowed=()=>false,resolveCoachRoute=()=>false;
 const TeamLeagueLinkSettings=()=>null,DeviceThemeChoices=()=>null,CoachTeamKitSettings=()=>null,NotificationCategorySettings=()=>null;
-const BrandLoader=()=>null,CoachOfflineReadiness=()=>null,getCoachNotificationStatusLabel=()=>'',formatDateTime=()=>'',getBuildClassification=()=>'';
+const BrandLoader=()=>null,CoachOfflineReadiness=()=>null,CoachSpeedDiagnostics=()=>null,getCoachNotificationStatusLabel=()=>'',formatDateTime=()=>'',getBuildClassification=()=>'';
 ${selected}
 function Preview(){const[fixture,setFixture]=useState(window.fixture);window.updateFixture=p=>setFixture(f=>({...f,...p}));
 const theme=createCoachTheme({mode:fixture.mode,context:{clubAccent:'#2ba7aa'}}),value=createCoachThemeContext(theme);

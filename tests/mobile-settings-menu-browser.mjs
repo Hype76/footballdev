@@ -64,6 +64,7 @@ for (const app of ['parent', 'coach']) {
     const setTrainingAttendanceVisibility=async(client,user,visible)=>visible;
     const BrandLoader=()=> <Text>Loading...</Text>;
     const CoachOfflineReadiness=({styles})=> <Text style={styles.cardTitle}>Saved automatically</Text>;
+    const CoachSpeedDiagnostics=()=>null;
     ${app === 'coach' ? 'const formatDateTime=()=> "Today";' : ''}
     const ParentThemeContext=createContext(null), CoachThemeContext=createContext(null);
     ${selected}

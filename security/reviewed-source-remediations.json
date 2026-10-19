@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "cbe65f51f589cd7f0d9faec5506fd6b71e1f6142149e1fd679b7cbf066823232",
+    "scripts/security-verify-reviewed-backports.mjs": "20c337bf0a6bc7359414cb76aee51f16980918581bc73b16585b97a7c9466607",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1134,7 +1134,7 @@
       "tests/mobile-push-priority.test.mjs": "503d05c7941e662c6061adf701dac376baae21b9b6d31c249b922940bcf185e5",
       "tests/mobile-scorer-parity-browser.mjs": "0910683bfda90e6df20e85084764869d28874fbb0e92934a1382235a2db19912",
       "tests/mobile-secure-session-08.test.mjs": "0e25590f85b9a5a4833ac1cfa63cdd3b5e3d7c5ec61b3f19f5bded7e678714e2",
-      "tests/mobile-settings-menu-browser.mjs": "0f9e53a9a5f84711aab37ca61cff0f9370d0568f706ea29933b722a7100c94d7",
+      "tests/mobile-settings-menu-browser.mjs": "da19552ca4bdd415fd78d9d6d148c4eaf754f4fef36190ad01d7439f86702cb2",
       "tests/mobile-signup-browser.mjs": "7bbb292128837ff26d718aa56d209d1defc9a5670a856237af6e613825db7cb2",
       "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6",
       "tests/netlify-functions-packaging.test.mjs": "e980316b5d6dccde7b9a0a1c28eb0a86b89cbc196b8b304f64c518c3ea868b3e",
@@ -1180,7 +1180,7 @@
       "tests/phone-branding-onboarding.test.mjs": "1b37c345e59612f26a25a2fcba0ca8307d95c683c92d511146cdcdf212c51533",
       "tests/phone-coach-roster.test.mjs": "abecedbc984ef8749998a1d1ff20ebdaefead085ef84ebb813b41cdda8dd042a",
       "tests/phone-resource-upload-authority.test.mjs": "3d4354dc37e07a1d7e439a76dc292cdd44184ffbca84e881e65130c885f61322",
-      "tests/phone-team-administration-browser.mjs": "fa347066ef4efe39f26f5554ab7ffaa0e1c7d01f86531b697612ec75744b7465",
+      "tests/phone-team-administration-browser.mjs": "b7fea75dff66374a7fef191c4c66bcef11999eeefecd66614d548b95408acee5",
       "tests/phone-team-administration-pglite.test.mjs": "73cc2d0ae1f306214150ddc33cdf700a14173c677a1fb8c761c204a9dd2a5e0e",
       "tests/phone-team-administration.test.mjs": "f17a6ae83c0dd18b4910d57fbfeb7cf9ea14a05b8dd0497946c925205572d7a7",
       "tests/pilot-plan-preservation.test.mjs": "18aa3b7237ae7b713a8eee4b652a43971c136b10014bbad6e25cbf8c72312379",
@@ -2449,7 +2449,7 @@
     "coachSpeedPhase1": {
       "sourceBaseline": "9205d4549d7018bc6cbc492b6e58363c1e783199",
       "scope": "Coach JavaScript-only OTA performance repair. Lean upcoming Home summaries, three-minute Home refresh interval, bounded concurrent active-app offline preparation and private device-local timing diagnostics. Existing encrypted resources, account and team authority, unsent work, Parent source and native inputs remain unchanged.",
-      "validation": "131 directly affected tests, targeted ESLint, production Supabase field compatibility and Android production export passed. Exact-head independent acceptance, all hosted gates, guarded Coach OTA publication and physical mobile-data measurement remain required.",
+      "validation": "131 directly affected tests, both Settings browser rehearsals, targeted ESLint, production Supabase field compatibility and Android production export passed. Exact-head independent acceptance, all hosted gates, guarded Coach OTA publication and physical mobile-data measurement remain required.",
       "publicationApproved": false,
       "migrations": 0,
       "nativeChanges": 0,
@@ -2460,7 +2460,7 @@
       "parentOtaUnchanged": true
     }
   },
-  "releasePreparationSha256": "8d4cfa06a910deccc8666300996f295aa3438a83f05d3f0294dcaf7c3640d43b",
+  "releasePreparationSha256": "d1e19b81e2cbfebd2b8161e8076c3602649883a3ad488566b60b48c070551465",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
