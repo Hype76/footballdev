@@ -9,6 +9,10 @@ const normalizeRole = role => isRole(role) ? role : 'both'
 const copyHeading = role => role === 'coach' ? 'For Coaches receiving a copy' : 'For Parents, Players and Fans receiving a copy'
 const htmlFooterPattern = /<!-- fp-app-access:start -->[\s\S]*?<!-- fp-app-access:end -->/g
 const textFooterPattern = /\n\n--- Football Player app access ---\n[\s\S]*?\n--- End app access ---/g
+const storeBadges = Object.freeze({
+  apple: 'https://footballplayer.online/email-apps/app-store-badge.png',
+  android: 'https://footballplayer.online/email-apps/google-play-badge.png',
+})
 
 function readStoredAudience(html, text) {
   const htmlFooter = html.match(htmlFooterPattern)?.[0] || ''
@@ -34,7 +38,7 @@ export function buildEmailAppAccess({ role = 'both', copyRole = '' } = {}) {
   const html = roles.map(key => {
     const app = APP_DOWNLOAD_LINKS[key]
     const copy = key === copyRole && primary !== 'both' && primary !== key
-    return `<tr><td style="padding:20px 16px;font-family:Arial,sans-serif;color:#17382f;background:#f3f7f5"><h2 style="margin:0 0 8px;font-size:18px;line-height:24px">${copy ? copyHeading(key) : app.audience}</h2><p style="margin:0 0 16px;font-size:14px;line-height:21px">Use the ${app.name}, or sign in on the website. Use the action above first if this email asks you to confirm, accept or reset something.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="table-layout:fixed"><tr>${[['apple', 'App Store', 'iPhone'], ['android', 'Google Play', 'Android']].map(([store, label, device]) => `<td width="50%" valign="top" align="center" style="padding:4px"><a href="${app[store]}" style="color:#075e45;font-weight:bold;font-size:14px;line-height:22px">Download on ${label}</a><br><a href="${app[store]}"><img src="${app[`${store}Qr`]}" width="136" height="136" alt="Scan to download the ${key === 'parent' ? 'Parent' : 'Coach'} app for ${device}" style="display:block;width:100%;max-width:136px;height:auto;margin:12px auto;border:0;background:#fff"></a></td>`).join('')}</tr></table><p style="margin:16px 0 0;font-size:14px;line-height:22px"><a href="${app.web}" style="color:#075e45;font-weight:bold">Sign in on the website</a></p></td></tr>`
+    return `<tr><td style="padding:20px 16px;font-family:Arial,sans-serif;color:#17382f;background:#f3f7f5"><h2 style="margin:0 0 8px;font-size:18px;line-height:24px">${copy ? copyHeading(key) : app.audience}</h2><p style="margin:0 0 16px;font-size:14px;line-height:21px">Use the ${app.name}, or sign in on the website. Use the action above first if this email asks you to confirm, accept or reset something.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="table-layout:fixed"><tr>${[['apple', 'App Store'], ['android', 'Google Play']].map(([store, label]) => `<td width="50%" valign="top" align="center" style="padding:4px"><a href="${app[store]}" style="display:inline-block"><img src="${storeBadges[store]}" width="136" alt="Download the ${key === 'parent' ? 'Parent' : 'Coach'} app on ${label}" style="display:block;width:100%;max-width:136px;height:auto;margin:0 auto;border:0"></a></td>`).join('')}</tr></table><p style="margin:16px 0 0;font-size:14px;line-height:22px"><a href="${app.web}" style="color:#075e45;font-weight:bold">Sign in on the website</a></p></td></tr>`
   }).join('')
   const text = roles.map(key => {
     const app = APP_DOWNLOAD_LINKS[key]

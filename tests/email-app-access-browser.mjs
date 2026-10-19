@@ -8,7 +8,7 @@ const browser=await chromium.launch({headless:true})
 try{
  const page=await browser.newPage()
  await page.route('**/*',async route=>{
-  const url=new URL(route.request().url());const match=/^\/email-apps\/(parent|coach)-(ios|android)\.png$/.exec(url.pathname)
+  const url=new URL(route.request().url());const match=/^\/email-apps\/(app-store-badge|google-play-badge)\.png$/.exec(url.pathname)
   if(url.hostname==='footballplayer.online'&&match)return route.fulfill({contentType:'image/png',body:await readFile(new URL(`../public${url.pathname}`,import.meta.url))})
   return route.abort()
  })
@@ -19,10 +19,10 @@ try{
   await page.waitForFunction(()=>[...document.images].every(i=>i.complete&&i.naturalWidth>0))
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${role} ${width} overflow`)
   assert.equal(await page.getByRole('link',{name:'Accept invitation',exact:true}).getAttribute('href'),'https://example.test/accept')
-  for(const img of await page.locator('img').all()){const box=await img.boundingBox();assert.ok(box.width>=100&&box.width<=136);assert.ok(Math.abs(box.width-box.height)<1);const src=await img.getAttribute('src'),target=await img.locator('..').getAttribute('href');const key=src.includes('/parent-')?'parent':'coach';assert.equal(target,src.includes('-ios')?APP_DOWNLOAD_LINKS[key].apple:APP_DOWNLOAD_LINKS[key].android)}
+  for(const img of await page.locator('img').all()){const box=await img.boundingBox();assert.ok(box.width>=100&&box.width<=136);assert.ok(box.width>box.height*2);const src=await img.getAttribute('src'),alt=await img.getAttribute('alt'),target=await img.locator('..').getAttribute('href');const key=alt.includes('Parent')?'parent':'coach';assert.equal(target,src.includes('app-store-badge')?APP_DOWNLOAD_LINKS[key].apple:APP_DOWNLOAD_LINKS[key].android)}
   const links=await page.getByRole('link',{name:'Sign in on the website',exact:true}).evaluateAll(items=>items.map(i=>i.href))
   assert.deepEqual(links,role==='parent'?[APP_DOWNLOAD_LINKS.parent.web]:role==='coach'?[APP_DOWNLOAD_LINKS.coach.web]:[APP_DOWNLOAD_LINKS.parent.web,APP_DOWNLOAD_LINKS.coach.web])
   await page.screenshot({path:`output/playwright/email-app-access/${role}-${width}.png`,fullPage:true})
  }
- console.log('PASS: rendered Parent/Coach/both/mixed email app sections at 320/600, original action intact, no overflow, all local QR assets loaded and correct clickable stores/website.')
+ console.log('PASS: rendered Parent/Coach/both/mixed email app sections at 320/600, original action intact, no overflow, all local store badges loaded and correct clickable stores/website.')
 }finally{await browser.close()}

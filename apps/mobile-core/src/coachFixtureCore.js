@@ -58,7 +58,7 @@ export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArr
     arrivalPreset,
     arrivalTime: normalizeFixtureTime(match?.arrivalTime)
       || (arrivalPreset === 'custom' ? normalizeFixtureTime(defaultArrivalTime) : calculateCoachArrivalTime(kickoffTime, arrivalPreset)),
-    autoSelectAvailablePlayers: true,
+    autoSelectAvailablePlayers: match?.id ? match.autoSelectAvailablePlayers === true : false,
     clockMode: normalize(match?.clockMode) || 'fixed',
     conclusionRule: normalizeMatchDayConclusionRule(match?.conclusionRule),
     enableMotmPoll: false,

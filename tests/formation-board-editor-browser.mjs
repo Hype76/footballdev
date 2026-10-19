@@ -67,7 +67,7 @@ const presets = [
   {
     registry_version: 1,
     preset_key: '5v5-1-2-1',
-    display_name: '1-2-1',
+    display_name: '2-1-1',
     game_format: '5v5',
     player_count: 5,
     readiness_state: 'ready',

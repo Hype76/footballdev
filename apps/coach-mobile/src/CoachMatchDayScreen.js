@@ -598,7 +598,7 @@ function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, match,
   </View>
 }
 
-export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTop, palette, quickAction, user }) {
+export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTo, onRequestScrollTop, palette, quickAction, user }) {
   const templateStore = useMemo(() => createCoachSquadTemplateStore(user), [user])
   const styles = useMemo(() => createStyles(palette), [palette])
   const [busy, setBusy] = useState(false)
@@ -1028,7 +1028,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   return <View style={styles.stack}>
     {!match && !fixtureFormOpen ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Manage fixtures, squads and live match updates.</Text></> : null}
     {!match && !fixtureFormOpen && Number(context.roleRank || 0) >= 20 ? <Button compact disabled={stale || loading || busy || reconciling} iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormDate(''); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
-    {fixtureFormOpen ? <CoachFixtureForm key={fixtureFormMatch?.id || fixtureFormDate || 'new'} defaultMatchDate={fixtureFormDate} match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
+    {fixtureFormOpen ? <CoachFixtureForm key={fixtureFormMatch?.id || fixtureFormDate || 'new'} defaultMatchDate={fixtureFormDate} match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onRequestScrollTo={onRequestScrollTo} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
     {loading ? <MobileLoadingStatus message="Loading Match Day" /> : null}
     {reconciling && !activity ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
     {notice && !activity ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}

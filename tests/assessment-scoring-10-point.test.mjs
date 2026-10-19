@@ -89,7 +89,7 @@ test('parent email uses club logo before Football Player fallback', () => {
   assert.match(brandedEmail, /data-logo-source="club"/)
   assert.match(brandedEmail, /https:\/\/cdn\.example\.com\/club\.png/)
   assert.match(fallbackEmail, /data-logo-source="football-player"/)
-  assert.match(fallbackEmail, /football-player-logo\.png/)
+  assert.match(fallbackEmail, /icons\/icon-192\.png/)
 })
 
 test('parent email and PDF place scoring guide after report sections', () => {

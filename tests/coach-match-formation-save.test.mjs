@@ -15,13 +15,14 @@ const source = (await readFile(sourceUrl, 'utf8'))
 const { saveCoachMatchFormationBoard } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
 const user = { id: 'coach', clubId: 'club', activeTeamId: 'team', roleRank: 30, hasActivePlanAccess: true }
 const match = { id: 'match-a', teamName: 'Team', opponent: 'Visitors' }
-const draft = { gameFormat: '11v11', presetKey: '11v11-4-4-2', placements: [{ playerId: 'one', x: 0.5, y: 0.5 }], bench: [] }
+const draft = { gameFormat: '11v11', presetKey: '11v11-custom', placements: [{ playerId: 'one', x: 0.5, y: 0.5 }], bench: [], customSlots: [{ id: 'custom-1', x: 0.42, y: 0.88 }] }
 
 test('new match lineup uses one atomic RPC with private audience by default', async () => {
   calls.length = 0
   const saved = await saveCoachMatchFormationBoard(user, match, null, draft, 'Starting lineup')
   assert.equal(calls.length, 1)
-  assert.equal(calls[0].name, 'save_coach_match_formation')
+  assert.equal(calls[0].name, 'save_coach_match_formation_v2')
+  assert.deepEqual(calls[0].params.custom_slots_value, draft.customSlots)
   assert.equal(calls[0].params.shared_value, false)
   assert.equal(calls[0].params.target_match_day_id, 'match-a')
   assert.equal(calls[0].params.target_board_id, null)

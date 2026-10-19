@@ -192,6 +192,17 @@ export async function readCoachOfflineResources(userId, contextId) {
   return getCoachOfflineResources(result.document, contextId)
 }
 
+export async function readCoachHomeOfflineView(userId, context) {
+  const result = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
+  assertOutboxContext(result.document, userId, context)
+  const entry = result.document.developmentDrafts?.[context.id]
+  if (entry && entry.authority !== outboxAuthority(context)) throw new Error('Your access to these saved Development drafts changed.')
+  return {
+    cache: getCoachOfflineResources(result.document, context),
+    developmentDrafts: entry?.items || {},
+  }
+}
+
 export function createCoachOfflineResourceSaver(profile, context) {
   // The caller captures this while starting a live read, before awaiting it.
   // Only a server-loaded profile can repair a missing profile cache.

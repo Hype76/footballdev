@@ -23,6 +23,11 @@ import {
   convertFormationPlacementToPortrait,
   convertFormationPlacementsToPortrait,
 } from '../src/lib/formation-board-orientation.js'
+import {
+  createMobileFormationDraft,
+  getMobileFormationDraftSlots,
+  moveMobileFormationSlot,
+} from '../apps/mobile-core/src/coachFormationBoardCore.js'
 
 const preset = {
   gameFormat: '5v5',
@@ -116,6 +121,57 @@ test('portrait versions are not coordinate-transformed', () => {
 
   assert.equal(adapted.pitchOrientation, 'portrait')
   assert.equal(adapted.placements, version.placements)
+})
+
+test('empty custom positions move before Players are selected while fixed presets stay fixed', () => {
+  const custom = { displayName: 'Custom', gameFormat: '5v5', key: '5v5-custom', slots: [] }
+  const draft = createMobileFormationDraft({ gameFormat: '5v5', presetKey: custom.key })
+  const moved = moveMobileFormationSlot(draft, custom, 'custom-2', { x: 0.18, y: 0.37 })
+  const slot = getMobileFormationDraftSlots(moved, custom).find((item) => item.id === 'custom-2')
+  assert.deepEqual({ x: slot.x, y: slot.y }, { x: 0.18, y: 0.37 })
+  assert.equal(moved.placements.length, 0)
+  assert.equal(moveMobileFormationSlot(draft, preset, 'def-left', { x: 0.1, y: 0.1 }), draft)
+})
+
+test('moving a populated custom position keeps the saved slot and Player coordinates together', () => {
+  const custom = { displayName: 'Custom', gameFormat: '5v5', key: '5v5-custom', slots: [] }
+  const draft = {
+    ...createMobileFormationDraft({ gameFormat: '5v5', presetKey: custom.key }),
+    placements: [{ displayName: 'Keeper', playerId: 'keeper', positionGroup: 'goalkeeper', shirtNumber: '1', slotId: 'custom-1', x: 0.5, y: 0.92 }],
+  }
+  const moved = moveMobileFormationSlot(draft, custom, 'custom-1', { x: 0.4, y: 0.84 })
+  assert.deepEqual(moved.customSlots, [{ id: 'custom-1', x: 0.4, y: 0.84 }])
+  assert.deepEqual({ x: moved.placements[0].x, y: moved.placements[0].y }, { x: 0.4, y: 0.84 })
+})
+
+test('mobile custom position controls remain keyboard and screen-reader operable', async () => {
+  const coachBoard = await readFile(new URL('../apps/coach-mobile/src/CoachFormationBoard.js', import.meta.url), 'utf8')
+  const emptyStart = coachBoard.indexOf('if (this.props.empty)')
+  const emptyMarker = coachBoard.slice(emptyStart, coachBoard.indexOf('    return (', emptyStart))
+  assert.match(emptyMarker, /accessibilityRole=\{canEdit \? 'button' : 'image'\}/)
+  assert.match(emptyMarker, /onAccessibilityTap=\{\(\) => \{ if \(canEdit\)/)
+  assert.match(emptyMarker, /this\.props\.onPress\?\.\(\)/)
+})
+
+test('custom Formation positions are included in mobile payloads and restored from saved versions', async () => {
+  const { buildCoachFormationBoardCreatePayload, buildCoachFormationBoardSavePayload, normalizeCoachFormationBoard } = await import('../apps/mobile-core/src/coachFormationBoardPayload.js')
+  const customSlots = [{ id: 'custom-1', x: 0.42, y: 0.88 }]
+  const draft = { bench: [], customSlots, gameFormat: '5v5', placements: [], presetKey: '5v5-custom', registryVersion: 1 }
+  assert.deepEqual(buildCoachFormationBoardCreatePayload({}, draft, 'Custom').custom_slots_value, customSlots)
+  assert.deepEqual(buildCoachFormationBoardSavePayload({ id: 'board', currentVersionNumber: 1, currentVersion: {} }, draft, 'Custom').custom_slots_value, customSlots)
+  const board = normalizeCoachFormationBoard({ board: { id: 'board' }, currentVersion: { custom_slots: customSlots } })
+  assert.deepEqual(board.currentVersion.customSlots, customSlots)
+})
+
+test('custom Formation positions have an immutable server round trip', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/20261018162711_fix_carpool_read_and_5v5_label.sql', import.meta.url), 'utf8')
+  assert.match(migration, /add column custom_slots jsonb/)
+  assert.match(migration, /formation_board_preserve_legacy_custom_slots/)
+  assert.match(migration, /formation_board_normalize_custom_slots/)
+  assert.match(migration, /create or replace function public\.create_formation_board_v2/)
+  assert.match(migration, /create or replace function public\.save_formation_board_editor_v2/)
+  assert.match(migration, /create or replace function public\.save_coach_match_formation_v2/)
+  assert.match(migration, /insert into public\.formation_board_versions \([\s\S]*custom_slots/)
 })
 
 test('multi-add accepts several Players together, blocks duplicates, and keeps them Unplaced', () => {

@@ -37,3 +37,9 @@ test('Car pool defaults persist per team and new matches inherit both off and on
     assert.match(definition, /or not fixture_row.carpool_enabled/)
   } finally { await db.close() }
 })
+
+test('Car pool read RPC is volatile so its locking authority check can execute', async () => {
+  const migration = await readFile('supabase/migrations/20261018162711_fix_carpool_read_and_5v5_label.sql', 'utf8')
+  assert.match(migration, /alter function public\.get_team_carpool_default\(uuid\) volatile/)
+  assert.match(migration, /set display_name = '2-1-1'/)
+})

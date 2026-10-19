@@ -66,6 +66,9 @@ test('Coach fixture defaults include a reusable arrival choice and TBC Kits', ()
   assert.equal(form.arrivalPreset, '45')
   assert.equal(form.arrivalTime, '09:15')
   assert.equal(form.saveArrivalAsDefault, false)
+  assert.equal(form.autoSelectAvailablePlayers, false)
+  assert.equal(createCoachFixtureForm({ match: { id: 'fixture', autoSelectAvailablePlayers: true } }).autoSelectAvailablePlayers, true)
+  assert.equal(createCoachFixtureForm({ match: { id: 'fixture', autoSelectAvailablePlayers: false } }).autoSelectAvailablePlayers, false)
   assert.equal(validateCoachFixtureForm({
     ...form,
     fixtureType: 'friendly',
@@ -85,6 +88,13 @@ test('Coach fixture defaults include a reusable arrival choice and TBC Kits', ()
   }
   assert.throws(() => validateCoachFixtureForm(squadCalendarForm), /Choose at least one Player/)
   assert.equal(validateCoachFixtureForm(squadCalendarForm, { requireSelectedPlayers: false }).parentVisible, true)
+})
+
+test('new Coach fixtures explain a missing venue and focus the Location section', async () => {
+  const coachForm = await source('../apps/coach-mobile/src/CoachFixtureForm.js')
+  assert.match(coachForm, /Add a venue before creating this fixture\./)
+  assert.match(coachForm, /onRequestScrollTo\?\.\(locationSectionY\.current\)/)
+  assert.match(coachForm, /<View onLayout=\{\(event\) => \{ locationSectionY\.current = event\.nativeEvent\.layout\.y \}\} style=\{styles\.card\}>\s*<Text style=\{styles\.cardTitle\}>Location<\/Text>/)
 })
 
 test('Coach fixture choices render as accessible club-colour buttons', async () => {

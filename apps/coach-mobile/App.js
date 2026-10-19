@@ -112,7 +112,7 @@ import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
 import { CoachQuickActions } from './src/CoachQuickActions'
 import { getCoachFriendlyError } from './src/coachFriendlyErrors'
 import { getCoachQuickActions } from './src/coachQuickActionsCore'
-import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoachOfflineState, readCoachOfflineResources, saveCoachOfflineResources } from './src/offline'
+import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoachOfflineState, readCoachHomeOfflineView, saveCoachOfflineResources } from './src/offline'
 import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
@@ -542,14 +542,22 @@ function CoachHome() {
       ? `coach:home-primary:${JSON.stringify(selectedMobileUser.matchdayPolicy?.flags || {})}`
       : 'coach:home-primary'
     const recentPrimary = !refresh && peekMobileResource(selectedMobileUser, primaryCacheKey)
-    const cached = recentPrimary ? null : await readCoachOfflineResources(user.id, activeContext).catch(() => null)
-    const savedHome = cached?.resources?.home
+    const shouldReadDevelopment = selectedMobileUser.activeTeamId && isMobileRouteAllowed(selectedMobileUser, 'development', selectedMobileUser.matchdayPolicy)
+    let cached = null
     let localDevelopmentDrafts = {}
     let developmentReadFailed = false
-    if (selectedMobileUser.activeTeamId && isMobileRouteAllowed(selectedMobileUser, 'development', selectedMobileUser.matchdayPolicy)) {
-      try { localDevelopmentDrafts = await readCoachDevelopmentDrafts(user.id, activeContext) }
-      catch { developmentReadFailed = true }
+    try {
+      if (recentPrimary) {
+        if (shouldReadDevelopment) localDevelopmentDrafts = await readCoachDevelopmentDrafts(user.id, activeContext)
+      } else {
+        const offlineView = await readCoachHomeOfflineView(user.id, activeContext)
+        cached = offlineView.cache
+        if (shouldReadDevelopment) localDevelopmentDrafts = offlineView.developmentDrafts
+      }
+    } catch {
+      developmentReadFailed = shouldReadDevelopment
     }
+    const savedHome = cached?.resources?.home
     if (requestId !== requestIdRef.current) return
     if (savedHome) {
       const developmentDrafts = mergeUnfinishedDevelopmentDrafts(savedHome.developmentDrafts || [], Object.values(localDevelopmentDrafts || {}))
@@ -674,6 +682,14 @@ function CoachHome() {
     scrollBounds.resetOffset(targetY)
     requestAnimationFrame(() => { if (scrollBounds.isActive()) contentScrollRef.current?.scrollTo({ animated: true, y: targetY }) })
     setNotificationSettingsFocusRequest(null)
+  }, [scrollBounds])
+
+  const focusContentSection = useCallback((sectionY) => {
+    if (!scrollBounds.isActive()) return
+    const numericY = Number(sectionY)
+    const targetY = Number.isFinite(numericY) ? Math.max(0, contentOriginRef.current + numericY - 12) : 0
+    scrollBounds.resetOffset(targetY)
+    requestAnimationFrame(() => { if (scrollBounds.isActive()) contentScrollRef.current?.scrollTo({ animated: true, y: targetY }) })
   }, [scrollBounds])
 
   const launchQuickAction = useCallback((action) => {
@@ -1062,6 +1078,7 @@ function CoachHome() {
               onNotificationModeChange={updateNotificationMode}
               onNotificationSettingsFocus={focusNotificationSettings}
               onQuickActionHandled={handleQuickActionHandled}
+              onRequestScrollTo={focusContentSection}
               onRequestScrollTop={scrollContentToTop}
               onCaptureScrollPosition={scrollBounds.getOffset}
               onRestoreScrollPosition={restoreContentScrollPosition}

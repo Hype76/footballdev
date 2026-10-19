@@ -4,12 +4,13 @@ import {addEmailAppAccess,buildEmailAppAccess} from '../netlify/functions/lib/_e
 import {APP_DOWNLOAD_LINKS} from '../src/lib/app-download-links.js'
 import {sendEmail} from '../netlify/functions/lib/_email-provider.js'
 const occurrences=(text,value)=>text.split(value).length-1
-for(const role of ['parent','coach'])test(`${role} email preserves original action and includes exactly its verified app links and QR assets`,()=>{
+for(const role of ['parent','coach'])test(`${role} email preserves original action and includes verified store badges`,()=>{
  const html='<html><body><h1>Your invitation</h1><a href="https://footballplayer.online/accept?token=synthetic">Accept invitation</a></body></html>'
  const result=addEmailAppAccess({to:['recipient@example.test'],subject:'Invitation',html,text:'Accept here: https://footballplayer.online/accept?token=synthetic',emailAppRole:role})
  const app=APP_DOWNLOAD_LINKS[role],other=APP_DOWNLOAD_LINKS[role==='parent'?'coach':'parent']
  assert.ok(result.html.startsWith(html.slice(0,html.indexOf('</body>'))));assert.ok(result.html.endsWith('</body></html>'))
- for(const value of [app.apple,app.android,app.web,app.appleQr,app.androidQr])assert.ok(result.html.includes(value),value)
+ for(const value of [app.apple,app.android,app.web,'/email-apps/app-store-badge.png','/email-apps/google-play-badge.png'])assert.ok(result.html.includes(value),value)
+ assert.ok(!result.html.includes(app.appleQr));assert.ok(!result.html.includes(app.androidQr))
  assert.ok(!result.html.includes(other.apple));assert.ok(result.text.startsWith('Accept here: '));assert.ok(result.text.includes(app.apple));assert.ok(result.text.includes(app.android));assert.ok(result.text.includes(app.web))
  assert.equal(occurrences(result.html,'fp-app-access:start'),1);assert.ok(!('emailAppRole' in result))
 })
