@@ -189,6 +189,13 @@ try {
       await page.getByLabel('Home kit hue').waitFor()
     } else {
       await page.getByText('A Club Admin manages kits for a Club plan. A Team Admin manages kits for a standalone team.').waitFor()
+      await Promise.all([
+        page.getByRole('button', { name: 'Save kit colours' }),
+        page.getByLabel('Home kit hue'),
+        page.getByLabel('Away kit hue'),
+        page.getByLabel('Home kit hex colour'),
+        page.getByLabel('Away kit hex colour'),
+      ].map(locator => locator.waitFor({ state: 'detached' })))
       assert.equal(await page.getByRole('button', { name: 'Save kit colours' }).count(), 0)
       assert.equal(await page.getByLabel('Home kit hue').count(), 0)
       assert.equal(await page.getByLabel('Away kit hue').count(), 0)
