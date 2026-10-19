@@ -121,6 +121,8 @@ import { TeamLeagueLinkRow, TeamLeagueLinkSettings } from '../mobile-core/src/Te
 import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupReminder'
 import { coachTeamLeagueScope, teamLeagueScopeKey } from '../../src/lib/team-league-link.js'
 import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
+import { CoachSpeedDiagnostics } from './src/CoachSpeedDiagnostics'
+import { recordCoachPerformanceSample } from './src/coachPerformanceDiagnostics'
 import { countPendingCoachDevelopmentDrafts, readCoachDevelopmentDrafts } from './src/offline'
 import { subscribeDevelopmentSync } from './src/coachDevelopmentSync'
 import {
@@ -137,7 +139,7 @@ import {
 } from './src/notifications'
 
 const config = getMobileRuntimeConfig('coach')
-const HOME_REFRESH_MIN_INTERVAL_MS = 30 * 1000
+const HOME_REFRESH_MIN_INTERVAL_MS = 3 * 60 * 1000
 const defaultThemeContext = createCoachThemeContext(DEFAULT_COACH_THEME)
 const CoachThemeContext = createContext(defaultThemeContext)
 
@@ -476,7 +478,7 @@ function CoachHome() {
     }
   }, [])
 
-  const loadHome = useCallback(async ({ refresh = false, chatOnly = false, availabilityOnly = false, developmentOnly = false } = {}) => {
+  const loadHome = useCallback(async ({ refresh = false, chatOnly = false, availabilityOnly = false, developmentOnly = false, diagnostics = false } = {}) => {
     if (!selectedMobileUser?.clubId) return
     if (developmentOnly) {
       if (!selectedMobileUser.activeTeamId || !isMobileRouteAllowed(selectedMobileUser, 'development', selectedMobileUser.matchdayPolicy)) return
@@ -508,8 +510,8 @@ function CoachHome() {
       const availabilityRefreshId = ++availabilityRefreshIdRef.current
       const isCurrent = () => requestId === requestIdRef.current && availabilityRefreshId === availabilityRefreshIdRef.current
       try {
-        const invites = await readMobileResource(selectedMobileUser, 'coach:phase31e:invites',
-          () => getCoachInvitesAndAvailability(selectedMobileUser), { force: true })
+        const invites = await readMobileResource(selectedMobileUser, 'coach:home-availability-summary',
+          () => getCoachInvitesAndAvailability(selectedMobileUser, { summaryOnly: true }), { force: true, maxAgeMs: HOME_REFRESH_MIN_INTERVAL_MS })
         if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'invites', {
           pendingAvailability: countPendingCoachAvailability(invites.all, new Date(), 7),
         }))
@@ -579,11 +581,18 @@ function CoachHome() {
       return
     }
 
+    const homeStartedAt = Date.now()
+    const recordTiming = (name, durationMs, status) => recordCoachPerformanceSample({
+      durationMs,
+      name: `home.${name}`,
+      source: diagnostics ? 'manual' : 'automatic',
+      status,
+    })
     try {
       const primary = await readMobileResource(selectedMobileUser, primaryCacheKey,
         () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
           if (requestId === requestIdRef.current && !savedHome) setHomeState(current => preserveCoachDevelopmentSummary(preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...partial, loading: false }, current), current), current))
-        }), { force: refresh })
+        }, recordTiming), { force: refresh })
       if (requestId !== requestIdRef.current) return
       const savedAt = new Date().toISOString()
       const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
@@ -598,12 +607,14 @@ function CoachHome() {
         if (selectedMobileUser.activeTeamId && isMobileRouteAllowed(selectedMobileUser, 'players', selectedMobileUser.matchdayPolicy)) void readMobileResource(selectedMobileUser, 'coach:players', () => getCoachPlayerList(selectedMobileUser)).catch(() => {})
       })
       const attentionResult = await getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh,
+        onTiming: recordTiming,
         readLocalDevelopmentDrafts: () => readCoachDevelopmentDrafts(user.id, activeContext),
       })
         .then(value => ({ value }), error => ({ error }))
       if (requestId !== requestIdRef.current) return
       if (attentionResult.error) {
         setHomeState(current => updateCoachHomeSourceState(current, 'attention', {}, 'unavailable'))
+        recordCoachPerformanceSample({ durationMs: Date.now() - homeStartedAt, name: 'home', source: diagnostics ? 'manual' : 'automatic', status: 'error' })
         return
       }
       const completeSnapshot = {
@@ -624,7 +635,9 @@ function CoachHome() {
         if (value !== undefined) savedSections[`phase31e:${domain}`] = domain === 'chat' ? sanitizeCoachChatOfflineValue(value) : value
       }
       void saveCoachOfflineResources(user.id, activeContext, savedSections).catch(() => {})
+      recordCoachPerformanceSample({ durationMs: Date.now() - homeStartedAt, name: 'home', source: diagnostics ? 'manual' : 'automatic', status: 'success' })
     } catch (error) {
+      recordCoachPerformanceSample({ durationMs: Date.now() - homeStartedAt, name: 'home', source: diagnostics ? 'manual' : 'automatic', status: 'error' })
       if (requestId !== requestIdRef.current) return
       if (!savedHome) setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false }))
     } finally {
@@ -1361,6 +1374,7 @@ function SettingsScreen({
   onToggleAppBadge,
   onToggleTheme,
   quickActionVisibility,
+  reloadHome,
   themeMode,
   user,
 }) {
@@ -1540,6 +1554,11 @@ function SettingsScreen({
         <InfoRow label="Saved information" value={cacheState?.hasDocument ? 'Saved securely on this device' : 'Open your team while online to prepare'} />
         <Text style={styles.helperText}>Your selected team and upcoming fixtures save automatically while you use Coach. Saved goals, cards and substitutions sync when you reconnect.</Text>
         <CoachOfflineReadiness key={`${user.id}:${context.id}`} user={user} context={context} styles={styles} />
+      </Section>
+      </SettingsSection>
+      <SettingsSection id="speed" label="Speed diagnostics" iconKey="settings.sync">
+      <Section compact iconKey="settings.sync" title="Speed diagnostics">
+        <CoachSpeedDiagnostics reloadHome={reloadHome} styles={styles} />
       </Section>
       </SettingsSection>
       <SettingsSection id="app" label="App info" iconKey="settings.app">

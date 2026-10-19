@@ -106,8 +106,32 @@ async function getInvolvedPlayerIdsByEventId(user, eventIds) {
   return byEventId
 }
 
-export async function getCoachCalendarResources(user, { includeDetails = true } = {}) {
+export async function getCoachCalendarResources(user, { homeSummary = false, includeDetails = true } = {}) {
   assertCoachOperationalRead(user)
+  if (homeSummary) {
+    const earliest = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
+    let homeQuery = supabase
+      .from('calendar_events')
+      .select('id,team_id,title,event_type,starts_at,ends_at,location,cancelled_at,parent_audience')
+      .eq('club_id', user.clubId)
+      .gte('starts_at', earliest)
+      .order('starts_at', { ascending: true })
+      .limit(20)
+    homeQuery = scopeCoachQuery(homeQuery, user, { includeClubWide: true })
+    const { data, error } = await homeQuery
+    if (error) throw error
+    return buildCoachCalendarEvents({
+      availabilityByEventId: {},
+      calendarEvents: (data || []).map((row) => ({
+        ...row,
+        canEdit: user.role === 'admin' || Boolean(row.team_id),
+        involvedPlayerIds: [],
+        isInheritedClubEvent: Boolean(user.activeTeamId && !row.team_id),
+      })),
+      matches: [],
+      sessions: [],
+    })
+  }
   let calendarQuery = supabase
     .from('calendar_events')
     .select('*, teams:team_id(name,notification_display_name)')

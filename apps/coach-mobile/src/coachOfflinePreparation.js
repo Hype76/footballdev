@@ -2,6 +2,23 @@ import { isMobileRouteAllowed } from '../../mobile-core/src/matchdayPolicyCore.j
 
 export const COACH_PREPARATION_REFRESH_MS = 5 * 60 * 1000
 
+async function runPreparationLoads(loads, concurrency = 3) {
+  const entries = Object.entries(loads)
+  const results = {}
+  let next = 0
+  const worker = async () => {
+    while (next < entries.length) {
+      const [name, load] = entries[next++]
+      try { results[name] = { status: 'fulfilled', value: await load() } }
+      catch (reason) { results[name] = { status: 'rejected', reason } }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, entries.length) }, worker))
+  const failed = Object.values(results).find((result) => result.status === 'rejected')
+  if (failed) throw failed.reason
+  return Object.fromEntries(Object.entries(results).map(([name, result]) => [name, result.value]))
+}
+
 export async function prepareCoachOfflineData({ user, context, dependencies, isCurrent = () => true, now = Date.now, force = false }) {
   const { readResources, readOutbox, saveResources, getPlayers, getDevelopment, getCalendar, getMatches, getMatch, updateOutbox } = dependencies
   const saved = await readResources(user.id, context)
@@ -18,17 +35,26 @@ export async function prepareCoachOfflineData({ user, context, dependencies, isC
     if (journals.every(journal => journal?.baseMatch && (journal.pending?.length || now() - Date.parse(journal.verifiedAt) < COACH_PREPARATION_REFRESH_MS))) return { skipped: true }
   }
   const save = async resources => { if (isCurrent()) await saveResources(user.id, context, resources) }
-  const players = !allowed('players') ? [] : isFresh('players') ? saved.resources.players : await getPlayers(user)
+  const loaded = await runPreparationLoads({
+    players: async () => {
+      const value = !allowed('players') ? [] : isFresh('players') ? saved.resources.players : await getPlayers(user)
+      if (allowed('players') && !isFresh('players')) await save({ players: value, calendarPlayers: value, matchDayPlayers: value })
+      return value
+    },
+    calendar: async () => {
+      const value = !allowed('calendar') ? [] : isFresh('calendar') ? saved.resources.calendar : await getCalendar(user)
+      if (allowed('calendar') && !isFresh('calendar')) await save({ calendar: value })
+      return value
+    },
+    matches: async () => !allowed('matchday') ? [] : isFresh('matchDayList') ? saved.resources.matchDayList : getMatches(user),
+    development: async () => {
+      const value = !allowed('development') ? null : isFresh('phase31e:development') ? saved.resources['phase31e:development'] : await getDevelopment(user)
+      if (allowed('development') && !isFresh('phase31e:development')) await save({ 'phase31e:development': value })
+      return value
+    },
+  })
   if (!isCurrent()) return { cancelled: true }
-  if (allowed('players') && !isFresh('players')) await save({ players, calendarPlayers: players, matchDayPlayers: players })
-  const development = !allowed('development') ? null : isFresh('phase31e:development') ? saved.resources['phase31e:development'] : await getDevelopment(user)
-  if (!isCurrent()) return { cancelled: true }
-  if (allowed('development') && !isFresh('phase31e:development')) await save({ 'phase31e:development': development })
-  const calendar = !allowed('calendar') ? [] : isFresh('calendar') ? saved.resources.calendar : await getCalendar(user)
-  if (!isCurrent()) return { cancelled: true }
-  if (allowed('calendar') && !isFresh('calendar')) await save({ calendar })
-  const matches = !allowed('matchday') ? [] : isFresh('matchDayList') ? saved.resources.matchDayList : await getMatches(user)
-  if (!isCurrent()) return { cancelled: true }
+  const matches = loaded.matches
   const today = new Date(now()).toISOString().slice(0, 10)
   const upcoming = matches.filter(match => !['completed', 'cancelled', 'deleted'].includes(match.status) && match.matchDate >= today)
     .sort((a, b) => a.matchDate.localeCompare(b.matchDate)).slice(0, 8)
