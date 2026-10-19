@@ -25,6 +25,7 @@ function harness(errors = []) {
   let state = { ...healthy(), pendingAvailability: 9, chatRooms: [{ id: 'saved-room', unreadCount: 2 }], unreadChat: 2, errors, partial: errors.length > 0 }
   const reads = [], attentionOptions = []
   const deps = {
+    HOME_REFRESH_MIN_INTERVAL_MS: 180000,
     selectedMobileUser: { id: 'synthetic-coach', clubId: 'synthetic-club', activeTeamId: 'synthetic-team' },
     isMobileRouteAllowed, isMatchdayPlan,
     requestIdRef: { current: 0 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
@@ -45,6 +46,7 @@ function harness(errors = []) {
     mergeCoachPhase31GHomeSnapshots: mergeCoachHomeOperationalSnapshots,
     setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachOfflineResources: async () => {},
     InteractionManager: { runAfterInteractions() {} }, getCoachFriendlyError: () => 'Unavailable',
+    recordCoachPerformanceSample() {},
   }
   return { deps, reads, attentionOptions, state: () => state, load: options => new Function(...Object.keys(deps), `return (${body})`)(...Object.values(deps))(options) }
 }

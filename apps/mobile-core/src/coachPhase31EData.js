@@ -16,7 +16,7 @@ import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getAccessToken, supabase } from './supabase'
 import { subscribeToMobileChatRoom } from './chatRealtime'
 import { getCoachMatchDayList } from './coachMatchDayData'
-import { readCoachMatchAvailability } from './coachAvailabilityData.js'
+import { readAllPages, readCoachMatchAvailability } from './coachAvailabilityData.js'
 import { getCoachPlayerList } from './coachPlayersData'
 import {
   assertSyntheticCoachCommunicationTarget,
@@ -712,8 +712,62 @@ export async function getCoachMatchInvites(user, fixture, { onReady } = {}) {
   return Object.freeze(rows.map((row, index) => Object.freeze({ ...row, attendancePreparation: preparations[index] })))
 }
 
-export async function getCoachInvitesAndAvailability(user) {
+async function getCoachAvailabilityHomeSummary(user) {
+  const now = new Date()
+  const today = now.toISOString().slice(0, 10)
+  const through = new Date(now.getTime() + 7 * 86400000)
+  const throughDate = through.toISOString().slice(0, 10)
+  const [matchesResult, trainingRows] = await Promise.all([
+    supabase.from('match_days')
+      .select('id,club_id,team_id,opponent,match_date,status,deleted_at')
+      .eq('club_id', user.clubId).eq('team_id', user.activeTeamId)
+      .in('status', ['scheduled', 'scorer_request'])
+      .gte('match_date', today).lt('match_date', throughDate)
+      .is('deleted_at', null).order('match_date', { ascending: true }).limit(30),
+    readAllPages(() => supabase.from('training_availability_request_players')
+      .select('id,request_id,club_id,team_id,calendar_event_id,player_id,player_name,status,email_sent_at,response_deadline_at,token_revoked_at,token_revoked_reason,training_availability_requests!inner(occurrence_date,occurrence_starts_at,status)')
+      .eq('club_id', user.clubId).eq('team_id', user.activeTeamId)
+      .gte('training_availability_requests.occurrence_starts_at', now.toISOString())
+      .lt('training_availability_requests.occurrence_starts_at', through.toISOString())),
+  ])
+  const firstError = matchesResult.error
+  if (firstError) throw firstError
+  const matches = matchesResult.data || []
+  const matchIds = matches.map((match) => match.id).filter(Boolean)
+  const trainingRequestIds = [...new Set(trainingRows.map((row) => normalize(row.request_id)).filter(Boolean))]
+  const matchById = new Map(matches.map((match) => [normalize(match.id), match]))
+  const [matchRequests, matchResponses, trainingResponsesRows] = await Promise.all([
+    matchIds.length ? readAllPages(() => supabase.from('match_day_availability_requests')
+      .select('id,club_id,team_id,match_day_id,player_id,player_name,status,sent_at,responded_at,expires_at,token_revoked_at,token_revoked_reason')
+      .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('match_day_id', matchIds))
+      : Promise.resolve([]),
+    matchIds.length ? readAllPages(() => supabase.from('match_day_player_availability')
+      .select('match_day_id,player_id,status,selected_at,updated_at')
+      .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('match_day_id', matchIds))
+      : Promise.resolve([]),
+    trainingRequestIds.length ? readAllPages(() => supabase.from('training_availability_responses')
+      .select('id,request_id,player_id,status,responded_at')
+      .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('request_id', trainingRequestIds))
+      : Promise.resolve([]),
+  ])
+  const matchResponseByPlayer = new Map(matchResponses.map((row) => [`${normalize(row.match_day_id)}:${normalize(row.player_id)}`, row]))
+  const match = matchRequests.map((row) => {
+    const fixture = matchById.get(normalize(row.match_day_id))
+    const response = matchResponseByPlayer.get(`${normalize(row.match_day_id)}:${normalize(row.player_id)}`)
+    return normalizeCoachInvite({ ...row, availability_status: response?.status, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
+  })
+  const trainingResponses = new Map(trainingResponsesRows.map((response) => [`${normalize(response.request_id)}:${normalize(response.player_id)}`, response]))
+  const training = trainingRows.map((row) => {
+    const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
+    const response = trainingResponses.get(`${normalize(row.request_id)}:${normalize(row.player_id)}`)
+    return normalizeCoachInvite({ ...row, ...response, occurrence_date: request?.occurrence_date, occurrence_starts_at: request?.occurrence_starts_at, cancelled_at: request?.status === 'cancelled' ? new Date(0).toISOString() : '' }, 'training')
+  })
+  return Object.freeze({ all: Object.freeze([...match, ...training]) })
+}
+
+export async function getCoachInvitesAndAvailability(user, { summaryOnly = false } = {}) {
   assertCoachOperationalRead(user, { requiresTeam: true })
+  if (summaryOnly) return getCoachAvailabilityHomeSummary(user)
   const matchReads = getCoachMatchDayList(user).then(async (matches) => ({
     matches,
     ...await readCoachMatchAvailability(supabase, user, matches),

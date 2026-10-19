@@ -308,13 +308,7 @@ export async function getCoachHomeSummary(user) {
   }
 }
 
-function getMatchSelect() {
-  return `
-    *,
-    teams:team_id (name),
-    match_day_events (*)
-  `
-}
+const COACH_HOME_MATCH_SELECT = 'id,title,club_id,team_id,opponent,fixture_type,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,status,home_score,away_score,request_scorer,request_linesman,request_referee,created_at,updated_at,teams:team_id(name)'
 
 export async function getCoachMatchDays(user) {
   if (!user?.clubId) {
@@ -323,10 +317,13 @@ export async function getCoachMatchDays(user) {
 
   let query = supabase
     .from('match_days')
-    .select(getMatchSelect())
+    .select(COACH_HOME_MATCH_SELECT)
     .eq('club_id', user.clubId)
-    .order('match_date', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
+    .is('deleted_at', null)
+    .not('status', 'in', '(full_time,completed,cancelled)')
+    .gte('match_date', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString().slice(0, 10))
+    .order('match_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
     .limit(20)
 
   if (user.activeTeamId) {
@@ -378,9 +375,11 @@ export async function getCoachSessions(user) {
     .from('assessment_sessions')
     .select('id, team_id, team, title, opponent, session_type, session_date, start_time, status, completed_at')
     .eq('club_id', user.clubId)
-    .order('session_date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(30)
+    .not('status', 'in', '(completed,cancelled)')
+    .gte('session_date', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString().slice(0, 10))
+    .order('session_date', { ascending: true })
+    .order('created_at', { ascending: true })
+    .limit(20)
 
   if (user.activeTeamId) {
     query = query.eq('team_id', user.activeTeamId)

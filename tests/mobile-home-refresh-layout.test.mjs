@@ -29,6 +29,7 @@ function harness() {
   const reads = []
   const dependencies = {
     isMatchdayPlan, isMobileRouteAllowed,
+    HOME_REFRESH_MIN_INTERVAL_MS: 180000,
     selectedMobileUser: { id: 'coach', clubId: 'club', activeTeamId: 'team' },
     requestIdRef: { current: 1 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
     developmentRefreshIdRef: { current: 0 }, homeStateRef: { current: state },
@@ -44,6 +45,7 @@ function harness() {
     getCoachPhase31GAttentionSnapshot: async () => ({ pendingAvailability: 107, errors: [] }),
     mergeCoachPhase31GHomeSnapshots: (primary, attention) => ({ ...primary, ...attention }),
     getCoachFriendlyError: () => 'Unavailable',
+    recordCoachPerformanceSample() {},
   }
   return { dependencies, reads, state: () => state, load: () => evaluate(callback, dependencies) }
 }
@@ -54,7 +56,7 @@ test('actual Coach targeted refresh replaces 107 with current responses without 
   assert.equal(h.state().pendingAvailability, 1)
   assert.equal(h.state().unreadChat, 2)
   assert.deepEqual(h.state().errors, ['polls:unavailable'])
-  assert.deepEqual(h.reads.map(read => [read.key, read.options.force]), [['coach:phase31e:invites', true]])
+  assert.deepEqual(h.reads.map(read => [read.key, read.options.force]), [['coach:home-availability-summary', true]])
 })
 
 test('late Coach reads cannot overwrite a newer response or another context', async () => {
