@@ -39,6 +39,15 @@ test('Simon feedback migration persists custom positions through create and edit
       notes text not null, created_by_profile_id uuid not null, version_reason text not null,
       source_version_id uuid, created_at timestamptz not null default now()
     );
+    create function app_private.reject_formation_board_immutable_change()
+    returns trigger language plpgsql as $$
+    begin
+      raise exception using errcode = '55000', message = 'formation_board_snapshot_immutable';
+    end;
+    $$;
+    create trigger formation_board_versions_immutable
+    before update or delete on public.formation_board_versions
+    for each row execute function app_private.reject_formation_board_immutable_change();
     create function public.get_team_carpool_default(uuid) returns boolean language sql stable as 'select false';
     create function app_private.formation_board_team_role_rank(uuid, uuid, uuid) returns integer language sql stable as 'select 30';
     create function app_private.formation_board_can_edit(uuid, uuid) returns boolean language sql stable as 'select true';
@@ -54,9 +63,25 @@ test('Simon feedback migration persists custom positions through create and edit
     insert into public.teams values ('${teamId}', '${clubId}', 'active');
     insert into public.match_days values ('${matchId}', '${clubId}', '${teamId}', null, 'scheduled');
     insert into public.formation_board_presets values (1, '5v5-1-2-1', '1-2-1');
+    insert into public.formation_board_versions (
+      board_id, club_id, team_id, version_number, game_format, formation_preset_key,
+      preset_registry_version, pitch_orientation, placements, bench, notes,
+      created_by_profile_id, version_reason
+    ) values (
+      gen_random_uuid(), '${clubId}', '${teamId}', 1, '5v5', '5v5-custom',
+      1, 'portrait', '[]', '[]', '', '${coachId}', 'existing_snapshot'
+    );
   `)
 
   await db.exec(migration)
+  assert.equal(
+    (await db.query("select custom_slots from public.formation_board_versions where version_reason = 'existing_snapshot'")).rows[0].custom_slots.length,
+    0,
+  )
+  await assert.rejects(
+    db.query("update public.formation_board_versions set notes = 'rewrite' where version_reason = 'existing_snapshot'"),
+    /formation_board_snapshot_immutable/,
+  )
   const customSlots = JSON.stringify([{ id: 'custom-1', x: 0.42, y: 0.88 }])
   const created = await db.query(`select public.create_formation_board_v2(
     '${teamId}', 'Custom', '', '5v5', '5v5-custom', 'portrait', '[]', '[]',
