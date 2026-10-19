@@ -189,18 +189,17 @@ try {
       await page.getByLabel('Home kit hue').waitFor()
     } else {
       await page.getByText('A Club Admin manages kits for a Club plan. A Team Admin manages kits for a standalone team.').waitFor()
-      await Promise.all([
-        page.getByRole('button', { name: 'Save kit colours' }),
-        page.getByLabel('Home kit hue'),
-        page.getByLabel('Away kit hue'),
-        page.getByLabel('Home kit hex colour'),
-        page.getByLabel('Away kit hex colour'),
-      ].map(locator => locator.waitFor({ state: 'detached' })))
+      await page.waitForFunction(() => ['Home', 'Away'].every(side => {
+        const input = document.querySelector(`input[aria-label="${side} kit hex colour"]`)
+        return input && (input.disabled || input.readOnly || input.getAttribute('aria-disabled') === 'true')
+      }))
       assert.equal(await page.getByRole('button', { name: 'Save kit colours' }).count(), 0)
       assert.equal(await page.getByLabel('Home kit hue').count(), 0)
       assert.equal(await page.getByLabel('Away kit hue').count(), 0)
-      assert.equal(await page.getByLabel('Home kit hex colour').count(), 0)
-      assert.equal(await page.getByLabel('Away kit hex colour').count(), 0)
+      assert.equal(await page.getByLabel('Home kit hex colour').count(), 1)
+      assert.equal(await page.getByLabel('Away kit hex colour').count(), 1)
+      assert.equal(await page.getByLabel('Home kit hex colour').isEditable(), false)
+      assert.equal(await page.getByLabel('Away kit hex colour').isEditable(), false)
     }
     assert.equal(await page.evaluate(() => globalThis.kitSaveCalls), savesBefore)
   }
