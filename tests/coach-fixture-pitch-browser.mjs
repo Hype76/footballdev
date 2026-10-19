@@ -55,6 +55,7 @@ try {
   await page.getByLabel('Opponent',{exact:true}).fill('FP TEST Visitors')
   await page.getByRole('button',{name:'League',exact:true}).click()
   await page.getByLabel('Match date',{exact:true}).fill('2099-09-20')
+  await page.getByLabel('Venue',{exact:true}).fill('FP TEST Ground')
   await page.getByRole('button',{name:'3G',exact:true}).click()
   await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='3g')
