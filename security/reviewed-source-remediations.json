@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "f6abf86e1cca0c3dce4a56088fc5447c0a50f69acff6b8caae62bb1981e04297",
+    "scripts/security-verify-reviewed-backports.mjs": "3696bd10a097bb78d64b8eb3b9e8fae7d3a98009170533351488e099b3b74d08",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1001,7 +1001,7 @@
       "tests/coach-development-workspace-responsiveness.test.mjs": "9400a3e850b0d929f6b56a76b9ef6e6236a3359f9174611c4f60ebfb02f831ef",
       "tests/coach-feedback-browser.mjs": "2efde366150260cc72c8dbf3a91c29d9a7091e9e2923a37d36544164911e8a45",
       "tests/coach-fixture-pitch-browser.mjs": "589c9d8d24fe9fc5856f6b3b52791bc1156500306871c533ab1ffec3fd1b7529",
-      "tests/coach-home-warning-recovery.test.mjs": "bc43d56a3ed2676e6b6e32fcb88213ff124de475e460ae7e22190c631e250f1f",
+      "tests/coach-home-warning-recovery.test.mjs": "2e78d2767773f4ff7f460a034e251317786573f166406de49e4c48f0d5b93840",
       "tests/coach-invite-table-browser.mjs": "0b4940358fa3061d4af1e33bd9b935c3034ab5454e8244fea2f59b186391bfad",
       "tests/coach-keyboard-viewport.test.mjs": "fa99af6bc3e3ad32bbe279c8597bd5dbea3822495e4843e36fd9e127fdabfafb",
       "tests/coach-matchday-offline-browser.mjs": "de5d3bd63a9798d9ef31c0c674327e94f9ea0a5465c48bce5b4cc6b62cec49d0",
@@ -2440,7 +2440,7 @@
       "customerWrites": 0
     }
   },
-  "releasePreparationSha256": "5c8ba7b3585168dd59d921ff455e4de971a85a2acc15d8e5db754cbb5dea07d3",
+  "releasePreparationSha256": "89c764ddcb55f88cf2237866a262e0c0d259b98d6cde585e04ac77bee50b79d3",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

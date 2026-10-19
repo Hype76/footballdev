@@ -35,6 +35,10 @@ function harness(errors = []) {
     getCoachInvitesAndAvailability: async () => ({ all: [] }), getCoachChatRooms: async () => [{ id: 'fresh-room', unreadCount: 5 }],
     buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary: baselinePreserveAvailability, preserveCoachChatSummary, updateCoachHomeSourceState,
     setIsRefreshing() {}, peekMobileResource: () => undefined, readCoachOfflineResources: async () => null,
+    readCoachHomeOfflineView: async (userId, context) => ({
+      cache: await deps.readCoachOfflineResources(userId, context),
+      developmentDrafts: await deps.readCoachDevelopmentDrafts(userId, context),
+    }),
     user: { id: 'synthetic-coach' }, activeContext: { id: 'synthetic-context' },
     getCoachPhase31GPrimaryHomeSnapshot: async (_user, progress) => { progress(healthy()); return healthy() },
     getCoachPhase31GAttentionSnapshot: async (_user, options) => { attentionOptions.push(options); return healthy() },
