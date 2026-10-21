@@ -98,6 +98,7 @@ try {
   await page.getByRole('button', { name: 'Full screen and lock' }).click()
   await page.getByRole('button', { name: 'Unlock Club Admin', exact: true }).waitFor()
   assert.equal(await page.locator('.club-tv-controls').count(), 0)
+  await page.locator('.club-tv:fullscreen').waitFor()
   assert.equal(await page.evaluate(() => Boolean(document.fullscreenElement)), true)
   await page.screenshot({ path: `${output}/full-screen-locked.png` })
   assert.equal(await page.locator('.club-tv-credit a, a.club-tv-credit').count(), 0)

@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "f002a79e6535b2a71f80958ab1983daf0baa9f616bd303cbd130a300b1df4590",
+    "scripts/security-verify-reviewed-backports.mjs": "a47afb19ad88885454eafaacf5feb0b615e29e798c60fef7600cd6586bc46717",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1275,7 +1275,7 @@
       "src/lib/recovery-phase.js": "26ae33f7c77c04b7b5b151628bfe5b9a3715a809f9bc4837fbcf1f7074dcec18",
       "src/pages/ClubMatchdayTvPage.jsx": "5d9f119fd03ada572232f77614a619be5923e6c36bc16e6a52d911a1542055fc",
       "src/pages/club-matchday-tv.css": "a1c9bc78e99526ffb4a9e5f1b55fa6c55630ea478c42ecb3183dcd482cfc6446",
-      "tests/club-matchday-tv-browser.mjs": "5dd2156d1df9522843da1ea008d585e26a5f8fd2068e60a0514d86287a5be146",
+      "tests/club-matchday-tv-browser.mjs": "5d6364380bfaad2322a66a8df3ca6a621509261c5dad70071a93a8c01c89e905",
       "tests/club-matchday-tv-weather.test.mjs": "967df9819b3d087dc3576d9768abd42e18ecdf7cfc2bd4df0e9add545fc854bb",
       "tests/club-matchday-tv.test.mjs": "2a707a91ace220bd55897dc4e9f07308a6edd405bac06b7dfdf94c86e54d5236"
     },
@@ -2511,7 +2511,7 @@
       "physicalDisplayAcceptance": "Separate, not yet verified"
     }
   },
-  "releasePreparationSha256": "e7e829c00067f445af87727452fa8fa36038251c3f242ea62482cf4563329bdf",
+  "releasePreparationSha256": "78c9787105dc480d6acceb81bf642b72b23bb1a480400332153401f2766789e6",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
