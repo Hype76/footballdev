@@ -200,8 +200,16 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'Email, password, club, and role are required.' }, 400)
     }
 
-    if (String(requester.club_id ?? '') !== clubId || Number(requester.role_rank ?? 0) < 50) {
+    if (String(requester.club_id ?? '') !== clubId) {
       return jsonResponse({ error: 'You cannot create staff for this club.' }, 403)
+    }
+
+    const { data: canCreateStaff, error: authorityError } = await userClient.rpc('current_user_can_invite_staff', {
+      club_value: clubId,
+      team_value: null,
+    })
+    if (authorityError || canCreateStaff !== true) {
+      return jsonResponse({ error: 'Only a Club Admin can create club staff. Team Admins can invite staff for their team.' }, 403)
     }
 
     if (roleRank > Number(requester.role_rank ?? 0)) {
