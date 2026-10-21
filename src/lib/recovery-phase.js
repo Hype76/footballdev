@@ -48,7 +48,7 @@ export function isRecoveryModuleVisible(moduleKey, { user } = {}) {
 export function getRecoveryModuleForPath(path) {
   const normalizedPath = String(path ?? '').split('?')[0].replace(/\/+$/, '') || '/'
 
-  if (normalizedPath === '/match-day') {
+  if (normalizedPath === '/match-day' || normalizedPath === '/club-matchday-tv') {
     return 'matchDay'
   }
 

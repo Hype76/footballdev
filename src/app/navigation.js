@@ -78,6 +78,11 @@ export const primaryNavigation = [
 
 export const clubNavigation = [
   {
+    label: 'Matchday TV',
+    path: '/club-matchday-tv',
+    helper: 'Your club scores on screen',
+  },
+  {
     label: 'Data Transfer',
     path: '/data-transfer',
     helper: 'Import and export XLSX',

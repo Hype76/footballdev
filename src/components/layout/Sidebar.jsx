@@ -1,4 +1,5 @@
 import { UserFeedbackLinks } from './UserFeedbackLinks.jsx'
+import { canViewClubMatchdayTv } from '../../lib/club-matchday-tv.js'
 import { getScopedTeamBranding } from '../../lib/team-branding-display.js'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
@@ -39,6 +40,7 @@ import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recove
 const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/feedback-forms', '/parent-linking', '/staff-chat', '/parent-chat-staff', '/resources', '/polls', '/match-day']
 
 const navIcons = {
+  '/club-matchday-tv': 'whistle',
   '/activity-log': 'activity',
   '/add-player': 'player-add',
   '/archived-players': 'archive',
@@ -400,6 +402,8 @@ export function Sidebar({ isOpen, onClose }) {
     if (isParentPortal) {
       return item.path === '/parent-portal' || item.path === '/parent-chat' || item.path === '/parent-polls'
     }
+
+    if (item.path === '/club-matchday-tv') return canViewClubMatchdayTv(displayUser)
 
     if (item.path === '/calendar') {
       return (canUseTeamWorkflow && canCreateEvaluation(displayUser) && canUseUiFeature(displayUser, getRouteCapability(item.path)))
