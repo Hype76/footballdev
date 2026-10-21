@@ -297,6 +297,7 @@ test('trusted function, RPC, RLS, and storage sources contain fail-closed paywal
   const manageScheduledEmails = readSource('netlify/functions/manage-scheduled-emails.js')
   const parentInvite = readSource('netlify/functions/send-parent-portal-invite.js')
   const staffInvite = readSource('netlify/functions/send-staff-invite.js')
+  const staffInviteAuthority = readSource('netlify/functions/lib/_staff-invite-authority.js')
   const domainTeamActions = readSource('src/lib/domain/team-actions.js')
   const serverMigration = readSource('supabase/migrations/20260622050850_paywall_server_enforcement.sql')
   const foundationMigration = readSource('supabase/migrations/20260622043000_paywall_plan_key_foundation.sql')
@@ -324,7 +325,8 @@ test('trusted function, RPC, RLS, and storage sources contain fail-closed paywal
   assert.match(manageScheduledEmails, /assertPlanFeature\(profile,\s*'parentEmails'\)/)
   assert.match(manageScheduledEmails, /requiredFeature: 'parentEmails'/)
   assert.match(parentInvite, /assertPlanFeature\(planProfile,\s*'parentInvitations'\)/)
-  assert.match(staffInvite, /assertPlanFeature\(planProfile,\s*invite\.team_id \? 'teamStaffRoles' : 'clubStaffRoles'\)/)
+  assert.match(staffInvite, /assertStaffInviteAuthority\(/)
+  assert.match(staffInviteAuthority, /assertFeature\(profile,\s*invite\.team_id \? 'teamStaffRoles' : 'clubStaffRoles'\)/)
 
   assert.match(serverMigration, /else false\s+end;/)
   assert.match(serverMigration, /public\.can_use_plan_feature\(calendar_events\.club_id, 'recurringEvents'\)/)
