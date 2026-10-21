@@ -99,6 +99,7 @@ try {
   await page.getByRole('button', { name: 'Unlock Club Admin', exact: true }).click()
   const passwordInput = page.getByLabel('Club Admin password', { exact: true })
   assert.equal(await passwordInput.getAttribute('type'), 'password')
+  assert.equal(await page.getByRole('dialog', { name: 'Unlock Club Admin' }).getByRole('button', { name: /show|reveal/i }).count(), 0)
   await passwordInput.fill('fixture-wrong-secret')
   await page.getByRole('button', { name: 'Unlock and return' }).click()
   await page.getByRole('alert').filter({ hasText: 'Password not accepted' }).waitFor()
