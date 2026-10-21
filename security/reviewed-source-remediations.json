@@ -192,7 +192,7 @@
   "scopeLocks": [
     {
       "scope": "root",
-      "normalisedUtf8Sha256": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40"
+      "normalisedUtf8Sha256": "0d39ae66a935bda0c501350b29ec187a1ad7306a8050c494cd3200b3c6dd7281"
     },
     {
       "scope": "apps/parent-mobile",
@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "1ff155e4777c2a71ee641b8b075b1ca5a441f8aae57f2999fdb2239ac6f90dfb",
+    "scripts/security-verify-reviewed-backports.mjs": "358984860d8814d2f50d08773c7e4ec01922ed0747a6e94a9d0ee99b7fe9b5cd",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -235,7 +235,7 @@
     "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
     ".github/workflows/security-gate.yml": "c4ff6695bc14a1995799e6af645b6555e623182ce016e5fec45807de2e6799ba",
     "apps/scripts/mobile-release-check.mjs": "d92e479e0222a74dd332e63cee5d3108a0fb1bfc0d8f34f77059bade0a5aed48",
-    "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
+    "package.json": "9e0d0ba390483755201cc8f844d9e28bf47f30dd62ce340a4d3c23ef98312e2a",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
     "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265",
@@ -253,15 +253,15 @@
   "nativeInputs": [
     {
       "path": "package.json",
-      "normalisedUtf8Sha256": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
+      "normalisedUtf8Sha256": "9e0d0ba390483755201cc8f844d9e28bf47f30dd62ce340a4d3c23ef98312e2a",
       "unchanged": false,
-      "reason": "Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
+      "reason": "Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof; Official Vite 7.3.7 build tooling security patch only; native inputs unchanged."
     },
     {
       "path": "package-lock.json",
-      "normalisedUtf8Sha256": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40",
+      "normalisedUtf8Sha256": "0d39ae66a935bda0c501350b29ec187a1ad7306a8050c494cd3200b3c6dd7281",
       "unchanged": false,
-      "reason": "Previously reviewed source-map-js 1.2.2 prerequisite from current main, native app inputs unchanged; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof"
+      "reason": "Previously reviewed source-map-js 1.2.2 prerequisite from current main, native app inputs unchanged; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof; Official Vite 7.3.7 build tooling security patch only; native inputs unchanged."
     },
     {
       "path": "apps/mobile-core/appConfig.cjs",
@@ -482,8 +482,8 @@
       "tests/parent-chat-layout-browser.mjs": "5ba0eb3c64e1d1d2dc35425bd24828afc7dd509aba2e752618184ed771a1f29a",
       "apps/parent-mobile/package.json": "d40865452a4fb69ff1251f223928afd6927952c7f9e7e1b06b92eb8b7706e3e0",
       "apps/parent-mobile/package-lock.json": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1",
-      "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
-      "package-lock.json": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40"
+      "package.json": "9e0d0ba390483755201cc8f844d9e28bf47f30dd62ce340a4d3c23ef98312e2a",
+      "package-lock.json": "0d39ae66a935bda0c501350b29ec187a1ad7306a8050c494cd3200b3c6dd7281"
     },
     "compatibleOfficialJavaScriptPrerequisite": {
       "baseline": "ec2288c01cd22801d96aa26329fab2b6ed0d0b05",
@@ -543,7 +543,7 @@
       },
       "changedSourceHashes": {
         "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
-        "package-lock.json": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40",
+        "package-lock.json": "0d39ae66a935bda0c501350b29ec187a1ad7306a8050c494cd3200b3c6dd7281",
         "apps/parent-mobile/package.json": "d40865452a4fb69ff1251f223928afd6927952c7f9e7e1b06b92eb8b7706e3e0",
         "apps/parent-mobile/package-lock.json": "b4f7f99710dcdb684bfccc4a741431eafd963dc7574b262341bd875e04fbb5c1",
         "apps/coach-mobile/package.json": "0fba8826940d3e162f55b5304396c1bd0d99abdcf84347133872e81647464e4e",
@@ -672,7 +672,7 @@
       ]
     }
   },
-  "dependencyRemediationSha256": "23bc11d0a2217dca4f0c46c65943f9d8139081c4298aee0ef45ceb7ab443be4b",
+  "dependencyRemediationSha256": "7994d4952c1156f9ff8515b5f3eb0f88e1b44e386820b55ab29a1accc0c37b64",
   "releasePreparation": {
     "previousCandidate": "80d3f4ff20ba494b1e28225635acac3d0598a2a2",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
@@ -849,8 +849,8 @@
       "netlify/functions/send-staff-invite.js": "c4f7c8841e73e599b3fdcaae4cb0f99a3ec86592652ee93d598d2684a47e12b2",
       "netlify/functions/stripe-webhook.js": "5c471ecdb06f596a3a82b72dfa82de96f0d47cbd93daa083d94df62845ef35c7",
       "netlify/functions/website-help.mts": "57e5a3941d8d674b54fe3fd449a6a46fd63488682323cfc9cb673546be83dfef",
-      "package-lock.json": "8882dbac5da33665c17b0f99089c7935fd644b2e3874271524354efc2f693a40",
-      "package.json": "6c34c50ca16c2abe581035cd0f49b485051bc1d6f3ed29c778c63c694a17f051",
+      "package-lock.json": "0d39ae66a935bda0c501350b29ec187a1ad7306a8050c494cd3200b3c6dd7281",
+      "package.json": "9e0d0ba390483755201cc8f844d9e28bf47f30dd62ce340a4d3c23ef98312e2a",
       "scripts/mobile-confirmation-email-template.mjs": "567a0fe54cbbfaf622c02d3c348254009c7c21cb65a886c759d768ca736a877a",
       "scripts/optimise-website-images.mjs": "46923904baaa9696105da7d60d853e46b8cedac9dc2aa40e0c760ed1d3a3cbb9",
       "scripts/security-migration-gate.mjs": "e789dfa4fccffc12064374ea680cde5d4e7ef67a4b0362348b452a05f5af25b9",
@@ -2464,7 +2464,7 @@
       "parentOtaUnchanged": true
     }
   },
-  "releasePreparationSha256": "feb7937b4326c9b3a03a084b5a84c4ad57d6ac540bbc10d8d719a6c5a5b4288c",
+  "releasePreparationSha256": "132608f5c5de37e1c7a99805cd3e1bb346cd191efe473e212dcd9d6dc1873f9b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
