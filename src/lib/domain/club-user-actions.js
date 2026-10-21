@@ -18,6 +18,7 @@ import { getTeams } from './team-actions.js'
 import { buildStaffInviteUrl, sendStaffInvite } from '../email-builder.js'
 import { CAPABILITIES } from '../paywall-access.js'
 import { assertPasswordPolicy } from '../password-policy.js'
+import { isStaffInvitationAdmin } from '../staff-invite-access.js'
 
 function createUuid() {
   if (crypto.randomUUID) {
@@ -241,6 +242,10 @@ export async function createStaffUserWithPassword({ user, email, password, role 
 
 export async function createStaffInvite({ user, email, role, teamId = '' }) {
   await blockDemoMutation(user)
+
+  if (!isStaffInvitationAdmin(user)) {
+    throw new Error('Only a Team Admin or Club Admin can add staff.')
+  }
 
   if (!user?.clubId) {
     throw new Error('Club ID is required.')

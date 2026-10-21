@@ -1,4 +1,5 @@
 import { isDemoUser } from './demo.js'
+import { isStaffInvitationAdmin } from './staff-invite-access.js'
 import { CAPABILITIES, canUseFeature } from './paywall-access.js'
 import { isPlanAccessActive } from './plans.js'
 import {
@@ -124,7 +125,7 @@ export function canManageUsers(user) {
     return isSuperAdmin(user)
   }
 
-  return isSuperAdmin(user) || Number(user.roleRank ?? 0) >= 50
+  return isStaffInvitationAdmin(user)
 }
 
 export function canViewActivityLog(user) {

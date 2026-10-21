@@ -205,6 +205,8 @@ jobs:
           tests/parent-pitch-surface-db.test.mjs
           tests/matchday-offline-outbox.test.mjs
           tests/matchday-offline-commands-db.test.mjs
+      - name: Staff invitation administrator authority
+        run: node --test tests/staff-invitation-admin-authority.test.mjs tests/phone-team-administration-pglite.test.mjs
       - name: Install Coach browser test dependencies
         run: npm ci --prefix apps/coach-mobile --include=optional
       - name: Reapply exact backports after Coach clean install

@@ -15,11 +15,12 @@ export async function assertStaffInviteAuthority({ event, invite, phoneTeamComma
   if (String(profile.clubId) !== String(invite.club_id)) {
     throw Object.assign(new Error('This Coach invite belongs to a different club.'), { statusCode: 403 })
   }
-  if (Number(profile.roleRank ?? 0) < 50) {
-    throw Object.assign(new Error('You need manager access before sending Coach invites.'), { statusCode: 403 })
+  if (!profile.id || String(profile.id) !== String(authenticatedActorId)) {
+    throw Object.assign(new Error('Only an authorised Team Admin or Club Admin can send this staff invitation.'), { statusCode: 403 })
   }
-  if (Number(invite.role_rank ?? 0) > Number(profile.roleRank ?? 0)) {
-    throw Object.assign(new Error('You cannot invite a role above your own level.'), { statusCode: 403 })
+  const { data, error } = await client.rpc('staff_invite_actor_can_send', { actor_value: profile.id, invite_value: invite.id })
+  if (error || data !== true) {
+    throw Object.assign(new Error('Only an authorised Team Admin or Club Admin can send this staff invitation.'), { statusCode: 403 })
   }
   return profile
 }
