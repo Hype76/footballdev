@@ -296,7 +296,17 @@ export function AuthProvider({
       // Leave the auth callback before making calls that acquire its session lock.
       profileTimer = setTimeout(() => {
         if (!isMounted || requiresSignInRef.current || eventGeneration !== authEventGeneration) return
-        void withStartupTimeout(() => loadProfile(nextSession), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS + 3000,
+        void withStartupTimeout(async () => {
+          // A session event can supersede bootstrap after an update reload.
+          // Apply the saved device lock before this path can open the account.
+          if (!hasProfile) {
+            const biometricEnabled = await withStartupTimeout(() => getBiometricEnabled(appRole),
+              DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, `${getMobileStartupDiagnosticPrefix(appRole)}_BIOMETRIC_READ_TIMEOUT`)
+            if (!isMounted || requiresSignInRef.current || eventGeneration !== authEventGeneration) return
+            setIsLocked(Boolean(biometricEnabled))
+          }
+          return loadProfile(nextSession)
+        }, DEFAULT_MOBILE_STARTUP_TIMEOUT_MS + 3000,
           `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_TIMEOUT`).then(() => {
           if (isMounted && !requiresSignInRef.current && eventGeneration === authEventGeneration) setStartupState(MOBILE_STARTUP_STATES.READY_SIGNED_IN)
         }).catch((error) => {
