@@ -26,6 +26,7 @@ test('mail transport requires fresh scoped database authority for every role',as
 async function fixture(t){const db=new PGlite();t.after(()=>db.close());await db.exec(`
  create role anon;create role authenticated;create role service_role;create schema auth;create schema app_private;
  create function auth.uid()returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create function auth.jwt()returns jsonb language sql stable as $$select '{}'::jsonb$$;
  create table auth.users(id uuid primary key,email_confirmed_at timestamptz,banned_until timestamptz);
  create table public.clubs(id uuid primary key,status text default 'active',archived_at timestamptz);
  create table public.users(id uuid primary key,club_id uuid,role text,role_rank int,role_label text,status text default 'active');
@@ -48,7 +49,6 @@ async function fixture(t){const db=new PGlite();t.after(()=>db.close());await db
  insert into club_roles(club_id,role_key,role_label,role_rank)values('${id(10)}','coach','Coach',30);
  insert into team_staff values('${id(20)}','${id(1)}','head_manager',70),('${id(20)}','${id(2)}','coach',30),('${id(20)}','${id(3)}','manager',50);
  alter table club_user_invites enable row level security;grant usage on schema public,auth to authenticated,service_role,anon;grant select,insert,update on club_user_invites to authenticated;
- create policy invite_read on club_user_invites for select to authenticated using(club_id=public.current_user_club_id());
  `);await db.exec(original.match(/create function app_private\.team_admin_can_manage\([^]*?revoke all on function app_private\.team_admin_can_manage[^;]*;/)[0]);await db.exec((await readFile('supabase/migrations/20260719071505_p0_shared_authority_profile_containment.sql','utf8')).match(/create or replace function public\.set_club_user_role\([^]*?\$\$;/)[0]);await db.exec(migration);return db}
 async function actor(db,n){await db.exec(`reset role;select set_config('request.jwt.claim.sub','${id(n)}',false);set role authenticated;`)}
 test('RLS blocks Coach/Manager writes, preserves scoped Team Admin and Club Admin, and protects scope changes',async t=>{
@@ -73,7 +73,7 @@ test('mail RPC is service-only and rejects removed, banned, expired or cross-sco
 test('scoped Team Admin with global Coach authority can invite only for the assigned team',async t=>{
  const db=await fixture(t)
  await db.exec(`update users set role='coach',role_rank=30 where id='${id(1)}';update user_club_memberships set role='coach',role_rank=30 where auth_user_id='${id(1)}'`)
- await actor(db,1);await db.exec(`insert into club_user_invites(club_id,team_id,role_rank,email)values('${id(10)}','${id(20)}',30,'scoped@example.test')`)
+ await actor(db,1);await db.exec(`insert into club_user_invites(club_id,team_id,role_rank,email)values('${id(10)}','${id(20)}',30,'scoped@example.test')returning id`)
  await assert.rejects(db.exec(`insert into club_user_invites(club_id,team_id,role_rank,email)values('${id(10)}','${id(21)}',30,'denied@example.test')`),e=>e.code==='42501')
  await assert.rejects(db.exec(`insert into club_user_invites(club_id,team_id,role_rank,email)values('${id(10)}','${id(20)}',90,'elevated@example.test')`),e=>e.code==='42501')
 })

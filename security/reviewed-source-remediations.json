@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "178c7b492931468173f927d1e9f5d03921f901e127ee30b5daf2dd135c94a0ee",
+    "scripts/security-verify-reviewed-backports.mjs": "750956d4745e2c5c8461947943b9c754a7ccd5096078a0fa8cf30923a52c28e4",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
@@ -1261,8 +1261,8 @@
       "src/lib/auth-permissions.js": "2b5f3a63436c9412a37080eaf240dc2f9a926454387b6abb3edf521b24571132",
       "src/lib/domain/club-user-actions.js": "d847c8a9bed3a12dcaa6992531eed007c929a3b680a48b0334970c600ee89f56",
       "src/lib/staff-invite-access.js": "3576c08b2ab8fe55af8a27f2dd85bed2dabe0839346507b939379ccc5fbe7b1d",
-      "supabase/migrations/20261021063202_staff_invitation_admin_authority.sql": "5952dca079195ed9fc42ce6dae8d7559b194796136fd973bf62c811b62f20459",
-      "tests/staff-invitation-admin-authority.test.mjs": "b58952fdd9db39d7e1935b72998987691102cc8cf9eb81f76f73dc2975f08555",
+      "supabase/migrations/20261021063202_staff_invitation_admin_authority.sql": "3854d6361e590455fcf51bcceea868225194a225d66ad257451963175dea808c",
+      "tests/staff-invitation-admin-authority.test.mjs": "7a15629d24b00d7902455a723e21f6b25ec682fdddf7922c75b82cbf9feb10a2",
       "supabase/functions/create-staff-user/index.ts": "e610ba7392fa48e5e20a2a62e6fdfd6ba4aaf82869c27b5e107ebff07cfc361c"
     },
     "externalTrustInputs": [
@@ -2472,7 +2472,7 @@
       "parentOtaUnchanged": true
     }
   },
-  "releasePreparationSha256": "4336092ca83e9a03483d95e4e70ec07ab4efc4cca52ab40377997f443b32e98a",
+  "releasePreparationSha256": "905818f32ef59cb30c1538acd6b1a9aabf1198e6e5dd77cc7ae48d9c16e80786",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

@@ -43,6 +43,16 @@ $$;
 revoke all on function public.staff_invite_actor_can_send(uuid,uuid) from public,anon,authenticated;
 grant execute on function public.staff_invite_actor_can_send(uuid,uuid) to service_role;
 
+-- Scoped Team Admins must also read returned rows after an invitation write.
+drop policy if exists club_user_invites_select_scoped on public.club_user_invites;
+create policy club_user_invites_select_scoped on public.club_user_invites
+for select to authenticated using (
+  public.current_user_role()='super_admin'
+  or (club_id=public.current_user_club_id() and public.current_user_role_rank()>=50)
+  or public.current_user_can_invite_staff(club_id,team_id)
+  or lower(email)=lower(coalesce(auth.jwt()->>'email',''))
+);
+
 drop policy if exists club_user_invites_insert_scoped on public.club_user_invites;
 create policy club_user_invites_insert_scoped on public.club_user_invites
 for insert to authenticated with check (
