@@ -12,7 +12,7 @@ const timeLabel = (value) => new Date(value).toLocaleTimeString('en-GB', { timeZ
 const dayLabel = (value) => new Date(`${value}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
 function BrandCredit() {
-  return <a className="club-tv-credit" href="https://footballplayer.online" target="_blank" rel="noreferrer"><img src={fpLogo} alt="Football Player" /><span>footballplayer.online</span></a>
+  return <div className="club-tv-credit"><img src={fpLogo} alt="Football Player" /><span>footballplayer.online</span></div>
 }
 
 function GroundWeather({ clubId, postcode }) {

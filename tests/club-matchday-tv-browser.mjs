@@ -91,6 +91,7 @@ try {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.getByRole('button', { name: 'Full screen and lock' }).click()
   await page.getByRole('button', { name: 'Unlock Club Admin', exact: true }).waitFor()
+  assert.equal(await page.locator('.club-tv-credit a, a.club-tv-credit').count(), 0)
   await page.keyboard.press('Escape')
   assert.equal(await page.getByRole('link', { name: 'Back to Club Admin' }).count(), 0)
   await page.goto(`${origin}/coach`)
