@@ -2,6 +2,8 @@
 import { Component, Suspense, lazy, useEffect, useState } from 'react'
 import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout.jsx'
+import { canViewClubMatchdayTv } from '../lib/club-matchday-tv.js'
+import { isClubTvLocked } from '../lib/club-tv-lock.js'
 import {
   canCreateEvaluation,
   canUseFormationBoards,
@@ -69,6 +71,7 @@ const BillingPage = lazyRoute(() => import('../pages/BillingPage.jsx'), 'Billing
 const CoachAppHandoffPage = lazyRoute(() => import('../pages/CoachAppHandoffPage.jsx'), 'CoachAppHandoffPage')
 const CoachAppUpgradePage = lazyRoute(() => import('../pages/CoachAppUpgradePage.jsx'), 'CoachAppUpgradePage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
+const ClubMatchdayTvPage = lazyRoute(() => import('../pages/ClubMatchdayTvPage.jsx'), 'ClubMatchdayTvPage')
 const ClubSignupPage = lazyRoute(() => import('../pages/ClubSignupPage.jsx'), 'ClubSignupPage')
 const DataTransferPage = lazyRoute(() => import('../pages/DataTransferPage.jsx'), 'DataTransferPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
@@ -1145,7 +1148,7 @@ function PublicLandingOrWorkspaceHome() {
 
 function RequireUser() {
   const location = useLocation()
-  const { isLoading, session } = useAuth()
+  const { isLoading, session, user } = useAuth()
 
   if (isLoading && !session?.user) {
     return <LoadingScreen />
@@ -1159,6 +1162,7 @@ function RequireUser() {
     return isParentHost() ? <ParentSignInRedirect /> : <Navigate to="/sign-in" replace />
   }
 
+  if (user && isClubTvLocked(user) && location.pathname !== '/club-matchday-tv') return <Navigate to="/club-matchday-tv" replace />
   return <Outlet />
 }
 
@@ -1483,6 +1487,13 @@ function RequireClubSettingsAccess() {
     return <FeatureUnavailableState capability={CAPABILITIES.basicLogoBranding} user={user} />
   }
 
+  return <Outlet />
+}
+
+function RequireClubMatchdayTvAccess() {
+  const { element, user } = useWorkspaceRouteGate()
+  if (element) return element
+  if (!canViewClubMatchdayTv(user)) return <FeatureUnavailableState capability={CAPABILITIES.clubAdministration} user={user} />
   return <Outlet />
 }
 
@@ -1904,6 +1915,13 @@ export const router = createBrowserRouter([
             <ResetPasswordPage />
           </PageSuspense>
         ),
+      },
+      {
+        element: <RequireClubMatchdayTvAccess />,
+        children: [{
+          path: '/club-matchday-tv',
+          element: <PageSuspense><ClubMatchdayTvPage /></PageSuspense>,
+        }],
       },
       {
         element: <Layout />,

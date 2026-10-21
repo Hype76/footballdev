@@ -7,6 +7,7 @@ import { ACCESS_READINESS, getCapabilityDefinition } from './paywall-capabilitie
 import { getPlanName } from './plans.js'
 
 export const ROUTE_CAPABILITIES = Object.freeze({
+  '/club-matchday-tv': CAPABILITIES.clubAdministration,
   '/activity-log': CAPABILITIES.fullOperationalAuditLog,
   '/add-player': CAPABILITIES.players,
   '/archived-players': CAPABILITIES.limitedRecordHistory,
