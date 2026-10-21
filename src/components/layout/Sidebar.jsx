@@ -88,7 +88,7 @@ const groupDescriptions = {
 
 const coreNavigationPaths = ['/calendar', '/players', '/assess-player', '/feedback-forms']
 const communicationNavigationPaths = ['/staff-chat', '/parent-chat-staff', '/parent-linking', '/polls']
-const matchOperationsNavigationPaths = ['/match-day', '/resources']
+const matchOperationsNavigationPaths = ['/match-day', '/club-matchday-tv', '/resources']
 
 function getSidebarTourId(path) {
   return `sidebar-${String(path ?? '').replace(/^\//, '').replace(/\//g, '-') || 'home'}`
@@ -497,7 +497,8 @@ export function Sidebar({ isOpen, onClose }) {
   })
 
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
-  const clubNavigationItems = getVisibleNavigationItems(clubNavigation)
+  const visibleClubNavigationItems = getVisibleNavigationItems(clubNavigation)
+  const clubNavigationItems = visibleClubNavigationItems.filter((item) => item.path !== '/club-matchday-tv')
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
   const teamNavigationItems = isCoachOnly ? [] : navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
   const parentPortalItems = useMemo(() => {
@@ -519,7 +520,7 @@ export function Sidebar({ isOpen, onClose }) {
         ...pickNavigationItems(coachNavigationItems, coreNavigationPaths, coachOnlyExcludedPaths),
       ]
   const communicationItems = isParentPortal ? [] : pickNavigationItems(coachNavigationItems, communicationNavigationPaths, coachOnlyExcludedPaths)
-  const matchOperationsItems = isParentPortal ? [] : pickNavigationItems(coachNavigationItems, matchOperationsNavigationPaths, coachOnlyExcludedPaths)
+  const matchOperationsItems = isParentPortal ? [] : pickNavigationItems([...coachNavigationItems, ...visibleClubNavigationItems], matchOperationsNavigationPaths, coachOnlyExcludedPaths)
 
   return (
     <>

@@ -124,7 +124,7 @@ function UnlockDisplay({ clubId, onUnlocked, onClose }) {
     finally { password = ''; clearTimeout(timeout) }
   }
   return <dialog ref={dialog} className="club-tv-settings" onCancel={onClose} aria-labelledby="club-tv-unlock-title"><form autoComplete="off" onSubmit={unlock}>
-    <h2 id="club-tv-unlock-title">Unlock Club Admin</h2><p>Enter your own Club Admin password to leave the match display. Your password is never saved or logged by the app.</p>
+    <h2 id="club-tv-unlock-title">Unlock Club Admin</h2><p>Enter your own Club Admin password to leave the match display. Your password is never saved or logged by the app. This box closes after 2 minutes and keeps the display locked.</p>
     <label>Club Admin password <input ref={passwordInput} type="password" name="display-unlock-password" autoComplete="off" autoCapitalize="none" spellCheck={false} required maxLength={1024} disabled={busy} /></label>
     {error ? <p role="alert">{error}</p> : null}<div className="club-tv-settings-actions"><button type="button" onClick={onClose}>Keep display locked</button><button disabled={busy} type="submit">{busy ? 'Checking…' : 'Unlock and return'}</button></div>
   </form></dialog>
@@ -160,11 +160,15 @@ function ClubDayDisplay({ user, date, setDate }) {
   const [paused, setPaused] = useState(false)
   const [seconds, setSeconds] = useState(TV_ROTATION_SECONDS)
   const [settings, setSettings] = useState(false)
-  const [tvMode, setTvMode] = useState(false)
   const [fullscreenError, setFullscreenError] = useState('')
   const [goals, setGoals] = useState([])
   const [locked, setLocked] = useState(() => isClubTvLocked(user))
   const [unlocking, setUnlocking] = useState(false)
+  useEffect(() => {
+    if (!unlocking) return
+    const timeout = setTimeout(() => setUnlocking(false), 120000)
+    return () => clearTimeout(timeout)
+  }, [unlocking])
   const root = useRef(null)
   const totalPages = Math.max(1, Math.ceil((feed?.matches.length || 0) / TV_PAGE_SIZE))
   const currentPage = Math.min(page, totalPages - 1)
@@ -216,13 +220,6 @@ function ClubDayDisplay({ user, date, setDate }) {
     const timer = setTimeout(() => setGoals((queue) => queue.slice(1)), 7000)
     return () => clearTimeout(timer)
   }, [goal])
-  useEffect(() => {
-    function keydown(event) { if (event.key === 'Escape') setTvMode(false) }
-    function fullscreenchange() { if (!document.fullscreenElement) setTvMode(false) }
-    document.addEventListener('keydown', keydown)
-    document.addEventListener('fullscreenchange', fullscreenchange)
-    return () => { document.removeEventListener('keydown', keydown); document.removeEventListener('fullscreenchange', fullscreenchange) }
-  }, [])
   const club = feed?.club
   const theme = createThemeColorTokens(club?.accent || user.themeAccent || 'green', 'dark')
   const hasMap = !denied && Boolean(preferences.showMap && preferences.map)
@@ -231,11 +228,11 @@ function ClubDayDisplay({ user, date, setDate }) {
     try {
       setClubTvLocked(user, true); setLocked(true)
       if (document.fullscreenElement) await document.exitFullscreen()
-      else { await root.current.requestFullscreen(); setTvMode(true) }
+      else await root.current.requestFullscreen()
       setFullscreenError('')
     } catch { setFullscreenError('Full screen is unavailable in this browser. Use your browser’s full screen option.') }
   }
-  return <main ref={root} className={`club-tv ${hasMap ? 'club-tv-split' : ''} ${tvMode ? 'club-tv-mode' : ''}`} style={{ '--tv-accent': theme.accent, '--tv-accent-text': theme.accentText, '--tv-accent-readable': theme.textSecondary, '--tv-soft': theme.accentSoft }}>
+  return <main ref={root} className={`club-tv ${hasMap ? 'club-tv-split' : ''}`} style={{ '--tv-accent': theme.accent, '--tv-accent-text': theme.accentText, '--tv-accent-readable': theme.textSecondary, '--tv-soft': theme.accentSoft }}>
     <header className="club-tv-header"><div className="club-tv-identity"><img src={club?.logoUrl || user.clubLogoUrl || fpLogo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fpLogo }} /><div><small>CLUB MATCHDAY</small><h1>{club?.name || user.clubName || 'Your club'}</h1></div></div>
       {!denied ? <GroundWeather key={preferences.weatherPostcode} clubId={user.clubId} postcode={preferences.weatherPostcode} /> : null}
       <div className="club-tv-clock"><strong>{timeLabel(now)}</strong><span>{new Date(now).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })} · UK time</span></div>
@@ -247,8 +244,7 @@ function ClubDayDisplay({ user, date, setDate }) {
       {!feed?.matches.length ? <div className="club-tv-empty"><h2>{denied ? 'Club access required' : feed ? 'No matches on this date' : error ? 'Unable to load matches' : 'Loading your club’s matches'}</h2><p>{denied ? 'Return to Club Admin and sign in to your active club workspace.' : feed ? 'Matches added by your teams in Match Day will appear here.' : 'The display will reconnect automatically.'}</p></div> : null}
     </section>{hasMap ? <aside className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></aside> : null}</div>
     <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals <span className="club-tv-red">▮ Red cards</span> · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
-    {!locked ? <nav className="club-tv-controls" aria-label="Display controls"><Link to="/coach">Back to Club Admin</Link><label>Match date <input aria-label="Match date" type="date" value={date} onChange={(event) => { if (event.target.value) setDate(event.target.value) }} /></label><button onClick={() => setDate(clubTvDate())}>Today</button><button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={() => setSettings(true)}>Display settings</button><button onClick={fullScreen}>Full screen and lock</button><button onClick={() => setTvMode(!tvMode)}>{tvMode ? 'Show controls' : 'TV mode'}</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}
-    {tvMode && !locked ? <button className="club-tv-restore" onClick={() => setTvMode(false)}>Show controls</button> : null}
+    {!locked ? <nav className="club-tv-controls" aria-label="Display controls"><Link to="/coach">Back to Club Admin</Link><label>Match date <input aria-label="Match date" type="date" value={date} onChange={(event) => { if (event.target.value) setDate(event.target.value) }} /></label><button onClick={() => setDate(clubTvDate())}>Today</button><button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={() => setSettings(true)}>Display settings</button><button onClick={fullScreen}>Full screen and lock</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}
     {unlocking ? <UnlockDisplay clubId={user.clubId} onClose={() => setUnlocking(false)} onUnlocked={async () => { setClubTvLocked(user, false); setLocked(false); setUnlocking(false); if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); navigate('/coach') }} /> : null}
     {settings ? <DisplaySettings preferences={preferences} onClose={() => setSettings(false)} onSave={(value) => { localStorage.setItem(storageKey, JSON.stringify(value)); setPreferences(value); setSettings(false) }} /> : null}
     {goal && !denied ? <div role="status" className={preferences.bigGoal ? 'club-tv-goal-large' : 'club-tv-goal-small'}><div><small>{goal.event.side === 'club' ? goal.match.teamName : goal.match.opponent}</small><strong>GOAL!</strong><h2>{goal.event.shirt ? `#${goal.event.shirt}` : 'Goal scored'} {goal.event.minute == null ? '' : `· ${goal.event.minute}′`}</h2><p>{tvMatchSides(goal.match).home} <b>{goal.match.homeScore} : {goal.match.awayScore}</b> {tvMatchSides(goal.match).away}</p>{preferences.bigGoal ? <BrandCredit /> : null}</div></div> : null}
