@@ -2,6 +2,7 @@ import { useLocation } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.webp'
 import { getWorkspaceHomeCopy, useAuth } from '../../lib/auth.js'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
+import { getScopedTeamBranding } from '../../lib/team-branding-display.js'
 
 export function Topbar({ title, onMenuClick }) {
   const { isProfileLoading, user } = useAuth()
@@ -12,7 +13,8 @@ export function Topbar({ title, onMenuClick }) {
   const clubLabel = displayUser?.role === 'super_admin'
     ? 'Platform'
     : displayUser?.clubName || displayUser?.team || (isProfileLoading ? 'Opening workspace' : 'Workspace not loaded')
-  const logoUrl = displayUser?.clubLogoUrl || fallbackLogo
+  const scopedBranding = getScopedTeamBranding(displayUser)
+  const logoUrl = (scopedBranding ? scopedBranding.logoUrl : displayUser?.clubLogoUrl) || fallbackLogo
   const isPlatformAdminView = displayUser?.role === 'super_admin'
   const isParentPortalView = displayUser?.role === 'parent_portal'
   const nextActionLabel = isParentPortalView

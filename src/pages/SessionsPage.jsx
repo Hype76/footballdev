@@ -19,6 +19,7 @@ import { useToast } from '../components/ui/toast-context.js'
 import { canCreateEvaluation, canManageResourceLibrary, isClubAdmin, useAuth, verifyCurrentUserPassword } from '../lib/auth.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
 import { canUseUiFeature } from '../lib/paywall-ui.js'
+import { getCalendarEventCapability } from '../lib/calendar-event-access.js'
 import {
   AVAILABLE_PLAYER_PAGE_SIZE,
   SESSION_PLAYER_PAGE_SIZE,
@@ -481,15 +482,16 @@ function canCreateClubCalendarEvent(user) {
 }
 
 function getCalendarEventTypeOptions(user, { clubWideOnly = false } = {}) {
+  const allowedOptions = EVENT_TYPE_OPTIONS.filter((option) => canUseUiFeature(user, getCalendarEventCapability(option.value)))
   if (clubWideOnly && canCreateClubCalendarEvent(user)) {
-    return EVENT_TYPE_OPTIONS.filter((option) => !['training', 'match'].includes(option.value))
+    return allowedOptions.filter((option) => !['training', 'match'].includes(option.value))
   }
 
   if (canCreateClubCalendarEvent(user)) {
-    return EVENT_TYPE_OPTIONS
+    return allowedOptions
   }
 
-  return EVENT_TYPE_OPTIONS.map((option) => {
+  return allowedOptions.map((option) => {
     if (option.value !== 'general') {
       return option
     }
@@ -2179,11 +2181,17 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, teamId),
       teamId,
     }
-    if (isMatchday && requestedEventType && requestedEventType !== 'match') {
-      setErrorMessage('Matchday teams can only add Match fixtures to the Calendar.')
+    if (requestedEventType && !canUseUiFeature(user, getCalendarEventCapability(requestedEventType))) {
+      setErrorMessage('This event type is not enabled for your plan.')
       return
     }
-    const eventType = isMatchday ? 'match' : (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType
+    const preferredType = requestedEventType || (isMatchday ? 'match' : (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType)
+    const eventType = getCalendarEventTypeOptions(user, { clubWideOnly: isClubWideCalendar }).find((option) => option.value === preferredType)?.value
+      || getCalendarEventTypeOptions(user, { clubWideOnly: isClubWideCalendar })[0]?.value
+    if (!eventType) {
+      setErrorMessage('No calendar event types are enabled for your plan.')
+      return
+    }
 
     if (requestedEventType === 'match') {
       openCalendarMatchDayWorkflow({
@@ -2233,6 +2241,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   }
 
   function handleOpenSessionCreateModal() {
+    if (!canUseUiFeature(user, CAPABILITIES.trainingEvents)) {
+      handleOpenCalendarCreate('', 'match')
+      return
+    }
     setErrorMessage('')
     setCalendarValidation(null)
     const teamId = canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim()
@@ -3348,8 +3360,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         throw new Error('Choose your assigned team before saving this calendar event.')
       }
 
-      if (isMatchday && calendarForm.eventType !== 'match') {
-        throw new Error('Matchday teams can only save Match fixtures to the Calendar.')
+      if (!canUseUiFeature(user, getCalendarEventCapability(calendarForm.eventType))) {
+        throw new Error('This event type is not enabled for your plan.')
       }
 
       validateCalendarForm({ form: calendarForm, safeTeamId, sourceType, user })

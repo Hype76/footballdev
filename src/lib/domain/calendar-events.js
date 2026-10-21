@@ -4,6 +4,7 @@ import { clearViewCaches, getCachedResource, invalidateMemoryCacheByPrefix } fro
 import { blockDemoMutation } from './demo-guards.js'
 import { CAPABILITIES } from '../paywall-access.js'
 import { assertClubFeature } from './plan-gates.js'
+import { getCalendarEventCapability } from '../calendar-event-access.js'
 import {
   getEntryIdentity,
   getEntryUserId,
@@ -322,6 +323,7 @@ export async function createCalendarEvent({ user, event }) {
   }
   await assertCalendarTeamAccess({ user, teamId: payload.team_id })
   await assertCalendarFeatureAccess({ user, payload })
+  await assertClubFeature({ user: { ...user, activeTeamId: payload.team_id || user?.activeTeamId }, clubId: user?.clubId, featureName: getCalendarEventCapability(payload.event_type) })
 
   const { data, error } = await supabase
     .from('calendar_events')
@@ -365,6 +367,7 @@ export async function updateCalendarEvent({ user, eventId, event }) {
   }
   await assertCalendarTeamAccess({ user, teamId: payload.team_id })
   await assertCalendarFeatureAccess({ user, payload })
+  await assertClubFeature({ user: { ...user, activeTeamId: payload.team_id || user?.activeTeamId }, clubId: user?.clubId, featureName: getCalendarEventCapability(payload.event_type) })
 
   const { data, error } = await supabase
     .from('calendar_events')
