@@ -24,6 +24,14 @@ export function validTvDate(value) {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
 
+export function tvDateAfter(value, days) {
+  if (!validTvDate(value)) return null
+  const date = new Date(`${value}T12:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  const result = date.toISOString().slice(0, 10)
+  return validTvDate(result) ? result : null
+}
+
 // Explicit display DTO: never spread raw match/event records into the TV response.
 export function toClubTvMatch(row, clubId) {
   if (row?.club_id !== clubId || row.deleted_at) return null
@@ -89,6 +97,6 @@ export function readTvPreferences(key) {
   try {
     const saved = JSON.parse(localStorage.getItem(key) || '{}')
     const map = /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(saved.map ?? '') && saved.map.length < 2850000 ? saved.map : ''
-    return { bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map }
-  } catch { return { bigGoal: true, showMap: true, weatherPostcode: '', map: '' } }
+    return { appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map }
+  } catch { return { appearance: 'light', bigGoal: true, showMap: true, weatherPostcode: '', map: '' } }
 }

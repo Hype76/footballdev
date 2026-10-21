@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth.js'
 import { createThemeColorTokens } from '../lib/theme.js'
@@ -10,9 +10,28 @@ import './club-matchday-tv.css'
 
 const timeLabel = (value) => new Date(value).toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' })
 const dayLabel = (value) => new Date(`${value}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+const fixtureDayLabel = (value) => new Date(`${value}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
 function BrandCredit() {
   return <div className="club-tv-credit"><img src={fpLogo} alt="Football Player" /><span>footballplayer.online</span></div>
+}
+
+function WeatherIcon({ condition }) {
+  const value = String(condition).toLowerCase()
+  const rain = /rain|sleet|shower/.test(value), snow = /snow|sleet/.test(value), thunder = value.includes('thunder'), fog = value.includes('fog')
+  const sun = /clear|fair|partly/.test(value)
+  return <svg className="club-tv-weather-icon" role="img" aria-label={condition} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    {sun ? <g className="club-tv-weather-sun"><circle cx={rain || value.includes('cloud') ? 23 : 32} cy={rain || value.includes('cloud') ? 22 : 30} r="11" /><path d="M32 6v5M32 49v5M8 30h5M51 30h5M15 13l4 4M45 44l4 4M15 47l4-4M46 15l4-4" /></g> : null}
+    {!sun || rain || value.includes('cloud') ? <path className="club-tv-weather-cloud" d="M17 42h30a10 10 0 0 0 1-20 15 15 0 0 0-28-4 12 12 0 0 0-3 24Z" /> : null}
+    {rain ? <path className="club-tv-weather-rain" d="m22 49-3 7m15-7-3 7m15-7-3 7" /> : null}
+    {snow ? <path d="M25 48v12m-5-9 10 6m-10 0 10-6m14-3v12m-5-9 10 6m-10 0 10-6" /> : null}
+    {thunder ? <path className="club-tv-weather-sun" d="m35 42-7 10h8l-5 10" /> : null}
+    {fog ? <path d="M12 49h40M17 57h30" /> : null}
+  </svg>
+}
+
+function TeamBadge({ src }) {
+  return <img className="club-tv-team-badge" src={src || fpLogo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fpLogo }} />
 }
 
 function GroundWeather({ clubId, postcode }) {
@@ -42,7 +61,7 @@ function GroundWeather({ clubId, postcode }) {
   if (!postcode) return <div className="club-tv-weather"><small>LOCAL WEATHER</small><span>Add your ground postcode in Display settings</span></div>
   return <div className="club-tv-weather" aria-label="Club ground weather">
     <small>GROUND FORECAST {forecast ? `· ${timeLabel(forecast.time)} · ` : ''}{forecast ? <a href="https://api.met.no/" target="_blank" rel="noreferrer">MET Norway</a> : null}</small>
-    {forecast ? <><strong>{forecast.temperature}°C <span>{forecast.condition}</span></strong><span>{forecast.location} · Wind {forecast.windMph} mph</span></> : <span>{error || 'Loading ground weather…'}</span>}
+    {forecast ? <><div className="club-tv-weather-reading"><WeatherIcon condition={forecast.condition} /><strong>{forecast.temperature}°C <span>{forecast.condition.replace(/clearsky/g, 'Clear sky').replace(/partlycloudy/g, 'Partly cloudy').replace(/heavyrain/g, 'Heavy rain').replace(/lightrain/g, 'Light rain')}</span></strong></div><span>{forecast.location} · Wind {forecast.windMph} mph</span></> : <span>{error || 'Loading ground weather…'}</span>}
   </div>
 }
 
@@ -52,14 +71,14 @@ function EventLine({ events, side }) {
   </span>)}</div>
 }
 
-function MatchRow({ match, now }) {
+function MatchRow({ match, now, showDate, clubLogo }) {
   const sides = tvMatchSides(match), status = tvMatchStatus(match, now)
   const homeSide = sides.clubHome ? 'club' : 'opponent', awaySide = sides.clubHome ? 'opponent' : 'club'
   return <article className={`club-tv-match club-tv-${status.kind}`}>
-    <div className="club-tv-match-meta"><strong>{status.label}</strong><span>{match.venue || (match.homeAway === 'away' ? 'Away' : 'Home')}</span></div>
-    <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><strong>{sides.home}</strong><EventLine events={match.events} side={homeSide} /></div>
+    <div className="club-tv-match-meta">{showDate ? <span className="club-tv-fixture-date">{fixtureDayLabel(match.matchDate)}</span> : null}<strong>{status.label}</strong><span>{match.venue || (match.homeAway === 'away' ? 'Away' : 'Home')}</span></div>
+    <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading"><TeamBadge src={sides.clubHome ? clubLogo : ''} /><strong>{sides.home}</strong></div><EventLine events={match.events} side={homeSide} /></div>
     <div className="club-tv-score"><strong>{status.kind === 'upcoming' ? 'v' : `${match.homeScore} : ${match.awayScore}`}</strong>{(match.status === 'penalties' || match.homeShootoutScore || match.awayShootoutScore) ? <small>PENS {match.homeShootoutScore} : {match.awayShootoutScore}</small> : null}</div>
-    <div className={`club-tv-team ${!sides.clubHome ? 'club-tv-own' : ''}`}><strong>{sides.away}</strong><EventLine events={match.events} side={awaySide} /></div>
+    <div className={`club-tv-team ${!sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading"><TeamBadge src={!sides.clubHome ? clubLogo : ''} /><strong>{sides.away}</strong></div><EventLine events={match.events} side={awaySide} /></div>
   </article>
 }
 
@@ -86,6 +105,7 @@ function DisplaySettings({ preferences, onSave, onClose }) {
     <form onSubmit={(event) => { event.preventDefault(); try { onSave(draft) } catch { setError('Settings could not be saved. Try a smaller map or free some browser storage.') } }}>
       <h2 id="club-tv-settings-title">Display settings</h2>
       <p>For this club on this browser. Scores use your club’s live Match Day records.</p>
+      <label>Appearance <select aria-label="Appearance" value={draft.appearance} onChange={(event) => setDraft({ ...draft, appearance: event.target.value })}><option value="light">Light</option><option value="dark">Dark</option></select></label>
       <label>Club ground postcode <input value={draft.weatherPostcode} maxLength={10} placeholder="e.g. CB23 6FY" onChange={(event) => setDraft({ ...draft, weatherPostcode: event.target.value.toUpperCase() })} /></label>
       <small>Weather uses this ground, wherever the screen is running. Great Britain postcodes supported.</small>
       <label className="club-tv-check"><input type="checkbox" checked={draft.bigGoal} onChange={(event) => setDraft({ ...draft, bigGoal: event.target.checked })} /> Large goal celebration</label>
@@ -155,6 +175,10 @@ function ClubDayDisplay({ user, date, setDate }) {
   const [feed, setFeed] = useState(null)
   const [error, setError] = useState('')
   const [denied, setDenied] = useState(false)
+  const [capacity, setCapacity] = useState(TV_PAGE_SIZE)
+  const [viewportVersion, setViewportVersion] = useState(0)
+  const hasMap = !denied && Boolean(preferences.showMap && preferences.map)
+  const pageSize = Math.min(hasMap ? 6 : TV_PAGE_SIZE, capacity)
   const [now, setNow] = useState(Date.now)
   const [page, setPage] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -170,9 +194,22 @@ function ClubDayDisplay({ user, date, setDate }) {
     return () => clearTimeout(timeout)
   }, [unlocking])
   const root = useRef(null)
-  const totalPages = Math.max(1, Math.ceil((feed?.matches.length || 0) / TV_PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil((feed?.matches.length || 0) / pageSize))
   const currentPage = Math.min(page, totalPages - 1)
   const goal = goals[0]
+  useLayoutEffect(() => {
+    if (!root.current || window.innerWidth <= 1000) return
+    const footer = root.current.querySelector('.club-tv-footer')
+    const rows = [...root.current.querySelectorAll('.club-tv-match')]
+    const bottom = footer?.getBoundingClientRect().top ?? Infinity
+    const fitting = rows.filter((row) => row.getBoundingClientRect().bottom <= bottom).length
+    if (rows.length && fitting < rows.length) setCapacity(Math.max(1, fitting))
+  }, [feed, currentPage, pageSize, hasMap, viewportVersion])
+  useEffect(() => {
+    const resize = () => { setCapacity(TV_PAGE_SIZE); setViewportVersion((version) => version + 1) }
+    window.addEventListener('resize', resize)
+    return () => window.removeEventListener('resize', resize)
+  }, [])
   useEffect(() => {
     let active = true, busy = false, previous = null, controller, revoked = false
     const seen = new Set()
@@ -184,7 +221,7 @@ function ClubDayDisplay({ user, date, setDate }) {
       try {
         const result = await getClubMatchdayTv({ clubId: user.clubId, date, signal: controller.signal })
         if (!active) return
-        const fresh = newTvGoals(previous, result.matches).filter(({ event }) => !seen.has(event.id))
+        const fresh = newTvGoals(previous, result.matches).filter(({ event, match }) => match.matchDate === date && !seen.has(event.id))
         for (const match of result.matches) for (const event of match.events) seen.add(event.id)
         if (fresh.length && date === clubTvDate()) setGoals((queue) => [...queue, ...fresh].slice(0, 10))
         previous = result.matches
@@ -221,8 +258,8 @@ function ClubDayDisplay({ user, date, setDate }) {
     return () => clearTimeout(timer)
   }, [goal])
   const club = feed?.club
-  const theme = createThemeColorTokens(club?.accent || user.themeAccent || 'green', 'dark')
-  const hasMap = !denied && Boolean(preferences.showMap && preferences.map)
+  const theme = createThemeColorTokens(club?.accent || user.themeAccent || 'green', preferences.appearance)
+  const weekAhead = feed?.window?.kind === 'week'
   const changePage = (direction) => { setPage((currentPage + direction + totalPages) % totalPages); setSeconds(TV_ROTATION_SECONDS) }
   async function fullScreen() {
     try {
@@ -232,16 +269,16 @@ function ClubDayDisplay({ user, date, setDate }) {
       setFullscreenError('')
     } catch { setFullscreenError('Full screen is unavailable in this browser. Use your browser’s full screen option.') }
   }
-  return <main ref={root} className={`club-tv ${hasMap ? 'club-tv-split' : ''}`} style={{ '--tv-accent': theme.accent, '--tv-accent-text': theme.accentText, '--tv-accent-readable': theme.textSecondary, '--tv-soft': theme.accentSoft }}>
+  return <main ref={root} className={`club-tv club-tv-${preferences.appearance} ${hasMap ? 'club-tv-split' : ''}`} style={{ '--tv-accent': theme.accent, '--tv-accent-text': theme.accentText, '--tv-accent-readable': theme.textSecondary, '--tv-soft': theme.accentSoft }}>
     <header className="club-tv-header"><div className="club-tv-identity"><img src={club?.logoUrl || user.clubLogoUrl || fpLogo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fpLogo }} /><div><small>CLUB MATCHDAY</small><h1>{club?.name || user.clubName || 'Your club'}</h1></div></div>
       {!denied ? <GroundWeather key={preferences.weatherPostcode} clubId={user.clubId} postcode={preferences.weatherPostcode} /> : null}
       <div className="club-tv-clock"><strong>{timeLabel(now)}</strong><span>{new Date(now).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })} · UK time</span></div>
     </header>
-    <div className="club-tv-day"><h2>{dayLabel(date)}</h2><span>{feed?.matches.length ?? 0} matches · {feed?.matches.filter((match) => tvMatchStatus(match, now).kind === 'live').length ?? 0} live</span><span className={error ? 'club-tv-warning' : 'club-tv-feed-state'} role="status">{error ? `${error}${feed ? ` Last updated ${timeLabel(feed.refreshedAt)}.` : ''}` : feed ? `Scores updated ${timeLabel(feed.refreshedAt)}` : 'Connecting to your club…'}</span></div>
+    <div className="club-tv-day"><h2>{weekAhead ? 'Week ahead' : dayLabel(date)}</h2>{weekAhead ? <span className="club-tv-period">{fixtureDayLabel(feed.window.startDate)} to {fixtureDayLabel(feed.window.endDate)}</span> : null}<span>{feed?.matches.length ?? 0} matches · {feed?.matches.filter((match) => tvMatchStatus(match, now).kind === 'live').length ?? 0} live</span><span className={error ? 'club-tv-warning' : 'club-tv-feed-state'} role="status">{error ? `${error}${feed ? ` Last updated ${timeLabel(feed.refreshedAt)}.` : ''}` : feed ? `Scores updated ${timeLabel(feed.refreshedAt)}` : 'Connecting to your club…'}</span></div>
     <div className="club-tv-content"><section className="club-tv-fixtures" aria-label="Your club matches">
       <div className="club-tv-table-head"><span>MATCH STATUS</span><span>HOME</span><span>SCORE</span><span>AWAY</span></div>
-      {feed?.matches.slice(currentPage * TV_PAGE_SIZE, (currentPage + 1) * TV_PAGE_SIZE).map((match) => <MatchRow key={match.id} match={match} now={now} />)}
-      {!feed?.matches.length ? <div className="club-tv-empty"><h2>{denied ? 'Club access required' : feed ? 'No matches on this date' : error ? 'Unable to load matches' : 'Loading your club’s matches'}</h2><p>{denied ? 'Return to Club Admin and sign in to your active club workspace.' : feed ? 'Matches added by your teams in Match Day will appear here.' : 'The display will reconnect automatically.'}</p></div> : null}
+      {feed?.matches.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((match) => <MatchRow key={match.id} match={match} now={now} showDate={weekAhead} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
+      {!feed?.matches.length ? <div className="club-tv-empty"><h2>{denied ? 'Club access required' : feed ? weekAhead ? 'No matches in the week ahead' : 'No matches on this date' : error ? 'Unable to load matches' : 'Loading your club’s matches'}</h2><p>{denied ? 'Return to Club Admin and sign in to your active club workspace.' : feed ? weekAhead ? 'No club fixtures are scheduled for the next seven days. Matches added by your teams will appear here.' : 'Matches added by your teams in Match Day will appear here.' : 'The display will reconnect automatically.'}</p></div> : null}
     </section>{hasMap ? <aside className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></aside> : null}</div>
     <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals <span className="club-tv-red">▮ Red cards</span> · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
     {!locked ? <nav className="club-tv-controls" aria-label="Display controls"><Link to="/coach">Back to Club Admin</Link><label>Match date <input aria-label="Match date" type="date" value={date} onChange={(event) => { if (event.target.value) setDate(event.target.value) }} /></label><button onClick={() => setDate(clubTvDate())}>Today</button><button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={() => setSettings(true)}>Display settings</button><button onClick={fullScreen}>Full screen and lock</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}

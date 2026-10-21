@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { canViewClubMatchdayTv, clubTvDate, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, validTvDate } from '../src/lib/club-matchday-tv.js'
+import { canViewClubMatchdayTv, clubTvDate, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, validTvDate, tvDateAfter } from '../src/lib/club-matchday-tv.js'
 import { isClubTvLocked, setClubTvLocked } from '../src/lib/club-tv-lock.js'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -16,10 +16,12 @@ function clientFor(rows = [], failure = null) {
     const chain = {
       select(value) { call.select = value; return chain },
       eq(...value) { call.filters.push(value); return chain },
+      gte(...value) { call.filters.push(['gte', ...value]); return chain },
+      lte(...value) { call.filters.push(['lte', ...value]); return chain },
       is(...value) { call.filters.push(value); return chain },
       order(...value) { call.orders.push(value); return chain },
       single() { return { data: { id: clubId, name: 'Our Club', theme_accent: '#1255aa' }, error: failure } },
-      range(start, end) { call.range = [start, end]; return { data: rows.slice(start, end + 1), error: failure } },
+      range(start, end) { call.range = [start, end]; return { data: (typeof rows === 'function' ? rows(call) : rows).slice(start, end + 1), error: failure } },
     }
     return chain
   } }
@@ -88,6 +90,28 @@ test('score feed authenticates requested club then queries only its date and act
   assert.doesNotMatch(response.body, /PRIVATE/)
 })
 
+test('empty matchdays fall back to the next seven days with the same club and privacy scope', async () => {
+  const client = clientFor((call) => call.filters.some(([operator]) => operator === 'gte')
+    ? [fixture({ match_date: '2026-10-24' }), fixture({ id: 'foreign', club_id: otherClub, match_date: '2026-10-25' })] : [])
+  const response = await handler({ client })(request())
+  assert.equal(response.statusCode, 200)
+  const payload = JSON.parse(response.body)
+  assert.equal(payload.date, '2026-10-21')
+  assert.deepEqual(payload.window, { kind: 'week', startDate: '2026-10-22', endDate: '2026-10-28' })
+  assert.deepEqual(payload.matches.map(({ matchDate }) => matchDate), ['2026-10-24'])
+  const queries = client.calls.filter(({ table }) => table === 'match_days')
+  assert.equal(queries.length, 2)
+  assert.deepEqual(queries[1].filters, [['club_id', clubId], ['gte', 'match_date', '2026-10-22'], ['lte', 'match_date', '2026-10-28'], ['deleted_at', null]])
+  assert.deepEqual(queries[1].orders.map(([field]) => field), ['match_date', 'kickoff_time', 'id'])
+  assert.doesNotMatch(response.body, /PRIVATE|foreign/)
+  const empty = JSON.parse((await handler()(request())).body)
+  assert.equal(empty.window.kind, 'week')
+  assert.deepEqual(empty.matches, [])
+  assert.equal(tvDateAfter('2026-12-29', 7), '2027-01-05')
+  assert.equal(tvDateAfter('2028-02-28', 1), '2028-02-29')
+  assert.equal(tvDateAfter('9999-12-31', 7), null)
+})
+
 test('foreign club requests, unauthenticated callers, expired plans and invalid requests never query matches', async () => {
   const client = clientFor([fixture()])
   assert.equal((await handler({ client })(request({ clubId: otherClub, date: '2026-10-21' }))).statusCode, 403)
@@ -121,8 +145,12 @@ test('browser preferences reject executable image types and corrupt storage', ()
     globalThis.localStorage = { getItem: () => JSON.stringify({ map: 'data:image/svg+xml,<svg/>', bigGoal: false }) }
     assert.equal(readTvPreferences('test').map, '')
     assert.equal(readTvPreferences('test').bigGoal, false)
+    assert.equal(readTvPreferences('test').appearance, 'light')
+    globalThis.localStorage = { getItem: () => JSON.stringify({ appearance: 'dark' }) }
+    assert.equal(readTvPreferences('test').appearance, 'dark')
     globalThis.localStorage = { getItem: () => '{broken' }
     assert.equal(readTvPreferences('test').bigGoal, true)
+    assert.equal(readTvPreferences('test').appearance, 'light')
   } finally { globalThis.localStorage = original }
 })
 

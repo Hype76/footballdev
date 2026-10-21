@@ -1,7 +1,7 @@
 import { getAuthenticatedPlanProfile, assertPlanFeature } from './lib/_plan-gate.js'
 import { supabaseAdmin, createPublicSupabaseClient } from './lib/_supabase.js'
 import { isClubWorkspace } from '../../src/lib/workspace-scope.js'
-import { toClubTvMatch, validTvDate } from '../../src/lib/club-matchday-tv.js'
+import { toClubTvMatch, validTvDate, tvDateAfter } from '../../src/lib/club-matchday-tv.js'
 import { getClubTvWeather, normaliseWeatherPostcode } from './lib/_club-tv-weather.js'
 
 export const CLUB_TV_MATCH_SELECT = 'id,club_id,team_id,opponent,match_date,kickoff_time,kickoff_time_tbc,home_away,venue_name,status,home_score,away_score,home_shootout_score,away_shootout_score,timer_status,timer_elapsed_seconds,timer_started_at,concluded_at,deleted_at,teams:team_id(id,club_id,name),match_day_events(id,event_type,team_side,minute,stoppage_minute,scorer_shirt_number,event_status,match_phase,created_at)'
@@ -51,17 +51,28 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
       }
       const { data: club, error: clubError } = await client.from('clubs').select('id,name,logo_url,theme_accent').eq('id', profile.clubId).single()
       if (clubError || !club || club.id !== profile.clubId) throw new Error('Club details unavailable')
-      const matches = []
-      // Stable pagination avoids the default Data API row cap dropping fixtures silently.
-      for (let offset = 0; offset < 5000; offset += 250) {
-        const { data, error } = await client.from('match_days').select(CLUB_TV_MATCH_SELECT)
-          .eq('club_id', profile.clubId).eq('match_date', date).is('deleted_at', null)
-          .order('kickoff_time', { ascending: true, nullsFirst: false }).order('id', { ascending: true }).range(offset, offset + 249)
-        if (error) throw error
-        for (const row of data ?? []) { const match = toClubTvMatch(row, profile.clubId); if (match) matches.push(match) }
-        if ((data ?? []).length < 250) return reply(200, { club: { id: club.id, name: club.name, logoUrl: club.logo_url || '', accent: club.theme_accent || 'green' }, date, matches, refreshedAt: new Date().toISOString() })
+      async function readMatches(startDate, endDate) {
+        const matches = []
+        // Stable pagination avoids the default Data API row cap dropping fixtures silently.
+        for (let offset = 0; offset < 5000; offset += 250) {
+          let query = client.from('match_days').select(CLUB_TV_MATCH_SELECT).eq('club_id', profile.clubId)
+          query = startDate === endDate ? query.eq('match_date', startDate) : query.gte('match_date', startDate).lte('match_date', endDate)
+          const { data, error } = await query.is('deleted_at', null).order('match_date', { ascending: true })
+            .order('kickoff_time', { ascending: true, nullsFirst: false }).order('id', { ascending: true }).range(offset, offset + 249)
+          if (error) throw error
+          for (const row of data ?? []) { const match = toClubTvMatch(row, profile.clubId); if (match) matches.push(match) }
+          if ((data ?? []).length < 250) return matches
+        }
+        throw new Error('Display match limit exceeded')
       }
-      return reply(503, { message: 'This matchday is too large to display safely. Please contact support.' })
+      let matches = await readMatches(date, date)
+      let window = { kind: 'day', startDate: date, endDate: date }
+      const nextDate = tvDateAfter(date, 1), endDate = tvDateAfter(date, 7)
+      if (!matches.length && nextDate && endDate) {
+        matches = await readMatches(nextDate, endDate)
+        window = { kind: 'week', startDate: nextDate, endDate }
+      }
+      return reply(200, { club: { id: club.id, name: club.name, logoUrl: club.logo_url || '', accent: club.theme_accent || 'green' }, date, window, matches, refreshedAt: new Date().toISOString() })
     } catch (error) {
       const status = [401, 403].includes(error?.statusCode) ? error.statusCode : 503
       logger.error('Club matchday TV request failed', { statusCode: status, code: error?.code || 'unavailable' })
