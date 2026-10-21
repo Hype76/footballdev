@@ -48,7 +48,7 @@ test('sidebar groups V1 navigation without changing routes or visibility gates',
 
   assert.match(source, /const coreNavigationPaths = \['\/calendar', '\/players', '\/assess-player', '\/feedback-forms'\]/)
   assert.match(source, /const communicationNavigationPaths = \['\/staff-chat', '\/parent-chat-staff', '\/parent-linking', '\/polls'\]/)
-  assert.match(source, /const matchOperationsNavigationPaths = \['\/match-day', '\/resources'\]/)
+  assert.match(source, /const matchOperationsNavigationPaths = \['\/match-day', '\/club-matchday-tv', '\/resources'\]/)
   assert.match(source, /title="Team Comms"/)
   assert.match(source, /title="Match Operations"/)
   assert.ok(source.indexOf('title="Match Operations"') < source.indexOf('title="Team Comms"'))
