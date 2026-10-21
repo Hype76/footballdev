@@ -124,7 +124,7 @@ function UnlockDisplay({ clubId, onUnlocked, onClose }) {
     finally { password = ''; clearTimeout(timeout) }
   }
   return <dialog ref={dialog} className="club-tv-settings" onCancel={onClose} aria-labelledby="club-tv-unlock-title"><form autoComplete="off" onSubmit={unlock}>
-    <h2 id="club-tv-unlock-title">Unlock Club Admin</h2><p>Enter your own Club Admin password to leave the match display. Your password is never saved or logged by the app.</p>
+    <h2 id="club-tv-unlock-title">Unlock Club Admin</h2><p>Enter your own Club Admin password to leave the match display. Your password is never saved or logged by the app. This box closes after 2 minutes and keeps the display locked.</p>
     <label>Club Admin password <input ref={passwordInput} type="password" name="display-unlock-password" autoComplete="off" autoCapitalize="none" spellCheck={false} required maxLength={1024} disabled={busy} /></label>
     {error ? <p role="alert">{error}</p> : null}<div className="club-tv-settings-actions"><button type="button" onClick={onClose}>Keep display locked</button><button disabled={busy} type="submit">{busy ? 'Checking…' : 'Unlock and return'}</button></div>
   </form></dialog>
@@ -165,6 +165,11 @@ function ClubDayDisplay({ user, date, setDate }) {
   const [goals, setGoals] = useState([])
   const [locked, setLocked] = useState(() => isClubTvLocked(user))
   const [unlocking, setUnlocking] = useState(false)
+  useEffect(() => {
+    if (!unlocking) return
+    const timeout = setTimeout(() => setUnlocking(false), 120000)
+    return () => clearTimeout(timeout)
+  }, [unlocking])
   const root = useRef(null)
   const totalPages = Math.max(1, Math.ceil((feed?.matches.length || 0) / TV_PAGE_SIZE))
   const currentPage = Math.min(page, totalPages - 1)
