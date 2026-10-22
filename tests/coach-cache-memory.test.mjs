@@ -43,21 +43,21 @@ const ast = parse(screenSource, { sourceType: 'module', plugins: ['jsx'] })
 const screen = ast.program.body.find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'CoachPhase31EScreen').declaration
 const callback = screen.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'load').declarations[0].init.arguments[0]
 
-function loadHarness({ saveError, savePending, loadError, cachedValue, offline = false } = {}) {
-  const state = { data: null, error: '', notice: '', loading: true, refreshing: false, stale: false, invitesRefreshing: false, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
+function loadHarness({ saveError, savePending, loadError, cachedValue, offline = false, matchSnapshot, initialData = null } = {}) {
+  const state = { data: initialData, error: '', notice: '', loading: true, refreshing: false, stale: false, invitesRefreshing: false, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
   const next = { invites: [{ playerId: 'synthetic-player', status: 'maybe' }] }
   const environment = {
     captureLoadScope: () => () => state.scopeCurrent, attendanceLoadGeneration: { current: 0 },
     domain: 'invites', context: { id: 'team:test' }, user: { id: 'coach', isOfflineProfile: offline },
-    LOADERS: { invites: async () => { state.reads += 1; if (loadError) throw loadError; return next } },
-    TITLES: { invites: 'Invites' }, dataRef: { current: null }, offlinePolicy: { cache: true },
+    LOADERS: { invites: async (_user, options) => { state.reads += 1; state.publishMatch = options.onMatchReady; if (matchSnapshot) options.onMatchReady(matchSnapshot); if (loadError) throw loadError; return next } },
+    TITLES: { invites: 'Invites' }, dataRef: { get current() { return state.data } }, offlinePolicy: { cache: true },
     peekMobileResource: () => undefined,
     readMobileResource: (_user, _key, loader) => loader(), withMobileAsyncTimeout: (loader, options) => { state.timeoutMs = options?.timeoutMs; return loader() },
     readCoachOfflineResources: async () => ({ resources: { 'phase31e:invites': cachedValue } }),
     hasUsableCoachPhase31ECache: (_domain, value) => Boolean(value),
     saveCoachOfflineResources: async () => { state.saves += 1; if (savePending) await savePending; if (saveError) throw saveError },
     getCoachFriendlyError: error => error.message,
-    ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Refreshing', 'Stale', 'InvitesRefreshing'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = value }])),
+    ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Refreshing', 'Stale', 'InvitesRefreshing'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = name === 'Data' && typeof value === 'function' ? value(state.data) : value }])),
   }
   return { state, next, load: vm.runInNewContext(`(${screenSource.slice(callback.start, callback.end)})`, environment) }
 }
@@ -129,4 +129,29 @@ test('a pending optional cache write cannot block confirmed data or affect a lat
   await Promise.resolve()
   assert.equal(harness.state.notice, '')
   assert.equal(harness.state.error, '')
+})
+
+
+test('fresh match totals replace the saved list even when remaining invite sources fail', async () => {
+  const training = [{ id: 'saved-training' }]
+  const initialData = { match: [{ status: 'available', id: 'old' }], matches: [{ id: 'fixture' }], training }
+  const snapshot = { matches: [{ id: 'fixture' }], match: Array.from({ length: 13 }, (_, id) => ({ id, status: 'available' })) }
+  const { state, load } = loadHarness({ initialData, matchSnapshot: snapshot, loadError: new Error('Training lookup timed out') })
+  await load()
+  assert.equal(state.data.match, snapshot.match)
+  assert.equal(state.data.matches, snapshot.matches)
+  assert.equal(state.data.training, training)
+  assert.equal(state.loading, false)
+  assert.equal(state.stale, true)
+  assert.equal(state.error, '')
+  assert.equal(state.saves, 0, 'An incomplete domain must not overwrite the full offline copy')
+})
+
+
+test('a late match callback after a failed load cannot replace the visible list', async () => {
+  const initialData = { match: [{ id: 'kept' }] }
+  const { state, load } = loadHarness({ initialData, loadError: new Error('Timed out') })
+  await load()
+  state.publishMatch({ match: [{ id: 'late' }] })
+  assert.equal(state.data, initialData)
 })

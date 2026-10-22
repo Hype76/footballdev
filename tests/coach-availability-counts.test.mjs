@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { readCoachMatchAvailability } from '../apps/mobile-core/src/coachAvailabilityData.js'
+import { normalizeCoachMatchAvailability, readCoachMatchAvailability } from '../apps/mobile-core/src/coachAvailabilityData.js'
 import { canRespondToCoachInviteOnBehalf, getCoachAvailabilityMatches, normalizeCoachInvite, collapseCoachInvitesByPlayer, summarizeCoachInvites } from '../apps/mobile-core/src/coachPhase31ECore.js'
 
 const user = { clubId: 'club', activeTeamId: 'team' }
@@ -24,10 +24,10 @@ const fixture = (id, overrides = {}) => ({ id, teamId: 'team', status: 'schedule
 const dataSource = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
 const focusedBody = dataSource.slice(dataSource.indexOf('export async function getCoachMatchInvites('), dataSource.indexOf('export async function getCoachInvitesAndAvailability(')).replace('export ', '')
 function focusedLoader(client, prepare = async choices => choices.map(() => null)) {
-  return new Function('supabase', 'assertCoachOperationalRead', 'assertTeamEntity', 'readCoachMatchAvailability', 'normalize', 'normalizeCoachInvite', 'prepareAttendanceChoices', `${focusedBody};return getCoachMatchInvites`)(
+  return new Function('supabase', 'assertCoachOperationalRead', 'assertTeamEntity', 'readCoachMatchAvailability', 'normalizeCoachMatchAvailability', 'normalize', 'normalizeCoachInvite', 'prepareAttendanceChoices', `${focusedBody};return getCoachMatchInvites`)(
     client, candidate => assert.equal(candidate.activeTeamId, user.activeTeamId),
     (candidate, match) => { if (match.teamId !== candidate.activeTeamId) throw Error('Wrong Team') },
-    readCoachMatchAvailability, value => String(value || '').trim(), normalizeCoachInvite, prepare,
+    readCoachMatchAvailability, normalizeCoachMatchAvailability, value => String(value || '').trim(), normalizeCoachInvite, prepare,
   )
 }
 function database(tables, failTable = '') {
@@ -77,7 +77,7 @@ test('actual Coach loader counts each player once and merges responses from late
   const source = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
   const body = source.slice(source.indexOf('export async function getCoachInvitesAndAvailability('), source.indexOf('export async function setCoachInviteAvailabilityOnBehalf(')).replace('export ', '')
   const { matches, tables } = largeDataset(), client = database(tables)
-  const load = new Function('supabase', 'assertCoachOperationalRead', 'getCoachMatchDayList', 'readCoachMatchAvailability', 'getCoachPlayerList', 'normalize', 'normalizeCoachInvite', 'prepareAttendanceChoices', `${body}; return getCoachInvitesAndAvailability`)(client, () => {}, async () => matches, readCoachMatchAvailability, async () => [], value => String(value || '').trim(), normalizeCoachInvite, async choices => choices.map(() => null))
+  const load = new Function('supabase', 'assertCoachOperationalRead', 'getCoachMatchDayList', 'readCoachMatchAvailability', 'normalizeCoachMatchAvailability', 'getCoachPlayerList', 'normalize', 'normalizeCoachInvite', 'prepareAttendanceChoices', `${body}; return getCoachInvitesAndAvailability`)(client, () => {}, async () => matches, readCoachMatchAvailability, normalizeCoachMatchAvailability, async () => [], value => String(value || '').trim(), normalizeCoachInvite, async choices => choices.map(() => null))
   const result = await load(user)
   for (const match of matches) {
     const players = collapseCoachInvitesByPlayer(result.match.filter(row => row.eventId === match.id))
@@ -133,4 +133,34 @@ test('failed later selected-fixture page never publishes a partial roster', asyn
     await assert.rejects(focusedLoader(client)(user, match, { onReady: () => { published = true } }), /Second page unavailable/)
     assert.equal(published, false)
   }
+})
+
+
+test('list publishes the same 13 available, 1 awaiting and 3 unavailable before slow sources finish', async () => {
+  const match = fixture('fixture')
+  const requests = Array.from({ length: 17 }, (_, index) => ({
+    id: `request-${index}`, club_id: 'club', team_id: 'team', match_day_id: match.id,
+    player_id: `player-${index}`, status: 'sent', sent_at: '2099-09-01',
+    match_days: { opponent: 'Opponent', match_date: match.matchDate },
+  }))
+  const responses = requests.slice(0, 16).map((row, index) => ({ ...row, status: index < 13 ? 'available' : 'unavailable' }))
+  const client = database({ match_day_availability_requests: requests, match_day_player_availability: responses })
+  let releasePlayers, publish
+  const players = new Promise(resolve => { releasePlayers = resolve })
+  const ready = new Promise(resolve => { publish = resolve })
+  const body = dataSource.slice(dataSource.indexOf('export async function getCoachInvitesAndAvailability('), dataSource.indexOf('export async function setCoachInviteAvailabilityOnBehalf(')).replace('export ', '')
+  const load = new Function('supabase', 'assertCoachOperationalRead', 'getCoachMatchDayList', 'readCoachMatchAvailability', 'normalizeCoachMatchAvailability', 'getCoachPlayerList', 'normalize', 'normalizeCoachInvite', 'prepareAttendanceChoices', `${body}; return getCoachInvitesAndAvailability`)(client, () => {}, async () => [match], readCoachMatchAvailability, normalizeCoachMatchAvailability, () => players, value => String(value || '').trim(), normalizeCoachInvite, async choices => choices.map(() => null))
+  let finished = false
+  const pending = load(user, { onMatchReady: publish }).then(value => { finished = true; return value })
+  const snapshot = await ready
+  assert.equal(finished, false, 'Match counts publish while player enrichment is still pending')
+  const summary = summarizeCoachInvites(collapseCoachInvitesByPlayer(snapshot.match))
+  assert.equal(summary.available, 13)
+  assert.equal(summary.awaiting, 1)
+  assert.equal(summary.unavailable, 3)
+  const opened = await focusedLoader(client)(user, match)
+  assert.deepEqual(summary, summarizeCoachInvites(collapseCoachInvitesByPlayer(opened)))
+  releasePlayers([])
+  const complete = await pending
+  assert.deepEqual(summarizeCoachInvites(collapseCoachInvitesByPlayer(complete.match)), summary)
 })
