@@ -282,6 +282,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       return
     }
     if (domain === 'invites') setInvitesRefreshing(true)
+    let acceptingMatches = true
     try {
       const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(async () => {
         const loaded = await loader(user, domain === 'development' ? {
@@ -298,6 +299,14 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
             } }).catch(() => {
               if (current()) setNotice('The assessment opened, but its form could not be saved for offline use. Stay online and retry.')
             })
+          },
+        } : domain === 'invites' ? {
+          onMatchReady(snapshot) {
+            if (!current() || !acceptingMatches) return
+            setData(previous => ({ calendar: [], training: [], trainingCoaches: [], players: [],
+              ...previous, ...snapshot }))
+            setLoading(false)
+            setError('')
           },
         } : undefined)
         return domain === 'development' && loaded.historyError && current()
@@ -325,6 +334,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
       return false
     } finally {
+      acceptingMatches = false
       if (current()) setRefreshing(false)
       if (current() && domain === 'invites') setInvitesRefreshing(false)
       if (current() && !silent) setLoading(false)

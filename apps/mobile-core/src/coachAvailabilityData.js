@@ -1,6 +1,19 @@
-import { getCoachAvailabilityMatches } from './coachPhase31ECore.js'
+import { getCoachAvailabilityMatches, normalizeCoachInvite } from './coachPhase31ECore.js'
 
 const PAGE_SIZE = 250
+
+export function normalizeCoachMatchAvailability({ matchResult, matchAvailabilityResult }) {
+  const responses = new Map((matchAvailabilityResult.data || []).map(row =>
+    [`${row.match_day_id}:${row.player_id}`, row]))
+  return Object.freeze((matchResult.data || []).map(row => {
+    const fixture = Array.isArray(row.match_days) ? row.match_days[0] : row.match_days
+    const response = responses.get(`${row.match_day_id}:${row.player_id}`)
+    return normalizeCoachInvite({ ...row, availability_status: response?.status,
+      match_date: fixture?.match_date, title: fixture?.opponent,
+      cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '',
+      deleted_at: fixture?.deleted_at }, 'match')
+  }))
+}
 
 export async function readAllPages(createQuery) {
   const rows = []
