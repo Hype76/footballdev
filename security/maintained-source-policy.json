@@ -105,5 +105,25 @@
     "These are locally maintained source fixes, not official package releases or a clean full registry audit.",
     "Fix ownership and future security maintenance remain necessary. New security evidence can still block releases.",
     "No app feature, publisher path, production data, store binary or handset-acceptance change is approved by this policy."
-  ]
+  ],
+  "securityRequalification": {
+    "authorisedOn": "2026-10-23",
+    "authority": "Steve explicitly requested resolving the security blockers and publishing the Fans and Players update.",
+    "originalPayloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
+    "requalifiedPayloadSha256": "79262ec68a5214db7ffea3c90200b03d8af6f850b14a5002eb17e7517f55822f",
+    "advisory": {
+      "id": "GHSA-vfj7-8cjw-p6xm",
+      "updatedAt": "2026-10-23T12:53:05Z",
+      "withdrawnAt": "2026-10-23T12:53:02Z",
+      "summary": "Withdrawn Advisory: braces vulnerable to stack-exhaustion denial of service through deeply nested patterns"
+    },
+    "scope": "Refresh only the withdrawn braces advisory meaning; retain all five exact source-fixed copies, patch identities, native inputs and mandatory live verification controls.",
+    "rootToolingRemediation": {
+      "package": "toml",
+      "from": "4.2.0",
+      "to": "5.0.1",
+      "officialRegistryOnly": true,
+      "additionalAdvisoryAcceptanceAllowed": false
+    }
+  }
 }
