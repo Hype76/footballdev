@@ -25,7 +25,7 @@ const mocks = {
   'expo-notifications': `const listeners=new Set();window.rotatePhoneToken=token=>{window.currentPhoneToken=token;for(const listener of listeners)listener({type:'ios',data:'native-rotated'})};export const addPushTokenListener=listener=>{listeners.add(listener);return {remove:()=>listeners.delete(listener)}};export const useLastNotificationResponse=()=>null;export const getPermissionsAsync=async()=>window.phonePermission||{status:'denied'};export const requestPermissionsAsync=async()=>{window.phonePrompts=(window.phonePrompts||0)+1;return getPermissionsAsync()};export const getExpoPushTokenAsync=async()=>({data:window.currentPhoneToken||'ExpoPushToken[synthetic]'});`,
   'expo-secure-store': `window.fanPhoneStorage=new Map();export const getItemAsync=async key=>key==='fan-notification-device'?window.phoneToken||null:window.fanPhoneStorage.get(key)||null;export const deleteItemAsync=async key=>{if(key==='fan-notification-device')window.phoneToken=null;else window.fanPhoneStorage.delete(key)};export const setItemAsync=async(key,value)=>{if(key==='fan-notification-device')window.phoneToken=value;else window.fanPhoneStorage.set(key,value)};`,
   'expo-constants': `export default {};`,
-  '@react-native-async-storage/async-storage': `export default {getItem:async()=>null,setItem:async()=>{}};`,
+  '@react-native-async-storage/async-storage': `export default {getItem:async key=>localStorage.getItem(key),setItem:async(key,value)=>{if(window.failThemeSave)throw Error('Storage unavailable');localStorage.setItem(key,value)}};`,
   'expo-keep-awake': `export const activateKeepAwakeAsync=async()=>{},deactivateKeepAwake=()=>{},isAvailableAsync=async()=>false;`,
   'expo-file-system/legacy': `export const cacheDirectory='',downloadAsync=async()=>({}),deleteAsync=async()=>{};`,
   'expo-sharing': `export const isAvailableAsync=async()=>false,shareAsync=async()=>{};`,
@@ -46,6 +46,11 @@ window.ownerFixture=()=>{
 };
 const ownerPreview=location.pathname.endsWith('/owner-preview.html');
 if(ownerPreview)window.ownerFixture();
+const appearancePreview=new URLSearchParams(location.search).get('appearance');
+if(['fan','player'].includes(appearancePreview)){
+ window.standalone=true;window.user={id:'viewer-test',parentPortalLinks:[]};
+ window.rows=[{id:'appearance-player',is_owner:false,status:'active',relationship_type:appearancePreview,player_name:'Appearance Player',club_name:'Demo FC',team_name:'Under 17',plan_key:'large_club',plan_status:'active',permissions:{schedule:true,game_day:false,development:false,resources:false}}];
+}
 window.rpc=async(name,args)=>{
   window.calls.push({name,args});
   if(name==='list_fan_connections')return window.rows.filter(r=>!r.deleted);
@@ -87,7 +92,7 @@ function App(){
  useEffect(()=>{${sectionReset}},[selectedLinkId]);
  window.remount=()=>setKey(k=>k+1);window.mode=setMode;window.navigate=()=>{setMoreSection('fans');setActiveTab('more')};window.normalSwitch=id=>handleChildChange(id);
  window.parentSwitchSnapshot=()=>({syncScope:parentSyncScopeRef.current,actionGeneration:parentActionScopeRef.current,requestId:requestIdRef.current,activeActionId,notice});
- return <div data-mode={mode} data-tab={activeTab} data-section={moreSection} style={window.ownerCompact?{padding:16,maxWidth:518,margin:'auto',background:mode==='light'?'#f4f8f7':'#071916'}:undefined}>{!window.ownerCompact?<div data-testid="header">{parentLinks.find(p=>p.id===selectedLinkId)?.playerName}</div>:null}{activeTab==='more'&&moreSection==='fans'?<FansScreen key={key} embedded={!window.standalone} themeMode={mode} selectedParentLinkId={selectedLinkId} onSelectedParentLinkChange={id=>handleChildChange(id,{stayOnFans:true})}/>:null}</div>;
+ return <div data-mode={mode} data-tab={activeTab} data-section={moreSection} style={window.ownerCompact?{padding:16,maxWidth:518,margin:'auto',background:mode==='light'?'#f4f8f7':'#071916'}:undefined}>{!window.ownerCompact?<div data-testid="header">{parentLinks.find(p=>p.id===selectedLinkId)?.playerName}</div>:null}{activeTab==='more'&&moreSection==='fans'?<FansScreen key={key} embedded={!window.standalone} themeMode={appearancePreview?undefined:mode} selectedParentLinkId={selectedLinkId} onSelectedParentLinkChange={id=>handleChildChange(id,{stayOnFans:true})}/>:null}</div>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
 `
@@ -111,10 +116,12 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.route('http://localhost:9877/**', route => route.fulfill({ contentType: 'text/html', body: '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;font-family:system-ui,sans-serif"><div id="root"></div></body></html>' }))
+  await page.route('http://localhost:9877/**', route => {
+    const isBundle = new URL(route.request().url()).pathname === '/fans-test-bundle.js'
+    return route.fulfill({ contentType: isBundle ? 'application/javascript' : 'text/html', body: isBundle ? result.outputFiles[0].text : '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;font-family:system-ui,sans-serif"><div id="root"></div><script src="/fans-test-bundle.js"></script></body></html>' })
+  })
   await page.goto('http://localhost:9877')
   await page.clock.install({time:new Date('2026-09-09T10:00:00Z')});
-  await page.addScriptTag({ content: result.outputFiles[0].text })
   const button = name => page.getByRole('button', { name, exact: true })
   await button('Second Child').click()
   await button('Second Child (selected)').waitFor()
@@ -571,6 +578,56 @@ try {
   await button('Jenson Bailey').click();
   await button('Jenson Bailey (selected)').waitFor();
   await page.getByTestId('owner-fan-compact-0').waitFor();
+  for (const relationship of ['fan', 'player']) {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await page.goto(`http://localhost:9877/?appearance=${relationship}`)
+    await page.evaluate(() => localStorage.removeItem('fp.parent.display-theme.v1'))
+    await page.reload()
+    const openSettings = async () => {
+      await page.getByRole('tab', { name: 'More', exact: true }).click()
+      await button('Settings').click()
+    }
+    const choice = name => page.getByRole('radio', { name, exact: true })
+    const background = () => page.getByRole('tablist').evaluate(element => getComputedStyle(element).backgroundColor)
+    await openSettings()
+    assert.equal(await choice('System').getAttribute('aria-checked'), 'true')
+    const lightBackground = await background()
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.waitForFunction(light => getComputedStyle(document.querySelector('[role="tablist"]')).backgroundColor !== light, lightBackground)
+    const darkBackground = await background()
+    assert.notEqual(lightBackground, darkBackground, `${relationship}: System follows live device appearance`)
+    for (const mode of ['Light', 'Dark', 'System']) {
+      await choice(mode).click()
+      await page.waitForFunction(value => localStorage.getItem('fp.parent.display-theme.v1') === value, mode.toLowerCase())
+      await page.emulateMedia({ colorScheme: mode === 'Dark' ? 'light' : 'dark' })
+      const expected = mode === 'Light' ? lightBackground : darkBackground
+      await page.waitForFunction(colour => getComputedStyle(document.querySelector('[role="tablist"]')).backgroundColor === colour, expected)
+      await assertRenderedTextContrast(page, `${relationship} ${mode} appearance`)
+      await page.reload()
+      await openSettings()
+      assert.equal(await choice(mode).getAttribute('aria-checked'), 'true', `${relationship}: ${mode} survives reopening`)
+      assert.equal(await background(), expected)
+    }
+    await page.setViewportSize({ width: 320, height: 844 })
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    for (const mode of ['System', 'Light', 'Dark']) {
+      const bounds = await choice(mode).boundingBox()
+      assert.ok(bounds.width >= 44 && bounds.height >= 44)
+    }
+    await page.screenshot({ path: `${out}/${relationship}-appearance-system.png`, fullPage: true })
+    await page.evaluate(() => { window.failThemeSave = true })
+    await choice('Light').click()
+    await page.getByRole('alert').filter({ hasText: 'Theme preference could not be saved' }).waitFor()
+    await page.evaluate(() => { window.failThemeSave = false })
+    await choice('Light').click()
+    await page.waitForFunction(() => localStorage.getItem('fp.parent.display-theme.v1') === 'light')
+    await page.getByRole('alert').filter({ hasText: 'Theme preference could not be saved' }).waitFor({ state: 'hidden' })
+    await page.reload()
+    await openSettings()
+    assert.equal(await choice('Light').getAttribute('aria-checked'), 'true')
+    await page.setViewportSize({ width: 390, height: 844 })
+  }
   assert.deepEqual(errors, [])
+  console.log('PASS: Fans and Players can choose System, Light or Dark; live device following, explicit overrides, reload persistence, save retry, contrast and 320px touch targets.')
   console.log('PASS: native Fans child/header sync, persisted selection, invitation renewal, confirmed cancelled/expired deletion, Player-to-Fan conversion, retry after failure, normal child navigation.')
 } finally { await browser.close() }

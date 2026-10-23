@@ -17,7 +17,7 @@ const implementationFiles = [
   'scripts/security-provision-root-backport.mjs', 'security/root-backport-proposal.json', 'security/supply-chain-policy.json',
   'tests/security-backport-runtime.test.mjs', 'security/backport-requalification.json',
   'security/maintained-source-policy.json', 'scripts/security-maintained-release-gate.mjs',
-  'scripts/security-netlify-build.mjs', 'tests/security-maintained-source.test.mjs', 'netlify.toml',
+  'scripts/security-netlify-build.mjs', 'tests/security-maintained-source.test.mjs', 'tests/security-toml-upstream.test.mjs', 'netlify.toml',
   'tests/security-m3-governance.test.mjs',
 ]
 const safe = (root, relative) => {
@@ -64,9 +64,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, '3653055de02647b04eebfccd3e152e8b4e836155e0ee161f31008362a203ffc6', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, 'e801ccad75bc760eb31ffb7d357c1185d3a68a6da40301c8dd457378be15a9c0', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "2cbde5c049d138100842e31a089366be05218d59a5fe713578946cb1d108c0f7", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "d673a780764e78fae7912d2f77f74d6f8f47b1c0610a9e855a7fb3979ece45a0", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)

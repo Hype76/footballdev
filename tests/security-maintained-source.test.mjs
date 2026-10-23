@@ -86,6 +86,8 @@ test('changed advisory, upstream patch, published version or registry integrity 
   for (const [url, mutate] of [
     [urls[0], value => { value.severity = 'critical' }],
     [urls[0], value => { value.description += '\nChanged security meaning' }],
+    [urls[0], value => { value.summary += ' changed' }],
+    [urls[0], value => { value.withdrawn_at = null }],
     [urls[2], value => { value.head.sha = '0'.repeat(40) }],
     [urls[2], value => { value.merged = !value.merged }],
     [urls[2], value => { value.state = value.state === 'open' ? 'closed' : 'open' }],
